@@ -554,6 +554,9 @@ fn installer_lines(v: &serde_json::Value) -> Vec<String> {
     }
     if t["presence_close"]["schema"]==1 {
         lines.push(format!("Application presence/close requests observed: {}. Helper success does not prove a match or successful closure; exact match and recheck results remain unavailable.",t["presence_close"]["observation_count"]));
+        if t["presence_close"]["operation_classes"].as_array().is_some_and(|rows| rows.iter().any(|r| r=="presence_query" || r=="close_request")) {
+            lines.push("Observed request mechanism: PowerShell/CIM process query or script process close. The matched object and actual close outcome are unavailable.".into());
+        }
     }
     lines.push(if v["cleanup_confirmed"]==true {"Owned process cleanup confirmed."} else {"Owned process cleanup not yet confirmed."}.into());
     lines
@@ -637,9 +640,10 @@ mod tests {
         let mut v=serde_json::json!({"operation":"exact","cleanup_confirmed":true,"transaction":{
             "schema":1,"operation":"exact","outcome":"outer_nonzero_stage_unknown","durable_installation":"partial_installation",
             "launch_binding":{"schema":1,"operation":"exact","status":"bound"},
-            "presence_close":{"schema":1,"observation_count":3}}});
+            "presence_close":{"schema":1,"observation_count":3,"operation_classes":["presence_query","close_request","presence_query"]}}});
         let text=super::installer_lines(&v).join(" ");assert!(text.contains("exact operation and launch generation"));
         assert!(text.contains("Helper success does not prove") && text.contains("results remain unavailable"));
+        assert!(text.contains("PowerShell/CIM") && text.contains("matched object and actual close outcome are unavailable"));
         v["transaction"]["launch_binding"]["operation"]="unrelated".into();
         assert!(!super::installer_lines(&v).join(" ").contains("exact operation and launch generation"));
         v["transaction"]["launch_binding"]["operation"]="exact".into();v["transaction"]["launch_binding"]["status"]="unavailable".into();

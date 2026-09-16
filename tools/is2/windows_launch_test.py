@@ -48,7 +48,7 @@ def main(directory):
         for test, code in (('exit23', 23), ('wrapper1', 0), ('wrapper3', 0)):
             case.write_text(test + '\n')
             result, frames = run(adapter, target, root)
-            assert result.returncode == code and len(frames) == 1, (test, result.returncode, result.stdout, result.stderr)
+            assert result.returncode == code and len(frames) == 1, (test, result.returncode, len(frames))
         case.write_text('exit23\n')
         for depth in (1, 3):
             result, frames = run(adapter, target, root, wrapper=source, depth=depth)

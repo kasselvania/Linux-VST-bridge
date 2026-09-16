@@ -1,0 +1,2211 @@
+{
+  "schema": 1,
+  "runner": {
+    "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+    "file_sha256s": [
+      "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9",
+      "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9",
+      "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b",
+      "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0",
+      "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58",
+      "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0",
+      "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681",
+      "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+      "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a",
+      "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4",
+      "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1",
+      "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf",
+      "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016",
+      "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b",
+      "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced",
+      "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a",
+      "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b",
+      "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb",
+      "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498",
+      "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a",
+      "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34",
+      "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+      "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec",
+      "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501",
+      "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31",
+      "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd",
+      "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be",
+      "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500",
+      "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+    ]
+  },
+  "generated_runs": [
+    {
+      "case": "contract",
+      "run_label": "contract-bound",
+      "private_proof_sha256": "f4511ceb3da11ca1c38ae68505e208830a996bc6af9166bbf07378ac698303b8",
+      "private_transaction_sha256": "37168220460e93f1389c3254db0d41a1a891514e29dc445371412029d14cad58",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "7a9cd3417aa37bee8e42d99624053cbd9eaefbb937b84c259803365357e5adcc",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 1,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "contract",
+        "authority": "source_owned_fixture_only",
+        "result": "observed"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 25966,
+          "dropped_bytes": 164629,
+          "dropped_records": 1639
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 7.4058535330113955
+    },
+    {
+      "case": "contract",
+      "run_label": "contract-direct",
+      "private_proof_sha256": "e0af7f2e8a8e03ee7cba0edc972b9bc0c1823186922ce648f5fb827238475a11",
+      "private_transaction_sha256": "30b86007dbbb08ed8a3d0e28713cdf037cc36786b1871bf108885588c5732f47",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": null,
+      "payload_sha256": "7a9cd3417aa37bee8e42d99624053cbd9eaefbb937b84c259803365357e5adcc",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "legacy_direct_no_adapter",
+      "windows_root_count": 1,
+      "windows_tree_count": 1,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "contract",
+        "authority": "source_owned_fixture_only",
+        "result": "observed"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 24709,
+          "dropped_bytes": 162080,
+          "dropped_records": 1612
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 8.565366931026801
+    },
+    {
+      "case": "exit23",
+      "run_label": "exit23",
+      "private_proof_sha256": "57bd5f004ab247bd62777c6c043305c5e79a79bec1bd8cdaf98d8f09a2eddf9a",
+      "private_transaction_sha256": "c84a2833f90f361a5e728bac4882724296ee19fb45d98bcb1b88cd21bbcd454a",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "7a9cd3417aa37bee8e42d99624053cbd9eaefbb937b84c259803365357e5adcc",
+      "outer_exit": 23,
+      "supervision_state": "failed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 1,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "exit23",
+        "authority": "source_owned_fixture_only",
+        "result": "observed"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 25990,
+          "dropped_bytes": 164028,
+          "dropped_records": 1633
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 7.258474329020828
+    },
+    {
+      "case": "powershell",
+      "run_label": "first-bound",
+      "private_proof_sha256": "d448170a97e72f380be44375ca06ad35607f900b51a69841b4a35dbae6730818",
+      "private_transaction_sha256": "db6a8821dc8e5992e68e6ecdd924332af136739bdd3258d1b9f2cd3cff968847",
+      "source": {
+        "session.py": "b3de907a32288964cdc83f17ee1122f184ea4f84bbd4b06963ffcc65f409dd4e",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "6bce7e5178b9dae8972673371b09e4c99996390a042b1c560695300c952bcb3d",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 5,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 4,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": [
+          "unknown",
+          "capability_query",
+          "presence_query",
+          "close_request"
+        ]
+      },
+      "fixture_oracle": null,
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": null,
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 30466,
+          "dropped_bytes": 172759,
+          "dropped_records": 1730
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 8.569951470999513
+    },
+    {
+      "case": "powershell",
+      "run_label": "first-direct",
+      "private_proof_sha256": "6e39e01608030ddae6eb62d0b13a882186c4275f36f757b06641b97fe2792155",
+      "private_transaction_sha256": "28617b3f7d106b015415f45019c295482846592fbb19e963496f1ed441a79e25",
+      "source": {
+        "session.py": "b3de907a32288964cdc83f17ee1122f184ea4f84bbd4b06963ffcc65f409dd4e",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": null,
+      "payload_sha256": "6bce7e5178b9dae8972673371b09e4c99996390a042b1c560695300c952bcb3d",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "legacy_direct_no_adapter",
+      "windows_root_count": 0,
+      "windows_tree_count": 0,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 4,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": [
+          "unknown",
+          "capability_query",
+          "presence_query",
+          "close_request"
+        ]
+      },
+      "fixture_oracle": null,
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": null,
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 28425,
+          "dropped_bytes": 168364,
+          "dropped_records": 1681
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": null
+    },
+    {
+      "case": "contract",
+      "run_label": "manifest-bound",
+      "private_proof_sha256": "3baaa1dd903aa4479660889ba9645112fb4d08851d2d73078175c89708c0b844",
+      "private_transaction_sha256": "0263fe283681b325c6a33aea7bd687b4dab65d7eda5c7f65311698e94e0bd4e0",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "003fb47be9210cf6c0c7103f21b60f095b355a8f14f16a1e655f4131820366e3",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 1,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "contract",
+        "authority": "source_owned_fixture_only",
+        "result": "observed"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 25960,
+          "dropped_bytes": 164629,
+          "dropped_records": 1639
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 7.354822076973505
+    },
+    {
+      "case": "contract",
+      "run_label": "manifest-direct",
+      "private_proof_sha256": "43d08c1d5b53195642a33f3207a95efce10d05cee215b21774d1dcf099838b2b",
+      "private_transaction_sha256": "af481545eea36114ce70387bed5ecd650d919fbae5dc09a2d54e58f1111d8aab",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": null,
+      "payload_sha256": "003fb47be9210cf6c0c7103f21b60f095b355a8f14f16a1e655f4131820366e3",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "legacy_direct_no_adapter",
+      "windows_root_count": 1,
+      "windows_tree_count": 1,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "contract",
+        "authority": "source_owned_fixture_only",
+        "result": "observed"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 24704,
+          "dropped_bytes": 162080,
+          "dropped_records": 1612
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 7.3049380910233594
+    },
+    {
+      "case": "cooperative",
+      "run_label": "matrix-cooperative",
+      "private_proof_sha256": "fd6eb90d4970f7385f6f1605e222dbe29ed5e5ad6d76b6fdb5eb3c2b7f0086e9",
+      "private_transaction_sha256": "82a8a21f0d901bd793485949d5db8483316c2541f922fbf2019b889dcd94f7ea",
+      "source": {
+        "session.py": "d92c88e645c412e30381fe20edb63b76dc4b31ec996fc1be411846ed40e5f98e",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "ea39dc690ef857543a5422a5e511e05424d580ce1a9ce53998c684392e7a63ff",
+      "outer_exit": 244,
+      "supervision_state": "failed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 2,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": null,
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 27925,
+          "dropped_bytes": 200740,
+          "dropped_records": 1972
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 9.570538156025577
+    },
+    {
+      "case": "access_denied",
+      "run_label": "matrix-corrected-access_denied",
+      "private_proof_sha256": "9aafbc737d4aaf03309b68e201db859cb2f61ababc75f1cc2d620f97ca9dd670",
+      "private_transaction_sha256": "a179de5ebcd69fdd6db4b9f407859149800fe409d8d920680d210c41b88d1c47",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "7a9cd3417aa37bee8e42d99624053cbd9eaefbb937b84c259803365357e5adcc",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 2,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "access_denied",
+        "authority": "source_owned_fixture_only",
+        "presence_count": 1,
+        "close": "access_denied",
+        "close_status_domain": "win32_api",
+        "close_status": 5,
+        "recheck": [
+          "still_present"
+        ],
+        "first_close_failure": true,
+        "cause": "unestablished"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 28498,
+          "dropped_bytes": 194387,
+          "dropped_records": 1914
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 9.01468509703409
+    },
+    {
+      "case": "cancel_after",
+      "run_label": "matrix-corrected-cancel_after",
+      "private_proof_sha256": "3c47f7718147499c4fce94897c687cd90cad7cd015e649f3bbf1a7f6086d9e84",
+      "private_transaction_sha256": "18a86d81f7e5d37bc02326de462101ccbbbaf13d829d957ce75c8dce23afb4bf",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "7a9cd3417aa37bee8e42d99624053cbd9eaefbb937b84c259803365357e5adcc",
+      "outer_exit": -15,
+      "supervision_state": "cancelled",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 2,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "cancel_after",
+        "authority": "source_owned_fixture_only",
+        "presence_count": 1,
+        "close": "request_accepted",
+        "close_status_domain": "fixture_observation",
+        "close_status": 0,
+        "recheck": [
+          "still_present"
+        ],
+        "first_close_failure": true,
+        "cause": "unestablished"
+      },
+      "cancel_requested": true,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 28959,
+          "dropped_bytes": 194676,
+          "dropped_records": 1918
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 20.29209175502183
+    },
+    {
+      "case": "cleanup_preserves",
+      "run_label": "matrix-corrected-cleanup_preserves",
+      "private_proof_sha256": "514f18155ca83d930990fcc93eec8c91d0305921fe33c9857b2476c9c7689a38",
+      "private_transaction_sha256": "61ac6fb9e8d41198e7c9da7cbb183b747eaf0e91079d9f93f50a192c9af176ba",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "7a9cd3417aa37bee8e42d99624053cbd9eaefbb937b84c259803365357e5adcc",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 2,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "cleanup_preserves",
+        "authority": "source_owned_fixture_only",
+        "presence_count": 1,
+        "close": "request_accepted",
+        "close_status_domain": "fixture_observation",
+        "close_status": 0,
+        "recheck": [
+          "still_present"
+        ],
+        "first_close_failure": true,
+        "cause": "unestablished"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 28523,
+          "dropped_bytes": 194448,
+          "dropped_records": 1914
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 9.672628932981752
+    },
+    {
+      "case": "cooperative",
+      "run_label": "matrix-corrected-cooperative",
+      "private_proof_sha256": "90dad377ce204295685218c28b60f67be2e482a05149dcaf73189c24ea8561ef",
+      "private_transaction_sha256": "47a1ee3d62a372bb2283398f841d89bb417af5e013534383d5c2de9f6ef05db1",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "7a9cd3417aa37bee8e42d99624053cbd9eaefbb937b84c259803365357e5adcc",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 2,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "cooperative",
+        "authority": "source_owned_fixture_only",
+        "presence_count": 1,
+        "close": "request_accepted",
+        "close_status_domain": "fixture_observation",
+        "close_status": 0,
+        "recheck": [
+          "exited"
+        ],
+        "first_close_failure": false,
+        "cause": "unestablished"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 28514,
+          "dropped_bytes": 194351,
+          "dropped_records": 1914
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 9.924396173970308
+    },
+    {
+      "case": "exit_between",
+      "run_label": "matrix-corrected-exit_between",
+      "private_proof_sha256": "bc4166728aaae3d0bdf41d41ee2312f63a9d12e57196321118868d22bc109834",
+      "private_transaction_sha256": "dfb33353afe06003d432e65ad3d6b754f33128fe6d91eddbaf8fc286588ae0e8",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "7a9cd3417aa37bee8e42d99624053cbd9eaefbb937b84c259803365357e5adcc",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 2,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "exit_between",
+        "authority": "source_owned_fixture_only",
+        "presence_count": 1,
+        "close": "refused_identity",
+        "close_status_domain": "fixture_observation",
+        "close_status": 0,
+        "recheck": [
+          "exited"
+        ],
+        "first_close_failure": false,
+        "cause": "unestablished"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 28520,
+          "dropped_bytes": 194369,
+          "dropped_records": 1914
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 8.979267224029172
+    },
+    {
+      "case": "helper_zero",
+      "run_label": "matrix-corrected-helper_zero",
+      "private_proof_sha256": "75e625b24d8a2ec49c9d9ff11faced2f035ad10766853f2ec68daa4ea0cdb7c8",
+      "private_transaction_sha256": "a0e67e20549b7ee98f19f9bddc536f604fa68082bcfa853b2703a912b61b88dc",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "7a9cd3417aa37bee8e42d99624053cbd9eaefbb937b84c259803365357e5adcc",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 2,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "helper_zero",
+        "authority": "source_owned_fixture_only",
+        "presence_count": 1,
+        "close": "helper_zero_no_close",
+        "close_status_domain": "fixture_observation",
+        "close_status": 0,
+        "recheck": [
+          "still_present"
+        ],
+        "first_close_failure": true,
+        "cause": "unestablished"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 28444,
+          "dropped_bytes": 194093,
+          "dropped_records": 1911
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 9.165627742011566
+    },
+    {
+      "case": "ignores",
+      "run_label": "matrix-corrected-ignores",
+      "private_proof_sha256": "8f6597996152da3856ddd88c7be719706bd371fc16a67c27325593f70fd3f207",
+      "private_transaction_sha256": "0762e47ca9f1c2dde6deb5e986677a7159a32d30c461436649d91127de2332e3",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "7a9cd3417aa37bee8e42d99624053cbd9eaefbb937b84c259803365357e5adcc",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 2,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "ignores",
+        "authority": "source_owned_fixture_only",
+        "presence_count": 1,
+        "close": "request_accepted",
+        "close_status_domain": "fixture_observation",
+        "close_status": 0,
+        "recheck": [
+          "still_present"
+        ],
+        "first_close_failure": true,
+        "cause": "unestablished"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 28461,
+          "dropped_bytes": 194090,
+          "dropped_records": 1912
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 9.06482142599998
+    },
+    {
+      "case": "same_name",
+      "run_label": "matrix-corrected-same_name",
+      "private_proof_sha256": "46a51cb7dee972ee9615a65ec1f8f51f9f56dd88a3a28f4aede21c93f824d544",
+      "private_transaction_sha256": "c3ac03ecdcd3059a39ad66eed33a0d0722d6390130e57708468072f38164e7bd",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "7a9cd3417aa37bee8e42d99624053cbd9eaefbb937b84c259803365357e5adcc",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 3,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "same_name",
+        "authority": "source_owned_fixture_only",
+        "presence_count": 1,
+        "close": "request_accepted",
+        "close_status_domain": "fixture_observation",
+        "close_status": 0,
+        "recheck": [
+          "exited"
+        ],
+        "first_close_failure": false,
+        "cause": "unestablished"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 29664,
+          "dropped_bytes": 195507,
+          "dropped_records": 1928
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 9.180131635977887
+    },
+    {
+      "case": "self",
+      "run_label": "matrix-corrected-self",
+      "private_proof_sha256": "41d362fb3bd0f3a99798b36f35a41cbe94ee74d2735d5045be420c269e649b32",
+      "private_transaction_sha256": "653bbb23ab99af235b00b68f08f77f56c7c0d11ca3cb28864a681769410e43e5",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "7a9cd3417aa37bee8e42d99624053cbd9eaefbb937b84c259803365357e5adcc",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 1,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "self",
+        "authority": "source_owned_fixture_only",
+        "presence_count": 1,
+        "close": "refused_identity",
+        "close_status_domain": "fixture_observation",
+        "close_status": 0,
+        "recheck": [],
+        "first_close_failure": true,
+        "cause": "unestablished"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 26190,
+          "dropped_bytes": 164468,
+          "dropped_records": 1637
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 7.26960997103015
+    },
+    {
+      "case": "stale_mutex",
+      "run_label": "matrix-corrected-stale_mutex",
+      "private_proof_sha256": "9f7786a0d6d53fc931bf1d370ffe8f0470a3de74fc706adcd88fdbcbdc6a8a90",
+      "private_transaction_sha256": "93702d6d28edcce4eb870dd368b8c03fc813295b7d68c1587dde2b1e51de369e",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "7a9cd3417aa37bee8e42d99624053cbd9eaefbb937b84c259803365357e5adcc",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 1,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "stale_mutex",
+        "authority": "source_owned_fixture_only",
+        "presence_count": 0,
+        "close": "not_requested",
+        "close_status_domain": "fixture_observation",
+        "close_status": 0,
+        "recheck": [
+          "absent"
+        ],
+        "first_close_failure": false,
+        "cause": "unestablished"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 26201,
+          "dropped_bytes": 164388,
+          "dropped_records": 1636
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 7.508905242022593
+    },
+    {
+      "case": "stale_pid",
+      "run_label": "matrix-corrected-stale_pid",
+      "private_proof_sha256": "c99ebb3afe3c9006397eb748fbbada03d02f5a51cb7abf2159eb111354b8e75c",
+      "private_transaction_sha256": "50a3c277a17a72547fb00543838b75d97b2e16c32f92d8b6fbc2f0038ddd7902",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "7a9cd3417aa37bee8e42d99624053cbd9eaefbb937b84c259803365357e5adcc",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 2,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "stale_pid",
+        "authority": "source_owned_fixture_only",
+        "presence_count": 1,
+        "close": "refused_identity",
+        "close_status_domain": "fixture_observation",
+        "close_status": 0,
+        "recheck": [
+          "still_present"
+        ],
+        "first_close_failure": true,
+        "cause": "unestablished"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 28471,
+          "dropped_bytes": 194136,
+          "dropped_records": 1912
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 8.914489852963015
+    },
+    {
+      "case": "stale_recheck",
+      "run_label": "matrix-corrected-stale_recheck",
+      "private_proof_sha256": "1cb0fc9fa0e2cbbffae837547b98972ac487ffd48712edc07d8f2d68a6af848b",
+      "private_transaction_sha256": "ad893934a455c2960ca9c37cccb67f5a3d9a8656431f2b31e03a2fd51ec22fad",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "7a9cd3417aa37bee8e42d99624053cbd9eaefbb937b84c259803365357e5adcc",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 2,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "stale_recheck",
+        "authority": "source_owned_fixture_only",
+        "presence_count": 1,
+        "close": "request_accepted",
+        "close_status_domain": "fixture_observation",
+        "close_status": 0,
+        "recheck": [
+          "exited"
+        ],
+        "first_close_failure": false,
+        "cause": "unestablished"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 28597,
+          "dropped_bytes": 194468,
+          "dropped_records": 1915
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 8.913013341953047
+    },
+    {
+      "case": "stale_window",
+      "run_label": "matrix-corrected-stale_window",
+      "private_proof_sha256": "0877bcfdb1af9bfcdbaf50416cb5b2647fd7e89fad3996c49f503583723ad636",
+      "private_transaction_sha256": "85791516b78be00cfc1b9dfe082b547e28592657552089ec2639f36231219297",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "7a9cd3417aa37bee8e42d99624053cbd9eaefbb937b84c259803365357e5adcc",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 2,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "stale_window",
+        "authority": "source_owned_fixture_only",
+        "presence_count": 1,
+        "close": "refused_identity",
+        "close_status_domain": "fixture_observation",
+        "close_status": 0,
+        "recheck": [
+          "exited"
+        ],
+        "first_close_failure": true,
+        "cause": "unestablished"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 28565,
+          "dropped_bytes": 194524,
+          "dropped_records": 1916
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 8.865454749029595
+    },
+    {
+      "case": "no_app",
+      "run_label": "matrix-no_app",
+      "private_proof_sha256": "f9ce758e3e353413bda2be216b2ca7af1a9e9e16ceecab88f61ab494d36abae2",
+      "private_transaction_sha256": "27b67a4b48b127a741a8ecd4b2e450d8849e5b2f619aefe7419cafd3f594b3cf",
+      "source": {
+        "session.py": "d92c88e645c412e30381fe20edb63b76dc4b31ec996fc1be411846ed40e5f98e",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "ea39dc690ef857543a5422a5e511e05424d580ce1a9ce53998c684392e7a63ff",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 1,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "no_app",
+        "authority": "source_owned_fixture_only",
+        "presence_count": 0,
+        "close": "not_requested",
+        "close_status_domain": "fixture_observation",
+        "close_status": 0,
+        "recheck": [
+          "absent"
+        ],
+        "first_close_failure": false,
+        "cause": "unestablished"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 26024,
+          "dropped_bytes": 164358,
+          "dropped_records": 1636
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 8.11410797497956
+    },
+    {
+      "case": "powershell",
+      "run_label": "powershell-sentinel",
+      "private_proof_sha256": "699368cd98e997faedf2ed26169fdf11ff1172a07a3c499a667c82d54ea5f105",
+      "private_transaction_sha256": "18263b26d7a55437fa646050c5267a76e192e68aaf481afc75c0865d8aa43fd6",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "fa21ba286b3535767df90ed827b4adfdd3621ebfc926ab793499ede6b9e1a215",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 5,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 4,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": [
+          "unknown",
+          "capability_query",
+          "presence_query",
+          "close_request"
+        ]
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "powershell",
+        "authority": "source_owned_fixture_only",
+        "script_exit_statuses": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "sentinel_created": false,
+        "requested_first_exit": 37
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 30781,
+          "dropped_bytes": 172869,
+          "dropped_records": 1731
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 7.556484390050173
+    },
+    {
+      "case": "wrapper1",
+      "run_label": "wrapper1",
+      "private_proof_sha256": "909c13b180b4809961196a3cc48c0fea1cb1d552069bdb08c87b026bf3cd7c24",
+      "private_transaction_sha256": "5d67fec50b47cf10f47344cc0bc22a91b7414e08f2471ca15d64f3dac7866a5e",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "7a9cd3417aa37bee8e42d99624053cbd9eaefbb937b84c259803365357e5adcc",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 3,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "wrapper1",
+        "authority": "source_owned_fixture_only",
+        "result": "observed"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 28202,
+          "dropped_bytes": 167974,
+          "dropped_records": 1677
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 7.4206301380181685
+    },
+    {
+      "case": "wrapper3",
+      "run_label": "wrapper3",
+      "private_proof_sha256": "dce9057a2a9d3bb82784e5caced9753102092f8381732099faec71cec9855f1a",
+      "private_transaction_sha256": "0481e2eb2cf7c9f5ddfae6b10c0f685923c9345b42c8a26ec0ef516b45ee9b4f",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": "65a8412e2054b2f6f08745b8ad392f24cc6721d2508ff61fb4552d9d9ca616ee",
+      "payload_sha256": "7a9cd3417aa37bee8e42d99624053cbd9eaefbb937b84c259803365357e5adcc",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "bound",
+      "windows_root_count": 1,
+      "windows_tree_count": 5,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 0,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": []
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "wrapper3",
+        "authority": "source_owned_fixture_only",
+        "result": "observed"
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 30272,
+          "dropped_bytes": 171792,
+          "dropped_records": 1719
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 7.670549257018138
+    }
+  ],
+  "contract_comparisons": [
+    {
+      "direct": "contract-direct",
+      "bound": "contract-bound",
+      "normalized_environment_cwd_elevation_equal": true,
+      "normalization": "only_exact_disposable_attempt_root"
+    },
+    {
+      "direct": "manifest-direct",
+      "bound": "manifest-bound",
+      "normalized_environment_cwd_elevation_equal": true,
+      "normalization": "only_exact_disposable_attempt_root"
+    }
+  ],
+  "all_generated_units_retired": true,
+  "no_scratch_prefix_owner": true,
+  "system": {
+    "service": "active",
+    "keepers": 2,
+    "dsp": 0,
+    "maintenance": 0,
+    "ceiling": 6,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "installed_artifacts_unchanged": {
+    "preparation_kit": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+    "operator_frontend": "f28f3d207ee28dd77d9f7762c925fce89bd105c6afbfa3023f8aecadf8d6415d",
+    "manager": "4f8e295a83eec3f7f01732190209e31ae5485cd61e08510716b6db23d365c7b9",
+    "supervisor": "866f8ea1400368b30c9e3b8f423c61aef5eeeda7ddb1e5635489bea0a8138491",
+    "ownership": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377",
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "native_catalogue": "72f0ccd2128cb6ca997f7138c08ebaf6802641fc32767c528d1573e64ba785ee"
+  },
+  "ordinary_and_experimental_publications_unchanged": true,
+  "preserved_file_count": 276,
+  "protected_projects_unchanged": 5,
+  "attempt3_result_transaction_unchanged": true,
+  "products": [
+    {
+      "name": "Pigments",
+      "disposition": "ready",
+      "active_revision": 18
+    },
+    {
+      "name": "Pure LoFi",
+      "disposition": "ready",
+      "active_revision": 10
+    },
+    {
+      "name": "Efx FRAGMENTS",
+      "disposition": "ready",
+      "active_revision": 10
+    },
+    {
+      "name": "Serum 2",
+      "disposition": "experimental",
+      "active_revision": 1
+    },
+    {
+      "name": "Serum 2 FX",
+      "disposition": "installed_unqualified",
+      "active_revision": null
+    }
+  ],
+  "vendor_ui_input_sent": false,
+  "input_injection_used": false,
+  "held_input_created_by_slice": 0,
+  "commercial_attempts": 0,
+  "implementation_source": "294350b9941e86cad3fdb29db6ddb3683acfb728",
+  "base": "a0fde40e4c2a0536aa9b3271c3b945a94aa60d9b",
+  "pointer_readback": {
+    "x11_button_modifier_mask": 0,
+    "input_sent": false,
+    "display_connection_closed": true
+  },
+  "root_differential": [
+    {
+      "run": "first-direct",
+      "trace_rows": 15,
+      "exact_image_rows": 0,
+      "root_rows": 0,
+      "functions_mentioning_source_payload": {},
+      "private_log_sha256": "f0b9369f2c4f9e365f817ac972341cfb0fa290bc0bc2465124bea79f128f604f"
+    },
+    {
+      "run": "first-bound",
+      "trace_rows": 17,
+      "exact_image_rows": 1,
+      "root_rows": 1,
+      "functions_mentioning_source_payload": {
+        "process.CreateProcessInternalW": 1,
+        "process.NtCreateUserProcess": 2
+      },
+      "private_log_sha256": "1bdc380d8be21bc836218d3a830762a2caaba8cc759641fe79eb4d753e8adc2a"
+    },
+    {
+      "run": "contract-direct",
+      "trace_rows": 12,
+      "exact_image_rows": 1,
+      "root_rows": 1,
+      "functions_mentioning_source_payload": {
+        "process.CreateProcessInternalW": 1,
+        "process.NtCreateUserProcess": 2
+      },
+      "private_log_sha256": "6019494849b433bdccc7bbd9876afa6891d288f90a67183b84055fa4fc44ea2f"
+    },
+    {
+      "run": "contract-bound",
+      "trace_rows": 13,
+      "exact_image_rows": 1,
+      "root_rows": 1,
+      "functions_mentioning_source_payload": {
+        "process.CreateProcessInternalW": 1,
+        "process.NtCreateUserProcess": 2
+      },
+      "private_log_sha256": "b8a96645cf23a0a2261207772d398d84fd4859e662cf6fdb37a6985490a7ea60"
+    }
+  ],
+  "build": {
+    "compiler": "Zig 0.14.1",
+    "recipe": "zig c++ -target <x86_64|x86>-windows-gnu -std=c++20 -O2 -municode tools/is2/<launch|fixture>.cpp -luser32 -ladvapi32 [launch: -lbcrypt]",
+    "source_sha256": {
+      "tools/is2/launch.cpp": "df53c58ba42797991fe15cda8ee5fe011d965a66c82ff15b09fd85ec2d772b35",
+      "tools/is2/fixture.cpp": "72c4f41ff6456a4ea6db63eaeecb56bf5544871b0f55670cc11fe93b77124b45"
+    },
+    "admin_manifest_fixture": {
+      "ci_run": 35117962915,
+      "correction": "See validation.md: administrator fixture was built from the earlier 84950a5 source and its contract body is unchanged; no claim of current-tree binary identity.",
+      "source_commit": "84950a5c478a427381d1e6c5a66203f722a03fa5",
+      "fixture_source_sha256": "88fd60ce3d005860b0c46a305fd9ca4a53e9fe0274332c1980b195aaeaec9e59"
+    }
+  },
+  "validation": {
+    "installer_runtime_linux": {
+      "passed": 46,
+      "skipped": 0
+    },
+    "manager_library": 125,
+    "manager_binary_linux": 70,
+    "frontend": 18,
+    "strict_clippy": "manager and frontend pass in AP12",
+    "ci_source_head": "294350b9941e86cad3fdb29db6ddb3683acfb728",
+    "ap8_run": 35119087202,
+    "ap12_run": 35119087392,
+    "px2_run": 35119087167,
+    "final_head_ci": "See PR checks; final documentation commit reruns applicable workflows.",
+    "ap12_runtime_linux": 109
+  },
+  "nonclaims": [
+    "Fixture API results remain separate from production vendor attribution.",
+    "No universal Win32 API interception is implemented; non-script object matches remain unavailable without an exact observation.",
+    "Real PID reuse is not forced; deterministic trace and exact-generation refusal tests cover the reuse boundary.",
+    "Manifest/elevation comparison applies to the pinned Wine route; it grants no host privilege or UAC bypass.",
+    "Historical commercial matched object, actual close and recheck results remain unavailable.",
+    "No vendor workaround, replacement PowerShell, installation or commercial confirmation occurred."
+  ],
+  "current_source_direct_summary": {
+    "case": "powershell",
+    "outer": 0,
+    "windows_roots": 0,
+    "presence_classes": {
+      "schema": 1,
+      "observation_count": 4,
+      "dropped_observations": 0,
+      "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+      "operation_classes": [
+        "unknown",
+        "capability_query",
+        "presence_query",
+        "close_request"
+      ]
+    },
+    "cleanup": true,
+    "oracle": {
+      "schema": 1,
+      "case": "powershell",
+      "authority": "source_owned_fixture_only",
+      "script_exit_statuses": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "sentinel_created": false,
+      "requested_first_exit": 37
+    },
+    "local_receipt_sha256": "09a02709022b9ccf5446182a8fa8731328da3073bb6ac850181d083bd14db292"
+  },
+  "final_readback_status": "25-run full preservation readback passed; last source-owned direct comparison reports positive cleanup; renewed SSH authorization pending for final 26-run readback"
+}

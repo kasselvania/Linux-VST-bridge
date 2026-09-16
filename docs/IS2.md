@@ -87,3 +87,55 @@ PowerShell interpreter, install a replacement, change the runner or grant elevat
 Keep all raw command text, private paths, tokens, identifiers and proprietary
 header bytes outside the repository. Preserve original IS1 records. No commercial
 confirmation, first launch or replacement installation belongs to this source run.
+
+## Selected boundary
+
+The account-free 32-bit comparison uses the same two exact PowerShell images as
+attempt 3. The explicit script requested a source-owned file write and exit 37.
+The file was absent and the helper exited 0. The capability check, empty-scope
+CIM presence query and process-close script each also exited 0. This establishes
+a missing PowerShell `-C` execution capability in the pinned route. It does not
+establish a commercial matched object or retroactively turn any earlier helper
+exit into a successful query.
+
+The selected work owners are:
+
+- **Reporter root custody:** repaired here with the verified launch adapter.
+- **Script execution capability:** an exact runtime dependency boundary selected
+  for independent review. No interpreter replacement or application-check bypass
+  is implemented in IS2.
+
+The 32-bit direct-loader fixture has an independently observed target image but
+no exact target CreateProcess row. The bound route has one. The 64-bit direct
+fixture already has a row. This is a retained trace-coverage differential, not a
+claim that Wine universally omits creation or that numeric PID equality can fill
+that gap.
+
+Upstream comparison references: [Wine PowerShell entry point](https://github.com/ValveSoftware/wine/blob/bleeding-edge/programs/powershell/main.c)
+and [NSIS file format](https://github.com/kichik/nsis/blob/master/Source/exehead/fileform.h).
+They explain the source formats/implementation shapes being compared; neither is
+claimed as the exact source commit of the deployed proprietary installer or runner.
+The deployed-byte hashes and actual behavioral probe remain the evidence.
+
+## Scope and limitations
+
+The production observer records the established script-based mechanism. It is not
+a universal Win32 API hook: window, mutex, registry, service and file-lock matches
+without exact observations remain unknown. A source-owned API oracle measures
+the generated close cases independently; it cannot authorize vendor attribution.
+In particular, helper success, application-file absence and successful cleanup do
+not establish a false positive, successful close or healthy installation.
+
+The generated Windows fixtures use owned process handles, creation time and the
+exact source-owned window owner. A class check narrows that already-owned
+fixture's windows; class names never grant process ownership. A same-name peer is
+preserved through the target close and then retired separately by its retained
+fixture handle. Actual numeric PID recycling is not forced: deterministic trace
+reuse and a mismatched expected process generation prove refusal.
+
+Working-directory/environment comparisons normalize only the two exact disposable
+attempt roots. Both ordinary and requireAdministrator payloads have equal direct
+and adapted results/elevation posture under the pinned runner. No host privilege
+is granted. Native Windows tests additionally verify copied input, a hardlink
+alias, unrelated same-basename bytes, wrappers before the adapter, ordinary child
+wrappers, exit propagation and a truncated request.
