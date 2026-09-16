@@ -1,0 +1,769 @@
+{
+  "schema": 1,
+  "checkpoint": "e173c998321d19c3f966ac9ca49ed21faf718a2b",
+  "result": {
+    "schema": 1,
+    "disposition": "IS3_OPERATION_SCOPED_HONEST_ABSENCE_PROVED",
+    "windows_environment_delivery": "verified",
+    "unix_behavior": "CreateProcessW_refused_126",
+    "source_owned_fallback": "launched_exit_43",
+    "vendor_fallback": "not_tested",
+    "genuine_interpreter": "deferred_requirement_not_established",
+    "registry_comparison": "unnecessary",
+    "compatibility_requirement": "sufficient_for_source_owned_fallback_contract_only",
+    "native_access_historical_cause": "not_formally_proved"
+  },
+  "sessions": [
+    {
+      "schema": 1,
+      "session_mode": "baseline",
+      "observation_private_sha256": "0e6d88976ac474fe67aa1d3436bead1217f07f5eb32c35f9384df4aff01a0d7f",
+      "oracle_record_count": 18,
+      "loader_record_count": 64,
+      "observation_drops": 170,
+      "windows_environment_lines": [
+        "IS3_ENV_V1 mode=baseline origin=expected present=1 length=113 sha256=ebbd12297709b8d296e22931f0ae28bd9835c7c27189caffa0e61cc4bcbb1a01 duplicate_count=0",
+        "IS3_ENV_V1 mode=baseline origin=child present=1 length=113 sha256=ebbd12297709b8d296e22931f0ae28bd9835c7c27189caffa0e61cc4bcbb1a01 duplicate_count=0",
+        "IS3_ENV_V1 mode=unavailable origin=expected present=1 length=129 sha256=e1547ebf47399c489cd855a054baf5da886e5690f17df3f5932d2c5296f75ce5 duplicate_count=0",
+        "IS3_ENV_V1 mode=unavailable origin=child present=1 length=129 sha256=e1547ebf47399c489cd855a054baf5da886e5690f17df3f5932d2c5296f75ce5 duplicate_count=0",
+        "IS3_ENV_V1 mode=restored origin=expected present=1 length=113 sha256=ebbd12297709b8d296e22931f0ae28bd9835c7c27189caffa0e61cc4bcbb1a01 duplicate_count=0",
+        "IS3_ENV_V1 mode=restored origin=child present=1 length=113 sha256=ebbd12297709b8d296e22931f0ae28bd9835c7c27189caffa0e61cc4bcbb1a01 duplicate_count=0"
+      ],
+      "unix_environment": {
+        "schema": 1,
+        "operation": "4cd6e6a608d0c5e2f57b8923a10755c4",
+        "fixture_sha256": "9777988a7dce4a8e832c636487ec809487ceca0e98d00feb6ec78f7318f418a7",
+        "mode": "baseline",
+        "phase": "target_runner_after_prefix_initialization",
+        "monotonic_ns": 491108217329612,
+        "present": false,
+        "value_bytes": 0,
+        "sha256_utf8": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "setting": "inherited",
+        "authority": "supervisor_Popen_environment",
+        "loader_result": "unavailable_without_behavior_or_loader_observation"
+      },
+      "outer_exit": 0,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "payload_sha256": "9777988a7dce4a8e832c636487ec809487ceca0e98d00feb6ec78f7318f418a7",
+      "source_sha256": {
+        "run.py": "ee28120146be2d3f1d60c70a5057aa6e4475c88b440e8a8511bef4dadbca8fd2",
+        "report.py": "61dbc1fdd7da9c0e2e923cf3bf0b52c4cd0f6410b35d42458d674f91d1d7a341",
+        "capability.cpp": "ef18c83c83d957a71963fe2871abc8ec83f68480bbacf9765be661d06a086a15"
+      },
+      "installed_artifacts": {
+        "manager": "fcd2032eb69430d47c51c4b669080c141be3a9d53d0d6d7bdb9f67ef58bb9d75",
+        "supervisor": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377",
+        "installer_launch": "0edb8946927a93cac10eb60a0b0567ba284a65d6c3f30255d2612d08f8ae1cd7"
+      },
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "private_transaction_sha256": "7fd5503cdc9237518c4a7a77b7b2404150edad0edec6464ea1c215895845aa3a",
+      "private_log_sha256": "acbe8f9864bf890152af63bb6e3954444f0d480752cd8082307e54565f0932a6",
+      "binding": {
+        "schema": 1,
+        "operation": "4cd6e6a608d0c5e2f57b8923a10755c4",
+        "epoch": 2,
+        "token_sha256": "7861f1559addb5a3e847b90484ea7ccc65f05bb5b7ca708eceb158794e7a2851",
+        "artifact_sha256": "9777988a7dce4a8e832c636487ec809487ceca0e98d00feb6ec78f7318f418a7",
+        "size": 473600,
+        "status": "bound",
+        "reason": null,
+        "root_ordinal": 13
+      },
+      "duration_seconds": 8.85086282499833,
+      "runner_id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+      "oracle_lines": [
+        "IS3_CAP_V1 mode=baseline stage=side_effect launched=1 exited=1 status=0 side_effect=0 tick=491102902",
+        "IS3_CAP_V1 mode=baseline stage=capability launched=1 exited=1 status=0 side_effect=0 tick=491102931",
+        "IS3_CAP_V1 mode=baseline stage=empty_query launched=1 exited=1 status=0 side_effect=0 tick=491102958",
+        "IS3_CAP_V1 mode=baseline stage=fallback launched=0 exited=0 status=0 side_effect=0 tick=491102959",
+        "IS3_CAP_V1 mode=unavailable stage=side_effect launched=1 exited=1 status=0 side_effect=0 tick=491103017",
+        "IS3_CAP_V1 mode=unavailable stage=capability launched=1 exited=1 status=0 side_effect=0 tick=491103045",
+        "IS3_CAP_V1 mode=unavailable stage=empty_query launched=1 exited=1 status=0 side_effect=0 tick=491103074",
+        "IS3_CAP_V1 mode=unavailable stage=fallback launched=0 exited=0 status=0 side_effect=0 tick=491103074",
+        "IS3_CAP_V1 mode=restored stage=side_effect launched=1 exited=1 status=0 side_effect=0 tick=491103130",
+        "IS3_CAP_V1 mode=restored stage=capability launched=1 exited=1 status=0 side_effect=0 tick=491103159",
+        "IS3_CAP_V1 mode=restored stage=empty_query launched=1 exited=1 status=0 side_effect=0 tick=491103187",
+        "IS3_CAP_V1 mode=restored stage=fallback launched=0 exited=0 status=0 side_effect=0 tick=491103187"
+      ],
+      "scratch_prefix_removed": true,
+      "comparison": {
+        "schema": 1,
+        "authority": "source_owned_consumer_only",
+        "modes": {
+          "baseline": {
+            "side_effect": {
+              "launched": true,
+              "exited": true,
+              "status": 0,
+              "side_effect": false
+            },
+            "capability": {
+              "launched": true,
+              "exited": true,
+              "status": 0,
+              "side_effect": false
+            },
+            "empty_query": {
+              "launched": true,
+              "exited": true,
+              "status": 0,
+              "side_effect": false
+            },
+            "fallback": {
+              "launched": false,
+              "exited": false,
+              "status": 0,
+              "side_effect": false
+            },
+            "script_behavior": "false_success",
+            "empty_query_correct": false,
+            "source_owned_fallback_executed": false
+          },
+          "unavailable": {
+            "side_effect": {
+              "launched": true,
+              "exited": true,
+              "status": 0,
+              "side_effect": false
+            },
+            "capability": {
+              "launched": true,
+              "exited": true,
+              "status": 0,
+              "side_effect": false
+            },
+            "empty_query": {
+              "launched": true,
+              "exited": true,
+              "status": 0,
+              "side_effect": false
+            },
+            "fallback": {
+              "launched": false,
+              "exited": false,
+              "status": 0,
+              "side_effect": false
+            },
+            "script_behavior": "false_success",
+            "empty_query_correct": false,
+            "source_owned_fallback_executed": false
+          },
+          "restored": {
+            "side_effect": {
+              "launched": true,
+              "exited": true,
+              "status": 0,
+              "side_effect": false
+            },
+            "capability": {
+              "launched": true,
+              "exited": true,
+              "status": 0,
+              "side_effect": false
+            },
+            "empty_query": {
+              "launched": true,
+              "exited": true,
+              "status": 0,
+              "side_effect": false
+            },
+            "fallback": {
+              "launched": false,
+              "exited": false,
+              "status": 0,
+              "side_effect": false
+            },
+            "script_behavior": "false_success",
+            "empty_query_correct": false,
+            "source_owned_fallback_executed": false
+          }
+        },
+        "vendor_fallback": "not_observed",
+        "genuine_managed_interpreter": "not_tested",
+        "historical_native_access_cause": "not_formally_proved"
+      },
+      "windows_environment": {
+        "schema": 1,
+        "authority": "windows_environment_delivery_only",
+        "rows": {
+          "baseline": {
+            "expected": {
+              "present": true,
+              "utf16_code_units": 113,
+              "sha256_utf16le": "ebbd12297709b8d296e22931f0ae28bd9835c7c27189caffa0e61cc4bcbb1a01",
+              "duplicate_count": 0
+            },
+            "child": {
+              "present": true,
+              "utf16_code_units": 113,
+              "sha256_utf16le": "ebbd12297709b8d296e22931f0ae28bd9835c7c27189caffa0e61cc4bcbb1a01",
+              "duplicate_count": 0
+            }
+          },
+          "unavailable": {
+            "expected": {
+              "present": true,
+              "utf16_code_units": 129,
+              "sha256_utf16le": "e1547ebf47399c489cd855a054baf5da886e5690f17df3f5932d2c5296f75ce5",
+              "duplicate_count": 0
+            },
+            "child": {
+              "present": true,
+              "utf16_code_units": 129,
+              "sha256_utf16le": "e1547ebf47399c489cd855a054baf5da886e5690f17df3f5932d2c5296f75ce5",
+              "duplicate_count": 0
+            }
+          },
+          "restored": {
+            "expected": {
+              "present": true,
+              "utf16_code_units": 113,
+              "sha256_utf16le": "ebbd12297709b8d296e22931f0ae28bd9835c7c27189caffa0e61cc4bcbb1a01",
+              "duplicate_count": 0
+            },
+            "child": {
+              "present": true,
+              "utf16_code_units": 113,
+              "sha256_utf16le": "ebbd12297709b8d296e22931f0ae28bd9835c7c27189caffa0e61cc4bcbb1a01",
+              "duplicate_count": 0
+            }
+          }
+        },
+        "loader_authority": false
+      },
+      "loader_observation": "see bounded private module/loaddll diagnostics; behavioral oracle authoritative for this comparison",
+      "staged_runtime_sha256": "ef5a179e494c52dbce9586e1c86ed11d3555c05672a305f35cc0c179818e0f2f",
+      "loader_evidence": {
+        "private_sha256": "0e6d88976ac474fe67aa1d3436bead1217f07f5eb32c35f9384df4aff01a0d7f",
+        "environment_empty_load_order_observed": false,
+        "builtin_loaded_observed": true,
+        "authority": "retained Wine diagnostic plus independent CreateProcess/behavior receipt",
+        "retained_private_rows": 64,
+        "dropped_private_rows": 170
+      }
+    },
+    {
+      "schema": 1,
+      "session_mode": "unix_override",
+      "observation_private_sha256": "4e27a0fd9572a632b607de2a1fa110466ac270e59a28abc222980a164516f2ac",
+      "oracle_record_count": 18,
+      "loader_record_count": 27,
+      "observation_drops": 0,
+      "windows_environment_lines": [
+        "IS3_ENV_V1 mode=baseline origin=expected present=1 length=129 sha256=9add5a99a7e25a9c8efd4756dad91ae9c77e10bf3de626168c26d562c8b12ce0 duplicate_count=0",
+        "IS3_ENV_V1 mode=baseline origin=child present=1 length=129 sha256=9add5a99a7e25a9c8efd4756dad91ae9c77e10bf3de626168c26d562c8b12ce0 duplicate_count=0",
+        "IS3_ENV_V1 mode=unavailable origin=expected present=1 length=145 sha256=cfa08b08511fcb89bc5dbbca3efe1917d6eb486032a642b216a5f7863e79345d duplicate_count=0",
+        "IS3_ENV_V1 mode=unavailable origin=child present=1 length=145 sha256=cfa08b08511fcb89bc5dbbca3efe1917d6eb486032a642b216a5f7863e79345d duplicate_count=0",
+        "IS3_ENV_V1 mode=restored origin=expected present=1 length=129 sha256=9add5a99a7e25a9c8efd4756dad91ae9c77e10bf3de626168c26d562c8b12ce0 duplicate_count=0",
+        "IS3_ENV_V1 mode=restored origin=child present=1 length=129 sha256=9add5a99a7e25a9c8efd4756dad91ae9c77e10bf3de626168c26d562c8b12ce0 duplicate_count=0"
+      ],
+      "unix_environment": {
+        "schema": 1,
+        "operation": "dcaa392b011fcd17befb9e845fa4de70",
+        "fixture_sha256": "9777988a7dce4a8e832c636487ec809487ceca0e98d00feb6ec78f7318f418a7",
+        "mode": "unix_override",
+        "phase": "target_runner_after_prefix_initialization",
+        "monotonic_ns": 491126889300475,
+        "present": true,
+        "value_bytes": 15,
+        "sha256_utf8": "a156d13bd0ad6129fa13a0a7b76672634c09956c9b090e7c89edf60078979c63",
+        "setting": "powershell.exe=",
+        "authority": "supervisor_Popen_environment",
+        "loader_result": "unavailable_without_behavior_or_loader_observation"
+      },
+      "outer_exit": 0,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "payload_sha256": "9777988a7dce4a8e832c636487ec809487ceca0e98d00feb6ec78f7318f418a7",
+      "source_sha256": {
+        "run.py": "ee28120146be2d3f1d60c70a5057aa6e4475c88b440e8a8511bef4dadbca8fd2",
+        "report.py": "61dbc1fdd7da9c0e2e923cf3bf0b52c4cd0f6410b35d42458d674f91d1d7a341",
+        "capability.cpp": "ef18c83c83d957a71963fe2871abc8ec83f68480bbacf9765be661d06a086a15"
+      },
+      "installed_artifacts": {
+        "manager": "fcd2032eb69430d47c51c4b669080c141be3a9d53d0d6d7bdb9f67ef58bb9d75",
+        "supervisor": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377",
+        "installer_launch": "0edb8946927a93cac10eb60a0b0567ba284a65d6c3f30255d2612d08f8ae1cd7"
+      },
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "private_transaction_sha256": "fb95744d8688807dfa88c70f13e45d814dbec6d5d1bb979c613752d98a6fabbf",
+      "private_log_sha256": "21a15d3d54d34d330ca7b23d0c1ea7db76f8183f2bd0514220afc3be1f5bf2cc",
+      "binding": {
+        "schema": 1,
+        "operation": "dcaa392b011fcd17befb9e845fa4de70",
+        "epoch": 2,
+        "token_sha256": "14aea8f87fa30e23d30573d20852c218f8b342bc21f703a238aeaf815e134caa",
+        "artifact_sha256": "9777988a7dce4a8e832c636487ec809487ceca0e98d00feb6ec78f7318f418a7",
+        "size": 473600,
+        "status": "bound",
+        "reason": null,
+        "root_ordinal": 13
+      },
+      "duration_seconds": 8.649726411968004,
+      "runner_id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+      "oracle_lines": [
+        "IS3_CAP_V1 mode=baseline stage=side_effect launched=0 exited=0 status=126 side_effect=0 tick=491121467",
+        "IS3_CAP_V1 mode=baseline stage=capability launched=0 exited=0 status=126 side_effect=0 tick=491121481",
+        "IS3_CAP_V1 mode=baseline stage=empty_query launched=0 exited=0 status=126 side_effect=0 tick=491121494",
+        "IS3_CAP_V1 mode=baseline stage=fallback launched=1 exited=1 status=43 side_effect=0 tick=491121524",
+        "IS3_CAP_V1 mode=unavailable stage=side_effect launched=0 exited=0 status=126 side_effect=0 tick=491121568",
+        "IS3_CAP_V1 mode=unavailable stage=capability launched=0 exited=0 status=126 side_effect=0 tick=491121582",
+        "IS3_CAP_V1 mode=unavailable stage=empty_query launched=0 exited=0 status=126 side_effect=0 tick=491121594",
+        "IS3_CAP_V1 mode=unavailable stage=fallback launched=1 exited=1 status=43 side_effect=0 tick=491121623",
+        "IS3_CAP_V1 mode=restored stage=side_effect launched=0 exited=0 status=126 side_effect=0 tick=491121666",
+        "IS3_CAP_V1 mode=restored stage=capability launched=0 exited=0 status=126 side_effect=0 tick=491121679",
+        "IS3_CAP_V1 mode=restored stage=empty_query launched=0 exited=0 status=126 side_effect=0 tick=491121691",
+        "IS3_CAP_V1 mode=restored stage=fallback launched=1 exited=1 status=43 side_effect=0 tick=491121723"
+      ],
+      "scratch_prefix_removed": true,
+      "comparison": {
+        "schema": 1,
+        "authority": "source_owned_consumer_only",
+        "modes": {
+          "baseline": {
+            "side_effect": {
+              "launched": false,
+              "exited": false,
+              "status": 126,
+              "side_effect": false
+            },
+            "capability": {
+              "launched": false,
+              "exited": false,
+              "status": 126,
+              "side_effect": false
+            },
+            "empty_query": {
+              "launched": false,
+              "exited": false,
+              "status": 126,
+              "side_effect": false
+            },
+            "fallback": {
+              "launched": true,
+              "exited": true,
+              "status": 43,
+              "side_effect": false
+            },
+            "script_behavior": "launch_or_execution_refused",
+            "empty_query_correct": false,
+            "source_owned_fallback_executed": true
+          },
+          "unavailable": {
+            "side_effect": {
+              "launched": false,
+              "exited": false,
+              "status": 126,
+              "side_effect": false
+            },
+            "capability": {
+              "launched": false,
+              "exited": false,
+              "status": 126,
+              "side_effect": false
+            },
+            "empty_query": {
+              "launched": false,
+              "exited": false,
+              "status": 126,
+              "side_effect": false
+            },
+            "fallback": {
+              "launched": true,
+              "exited": true,
+              "status": 43,
+              "side_effect": false
+            },
+            "script_behavior": "launch_or_execution_refused",
+            "empty_query_correct": false,
+            "source_owned_fallback_executed": true
+          },
+          "restored": {
+            "side_effect": {
+              "launched": false,
+              "exited": false,
+              "status": 126,
+              "side_effect": false
+            },
+            "capability": {
+              "launched": false,
+              "exited": false,
+              "status": 126,
+              "side_effect": false
+            },
+            "empty_query": {
+              "launched": false,
+              "exited": false,
+              "status": 126,
+              "side_effect": false
+            },
+            "fallback": {
+              "launched": true,
+              "exited": true,
+              "status": 43,
+              "side_effect": false
+            },
+            "script_behavior": "launch_or_execution_refused",
+            "empty_query_correct": false,
+            "source_owned_fallback_executed": true
+          }
+        },
+        "vendor_fallback": "not_observed",
+        "genuine_managed_interpreter": "not_tested",
+        "historical_native_access_cause": "not_formally_proved"
+      },
+      "windows_environment": {
+        "schema": 1,
+        "authority": "windows_environment_delivery_only",
+        "rows": {
+          "baseline": {
+            "expected": {
+              "present": true,
+              "utf16_code_units": 129,
+              "sha256_utf16le": "9add5a99a7e25a9c8efd4756dad91ae9c77e10bf3de626168c26d562c8b12ce0",
+              "duplicate_count": 0
+            },
+            "child": {
+              "present": true,
+              "utf16_code_units": 129,
+              "sha256_utf16le": "9add5a99a7e25a9c8efd4756dad91ae9c77e10bf3de626168c26d562c8b12ce0",
+              "duplicate_count": 0
+            }
+          },
+          "unavailable": {
+            "expected": {
+              "present": true,
+              "utf16_code_units": 145,
+              "sha256_utf16le": "cfa08b08511fcb89bc5dbbca3efe1917d6eb486032a642b216a5f7863e79345d",
+              "duplicate_count": 0
+            },
+            "child": {
+              "present": true,
+              "utf16_code_units": 145,
+              "sha256_utf16le": "cfa08b08511fcb89bc5dbbca3efe1917d6eb486032a642b216a5f7863e79345d",
+              "duplicate_count": 0
+            }
+          },
+          "restored": {
+            "expected": {
+              "present": true,
+              "utf16_code_units": 129,
+              "sha256_utf16le": "9add5a99a7e25a9c8efd4756dad91ae9c77e10bf3de626168c26d562c8b12ce0",
+              "duplicate_count": 0
+            },
+            "child": {
+              "present": true,
+              "utf16_code_units": 129,
+              "sha256_utf16le": "9add5a99a7e25a9c8efd4756dad91ae9c77e10bf3de626168c26d562c8b12ce0",
+              "duplicate_count": 0
+            }
+          }
+        },
+        "loader_authority": false
+      },
+      "loader_observation": "see bounded private module/loaddll diagnostics; behavioral oracle authoritative for this comparison",
+      "staged_runtime_sha256": "ef5a179e494c52dbce9586e1c86ed11d3555c05672a305f35cc0c179818e0f2f",
+      "loader_evidence": {
+        "private_sha256": "4e27a0fd9572a632b607de2a1fa110466ac270e59a28abc222980a164516f2ac",
+        "environment_empty_load_order_observed": true,
+        "builtin_loaded_observed": false,
+        "authority": "retained Wine diagnostic plus independent CreateProcess/behavior receipt",
+        "retained_private_rows": 27,
+        "dropped_private_rows": 0
+      }
+    },
+    {
+      "schema": 1,
+      "session_mode": "restored",
+      "observation_private_sha256": "44ed2f96738da46d1dddaecdf9fe4232d0c284406c217bb0c6af156ac46a280b",
+      "oracle_record_count": 18,
+      "loader_record_count": 64,
+      "observation_drops": 170,
+      "windows_environment_lines": [
+        "IS3_ENV_V1 mode=baseline origin=expected present=1 length=113 sha256=ebbd12297709b8d296e22931f0ae28bd9835c7c27189caffa0e61cc4bcbb1a01 duplicate_count=0",
+        "IS3_ENV_V1 mode=baseline origin=child present=1 length=113 sha256=ebbd12297709b8d296e22931f0ae28bd9835c7c27189caffa0e61cc4bcbb1a01 duplicate_count=0",
+        "IS3_ENV_V1 mode=unavailable origin=expected present=1 length=129 sha256=e1547ebf47399c489cd855a054baf5da886e5690f17df3f5932d2c5296f75ce5 duplicate_count=0",
+        "IS3_ENV_V1 mode=unavailable origin=child present=1 length=129 sha256=e1547ebf47399c489cd855a054baf5da886e5690f17df3f5932d2c5296f75ce5 duplicate_count=0",
+        "IS3_ENV_V1 mode=restored origin=expected present=1 length=113 sha256=ebbd12297709b8d296e22931f0ae28bd9835c7c27189caffa0e61cc4bcbb1a01 duplicate_count=0",
+        "IS3_ENV_V1 mode=restored origin=child present=1 length=113 sha256=ebbd12297709b8d296e22931f0ae28bd9835c7c27189caffa0e61cc4bcbb1a01 duplicate_count=0"
+      ],
+      "unix_environment": {
+        "schema": 1,
+        "operation": "5a0bbe006f324a6d9ef2e1e47c25db04",
+        "fixture_sha256": "9777988a7dce4a8e832c636487ec809487ceca0e98d00feb6ec78f7318f418a7",
+        "mode": "restored",
+        "phase": "target_runner_after_prefix_initialization",
+        "monotonic_ns": 491147559723748,
+        "present": false,
+        "value_bytes": 0,
+        "sha256_utf8": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "setting": "inherited",
+        "authority": "supervisor_Popen_environment",
+        "loader_result": "unavailable_without_behavior_or_loader_observation"
+      },
+      "outer_exit": 0,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "payload_sha256": "9777988a7dce4a8e832c636487ec809487ceca0e98d00feb6ec78f7318f418a7",
+      "source_sha256": {
+        "run.py": "ee28120146be2d3f1d60c70a5057aa6e4475c88b440e8a8511bef4dadbca8fd2",
+        "report.py": "61dbc1fdd7da9c0e2e923cf3bf0b52c4cd0f6410b35d42458d674f91d1d7a341",
+        "capability.cpp": "ef18c83c83d957a71963fe2871abc8ec83f68480bbacf9765be661d06a086a15"
+      },
+      "installed_artifacts": {
+        "manager": "fcd2032eb69430d47c51c4b669080c141be3a9d53d0d6d7bdb9f67ef58bb9d75",
+        "supervisor": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377",
+        "installer_launch": "0edb8946927a93cac10eb60a0b0567ba284a65d6c3f30255d2612d08f8ae1cd7"
+      },
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "private_transaction_sha256": "b676fef10ca6d52676976ea95010ef679d0cfa1955c441899ba0113141a21c98",
+      "private_log_sha256": "6996cf80c6c626690de5d9369d84d50f8322b25cdb103ce6612f958fea5280df",
+      "binding": {
+        "schema": 1,
+        "operation": "5a0bbe006f324a6d9ef2e1e47c25db04",
+        "epoch": 2,
+        "token_sha256": "2a4ac9cf5bb748a99d7746c13bccef656e4c2bfa8a035d6f24afccdf26ca632f",
+        "artifact_sha256": "9777988a7dce4a8e832c636487ec809487ceca0e98d00feb6ec78f7318f418a7",
+        "size": 473600,
+        "status": "bound",
+        "reason": null,
+        "root_ordinal": 13
+      },
+      "duration_seconds": 8.848829924012534,
+      "runner_id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+      "oracle_lines": [
+        "IS3_CAP_V1 mode=baseline stage=side_effect launched=1 exited=1 status=0 side_effect=0 tick=491142268",
+        "IS3_CAP_V1 mode=baseline stage=capability launched=1 exited=1 status=0 side_effect=0 tick=491142295",
+        "IS3_CAP_V1 mode=baseline stage=empty_query launched=1 exited=1 status=0 side_effect=0 tick=491142323",
+        "IS3_CAP_V1 mode=baseline stage=fallback launched=0 exited=0 status=0 side_effect=0 tick=491142323",
+        "IS3_CAP_V1 mode=unavailable stage=side_effect launched=1 exited=1 status=0 side_effect=0 tick=491142385",
+        "IS3_CAP_V1 mode=unavailable stage=capability launched=1 exited=1 status=0 side_effect=0 tick=491142412",
+        "IS3_CAP_V1 mode=unavailable stage=empty_query launched=1 exited=1 status=0 side_effect=0 tick=491142441",
+        "IS3_CAP_V1 mode=unavailable stage=fallback launched=0 exited=0 status=0 side_effect=0 tick=491142441",
+        "IS3_CAP_V1 mode=restored stage=side_effect launched=1 exited=1 status=0 side_effect=0 tick=491142499",
+        "IS3_CAP_V1 mode=restored stage=capability launched=1 exited=1 status=0 side_effect=0 tick=491142526",
+        "IS3_CAP_V1 mode=restored stage=empty_query launched=1 exited=1 status=0 side_effect=0 tick=491142554",
+        "IS3_CAP_V1 mode=restored stage=fallback launched=0 exited=0 status=0 side_effect=0 tick=491142554"
+      ],
+      "scratch_prefix_removed": true,
+      "comparison": {
+        "schema": 1,
+        "authority": "source_owned_consumer_only",
+        "modes": {
+          "baseline": {
+            "side_effect": {
+              "launched": true,
+              "exited": true,
+              "status": 0,
+              "side_effect": false
+            },
+            "capability": {
+              "launched": true,
+              "exited": true,
+              "status": 0,
+              "side_effect": false
+            },
+            "empty_query": {
+              "launched": true,
+              "exited": true,
+              "status": 0,
+              "side_effect": false
+            },
+            "fallback": {
+              "launched": false,
+              "exited": false,
+              "status": 0,
+              "side_effect": false
+            },
+            "script_behavior": "false_success",
+            "empty_query_correct": false,
+            "source_owned_fallback_executed": false
+          },
+          "unavailable": {
+            "side_effect": {
+              "launched": true,
+              "exited": true,
+              "status": 0,
+              "side_effect": false
+            },
+            "capability": {
+              "launched": true,
+              "exited": true,
+              "status": 0,
+              "side_effect": false
+            },
+            "empty_query": {
+              "launched": true,
+              "exited": true,
+              "status": 0,
+              "side_effect": false
+            },
+            "fallback": {
+              "launched": false,
+              "exited": false,
+              "status": 0,
+              "side_effect": false
+            },
+            "script_behavior": "false_success",
+            "empty_query_correct": false,
+            "source_owned_fallback_executed": false
+          },
+          "restored": {
+            "side_effect": {
+              "launched": true,
+              "exited": true,
+              "status": 0,
+              "side_effect": false
+            },
+            "capability": {
+              "launched": true,
+              "exited": true,
+              "status": 0,
+              "side_effect": false
+            },
+            "empty_query": {
+              "launched": true,
+              "exited": true,
+              "status": 0,
+              "side_effect": false
+            },
+            "fallback": {
+              "launched": false,
+              "exited": false,
+              "status": 0,
+              "side_effect": false
+            },
+            "script_behavior": "false_success",
+            "empty_query_correct": false,
+            "source_owned_fallback_executed": false
+          }
+        },
+        "vendor_fallback": "not_observed",
+        "genuine_managed_interpreter": "not_tested",
+        "historical_native_access_cause": "not_formally_proved"
+      },
+      "windows_environment": {
+        "schema": 1,
+        "authority": "windows_environment_delivery_only",
+        "rows": {
+          "baseline": {
+            "expected": {
+              "present": true,
+              "utf16_code_units": 113,
+              "sha256_utf16le": "ebbd12297709b8d296e22931f0ae28bd9835c7c27189caffa0e61cc4bcbb1a01",
+              "duplicate_count": 0
+            },
+            "child": {
+              "present": true,
+              "utf16_code_units": 113,
+              "sha256_utf16le": "ebbd12297709b8d296e22931f0ae28bd9835c7c27189caffa0e61cc4bcbb1a01",
+              "duplicate_count": 0
+            }
+          },
+          "unavailable": {
+            "expected": {
+              "present": true,
+              "utf16_code_units": 129,
+              "sha256_utf16le": "e1547ebf47399c489cd855a054baf5da886e5690f17df3f5932d2c5296f75ce5",
+              "duplicate_count": 0
+            },
+            "child": {
+              "present": true,
+              "utf16_code_units": 129,
+              "sha256_utf16le": "e1547ebf47399c489cd855a054baf5da886e5690f17df3f5932d2c5296f75ce5",
+              "duplicate_count": 0
+            }
+          },
+          "restored": {
+            "expected": {
+              "present": true,
+              "utf16_code_units": 113,
+              "sha256_utf16le": "ebbd12297709b8d296e22931f0ae28bd9835c7c27189caffa0e61cc4bcbb1a01",
+              "duplicate_count": 0
+            },
+            "child": {
+              "present": true,
+              "utf16_code_units": 113,
+              "sha256_utf16le": "ebbd12297709b8d296e22931f0ae28bd9835c7c27189caffa0e61cc4bcbb1a01",
+              "duplicate_count": 0
+            }
+          }
+        },
+        "loader_authority": false
+      },
+      "loader_observation": "see bounded private module/loaddll diagnostics; behavioral oracle authoritative for this comparison",
+      "staged_runtime_sha256": "ef5a179e494c52dbce9586e1c86ed11d3555c05672a305f35cc0c179818e0f2f",
+      "loader_evidence": {
+        "private_sha256": "44ed2f96738da46d1dddaecdf9fe4232d0c284406c217bb0c6af156ac46a280b",
+        "environment_empty_load_order_observed": false,
+        "builtin_loaded_observed": true,
+        "authority": "retained Wine diagnostic plus independent CreateProcess/behavior receipt",
+        "retained_private_rows": 64,
+        "dropped_private_rows": 170
+      }
+    }
+  ],
+  "validation": {
+    "deck_python_tests": 106,
+    "deck_python_passed": true,
+    "local_is3_tests": 13,
+    "local_is3_passed": true,
+    "x86_fixture_build": "Zig 0.14.1 x86-windows-gnu, C++20, bcrypt; self-test invoked inside each complete session",
+    "ci": "AP8 x86/x64 self-tests and AP12/PX2 required on final head"
+  },
+  "earlier_incomplete_observation": {
+    "result": "oracle_incomplete; not classified",
+    "cause": "bounded general diagnostic tail evicted oracle rows",
+    "private_transaction_sha256": "d9a8111f6710fed19f53982121397f74f279d9ae17b8544c637e473fc0633049",
+    "private_log_sha256": "c9bb8c080c8766b9ee3f259ef22b0f9523bac09ca9ec81123dab60df9f202b92",
+    "outer_exit": 0,
+    "cleanup_confirmed": true,
+    "owned_survivors": 0,
+    "scratch_prefix_removed": true,
+    "repair": "dedicated bounded private oracle sink independent of rotating diagnostic tail"
+  },
+  "development_test_context": {
+    "initial_and_TMPDIR_only_runs": "one unrelated memory transport fixture expected disk cwd but remote cwd /tmp was tmpfs",
+    "corrected_owned_disk_cwd": "all 106 passed; no product change"
+  },
+  "nonclaims": [
+    "vendor fallback untested",
+    "Native Access historical cause not formally proved",
+    "no genuine interpreter installed or tested",
+    "no installed software or scripting policy changed",
+    "no registry comparison needed",
+    "not a product compatibility repair"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "operation": "79bed71debe4d0d29a111c2ee2cfe399",
+  "disposition": "completed baseline; campaign custody interrupted at collected-unit teardown; not used by comparison",
+  "outer_exit": 0,
+  "root_binding": {
+    "schema": 1,
+    "operation": "79bed71debe4d0d29a111c2ee2cfe399",
+    "epoch": 2,
+    "token_sha256": "9f5117695be85d54a2dfb6a282da6613a34b897cd60fa20ded0b8c8afd68a920",
+    "artifact_sha256": "19fa54c238b5b8cdcc99192b32eda4ef5f7f2c6cecbaea805f45d4448de4e18d",
+    "size": 473600,
+    "status": "bound",
+    "reason": null,
+    "root_ordinal": 13
+  },
+  "cleanup_confirmed": true,
+  "owned_survivors": 0,
+  "result_sha256": "a6b6e842eb9c7b7f985d7bbb4cc47f2e7bc028b23773208fbc43ae8d3b220776",
+  "private_transaction_sha256": "65fc1cfb8068258fb23afefd052509dedf8d25417c2b623f26e3e354b7317af8",
+  "private_log_sha256": "9ecae33d52f729f684819c1ce1e8f4f3b87936656dcfc492c2500f5d4752739e",
+  "campaign_seal": {
+    "manifest_sha256": "dcd7f747501bf874487f095eb7f3b135c8c6e9dd41a6652da14a800bf8027336",
+    "source": {
+      "head": "84aea3f611d0f83f5f7c8a54a73d4c6608660d5b",
+      "tree": "bb2af0d36a6c3240936e7ac89be3b372d71fa3e6"
+    }
+  },
+  "scratch_prefix_removed": true
+}

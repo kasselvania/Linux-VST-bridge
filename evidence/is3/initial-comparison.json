@@ -1,0 +1,163 @@
+{
+  "schema": 1,
+  "outer_exit": 0,
+  "cleanup_confirmed": true,
+  "owned_survivors": 0,
+  "payload_sha256": "d63a60320ce8a0bd3f27e164a9db11b2e36c3e08e104b9e4f30abd9465c9f7f5",
+  "source_sha256": {
+    "run.py": "2df94c159766f7c6e759eaa1e56a5fecc0decad374d426118e3c35662a29b4c8",
+    "report.py": "61dbc1fdd7da9c0e2e923cf3bf0b52c4cd0f6410b35d42458d674f91d1d7a341",
+    "capability.cpp": "584ec61bc05a6969b9094d941a0cc7ca23e511e52606e1611e3a6c978405f329"
+  },
+  "installed_artifacts": {
+    "manager": "fcd2032eb69430d47c51c4b669080c141be3a9d53d0d6d7bdb9f67ef58bb9d75",
+    "supervisor": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+    "ownership": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377",
+    "installer_launch": "0edb8946927a93cac10eb60a0b0567ba284a65d6c3f30255d2612d08f8ae1cd7"
+  },
+  "powershell_images": {
+    "system32": {
+      "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+      "size": 59911
+    },
+    "syswow64": {
+      "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+      "size": 53457
+    }
+  },
+  "private_transaction_sha256": "2715e05672b8ae19a20be30873fbbf0b6ffb7c03d5f1166618b5b7233332c90e",
+  "private_log_sha256": "02e6cee3d323a65ff088730f8fc65c0b137a7c669147e997a0b4f0d7bd2480af",
+  "binding": {
+    "schema": 1,
+    "operation": "18bf63c4919e9ed9be562667035e3a67",
+    "epoch": 2,
+    "token_sha256": "bef5f3b2a8e036a29ca5b2f3dc859d2d5dd2de4db479ac57c72a3530fd19d792",
+    "artifact_sha256": "d63a60320ce8a0bd3f27e164a9db11b2e36c3e08e104b9e4f30abd9465c9f7f5",
+    "size": 446976,
+    "status": "bound",
+    "reason": null,
+    "root_ordinal": 13
+  },
+  "duration_seconds": 8.649656859983224,
+  "runner_id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+  "oracle_lines": [
+    "IS3_CAP_V1 mode=baseline stage=side_effect launched=1 exited=1 status=0 side_effect=0 tick=489085879",
+    "IS3_CAP_V1 mode=baseline stage=capability launched=1 exited=1 status=0 side_effect=0 tick=489085905",
+    "IS3_CAP_V1 mode=baseline stage=empty_query launched=1 exited=1 status=0 side_effect=0 tick=489085930",
+    "IS3_CAP_V1 mode=baseline stage=fallback launched=0 exited=0 status=0 side_effect=0 tick=489085930",
+    "IS3_CAP_V1 mode=unavailable stage=side_effect launched=1 exited=1 status=0 side_effect=0 tick=489085954",
+    "IS3_CAP_V1 mode=unavailable stage=capability launched=1 exited=1 status=0 side_effect=0 tick=489085981",
+    "IS3_CAP_V1 mode=unavailable stage=empty_query launched=1 exited=1 status=0 side_effect=0 tick=489086006",
+    "IS3_CAP_V1 mode=unavailable stage=fallback launched=0 exited=0 status=0 side_effect=0 tick=489086006",
+    "IS3_CAP_V1 mode=restored stage=side_effect launched=1 exited=1 status=0 side_effect=0 tick=489086033",
+    "IS3_CAP_V1 mode=restored stage=capability launched=1 exited=1 status=0 side_effect=0 tick=489086058",
+    "IS3_CAP_V1 mode=restored stage=empty_query launched=1 exited=1 status=0 side_effect=0 tick=489086084",
+    "IS3_CAP_V1 mode=restored stage=fallback launched=0 exited=0 status=0 side_effect=0 tick=489086084"
+  ],
+  "scratch_prefix_removed": true,
+  "comparison": {
+    "schema": 1,
+    "authority": "source_owned_consumer_only",
+    "modes": {
+      "baseline": {
+        "side_effect": {
+          "launched": true,
+          "exited": true,
+          "status": 0,
+          "side_effect": false
+        },
+        "capability": {
+          "launched": true,
+          "exited": true,
+          "status": 0,
+          "side_effect": false
+        },
+        "empty_query": {
+          "launched": true,
+          "exited": true,
+          "status": 0,
+          "side_effect": false
+        },
+        "fallback": {
+          "launched": false,
+          "exited": false,
+          "status": 0,
+          "side_effect": false
+        },
+        "script_behavior": "false_success",
+        "empty_query_correct": false,
+        "source_owned_fallback_executed": false
+      },
+      "unavailable": {
+        "side_effect": {
+          "launched": true,
+          "exited": true,
+          "status": 0,
+          "side_effect": false
+        },
+        "capability": {
+          "launched": true,
+          "exited": true,
+          "status": 0,
+          "side_effect": false
+        },
+        "empty_query": {
+          "launched": true,
+          "exited": true,
+          "status": 0,
+          "side_effect": false
+        },
+        "fallback": {
+          "launched": false,
+          "exited": false,
+          "status": 0,
+          "side_effect": false
+        },
+        "script_behavior": "false_success",
+        "empty_query_correct": false,
+        "source_owned_fallback_executed": false
+      },
+      "restored": {
+        "side_effect": {
+          "launched": true,
+          "exited": true,
+          "status": 0,
+          "side_effect": false
+        },
+        "capability": {
+          "launched": true,
+          "exited": true,
+          "status": 0,
+          "side_effect": false
+        },
+        "empty_query": {
+          "launched": true,
+          "exited": true,
+          "status": 0,
+          "side_effect": false
+        },
+        "fallback": {
+          "launched": false,
+          "exited": false,
+          "status": 0,
+          "side_effect": false
+        },
+        "script_behavior": "false_success",
+        "empty_query_correct": false,
+        "source_owned_fallback_executed": false
+      }
+    },
+    "vendor_fallback": "not_observed",
+    "genuine_managed_interpreter": "not_tested",
+    "historical_native_access_cause": "not_formally_proved"
+  },
+  "requested_mode_is_not_observed_availability": true,
+  "disposition": "IS3_CHILD_ENVIRONMENT_UNAVAILABILITY_NOT_ESTABLISHED",
+  "build": {
+    "compiler": "Zig 0.14.1",
+    "target": "x86-windows-gnu",
+    "command_class": "source_owned_cpp20_fixture",
+    "commercial_payload": false
+  },
+  "genuine_interpreter_comparison": "not_performed; no interpreter dependency selected or installed"
+}
