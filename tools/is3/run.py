@@ -8,6 +8,21 @@ from identity import verify_package,select_runner,installed_identity,canonical,e
 def digest(p):
     with pathlib.Path(p).open('rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
 
+def retire_unit(unit,report,completed):
+    # A terminal supervisor receipt can precede systemd's --collect transition.
+    # Never send Stop merely because that completed unit is briefly still active.
+    def active():return subprocess.run(['systemctl','--user','is-active','--quiet',unit]).returncode==0
+    if not completed and active():
+        stopped=subprocess.run(['systemctl','--user','stop',unit],timeout=35)
+        if stopped.returncode and active():raise RuntimeError('fixture_unit_stop_failed')
+    deadline=time.monotonic()+10
+    while active():
+        if time.monotonic()>=deadline:raise RuntimeError('fixture_unit_retirement_unconfirmed')
+        time.sleep(.05)
+    result=read_json(report)
+    if not result['cleanup_confirmed'] or result['owned_live']!=0:raise RuntimeError('fixture_cleanup_unconfirmed')
+    return result
+
 def run(package, output, mode, seal, source):
     package=pathlib.Path(package);manifest=verify_package(package,seal,source);payload=package/"payload.exe"
     os.umask(0o077)
@@ -32,14 +47,14 @@ def run(package, output, mode, seal, source):
     unit='linux-vst-bridge-installer-'+operation+'.service'
     began=time.monotonic()
     subprocess.run(['systemd-run','--user','--collect','--property=UMask=0077','--property=KillMode=control-group','--property=TimeoutStopSec=20','--property=StandardOutput=null','--property=StandardError=null','--unit='+unit,'/usr/bin/python3','-B',str(pathlib.Path(__file__).with_name('supervise.py')),str(spec),mode,seal,source['head'],source['tree']],check=True,timeout=15)
+    completed=False
     try:
         while time.monotonic()-began<120:
-            if report.exists() and json.loads(report.read_text()).get('cleanup_confirmed'):break
+            if report.exists() and read_json(report).get('cleanup_confirmed'):
+                completed=True;break
             time.sleep(.1)
     finally:
-        if subprocess.run(['systemctl','--user','is-active','--quiet',unit]).returncode==0:
-            subprocess.run(['systemctl','--user','stop',unit],check=True,timeout=35)
-    result=json.loads(report.read_text())
+        result=retire_unit(unit,report,completed)
     assert result['cleanup_confirmed'] and result['owned_live']==0
     private_path=output/(operation+'-transaction-private.json');private=json.loads(private_path.read_text())
     for row in private['ledger']['processes']:

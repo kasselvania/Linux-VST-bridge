@@ -1,4 +1,4 @@
-import copy,hashlib,unittest
+import copy,hashlib,json,unittest
 from comparison import compare
 from identity import envelope,hashed
 from test_fixtures import fixture_manifest
@@ -19,7 +19,7 @@ def proofs():
         result.append({'session_mode':mode,'payload_sha256':'a'*64,'runner_id':'pinned','staged_runtime_sha256':'b'*64,'binding':{'operation':op,'status':'bound','artifact_sha256':'a'*64},'outer_exit':0,'cleanup_confirmed':True,'owned_survivors':0,'scratch_prefix_removed':True,'windows_environment_lines':environment_rows(),'oracle_lines':cap,'unix_environment':{'operation':op,'fixture_sha256':'a'*64,'phase':'target_runner_after_prefix_initialization','mode':mode,'present':i==1,'setting':'powershell.exe=' if i==1 else 'inherited','value_bytes':15 if i==1 else 0,'sha256_utf8':hashlib.sha256(('powershell.exe=' if i==1 else '').encode()).hexdigest()}})
     identity=envelope(fixture_manifest(), '9'*64)
     for p in result:
-        p['schema']=2;p['identity']=copy.deepcopy(identity)
+        p['schema']=2;p['identity']=json.loads(json.dumps(identity))
         p['payload_sha256']=identity['payload']['sha256'];p['binding']['artifact_sha256']=p['payload_sha256'];p['binding']['size']=identity['payload']['size']
         p['unix_environment']['fixture_sha256']=p['payload_sha256']
         p['staged_runtime_sha256']=identity['sources']['session.py']
@@ -49,6 +49,8 @@ class ComparisonTests(unittest.TestCase):
                 p=proofs();node=p[1]['identity']
                 for k in path[:-1]:node=node[k]
                 node[path[-1]]=not old if isinstance(old,bool) else old+1 if isinstance(old,int) else ('0' if old[0]!='0' else '1')+old[1:]
+                changed=dict(leaves(p[1]['identity']));original=dict(leaves(proofs()[1]['identity']))
+                self.assertEqual(sum(changed[k]!=v for k,v in original.items()),1)
                 with self.assertRaises(ValueError):compare(p)
     def test_missing_extra_identity_and_outer_environment_refuse(self):
         for key in proofs()[0]['identity']:
