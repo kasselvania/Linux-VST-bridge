@@ -9,8 +9,8 @@ static void event(const char* kind, const wchar_t* role, DWORD code) {
     std::fflush(stdout);
 }
 static std::wstring image() { wchar_t p[32768];DWORD n=GetModuleFileNameW(nullptr,p,32768);return std::wstring(p,n); }
-static PROCESS_INFORMATION spawn(const wchar_t* role,DWORD code,DWORD delay) {
-    std::wstring cmd=L"\""+image()+L"\" --child "+role+L" "+std::to_wstring(code)+L" "+std::to_wstring(delay);
+static PROCESS_INFORMATION spawn(const wchar_t* role,DWORD code,DWORD delay,const std::wstring& executable=L"") {
+    std::wstring cmd=L"\""+(executable.empty()?image():executable)+L"\" --child "+role+L" "+std::to_wstring(code)+L" "+std::to_wstring(delay);
     STARTUPINFOW si{};si.cb=sizeof(si);PROCESS_INFORMATION pi{};
     if(!CreateProcessW(nullptr,cmd.data(),nullptr,nullptr,FALSE,0,nullptr,nullptr,&si,&pi)){event("spawn_error",role,GetLastError());return {};}
     event("spawned",role,pi.dwProcessId);CloseHandle(pi.hThread);return pi;
@@ -41,7 +41,9 @@ int wmain(int argc,wchar_t** argv) {
             DWORD e=0;if(!service)e=GetLastError();else {if(!StartServiceW(service,0,nullptr))e=GetLastError();DeleteService(service);CloseServiceHandle(service);}CloseServiceHandle(scm);
             event("service_start_result",role,e);return e?73:74;
         }
-        Sleep(delay);event("exit",role,code);return static_cast<int>(code);
+        Sleep(delay);
+        if(std::wstring(role)==L"updater")code=join(spawn(L"relaunch",0,500));
+        event("exit",role,code);return static_cast<int>(code);
     }
     if(argc==2 && std::wstring(argv[1])==L"--self-test")return join(spawn(L"payload",0,1))==0?0:1;
     // Fixed source-owned case mailbox: fixture input, never a manager launch flag.
@@ -53,7 +55,7 @@ int wmain(int argc,wchar_t** argv) {
     if(test=="success"){if(!installed())return 122;return static_cast<int>(join(spawn(L"payload",0,200)));}
     if(test=="payload_failure"){join(spawn(L"payload",37,200));return 2;}
     if(test=="service_failure"){installed();join(spawn(L"service_dependency",0,100));return 2;}
-    if(test=="postlaunch_failure"){installed();join(spawn(L"postinstall_launch",41,200));return 2;}
+    if(test=="postlaunch_failure"){installed();join(spawn(L"postinstall_launch",41,200,L"C:\\Program Files\\IS1 Fixture\\application.exe"));return 2;}
     if(test=="outer_first"){auto p=spawn(L"payload",0,2000);if(p.hProcess)CloseHandle(p.hProcess);return 0;}
     if(test=="failure_while_alive"||test=="cancel_after_failure"){join(spawn(L"payload",39,200));event("holding",L"bootstrapper",0);Sleep(test=="cancel_after_failure"?180000:2000);return 2;}
     if(test=="short_lived"){join(spawn(L"payload",43,0));return 2;}
