@@ -6,7 +6,7 @@ Only scratch prefixes and exact generated cgroups are created. No GUI input.
 import argparse,hashlib,json,os,pathlib,shutil,subprocess,time
 CASES=('success','payload_failure','service_failure','postlaunch_failure','outer_first','failure_while_alive','short_lived','handoff','same_names','cancel_after_failure','noise','nothing_installed')
 def digest(p):return hashlib.sha256(p.read_bytes()).hexdigest()
-def run(runtime,payload,output,case,legacy=False):
+def run(runtime,payload,output,case,legacy=False,direct_msi=False):
     os.umask(0o077)
     assert shutil.disk_usage(output.parent).free>2*1024**3,'scratch free-space preflight'
     output.mkdir(mode=0o700,parents=True,exist_ok=False)
@@ -20,7 +20,7 @@ def run(runtime,payload,output,case,legacy=False):
     (root/'operation.lock').touch(mode=0o600)
     exe=output/'fixture.exe';shutil.copyfile(payload,exe);exe.chmod(0o400);exe.with_suffix('.exe.case').write_text(case+'\n')
     op=os.urandom(16).hex();report=output/'result.json';spec=output/'spec.json'
-    spec.write_text(json.dumps({'schema':2,'operation':op,'environment':{'id':op,'root':str(root),'revision':1,'runner':runner},'installer':{'path':str(exe),'sha256':digest(exe)},'format':'pe_executable','report':str(report)}))
+    spec.write_text(json.dumps({'schema':2,'operation':op,'environment':{'id':op,'root':str(root),'revision':1,'runner':runner},'installer':{'path':str(exe),'sha256':digest(exe)},'format':'msi_compound' if direct_msi else 'pe_executable','report':str(report)}))
     unit='linux-vst-bridge-installer-'+op+'.service';began=time.monotonic();cancel=False;early_failure=None
     subprocess.run(['systemd-run','--user','--collect','--property=UMask=0077','--property=KillMode=control-group','--property=TimeoutStopSec=20','--property=StandardOutput=null','--property=StandardError=null','--unit='+unit,'/usr/bin/python3',str(runtime/'session.py'),'--install',str(spec)],check=True)
     try:
@@ -57,7 +57,9 @@ def run(runtime,payload,output,case,legacy=False):
         'unit_inactive':subprocess.run(['systemctl','--user','is-active','--quiet',unit]).returncode!=0}
     (output/'proof-private.json').write_text(json.dumps(proof,indent=2))
     assert final['cleanup_confirmed'] and final['owned_live']==0 and not survivors
-    if not legacy:verify(case,proof,private)
+    if direct_msi:
+        assert final['raw_exit']==0 and final['transaction']['diagnostics']['msi']['retained_bytes']>0
+    elif not legacy:verify(case,proof,private)
     # Only this generated scratch prefix, after exact positive retirement.
     assert root.resolve()==root and json.loads(spec.read_text())['environment']['root']==str(root)
     shutil.rmtree(root);proof['scratch_prefix_removed']=True
@@ -84,5 +86,5 @@ def verify(case,proof,private):
     if case=='noise':assert tx['diagnostics']['accessibility_observer']['retained_bytes']>0
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--runtime',type=pathlib.Path,required=True);parser.add_argument('--payload',type=pathlib.Path,required=True);parser.add_argument('--output',type=pathlib.Path,required=True);parser.add_argument('--case',choices=CASES,required=True);parser.add_argument('--legacy-baseline',action='store_true');a=parser.parse_args()
-    run(a.runtime.resolve(),a.payload.resolve(),a.output.resolve(),a.case,a.legacy_baseline)
+    parser=argparse.ArgumentParser();parser.add_argument('--runtime',type=pathlib.Path,required=True);parser.add_argument('--payload',type=pathlib.Path,required=True);parser.add_argument('--output',type=pathlib.Path,required=True);parser.add_argument('--case',choices=CASES,required=True);parser.add_argument('--legacy-baseline',action='store_true');parser.add_argument('--direct-msi',action='store_true');a=parser.parse_args()
+    run(a.runtime.resolve(),a.payload.resolve(),a.output.resolve(),a.case,a.legacy_baseline,a.direct_msi)

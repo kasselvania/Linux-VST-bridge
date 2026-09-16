@@ -1239,18 +1239,18 @@ def installer_digest(path, maximum=64*1024*1024):
         if stamp(a)!=stamp(b):raise ValueError('installer image changed')
         return {'sha256':digest,'size':a.st_size,'device':a.st_dev,'inode':a.st_ino,'format':kind,'pe':pe}
 
-def installer_walk(root,incomplete,deadline,limit=8192):
+def installer_walk(root,incomplete,deadline,budget):
     # os.walk materializes an entire directory before a caller can enforce a
     # bound. Use a capped iterator instead; no filesystem-wide enumeration.
-    pending=[root];visited=0
+    pending=[root]
     while pending:
         directory=pending.pop();files=[]
         try:
             if directory.resolve()!=directory:incomplete.append('aliased_directory');continue
             with os.scandir(directory) as entries:
                 for entry in entries:
-                    visited+=1
-                    if visited>limit or time.monotonic()>deadline:
+                    budget[0]-=1
+                    if budget[0]<0 or time.monotonic()>deadline:
                         incomplete.append('file_count_or_time_bound');return
                     if entry.is_dir(follow_symlinks=False):pending.append(pathlib.Path(entry.path))
                     elif entry.is_file(follow_symlinks=False):files.append(entry.name)
@@ -1267,7 +1267,7 @@ class InstallerWitnesses:
     def __init__(self, root):self.prefix=pathlib.Path(root)/'compatdata/pfx'
     def snapshot(self):
         out={'files':{},'logs':{},'uninstall':{},'services':{},'incomplete':[]}
-        c=self.prefix/'drive_c';count=0;budget=256*1024*1024;deadline=time.monotonic()+5
+        c=self.prefix/'drive_c';count=0;budget=256*1024*1024;deadline=time.monotonic()+5;walk_budget=[8192]
         roots=[c/'Program Files',c/'Program Files (x86)',c/'ProgramData',c/'windows/temp']
         users=c/'users'
         if users.is_dir():
@@ -1275,7 +1275,7 @@ class InstallerWitnesses:
                 if not user.is_symlink():roots.append(user/'Temp');roots.append(user/'AppData/Local/Temp')
         for root in roots:
             if root.resolve()!=root:out['incomplete'].append('aliased_root');continue
-            for directory,dirs,files in installer_walk(root,out["incomplete"],deadline,max(0,8192-count)):
+            for directory,dirs,files in installer_walk(root,out["incomplete"],deadline,walk_budget):
                 dirs[:]=sorted(d for d in dirs if not (pathlib.Path(directory)/d).is_symlink())
                 count+=len(files)+1
                 if count>8192 or time.monotonic()>deadline:out['incomplete'].append('file_count_or_time_bound');break
@@ -1442,20 +1442,24 @@ class InstallerTransaction:
         self.path=report.parent/(op+'-transaction-private.json')
         self.witness=InstallerWitnesses(root);self.before=None;self.after=None;self.durable=None
         self.ledger=None;self.private_errors=0;self.accessibility=RecentCapture(32768,64)
-        self.ordinary=RecentCapture(262144,256);self.line_pending={};self.line_drops=0
+        self.ordinary=RecentCapture(262144,256);self.msi=RecentCapture(131072,64);self.line_pending={};self.line_drops=0
         self.image_budget=256*1024*1024;self.image_seen={};self.next_images=0;self.log_tail_bytes=0;self.log_drops=0;self.log_record_drops=0
         self.first_diagnostic=None
+    def begin_phase(self):
+        self.line_drops+=sum(bool(v[0]) or v[1] for v in self.line_pending.values())
+        self.line_pending={};self.windows_trace.begin()
     def persist(self,ledger):
         installer_atomic(self.path,{'schema':1,'operation':self.op,'ledger':ledger,'before':self.before,'after':self.after,
             'durable_installation':self.durable,'diagnostics':self.diagnostics(),'first_diagnostic':self.first_diagnostic,
             'windows_trace':self.windows_trace.value(),
             'stages':[{'process':{'pid':r['pid'],'start_ticks':r['start_ticks']},'classification':r['role'],'evidence':r['role_evidence'],'linux_exit':r['linux_exit'],'windows_exit':r['windows_exit']} for r in ledger['processes']]})
     def diagnostics(self):
-        return {'runner':self.ordinary.limits(),'accessibility_observer':self.accessibility.limits(),
+        return {'runner':self.ordinary.limits(),'accessibility_observer':self.accessibility.limits(),'msi':self.msi.limits(),
                 'line_drops':self.line_drops,'retained_private_log_bytes':self.log_tail_bytes,'dropped_private_log_bytes':self.log_drops,'dropped_private_log_records':self.log_record_drops,
                 'unfinished_line_bytes':sum(len(v[0]) for v in self.line_pending.values()),
                 'availability':'bounded_runner_pipes','windows_exit_attribution':'bounded_create_self_exit_trace_separate_from_linux_identity'}
     def feed(self,data,stream):
+        if stream=='msi':self.msi.write(data);return
         # Stream-local assembly and oversized-line discard. Diagnostic prose can
         # never confer process identity, role or exact exit authority.
         pending,discard=self.line_pending.get(stream,(b'',False));joined=pending+data;pending=b''
@@ -1490,8 +1494,9 @@ class InstallerTransaction:
                         md=os.fstat(f.fileno())
                         if stat.S_ISREG(md.st_mode) and md.st_size<=min(self.image_budget,16*1024*1024):
                             digest=hashlib.file_digest(f,'sha256').hexdigest();self.image_budget-=md.st_size
-                            after=self.ledger.checked(key[0])
-                            if before and after and before['start_ticks']==after['start_ticks']==key[1]:
+                            after=self.ledger.checked(key[0]);end=os.fstat(f.fileno())
+                            stable=(md.st_dev,md.st_ino,md.st_size,md.st_mtime_ns,md.st_ctime_ns)==(end.st_dev,end.st_ino,end.st_size,end.st_mtime_ns,end.st_ctime_ns)
+                            if stable and before and after and before['start_ticks']==after['start_ticks']==key[1]:
                                 row['linux_executable']={'sha256':digest,'size':md.st_size,'device':md.st_dev,'inode':md.st_ino,'authority':'kernel_exe_reference_exact_start'}
                 with (proc/'maps').open('rb') as f:raw=f.read(524289)
                 now=self.ledger.checked(key[0])
@@ -1532,6 +1537,13 @@ class InstallerTransaction:
                 fd=os.open(self.report.parent/(self.op+'-log-'+name),os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
                 with os.fdopen(fd,'wb') as out:out.write(data);out.flush();os.fsync(out.fileno())
             except (OSError,ValueError):self.private_errors+=1
+        if self.msi.bytes:
+            try:
+                with (self.report.parent/(self.op+'-msi-private.log')).open('xb') as f:
+                    os.chmod(f.name,0o600)
+                    for row in self.msi.rows:f.write(row)
+                    f.flush();os.fsync(f.fileno())
+            except OSError:self.private_errors+=1
         if self.ledger:self.ledger.commit()
     def summary(self,outer,clean,cancelled):
         ledger=self.ledger;failure=self.windows_trace.first_failure or (ledger.first_failure if ledger else None)
@@ -1577,14 +1589,17 @@ def managed_install(spec):
             data=os.read(key.fileobj if isinstance(key.fileobj,int) else key.fileobj.fileno(),65536)
             if data:
                 stream='msi' if key.fileobj==msi_fd else 'stdout' if child and key.fileobj is child.stdout else 'stderr'
-                diagnostics.write(data);transaction.feed(data,stream)
+                if stream!='msi':diagnostics.write(data)
+                transaction.feed(data,stream)
                 if transaction.windows_trace.first_failure and ledger:ledger.commit()
                 if stream!='msi':startup.feed(data,stream)
             else:sel.unregister(key.fileobj)
+    def outer_exit():
+        return child.returncode if child and getattr(child,"installer_phase",None)=="target_runner" else None
     def value(state,live):
-        return {'schema':2,'operation':op,'state':state,'raw_exit':child.returncode if child else None,
+        return {'schema':2,'operation':op,'state':state,'raw_exit':outer_exit(),
                 'owned_live':live,'cleanup_confirmed':clean,'error':error,'discarded_diagnostic_bytes':diagnostics.dropped_bytes,'retained_diagnostic_bytes':diagnostics.bytes,'private_diagnostics_written':private_report_written,
-                'startup':startup.value(),'transaction':transaction.summary(child.returncode if child else None,clean,stop),'focus_result':focus_result,'human_action':'installer_ui' if state in ('running','unknown') else None}
+                'startup':startup.value(),'transaction':transaction.summary(outer_exit(),clean,stop),'focus_result':focus_result,'human_action':'installer_ui' if state in ('running','unknown') else None}
     try:
         for a in [spec['installer'],*env['runner']['files']]:verify(a)
         scope=CompanionCgroup(installer_operation=op)
@@ -1605,10 +1620,12 @@ def managed_install(spec):
         launch_env['WINEDEBUG']='-all,+timestamp,+pid,+tid,err+steamclient,err+module,trace+process,trace+service,trace+msi'
         startup.bind_images(runner)
         def launch(args, phase):
-            startup.stage(phase+'_launch_requested');transaction.windows_trace.begin()
+            startup.stage(phase+'_launch_requested');transaction.begin_phase()
+            startup.line_drops+=sum(bool(v) for v in startup.pending.values())
+            startup.pending={};startup.discarding=set()
             process=subprocess.Popen(args,env=launch_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
             for pipe in (process.stdout,process.stderr):os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ)
-            ledger.launcher(process,phase);startup.stage(phase+'_started',pid=process.pid)
+            process.installer_phase=phase;ledger.launcher(process,phase);startup.stage(phase+'_started',pid=process.pid)
             return process
         # This public verb calls init_session(True), including setup_prefix, but
         # never Session.run/steam.exe. runinprefix alone skips setup_prefix.
@@ -1682,7 +1699,7 @@ def managed_install(spec):
                 private.flush();os.fsync(private.fileno())
             private_report_written=True
         except OSError:pass # Reporting must not prevent containment or its receipt.
-        startup.stage('cohort_retired' if clean else 'cleanup_unconfirmed',outer_exit=child.returncode if child else None)
+        startup.stage('cohort_retired' if clean else 'cleanup_unconfirmed',outer_exit=outer_exit())
         atomic(report,value(state,0 if clean else None));lock.close()
     return clean and error is None
 

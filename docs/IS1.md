@@ -97,3 +97,49 @@ immutable installation and idle readback. Existing environments, both historical
 attempts, the imported installer, Serum publication and ordinary products remain
 unchanged. No runner, UAC, accessibility, graphics or vendor workaround is selected
 without evidence. No host-root or operator-HOME expansion is authorized.
+
+## Windows observations versus Linux exit custody
+
+The pinned fixture demonstrated that Wine reaps many Windows children itself;
+Linux subreaper collection cannot recover those already-consumed wait statuses.
+IS1 therefore also parses bounded Wine `CreateProcessInternalW` observations and
+final `NtTerminateProcess` self-pseudo-handle observations. Creation ordinal plus
+runner-launch epoch separates Windows PID reuse. Creator thread and successful
+creation rows establish a diagnostic process chain rooted in the exact imported
+launch request. Arguments and environment values never enter that structured
+chain. A Windows numeric PID is never joined to a Linux PID by equality.
+
+These rows are diagnostic attribution, not cgroup ownership or signal authority.
+Unmatched creation, nesting, missing identity and truncated observations remain
+unavailable. A final self-exit observation is not an exception stack. A launch
+request's image digest is labelled separately from an observed mapped-file digest.
+
+Exact service API observations on a created process can establish that it performed
+service/dependency work. A service-server return without exact RPC identity stays
+separate; it does not silently acquire a client/child association. Other roles
+remain unknown unless evidenced. No product-name rule selects a role.
+
+The first nonzero child observation remains available even after outer exit,
+cancellation and cleanup. An unknown numeric child status is not automatically
+an MSI error or fatal cause. In particular, an outer-success transaction retains
+its child observations without being converted into an overall failure by a
+possibly informational/reboot-required value. Dependency health and application
+first launch remain independently unproved.
+
+## Generated execution and scope
+
+`tools/is1/bootstrapper.cpp` is an account-free Windows fixture. It covers
+prerequisite/payload results, actual service-create/start failure, installed-image
+launch failure, outer-first retirement, a failure while the parent remains alive,
+a zero-delay child, updater/relaunch, repeated images, cancellation preserving an
+earlier child exit, accessibility-like noise and durable/no-install side effects.
+The same cancellation case also proves cleanup does not erase prior failure.
+`direct_msi.cpp` constructs an empty source-owned MSI with the official Windows
+Installer API for the private verbose-log path.
+
+`tools/is1/fixture.py` uses the actual `--install` production supervisor, current
+pinned runner and dedicated installer cgroup. It refuses an occupied managed
+capacity boundary. Generated scratch prefixes are removed only after positive
+retirement and identity checks; proof records remain private. Test oracle markers
+do not feed production role classification. No commercial installer, plug-in,
+credential, operator input or installed-software mutation belongs to this harness.

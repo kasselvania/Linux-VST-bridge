@@ -212,10 +212,10 @@ pub fn prepare_attempt(m: &Manager, previous: &str, runner: &str) -> Result<Prep
     ];
     let v = result(m, &r)?;
     require(
-        retired(&v) && matches!(v["state"].as_str(), Some("failed" | "cancelled"))
-            && v["transaction"]["durable_installation"] != "installed",
+        retired(&v) && matches!(v["state"].as_str(), Some("failed" | "cancelled")),
         "previous_attempt_not_failed_and_retired",
     )?;
+    require(v["transaction"]["durable_installation"] != "installed", "installed_attempt_requires_first_launch_review")?;
     require(
         !records(m)?
             .iter()
@@ -679,7 +679,7 @@ mod tests {
         let path=directory(&f.m,id).unwrap().join(format!("{op}-result.json"));
         atomic_json(&path,&json!({"schema":2,"operation":op,"state":"failed","cleanup_confirmed":true,"owned_live":0,"transaction":{"schema":1,"operation":op,"outcome":"installed_dependency_failed","durable_installation":"installed"}})).unwrap();
         let before=fs::read(&path).unwrap();
-        assert!(prepare_attempt(&f.m,id,&runner_key(&r.environment.runner).unwrap()).err().unwrap().to_string().contains("previous_attempt_not_failed_and_retired"));
+        assert!(prepare_attempt(&f.m,id,&runner_key(&r.environment.runner).unwrap()).err().unwrap().to_string().contains("installed_attempt_requires_first_launch_review"));
         assert_eq!(fs::read(&path).unwrap(),before);assert_eq!(records(&f.m).unwrap().len(),1);
     }
     fn fixture() -> (test_fixture::Fixture, installer_import::Installer) {

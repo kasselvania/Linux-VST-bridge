@@ -275,7 +275,8 @@ class InstallerLedger:
         row=self.records.get(key)
         if row is None:
             if len(self.records)>=self.LIMIT:self.dropped+=1;return None
-            parent=self.checked(observed['ppid'])
+            parent=self.checked(observed['ppid']);child_after=self.checked(key[0])
+            if not child_after or child_after['start_ticks']!=key[1] or parent and child_after['ppid']!=parent['pid']:parent=None
             row={'pid':key[0],'start_ticks':key[1],'parent':None if parent is None else {'pid':parent['pid'],'start_ticks':parent['start_ticks']},
                  'first_ns':now,'last_ns':now,'cgroup':observed['cgroup'],'state':observed['state'],
                  'relationship':'direct_launcher' if observed['pid'] in self.launchers else 'descendant','phase':phase,'role':'unknown','role_evidence':None,
