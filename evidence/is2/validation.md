@@ -41,8 +41,7 @@ Early development direct/bound comparisons remain separately identified. The
 current-source 32-bit sentinel comparison supplies the final before/after root and
 script-execution result. No old development binary is presented as a final build.
 
-The current-source final direct comparison itself returned a cleanup-confirmed
-receipt. A repeated all-state readback after that comparison encountered a renewed
-Tailscale SSH check. No new launch is needed; final readback will be updated after
-that authentication completes. The preceding complete 25-run preservation
-readback and the final comparison's own cleanup receipt are separately retained.
+The renewed Tailscale check completed. Final readback after all 26 generated
+sessions verified their exact retirement, removed scratch prefixes, unchanged
+installed artifacts/products/publications and retained files. The final X11
+button/modifier mask was zero; no input was sent.

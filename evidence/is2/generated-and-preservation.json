@@ -1862,6 +1862,93 @@
       "duration_seconds": 7.556484390050173
     },
     {
+      "case": "powershell",
+      "run_label": "powershell-sentinel-direct",
+      "private_proof_sha256": "fdea3d3f68367818510bcfd344c65771db66a88e9ca76f2d8219bed40bd16e8f",
+      "private_transaction_sha256": "cada9ca2c86474a7bc08eee2d928d4a481ab0cae32e712d0b574fabae178008e",
+      "source": {
+        "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "adapter_sha256": null,
+      "payload_sha256": "fa21ba286b3535767df90ed827b4adfdd3621ebfc926ab793499ede6b9e1a215",
+      "outer_exit": 0,
+      "supervision_state": "completed",
+      "binding_status": "legacy_direct_no_adapter",
+      "windows_root_count": 0,
+      "windows_tree_count": 0,
+      "presence_close": {
+        "schema": 1,
+        "observation_count": 4,
+        "dropped_observations": 0,
+        "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+        "operation_classes": [
+          "unknown",
+          "capability_query",
+          "presence_query",
+          "close_request"
+        ]
+      },
+      "fixture_oracle": {
+        "schema": 1,
+        "case": "powershell",
+        "authority": "source_owned_fixture_only",
+        "script_exit_statuses": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "sentinel_created": false,
+        "requested_first_exit": 37
+      },
+      "cancel_requested": false,
+      "cleanup_confirmed": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true,
+      "powershell_images": {
+        "system32": {
+          "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+          "size": 59911
+        },
+        "syswow64": {
+          "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+          "size": 53457
+        }
+      },
+      "diagnostics": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 28661,
+          "dropped_bytes": 168484,
+          "dropped_records": 1682
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "duration_seconds": 8.415119229990523
+    },
+    {
       "case": "wrapper1",
       "run_label": "wrapper1",
       "private_proof_sha256": "909c13b180b4809961196a3cc48c0fea1cb1d552069bdb08c87b026bf3cd7c24",
@@ -2089,54 +2176,6 @@
   "commercial_attempts": 0,
   "implementation_source": "294350b9941e86cad3fdb29db6ddb3683acfb728",
   "base": "a0fde40e4c2a0536aa9b3271c3b945a94aa60d9b",
-  "pointer_readback": {
-    "x11_button_modifier_mask": 0,
-    "input_sent": false,
-    "display_connection_closed": true
-  },
-  "root_differential": [
-    {
-      "run": "first-direct",
-      "trace_rows": 15,
-      "exact_image_rows": 0,
-      "root_rows": 0,
-      "functions_mentioning_source_payload": {},
-      "private_log_sha256": "f0b9369f2c4f9e365f817ac972341cfb0fa290bc0bc2465124bea79f128f604f"
-    },
-    {
-      "run": "first-bound",
-      "trace_rows": 17,
-      "exact_image_rows": 1,
-      "root_rows": 1,
-      "functions_mentioning_source_payload": {
-        "process.CreateProcessInternalW": 1,
-        "process.NtCreateUserProcess": 2
-      },
-      "private_log_sha256": "1bdc380d8be21bc836218d3a830762a2caaba8cc759641fe79eb4d753e8adc2a"
-    },
-    {
-      "run": "contract-direct",
-      "trace_rows": 12,
-      "exact_image_rows": 1,
-      "root_rows": 1,
-      "functions_mentioning_source_payload": {
-        "process.CreateProcessInternalW": 1,
-        "process.NtCreateUserProcess": 2
-      },
-      "private_log_sha256": "6019494849b433bdccc7bbd9876afa6891d288f90a67183b84055fa4fc44ea2f"
-    },
-    {
-      "run": "contract-bound",
-      "trace_rows": 13,
-      "exact_image_rows": 1,
-      "root_rows": 1,
-      "functions_mentioning_source_payload": {
-        "process.CreateProcessInternalW": 1,
-        "process.NtCreateUserProcess": 2
-      },
-      "private_log_sha256": "b8a96645cf23a0a2261207772d398d84fd4859e662cf6fdb37a6985490a7ea60"
-    }
-  ],
   "build": {
     "compiler": "Zig 0.14.1",
     "recipe": "zig c++ -target <x86_64|x86>-windows-gnu -std=c++20 -O2 -municode tools/is2/<launch|fixture>.cpp -luser32 -ladvapi32 [launch: -lbcrypt]",
@@ -2149,6 +2188,11 @@
       "correction": "See validation.md: administrator fixture was built from the earlier 84950a5 source and its contract body is unchanged; no claim of current-tree binary identity.",
       "source_commit": "84950a5c478a427381d1e6c5a66203f722a03fa5",
       "fixture_source_sha256": "88fd60ce3d005860b0c46a305fd9ca4a53e9fe0274332c1980b195aaeaec9e59"
+    },
+    "fixture_generations": {
+      "final_corrected_source_sha256": "72c4f41ff6456a4ea6db63eaeecb56bf5544871b0f55670cc11fe93b77124b45",
+      "earlier_matrix_source_sha256": "ee49a69b9e1e922d51ec75088f56b06331b58d0a8d704ece1c37e5fef97f70da",
+      "early_first_direct_bound_source_digest": "not_retained_as_final_source_proof; final current-source differential recorded separately"
     }
   },
   "validation": {
@@ -2175,37 +2219,53 @@
     "Historical commercial matched object, actual close and recheck results remain unavailable.",
     "No vendor workaround, replacement PowerShell, installation or commercial confirmation occurred."
   ],
-  "current_source_direct_summary": {
-    "case": "powershell",
-    "outer": 0,
-    "windows_roots": 0,
-    "presence_classes": {
-      "schema": 1,
-      "observation_count": 4,
-      "dropped_observations": 0,
-      "actual_match_or_close_result": "unavailable_without_exact_object_observation",
-      "operation_classes": [
-        "unknown",
-        "capability_query",
-        "presence_query",
-        "close_request"
-      ]
-    },
-    "cleanup": true,
-    "oracle": {
-      "schema": 1,
-      "case": "powershell",
-      "authority": "source_owned_fixture_only",
-      "script_exit_statuses": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "sentinel_created": false,
-      "requested_first_exit": 37
-    },
-    "local_receipt_sha256": "09a02709022b9ccf5446182a8fa8731328da3073bb6ac850181d083bd14db292"
+  "pointer_readback": {
+    "x11_button_modifier_mask": 0,
+    "input_sent": false,
+    "display_connection_closed": true
   },
-  "final_readback_status": "25-run full preservation readback passed; last source-owned direct comparison reports positive cleanup; renewed SSH authorization pending for final 26-run readback"
+  "root_differential": [
+    {
+      "run": "powershell-sentinel-direct",
+      "trace_rows": 15,
+      "exact_image_rows": 0,
+      "root_rows": 0,
+      "functions_mentioning_source_payload": {},
+      "private_log_sha256": "1c319157efb07cf433ee02e0a4c8d53d0f122bd5bd2bd376f39522e9b6de139c"
+    },
+    {
+      "run": "powershell-sentinel",
+      "trace_rows": 17,
+      "exact_image_rows": 1,
+      "root_rows": 1,
+      "functions_mentioning_source_payload": {
+        "process.CreateProcessInternalW": 1,
+        "process.NtCreateUserProcess": 2
+      },
+      "private_log_sha256": "c338e0bbd015edfb1baeaf44ad01c519175782e7e729b3fa4401b96463947108"
+    },
+    {
+      "run": "contract-direct",
+      "trace_rows": 12,
+      "exact_image_rows": 1,
+      "root_rows": 1,
+      "functions_mentioning_source_payload": {
+        "process.CreateProcessInternalW": 1,
+        "process.NtCreateUserProcess": 2
+      },
+      "private_log_sha256": "6019494849b433bdccc7bbd9876afa6891d288f90a67183b84055fa4fc44ea2f"
+    },
+    {
+      "run": "contract-bound",
+      "trace_rows": 13,
+      "exact_image_rows": 1,
+      "root_rows": 1,
+      "functions_mentioning_source_payload": {
+        "process.CreateProcessInternalW": 1,
+        "process.NtCreateUserProcess": 2
+      },
+      "private_log_sha256": "b8a96645cf23a0a2261207772d398d84fd4859e662cf6fdb37a6985490a7ea60"
+    }
+  ],
+  "final_readback_status": "passed_after_all_26_generated_sessions"
 }
