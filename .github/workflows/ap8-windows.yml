@@ -96,6 +96,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git rev-parse HEAD | Out-File -Encoding ascii "${{ runner.temp }}/ap8-build/wf0/bin/Release/SOURCE_COMMIT.txt"
           Get-FileHash "${{ runner.temp }}/ap8-build/wf0/bin/Release/*.exe" -Algorithm SHA256 | Format-List | Out-File -Encoding ascii "${{ runner.temp }}/ap8-build/wf0/bin/Release/SHA256.txt"
+      - name: Build and self-test exact x86 IS3 consumer
+        shell: cmd
+        run: |
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x86 -host_arch=x64 -winsdk=10.0.19041.0
+          if errorlevel 1 exit /b %errorlevel%
+          cl /nologo /std:c++20 /O2 /W4 /EHsc /Brepro /DUNICODE /D_UNICODE tools\is3\capability.cpp /Fe:"${{ runner.temp }}/ap8-build/wf0/bin/Release/is3-capability-x86.exe" /Fo:"${{ runner.temp }}/is3-capability-x86.obj" /link bcrypt.lib /INCREMENTAL:NO
+          if errorlevel 1 exit /b %errorlevel%
+          "${{ runner.temp }}/ap8-build/wf0/bin/Release/is3-capability-x86.exe" --self-test
+          if errorlevel 1 exit /b %errorlevel%
       - name: Test socket idle and disconnect behavior
         shell: cmd
         run: |

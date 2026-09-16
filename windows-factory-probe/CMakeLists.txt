@@ -212,6 +212,7 @@ set_target_properties(is2-admin-fixture PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${C
 
 # IS3 source-owned scripting capability consumer; installer diagnostics only.
 add_executable(is3-capability ../tools/is3/capability.cpp)
+target_link_libraries(is3-capability PRIVATE bcrypt)
 target_compile_definitions(is3-capability PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(is3-capability PRIVATE /W4 /permissive- /EHsc /Brepro)
 target_link_options(is3-capability PRIVATE /Brepro /INCREMENTAL:NO)

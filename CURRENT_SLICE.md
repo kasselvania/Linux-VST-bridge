@@ -33,3 +33,16 @@ Use exact operation/root binding, bounded records and positive cgroup cleanup.
 Run source-owned parser/negative tests before the pinned fixture, AP8 for Windows
 source inputs, AP12 and PX2. Keep the new implementation PR draft and unmerged.
 Do not label source-owned fallback selection as proof of vendor fallback behavior.
+
+## Continued checkpoint: Windows delivery and Unix loader authority
+
+Preserve checkpoint `e173c998321d19c3f966ac9ca49ed21faf718a2b` and all prior
+receipts. Canonicalize and verify the Windows child environment separately from
+loader authority. Compare three new independent source-owned sessions: baseline,
+fixed Unix target-runner override after prefix initialization, restored baseline.
+The only runtime seam is a keyword-only development fixture invocation; normal
+installer specs, CLI and operator actions cannot select it. It binds the staged
+source-owned payload digest and exact operation. No replacement software install.
+If this operation-scoped route is ineffective, a separate disposable-prefix
+registry comparison is permitted. Do not install a genuine interpreter before
+honest absence is established. Add x86 and x64 CI self-tests and keep PR #114 draft.

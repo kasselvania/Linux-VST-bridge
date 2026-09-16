@@ -60,3 +60,62 @@ unavailability on this launch route, and select a supported, bounded mechanism
 before comparing a genuine dependency. Never turn a dummy helper, returned zero,
 or invented result into scripting capability. No Native Access confirmation is
 authorized by this source-owned result.
+
+## Windows delivery and Unix target-launch comparison
+
+The continuation verifies canonical Windows environment blocks: one
+case-insensitive override key, ordinal case-insensitive sorting, exact double NUL,
+and preserved drive-current-directory entries. Malformed, duplicate and unsorted
+blocks refuse in the Windows self-test. A source-owned child returns only presence,
+UTF-16 length, SHA-256 of the UTF-16LE value, and duplicate count. Parent expected
+and child observed hashes match; normal inherited values return in the restored
+child. No inherited environment text is published. This proves delivery only.
+
+The three new independent sessions use identical x86 payload bytes and the same
+pinned runner, with fresh prefixes and dedicated production installer cgroups:
+
+| Target-runner Unix environment | PowerShell result | Source-owned fallback |
+| --- | --- | --- |
+| Baseline | Launched, exit 0, sentinel absent | Not selected |
+| Fixed `powershell.exe=` after prefix initialization | CreateProcessW refused, Win32 last-error 126; no helper exit or sentinel | Launched, exit 43 |
+| Restored baseline in another fresh prefix | Launched, exit 0, sentinel absent | Not selected |
+
+Each session retains the earlier three Windows-child modes. The Unix setting
+makes all nine script/helper calls refuse; its three fallback calls each exit 43.
+The middle session retains Wine's `get_load_order_value` diagnostic reporting an
+empty environment load order for `powershell.exe`. Baseline/restored diagnostics
+retain builtin loads. Combined with exact launch refusal and fallback receipts,
+this establishes **operation-scoped honest absence** on this source-owned route.
+The Windows-only injected block remains ineffective in the two baseline sessions.
+No inference from the requested mode label is used as loader authority.
+
+The supervisor seam is keyword-only and source-owned. Normal `--install` specs,
+manager requests and frontend actions cannot enable it. The staged driver verifies
+its payload/source manifest and binds the operation and artifact; the production
+owner independently verifies those identities. It applies the single fixed Unix
+setting immediately before target launch, after successful prefix initialization.
+The installer adapter/root-token and existing cgroup cleanup remain unchanged.
+The changed supervisor is staged diagnostic source, **not installed software**.
+
+The first continuation baseline had an incomplete oracle because module tracing
+filled the rotating diagnostic tail. It was refused and cleaned up. A separate
+18-record/256-byte-per-record oracle sink preserves complete source-owned rows;
+a separate 64-record bounded loader sink retains private diagnostics. The successful
+baseline and restored observations dropped 170 supplemental loader rows each;
+the override observation dropped none. All 18 oracle rows were retained in each
+complete session. The earlier failed observation is retained, not overwritten.
+
+`evidence/is3/loader-authority.json` records all exact source, payload, installed
+artifact, private-record hashes and scalar receipts. The optional registry route
+was not needed. No genuine interpreter was installed or tested: honest absence is
+sufficient for the declared source-owned fallback contract. Whether it is sufficient
+for Native Access is **not established**; its actual fallback and any remaining
+scripting requirement need separate review/authorization. No commercial retry,
+installed policy, runner replacement, product or publication mutation occurred.
+
+Final readback retained all 307 checked files, five protected projects and existing
+publications. Service active, two keepers healthy, zero DSP/maintenance leases,
+transactions and stale transports, capture off. All four development sessions
+(including the incomplete observation) retired with zero survivors and their
+scratch prefixes removed. AP8 builds and self-tests both x86 and x64; the real
+pinned comparison is x86. AP10 is out of scope.

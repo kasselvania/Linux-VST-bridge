@@ -1675,7 +1675,54 @@ class InstallerTransaction:
             'presence_close':{'schema':1,'observation_count':len(self.windows_trace.presence.rows),'dropped_observations':self.windows_trace.presence.dropped,'actual_match_or_close_result':'unavailable_without_exact_object_observation','operation_classes':[v['operation_class'] for v in self.windows_trace.presence.rows]},
             'safe_next_action':'exact_owned_focus_or_stop' if ongoing else 'review_retained_outcome_before_retry' if outcome!='installed' or failure else 'managed_first_launch_required_not_authorized_by_installation'}
 
-def managed_install(spec):
+class IS3FixtureCapture:
+    """Small private oracle sink independent of the rotating diagnostic tail."""
+    def __init__(self):self.pending={};self.discard=set();self.rows=[];self.loader=[];self.dropped=0
+    def feed(self,data,stream):
+        joined=self.pending.pop(stream,b'')+data
+        for part in joined.splitlines(keepends=True):
+            complete=part.endswith((b'\n',b'\r'))
+            if stream in self.discard:
+                if complete:self.discard.remove(stream)
+                continue
+            if len(part)>4096:
+                self.dropped+=1
+                if not complete:self.discard.add(stream)
+                continue
+            if not complete:self.pending[stream]=part;continue
+            row=part.rstrip(b'\r\n')
+            if stream=='stdout' and row.startswith((b'IS3_CAP_V1 ',b'IS3_ENV_V1 ')):
+                if len(row)>256 or len(self.rows)>=18:self.dropped+=1
+                else:self.rows.append(row.decode('ascii',errors='replace'))
+            elif stream=='stderr' and b'powershell.exe' in row.lower() and (b':module:' in row or b':loaddll:' in row):
+                if len(self.loader)>=64:self.dropped+=1
+                else:self.loader.append(row.decode('utf-8',errors='replace'))
+    def value(self):return {'schema':1,'oracle_rows':self.rows,'loader_rows_private':self.loader,'dropped_records':self.dropped,'unfinished_bytes':sum(map(len,self.pending.values()))}
+
+
+def is3_target_environment(spec, fixture, inherited):
+    """Development-only callable seam; no installer spec/CLI/operator authority.
+
+    The source-owned driver supplies an exact operation and independently staged
+    fixture artifact. Only one fixed setting, after bootstrap, is permitted.
+    """
+    if fixture is None:return inherited, None
+    if set(fixture)!={'schema','mode','operation','artifact'} or fixture['schema']!=1 or fixture['mode'] not in ('baseline','unix_override','restored'):
+        raise RuntimeError('IS3 closed fixture mode')
+    if fixture['operation']!=spec['operation'] or fixture['artifact']!=spec['installer'] or spec['format']!='pe_executable':raise RuntimeError('IS3 fixture identity')
+    verify(fixture['artifact'])
+    changed=dict(inherited)
+    if fixture['mode']=='unix_override':changed['WINEDLLOVERRIDES']='powershell.exe='
+    changed['WINEDEBUG']+=',trace+loaddll,trace+module'
+    value=changed.get('WINEDLLOVERRIDES')
+    return changed, {'schema':1,'operation':spec['operation'],'fixture_sha256':fixture['artifact']['sha256'],
+        'mode':fixture['mode'],'phase':'target_runner_after_prefix_initialization','monotonic_ns':time.monotonic_ns(),
+        'present':value is not None,'value_bytes':len(value.encode()) if value is not None else 0,
+        'sha256_utf8':hashlib.sha256((value or '').encode()).hexdigest(),'setting':'powershell.exe=' if fixture['mode']=='unix_override' else 'inherited',
+        'authority':'supervisor_Popen_environment','loader_result':'unavailable_without_behavior_or_loader_observation'}
+
+
+def managed_install(spec, *, source_owned_is3=None):
     """MF2 initial installer, exact dedicated unit. No product admission authority."""
     op=spec['operation'];env=spec['environment'];root=pathlib.Path(env['root']);report=pathlib.Path(spec['report'])
     if not re.fullmatch('[0-9a-f]{32}',op):raise RuntimeError('installer operation identity')
@@ -1683,6 +1730,7 @@ def managed_install(spec):
     scope=None;child=None;stop=False;clean=False;error=None;focus_result=None;diagnostics=RecentCapture(131072,64);private_report_written=False
     sel=selectors.DefaultSelector();start=time.monotonic();startup=InstallerStartup(op,spec['installer'],root)
     transaction=InstallerTransaction(op,root,report,spec['installer']);ledger=None;msi_fd=None;msi_fifo=None;launch_request=None
+    is3_capture=IS3FixtureCapture() if source_owned_is3 is not None else None
     def stopping(*_):
         nonlocal stop
         stop=True;startup.cancellation()
@@ -1699,6 +1747,7 @@ def managed_install(spec):
                 stream='msi' if key.fileobj==msi_fd else 'stdout' if child and key.fileobj is child.stdout else 'stderr'
                 if stream!='msi':diagnostics.write(data)
                 transaction.feed(data,stream)
+                if is3_capture is not None:is3_capture.feed(data,stream)
                 if transaction.windows_trace.first_failure and ledger:ledger.commit()
                 if stream!='msi':startup.feed(data,stream)
             else:sel.unregister(key.fileobj)
@@ -1764,6 +1813,8 @@ def managed_install(spec):
         if not (root/'compatdata/pfx/system.reg').is_file():raise RuntimeError('prefix initialization missing')
         # Baseline after runner initialization excludes default prefix construction.
         transaction.before=transaction.witness.snapshot();ledger.commit()
+        launch_env,is3_receipt=is3_target_environment(spec,source_owned_is3,launch_env)
+        if is3_receipt is not None:atomic(report.parent/(op+'-is3-unix.private.json'),is3_receipt)
         child=launch(argv,'target_runner')
         last=0
         while not stop:
@@ -1819,6 +1870,7 @@ def managed_install(spec):
                 private.flush();os.fsync(private.fileno())
             private_report_written=True
         except OSError:pass # Reporting must not prevent containment or its receipt.
+        if is3_capture is not None:atomic(report.parent/(op+'-is3-observation.private.json'),is3_capture.value())
         startup.stage('cohort_retired' if clean else 'cleanup_unconfirmed',outer_exit=outer_exit())
         atomic(report,value(state,0 if clean else None));lock.close()
     return clean and error is None

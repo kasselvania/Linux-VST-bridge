@@ -1,0 +1,52 @@
+{
+  "system": {
+    "service": "active",
+    "keepers": 2,
+    "dsp": 0,
+    "maintenance": 0,
+    "ceiling": 6,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "installed_software_unchanged": true,
+  "retained_files_unchanged": 307,
+  "projects_unchanged": 5,
+  "products_unchanged": true,
+  "publications_unchanged": true,
+  "sessions": [
+    {
+      "operation": "2dd1e6c25719a8a9150300f592958310",
+      "cleanup_confirmed": true,
+      "unit_retired": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true
+    },
+    {
+      "operation": "4cd6e6a608d0c5e2f57b8923a10755c4",
+      "cleanup_confirmed": true,
+      "unit_retired": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true
+    },
+    {
+      "operation": "dcaa392b011fcd17befb9e845fa4de70",
+      "cleanup_confirmed": true,
+      "unit_retired": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true
+    },
+    {
+      "operation": "5a0bbe006f324a6d9ef2e1e47c25db04",
+      "cleanup_confirmed": true,
+      "unit_retired": true,
+      "owned_survivors": 0,
+      "scratch_prefix_removed": true
+    }
+  ],
+  "commercial_attempts": "no new attempt; retained records verified in baseline manifest"
+}
