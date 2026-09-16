@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "basis_head": "00053ad877e69356355dc48281dc4cf397775a5c",
+  "authorization": "Operator requested candidate B enabled so they can launch Bitwig and test.",
+  "candidate": "f6af02eba109d3632b2ecc786f2c9006ec6bc1d433772001d24d2969fb944b44",
+  "receipt": {
+    "lock_waits": [
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 44,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "operator-canonical.lock",
+        "operation": "428d805dbb1237fe139f2825ca73887c",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "action_serialization",
+        "timeout_ms": 10000
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 73,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "registry.lock",
+        "operation": "428d805dbb1237fe139f2825ca73887c",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "operator_validation_readback",
+        "timeout_ms": 9879
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 29,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "registry.lock",
+        "operation": "428d805dbb1237fe139f2825ca73887c",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "operator_validation_readback",
+        "timeout_ms": 10000
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 52,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "operator-canonical.lock",
+        "operation": "428d805dbb1237fe139f2825ca73887c",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "action_serialization",
+        "timeout_ms": 10000
+      }
+    ],
+    "operation": "428d805dbb1237fe139f2825ca73887c",
+    "result": {
+      "candidate": "f6af02eba109d3632b2ecc786f2c9006ec6bc1d433772001d24d2969fb944b44",
+      "experimental": true,
+      "ordinary": false,
+      "publication": {
+        "id": "6105dee8ac8aa27855fc611abb794e7c",
+        "sha256": "2d8ff9572fd837d7b3ebe98c585c92c00c918ad839130c6c0efe231b272e2024"
+      }
+    },
+    "schema": 1,
+    "state": "completed"
+  },
+  "publication": {
+    "id": "6105dee8ac8aa27855fc611abb794e7c",
+    "qualification": "managed_experimental",
+    "profile_fingerprint": "7df09afcf4e60d4f8d5fc2921673b484e619b2e18943be82b3c64dd7543b131e",
+    "native_sha256": "afd9bdac62b0f63a0e2353f97aa11048945823c35cc2abbea936ee6d255bfd77",
+    "host_sha256": "348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be",
+    "performance": {
+      "schema": 1,
+      "added_frames": 512
+    }
+  },
+  "physical_link_verified": true,
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "capture_available": false,
+  "capture_reason": "CA1 arm requires ordinary installed profile; generic experimental candidate is unsupported by current arm owner. No bypass used.",
+  "terminal_failure_and_cleanup_records": "Existing IF1/IF2 reporting remains enabled; not a claim of CA1 exception/stack capture.",
+  "system_before_handoff": {
+    "service": "active",
+    "keepers": 2,
+    "dsp": 0,
+    "maintenance": 0,
+    "ceiling": 6,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "sibling_products_unchanged": true,
+  "projects_unchanged": 5,
+  "product_test_result": "awaiting human session",
+  "agent_started_Bitwig": false,
+  "agent_input": false,
+  "resting_state": "Candidate B intentionally experimentally published for authorized human handoff; candidate A remains retained and inactive."
+}

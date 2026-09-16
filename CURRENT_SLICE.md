@@ -1,97 +1,97 @@
-# MF3 — Managed plug-in preparation and qualification
+# LC2 — Processing restart lifecycle repair
 
-Selected by the operator. This implementation is stacked on unmerged SV1 PR #107
-at `d4b863837814b6e5f889952226dadb28798caae2` (tree
-`db25a2e7b0475513d94cc28cdbe87ffa4a896086`), after accepted MF2 merge
-`3aa26d11f401abfabf86b0b574d4cc7f8436810a`. Work only in the separate MF3
-worktree/branch. Do not merge, reset or modify the SV1 checkout.
+Selected by the operator after MF3 installation/readback. Base merged main:
+`be9a7e9bd017a4d2739910f5fcbf71df7b10a8ec`, tree
+`b6664b8f0972861309d62e7f59e99e35061a45c3`. Separate branch/worktree; PR #110's
+installed manager history/readback corrections remain under review and must not
+be overwritten by an older manager installation.
 
 ## Outcome
 
-Expose exact audio-class selection, preliminary inspection, immutable native
-candidate preparation, deliberate experimental publication/removal, attributed
-test results, explicit exact-configuration review and ordinary publication in
-the native manager. Reuse existing inspector, descriptor/build, publication,
-rollback, service admission and operation-recovery owners. A generated generic
-selection must use the same path without adding a product-specific route.
+Identify and repair the exact bridge lifecycle boundary behind the retained SV1
+processing-restart correlation failure. Prove the repair through the real native
+queued worker and Windows processing owner with source-owned fixtures. Preserve
+all protocol identity, ordered lifecycle, thread ownership, terminal containment
+and cleanup laws. Changed product bytes belong to a new immutable candidate B;
+failed candidate A and its original evidence remain untouched.
 
-Discovery, inspection, preparation, publication, qualification and live ownership
-remain separate. A prepared or experimentally published candidate is not supported.
-No arbitrary command, path, PID, compatibility manifest or guessed controller pair
-is admitted from the frontend. Hashing/build work stays outside registry locks.
+## Basis and fixture
 
-## Current fixture and concurrency
+`docs/SV1.md` First operator session and resting state; `docs/AP18.md` LC1;
+`evidence/sv1/first-operator-session.json`; current MappedSession, processing owner,
+native Session/queued worker and exact lifecycle fixtures. Serum 2 instrument
+2.1.5, class `56534558667350736572756D20320000`, exact accepted module
+`501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283`,
+managed environment `4db060b14388e41103834fc4dfdd023a`. Retained evidence establishes
+16,508 blocks followed by clean Stop/Deactivate and failure on restart, but does
+not identify the differing correlation field or prove a vendor exception.
 
-Read-only entry observation: Serum's one session has already failed and retired;
-the candidate is retained but unpublished. Service and two keepers are healthy,
-all DSP/maintenance/transaction/stale counts zero, capture off. This observation
-is not permission to overwrite concurrent changes. Adopt exact current SV1
-records/artifacts without reinstall, scan, rebuild, publication replay or retest.
-Keep Serum FX inventory visible and installation history readable.
+## Scope and proof
 
-## Scope and verification
+Relevant Windows/native lifecycle owner and source-owned paired regressions,
+bounded mismatch diagnostics, exact build/candidate custody and review evidence.
+First inspect source and retained facts; reproduce before selecting a repair.
+Prove stop/start, deactivate/configure/reactivate, activation-only intervals,
+sequence/epoch continuity, state-control interleaving, malformed identity refusal,
+and positive cleanup as relevant to the discovered boundary. Run affected native,
+Windows, manager/runtime tests, strict Clippy, AP8/AP10/AP12/PX2 as their inputs
+require. Keep control-plane work out of audio callbacks.
 
-Manager operator model/dispatch, generic preparation custody, bounded build recipe,
-frontend and relevant inspector metadata are in scope. No processing/preset/crash
-compatibility repair, audio callback change or automatic supported-product claim.
-Prove exact selection and reuse; stale/duplicate/interrupted work; experimental
-versus ordinary authority; rollback/history/sibling preservation; attributed
-results/review omissions; durable UI feedback. Run affected tests, strict Clippy,
-AP12/PX2; AP8 for Windows observer inputs, AP10 only for native/audio behavior.
-Coordinate an idle immutable installation window before any live frontend update.
-Human owns GUI/account input; no live product or installer campaign is required.
+## Preservation and delivery
 
-Preserve Pigments18/rollback11, LoFi10, FRAGMENTS10, runner, environments, import,
-authorization, projects and original evidence. Keep the implementation PR draft
-and unmerged. Record actual results and remaining limits in the same PR.
+No installer, rescan or authorization campaign. No speculative Serum/preset,
+graphics, accessibility, runner or scheduling workaround. No ordinary promotion
+or broad stability claim. Keep Pigments18/rollback11, LoFi10, FRAGMENTS10, protected
+projects, environments, imported installer and candidate A exact. New candidate
+must remain reversible and distinct. Reuse installed MF3 custody; do not overwrite
+PR #110's software with pre-repair main. Inspect idle/session ownership before any
+live change. No automatic commercial launch or input. Return one draft PR and
+actual proof/nonclaims; do not merge without independent review.
 
-## Implemented result
+## Source-grounded selected correction
 
-The operator workflow is implemented and installed from `f56734ed58ac0a0af7ea1e96be19e26fa0c94247`.
-Source-owned native preparation, exact class exports, private experimental
-publication/removal and incomplete-qualification refusal passed. Installed
-readback adopts Serum's original candidate as prepared/unpublished and preserves
-FX inventory and installation history. No Serum product action was repeated.
-See `evidence/mf3/result.json` for exact identities, tests and preservation.
-PR #109 remains draft, stacked on the unchanged PR #107, for independent review.
+Readback identified candidate A's exact Windows host as a pre-LC1 build
+(`46c7b85`, host `3ee36fd3…`), while the installed schema-2 kit contains the
+corrected owner (`9434f828`, host `348a4bbc…`). Retained native failure reports
+operation 14 while the old Windows owner unconditionally awaits Start. The
+existing LC1 normal, activation-only and wrong-sequence fixtures passed on the
+pinned runner in a new isolated prefix. Reuse the implemented lifecycle fix;
+do not invent another runtime workaround.
 
-## Active rereview repair
+Preparation exposed one exact manager defect: selected-class inspection passed
+`first_audio=true`. Repair that crossing and prove the emitted inspector binding
+preserves the selected instrument; retain the refused report without retry until
+the generated regression passes. New candidate preparation legitimately requires
+a fresh inspection under its newer host generation.
 
-The seven generation/provenance/publication/recipe repairs at
-`cd14513b32a98b29e56b557ed372c79c6637daad` are accepted. Repair only three
-remaining findings: project each logical environment/module/class once while
-preserving canonical ordinary status; refuse repeated exact ordinary publication
-without mutation; and make SV1 raw snapshots/provenance atomically installed and
-retryable at each interruption boundary.
+PR #110 at `e662c2d3b6a47428c559512ef14fef891213edbd` is an explicit source
+integration dependency (local merge only; PR #110 stays unmerged). Keep LC2's
+implementation PR stacked on that exact branch until independent review resolves
+it. Do not duplicate or discard the installed history/projection repairs.
 
-Preserve operator model 4, kit schema 2, immutable histories, policy-A acceptance,
-processing-restart evidence and the original MF3/SV1 result bytes. Run affected
-manager/frontend/recipe/runtime tests, strict Clippy, AP12 and PX2. AP8 only if
-Windows or build inputs change. No installation, publication, Bitwig/Serum session,
-LC2 work or changes to PR #107. Return PR #109 draft and unmerged.
+## Current result
 
-## Post-merge installed upgrade repair
+Generated real native/Windows restart proof passed. Exact selected Serum inspection
+and manager-owned candidate-B construction completed after the handoff repair.
+B `f6af02eb…` is prepared and unpublished; failed A and all original product history
+remain immutable. `evidence/lc2/result.json` records installed source/artifacts,
+lineage and healthy idle readback. Return draft PR #111 for review; no commercial
+launch or publication was performed and B's product behavior remains untested.
 
-The operator authorized completing the job after installation of merged main
-`be9a7e9bd017a4d2739910f5fcbf71df7b10a8ec` exposed the retained-candidate-only
-migration gap. Complete original SV1 provenance/history atomically without
-rewriting candidate A. Run focused upgrade/interruption/conflict regressions,
-manager/frontend/runtime checks and applicable CI. Install the repair through
-immutable setup in an idle window, with the authorized service/keeper restart.
-Use the exact offered manager action to disable the pre-existing Serum
-experimental publication; preserve its immutable history and every sibling.
-Verify schema-4 snapshot, candidate/history facts, unpublished instrument and
-separate unqualified FX, ordinary products/projects and healthy zero ownership.
-No commercial session, reinspection, candidate rebuild or LC2 repair in this cut.
-The failed merged-install readback remains immutable evidence.
+## Authorized operator handoff
 
-### Installed repair result
+After the preparation result, the operator explicitly requested candidate B be
+made available for a human Bitwig test. `evidence/lc2/experimental-handoff.json`
+records the completed exact experimental publication and physical native/host
+readback. B is now deliberately enabled; A remains inactive. No agent launch or
+input occurred. Existing CA1 arm only accepts ordinary profiles (or its older
+fixed failure fixture), so generic candidate capture is unavailable and remains
+off; IF1/IF2 terminal and cleanup records remain available. No bypass was used.
+Product result is pending the human session. This supersedes only the current
+unpublished resting state, not the immutable preparation evidence.
 
-Implementation `f4a2e8888d3b40652173db3985ff8b2362119266` is installed through
-immutable setup. Full schema-4 readback passes; historical SV1 candidate A and
-its failed processing-restart evidence remain exact. One checked disable removed
-the pre-existing Serum experimental publication. The corrected card is prepared
-and unpublished; FX remains separately unqualified. Ordinary products and five
-projects are preserved, service/two keepers healthy, all ownership counts zero.
-See `evidence/mf3/upgrade-repair-result.*`. PR #110 is draft for review; LC2 remains
-separate and no new product session was performed.
+The human has now used candidate B successfully and quit Bitwig. Its exact host
+report confirms the activation-only restart, subsequent processing, full module
+unload and positive cleanup. The result and retained delivery-gap limitation are
+in `evidence/lc2/operator-session.json`. B remains experimentally published; no
+ordinary promotion. PRs #110 and #111 remain draft and unmerged pending review.
