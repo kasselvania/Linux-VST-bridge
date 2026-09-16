@@ -82,6 +82,37 @@ pub fn legacy_provenance(m: &Manager, c: &Candidate) -> Result<LegacyProvenance>
     )?;
     Ok(v)
 }
+/// A candidate record predates generation history in the first installed MF3.
+/// Presence of that record is not proof that its provenance transition completed.
+pub(super) fn complete_legacy_history(m: &Manager, c: &Candidate, binding: &Value) -> Result<()> {
+    let dir = object(m, "legacy", &c.id()?)?;
+    let required = [
+        dir.join("provenance.json"),
+        dir.join("environment.json"),
+        dir.join("onboarding.json"),
+        dir.join("inventory.json"),
+        object(m, "lineage", &c.id()?)?.join("record.json"),
+        object(m, "inspections", &c.selection.id()?)?.join(format!("{}.json", c.inspection.id()?)),
+        object(m, "inspection-order", &c.inspection.id()?)?.join("record.json"),
+    ];
+    let mut complete = true;
+    for path in required {
+        complete &= path.try_exists()?;
+    }
+    if !complete {
+        // Existing snapshots win over mutable inventory. The original binding
+        // still verifies each missing snapshot, and no conflicting file is replaced.
+        materialize_legacy(m, c, binding)?;
+    }
+    verify_legacy(m, c)?;
+    let inspection: Inspection = bounded(
+        &object(m, "inspections", &c.selection.id()?)?.join(format!("{}.json", c.inspection.id()?)),
+    )?;
+    require(inspection == c.inspection, "legacy_inspection_history_changed")?;
+    let _ordinal: u64 = bounded(&object(m, "inspection-order", &c.inspection.id()?)?.join("record.json"))?;
+    let _lineage = lineage(m, c)?;
+    Ok(())
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum MaterializeBoundary {
     Environment,
