@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build and seal one fixed source-owned x86 package from committed source."""
-import argparse,os,pathlib,shutil,subprocess
+import argparse,os,pathlib,shutil,subprocess,tempfile
 from identity import SOURCES,MANIFEST,atomic_new,read_json,digest,architecture,verify_package
 
 def build(repo,output,context,zig):
@@ -14,7 +14,12 @@ def build(repo,output,context,zig):
         if (repo/relative).read_bytes()!=committed:raise ValueError('source_drift')
         (output/name).write_bytes(committed)
     version=subprocess.check_output([str(zig),'version'],timeout=10).decode().strip()
-    subprocess.run([str(zig),'c++','-target','x86-windows-gnu','-std=c++20','-O2','-municode','-DUNICODE','-D_UNICODE',str(output/'capability.cpp'),'-lbcrypt','-o',str(output/'payload.exe')],check=True,timeout=120)
+    # Compiler sidecars (e.g. PDB) are build outputs, not executable inputs.
+    # Keep them outside the closed staging directory; copy only the fixed PE.
+    with tempfile.TemporaryDirectory(prefix='is3-build-',dir=output.parent) as temp:
+        built=pathlib.Path(temp)/'payload.exe'
+        subprocess.run([str(zig),'c++','-target','x86-windows-gnu','-std=c++20','-O2','-municode','-DUNICODE','-D_UNICODE',str(output/'capability.cpp'),'-lbcrypt','-o',str(built)],check=True,timeout=120)
+        shutil.copyfile(built,output/'payload.exe')
     c=read_json(context)
     if set(c)!={'runner','installed','powershell_images','baseline_windows_environment'}:raise ValueError('context_schema')
     payload=output/'payload.exe'
