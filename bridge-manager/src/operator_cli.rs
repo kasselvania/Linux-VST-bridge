@@ -332,6 +332,9 @@ fn snapshot_for_operation(
 ) -> Result<ui::Snapshot> {
     // Bounded wait order: operator serialization -> registry authority.
     let _projection = acquire_readback(m, ui::OperatorLock::Canonical, id, timeout, waits)?;
+    // History migration can change the projection token. Complete it before
+    // sampling registry/capacity authority; never hash provenance under registry.lock.
+    linux_vst_bridge::preparation::materialize_retained_history(m)?;
     // LVC1 itself takes registry.lock in the service. Never request it while
     // holding that lock. Its owner census must still match after acquisition.
     let deadline = Instant::now() + timeout;
