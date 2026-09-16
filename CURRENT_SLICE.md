@@ -1,45 +1,35 @@
-# IS2 — Exact application-presence and close-handoff attribution
+# IS3 — Truthful Windows scripting capability
 
-Operator-selected implementation on exact IS1 evidence head
-`a0fde40e4c2a0536aa9b3271c3b945a94aa60d9b`, tree
-`a6c08ddab4964e3df672628b307de98fea4facb3`. Main remains `be9a7e9`; PRs
-#110/#111/#112 are open. IS2 explicitly stacks on #112 without changing or merging
-any dependency. Reviewed installed IS1 implementation is `0543c3d`.
+Base: merged main `8d306d8f211a66ff5f140705b8c7bc1f5bcd1de9`, tree
+`cf3cd37a5a34653142e93d6e3c0bdf49743fcc30`. PRs #110–#113 are accepted and
+merged. IS2 immutable installation and idle readback passed; see
+`evidence/is2/integration-installation.json`.
 
-Primary claim: a managed installer separates exact Windows launch-root authority,
-application-presence queries, attempted close and post-close recheck from helper
-success, outer exit, installation witnesses and cleanup. Missing facts stay
-unavailable. No product-name rule or vendor workaround is authorized.
+Primary claim: executable availability and helper exit status are separate from
+verified script behavior. A source-owned capability consumer must not interpret
+missing side effects or unexecuted predicates as a successful capability.
 
-Read-only attempt-3 forensics comes first. Preserve all IS1 evidence bytes and the
-three retired environments. Privately inspect the immutable import, retained
-bounded logs and temporary-file census; publish only classifications/hashes.
+Reuse IS2's accepted pinned-runner baseline, exact adapter, installer ownership,
+private HOME and scratch-prefix supervision. Compare the pinned false-success
+stub with honestly unavailable scripting and, only where selected as necessary,
+a genuine managed scripting dependency. Any genuine interpreter must prove the
+requested side effect, exit code, process query and exact close; a mock cannot
+stand in for that proof. Missing or unperformed comparisons remain explicit.
 
-Implement a source-owned, operation/epoch/token/artifact-bound launch observer and
-bounded generic presence/close records. Prove direct-loader/child/wrapper and
-identity-negative cases, plus real source-owned detection/close cases through the
-production installer supervisor and pinned runner. A launch adapter must preserve
-manifest enforcement, working directory/environment, exit and cohort ownership;
-it must not add elevation or security authority. No observer work touches audio.
+The first implementation cut supplies a bounded source-owned A/B probe and
+truthful result classification. It tests a documented Wine loader override only
+inside a generated child environment, never in an installed product profile or
+managed prefix registry. No vendor-name dispatch, patched installer, fake
+interpreter, privileged operation, account dependency or runner replacement.
 
-Scope: installer runtime/ownership, closed manager integration, installer result
-presentation, Windows launch/close fixtures and their build inputs, focused tests
-and sanitized evidence. Existing products, runner, profiles, authorization,
-projects, publication and installed software stay unchanged. No Bitwig, Serum,
-Native Access launch, broad IS1 matrix replay, or accessibility experiment.
+Scope: `tools/is3`, source-owned Windows fixture build/CI, sanitized evidence and
+documentation. No product/native/audio source changes. No Native Access,
+Bitwig, Serum, ASC, installation, discovery, or commercial UI session. Preserve
+all old attempts/imports, product publications, both keepers, and protected
+projects. A future commercial confirmation requires independent review and
+separate authorization; none belongs to this initial comparison.
 
-Run affected runtime/ownership, manager/frontend tests and strict Clippy;
-AP8 for Windows inputs, AP12 and PX2. AP10 out of scope. Return one draft PR.
-Independent source review and immutable installation are required before any
-commercial confirmation. At most one later linked human-only attempt is possible;
-none is authorized during this implementation. Keep all dependencies and IS2
-unmerged.
-
-Exact-head rereview at `e7c2a9547fd025a45ab07e67bde447dffeb8e21f` accepts the
-Windows/root/close evidence and requests only setup rollback compatibility:
-explicit packages select their own installer adapter capability; an omitted
-adapter must omit `installer_launch` from Software for legacy schema readers.
-Only `package=None` acceptance retains the verified prior adapter. Preserve prior
-immutable generations. Verify strict legacy deserialization, current-package and
-acceptance retention, and unchanged old bytes. No installation, commercial run,
-Windows matrix replay, IS3 implementation or merge belongs to this repair.
+Use exact operation/root binding, bounded records and positive cgroup cleanup.
+Run source-owned parser/negative tests before the pinned fixture, AP8 for Windows
+source inputs, AP12 and PX2. Keep the new implementation PR draft and unmerged.
+Do not label source-owned fallback selection as proof of vendor fallback behavior.

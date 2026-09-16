@@ -209,3 +209,10 @@ target_compile_options(is2-admin-fixture PRIVATE /W4 /permissive- /EHsc /Brepro)
 target_link_libraries(is2-admin-fixture PRIVATE advapi32 user32)
 target_link_options(is2-admin-fixture PRIVATE /Brepro /INCREMENTAL:NO "/MANIFESTUAC:level='requireAdministrator' uiAccess='false'")
 set_target_properties(is2-admin-fixture PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+# IS3 source-owned scripting capability consumer; installer diagnostics only.
+add_executable(is3-capability ../tools/is3/capability.cpp)
+target_compile_definitions(is3-capability PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(is3-capability PRIVATE /W4 /permissive- /EHsc /Brepro)
+target_link_options(is3-capability PRIVATE /Brepro /INCREMENTAL:NO)
+set_target_properties(is3-capability PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")

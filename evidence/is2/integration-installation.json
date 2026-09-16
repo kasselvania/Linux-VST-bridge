@@ -1,0 +1,122 @@
+{
+  "installed": true,
+  "phase": "complete",
+  "preserved_file_count": 307,
+  "project_count": 5,
+  "publications_unchanged": true,
+  "system": {
+    "service": "active",
+    "keepers": 2,
+    "dsp": 0,
+    "maintenance": 0,
+    "ceiling": 6,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "installed_artifacts": {
+    "installer_launch": "0edb8946927a93cac10eb60a0b0567ba284a65d6c3f30255d2612d08f8ae1cd7",
+    "preparation_kit": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+    "operator_frontend": "1a2eac7cc902150c08448e21b22a06d5d937a01412a432426e12cad1df4e144f",
+    "manager": "fcd2032eb69430d47c51c4b669080c141be3a9d53d0d6d7bdb9f67ef58bb9d75",
+    "supervisor": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+    "ownership": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377",
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "native_catalogue": "ff86452a0c966bb8a3ef5aa9913657f4a96a7ee4d1b104cb7fb1701f508e7853"
+  },
+  "schema": 1,
+  "stack": [
+    {
+      "pr": 110,
+      "reviewed_head": "e662c2d3b6a47428c559512ef14fef891213edbd",
+      "merge_commit": "0bf894a36e1c9c453a35c9c95736a340fbd8356c",
+      "tree": "262611d6bf345dc039e84f51d66a491c57742da0",
+      "source_unchanged": true
+    },
+    {
+      "pr": 111,
+      "reviewed_head": "0d1c644a182c98e326ee4697f49b4d0c1dfc45a0",
+      "merge_commit": "a5b009a9426343d634362780b67225a5ba609608",
+      "tree": "c9d126b541fefd59842da6f96e4362d2d26fe9f4",
+      "source_unchanged": true
+    },
+    {
+      "pr": 112,
+      "reviewed_head": "a0fde40e4c2a0536aa9b3271c3b945a94aa60d9b",
+      "merge_commit": "358cbfb7bf2488c7ebba12048096ea189474805c",
+      "tree": "a6c08ddab4964e3df672628b307de98fea4facb3",
+      "source_unchanged": true
+    },
+    {
+      "pr": 113,
+      "reviewed_head": "33202a3ec51c9e084c09d99d781f86da850153ec",
+      "merge_commit": "8d306d8f211a66ff5f140705b8c7bc1f5bcd1de9",
+      "tree": "cf3cd37a5a34653142e93d6e3c0bdf49743fcc30",
+      "source_unchanged": true
+    }
+  ],
+  "source": {
+    "source_head": "33202a3ec51c9e084c09d99d781f86da850153ec",
+    "source_tree": "cf3cd37a5a34653142e93d6e3c0bdf49743fcc30",
+    "toolchain": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "target": "x86_64-unknown-linux-gnu",
+    "linker": "Zig x86_64-linux-gnu",
+    "artifacts": {
+      "linux-vst-bridge": "fcd2032eb69430d47c51c4b669080c141be3a9d53d0d6d7bdb9f67ef58bb9d75",
+      "linux-audio-compatibility-manager": "1a2eac7cc902150c08448e21b22a06d5d937a01412a432426e12cad1df4e144f",
+      "session.py": "c7dc0cd02285ea8c4808ed33362f8f9ac26ce8accd40d4786af921622bc1942f",
+      "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377",
+      "installer-launch.exe": "0edb8946927a93cac10eb60a0b0567ba284a65d6c3f30255d2612d08f8ae1cd7"
+    },
+    "integration_commit": "8d306d8f211a66ff5f140705b8c7bc1f5bcd1de9",
+    "adapter_ci_run": 35134118663,
+    "adapter_build_checkout": "79eea2f14879daf1b3fc124a27bacd89c70bac6d",
+    "adapter_build_tree": "cf3cd37a5a34653142e93d6e3c0bdf49743fcc30"
+  },
+  "products": [
+    {
+      "name": "Pigments",
+      "class_id": "41727475415649534B61743150726F63",
+      "state": "ready",
+      "revision": 18
+    },
+    {
+      "name": "Pure LoFi",
+      "class_id": "417274754156495350724C4650726F63",
+      "state": "ready",
+      "revision": 10
+    },
+    {
+      "name": "Efx FRAGMENTS",
+      "class_id": "41727475415649536772616E50726F63",
+      "state": "ready",
+      "revision": 10
+    },
+    {
+      "name": "Serum 2",
+      "class_id": "56534558667350736572756D20320000",
+      "state": "experimental",
+      "revision": 1
+    },
+    {
+      "name": "Serum 2 FX",
+      "class_id": "56534558667351736572756D20322066",
+      "state": "installed_unqualified",
+      "revision": null
+    }
+  ],
+  "native_access_attempt_count": 3,
+  "commercial_attempts": 0,
+  "ci": {
+    "AP8": 35134752652,
+    "AP12": 35134755406,
+    "PX2": 35134635499
+  },
+  "private_readback": "retained under manager-owned private integration evidence",
+  "previous_generation_unchanged": true
+}

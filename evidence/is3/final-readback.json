@@ -1,0 +1,29 @@
+{
+  "system": {
+    "service": "active",
+    "keepers": 2,
+    "dsp": 0,
+    "maintenance": 0,
+    "ceiling": 6,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "installed_artifacts_verified": true,
+  "retained_files_unchanged": 307,
+  "projects_unchanged": 5,
+  "products_unchanged": true,
+  "publications_unchanged": true,
+  "fixture_retired": true,
+  "scratch_prefix_removed": true,
+  "native_access_attempt_count": 3,
+  "pointer": {
+    "x11_button_modifier_mask": 0,
+    "input_sent": false,
+    "display_connection_closed": true
+  }
+}
