@@ -2,382 +2,335 @@
 
 ## Audience and status
 
-This document describes how a plug-in manufacturer, DAW/application vendor, distributor, Linux hardware maker, system integrator or commercial partner could work with Linux Audio Compatibility Platform.
+This document describes how plug-in manufacturers, DAW vendors, creative-tool vendors, Linux hardware companies, distributors and commercial integrators could work with Linux Audio Compatibility Platform.
 
 The project is an experimental engineering preview, not a production support offer. No partnership, endorsement, license, price or service commitment is created by this document. The repository is proprietary and all commercial use requires a separate written agreement with Peter Kassel.
 
-## The partner proposition
+## Platform proposition
 
-A vendor may be able to expand Linux availability without first rebuilding the entire Windows product stack as a native Linux product.
+A partner may be able to expand Linux availability without first rebuilding the complete Windows product stack as a native Linux product.
 
-The platform is designed to preserve as much of the existing Windows product as practical:
+The platform can preserve, where practical:
 
-- real Windows plug-in or application binaries;
+- the real Windows plug-in or application;
 - vendor DSP, editor, project and preset behavior;
 - normal installer and updater;
 - normal account and authorization systems;
-- vendor-managed services, content and resources;
-- stable product and project identity.
+- vendor-managed content and resources;
+- stable product identity.
 
-The compatibility platform supplies Linux-facing and operational layers:
+The platform supplies:
 
-- native Linux VST3 representation for plug-in mode;
-- managed Windows application execution for application mode;
-- exact Proton/Wine runtime selection;
-- isolated environments and process/service ownership;
-- typed audio, MIDI, event, state and editor boundaries where applicable;
+- exact Wine/Proton runner and environment management;
+- native Linux VST3 representation for native Linux DAWs;
+- future Windows VST3 proxy representation for Wine-hosted Windows DAWs;
+- supervised Windows execution;
+- installer, updater, process and service custody;
+- typed audio, event, state and editor transport where applicable;
 - product-specific compatibility policy;
-- installation, discovery, candidate preparation, publication and rollback;
-- generated Windows, VST3, installer and application fixtures;
-- real-product qualification;
+- discovery, candidate preparation, publication and rollback;
+- generated Windows/VST3 tests;
+- real-host qualification;
 - failure containment and private incident attribution.
 
-This can be a lower-cost route for some products, but it is not a universal substitute for native Linux development. Feasibility depends on graphics, drivers, licensing, services, content, update model, audio/MIDI requirements, hardware assumptions and support expectations.
+This can reduce the cost of some Linux enablement efforts. It is not a universal substitute for native engineering.
 
-## Two engagement tracks
+## Two plug-in delivery routes
 
-### Plug-in enablement
+### Native Linux DAW route
 
-The vendor's real Windows instrument or effect is presented through a native Linux plug-in identity in a supported native Linux DAW.
+```text
+native Linux DAW
+→ Linux LVB proxy
+→ isolated Windows plug-in backend
+→ real Windows plug-in
+```
 
-Typical platform responsibilities include:
+This is the current proven route.
 
-- module/class discovery;
-- VST3 component/controller lifecycle;
-- audio, event, parameter and state transport;
-- editor and input behavior;
-- stable project identity;
-- exact publication and rollback.
+### Wine-hosted Windows DAW route
 
-### Application enablement
+A partner can use either:
 
-The complete Windows application is the managed product.
+```text
+Windows DAW under Wine
+→ original Windows plug-in directly
+```
 
-Typical platform responsibilities include:
+or:
 
-- application installer, updater and services;
-- low-latency audio-device integration;
-- MIDI, controller and synchronization behavior;
-- project/content/library storage;
-- full UI, graphics, file dialog and multi-window behavior;
-- nested plug-in scanning and hosting;
-- application launch, recovery and rollback.
+```text
+Windows DAW under Wine
+→ Windows LVB proxy
+→ isolated managed plug-in backend
+→ real Windows plug-in
+```
 
-An application engagement can include a DAW, standalone creative runtime, vendor software center, editor, librarian or other audio production tool. It should not be presented as equivalent to plug-in mode merely because both run under Wine/Proton.
+The direct path is the comparison baseline. The isolated path is valuable for:
 
-## What an engagement can look like
+- runner incompatibility;
+- vendor-service separation;
+- independent plug-in updates;
+- stronger crash containment;
+- one managed installation exposed to several hosts;
+- exact candidate and rollback custody outside the DAW environment.
 
-### Stage 1 — Compatibility assessment
+One DAW environment must expose only one route for one exact VST3 class.
 
-The first stage establishes the actual product boundary.
+## Candidate and publication model
 
-Typical work includes:
+A qualification creates an exact candidate, not merely a claim that a product name works.
 
-- inventorying installers, applications, services, modules and content;
-- identifying supported product and runtime versions;
-- validating the lawful authorization path;
-- checking graphics, input, popups, focus, file and process assumptions;
-- identifying audio/MIDI and hardware dependencies;
-- discovering exact plug-in classes or application executables;
-- checking whether existing compatibility capabilities apply;
-- producing an explicit feasibility result, risks and unqualified areas.
+The candidate binds:
 
-Deliverable: a scoped technical assessment and recommended proof plan.
+- module and class identity;
+- product/version metadata;
+- environment and runner;
+- Windows host;
+- buses, events, parameters, state and editor policy;
+- evidence and limitations;
+- candidate lineage and rollback.
 
-### Stage 2 — Exact product enablement
+That candidate can later produce separately tested publication artifacts:
 
-The product is bound to a controlled profile and environment.
+```text
+Linux host publication
+Windows host publication
+```
 
-For a plug-in this may include:
+Host-specific proof remains mandatory. Linux-host success is not silently reused as Windows-host success.
 
-- selecting and pinning a runner;
-- creating or adopting a managed vendor environment;
-- qualifying installer, authorization and content behavior;
-- binding the exact module, class, host, native proxy and descriptor;
-- producing an immutable candidate with rollback.
+## Plug-in manufacturer engagement
 
-For an application this may include:
+### Stage 1 — assessment
 
-- binding the exact application, updater, services and prerequisites;
-- defining private project/content/cache locations;
-- selecting an exact audio/MIDI integration contract;
-- retaining application launch and service ownership;
-- establishing a bounded plug-in/content discovery policy;
-- producing an immutable application candidate with rollback.
+- inventory installer, services, modules and content;
+- validate lawful authorization;
+- discover exact classes, buses and identities;
+- identify shared compatibility capability;
+- select native Linux-host, Windows-host direct or Windows-host remote goals;
+- retain risks and unsupported areas.
 
-Deliverable: an exact candidate that can be exercised in the target Linux fixture.
+### Stage 2 — exact enablement
 
-### Stage 3 — Qualification
+- create or adopt managed vendor environment;
+- select runner;
+- bind exact module/class;
+- inspect VST3 behavior;
+- prepare immutable candidate;
+- generate required host frontend artifacts;
+- preserve licensing and vendor commercial systems.
 
-Generated tests and real product use remain separate.
+### Stage 3 — host qualification
 
-A plug-in qualification may cover:
+For a native Linux DAW:
 
-- audio, notes, events and automation;
-- buses, sidechain and auxiliary input;
-- presets, opaque state and save/reopen;
-- editor, focus, popups, resizing and DPI;
-- lifecycle reconfiguration;
-- process failure, containment and cleanup;
-- capacity, latency and retained performance limits.
+- scan;
+- instantiate;
+- notes/audio or effect audio;
+- automation;
+- state/project recall;
+- editor;
+- lifecycle;
+- cleanup.
 
-An application qualification may additionally cover:
+For a Wine-hosted Windows DAW:
 
-- audio-device enumeration, sample rates, buffers and channel topology;
-- MIDI input/output, clocks, control surfaces and remote scripts;
-- project creation, save, reopen, backup and migration;
-- file dialogs, drag/drop, packs, libraries and content indexing;
-- nested VST/CLAP scanning and plug-in operation;
-- multi-window and full-screen behavior;
-- updater, service and self-relaunch behavior;
-- crash/session recovery;
-- hardware and Linux distribution matrix.
+- compare direct and remote modes;
+- scan the Windows proxy;
+- verify stable class/parameter identity;
+- audio/events/state/editor;
+- project save/reopen;
+- backend failure presentation;
+- cleanup and DAW survival.
 
-Deliverable: a reviewed compatibility claim with exact versions, evidence, limitations and rollback ancestry.
+### Stage 4 — distribution
 
-### Stage 4 — Distribution integration
-
-A production relationship may package approved runtime and profiles into a vendor, partner or platform-managed experience.
-
-Possible components include:
-
-- branded or co-branded installer/manager flow;
+- manager workflow;
 - profile and runtime delivery;
-- application and plug-in catalogue;
-- update and rollback policy;
-- supported hardware/DAW/application matrix;
+- update and rollback;
+- supported DAW/hardware matrix;
 - user-visible status and diagnostics;
-- support handoff and sanitized incident export;
-- telemetry only if separately designed, disclosed and authorized;
-- release signing and distribution arrangements.
+- signing and release policy;
+- support handoff.
 
-Deliverable: a distribution and support model agreed by the parties.
+### Stage 5 — maintenance
 
-### Stage 5 — Ongoing maintenance
+- qualify vendor releases;
+- update exact profiles and frontends;
+- triage incidents;
+- assess runner changes;
+- preserve host project identity;
+- update the support matrix.
 
-Windows products, Wine/Proton, DAWs, graphics stacks, Linux distributions and hardware change. A supportable product requires controlled maintenance.
+## DAW and application partner engagement
 
-Typical recurring work includes:
+A DAW/application partner track is broader.
 
-- qualifying vendor releases;
-- updating exact profiles and runtime bindings;
-- triaging private incidents;
-- maintaining deterministic regressions;
-- assessing runner upgrades;
-- preserving project compatibility and rollback;
-- updating the support matrix;
-- escalating generic runtime defects upstream where appropriate.
+### Windows-host adapter engagement
 
-Deliverable: a release and compatibility maintenance service.
+This is the smaller first step:
 
-## High-leverage application families
+- qualify the DAW under Wine as a VST3 host;
+- make the LVB Windows proxy scan and instantiate;
+- connect it to an isolated candidate backend;
+- retain project identity;
+- compare direct versus remote hosting;
+- expose supported plug-ins without manually modifying the DAW prefix.
 
-Some application families can create more value than a single executable.
+### Complete managed application engagement
 
-Ableton Live is an example because Max for Live is integrated with Live. A successful exact application profile could potentially cover:
+This additionally covers:
 
-- Live itself;
-- Windows plug-ins hosted by Live;
-- the bundled Max for Live runtime where licensed;
-- third-party Max for Live devices;
-- controller and hardware workflows built through Live/Max.
+- DAW installer and authorization;
+- audio-device and MIDI integration;
+- projects and recovery;
+- packs, sample libraries and content;
+- native devices and bundled runtimes;
+- plug-in scanning and hosting;
+- updater, services and helper processes;
+- full-session performance and crash recovery.
 
-Those are related but separate qualification claims. Live working does not automatically prove Max for Live editing, every device, standalone Max, every plug-in or every controller.
+The Windows-host adapter path can deliver value before complete application management is finished.
 
-FL Studio and Cubase are other examples of complete Windows audio workstations with their own plug-in hosts, projects, graphics, audio/MIDI requirements, licensing and update systems. They belong after the generic application foundation, not as product-name branches in the current plug-in bridge.
+## Live and Max for Live
 
-No Ableton, Cycling '74, Image-Line or Steinberg partnership is claimed.
+Live is a later high-leverage application family.
+
+A Live engagement should separate:
+
+1. Live installation and authorization;
+2. audio/MIDI and project save/reopen;
+3. Windows plug-in hosting;
+4. Windows LVB proxy hosting where isolation is beneficial;
+5. bundled Max for Live runtime;
+6. stock Max for Live devices;
+7. third-party `.amxd` devices;
+8. Max for Live editor behavior;
+9. standalone Max as a separate product.
+
+Live and Max for Live remain lawfully licensed vendor products. No compatibility layer should bypass those boundaries.
+
+## Hardware and OEM opportunity
+
+A Linux workstation, handheld or instrument vendor can integrate:
+
+- qualified native Linux DAWs with managed Windows plug-ins;
+- qualified Windows DAWs under Wine;
+- exact supported catalogue and versions;
+- manager UI;
+- updater and rollback;
+- private incident capture;
+- controlled hardware/audio/MIDI profiles.
+
+The value is a supportable audio-software matrix rather than a collection of community setup recipes.
 
 ## Possible commercial structures
 
-Commercial terms are deliberately not fixed in this repository.
+- paid proof or consulting engagement;
+- per-product license;
+- product-family or catalogue license;
+- dual-host plug-in enablement license;
+- DAW/application enablement;
+- OEM or white-label integration;
+- managed compatibility service;
+- recurring release qualification and support;
+- joint upstream work.
 
-### Paid proof or consulting engagement
+Commercial terms are not defined in this repository.
 
-A bounded assessment or product-enablement contract. The partner receives a technical result and can decide whether to continue.
+## Responsibility boundaries
 
-### Per-product license
-
-A license covering platform/runtime/profile integration for one exact plug-in or application.
-
-### Portfolio or catalogue license
-
-A broader agreement covering several products, shared vendor infrastructure and ongoing qualification.
-
-### DAW/application enablement license
-
-An agreement covering a complete application environment, audio/MIDI integration, nested plug-in support, updates and maintenance.
-
-### OEM or white-label integration
-
-The compatibility system is embedded into a vendor, Linux workstation, handheld or distribution partner offering under agreed branding and support terms.
-
-### Managed compatibility service
-
-The project owner operates and maintains the compatibility layer, qualification catalogue and incident workflow.
-
-### Joint engineering and upstream work
-
-The parties collaborate on source-owned reproducers, vendor-side changes or Wine/Proton improvements. Product-specific confidential evidence can remain private while generic fixes are shared under separately agreed terms.
-
-These structures can be combined. A proof can lead to a product license; a product license can expand into a catalogue or managed-maintenance relationship.
-
-## Division of responsibility
-
-A commercial agreement should define responsibility explicitly.
-
-### Vendor or application partner may retain responsibility for
+### Vendor may retain
 
 - Windows binaries and intellectual property;
-- account, authorization and licensing systems;
-- product content, projects and presets;
+- account and licensing systems;
+- content and presets;
 - Windows product correctness;
-- product support knowledge;
-- approval of supported versions and distribution;
-- vendor-side fixes where the failure belongs in the product;
-- application-specific hardware or cloud services.
+- supported versions;
+- vendor-side fixes;
+- product support knowledge.
 
-### Platform provider may retain responsibility for
+### Platform provider may retain
 
-- native Linux proxy where applicable;
-- managed Windows application environment;
-- audio/MIDI compatibility boundaries;
-- exact runtime/environment management;
-- compatibility profiles and qualification tooling;
-- installation/discovery integration;
-- process/service supervision, containment and cleanup;
+- Linux and Windows host adapters;
+- transport and real-time boundaries;
+- environment/runner management;
+- profiles and qualification tooling;
+- installer/discovery integration;
+- supervision and cleanup;
 - platform-side fixes;
-- bounded incident capture and support evidence;
-- publication, update and rollback machinery.
+- publication and rollback;
+- incident evidence.
 
-### Shared responsibility may include
+### Shared
 
-- selecting the supported product/runtime/hardware matrix;
-- interpreting mixed vendor/runtime failures;
+- supported product/host matrix;
 - release qualification;
+- mixed vendor/runtime diagnosis;
 - end-user documentation;
 - incident escalation;
-- support-service levels;
-- upstream reports and patches.
-
-The platform must never bypass or duplicate vendor authorization. A partnership should make the lawful path clearer, not weaker.
-
-## Compatibility profiles and runtime selection
-
-A profile can bind closed, reviewed capabilities such as:
-
-- runner and environment revision;
-- application/module/host/native artifact identity;
-- audio and MIDI topology;
-- event, state and editor policy;
-- process, service and retirement behavior;
-- Windows accessibility posture;
-- project/content storage;
-- qualified latency and performance posture;
-- retained limitations.
-
-Different products may share one environment, while others may require isolated runtime generations. Runtime selection is evidence-backed policy, not an arbitrary user experiment.
-
-A profile does not contain arbitrary code, secrets, licensing state or destructive commands.
+- service levels;
+- upstream reports.
 
 ## Test and incident value
 
-The growing source-owned suite is part of the commercial value.
+The source-owned suite can convert incidents into reusable tests for:
 
-A partner should not need to reproduce every failure manually. The platform can convert an incident into a reusable test for concepts such as:
-
-- lifecycle start/stop/reconfiguration;
-- state and project capture;
+- lifecycle and reconfiguration;
+- state capture/restoration;
 - message-pump fairness;
-- focus and pointer capture;
-- transient window groups;
+- focus/pointer capture;
+- transient windows;
 - process exit and containment;
-- installer bootstrapper/prerequisite/service graphs;
-- self-update and relaunch;
-- audio-device restart;
-- MIDI and controller behavior;
-- nested plug-in scanning;
+- accessibility-provider lifetime;
+- installer process graphs;
+- Windows service behavior;
+- cross-environment proxy transport;
 - module identity and exception attribution.
 
-Private reports can retain exact process outcome, module identity, relative addresses, bounded stacks, first platform failure and cleanup state. A sanitized export can support collaboration without publishing credentials, private paths, vendor state or proprietary payloads.
+Private reports remain sensitive by default.
 
-A faulting module or nearby UI action remains evidence, not automatic proof of root cause.
+## Distribution modes
 
-## Current case studies
-
-### Arturia vertical
+A mature manager may show an exact product like:
 
 ```text
-Arturia Software Center
-→ user-owned sign-in and authorization
-→ Pigments installation
-→ exact VST3 discovery
-→ managed publication
-→ notes, presets, automation, state and auxiliary input
-→ editor/input compatibility
-→ terminal failure containment
-→ private crash attribution
+Serum 2 — exact candidate
+Host publications:
+✓ Linux VST3 proxy
+○ Windows VST3 proxy
+
+Windows DAW exposure:
+○ Direct
+● Remote isolated
 ```
 
-Pure LoFi and Efx FRAGMENTS also demonstrate exact-fixture instruments/effects, state recall, independent removal, capacity and rollback behavior.
-
-### Xfer vertical
-
-The manager imported the Xfer installer, created a managed environment, discovered Serum 2 instrument and FX classes, prepared an exact instrument candidate and retained a cross-vendor operator session. The highly responsive editor and sustained first processing interval are encouraging; a later strict lifecycle restart boundary remains retained rather than hidden.
-
-These are technical case studies only. No vendor has endorsed the project and no partnership or commercial relationship is claimed.
-
-## What a mature engagement can deliver
-
-Depending on scope:
-
-- an exact supported-product profile;
-- pinned runtime/environment artifacts;
-- deterministic compatibility fixtures;
-- a real-product qualification record;
-- installer, authorization and service integration;
-- a support and limitation matrix;
-- candidate/publication and rollback history;
-- private incident-report tooling;
-- a release-qualification process;
-- a roadmap for remaining unsupported behavior;
-- integration or distribution rights defined by contract.
-
-The intended value is not a one-time demo. It is a maintained route from the partner's existing Windows product to a supportable Linux offering.
+This is a controlled qualification result, not a casual runtime toggle.
 
 ## Engagement principles
 
-- Use the real vendor installer and product where practical.
-- Preserve vendor licensing and authorization.
-- Do not publish proprietary binaries, projects, presets, state or credentials.
-- Distinguish generated tests from real-product proof.
-- State exact supported versions and limits.
-- Fix generic problems at the shared layer.
-- Keep product-specific policy declarative and narrow.
-- Retain rollback before activating updates.
-- Stop repetitive testing when it produces no new evidence.
-- Treat private incidents as sensitive by default.
-- Do not claim a partnership until one exists.
-- Do not market a DAW as supported before audio, MIDI, projects, plug-ins and cleanup have exact evidence.
+- use real lawful vendor installers and products;
+- preserve authorization;
+- do not publish proprietary payloads or credentials;
+- distinguish generated fixtures from real-product proof;
+- state exact supported versions and hosts;
+- fix generic problems at the shared layer;
+- keep product-specific policy declarative;
+- retain rollback;
+- stop repetitive testing that adds no information;
+- avoid duplicate class exposure;
+- do not claim a partnership until one exists.
 
-## Intellectual property and licensing
+## Near-term proof points
 
-The original platform source, documentation, profiles, fixtures and designs in this repository are proprietary. Public visibility does not grant use, modification, redistribution, commercial deployment or derivative-work rights.
+1. complete generic multi-stage installer/service attribution;
+2. broaden native Linux-host plug-in vendor evidence;
+3. remove agent-only onboarding and preparation paths;
+4. build the source-owned Windows-host adapter fixture;
+5. publish one exact candidate to Linux and Windows frontends;
+6. prove one Wine-hosted commercial DAW;
+7. compare direct and remote hosting;
+8. only then expand into complete DAW application management and Live/Max for Live.
 
-Third-party products and dependencies remain owned and licensed by their respective parties. A commercial engagement would define rights for platform use, integration, distribution, support, branding, profiles, fixtures and modifications separately in writing.
-
-See [COPYRIGHT.md](../COPYRIGHT.md) and [CONTRIBUTING.md](../CONTRIBUTING.md).
-
-## Next commercial proof points
-
-The valuable near-term proof is that the cost curve improves:
-
-1. complete generic multi-stage installer and service attribution;
-2. qualify additional independent plug-in vendors and record capability reuse;
-3. measure new generic work per vendor;
-4. make the manager sufficient for ordinary installation, preparation, testing and repair;
-5. prove a source-owned Windows audio application with real audio/MIDI and project lifecycle;
-6. select one full commercial DAW only after those gates;
-7. establish repeatable release qualification and incident support for both product modes.
-
-If later plug-ins and applications require less new code, fewer live interventions and shorter diagnosis cycles, the platform and licensing thesis are working.
+If later products and hosts require less new code and fewer live interventions, the platform and licensing thesis are working.

@@ -1,346 +1,425 @@
-# Application compatibility roadmap
+# Windows-host plug-in and application compatibility roadmap
 
 ## Decision and status
 
-Complete Windows audio applications are a **strategic future product mode** for Linux Audio Compatibility Platform.
-
-This is not the active implementation slice and it is not a claim that any Windows DAW currently works. The present accepted architecture and evidence are centered on Windows VST3 plug-ins inside native Linux DAWs.
-
-The roadmap decision is narrower:
-
-> After the plug-in platform demonstrates broader vendor transfer and generic installer/application custody, extend the same management and compatibility system toward complete Windows audio applications.
-
-The first application target should be selected only after the shared application foundation exists. Ableton Live is a high-leverage candidate because Max for Live is integrated into Live, but Live, Max, Max for Live, FL Studio, Cubase and every other application remain unqualified until exact evidence exists.
-
-## Why the opportunity is credible
-
-Several major creative applications currently publish Windows and macOS requirements rather than native Linux support:
-
-- [Ableton Live system requirements](https://help.ableton.com/hc/en-us/articles/115001663530-Live-Minimum-System-Requirements)
-- [Cycling '74 Max downloads and system requirements](https://cycling74.com/downloads)
-- [FL Studio official download and system requirements](https://www.image-line.com/fl-studio/download)
-- [Steinberg product system requirements](https://www.steinberg.net/system-requirements/)
-
-Bitwig already provides a native Linux product and remains the project's current DAW fixture:
-
-- [Bitwig Studio downloads and Linux requirements](https://www.bitwig.com/download/)
-
-That leaves a real category of musicians who may want Linux hardware or operating environments while remaining dependent on a Windows/macOS-only DAW, project format, controller ecosystem or creative runtime.
-
-The project has already built relevant shared machinery:
-
-- exact Windows environments and runner identity;
-- lawful installer and vendor-application supervision;
-- process/cgroup ownership and cleanup;
-- Windows services and helper investigation;
-- UI/input/window diagnostics;
-- crash and terminal-failure custody;
-- immutable candidates, evidence and rollback;
-- a native manager that presents controlled user crossings;
-- real-time audio experience from the plug-in mode.
-
-Those capabilities make full applications a natural adjacency rather than a completely unrelated product.
-
-## Why application support is not automatic
-
-The current native plug-in architecture is:
+Linux Audio Compatibility Platform has three ordered tracks:
 
 ```text
-Linux DAW owns the audio device and project
-→ native Linux VST3 proxy
-→ project-owned transport
-→ supervised Windows plug-in host
+Track A — current
+Windows plug-ins in native Linux DAWs
+
+Track B — next architectural expansion
+Managed plug-ins in Windows DAWs running under Wine/Proton
+
+Track C — later
+Complete managed Windows audio applications
 ```
 
-A Windows DAW changes the top-level ownership:
+Track B comes before Track C because it reuses the current plug-in candidate, transport and qualification model more directly.
+
+This document does not claim that FL Studio, Ableton Live, Cubase, standalone Max, Max for Live or another Windows DAW is supported today. It does not authorize a commercial DAW campaign before the source-owned host-adapter gates are complete.
+
+## Architectural correction
+
+The current Linux VST3 proxy cannot be loaded unchanged by a Windows DAW. A Windows DAW expects a Windows VST module.
+
+That does not invalidate the existing architecture. It means the platform needs another host-facing frontend:
 
 ```text
-Windows DAW owns its audio engine, project and plug-in host
-→ Windows audio/MIDI endpoint
-→ Linux PipeWire/ALSA, MIDI and desktop services
+one exact managed plug-in candidate
+├── Linux VST3 proxy
+│   └── native Linux DAW
+└── Windows VST3 proxy
+    └── Windows DAW under Wine/Proton
 ```
 
-The following capabilities are new or substantially broader:
+Both frontends can share:
 
-- ASIO/WASAPI-facing audio-device behavior;
-- PipeWire/ALSA routing and low-latency policy;
-- sample-rate, buffer, channel and device restart behavior;
-- MIDI input/output, clock, MPE, remote scripts and control surfaces;
-- GPU/DirectX/Vulkan translation, DPI, full-screen and multi-window behavior;
-- drag/drop, clipboard, file dialogs and file associations;
-- project, backup, pack, sample-library and content indexing;
-- Windows plug-in scanning and hosting inside the DAW;
-- application self-update, service and elevation behavior;
-- crash/session recovery and project-integrity guarantees;
-- collaboration/export and external hardware boundaries.
+- candidate identity;
+- exact module/class/parameter contract;
+- managed environment;
+- isolated Windows backend;
+- transport concepts;
+- profile, evidence and rollback;
+- failure custody.
 
-The platform should therefore add an **application plane** rather than attempting to route a DAW through the native VST3 proxy.
+Each frontend still requires its own tests and real-host proof.
 
-## What should transfer
+## Direct and remote Windows hosting
 
-### Strongly reusable
+A Windows DAW already speaks the Windows VST ABI. Therefore the normal direct route is valid:
 
-- manager UI and closed operator actions;
-- imported installer custody;
-- isolated managed environments;
-- runner selection and immutable profiles;
-- multi-stage installer and service attribution;
-- process, child, updater and relaunch ownership;
-- UI/input/window observation;
-- crash capture and module attribution;
-- application candidate rollout and rollback;
-- evidence, incidents, exact versions and nonclaims;
-- lawful account and authorization handoff.
+```text
+Windows DAW environment
+→ original Windows plug-in
+```
 
-### Reusable with extension
+The platform adds a remote isolated route:
 
-- performance and capacity policy;
-- state/project custody;
-- content and filesystem policy;
-- popup/focus/accessibility handling;
-- hardware/controller qualification;
-- update and rollback workflow.
+```text
+Windows DAW environment
+→ LVB Windows VST3 proxy
+→ Linux-owned broker / transport
+→ separate managed plug-in environment
+→ original Windows plug-in
+```
 
-### New shared foundation
+The direct route is the baseline. The remote route is selected when isolation has evidence-backed value:
 
-- Windows audio-device bridge;
-- MIDI and synchronization bridge;
-- application project/content integration;
-- nested plug-in-hosting qualification;
+- different runner requirement;
+- vendor-service or authorization separation;
+- independent update/rollback;
+- crash containment;
+- one installation shared across hosts;
+- incompatible vendor suites;
+- exact support custody outside the DAW prefix.
+
+One host environment must expose only one implementation of an exact VST3 class.
+
+## Why this route comes before complete DAW management
+
+A complete DAW application plane introduces:
+
+- audio-device integration;
+- MIDI and synchronization;
+- project/content lifecycle;
+- full GPU/window/file behavior;
+- application self-update;
 - full-session recovery.
 
-The roadmap should measure this transfer rather than assigning a speculative percentage.
+The Windows-host adapter can be proven with a source-owned VST3 host before those concerns are solved.
 
-## Why Live and Max for Live are high leverage
+That gives the platform an earlier result:
 
-Ableton documents Max for Live as an editor and creative environment used inside Live. It is bundled with Live installations and included with Live Suite, or available as an add-on for Live Standard:
+> One exact managed plug-in can be used from both native Linux DAWs and Windows DAWs running on Linux.
 
-- [Buying Max for Live](https://help.ableton.com/hc/en-us/articles/206407124-Buying-Max-for-Live)
-- [Max for Live bundled in Live](https://help.ableton.com/hc/en-us/articles/360000036850-Max-for-Live-bundled-in-Live)
+## Gate 0 — finish the native Linux-hosted plug-in product
 
-This creates a potentially valuable application family:
+Before Track B:
+
+- stabilize current Arturia and Xfer results;
+- complete Native Instruments-style multi-stage installer/service attribution;
+- qualify several additional vendor families;
+- make install → discover → inspect → prepare → test ordinary manager operations;
+- remove remaining agent-only product crossings;
+- measure shared versus product-specific work.
+
+Exit condition:
+
+> A new Windows plug-in vendor can normally be installed, discovered, prepared, experimentally published, diagnosed and rolled back for a native Linux DAW through the manager.
+
+## Gate 1 — WHA0 source-owned Windows host adapter
+
+Build project-owned components only:
 
 ```text
-Ableton Live
-├── Live projects and devices
-├── Windows VST plug-in hosting
-├── bundled Max for Live runtime
-├── third-party Max for Live devices
-└── controller and hardware integrations
+source-owned Windows VST3 host under Wine
+→ source-owned LVB Windows VST3 proxy
+→ Linux-owned broker / transport
+→ isolated source-owned Windows plug-in backend
 ```
 
-A successful Live environment could therefore unlock more than one executable.
+### Required capabilities
 
-However:
+- factory scan and stable class identity;
+- component/controller creation;
+- bus negotiation;
+- MIDI/events;
+- nonzero audio;
+- parameters and automation;
+- opaque state save/restore;
+- latency reporting;
+- editor open/close;
+- one processing restart;
+- backend terminal failure presentation;
+- exact cleanup.
 
-- Live authorization is still a separate lawful vendor boundary;
-- Max for Live licensing depends on the Live edition/add-on;
-- standalone Max is a separate product and license;
-- Max for Live editing is not proved by Live launching;
-- a particular Max device is not proved by the Max runtime launching;
-- Windows plug-ins inside Live require their own installation and qualification;
-- controllers, Link, external hardware and low-latency audio remain separate evidence.
+### Transport questions
 
-Live is high-leverage precisely because the surface is large. It should not be the first test of an unfinished application foundation.
+- can independently managed Wine environments share Linux-owned memory safely?
+- should control use Unix sockets while hot audio uses private tmpfs/shared memory?
+- what wake-up primitive is bounded and portable through the selected runner?
+- how are process and session identities bound across environments?
+- how is a dead backend distinguished from a delayed result?
 
-## Roadmap gates
+### Editor posture
 
-### Gate 0 — Broader plug-in transfer
-
-Before a full DAW target:
-
-- retain a stable Arturia vertical;
-- retain the Xfer cross-vendor result and lifecycle repair history;
-- complete generic multi-stage installer/service attribution;
-- qualify several additional vendor families;
-- use Native Instruments and independent vendors such as Kilohearts, Valhalla DSP and UVI as possible probes, not promised support;
-- measure reused versus new generic work;
-- remove remaining agent-only ordinary workflows from the manager.
-
-Exit condition:
-
-> A new plug-in vendor can normally be installed, discovered, prepared, tested and diagnosed through the manager, with product-specific code remaining exceptional.
-
-### Gate 1 — Source-owned Windows audio application fixture
-
-Build a small project-owned Windows application that exercises the exact future application boundary without commercial software.
-
-It should cover:
-
-- installation and launch;
-- a real Windows audio-device API;
-- stereo output and input;
-- MIDI input/output;
-- sample-rate and buffer changes;
-- device loss/restart;
-- one project document with save/reopen;
-- multiple windows, dialogs and drag/drop;
-- one nested source-owned VST3;
-- crash and positive cleanup;
-- immutable candidate and rollback.
-
-Exit condition:
-
-> The platform can run and supervise a source-owned Windows audio workstation fixture through a qualified Linux audio/MIDI path.
-
-### Gate 2 — Application manager workflow
-
-The manager should expose:
+First proof:
 
 ```text
-Add Windows application
+detached vendor editor managed by LVB
+```
+
+Embedded cross-Wine editor forwarding is later work.
+
+Exit condition:
+
+> The source-owned Windows host treats the Windows LVB proxy as a functioning VST3 whose backend lives in another managed environment.
+
+## Gate 2 — dual-host candidate publication
+
+Extend the manager so one exact candidate can generate:
+
+```text
+Linux host artifact
+Windows host artifact
+```
+
+The candidate retains one logical product identity while each artifact retains:
+
+- target platform;
+- build recipe;
+- frontend version;
+- transport protocol;
+- host-specific evidence;
+- limitations.
+
+The manager must:
+
+- publish each frontend explicitly;
+- prevent duplicate direct/remote class exposure;
+- show host-specific qualification;
+- preserve shared backend candidate history;
+- rollback one frontend without corrupting another.
+
+Exit condition:
+
+> One source-owned candidate can be loaded through both a native Linux VST3 host and a Windows VST3 host under Wine.
+
+## Gate 3 — first commercial Windows DAW host proof
+
+Choose a DAW by criteria:
+
+- lawful operator-owned license;
+- known Wine viability;
+- conventional VST3 scan;
+- useful project save/reopen;
+- no kernel-driver requirement for first proof;
+- practical process ownership;
+- clear user value.
+
+FL Studio is a plausible candidate, not a commitment.
+
+### Bounded proof
+
+```text
+install/launch DAW through an already controlled environment
+→ scan exact Windows LVB proxy
+→ instantiate one existing qualified candidate
+→ MIDI and nonzero audio
+→ editor
+→ automation
+→ project save/reopen
+→ normal removal
+→ DAW quit and positive cleanup
+```
+
+The first commercial proof does not require full manager ownership of every DAW feature.
+
+Exit condition:
+
+> One exact Wine-hosted DAW generation can use the remote LVB proxy for a bounded musical workflow.
+
+## Gate 4 — direct versus isolated comparison
+
+For the same DAW and plug-in, compare:
+
+```text
+Direct:
+DAW → original Windows VST
+
+Remote:
+DAW → Windows LVB proxy → isolated original Windows VST
+```
+
+Measure:
+
+- scan and launch reliability;
+- audio/MIDI latency;
+- CPU and wake-up cost;
+- editor behavior;
+- automation/state recall;
+- crash containment;
+- update and rollback;
+- vendor-service interaction;
+- project portability.
+
+Outcome:
+
+- choose direct where it is simpler and sufficient;
+- choose remote where isolation has demonstrated value;
+- retain unsupported combinations honestly.
+
+## Gate 5 — managed Windows DAW application mode
+
+Only after the host-adapter proof, add the full application plane:
+
+```text
+Add Windows audio application
 → install in managed environment
-→ detect application/services/content
-→ check application compatibility
+→ detect services/content
+→ qualify audio/MIDI/project behavior
 → prepare application candidate
 → enable experimental use
-→ test audio/MIDI/projects/plug-ins
 → review exact configuration
 → publish as Ready or retain limitations
 ```
 
-It must retain:
+### New shared foundation
 
-- application and updater versions;
-- environment and runner;
-- services and prerequisites;
-- audio/MIDI policy;
-- project/content locations;
-- plug-in paths;
-- evidence and rollback.
+- Windows audio-device bridge into PipeWire/ALSA;
+- MIDI/controller/synchronization bridge;
+- project/content storage policy;
+- full-session recovery;
+- application updater/service custody;
+- nested plug-in-hosting policy;
+- sustained-performance qualification.
 
-Exit condition:
+### Source-owned application fixture
 
-> A human operator can manage an application without administering Wine or relying on an agent to build the environment by hand.
+Before a commercial full-DAW campaign, build a project-owned Windows audio application covering:
 
-### Gate 3 — First commercial application proof
-
-Select one product using criteria rather than excitement alone:
-
-- lawful installer and license available to the operator;
-- no kernel driver dependency required for the initial proof;
-- documented audio/MIDI requirements;
-- practical offline or bounded online authorization;
-- high user value;
-- useful plugin/project workflow;
-- feasible support boundary;
-- no need to bypass security or licensing.
-
-A proof ladder should stop at the first material boundary:
-
-1. install and authorize;
-2. launch real UI;
-3. produce machine-measured audio;
-4. receive MIDI;
-5. save/reopen a project;
-6. scan one managed Windows plug-in;
-7. use that plug-in and reopen the project;
-8. normal quit and positive cleanup;
-9. deliberate crash and recoverable project/session posture;
-10. measured latency and bounded sustained use.
+- stereo output/input;
+- MIDI input/output;
+- sample-rate/buffer changes;
+- device loss/restart;
+- one project save/reopen;
+- windows/dialogs/drag-drop;
+- one nested source-owned VST3;
+- crash and cleanup;
+- candidate and rollback.
 
 Exit condition:
 
-> One exact application generation is usable for a bounded musical workflow with truthful limits and rollback.
+> The platform can supervise a source-owned Windows audio workstation fixture through a qualified Linux audio/MIDI path.
 
-### Gate 4 — Live and Max for Live family
+## Gate 6 — Live and Max for Live
 
 If Live is selected, qualify in layers:
 
-1. Live application installation and authorization;
+1. Live installation and authorization;
 2. audio/MIDI and project save/reopen;
-3. Live's Windows plug-in scanning and one managed plug-in;
-4. bundled Max for Live runtime launch;
-5. one stock Max for Live device;
-6. one third-party `.amxd` device;
-7. Max for Live editor open/edit/save/reopen;
-8. standalone Max only as a separate product track;
-9. controller/Link/hardware only through separate exact evidence.
+3. Live's direct Windows plug-in hosting;
+4. Windows LVB proxy hosting for one isolated plug-in;
+5. bundled Max for Live runtime;
+6. one stock Max for Live device;
+7. one third-party `.amxd` device;
+8. Max for Live editor open/edit/save/reopen;
+9. standalone Max as a separate track;
+10. controller/Link/hardware as separate exact evidence.
 
-Exit condition:
+Live, Max for Live and standalone Max remain separate lawful product boundaries.
 
-> Live and the selected Max for Live scope operate as an exact managed application family, not merely a successful launcher.
+## Later DAWs
 
-### Gate 5 — Additional DAWs
+FL Studio, Cubase and other DAWs should be admitted through the same host/application evidence model.
 
-FL Studio, Cubase or another DAW should be added only after the application foundation is reusable.
+No DAW name dispatch belongs in shared transport or process ownership. Product-specific policy stays narrow and declarative.
 
-Each new DAW should answer:
+## Manager model
 
-- Which application capabilities transferred unchanged?
-- Which new generic fixture was required?
-- Which product-specific policy was unavoidable?
-- Did the manager and diagnostic suite reduce time to diagnosis?
-- Can the supported matrix and rollback be stated precisely?
-
-## Application evidence model
-
-A DAW/application qualification should keep separate areas:
+The manager should eventually show:
 
 ```text
-installation
-first_launch
-authorization
-audio_output
-audio_input
-midi_input
-midi_output
-device_restart
-project_save_reopen
-content_and_packs
-plugin_scan
-plugin_processing
-plugin_editor
-multiwindow_and_dialogs
-update
-crash_recovery
-normal_retirement
-performance
+Product: exact plug-in candidate
+
+Backend:
+✓ installed
+✓ inspected
+✓ prepared
+
+Host publications:
+✓ Linux VST3 proxy
+○ Windows VST3 proxy
+
+Windows DAW exposure:
+○ Direct in DAW environment
+● Remote isolated
+
+Qualification:
+Linux/Bitwig: experimental result retained
+Windows/source-owned host: generated result retained
+Windows/commercial DAW: not tested
 ```
 
-Each area retains:
+For applications:
 
-- passed;
-- failed;
-- not tested;
-- unavailable;
-- not applicable;
-- machine observation, generated fixture or operator observation;
-- exact application, runner and environment generation.
+```text
+Application candidate
+→ environment/runner
+→ audio/MIDI profile
+→ projects/content
+→ direct and remote plug-in catalogue
+→ evidence
+→ rollback
+```
 
-A clean launch cannot be promoted to full application support.
+## Evidence areas
 
-## Business validation criteria
+### Windows-host plug-in adapter
 
-The application strategy is working when:
+- scan/class identity;
+- buses and events;
+- audio;
+- automation;
+- state;
+- latency;
+- editor;
+- lifecycle;
+- backend loss;
+- cleanup.
 
-- the same manager operates both plug-in and application modes;
-- installer, UI, process and incident capabilities are reused;
-- application-specific audio/MIDI work becomes shared infrastructure;
-- later DAWs require less new code and fewer manual interventions;
-- users can retain projects and exact rollback safely;
-- vendor/hardware partners can understand the support boundary;
-- the catalogue becomes more valuable without support claims becoming less precise.
+### Complete application
 
-It is not working if every DAW requires an unrelated custom launcher, arbitrary Wine flags, manual filesystem edits and unauditable support claims.
+- install/update;
+- authorization;
+- audio device;
+- MIDI/controller;
+- project save/reopen;
+- content;
+- direct plug-in host;
+- remote plug-in host;
+- UI/file behavior;
+- crash/session recovery;
+- performance.
 
-## Security, licensing and support guardrails
+Generated fixtures and real commercial results remain distinct.
 
-- No authorization or DRM bypass.
-- No bundling or redistribution of commercial installers, applications, plug-ins, packs or projects without rights.
-- No running the manager as root to satisfy a vendor installer.
-- No exposing the operator's entire home directory by default.
-- No arbitrary shell commands in profiles.
-- No hidden host-wide service installation without explicit review.
-- No random runner selector presented as support.
-- No product-specific implementation dispatch when a generic application law can be built.
-- No implication of vendor affiliation or official support.
-- No consumer release before project integrity, cleanup and rollback are proved.
+## Security and licensing guardrails
 
-## Near-term decision
+- no licensing bypass;
+- no cross-prefix credential copying;
+- no unrestricted real HOME exposure;
+- no root manager;
+- no arbitrary shell/profile commands;
+- no duplicate class exposure;
+- no hidden runner fallback;
+- no product support claim from launch alone;
+- no vendor partnership claim without agreement;
+- no proprietary payload in public evidence.
 
-Do not start Ableton Live yet.
+## Near-term order
 
-First complete the generic Native Instruments installer/service investigation and broaden the plug-in catalogue. In parallel, preserve application mode in architecture and product language so that current work is evaluated for reuse rather than accidentally hard-coded around VST3-only assumptions.
+```text
+Native Instruments installer/service attribution
+→ additional plug-in vendors
+→ manager workflow completion
+→ WHA0 Windows host adapter
+→ dual-host publication
+→ one Wine-hosted DAW
+→ direct/remote comparison
+→ source-owned application fixture
+→ managed full DAW
+→ Live + Max for Live
+```
 
-The next application work after those gates should be a source-owned Windows audio application fixture—not a commercial DAW campaign.
+## Success criteria
+
+The roadmap is working when:
+
+- new plug-in vendors require fewer generic repairs;
+- one candidate can serve both Linux and Windows hosts through separately qualified frontends;
+- remote isolation provides measurable value where selected;
+- direct hosting remains available where preferable;
+- a full DAW can later be managed without discarding the plug-in platform;
+- support claims remain exact, versioned and reversible.
