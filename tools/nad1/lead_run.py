@@ -68,7 +68,7 @@ def campaign(package,seal,out):
    time.sleep(.25)
  finally:
   subprocess.run(['systemctl','--user','stop',unit],timeout=35,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
- fields=subprocess.check_output(['systemctl','--user','show',unit,'--property=LoadState,ActiveState,MainPID,ControlPID,ControlGroup'],timeout=15).decode()
+ fields=subprocess.run(['systemctl','--user','show',unit,'--property=LoadState,ActiveState,MainPID,ControlPID,ControlGroup'],timeout=15,capture_output=True).stdout.decode()
  expected_fields={'LoadState':'not-found','ActiveState':'inactive','MainPID':'0','ControlPID':'0','ControlGroup':''}
  if dict(x.split('=',1) for x in fields.splitlines())!=expected_fields:raise ValueError('fixture_unit_not_retired')
  if not (d/'child-result.json').exists():raise ValueError('fixture_result_missing_retired')
