@@ -141,3 +141,13 @@ it. Exact operation `c44ae35d794f0a1f47ee97468e848a1c` and the attributed report
 retained under `evidence/naui2/inherited-observation/`. Cleanup/service restoration
 passed; rendering cause is unresolved. This records observed activity, not an agent
 launch or a new authorization. Stop for review; software rendering remains gated.
+
+### Authorized software-rendering observation B
+
+The tech lead accepted A and authorized exactly one human-operated B. Idle preflight
+passed; the human launched software rendering, reported visible content, and closed
+normally. Operation `627e52ca72b7533a5774862da7df11cb` is retained separately under
+`evidence/naui2/software-rendering-observation/`. Effective policy/root match,
+drop counters are zero, and cleanup/service restoration/preservation passed.
+The result is a provisional software-rendering effect; cause remains unresolved.
+Stop for review. Restored inherited C is not authorized by this continuation.
