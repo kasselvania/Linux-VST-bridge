@@ -1,0 +1,6 @@
+{
+  "installation_started": false,
+  "reason": "operator_app_open",
+  "source_built": true,
+  "stage": "preflight"
+}

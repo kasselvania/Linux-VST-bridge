@@ -1,0 +1,48 @@
+{
+  "adapter_build_checkout": "bcc3236952b3c342ba8364b6d3b0c5fa3a465d38",
+  "adapter_ci_run": 35257162135,
+  "adapter_inventory_sha256": "711da34f4f7190ee6c8645c3a31d155db8e638cd9ac2e8259e005a4fa136dd77",
+  "approved_head": "4bbc2ac2d5d5df67c51ec3e1a03bf1481ffbd570",
+  "artifacts": {
+    "frontend-readback-client": "d71813ca5f00c92f7e31d10c32fe8140a2662aacbbb9579350ff9a2b100d9a69",
+    "installer-launch.exe": "36e8b1556b8e1b249842fbe666462395b1956115ddc14ca15af01652e14ea57d",
+    "linux-audio-compatibility-manager": "f6a3752bc9da2840b2c825c206839edcded092036485fc0fd2aa66883283be49",
+    "linux-vst-bridge": "c2499e6107d6e7ac451296ecd8817826ef940ae7d5cc6ad01ef9b2eda9de343e",
+    "ownership.py": "cc81d05876043ccf96c1540c556a790e62f57f4a6e72aabbd820a5d133311add",
+    "session.py": "62a46969cc6280bdd5b2b11a177cf62c7623d8383cfdd0730411c4f3879293d1"
+  },
+  "frontend_client_source_sha256": "903476766ee3ccde603a8512478d0c4254ac0b42407b30d25e19f2f10ab4c738",
+  "linker": "Zig x86_64-linux-gnu",
+  "linker_sha256": "932cdba20d00698761e7767039ea2d99b51ccb75566ebab56fedbca5276b25d6",
+  "merge_commit": "bcc3236952b3c342ba8364b6d3b0c5fa3a465d38",
+  "merged_main_workflows": [
+    {
+      "conclusion": "success",
+      "databaseId": 35257164677,
+      "headSha": "bcc3236952b3c342ba8364b6d3b0c5fa3a465d38",
+      "name": "AP12 registered owner",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 35257162135,
+      "headSha": "bcc3236952b3c342ba8364b6d3b0c5fa3a465d38",
+      "name": "AP8 Windows host",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 35257057416,
+      "headSha": "bcc3236952b3c342ba8364b6d3b0c5fa3a465d38",
+      "name": "PX2 proof policy",
+      "status": "completed"
+    }
+  ],
+  "operator_model_source_sha256": "ce624102d57f45fb2a10819aa888ad6aac6f2f1b143e9658150104d49b94082e",
+  "readback_client_driver_sha256": "27b588f51c5269a9ee5a1fc3b174b8a877c7e3515bb823311b1cb6acf4cd22b7",
+  "readback_client_installed": false,
+  "source_head": "bcc3236952b3c342ba8364b6d3b0c5fa3a465d38",
+  "source_tree": "4eefcfd670c4e5576045b88805fe84b266d63db8",
+  "target": "x86_64-unknown-linux-gnu",
+  "toolchain": "rustc 1.95.0"
+}

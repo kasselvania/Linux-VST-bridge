@@ -1,0 +1,28 @@
+{
+  "application_record_sha256": "efa17763785548cce9a7ac4da7d37ec453ea3dff323a77c72ce501066648a0cd",
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "daemon_absent": true,
+  "native_access_closed": true,
+  "operator_apps_closed": true,
+  "operator_schema": 6,
+  "predecessor_files": 23,
+  "predecessor_generation": "fba5d879e3bbbe92d98499a6e02895df25d77664368186b7d0e2c0849435639e",
+  "projects": 5,
+  "protected_records": 81,
+  "retained": 307,
+  "service_registration_absent": true,
+  "software_record_sha256": "1267f4233cee79d267f7e768dff6ff34d954dcbbca18416ef08c58f112b0d769",
+  "system": {
+    "ceiling": 6,
+    "cleanup_unconfirmed": false,
+    "dsp": 0,
+    "keepers": 2,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "service": "active",
+    "stale_transports": 0
+  }
+}

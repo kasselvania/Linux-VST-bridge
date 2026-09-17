@@ -277,3 +277,18 @@ both observations and all earlier evidence remain unchanged. The final source
 passed AP8/AP12/PX2 and 193 Linux runtime tests. Final idle readback matches the
 completed campaign. No real dependency transition or new census occurred. Keep
 PR #119 draft/unmerged for rereview of the amended exact head.
+
+## NAD1 release/install continuation — receipt review stop
+
+Explicit release authority merged PR #119 approved head `4bbc2ac…` as
+`bcc3236952b3c342ba8364b6d3b0c5fa3a465d38`, preserving tree
+`4eefcfd670c4e5576045b88805fe84b266d63db8`. Merged-main AP8/AP12/PX2 passed.
+One immutable installation through the existing idle service stop/setup/restart
+route selected generation `471702f27ad8ec90d158e4a13648057aec43e9abfd1c070edc029ee823ed334d`.
+Operator schema 7 and frontend agreement are verified. All predecessor files,
+307 witnesses, five projects and 81 protected records remain unchanged. Service is
+active, two keepers healthy, all leases/transactions/stale transports zero, capture
+off and resume absent. Native Access remains closed; real NTKDaemon executable and
+service remain absent. No dependency/application/registry action occurred.
+`evidence/nad1/installation/` is the immutable installation handoff. Stop for receipt
+review; no DependencyPrepare or Native Access launch is authorized here.

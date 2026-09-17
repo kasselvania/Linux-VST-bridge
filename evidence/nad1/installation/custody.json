@@ -1,0 +1,25 @@
+{
+  "ap8_artifact_id": 10513228164,
+  "ap8_source_commit": "bcc3236952b3c342ba8364b6d3b0c5fa3a465d38",
+  "build_log_sha256": {
+    "nad1-install-frontend-build.log": "c7860f85ab261085915abd2bf9cdfea70afd70b380e10dd56a7b9d02b503816a",
+    "nad1-install-manager-build.log": "3e927383c6644add39d22de8f65a0df0a6287d9c97f19f03aa0877323a3fdfda",
+    "nad1-install-readback-build.log": "8c1285062f6463d101790566fe117f50b080c4fdfa3ba215f6efaaa711d81771"
+  },
+  "driver_archive_sha256": "ec021ffc5fc691d439af638440c510da17dd4a833e523c684ca44f5b9a838699",
+  "driver_sha256": {
+    "final-readback.py": "ec3c0e5ba075e11f8d1ec1082dd00141de7d4a412bb5554fc7c837d6467417da",
+    "frontend-readback-Cargo.lock": "3c8121b38a78d9f6ef172c0c442ff2391cf824f93f7d2b99f6e128cbd3829576",
+    "frontend-readback-Cargo.toml": "9611567854e6acf4c753c93fe6b5fe3a2118b18f87d8089f4a4d66e7078544a7",
+    "frontend-readback-main.rs": "27b588f51c5269a9ee5a1fc3b174b8a877c7e3515bb823311b1cb6acf4cd22b7",
+    "install.py": "7c74c19315272990952d8116c3036a8066067ee771d1dd9da64187bfbe519b19",
+    "preflight.py": "8ad75cebea18aa960b0bd0847d29d0fad67a34a2693805530116d260c675ff0f",
+    "stage.py": "90533330094d4ef65241a5f7ca15efa7b79aa08b11c8a147881305a7d87c2fa9"
+  },
+  "immutable_private_receipt_sha256": "fbf724b7f42c8ea3205dd4d20cbc0b6d2839b0368aac4b1edd09524de9bf6903",
+  "initial_preflight_refusal": "manager_open_no_mutation",
+  "package_sha256": "7f3f416f3cf974cc0ae93f61465eb7047abffa9bc7f6095d49d7d7b3e2301ffc",
+  "physical_installations": 1,
+  "public_receipt_sha256": "f002f27af5f5a7060f9baf6c851282a5b48b30b42a6b596e1c2670d3f6e4c260",
+  "schema": 1
+}
