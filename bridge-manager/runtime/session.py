@@ -2556,12 +2556,12 @@ def nad1_transition(state):
 
 def nad1_scm_frame(raw,op,token):
     lines=[x.split() for x in raw.decode('ascii',errors='strict').splitlines() if x.startswith('NAD1_SCM_V1 ')]
-    if len(lines)!=1 or len(lines[0])!=9:raise ValueError('dependency_scm_frame')
+    if len(lines)!=1 or len(lines[0])!=11:raise ValueError('dependency_scm_frame')
     a=lines[0]
-    if a[1:3]!=[op,token] or a[3] not in ('absent','exact') or any(not re.fullmatch('[0-9]{1,20}',v) for v in a[4:8]):raise ValueError('dependency_scm_identity')
-    if a[3]=='absent' and a[4:]!=['1060','0','0','0','none']:raise ValueError('dependency_scm_absence')
+    if a[1:3]!=[op,token] or a[3] not in ('absent','exact') or any(not re.fullmatch('[0-9]{1,20}',v) for v in a[4:8]+a[9:11]):raise ValueError('dependency_scm_identity')
+    if a[3]=='absent' and a[4:]!=['1060','0','0','0','none','0','0']:raise ValueError('dependency_scm_absence')
     if a[3]=='exact' and (int(a[5]) not in range(1,8) or (a[5]=='4' and (not re.fullmatch('[0-9a-f]{64}',a[8]) or int(a[6])==0 or int(a[7])==0))):raise ValueError('dependency_scm_generation')
-    return {'registration':a[3],'request_error':int(a[4]),'state':int(a[5]),'windows_pid':int(a[6]),'windows_created':int(a[7]),'image_sha256':a[8]}
+    return {'registration':a[3],'request_error':int(a[4]),'state':int(a[5]),'windows_pid':int(a[6]),'windows_created':int(a[7]),'image_sha256':a[8],'service_exit':int(a[9]),'service_specific_exit':int(a[10])}
 
 def nad1_listener_witness(candidate,scope,proc=pathlib.Path('/proc')):
     # Linux generation/cgroup/descriptor custody only. SCM Windows IDs never enter
@@ -2656,7 +2656,7 @@ class Nad1Owner:
                 stage['result']='outer_zero_only';return None
             result=nad1_scm_frame(bytes(stdout),self.op,self.token)
             installer_atomic(self.directory/f'{self.op}-scm-{index}.private.json',result)
-            stage['result']=result['registration'];stage['service_state']=result['state'];return result
+            stage['result']=result['registration'];stage['service_state']=result['state'];stage['service_exit']=result['service_exit'];stage['service_specific_exit']=result['service_specific_exit'];return result
         finally:
             stage['diagnostic_dropped_bytes']=capture.discarded;capture.close()
             for key in list(sel.get_map().values()):key.fileobj.close()

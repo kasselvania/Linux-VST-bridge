@@ -36,6 +36,8 @@ def run(package,seal,out):
   if not r.get('cleanup_confirmed') or r.get('owned_live')!=0:raise ValueError('fixture_cleanup')
   state=subprocess.run(['systemctl','--user','show',unit,'--property=LoadState,ActiveState,MainPID,ControlPID,ControlGroup'],capture_output=True,timeout=15).stdout.decode()
   if dict(x.split('=',1) for x in state.splitlines())!={'LoadState':'not-found','ActiveState':'inactive','MainPID':'0','ControlPID':'0','ControlGroup':''}:raise ValueError('unit_not_absent')
+  events=root/'compatdata/pfx/drive_c/NAD1Fixture/events.private'
+  if events.exists():shutil.copyfile(events,case/'events.private')
   shutil.rmtree(root);row={'case':scenario,'operation':op,'result':r,'result_sha256':digest(report if report.exists() else report.parent/'recovery-result.json'),'prefix_removed':True,'unit_absent':True,'manager_stop':stopped};publish(case/'proof.json',row);rows.append(row)
   expected='completed' if scenario in ('absent','unregistered','stopped') else 'cancelled' if scenario=='cancel' else 'failed'
   if r['state']!=expected:raise ValueError('fixture_case_result_'+scenario)

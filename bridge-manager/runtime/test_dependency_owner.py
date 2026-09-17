@@ -78,7 +78,7 @@ class OwnerTests(unittest.TestCase):
   with self.assertRaises(FileExistsError):s.nad1_publish(self.report,{'state':'success'})
   self.assertEqual(json.loads(self.report.read_bytes()),{'state':'first_failure'})
  def test_scm_generation_protocol_is_closed_and_separate(self):
-  op='a'*32;token='b'*64;raw=f'NAD1_SCM_V1 {op} {token} exact 0 4 123 1000 '+self.artifact['sha256']+'\n'
+  op='a'*32;token='b'*64;raw=f'NAD1_SCM_V1 {op} {token} exact 0 4 123 1000 '+self.artifact['sha256']+' 0 0\n'
   v=s.nad1_scm_frame(raw.encode(),op,token);self.assertEqual(v['windows_pid'],123);self.assertNotIn('linux_pid',v)
   for changed in [raw.replace(token,'c'*64),raw+raw,raw.replace('4 123','4 0'),raw.replace(self.artifact['sha256'],'none'),raw.replace(' 4 ',' 99 ')]:
    with self.assertRaises(ValueError):s.nad1_scm_frame(changed.encode(),op,token)

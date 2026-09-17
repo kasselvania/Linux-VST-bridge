@@ -43,7 +43,7 @@ static int nad1_service_request(const std::vector<std::wstring>& r) {
     if(r[3]==L"stop")access|=SERVICE_STOP;
     SC_HANDLE service=OpenServiceW(scm,nad1_service,access);
     if(!service){DWORD error=GetLastError();CloseServiceHandle(scm);
-        std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls absent %lu 0 0 0 none\n",r[1].c_str(),r[2].c_str(),error);std::fflush(stdout);return error==ERROR_SERVICE_DOES_NOT_EXIST?0:146;}
+        std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls absent %lu 0 0 0 none 0 0\n",r[1].c_str(),r[2].c_str(),error);std::fflush(stdout);return error==ERROR_SERVICE_DOES_NOT_EXIST?0:146;}
     alignas(QUERY_SERVICE_CONFIGW) std::array<unsigned char,8192> buffer{};DWORD needed=0;
     bool ok=QueryServiceConfigW(service,reinterpret_cast<QUERY_SERVICE_CONFIGW*>(buffer.data()),static_cast<DWORD>(buffer.size()),&needed)!=FALSE;
     auto config=reinterpret_cast<QUERY_SERVICE_CONFIGW*>(buffer.data());
@@ -66,6 +66,6 @@ static int nad1_service_request(const std::vector<std::wstring>& r) {
         if(process)CloseHandle(process);
         if(!created||image_hash.size()!=64)ok=false;
     }
-    if(ok)std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls exact %lu %lu %lu %llu %s\n",r[1].c_str(),r[2].c_str(),request_error,status.dwCurrentState,status.dwProcessId,created,image_hash.c_str());
+    if(ok)std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls exact %lu %lu %lu %llu %s %lu %lu\n",r[1].c_str(),r[2].c_str(),request_error,status.dwCurrentState,status.dwProcessId,created,image_hash.c_str(),status.dwWin32ExitCode,status.dwServiceSpecificExitCode);
     std::fflush(stdout);CloseServiceHandle(service);CloseServiceHandle(scm);return ok?0:150;
 }

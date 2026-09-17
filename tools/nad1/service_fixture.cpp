@@ -3,15 +3,17 @@
 #include <windows.h>
 #include <string>
 #include <array>
+#include <cstdio>
+static void audit(const char* event,DWORD status=0){HANDLE f=CreateFileW(L"C:\\NAD1Fixture\\events.private",FILE_APPEND_DATA,FILE_SHARE_READ,nullptr,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);if(f==INVALID_HANDLE_VALUE)return;char row[160];int n=std::snprintf(row,sizeof(row),"%s %lu\n",event,status);DWORD written;WriteFile(f,row,static_cast<DWORD>(n),&written,nullptr);CloseHandle(f);}
 static SERVICE_STATUS_HANDLE handle{};
 static SERVICE_STATUS status{};
 static HANDLE stop_event{};
 static constexpr auto service=L"NAD1FixtureService";
 static constexpr auto daemon=L"C:\\NAD1Fixture\\NTKDaemon.exe";
-static void publish(DWORD state){status.dwServiceType=SERVICE_WIN32_OWN_PROCESS;status.dwCurrentState=state;status.dwControlsAccepted=state==SERVICE_RUNNING?SERVICE_ACCEPT_STOP:0;SetServiceStatus(handle,&status);}
+static void publish(DWORD state){status.dwServiceType=SERVICE_WIN32_OWN_PROCESS;status.dwCurrentState=state;status.dwControlsAccepted=state==SERVICE_RUNNING?SERVICE_ACCEPT_STOP:0;audit("state",state);SetServiceStatus(handle,&status);}
 static DWORD WINAPI control(DWORD code,DWORD,LPVOID,LPVOID){if(code==SERVICE_CONTROL_STOP){publish(SERVICE_STOP_PENDING);SetEvent(stop_event);}return NO_ERROR;}
 static void WINAPI service_main(DWORD,LPWSTR*){
- handle=RegisterServiceCtrlHandlerExW(service,control,nullptr);if(!handle)return;
+ audit("service_main");handle=RegisterServiceCtrlHandlerExW(service,control,nullptr);if(!handle){audit("handler_error",GetLastError());return;}
  stop_event=CreateEventW(nullptr,TRUE,FALSE,nullptr);publish(SERVICE_START_PENDING);
  WSADATA wsa{};if(WSAStartup(MAKEWORD(2,2),&wsa)!=0){status.dwWin32ExitCode=1;publish(SERVICE_STOPPED);return;}
  std::array<SOCKET,2> sockets{INVALID_SOCKET,INVALID_SOCKET};
@@ -38,5 +40,5 @@ int wmain(int argc,wchar_t**argv){
  }
  if(argc!=1)return 64;
  SERVICE_TABLE_ENTRYW table[]={{const_cast<LPWSTR>(service),service_main},{nullptr,nullptr}};
- if(!StartServiceCtrlDispatcherW(table))return static_cast<int>(GetLastError());return 0;
+ audit("dispatcher");if(!StartServiceCtrlDispatcherW(table)){DWORD error=GetLastError();audit("dispatcher_error",error);return static_cast<int>(error);}return 0;
 }
