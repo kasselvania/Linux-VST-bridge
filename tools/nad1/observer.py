@@ -27,13 +27,14 @@ def main():
     require(len(sys.argv)==1,'no_runtime_arguments');os.umask(0o077)
     source=pathlib.Path(__file__).resolve().parent;seal,seal_hash=verify(source);m=decode(read(source/'input.json'))
     require(m['schema']==1 and m['environment']=='627d2cba97edbecf113c22504eb4c81b' and m['failure_operation']=='354af73fea5773244ac3ebd21425e4ed','input_identity')
-    home=pathlib.Path.home();managed=home/'.local/share/linux-vst-bridge/managed';env=managed/'environments'/m['environment'];appdir=managed/'vendor-applications/native-access';out=home/'.cache/linux-vst-bridge/nad1-observation'
+    home=pathlib.Path.home();managed=home/'.local/share/linux-vst-bridge/managed';env=managed/'environments'/m['environment'];appdir=managed/'vendor-applications/native-access';out=home/'.cache/linux-vst-bridge/nad1-observation-continuation-1'
     sw=decode(read(managed/'software.json',expected=m['software_sha256']))
     for k,h in m['installed_artifacts'].items():require(sw[k]['sha256']==h and file_identity(sw[k]['path'])['sha256']==h,'installed_changed')
     before=snapshot(sw['manager']['path']);require(not (managed/'operator/resume.json').exists(),'resume_pending')
-    # Fixed one-use path cannot be reset by choosing another source generation.
+    # One explicitly authorized corrected continuation; the original marker is retained.
     out.mkdir(mode=0o700,exist_ok=True);publish(out/'started.json',{'seal':seal_hash,'source':seal['source_head']})
     tree_before=metadata(env)
+    publish(out/'before.private.json', {'environment_metadata':tree_before,'snapshot':before})
     appraw=read(appdir/'application.json',expected=m['application_record_sha256']);app=decode(appraw)
     require(digest(canonical(app))==m['application_identity'] and app['environment']['root']==str(env),'application_binding')
     eraw=read(env/'environment.json');require(decode(eraw)==app['environment'],'environment_changed')

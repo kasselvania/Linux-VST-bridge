@@ -110,3 +110,6 @@ refusal. This is an incomplete observation, not evidence of dependency readiness
 absence. A corrected continuation requires explicit operator permission; the
 original one-use marker remains retained. Production mutation selection is pending
 that disposition. No real NTKDaemon or Native Access operation has been performed.
+
+The operator explicitly authorized one corrected read-only rerun after the refusal.
+It uses a separate fixed one-use continuation directory and preserves the first marker.
