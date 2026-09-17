@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "change": "frontend_transport_operator_model_7",
+  "frontend_tests": 23,
+  "strict_frontend_clippy": "passed",
+  "response_kinds": ["snapshot", "activity", "request_receipt"],
+  "refusals": ["legacy_model", "future_model", "missing_model", "wrong_type", "unknown_receipt_field"],
+  "generated_source": "d75d3085e2b55d5939cf56f628535d6d2297efa3",
+  "sealed_inputs_changed": false,
+  "physical_replay": false,
+  "production_installation": false
+}

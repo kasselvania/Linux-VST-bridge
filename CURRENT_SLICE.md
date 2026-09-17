@@ -171,6 +171,13 @@ passed six cases with positive cleanup and exact preservation. Evidence and priv
 custody hashes are under `evidence/nad1/generated/final/`. All 22 generated units and
 cgroups are absent. Installed schema remains 6; proposed source schema is 7. The
 real daemon and service registration remain absent. AP8/AP12/PX2 passed at the
-executed source head; the evidence-only delivery head is checked separately on PR
-#119. Stop at that draft PR for independent review; no real dependency mutation,
+executed source head; the final delivery head is checked separately on PR #119. Stop at that draft PR for independent review; no real dependency mutation,
 Native Access launch or installation is authorized by this handoff.
+
+
+Final frontend admission correction: the transport decoder now accepts operator
+model 7 for snapshot, activity and request receipts, and refuses prior, future,
+missing or wrongly typed model versions. This closes a leftover model-6 check
+before delivery. Its regression passes with all 23 frontend tests and strict
+frontend Clippy. This frontend-only amendment changes no sealed observer or service
+campaign inputs; their executed-source identities and evidence remain unchanged.
