@@ -152,3 +152,25 @@ image/generation, cgroup custody and both owned loopback listeners. Its dependen
 cohort retires with the application, before bridge service restoration. No real
 installation or service start is authorized in this PR. Generated qualification and
 final checks remain required before handoff.
+
+The dependency owner and Native Access gate are implemented. Exact admission remains
+closed in both Rust and Python; schema 7 adds only parameter-free preparation and
+exact-operation Stop. The production owner has not been installed or used against the
+real daemon. Generated cases now prove installation/registration, SCM-only start,
+Windows-generation endpoint ownership, no-op readiness, refusal and retirement.
+
+The generated campaign retains its development failures. In particular, a strict
+whole-environment metadata check detected shared runtime-cache hardlink ctime changes.
+The actual Windows prefix and private HOME remained unchanged. Final preservation
+requires exact protected state plus byte-identical shared runtime contents, and
+retains those non-content timestamp changes explicitly. Do not relabel the earlier
+aggregate refusal as success.
+
+Final source-owned campaign at `d75d3085e2b55d5939cf56f628535d6d2297efa3`
+passed six cases with positive cleanup and exact preservation. Evidence and private
+custody hashes are under `evidence/nad1/generated/final/`. All 22 generated units and
+cgroups are absent. Installed schema remains 6; proposed source schema is 7. The
+real daemon and service registration remain absent. AP8/AP12/PX2 passed at the
+executed source head; the evidence-only delivery head is checked separately on PR
+#119. Stop at that draft PR for independent review; no real dependency mutation,
+Native Access launch or installation is authorized by this handoff.
