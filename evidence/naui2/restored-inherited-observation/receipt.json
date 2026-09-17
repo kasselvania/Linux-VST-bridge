@@ -1,0 +1,631 @@
+{
+  "schema": 1,
+  "observed_at_utc": "2026-09-17T07:35:18.149525+00:00",
+  "disposition": "NAUI2_SOFTWARE_RENDERING_SELECTED",
+  "result": {
+    "schema": 1,
+    "operation": "ac91282207c833b49de0779ebb1a635a",
+    "application_identity": "7228a542c01b89daa5d04b9c8566af235ee7a2358e52f741b8918239c3a7d26e",
+    "state": "completed",
+    "requested": "inherited",
+    "effective": {
+      "policy": "inherited",
+      "operation": "ac91282207c833b49de0779ebb1a635a",
+      "application_identity": "7228a542c01b89daa5d04b9c8566af235ee7a2358e52f741b8918239c3a7d26e",
+      "software_sha256": "d2d9005a6e6e4577bd3e558da257840c07711b2165cdd6c73628dfb838a7fe2b",
+      "root_ordinal": 7,
+      "monotonic_ns": 535397258504380
+    },
+    "renderer": {
+      "schema": 1,
+      "windows_dropped_observations": 0,
+      "line_drops": 0,
+      "fact_drops": 0,
+      "complete": true,
+      "unbound_leads": 0,
+      "facts": [],
+      "processes": [
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 7,
+          "parent_ordinal": 6,
+          "role": "main",
+          "role_request_sha256": null,
+          "image_sha256": "7b2413e90db79538cd1edc7c6169ff384aea181a85635c43a363f4aa18b9e841",
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 11,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 12,
+          "parent_ordinal": 11,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 13,
+          "parent_ordinal": 11,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 14,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": "7b2413e90db79538cd1edc7c6169ff384aea181a85635c43a363f4aa18b9e841",
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 15,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 1
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 16,
+          "parent_ordinal": 15,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 17,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 18,
+          "parent_ordinal": 17,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 19,
+          "parent_ordinal": 15,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 1
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 20,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 21,
+          "parent_ordinal": 20,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 22,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 23,
+          "parent_ordinal": 22,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 24,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 25,
+          "parent_ordinal": 24,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 26,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 27,
+          "parent_ordinal": 26,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 28,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 29,
+          "parent_ordinal": 28,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 30,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": "7b2413e90db79538cd1edc7c6169ff384aea181a85635c43a363f4aa18b9e841",
+          "exit_domain": null,
+          "exit_status": null
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 31,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 1
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 32,
+          "parent_ordinal": 31,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 33,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 34,
+          "parent_ordinal": 33,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 35,
+          "parent_ordinal": 31,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 1
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 36,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 37,
+          "parent_ordinal": 36,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 38,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 39,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": "7b2413e90db79538cd1edc7c6169ff384aea181a85635c43a363f4aa18b9e841",
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 40,
+          "parent_ordinal": 38,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 41,
+          "parent_ordinal": 36,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 42,
+          "parent_ordinal": 38,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 43,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 44,
+          "parent_ordinal": 43,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 45,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 46,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": "7b2413e90db79538cd1edc7c6169ff384aea181a85635c43a363f4aa18b9e841",
+          "exit_domain": null,
+          "exit_status": null
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 47,
+          "parent_ordinal": 45,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 48,
+          "parent_ordinal": 7,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 49,
+          "parent_ordinal": 48,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        },
+        {
+          "domain": "windows",
+          "epoch": 2,
+          "ordinal": 50,
+          "parent_ordinal": 48,
+          "role": "unknown",
+          "role_request_sha256": null,
+          "image_sha256": null,
+          "exit_domain": "wine_self_exit_observation",
+          "exit_status": 0
+        }
+      ],
+      "launch_binding": {
+        "schema": 1,
+        "operation": "ac91282207c833b49de0779ebb1a635a",
+        "epoch": 2,
+        "token_sha256": "d3ee3d2e1b9be84b9f159ec3f780119d9e294de985ea90271ddbabacd560448b",
+        "artifact_sha256": "7b2413e90db79538cd1edc7c6169ff384aea181a85635c43a363f4aa18b9e841",
+        "size": 225757168,
+        "status": "bound",
+        "reason": null,
+        "root_ordinal": 7
+      },
+      "linux_windows_join_performed": false,
+      "cause": "unresolved"
+    },
+    "outer_exit": 0,
+    "cleanup_confirmed": true,
+    "owned_live": 0,
+    "cancelled": false,
+    "error": null,
+    "focus_result": null,
+    "application_image_verification": {
+      "bytes": 225757168,
+      "hash_passes": 1,
+      "cache": "stable_open_file"
+    },
+    "diagnostics": {
+      "stdout": {
+        "retained": 0,
+        "dropped": 0
+      },
+      "stderr": {
+        "retained": 2202468,
+        "dropped": 0
+      }
+    }
+  },
+  "presentation": {
+    "application": "7228a542c01b89daa5d04b9c8566af235ee7a2358e52f741b8918239c3a7d26e",
+    "operation": "ac91282207c833b49de0779ebb1a635a",
+    "origin": "human_operator",
+    "presentation": "blank_white",
+    "schema": 1
+  },
+  "observation_request": "3b99c46d752f903796a52eebd99f4100",
+  "result_sha256": "36819b42fcff26a61e10df02a73d64e33d14af1773e4fe00186d5d60de839048",
+  "presentation_sha256": "82ece5c58c7d2fa1df61df79b46e4c57d4b6098edefbbf26ae8b0209fa8bb501",
+  "software_record_sha256": "1267f4233cee79d267f7e768dff6ff34d954dcbbca18416ef08c58f112b0d769",
+  "application_record_sha256": "efa17763785548cce9a7ac4da7d37ec453ea3dff323a77c72ce501066648a0cd",
+  "installed_artifacts": {
+    "installer_launch": "890db6fab34baff2d93df9ed9989781c64d93e6787231eee361d63db84db1e2e",
+    "preparation_kit": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+    "operator_frontend": "b3e784fe196cb97b03ff9471b28b99d7c1665455882f74e04aa7b9b1295947c2",
+    "manager": "f1846e66ad1b139abf6e96ff9f1b6b77a899a593c0d2bb5d6962aa80b7dcd2fc",
+    "supervisor": "f3c2a600b64f40489686817f47323de6dbdf7fe2d8f37b77461f78e55cea39a7",
+    "ownership": "15824639864ceb3be26c95760bfc90520a9ef28b9450d732b7123fe1a7f321ab",
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "native_catalogue": "72be07007d58b0ab408d446382ee6ce631f67ee273fd3ccf2aec05cb992d736e"
+  },
+  "system": {
+    "service": "active",
+    "keepers": 2,
+    "dsp": 0,
+    "maintenance": 0,
+    "ceiling": 6,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "operator_schema": 6,
+  "unit_absent": true,
+  "cgroup_absent": true,
+  "resume_pending": false,
+  "normal_close_reported_by_human": true,
+  "manager_stop_requested": false,
+  "retained_files_unchanged": 307,
+  "projects_unchanged": 5,
+  "predecessor_files_unchanged": 23,
+  "products_publications_imports_environments_histories_unchanged": true,
+  "inherited_result_unchanged": true,
+  "registered_application_artifacts_verified": true,
+  "agent_application_launch": false,
+  "restored_inherited_performed": true,
+  "account_network_authorization_usability_unproved": true,
+  "comparison": [
+    {
+      "operation": "c44ae35d794f0a1f47ee97468e848a1c",
+      "policy": "inherited",
+      "presentation": "blank_white",
+      "result_sha256": "08d2f5a2b0cc03bc19113000068c8849207505c809b739c5c059fbbc0a164edc",
+      "presentation_sha256": "a4aaae17a73010005e008af912fcbebd9ad0ae2df948738e3e11ab5e1cd82750"
+    },
+    {
+      "operation": "627e52ca72b7533a5774862da7df11cb",
+      "policy": "software_rendering",
+      "presentation": "rendered_nonblank",
+      "result_sha256": "d721bc3a323b3fd06595bc59c0417ada524090f6624e9111aebbc0035c8592ab",
+      "presentation_sha256": "220756b05b0281951e04855267527f3deb3cd434c9c8a96180598553652b5512"
+    },
+    {
+      "operation": "ac91282207c833b49de0779ebb1a635a",
+      "policy": "inherited",
+      "presentation": "blank_white",
+      "result_sha256": "36819b42fcff26a61e10df02a73d64e33d14af1773e4fe00186d5d60de839048",
+      "presentation_sha256": "82ece5c58c7d2fa1df61df79b46e4c57d4b6098edefbbf26ae8b0209fa8bb501"
+    }
+  ],
+  "A_and_B_unchanged": true,
+  "selection_scope": "Exact operation-scoped --disable-gpu for this registered Native Access generation; no default or source change",
+  "preflight": {
+    "preflight": "C_READY",
+    "checked_at_utc": "2026-09-17T07:31:52.153069+00:00",
+    "operator_schema": 6,
+    "software_record_sha256": "1267f4233cee79d267f7e768dff6ff34d954dcbbca18416ef08c58f112b0d769",
+    "application_identity": "7228a542c01b89daa5d04b9c8566af235ee7a2358e52f741b8918239c3a7d26e",
+    "system": {
+      "service": "active",
+      "keepers": 2,
+      "dsp": 0,
+      "maintenance": 0,
+      "ceiling": 6,
+      "pending_transactions": 0,
+      "stale_transports": 0,
+      "cleanup_unconfirmed": false
+    },
+    "capture": {
+      "active_retention": 0,
+      "armed": false
+    },
+    "resume_pending": false,
+    "unit_absent": true,
+    "cgroup_absent": true,
+    "A_unchanged": true,
+    "B_unchanged": true,
+    "registered_artifacts_verified": true,
+    "retained_files_unchanged": 307,
+    "projects_unchanged": 5,
+    "predecessor_files_unchanged": 23,
+    "products_publications_histories_unchanged": true,
+    "offered_action": "Open Native Access \u2014 inherited rendering"
+  },
+  "prior_repository_evidence_unchanged_sha256": {
+    "evidence/naui2/inherited-observation/README.md": "65d751d94da53ed1a7258be2854becae7390db5888f89e1eef44c0483a2d4883",
+    "evidence/naui2/inherited-observation/receipt.json": "4735672dad81eefc3b439cf07ee891339820965a9675651676908818ff91e954",
+    "evidence/naui2/software-rendering-observation/README.md": "29d631bca4c928a39aad3990214b2d0a847890fe10b0dbb92ac7db88e86f65b3",
+    "evidence/naui2/software-rendering-observation/receipt.json": "5c760f308f5ad0588a3c0fa38680df06e9dca555d861b369c7bb8199c9c14027"
+  }
+}

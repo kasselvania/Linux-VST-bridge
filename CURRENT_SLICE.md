@@ -151,3 +151,15 @@ normally. Operation `627e52ca72b7533a5774862da7df11cb` is retained separately un
 drop counters are zero, and cleanup/service restoration/preservation passed.
 The result is a provisional software-rendering effect; cause remains unresolved.
 Stop for review. Restored inherited C is not authorized by this continuation.
+
+### Authorized restored inherited observation C
+
+The tech lead accepted B and authorized one restored inherited run. The human
+reported a white client area and closed normally. Exact operation
+`ac91282207c833b49de0779ebb1a635a` is retained separately under
+`evidence/naui2/restored-inherited-observation/`. A/B/C identities match, all drop
+counters are zero, and cleanup/service restoration/preservation passed. The
+white/content/white sequence satisfies `NAUI2_SOFTWARE_RENDERING_SELECTED` for
+exact operation-scoped --disable-gpu and this application generation. Specific
+rendering cause remains unresolved. No default or production source was changed.
+Stop for final review; no further application launch is authorized here.
