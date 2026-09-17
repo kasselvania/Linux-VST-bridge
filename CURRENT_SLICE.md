@@ -1,165 +1,279 @@
-# NAUI2 — Controlled Native Access renderer differential
+# NAD1 — Exact Native Access dependency service owner
 
-Preparation basis: merged NAUI1 main `eeffae76d0e34e9a2a09cddd05707afac665c4de`,
-tree `93b015a54211fc3df35f0ce05ea815ed64673fc9`. PR #116 merged the exact accepted
-head `5259d0069297e074501dda292c40239c1da04000` with the same tree.
-The earlier planning commit `e4062c50f5564024006866c284db333ae1fd94e6` was based on the
-pre-repair head and is superseded by this rebased preparation.
+Active basis: merged main `922bb01d170b7b8696fdc7745493628af68f33cc`, tree
+`5b2e79b13f84e8cbf3529256594432950ec8fa75`.
 
-The operator has explicitly authorized implementation on corrected planning head
-`7902e7afc3cafb0c528f4a64891509d8150caea1`. Build the production owner and
-source-owned generated proof, then return one draft PR. No real Native Access
-launch or software installation is part of this implementation.
-
-Installed executable source was last retained as merged IS4 main
-`8fb2f20c822320340e44f9cbae399633dd6e8a53`, tree
-`947461f96dc2648b13c9b450c761beae97880571`. This preparation performs no
-live readback and does not claim a refreshed installed identity.
-
-NAUI1 established one exact installed x64 Native Access 3.26.0 file generation with
-Electron/Chromium packaging, but the retained post-install operation could not bind
-an exact Native Access process generation or decisive renderer diagnostic. Its
-correct disposition is `NAUI1_ELECTRON_IDENTITY_ONLY_CAUSE_UNRESOLVED`.
-
-Primary claim: the next useful evidence requires a controlled manager-owned launch
-differential, not more interpretation of the lossy historical logs. NAUI2 provides
-an exact application owner, complete bounded process/diagnostic custody and one
-closed renderer policy:
+NAUI2 is complete. For exact registered Native Access 3.26.0 application identity
+`7228a542c01b89daa5d04b9c8566af235ee7a2358e52f741b8918239c3a7d26e`,
+operation-scoped `--disable-gpu` is selected by the complete reversible comparison:
 
 ```text
-renderer_policy:
-  inherited
-  software_rendering   # exactly --disable-gpu
+A inherited            -> blank_white
+B software_rendering   -> rendered_nonblank
+C inherited restored   -> blank_white
 ```
 
-Selected implementation cut: **source and generated proof only**. Do not launch
-Native Access during this PR.
+The renderer boundary is closed. Do not reopen it.
 
-Scope:
+Immediately after the first useful rendered application view, Native Access reached
+a separate dependency failure involving NTKDaemon. The application then closed
+cleanly. No owned process remains; the bridge service and two keepers recovered;
+products, publications and protected projects remain unchanged. Exact failure logs
+were retained privately. NTKDaemon installation, service registration, process
+readiness and IPC readiness have not yet been established.
 
-- Extend the existing vendor-application ownership without weakening Arturia
-  Software Center behavior.
-- Admit only the exact NAUI1 Native Access generation/environment and verify its
-  executable, ASAR and required resource identities.
-- Add a closed operation-bound renderer policy; no caller-provided arguments,
-  commands, paths or environment values.
-- Create exact Windows launch-root and process-generation custody for the
-  225,757,168-byte application and its Electron children.
-- Retain private bounded roles/diagnostics and public allowlisted hashes, counts,
-  exits and categories.
-- Add a closed human presentation observation bound to the exact operation:
-  `blank_white`, `rendered_nonblank`, or `unavailable`.
-- Preserve exact Focus/Stop, recovery, inactivity and cleanup ownership.
-- Build source-owned generated fixtures, including an application image larger than
-  the old 64 MiB digest bound.
+Selected next slice: **NAD1 — exact NTKDaemon dependency identity, installation and
+service lifecycle**.
 
-Acceptance before physical use:
+NAD1 is active implementation authority. Build one closed manager-owned dependency
+capability for the exact registered Native Access generation. The implementation PR
+stops after source, generated proof and one read-only observation of the retained
+prefix/log state. It must not launch Native Access or mutate the real prefix.
 
-1. Exact application identity is derived from NAUI1 evidence and current installed
-   bytes; similar names or another environment refuse.
-2. Inherited mode appends no renderer switch. Software-rendering mode appends exactly
-   `--disable-gpu`. `--no-sandbox` is not admitted.
-3. The application root and descendants have exact Windows generation custody; no
-   Linux/Windows PID join and no PID-name inference.
-4. Cause selection requires zero dropped Windows-generation observations and
-   positive retained authority. Chromium PID uniqueness, GDI PID/lifetime and
-   retained role/self-exit association inherit the accepted NAUI1 completeness
-   law. Ordinary runner-tail loss alone does not erase otherwise complete positive
-   generation authority; missing evidence never supplies an absence claim.
-5. The known 225,757,168-byte executable can be verified without a general unbounded
-   hashing grant; unrelated files retain existing bounds.
-6. Arturia application launch and ordinary installer/product paths remain unchanged.
-7. Generated inherited / software-rendering / restored-inherited fixtures exercise
-   the production owners and retire positively.
-8. Focused tests, strict checks, AP8, AP12 and PX2 pass. AP10 remains out of scope.
+Required result:
 
-No Native Access launch, reinstall, updater, account input, `app.asar` mutation,
-registry mutation, Wine/runner replacement, DXVK/font/runtime installation, product
-scan/publication or DAW session is authorized in this implementation PR.
-
-After source review, merge and deliberate immutable installation, a separate human
-authorization may permit at most one ordered comparison:
+1. Bind the exact private dependency failure to an exact application operation and
+   exact log/source identity. Prefer software-rendering operation
+   `627e52ca72b7533a5774862da7df11cb` only if the retained evidence proves it is the
+   source; do not infer from timing or prose.
+2. Perform one sealed read-only census of the exact managed environment
+   `627d2cba97edbecf113c22504eb4c81b`:
+   - bundled NTKDaemon installer identity under the registered Native Access root;
+   - installed daemon executable identity, if present;
+   - exact Windows service registration and state;
+   - exact same-prefix or foreign-prefix daemon processes;
+   - bounded localhost readiness observations;
+   - operation-owned and vendor log evidence.
+3. Return one closed physical disposition:
 
 ```text
-inherited -> software_rendering -> restored inherited
+NAD1_DEPENDENCY_ABSENT
+NAD1_SERVICE_UNREGISTERED
+NAD1_SERVICE_STOPPED
+NAD1_SERVICE_RUNNING_NOT_READY
+NAD1_FOREIGN_DAEMON_CONFLICT
+NAD1_DEPENDENCY_READY
+NAD1_IDENTITY_UNRESOLVED
 ```
 
-Stop after any cleanup failure, unexpected installation mutation, application hang
-or already-rendered inherited control. A later sandbox-policy cut is permitted only
-if exact child/sandbox evidence selects it; NAUI2 never bundles `--no-sandbox`.
+4. Implement a closed production dependency owner capable of the selected exact
+   transition without exposing arbitrary executable paths, service names, ports,
+   command lines, registry keys or environment values.
+5. Prove the owner with source-owned generated fixtures before any real mutation.
 
-## Delivered implementation and generated result
+Known comparative implementation evidence, not project authority:
 
-PR #117 implements the selected application owner and renderer policy. Executed
-source `56ed25b03ceee9a57143f9f0f7cecd7c6e150cdc` passed the production-supervised
-67 MiB inherited/software/restored fixture and supervisor cancellation after a retained child
-failure. That initial campaign did not exercise manager Stop/service restoration. See `evidence/naui2/README.md` and the sealed generated result.
+- `Mark12870/cabinet@1203830c341b4514adc92c7524adae931ad0cea0`
+  locates Native Access's bundled `NTKDaemon*Setup PC.exe`, installs it silently,
+  verifies `Program Files/Common Files/Native Instruments/NTK/NTKDaemon.exe`, and
+  queries service `NTKDaemonService`.
+- `selimbucher/native-instruments@139b8bf3dd4a4f0fad3dd22d5fe3af9e7d423e12`
+  independently treats Native Access's self-install path as unreliable under Wine,
+  installs the bundled daemon explicitly, requires service registration, starts it
+  through `net start NTKDaemonService`, verifies the process, and refuses daemons
+  belonging to another Wine prefix.
+- `theaaronmartin/nixos@2ac9e204bd214fa1e2742f80d2c4225d7a13893d`
+  reports that direct execution hands off to the Windows service controller and is
+  not readiness authority; it waits for fixed loopback service readiness.
 
-The manager projects operator model 6 with exact application selection, rendering
-mode, Focus/Stop and attributed presentation observations. No installed generation
-was replaced; no Native Access or DAW session occurred. This PR remains draft for
-independent review, with physical application comparison still separately gated.
+The implementation must verify every one of those claims against this exact prefix
+before admitting it. Comparative source is a lead, never a substitute for retained
+project evidence.
 
-## PR #117 independent-review repair
+Hard boundaries:
 
-The accepted initial generated evidence remains immutable. This amendment closes
-installed Python admission to the exact Native Access identity, separates sealed
-fixture admission, and adds an operation writer gate shared with manager submission
-reconciliation. A missing acknowledgment retains the reservation and service-resume
-owner. Only exact unit/cgroup emptiness plus exclusive writer custody can produce a
-terminal recovery result. Loaded inactive units require explicit Stop as a queued-job
-barrier; a late writer refuses a terminal reservation. Prior nonterminal evidence is
-preserved with a separate recovery receipt.
+- Do not reinstall Native Access.
+- Do not launch Native Access, its updater, a DAW, a plug-in or a product installer.
+- Do not start, stop, install or remove the real NTKDaemon during the implementation
+  PR.
+- Do not run the daemon executable directly.
+- Do not use `wineserver -k`, broad process-name kills or another prefix's daemon.
+- Do not add `--no-sandbox` or alter the selected renderer policy.
+- Do not grant arbitrary Windows-service, registry, port, path or command authority.
+- Preserve all A/B/C evidence, installed software, products, publications and
+  projects.
 
-The new generated package uses the Rust manager submission/Stop core. Generated
-operator tests exercise exact resume ownership, uncertain states, wrong Stop,
-interrupted requests and one-time restoration with service I/O substituted. The
-real bridge service is preserved during fixture execution. Real GUI Focus remains
-unproved; only exact request/refusal ownership is generated. Graphics-init facts
-remain non-selecting leads; raw root PIDs/times remain private.
+Required hosted validation: focused NAD1 tests, affected manager/frontend/runtime
+suites, strict Clippy, AP8, AP12 and PX2. AP10 remains out of scope unless native or
+audio source changes.
 
-Run affected suites and AP8/AP12/PX2, then return the same draft PR. No installation,
-commercial launch or Native Access differential is authorized by this repair.
+Return one draft PR, uninstalled and unmerged, for independent review. A later
+separately authorized continuation may perform the exact selected real dependency
+transition and one software-rendered Native Access readiness check.
 
-## Accepted merge: installation and registration continuation
+## NAD1 implementation progress
 
-PR #117 merged as `f12953cb31cbce11f64f29788cd51da26e6c92c0` with exact reviewed
-tree `5bbe3028247a6a340df34589f14d365e7c6dbdc6`. Merged-main AP8/AP12/PX2 passed.
-The separately authorized idle installation and exactly one RendererDiscover are
-complete; receipts are in `evidence/naui2/installation/`. Installed operator model
-is 6. The application has not been launched and no presentation was recorded.
+Observer source `ce41b1767d417a704f83ef45d890539a07bb7716` was committed and
+sealed. The one authorized read-only pass refused during source attribution before
+the daemon/service census. `evidence/nad1/observation/` preserves the source seal and
+refusal. This is an incomplete observation, not evidence of dependency readiness or
+absence. A corrected continuation requires explicit operator permission; the
+original one-use marker remains retained. Production mutation selection is pending
+that disposition. No real NTKDaemon or Native Access operation has been performed.
 
-Stop at this installation/registration receipt for independent acceptance. Only a
-subsequent authorization may start A (inherited rendering). B and C remain gated by
-A/B results and positive cleanup. No further implementation or application launch
-is selected by this evidence-only continuation.
+The operator explicitly authorized one corrected read-only rerun after the refusal.
+It uses a separate fixed one-use continuation directory and preserves the first marker.
 
-### Subsequent human inherited observation
+The authorized continuation at `8cbf791` refused at an optional PE version string
+before completing the census. Its seal, refusal, and private-before-record hash are
+retained separately. The operator then explicitly authorized bounded read-only
+corrections and reruns until completion. Each committed source generation has its
+own non-replacing marker. Unsupported optional version strings remain unavailable;
+architecture and stable image digest remain independent facts. No historical NAUI1
+reader or evidence is changed.
 
-The human subsequently ran inherited mode and reported a white window, then closed
-it. Exact operation `c44ae35d794f0a1f47ee97468e848a1c` and the attributed report are
-retained under `evidence/naui2/inherited-observation/`. Cleanup/service restoration
-passed; rendering cause is unresolved. This records observed activity, not an agent
-launch or a new authorization. Stop for review; software rendering remains gated.
+The corrected observer `4d0121697631a8f73a239c010b314d7fface79b2` completed
+with `NAD1_IDENTITY_UNRESOLVED`. Its exact result and seal are retained under
+`evidence/nad1/observation/completed/`. Five unavailable process observations
+prevent foreign-daemon exclusion; no real readiness contract is admitted. The
+bundled x86 installer is identified by exact hash/size. No daemon executable at the
+admitted path or service registration was found. Preservation passed.
 
-### Authorized software-rendering observation B
+This is an observer checkpoint, not completion of NAD1. The production dependency
+owner, launch readiness gate and generated service lifecycle qualification remain
+unimplemented. No installation/start behavior is selected from incomplete identity.
+PR #119 remains draft and unmerged. No further physical observation is planned from
+this checkpoint; the completed result and gaps are retained for review.
 
-The tech lead accepted A and authorized exactly one human-operated B. Idle preflight
-passed; the human launched software rendering, reported visible content, and closed
-normally. Operation `627e52ca72b7533a5774862da7df11cb` is retained separately under
-`evidence/naui2/software-rendering-observation/`. Effective policy/root match,
-drop counters are zero, and cleanup/service restoration/preservation passed.
-The result is a provisional software-rendering effect; cause remains unresolved.
-Stop for review. Restored inherited C is not authorized by this continuation.
+## Corrected census and production-owner continuation
 
-### Authorized restored inherited observation C
+The explicitly authorized corrected continuation executed source `351ae4c6ab88`
+and returned `NAD1_DEPENDENCY_ABSENT`. Its new seal and result are retained under
+`evidence/nad1/observation/repaired/`; all prior observations remain unchanged.
+Forty-two unrelated unreadable processes are informational and do not weaken the
+absence result. No positively led candidate or relevant extent exhaustion occurred.
+The source-owned pinned-runner lead qualification is retained separately.
 
-The tech lead accepted B and authorized one restored inherited run. The human
-reported a white client area and closed normally. Exact operation
-`ac91282207c833b49de0779ebb1a635a` is retained separately under
-`evidence/naui2/restored-inherited-observation/`. A/B/C identities match, all drop
-counters are zero, and cleanup/service restoration/preservation passed. The
-white/content/white sequence satisfies `NAUI2_SOFTWARE_RENDERING_SELECTED` for
-exact operation-scoped --disable-gpu and this application generation. Specific
-rendering cause remains unresolved. No default or production source was changed.
-Stop for final review; no further application launch is authorized here.
+Production implementation now adds a closed dependency preparation operation and
+fresh service-readiness gating before Native Access launch. Preparation tests and
+retires its own cohort. A historical preparation receipt does not mean a live daemon:
+the subsequent application operation must freshly verify SCM, exact same-prefix
+image/generation, cgroup custody and both owned loopback listeners. Its dependency
+cohort retires with the application, before bridge service restoration. No real
+installation or service start is authorized in this PR. Generated qualification and
+final checks remain required before handoff.
+
+The dependency owner and Native Access gate are implemented. Exact admission remains
+closed in both Rust and Python; schema 7 adds only parameter-free preparation and
+exact-operation Stop. The production owner has not been installed or used against the
+real daemon. Generated cases now prove installation/registration, SCM-only start,
+Windows-generation endpoint ownership, no-op readiness, refusal and retirement.
+
+The generated campaign retains its development failures. In particular, a strict
+whole-environment metadata check detected shared runtime-cache hardlink ctime changes.
+The actual Windows prefix and private HOME remained unchanged. Final preservation
+requires exact protected state plus byte-identical shared runtime contents, and
+retains those non-content timestamp changes explicitly. Do not relabel the earlier
+aggregate refusal as success.
+
+Final source-owned campaign at `d75d3085e2b55d5939cf56f628535d6d2297efa3`
+passed six cases with positive cleanup and exact preservation. Evidence and private
+custody hashes are under `evidence/nad1/generated/final/`. All 22 generated units and
+cgroups are absent. Installed schema remains 6; proposed source schema is 7. The
+real daemon and service registration remain absent. AP8/AP12/PX2 passed at the
+executed source head; the final delivery head is checked separately on PR #119. Stop at that draft PR for independent review; no real dependency mutation,
+Native Access launch or installation is authorized by this handoff.
+
+
+Final frontend admission correction: the transport decoder now accepts operator
+model 7 for snapshot, activity and request receipts, and refuses prior, future,
+missing or wrongly typed model versions. This closes a leftover model-6 check
+before delivery. Its regression passes with all 23 frontend tests and strict
+frontend Clippy. This frontend-only amendment changes no sealed observer or service
+campaign inputs; their executed-source identities and evidence remain unchanged.
+
+
+## Exact service retirement amendment
+
+PR #119 review accepts the corrected absence observation and six-case service
+campaign unchanged. This amendment closes service retirement and qualifies the
+integrated application route; no real-prefix transition or new census is authorized.
+
+`Nad1Owner.retire()` owns one fixed SCM stop request after every path that may have
+started or inherited the service. The adapter retains the exact pre-stop Windows
+process handle, polls SCM STOPPED, waits that generation and verifies its endpoints
+are gone. The Python owner independently requires a fresh stopped/absent SCM query
+and complete daemon absence before ordinary cohort cleanup. Cancellation cannot
+skip the bounded retirement phase. No second stop/start/install is attempted after
+uncertain acknowledgment. Results distinguish service stop requested, service
+retirement confirmed, process cleanup confirmed and forced cleanup used. Earlier
+failure evidence is retained when retirement fails.
+
+Renderer retirement first retires exact mapped application generations, then stops
+the dependency, then empties the cgroup. Dedicated renderer/dependency units use
+KillMode=mixed and a 90-second stop bound so manager Stop signals the supervisor
+first; the cgroup remains the final kill boundary. An interrupted writer's process
+cleanup is explicitly not an SCM-stop receipt. Preparation admission requires both
+clean service retirement and process cleanup, without forced cleanup.
+
+The new sealed source-owned application campaign is separate from the accepted
+six-case campaign. It covers normal close, repeated fresh start in the same scratch
+prefix, exact manager Stop, readiness refusal before application creation,
+application failure and SCM stop refusal. Real bridge restoration is not exercised
+by a vendor launch: generated manager transition tests prove exact one-time resume
+ownership, while the disposable campaign runs the production reservation/Stop and
+Python application/service owners. Final qualification remains pending until its
+new sealed results and exact-head checks are retained.
+
+
+The sealed integrated campaign at `5c44eff081b6ffde207799e10db39ca5504f5d36`
+completed all six admitted cases. Receipts are under `evidence/nad1/retirement/`.
+Normal exit, repeated same-prefix start, exact manager Stop, readiness refusal and
+application failure confirmed SCM retirement without forced dependency cleanup.
+The deliberate stop refusal retained the earlier application exit failure, cleaned
+the cgroup and explicitly left SCM retirement unconfirmed. All six units/cgroups
+and all scratch prefixes are absent. Installed software and real-prefix state remain
+unchanged. The earlier accepted observations and campaigns are preserved. AP8,
+AP12 and PX2 passed at the executed source; the evidence-only amended head is checked
+separately. Return PR #119 draft/unmerged for exact-head rereview.
+
+## NAD1 lifetime and pre-query authority amendment
+
+Continue PR #119 from reviewed `c648a5ddccd9e75519e0dc0184ef2ed43cea9367`.
+Preserve every earlier physical observation and generated package. No census replay
+or real dependency transition is authorized. This amendment removes both the SCM
+anchor's 600-second deadline and the renderer supervisor's independent 600-second
+normal-use deadline. Exact service generation, explicit retirement and cancellation
+own lifetime; bounded SCM stop and cgroup cleanup still own termination.
+
+Service possibility starts unknown. Exact artifact/positive lead or an authorized
+installation attempt establishes may-exist. Only an exact SCM service-not-found
+response establishes proved-absent. Stop authority is separate: pre-query failure,
+unowned same-prefix and foreign/deleted candidates cannot authorize signalling or
+confirmed service retirement. An admitted installation with uncertain acknowledgment
+permits exactly one fixed retirement attempt, never a retry.
+
+The new sealed lifetime campaign holds a source-owned application and its exact
+service anchor, samples both Linux generations across a deliberate interval, and
+requests an explicit normal fixture exit. It retains a new receipt separately from
+the accepted integrated campaign. Focused negative tests cover pre-query authority,
+uncertain installation and generated lifetime-sample identity loss. Qualification
+and exact-head AP8/AP12/PX2 remain pending until retained by the evidence amendment.
+
+The new lifetime package executed committed source `5fbe40eb678691f8c43bec59c2c36ed401e6a588`
+and completed its one disposable case. Identical live application/service-anchor
+Linux generations were retained 12.03 seconds apart before explicit normal exit;
+SCM retirement and process cleanup were confirmed without forced cleanup. Exact
+unit/cgroup/prefix retirement and unchanged real state are retained separately in
+`evidence/nad1/lifetime/`. The source has no normal-operation deadline; this is not
+a ten-minute endurance claim. All prior physical/generated evidence remains
+unchanged. Source-head AP8/AP12/PX2 passed. Return this evidence-only amendment with
+final-head checks in the same draft PR #119; no real transition is authorized.
+
+A final shared-adapter audit found a separate one-hour wait inherited from the IS2
+installer route. The renderer route now waits for its exact child with `INFINITE`;
+the ordinary installer retains its existing one-hour timeout. Cancellation remains
+bounded by the operation owner. The first delayed receipt remains a valid short
+process observation, but its source-level statement of no application deadline was
+incomplete. Preserve it unchanged and supersede that statement with a new sealed
+qualification of the complete application route; do not install either generation.
+
+Final qualification executed `6d014a0fdf48e37305df160225034f5dbef5f612` with
+seal `e66e83439166b9da1051e37f37689d4eb5ed2ffa41b874b70f3b7efff42bcbde`.
+The new delayed case retained identical live generations 12.033822441 seconds
+apart, then normal exit and confirmed SCM/process retirement without forced cleanup.
+`evidence/nad1/lifetime-complete/` supersedes only the initial source-law overclaim;
+both observations and all earlier evidence remain unchanged. The final source
+passed AP8/AP12/PX2 and 193 Linux runtime tests. Final idle readback matches the
+completed campaign. No real dependency transition or new census occurred. Keep
+PR #119 draft/unmerged for rereview of the amended exact head.

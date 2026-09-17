@@ -1,0 +1,142 @@
+// Closed NAD1 SCM boundary; included after the existing exact-file hash owner.
+// No caller-selected service, binary location, endpoint or installer arguments.
+#include <winsvc.h>
+#include <iphlpapi.h>
+#include <cstddef>
+#ifdef NAD1_GENERATED_SERVICE
+static constexpr auto nad1_service=L"NAD1FixtureService";
+static constexpr auto nad1_image=L"C:\\NAD1Fixture\\NTKDaemon.exe";
+static constexpr auto nad1_installer=L"C:\\NAD1Fixture\\Setup.exe";
+#else
+static constexpr auto nad1_service=L"NTKDaemonService";
+static constexpr auto nad1_image=L"C:\\Program Files\\Common Files\\Native Instruments\\NTK\\NTKDaemon.exe";
+static constexpr auto nad1_installer=L"C:\\Program Files\\Native Instruments\\Native Access\\resources\\daemon\\win\\NTKDaemon 1.32.0 Setup PC.exe";
+#endif
+// IP Helper assigns endpoint ownership in the Windows PID domain. Never join
+// those PIDs to Linux IDs; the Linux census independently supplies cgroup custody.
+static DWORD nad1_endpoints(DWORD pid) {
+    HMODULE dll=LoadLibraryExW(L"iphlpapi.dll",nullptr,LOAD_LIBRARY_SEARCH_SYSTEM32);if(!dll)return 4;
+    using Query=DWORD (WINAPI*)(PVOID,PDWORD,BOOL,ULONG,TCP_TABLE_CLASS,ULONG);
+    auto query=reinterpret_cast<Query>(GetProcAddress(dll,"GetExtendedTcpTable"));
+    std::vector<unsigned char> bytes(2*1024*1024);DWORD length=static_cast<DWORD>(bytes.size());DWORD mask=0;
+    if(!query||query(bytes.data(),&length,FALSE,AF_INET,TCP_TABLE_OWNER_PID_LISTENER,0)!=NO_ERROR||length>bytes.size()||length<offsetof(MIB_TCPTABLE_OWNER_PID,table)){FreeLibrary(dll);return 4;}
+    auto table=reinterpret_cast<MIB_TCPTABLE_OWNER_PID*>(bytes.data());
+    if(table->dwNumEntries>32768||offsetof(MIB_TCPTABLE_OWNER_PID,table)+table->dwNumEntries*sizeof(MIB_TCPROW_OWNER_PID)>length){FreeLibrary(dll);return 4;}
+    for(DWORD i=0;i<table->dwNumEntries;i++){const auto& row=table->table[i];
+        DWORD port=((row.dwLocalPort&255)<<8)|((row.dwLocalPort>>8)&255);
+        if(row.dwOwningPid==pid&&row.dwState==MIB_TCP_STATE_LISTEN&&row.dwLocalAddr==0x0100007f){if(port==5146)mask|=1;if(port==5563)mask|=2;}}
+    FreeLibrary(dll);return mask;
+}
+static int nad1_service_request(const std::vector<std::wstring>& r) {
+    if(r.size()!=5 || r[0]!=L"NAD1_SERVICE_V1" || !hex(r[1],32) || !hex(r[2],64)
+       || (r[3]!=L"query" && r[3]!=L"start" && r[3]!=L"stop" && r[3]!=L"install") || !hex(r[4],64)) return 140;
+    if(r[3]==L"install") {
+        HANDLE image=CreateFileW(nad1_installer,GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
+        if(image==INVALID_HANDLE_VALUE)return 141;
+        std::string expected(r[4].begin(),r[4].end());bool exact=hash(image)==expected;
+        if(!exact){CloseHandle(image);return 142;}
+        std::wstring command=L"\"";command+=nad1_installer;command+=L"\" /s";
+        STARTUPINFOW si{};si.cb=sizeof(si);PROCESS_INFORMATION pi{};
+        if(!CreateProcessW(nad1_installer,command.data(),nullptr,nullptr,FALSE,CREATE_SUSPENDED,nullptr,nullptr,&si,&pi)){CloseHandle(image);return 143;}
+        std::array<wchar_t,32768> path{};DWORD length=static_cast<DWORD>(path.size());
+        bool bound=QueryFullProcessImageNameW(pi.hProcess,0,path.data(),&length)!=FALSE;
+        HANDLE actual=bound?CreateFileW(path.data(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr):INVALID_HANDLE_VALUE;
+        bound=actual!=INVALID_HANDLE_VALUE&&same_file(image,actual);if(actual!=INVALID_HANDLE_VALUE)CloseHandle(actual);
+        BY_HANDLE_FILE_INFORMATION info{};auto created=time_of(pi.hProcess);
+        bound=bound&&created&&GetFileInformationByHandle(image,&info);
+        if(!bound){TerminateProcess(pi.hProcess,151);WaitForSingleObject(pi.hProcess,5000);CloseHandle(image);CloseHandle(pi.hThread);CloseHandle(pi.hProcess);return 151;}
+        auto size=(static_cast<unsigned long long>(info.nFileSizeHigh)<<32)|info.nFileSizeLow;
+        std::fprintf(stdout,"NAD1_INSTALL_ROOT_V1 %ls %ls %s %llu %lu %llu\n",r[1].c_str(),r[2].c_str(),expected.c_str(),size,pi.dwProcessId,created);std::fflush(stdout);
+        if(ResumeThread(pi.hThread)==static_cast<DWORD>(-1)){TerminateProcess(pi.hProcess,152);WaitForSingleObject(pi.hProcess,5000);CloseHandle(image);CloseHandle(pi.hThread);CloseHandle(pi.hProcess);return 152;}
+        CloseHandle(image);CloseHandle(pi.hThread);DWORD code=144;
+        if(WaitForSingleObject(pi.hProcess,180000)==WAIT_OBJECT_0)GetExitCodeProcess(pi.hProcess,&code);
+        CloseHandle(pi.hProcess);
+        std::fprintf(stdout,"NAD1_INSTALL_V1 %ls %ls %lu\n",r[1].c_str(),r[2].c_str(),code);std::fflush(stdout);
+        return static_cast<int>(code);
+    }
+    SC_HANDLE scm=OpenSCManagerW(nullptr,nullptr,SC_MANAGER_CONNECT);if(!scm)return 145;
+    DWORD access=SERVICE_QUERY_CONFIG|SERVICE_QUERY_STATUS;
+    if(r[3]==L"start")access|=SERVICE_START;
+    if(r[3]==L"stop")access|=SERVICE_STOP;
+    SC_HANDLE service=OpenServiceW(scm,nad1_service,access);
+    if(!service){DWORD error=GetLastError();CloseServiceHandle(scm);
+        std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls absent %lu 0 0 0 none 0 0 0\n",r[1].c_str(),r[2].c_str(),error);std::fflush(stdout);return error==ERROR_SERVICE_DOES_NOT_EXIST?0:146;}
+    alignas(QUERY_SERVICE_CONFIGW) std::array<unsigned char,8192> buffer{};DWORD needed=0;
+    bool ok=QueryServiceConfigW(service,reinterpret_cast<QUERY_SERVICE_CONFIGW*>(buffer.data()),static_cast<DWORD>(buffer.size()),&needed)!=FALSE;
+    auto config=reinterpret_cast<QUERY_SERVICE_CONFIGW*>(buffer.data());
+    std::wstring expected=nad1_image,quoted=L"\""+expected+L"\"";
+    ok=ok&&config->dwServiceType==SERVICE_WIN32_OWN_PROCESS&&config->lpBinaryPathName
+       && (expected==config->lpBinaryPathName || quoted==config->lpBinaryPathName);
+    if(!ok){CloseServiceHandle(service);CloseServiceHandle(scm);return 147;}
+    // Stop authority keeps a handle to the exact pre-stop Windows generation.
+    // A later PID reuse cannot turn a different process into retirement proof.
+    if(r[3]==L"stop") {
+        SERVICE_STATUS_PROCESS before{};DWORD count=0;HANDLE process=nullptr;
+        bool observed=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&before),sizeof(before),&count)!=FALSE;
+        unsigned long long created=0;DWORD pid=observed?before.dwProcessId:0;
+        if(observed && pid) {
+            process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION|SYNCHRONIZE,FALSE,pid);
+            std::array<wchar_t,32768> path{};DWORD length=static_cast<DWORD>(path.size());
+            observed=process&&QueryFullProcessImageNameW(process,0,path.data(),&length)&&_wcsicmp(path.data(),nad1_image)==0;
+            if(observed){created=time_of(process);observed=created!=0;}
+        } else if(observed) observed=before.dwCurrentState==SERVICE_STOPPED;
+        DWORD request_error=0;bool confirmed=false;DWORD mask=4;SERVICE_STATUS_PROCESS after{};
+        if(observed) {
+            SERVICE_STATUS ignored{};
+            if(!ControlService(service,SERVICE_CONTROL_STOP,&ignored))request_error=GetLastError();
+            if(request_error==0 || request_error==ERROR_SERVICE_NOT_ACTIVE) {
+                auto deadline=GetTickCount64()+12000;
+                do {
+                    bool queried=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&after),sizeof(after),&count)!=FALSE;
+                    bool exited=!process || WaitForSingleObject(process,0)==WAIT_OBJECT_0;
+                    mask=pid?nad1_endpoints(pid):0;
+                    if(queried&&after.dwCurrentState==SERVICE_STOPPED&&after.dwProcessId==0&&exited&&mask==0){confirmed=true;break;}
+                    Sleep(50);
+                }while(GetTickCount64()<deadline);
+            }
+        }
+        std::fprintf(stdout,"NAD1_RETIRE_V1 %ls %ls %u %lu %llu %lu\n",r[1].c_str(),r[2].c_str(),confirmed?1u:0u,pid,created,mask);
+        if(confirmed)std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls exact %lu 1 0 0 none %lu %lu 0\n",r[1].c_str(),r[2].c_str(),request_error,after.dwWin32ExitCode,after.dwServiceSpecificExitCode);
+        std::fflush(stdout);if(process)CloseHandle(process);CloseServiceHandle(service);CloseServiceHandle(scm);return confirmed?0:149;
+    }
+    DWORD request_error=0;
+    if(r[3]==L"start"&&!StartServiceW(service,0,nullptr)){request_error=GetLastError();if(request_error!=ERROR_SERVICE_ALREADY_RUNNING){CloseServiceHandle(service);CloseServiceHandle(scm);return 148;}}
+    SERVICE_STATUS_PROCESS status{};
+    ok=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&status),sizeof(status),&needed)!=FALSE;
+    std::string image_hash="none";unsigned long long created=0;DWORD endpoints=0;
+    if(ok&&status.dwCurrentState==SERVICE_RUNNING){
+        HANDLE process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,status.dwProcessId);
+        std::array<wchar_t,32768> path{};DWORD length=static_cast<DWORD>(path.size());
+        ok=process&&QueryFullProcessImageNameW(process,0,path.data(),&length)&&_wcsicmp(path.data(),nad1_image)==0;
+        if(ok){created=time_of(process);HANDLE file=CreateFileW(path.data(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
+            if(file!=INVALID_HANDLE_VALUE){image_hash=hash(file);CloseHandle(file);}else ok=false;}
+        if(ok){endpoints=nad1_endpoints(status.dwProcessId);SERVICE_STATUS_PROCESS after{};DWORD count=0,exit=0;
+            ok=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&after),sizeof(after),&count)&&after.dwProcessId==status.dwProcessId&&after.dwCurrentState==SERVICE_RUNNING&&GetExitCodeProcess(process,&exit)&&exit==STILL_ACTIVE&&time_of(process)==created;}
+        if(process)CloseHandle(process);
+        if(!created||image_hash.size()!=64)ok=false;
+    }
+    if(ok)std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls exact %lu %lu %lu %llu %s %lu %lu %lu\n",r[1].c_str(),r[2].c_str(),request_error,status.dwCurrentState,status.dwProcessId,created,image_hash.c_str(),status.dwWin32ExitCode,status.dwServiceSpecificExitCode,endpoints);
+    std::fflush(stdout);
+    // Normal use has no wall-clock deadline. The owner bounds cancellation and
+    // cleanup separately. Retain one service generation; never adopt a restart.
+    if(ok && r[3]==L"start") {
+        HANDLE anchor=nullptr;DWORD anchor_pid=0;unsigned long long anchor_created=0;
+        while(ok){SERVICE_STATUS_PROCESS current{};DWORD used=0;
+            if(!QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&current),sizeof(current),&used)){ok=false;break;}
+            if(current.dwCurrentState==SERVICE_STOPPED)break;
+            if(current.dwCurrentState==SERVICE_RUNNING){
+                if(!anchor){
+                    anchor_pid=current.dwProcessId;
+                    anchor=OpenProcess(SYNCHRONIZE|PROCESS_QUERY_LIMITED_INFORMATION,FALSE,anchor_pid);
+                    std::vector<wchar_t> path(32768);DWORD length=static_cast<DWORD>(path.size());
+                    ok=anchor&&QueryFullProcessImageNameW(anchor,0,path.data(),&length)&&_wcsicmp(path.data(),nad1_image)==0;
+                    if(ok){anchor_created=time_of(anchor);ok=anchor_created!=0&&(!created||(anchor_pid==status.dwProcessId&&anchor_created==created));}
+                }
+                if(ok)ok=current.dwProcessId==anchor_pid&&time_of(anchor)==anchor_created&&WaitForSingleObject(anchor,0)==WAIT_TIMEOUT;
+            }else if(current.dwCurrentState!=SERVICE_START_PENDING&&current.dwCurrentState!=SERVICE_STOP_PENDING)ok=false;
+            if(ok)Sleep(50);
+        }
+        if(anchor)CloseHandle(anchor);
+    }
+    CloseServiceHandle(service);CloseServiceHandle(scm);return ok?0:150;
+}

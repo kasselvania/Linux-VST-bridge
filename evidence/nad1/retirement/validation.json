@@ -1,0 +1,35 @@
+{
+  "AP10": "out_of_scope",
+  "frontend": 24,
+  "hosted_source_checks": [
+    {
+      "name": "AP8",
+      "result": "success",
+      "run": 35249532864
+    },
+    {
+      "name": "AP12",
+      "result": "success",
+      "run": 35249532848
+    },
+    {
+      "name": "PX2",
+      "result": "success",
+      "run": 35249532863
+    }
+  ],
+  "integrated_windows_sessions": 6,
+  "linux_runtime": {
+    "count": 185,
+    "result": "passed",
+    "skipped": 1
+  },
+  "manager_binary": 79,
+  "manager_library": 136,
+  "nad1_package_observer": 21,
+  "schema": 1,
+  "source_head": "5c44eff081b6ffde207799e10db39ca5504f5d36",
+  "source_tree": "4c3870ddd6e5a29ece4267517c6dd54775ce2fe5",
+  "strict_frontend_clippy": "passed",
+  "strict_manager_clippy": "passed"
+}

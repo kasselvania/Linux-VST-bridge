@@ -154,6 +154,17 @@ impl RequestFeedback {
                 }
             }
         }
+        if matches!(self.action,Action::DependencyPrepare{}) {
+            for app in &s.vendor_applications {
+                if app.id!="native-access" {continue;}
+                let record=&app.details["dependency_manager_operation"];
+                if let Some(op)=record["operation"].as_str() {
+                    let exact=app.actions.iter().any(|a|matches!(&a.action,Action::DependencyStop{operation} if operation==op));
+                    if exact && self.acknowledgment_uncertain && self.operation.is_none() && matches!(record["state"].as_str(),Some("submission_uncertain"|"vendor_running")) {self.operation=Some(op.into());self.release_after_snapshot=true;}
+                    if exact && self.operation.as_deref()==Some(op) {renderer_recovery=true;self.observe(record);}
+                }
+            }
+        }
         let matching_operation = self.operation.is_some()
             && s.operation
                 .as_ref()
@@ -320,7 +331,7 @@ impl Operator {
         self.action_inflight = false;
         match reply {
             Reply::Snapshot(s) => {
-                if s.schema != 6 {
+                if s.schema != 7 {
                     self.message = "Unsupported manager schema".into();
                 } else {
                     if let Some(f) = &mut self.feedback {
@@ -459,7 +470,7 @@ impl eframe::App for Operator {
                 }
                 egui::CollapsingHeader::new("Arturia environment and software center").default_open(true).show(ui,|ui|{
                     for app in &s.vendor_applications{ui.heading(&app.name);
-                        if app.id=="native-access" {ui.label(if app.details["effective"].is_object(){"Renderer policy applied to the exact owned application"}else{"Renderer policy application not confirmed"});ui.label(format!("Rendering cause: {}",app.details["renderer"]["cause"].as_str().unwrap_or("unresolved")));}
+                        if app.id=="native-access" {ui.label(if app.details["dependency_prepared"]==true {"Dependency prepared; live readiness is checked before launch"}else{"Dependency preparation required"});ui.label(if app.details["effective"].is_object(){"Renderer policy applied to the exact owned application"}else{"Renderer policy application not confirmed"});ui.label(format!("Rendering cause: {}",app.details["renderer"]["cause"].as_str().unwrap_or("unresolved")));for line in dependency_retirement_lines(&app.details["dependency_operation"]){ui.small(line);}if app.details["dependency"].is_object(){for line in dependency_retirement_lines(&app.details){ui.small(line);}}}
                         ui.label(format!("{} · {}",app.version,app.state));Self::buttons(ui,&app.actions,busy,controls_pending,&mut chosen);}
                     for e in &s.environments{ui.label(format!("{} · revision {} · pinned runner {}",e.family,e.revision,e.runner));ui.small(&e.authorization);if !e.last_scan["id"].is_null(){ui.small(format!("Last scan: {} modules · completed at {}",e.last_scan["module_count"],e.last_scan["completed_at"]));ui.small(format!("Changes: {} added · {} changed · {} removed · {} unchanged",e.last_scan["changes"]["added"],e.last_scan["changes"]["changed"],e.last_scan["changes"]["removed"],e.last_scan["changes"]["unchanged"]));}Self::buttons(ui,&e.actions,busy,controls_pending,&mut chosen);}
                 });
@@ -519,7 +530,7 @@ impl eframe::App for Operator {
         } else if let Some(a) = chosen {
             if let Some(s) = &self.snapshot {
                 self.capture_action(Request {
-                    schema: 6,
+                    schema: 7,
                     state_token: s.state_token.clone(),
                     action: a,
                 });
@@ -587,6 +598,14 @@ fn installer_lines(v: &serde_json::Value) -> Vec<String> {
     }
     lines.push(if v["cleanup_confirmed"]==true {"Owned process cleanup confirmed."} else {"Owned process cleanup not yet confirmed."}.into());
     lines
+}
+
+fn dependency_retirement_lines(v: &serde_json::Value) -> Vec<String> {
+    if v.is_null() { return Vec::new(); }
+    let r=if v["dependency_retirement"].is_object(){&v["dependency_retirement"]}else{&v["dependency"]};
+    vec![format!("Dependency service stop: {}",if r["service_retirement_confirmed"]==true {"confirmed"}else{"not confirmed"}),
+         format!("Dependency process cleanup: {}",if r["process_cleanup_confirmed"]==true {"confirmed"}else{"not confirmed"}),
+         format!("Forced cleanup: {}",if r["forced_cleanup_used"]==true {"used; does not confirm a clean service stop"}else{"not reported"})]
 }
 
 fn installer_policy_lines(v: &serde_json::Value) -> Vec<&'static str> {
@@ -678,6 +697,16 @@ fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json:
 #[cfg(test)]
 mod tests {
     #[test]
+    fn process_cleanup_never_projects_clean_service_retirement() {
+        let value=serde_json::json!({"dependency":{"service_retirement_confirmed":false,"process_cleanup_confirmed":true,"forced_cleanup_used":true}});
+        let lines=dependency_retirement_lines(&value);
+        assert!(lines[0].ends_with("not confirmed"));
+        assert!(lines[1].ends_with("confirmed"));
+        assert!(lines[2].contains("does not confirm"));
+        let recovered=serde_json::json!({"dependency":{"service_retirement_confirmed":true},"dependency_retirement":{"service_retirement_confirmed":false,"process_cleanup_confirmed":true}});
+        assert!(dependency_retirement_lines(&recovered)[0].ends_with("not confirmed"));
+    }
+    #[test]
     fn installer_root_and_presence_do_not_claim_close_from_helper_success() {
         let mut v=serde_json::json!({"operation":"exact","cleanup_confirmed":true,"transaction":{
             "schema":1,"operation":"exact","outcome":"outer_nonzero_stage_unknown","durable_installation":"partial_installation",
@@ -741,7 +770,7 @@ mod tests {
     }
     fn create_request() -> Request {
         Request {
-            schema: 6,
+            schema: 7,
             state_token: "snapshot".into(),
             action: Action::InstallerEnvironmentCreate {
                 installer: "ab".repeat(32),
@@ -752,7 +781,7 @@ mod tests {
     fn running_snapshot(operation: &str) -> Snapshot {
         let id = "aa".repeat(16);
         Snapshot {
-            schema: 6,
+            schema: 7,
             state_token: "current".into(),
             system: System {
                 service: "capacity unavailable".into(),
@@ -799,7 +828,7 @@ mod tests {
         }));
         if acknowledged {
             o.handle_reply(Reply::Receipt(Receipt {
-                schema: 6,
+                schema: 7,
                 accepted: true,
                 operation: Some("current-op".into()),
                 refusal: None,
@@ -811,7 +840,7 @@ mod tests {
     }
     fn activity_from(s: &Snapshot) -> Reply {
         Reply::Activity(Activity {
-            schema: 6,
+            schema: 7,
             system: s.system.clone(),
             capture: s.capture.clone(),
             operation: s.operation.clone(),
@@ -1063,7 +1092,7 @@ mod tests {
         let old =
             serde_json::json!({"operation":"old","state":"refused","reason":"old lock failure"});
         f.receipt(&Receipt {
-            schema: 6,
+            schema: 7,
             accepted: false,
             operation: Some("new".into()),
             refusal: Some("fresh refusal".into()),
@@ -1075,7 +1104,7 @@ mod tests {
         assert!(!f.for_installer(&"ef".repeat(32)));
         f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 6,
+            schema: 7,
             accepted: true,
             operation: Some("new".into()),
             refusal: None,
@@ -1091,7 +1120,7 @@ mod tests {
     fn vendor_controls_unlock_only_after_current_snapshot_without_losing_feedback() {
         let mut f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 6,
+            schema: 7,
             accepted: true,
             operation: Some("new".into()),
             refusal: None,
@@ -1104,7 +1133,7 @@ mod tests {
         assert!(f.terminal);
         let mut f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 6,
+            schema: 7,
             accepted: false,
             operation: Some("refused".into()),
             refusal: Some("reason".into()),
@@ -1250,6 +1279,17 @@ mod tests {
             {"id":"bc".repeat(32),"operation":{"operation":"33".repeat(16),"state":"refused"}}
         ]);
         other.reconcile_snapshot(&s);assert!(other.terminal);assert!(!other.blocking);assert_eq!(other.transitions.last().map(String::as_str),Some("refused"));
+    }
+
+    #[test]
+    fn dependency_uncertain_ack_recovers_only_exact_stop_and_terminal() {
+        let op="cd".repeat(16);let mut s=running_snapshot(&"ef".repeat(16));
+        s.vendor_applications.push(VendorApplication{id:"native-access".into(),name:"Native Access".into(),version:"3.26.0".into(),state:"dependency".into(),actions:vec![AvailableAction{label:"Stop".into(),action:Action::DependencyStop{operation:op.clone()},disabled_reason:None}],details:serde_json::json!({"dependency_manager_operation":{"operation":op,"state":"submission_uncertain"}})});
+        let mut f=RequestFeedback::captured(Action::DependencyPrepare{});
+        f.receipt(&Receipt{schema:7,accepted:true,operation:None,refusal:None});f.reconcile_snapshot(&s);
+        assert_eq!(f.operation,Some(op.clone()));assert!(!f.blocking);assert!(!f.terminal);
+        s.vendor_applications[0].details["dependency_manager_operation"]["state"]=serde_json::json!("completed");f.reconcile_snapshot(&s);assert!(f.terminal);
+        s.vendor_applications[0].actions.clear();let mut other=RequestFeedback::captured(Action::DependencyPrepare{});other.receipt(&Receipt{schema:7,accepted:true,operation:None,refusal:None});other.reconcile_snapshot(&s);assert!(other.operation.is_none());
     }
 
     #[test]

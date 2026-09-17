@@ -1306,3 +1306,5 @@ mod tests {
         fs::remove_dir_all(outer).unwrap();
     }
 }
+
+mod dependency_cli;

@@ -1,0 +1,93 @@
+{
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "installed_software_record_sha256": "1267f4233cee79d267f7e768dff6ff34d954dcbbca18416ef08c58f112b0d769",
+  "prior_integrated_private_records_unchanged": 270,
+  "private_sha256": {
+    "after.private.json": "94e2b98275c055a8fede5ad5506505adfbf1a7ac1a42eb4bc990fa80b23f8e73",
+    "before.private.json": "c15ef12e024355ad66f51f346ee0cb6a1117d1666b04d4042b6213ca2e82d5a4",
+    "lifetime/app.private.json": "a2ac98326d181df96055de52d7a8132e91797cf038395c2de4c61de77ecfa43b",
+    "lifetime/events.private": "8eeaf68500400b36451a2916f3d53f48f4ccb652fa6969a2ea715ebd76ee7331",
+    "lifetime/initialization.private.json": "4e0231a7828ec63b30283d1cb7070c70fad451785ec21600eeebbdc76d3f7f17",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/90664391b4c46de4b2ff2a49d5a79cca-dependency-0.private": "a21396e80f8b3c1e5c0c17ef25b11a0cc0a49b02842b5c95cef90d9907684c2d",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/90664391b4c46de4b2ff2a49d5a79cca-dependency-1.private": "4abd298c2fede822e5159c4a5377b4c59ef498c5ed4dcb84424d60cff4da583e",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/90664391b4c46de4b2ff2a49d5a79cca-dependency-2.private": "a21396e80f8b3c1e5c0c17ef25b11a0cc0a49b02842b5c95cef90d9907684c2d",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/90664391b4c46de4b2ff2a49d5a79cca-dependency-3.private": "182657afeba989659310de23171f16a874e20284c298a488e98c2c9fbdd9a20c",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/90664391b4c46de4b2ff2a49d5a79cca-dependency-4.private": "a21396e80f8b3c1e5c0c17ef25b11a0cc0a49b02842b5c95cef90d9907684c2d",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/90664391b4c46de4b2ff2a49d5a79cca-dependency-before.private.json": "c08a9c2d080d2b9890ba23ad7158f1b1ef9443c2c4f4390e3d7df669552bb1b1",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/90664391b4c46de4b2ff2a49d5a79cca-dependency-current.private.json": "f6ee8f8b8c465e3ec2a1d404be3b9ad6065e69ee9b09ff5530a297f9f61f4683",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/90664391b4c46de4b2ff2a49d5a79cca-dependency-retired.private.json": "c08a9c2d080d2b9890ba23ad7158f1b1ef9443c2c4f4390e3d7df669552bb1b1",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/90664391b4c46de4b2ff2a49d5a79cca-ledger.private.json": "547d997f1474fd7e3b8b5f98d260716ac374d459a6007a8f330be36aacd1e645",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/90664391b4c46de4b2ff2a49d5a79cca-retirement.private.json": "618b5d3ae1cf4d67c88b60228a2a6ca542c090fe05b91aa5b4add6fb9b541acf",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/90664391b4c46de4b2ff2a49d5a79cca-scm-0.private.json": "f5e25aaafe5ccd9cb205fb94f23037a4dd5720158605b9b6fc74961da4fc3b74",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/90664391b4c46de4b2ff2a49d5a79cca-scm-1.private.json": "4a6404175308fb337d699c9b7d04bd054ba913ac934b57ef936a94f41858196d",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/90664391b4c46de4b2ff2a49d5a79cca-scm-2.private.json": "3b86ff041aef23befa0de83c4418fdf165547da49e38526224d280bdbad13481",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/90664391b4c46de4b2ff2a49d5a79cca-scm-3.private.json": "90aa67eb21a0597fd8ba05629dfedae21a26c8bc51563fbdc0ff64be2af8ecf0",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/90664391b4c46de4b2ff2a49d5a79cca-scm-4.private.json": "f5e25aaafe5ccd9cb205fb94f23037a4dd5720158605b9b6fc74961da4fc3b74",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/90664391b4c46de4b2ff2a49d5a79cca-stderr.private.log": "edcf1962c29b4da1bf91848a12b496703a7543123bf2b1697f7eeda453ca1899",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/90664391b4c46de4b2ff2a49d5a79cca-stdout.private.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/result.json": "18cf20b7dc1f0cb49d00477f32da7ba76d257f2343ebb8567f03cfacda345ed0",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/spec.json": "289c18b59f9380336bd8d78e0f3b53b389ac8b662b67b655af8beb93c409f326",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/unit-observation.private.json": "79da6125834b74b6d2b38693935c5de76617ccd87bf841cec3a213f2f846d06b",
+    "lifetime/manager/vendor-applications/native-access/operations/90664391b4c46de4b2ff2a49d5a79cca/writer.json": "94197cf4ff77572d4fdfbe72628561fc2d66806ae5bcb5605fc3fe464fe1d060",
+    "lifetime/seed/90664391b4c46de4b2ff2a49d5a79cca-dependency-0.private": "e16dd3259b800a867dbd1ba18f34d93ade18b5b750717d17bad1b78632b23949",
+    "lifetime/seed/90664391b4c46de4b2ff2a49d5a79cca-dependency-1.private": "e1fb1da0b4462d0c14f4cffc5ef36ca8b1adc2804ba472dde942039897b1adf3",
+    "lifetime/seed/90664391b4c46de4b2ff2a49d5a79cca-dependency-2.private": "e16dd3259b800a867dbd1ba18f34d93ade18b5b750717d17bad1b78632b23949",
+    "lifetime/seed/90664391b4c46de4b2ff2a49d5a79cca-dependency-3.private": "771c66122c92e05ffeb2d2c6dfc83899fdc8c60d21d2b82d7eeb24e4e0ee7ee0",
+    "lifetime/seed/90664391b4c46de4b2ff2a49d5a79cca-dependency-4.private": "e16dd3259b800a867dbd1ba18f34d93ade18b5b750717d17bad1b78632b23949",
+    "lifetime/seed/90664391b4c46de4b2ff2a49d5a79cca-dependency-5.private": "b1b6ba445e09c9eec3d47d822b6e1aae1df0a25c66954b85558e6c8c4575a68a",
+    "lifetime/seed/90664391b4c46de4b2ff2a49d5a79cca-dependency-6.private": "e16dd3259b800a867dbd1ba18f34d93ade18b5b750717d17bad1b78632b23949",
+    "lifetime/seed/90664391b4c46de4b2ff2a49d5a79cca-dependency-before.private.json": "2dc72f7cfacafd2247952c9d5398f40e8095985ef1c573212b40d51405a3b258",
+    "lifetime/seed/90664391b4c46de4b2ff2a49d5a79cca-dependency-current.private.json": "436849328022a5970f9f11da51eefac61837690a1338db42969e9d388f79d129",
+    "lifetime/seed/90664391b4c46de4b2ff2a49d5a79cca-dependency-retired.private.json": "2dc72f7cfacafd2247952c9d5398f40e8095985ef1c573212b40d51405a3b258",
+    "lifetime/seed/90664391b4c46de4b2ff2a49d5a79cca-installer-root.private.json": "d952f2ee6b58b4246f2e15cbcc2ca7f0f404340a266495b7b6352576227f9bce",
+    "lifetime/seed/90664391b4c46de4b2ff2a49d5a79cca-retirement.private.json": "aaffe098190cc9454bcc5b679ec4c07c8b8268e7c9147b7ef7e3d4db96ac132a",
+    "lifetime/seed/90664391b4c46de4b2ff2a49d5a79cca-scm-0.private.json": "c6090c8a4331aecc05cf6a7c9f517d345722fa1e1cebf605548dcdeeeb61dc84",
+    "lifetime/seed/90664391b4c46de4b2ff2a49d5a79cca-scm-2.private.json": "f5e25aaafe5ccd9cb205fb94f23037a4dd5720158605b9b6fc74961da4fc3b74",
+    "lifetime/seed/90664391b4c46de4b2ff2a49d5a79cca-scm-3.private.json": "4a6404175308fb337d699c9b7d04bd054ba913ac934b57ef936a94f41858196d",
+    "lifetime/seed/90664391b4c46de4b2ff2a49d5a79cca-scm-4.private.json": "bdbac05b12c9b0d2e18c458cf6301b20fe4748a81fed802807a912db1b8af2c1",
+    "lifetime/seed/90664391b4c46de4b2ff2a49d5a79cca-scm-5.private.json": "90aa67eb21a0597fd8ba05629dfedae21a26c8bc51563fbdc0ff64be2af8ecf0",
+    "lifetime/seed/90664391b4c46de4b2ff2a49d5a79cca-scm-6.private.json": "f5e25aaafe5ccd9cb205fb94f23037a4dd5720158605b9b6fc74961da4fc3b74",
+    "lifetime/seed/result.json": "c3ac8a066aad466a3c07b572201baabbe850c286956a1e13b3ff12b71d02ac19",
+    "lifetime/software.private.json": "b9547b71346f34e60469f8020e043ec1c2f2563955aec86b95d85386e9434e1b",
+    "lifetime/spec.private.json": "34f9685f43f14b087703b979956c80c794a305222b89c4bd7d66863f243fbf32"
+  },
+  "proof_sha256": "ac5f7311247fd70ca96c7bbe6ac77c8c7fac3c136add4d778200ba17f9dab402",
+  "readbacks": {
+    "after.private.json": "94e2b98275c055a8fede5ad5506505adfbf1a7ac1a42eb4bc990fa80b23f8e73",
+    "before.private.json": "c15ef12e024355ad66f51f346ee0cb6a1117d1666b04d4042b6213ca2e82d5a4"
+  },
+  "real_daemon_absent": true,
+  "resume_pending": false,
+  "runtime_tests": {
+    "count": 193,
+    "pass_sha256": "f6ca98f6d56af2df60bdc127fc825386f38ba9e0ec70b517c23db00bdb217dc1",
+    "skipped": 1
+  },
+  "schema": 1,
+  "seal": "1b65f385dabe0680f35f1604f01933780fd798fe961605ac6336e99f38de750e",
+  "sessions": [
+    {
+      "cgroup_absent": true,
+      "operation": "90664391b4c46de4b2ff2a49d5a79cca",
+      "prefix_absent": true,
+      "unit_absent": true
+    }
+  ],
+  "source": {
+    "head": "5fbe40eb678691f8c43bec59c2c36ed401e6a588",
+    "tree": "4efd3068e734ffb9210c779bc642dd8f645838b9"
+  },
+  "system": {
+    "ceiling": 6,
+    "cleanup_unconfirmed": false,
+    "dsp": 0,
+    "keepers": 2,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "service": "active",
+    "stale_transports": 0
+  }
+}

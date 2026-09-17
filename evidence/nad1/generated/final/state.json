@@ -1,0 +1,21 @@
+{
+  "all_exact_cgroups_absent": true,
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "installed_schema": 6,
+  "lead_unit_absent": true,
+  "retired_generated_units": 22,
+  "schema": 1,
+  "system": {
+    "ceiling": 6,
+    "cleanup_unconfirmed": false,
+    "dsp": 0,
+    "keepers": 2,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "service": "active",
+    "stale_transports": 0
+  }
+}

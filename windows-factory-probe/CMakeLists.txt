@@ -224,3 +224,18 @@ target_compile_definitions(naui2-application PRIVATE UNICODE _UNICODE WIN32_LEAN
 target_compile_options(naui2-application PRIVATE /W4 /permissive- /EHsc /Brepro)
 target_link_options(naui2-application PRIVATE /Brepro /INCREMENTAL:NO)
 set_target_properties(naui2-application PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+# NAD1: service-manager-only fixture; no commercial bytes or prefix.
+add_executable(nad1-service-fixture ../tools/nad1/service_fixture.cpp)
+add_executable(nad1-service-adapter ../tools/is2/launch.cpp)
+target_compile_definitions(nad1-service-adapter PRIVATE NAD1_GENERATED_SERVICE)
+target_link_libraries(nad1-service-fixture PRIVATE advapi32 ws2_32)
+target_link_libraries(nad1-service-adapter PRIVATE bcrypt advapi32)
+add_executable(nad1-application-fixture ../tools/nad1/application_fixture.cpp)
+target_link_libraries(nad1-application-fixture PRIVATE advapi32)
+foreach(target nad1-service-fixture nad1-service-adapter nad1-application-fixture)
+  target_compile_definitions(${target} PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+  target_compile_options(${target} PRIVATE /W4 /permissive- /EHsc /Brepro)
+  target_link_options(${target} PRIVATE /Brepro /INCREMENTAL:NO)
+  set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+endforeach()

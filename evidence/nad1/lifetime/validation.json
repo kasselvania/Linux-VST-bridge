@@ -1,0 +1,62 @@
+{
+  "AP10": "out_of_scope",
+  "development_outcomes": [
+    {
+      "corrected_result": "24 frontend tests passed",
+      "kind": "wrong_frontend_manifest_path",
+      "result": "refused_before_tests",
+      "windows_launches": 0
+    }
+  ],
+  "focused_owner": {
+    "platform_skips": 1,
+    "result": "passed",
+    "tests": 36
+  },
+  "frontend": 24,
+  "hosted_source_checks": [
+    {
+      "name": "AP8",
+      "result": "success",
+      "run": 35253878531
+    },
+    {
+      "name": "AP12",
+      "result": "success",
+      "run": 35253878450
+    },
+    {
+      "name": "PX2",
+      "result": "success",
+      "run": 35253878495
+    }
+  ],
+  "integrated_lifetime_sessions": 1,
+  "linux_runtime": {
+    "result": "passed",
+    "skipped": 1,
+    "tests": 193
+  },
+  "local_private_log_sha256": {
+    "nad1-lifetime-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "nad1-lifetime-focused.log": "6a0fd732b18890b68ad4653e0e9fdaeadf2bde88531ee3837b1096c6215ecfd1",
+    "nad1-lifetime-frontend-clippy.log": "3819f5a7ceecd9222e0fbd258fbc5b3461b920ebd412d521eff393866d195f71",
+    "nad1-lifetime-frontend-corrected.log": "51ea45b3ff4eee342dcbcaa9fe963f454f322d6744da1ddc3ed07fd4559f7685",
+    "nad1-lifetime-frontend.log": "417258f56b1634e615361d345c6a6bd16846ccf90671b59cce4397e56827df31",
+    "nad1-lifetime-local-runtime.log": "33b1ef1c377cb08106e9933f61d9291aed530c4ce556e67e6fe1f97dd7c9b884",
+    "nad1-lifetime-manager-clippy.log": "c96ab2e8fe0548c38e8bd18349fa8d725d6d1f54f7d01503c1ae1b747ac6a0a8",
+    "nad1-lifetime-manager.log": "dfd2d34ae743f78d200500816fe1cedaf7576a3c7a02236d26b69c14627221e7",
+    "nad1-lifetime-package-build.log": "ade30fe6781d4355aa2d656585335fcadf61a01a6196df21926d99325280b369"
+  },
+  "manager_binary": 79,
+  "manager_library": 136,
+  "nad1_package_observer": 22,
+  "python_compilation": "passed",
+  "schema": 1,
+  "source": {
+    "head": "5fbe40eb678691f8c43bec59c2c36ed401e6a588",
+    "tree": "4efd3068e734ffb9210c779bc642dd8f645838b9"
+  },
+  "strict_frontend_clippy": "passed",
+  "strict_manager_clippy": "passed"
+}

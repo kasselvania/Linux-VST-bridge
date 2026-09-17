@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "source_head": "ce41b1767d417a704f83ef45d890539a07bb7716",
+  "source_tree": "3263f6a72cd5b3af431d038030e99393d55963ec",
+  "seal_sha256": "ff364cdd2eff4bb5aa55158508a75b03ea3c1a99a6855d7dd26ddb4d549c38f9",
+  "attempts": [
+    {
+      "stage": "package_validation",
+      "result": "seal_file_set",
+      "reason": "macOS tar added metadata sidecars",
+      "environment_observation_started": false
+    },
+    {
+      "stage": "source_attribution",
+      "result": "dependency_request_attribution_unresolved",
+      "environment_observation_started": true,
+      "census_completed": false,
+      "reason": "observer required one operation to contain a text reference; that is not a valid failure-attribution law",
+      "source_count": "not retained by initial diagnostic; no count claim",
+      "before_after_preservation_completed": false
+    }
+  ],
+  "disposition": "NAD1_IDENTITY_UNRESOLVED",
+  "observation_status": "incomplete_owner_refusal_not_current_dependency_classification",
+  "real_mutation_authority": false,
+  "corrected_physical_continuation": "awaiting_explicit_authorization",
+  "one_use_marker_preserved": true
+}
