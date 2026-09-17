@@ -1,0 +1,587 @@
+{
+  "failed_sessions": [
+    {
+      "campaign": 1,
+      "private_hashes": {},
+      "proof": {
+        "case": "absent",
+        "manager_stop": false,
+        "operation": "29bbd207565663fa30c55284b02deb15",
+        "prefix_removed": true,
+        "result": {
+          "application_identity": "1e50dd87fad98afc567d87ca7ebefd86cc41cdba50f064b09a7d50bfdbdab1c4",
+          "cancelled": false,
+          "cleanup_confirmed": true,
+          "dependency": {
+            "daemon": {
+              "architecture": "x64",
+              "sha256": "13918fa737ec0c40adb36c351ae6306aab53062cddb53dfd8a03c613b8aebc67",
+              "size": 407040
+            },
+            "lifetime": "owned_operation_only_retired_before_bridge_resume",
+            "linux_windows_join": false,
+            "readiness_contract": "SCM_exact_image_generation_and_owned_same_prefix_generation_and_both_owned_loopback_listeners_v1",
+            "ready_tested": false,
+            "schema": 1,
+            "stages": [
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "absent",
+                "service_state": 0
+              },
+              {
+                "action": "install",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "outer_zero_only",
+                "root_binding": {
+                  "operation": "29bbd207565663fa30c55284b02deb15",
+                  "sha256": "13918fa737ec0c40adb36c351ae6306aab53062cddb53dfd8a03c613b8aebc67",
+                  "size": 407040,
+                  "status": "bound",
+                  "token_sha256": "a3cb3cd4f9c18d9b547b7b9daab5dea031c900ee9eae92b14a2ab98f8ef9be45"
+                }
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_state": 1
+              },
+              {
+                "action": "start",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_state": 2
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_state": 1
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_state": 1
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_state": 1
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_state": 1
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_state": 1
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_state": 1
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_state": 1
+              }
+            ]
+          },
+          "error": "dependency_running_not_ready",
+          "operation": "29bbd207565663fa30c55284b02deb15",
+          "owned_live": 0,
+          "schema": 1,
+          "state": "failed"
+        },
+        "result_sha256": "82da3bd01d7cd34a454ac17188efc71989dde671c3842d7f72a6903be263d43f",
+        "unit_absent": true
+      },
+      "proof_sha256": "31d2b5b40e7de5ce0470e147530e0388d2e0e3c0de5491ca811b4e1dc00d248e"
+    },
+    {
+      "campaign": 2,
+      "private_hashes": {
+        "events.private": "53a44c3d23d4a6998870329e9aa32be4134ca3fd3dfc36430b2e438b37187127"
+      },
+      "proof": {
+        "case": "absent",
+        "manager_stop": false,
+        "operation": "cd4bbddc498f3e8746645a2ef5234894",
+        "prefix_removed": true,
+        "result": {
+          "application_identity": "8474dc3e4fda41ee9e9ce4b9ec8d61529d6711a461b7d744f743cf563f0446e7",
+          "cancelled": false,
+          "cleanup_confirmed": true,
+          "dependency": {
+            "daemon": {
+              "architecture": "x64",
+              "sha256": "3fa2fe6bd36772ec28a8f6072fc62c768f18b8da30e15a67584021b7a3eb6c09",
+              "size": 408064
+            },
+            "lifetime": "owned_operation_only_retired_before_bridge_resume",
+            "linux_windows_join": false,
+            "readiness_contract": "SCM_exact_image_generation_and_owned_same_prefix_generation_and_both_owned_loopback_listeners_v1",
+            "ready_tested": false,
+            "schema": 1,
+            "stages": [
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "absent",
+                "service_exit": 0,
+                "service_specific_exit": 0,
+                "service_state": 0
+              },
+              {
+                "action": "install",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "outer_zero_only",
+                "root_binding": {
+                  "operation": "cd4bbddc498f3e8746645a2ef5234894",
+                  "sha256": "3fa2fe6bd36772ec28a8f6072fc62c768f18b8da30e15a67584021b7a3eb6c09",
+                  "size": 408064,
+                  "status": "bound",
+                  "token_sha256": "0ac15fef0cdf266e06a3dd45926d5dc0e9b8fe02e571901db8e91bc2a3b356b2"
+                }
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 1077,
+                "service_specific_exit": 0,
+                "service_state": 1
+              },
+              {
+                "action": "start",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 0,
+                "service_specific_exit": 0,
+                "service_state": 2
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 1077,
+                "service_specific_exit": 0,
+                "service_state": 1
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 1077,
+                "service_specific_exit": 0,
+                "service_state": 1
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 1077,
+                "service_specific_exit": 0,
+                "service_state": 1
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 1077,
+                "service_specific_exit": 0,
+                "service_state": 1
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 1077,
+                "service_specific_exit": 0,
+                "service_state": 1
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 1077,
+                "service_specific_exit": 0,
+                "service_state": 1
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 1077,
+                "service_specific_exit": 0,
+                "service_state": 1
+              }
+            ]
+          },
+          "error": "dependency_running_not_ready",
+          "operation": "cd4bbddc498f3e8746645a2ef5234894",
+          "owned_live": 0,
+          "schema": 1,
+          "state": "failed"
+        },
+        "result_sha256": "6b329b8a2dca9b04f24e6d7fd13b9dd289f1d99f69cf969c44ed49078c8cfa75",
+        "unit_absent": true
+      },
+      "proof_sha256": "f941c5ba3e1f331fa161d35dddc335a0cb4296b63e06f21afa8a9ede1b6dd3ed"
+    },
+    {
+      "campaign": 3,
+      "private_hashes": {
+        "events.private": "53a44c3d23d4a6998870329e9aa32be4134ca3fd3dfc36430b2e438b37187127"
+      },
+      "proof": {
+        "case": "absent",
+        "manager_stop": false,
+        "operation": "8354b75ebe1e03a3d543932b95add60e",
+        "prefix_removed": true,
+        "result": {
+          "application_identity": "c9a6985f18e594e479dc4c8b41ac9f7ba626a69350ed9c371314cd0ef050ae18",
+          "cancelled": false,
+          "cleanup_confirmed": true,
+          "dependency": {
+            "daemon": {
+              "architecture": "x64",
+              "sha256": "746d13e36eae68e4525fb3b6e4c591b71ae3c144956ffe9f6fb86b9d7e2c48ad",
+              "size": 408064
+            },
+            "lifetime": "owned_operation_only_retired_before_bridge_resume",
+            "linux_windows_join": false,
+            "readiness_contract": "SCM_exact_image_generation_and_owned_same_prefix_generation_and_both_owned_loopback_listeners_v1",
+            "ready_tested": false,
+            "schema": 1,
+            "stages": [
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "absent",
+                "service_exit": 0,
+                "service_specific_exit": 0,
+                "service_state": 0
+              },
+              {
+                "action": "install",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "outer_zero_only",
+                "root_binding": {
+                  "operation": "8354b75ebe1e03a3d543932b95add60e",
+                  "sha256": "746d13e36eae68e4525fb3b6e4c591b71ae3c144956ffe9f6fb86b9d7e2c48ad",
+                  "size": 408064,
+                  "status": "bound",
+                  "token_sha256": "c215aa12d4bbcaf63490be7accd152fc6c7bd8c9f895f4f7a210470241952cb2"
+                }
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 1077,
+                "service_specific_exit": 0,
+                "service_state": 1
+              },
+              {
+                "action": "start",
+                "diagnostic_dropped_bytes": 0,
+                "exit": null,
+                "launch": "owned",
+                "lifetime": "owned_anchor_until_retirement_or_600_seconds",
+                "result": "exact",
+                "service_exit": 0,
+                "service_specific_exit": 0,
+                "service_state": 2
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 1077,
+                "service_specific_exit": 0,
+                "service_state": 1
+              }
+            ]
+          },
+          "error": "dependency_service_anchor_exited",
+          "operation": "8354b75ebe1e03a3d543932b95add60e",
+          "owned_live": 0,
+          "schema": 1,
+          "state": "failed"
+        },
+        "result_sha256": "2d20f535aaddc46f5092e09cf9b5f71e9019aaa2111842133ca1aa79c19ba171",
+        "unit_absent": true
+      },
+      "proof_sha256": "11b85c76b0ffbc8e8a0bd1d78fecc929d7557271f95f609935e5d832ed7e78c9"
+    },
+    {
+      "campaign": 4,
+      "private_hashes": {
+        "events.private": "53a44c3d23d4a6998870329e9aa32be4134ca3fd3dfc36430b2e438b37187127"
+      },
+      "proof": {
+        "case": "absent",
+        "manager_stop": false,
+        "operation": "9ea1b87f6db4683ad1050ecb56b0abb3",
+        "prefix_removed": true,
+        "result": {
+          "application_identity": "c99537931d7ac1930bbf07509df43f775b04b55114ca5cbc767ec4c9c8a4500f",
+          "cancelled": false,
+          "cleanup_confirmed": true,
+          "dependency": {
+            "daemon": {
+              "architecture": "x64",
+              "sha256": "c8b1961780691594ad51be6c0890b6697914996720440a9c336f13f546bb1d3b",
+              "size": 408064
+            },
+            "lifetime": "owned_operation_only_retired_before_bridge_resume",
+            "linux_windows_join": false,
+            "readiness_contract": "SCM_exact_image_generation_and_owned_same_prefix_generation_and_both_owned_loopback_listeners_v1",
+            "ready_tested": false,
+            "schema": 1,
+            "stages": [
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "absent",
+                "service_exit": 0,
+                "service_specific_exit": 0,
+                "service_state": 0
+              },
+              {
+                "action": "install",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "outer_zero_only",
+                "root_binding": {
+                  "operation": "9ea1b87f6db4683ad1050ecb56b0abb3",
+                  "sha256": "c8b1961780691594ad51be6c0890b6697914996720440a9c336f13f546bb1d3b",
+                  "size": 408064,
+                  "status": "bound",
+                  "token_sha256": "1c1d26d93f9ca28f9b1eda3fc61fd929685285d0c82b1db97a843421aa113bec"
+                }
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 1077,
+                "service_specific_exit": 0,
+                "service_state": 1
+              },
+              {
+                "action": "start",
+                "diagnostic_dropped_bytes": 0,
+                "exit": null,
+                "launch": "owned",
+                "lifetime": "owned_anchor_until_retirement_or_600_seconds",
+                "result": "exact",
+                "service_exit": 0,
+                "service_specific_exit": 0,
+                "service_state": 2
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 0,
+                "service_specific_exit": 0,
+                "service_state": 4
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 0,
+                "service_specific_exit": 0,
+                "service_state": 4
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 0,
+                "service_specific_exit": 0,
+                "service_state": 4
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 0,
+                "service_specific_exit": 0,
+                "service_state": 4
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 0,
+                "service_specific_exit": 0,
+                "service_state": 4
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 0,
+                "service_specific_exit": 0,
+                "service_state": 4
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 0,
+                "service_specific_exit": 0,
+                "service_state": 4
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 0,
+                "service_specific_exit": 0,
+                "service_state": 4
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 0,
+                "service_specific_exit": 0,
+                "service_state": 4
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 0,
+                "service_specific_exit": 0,
+                "service_state": 4
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 0,
+                "service_specific_exit": 0,
+                "service_state": 4
+              },
+              {
+                "action": "query",
+                "diagnostic_dropped_bytes": 0,
+                "exit": 0,
+                "launch": "owned",
+                "result": "exact",
+                "service_exit": 0,
+                "service_specific_exit": 0,
+                "service_state": 4
+              }
+            ]
+          },
+          "error": "dependency_running_not_ready",
+          "operation": "9ea1b87f6db4683ad1050ecb56b0abb3",
+          "owned_live": 0,
+          "schema": 1,
+          "state": "failed"
+        },
+        "result_sha256": "3a2ac9a66097a0be031ddaedaaf2b9005966fa32652a628a4a1ff453dc04c48e",
+        "unit_absent": true
+      },
+      "proof_sha256": "38bc1457b433514707671b4f791bf6358c4b120ec4fa15afadcb477904965287"
+    }
+  ],
+  "schema": 1
+}

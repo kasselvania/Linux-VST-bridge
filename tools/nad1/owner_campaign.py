@@ -1,9 +1,9 @@
 """Generated installation/SCM lifecycle; no Native Access or real daemon input."""
 import hashlib,json,os,pathlib,shutil,subprocess,time,stat
 from owner_package import verify,digest,read,publish,canonical
-from readback import readback
 
 def preservation():
+ from readback import readback
  value=readback();root=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed/environments/627d2cba97edbecf113c22504eb4c81b'
  pending=[root];rows={};deadline=time.monotonic()+60
  while pending:
