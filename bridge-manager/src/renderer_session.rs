@@ -284,9 +284,11 @@ pub fn stop_with(
 ) -> Result<()> {
     exact(m, op)?;
     let p = probe();
-    if !p.as_ref().is_ok_and(|p| p.empty && !p.exists) {
-        stop()?;
-    }
+    let stop_error = if !p.as_ref().is_ok_and(|p| p.empty && !p.exists) {
+        stop().err()
+    } else {
+        None
+    };
     // Stop is a synchronous cancellation barrier for a loaded but inactive unit
     // or queued job. Ordinary lost-ack reconciliation never assumes that barrier.
     {
@@ -296,6 +298,14 @@ pub fn stop_with(
         let observed = probe();
         record_probe(m, op, &observed)?;
         let observed = observed?;
+        // A collected unit can disappear between the first query and Stop.
+        // A failed acknowledgment is safe only with fresh exact absence, an
+        // empty cgroup and this exclusive writer gate. Never retry the signal.
+        if let Some(error) = stop_error {
+            if observed.exists || !observed.empty {
+                return Err(error);
+            }
+        }
         require(observed.empty, "renderer_members_remain")?;
         close_empty(m, op, &observed)?;
     }
@@ -427,6 +437,51 @@ mod tests {
             absent
         )
         .is_err());
+    }
+    #[test]
+    fn stop_ack_loss_requires_fresh_absence_and_exclusive_writer_custody() {
+        for case in ["collected", "live", "inactive", "unavailable", "writer"] {
+            let f = Fixture::new();
+            let op = "ab".repeat(16);
+            submit_with(&f.m, &spec(&f.m, &op), |_| Ok(true), live).unwrap();
+            let held = if case == "writer" {
+                Some(gate(&f.m, &op).unwrap())
+            } else {
+                None
+            };
+            let mut queries = 0;
+            let mut stops = 0;
+            let outcome = stop_with(
+                &f.m,
+                &op,
+                || {
+                    stops += 1;
+                    Err("stop_ack_lost".into())
+                },
+                || {
+                    queries += 1;
+                    if queries == 1 {
+                        return live();
+                    }
+                    match case {
+                        "collected" | "writer" => absent(),
+                        "live" => live(),
+                        "inactive" => Ok(UnitState {
+                            exists: true,
+                            empty: true,
+                            observation: None,
+                        }),
+                        _ => Err("query_unavailable".into()),
+                    }
+                },
+            );
+            assert_eq!(stops, 1);
+            assert_eq!(outcome.is_ok(), case == "collected");
+            if case != "collected" {
+                assert!(result(&f.m, &op).unwrap().is_null());
+            }
+            drop(held);
+        }
     }
     #[test]
     fn stop_requires_exact_operation_and_preserves_interrupted_writer_evidence() {

@@ -32,3 +32,24 @@ socket is never exposed through the operator API; the pinned launch client
 forwards only owner-built commands and four diagnostic environment settings.
 There is no runner replacement, sandbox disabling, registry change or vendor
 binary mutation.
+
+## Repaired comparison
+
+`after/` retains the campaign executed at `e0ea7297bcfae67b74b1a19d67f302f374de00c7`.
+Both the cold control and service-first application now read/write the exact
+suspended child successfully. The application exits zero, readiness and SCM
+retirement pass, the cgroup/unit/prefix are absent, and protected state is unchanged.
+
+Development refusals are separate: the first container could not bind the private
+socket directory; the next launcher exited on stdin EOF before its host client
+could connect. An isolated Linux-only check initially reproduced that failure,
+then confirmed the correction after stdin was removed as a lifetime authority.
+The earlier commit message about the socket-location repair being qualified was
+premature: that first Linux-only result was a refusal, not a pass. Both results
+are retained. Final runtime lifetime belongs to the exact operation ledger.
+
+The subsequent normal and repeated application runs both completed successfully.
+Their campaign then stopped on a manager race: systemd collected the completed
+unit between query and Stop. Fresh checks proved exact absence and clean results.
+The manager amendment accepts that race only under fresh unit/cgroup absence and
+exclusive writer custody; uncertainty still refuses and the signal is not retried.
