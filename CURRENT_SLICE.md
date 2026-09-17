@@ -92,10 +92,31 @@ if exact child/sandbox evidence selects it; NAUI2 never bundles `--no-sandbox`.
 
 PR #117 implements the selected application owner and renderer policy. Executed
 source `56ed25b03ceee9a57143f9f0f7cecd7c6e150cdc` passed the production-supervised
-67 MiB inherited/software/restored fixture and exact Stop after a retained child
-failure. See `evidence/naui2/README.md` and the sealed generated result.
+67 MiB inherited/software/restored fixture and supervisor cancellation after a retained child
+failure. That initial campaign did not exercise manager Stop/service restoration. See `evidence/naui2/README.md` and the sealed generated result.
 
 The manager projects operator model 6 with exact application selection, rendering
 mode, Focus/Stop and attributed presentation observations. No installed generation
 was replaced; no Native Access or DAW session occurred. This PR remains draft for
 independent review, with physical application comparison still separately gated.
+
+## PR #117 independent-review repair
+
+The accepted initial generated evidence remains immutable. This amendment closes
+installed Python admission to the exact Native Access identity, separates sealed
+fixture admission, and adds an operation writer gate shared with manager submission
+reconciliation. A missing acknowledgment retains the reservation and service-resume
+owner. Only exact unit/cgroup emptiness plus exclusive writer custody can produce a
+terminal recovery result. Loaded inactive units require explicit Stop as a queued-job
+barrier; a late writer refuses a terminal reservation. Prior nonterminal evidence is
+preserved with a separate recovery receipt.
+
+The new generated package uses the Rust manager submission/Stop core. Generated
+operator tests exercise exact resume ownership, uncertain states, wrong Stop,
+interrupted requests and one-time restoration with service I/O substituted. The
+real bridge service is preserved during fixture execution. Real GUI Focus remains
+unproved; only exact request/refusal ownership is generated. Graphics-init facts
+remain non-selecting leads; raw root PIDs/times remain private.
+
+Run affected suites and AP8/AP12/PX2, then return the same draft PR. No installation,
+commercial launch or Native Access differential is authorized by this repair.

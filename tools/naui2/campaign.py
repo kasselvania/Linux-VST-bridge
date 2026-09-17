@@ -37,34 +37,34 @@ def run(package,out,seal):
         payload=d/'fixture.exe';shutil.copyfile(p/'payload.exe',payload);payload.chmod(0o400)
         (d/'case.txt').write_text('hold' if index==3 else 'differential')
         installation=d/'fixture-installation.json';publish(installation,{'source_owned':True})
-        app={'schema':1,'id':'native-access','environment':env,'files':{'Native Access.exe':{'artifact':{'path':str(payload),'sha256':m['files']['payload.exe']},'size':m['payload_size']}},
+        app={'schema':1,'id':'naui2-source-owned','environment':env,'files':{'Native Access.exe':{'artifact':{'path':str(payload),'sha256':m['files']['payload.exe']},'size':m['payload_size']}},
              'installation':{'path':str(installation),'sha256':digest(installation)},'observation_sha256':'0'*64,'source_seal_sha256':seal}
         sw=dict(context['software'])
         for key,name in [('manager','binding-owner'),('supervisor','session.py'),('ownership','ownership.py'),('installer_launch','adapter.exe')]:sw[key]={'path':str(p/name),'sha256':m['files'][name]}
         publish(d/'application.private.json',app);publish(d/'software.private.json',sw)
-        report=d/'result.json';spec=d/'spec.private.json'
+        manager=d/'manager';report=manager/'vendor-applications/native-access/operations'/op/'result.json';spec=d/'spec.private.json'
         subprocess.run([str(p/'binding-owner'),str(d/'application.private.json'),str(d/'software.private.json'),op,mode,str(report),str(spec)],check=True,timeout=20)
         unit='linux-vst-bridge-renderer-'+op+'.service'
-        subprocess.run(['systemd-run','--user','--collect','--property=UMask=0077','--property=KillMode=control-group','--property=TimeoutStopSec=30','--property=StandardOutput=null','--property=StandardError=null','--unit='+unit,'/usr/bin/python3','-B',str(p/'supervise.py'),seal,str(spec)],check=True,timeout=15)
+        subprocess.run([str(p/'binding-owner'),'submit',str(manager),str(spec),str(p),seal],check=True,timeout=30)
         completed=False;stop_requested=False;deadline=time.monotonic()+180
         try:
             while time.monotonic()<deadline:
                 if report.exists():
                     observed=read(report)
                     if index==3 and not stop_requested and observed.get('effective') and observed['renderer']['cause']=='gpu':
-                        subprocess.run(['systemctl','--user','stop',unit],check=True,timeout=35);stop_requested=True
+                        subprocess.run([str(p/'binding-owner'),'stop',str(manager),op],check=True,timeout=35);stop_requested=True
                     if observed.get('cleanup_confirmed'):completed=True;break
                 time.sleep(.1)
         finally:
             active=lambda:subprocess.run(['systemctl','--user','is-active','--quiet',unit]).returncode==0
-            if not completed and active():subprocess.run(['systemctl','--user','stop',unit],check=True,timeout=35)
+            if not completed and active():subprocess.run([str(p/'binding-owner'),'stop',str(manager),op],check=True,timeout=35)
             deadline=time.monotonic()+10
             while active() and time.monotonic()<deadline:time.sleep(.05)
             if active():raise ValueError('unit_retirement_unconfirmed')
         r=read(report)
         if not r['cleanup_confirmed'] or r['owned_live']!=0:raise ValueError('application_cleanup_unconfirmed')
         shutil.rmtree(root)
-        row={**r,'mode':mode,'identity':identity,'prefix_removed':True,'private_result_sha256':digest(report)}
+        row={**r,'mode':mode,'identity':identity,'prefix_removed':True,'private_result_sha256':digest(report),'manager_lifecycle':'renderer_session_submit_and_stop','submission':read(report.parent/'submission.json')}
         publish(d/'proof.json',row)
         if index==3:
             if not stop_requested or r['state']!='cancelled' or r['renderer']['cause']!='gpu' or not r['effective']:raise ValueError('fixture_stop_did_not_preserve_failure')

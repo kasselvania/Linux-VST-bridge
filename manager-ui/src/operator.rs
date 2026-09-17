@@ -67,7 +67,7 @@ impl RequestFeedback {
         }
         if let Some(
             state @ ("refused" | "completed" | "waiting" | "validating" | "vendor_running"
-            | "queued" | "running"),
+            | "queued" | "running" | "submission_uncertain"),
         ) = op["state"].as_str()
         {
             self.transition(state);
@@ -88,6 +88,10 @@ impl RequestFeedback {
             }
             Some("waiting" | "validating") => {
                 "This operation is validating manager state. Do not click again.".into()
+            }
+            Some("submission_uncertain") => {
+                self.release_after_snapshot=true;
+                "Launch acknowledgment is uncertain. Use the exact Stop / reconcile control; no launch was resubmitted.".into()
             }
             Some("vendor_running") => {
                 self.release_after_snapshot = true;
@@ -136,7 +140,7 @@ impl RequestFeedback {
                 if app.details["application_identity"].as_str()==Some(application.as_str()) {
                     if self.acknowledgment_uncertain && self.operation.is_none()
                         && app.details["requested"] == serde_json::to_value(policy).unwrap()
-                        && app.details["manager_operation"]["state"] == "vendor_running" {
+                        && matches!(app.details["manager_operation"]["state"].as_str(),Some("vendor_running"|"submission_uncertain")) {
                         if let Some(op)=app.details["operation"].as_str() {
                             if app.actions.iter().any(|a|matches!(&a.action,Action::RendererStop{operation} if operation==op)) {
                                 self.operation=Some(op.into());self.release_after_snapshot=true;
@@ -1251,11 +1255,11 @@ mod tests {
     #[test]
     fn renderer_snapshot_releases_exact_recovery_even_with_unrelated_latest_receipt() {
         let id="ab".repeat(32);let op="cd".repeat(16);
-        for activity_first in [false,true] {
+        for (activity_first,state) in [(false,"vendor_running"),(true,"vendor_running"),(false,"submission_uncertain"),(true,"submission_uncertain")] {
             let mut f=RequestFeedback::captured(Action::RendererOpen{application:id.clone(),policy:RendererPolicy::Inherited});
             f.receipt(&Receipt{schema:6,accepted:true,operation:Some(op.clone()),refusal:None});
             let mut s=running_snapshot(&"ef".repeat(16));
-            let operation=serde_json::json!({"operation":op,"state":"vendor_running"});
+            let operation=serde_json::json!({"operation":op,"state":state});
             s.vendor_applications.push(VendorApplication{id:"native-access".into(),name:"Native Access".into(),version:"3.26.0".into(),state:"supervised".into(),actions:vec![AvailableAction{label:"Stop".into(),action:Action::RendererStop{operation:op.clone()},disabled_reason:None}],details:serde_json::json!({"application_identity":id,"operation":op,"requested":"inherited","manager_operation":operation})});
             if activity_first{f.observe(&operation);}
             f.reconcile_snapshot(&s);assert!(!f.blocking);assert!(!f.terminal);

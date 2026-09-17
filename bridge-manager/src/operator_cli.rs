@@ -1168,14 +1168,21 @@ fn execute_with_receipt_policy(
             let _environment=m.lock("operator-environment.lock")?;
             let owner=operation.ok_or("operator_operation_identity")?;
             suspend(m,owner,Some(owner.into()))?;
-            if let Err(e)=renderer_cli::launch(m,application,*policy,owner) {
-                let _=resume_owned(m,owner);return Err(e);
-            }
-            write_operation(m,owner,&json!({"schema":1,"operation":owner,"state":"vendor_running","action":a}),false)?;
+            let submission=match renderer_cli::launch(m,application,*policy,owner) {
+                Ok(state)=>state,
+                Err(e)=>{
+                    // Before reservation no unit can have been submitted. After
+                    // reservation every error retains exact recovery authority.
+                    if renderer_cli::current(m)?["operation"]!=owner {resume_owned(m,owner)?;return Err(e);}
+                    renderer_cli::reconcile(m,owner)?
+                }
+            };
+            write_operation(m,owner,&json!({"schema":1,"operation":owner,"state":if submission==renderer_session::Submission::AcknowledgmentUncertain{"submission_uncertain"}else{"vendor_running"},"action":a}),false)?;
             drop(projection.take());
             let deadline=Instant::now()+Duration::from_secs(650);
             loop {
-                if renderer_cli::retired_value(&renderer_cli::result(m,owner)?,owner) && !renderer_cli::live(owner)? {break;}
+                renderer_cli::reconcile(m,owner)?;
+                if renderer_session::retired(m,owner)? {break;}
                 require(Instant::now()<deadline,"renderer_retirement_unconfirmed")?;
                 std::thread::sleep(Duration::from_millis(500));
             }
@@ -1183,12 +1190,7 @@ fn execute_with_receipt_policy(
             Ok(json!({"application":"retired","service":"resumed","result":renderer_cli::result(m,owner)?}))
         }
         ui::Action::RendererStop { operation: target } => {
-            let _resume=resume_lock(m)?;
-            let saved=resume_record(m)?.ok_or("renderer_resume_owner_absent")?;
-            require(saved.owner_operation==*target && saved.vendor_operation.as_deref()==Some(target.as_str())
-                && matches!(recovery_request(m,&saved)?,ui::Action::RendererOpen{..}),"renderer_resume_owner_mismatch")?;
-            renderer_cli::stop(m,target)?;
-            resume_locked(m,target,|saved|restore_service(m,saved))?;
+            stop_renderer_with(m,target,|id|renderer_cli::stop(m,id),|saved|restore_service(m,saved))?;
             Ok(json!({"application":"stopped","operation":target}))
         }
         ui::Action::RendererFocus { operation: target } => renderer_cli::focus(m,target),
@@ -1379,6 +1381,15 @@ fn recovery_request(m: &Manager, saved: &ResumeRecord) -> Result<ui::Action> {
     require(matches!(request.schema,5|6), "operator_resume_request_schema")?;
     Ok(request.action)
 }
+fn stop_renderer_with(m:&Manager,target:&str,close:impl FnOnce(&str)->Result<()>,restore:impl FnOnce(&ResumeRecord)->Result<()>)->Result<()> {
+    let _resume=resume_lock(m)?;
+    let saved=resume_record(m)?.ok_or("renderer_resume_owner_absent")?;
+    require(saved.owner_operation==target && saved.vendor_operation.as_deref()==Some(target),"renderer_resume_owner_mismatch")?;
+    let ui::Action::RendererOpen{application,policy}=recovery_request(m,&saved)? else{return Err("renderer_resume_action_mismatch".into());};
+    require(renderer_cli::current(m)?==json!({"operation":target,"application":application,"policy":policy}),"renderer_resume_reservation_mismatch")?;
+    close(target)?;
+    resume_locked(m,target,restore)
+}
 fn stop_vendor_with(
     m: &Manager,
     application: &str,
@@ -1417,6 +1428,12 @@ fn resume_interrupted(m: &Manager) -> Result<()> {
         return Ok(());
     };
     let _environment = m.lock("operator-environment.lock")?;
+    if matches!(recovery_request(m,&saved)?,ui::Action::RendererOpen{..}) {
+        require(saved.vendor_operation.as_deref()==Some(saved.owner_operation.as_str()),"renderer_resume_owner_mismatch")?;
+        renderer_cli::reconcile(m,&saved.owner_operation)?;
+        require(renderer_session::retired(m,&saved.owner_operation)?,"renderer_custody_still_uncertain")?;
+        return resume_locked(m,&saved.owner_operation,|saved|restore_service(m,saved));
+    }
     require(
         matches!(
             recovery_request(m, &saved)?,
@@ -2152,6 +2169,37 @@ mod tests {
         assert_eq!(restores, 1);
         assert!(!path.exists());
         finish_operation_with(&f.m, &a, |_| panic!("no record to recover")).unwrap();
+    }
+    #[test]
+    fn renderer_stop_preserves_uncertain_resume_and_restores_exactly_once() {
+        use renderer_session::{self as r,UnitState};
+        let f=test_fixture::Fixture::new();let application="ab".repeat(32);
+        let owner=queued_test_action(&f.m,ui::Action::RendererOpen{application:application.clone(),policy:ui::RendererPolicy::Inherited});
+        saved_test_resume(&f.m,&owner,Some(owner.clone()));
+        let spec=json!({"operation":owner,"application_identity":application,"renderer_policy":"inherited","report":r::operation_dir(&f.m,&owner).unwrap().join("result.json")});
+        assert_eq!(r::submit_with(&f.m,&spec,|_|Err("lost acknowledgment".into()),||Err("unit unavailable".into())).unwrap(),r::Submission::AcknowledgmentUncertain);
+        let path=f.m.root.join("operator/resume.json");let retained=fs::read(&path).unwrap();
+        assert!(stop_renderer_with(&f.m,&"ff".repeat(16),|_|panic!("wrong stop"),|_|panic!("wrong restore")).is_err());
+        assert!(stop_renderer_with(&f.m,&owner,|id|r::stop_with(&f.m,id,||Ok(()),||Err("unknown".into())),|_|panic!("uncertain service must remain stopped")).is_err());
+        assert_eq!(fs::read(&path).unwrap(),retained);
+        let mut restores=0;
+        stop_renderer_with(&f.m,&owner,|id|r::stop_with(&f.m,id,||panic!("absent unit needs no signal"),||Ok(UnitState{exists:false,empty:true,observation:None})),|saved|{assert_eq!(saved.owner_operation,owner);restores+=1;Ok(())}).unwrap();
+        assert_eq!(restores,1);assert!(!path.exists());
+        resume_owned_with(&f.m,&owner,|_|{restores+=1;Ok(())}).unwrap();assert_eq!(restores,1);
+        assert!(r::terminal(&r::result(&f.m,&owner).unwrap(),&owner));
+    }
+    #[test]
+    fn renderer_lost_ack_live_result_then_exact_stop_preserves_failure_and_resume_owner() {
+        use renderer_session::{self as r,UnitState};
+        let f=test_fixture::Fixture::new();let application="ab".repeat(32);
+        let owner=queued_test_action(&f.m,ui::Action::RendererOpen{application:application.clone(),policy:ui::RendererPolicy::Inherited});
+        saved_test_resume(&f.m,&owner,Some(owner.clone()));
+        let d=r::operation_dir(&f.m,&owner).unwrap();let spec=json!({"operation":owner,"application_identity":application,"renderer_policy":"inherited","report":d.join("result.json")});
+        assert_eq!(r::submit_with(&f.m,&spec,|_|Ok(false),||Ok(UnitState{exists:true,empty:false,observation:None})).unwrap(),r::Submission::SubmittedOrLive);
+        atomic_json(&d.join("result.json"),&json!({"schema":1,"operation":owner,"state":"running","renderer":{"cause":"gpu"}})).unwrap();
+        let mut probes=0;let mut stops=0;let mut restores=0;
+        stop_renderer_with(&f.m,&owner,|id|r::stop_with(&f.m,id,||{stops+=1;Ok(())},||{probes+=1;Ok(UnitState{exists:true,empty:probes>1,observation:None})}),|_|{restores+=1;Ok(())}).unwrap();
+        assert_eq!((stops,restores),(1,1));assert_eq!(r::result(&f.m,&owner).unwrap()["renderer"]["cause"],"gpu");
     }
     #[test]
     fn stop_asc_recovers_only_the_exact_vendor_open_operation() {

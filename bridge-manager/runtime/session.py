@@ -2144,7 +2144,7 @@ def renderer_cause(processes,facts,drops,complete,image_sha):
     """Independent closed attribution gate; no inference from incomplete census."""
     if type(drops) is not int or not 0<=drops<=4294967295 or type(complete) is not bool:raise ValueError('renderer_completeness_schema')
     fields={'domain','epoch','ordinal','parent_ordinal','role','role_request_sha256','image_sha256','exit_domain','exit_status'}
-    authorities={'chromium_pid_unique_complete_trace':{'gpu','sandbox','renderer','network'},
+    authorities={'chromium_pid_unique_complete_trace':{'gpu','sandbox','renderer','network','graphics_initialization'},
                  'wine_pid_lifetime_complete_trace':{'gdi'},'wine_exact_role_and_self_exit_generation':{'gpu','renderer'}}
     indexed={};last=0
     def sha(v):return isinstance(v,str) and re.fullmatch('[0-9a-f]{64}',v)
@@ -2176,6 +2176,7 @@ class RendererEvidence:
         ('sandbox',r'(?:gpu_process_host|child_process_launcher_helper|child_process_launcher_helper_win|sandbox_win)\.cc',r'(?:GPU process launch failed:|Failed to launch child:) error_code=39\.?'),
         ('renderer',r'(?:web_contents|electron_api_web_contents)\.cc',r'render-process-gone: (?:crashed|oom|launch-failed)'),
         ('network',r'network_service_instance_impl\.cc',r'Network service crashed, restarting service\.'),
+        ('graphics_initialization',r'(?:gl_surface_egl|gl_display|angle_platform_impl|gpu_init)\.cc',r'(?:ANGLE Display::initialize error [0-9]{1,10}: D3D11 device creation failed|D3D11 device creation failed|OpenGL initialization failed|eglInitialize failed|Failed to initialize GL surface)\.?'),
     )
     CHROMIUM=re.compile(r'^\[([0-9]{1,10}):([0-9]{1,10}):[0-9]{4}/[0-9]{6}\.[0-9]{3,6}:(?:ERROR|FATAL):([a-z_]+\.cc)\([0-9]{1,6}\)\] (.{1,512})$')
     def __init__(self,artifact,root,image):
@@ -2282,15 +2283,76 @@ class RendererEvidence:
                 'image_sha256':(r.get('image_identity') or {}).get('sha256'),
                 'exit_domain':r['self_exit']['domain'] if r['self_exit'] else None,
                 'exit_status':r['self_exit']['status'] if r['self_exit'] else None} for r in t.rows if r['epoch']==2 and r['target_tree']],
-            'launch_binding':t.binding,'linux_windows_join_performed':False}
+            'launch_binding':None if t.binding is None else {k:t.binding[k] for k in ('schema','operation','epoch','token_sha256','artifact_sha256','size','status','reason','root_ordinal')},'linux_windows_join_performed':False}
         result['cause']=renderer_cause(result['processes'],facts,t.dropped,bool(complete),self.image.sha)
         return result
 
+RENDERER_PRODUCTION = {'environment': '627d2cba97edbecf113c22504eb4c81b', 'installation_operation': 'e4143128adc87de3fdbbdfb44f186ee5', 'observation_sha256': 'de6a9e37b95a6a1917f2749b1a16178c69edcbc6a3a27f639ae0941625395d87', 'source_seal_sha256': '539bcf48c961e18b93ce6bc54c4aed20ab7a82822e7563e34b8025b6836b4be9', 'result_sha256': 'fc9325cd947059e0d453ba69c9a332028197d871e3ef9ab1c94b2fe7d91586a0', 'root_location_sha256': 'f465c845fbb79a281abbcc3fbeae4844b28852fd51624a2a2f2d3383f44a1171', 'files': {'Native Access.exe': {'sha256': '7b2413e90db79538cd1edc7c6169ff384aea181a85635c43a363f4aa18b9e841', 'size': 225757168}, 'chrome_100_percent.pak': {'sha256': 'd76fe8fa3a14cd73e4c858746e2ab2d2fa6f2df38a906fa5814b50a8a895fc96', 'size': 119905}, 'chrome_200_percent.pak': {'sha256': 'b74ad439f3d3762657f3ba533a6af3ac63315c838ed46519891366f43d834a0e', 'size': 197089}, 'icudtl.dat': {'sha256': 'bd8c145abdf3f8383276ce01dfa4ae48709bef9fef1c0711eb7c3fab4f6eb7c2', 'size': 10876560}, 'libEGL.dll': {'sha256': '7d6f4957a6c4d4cad4d717ebebbc9738acf4bfdf2d4ea1c0403d2c9a0661dc5d', 'size': 474624}, 'libGLESv2.dll': {'sha256': '5d6c94812ca1f6dc414d6166da1ed95e4f072a151c7e16952b0fd9a450192d8b', 'size': 8024064}, 'resources.pak': {'sha256': '77f82c006ca57145a385188e67f06c8a1136c0d86de10dc5889f0dbd6117b061', 'size': 7148145}, 'resources/app.asar': {'sha256': '2df87bef2a7c7113b56374d4f5620519d268496bba9414db2e3c101328783ea5', 'size': 76143407}, 'snapshot_blob.bin': {'sha256': '01e68a60b8838be376b202607defadaabdb61b5907dc6caf2cfaf8e915229532', 'size': 365488}, 'v8_context_snapshot.bin': {'sha256': '8b01d2eb0fc5324e0ff3879a30efca0eb7f5dfe35f829721aebc98b0bffbb4c3', 'size': 740048}}}
+
+def renderer_read(path):
+    with os.fdopen(os.open(path,os.O_RDONLY|os.O_NOFOLLOW),'rb') as f:
+        m=os.fstat(f.fileno())
+        if not stat.S_ISREG(m.st_mode) or m.st_uid!=os.getuid() or m.st_nlink!=1 or m.st_size>8*1024*1024:raise ValueError('renderer_record_extent')
+        return json.loads(f.read(),object_pairs_hook=renderer_unique)
+
+def renderer_unique(pairs):
+    result={}
+    for key,value in pairs:
+        if key in result:raise ValueError('renderer_duplicate_key')
+        result[key]=value
+    return result
+
 def renderer_validate(spec):
+    # Installed entry: no caller-selected home, environment, manifest or fixture.
+    if set(spec)!={'schema','kind','application','application_identity','operation','renderer_policy','report','software','software_sha256','installer_launch'} or type(spec['schema']) is not int or spec['schema']!=1 or spec['kind']!='renderer_application' or spec['renderer_policy'] not in ('inherited','software_rendering'):raise ValueError('renderer_production_schema')
+    expected=RENDERER_PRODUCTION
+    managed=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed'
+    op=spec.get('operation')
+    if not isinstance(op,str) or not re.fullmatch('[0-9a-f]{32}',op):raise ValueError('renderer_operation')
+    directory=managed/'vendor-applications/native-access/operations'/op
+    if spec.get('report')!=str(directory/'result.json') or directory.resolve()!=directory:raise ValueError('renderer_report_location')
+    app=spec.get('application',{});env=app.get('environment',{})
+    root=managed/'environments'/expected['environment'];drive=root/'compatdata/pfx/drive_c'
+    if env.get('id')!=expected['environment'] or env.get('root')!=str(root) or root.resolve()!=root:raise ValueError('renderer_exact_environment')
+    if env!=renderer_read(root/'environment.json'):raise ValueError('renderer_environment_record')
+    if app.get('id')!='native-access' or app.get('observation_sha256')!=expected['observation_sha256'] or app.get('source_seal_sha256')!=expected['source_seal_sha256']:raise ValueError('renderer_production_provenance')
+    files=app.get('files',{})
+    if set(files)!=set(expected['files']):raise ValueError('renderer_production_resource_set')
+    executable=pathlib.Path(files['Native Access.exe']['artifact']['path']);application=executable.parent
+    if not application.is_relative_to(drive) or hashlib.sha256(str(application.relative_to(drive)).encode()).hexdigest()!=expected['root_location_sha256']:raise ValueError('renderer_production_root')
+    for name,witness in expected['files'].items():
+        if files[name]!={'artifact':{'path':str(application/name),'sha256':witness['sha256']},'size':witness['size']}:raise ValueError('renderer_production_resource')
+    installation=managed/'onboarding'/expected['environment']/(expected['installation_operation']+'-result.json')
+    if app.get('installation')!={'path':str(installation),'sha256':expected['result_sha256']}:raise ValueError('renderer_production_installation')
+    if spec.get('software')!=renderer_read(managed/'software.json'):raise ValueError('renderer_current_software')
+    # Persisted request and reservation must name this exact application and operation.
+    if renderer_read(directory/'spec.json')!=spec:raise ValueError('renderer_persisted_spec')
+    if renderer_read(managed/'vendor-applications/native-access/current.json')!={'operation':op,'application':spec['application_identity'],'policy':spec['renderer_policy']}:raise ValueError('renderer_reservation')
+    if hashlib.sha256(json.dumps(app,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()!=spec['application_identity']:raise ValueError('renderer_application_binding')
+    renderer_bound_inputs(spec)
+    found=[];pending=[drive];count=0
+    while pending:
+        for entry in pending.pop().iterdir():
+            count+=1
+            if count>100000:raise ValueError('renderer_census_bound')
+            md=entry.lstat()
+            if stat.S_ISDIR(md.st_mode):pending.append(entry)
+            if entry.name.lower()=='native access.exe':
+                if not stat.S_ISREG(md.st_mode):raise ValueError('renderer_root_alias')
+                found.append(entry.parent)
+    if found!=[application]:raise ValueError('renderer_unique_root')
+    for image in files.values():
+        path=pathlib.Path(image['artifact']['path']);before=path.lstat()
+        if path.resolve()!=path or not stat.S_ISREG(before.st_mode) or before.st_nlink!=1 or before.st_size!=image['size']:raise ValueError('renderer_resource_bytes')
+        verify(image['artifact'])
+        if RendererImage.identity(before)!=RendererImage.identity(path.lstat()):raise ValueError('renderer_resource_changed')
+    return app
+
+def renderer_bound_inputs(spec):
     if set(spec)!={'schema','kind','application','application_identity','operation','renderer_policy','report','software','software_sha256','installer_launch'} or spec['schema']!=1 or spec['kind']!='renderer_application':raise ValueError('renderer_spec_schema')
     if not re.fullmatch('[0-9a-f]{32}',spec['operation']) or spec['renderer_policy'] not in ('inherited','software_rendering'):raise ValueError('renderer_policy')
     app=spec['application'];sw=spec['software']
-    if set(app)!={'schema','id','environment','files','installation','observation_sha256','source_seal_sha256'} or app['schema']!=1 or app['id']!='native-access':raise ValueError('renderer_application_schema')
+    if set(app)!={'schema','id','environment','files','installation','observation_sha256','source_seal_sha256'} or app['schema']!=1:raise ValueError('renderer_application_schema')
     def canonical(v):return json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()
     if hashlib.sha256(canonical(sw)).hexdigest()!=spec['software_sha256']:raise ValueError('renderer_software_binding')
     if sw.get('installer_launch')!=spec['installer_launch'] or not spec['installer_launch']:raise ValueError('renderer_adapter_binding')
@@ -2305,8 +2367,7 @@ def renderer_validate(spec):
     for name,image in app['files'].items():
         total+=image['size']
         if total>512*1024*1024:raise ValueError('renderer_resource_budget')
-        if name!='Native Access.exe':
-            checked=RendererImage(image);checked.close()
+        if name!='Native Access.exe':verify(image['artifact'])
     for artifact in env['runner']['files']:verify(artifact)
     verify(app['installation'])
     return app
@@ -2337,24 +2398,34 @@ def renderer_focus(scope,image):
     return vendor_focus(ExactImageScope(),None,installer=True)
 
 def renderer_application(spec):
-    try:return renderer_run(spec)
-    except Exception as exc:
-        # Validation/lock failures have no child. Publish a terminal refusal only
-        # after the exact application unit positively establishes empty custody.
-        op=spec.get('operation')
-        if not isinstance(op,str) or not re.fullmatch('[0-9a-f]{32}',op):raise
-        scope=CompanionCgroup(renderer_operation=op)
-        clean=not scope.members()
-        atomic(pathlib.Path(spec['report']),{'schema':1,'operation':op,
-            'application_identity':spec.get('application_identity'),'state':'failed' if clean else 'cleanup_unconfirmed',
-            'requested':spec.get('renderer_policy'),'effective':None,'outer_exit':None,
-            'cleanup_confirmed':clean,'owned_live':0 if clean else None,'cancelled':False,
-            'error':'renderer_admission_'+type(exc).__name__,'renderer':{'cause':'unresolved','complete':False}})
-        return False
+    # A foreign spec cannot publish even a refusal to its supplied report path.
+    renderer_validate(spec)
+    return renderer_owned(spec)
+
+def renderer_owned(spec, preparation=None):
+    # Shared mechanism after independent production or sealed-fixture admission.
+    # Manager reconciliation takes the same gate before closing an unused launch.
+    report=pathlib.Path(spec['report']);op=spec['operation']
+    with os.fdopen(os.open(report.parent/'writer.lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600),'a+b') as gate:
+        fcntl.flock(gate,fcntl.LOCK_EX)
+        if report.exists():raise ValueError('renderer_operation_already_has_result')
+        installer_atomic(report.parent/'writer.json',{'schema':1,'operation':op,'started':True})
+        try:
+            if preparation is not None:preparation()
+            return renderer_run(spec)
+        except Exception as exc:
+            scope=CompanionCgroup(renderer_operation=op);clean=not scope.members()
+            atomic(report,{'schema':1,'operation':op,'application_identity':spec['application_identity'],
+                'state':'failed' if clean else 'cleanup_unconfirmed','requested':spec['renderer_policy'],
+                'effective':None,'outer_exit':None,'cleanup_confirmed':clean,'owned_live':0 if clean else None,
+                'cancelled':False,'error':'renderer_admission_'+type(exc).__name__,
+                'renderer':{'cause':'unresolved','complete':False}})
+            return False
+
 
 def renderer_run(spec):
     """Exact companion operation; no prefix initialization or installer witnesses."""
-    app=renderer_validate(spec);op=spec['operation'];env=app['environment'];root=pathlib.Path(env['root']);report=pathlib.Path(spec['report'])
+    app=spec['application'];op=spec['operation'];env=app['environment'];root=pathlib.Path(env['root']);report=pathlib.Path(spec['report'])
     lock=(root/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     image=RendererImage(app['files']['Native Access.exe']);evidence=RendererEvidence(app['files']['Native Access.exe']['artifact'],root,image)
     scope=None;ledger=None;child=None;clean=False;stop=False;error=None;effective=None;focus=None

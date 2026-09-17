@@ -3,7 +3,7 @@ import hashlib,json,os,pathlib,shutil,stat,subprocess,tempfile
 SOURCES={n:'tools/naui2/'+n for n in ('package.py','campaign.py','supervise.py','readback.py','application.cpp')}
 SOURCES.update({n:'bridge-manager/runtime/'+n for n in ('session.py','ownership.py')})
 SOURCES.update({'linker.py':'tools/is4/linker.py','Cargo.lock':'bridge-manager/Cargo.lock','Cargo.toml':'bridge-manager/Cargo.toml'})
-SOURCES.update({'launch.cpp':'tools/is2/launch.cpp','binding.rs':'bridge-manager/examples/naui2_binding.rs','application.rs':'bridge-manager/src/renderer_application.rs'})
+SOURCES.update({'launch.cpp':'tools/is2/launch.cpp','binding.rs':'bridge-manager/examples/naui2_binding.rs','application.rs':'bridge-manager/src/renderer_application.rs','lifecycle.rs':'bridge-manager/src/renderer_session.rs','operator_cli.rs':'bridge-manager/src/operator_cli.rs'})
 REQUIRED=set(SOURCES)|{'payload.exe','adapter.exe','binding-owner','context.private.json'}
 def digest(p):
     with pathlib.Path(p).open('rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()

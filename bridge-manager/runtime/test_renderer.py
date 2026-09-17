@@ -116,8 +116,8 @@ class RendererTests(unittest.TestCase):
                     child=real([sys.executable,'-c','import sys;sys.stderr.write('+repr(frame)+')'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
                     children.append(child);return child
                 try:
-                    with patch.object(s,'renderer_validate',return_value=app),patch.object(s,'CompanionCgroup',return_value=Scope()),patch.object(s,'environment',return_value={}),patch.object(s.subprocess,'Popen',side_effect=launch):
-                        self.assertEqual(s.renderer_application(spec),not fail)
+                    with patch.object(s,'CompanionCgroup',return_value=Scope()),patch.object(s,'environment',return_value={}),patch.object(s.subprocess,'Popen',side_effect=launch):
+                        self.assertEqual(s.renderer_owned(spec),not fail)
                     r=json.loads(report.read_text());self.assertEqual(r['requested'],'software_rendering')
                     self.assertEqual(r['effective'] is None,fail);self.assertEqual(r['state'],'failed' if fail else 'completed')
                     self.assertTrue(r['cleanup_confirmed']);self.assertEqual(r['owned_live'],0)
@@ -127,13 +127,23 @@ class RendererTests(unittest.TestCase):
                     for child in children:
                         if child.poll() is None:child.kill();child.wait()
                     s.ctypes.CDLL(None).prctl(36,0,0,0,0)
-    def test_rejected_spec_retains_exact_empty_unit_receipt(self):
+    def test_rejected_spec_never_publishes_to_unbound_report(self):
         spec={'operation':'a'*32,'report':str(self.root/'refused.json'),'renderer_policy':'inherited'}
         class Empty:
             def members(self):return []
         with patch.object(s,'CompanionCgroup',return_value=Empty()),patch.object(s.subprocess,'Popen') as launch:
-            self.assertFalse(s.renderer_application(spec));launch.assert_not_called()
-        r=json.loads((self.root/'refused.json').read_text());self.assertTrue(r['cleanup_confirmed']);self.assertIsNone(r['effective'])
+            with self.assertRaises(ValueError):s.renderer_application(spec)
+            launch.assert_not_called()
+        self.assertFalse((self.root/'refused.json').exists())
+    def test_late_unit_cannot_pass_terminal_reservation_tombstone(self):
+        report=self.root/'result.json';report.write_text('{"state":"failed"}')
+        prior=report.read_bytes()
+        spec={'report':str(report),'operation':'a'*32}
+        with patch.object(s,'renderer_run') as run,patch.object(s.subprocess,'Popen') as launch:
+            with self.assertRaisesRegex(ValueError,'already_has_result'):s.renderer_owned(spec)
+            run.assert_not_called();launch.assert_not_called()
+        self.assertEqual(report.read_bytes(),prior)
+        self.assertFalse((self.root/'writer.json').exists())
     def test_focus_filters_by_mapped_image_and_linux_generation(self):
         proc=self.root/'proc';proc.mkdir();(proc/'7').mkdir();(proc/'8').mkdir()
         dev,ino=self.image.stamp[:2]
@@ -145,5 +155,60 @@ class RendererTests(unittest.TestCase):
             def identity(self,p):return {'pid':p,'start_ticks':10}
         def focus(scope,*_,**__):self.assertEqual(scope.members(),[{'pid':7,'start_ticks':10}]);return 'confirmed'
         with patch.object(s,'vendor_focus',side_effect=focus):self.assertEqual(s.renderer_focus(Scope(),self.image),'confirmed')
+
+class ProductionAdmission(unittest.TestCase):
+    def test_constants_match_retained_observation_without_rewriting_it(self):
+        path=pathlib.Path(__file__).resolve().parents[2]/'evidence/naui1/observation.json'
+        if not path.exists():self.skipTest('repository observation not staged')
+        v=json.loads(path.read_text())['result'];self.assertEqual(s.RENDERER_PRODUCTION['files'],v['identity']['files'])
+        self.assertEqual(s.RENDERER_PRODUCTION['observation_sha256'],hashlib.sha256(path.read_bytes()).hexdigest())
+    def test_foreign_and_mutated_exact_metadata_refuse_before_mechanisms(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home=pathlib.Path(tmp).resolve();managed=home/'.local/share/linux-vst-bridge/managed';e=s.RENDERER_PRODUCTION
+            root=managed/'environments'/e['environment'];appdir=root/'compatdata/pfx/drive_c/Program Files/Native Instruments/Native Access'
+            directory=managed/'vendor-applications/native-access/operations'/('a'*32);directory.mkdir(parents=True)
+            env={'id':e['environment'],'root':str(root),'revision':1,'runner':{'files':[]}}
+            app={'schema':1,'id':'native-access','environment':env,'files':{n:{'artifact':{'path':str(appdir/n),'sha256':v['sha256']},'size':v['size']} for n,v in e['files'].items()},
+                 'installation':{'path':str(managed/'onboarding'/e['environment']/(e['installation_operation']+'-result.json')),'sha256':e['result_sha256']},
+                 'observation_sha256':e['observation_sha256'],'source_seal_sha256':e['source_seal_sha256']}
+            canonical=lambda v:hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+            spec={'schema':1,'kind':'renderer_application','operation':'a'*32,'application':app,'application_identity':canonical(app),
+                  'renderer_policy':'inherited','software':{},'software_sha256':canonical({}),'installer_launch':None,'report':str(directory/'result.json')}
+            records={str(root/'environment.json'):env,str(managed/'software.json'):{},str(directory/'spec.json'):spec,
+                     str(managed/'vendor-applications/native-access/current.json'):{'operation':'a'*32,'application':spec['application_identity'],'policy':'inherited'}}
+            mutations=[('report','outside'),('application_identity','f'*64),('software',{'other':'generation'}),('renderer_policy','--no-sandbox')]
+            cases=[]
+            for k,v in mutations:x=copy.deepcopy(spec);x[k]=v;cases.append(x)
+            for k in ('id','observation_sha256','source_seal_sha256'):
+                x=copy.deepcopy(spec);x['application'][k]='0'*64;cases.append(x)
+            for key in ('id','root','revision'):
+                x=copy.deepcopy(spec);x['application']['environment'][key]='foreign';cases.append(x)
+            for field in ('path','sha256'):
+                x=copy.deepcopy(spec);x['application']['installation'][field]='foreign';cases.append(x)
+            for name in e['files']:
+                x=copy.deepcopy(spec);del x['application']['files'][name];cases.append(x)
+                for key in ('sha256','path','size'):
+                    x=copy.deepcopy(spec);image=x['application']['files'][name]
+                    if key=='size':image[key]+=1
+                    else:image['artifact'][key]='foreign'
+                    cases.append(x)
+            for case in cases:
+                # Even a self-consistent recomputed application identity cannot grant authority.
+                if case['application_identity']!='f'*64:case['application_identity']=canonical(case['application'])
+                with patch.object(pathlib.Path,'home',return_value=home),patch.object(s,'renderer_read',side_effect=lambda p:records[str(p)]),patch.object(s,'renderer_bound_inputs',side_effect=AssertionError('metadata must refuse before mechanisms')),patch.object(s,'RendererImage') as image,patch.object(s.subprocess,'Popen') as launch,patch.object(s,'atomic') as publish,patch.object(s.fcntl,'flock') as lock:
+                    with self.assertRaises((ValueError,KeyError)):s.renderer_application(case)
+                    image.assert_not_called();launch.assert_not_called();publish.assert_not_called();lock.assert_not_called()
+    def test_graphics_facts_do_not_select_remedy_and_public_binding_is_sanitized(self):
+        f=RendererTests();f.setUp()
+        try:
+            f.create()
+            for body in ('OpenGL initialization failed','D3D11 device creation failed','ANGLE Display::initialize error 123: D3D11 device creation failed','eglInitialize failed'):
+                f.e.feed(f.log(body,'gl_surface_egl.cc'),'stderr')
+            v=f.e.value();self.assertEqual(v['cause'],'unresolved');self.assertEqual(len(v['facts']),4)
+            self.assertTrue(all(x['category']=='graphics_initialization' for x in v['facts']))
+            self.assertEqual(set(v['launch_binding']),{'schema','operation','epoch','token_sha256','artifact_sha256','size','status','reason','root_ordinal'})
+            self.assertIn('windows_pid',f.e.trace.binding)
+            f.e.trace.dropped=1;self.assertFalse(f.e.value()['facts'])
+        finally:f.doCleanups()
 
 if __name__=='__main__':unittest.main()

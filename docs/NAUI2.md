@@ -299,3 +299,30 @@ only operation-scoped `--disable-gpu` for this application generation.
 
 A sandbox/child result may select a later NAUI3 comparison, but NAUI2 never admits or
 installs `--no-sandbox`.
+
+## Review amendment: admission and submission authority
+
+The installed Python persisted-spec route independently enforces the exact NAUI1
+resource census, observation/seal, managed environment/root, historical installation
+receipt, current software record, operation reservation and report location. Invalid
+admission writes no result. Source-owned fixtures use a sealed internal entry with
+`naui2-source-owned` identity; there is no installed fixture/test-mode selector.
+
+Submission has three outcomes: `definitely_not_submitted`, `submitted_or_live`, and
+`acknowledgment_uncertain`. The manager and supervisor share an operation writer
+lock, acquired before reservation publication and held throughout the supervisor.
+Unknown systemd state retains service suspension and exact Stop/reconcile authority.
+Positive absent-unit/cgroup plus exclusive writer custody permits a no-replace
+terminal refusal. A delayed unit cannot pass that terminal tombstone. A loaded unit,
+even inactive, requires explicit synchronous Stop before recovery. Exact private
+unit observations are retained separately from public receipts. Recovery preserves
+an interrupted writer's prior result, including earlier renderer failure, in place
+and adds `recovery-result.json` rather than rewriting the original evidence.
+
+The four amended Windows sessions exercise the Rust reservation/submission/Stop core
+with a source-owned application. The operator dispatch tests separately exercise
+service-resume ownership and restoration through the same production helpers while
+substituting system I/O. They do not claim a real bridge-service restart or GUI Focus.
+Bounded ANGLE/D3D/OpenGL initialization facts are retained without selecting a remedy.
+The public binding contains only schema, operation, epoch, token/artifact hashes,
+size, status/reason and root ordinal. Windows PIDs/creation times stay private.
