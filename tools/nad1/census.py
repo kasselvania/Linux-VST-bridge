@@ -24,7 +24,10 @@ def registry(raw):
     blocks=re.split(r'(?m)^\[',text);out=[]
     for block in blocks[1:]:
         header,_,body=block.partition('\n');key=header.split(']',1)[0].replace('\\\\','\\').casefold()
-        if key=='system\\currentcontrolset\\services\\'+SERVICE.casefold():
+        # Wine persists numbered control sets; CurrentControlSet is a runtime alias.
+        # Presence in any exact control set prevents a false absence claim. This
+        # does not select the active control set or establish runtime SCM state.
+        if re.fullmatch(r'system\\(?:currentcontrolset|controlset[0-9]{3})\\services\\'+SERVICE.casefold(),key):
             fields={}
             for line in body.splitlines():
                 if line.startswith('"') and '"=' in line:

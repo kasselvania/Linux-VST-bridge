@@ -74,7 +74,7 @@ pub(super) fn project(
         disabled_reason: why.map(Into::into),
     };
     if renderer_cli::directory(m).join("application.json").is_file() {card.actions.push(make(
-        "Prepare Native Access dependency",
+        "Prepare / recover Native Access dependency",
         ui::Action::DependencyPrepare {},
         if !retired {
             Some("Retire the exact dependency operation first")

@@ -1,0 +1,102 @@
+{
+  "application_identity": "7228a542c01b89daa5d04b9c8566af235ee7a2358e52f741b8918239c3a7d26e",
+  "application_record_sha256": "efa17763785548cce9a7ac4da7d37ec453ea3dff323a77c72ce501066648a0cd",
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "dependency_prepare_selected": false,
+  "frontend_agreement": {
+    "action_submitted": false,
+    "frontend_activity_decoded": true,
+    "frontend_snapshot_decoded": true,
+    "gui_launched": false,
+    "operator_schema": 7
+  },
+  "imports_environments_histories_unchanged": true,
+  "installed_artifacts": {
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "installer_launch": "36e8b1556b8e1b249842fbe666462395b1956115ddc14ca15af01652e14ea57d",
+    "manager": "c2499e6107d6e7ac451296ecd8817826ef940ae7d5cc6ad01ef9b2eda9de343e",
+    "native_catalogue": "138caf5f473bf42c11c7693929695cc4e4e14ecdc5a02e6764bb716e46cba6f1",
+    "operator_frontend": "f6a3752bc9da2840b2c825c206839edcded092036485fc0fd2aa66883283be49",
+    "ownership": "cc81d05876043ccf96c1540c556a790e62f57f4a6e72aabbd820a5d133311add",
+    "preparation_kit": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "supervisor": "62a46969cc6280bdd5b2b11a177cf62c7623d8383cfdd0730411c4f3879293d1"
+  },
+  "merge_commit": "bcc3236952b3c342ba8364b6d3b0c5fa3a465d38",
+  "merged_main_workflows": [
+    {
+      "conclusion": "success",
+      "databaseId": 35257164677,
+      "headSha": "bcc3236952b3c342ba8364b6d3b0c5fa3a465d38",
+      "name": "AP12 registered owner",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 35257162135,
+      "headSha": "bcc3236952b3c342ba8364b6d3b0c5fa3a465d38",
+      "name": "AP8 Windows host",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 35257057416,
+      "headSha": "bcc3236952b3c342ba8364b6d3b0c5fa3a465d38",
+      "name": "PX2 proof policy",
+      "status": "completed"
+    }
+  ],
+  "merged_tree": "4eefcfd670c4e5576045b88805fe84b266d63db8",
+  "native_access_closed": true,
+  "old_generation_retained": true,
+  "operator_schema_after": 7,
+  "operator_schema_before": 6,
+  "preservation_counts": {
+    "predecessor_files": 23,
+    "projects": 5,
+    "protected": 81,
+    "retained": 307
+  },
+  "preservation_map_sha256": {
+    "predecessor_files": "058b33d0b18e2051ace45ea625b66b05611c608cbe52ddefdcb3bea762cdc976",
+    "projects": "94550a1eca2950c95b6baa5d72523d169de9d37bee55d3714cc4add2c1b3dc19",
+    "protected": "386dfa1667a61585d79ec44a256437394dd9228b67e5dab493def82e841ccc1c",
+    "retained": "e274b742d6fe16acc03cb77a5e73f9ef1ef1aee24dbb318356078337700b3b49"
+  },
+  "previous_generation": "fba5d879e3bbbe92d98499a6e02895df25d77664368186b7d0e2c0849435639e",
+  "previous_software_record_sha256": "1267f4233cee79d267f7e768dff6ff34d954dcbbca18416ef08c58f112b0d769",
+  "private_installation_receipt_sha256": "a5e1438318115533ca3d6d07ac86a41ef51dfd866f0ca3ea01881dfae1775cbf",
+  "private_postinstall_receipt_sha256": "9dce006d7c8e458cda7661ef16dcd3a4b8ab4cfd7fac962364d8b0cbb28a99db",
+  "private_preinstall_receipt_sha256": "c1c70626833a1739e257f6220473728bc5bc3ab6ffeabd0331005d328a9bb5f1",
+  "private_setup_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "production_installs": 1,
+  "products_unchanged": true,
+  "publications_unchanged": true,
+  "readback_helper_exit": 0,
+  "readback_helper_retired": true,
+  "real_daemon_absent": true,
+  "real_scm_transition": false,
+  "registry_unchanged": true,
+  "renderer_discover_selected": false,
+  "renderer_open_selected": false,
+  "resume_pending": false,
+  "schema": 1,
+  "selected_generation": "471702f27ad8ec90d158e4a13648057aec43e9abfd1c070edc029ee823ed334d",
+  "selected_software_record_sha256": "729823d159a3c3dfaf8b94c4ce4daf1673a4dce712448b32ac198eea188c6c61",
+  "service_registration_absent": true,
+  "software_rendering_qualification_unchanged": true,
+  "system": {
+    "ceiling": 6,
+    "cleanup_unconfirmed": false,
+    "dsp": 0,
+    "keepers": 2,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "service": "active",
+    "stale_transports": 0
+  },
+  "vendor_operations": 0
+}

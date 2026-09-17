@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "source_changed": [
+    "bridge-manager/runtime/session.py",
+    "manager-ui/src/operator.rs",
+    "tools/nad1/census.py"
+  ],
+  "source_owned_reporting_regressions": 12,
+  "runtime_tests_discovered": 205,
+  "runtime_tests_passed": 166,
+  "runtime_platform_skips": 39,
+  "nad1_tests_passed": 23,
+  "manager_library_tests_passed": 136,
+  "manager_binary_tests_passed": 79,
+  "frontend_tests_passed": 25,
+  "manager_strict_clippy": "passed",
+  "frontend_strict_clippy": "passed",
+  "python_compilation": "passed",
+  "initial_local_manager_run": "Four Unix-socket tests refused sandbox bind; same suite passed with local socket permission. No Deck or vendor process involved.",
+  "physical_reruns": 0,
+  "production_installs": 0,
+  "windows_source_changed": false,
+  "limits": "Python pipe fixture proves result handling, not vendor installation or Windows service readiness."
+}

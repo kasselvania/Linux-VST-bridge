@@ -90,7 +90,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let policy: RendererPolicy =
         serde_json::from_value(serde_json::Value::String(args[4].clone()))?;
     let mut spec = bind(&app, &sw, &args[3], policy, Path::new(&args[5]))?;
-    if args.len()==7 { spec["kind"] = serde_json::json!("native_access_dependency"); } else if args[7]!="application" { return Err("fixture kind".into()); }
+    if args.len()==7 { spec["kind"] = serde_json::json!("native_access_dependency"); spec["schema"]=serde_json::json!(2); spec["dependency_mode"]=serde_json::json!("prepare"); } else if args[7]!="application" { return Err("fixture kind".into()); }
     let mut f = fs::OpenOptions::new()
         .write(true)
         .create_new(true)

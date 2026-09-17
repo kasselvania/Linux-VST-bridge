@@ -56,6 +56,15 @@ pub fn bind(
     report: &Path,
 ) -> Result<Value> {
     installer(application)?;
+    // Recover only the qualified bundled image from the retained failed attempt.
+    // No caller-selected image or silent reinstall; Python repeats admission.
+    let dependency = report.parent().and_then(Path::parent).and_then(Path::parent)
+        .ok_or("dependency_report_location")?;
+    let daemon = application.environment.root.join("compatdata/pfx/drive_c").join(DAEMON);
+    let recover = daemon.symlink_metadata().is_ok() && dependency.join("artifact.json").symlink_metadata().is_err();
+    if recover {
+        verify_recovery(application, dependency)?;
+    }
     let mut v = app::bind(
         application,
         software,
@@ -64,7 +73,27 @@ pub fn bind(
         report,
     )?;
     v["kind"] = json!("native_access_dependency");
+    v["schema"] = json!(2);
+    v["dependency_mode"] = json!(if recover { "recover_installed" } else { "prepare" });
     Ok(v)
+}
+pub const RECOVERY: &[u8] = include_bytes!("native_access_recovery.json");
+fn verify_recovery(application: &app::Application, directory: &Path) -> Result<()> {
+    let q: Value = serde_json::from_slice(RECOVERY)?;
+    require(q["application_identity"] == application.identity()?, "dependency_recovery_application")?;
+    verify_recovery_files(&application.environment.root.join("compatdata/pfx/drive_c"), directory, &q)
+}
+fn verify_recovery_files(drive: &Path, directory: &Path, q: &Value) -> Result<()> {
+    let prior = directory.join("operations").join(q["operation"].as_str().ok_or("dependency_recovery_operation")?);
+    for (name, witness) in q["sources"].as_object().ok_or("dependency_recovery_sources")? {
+        app::verify_image(&app::Image { artifact: Artifact { path: prior.join(name),
+            sha256: witness["sha256"].as_str().ok_or("dependency_recovery_digest")?.into() },
+            size: witness["size"].as_u64().ok_or("dependency_recovery_size")? })?;
+    }
+    app::verify_image(&app::Image { artifact: Artifact {
+        path: drive.join(DAEMON),
+        sha256: q["daemon"]["sha256"].as_str().ok_or("dependency_recovery_digest")?.into() },
+        size: q["daemon"]["size"].as_u64().ok_or("dependency_recovery_size")? })
 }
 pub fn record_path(m: &Manager) -> PathBuf {
     m.root
@@ -195,5 +224,44 @@ mod operator_boundary_tests {
             let mut v=json!({"kind":"dependency_prepare"});v[field]=json!("arbitrary");
             assert!(serde_json::from_value::<Action>(v).is_err());
         }
+    }
+}
+
+#[cfg(test)]
+mod recovery_tests {
+    use super::*;
+    #[test]
+    fn recovery_checks_all_historical_sources_and_payload_without_writing_them() {
+        let base=std::env::temp_dir().join(format!("nad1-recovery-{}-{}",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        fs::create_dir_all(&base).unwrap();let base=base.canonicalize().unwrap();
+        let op="a".repeat(32);let prior=base.join("operations").join(&op);
+        fs::create_dir_all(&prior).unwrap();let daemon=base.join(DAEMON);fs::create_dir_all(daemon.parent().unwrap()).unwrap();
+        let bytes=b"source-owned exact bytes";fs::write(&daemon,bytes).unwrap();
+        let witness=json!({"sha256":hex(&Sha256::digest(bytes)),"size":bytes.len()});
+        let mut q=json!({"operation":op,"sources":{},"daemon":witness});
+        let mut paths=vec![daemon];
+        for name in ["spec.json","result.json","installer.log"] {
+            let p=prior.join(name);fs::write(&p,bytes).unwrap();paths.push(p);
+            q["sources"][name]=witness.clone();
+        }
+        verify_recovery_files(&base,&base,&q).unwrap();
+        for p in &paths {
+            fs::write(p,b"changed").unwrap();assert!(verify_recovery_files(&base,&base,&q).is_err());
+            fs::remove_file(p).unwrap();assert!(verify_recovery_files(&base,&base,&q).is_err());
+            fs::write(p,bytes).unwrap();
+        }
+        verify_recovery_files(&base,&base,&q).unwrap();
+        for p in paths {assert_eq!(fs::read(p).unwrap(),bytes);}
+        fs::remove_dir_all(base).unwrap();
+    }
+    #[test]
+    fn recovery_qualification_is_the_observed_bundle_member_not_filename_authority() {
+        let q:Value=serde_json::from_slice(RECOVERY).unwrap();
+        let observed:Value=serde_json::from_slice(include_bytes!("../../evidence/nad1/real-preparation/attempt-1/offline-attribution.json")).unwrap();
+        assert_eq!(q["daemon"]["sha256"],observed["bundled_daemon_comparison"]["sha256"]);
+        assert_eq!(q["daemon"]["size"],observed["bundled_daemon_comparison"]["size"]);
+        assert_eq!(q["sources"]["result.json"]["sha256"],observed["original_result_sha256"]);
+        assert_eq!(q["operation"],observed["operation"]);
+        assert_eq!(q["installer_sha256"],INSTALLER_SHA);
     }
 }

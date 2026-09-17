@@ -1,0 +1,103 @@
+{
+  "application_identity": "7228a542c01b89daa5d04b9c8566af235ee7a2358e52f741b8918239c3a7d26e",
+  "attempts": 1,
+  "cancelled": false,
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "cgroup_absent": true,
+  "cleanup_confirmed": true,
+  "daemon_identity_boundary": "Observed installed bytes, not admitted artifact.json or prepared.json authority.",
+  "daemon_present": true,
+  "daemon_sha256": "e20b3d30b72d6a12e0a37b5fbd1a5c21e0db9e53459b4aab165270f7f739343b",
+  "dependency": {
+    "forced_cleanup_used": false,
+    "process_cleanup_confirmed": true,
+    "ready_tested": false,
+    "retirement_error": null,
+    "service_possibility": "may_exist",
+    "service_retirement_confirmed": true,
+    "service_stop_requested": true,
+    "stages": [
+      {
+        "action": "query",
+        "diagnostic_dropped_bytes": 0,
+        "exit": 0,
+        "launch": "owned",
+        "owned_endpoint_mask": 0,
+        "result": "absent",
+        "service_exit": 0,
+        "service_specific_exit": 0,
+        "service_state": 0
+      },
+      {
+        "action": "install",
+        "diagnostic_dropped_bytes": 0,
+        "exit": null,
+        "launch": "owned",
+        "result": "unavailable"
+      },
+      {
+        "action": "stop",
+        "diagnostic_dropped_bytes": 0,
+        "exit": 0,
+        "launch": "owned",
+        "owned_endpoint_mask": 0,
+        "result": "exact",
+        "service_exit": 0,
+        "service_specific_exit": 0,
+        "service_state": 1
+      },
+      {
+        "action": "query",
+        "diagnostic_dropped_bytes": 0,
+        "exit": 0,
+        "launch": "owned",
+        "owned_endpoint_mask": 0,
+        "result": "exact",
+        "service_exit": 1077,
+        "service_specific_exit": 0,
+        "service_state": 1
+      }
+    ]
+  },
+  "error": "dependency_command_timeout",
+  "installer_exit_authority": "Unavailable at the 200-second installer-command deadline; no completed installer root receipt was published.",
+  "native_access_launched": false,
+  "operation": "6345df5fd7ea38a5f07bfc6a2300e999",
+  "operation_result_sha256": "d124e9714e6dce0986dd406f2e732cfda09bc4801a00fd6c309b421e840b4f82",
+  "operator_reason": "Operator action: dependency_qualification_failed",
+  "operator_result_sha256": "ac2b803bda19a90a5afdfbf9ac80e986beba50e3e18dc30ea4f51979fa657256",
+  "operator_state": "refused",
+  "owned_live": 0,
+  "prepared_record_exists": false,
+  "preservation_counts": {
+    "predecessor_files": 23,
+    "projects": 5,
+    "protected": 81,
+    "retained": 307
+  },
+  "preservation_scope": "Existing protected manifests and history records; real prefix contents changed during authorized installer attempt.",
+  "private_after_sha256": "014721090decf9196c9f7717e2afc46c464f68b9a72fca54d79e4be5f354a559",
+  "private_before_sha256": "0b78ae59d9d961e5a657e0db240de84122321cb80c362b6e1a981cbac195a06f",
+  "products_publications_imports_environments_prior_history_unchanged": true,
+  "resume_pending": false,
+  "schema": 1,
+  "service_observation_boundary": "Exact live SCM retirement observed registered STOPPED; post-retirement offline system.reg exact service key was absent. These are separate observations, not a durable registration claim.",
+  "service_registered_offline": false,
+  "software_record_sha256": "729823d159a3c3dfaf8b94c4ce4daf1673a4dce712448b32ac198eea188c6c61",
+  "software_unchanged": true,
+  "state": "failed",
+  "system": {
+    "ceiling": 6,
+    "cleanup_unconfirmed": false,
+    "dsp": 0,
+    "keepers": 2,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "service": "active",
+    "stale_transports": 0
+  },
+  "unit_absent": true
+}

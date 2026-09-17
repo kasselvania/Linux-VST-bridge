@@ -39,13 +39,13 @@ def compare_preservation(before,after):
   count+=1
  return {'runtime_shared_inode_ctime_changes':count,'runtime_content_unchanged':True,'windows_prefix_metadata_unchanged':True,'private_home_metadata_unchanged':True}
 
-def run(package,seal,out):
+def run(package,seal,out,*,cases=('absent','unregistered','stopped','ready','not_ready','cancel')):
  p=pathlib.Path(package).resolve();manifest=verify(p,seal);d=pathlib.Path(out).resolve();os.umask(0o077);d.mkdir(mode=0o700)
  before=preservation();publish(d/'before.private.json',before)
  runners={canonical(v['registration']['environment']['runner']):v['registration']['environment'] for v in before['registry']['classes'].values() if v['registration']['environment']['runner']['id']=='proton-11.0-2c-25118279-slr4-4.0.20260805.254769'}
  if len(runners)!=1:raise ValueError('runner_ambiguous')
  template=next(iter(runners.values()));rows=[]
- for scenario in ('absent','unregistered','stopped','ready','not_ready','cancel'):
+ for scenario in cases:
   verify(p,seal);case=d/scenario;case.mkdir(mode=0o700);root=case/'environment';root.mkdir(mode=0o700)
   for name in ('home','compatdata','runtime-var','host-cache','host-config','host-data','host-tmp','client'):(root/name).mkdir(mode=0o700)
   (root/'operation.lock').touch(mode=0o600);op=os.urandom(16).hex();env=dict(template,id=op,root=str(root),revision=1);publish(root/'environment.json',env)
@@ -56,6 +56,10 @@ def run(package,seal,out):
   for k,n in [('manager','binding-owner'),('supervisor','session.py'),('ownership','ownership.py'),('installer_launch','adapter.exe')]:sw[k]={'path':str(p/n),'sha256':manifest['files'][n]}
   publish(case/'app.private.json',app);publish(case/'software.private.json',sw);manager=case/'manager';report=manager/'vendor-applications/native-access-dependency/operations'/op/'result.json';spec=case/'spec.private.json'
   subprocess.run([str(p/'binding-owner'),str(case/'app.private.json'),str(case/'software.private.json'),op,'software_rendering',str(report),str(spec)],check=True,timeout=20)
+  if scenario.startswith('recovery'):
+   value=read(spec);value['dependency_mode']='recover_installed'
+   # Source-owned fixture mode is fixed by this sealed campaign, before reservation.
+   spec.unlink();publish(spec,value)
   # The shared manager example expects supervise.py; the package exposes only the
   # fixed sealed owner_supervise.py, selected by this source-owned Rust build.
   subprocess.run([str(p/'binding-owner'),'submit',str(manager),str(spec),str(p),seal],check=True,timeout=30)
@@ -63,7 +67,7 @@ def run(package,seal,out):
   try:
    while time.monotonic()<deadline:
     if report.exists():break
-    if scenario=='cancel' and list(report.parent.glob(op+'-dependency-stage-1.json')) and not stopped:
+    if scenario in ('cancel','recovery_cancel') and list(report.parent.glob(op+'-dependency-stage-1.json')) and not stopped:
      subprocess.run([str(p/'binding-owner'),'stop',str(manager),op],check=True,timeout=40);stopped=True
     time.sleep(.2)
   finally:
@@ -75,8 +79,15 @@ def run(package,seal,out):
   events=root/'compatdata/pfx/drive_c/NAD1Fixture/events.private'
   if events.exists():shutil.copyfile(events,case/'events.private')
   shutil.rmtree(root);row={'case':scenario,'operation':op,'result':r,'result_sha256':digest(report if report.exists() else report.parent/'recovery-result.json'),'prefix_removed':True,'unit_absent':True,'manager_stop':stopped};publish(case/'proof.json',row);rows.append(row)
-  expected='completed' if scenario in ('absent','unregistered','stopped','ready') else 'cancelled' if scenario=='cancel' else 'failed'
+  expected='completed' if scenario in ('absent','unregistered','stopped','ready','recovery') else 'cancelled' if scenario in ('cancel','recovery_cancel') else 'failed'
   if r['state']!=expected:raise ValueError('fixture_case_result_'+scenario)
+  if scenario.startswith('recovery'):
+   dependency=r['dependency'];stages=dependency['stages']
+   if not dependency.get('recovery') or any(x['action']=='install' for x in stages):raise ValueError('fixture_recovery_reinstalled')
+   if sum(x['action']=='stop' for x in stages)!=1 or not dependency['service_retirement_confirmed'] or dependency['forced_cleanup_used']:raise ValueError('fixture_recovery_retirement')
+   q=read(case/'recovery-qualification.json')
+   if any(digest(case/'failed-installation'/name)!=v['sha256'] for name,v in q['sources'].items()):raise ValueError('fixture_prior_failure_changed')
+   if dependency['ready_tested']!=(scenario=='recovery'):raise ValueError('fixture_recovery_readiness')
  after=preservation();publish(d/'after.private.json',after)
  preservation_result=compare_preservation(before,after)
  result={'schema':1,'source':manifest['source'],'seal':seal,'runner_sha256':hashlib.sha256(canonical(template['runner'])).hexdigest(),'installed_software_sha256':hashlib.sha256(canonical(before['software'])).hexdigest(),'sessions':rows,'preservation':{'protected_state_unchanged':True,**preservation_result,'system':after['system'],'capture':after['capture'],'retained':len(after['retained']),'projects':len(after['projects']),'real_prefix_entries':after['real_prefix_entries'],'real_prefix_metadata_sha256':after['real_prefix_metadata_sha256'],'renderer_records_sha256':hashlib.sha256(canonical(after['renderer_records'])).hexdigest()},'real_dependency_mutations':0,'commercial_launch':False}

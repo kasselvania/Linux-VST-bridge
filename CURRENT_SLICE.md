@@ -277,3 +277,93 @@ both observations and all earlier evidence remain unchanged. The final source
 passed AP8/AP12/PX2 and 193 Linux runtime tests. Final idle readback matches the
 completed campaign. No real dependency transition or new census occurred. Keep
 PR #119 draft/unmerged for rereview of the amended exact head.
+
+## NAD1 release/install continuation — receipt review stop
+
+Explicit release authority merged PR #119 approved head `4bbc2ac…` as
+`bcc3236952b3c342ba8364b6d3b0c5fa3a465d38`, preserving tree
+`4eefcfd670c4e5576045b88805fe84b266d63db8`. Merged-main AP8/AP12/PX2 passed.
+One immutable installation through the existing idle service stop/setup/restart
+route selected generation `471702f27ad8ec90d158e4a13648057aec43e9abfd1c070edc029ee823ed334d`.
+Operator schema 7 and frontend agreement are verified. All predecessor files,
+307 witnesses, five projects and 81 protected records remain unchanged. Service is
+active, two keepers healthy, all leases/transactions/stale transports zero, capture
+off and resume absent. Native Access remains closed; real NTKDaemon executable and
+service remain absent. No dependency/application/registry action occurred.
+`evidence/nad1/installation/` is the immutable installation handoff. Stop for receipt
+review; no DependencyPrepare or Native Access launch is authorized here.
+
+## First authorized real NAD1 preparation — failed, retired
+
+After explicit operator authorization, installed schema 7 admitted operation
+`6345df5fd7ea38a5f07bfc6a2300e999`. The bundled installer reached the 200-second
+command bound without completion authority. Daemon bytes appeared; readiness and
+preparation were not established. Exact SCM retirement and process cleanup passed;
+bridge service and two keepers recovered. No Native Access launch or retry occurred.
+Evidence is retained separately under `evidence/nad1/real-preparation/attempt-1/`.
+The prefix changed through this authorized attempt; protected products/projects,
+software and earlier evidence remain unchanged. Stop after this result.
+
+## Authorized reporting repair and retained-evidence diagnosis
+
+The operator explicitly requested investigation and correction without a real
+installer rerun. Work continues on `codex/nad1-installation-receipt` from installed
+merge `bcc3236952b3c342ba8364b6d3b0c5fa3a465d38`, tree
+`4eefcfd670c4e5576045b88805fe84b266d63db8`; the installed generation is unchanged.
+
+Offline analysis recovered exact Windows installer exit 100 and a later Linux
+runner exit 100 from the original operation. The installed daemon matches the
+exact bundle member; service registration exists in a numbered control set. The
+initial timeout/absent-service summary was incomplete and is superseded by
+`evidence/nad1/real-preparation/attempt-1/diagnosis.md`, without changing private
+historical records. The source now retains installer frames before runner exit
+and recognizes numbered offline control sets. Local source-owned regressions
+qualify reporting; no vendor compatibility success is inferred. Exit 100's
+meaning remains unknown because the native installer action log was not enabled.
+No production installation or real replay is included in this repair.
+
+## Authorized partial-install recovery repair
+
+The operator explicitly requested building the missing recovery path in PR #120.
+The real attempt left the exact bundled daemon and service registration but no
+artifact/preparation receipt. Extend the existing parameter-free Prepare action:
+verify the fixed bundle-member qualification plus immutable failed-operation
+sources, verify the current installed payload, then use SCM-only readiness and
+retirement. Recovery never reruns the installer. Missing registration, unknown or
+changed bytes, conflicting processes, unavailable readiness and uncertain cleanup
+remain failures with their specific cause. The failed installer result is retained;
+a new successful readiness receipt is a separate fact. Current software admission
+remains exact; the historical installation source may be the retained predecessor.
+
+Use source-owned fixtures for recovery, readiness failure and cancellation. Do not
+install replacement software, start the real daemon, launch Native Access or change
+the real registry during this repair. Preserve the prior physical evidence. Keep
+PR #120 draft for review with source, tests and new generated proof together.
+
+Recovery qualification completed at source `9ce0cf38ce7be5f4805748d8114698e3cb691ee6`.
+Three disposable Windows operations proved recovery to readiness, readiness failure
+and exact manager Stop after a seeded installer exit 100. No recovery operation
+reran installation; all confirmed SCM retirement without forced cleanup. New proof
+and source seal are under `evidence/nad1/recovery/`. Final preservation includes the
+real daemon and registry unchanged, original failed-operation sources unchanged,
+307 witnesses, five projects, 23 predecessor files and 81 protected records.
+Production software is unchanged; no real readiness or Native Access connectivity
+claim is made. The same draft PR #120 now contains the recovery implementation,
+reporting fixes, generated qualification and frontend explanations.
+
+Final source review found and repaired a selection race before deployment: a
+payload removed after Rust recovery admission could previously fall through to
+installation in Python. Schema-2 dependency specs now persist the exact closed
+mode; recovery missing its image or history refuses before any command. New
+negative tests cover disappearance, changed mode, newly appearing unadmitted bytes
+and broken artifact references. The first recovery campaign remains unchanged;
+a new sealed campaign qualifies the final owner generation.
+
+The final mode-bound campaign at `634c17801e3ecb5dd8e4934bca69c2f36de44482`
+passed all three recovery cases; new evidence is retained separately under
+`evidence/nad1/recovery/mode-bound/`. Every case made one stop request, confirmed
+SCM/process retirement and removed its scratch prefix/unit/cgroup without forced
+cleanup. All real state and historical source witnesses reverified unchanged.
+The final amendment contains evidence only; production source is the executed
+sealed generation. Real dependency readiness remains untested; no deployment or
+real application/service transition occurred during this repair.

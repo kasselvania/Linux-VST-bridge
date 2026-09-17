@@ -51,6 +51,17 @@ class ObserverTests(unittest.TestCase):
 if __name__=='__main__':unittest.main()
 
 class AttributionTests(unittest.TestCase):
+ def test_numbered_registry_controlset_is_presence_not_absence(self):
+  head=b'WINE REGISTRY Version 2\n'
+  for name in ('CurrentControlSet','ControlSet001','ControlSet002','cOnTrOlSeT003'):
+   block=('['+'System\\\\'+name+'\\\\Services\\\\NTKDaemonService'+']\n"Type"=dword:00000010\n').encode()
+   self.assertEqual(len(registry(head+block)),1)
+  for name in ('ControlSet1','OtherControlSet001'):
+   block=('['+'System\\\\'+name+'\\\\Services\\\\NTKDaemonService'+']\n').encode()
+   self.assertEqual(registry(head+block),[])
+  first=b'[System\\\\ControlSet001\\\\Services\\\\NTKDaemonService]\n'
+  second=first.replace(b'001',b'002')
+  with self.assertRaises(Refusal):registry(head+first+second)
  def test_reference_is_not_unique_failure_authority(self):
   from observer import evidence
   for op in ['aa'*16,'bb'*16]:
