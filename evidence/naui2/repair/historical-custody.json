@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "accepted_head": "a778bdfc41edccb6f01fd4e7bb6cb615010dba66",
+  "unchanged": {
+    "evidence/naui2/README.md": "ac27988c5a30ae8ec7a11609dc0d010ce5298094de213da5f5f5e7b083cfd800",
+    "evidence/naui2/generated.json": "18de8c11df639184ac1748973897e1a33e6a4db08552bed4f8880304ac397738",
+    "evidence/naui2/source-manifest.json": "9b8c2ab34981a6c5b046cf7049f75b407f2c9896eeb1f86762a18fdfe467d2e4",
+    "evidence/naui2/validation.json": "76f6375cd377e860f9cc5290a00ad6d6973196b61ce6f7c63a3585d9d187c10c",
+    "evidence/naui1/README.md": "e3e31fb7ac0ef9fdc2df7bb1ff57175063f96ffa1c7c974e3bcffa91f7edc66d",
+    "evidence/naui1/observation.json": "de6a9e37b95a6a1917f2749b1a16178c69edcbc6a3a27f639ae0941625395d87",
+    "evidence/naui1/source-seal.json": "539bcf48c961e18b93ce6bc54c4aed20ab7a82822e7563e34b8025b6836b4be9",
+    "evidence/naui1/validation.json": "d83a507ad3716ff946ec7331849e209ab2e66d81f38f67135727f4b0e818e662",
+    "evidence/naui1/cleanup.json": "fce2e1c5aa267728601c96129b43949991401a1c14ead7e94658dc21a318463c"
+  }
+}

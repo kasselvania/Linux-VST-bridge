@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "sessions": [
+    {
+      "operation": "7b2ab6e53520aabe4fa85e5ba1b46d35",
+      "unit_absent": true,
+      "cgroup_absent": true,
+      "prefix_removed": true,
+      "private_ledger_sha256": "8a0cc62163f9f25e99233e9fd6b9a066125cba572936e118746517b662026fe0",
+      "private_result_sha256": "5658079a3174b5287a21f61a38f1c81ed80e451075f1a5956d2ac10892b59ae2",
+      "private_root_generation_retained": true
+    },
+    {
+      "operation": "86d8e66f6435ab7a6cb2cd0da09f9095",
+      "unit_absent": true,
+      "cgroup_absent": true,
+      "prefix_removed": true,
+      "private_ledger_sha256": "59974d54263e3a6159cdc5512a16577dfd838163e291b7cdefa8ccb0012a10dd",
+      "private_result_sha256": "bbcd057ffec311079421e119ecb38d8648673693d934fbb38410c8bab041cc78",
+      "private_root_generation_retained": true
+    },
+    {
+      "operation": "c7f8ba10bb5efae8a726efcd9394bca9",
+      "unit_absent": true,
+      "cgroup_absent": true,
+      "prefix_removed": true,
+      "private_ledger_sha256": "a0a1a7cdbefee96bdaf7cf59aca797499f56159a91bd5d12344382fa299f79c0",
+      "private_result_sha256": "b912ccca3f8dbd447ed4b0770962ae5397e57eb50a59f33548656fb28e205ea3",
+      "private_root_generation_retained": true
+    },
+    {
+      "operation": "aae6d6d9191d85d1c2919f94db3fb605",
+      "unit_absent": true,
+      "cgroup_absent": true,
+      "prefix_removed": true,
+      "private_ledger_sha256": "f5a6ceb26f9e1b8c1fc8dcbeab7a50edf725806b0e7e965818901c41ca45243b",
+      "private_result_sha256": "a909c98314f26081bda9e7c48d9d9d098b10741d6f929146bc40c4641045e0c0",
+      "private_root_generation_retained": true
+    }
+  ],
+  "old_package_seal_verified": "9b8c2ab34981a6c5b046cf7049f75b407f2c9896eeb1f86762a18fdfe467d2e4",
+  "old_generated_private_sha256": "18de8c11df639184ac1748973897e1a33e6a4db08552bed4f8880304ac397738",
+  "before_sha256": "39fc19725f18f2eb04b6d3e006db97f4cc4d4edf99dee2d751f88595c2d83538",
+  "after_sha256": "39fc19725f18f2eb04b6d3e006db97f4cc4d4edf99dee2d751f88595c2d83538",
+  "prelaunch_failure_log_sha256": "0a21c4155a4bac6a610cea532dbde946007faa9fc8174575178afaaf56e0bcf8"
+}

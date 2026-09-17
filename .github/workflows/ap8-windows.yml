@@ -7,6 +7,7 @@ on:
       - 'tools/is1/**'
       - 'tools/is2/**'
       - 'tools/is3/**'
+      - 'tools/naui2/**'
       - 'tools/is4/**'
       - 'tools/mf3/**'
       - '.github/workflows/ap8-windows.yml'
@@ -45,7 +46,7 @@ jobs:
         run: |
           cmake -S . -B "${{ runner.temp }}/ap8-build" -G "Visual Studio 17 2022" -A x64 -T v143 "-DCMAKE_SYSTEM_VERSION=10.0.19041.0" -DWF0_BUILD_ONLY=ON "-DWF0_VST3_SDK_ROOT:PATH=${{ runner.temp }}/ap8-sdk"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build "${{ runner.temp }}/ap8-build" --config Release --target wf0-factory-probe wf0-loader-adapter-tests ap10-return-fixture ap10-results-tests ap11-editor-tests ap11-state-tests ap12-path-tests ap12-fault-tests ap13-state-delivery-tests ap14-environment-tests ap18-result-custody-tests ap18-bus-census-tests ap18-crash-capture ap18-lc1-session uio1-tests uir1-input-fixture uio2-popup-fixture uio2-uia-disconnect uir2-touch-fixture mf2-bootstrap-ready is1-bootstrapper is1-direct-msi is2-launch is2-fixture is2-admin-fixture is3-capability --parallel 4
+          cmake --build "${{ runner.temp }}/ap8-build" --config Release --target wf0-factory-probe wf0-loader-adapter-tests ap10-return-fixture ap10-results-tests ap11-editor-tests ap11-state-tests ap12-path-tests ap12-fault-tests ap13-state-delivery-tests ap14-environment-tests ap18-result-custody-tests ap18-bus-census-tests ap18-crash-capture ap18-lc1-session uio1-tests uir1-input-fixture uio2-popup-fixture uio2-uia-disconnect uir2-touch-fixture mf2-bootstrap-ready is1-bootstrapper is1-direct-msi is2-launch is2-fixture is2-admin-fixture is3-capability naui2-application --parallel 4
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap18-crash-capture.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -90,6 +91,10 @@ jobs:
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/is2-launch.exe" --self-test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/is2-fixture.exe" --self-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "${{ runner.temp }}/ap8-build/wf0/bin/Release/naui2-application.exe" --self-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/naui2/windows_test.py "${{ runner.temp }}/ap8-build/wf0/bin/Release"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/is2/windows_launch_test.py "${{ runner.temp }}/ap8-build/wf0/bin/Release"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -1,87 +1,122 @@
-# NAUI1 — Native Access renderer identity and blank-window attribution
+# NAUI2 — Controlled Native Access renderer differential
 
-Basis: retained Native Access continuation `2a4846958ad176785b7bece9a5e99d263b4d9e5a`,
-tree `c43c0ea0521e562585c04ed5228a93c722b131f9`, on top of the accepted IS4
-installation receipt `175330055156c828ad8015301544ca8a03afb68b`.
-Installed executable source remains merged main
+Preparation basis: merged NAUI1 main `eeffae76d0e34e9a2a09cddd05707afac665c4de`,
+tree `93b015a54211fc3df35f0ce05ea815ed64673fc9`. PR #116 merged the exact accepted
+head `5259d0069297e074501dda292c40239c1da04000` with the same tree.
+The earlier planning commit `e4062c50f5564024006866c284db333ae1fd94e6` was based on the
+pre-repair head and is superseded by this rebased preparation.
+
+The operator has explicitly authorized implementation on corrected planning head
+`7902e7afc3cafb0c528f4a64891509d8150caea1`. Build the production owner and
+source-owned generated proof, then return one draft PR. No real Native Access
+launch or software installation is part of this implementation.
+
+Installed executable source was last retained as merged IS4 main
 `8fb2f20c822320340e44f9cbae399633dd6e8a53`, tree
-`947461f96dc2648b13c9b450c761beae97880571`.
+`947461f96dc2648b13c9b450c761beae97880571`. This preparation performs no
+live readback and does not claim a refreshed installed identity.
 
-The one authorized linked Native Access operation
-`e4143128adc87de3fdbbdfb44f186ee5` in environment
-`627d2cba97edbecf113c22504eb4c81b` reached a window titled `Native Access`
-with a blank white client area. The operator closed it normally. The operation
-exited 0 with positive cleanup and zero survivors. Durable installation witnesses
-remain `partial_installation`; application completeness, dependency health and
-usability remain unproved. No attributed failure or renderer cause was retained.
+NAUI1 established one exact installed x64 Native Access 3.26.0 file generation with
+Electron/Chromium packaging, but the retained post-install operation could not bind
+an exact Native Access process generation or decisive renderer diagnostic. Its
+correct disposition is `NAUI1_ELECTRON_IDENTITY_ONLY_CAUSE_UNRESOLVED`.
 
-Primary claim: a blank window is an observation, not a graphics diagnosis. Before
-changing launch arguments, Wine policy or vendor files, source-owned read-only
-inspection must bind the exact installed application and classify the retained
-process/log evidence into one closed renderer disposition.
+Primary claim: the next useful evidence requires a controlled manager-owned launch
+differential, not more interpretation of the lossy historical logs. NAUI2 provides
+an exact application owner, complete bounded process/diagnostic custody and one
+closed renderer policy:
 
-Selected cut: **offline attribution only**.
+```text
+renderer_policy:
+  inherited
+  software_rendering   # exactly --disable-gpu
+```
 
-- Inspect only the exact retained environment and operation-owned private evidence.
-- Establish or refuse exact application identity, packaging/runtime identity and
-  relevant executable/resource hashes.
-- Recognize Electron/Chromium only from exact local artifacts or process-role
-  evidence; community reports are comparative leads, not authority.
-- Classify bounded GPU-process, sandbox/child-process, renderer, font/GDI or
-  unresolved evidence without inferring from the screenshot alone.
-- Preserve raw logs, command lines, paths and account material privately; publish
-  only bounded allowlisted facts, counts and hashes.
-- Add generated positive/negative fixtures and fail closed on truncation,
-  ambiguity, identity drift or missing evidence.
+Selected implementation cut: **source and generated proof only**. Do not launch
+Native Access during this PR.
 
-Scope: `tools/naui1/**`, `docs/NAUI1.md`, focused workflow coverage and sanitized
-`evidence/naui1/**`. Do not change manager/operator/runtime production behavior in
-this cut. No launch policy, arbitrary command-line seam or vendor-specific product
-behavior is authorized.
+Scope:
 
-Acceptance:
+- Extend the existing vendor-application ownership without weakening Arturia
+  Software Center behavior.
+- Admit only the exact NAUI1 Native Access generation/environment and verify its
+  executable, ASAR and required resource identities.
+- Add a closed operation-bound renderer policy; no caller-provided arguments,
+  commands, paths or environment values.
+- Create exact Windows launch-root and process-generation custody for the
+  225,757,168-byte application and its Electron children.
+- Retain private bounded roles/diagnostics and public allowlisted hashes, counts,
+  exits and categories.
+- Add a closed human presentation observation bound to the exact operation:
+  `blank_white`, `rendered_nonblank`, or `unavailable`.
+- Preserve exact Focus/Stop, recovery, inactivity and cleanup ownership.
+- Build source-owned generated fixtures, including an application image larger than
+  the old 64 MiB digest bound.
 
-1. Exact input manifest binds merged source/tree, environment, operation, imported
-   installer identity and retained private result/transaction hashes.
-2. A bounded no-symlink census identifies one exact Native Access application root
-   or returns an explicit unresolved result.
-3. Electron/Chromium identity requires exact local evidence. Presence alone never
-   selects a failure cause.
-4. The classifier distinguishes GPU crash-loop, sandbox child failure, font/GDI
-   exhaustion, renderer failure, identity-only and unresolved outcomes.
-5. Every decisive field has a mutation/absence/ambiguity regression. Dropped or
-   unavailable records cannot be treated as negative evidence.
-6. One read-only Deck observation runs with no Native Access, Wine target, installer,
-   DAW or vendor process launched; final preservation readback remains positive.
-7. Focused tests, strict checks, AP12 and PX2 pass. AP8 is required only if a Windows
-   executable/helper input is introduced; AP10 remains out of scope.
+Acceptance before physical use:
 
-Return one draft PR for independent review. Do not install the diagnostic source.
-Do not relaunch Native Access, reinstall it, alter `app.asar`, add `--disable-gpu`,
-add `--no-sandbox`, install graphics/runtime dependencies, mutate registry state,
-scan products, publish products or automate account input.
+1. Exact application identity is derived from NAUI1 evidence and current installed
+   bytes; similar names or another environment refuse.
+2. Inherited mode appends no renderer switch. Software-rendering mode appends exactly
+   `--disable-gpu`. `--no-sandbox` is not admitted.
+3. The application root and descendants have exact Windows generation custody; no
+   Linux/Windows PID join and no PID-name inference.
+4. Cause selection requires zero dropped Windows-generation observations and
+   positive retained authority. Chromium PID uniqueness, GDI PID/lifetime and
+   retained role/self-exit association inherit the accepted NAUI1 completeness
+   law. Ordinary runner-tail loss alone does not erase otherwise complete positive
+   generation authority; missing evidence never supplies an absence claim.
+5. The known 225,757,168-byte executable can be verified without a general unbounded
+   hashing grant; unrelated files retain existing bounds.
+6. Arturia application launch and ordinary installer/product paths remain unchanged.
+7. Generated inherited / software-rendering / restored-inherited fixtures exercise
+   the production owners and retire positively.
+8. Focused tests, strict checks, AP8, AP12 and PX2 pass. AP10 remains out of scope.
 
-A later NAUI2 cut may authorize one exact manager-owned application launch only
-after NAUI1 selects the responsible boundary and independently reviews the closed
-remedy. The likely software-rendering experiment is not pre-authorized here.
+No Native Access launch, reinstall, updater, account input, `app.asar` mutation,
+registry mutation, Wine/runner replacement, DXVK/font/runtime installation, product
+scan/publication or DAW session is authorized in this implementation PR.
 
+After source review, merge and deliberate immutable installation, a separate human
+authorization may permit at most one ordered comparison:
 
-## Active rereview repair — Windows trace completeness
+```text
+inherited -> software_rendering -> restored inherited
+```
 
-Repair basis: PR #116 head `91edf592fba244150994333673966832c4558796`,
-tree `d93ff9bb14475dd34579003392c4c076a3203440`. The merge-clear review of
-that head was withdrawn. The accepted physical result is preserved unchanged.
+Stop after any cleanup failure, unexpected installation mutation, application hang
+or already-rendered inherited control. A later sandbox-policy cut is permitted only
+if exact child/sandbox evidence selects it; NAUI2 never bundles `--no-sandbox`.
 
-Only the diagnostic parser/classifier, focused generated tests and repair
-explanation change. Positive PID uniqueness/lifetime association requires zero
-Windows trace dropped observations. Exact role/request/completion plus retained
-self-exit has a separate authority, but also requires trace completeness because
-the historical self-exit attachment uses the Windows PID-generation map. Ordinary
-runner-tail loss alone does not remove complete positive generation authority.
-Normalized process records and the completeness counter have closed schemas.
+## Delivered implementation and generated result
 
-Validate focused NAUI1 tests, Python compilation, AP12 and PX2. Return the amended
-exact head/tree for independent review. No second physical pass, Deck readback,
-installation, merge, application launch or NAUI2 implementation is authorized.
-All existing observation, source seal, validation and cleanup evidence bytes remain
-historical and unchanged; record this source-only amendment separately.
+PR #117 implements the selected application owner and renderer policy. Executed
+source `56ed25b03ceee9a57143f9f0f7cecd7c6e150cdc` passed the production-supervised
+67 MiB inherited/software/restored fixture and supervisor cancellation after a retained child
+failure. That initial campaign did not exercise manager Stop/service restoration. See `evidence/naui2/README.md` and the sealed generated result.
+
+The manager projects operator model 6 with exact application selection, rendering
+mode, Focus/Stop and attributed presentation observations. No installed generation
+was replaced; no Native Access or DAW session occurred. This PR remains draft for
+independent review, with physical application comparison still separately gated.
+
+## PR #117 independent-review repair
+
+The accepted initial generated evidence remains immutable. This amendment closes
+installed Python admission to the exact Native Access identity, separates sealed
+fixture admission, and adds an operation writer gate shared with manager submission
+reconciliation. A missing acknowledgment retains the reservation and service-resume
+owner. Only exact unit/cgroup emptiness plus exclusive writer custody can produce a
+terminal recovery result. Loaded inactive units require explicit Stop as a queued-job
+barrier; a late writer refuses a terminal reservation. Prior nonterminal evidence is
+preserved with a separate recovery receipt.
+
+The new generated package uses the Rust manager submission/Stop core. Generated
+operator tests exercise exact resume ownership, uncertain states, wrong Stop,
+interrupted requests and one-time restoration with service I/O substituted. The
+real bridge service is preserved during fixture execution. Real GUI Focus remains
+unproved; only exact request/refusal ownership is generated. Graphics-init facts
+remain non-selecting leads; raw root PIDs/times remain private.
+
+Run affected suites and AP8/AP12/PX2, then return the same draft PR. No installation,
+commercial launch or Native Access differential is authorized by this repair.

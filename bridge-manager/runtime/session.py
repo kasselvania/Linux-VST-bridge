@@ -2114,6 +2114,406 @@ def vendor_focus(scope,app,installer=False):
     finally:
         x.XCloseDisplay(display);x.XSetErrorHandler(previous)
 
+# NAUI2 uses the existing Windows trace and Linux ledger as separate authorities.
+class RendererImage:
+    """One exact large application, one bounded hash, stable open-file cache."""
+    def __init__(self,image):
+        if set(image)!={'artifact','size'} or type(image['size']) is not int or not 0<image['size']<=256*1024*1024:raise ValueError('renderer_image_bound')
+        a=image['artifact'];p=pathlib.Path(a['path'])
+        if p.resolve()!=p or set(a)!={'path','sha256'}:raise ValueError('renderer_image_alias')
+        self.path=p;self.fd=os.open(p,os.O_RDONLY|os.O_NOFOLLOW);self.closed=False
+        try:
+            m=os.fstat(self.fd)
+            if not stat.S_ISREG(m.st_mode) or m.st_uid!=os.getuid() or m.st_nlink!=1 or m.st_size!=image['size']:raise ValueError('renderer_image_extent')
+            self.stamp=self.identity(m);h=hashlib.sha256();left=m.st_size
+            while left:
+                b=os.read(self.fd,min(left,65536))
+                if not b:raise ValueError('renderer_image_short')
+                h.update(b);left-=len(b)
+            if h.hexdigest()!=a['sha256']:raise ValueError('renderer_image_digest')
+            self.sha=a['sha256'];self.size=m.st_size;self.check()
+        except BaseException:self.close();raise
+    @staticmethod
+    def identity(m):return (m.st_dev,m.st_ino,m.st_size,m.st_mtime_ns,m.st_ctime_ns,m.st_nlink)
+    def check(self):
+        if self.identity(os.fstat(self.fd))!=self.stamp or self.identity(self.path.lstat())!=self.stamp or self.path.resolve()!=self.path:raise ValueError('renderer_image_replaced')
+    def close(self):
+        if not self.closed:os.close(self.fd);self.closed=True
+
+def renderer_cause(processes,facts,drops,complete,image_sha):
+    """Independent closed attribution gate; no inference from incomplete census."""
+    if type(drops) is not int or not 0<=drops<=4294967295 or type(complete) is not bool:raise ValueError('renderer_completeness_schema')
+    fields={'domain','epoch','ordinal','parent_ordinal','role','role_request_sha256','image_sha256','exit_domain','exit_status'}
+    authorities={'chromium_pid_unique_complete_trace':{'gpu','sandbox','renderer','network','graphics_initialization'},
+                 'wine_pid_lifetime_complete_trace':{'gdi'},'wine_exact_role_and_self_exit_generation':{'gpu','renderer'}}
+    indexed={};last=0
+    def sha(v):return isinstance(v,str) and re.fullmatch('[0-9a-f]{64}',v)
+    for p in processes:
+        if set(p)!=fields or p['domain']!='windows' or p['epoch']!=2 or type(p['ordinal']) is not int or p['ordinal']<=last:raise ValueError('renderer_process_schema')
+        last=p['ordinal'];indexed[last]=p
+        if p['parent_ordinal'] is not None and (type(p['parent_ordinal']) is not int or not 0<p['parent_ordinal']<last):raise ValueError('renderer_parent_generation')
+        if p['role'] not in ('main','gpu','renderer','utility','network','unknown'):raise ValueError('renderer_role')
+        if p['role'] not in ('main','unknown') and not sha(p['role_request_sha256']):raise ValueError('renderer_role_request')
+        if p['role'] in ('main','unknown') and p['role_request_sha256'] is not None:raise ValueError('renderer_role_request')
+        if p['image_sha256'] is not None and not sha(p['image_sha256']):raise ValueError('renderer_process_image')
+        if p['exit_status'] is None:
+            if p['exit_domain'] is not None:raise ValueError('renderer_exit_domain')
+        elif p['exit_domain']!='wine_self_exit_observation' or type(p['exit_status']) is not int or not -2147483648<=p['exit_status']<=4294967295:raise ValueError('renderer_exit_status')
+    selected=set()
+    for f in facts:
+        if set(f)!={'epoch','ordinal','category','authority','record_sha256','image_sha256'} or f['epoch']!=2 or type(f['ordinal']) is not int or not sha(f['record_sha256']) or f['image_sha256']!=image_sha:raise ValueError('renderer_fact_schema')
+        p=indexed.get(f['ordinal'])
+        if p is None or p['image_sha256']!=image_sha or f['category'] not in authorities.get(f['authority'],set()):raise ValueError('renderer_fact_generation')
+        if f['authority']=='wine_exact_role_and_self_exit_generation' and (p['role']!=f['category'] or not p['exit_status']):raise ValueError('renderer_fact_exit')
+        if complete and drops==0:selected.add(f['category'])
+    selected &= {'gpu','sandbox','renderer','gdi'}
+    return next(iter(selected)) if len(selected)==1 else 'unresolved'
+
+class RendererEvidence:
+    PATTERNS=(
+        ('gpu',r'gpu_process_host\.cc',r'GPU process exited unexpectedly: exit_code=(-?\d{1,10})\.?'),
+        ('gpu',r'gpu_data_manager_impl_private\.cc',r"GPU process isn't usable\. Goodbye\."),
+        ('sandbox',r'(?:gpu_process_host|child_process_launcher_helper|child_process_launcher_helper_win|sandbox_win)\.cc',r'(?:GPU process launch failed:|Failed to launch child:) error_code=39\.?'),
+        ('renderer',r'(?:web_contents|electron_api_web_contents)\.cc',r'render-process-gone: (?:crashed|oom|launch-failed)'),
+        ('network',r'network_service_instance_impl\.cc',r'Network service crashed, restarting service\.'),
+        ('graphics_initialization',r'(?:gl_surface_egl|gl_display|angle_platform_impl|gpu_init)\.cc',r'(?:ANGLE Display::initialize error [0-9]{1,10}: D3D11 device creation failed|D3D11 device creation failed|OpenGL initialization failed|eglInitialize failed|Failed to initialize GL surface)\.?'),
+    )
+    CHROMIUM=re.compile(r'^\[([0-9]{1,10}):([0-9]{1,10}):[0-9]{4}/[0-9]{6}\.[0-9]{3,6}:(?:ERROR|FATAL):([a-z_]+\.cc)\([0-9]{1,6}\)\] (.{1,512})$')
+    def __init__(self,artifact,root,image):
+        self.trace=InstallerWindowsTrace(artifact,root);self.image=image;self.facts=[];self.pending={};self.line_pending={};self.leads=0;self.fact_drops=0;self.line_drops=0
+    def begin(self):
+        self.trace.begin();self.pending.clear()
+        if any(v[0] or v[1] for v in self.line_pending.values()):self.trace.dropped+=1
+        self.line_pending.clear()
+    @staticmethod
+    def role(body):
+        m=re.search(r' cmdline L"((?:[^"\\]|\\.)*)", inherit ',body)
+        if not m:return 'unknown'
+        try:command=json.loads('"'+m[1]+'"')
+        except ValueError:return 'unknown'
+        values=re.findall(r'(?:^|\s)--type=([a-z-]+)(?=\s|$)',command)
+        if len(values)!=1:return 'unknown'
+        role={'gpu-process':'gpu','renderer':'renderer','utility':'utility'}.get(values[0],'unknown')
+        if role=='utility' and re.findall(r'(?:^|\s)--utility-sub-type=([^\s]+)',command)==['network.mojom.NetworkService']:role='network'
+        return role
+    def exact(self,row):
+        return bool(row and row['epoch']==2 and row['target_tree'] and (row.get('image_identity') or {}).get('sha256')==self.image.sha)
+    def add(self,row,category,authority,line):
+        if self.trace.cancelled:return
+        if not self.exact(row):self.leads+=1;return
+        if len(self.facts)>=1024:self.fact_drops+=1;return
+        self.facts.append({'epoch':2,'ordinal':row['creation_ordinal'],'category':category,'authority':authority,
+            'record_sha256':hashlib.sha256(line).hexdigest(),'image_sha256':self.image.sha})
+    def line(self,line,stream):
+        t=self.trace
+        if line.startswith((b'IS2_ROOT_V1 ',b'IS2_REFUSED_V1 ')):
+            if stream!='stderr':t.dropped+=1;return
+            t.root_frame(line)
+            if t.binding and t.binding['status']=='bound':
+                row=t.rows[t.binding['root_ordinal']-1];row['renderer_role']='main'
+            return
+        m=t.HEADER.fullmatch(line.decode(errors='replace').rstrip('\r\n'))
+        before=len(t.rows);request=None;old=None;key=None
+        if m:
+            ts,pid,tid,level,channel,function,body=m.groups();pid=int(pid,16);key=(pid,int(tid,16))
+            old=t.active(pid)
+            if channel=='process' and function=='CreateProcessInternalW' and body.startswith('app '):
+                # Copy authority from the actual trace pending request below,
+                # never associate a later completion with a retired creator.
+                role=self.role(body)
+                request=(role,hashlib.sha256(line).hexdigest())
+            elif channel=='process' and function=='CreateProcessInternalW':request=self.pending.pop(key,None)
+        t.feed(line)
+        if m and channel=='process' and function=='CreateProcessInternalW' and body.startswith('app '):
+            if t.pending.get(key) is not None and request:
+                if key in self.pending:self.pending[key]=None
+                else:self.pending[key]=request
+        if len(t.rows)>before:
+            row=t.rows[-1];path=t.path(row.get('image_request'))
+            if path==self.image.path:
+                self.image.check();row['image_identity']={'sha256':self.image.sha,'size':self.image.size,'authority':'verified_cached_open_file_request'}
+            if row['target_tree'] and request and request[0]!='unknown':
+                row['renderer_role']=request[0];row['renderer_request_sha256']=request[1]
+        if old and old.get('self_exit') is not None:
+            for k in [k for k in self.pending if k[0]==old['windows_pid']]:self.pending.pop(k)
+            role=old.get('renderer_role')
+            if old['self_exit']['status'] and role in ('gpu','renderer'):
+                self.add(old,role,'wine_exact_role_and_self_exit_generation',line)
+        if m and channel=='gdi' and level=='err' and re.fullmatch(r'out of GDI object handles[.!]?',body,re.I):
+            rows=[r for r in t.rows if r['windows_pid']==pid and r['epoch']==2 and r['created_timestamp'] is not None
+                and float(r['created_timestamp'])<=float(ts) and (r['self_exit'] is None or float(r['self_exit']['timestamp'])>=float(ts))]
+            if len(rows)==1:self.add(rows[0],'gdi','wine_pid_lifetime_complete_trace',line)
+            else:self.leads+=1
+        c=self.CHROMIUM.fullmatch(line.decode(errors='replace').rstrip('\r\n'))
+        if c:
+            pid,_,source,body=c.groups()
+            for category,filename,pattern in self.PATTERNS:
+                if re.fullmatch(filename,source) and re.fullmatch(pattern,body):
+                    if 'exit_code=' in body and int(re.search(r'exit_code=(-?\d+)',body)[1])==0:return
+                    rows=[r for r in t.rows if r['windows_pid']==int(pid)]
+                    if len(rows)==1:self.add(rows[0],category,'chromium_pid_unique_complete_trace',line)
+                    else:self.leads+=1
+                    break
+    def feed(self,data,stream):
+        pending,discard=self.line_pending.get(stream,(b'',False))
+        for line in (pending+data).splitlines(keepends=True):
+            done=line.endswith(b'\n')
+            if discard:
+                if done:discard=False
+                continue
+            if len(line)>4096:self.line_drops+=1;self.trace.dropped+=1;discard=not done;continue
+            if not done:pending=line;break
+            pending=b'';self.line(line,stream)
+        self.line_pending[stream]=(b'' if discard else pending,discard)
+    def value(self):
+        t=self.trace
+        incomplete=t.dropped or self.fact_drops or self.line_drops or any(v[0] or v[1] for v in self.line_pending.values())
+        complete=not incomplete and t.binding is not None and t.binding['status']=='bound'
+        facts=[]
+        if complete:
+            for f in self.facts:
+                row=t.rows[f['ordinal']-1]
+                if f['authority']=='chromium_pid_unique_complete_trace' and sum(r['windows_pid']==row['windows_pid'] for r in t.rows)!=1:continue
+                facts.append(f)
+        result={'schema':1,'windows_dropped_observations':t.dropped,'line_drops':self.line_drops,'fact_drops':self.fact_drops,
+            'complete':bool(complete),'unbound_leads':self.leads,'facts':facts,
+            'processes':[{'domain':'windows','epoch':r['epoch'],'ordinal':r['creation_ordinal'],
+                'parent_ordinal':r['parent_ordinal'],'role':r.get('renderer_role','unknown'),
+                'role_request_sha256':r.get('renderer_request_sha256'),
+                'image_sha256':(r.get('image_identity') or {}).get('sha256'),
+                'exit_domain':r['self_exit']['domain'] if r['self_exit'] else None,
+                'exit_status':r['self_exit']['status'] if r['self_exit'] else None} for r in t.rows if r['epoch']==2 and r['target_tree']],
+            'launch_binding':None if t.binding is None else {k:t.binding[k] for k in ('schema','operation','epoch','token_sha256','artifact_sha256','size','status','reason','root_ordinal')},'linux_windows_join_performed':False}
+        result['cause']=renderer_cause(result['processes'],facts,t.dropped,bool(complete),self.image.sha)
+        return result
+
+RENDERER_PRODUCTION = {'environment': '627d2cba97edbecf113c22504eb4c81b', 'installation_operation': 'e4143128adc87de3fdbbdfb44f186ee5', 'observation_sha256': 'de6a9e37b95a6a1917f2749b1a16178c69edcbc6a3a27f639ae0941625395d87', 'source_seal_sha256': '539bcf48c961e18b93ce6bc54c4aed20ab7a82822e7563e34b8025b6836b4be9', 'result_sha256': 'fc9325cd947059e0d453ba69c9a332028197d871e3ef9ab1c94b2fe7d91586a0', 'root_location_sha256': 'f465c845fbb79a281abbcc3fbeae4844b28852fd51624a2a2f2d3383f44a1171', 'files': {'Native Access.exe': {'sha256': '7b2413e90db79538cd1edc7c6169ff384aea181a85635c43a363f4aa18b9e841', 'size': 225757168}, 'chrome_100_percent.pak': {'sha256': 'd76fe8fa3a14cd73e4c858746e2ab2d2fa6f2df38a906fa5814b50a8a895fc96', 'size': 119905}, 'chrome_200_percent.pak': {'sha256': 'b74ad439f3d3762657f3ba533a6af3ac63315c838ed46519891366f43d834a0e', 'size': 197089}, 'icudtl.dat': {'sha256': 'bd8c145abdf3f8383276ce01dfa4ae48709bef9fef1c0711eb7c3fab4f6eb7c2', 'size': 10876560}, 'libEGL.dll': {'sha256': '7d6f4957a6c4d4cad4d717ebebbc9738acf4bfdf2d4ea1c0403d2c9a0661dc5d', 'size': 474624}, 'libGLESv2.dll': {'sha256': '5d6c94812ca1f6dc414d6166da1ed95e4f072a151c7e16952b0fd9a450192d8b', 'size': 8024064}, 'resources.pak': {'sha256': '77f82c006ca57145a385188e67f06c8a1136c0d86de10dc5889f0dbd6117b061', 'size': 7148145}, 'resources/app.asar': {'sha256': '2df87bef2a7c7113b56374d4f5620519d268496bba9414db2e3c101328783ea5', 'size': 76143407}, 'snapshot_blob.bin': {'sha256': '01e68a60b8838be376b202607defadaabdb61b5907dc6caf2cfaf8e915229532', 'size': 365488}, 'v8_context_snapshot.bin': {'sha256': '8b01d2eb0fc5324e0ff3879a30efca0eb7f5dfe35f829721aebc98b0bffbb4c3', 'size': 740048}}}
+
+def renderer_read(path):
+    with os.fdopen(os.open(path,os.O_RDONLY|os.O_NOFOLLOW),'rb') as f:
+        m=os.fstat(f.fileno())
+        if not stat.S_ISREG(m.st_mode) or m.st_uid!=os.getuid() or m.st_nlink!=1 or m.st_size>8*1024*1024:raise ValueError('renderer_record_extent')
+        return json.loads(f.read(),object_pairs_hook=renderer_unique)
+
+def renderer_unique(pairs):
+    result={}
+    for key,value in pairs:
+        if key in result:raise ValueError('renderer_duplicate_key')
+        result[key]=value
+    return result
+
+def renderer_validate(spec):
+    # Installed entry: no caller-selected home, environment, manifest or fixture.
+    if set(spec)!={'schema','kind','application','application_identity','operation','renderer_policy','report','software','software_sha256','installer_launch'} or type(spec['schema']) is not int or spec['schema']!=1 or spec['kind']!='renderer_application' or spec['renderer_policy'] not in ('inherited','software_rendering'):raise ValueError('renderer_production_schema')
+    expected=RENDERER_PRODUCTION
+    managed=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed'
+    op=spec.get('operation')
+    if not isinstance(op,str) or not re.fullmatch('[0-9a-f]{32}',op):raise ValueError('renderer_operation')
+    directory=managed/'vendor-applications/native-access/operations'/op
+    if spec.get('report')!=str(directory/'result.json') or directory.resolve()!=directory:raise ValueError('renderer_report_location')
+    app=spec.get('application',{});env=app.get('environment',{})
+    root=managed/'environments'/expected['environment'];drive=root/'compatdata/pfx/drive_c'
+    if env.get('id')!=expected['environment'] or env.get('root')!=str(root) or root.resolve()!=root:raise ValueError('renderer_exact_environment')
+    if env!=renderer_read(root/'environment.json'):raise ValueError('renderer_environment_record')
+    if app.get('id')!='native-access' or app.get('observation_sha256')!=expected['observation_sha256'] or app.get('source_seal_sha256')!=expected['source_seal_sha256']:raise ValueError('renderer_production_provenance')
+    files=app.get('files',{})
+    if set(files)!=set(expected['files']):raise ValueError('renderer_production_resource_set')
+    executable=pathlib.Path(files['Native Access.exe']['artifact']['path']);application=executable.parent
+    if not application.is_relative_to(drive) or hashlib.sha256(str(application.relative_to(drive)).encode()).hexdigest()!=expected['root_location_sha256']:raise ValueError('renderer_production_root')
+    for name,witness in expected['files'].items():
+        if files[name]!={'artifact':{'path':str(application/name),'sha256':witness['sha256']},'size':witness['size']}:raise ValueError('renderer_production_resource')
+    installation=managed/'onboarding'/expected['environment']/(expected['installation_operation']+'-result.json')
+    if app.get('installation')!={'path':str(installation),'sha256':expected['result_sha256']}:raise ValueError('renderer_production_installation')
+    if spec.get('software')!=renderer_read(managed/'software.json'):raise ValueError('renderer_current_software')
+    # Persisted request and reservation must name this exact application and operation.
+    if renderer_read(directory/'spec.json')!=spec:raise ValueError('renderer_persisted_spec')
+    if renderer_read(managed/'vendor-applications/native-access/current.json')!={'operation':op,'application':spec['application_identity'],'policy':spec['renderer_policy']}:raise ValueError('renderer_reservation')
+    if hashlib.sha256(json.dumps(app,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()!=spec['application_identity']:raise ValueError('renderer_application_binding')
+    renderer_bound_inputs(spec)
+    found=[];pending=[drive];count=0
+    while pending:
+        for entry in pending.pop().iterdir():
+            count+=1
+            if count>100000:raise ValueError('renderer_census_bound')
+            md=entry.lstat()
+            if stat.S_ISDIR(md.st_mode):pending.append(entry)
+            if entry.name.lower()=='native access.exe':
+                if not stat.S_ISREG(md.st_mode):raise ValueError('renderer_root_alias')
+                found.append(entry.parent)
+    if found!=[application]:raise ValueError('renderer_unique_root')
+    for image in files.values():
+        path=pathlib.Path(image['artifact']['path']);before=path.lstat()
+        if path.resolve()!=path or not stat.S_ISREG(before.st_mode) or before.st_nlink!=1 or before.st_size!=image['size']:raise ValueError('renderer_resource_bytes')
+        verify(image['artifact'])
+        if RendererImage.identity(before)!=RendererImage.identity(path.lstat()):raise ValueError('renderer_resource_changed')
+    return app
+
+def renderer_bound_inputs(spec):
+    if set(spec)!={'schema','kind','application','application_identity','operation','renderer_policy','report','software','software_sha256','installer_launch'} or spec['schema']!=1 or spec['kind']!='renderer_application':raise ValueError('renderer_spec_schema')
+    if not re.fullmatch('[0-9a-f]{32}',spec['operation']) or spec['renderer_policy'] not in ('inherited','software_rendering'):raise ValueError('renderer_policy')
+    app=spec['application'];sw=spec['software']
+    if set(app)!={'schema','id','environment','files','installation','observation_sha256','source_seal_sha256'} or app['schema']!=1:raise ValueError('renderer_application_schema')
+    def canonical(v):return json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()
+    if hashlib.sha256(canonical(sw)).hexdigest()!=spec['software_sha256']:raise ValueError('renderer_software_binding')
+    if sw.get('installer_launch')!=spec['installer_launch'] or not spec['installer_launch']:raise ValueError('renderer_adapter_binding')
+    for name in ('manager','supervisor','ownership','installer_launch'):verify(sw[name])
+    for name,path in [('supervisor',__file__),('ownership',sys.modules['ownership'].__file__)]:
+        if pathlib.Path(sw[name]['path']).resolve()!=pathlib.Path(path).resolve():raise ValueError('renderer_executing_owner')
+    if hashlib.sha256(canonical(app)).hexdigest()!=spec['application_identity']:raise ValueError('renderer_application_binding')
+    env=app['environment'];root=pathlib.Path(env['root'])
+    if not re.fullmatch('[0-9a-f]{32}',env['id']) or type(env['revision']) is not int or env['revision']<1:raise ValueError('renderer_environment')
+    if json.loads((root/'environment.json').read_text())!=env:raise ValueError('renderer_environment_changed')
+    total=0
+    for name,image in app['files'].items():
+        total+=image['size']
+        if total>512*1024*1024:raise ValueError('renderer_resource_budget')
+        if name!='Native Access.exe':verify(image['artifact'])
+    for artifact in env['runner']['files']:verify(artifact)
+    verify(app['installation'])
+    return app
+
+def renderer_focus(scope,image):
+    # Filter Linux window candidates by mapped device/inode and PID/start; never
+    # equate a Windows PID with _NET_WM_PID. Existing EWMH owner rechecks custody.
+    class ExactImageScope:
+        def __getattr__(self,name):return getattr(scope,name)
+        def members(self):
+            image.check();rows=[]
+            dev,ino=image.stamp[:2]
+            expected=(os.major(dev),os.minor(dev),ino)
+            for r in scope.members():
+                try:
+                    with (scope.proc_root/str(r['pid'])/'maps').open() as f:lines=f.read(262145)
+                    if len(lines)>262144:continue
+                    for line in lines.splitlines():
+                        fields=line.split(None,5)
+                        if len(fields)<5:continue
+                        major,minor=fields[3].split(':')
+                        if (int(major,16),int(minor,16),int(fields[4]))==expected:
+                            now=scope.identity(r['pid'])
+                            if now and now['start_ticks']==r['start_ticks']:rows.append(r)
+                            break
+                except (OSError,ValueError):continue
+            return rows
+    return vendor_focus(ExactImageScope(),None,installer=True)
+
+def renderer_application(spec):
+    # A foreign spec cannot publish even a refusal to its supplied report path.
+    renderer_validate(spec)
+    return renderer_owned(spec)
+
+def renderer_owned(spec, preparation=None):
+    # Shared mechanism after independent production or sealed-fixture admission.
+    # Manager reconciliation takes the same gate before closing an unused launch.
+    report=pathlib.Path(spec['report']);op=spec['operation']
+    with os.fdopen(os.open(report.parent/'writer.lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600),'a+b') as gate:
+        fcntl.flock(gate,fcntl.LOCK_EX)
+        if report.exists():raise ValueError('renderer_operation_already_has_result')
+        installer_atomic(report.parent/'writer.json',{'schema':1,'operation':op,'started':True})
+        try:
+            if preparation is not None:preparation()
+            return renderer_run(spec)
+        except Exception as exc:
+            scope=CompanionCgroup(renderer_operation=op);clean=not scope.members()
+            atomic(report,{'schema':1,'operation':op,'application_identity':spec['application_identity'],
+                'state':'failed' if clean else 'cleanup_unconfirmed','requested':spec['renderer_policy'],
+                'effective':None,'outer_exit':None,'cleanup_confirmed':clean,'owned_live':0 if clean else None,
+                'cancelled':False,'error':'renderer_admission_'+type(exc).__name__,
+                'renderer':{'cause':'unresolved','complete':False}})
+            return False
+
+
+def renderer_run(spec):
+    """Exact companion operation; no prefix initialization or installer witnesses."""
+    app=spec['application'];op=spec['operation'];env=app['environment'];root=pathlib.Path(env['root']);report=pathlib.Path(spec['report'])
+    lock=(root/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    image=RendererImage(app['files']['Native Access.exe']);evidence=RendererEvidence(app['files']['Native Access.exe']['artifact'],root,image)
+    scope=None;ledger=None;child=None;clean=False;stop=False;error=None;effective=None;focus=None
+    captures={name:PrivateCapture(report.parent/(op+'-'+name+'.private.log'),16*1024*1024,600) for name in ('stdout','stderr')}
+    sel=selectors.DefaultSelector();began=time.monotonic();request_path=report.parent/(op+'-launch.private')
+    def persist(value):
+        installer_atomic(report.parent/(op+'-ledger.private.json'),{'schema':1,'operation':op,'ledger':value,'windows_trace':evidence.trace.value(),'renderer':evidence.value()})
+    def cancel(*_):
+        nonlocal stop
+        stop=True
+        if ledger:ledger.cancelled=True
+        evidence.trace.cancelled=True
+    def drain(wait):
+        for key,_ in sel.select(wait):
+            data=os.read(key.fileobj.fileno(),65536)
+            if data:captures[key.data].write(data);evidence.feed(data,key.data)
+            else:sel.unregister(key.fileobj)
+    def confirm_effective():
+        nonlocal effective
+        binding=evidence.trace.binding
+        if binding and binding['status']=='bound' and effective is None:
+            effective={'policy':spec['renderer_policy'],'operation':op,'application_identity':spec['application_identity'],
+                'software_sha256':spec['software_sha256'],'root_ordinal':binding['root_ordinal'],'monotonic_ns':time.monotonic_ns()}
+    def result(state,live):
+        return {'schema':1,'operation':op,'application_identity':spec['application_identity'],'state':state,
+            'requested':spec['renderer_policy'],'effective':effective,'renderer':evidence.value(),
+            'outer_exit':child.returncode if child else None,'cleanup_confirmed':clean,'owned_live':live,
+            'cancelled':stop,'error':error,'focus_result':focus,
+            'application_image_verification':{'bytes':image.size,'hash_passes':1,'cache':'stable_open_file'},
+            'diagnostics':{k:{'retained':v.retained,'dropped':v.discarded} for k,v in captures.items()}}
+    signal.signal(signal.SIGTERM,cancel);signal.signal(signal.SIGINT,cancel)
+    try:
+        if not (root/'compatdata/pfx/system.reg').is_file():raise ValueError('renderer_prefix_not_initialized')
+        scope=CompanionCgroup(renderer_operation=op)
+        if scope.members():raise ValueError('renderer_cgroup_occupied')
+        ledger=InstallerLedger(scope,persist)
+        if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('renderer_subreaper')
+        token=os.urandom(32).hex();evidence.trace.arm_root(op,token,image.size);evidence.begin();evidence.begin()
+        content='\n'.join(['NAUI2_LAUNCH_V1',op,token,'2',image.sha,str(image.size),windows(image.path,root/'compatdata/pfx'),spec['renderer_policy'],''])
+        with os.fdopen(os.open(request_path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'wb') as f:f.write(content.encode('utf-16le'));f.flush();os.fsync(f.fileno())
+        runner=env['runner'];argv=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',spec['installer_launch']['path'],windows(request_path,root/'compatdata/pfx')]
+        launch_env=environment({'environment':env,'compatibility':{'disable_windows_accessibility':False}});launch_env['HOME']=str(root/'home')
+        launch_env.update(PROTON_LOG='0',WINEDEBUG='-all,+timestamp,+pid,+tid,trace+process,err+gdi,err+module',DXVK_LOG_LEVEL='none',VKD3D_DEBUG='none')
+        image.check()
+        child=subprocess.Popen(argv,cwd=image.path.parent,env=launch_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+        ledger.launcher(child,'application_runner')
+        for name,pipe in [('stdout',child.stdout),('stderr',child.stderr)]:os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,name)
+        last=0
+        while not stop:
+            live=ledger.harvest();drain(.05);image.check()
+            confirm_effective()
+            state=vendor_operation_state(child.returncode,len(live))
+            if state in ('completed','failed'):
+                for _ in range(64):drain(0)
+                confirm_effective()
+                clean=True
+                if state=='failed':error='application_outer_nonzero'
+                if effective is None:error='application_root_unconfirmed'
+                break
+            control=report.parent/(op+'-focus.json')
+            if control.exists():
+                req=None
+                try:
+                    with os.fdopen(os.open(control,os.O_RDONLY|os.O_NOFOLLOW),'rb') as f:
+                        md=os.fstat(f.fileno())
+                        if not stat.S_ISREG(md.st_mode) or md.st_uid!=os.getuid() or md.st_size>512:raise ValueError('renderer_focus_bound')
+                        req=json.loads(f.read(513))
+                    control.unlink()
+                    if set(req)!={'operation','request'} or req['operation']!=op or not re.fullmatch('[0-9a-f]{32}',req['request']):raise ValueError('renderer_focus_identity')
+                    focus={'request':req['request'],'result':renderer_focus(scope,image)}
+                except Exception:focus={'request':req.get('request') if isinstance(req,dict) else None,'result':'refused_exact_window_unavailable'}
+            if time.monotonic()-began>600:error='application_time_bound';break
+            if time.monotonic()-last>.5:atomic(report,result(state,len(live)));last=time.monotonic()
+    except Exception as exc:error='renderer_owner_'+type(exc).__name__
+    finally:
+        if scope is not None and not clean:
+            try:clean=ledger.cleanup() if ledger else not scope.members()
+            except Exception:error='renderer_cleanup_failed'
+        if child:
+            for _ in range(64):drain(0)
+            child.stdout.close();child.stderr.close()
+        if ledger:ledger.commit()
+        sel.close();request_path.unlink(missing_ok=True);image.close()
+        for c in captures.values():c.close()
+        atomic(report,result('cleanup_unconfirmed' if not clean else 'cancelled' if stop else 'failed' if error else 'completed',0 if clean else None));lock.close()
+    return clean and error is None
+
+
 def vendor_application(spec):
     """Own every process in the dedicated unit until observed retirement.
 
@@ -2121,6 +2521,7 @@ def vendor_application(spec):
     survives rapid double-fork, Wine bootstrap and parent replacement. Unknown
     members prevent unit exit just as known main/Agent processes do.
     """
+    if spec.get('kind')=='renderer_application':return renderer_application(spec)
     app=spec['application'];env=app['environment'];directory=pathlib.Path(env['root'])
     report=pathlib.Path(spec['report']);stop=False;child=None;scope=None;clean=False;error=None
     mode=spec.get('mode','normal');diagnostic=mode!='normal';focus_result=None
@@ -2215,6 +2616,7 @@ def vendor_application(spec):
                 # No member remains that could create a later handoff. A
                 # second ancestry sample or a fixed grace period is not proof.
                 for _ in range(64):drain(0)
+                confirm_effective()
                 clean=True
                 if state=='failed':error='vendor_application_launcher_failed_after_cgroup_empty'
                 event('cgroup_empty',launcher_exit=child.returncode)

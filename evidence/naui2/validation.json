@@ -1,0 +1,69 @@
+{
+  "development": [
+    {
+      "private_log_sha256": "9ddf49d484cf7cd567a03aed2421e2767142d91dad220d6c730256f1c149ba60",
+      "result": "Homebrew compiler lacked Linux target; selected existing rustup compiler with installed target",
+      "stage": "cross_compile",
+      "windows_launch": false
+    },
+    {
+      "correction_log_sha256": "014bb69283d3357871ae41f464a58654b212aab2b2b901b6661070b84ca79ee0",
+      "private_log_sha256": "3e2750fc3f03a39826e9b25f011edb10c69cc6e61b2da3d69da085c16a25788e",
+      "result": "One existing UIO2 test needed a committed compatibility file omitted from the test archive; supplied it and reran that test successfully",
+      "stage": "test_staging"
+    },
+    {
+      "private_log_sha256": "3f11088c95ca0d5c27663a2081291c5d4b6d0dc6ddb5309dc1de2d7f99eac8c8",
+      "result": "Closed package verifier rejected AppleDouble archive sidecars before any session; transferred unchanged sealed inputs without archive metadata",
+      "stage": "package_transfer",
+      "windows_launch": false
+    }
+  ],
+  "executed_source": "56ed25b03ceee9a57143f9f0f7cecd7c6e150cdc",
+  "executed_tree": "88736f20cfad388b04c8152042b4a8880efe6cad",
+  "generated_sha256": "18de8c11df639184ac1748973897e1a33e6a4db08552bed4f8880304ac397738",
+  "installation_performed": false,
+  "installed_software_artifacts": {
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "installer_launch": "0edb8946927a93cac10eb60a0b0567ba284a65d6c3f30255d2612d08f8ae1cd7",
+    "manager": "36956341aa45a60fe869d09bc62443d59b1cfd864ba625c229b1de592187a066",
+    "native_catalogue": "570f1b6dbfcbfe31926e5e8fd86f069c38b4afa55ecaf0e1283f7204252c17fe",
+    "operator_frontend": "62d11f3ba9e41446e6d0a5b81c0a62351c05b899d71073b2e0e866f72ef7c089",
+    "ownership": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377",
+    "preparation_kit": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "supervisor": "d1263e48693b72a407914a398f3a5afba2fe26ae8b7f1e210b1b536b8a90e0ad"
+  },
+  "linux_runtime": {
+    "corrected_affected_test_passed": true,
+    "initial_staging_missing_compatibility_file": 1,
+    "new_production_renderer_creation_tests": "passed",
+    "total": 138
+  },
+  "local": {
+    "frontend": 21,
+    "is3": 24,
+    "is4": 25,
+    "manager_binary": 74,
+    "manager_library": 127,
+    "naui1": 47,
+    "package": 3,
+    "python_compilation": "passed",
+    "runtime_platform_skips": 38,
+    "runtime_total": 138,
+    "strict_frontend_clippy": "passed",
+    "strict_manager_clippy": "passed"
+  },
+  "manifest_sha256": "9b8c2ab34981a6c5b046cf7049f75b407f2c9896eeb1f86762a18fdfe467d2e4",
+  "native_access_launched": false,
+  "naui1_physical_observation_repeated": false,
+  "nonclaims": [
+    "No real renderer presentation or graphics remedy qualified",
+    "No Native Access cause selected",
+    "No Electron version or vendor signature claim",
+    "Generated PE is padded to 67 MiB to exercise file identity, not a claim about mapped code size",
+    "Generated fixture has no application GUI; physical Focus confirmation remains unproved",
+    "No installed manager/frontend replaced"
+  ],
+  "schema": 1
+}

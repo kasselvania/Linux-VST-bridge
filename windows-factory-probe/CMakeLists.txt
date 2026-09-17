@@ -217,3 +217,10 @@ target_compile_definitions(is3-capability PRIVATE UNICODE _UNICODE WIN32_LEAN_AN
 target_compile_options(is3-capability PRIVATE /W4 /permissive- /EHsc /Brepro)
 target_link_options(is3-capability PRIVATE /Brepro /INCREMENTAL:NO)
 set_target_properties(is3-capability PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+# NAUI2 source-owned application renderer/large-image consumer.
+add_executable(naui2-application ../tools/naui2/application.cpp)
+target_compile_definitions(naui2-application PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(naui2-application PRIVATE /W4 /permissive- /EHsc /Brepro)
+target_link_options(naui2-application PRIVATE /Brepro /INCREMENTAL:NO)
+set_target_properties(naui2-application PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")

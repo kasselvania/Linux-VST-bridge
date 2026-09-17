@@ -1,0 +1,1 @@
+{"operation": "f4bf39278ee8770fb9cbaf84e9b899cb", "submission": "refused_before_reservation", "unit_absent": true, "prefix_initialized": false, "windows_launch": false, "scratch_removed": true, "source": "f657d166e93f958f0c5ece784c41736450836d97", "error": "fixture_driver_umask_did_not_meet_private_directory_law"}

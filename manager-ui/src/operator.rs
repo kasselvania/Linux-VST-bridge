@@ -67,7 +67,7 @@ impl RequestFeedback {
         }
         if let Some(
             state @ ("refused" | "completed" | "waiting" | "validating" | "vendor_running"
-            | "queued" | "running"),
+            | "queued" | "running" | "submission_uncertain"),
         ) = op["state"].as_str()
         {
             self.transition(state);
@@ -89,6 +89,10 @@ impl RequestFeedback {
             Some("waiting" | "validating") => {
                 "This operation is validating manager state. Do not click again.".into()
             }
+            Some("submission_uncertain") => {
+                self.release_after_snapshot=true;
+                "Launch acknowledgment is uncertain. Use the exact Stop / reconcile control; no launch was resubmitted.".into()
+            }
             Some("vendor_running") => {
                 self.release_after_snapshot = true;
                 "Vendor operation is running. Refreshing its controls…".into()
@@ -106,7 +110,7 @@ impl RequestFeedback {
             if self.text == "This operation completed. Refreshing its result…" {
                 self.text = "This operation completed. Its current result is shown below.".into();
             } else if self.text == "Vendor operation is running. Refreshing its controls…" {
-                self.text = "Installer is supervised and running. Use its exact Focus or Stop control below.".into();
+                self.text = "The operation is supervised and running. Use its exact Focus or Stop control below.".into();
             }
         }
     }
@@ -127,6 +131,26 @@ impl RequestFeedback {
                     self.transition("live_owner_reconciled");
                     self.release_after_snapshot = true;
                     self.text = "Submission acknowledgment was unavailable. The manager confirms this exact live installer; recovery controls are available. No request was resubmitted.".into();
+                }
+            }
+        }
+        let mut renderer_recovery = false;
+        if let Action::RendererOpen { application, policy } = self.action.clone() {
+            for app in &s.vendor_applications {
+                if app.details["application_identity"].as_str()==Some(application.as_str()) {
+                    if self.acknowledgment_uncertain && self.operation.is_none()
+                        && app.details["requested"] == serde_json::to_value(policy).unwrap()
+                        && matches!(app.details["manager_operation"]["state"].as_str(),Some("vendor_running"|"submission_uncertain")) {
+                        if let Some(op)=app.details["operation"].as_str() {
+                            if app.actions.iter().any(|a|matches!(&a.action,Action::RendererStop{operation} if operation==op)) {
+                                self.operation=Some(op.into());self.release_after_snapshot=true;
+                            }
+                        }
+                    }
+                    if let Some(op)=app.details.get("manager_operation") {
+                        renderer_recovery = self.operation.is_some() && op["operation"].as_str()==self.operation.as_deref();
+                        self.observe(op);
+                    }
                 }
             }
         }
@@ -152,7 +176,7 @@ impl RequestFeedback {
         if let Some(op) = &s.operation {
             self.observe(op);
         }
-        if self.terminal || matching_operation || exact_recovery {
+        if self.terminal || matching_operation || exact_recovery || renderer_recovery {
             self.refreshed();
         }
     }
@@ -296,7 +320,7 @@ impl Operator {
         self.action_inflight = false;
         match reply {
             Reply::Snapshot(s) => {
-                if s.schema != 5 {
+                if s.schema != 6 {
                     self.message = "Unsupported manager schema".into();
                 } else {
                     if let Some(f) = &mut self.feedback {
@@ -434,7 +458,9 @@ impl eframe::App for Operator {
                     });}
                 }
                 egui::CollapsingHeader::new("Arturia environment and software center").default_open(true).show(ui,|ui|{
-                    for app in &s.vendor_applications{ui.heading(&app.name);ui.label(format!("{} · {}",app.version,app.state));Self::buttons(ui,&app.actions,busy,controls_pending,&mut chosen);}
+                    for app in &s.vendor_applications{ui.heading(&app.name);
+                        if app.id=="native-access" {ui.label(if app.details["effective"].is_object(){"Renderer policy applied to the exact owned application"}else{"Renderer policy application not confirmed"});ui.label(format!("Rendering cause: {}",app.details["renderer"]["cause"].as_str().unwrap_or("unresolved")));}
+                        ui.label(format!("{} · {}",app.version,app.state));Self::buttons(ui,&app.actions,busy,controls_pending,&mut chosen);}
                     for e in &s.environments{ui.label(format!("{} · revision {} · pinned runner {}",e.family,e.revision,e.runner));ui.small(&e.authorization);if !e.last_scan["id"].is_null(){ui.small(format!("Last scan: {} modules · completed at {}",e.last_scan["module_count"],e.last_scan["completed_at"]));ui.small(format!("Changes: {} added · {} changed · {} removed · {} unchanged",e.last_scan["changes"]["added"],e.last_scan["changes"]["changed"],e.last_scan["changes"]["removed"],e.last_scan["changes"]["unchanged"]));}Self::buttons(ui,&e.actions,busy,controls_pending,&mut chosen);}
                 });
                 ui.separator();ui.heading("Add a plug-in");
@@ -493,7 +519,7 @@ impl eframe::App for Operator {
         } else if let Some(a) = chosen {
             if let Some(s) = &self.snapshot {
                 self.capture_action(Request {
-                    schema: 5,
+                    schema: 6,
                     state_token: s.state_token.clone(),
                     action: a,
                 });
@@ -715,7 +741,7 @@ mod tests {
     }
     fn create_request() -> Request {
         Request {
-            schema: 5,
+            schema: 6,
             state_token: "snapshot".into(),
             action: Action::InstallerEnvironmentCreate {
                 installer: "ab".repeat(32),
@@ -726,7 +752,7 @@ mod tests {
     fn running_snapshot(operation: &str) -> Snapshot {
         let id = "aa".repeat(16);
         Snapshot {
-            schema: 5,
+            schema: 6,
             state_token: "current".into(),
             system: System {
                 service: "capacity unavailable".into(),
@@ -773,7 +799,7 @@ mod tests {
         }));
         if acknowledged {
             o.handle_reply(Reply::Receipt(Receipt {
-                schema: 5,
+                schema: 6,
                 accepted: true,
                 operation: Some("current-op".into()),
                 refusal: None,
@@ -785,7 +811,7 @@ mod tests {
     }
     fn activity_from(s: &Snapshot) -> Reply {
         Reply::Activity(Activity {
-            schema: 5,
+            schema: 6,
             system: s.system.clone(),
             capture: s.capture.clone(),
             operation: s.operation.clone(),
@@ -1037,7 +1063,7 @@ mod tests {
         let old =
             serde_json::json!({"operation":"old","state":"refused","reason":"old lock failure"});
         f.receipt(&Receipt {
-            schema: 5,
+            schema: 6,
             accepted: false,
             operation: Some("new".into()),
             refusal: Some("fresh refusal".into()),
@@ -1049,7 +1075,7 @@ mod tests {
         assert!(!f.for_installer(&"ef".repeat(32)));
         f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 5,
+            schema: 6,
             accepted: true,
             operation: Some("new".into()),
             refusal: None,
@@ -1065,7 +1091,7 @@ mod tests {
     fn vendor_controls_unlock_only_after_current_snapshot_without_losing_feedback() {
         let mut f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 5,
+            schema: 6,
             accepted: true,
             operation: Some("new".into()),
             refusal: None,
@@ -1078,7 +1104,7 @@ mod tests {
         assert!(f.terminal);
         let mut f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 5,
+            schema: 6,
             accepted: false,
             operation: Some("refused".into()),
             refusal: Some("reason".into()),
@@ -1224,6 +1250,27 @@ mod tests {
             {"id":"bc".repeat(32),"operation":{"operation":"33".repeat(16),"state":"refused"}}
         ]);
         other.reconcile_snapshot(&s);assert!(other.terminal);assert!(!other.blocking);assert_eq!(other.transitions.last().map(String::as_str),Some("refused"));
+    }
+
+    #[test]
+    fn renderer_snapshot_releases_exact_recovery_even_with_unrelated_latest_receipt() {
+        let id="ab".repeat(32);let op="cd".repeat(16);
+        for (activity_first,state) in [(false,"vendor_running"),(true,"vendor_running"),(false,"submission_uncertain"),(true,"submission_uncertain")] {
+            let mut f=RequestFeedback::captured(Action::RendererOpen{application:id.clone(),policy:RendererPolicy::Inherited});
+            f.receipt(&Receipt{schema:6,accepted:true,operation:Some(op.clone()),refusal:None});
+            let mut s=running_snapshot(&"ef".repeat(16));
+            let operation=serde_json::json!({"operation":op,"state":state});
+            s.vendor_applications.push(VendorApplication{id:"native-access".into(),name:"Native Access".into(),version:"3.26.0".into(),state:"supervised".into(),actions:vec![AvailableAction{label:"Stop".into(),action:Action::RendererStop{operation:op.clone()},disabled_reason:None}],details:serde_json::json!({"application_identity":id,"operation":op,"requested":"inherited","manager_operation":operation})});
+            if activity_first{f.observe(&operation);}
+            f.reconcile_snapshot(&s);assert!(!f.blocking);assert!(!f.terminal);
+            f.reconcile_snapshot(&s);assert!(!f.blocking);
+            f.observe(&serde_json::json!({"operation":"ef".repeat(16),"state":"completed"}));assert!(!f.terminal);
+            let mut uncertain=RequestFeedback::captured(f.action.clone());
+            uncertain.receipt(&Receipt{schema:6,accepted:true,operation:None,refusal:None});
+            uncertain.reconcile_snapshot(&s);assert_eq!(uncertain.operation,Some(op.clone()));assert!(!uncertain.blocking);
+            let mut wrong=RequestFeedback::captured(Action::RendererOpen{application:"ff".repeat(32),policy:RendererPolicy::Inherited});
+            wrong.receipt(&Receipt{schema:6,accepted:true,operation:None,refusal:None});wrong.reconcile_snapshot(&s);assert!(wrong.blocking);assert!(wrong.operation.is_none());
+        }
     }
 
 }
