@@ -1,0 +1,99 @@
+{
+  "application_identity": "7228a542c01b89daa5d04b9c8566af235ee7a2358e52f741b8918239c3a7d26e",
+  "application_record_sha256": "efa17763785548cce9a7ac4da7d37ec453ea3dff323a77c72ce501066648a0cd",
+  "candidate_commit": "98c2e15b44a2d7cea9e2c368b95485ffc9b31c75",
+  "candidate_tree": "7dd5cd994230766d7f6fbd4b12763b095f9bbda4",
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "dependency_prepare_selected": false,
+  "frontend_agreement": {
+    "action_submitted": false,
+    "frontend_activity_decoded": true,
+    "frontend_snapshot_decoded": true,
+    "gui_launched": false,
+    "operator_schema": 7
+  },
+  "hosted_PX2": "not_run",
+  "imports_environments_histories_unchanged": true,
+  "independent_review": "pending",
+  "installed_artifacts": {
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "installer_launch": "36e8b1556b8e1b249842fbe666462395b1956115ddc14ca15af01652e14ea57d",
+    "manager": "348c87a32a11e38c89da325bdad21395135d747e624b876684353d54739d1552",
+    "native_catalogue": "6204917e6b52311411dcad147c6c02b32a5746af87091ec141b1b435cfa12ba6",
+    "operator_frontend": "0c88634d7dc66e946d26c238bf39afd61d4df37eab013a7e23cede968823caca",
+    "ownership": "cc81d05876043ccf96c1540c556a790e62f57f4a6e72aabbd820a5d133311add",
+    "preparation_kit": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "supervisor": "0758e5d9712ba6e205b2adc026f67fc24baa51fff7b4b5f0eb27998a8a94b9e9"
+  },
+  "local_PX2": "passed_with_loopback_permission",
+  "native_access_closed": true,
+  "old_generation_retained": true,
+  "operator_schema_after": 7,
+  "operator_schema_before": 7,
+  "preservation_counts": {
+    "older_predecessor_files": 23,
+    "predecessor_files": 23,
+    "projects": 5,
+    "protected": 143,
+    "retained": 307
+  },
+  "preservation_map_sha256": {
+    "older_predecessor_files": "c6ac76608a33b4f9c8d3a739c71c58889780981c5777f492d24f42b5e3b9a91b",
+    "predecessor_files": "fbc2cb58af0313edaab2e17b83ed06899f870b9913df89ff2845213a42a29682",
+    "projects": "94550a1eca2950c95b6baa5d72523d169de9d37bee55d3714cc4add2c1b3dc19",
+    "protected": "e0dbf934dcfd8833001d49d2691047399b320b70859ee429f53847b97b8e0bf3",
+    "retained": "e274b742d6fe16acc03cb77a5e73f9ef1ef1aee24dbb318356078337700b3b49"
+  },
+  "previous_generation": "21d64ee962d1f35a3786822e5bdcabf2df9d7f16adef1a04a5b8bceb7cd7aee6",
+  "previous_software_record_sha256": "4cf56b278d5b853efec1ac47f8c8a3f436b9b8be14dba29f3d65aea6b55011c9",
+  "private_installation_receipt_sha256": "916edadf90da2f55018a96a4fd2c3050650cebb977ecf09cbe1b69d641ca6efe",
+  "private_postinstall_receipt_sha256": "b44a2277d3a2a5cd0f119cc8f09d493a960c991e9cc3de594d5379f50ef9ee66",
+  "private_preinstall_receipt_sha256": "88817184d0a2c465118ea1be50749fd7ca094ad8a4345ae21c54a4021ec5547d",
+  "private_setup_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "production_installs": 1,
+  "products_unchanged": true,
+  "publications_unchanged": true,
+  "readback_helper_exit": 0,
+  "readback_helper_retired": true,
+  "real_daemon_exact_unchanged": true,
+  "real_scm_transition": false,
+  "registry_unchanged": true,
+  "renderer_discover_selected": false,
+  "renderer_open_selected": false,
+  "resume_pending": false,
+  "schema": 1,
+  "selected_generation": "d7d5d779b644e06333f1bc54d0a7d8ae9c7a3baa674f09513658f9e0ba68baf1",
+  "selected_software_record_sha256": "912e53ea4a9386835874cb030584a27544c42fbc9763bd2e5fc83af43fbdba69",
+  "service_registration_present_unchanged": true,
+  "software_rendering_qualification_unchanged": true,
+  "source_workflows": [
+    {
+      "conclusion": "success",
+      "headSha": "8b4cb0435f2608449aaa34cf305acdd4f472320b",
+      "name": "AP8 Windows host",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35275212756"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "8b4cb0435f2608449aaa34cf305acdd4f472320b",
+      "name": "AP12 registered owner",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35275210155"
+    }
+  ],
+  "system": {
+    "ceiling": 6,
+    "cleanup_unconfirmed": false,
+    "dsp": 0,
+    "keepers": 2,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "service": "active",
+    "stale_transports": 0
+  },
+  "test_authority": "operator_requested_candidate_installation_and_test_before_review",
+  "vendor_operations": 0
+}

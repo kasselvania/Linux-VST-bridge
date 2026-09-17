@@ -410,3 +410,12 @@ custody, without retrying a signal. All seven generated cases retired their exac
 cohorts and removed their disposable prefixes; real state remained unchanged.
 This repair is pushed but uninstalled. No additional real Native Access or daemon
 operation occurred. A real application confirmation remains outstanding.
+
+## Shared-runtime candidate test installation
+
+The operator requested testing before review. Candidate `98c2e15b` was installed
+immutably and model-7 manager/frontend agreement plus idle preservation passed.
+Receipt: `evidence/nad1/recovery/child-memory/installation/`. No application or
+daemon launch occurred during installation. The fresh readiness transition is
+pending explicit service approval after automatic approval review blocked it.
+The old preparation receipt and all historical evidence remain unchanged.
