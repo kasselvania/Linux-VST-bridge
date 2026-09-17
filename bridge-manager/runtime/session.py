@@ -2549,6 +2549,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
         nonlocal auth_private
         if not auth_private:
             auth_private=True;evidence.trace.dropped+=1
+            if dependency_owner is not None:dependency_owner.diagnostic_privacy=True
             evidence.pending.clear();evidence.line_pending.clear()
     def drain(wait):
         nonlocal auth_discarded
@@ -2845,7 +2846,7 @@ class Nad1Runtime:
         for key,_ in self.sel.select(wait):
             data=os.read(key.fileobj.fileno(),8192)
             if not data:self.sel.unregister(key.fileobj);continue
-            self.capture.write(data)
+            if not self.owner.diagnostic_privacy:self.capture.write(data)
             if key.data=='stdout':
                 if len(self.output)+len(data)>8192:raise ValueError('dependency_runtime_output_extent')
                 self.output.extend(data)
@@ -2883,7 +2884,7 @@ class Nad1Owner:
         self.daemon_relative=NAD1_DAEMON if fixture is None else fixture['daemon']
         self.installer_sha=NAD1_INSTALLER_SHA if fixture is None else fixture['installer_sha256']
         self.installer_size=35769456 if fixture is None else fixture['installer_size']
-        self.token=os.urandom(32).hex();self.anchor=None;self.recovery=None;self.runtime=None
+        self.token=os.urandom(32).hex();self.anchor=None;self.recovery=None;self.runtime=None;self.diagnostic_privacy=False
         self.service_possibility='unknown';self.retirement_authorized=False
         self.retiring=False;self.retirement_attempted=False
         self.service_stop_requested=False;self.service_retirement_confirmed=False
@@ -2920,7 +2921,7 @@ class Nad1Owner:
                 for key,_ in sel.select(.05):
                     data=os.read(key.fileobj.fileno(),8192)
                     if not data:sel.unregister(key.fileobj);key.fileobj.close();continue
-                    capture.write(data)
+                    if not self.diagnostic_privacy:capture.write(data)
                     if key.data=='stdout':
                         if len(stdout)+len(data)>65536:raise ValueError('dependency_helper_output_extent')
                         stdout.extend(data)
@@ -2936,7 +2937,7 @@ class Nad1Owner:
                 for key,_ in sel.select(0):
                     data=os.read(key.fileobj.fileno(),8192)
                     if not data:sel.unregister(key.fileobj);key.fileobj.close();continue
-                    capture.write(data)
+                    if not self.diagnostic_privacy:capture.write(data)
                     if key.data=='stdout':
                         if len(stdout)+len(data)>65536:raise ValueError('dependency_helper_output_extent')
                         stdout.extend(data)
@@ -2944,7 +2945,7 @@ class Nad1Owner:
             stage['exit']=child.returncode
             if action=='stop':
                 # Preserve even a nonzero stop/timeout observation privately.
-                installer_atomic(self.directory/f'{self.op}-retirement.private.json',{'stdout_sha256':hashlib.sha256(stdout).hexdigest(),'frames':bytes(stdout).decode('ascii',errors='replace').splitlines()})
+                installer_atomic(self.directory/f'{self.op}-retirement.private.json',{'raw_diagnostics_suppressed':True} if self.diagnostic_privacy else {'stdout_sha256':hashlib.sha256(stdout).hexdigest(),'frames':bytes(stdout).decode('ascii',errors='replace').splitlines()})
             if install:
                 if install.failure():
                     stage['result']='installer_nonzero' if install.result!=144 else 'installer_result_unavailable'

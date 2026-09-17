@@ -38,3 +38,18 @@ class CallbackTests(unittest.TestCase):
   self.b.deadline=0;self.b.tick();self.assertEqual(p.recv(1),b'\x02');self.assertEqual(self.b.attempts,1)
  def test_primary_exit_revokes_socket_without_launch(self):
   p=self.connect();p.recv(4);self.child.returncode=0;self.b.tick();self.assertTrue(self.b.closed);self.cut.assert_not_called()
+
+class RuntimePrivacyTests(unittest.TestCase):
+ def test_shared_runtime_does_not_retain_output_after_private_return(self):
+  from unittest.mock import patch
+  runtime=object.__new__(s.Nad1Runtime)
+  runtime.owner=types.SimpleNamespace(diagnostic_privacy=True)
+  runtime.capture=Mock();runtime.output=bytearray();runtime.sel=Mock()
+  runtime.sel.select.return_value=[(types.SimpleNamespace(fileobj=types.SimpleNamespace(fileno=lambda:4),data='stderr'),None)]
+  with patch.object(s.os,'read',return_value=b'generated-return-code'):
+   runtime.drain()
+  runtime.capture.write.assert_not_called()
+  runtime.owner.diagnostic_privacy=False
+  with patch.object(s.os,'read',return_value=b'ordinary diagnostics'):
+   runtime.drain()
+  runtime.capture.write.assert_called_once_with(b'ordinary diagnostics')
