@@ -367,3 +367,18 @@ cleanup. All real state and historical source witnesses reverified unchanged.
 The final amendment contains evidence only; production source is the executed
 sealed generation. Real dependency readiness remains untested; no deployment or
 real application/service transition occurred during this repair.
+
+## Recovery repair deployed; real readiness established
+
+PR #120 merged at `a6ea9a57358dec1b188f1b02cf47c532e70182c3` with the tested
+tree `dca72e2076e23fd75f7a3dd0c190c8769fdea915`; merged-main AP8/AP12/PX2
+passed. One immutable software generation was installed and verified at operator
+model 7. The operator explicitly authorized one real service recovery test.
+Operation `26c5f1e3ff31a786c8646e3764d60262` selected `recover_installed`,
+started the existing exact daemon through SCM, proved exact readiness, stopped it
+and restored the bridge cleanly. No installer or Native Access launch occurred.
+The earlier failed installer result remains unchanged; the new prepared record is
+independent readiness authority. Evidence is under `evidence/nad1/recovery/installation/`
+and `evidence/nad1/recovery/real-operation/`. The next functional question is whether
+Native Access connects successfully under the already-selected software-rendering
+policy; it was not exercised here.
