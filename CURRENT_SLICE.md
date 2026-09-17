@@ -292,3 +292,32 @@ off and resume absent. Native Access remains closed; real NTKDaemon executable a
 service remain absent. No dependency/application/registry action occurred.
 `evidence/nad1/installation/` is the immutable installation handoff. Stop for receipt
 review; no DependencyPrepare or Native Access launch is authorized here.
+
+## First authorized real NAD1 preparation — failed, retired
+
+After explicit operator authorization, installed schema 7 admitted operation
+`6345df5fd7ea38a5f07bfc6a2300e999`. The bundled installer reached the 200-second
+command bound without completion authority. Daemon bytes appeared; readiness and
+preparation were not established. Exact SCM retirement and process cleanup passed;
+bridge service and two keepers recovered. No Native Access launch or retry occurred.
+Evidence is retained separately under `evidence/nad1/real-preparation/attempt-1/`.
+The prefix changed through this authorized attempt; protected products/projects,
+software and earlier evidence remain unchanged. Stop after this result.
+
+## Authorized reporting repair and retained-evidence diagnosis
+
+The operator explicitly requested investigation and correction without a real
+installer rerun. Work continues on `codex/nad1-installation-receipt` from installed
+merge `bcc3236952b3c342ba8364b6d3b0c5fa3a465d38`, tree
+`4eefcfd670c4e5576045b88805fe84b266d63db8`; the installed generation is unchanged.
+
+Offline analysis recovered exact Windows installer exit 100 and a later Linux
+runner exit 100 from the original operation. The installed daemon matches the
+exact bundle member; service registration exists in a numbered control set. The
+initial timeout/absent-service summary was incomplete and is superseded by
+`evidence/nad1/real-preparation/attempt-1/diagnosis.md`, without changing private
+historical records. The source now retains installer frames before runner exit
+and recognizes numbered offline control sets. Local source-owned regressions
+qualify reporting; no vendor compatibility success is inferred. Exit 100's
+meaning remains unknown because the native installer action log was not enabled.
+No production installation or real replay is included in this repair.

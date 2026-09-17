@@ -603,9 +603,23 @@ fn installer_lines(v: &serde_json::Value) -> Vec<String> {
 fn dependency_retirement_lines(v: &serde_json::Value) -> Vec<String> {
     if v.is_null() { return Vec::new(); }
     let r=if v["dependency_retirement"].is_object(){&v["dependency_retirement"]}else{&v["dependency"]};
-    vec![format!("Dependency service stop: {}",if r["service_retirement_confirmed"]==true {"confirmed"}else{"not confirmed"}),
+    let mut lines=vec![format!("Dependency service stop: {}",if r["service_retirement_confirmed"]==true {"confirmed"}else{"not confirmed"}),
          format!("Dependency process cleanup: {}",if r["process_cleanup_confirmed"]==true {"confirmed"}else{"not confirmed"}),
-         format!("Forced cleanup: {}",if r["forced_cleanup_used"]==true {"used; does not confirm a clean service stop"}else{"not reported"})]
+         format!("Forced cleanup: {}",if r["forced_cleanup_used"]==true {"used; does not confirm a clean service stop"}else{"not reported"})];
+    if let Some(stages)=v["dependency"]["stages"].as_array() {
+        for stage in stages.iter().filter(|s| s["action"]=="install") {
+            let result=&stage["installer_result"];
+            lines.push(match result["installer_exit"].as_u64().filter(|n| *n<=u32::MAX as u64) {
+                Some(code) if result["authority"]=="exact_windows_child_handle_exit"=>format!("Dependency installer exit: {code}. This alone does not establish readiness."),
+                _=>"Dependency installer exit: unavailable.".into(),
+            });
+            lines.push(match stage["exit"].as_i64() {
+                Some(code)=>format!("Dependency runner exit: {code}."),
+                None=>"Dependency runner retirement was not observed when the command returned.".into(),
+            });
+        }
+    }
+    lines
 }
 
 fn installer_policy_lines(v: &serde_json::Value) -> Vec<&'static str> {
@@ -696,6 +710,17 @@ fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json:
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn dependency_installer_exit_survives_runner_timeout_and_cleanup() {
+        let mut value=serde_json::json!({"error":"dependency_runner_retirement_timeout","dependency":{
+            "process_cleanup_confirmed":true,"stages":[{"action":"install","exit":null,
+            "installer_result":{"installer_exit":100,"authority":"exact_windows_child_handle_exit"}}]}});
+        let lines=dependency_retirement_lines(&value);
+        assert!(lines.iter().any(|l|l.contains("installer exit: 100")));
+        assert!(lines.iter().any(|l|l.contains("runner retirement was not observed")));
+        value["dependency"]["stages"][0]["installer_result"]["authority"]=serde_json::json!("legacy_adapter_wait_or_exit_ambiguous");
+        assert!(dependency_retirement_lines(&value).iter().any(|l|l=="Dependency installer exit: unavailable."));
+    }
     #[test]
     fn process_cleanup_never_projects_clean_service_retirement() {
         let value=serde_json::json!({"dependency":{"service_retirement_confirmed":false,"process_cleanup_confirmed":true,"forced_cleanup_used":true}});

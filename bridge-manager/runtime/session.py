@@ -2571,6 +2571,47 @@ def nad1_generation_owned(candidate,scope):
     return actual==start and any(x['pid']==pid and x['start_ticks']==start for x in scope.members())
 
 
+
+class Nad1InstallObservation:
+    """Interpret complete adapter stdout frames before runner retirement.
+
+    The legacy adapter uses result 144 for an unsuccessful wait as well as a
+    possible child exit 144. Keep that value unavailable, never invent an exit.
+    Raw Windows generation fields stay in the private root receipt.
+    """
+    def __init__(self,owner,stage):
+        self.owner=owner;self.stage=stage;self.pending=bytearray();self.total=0
+        self.root=False;self.result=None
+    def feed(self,data):
+        self.total+=len(data)
+        if self.total>65536:raise ValueError('dependency_helper_output_extent')
+        self.pending.extend(data)
+        while b'\n' in self.pending:
+            line,_,rest=self.pending.partition(b'\n');self.pending=bytearray(rest)
+            if not line.startswith(b'NAD1_INSTALL_'):continue
+            try:a=line.decode('ascii').split()
+            except UnicodeDecodeError:raise ValueError('dependency_installer_frame') from None
+            owner=self.owner
+            if len(a)<3 or a[1:3]!=[owner.op,owner.token]:raise ValueError('dependency_installer_frame_identity')
+            record_sha=hashlib.sha256(line).hexdigest()
+            if a[0]=='NAD1_INSTALL_ROOT_V1':
+                if self.root or self.result is not None or len(a)!=7 or a[3:5]!=[owner.installer_sha,str(owner.installer_size)] or any(not re.fullmatch('[0-9]{1,20}',x) for x in a[5:]) or not 0<int(a[5])<=0xffffffff or not 0<int(a[6])<=0xffffffffffffffff:raise ValueError('dependency_installer_root_unbound')
+                nad1_publish(owner.directory/f'{owner.op}-installer-root.private.json',{'frame':a})
+                self.root=True
+                self.stage['root_binding']={'operation':owner.op,'token_sha256':hashlib.sha256(owner.token.encode()).hexdigest(),'sha256':owner.installer_sha,'size':owner.installer_size,'status':'bound'}
+            elif a[0]=='NAD1_INSTALL_V1':
+                if not self.root or self.result is not None or len(a)!=4 or not re.fullmatch('[0-9]{1,10}',a[3]) or int(a[3])>0xffffffff:raise ValueError('dependency_installer_result_unbound')
+                self.result=int(a[3])
+                value={'schema':1,'operation':owner.op,'adapter_result':self.result,'installer_exit':None if self.result==144 else self.result,'authority':'legacy_adapter_wait_or_exit_ambiguous' if self.result==144 else 'exact_windows_child_handle_exit','record_sha256':record_sha,'observed_ns':time.monotonic_ns()}
+                nad1_publish(owner.directory/f'{owner.op}-installer-result.private.json',value)
+                self.stage['installer_result']=value
+            else:raise ValueError('dependency_installer_frame')
+    def failure(self):
+        if self.result==144:return 'dependency_installer_wait_or_exit_unavailable'
+        if self.result is not None and self.result!=0:return 'dependency_installer_nonzero'
+        return None
+
+
 class Nad1Owner:
     def __init__(self,spec,ledger,scope,cancelled,*,fixture=None):
         self.spec=spec;self.ledger=ledger;self.scope=scope;self.cancelled=cancelled;self.production=fixture is None
@@ -2604,6 +2645,7 @@ class Nad1Owner:
         argv=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',self.spec['installer_launch']['path'],windows(request,self.root/'compatdata/pfx')]
         stdout=bytearray();capture=PrivateCapture(self.directory/f'{self.op}-dependency-{index}.log',1024*1024,256);sel=selectors.DefaultSelector()
         stage={'action':action,'launch':'prepared','exit':None,'result':'unavailable'};self.stages.append(stage)
+        install=Nad1InstallObservation(self,stage) if action=='install' else None;child=None
         try:
             child=subprocess.Popen(argv,cwd=self.root/'home',env=launch_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
             self.ledger.launcher(child,'dependency_'+action);stage['launch']='owned'
@@ -2612,7 +2654,6 @@ class Nad1Owner:
             while child.returncode is None:
                 self.ledger.harvest()
                 if self.cancelled() and not self.retiring:raise ValueError('dependency_cancelled')
-                if time.monotonic()>deadline:raise ValueError('dependency_command_timeout')
                 for key,_ in sel.select(.05):
                     data=os.read(key.fileobj.fileno(),8192)
                     if not data:sel.unregister(key.fileobj);key.fileobj.close();continue
@@ -2620,6 +2661,11 @@ class Nad1Owner:
                     if key.data=='stdout':
                         if len(stdout)+len(data)>65536:raise ValueError('dependency_helper_output_extent')
                         stdout.extend(data)
+                    if install and key.data=='stdout':install.feed(data)
+                if install and install.failure():
+                    stage['result']='installer_nonzero' if install.result!=144 else 'installer_result_unavailable'
+                    raise ValueError(install.failure())
+                if child.returncode is None and time.monotonic()>deadline:raise ValueError('dependency_runner_retirement_timeout' if install and install.result==0 else 'dependency_command_timeout')
                 if action=='start' and b'\n' in stdout and b'NAD1_SCM_V1 ' in stdout:
                     nad1_scm_frame(bytes(stdout),self.op,self.token)
                     self.anchor=child;stage['lifetime']='owned_anchor_until_service_retirement_or_identity_failure';break
@@ -2631,19 +2677,19 @@ class Nad1Owner:
                     if key.data=='stdout':
                         if len(stdout)+len(data)>65536:raise ValueError('dependency_helper_output_extent')
                         stdout.extend(data)
+                    if install and key.data=='stdout':install.feed(data)
             stage['exit']=child.returncode
             if action=='stop':
                 # Preserve even a nonzero stop/timeout observation privately.
                 installer_atomic(self.directory/f'{self.op}-retirement.private.json',{'stdout_sha256':hashlib.sha256(stdout).hexdigest(),'frames':bytes(stdout).decode('ascii',errors='replace').splitlines()})
-            if child.returncode!=0 and not (action=='start' and self.anchor is child and child.returncode is None):raise ValueError('dependency_command_nonzero')
-            if action=='install':
-                expected=f'NAD1_INSTALL_V1 {self.op} {self.token} 0'
-                if bytes(stdout).decode().splitlines().count(expected)!=1:raise ValueError('dependency_install_acknowledgment')
-                roots=[line.split() for line in bytes(stdout).decode().splitlines() if line.startswith('NAD1_INSTALL_ROOT_V1 ')]
-                if len(roots)!=1 or len(roots[0])!=7 or roots[0][1:5]!=[self.op,self.token,self.installer_sha,str(self.installer_size)] or any(not x.isdigit() or int(x)==0 for x in roots[0][5:]):raise ValueError('dependency_installer_root_unbound')
-                nad1_publish(self.directory/f'{self.op}-installer-root.private.json',{'frame':roots[0]})
-                stage['root_binding']={'operation':self.op,'token_sha256':hashlib.sha256(self.token.encode()).hexdigest(),'sha256':self.installer_sha,'size':self.installer_size,'status':'bound'}
+            if install:
+                if install.failure():
+                    stage['result']='installer_nonzero' if install.result!=144 else 'installer_result_unavailable'
+                    raise ValueError(install.failure())
+                if install.result is None:raise ValueError('dependency_install_acknowledgment')
+                if child.returncode!=0:raise ValueError('dependency_runner_nonzero_after_installer_zero')
                 stage['result']='outer_zero_only';return None
+            if child.returncode!=0 and not (action=='start' and self.anchor is child and child.returncode is None):raise ValueError('dependency_command_nonzero')
             result=nad1_scm_frame(bytes(stdout),self.op,self.token)
             if action=='stop' and result['registration']=='exact':
                 frames=[line.split() for line in bytes(stdout).decode('ascii').splitlines() if line.startswith('NAD1_RETIRE_V1 ')]
@@ -2654,6 +2700,9 @@ class Nad1Owner:
             installer_atomic(self.directory/f'{self.op}-scm-{index}.private.json',result)
             stage['result']=result['registration'];stage['service_state']=result['state'];stage['service_exit']=result['service_exit'];stage['service_specific_exit']=result['service_specific_exit'];stage['owned_endpoint_mask']=result['owned_endpoint_mask'];return result
         finally:
+            if child is not None:
+                stage['exit']=child.returncode
+                stage['runner_retirement']='observed' if child.returncode is not None else 'not_observed_at_command_return'
             stage['diagnostic_dropped_bytes']=capture.discarded;capture.close()
             for key in list(sel.get_map().values()):key.fileobj.close()
             sel.close()

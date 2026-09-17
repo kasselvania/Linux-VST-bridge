@@ -1,0 +1,99 @@
+{
+  "bundled_daemon_comparison": {
+    "installed_matches_exact_bundle_member": true,
+    "method": "single_inventory_selected_member_streamed_to_hash_no_disk_extraction",
+    "sha256": "e20b3d30b72d6a12e0a37b5fbd1a5c21e0db9e53459b4aab165270f7f739343b",
+    "size": 18259440
+  },
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "installer_exit_meaning": "unestablished",
+  "installer_framework_evidence": {
+    "documentation": "https://www.installaware.com/mhtml5/desktop/setupcommandlineparameters.htm",
+    "embedded_pe_and_7z_container": true,
+    "executed_fixed_argument": "/s",
+    "internal_log_requested": false,
+    "meaning_of_exit_100": "unavailable_no_applicable_contract_found",
+    "utf16_installaware_marker": true
+  },
+  "installer_log_sha256": "d038b87ea193bada3591109dfe4b9dc2c5f91b50d371df68d2fc5fba0ba4c423",
+  "installer_root_exact": true,
+  "installer_windows_exit": 100,
+  "kind": "offline_reinterpretation_not_new_run",
+  "launcher_timeline": [
+    {
+      "exit_observed_ms": 3599,
+      "linux_exit": 0,
+      "phase": "dependency_query",
+      "started_ms": 0
+    },
+    {
+      "exit_observed_ms": 207371,
+      "linux_exit": 100,
+      "phase": "dependency_install",
+      "started_ms": 3684
+    },
+    {
+      "exit_observed_ms": 207233,
+      "linux_exit": 0,
+      "phase": "dependency_stop",
+      "started_ms": 203750
+    },
+    {
+      "exit_observed_ms": 211118,
+      "linux_exit": 0,
+      "phase": "dependency_query",
+      "started_ms": 207293
+    }
+  ],
+  "ledger_first_failure": {
+    "cause": "unestablished",
+    "domain": "linux_wait",
+    "phase": "dependency_install",
+    "status": 100
+  },
+  "ledger_process_drops": 0,
+  "offline_service_key_count_any_control_set": 1,
+  "operation": "6345df5fd7ea38a5f07bfc6a2300e999",
+  "operation_private_sources_unchanged": true,
+  "original_result_error": "dependency_command_timeout",
+  "original_result_sha256": "d124e9714e6dce0986dd406f2e732cfda09bc4801a00fd6c309b421e840b4f82",
+  "prerequisite_log": {
+    "apply_zero": true,
+    "authority": "retained_vendor_log_not_exact_process_attribution",
+    "exit_zero": true,
+    "sha256": "9e151d2f6fc8dbbff8b5d6c6ef9b0cc34601479bbbaed6b377ce0ff735cfe16d"
+  },
+  "production_changes_during_analysis": 0,
+  "readiness_tested": false,
+  "real_launches_during_analysis": 0,
+  "registered_in_retirement_scm": true,
+  "resume_pending": false,
+  "schema": 1,
+  "system": {
+    "ceiling": 6,
+    "cleanup_unconfirmed": false,
+    "dsp": 0,
+    "keepers": 2,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "service": "active",
+    "stale_transports": 0
+  },
+  "vendor_log": {
+    "authority": "shared_vendor_log_not_exact_process_attribution",
+    "categories": {
+      "configuration_parse_warning": 1,
+      "default_location_error": 1,
+      "server_started": 1,
+      "server_stopped": 1,
+      "service_mode": 1,
+      "startup_ended": 1,
+      "stop_requested": 3
+    },
+    "sha256": "334a85a28dcf17a881790a2ecabf231dd06347514797b015b7a31c0dfa4f589d",
+    "size": 5481
+  }
+}
