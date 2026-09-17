@@ -427,3 +427,15 @@ installer or Native Access launch occurred. The service is active with two keepe
 and protected state is preserved. New evidence is retained under
 `evidence/nad1/recovery/child-memory/real-readiness/`. The human application
 confirmation is now ready; historical evidence remains unchanged.
+
+## Real combined application result and next observed gaps
+
+The human application test `efe3c75c228f1247cb669c08c55e67c4` reached rendered
+login content with fresh exact daemon readiness. The browser reported login
+success, but Linux has no `native-access:` handler; app-session completion remains
+unproved. The human closed both windows. Native Access exit zero and exact SCM
+retirement passed. The manager's separate 650-second wait had expired; exact
+`operator finish` restored the bridge after positive retirement. Both gaps are
+retained under `evidence/nad1/recovery/child-memory/real-application/`. Final state
+is idle, two keepers, zero leases and no resume record. Credentials and callback
+material are excluded. No additional vendor launch occurred.
