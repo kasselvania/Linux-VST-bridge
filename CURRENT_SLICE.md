@@ -358,3 +358,12 @@ mode; recovery missing its image or history refuses before any command. New
 negative tests cover disappearance, changed mode, newly appearing unadmitted bytes
 and broken artifact references. The first recovery campaign remains unchanged;
 a new sealed campaign qualifies the final owner generation.
+
+The final mode-bound campaign at `634c17801e3ecb5dd8e4934bca69c2f36de44482`
+passed all three recovery cases; new evidence is retained separately under
+`evidence/nad1/recovery/mode-bound/`. Every case made one stop request, confirmed
+SCM/process retirement and removed its scratch prefix/unit/cgroup without forced
+cleanup. All real state and historical source witnesses reverified unchanged.
+The final amendment contains evidence only; production source is the executed
+sealed generation. Real dependency readiness remains untested; no deployment or
+real application/service transition occurred during this repair.

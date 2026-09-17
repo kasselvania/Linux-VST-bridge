@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "source": "634c17801e3ecb5dd8e4934bca69c2f36de44482",
+  "new_recovery_tests_passed": 18,
+  "runtime": {
+    "discovered": 223,
+    "passed": 184,
+    "platform_skips": 39
+  },
+  "manager_library_passed": 138,
+  "manager_binary_passed": 79,
+  "frontend_passed": 26,
+  "nad1_observer_package_passed": 23,
+  "strict_manager_clippy": "passed",
+  "strict_frontend_clippy": "passed",
+  "python_compilation": "passed",
+  "source_owned_windows_recovery_cases_passed": 3,
+  "hosted_validation": "Exact final-head AP8/AP12/PX2 identities are retained in PR checks; no claim from a different head."
+}
