@@ -1,0 +1,71 @@
+{
+  "development": {
+    "initial_sandboxed_PX2": {
+      "executed": 122,
+      "failures": 7,
+      "reason": "local_loopback_listener_not_available_under_sandbox",
+      "subsequent_identical_test_command_with_permission": "passed"
+    },
+    "logs_sha256": {
+      "nad1-runtime-final-local.log": "972a0977be351a478905f1ddd07deab2f8db695d343f81fc899fb2826ec15dd7",
+      "nad1-runtime-px2-local.log": "bcb40a6ea5df40d78f4effe3b7015abad7a53333d7f665ed2aa6e42972af77cc",
+      "nad1-runtime-px2-loopback.log": "dce351dee95b1cfbaed1f1022578415330e39320d7fc969968f4c727c3c6ffef",
+      "nad1-runtime-px2-rest.log": "7f5e6504ac5da00920abeefaee61a0bead65e044e7eb63ad5c01bcfae73f8228",
+      "nad1-stop-race-tests.log": "370f85c4fa5c0c7e836994d4d5a09dee6b8b6fd38ed819ee2a19620f52e77500",
+      "nad1-tools-final.log": "c8b971e7e9d503a8cdc98fdc5ad490a81711a38d90b4fd6d860ee5e3358fac35"
+    }
+  },
+  "generated": {
+    "child_memory_after": "passed_before_and_after_service_start",
+    "child_memory_before": "access_denied_after_service_start",
+    "integrated_lifecycle_cases": 7,
+    "result": "passed_expected_outcomes"
+  },
+  "hosted": {
+    "AP12": {
+      "conclusion": "success",
+      "run": 35275210155,
+      "tests": {
+        "frontend": 26,
+        "manager_binary": 82,
+        "manager_library": 139,
+        "runtime": 228,
+        "strict_frontend_clippy": "passed",
+        "strict_manager_clippy": "passed"
+      }
+    },
+    "AP8": {
+      "conclusion": "success",
+      "run": 35275212756
+    }
+  },
+  "local": {
+    "PX2": {
+      "codec_ownership_and_cleanup": "passed",
+      "deterministic_tests": 122,
+      "hosted_run": "not_run_PR_creation_approval_pending",
+      "result": "passed_with_local_loopback_permission"
+    },
+    "manager_stop_reconciliation": {
+      "executed": 4,
+      "result": "passed"
+    },
+    "nad1_tools": {
+      "executed": 23,
+      "result": "passed"
+    },
+    "runtime": {
+      "executed": 228,
+      "result": "passed",
+      "skipped": 39
+    }
+  },
+  "production_installation": false,
+  "real_Native_Access_launch": false,
+  "real_dependency_transition": false,
+  "schema": 1,
+  "source": {
+    "head": "8b4cb0435f2608449aaa34cf305acdd4f472320b",
+    "tree": "cae91ba48f1711f9af55869309a876e2a0c6955c"
+  }
+}

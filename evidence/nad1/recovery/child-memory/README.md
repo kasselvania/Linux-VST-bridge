@@ -53,3 +53,24 @@ Their campaign then stopped on a manager race: systemd collected the completed
 unit between query and Stop. Fresh checks proved exact absence and clean results.
 The manager amendment accepts that race only under fresh unit/cgroup absence and
 exclusive writer custody; uncertainty still refuses and the signal is not retried.
+
+## Final application lifecycle
+
+`lifecycle/` retains source `8b4cb0435f2608449aaa34cf305acdd4f472320b`,
+seal `2da8bf97de3b7d0019c9ae2c028449c257d140d7bf67734adba5acc4034fa058`.
+Normal and repeated exits, exact manager Stop, readiness refusal, application
+failure, deliberate SCM-stop refusal and delayed exit all satisfy their declared
+outcomes. The stop-refusal case remains failed with unconfirmed SCM retirement;
+its forced process cleanup is separately confirmed. No false success is inferred.
+The shared normal/repeat prefix is removed after the repeat. All other disposable
+prefixes and all seven units/cgroups are absent at completion.
+
+The bridge remains active with two keepers, zero leases/transactions/stale
+transports, cleanup unblocked and capture off. The real prefix, registered
+application, installed software, products/publications, 307 retained witnesses
+and five projects are unchanged. No real service or Native Access launch was made.
+
+The repair establishes the source-owned process-memory and lifecycle behavior.
+It is not yet installed and has not been confirmed against the real application.
+No GPU, sandbox, RAM, licensing, networking or general Native Access usability
+claim follows from these generated results.

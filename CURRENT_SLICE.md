@@ -399,3 +399,14 @@ Qualify the repair with the same generated child-memory test and existing
 application lifecycle cases. No additional real application or daemon launch is
 part of this source repair. Existing installation and historical evidence stay
 unchanged.
+
+The shared-runtime repair is implemented. The source-owned child-memory
+comparison now passes before and after service startup; the previous split-runtime
+failure remains separately retained. Source `8b4cb0435f2608449aaa34cf305acdd4f472320b`
+then qualified normal/repeated application exit, exact manager Stop, readiness
+refusal, stop refusal with forced cleanup, application failure, and delayed exit.
+The collected-unit Stop race is repaired with fresh absence and exclusive writer
+custody, without retrying a signal. All seven generated cases retired their exact
+cohorts and removed their disposable prefixes; real state remained unchanged.
+This repair is pushed but uninstalled. No additional real Native Access or daemon
+operation occurred. A real application confirmation remains outstanding.
