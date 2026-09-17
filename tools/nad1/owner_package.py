@@ -2,7 +2,7 @@
 import hashlib,json,os,pathlib,shutil,stat,subprocess,tempfile
 SOURCES={n:'tools/nad1/'+n for n in ('owner_package.py','owner_campaign.py','owner_supervise.py','service_fixture.cpp')}
 SOURCES.update({n:'bridge-manager/runtime/'+n for n in ('session.py','ownership.py')})
-SOURCES.update({'launch.cpp':'tools/is2/launch.cpp','nad1_service.h':'tools/is2/nad1_service.h','readback.py':'tools/naui2/readback.py','binding.rs':'bridge-manager/examples/nad1_binding.rs','dependency.rs':'bridge-manager/src/native_access_dependency.rs','lifecycle.rs':'bridge-manager/src/dependency_session.rs','operator_cli.rs':'bridge-manager/src/operator_cli.rs','linker.py':'tools/is4/linker.py'})
+SOURCES.update({'launch.cpp':'tools/is2/launch.cpp','nad1_service.h':'tools/is2/nad1_service.h','readback.py':'tools/naui2/readback.py','binding.rs':'bridge-manager/examples/nad1_binding.rs','dependency.rs':'bridge-manager/src/native_access_dependency.rs','lifecycle.rs':'bridge-manager/src/dependency_session.rs','operator_cli.rs':'bridge-manager/src/operator_cli.rs','linker.py':'tools/is4/linker.py','Cargo.toml':'bridge-manager/Cargo.toml','Cargo.lock':'bridge-manager/Cargo.lock'})
 REQUIRED=set(SOURCES)|{'Setup.exe','adapter.exe','binding-owner'}
 def digest(p):
  with open(p,'rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
@@ -12,6 +12,8 @@ def publish(p,v):
 def read(p):return json.loads(pathlib.Path(p).read_bytes())
 def verify(p,seal):
  p=pathlib.Path(p)
+ s=(p/'seal.json').lstat()
+ if not stat.S_ISREG(s.st_mode) or s.st_nlink!=1 or s.st_uid!=os.getuid() or s.st_mode&0o222 or s.st_size>65536:raise ValueError('seal_file')
  if digest(p/'seal.json')!=seal:raise ValueError('seal_identity')
  m=read(p/'seal.json')
  if set(m)!={'schema','source','files'} or m['schema']!=1 or set(m['files'])!=REQUIRED or {f.name for f in p.iterdir()}!=REQUIRED|{'seal.json'} or (p/'seal.json').read_bytes()!=canonical(m):raise ValueError('seal_shape')
@@ -22,7 +24,7 @@ def verify(p,seal):
 def build(repo,out):
  repo=pathlib.Path(repo).resolve();out=pathlib.Path(out);out.mkdir(mode=0o700)
  def git(*a):return subprocess.check_output(['git','-C',str(repo),*a])
- if git('status','--porcelain','--untracked-files=no'):raise ValueError('source_uncommitted')
+ if git('status','--porcelain','--untracked-files=normal'):raise ValueError('source_uncommitted')
  source={'head':git('rev-parse','HEAD').decode().strip(),'tree':git('rev-parse','HEAD^{tree}').decode().strip()}
  for n,p in SOURCES.items():(out/n).write_bytes(git('show',source['head']+':'+p))
  with tempfile.TemporaryDirectory() as d:

@@ -73,7 +73,7 @@ pub(super) fn project(
         action,
         disabled_reason: why.map(Into::into),
     };
-    card.actions.push(make(
+    if renderer_cli::directory(m).join("application.json").is_file() {card.actions.push(make(
         "Prepare Native Access dependency",
         ui::Action::DependencyPrepare {},
         if !retired {
@@ -81,9 +81,10 @@ pub(super) fn project(
         } else {
             busy
         },
-    ));
+    ));}
     if let Some(op) = c["operation"].as_str() {
         card.details["dependency_operation"] = life::result(m, op)?;
+        card.details["dependency_manager_operation"]=json!({"operation":op,"state":if retired {"completed"} else if card.details["dependency_operation"].is_null(){"submission_uncertain"}else{"vendor_running"}});
         card.actions.push(make(
             "Stop / reconcile Native Access dependency",
             ui::Action::DependencyStop {

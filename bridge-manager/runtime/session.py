@@ -2563,40 +2563,10 @@ def nad1_generation_owned(candidate,scope):
     actual,_=ownership.generation(ownership.bounded(pathlib.Path('/proc')/str(pid)/'stat','stat'),pid)
     return actual==start and any(x['pid']==pid and x['start_ticks']==start for x in scope.members())
 
-def nad1_listener_witness(candidate,scope,proc=pathlib.Path('/proc')):
-    # Linux generation/cgroup/descriptor custody only. SCM Windows IDs never enter
-    # this function and can never become Linux signal authority.
-    import ownership
-    pid=candidate['linux_pid'];start=candidate['start_ticks']
-    if not any(x['pid']==pid and x['start_ticks']==start for x in scope.members()):raise ValueError('dependency_process_not_owned')
-    p=proc/str(pid);before,_=ownership.generation(ownership.bounded(p/'stat','stat'),pid)
-    if before!=start:raise ValueError('dependency_process_reused')
-    inodes=set();count=0
-    with os.scandir(p/'fd') as entries:
-        for e in entries:
-            count+=1
-            if count>8192:raise ValueError('dependency_descriptor_extent')
-            try:target=os.readlink(e.path)
-            except FileNotFoundError:continue
-            m=re.fullmatch(r'socket:\[([0-9]+)\]',target)
-            if m:inodes.add(m[1])
-    ports=set()
-    for name in ('tcp','tcp6'):
-        with (p/'net'/name).open('rb') as stream:raw=stream.read(2*1024*1024+1)
-        if len(raw)>2*1024*1024 or raw.count(b'\n')>32768:raise ValueError('dependency_listener_extent')
-        for line in raw.decode().splitlines()[1:]:
-            fields=line.split()
-            if len(fields)<10:raise ValueError('dependency_listener_record')
-            address,port=fields[1].split(':')
-            if fields[3]=='0A' and fields[9] in inodes and address in ('0100007F','00000000000000000000000001000000'):
-                ports.add(int(port,16))
-    after,_=ownership.generation(ownership.bounded(p/'stat','stat'),pid)
-    if after!=start or not any(x['pid']==pid and x['start_ticks']==start for x in scope.members()):raise ValueError('dependency_process_reused')
-    return ports.issuperset({5146,5563})
 
 class Nad1Owner:
     def __init__(self,spec,ledger,scope,cancelled,*,fixture=None):
-        self.spec=spec;self.ledger=ledger;self.scope=scope;self.cancelled=cancelled
+        self.spec=spec;self.ledger=ledger;self.scope=scope;self.cancelled=cancelled;self.production=fixture is None
         self.root=pathlib.Path(spec['application']['environment']['root']);self.drive=self.root/'compatdata/pfx/drive_c'
         self.directory=pathlib.Path(spec['report']).parent;self.op=spec['operation'];self.stages=[];self.daemon=None;self.ready=False
         # Only a separately sealed source-owned entry may supply fixture constants.
@@ -2684,6 +2654,8 @@ class Nad1Owner:
             if not allow_install:raise ValueError('dependency_prepare_required')
             self.command('install')
             actual=ownership.image_identity(path)
+            self.daemon=actual
+            if self.production:nad1_retain_artifact(self.spec,actual)
             service=self.command('query')
             if service['registration']!='exact':raise ValueError('dependency_install_registration_missing')
         self.daemon=actual
@@ -2704,6 +2676,32 @@ class Nad1Owner:
                 self.ready=True;return self.value()
             time.sleep(.1)
         raise ValueError('dependency_running_not_ready')
+
+def nad1_retain_artifact(spec,daemon):
+    # Installation identity survives a later registration/readiness failure. It
+    # grants no readiness and cannot authorize changed or foreign daemon bytes.
+    d=pathlib.Path(spec['report']).parent;op=spec['operation']
+    root=d/(op+'-installer-root.private.json')
+    record={'schema':1,'operation':op,'application':spec['application_identity'],
+        'software_sha256':spec['software_sha256'],'installer_sha256':NAD1_INSTALLER_SHA,
+        'daemon':daemon,'root_sha256':hashlib.sha256(root.read_bytes()).hexdigest(),
+        'spec_sha256':hashlib.sha256((d/'spec.json').read_bytes()).hexdigest()}
+    nad1_publish(d/'artifact.json',record)
+    installer_atomic(d.parents[1]/'artifact.json',record)
+
+def nad1_admitted(spec):
+    directory=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed/vendor-applications/native-access-dependency'
+    r=renderer_read(directory/'artifact.json')
+    if set(r)!={'schema','operation','application','software_sha256','installer_sha256','daemon','root_sha256','spec_sha256'} or r['schema']!=1 or r['application']!=spec['application_identity'] or r['software_sha256']!=spec['software_sha256'] or r['installer_sha256']!=NAD1_INSTALLER_SHA or not re.fullmatch('[0-9a-f]{32}',r['operation']):raise ValueError('dependency_artifact_admission')
+    d=directory/'operations'/r['operation']
+    if renderer_read(d/'artifact.json')!=r:raise ValueError('dependency_artifact_pointer')
+    verify({'path':str(d/'spec.json'),'sha256':r['spec_sha256']})
+    prior=renderer_read(d/'spec.json')
+    if prior['operation']!=r['operation'] or prior['kind']!='native_access_dependency' or prior['application']!=spec['application'] or prior['software']!=spec['software']:raise ValueError('dependency_artifact_origin')
+    root=d/(r['operation']+'-installer-root.private.json');verify({'path':str(root),'sha256':r['root_sha256']})
+    frame=renderer_read(root)['frame']
+    if len(frame)!=7 or frame[0]!='NAD1_INSTALL_ROOT_V1' or frame[1]!=r['operation'] or frame[3:5]!=[NAD1_INSTALLER_SHA,'35769456']:raise ValueError('dependency_artifact_root')
+    return r['daemon']
 
 def nad1_prepared(spec):
     managed=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed';directory=managed/'vendor-applications/native-access-dependency'
@@ -2732,8 +2730,9 @@ def nad1_owned(spec,*,fixture=None):
         try:
             admitted=fixture.get('admitted') if fixture else None
             if fixture is None:
-                try:admitted=nad1_prepared(spec)['daemon']
+                try:admitted=nad1_admitted(spec)
                 except FileNotFoundError:pass
+            if fixture and fixture.get('prestart'):owner.command('start')
             owner.ensure(True,admitted)
             owner.command('stop')
         except Exception as exc:error=str(exc) if isinstance(exc,ValueError) else 'dependency_owner_'+type(exc).__name__

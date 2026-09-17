@@ -459,8 +459,7 @@ alone is insufficient. The fixed Windows adapter queries or starts only
 
 Readiness requires all of: SCM running with exact service image and Windows creation
 identity; one exact admitted image mapped by a stable Linux PID/start generation in
-the same prefix and owned cgroup; both loopback listeners 5146/5563 owned by that
-Linux generation; no ambiguous or foreign/deleted candidate. Windows and Linux PID
+the same prefix and owned cgroup; both loopback listeners 5146/5563 owned by the exact SCM Windows generation; no ambiguous or foreign/deleted candidate. Windows and Linux PID
 numbers are not joined. This is a local dependency readiness contract, not a claim
 about vendor authorization, HTTP behavior or successful Native Access use.
 
@@ -481,3 +480,22 @@ custody. Only confirmed empty retirement restores the bridge service.
 The generated service uses a separately sealed internal entry and compile-time fixed
 fixture service/path constants. The installed persisted-spec entry has no fixture or
 test-mode switch. The fixture is source-owned and does not establish vendor behavior.
+
+The SCM start adapter remains alive while that exact service is active, bounded to
+600 seconds. The renderer owner refuses and retires its cohort if this anchor ends
+while Native Access remains alive. This bounded session lifetime is explicit; it is
+not a permanent daemon keepalive. The generated pinned-runner experiment showed
+that letting the short start helper exit discarded the service lifetime.
+
+Endpoint ownership uses Windows GetExtendedTcpTable (owner-PID listeners), bounded
+to 2 MiB / 32,768 rows, plus a stable SCM PID, open process creation identity and
+active status recheck. Linux FD association did not establish Wine socket ownership
+and is not used as fallback authority. The two PID domains are never joined.
+See https://learn.microsoft.com/en-us/windows/win32/api/tcpmib/ns-tcpmib-mib_tcprow_owner_pid.
+
+An immutable installed-artifact receipt is retained immediately after exact bundled
+installer execution and stable output hashing. Its operation/spec/root hashes allow
+recovery after a later registration/readiness failure without treating filename as
+identity or blindly reinstalling changed bytes. It grants no readiness. All runtime
+application admission still requires the completed preparation receipt and fresh
+owned readiness check.

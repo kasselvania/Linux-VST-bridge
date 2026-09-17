@@ -1,15 +1,31 @@
 """Generated installation/SCM lifecycle; no Native Access or real daemon input."""
-import hashlib,json,os,pathlib,shutil,subprocess,time
+import hashlib,json,os,pathlib,shutil,subprocess,time,stat
 from owner_package import verify,digest,read,publish,canonical
 from readback import readback
 
+def preservation():
+ value=readback();root=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed/environments/627d2cba97edbecf113c22504eb4c81b'
+ pending=[root];rows={};deadline=time.monotonic()+60
+ while pending:
+  directory=pending.pop()
+  with os.scandir(directory) as entries:
+   for entry in entries:
+    if len(rows)>=100000 or time.monotonic()>deadline:raise ValueError('preservation_extent')
+    s=entry.stat(follow_symlinks=False);path=directory/entry.name
+    rows[str(path.relative_to(root))]=[s.st_mode,s.st_size,s.st_mtime_ns,s.st_ctime_ns,s.st_dev,s.st_ino]
+    if stat.S_ISDIR(s.st_mode):pending.append(path)
+ value['real_prefix_metadata_sha256']=hashlib.sha256(canonical(rows)).hexdigest();value['real_prefix_entries']=len(rows)
+ managed=root.parents[1]
+ value['renderer_records']={str(f.relative_to(managed)):digest(f) for f in (managed/'vendor-applications/native-access').rglob('*.json') if f.is_file()}
+ return value
+
 def run(package,seal,out):
  p=pathlib.Path(package).resolve();manifest=verify(p,seal);d=pathlib.Path(out).resolve();os.umask(0o077);d.mkdir(mode=0o700)
- before=readback();publish(d/'before.private.json',before)
+ before=preservation();publish(d/'before.private.json',before)
  runners={canonical(v['registration']['environment']['runner']):v['registration']['environment'] for v in before['registry']['classes'].values() if v['registration']['environment']['runner']['id']=='proton-11.0-2c-25118279-slr4-4.0.20260805.254769'}
  if len(runners)!=1:raise ValueError('runner_ambiguous')
  template=next(iter(runners.values()));rows=[]
- for scenario in ('absent','unregistered','stopped','not_ready','cancel'):
+ for scenario in ('absent','unregistered','stopped','ready','not_ready','cancel'):
   verify(p,seal);case=d/scenario;case.mkdir(mode=0o700);root=case/'environment';root.mkdir(mode=0o700)
   for name in ('home','compatdata','runtime-var','host-cache','host-config','host-data','host-tmp','client'):(root/name).mkdir(mode=0o700)
   (root/'operation.lock').touch(mode=0o600);op=os.urandom(16).hex();env=dict(template,id=op,root=str(root),revision=1);publish(root/'environment.json',env)
@@ -39,11 +55,11 @@ def run(package,seal,out):
   events=root/'compatdata/pfx/drive_c/NAD1Fixture/events.private'
   if events.exists():shutil.copyfile(events,case/'events.private')
   shutil.rmtree(root);row={'case':scenario,'operation':op,'result':r,'result_sha256':digest(report if report.exists() else report.parent/'recovery-result.json'),'prefix_removed':True,'unit_absent':True,'manager_stop':stopped};publish(case/'proof.json',row);rows.append(row)
-  expected='completed' if scenario in ('absent','unregistered','stopped') else 'cancelled' if scenario=='cancel' else 'failed'
+  expected='completed' if scenario in ('absent','unregistered','stopped','ready') else 'cancelled' if scenario=='cancel' else 'failed'
   if r['state']!=expected:raise ValueError('fixture_case_result_'+scenario)
- after=readback();publish(d/'after.private.json',after)
+ after=preservation();publish(d/'after.private.json',after)
  if canonical(before)!=canonical(after):raise ValueError('preservation_changed')
- result={'schema':1,'source':manifest['source'],'seal':seal,'sessions':rows,'preservation':{'unchanged':True,'system':after['system'],'capture':after['capture'],'retained':len(after['retained']),'projects':len(after['projects'])},'real_dependency_mutations':0,'commercial_launch':False}
+ result={'schema':1,'source':manifest['source'],'seal':seal,'runner_sha256':hashlib.sha256(canonical(template['runner'])).hexdigest(),'installed_software_sha256':hashlib.sha256(canonical(before['software'])).hexdigest(),'sessions':rows,'preservation':{'unchanged':True,'system':after['system'],'capture':after['capture'],'retained':len(after['retained']),'projects':len(after['projects']),'real_prefix_entries':after['real_prefix_entries'],'real_prefix_metadata_sha256':after['real_prefix_metadata_sha256'],'renderer_records_sha256':hashlib.sha256(canonical(after['renderer_records'])).hexdigest()},'real_dependency_mutations':0,'commercial_launch':False}
  publish(d/'proof.json',result)
 if __name__=='__main__':
  import sys

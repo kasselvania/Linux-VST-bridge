@@ -177,3 +177,17 @@ mod tests {
         assert_eq!(v["bundle"][0]["sha256"], INSTALLER_SHA);
     }
 }
+
+#[cfg(test)]
+mod operator_boundary_tests {
+    use crate::operator_model::Action;
+    use serde_json::json;
+    #[test]
+    fn closed_prepare_never_admits_operator_parameters() {
+        assert!(serde_json::from_value::<Action>(json!({"kind":"dependency_prepare"})).is_ok());
+        for field in ["path","service","port","pid","prefix","command","args","environment","test_mode"] {
+            let mut v=json!({"kind":"dependency_prepare"});v[field]=json!("arbitrary");
+            assert!(serde_json::from_value::<Action>(v).is_err());
+        }
+    }
+}

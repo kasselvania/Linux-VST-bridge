@@ -16,7 +16,7 @@ def run(package,seal,spec_path):
  for path in [d,root,file,installation,pathlib.Path(spec_path)]:
   if path.resolve()!=path:raise ValueError('fixture_alias')
  scenario=read(d/'case.json')['case']
- if scenario not in ('absent','unregistered','stopped','not_ready','cancel'):raise ValueError('fixture_case')
+ if scenario not in ('absent','unregistered','stopped','ready','not_ready','cancel'):raise ValueError('fixture_case')
  for field,name in [('manager','binding-owner'),('supervisor','session.py'),('ownership','ownership.py'),('installer_launch','adapter.exe')]:
   if spec['software'][field]!={'path':str(p/name),'sha256':manifest['files'][name]}:raise ValueError('fixture_owner')
  import session as s,ownership
@@ -31,13 +31,14 @@ def run(package,seal,spec_path):
  directory=root/'compatdata/pfx/drive_c/NAD1Fixture';directory.mkdir();shutil.copyfile(p/'Setup.exe',directory/'Setup.exe')
  fixture={'installer':'NAD1Fixture/Setup.exe','daemon':'NAD1Fixture/NTKDaemon.exe','installer_sha256':manifest['files']['Setup.exe'],'installer_size':(p/'Setup.exe').stat().st_size}
  if scenario=='unregistered':shutil.copyfile(p/'Setup.exe',directory/'NTKDaemon.exe');fixture['admitted']=ownership.image_identity(directory/'NTKDaemon.exe')
- if scenario in ('stopped','not_ready','cancel'):
+ if scenario in ('stopped','ready','not_ready','cancel'):
   seed=d/'seed';seed.mkdir(mode=0o700);seed_spec=dict(spec,report=str(seed/'result.json'))
   seeder=s.Nad1Owner(seed_spec,ledger,scope,lambda:False,fixture=fixture)
   try:seeder.command('install')
   finally:
    if not ledger.cleanup():raise ValueError('fixture_seed_cleanup')
   fixture['admitted']=ownership.image_identity(directory/'NTKDaemon.exe')
+ if scenario=='ready':fixture['prestart']=True
  if scenario in ('not_ready','cancel'):(directory/'not-ready').touch()
  verify(p,seal)
  return s.nad1_owned(spec,fixture=fixture)

@@ -154,6 +154,17 @@ impl RequestFeedback {
                 }
             }
         }
+        if matches!(self.action,Action::DependencyPrepare{}) {
+            for app in &s.vendor_applications {
+                if app.id!="native-access" {continue;}
+                let record=&app.details["dependency_manager_operation"];
+                if let Some(op)=record["operation"].as_str() {
+                    let exact=app.actions.iter().any(|a|matches!(&a.action,Action::DependencyStop{operation} if operation==op));
+                    if exact && self.acknowledgment_uncertain && self.operation.is_none() && matches!(record["state"].as_str(),Some("submission_uncertain"|"vendor_running")) {self.operation=Some(op.into());self.release_after_snapshot=true;}
+                    if exact && self.operation.as_deref()==Some(op) {renderer_recovery=true;self.observe(record);}
+                }
+            }
+        }
         let matching_operation = self.operation.is_some()
             && s.operation
                 .as_ref()
@@ -1250,6 +1261,17 @@ mod tests {
             {"id":"bc".repeat(32),"operation":{"operation":"33".repeat(16),"state":"refused"}}
         ]);
         other.reconcile_snapshot(&s);assert!(other.terminal);assert!(!other.blocking);assert_eq!(other.transitions.last().map(String::as_str),Some("refused"));
+    }
+
+    #[test]
+    fn dependency_uncertain_ack_recovers_only_exact_stop_and_terminal() {
+        let op="cd".repeat(16);let mut s=running_snapshot(&"ef".repeat(16));
+        s.vendor_applications.push(VendorApplication{id:"native-access".into(),name:"Native Access".into(),version:"3.26.0".into(),state:"dependency".into(),actions:vec![AvailableAction{label:"Stop".into(),action:Action::DependencyStop{operation:op.clone()},disabled_reason:None}],details:serde_json::json!({"dependency_manager_operation":{"operation":op,"state":"submission_uncertain"}})});
+        let mut f=RequestFeedback::captured(Action::DependencyPrepare{});
+        f.receipt(&Receipt{schema:7,accepted:true,operation:None,refusal:None});f.reconcile_snapshot(&s);
+        assert_eq!(f.operation,Some(op.clone()));assert!(!f.blocking);assert!(!f.terminal);
+        s.vendor_applications[0].details["dependency_manager_operation"]["state"]=serde_json::json!("completed");f.reconcile_snapshot(&s);assert!(f.terminal);
+        s.vendor_applications[0].actions.clear();let mut other=RequestFeedback::captured(Action::DependencyPrepare{});other.receipt(&Receipt{schema:7,accepted:true,operation:None,refusal:None});other.reconcile_snapshot(&s);assert!(other.operation.is_none());
     }
 
     #[test]

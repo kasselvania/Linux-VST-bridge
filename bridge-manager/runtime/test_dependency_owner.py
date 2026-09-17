@@ -42,6 +42,12 @@ class OwnerTests(unittest.TestCase):
   admitted=self.existing(state=4);self.listener.return_value=False
   with patch.object(s.time,'monotonic',side_effect=[0,1,30]),patch.object(s.time,'sleep'),self.assertRaisesRegex(ValueError,'running_not_ready'):self.owner.ensure(True,admitted)
   self.assertNotIn('install',self.commands);self.assertNotIn('start',self.commands)
+ def test_unowned_or_unavailable_windows_endpoints_cannot_be_ready(self):
+  admitted=self.existing(state=4);command=self.owner.command
+  for mask in [0,1,2,4]:
+   self.owner.command=lambda action:dict(command(action),owned_endpoint_mask=mask)
+   with patch.object(s.time,'monotonic',side_effect=[0,1,30]),patch.object(s.time,'sleep'),self.assertRaisesRegex(ValueError,'running_not_ready'):self.owner.ensure(True,admitted)
+  self.assertNotIn('install',self.commands)
  def test_foreign_deleted_refuse_before_scm(self):
   admitted=self.existing()
   for relation in ['foreign','deleted']:
@@ -96,27 +102,40 @@ class OwnerTests(unittest.TestCase):
    run.assert_not_called()
 
 class ListenerCustodyTests(unittest.TestCase):
- def test_owned_socket_pair_requires_exact_generation_and_cgroup(self):
-  with tempfile.TemporaryDirectory() as tmp:
-   proc=pathlib.Path(tmp);p=proc/'123';p.mkdir();(p/'fd').mkdir();(p/'net').mkdir()
-   def stat(ticks): (p/'stat').write_text('123 (NTKDaemon.exe) S '+'0 '*18+str(ticks)+'\n')
-   stat(10)
-   (p/'fd/4').symlink_to('socket:[20]');(p/'fd/5').symlink_to('socket:[21]')
-   def sockets(owned=True):
-    (p/'net/tcp').write_text('header\n'+''.join(f'0: 0100007F:{port:04X} 00000000:0000 0A 0 0 0 0 0 {inode if owned else 99}\n' for port,inode in [(5146,20),(5563,21)]));(p/'net/tcp6').write_text('header\n')
-   sockets();scope=type('Scope',(),{'members':lambda _: [{'pid':123,'start_ticks':10}]})()
-   candidate={'linux_pid':123,'start_ticks':10}
-   self.assertTrue(s.nad1_listener_witness(candidate,scope,proc))
-   sockets(False);self.assertFalse(s.nad1_listener_witness(candidate,scope,proc))
-   sockets();stat(11)
-   with self.assertRaisesRegex(ValueError,'reused'):s.nad1_listener_witness(candidate,scope,proc)
-   stat(10);scope.members=lambda:[]
-   with self.assertRaisesRegex(ValueError,'not_owned'):s.nad1_listener_witness(candidate,scope,proc)
+ def test_exact_linux_generation_and_cgroup_are_independent_of_windows_pid(self):
+  candidate={'linux_pid':123,'start_ticks':10};scope=type('Scope',(),{'members':lambda _: [{'pid':123,'start_ticks':10}]})()
+  with patch.object(ownership,'bounded',return_value=b'123 (NTKDaemon.exe) S '+b'0 '*18+b'10\n'):
+   self.assertTrue(s.nad1_generation_owned(candidate,scope))
+   self.assertFalse(s.nad1_generation_owned(dict(candidate,start_ticks=11),scope))
+   scope.members=lambda:[];self.assertFalse(s.nad1_generation_owned(candidate,scope))
+ def test_windows_endpoint_masks_are_not_helper_success(self):
+  op='a'*32;token='b'*64
+  for mask in range(5):
+   frame=f'NAD1_SCM_V1 {op} {token} exact 0 4 123 1000 '+('c'*64)+f' 0 0 {mask}\n'
+   self.assertEqual(s.nad1_scm_frame(frame.encode(),op,token)['owned_endpoint_mask'],mask)
+  with self.assertRaises(ValueError):s.nad1_scm_frame(frame.replace(' 4\n',' 5\n').encode(),op,token)
  def test_fixed_service_request_rejects_injection_before_process_creation(self):
   owner=s.Nad1Owner({'operation':'a'*32,'report':'/unused/result.json','application':{'environment':{'root':'/unused'}}},None,None,lambda:False)
   with patch.object(s.subprocess,'Popen') as launch:
    for action in ['start NTKDaemon','direct','install /other','service=other']:
     with self.assertRaisesRegex(ValueError,'dependency_action'):owner.command(action)
    launch.assert_not_called()
+
+
+class ArtifactRecovery(unittest.TestCase):
+ def test_install_identity_survives_readiness_failure_without_granting_readiness(self):
+  with tempfile.TemporaryDirectory() as tmp,patch.object(pathlib.Path,'home',return_value=pathlib.Path(tmp)):
+   op='a'*32;d=pathlib.Path(tmp)/'.local/share/linux-vst-bridge/managed/vendor-applications/native-access-dependency/operations'/op;d.mkdir(parents=True)
+   spec={'operation':op,'report':str(d/'result.json'),'application_identity':'b'*64,'software_sha256':'c'*64,'application':{'exact':True},'software':{'exact':True},'kind':'native_access_dependency'}
+   s.installer_atomic(d/'spec.json',spec)
+   s.nad1_publish(d/(op+'-installer-root.private.json'),{'frame':['NAD1_INSTALL_ROOT_V1',op,'d'*64,s.NAD1_INSTALLER_SHA,'35769456','10','20']})
+   daemon={'sha256':'e'*64,'size':256,'architecture':'x64'}
+   s.nad1_retain_artifact(spec,daemon)
+   self.assertEqual(s.nad1_admitted(spec),daemon)
+   with self.assertRaises(FileNotFoundError):s.nad1_prepared(spec)
+   for key in ['software_sha256','application_identity']:
+    with self.assertRaises(ValueError):s.nad1_admitted(dict(spec,**{key:'f'*64}))
+   (d/(op+'-installer-root.private.json')).write_bytes(b'changed')
+   with self.assertRaises(RuntimeError):s.nad1_admitted(spec)
 
 if __name__=='__main__':unittest.main()
