@@ -1,0 +1,16 @@
+{
+  "merge_commit": "8fb2f20c822320340e44f9cbae399633dd6e8a53",
+  "tree": "947461f96dc2648b13c9b450c761beae97880571",
+  "approved_head": "32a9e290726235c8c0a2e9996f3e9c11ca3edb08",
+  "merged_tree_equals_reviewed_tree": true,
+  "log_sha256": {
+    "manager-build.log": "923888e3af4d7e98231854c17dc855c16cc32f93b9b4e691b17899432ecb4026",
+    "frontend-build.log": "46ccd2bc820efdd74cf84fb10b7fbcd82f748ec98b0fce585f8287bb3f10778f",
+    "readback-client-build.log": "8f52d6cf336040bf47c01a83e888ec5594a5579409d98da1974786b177853d8e"
+  },
+  "package_sha256": "6bc825e8c63f28d6123b5b2aa7687dbb91db036c889dd00b05018b04fef20248",
+  "source_changes": false,
+  "readback_only_client": true,
+  "gui_launched": false,
+  "commercial_run": false
+}

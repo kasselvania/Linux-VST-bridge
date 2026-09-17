@@ -5,6 +5,8 @@ on:
     paths:
       - 'tools/is3/**'
       - 'tools/is4/**'
+      - 'tools/naui1/**'
+      - 'evidence/naui1/**'
       - 'tools/mf2/**'
       - 'tools/mf3/**'
       - 'tools/lc2/**'
@@ -49,6 +51,7 @@ jobs:
       - run: python3 -m unittest discover -s tools/lc2 -v
       - run: python3 -m unittest discover -s tools/is3 -v
       - run: python3 -m unittest discover -s tools/is4 -v
+      - run: python3 -m unittest discover -s tools/naui1 -v
       - run: python3 -m unittest discover -s tools/uio1 -v
       - run: python3 -m unittest discover -s tools/uir1 -v
       - run: python3 -m unittest discover -s tools/uio2 -v

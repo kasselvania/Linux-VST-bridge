@@ -1,42 +1,87 @@
-# IS4 — Manager-owned installer capability policy
+# NAUI1 — Native Access renderer identity and blank-window attribution
 
-Base: merged main `60eb1736e52b4894ecabd499489471aab8685a79`, tree
-`9bb4d62f2d16dc1e0fcb1a177d655e6a0f8c28bf`. IS3 is accepted and merged.
+Basis: retained Native Access continuation `2a4846958ad176785b7bece9a5e99d263b4d9e5a`,
+tree `c43c0ea0521e562585c04ed5228a93c722b131f9`, on top of the accepted IS4
+installation receipt `175330055156c828ad8015301544ca8a03afb68b`.
+Installed executable source remains merged main
+`8fb2f20c822320340e44f9cbae399633dd6e8a53`, tree
+`947461f96dc2648b13c9b450c761beae97880571`.
 
-Primary claim: a closed, versioned manager-selected installer policy can make
-PowerShell intentionally unavailable for one exact operation after prefix
-initialization, preserving unrelated overrides and normal inherited behavior.
+The one authorized linked Native Access operation
+`e4143128adc87de3fdbbdfb44f186ee5` in environment
+`627d2cba97edbecf113c22504eb4c81b` reached a window titled `Native Access`
+with a blank white client area. The operator closed it normally. The operation
+exited 0 with positive cleanup and zero survivors. Durable installation witnesses
+remain `partial_installation`; application completeness, dependency health and
+usability remain unproved. No attributed failure or renderer cause was retained.
 
-Scope: manager/operator installer ownership, frontend closed action presentation,
-Python installer supervisor, source-owned IS4 proof and affected CI. Reuse IS1
-ledger, IS2 adapter and IS3 sealed source-owned capability consumer. Rust owns
-selection and binding; Python applies the fixed target-launch policy. No arbitrary
-environment key/value crosses the operator boundary. Required interpreter is
-unsupported. No native/audio behavior changes.
+Primary claim: a blank window is an observation, not a graphics diagnosis. Before
+changing launch arguments, Wine policy or vendor files, source-owned read-only
+inspection must bind the exact installed application and classify the retained
+process/log evidence into one closed renderer disposition.
 
-Acceptance: inherited / intentionally unavailable / restored inherited through
-production policy; exact refusal 126 and source-owned fallback 43; preserve all
-unrelated overrides; duplicate/conflicting rules follow a documented closed law;
-exact operation/environment/software binding; legacy software rollback stays
-readable and cannot inherit a selected policy. Retain requested versus effective
-policy and positive cleanup. Focused manager/frontend/runtime tests, strict Clippy,
-AP8 where source-owned fixture inputs change, AP12 and PX2.
+Selected cut: **offline attribution only**.
 
-No Native Access or other commercial session, installation of replacement software
-or scripting runtime, registry mutation, runner change, publication, product or
-project change. Generated runs use fresh owned disposable prefixes only. Preserve
-all IS1–IS3 evidence. Return one draft implementation PR for independent review;
-do not merge/install or bundle a vendor continuation. Only subsequent acceptance,
-merge, deliberate installation and separate human authorization permit that run.
+- Inspect only the exact retained environment and operation-owned private evidence.
+- Establish or refuse exact application identity, packaging/runtime identity and
+  relevant executable/resource hashes.
+- Recognize Electron/Chromium only from exact local artifacts or process-role
+  evidence; community reports are comparative leads, not authority.
+- Classify bounded GPU-process, sandbox/child-process, renderer, font/GDI or
+  unresolved evidence without inferring from the screenshot alone.
+- Preserve raw logs, command lines, paths and account material privately; publish
+  only bounded allowlisted facts, counts and hashes.
+- Add generated positive/negative fixtures and fail closed on truncation,
+  ambiguity, identity drift or missing evidence.
 
-## Focused rereview repair
+Scope: `tools/naui1/**`, `docs/NAUI1.md`, focused workflow coverage and sanitized
+`evidence/naui1/**`. Do not change manager/operator/runtime production behavior in
+this cut. No launch policy, arbitrary command-line seam or vendor-specific product
+behavior is authorized.
 
-Preserve the accepted campaign at `c0e4edb427f39382362978910b2603ceab9f63b9`.
-Schema-3 policy now requires the qualified PE route and exact verified IS2
-adapter, explicitly bound alongside format. Schema-2 direct launch stays unchanged.
-Environment preparation is not application authority: effective policy is committed
-only after the target runner is created and registered with the existing ledger.
-Prove failed target creation after successful prefix initialization retains requested
-but no effective policy. Repeat only the three sealed source-owned sessions after
-these owners are committed; retain their new evidence separately. No installation
-or commercial retry is authorized.
+Acceptance:
+
+1. Exact input manifest binds merged source/tree, environment, operation, imported
+   installer identity and retained private result/transaction hashes.
+2. A bounded no-symlink census identifies one exact Native Access application root
+   or returns an explicit unresolved result.
+3. Electron/Chromium identity requires exact local evidence. Presence alone never
+   selects a failure cause.
+4. The classifier distinguishes GPU crash-loop, sandbox child failure, font/GDI
+   exhaustion, renderer failure, identity-only and unresolved outcomes.
+5. Every decisive field has a mutation/absence/ambiguity regression. Dropped or
+   unavailable records cannot be treated as negative evidence.
+6. One read-only Deck observation runs with no Native Access, Wine target, installer,
+   DAW or vendor process launched; final preservation readback remains positive.
+7. Focused tests, strict checks, AP12 and PX2 pass. AP8 is required only if a Windows
+   executable/helper input is introduced; AP10 remains out of scope.
+
+Return one draft PR for independent review. Do not install the diagnostic source.
+Do not relaunch Native Access, reinstall it, alter `app.asar`, add `--disable-gpu`,
+add `--no-sandbox`, install graphics/runtime dependencies, mutate registry state,
+scan products, publish products or automate account input.
+
+A later NAUI2 cut may authorize one exact manager-owned application launch only
+after NAUI1 selects the responsible boundary and independently reviews the closed
+remedy. The likely software-rendering experiment is not pre-authorized here.
+
+
+## Active rereview repair — Windows trace completeness
+
+Repair basis: PR #116 head `91edf592fba244150994333673966832c4558796`,
+tree `d93ff9bb14475dd34579003392c4c076a3203440`. The merge-clear review of
+that head was withdrawn. The accepted physical result is preserved unchanged.
+
+Only the diagnostic parser/classifier, focused generated tests and repair
+explanation change. Positive PID uniqueness/lifetime association requires zero
+Windows trace dropped observations. Exact role/request/completion plus retained
+self-exit has a separate authority, but also requires trace completeness because
+the historical self-exit attachment uses the Windows PID-generation map. Ordinary
+runner-tail loss alone does not remove complete positive generation authority.
+Normalized process records and the completeness counter have closed schemas.
+
+Validate focused NAUI1 tests, Python compilation, AP12 and PX2. Return the amended
+exact head/tree for independent review. No second physical pass, Deck readback,
+installation, merge, application launch or NAUI2 implementation is authorized.
+All existing observation, source seal, validation and cleanup evidence bytes remain
+historical and unchanged; record this source-only amendment separately.
