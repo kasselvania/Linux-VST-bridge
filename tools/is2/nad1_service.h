@@ -67,5 +67,17 @@ static int nad1_service_request(const std::vector<std::wstring>& r) {
         if(!created||image_hash.size()!=64)ok=false;
     }
     if(ok)std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls exact %lu %lu %lu %llu %s %lu %lu\n",r[1].c_str(),r[2].c_str(),request_error,status.dwCurrentState,status.dwProcessId,created,image_hash.c_str(),status.dwWin32ExitCode,status.dwServiceSpecificExitCode);
-    std::fflush(stdout);CloseServiceHandle(service);CloseServiceHandle(scm);return ok?0:150;
+    std::fflush(stdout);
+    // Keep the target runner alive while its service cohort is owned. A short
+    // successful SCM helper is not a service lifetime. Parent pipe closure, the
+    // fixed retirement byte, or the ten-minute bound ends only this anchor.
+    if(ok && r[3]==L"start") {
+        HANDLE input=GetStdHandle(STD_INPUT_HANDLE);auto deadline=GetTickCount64()+600000;
+        while(GetTickCount64()<deadline){DWORD available=0;
+            if(!PeekNamedPipe(input,nullptr,0,nullptr,&available,nullptr))break;
+            if(available){char byte=0;DWORD count=0;if(!ReadFile(input,&byte,1,&count,nullptr)||count!=1||byte=='q')break;}
+            Sleep(50);
+        }
+    }
+    CloseServiceHandle(service);CloseServiceHandle(scm);return ok?0:150;
 }

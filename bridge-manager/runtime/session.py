@@ -2490,6 +2490,7 @@ def renderer_run(spec, dependency=None):
         last=0
         while not stop:
             live=ledger.harvest();drain(.05);image.check()
+            if dependency_owner and dependency_owner.anchor is not None and dependency_owner.anchor.returncode is not None and child.returncode is None:raise ValueError('dependency_service_anchor_exited')
             confirm_effective()
             if dependency_owner and child.returncode is not None:
                 clean=ledger.cleanup()
@@ -2604,7 +2605,7 @@ class Nad1Owner:
         self.daemon_relative=NAD1_DAEMON if fixture is None else fixture['daemon']
         self.installer_sha=NAD1_INSTALLER_SHA if fixture is None else fixture['installer_sha256']
         self.installer_size=35769456 if fixture is None else fixture['installer_size']
-        self.token=os.urandom(32).hex()
+        self.token=os.urandom(32).hex();self.anchor=None
     def value(self):
         return {'schema':1,'ready_tested':self.ready,'daemon':self.daemon,
                 'stages':self.stages,'readiness_contract':'SCM_exact_image_generation_and_owned_same_prefix_generation_and_both_owned_loopback_listeners_v1',
@@ -2621,7 +2622,7 @@ class Nad1Owner:
         stdout=bytearray();capture=PrivateCapture(self.directory/f'{self.op}-dependency-{index}.log',1024*1024,256);sel=selectors.DefaultSelector()
         stage={'action':action,'launch':'prepared','exit':None,'result':'unavailable'};self.stages.append(stage)
         try:
-            child=subprocess.Popen(argv,cwd=self.root/'home',env=launch_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+            child=subprocess.Popen(argv,cwd=self.root/'home',env=launch_env,stdin=subprocess.PIPE if action=='start' else subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
             self.ledger.launcher(child,'dependency_'+action);stage['launch']='owned'
             for name,pipe in [('stdout',child.stdout),('stderr',child.stderr)]:os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,name)
             deadline=time.monotonic()+(200 if action=='install' else 40)
@@ -2636,6 +2637,9 @@ class Nad1Owner:
                     if key.data=='stdout':
                         if len(stdout)+len(data)>65536:raise ValueError('dependency_helper_output_extent')
                         stdout.extend(data)
+                if action=='start' and b'\n' in stdout and b'NAD1_SCM_V1 ' in stdout:
+                    nad1_scm_frame(bytes(stdout),self.op,self.token)
+                    self.anchor=child;stage['lifetime']='owned_anchor_until_retirement_or_600_seconds';break
             for _ in range(16):
                 for key,_ in sel.select(0):
                     data=os.read(key.fileobj.fileno(),8192)
@@ -2645,7 +2649,7 @@ class Nad1Owner:
                         if len(stdout)+len(data)>65536:raise ValueError('dependency_helper_output_extent')
                         stdout.extend(data)
             stage['exit']=child.returncode
-            if child.returncode!=0:raise ValueError('dependency_command_nonzero')
+            if child.returncode!=0 and not (action=='start' and self.anchor is child and child.returncode is None):raise ValueError('dependency_command_nonzero')
             if action=='install':
                 expected=f'NAD1_INSTALL_V1 {self.op} {self.token} 0'
                 if bytes(stdout).decode().splitlines().count(expected)!=1:raise ValueError('dependency_install_acknowledgment')
@@ -2689,7 +2693,9 @@ class Nad1Owner:
         deadline=time.monotonic()+25
         while time.monotonic()<deadline:
             if self.cancelled():raise ValueError('dependency_cancelled')
-            self.ledger.harvest();service=self.command('query')
+            self.ledger.harvest()
+            if self.anchor is not None and self.anchor.returncode is not None:raise ValueError('dependency_service_anchor_exited')
+            service=self.command('query')
             scan=ownership.census(self.root/'compatdata/pfx',actual)
             installer_atomic(self.directory/f'{self.op}-dependency-current.private.json',scan)
             if scan['unavailable']:raise ValueError('dependency_candidate_ambiguous')
