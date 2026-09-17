@@ -113,8 +113,56 @@ class OwnerTests(unittest.TestCase):
  def test_foreign_refusal_never_stops_service(self):
   self.scan['candidates']=[{'prefix_relation':'foreign'}]
   with self.assertRaises(ValueError):self.owner.ensure(True)
-  self.assertTrue(self.owner.retire());self.assertFalse(self.owner.service_stop_requested)
+  self.assertFalse(self.owner.retire());self.assertFalse(self.owner.service_stop_requested)
   self.assertEqual(self.commands,[])
+ def test_first_query_loss_with_admitted_daemon_never_confirms_retirement(self):
+  admitted=self.existing();self.fail='query'
+  with self.assertRaisesRegex(ValueError,'uncertain_acknowledgment'):self.owner.ensure(True,admitted)
+  self.assertFalse(self.owner.retire());self.assertFalse(self.owner.retire())
+  self.assertEqual(self.owner.service_possibility,'may_exist')
+  self.assertEqual(self.commands,['query']);self.assertFalse(self.owner.service_stop_requested)
+ def test_same_prefix_unowned_refusal_has_no_signal_or_retirement_authority(self):
+  admitted=self.existing(state=4);self.listener.return_value=False
+  with self.assertRaisesRegex(ValueError,'same_prefix_unowned'):self.owner.ensure(True,admitted)
+  self.assertFalse(self.owner.retire());self.assertFalse(self.owner.service_stop_requested)
+  self.assertEqual(self.commands,[]);self.assertEqual(self.owner.service_possibility,'may_exist')
+ def test_foreign_and_deleted_refusal_cannot_publish_clean_retirement(self):
+  for relation in ('foreign','deleted'):
+   with self.subTest(relation=relation):
+    self.scan['candidates']=[{'prefix_relation':relation}]
+    with self.assertRaisesRegex(ValueError,'foreign_conflict'):self.owner.ensure(True)
+    self.assertFalse(self.owner.retire());self.assertFalse(self.owner.service_stop_requested)
+    self.assertEqual(self.commands,[])
+ def test_exact_absent_query_retains_absence_without_stop(self):
+  with self.assertRaisesRegex(ValueError,'prepare_required'):self.owner.ensure(False)
+  self.assertTrue(self.owner.retire());self.assertEqual(self.commands,['query'])
+  self.assertEqual(self.owner.value()['service_possibility'],'proved_absent')
+  self.assertFalse(self.owner.service_stop_requested)
+ def test_unknown_without_query_is_not_absence(self):
+  self.assertFalse(self.owner.retire());self.assertEqual(self.commands,[])
+  self.assertFalse(self.owner.service_retirement_confirmed)
+ def test_install_ack_loss_authorizes_exact_retirement_once(self):
+  self.fail='install'
+  with self.assertRaisesRegex(ValueError,'uncertain_acknowledgment'):self.owner.ensure(True)
+  self.assertEqual(self.owner.service_possibility,'may_exist')
+  self.assertTrue(self.owner.retire());self.assertTrue(self.owner.retire())
+  self.assertEqual(self.commands,['query','install','stop','query'])
+ def test_only_exact_service_not_found_frame_proves_absence(self):
+  op='a'*32;token='b'*64
+  raw=f'NAD1_SCM_V1 {op} {token} absent 1060 0 0 0 none 0 0 0\n'
+  self.assertEqual(s.nad1_scm_frame(raw.encode(),op,token)['registration'],'absent')
+  for error in ('0','5','1062'):
+   with self.assertRaises(ValueError):s.nad1_scm_frame(raw.replace('1060',error).encode(),op,token)
+ def test_normal_operation_has_no_wall_clock_expiry(self):
+  import inspect
+  source=inspect.getsource(s.renderer_run)
+  self.assertNotIn('application_time_bound',source)
+  self.assertNotIn('monotonic()-began',source)
+  adapter=pathlib.Path(__file__).resolve().parents[2]/'tools/is2/nad1_service.h'
+  if adapter.exists():
+   anchor=adapter.read_text().split('// Normal use has no wall-clock deadline.',1)[1]
+   self.assertNotIn('GetTickCount',anchor);self.assertNotIn('deadline',anchor)
+   self.assertIn('SERVICE_STOPPED',anchor);self.assertIn('WaitForSingleObject(anchor,0)',anchor)
  def test_closed_transition_table(self):
   for state in ['running_not_ready','foreign_conflict','unresolved']:self.assertEqual(s.nad1_transition(state),'refuse')
   with self.assertRaises(ValueError):s.nad1_transition('direct_exec')

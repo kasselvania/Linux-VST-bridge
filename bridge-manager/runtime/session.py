@@ -2432,7 +2432,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None):
     image=RendererImage(app['files']['Native Access.exe']);evidence=RendererEvidence(app['files']['Native Access.exe']['artifact'],root,image)
     scope=None;ledger=None;child=None;clean=False;stop=False;error=None;effective=None;focus=None;dependency_owner=None
     captures={name:PrivateCapture(report.parent/(op+'-'+name+'.private.log'),16*1024*1024,600) for name in ('stdout','stderr')}
-    sel=selectors.DefaultSelector();began=time.monotonic();request_path=report.parent/(op+'-launch.private')
+    sel=selectors.DefaultSelector();request_path=report.parent/(op+'-launch.private')
     def persist(value):
         installer_atomic(report.parent/(op+'-ledger.private.json'),{'schema':1,'operation':op,'ledger':value,'windows_trace':evidence.trace.value(),'renderer':evidence.value()})
     def cancel(*_):
@@ -2508,7 +2508,6 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None):
                     if set(req)!={'operation','request'} or req['operation']!=op or not re.fullmatch('[0-9a-f]{32}',req['request']):raise ValueError('renderer_focus_identity')
                     focus={'request':req['request'],'result':renderer_focus(scope,image)}
                 except Exception:focus={'request':req.get('request') if isinstance(req,dict) else None,'result':'refused_exact_window_unavailable'}
-            if time.monotonic()-began>600:error='application_time_bound';break
             if time.monotonic()-last>.5:atomic(report,result(state,len(live)));last=time.monotonic()
     except Exception as exc:error=str(exc) if isinstance(exc,ValueError) else 'renderer_owner_'+type(exc).__name__
     finally:
@@ -2583,14 +2582,15 @@ class Nad1Owner:
         self.installer_sha=NAD1_INSTALLER_SHA if fixture is None else fixture['installer_sha256']
         self.installer_size=35769456 if fixture is None else fixture['installer_size']
         self.token=os.urandom(32).hex();self.anchor=None
-        self.service_may_exist=False;self.retiring=False;self.retirement_attempted=False
+        self.service_possibility='unknown';self.retirement_authorized=False
+        self.retiring=False;self.retirement_attempted=False
         self.service_stop_requested=False;self.service_retirement_confirmed=False
         self.process_cleanup_confirmed=False;self.forced_cleanup_used=False;self.retirement_error=None
     def value(self):
         return {'schema':1,'ready_tested':self.ready,'daemon':self.daemon,
                 'service_stop_requested':self.service_stop_requested,'service_retirement_confirmed':self.service_retirement_confirmed,
                 'process_cleanup_confirmed':self.process_cleanup_confirmed,'forced_cleanup_used':self.forced_cleanup_used,
-                'retirement_error':self.retirement_error,
+                'retirement_error':self.retirement_error,'service_possibility':self.service_possibility,
                 'stages':self.stages,'readiness_contract':'SCM_exact_generation_and_Windows_owned_loopback_pair_and_unique_owned_Linux_image_generation_v1',
                 'linux_windows_join':False,'lifetime':'owned_operation_only_retired_before_bridge_resume'}
     def command(self,action):
@@ -2622,7 +2622,7 @@ class Nad1Owner:
                         stdout.extend(data)
                 if action=='start' and b'\n' in stdout and b'NAD1_SCM_V1 ' in stdout:
                     nad1_scm_frame(bytes(stdout),self.op,self.token)
-                    self.anchor=child;stage['lifetime']='owned_anchor_until_retirement_or_600_seconds';break
+                    self.anchor=child;stage['lifetime']='owned_anchor_until_service_retirement_or_identity_failure';break
             for _ in range(16):
                 for key,_ in sel.select(0):
                     data=os.read(key.fileobj.fileno(),8192)
@@ -2663,27 +2663,33 @@ class Nad1Owner:
         image=RendererImage({'artifact':{'path':str(self.drive/self.installer_relative),'sha256':self.installer_sha},'size':self.installer_size});image.close()
         path=self.drive/self.daemon_relative
         actual=ownership.image_identity(path) if path.exists() else None
+        if actual is not None:self.service_possibility='may_exist'
         if admitted is not None and actual!=admitted:raise ValueError('dependency_generation_changed')
         # Presence is not admitted generation identity until this operation installs
         # it or an exact previous preparation receipt supplies its digest.
         if actual is not None and admitted is None:raise ValueError('dependency_existing_unadmitted_generation')
         scan=ownership.census(self.root/'compatdata/pfx',admitted)
         installer_atomic(self.directory/f'{self.op}-dependency-before.private.json',scan)
+        if scan['candidates'] or scan['unavailable']:self.service_possibility='may_exist'
         if scan['unavailable']:raise ValueError('dependency_identity_unresolved')
         if any(p['prefix_relation'] in ('foreign','deleted') for p in scan['candidates']):raise ValueError('dependency_foreign_conflict')
         if any(p.get('prefix_relation')=='same' and not nad1_generation_owned(p,self.scope) for p in scan['private']):raise ValueError('dependency_same_prefix_unowned')
         service=self.command('query')
-        self.service_may_exist=service['registration']=='exact'
+        self.service_possibility='proved_absent' if service['registration']=='absent' else 'exact_registered'
+        self.retirement_authorized=service['registration']=='exact'
         absent=actual is None;unregistered=service['registration']=='absent'
         if absent or unregistered:
             if not allow_install:raise ValueError('dependency_prepare_required')
-            self.service_may_exist=True # Installer acknowledgment may be lost after service creation.
+            # Exact installer admission grants one retirement attempt even if
+            # its acknowledgment is lost after registration. No retry follows.
+            self.service_possibility='may_exist';self.retirement_authorized=True
             self.command('install')
             actual=ownership.image_identity(path)
             self.daemon=actual
             if self.production:nad1_retain_artifact(self.spec,actual)
             service=self.command('query')
             if service['registration']!='exact':raise ValueError('dependency_install_registration_missing')
+            self.service_possibility='exact_registered'
         self.daemon=actual
         if service['state']==1:service=self.command('start')
         elif service['state'] not in (2,4):raise ValueError('dependency_service_state_unavailable')
@@ -2713,8 +2719,13 @@ class Nad1Owner:
         """
         if self.retirement_attempted:return self.service_retirement_confirmed
         self.retirement_attempted=True;self.retiring=True
-        if not self.service_may_exist:
+        if self.service_possibility=='proved_absent':
             self.service_retirement_confirmed=True;return True
+        if not self.retirement_authorized:
+            # Unowned/conflicting candidates are never adopted or signalled.
+            # Ordinary cleanup only owns this operation's cohort, not that service.
+            self.retirement_error='dependency_retirement_authority_unavailable'
+            return False
         try:
             import ownership
             self.service_stop_requested=True
@@ -2825,7 +2836,9 @@ def nad1_owned(spec,*,fixture=None):
             if fixture is None:
                 try:admitted=nad1_admitted(spec)
                 except FileNotFoundError:pass
-            if fixture and fixture.get('prestart'):owner.command('start')
+            if fixture and fixture.get('prestart'):
+                owner.service_possibility='may_exist';owner.retirement_authorized=True
+                owner.command('start')
             owner.ensure(True,admitted)
         except Exception as exc:error=str(exc) if isinstance(exc,ValueError) else 'dependency_owner_'+type(exc).__name__
         finally:

@@ -117,15 +117,26 @@ static int nad1_service_request(const std::vector<std::wstring>& r) {
     }
     if(ok)std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls exact %lu %lu %lu %llu %s %lu %lu %lu\n",r[1].c_str(),r[2].c_str(),request_error,status.dwCurrentState,status.dwProcessId,created,image_hash.c_str(),status.dwWin32ExitCode,status.dwServiceSpecificExitCode,endpoints);
     std::fflush(stdout);
-    // Hold the target runner while the exact SCM service is active. Container
-    // stdin is not service-lifetime authority. Exact cgroup cleanup can retire
-    // this bounded anchor; it never adopts or signals another service.
+    // Normal use has no wall-clock deadline. The owner bounds cancellation and
+    // cleanup separately. Retain one service generation; never adopt a restart.
     if(ok && r[3]==L"start") {
-        auto deadline=GetTickCount64()+600000;
-        while(GetTickCount64()<deadline){SERVICE_STATUS_PROCESS current{};DWORD used=0;
-            if(!QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&current),sizeof(current),&used)||current.dwCurrentState==SERVICE_STOPPED)break;
-            Sleep(50);
+        HANDLE anchor=nullptr;DWORD anchor_pid=0;unsigned long long anchor_created=0;
+        while(ok){SERVICE_STATUS_PROCESS current{};DWORD used=0;
+            if(!QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&current),sizeof(current),&used)){ok=false;break;}
+            if(current.dwCurrentState==SERVICE_STOPPED)break;
+            if(current.dwCurrentState==SERVICE_RUNNING){
+                if(!anchor){
+                    anchor_pid=current.dwProcessId;
+                    anchor=OpenProcess(SYNCHRONIZE|PROCESS_QUERY_LIMITED_INFORMATION,FALSE,anchor_pid);
+                    std::vector<wchar_t> path(32768);DWORD length=static_cast<DWORD>(path.size());
+                    ok=anchor&&QueryFullProcessImageNameW(anchor,0,path.data(),&length)&&_wcsicmp(path.data(),nad1_image)==0;
+                    if(ok){anchor_created=time_of(anchor);ok=anchor_created!=0&&(!created||(anchor_pid==status.dwProcessId&&anchor_created==created));}
+                }
+                if(ok)ok=current.dwProcessId==anchor_pid&&time_of(anchor)==anchor_created&&WaitForSingleObject(anchor,0)==WAIT_TIMEOUT;
+            }else if(current.dwCurrentState!=SERVICE_START_PENDING&&current.dwCurrentState!=SERVICE_STOP_PENDING)ok=false;
+            if(ok)Sleep(50);
         }
+        if(anchor)CloseHandle(anchor);
     }
     CloseServiceHandle(service);CloseServiceHandle(scm);return ok?0:150;
 }

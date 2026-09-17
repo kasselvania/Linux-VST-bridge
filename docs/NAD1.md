@@ -481,10 +481,11 @@ The generated service uses a separately sealed internal entry and compile-time f
 fixture service/path constants. The installed persisted-spec entry has no fixture or
 test-mode switch. The fixture is source-owned and does not establish vendor behavior.
 
-The SCM start adapter remains alive while that exact service is active, bounded to
-600 seconds. The renderer owner refuses and retires its cohort if this anchor ends
-while Native Access remains alive. This bounded session lifetime is explicit; it is
-not a permanent daemon keepalive. The generated pinned-runner experiment showed
+The SCM start adapter remains alive for the exact owned service generation with
+no normal-operation wall-clock deadline. The renderer owner refuses and retires its
+cohort if this anchor ends while Native Access remains alive. Exact SCM STOPPED,
+operation cancellation or invalidated service identity ends the anchor; bounded
+SCM retirement and cgroup cleanup remain separate from normal application use. The generated pinned-runner experiment showed
 that letting the short start helper exit discarded the service lifetime.
 
 Endpoint ownership uses Windows GetExtendedTcpTable (owner-PID listeners), bounded
@@ -544,3 +545,21 @@ and all scratch prefixes are absent. Installed software and real-prefix state re
 unchanged. The earlier accepted observations and campaigns are preserved. AP8,
 AP12 and PX2 passed at the executed source; the evidence-only amended head is checked
 separately. Return PR #119 draft/unmerged for exact-head rereview.
+
+### Conservative pre-query retirement authority
+
+`service_possibility` is `unknown`, `may_exist`, `proved_absent`, or
+`exact_registered`. It is diagnostic authority, distinct from permission to stop.
+An admitted image or a positive process lead does not prove registration but rules
+out optimistic absence. Only the exact SCM service-not-found frame proves absence.
+A pre-query refusal or lost query acknowledgment leaves retirement unconfirmed and
+cannot signal an unowned or foreign generation. An exact owned registration or an
+authorized installer attempt grants one fixed retirement attempt, even if installer
+acknowledgment is lost. Uncertain stop acknowledgment never permits another stop.
+
+The lifetime amendment adds a separately sealed delayed fixture observation. It
+compares the same live application-runner and service-anchor Linux generations,
+with complete ledger custody and exact cgroup membership, before explicit normal
+exit. This is source-owned process proof, not a real Native Access session or a
+claim about long downloads. A fixture safety bound is separate from the production
+owner, which has no normal-use wall-clock expiration.

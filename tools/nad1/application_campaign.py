@@ -3,13 +3,30 @@ import hashlib,json,os,pathlib,shutil,subprocess,time
 from owner_package import verify,digest,read,publish,canonical
 from owner_campaign import preservation,compare_preservation
 from application_supervise import CASES
-def run(package,seal,out):
+def lifetime_sample(report,op):
+ import ownership
+ r=read(report);ledger=read(report.parent/(op+'-ledger.private.json'))['ledger']
+ if r['state']!='running' or not r['dependency']['ready_tested'] or r['effective'] is None or r['renderer']['launch_binding']['status']!='bound':raise ValueError('lifetime_not_running')
+ if ledger['dropped_process_observations']:raise ValueError('lifetime_ledger_loss')
+ identities={}
+ for phase in ('dependency_start','application_runner'):
+  rows=[x for x in ledger['processes'] if x['phase']==phase and x['relationship']=='direct_launcher']
+  if len(rows)!=1:raise ValueError('lifetime_launcher_ambiguity')
+  row=rows[0];pid=row['pid'];proc=pathlib.Path('/proc')/str(pid)
+  stat=ownership.bounded(proc/'stat','stat');start,_=ownership.generation(stat,pid)
+  state=stat.rsplit(b') ',1)[1].split()[0]
+  group=ownership.bounded(proc/'cgroup','stat').decode().strip()
+  again,_=ownership.generation(ownership.bounded(proc/'stat','stat'),pid)
+  if start!=row['start_ticks'] or again!=start or state==b'Z' or row['linux_exit'] is not None or group!='0::'+row['cgroup'] or not row['cgroup'].endswith('/linux-vst-bridge-renderer-'+op+'.service'):raise ValueError('lifetime_generation')
+  identities[phase]=hashlib.sha256(canonical({'pid':pid,'start_ticks':start,'cgroup':row['cgroup']})).hexdigest()
+ return {'generations':identities,'result_sha256':digest(report),'elapsed_ns':time.monotonic_ns()}
+def run(package,seal,out,*,cases=CASES):
  p=pathlib.Path(package).resolve();manifest=verify(p,seal);d=pathlib.Path(out).resolve();os.umask(0o077);d.mkdir(mode=0o700)
  before=preservation();publish(d/'before.private.json',before)
  runners={canonical(v['registration']['environment']['runner']):v['registration']['environment'] for v in before['registry']['classes'].values() if v['registration']['environment']['runner']['id']=='proton-11.0-2c-25118279-slr4-4.0.20260805.254769'}
  if len(runners)!=1:raise ValueError('runner_ambiguous')
  template=next(iter(runners.values()));rows=[]
- for scenario in CASES:
+ for scenario in cases:
   verify(p,seal);case=d/scenario;case.mkdir(mode=0o700);root=(d/'normal' if scenario=='repeat' else case)/'environment'
   if scenario!='repeat':root.mkdir(mode=0o700)
   if scenario!='repeat':
@@ -25,10 +42,17 @@ def run(package,seal,out):
   subprocess.run([str(p/'binding-owner'),str(case/'app.private.json'),str(case/'software.private.json'),op,'software_rendering',str(report),str(spec),'application'],check=True,timeout=20)
   # Production renderer reservation/Stop owner, sealed generated entry only.
   subprocess.run([str(p/'binding-owner'),'application-submit',str(manager),str(spec),str(p),seal],check=True,timeout=30)
-  unit='linux-vst-bridge-renderer-'+op+'.service';deadline=time.monotonic()+320;stopped=False
+  unit='linux-vst-bridge-renderer-'+op+'.service';deadline=time.monotonic()+320;stopped=False;held_since=None;lifetime=[]
   try:
    while time.monotonic()<deadline:
     if report.exists() and read(report).get('cleanup_confirmed'):break
+    if scenario=='lifetime' and (root/'compatdata/pfx/drive_c/NAD1Fixture/application-started').exists() and report.exists() and read(report).get('effective'):
+     if held_since is None:
+      lifetime.append(lifetime_sample(report,op));held_since=time.monotonic()
+     elif len(lifetime)==1 and time.monotonic()-held_since>=12:
+      lifetime.append(lifetime_sample(report,op))
+      if lifetime[0]['generations']!=lifetime[1]['generations']:raise ValueError('lifetime_generation_changed')
+      (root/'compatdata/pfx/drive_c/NAD1Fixture/explicit-exit').touch(mode=0o600)
     if scenario=='cancel' and (root/'compatdata/pfx/drive_c/NAD1Fixture/application-started').exists() and not stopped:
      subprocess.run([str(p/'binding-owner'),'application-stop',str(manager),op],check=True,timeout=120);stopped=True
     time.sleep(.2)
@@ -49,8 +73,9 @@ def run(package,seal,out):
   if scenario!='not_ready' and (r.get('effective') is None or r['renderer']['launch_binding']['status']!='bound'):raise ValueError('fixture_application_root')
   if scenario=='stop_failure' and r['error']!='application_outer_nonzero':raise ValueError('first_failure_replaced')
   if scenario!='normal':shutil.rmtree(root)
-  row={'case':scenario,'operation':op,'result':r,'result_sha256':digest(report if report.exists() else report.parent/'recovery-result.json'),'application_launched':launched,'prefix_removed':scenario!='normal','unit_absent':True,'manager_stop':stopped};publish(case/'proof.json',row);rows.append(row)
-  expected='completed' if scenario in ('normal','repeat') else 'cancelled' if scenario=='cancel' else 'failed'
+  row={'case':scenario,'operation':op,'result':r,'result_sha256':digest(report if report.exists() else report.parent/'recovery-result.json'),'application_launched':launched,'prefix_removed':scenario!='normal','unit_absent':True,'manager_stop':stopped,'lifetime_samples':lifetime};publish(case/'proof.json',row);rows.append(row)
+  expected='completed' if scenario in ('normal','repeat','lifetime') else 'cancelled' if scenario=='cancel' else 'failed'
+  if scenario=='lifetime' and (len(lifetime)!=2 or lifetime[1]['elapsed_ns']-lifetime[0]['elapsed_ns']<12_000_000_000 or stopped):raise ValueError('lifetime_interval')
   if r['state']!=expected:raise ValueError('fixture_case_result_'+scenario)
  if (d/'normal/environment').exists():raise ValueError('repeat_prefix_not_removed')
  after=preservation();publish(d/'after.private.json',after)

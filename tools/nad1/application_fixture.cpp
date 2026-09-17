@@ -13,6 +13,13 @@ int wmain(int argc,wchar_t**argv){
  CloseServiceHandle(service);CloseServiceHandle(scm);if(!ready)return 12;
  HANDLE file=CreateFileW(L"C:\\NAD1Fixture\\application-started",GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
  if(file==INVALID_HANDLE_VALUE)return 13;CloseHandle(file);
- if(marker(L"C:\\NAD1Fixture\\hold-application"))Sleep(60000);else Sleep(500);
+ if(marker(L"C:\\NAD1Fixture\\await-explicit-exit")){
+  // A fixture safety timeout is not a production application lifetime policy.
+  auto deadline=GetTickCount64()+60000;
+  while(!marker(L"C:\\NAD1Fixture\\explicit-exit")){
+   if(GetTickCount64()>deadline)return 14;
+   Sleep(50);
+  }
+ }else if(marker(L"C:\\NAD1Fixture\\hold-application"))Sleep(60000);else Sleep(500);
  return marker(L"C:\\NAD1Fixture\\fail-application")?7:0;
 }

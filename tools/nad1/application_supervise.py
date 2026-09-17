@@ -2,7 +2,7 @@
 import ctypes,os,pathlib,shutil,subprocess,sys,time
 sys.dont_write_bytecode=True
 from owner_package import verify,read,digest,publish
-CASES=('normal','repeat','cancel','not_ready','stop_failure','application_failure')
+CASES=('normal','repeat','cancel','not_ready','stop_failure','application_failure','lifetime')
 def run(package,seal,spec_path):
  p=pathlib.Path(package);manifest=verify(p,seal);spec=read(spec_path);d=pathlib.Path(spec_path).parents[5];op=spec['operation']
  case=read(d/'case.json')['case']
@@ -46,6 +46,7 @@ def run(package,seal,spec_path):
   if previous['state']!='completed' or not previous['dependency']['service_retirement_confirmed'] or previous['dependency']['forced_cleanup_used']:raise ValueError('fixture_repeat_prior_retirement')
   (directory/'application-started').unlink()
  if case=='not_ready':(directory/'not-ready').touch()
+ if case=='lifetime':(directory/'await-explicit-exit').touch()
  if case=='cancel':(directory/'hold-application').touch()
  if case in ('application_failure','stop_failure'):(directory/'fail-application').touch()
  if case=='stop_failure':(directory/'refuse-stop').touch()

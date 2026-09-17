@@ -226,3 +226,26 @@ and all scratch prefixes are absent. Installed software and real-prefix state re
 unchanged. The earlier accepted observations and campaigns are preserved. AP8,
 AP12 and PX2 passed at the executed source; the evidence-only amended head is checked
 separately. Return PR #119 draft/unmerged for exact-head rereview.
+
+## NAD1 lifetime and pre-query authority amendment
+
+Continue PR #119 from reviewed `c648a5ddccd9e75519e0dc0184ef2ed43cea9367`.
+Preserve every earlier physical observation and generated package. No census replay
+or real dependency transition is authorized. This amendment removes both the SCM
+anchor's 600-second deadline and the renderer supervisor's independent 600-second
+normal-use deadline. Exact service generation, explicit retirement and cancellation
+own lifetime; bounded SCM stop and cgroup cleanup still own termination.
+
+Service possibility starts unknown. Exact artifact/positive lead or an authorized
+installation attempt establishes may-exist. Only an exact SCM service-not-found
+response establishes proved-absent. Stop authority is separate: pre-query failure,
+unowned same-prefix and foreign/deleted candidates cannot authorize signalling or
+confirmed service retirement. An admitted installation with uncertain acknowledgment
+permits exactly one fixed retirement attempt, never a retry.
+
+The new sealed lifetime campaign holds a source-owned application and its exact
+service anchor, samples both Linux generations across a deliberate interval, and
+requests an explicit normal fixture exit. It retains a new receipt separately from
+the accepted integrated campaign. Focused negative tests cover pre-query authority,
+uncertain installation and generated lifetime-sample identity loss. Qualification
+and exact-head AP8/AP12/PX2 remain pending until retained by the evidence amendment.
