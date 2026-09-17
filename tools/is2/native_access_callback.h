@@ -44,7 +44,7 @@ public:
         }
         if(closed)return;
         DWORD available=0;
-        if(!PeekNamedPipe(input,nullptr,0,nullptr,&available,nullptr)){closed=true;return;}
+        if(!PeekNamedPipe(input,nullptr,0,nullptr,&available,nullptr)){DWORD error=GetLastError();std::fprintf(stderr,"NA_AUTH_INPUT_V1 %ls %lu %lu\n",op.c_str(),error,GetFileType(input));std::fflush(stderr);closed=true;return;}
         if(available){
             std::array<unsigned char,2052> b{};DWORD n=0;
             if(!ReadFile(input,b.data(),(std::min)(available,static_cast<DWORD>(b.size())),&n,nullptr)){closed=true;return;}
