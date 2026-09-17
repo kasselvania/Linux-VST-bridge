@@ -24,7 +24,7 @@ class CallbackTests(unittest.TestCase):
  def test_exact_payload_in_pipe_only_and_ack_is_not_authentication(self):
   p=self.connect();self.assertEqual(p.recv(4),b'NAC1');uri=b'native-access:generated-secret'
   p.sendall(struct.pack('<I',len(uri))+uri);self.b.tick();self.cut.assert_called_once()
-  self.assertEqual(os.read(self.read,4096),struct.pack('<I',len(uri))+uri)
+  self.assertEqual(os.read(self.read,4096),uri+b'\n')
   self.assertEqual(self.b.pending,b'');self.assertNotIn('generated-secret',str(self.b.value()))
   self.b.feed_ack(b'private unrelated output generated-secret\nNA_AUTH_V1 '+self.op.encode()+b' 1 0\n')
   self.assertEqual(p.recv(1),b'\0');self.assertEqual(self.b.value()['dispatched'],1)

@@ -2481,8 +2481,9 @@ class RendererCallback:
         # This is deliberately before any write to the Windows adapter.
         self.cutoff();self.attempts+=1
         try:
-            n=os.write(self.child.stdin.fileno(),self.pending)
-            if n!=len(self.pending):raise OSError('short_callback_write')
+            frame=bytes(self.pending[4:])+b'\n'
+            n=os.write(self.child.stdin.fileno(),frame)
+            if n!=len(frame):raise OSError('short_callback_write')
         except OSError:self.finish(2,'delivery_unconfirmed');return
         for i in range(len(self.pending)):self.pending[i]=0
         self.pending.clear();self.phase='ack';self.deadline=time.monotonic()+22

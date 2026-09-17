@@ -9,10 +9,33 @@ static bool callback_uri(const std::string& value) {
     }return true;
 }
 class NativeAccessCallback {
-    HANDLE image,primary,input,child=INVALID_HANDLE_VALUE;
+    // Wine can expose forwarded stdin as FILE_TYPE_CHAR. PeekNamedPipe is
+    // therefore not an input authority. One bounded blocking reader accepts an
+    // ASCII URI line from console or pipe, with echo disabled for console input.
+    struct Reader {
+        HANDLE input=INVALID_HANDLE_VALUE,ready=nullptr,consumed=nullptr;
+        LONG stopping=0;unsigned status=0;DWORD error=0;
+        std::string line;
+    };
+    static DWORD WINAPI read_input(void* context){
+        auto* r=static_cast<Reader*>(context);
+        while(!InterlockedCompareExchange(&r->stopping,0,0)){
+            char c=0;DWORD n=0;
+            if(!ReadFile(r->input,&c,1,&n,nullptr)||n!=1){r->error=GetLastError();r->status=2;SetEvent(r->ready);return 0;}
+            if(c=='\n'){
+                if(!r->line.empty()&&r->line.back()=='\r')r->line.pop_back();
+                r->status=callback_uri(r->line)?0:1;SetEvent(r->ready);
+                if(WaitForSingleObject(r->consumed,INFINITE)!=WAIT_OBJECT_0)return 0;
+            }else{
+                r->line+=c;
+                if(r->line.size()>2049){r->status=1;SetEvent(r->ready);return 0;}
+            }
+        }return 0;
+    }
+    HANDLE image,primary,child=INVALID_HANDLE_VALUE,reader_thread=nullptr;
+    Reader* reader=nullptr;
     std::wstring path,op,policy;
-    std::vector<unsigned char> pending;
-    unsigned count=0;ULONGLONG deadline=0,partial_since=0;bool closed=false;
+    unsigned count=0;ULONGLONG deadline=0;bool closed=false;
     void reply(unsigned result){std::fprintf(stdout,"NA_AUTH_V1 %ls %u %u\n",op.c_str(),count,result);std::fflush(stdout);}
     void launch(const std::string& uri){
         if(WaitForSingleObject(primary,0)!=WAIT_TIMEOUT||!callback_uri(uri)){reply(1);return;}
@@ -34,7 +57,15 @@ class NativeAccessCallback {
         CloseHandle(pi.hThread);
     }
 public:
-    NativeAccessCallback(HANDLE f,HANDLE p,const std::wstring& name,const std::wstring& operation,const std::wstring& mode):image(f),primary(p),input(GetStdHandle(STD_INPUT_HANDLE)),path(name),op(operation),policy(mode){}
+    NativeAccessCallback(HANDLE f,HANDLE p,const std::wstring& name,const std::wstring& operation,const std::wstring& mode):image(f),primary(p),path(name),op(operation),policy(mode){
+        reader=new Reader;
+        if(!DuplicateHandle(GetCurrentProcess(),GetStdHandle(STD_INPUT_HANDLE),GetCurrentProcess(),&reader->input,0,FALSE,DUPLICATE_SAME_ACCESS)){closed=true;return;}
+        DWORD console=0;
+        if(GetConsoleMode(reader->input,&console)&&!SetConsoleMode(reader->input,console&~ENABLE_ECHO_INPUT)){closed=true;return;}
+        reader->ready=CreateEventW(nullptr,FALSE,FALSE,nullptr);reader->consumed=CreateEventW(nullptr,FALSE,FALSE,nullptr);
+        if(!reader->ready||!reader->consumed){closed=true;return;}
+        reader_thread=CreateThread(nullptr,0,read_input,reader,0,nullptr);if(!reader_thread)closed=true;
+    }
     void tick(){
         if(child!=INVALID_HANDLE_VALUE){
             DWORD status=WaitForSingleObject(child,0);
@@ -43,21 +74,23 @@ public:
             return;
         }
         if(closed)return;
-        DWORD available=0;
-        if(!PeekNamedPipe(input,nullptr,0,nullptr,&available,nullptr)){DWORD error=GetLastError();std::fprintf(stderr,"NA_AUTH_INPUT_V1 %ls %lu %lu\n",op.c_str(),error,GetFileType(input));std::fflush(stderr);closed=true;return;}
-        if(available){
-            std::array<unsigned char,2052> b{};DWORD n=0;
-            if(!ReadFile(input,b.data(),(std::min)(available,static_cast<DWORD>(b.size())),&n,nullptr)){closed=true;return;}
-            if(pending.empty())partial_since=GetTickCount64();
-            pending.insert(pending.end(),b.begin(),b.begin()+n);SecureZeroMemory(b.data(),b.size());
-            if(pending.size()>2052){closed=true;SecureZeroMemory(pending.data(),pending.size());pending.clear();return;}
-        }
-        if(pending.size()>=4){
-            unsigned n=static_cast<unsigned>(pending[0])|(static_cast<unsigned>(pending[1])<<8)|(static_cast<unsigned>(pending[2])<<16)|(static_cast<unsigned>(pending[3])<<24);
-            if(n>2048||n<=14||pending.size()>n+4||count>=4){closed=true;SecureZeroMemory(pending.data(),pending.size());pending.clear();return;}
-            if(pending.size()==n+4){++count;std::string uri(pending.begin()+4,pending.end());SecureZeroMemory(pending.data(),pending.size());pending.clear();launch(uri);SecureZeroMemory(uri.data(),uri.size());return;}
-        }
-        if(!pending.empty()&&GetTickCount64()-partial_since>5000){closed=true;SecureZeroMemory(pending.data(),pending.size());pending.clear();}
+        if(!reader_thread||WaitForSingleObject(reader->ready,0)!=WAIT_OBJECT_0)return;
+        if(reader->status!=0||count>=4){closed=true;reply(1);return;}
+        ++count;std::string uri=reader->line;
+        SecureZeroMemory(reader->line.data(),reader->line.size());reader->line.clear();
+        launch(uri);SecureZeroMemory(uri.data(),uri.size());SetEvent(reader->consumed);
     }
-    ~NativeAccessCallback(){if(child!=INVALID_HANDLE_VALUE){TerminateProcess(child,130);WaitForSingleObject(child,5000);CloseHandle(child);}if(!pending.empty())SecureZeroMemory(pending.data(),pending.size());}
+    ~NativeAccessCallback(){
+        if(child!=INVALID_HANDLE_VALUE){TerminateProcess(child,130);WaitForSingleObject(child,5000);CloseHandle(child);}
+        if(reader){
+            InterlockedExchange(&reader->stopping,1);if(reader->consumed)SetEvent(reader->consumed);
+            if(reader_thread)CancelSynchronousIo(reader_thread);
+            // Do not free a context still used by a blocked Wine reader. The
+            // adapter exits immediately after this bounded join; ExitProcess
+            // retires any remaining thread and its private handles/memory.
+            bool joined=!reader_thread||WaitForSingleObject(reader_thread,1000)==WAIT_OBJECT_0;
+            if(reader_thread)CloseHandle(reader_thread);
+            if(joined){if(reader->input!=INVALID_HANDLE_VALUE)CloseHandle(reader->input);if(reader->ready)CloseHandle(reader->ready);if(reader->consumed)CloseHandle(reader->consumed);if(!reader->line.empty())SecureZeroMemory(reader->line.data(),reader->line.size());delete reader;}
+        }
+    }
 };
