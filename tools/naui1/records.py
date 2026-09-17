@@ -33,6 +33,7 @@ def timestamp(x):
 def generations(transaction, operation, root_binding):
     require(transaction.get('schema') == 1 and transaction.get('operation') == operation, 'transaction_binding')
     trace = transaction['windows_trace']; rows = trace['processes']
+    integer(trace.get('dropped_observations'))
     require(isinstance(rows, list) and len(rows) <= 512, 'process_count')
     require(trace['launch_binding']['status'] == 'bound', 'unbound_root')
     for k in ('operation', 'epoch', 'token_sha256', 'artifact_sha256', 'size', 'root_ordinal'):
@@ -100,6 +101,7 @@ def role(body):
 def parse(transaction, result, logs, identity, windows_image):
     op = result['operation']; binding = result['transaction']['launch_binding']
     rows = generations(transaction, op, binding)
+    complete = transaction['windows_trace']['dropped_observations'] == 0
     require(isinstance(logs, dict) and len(logs) <= 34 and sum(len(x) for x in logs.values()) <= 2*1024*1024, 'logs_bound')
     exe = identity['files']['Native Access.exe']['sha256']
     candidates = [r for r in rows if r['epoch'] == 2 and r['target_tree'] and
@@ -144,8 +146,11 @@ def parse(transaction, result, logs, identity, windows_image):
                     matches = [r for r in exact.values() if r['windows_pid'] == key[0]
                                and r['created_timestamp'] is not None and timestamp(r['created_timestamp']) <= timestamp(ts)
                                and (r.get('self_exit') is None or timestamp(r['self_exit']['timestamp']) >= timestamp(ts))]
-                    if len(matches) == 1:
-                        facts.append(fact(op, matches[0], 'gdi_exhaustion', digest(raw), logid, 'wine_windows_generation'))
+                    if complete and len(matches) == 1:
+                        facts.append(fact(op, matches[0], 'gdi_exhaustion', digest(raw), logid, 'wine_pid_lifetime_complete_trace'))
+                    else:
+                        unbound['gdi_exhaustion'] += 1
+                        ignored += 1
             c = CHROMIUM.fullmatch(line)
             if not c:
                 continue
@@ -161,7 +166,7 @@ def parse(transaction, result, logs, identity, windows_image):
             # candidate request generation, no PID reuse in either epoch, permits
             # the Windows diagnostic association. Linux rows are never consulted.
             matches = [r for r in exact.values() if r['windows_pid'] == int(pid)]
-            if len(matches) != 1 or sum(r['windows_pid'] == int(pid) for r in rows) != 1:
+            if not complete or len(matches) != 1 or sum(r['windows_pid'] == int(pid) for r in rows) != 1:
                 unbound[category] += 1
                 ignored += 1; continue
             if category == 'gpu_exit' and not (-(2**31) <= int(re.search(r'exit_code=(-?\d+)', body)[1]) < 2**32 and int(re.search(r'exit_code=(-?\d+)', body)[1]) != 0):
@@ -170,7 +175,7 @@ def parse(transaction, result, logs, identity, windows_image):
             if k in seen:
                 continue
             seen.add(k)
-            facts.append(fact(op, matches[0], category, digest(raw), logid, 'chromium_windows_unique_request_generation'))
+            facts.append(fact(op, matches[0], category, digest(raw), logid, 'chromium_pid_unique_complete_trace'))
     processes = []
     for r in candidates:
         ordinal = r['creation_ordinal']; rr, request_hash = roles.get(ordinal, ('unknown', None))
@@ -181,8 +186,14 @@ def parse(transaction, result, logs, identity, windows_image):
                           'exit_domain': exit_fact['domain'] if exit_fact else None,
                           'exit_status': exit_fact['status'] if exit_fact else None})
         if ordinal in exact and rr in ('gpu', 'renderer') and exit_fact and exit_fact['status'] != 0:
+            # Self-exit was attached by the trace owner's PID-generation map.
+            # Its coarse drop count cannot establish that omitted rows were
+            # unrelated, even with a retained exact role request/completion.
+            if not complete:
+                unbound[rr+'_abnormal_exit'] += 1
+                continue
             facts.append(fact(op, r, rr+'_abnormal_exit', digest(json.dumps(exit_fact, sort_keys=True).encode()),
-                              digest(json.dumps(transaction, sort_keys=True).encode()), 'wine_windows_generation'))
+                              digest(json.dumps(transaction, sort_keys=True).encode()), 'wine_exact_role_and_self_exit_generation'))
     return {'schema': 1, 'operation': op, 'application_sha256': exe,
             'root_bound': True, 'processes': processes, 'facts': facts,
             'unattributed_or_incomplete_lines': ignored, 'unbound_diagnostic_categories': dict(unbound),

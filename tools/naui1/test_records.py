@@ -1,4 +1,6 @@
 import copy
+import json
+from pathlib import Path
 import unittest
 from common import Refusal, digest
 from records import parse, generations, role
@@ -129,6 +131,126 @@ class ClassifierIntegrityTests(unittest.TestCase):
 
     def test_screenshot_never_authority(self):
         self.assertIn('UNRESOLVED', self.disposition(b'blank white Native Access client area\n'))
+
+
+class TraceCompletenessTests(unittest.TestCase):
+    setUp = RecordTests.setUp
+    evidence = RecordTests.evidence
+
+    def diagnostics(self):
+        return (
+            ('gpu_exit', log('GPU process exited unexpectedly: exit_code=34')),
+            ('sandbox_child', log('Failed to launch child: error_code=39', source='child_process_launcher_helper.cc')),
+            ('gdi_exhaustion', b'10.300:00c8:0002:err:gdi:alloc_handle out of GDI object handles\n'),
+            ('renderer_gone', log('render-process-gone: crashed', source='electron_api_web_contents.cc')),
+        )
+
+    def test_windows_drops_unbind_each_pid_association(self):
+        self.tx['windows_trace']['dropped_observations'] = 1
+        for category, lines in self.diagnostics():
+            with self.subTest(category=category):
+                e = self.evidence(lines)
+                self.assertEqual(e['facts'], [])
+                self.assertEqual(e['unbound_diagnostic_categories'][category], 1)
+                self.assertIn('UNRESOLVED', classify(self.identity, e))
+
+    def test_classifier_independently_gates_retained_positive_facts(self):
+        for category, lines in self.diagnostics():
+            with self.subTest(category=category):
+                e = self.evidence(lines)
+                self.assertEqual(len(e['facts']), 1)
+                self.assertIn('SELECTED', classify(self.identity, e))
+                e['windows_dropped_observations'] = 1
+                self.assertIn('UNRESOLVED', classify(self.identity, e))
+
+    def test_role_self_exit_has_separate_conservative_authority(self):
+        self.tx['windows_trace']['processes'][1]['self_exit'] = exited(5)
+        for role_name in ('gpu-process', 'renderer'):
+            e = self.evidence(request(role_name))
+            self.assertEqual(e['facts'][0]['authority'], 'wine_exact_role_and_self_exit_generation')
+            self.assertIn('SELECTED', classify(self.identity, e))
+            e['windows_dropped_observations'] = 1
+            self.assertIn('UNRESOLVED', classify(self.identity, e))
+        self.tx['windows_trace']['dropped_observations'] = 1
+        e = self.evidence(request())
+        self.assertEqual(e['processes'][0]['role'], 'gpu')
+        self.assertEqual(e['facts'], [])
+        self.assertEqual(e['unbound_diagnostic_categories']['gpu_abnormal_exit'], 1)
+
+    def test_complete_windows_trace_survives_runner_tail_loss(self):
+        self.tx['diagnostics']['runner']['dropped_records'] = 48667
+        self.tx['diagnostics']['runner']['dropped_bytes'] = 4571384
+        for _, lines in self.diagnostics():
+            self.assertIn('SELECTED', classify(self.identity, self.evidence(lines)))
+        self.tx['windows_trace']['processes'][1]['self_exit'] = exited(5)
+        self.assertIn('SELECTED', classify(self.identity, self.evidence(request())))
+
+    def test_retained_repository_observation_stays_unresolved(self):
+        # Reclassify already public bytes locally; never invoke the physical owner.
+        path = Path(__file__).resolve().parents[2] / 'evidence/naui1/observation.json'
+        retained = json.loads(path.read_bytes())['result']
+        self.assertEqual(retained['evidence']['windows_dropped_observations'], 0)
+        self.assertEqual(retained['evidence']['processes'], [])
+        self.assertEqual(retained['evidence']['facts'], [])
+        self.assertEqual(classify(retained['identity'], retained['evidence']),
+                         'NAUI1_ELECTRON_IDENTITY_ONLY_CAUSE_UNRESOLVED')
+
+    def test_completeness_closed_extent_at_both_owners(self):
+        e = self.evidence(b'')
+        for value in (None, True, -1, 1.0, '0', 2**32):
+            with self.subTest(value=value):
+                bad = copy.deepcopy(e); bad['windows_dropped_observations'] = value
+                with self.assertRaises(Refusal): classify(self.identity, bad)
+                self.tx['windows_trace']['dropped_observations'] = value
+                with self.assertRaises(Refusal): self.evidence(b'')
+        del self.tx['windows_trace']['dropped_observations']
+        with self.assertRaises(Refusal): self.evidence(b'')
+        del e['windows_dropped_observations']
+        with self.assertRaises(Refusal): classify(self.identity, e)
+
+    def test_process_schema_each_field_and_privacy(self):
+        self.tx['windows_trace']['processes'][1]['self_exit'] = exited(5)
+        e = self.evidence(request())
+        for key in e['processes'][0]:
+            for delete in (True, False):
+                bad = copy.deepcopy(e)
+                if delete: del bad['processes'][0][key]
+                else: bad['processes'][0][key] = 'untrusted'
+                with self.subTest(key=key, delete=delete), self.assertRaises(Refusal):
+                    classify(self.identity, bad)
+        for value in (None, {}, [None], e['processes']*513):
+            bad = copy.deepcopy(e); bad['processes'] = value
+            with self.assertRaises(Refusal): classify(self.identity, bad)
+        bad = copy.deepcopy(e); bad['processes'][0]['command'] = 'PRIVATE'
+        with self.assertRaises(Refusal): classify(self.identity, bad)
+
+    def test_process_extents_nullable_pairs_and_generation_order(self):
+        self.tx['windows_trace']['processes'][1]['self_exit'] = exited(5)
+        e = self.evidence(request())
+        for key, value in (('epoch', True), ('epoch', 1), ('ordinal', True), ('ordinal', 0),
+                           ('ordinal', 513), ('exit_status', True), ('exit_status', -1),
+                           ('exit_status', 2**32), ('exit_status', None), ('exit_domain', None),
+                           ('role_request_sha256', None), ('role', 'unknown')):
+            bad = copy.deepcopy(e); bad['processes'][0][key] = value
+            with self.subTest(key=key, value=value), self.assertRaises(Refusal):
+                classify(self.identity, bad)
+        other = copy.deepcopy(e['processes'][0]); other['ordinal'] = 3
+        for rows in (e['processes']*2, [other, *e['processes']]):
+            bad = copy.deepcopy(e); bad['processes'] = rows
+            with self.assertRaises(Refusal): classify(self.identity, bad)
+
+    def test_authority_cannot_be_relabelled(self):
+        for _, lines in self.diagnostics():
+            e = self.evidence(lines)
+            bad = copy.deepcopy(e)
+            bad['facts'][0]['authority'] = 'wine_exact_role_and_self_exit_generation'
+            with self.assertRaises(Refusal): classify(self.identity, bad)
+        self.tx['windows_trace']['processes'][1]['self_exit'] = exited(5)
+        e = self.evidence(request())
+        for key, value in (('role', 'renderer'), ('exit_status', 0),
+                           ('image_digest_at_request', None)):
+            bad = copy.deepcopy(e); bad['processes'][0][key] = value
+            with self.assertRaises(Refusal): classify(self.identity, bad)
 
 
 if __name__ == '__main__': unittest.main()

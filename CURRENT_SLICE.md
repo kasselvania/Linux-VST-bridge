@@ -64,3 +64,24 @@ scan products, publish products or automate account input.
 A later NAUI2 cut may authorize one exact manager-owned application launch only
 after NAUI1 selects the responsible boundary and independently reviews the closed
 remedy. The likely software-rendering experiment is not pre-authorized here.
+
+
+## Active rereview repair — Windows trace completeness
+
+Repair basis: PR #116 head `91edf592fba244150994333673966832c4558796`,
+tree `d93ff9bb14475dd34579003392c4c076a3203440`. The merge-clear review of
+that head was withdrawn. The accepted physical result is preserved unchanged.
+
+Only the diagnostic parser/classifier, focused generated tests and repair
+explanation change. Positive PID uniqueness/lifetime association requires zero
+Windows trace dropped observations. Exact role/request/completion plus retained
+self-exit has a separate authority, but also requires trace completeness because
+the historical self-exit attachment uses the Windows PID-generation map. Ordinary
+runner-tail loss alone does not remove complete positive generation authority.
+Normalized process records and the completeness counter have closed schemas.
+
+Validate focused NAUI1 tests, Python compilation, AP12 and PX2. Return the amended
+exact head/tree for independent review. No second physical pass, Deck readback,
+installation, merge, application launch or NAUI2 implementation is authorized.
+All existing observation, source seal, validation and cleanup evidence bytes remain
+historical and unchanged; record this source-only amendment separately.

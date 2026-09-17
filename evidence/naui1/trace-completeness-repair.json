@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "repair_basis_head": "91edf592fba244150994333673966832c4558796",
+  "repair_basis_tree": "d93ff9bb14475dd34579003392c4c076a3203440",
+  "scope": "source_only_no_physical_rerun",
+  "physical_observation_unchanged": [
+    {
+      "path": "evidence/naui1/README.md",
+      "sha256": "e3e31fb7ac0ef9fdc2df7bb1ff57175063f96ffa1c7c974e3bcffa91f7edc66d",
+      "bytes": 5255
+    },
+    {
+      "path": "evidence/naui1/observation.json",
+      "sha256": "de6a9e37b95a6a1917f2749b1a16178c69edcbc6a3a27f639ae0941625395d87",
+      "bytes": 8830
+    },
+    {
+      "path": "evidence/naui1/source-seal.json",
+      "sha256": "539bcf48c961e18b93ce6bc54c4aed20ab7a82822e7563e34b8025b6836b4be9",
+      "bytes": 694
+    },
+    {
+      "path": "evidence/naui1/validation.json",
+      "sha256": "d83a507ad3716ff946ec7331849e209ab2e66d81f38f67135727f4b0e818e662",
+      "bytes": 1203
+    },
+    {
+      "path": "evidence/naui1/cleanup.json",
+      "sha256": "fce2e1c5aa267728601c96129b43949991401a1c14ead7e94658dc21a318463c",
+      "bytes": 428
+    }
+  ],
+  "local_validation": {
+    "naui1_tests": 47,
+    "result": "passed",
+    "python_compile": "passed",
+    "diff_check": "passed",
+    "initial_negative_regressions": "new tests exposed 32 failed assertions and 6 errors before repair"
+  },
+  "authority_law": "All current positive routes require a complete Windows generation trace; runner-tail loss alone does not invalidate positive authority.",
+  "historical_disposition": "NAUI1_ELECTRON_IDENTITY_ONLY_CAUSE_UNRESOLVED",
+  "hosted_validation": "AP12 and PX2 required on amended head; exact results linked in PR handoff.",
+  "deck_access": false,
+  "physical_rerun": false,
+  "installation": false,
+  "vendor_launch": false,
+  "naui2_work": false,
+  "live_preservation_claim": "No new live readback. Existing physical preservation receipt retained unchanged."
+}

@@ -407,3 +407,44 @@ fact or exact application process generation from the retained lossy operation
 records. Disposition: `NAUI1_ELECTRON_IDENTITY_ONLY_CAUSE_UNRESOLVED`.
 See `evidence/naui1/README.md` for exact source, artifact hashes, observation limits
 and preservation. No application was launched and no remedy was applied.
+
+
+## Rereview repair: completeness-dependent attribution
+
+NAUI1 identifies the exact installed Native Access application in the retained
+environment. The exact process generation behind the historical blank window
+remains unavailable. The physical observation and its executed source seal are
+immutable; this source amendment does not replay or replace that observation.
+
+The parser and classifier independently require `windows_dropped_observations`
+to be an integer in `0..=4294967295` (booleans, absent or malformed values refuse).
+Only zero permits positive selection under any currently implemented authority:
+
+| Authority | Required association |
+| --- | --- |
+| `chromium_pid_unique_complete_trace` | Exact application image/request generation and a unique Windows PID across both complete epochs; canonical Chromium source/message grammar |
+| `wine_pid_lifetime_complete_trace` | Exact application image/request generation, Wine Windows PID and timestamp within its retained lifetime; canonical GDI diagnostic |
+| `wine_exact_role_and_self_exit_generation` | Exact retained create request/completion, role request hash and matching nonzero Wine self-exit for that generation |
+
+The third authority is deliberately distinct from GDI. It still requires zero
+drops: the existing trace owner attaches a self-exit through its current Windows
+PID-generation map, not an independently retained process handle. Its aggregate
+drop counter cannot prove that missing observations were unrelated. Role and exit
+rows remain historical observations when drops are nonzero, but do not authorize
+a selected cause. A future self-contained handle authority would require separate
+proof; this repair does not invent one.
+
+With Windows trace loss, the parser counts these diagnostics as unbound leads and
+emits no decisive facts. The classifier independently refuses to select from such
+facts even if supplied directly. It rejects category/authority substitutions and
+requires exact normalized process keys, Windows epoch 2, strictly increasing unique
+ordinals, bounded integer exits, valid optional hashes and coherent role/request
+and exit-domain/status pairs. Role-exit facts must match the retained role and
+nonzero exit. No Linux identity is consulted.
+
+Runner-tail loss is separate from Windows-generation trace loss. A retained exact
+positive diagnostic with complete Windows-generation authority may still select a
+cause when other runner text was dropped. Missing records never prove absence.
+Generated regressions exercise both loss domains, all positive authority routes,
+process/schema mutations and the unchanged public observation locally. There is no
+new physical read or vendor launch.
