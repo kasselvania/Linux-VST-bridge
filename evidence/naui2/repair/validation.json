@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "executed_source": "ed33af9875ddacd163fe2870af5338101dae67d3",
+  "executed_tree": "54ecf30e8c79776c4e745d4156eee3b63cf7e67c",
+  "manifest_sha256": "46685f4627b88ae373139e308b37f4cf535fb23ec3f12505ace145ec7d708f13",
+  "tests": {
+    "manager_library": 130,
+    "manager_binary": 77,
+    "frontend": 21,
+    "strict_manager_clippy": "passed; full targets plus final changed example",
+    "strict_frontend_clippy": "passed",
+    "local_runtime": {
+      "run": 142,
+      "platform_skips": 38,
+      "result": "passed"
+    },
+    "linux_runtime": {
+      "run": 142,
+      "initial_errors": 1,
+      "error": "missing staged compatibility test data; not an owner failure",
+      "failed_test_recheck": "passed after exact committed test data staging",
+      "other_141": "passed"
+    },
+    "naui1": 47,
+    "naui2_package": 3,
+    "is3": 24,
+    "is4": 25,
+    "python_compilation": "passed"
+  },
+  "generated": {
+    "sessions": 4,
+    "result": "passed",
+    "entry": "sealed internal source-owned fixture; installed production entry remains exact Native Access only",
+    "manager_core": "renderer_session submission and Stop exercised physically",
+    "operator_dispatch": "generated Rust production-helper tests with service/systemd I/O substitution; exact resume owner, wrong Stop, uncertainty, interrupted worker and restore-once",
+    "focus": "exact request/refusal tested; real EWMH Focus unavailable"
+  },
+  "development": [
+    {
+      "source": "f657d166e93f958f0c5ece784c41736450836d97",
+      "seal": "66cde845de69bf3ce295d4557d4597fe32761a3b5aaf72137b63fd14a5ef10dd",
+      "failure": "fixture driver inherited ordinary umask; manager refused non-private directory before reservation or systemd submission",
+      "repair": "source-owned driver sets private umask, matching production manager",
+      "windows_launch": false,
+      "record": "prelaunch-refusal.json"
+    }
+  ],
+  "logs_sha256": {
+    "full-manager": "b26b82f17050abcc9ecd542ce696d722084d9d836e94b5b4bbb01482ea3af571",
+    "full-ui": "45810b846159988063fb1e10ebb7badfa47806c506f31ceb05eaa008b6d0e149",
+    "full-runtime": "237bed0484d2196e4cf377ea1d9d3123c3d11fc8d8a382ac23bb364f5b4a6c55",
+    "full-naui1": "1633e71813117d8a9b356ac06bf8f638ad53e101171e8ac4a4caf645abf2e3db",
+    "full-package": "93595ba3408b19a26df0dac08d8fc4e9144160612b37c9f82a72568d5b2fdf7b",
+    "manager-clippy": "e21da74a2d194b48ec492677caae9a49a2110ad0f20531405c2c639ba650891b",
+    "repair-is3": "570624bb4de84d0f89c736e542ed8bc7a2ffa65a0f87d82fbb859678824e81e3",
+    "repair-is4": "57bec91408911ec0bf3068f18db21d4ad3c960aa82392db4356506223020a51e"
+  },
+  "ci": "AP8/AP12/PX2 required on final evidence head; exact results linked in PR",
+  "physical_nonclaims": [
+    "No Native Access or real renderer comparison",
+    "No software installation or service replacement",
+    "No real GUI Focus",
+    "No source-owned observation is vendor evidence"
+  ]
+}
