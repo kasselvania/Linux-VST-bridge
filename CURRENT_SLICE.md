@@ -259,3 +259,11 @@ unit/cgroup/prefix retirement and unchanged real state are retained separately i
 a ten-minute endurance claim. All prior physical/generated evidence remains
 unchanged. Source-head AP8/AP12/PX2 passed. Return this evidence-only amendment with
 final-head checks in the same draft PR #119; no real transition is authorized.
+
+A final shared-adapter audit found a separate one-hour wait inherited from the IS2
+installer route. The renderer route now waits for its exact child with `INFINITE`;
+the ordinary installer retains its existing one-hour timeout. Cancellation remains
+bounded by the operation owner. The first delayed receipt remains a valid short
+process observation, but its source-level statement of no application deadline was
+incomplete. Preserve it unchanged and supersede that statement with a new sealed
+qualification of the complete application route; do not install either generation.

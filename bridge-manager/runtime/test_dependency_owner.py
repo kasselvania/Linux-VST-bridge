@@ -163,6 +163,9 @@ class OwnerTests(unittest.TestCase):
    anchor=adapter.read_text().split('// Normal use has no wall-clock deadline.',1)[1]
    self.assertNotIn('GetTickCount',anchor);self.assertNotIn('deadline',anchor)
    self.assertIn('SERVICE_STOPPED',anchor);self.assertIn('WaitForSingleObject(anchor,0)',anchor)
+   launch=adapter.with_name('launch.cpp').read_text()
+   self.assertIn('WaitForSingleObject(pi.hProcess,target_wait(renderer))',launch)
+   self.assertIn('return renderer?INFINITE:3600000',launch)
  def test_closed_transition_table(self):
   for state in ['running_not_ready','foreign_conflict','unresolved']:self.assertEqual(s.nad1_transition(state),'refuse')
   with self.assertRaises(ValueError):s.nad1_transition('direct_exec')

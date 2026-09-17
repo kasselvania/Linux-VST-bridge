@@ -563,3 +563,11 @@ with complete ledger custody and exact cgroup membership, before explicit normal
 exit. This is source-owned process proof, not a real Native Access session or a
 claim about long downloads. A fixture safety bound is separate from the production
 owner, which has no normal-use wall-clock expiration.
+
+The shared IS2 launch adapter also distinguishes lifetime by its closed request
+kind: renderer applications wait for their exact child without normal-use timeout,
+while ordinary installers retain the existing one-hour wait. A compile-time
+assertion fixes this split; no timeout or argument is supplied by the operator.
+The first lifetime package predates this final shared-adapter correction, so its
+short observation is retained without treating it as proof of the complete source
+lifetime law. The succeeding sealed package owns that corrected claim.

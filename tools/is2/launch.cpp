@@ -27,6 +27,9 @@ static bool hex(const std::wstring& s,size_t length){if(s.size()!=length)return 
 static unsigned long long time_of(HANDLE p){FILETIME c{},e{},k{},u{};if(!GetProcessTimes(p,&c,&e,&k,&u))return 0;return (static_cast<unsigned long long>(c.dwHighDateTime)<<32)|c.dwLowDateTime;}
 static bool same_file(HANDLE a,HANDLE b){BY_HANDLE_FILE_INFORMATION x{},y{};return GetFileInformationByHandle(a,&x)&&GetFileInformationByHandle(b,&y)&&x.dwVolumeSerialNumber==y.dwVolumeSerialNumber&&x.nFileIndexHigh==y.nFileIndexHigh&&x.nFileIndexLow==y.nFileIndexLow;}
 #include "nad1_service.h"
+// Installer timeout is unchanged; an owned application has no normal-use cap.
+static constexpr DWORD target_wait(bool renderer){return renderer?INFINITE:3600000;}
+static_assert(target_wait(true)==INFINITE&&target_wait(false)==3600000);
 int wmain(int argc,wchar_t** argv){
     if(argc==2 && std::wstring(argv[1])==L"--self-test")return hex(L"0123456789abcdef",16)&&!hex(L"g",1)?0:1;
     if(argc!=2)return 120;
@@ -70,6 +73,6 @@ int wmain(int argc,wchar_t** argv){
     DWORD written=0;ok=n>0&&n<static_cast<int>(sizeof(frame))&&WriteFile(GetStdHandle(STD_ERROR_HANDLE),frame,static_cast<DWORD>(n),&written,nullptr)&&written==static_cast<DWORD>(n);
     if(!ok||ResumeThread(pi.hThread)==static_cast<DWORD>(-1)){TerminateProcess(pi.hProcess,129);WaitForSingleObject(pi.hProcess,5000);CloseHandle(pi.hThread);CloseHandle(pi.hProcess);CloseHandle(image);return 129;}
     CloseHandle(pi.hThread);CloseHandle(image);
-    DWORD result=130;if(WaitForSingleObject(pi.hProcess,3600000)==WAIT_OBJECT_0)GetExitCodeProcess(pi.hProcess,&result);
+    DWORD result=130;if(WaitForSingleObject(pi.hProcess,target_wait(renderer))==WAIT_OBJECT_0)GetExitCodeProcess(pi.hProcess,&result);
     CloseHandle(pi.hProcess);return static_cast<int>(result);
 }
