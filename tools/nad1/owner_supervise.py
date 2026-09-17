@@ -20,7 +20,8 @@ def run(package,seal,spec_path):
  for field,name in [('manager','binding-owner'),('supervisor','session.py'),('ownership','ownership.py'),('installer_launch','adapter.exe')]:
   if spec['software'][field]!={'path':str(p/name),'sha256':manifest['files'][name]}:raise ValueError('fixture_owner')
  import session as s,ownership
- s.renderer_bound_inputs(dict(spec,kind='renderer_application'))
+ if spec.get('schema')!=2 or spec.get('dependency_mode')!=('recover_installed' if scenario.startswith('recovery') else 'prepare'):raise ValueError('fixture_dependency_mode')
+ s.renderer_bound_inputs(dict({k:v for k,v in spec.items() if k!='dependency_mode'},schema=1,kind='renderer_application'))
  if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('subreaper')
  scope=s.CompanionCgroup(dependency_operation=op);ledger=s.InstallerLedger(scope,lambda v:s.installer_atomic(d/'initialization.private.json',v))
  env=spec['application']['environment'];runner=env['runner'];launch=s.environment({'environment':env,'compatibility':{'disable_windows_accessibility':False}});launch['HOME']=str(root/'home')
@@ -44,7 +45,7 @@ def run(package,seal,spec_path):
   import hashlib
   seed=d/'failed-installation';seed.mkdir(mode=0o700)
   seed_op=hashlib.sha256((op+'seed').encode()).hexdigest()[:32]
-  seed_spec=dict(spec,operation=seed_op,report=str(seed/'result.json'))
+  seed_spec=dict(spec,operation=seed_op,dependency_mode='prepare',report=str(seed/'result.json'))
   publish(seed/'spec.json',seed_spec)
   marker=directory/'fail-after-register';marker.touch()
   seeder=s.Nad1Owner(seed_spec,ledger,scope,lambda:False,fixture=fixture)

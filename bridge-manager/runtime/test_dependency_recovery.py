@@ -97,3 +97,50 @@ class RecoveryLifecycle(unittest.TestCase):
   self.assertFalse(self.owner.retire());self.assertFalse(self.owner.retire());self.assertEqual(self.commands.count('stop'),1)
   self.assertFalse(self.owner.service_retirement_confirmed);self.assertTrue(self.owner.forced_cleanup_used)
 
+
+class BoundMode(unittest.TestCase):
+ def test_deleted_recovery_image_cannot_fall_back_to_install(self):
+  with tempfile.TemporaryDirectory() as tmp,patch.object(pathlib.Path,'home',return_value=pathlib.Path(tmp)),patch.object(s,'nad1_recovery',side_effect=FileNotFoundError('vanished')),patch.object(s,'nad1_admitted') as admit,patch.object(s.subprocess,'Popen') as launch:
+   with self.assertRaises(FileNotFoundError):s.nad1_preparation_inputs({'dependency_mode':'recover_installed'})
+   admit.assert_not_called();launch.assert_not_called()
+ def test_mode_never_comes_from_operator_arguments_or_missing_schema(self):
+  for mode in (None,'install','direct',{},True):
+   with self.assertRaises(ValueError):s.nad1_preparation_inputs({'dependency_mode':mode})
+ def test_prepare_cannot_silently_adopt_new_unadmitted_image(self):
+  with tempfile.TemporaryDirectory() as tmp,patch.object(pathlib.Path,'home',return_value=pathlib.Path(tmp)),patch.object(s,'nad1_recovery') as recover:
+   root=pathlib.Path(tmp);p=root/'compatdata/pfx/drive_c'/s.NAD1_DAEMON;p.parent.mkdir(parents=True);p.write_bytes(b'appeared')
+   with self.assertRaisesRegex(ValueError,'unadmitted'):s.nad1_preparation_inputs({'dependency_mode':'prepare','application':{'environment':{'root':str(root)}}})
+   recover.assert_not_called()
+ def test_broken_artifact_cannot_fall_back_to_recovery(self):
+  with tempfile.TemporaryDirectory() as tmp,patch.object(pathlib.Path,'home',return_value=pathlib.Path(tmp)),patch.object(s,'nad1_admitted',side_effect=FileNotFoundError('missing referenced source')),patch.object(s,'nad1_recovery') as recover:
+   p=pathlib.Path(tmp)/'.local/share/linux-vst-bridge/managed/vendor-applications/native-access-dependency/artifact.json';p.parent.mkdir(parents=True);p.write_bytes(b'{}')
+   with self.assertRaises(FileNotFoundError):s.nad1_preparation_inputs({'dependency_mode':'prepare'})
+   with self.assertRaisesRegex(ValueError,'state_changed'):s.nad1_preparation_inputs({'dependency_mode':'recover_installed'})
+   recover.assert_not_called()
+
+class PreparationSchema(unittest.TestCase):
+ def test_closed_saved_mode_is_removed_only_for_shared_renderer_verification(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   home=pathlib.Path(tmp).resolve();managed=home/'.local/share/linux-vst-bridge/managed';e=s.RENDERER_PRODUCTION
+   root=managed/'environments'/e['environment'];appdir=root/'compatdata/pfx/drive_c/Program Files/Native Instruments/Native Access'
+   d=managed/'vendor-applications/native-access-dependency/operations'/('a'*32);d.mkdir(parents=True)
+   env={'id':e['environment'],'root':str(root),'revision':1,'runner':{'files':[]}}
+   app={'schema':1,'id':'native-access','environment':env,'files':{n:{'artifact':{'path':str(appdir/n),'sha256':v['sha256']},'size':v['size']} for n,v in e['files'].items()},'installation':{'path':str(managed/'onboarding'/e['environment']/(e['installation_operation']+'-result.json')),'sha256':e['result_sha256']},'observation_sha256':e['observation_sha256'],'source_seal_sha256':e['source_seal_sha256']}
+   identity=hashlib.sha256(json.dumps(app,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+   spec={'schema':2,'kind':'native_access_dependency','operation':'a'*32,'application':app,'application_identity':identity,'renderer_policy':'software_rendering','software':{},'software_sha256':'b'*64,'installer_launch':None,'report':str(d/'result.json'),'dependency_mode':'prepare'}
+   records={str(root/'environment.json'):env,str(managed/'software.json'):{},str(d/'spec.json'):spec,str(d.parents[1]/'current.json'):{'operation':'a'*32,'application':identity,'policy':'software_rendering'}}
+   class ReachedSharedVerifier(Exception):pass
+   def verify(normalized):
+    self.assertEqual(normalized['schema'],1);self.assertEqual(normalized['kind'],'renderer_application');self.assertNotIn('dependency_mode',normalized)
+    raise ReachedSharedVerifier()
+   with patch.object(pathlib.Path,'home',return_value=home),patch.object(s,'renderer_read',side_effect=lambda p:records[str(p)]),patch.object(s,'renderer_bound_inputs',side_effect=verify):
+    for mode in ('prepare','recover_installed'):
+     spec['dependency_mode']=mode
+     with self.assertRaises(ReachedSharedVerifier):s.renderer_validate(spec,dependency=True)
+    for mutation in ('old_schema','missing','unknown','extra'):
+     v=copy.deepcopy(spec)
+     if mutation=='old_schema':v['schema']=1
+     if mutation=='missing':del v['dependency_mode']
+     if mutation=='unknown':v['dependency_mode']='install_anything'
+     if mutation=='extra':v['command']='arbitrary'
+     with self.assertRaises(ValueError):s.renderer_validate(v,dependency=True)

@@ -598,3 +598,10 @@ fixture daemon and registering the service. Recovery then tests readiness, refus
 and manager-owned cancellation without another installer execution. This proves
 the recovery mechanism; the real daemon's readiness remains untested until an
 explicit deployment and real preparation continuation.
+
+Preparation specs now use schema 2 with a manager-selected closed mode:
+`prepare` or `recover_installed`. There is no new operator parameter. Recovery
+selection is persisted before submission and independently required by Python;
+a disappearing payload cannot turn a recovery into installation. Old schema-1
+receipts remain history, and ordinary renderer specs remain schema 1. Missing or
+unknown dependency modes refuse. Generated requests use the same saved mode.

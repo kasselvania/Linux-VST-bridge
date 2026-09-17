@@ -350,3 +350,11 @@ real daemon and registry unchanged, original failed-operation sources unchanged,
 Production software is unchanged; no real readiness or Native Access connectivity
 claim is made. The same draft PR #120 now contains the recovery implementation,
 reporting fixes, generated qualification and frontend explanations.
+
+Final source review found and repaired a selection race before deployment: a
+payload removed after Rust recovery admission could previously fall through to
+installation in Python. Schema-2 dependency specs now persist the exact closed
+mode; recovery missing its image or history refuses before any command. New
+negative tests cover disappearance, changed mode, newly appearing unadmitted bytes
+and broken artifact references. The first recovery campaign remains unchanged;
+a new sealed campaign qualifies the final owner generation.

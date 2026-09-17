@@ -56,6 +56,10 @@ def run(package,seal,out,*,cases=('absent','unregistered','stopped','ready','not
   for k,n in [('manager','binding-owner'),('supervisor','session.py'),('ownership','ownership.py'),('installer_launch','adapter.exe')]:sw[k]={'path':str(p/n),'sha256':manifest['files'][n]}
   publish(case/'app.private.json',app);publish(case/'software.private.json',sw);manager=case/'manager';report=manager/'vendor-applications/native-access-dependency/operations'/op/'result.json';spec=case/'spec.private.json'
   subprocess.run([str(p/'binding-owner'),str(case/'app.private.json'),str(case/'software.private.json'),op,'software_rendering',str(report),str(spec)],check=True,timeout=20)
+  if scenario.startswith('recovery'):
+   value=read(spec);value['dependency_mode']='recover_installed'
+   # Source-owned fixture mode is fixed by this sealed campaign, before reservation.
+   spec.unlink();publish(spec,value)
   # The shared manager example expects supervise.py; the package exposes only the
   # fixed sealed owner_supervise.py, selected by this source-owned Rust build.
   subprocess.run([str(p/'binding-owner'),'submit',str(manager),str(spec),str(p),seal],check=True,timeout=30)

@@ -2304,7 +2304,10 @@ def renderer_unique(pairs):
 
 def renderer_validate(spec, *, dependency=False):
     # Installed entry: no caller-selected home, environment, manifest or fixture.
-    if set(spec)!={'schema','kind','application','application_identity','operation','renderer_policy','report','software','software_sha256','installer_launch'} or type(spec['schema']) is not int or spec['schema']!=1 or spec['kind']!=('native_access_dependency' if dependency else 'renderer_application') or spec['renderer_policy'] not in ('inherited','software_rendering'):raise ValueError('renderer_production_schema')
+    fields={'schema','kind','application','application_identity','operation','renderer_policy','report','software','software_sha256','installer_launch'}
+    if dependency:fields.add('dependency_mode')
+    if set(spec)!=fields or type(spec['schema']) is not int or spec['schema']!=(2 if dependency else 1) or spec['kind']!=('native_access_dependency' if dependency else 'renderer_application') or spec['renderer_policy'] not in ('inherited','software_rendering'):raise ValueError('renderer_production_schema')
+    if dependency and spec['dependency_mode'] not in ('prepare','recover_installed'):raise ValueError('dependency_mode')
     expected=RENDERER_PRODUCTION
     managed=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed'
     op=spec.get('operation')
@@ -2330,7 +2333,7 @@ def renderer_validate(spec, *, dependency=False):
     if renderer_read(directory/'spec.json')!=spec:raise ValueError('renderer_persisted_spec')
     if renderer_read(managed/'vendor-applications'/namespace/'current.json')!={'operation':op,'application':spec['application_identity'],'policy':spec['renderer_policy']}:raise ValueError('renderer_reservation')
     if hashlib.sha256(json.dumps(app,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()!=spec['application_identity']:raise ValueError('renderer_application_binding')
-    renderer_bound_inputs(dict(spec,kind='renderer_application'))
+    renderer_bound_inputs(dict({k:v for k,v in spec.items() if k!='dependency_mode'},schema=1,kind='renderer_application'))
     found=[];pending=[drive];count=0
     while pending:
         for entry in pending.pop().iterdir():
@@ -2655,6 +2658,21 @@ def nad1_recovery(spec):
     return nad1_recovery_inputs(spec,directory/'operations'/NAD1_RECOVERY['operation'],NAD1_RECOVERY,NAD1_INSTALLER,NAD1_DAEMON)
 
 
+def nad1_preparation_inputs(spec):
+    """The saved manager mode cannot change into installation after admission."""
+    mode=spec.get('dependency_mode')
+    if mode not in ('prepare','recover_installed'):raise ValueError('dependency_mode')
+    pointer=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed/vendor-applications/native-access-dependency/artifact.json'
+    if mode=='recover_installed':
+        if os.path.lexists(pointer):raise ValueError('dependency_recovery_state_changed')
+        recovery=nad1_recovery(spec)  # Missing/replaced image or source refuses.
+        return recovery['daemon'],recovery
+    if os.path.lexists(pointer):return nad1_admitted(spec),None
+    daemon=pathlib.Path(spec['application']['environment']['root'])/'compatdata/pfx/drive_c'/NAD1_DAEMON
+    if os.path.lexists(daemon):raise ValueError('dependency_existing_unadmitted_generation')
+    return None,None
+
+
 class Nad1Owner:
     def __init__(self,spec,ledger,scope,cancelled,*,fixture=None):
         self.spec=spec;self.ledger=ledger;self.scope=scope;self.cancelled=cancelled;self.production=fixture is None
@@ -2925,10 +2943,7 @@ def nad1_owned(spec,*,fixture=None):
         installer_atomic(report.parent/'writer.json',{'schema':1,'operation':op,'started':True})
         try:
             admitted=fixture.get('admitted') if fixture else None
-            if fixture is None:
-                pointer=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed/vendor-applications/native-access-dependency/artifact.json'
-                if os.path.lexists(pointer):admitted=nad1_admitted(spec)
-                elif os.path.lexists(owner.drive/owner.daemon_relative):owner.recovery=nad1_recovery(spec)
+            if fixture is None:admitted,owner.recovery=nad1_preparation_inputs(spec)
             else:owner.recovery=fixture.get('recovery')
             if owner.recovery:admitted=owner.recovery['daemon']
             if fixture and fixture.get('prestart'):

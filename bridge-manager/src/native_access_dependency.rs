@@ -61,7 +61,8 @@ pub fn bind(
     let dependency = report.parent().and_then(Path::parent).and_then(Path::parent)
         .ok_or("dependency_report_location")?;
     let daemon = application.environment.root.join("compatdata/pfx/drive_c").join(DAEMON);
-    if daemon.symlink_metadata().is_ok() && dependency.join("artifact.json").symlink_metadata().is_err() {
+    let recover = daemon.symlink_metadata().is_ok() && dependency.join("artifact.json").symlink_metadata().is_err();
+    if recover {
         verify_recovery(application, dependency)?;
     }
     let mut v = app::bind(
@@ -72,6 +73,8 @@ pub fn bind(
         report,
     )?;
     v["kind"] = json!("native_access_dependency");
+    v["schema"] = json!(2);
+    v["dependency_mode"] = json!(if recover { "recover_installed" } else { "prepare" });
     Ok(v)
 }
 pub const RECOVERY: &[u8] = include_bytes!("native_access_recovery.json");
