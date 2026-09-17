@@ -49,3 +49,27 @@ class ObserverTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as d:
    with self.assertRaises(Refusal):verify(d)
 if __name__=='__main__':unittest.main()
+
+class AttributionTests(unittest.TestCase):
+ def test_reference_is_not_unique_failure_authority(self):
+  from observer import evidence
+  for op in ['aa'*16,'bb'*16]:
+   r={'operation':op,'cleanup_confirmed':True,'owned_live':0,'state':'completed','application_identity':'7228a542c01b89daa5d04b9c8566af235ee7a2358e52f741b8918239c3a7d26e','renderer':{'launch_binding':{'status':'bound'},'windows_dropped_observations':0},'diagnostics':{},'requested':'inherited','effective':{}}
+   v=evidence(op,json.dumps(r).encode(),b'CreateProcessInternalW helper NTKDaemon 1.32.0 Setup PC.exe\n',json.dumps({'operation':op}).encode())
+   self.assertEqual(v['facts'][0]['class'],'bundled_daemon_installer_reference_in_create_record')
+   self.assertEqual(v['operation'],op)
+ def test_foreign_and_deleted_prefix_never_ready(self):
+  v=ObserverTests().state();v['foreign']='exact'
+  self.assertEqual(classify(v),'NAD1_FOREIGN_DAEMON_CONFLICT')
+ def test_listener_or_command_exit_does_not_create_ready(self):
+  v=ObserverTests().state()
+  for field in ['listener','helper_exit','service_exit','pid','command','raw_log','token']:
+   bad=copy.deepcopy(v);bad[field]=0
+   with self.assertRaises(ValueError):classify(bad)
+ def test_process_without_readiness(self):
+  v=ObserverTests().state();v['readiness']='unavailable'
+  self.assertEqual(classify(v),'NAD1_SERVICE_RUNNING_NOT_READY')
+ def test_missing_installer_is_absence_only_if_census_complete(self):
+  v=ObserverTests().state();v.update(installer='absent',daemon='absent',registration='absent',service='absent',process='absent',readiness='unavailable')
+  self.assertEqual(classify(v),'NAD1_DEPENDENCY_ABSENT');v['complete']=False
+  self.assertEqual(classify(v),'NAD1_IDENTITY_UNRESOLVED')

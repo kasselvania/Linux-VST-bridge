@@ -20,7 +20,7 @@ def evidence(op,raw,log,ledger):
     facts=[]
     for line in log.splitlines():
         if b'CreateProcessInternalW' in line and b'NTKDaemon 1.32.0 Setup PC.exe' in line:
-            facts.append({'class':'bundled_daemon_installer_create_request','record_sha256':digest(line)})
+            facts.append({'class':'bundled_daemon_installer_reference_in_create_record','record_sha256':digest(line)})
     return {'operation':op,'result_sha256':digest(raw),'ledger_sha256':digest(ledger),'log_sha256':digest(log),'facts':facts,'trace_drops':r['renderer']['windows_dropped_observations'],'diagnostic_drops':r['diagnostics'],'application_identity':r['application_identity'],'requested':r['requested'],'effective':r['effective']}
 
 def main():
@@ -61,8 +61,12 @@ def main():
     log=retained(d/(op+'-stderr.private.log'),m['private_sources']['terminal/runner-stderr.private.log'])
     bound.append(evidence(op,raw,log,ledger))
     sources=[x['operation'] for x in bound if x['facts']]
-    # Only operation-owned records attribute the request. Shared vendor log is separate.
-    require(sources==[op],'dependency_request_attribution_unresolved')
+    # A reference may also be an argument to a query/helper. It is not launch proof,
+    # and multiple operations may legitimately reference the same bundled image.
+    # The retained private snapshot binds this later session independently of B.
+    snapshot_manifest=decode(retained(cache/'manifest.json'))
+    require(snapshot_manifest['operation']==op and snapshot_manifest['files']['application-log.private']['sha256']==digest(private['application-log.private']),'private_snapshot_source')
+    require(decode(read(appdir/'current.json'))['operation']==op,'dependency_operation_changed')
     vendor=private['application-log.private'];diagnostics=[]
     for line in vendor.splitlines():
         for category,pattern in [('daemon_start_timeout',rb'timed out'),('dependency_permission',rb'[Pp]ermission'),('missing_object',rb'ENOENT')]:
@@ -92,6 +96,6 @@ def main():
     require(verify(source)[1]==seal_hash,'source_changed')
     # Retain raw registry/records privately for bounded offline analysis without a second pass.
     publish(out/'private.json',{'registry':regraw.decode(),'application':app,'software':sw,'processes':process,'source_files':{k:v.decode('utf8','replace') for k,v in private.items()}})
-    public={'schema':1,'source_head':seal['source_head'],'source_tree':seal['source_tree'],'seal_sha256':seal_hash,'input_manifest_sha256':digest(read(source/'input.json')),'disposition':classify(state),'state':state,'bundle':bundled,'installed_daemon':daemon,'registry_sha256':digest(regraw),'service_registration_count':len(regs),'service_state_authority':'registry_presence_only_runtime_scm_unavailable_no_wine_launch','process_census':process,'passive_listeners':ports,'readiness_contract':'unavailable_no_daemon_identity_or_protocol_admitted','operation_sources':bound,'selected_dependency_request_operation':op,'vendor_diagnostics':diagnostics,'vendor_log_sources':vendor_logs,'private_input_hashes':input_hashes,'private_result_sha256':file_identity(out/'private.json')['sha256'],'preservation':{'system':after['system'],'capture':after['capture'],'software_unchanged':True,'application_unchanged':True,'environment_entries_unchanged':len(tree_before),'protected_counts':{k:len(prior[k]) for k in ['retained','projects','predecessor_files']},'products_publications_onboarding_unchanged':True,'operation_set_unchanged':True,'A_B_C_unchanged':True,'application_closed':True,'real_daemon_mutations':0,'windows_launches':0}}
+    public={'schema':1,'source_head':seal['source_head'],'source_tree':seal['source_tree'],'seal_sha256':seal_hash,'input_manifest_sha256':digest(read(source/'input.json')),'disposition':classify(state),'state':state,'bundle':bundled,'installed_daemon':daemon,'registry_sha256':digest(regraw),'service_registration_count':len(regs),'service_state_authority':'registry_presence_only_runtime_scm_unavailable_no_wine_launch','process_census':process,'passive_listeners':ports,'readiness_contract':'unavailable_no_daemon_identity_or_protocol_admitted','operation_sources':bound,'dependency_failure_snapshot_operation':op,'installer_reference_operations':sources,'failure_attribution':'snapshot operation exact; vendor-log error-to-process relation unproved','vendor_diagnostics':diagnostics,'vendor_log_sources':vendor_logs,'private_input_hashes':input_hashes,'private_result_sha256':file_identity(out/'private.json')['sha256'],'preservation':{'system':after['system'],'capture':after['capture'],'software_unchanged':True,'application_unchanged':True,'environment_entries_unchanged':len(tree_before),'protected_counts':{k:len(prior[k]) for k in ['retained','projects','predecessor_files']},'products_publications_onboarding_unchanged':True,'operation_set_unchanged':True,'A_B_C_unchanged':True,'application_closed':True,'real_daemon_mutations':0,'windows_launches':0}}
     publish(out/'result.json',public);print(canonical({'disposition':public['disposition'],'result_sha256':file_identity(out/'result.json')['sha256'],'source_seal':seal_hash}).decode())
 if __name__=='__main__':main()

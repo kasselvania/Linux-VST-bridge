@@ -100,3 +100,13 @@ audio source changes.
 Return one draft PR, uninstalled and unmerged, for independent review. A later
 separately authorized continuation may perform the exact selected real dependency
 transition and one software-rendered Native Access readiness check.
+
+## NAD1 implementation progress
+
+Observer source `ce41b1767d417a704f83ef45d890539a07bb7716` was committed and
+sealed. The one authorized read-only pass refused during source attribution before
+the daemon/service census. `evidence/nad1/observation/` preserves the source seal and
+refusal. This is an incomplete observation, not evidence of dependency readiness or
+absence. A corrected continuation requires explicit operator permission; the
+original one-use marker remains retained. Production mutation selection is pending
+that disposition. No real NTKDaemon or Native Access operation has been performed.
