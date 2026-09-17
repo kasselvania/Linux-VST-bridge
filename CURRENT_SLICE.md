@@ -214,3 +214,15 @@ by a vendor launch: generated manager transition tests prove exact one-time resu
 ownership, while the disposable campaign runs the production reservation/Stop and
 Python application/service owners. Final qualification remains pending until its
 new sealed results and exact-head checks are retained.
+
+
+The sealed integrated campaign at `5c44eff081b6ffde207799e10db39ca5504f5d36`
+completed all six admitted cases. Receipts are under `evidence/nad1/retirement/`.
+Normal exit, repeated same-prefix start, exact manager Stop, readiness refusal and
+application failure confirmed SCM retirement without forced dependency cleanup.
+The deliberate stop refusal retained the earlier application exit failure, cleaned
+the cgroup and explicitly left SCM retirement unconfirmed. All six units/cgroups
+and all scratch prefixes are absent. Installed software and real-prefix state remain
+unchanged. The earlier accepted observations and campaigns are preserved. AP8,
+AP12 and PX2 passed at the executed source; the evidence-only amended head is checked
+separately. Return PR #119 draft/unmerged for exact-head rereview.
