@@ -2704,7 +2704,9 @@ class Nad1Runtime:
         self.capture=PrivateCapture(self.owner.directory/(self.owner.op+'-runtime.private.log'),1024*1024,256)
         argv=[self.runner['entry_point'],'--verb=run','--',str(self.service),
               '--socket='+str(self.socket),'--exit-on-readable=0','--no-stop-on-exit']
-        self.child=subprocess.Popen(argv,cwd=self.owner.root/'home',env=env,stdin=subprocess.PIPE,
+        # Expose only this fresh owner-private socket directory, not the host HOME.
+        container_env=dict(env,PRESSURE_VESSEL_FILESYSTEMS_RW=str(self.directory))
+        self.child=subprocess.Popen(argv,cwd=self.owner.root/'home',env=container_env,stdin=subprocess.PIPE,
                                     stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
         self.owner.ledger.launcher(self.child,'dependency_runtime')
         for name,pipe in [('stdout',self.child.stdout),('stderr',self.child.stderr)]:
