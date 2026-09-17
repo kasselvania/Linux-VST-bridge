@@ -64,6 +64,11 @@ def run(package,seal,out,*,cases=CASES):
   if dict(x.split('=',1) for x in state.splitlines())!={'LoadState':'not-found','ActiveState':'inactive','MainPID':'0','ControlPID':'0','ControlGroup':''}:raise ValueError('unit_not_absent')
   events=root/'compatdata/pfx/drive_c/NAD1Fixture/events.private'
   if events.exists():shutil.copyfile(events,case/'events.private')
+  memory={}
+  if scenario=='child_memory':
+   for name in ('memory-control.json','memory-service.json'):
+    src=root/'compatdata/pfx/drive_c/NAD1Fixture'/name;memory[name]=read(src);shutil.copyfile(src,case/name)
+    if not memory[name]['child_retired']:raise ValueError('memory_child_cleanup')
   launched=(root/'compatdata/pfx/drive_c/NAD1Fixture/application-started').exists()
   if launched!=(scenario!='not_ready'):raise ValueError('fixture_application_gate')
   dep=r['dependency']
@@ -73,8 +78,9 @@ def run(package,seal,out,*,cases=CASES):
   if scenario!='not_ready' and (r.get('effective') is None or r['renderer']['launch_binding']['status']!='bound'):raise ValueError('fixture_application_root')
   if scenario=='stop_failure' and r['error']!='application_outer_nonzero':raise ValueError('first_failure_replaced')
   if scenario!='normal':shutil.rmtree(root)
-  row={'case':scenario,'operation':op,'result':r,'result_sha256':digest(report if report.exists() else report.parent/'recovery-result.json'),'application_launched':launched,'prefix_removed':scenario!='normal','unit_absent':True,'manager_stop':stopped,'lifetime_samples':lifetime};publish(case/'proof.json',row);rows.append(row)
+  row={'case':scenario,'operation':op,'result':r,'result_sha256':digest(report if report.exists() else report.parent/'recovery-result.json'),'application_launched':launched,'prefix_removed':scenario!='normal','unit_absent':True,'manager_stop':stopped,'lifetime_samples':lifetime,'child_memory':memory};publish(case/'proof.json',row);rows.append(row)
   expected='completed' if scenario in ('normal','repeat','lifetime') else 'cancelled' if scenario=='cancel' else 'failed'
+  if scenario=='child_memory':expected='completed' if memory['memory-service.json']['passed'] else 'failed'
   if scenario=='lifetime' and (len(lifetime)!=2 or lifetime[1]['elapsed_ns']-lifetime[0]['elapsed_ns']<12_000_000_000 or stopped):raise ValueError('lifetime_interval')
   if r['state']!=expected:raise ValueError('fixture_case_result_'+scenario)
  if (d/'normal/environment').exists():raise ValueError('repeat_prefix_not_removed')

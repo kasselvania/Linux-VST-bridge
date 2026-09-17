@@ -2,7 +2,7 @@
 import ctypes,os,pathlib,shutil,subprocess,sys,time
 sys.dont_write_bytecode=True
 from owner_package import verify,read,digest,publish
-CASES=('normal','repeat','cancel','not_ready','stop_failure','application_failure','lifetime')
+CASES=('normal','repeat','cancel','not_ready','stop_failure','application_failure','lifetime','child_memory')
 def run(package,seal,spec_path):
  p=pathlib.Path(package);manifest=verify(p,seal);spec=read(spec_path);d=pathlib.Path(spec_path).parents[5];op=spec['operation']
  case=read(d/'case.json')['case']
@@ -33,6 +33,15 @@ def run(package,seal,spec_path):
   code=child.returncode
   if not ledger.cleanup() or code!=0:raise ValueError('fixture_initialization')
   directory.mkdir();shutil.copyfile(p/'Setup.exe',directory/'Setup.exe')
+  if case=='child_memory':
+   # Cold same-prefix control before any fixture service is installed or started.
+   argv=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',str(file),'--memory-control']
+   with (d/'memory-control.private.log').open('xb') as log:
+    child=subprocess.Popen(argv,env=launch,cwd=root/'home',stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
+    ledger.launcher(child,'memory_control');deadline=time.monotonic()+60
+    while child.returncode is None and time.monotonic()<deadline:ledger.harvest();time.sleep(.05)
+    if not ledger.cleanup():raise ValueError('memory_control_cleanup')
+   if not (directory/'memory-control.json').exists():raise ValueError('memory_control_missing')
   seed=d/'seed';seed.mkdir(mode=0o700);seeder=s.Nad1Owner(dict(spec,report=str(seed/'result.json')),ledger,scope,lambda:False,fixture=fixture)
   error=None
   try:seeder.ensure(True)
@@ -45,6 +54,7 @@ def run(package,seal,spec_path):
   previous=read(d.parent/'normal/proof.json')['result']
   if previous['state']!='completed' or not previous['dependency']['service_retirement_confirmed'] or previous['dependency']['forced_cleanup_used']:raise ValueError('fixture_repeat_prior_retirement')
   (directory/'application-started').unlink()
+ if case=='child_memory':(directory/'probe-child-memory').touch()
  if case=='not_ready':(directory/'not-ready').touch()
  if case=='lifetime':(directory/'await-explicit-exit').touch()
  if case=='cancel':(directory/'hold-application').touch()
