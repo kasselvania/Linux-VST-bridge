@@ -452,3 +452,5 @@ request files. Suspend raw application diagnostics before delivery, explicitly
 mark observation incomplete, retain non-secret delivery status only. Vendor login
 and token validation remain vendor-owned. Qualify with generated callbacks and
 source-owned Windows instances; no real credentials or replayed login link.
+
+The browser-return repair is generated-qualified at source `31c261eea5784175faa5f36f6c8f28dfb9c2c8b0` / tree `8709c769f69ad62cb1cb7aef6bc6bf54dc62def9`. Hosted AP8/AP12 passed. The corrected console-compatible reader delivered one fake return in the pinned Deck runtime and retired cleanly. See `evidence/nad1/recovery/browser-return/` for both the successful transport and the explicit shared-cache link-count preservation exception. The real installed generation remains unchanged pending explicit candidate-install approval requested after automatic review rejected it. No real sign-in success is claimed.

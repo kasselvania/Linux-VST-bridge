@@ -1,0 +1,65 @@
+{
+  "failed_generated_sessions": [
+    {
+      "browser_return": {
+        "attempts": 1,
+        "authentication": "not_observed",
+        "dispatched": 0,
+        "last_result": "delivery_unconfirmed",
+        "schema": 1,
+        "scheme": "native-access",
+        "secret_retained": false
+      },
+      "campaign": 2,
+      "input_diagnostic": null,
+      "manifest_sha256": "968d037b25d923f70dc808a8f81e2790817554ab59bad95cde3317564d4d81bb",
+      "operation": "6ad843b032c9c198f72d626132409bb1",
+      "prefix_removed": true,
+      "private_cleanup_sha256": "ef5bf7bb9e7e949f383db6170bdbfc9e9691120255817d2b80adc4267aa44273",
+      "private_result_sha256": "7f29cbc56b8cce0d92852a69a9b163cd227c001e6a32c6821b6951204a1b5c13",
+      "process_cleanup_confirmed": true,
+      "service_retirement_confirmed": true,
+      "source": {
+        "head": "1580abfc7ec6046efdb25220f2aaea039c5679a1",
+        "tree": "0e6180b897cccded72546d9d8cfd4cea5c7916ab"
+      },
+      "state": "cancelled",
+      "unit_absent": true
+    },
+    {
+      "browser_return": {
+        "attempts": 1,
+        "authentication": "not_observed",
+        "dispatched": 0,
+        "last_result": "delivery_unconfirmed",
+        "schema": 1,
+        "scheme": "native-access",
+        "secret_retained": false
+      },
+      "campaign": 3,
+      "input_diagnostic": {
+        "windows_error": 50,
+        "windows_input_type": 2
+      },
+      "manifest_sha256": "78e813af2b15f309648256566715d740e9df4a0e6f45dfecc6a66ba4b9cfce6b",
+      "operation": "787ab86bf2aec6ce25b7dc64c803454e",
+      "prefix_removed": true,
+      "private_cleanup_sha256": "5299e62bf98e710c75843205aa59030b242ed725abb8bdbfa4c8645073615d6c",
+      "private_result_sha256": "20bd9b0d048763f23f38f82a93c029ca95a76dddc2183a5859b61070889f0743",
+      "process_cleanup_confirmed": true,
+      "service_retirement_confirmed": true,
+      "source": {
+        "head": "6e49a2dd7198c6f388171077639c62ae56ec39ff",
+        "tree": "b9e905c1ddb06ee627ac9ca213e095456e8b3aef"
+      },
+      "state": "cancelled",
+      "unit_absent": true
+    }
+  ],
+  "prelaunch_refusal": {
+    "operation_created": false,
+    "private_log_sha256": "9b20da9a108e9d4378b23fbffbe2ad34a4cc7f60796b6006b66dfe6548a93663",
+    "reason": "seal_shape_after_python_bytecode_creation"
+  },
+  "schema": 1
+}
