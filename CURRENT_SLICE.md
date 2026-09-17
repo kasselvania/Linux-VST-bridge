@@ -339,3 +339,14 @@ Use source-owned fixtures for recovery, readiness failure and cancellation. Do n
 install replacement software, start the real daemon, launch Native Access or change
 the real registry during this repair. Preserve the prior physical evidence. Keep
 PR #120 draft for review with source, tests and new generated proof together.
+
+Recovery qualification completed at source `9ce0cf38ce7be5f4805748d8114698e3cb691ee6`.
+Three disposable Windows operations proved recovery to readiness, readiness failure
+and exact manager Stop after a seeded installer exit 100. No recovery operation
+reran installation; all confirmed SCM retirement without forced cleanup. New proof
+and source seal are under `evidence/nad1/recovery/`. Final preservation includes the
+real daemon and registry unchanged, original failed-operation sources unchanged,
+307 witnesses, five projects, 23 predecessor files and 81 protected records.
+Production software is unchanged; no real readiness or Native Access connectivity
+claim is made. The same draft PR #120 now contains the recovery implementation,
+reporting fixes, generated qualification and frontend explanations.

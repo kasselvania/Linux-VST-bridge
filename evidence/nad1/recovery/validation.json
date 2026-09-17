@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "owner_source": "9ce0cf38ce7be5f4805748d8114698e3cb691ee6",
+  "focused_dependency_tests": {
+    "discovered": 76,
+    "skipped": 1,
+    "passed": 75
+  },
+  "new_recovery_tests": 13,
+  "runtime": {
+    "discovered": 218,
+    "skipped": 39,
+    "passed": 179
+  },
+  "nad1_observer_package_tests": 23,
+  "manager_library": {
+    "full_suite_passed": 136,
+    "subsequent_focused_recovery_suite_passed": 5,
+    "new_recovery_tests_in_focused_suite": 2
+  },
+  "manager_binary_passed": 79,
+  "frontend_passed": 26,
+  "strict_manager_clippy": "passed",
+  "strict_frontend_clippy": "passed",
+  "python_compilation": "passed",
+  "generated_windows_cases": 3,
+  "hosted_validation": "AP8/AP12/PX2 required on delivered PR head; exact run identities available in PR checks",
+  "development_transfer_refusal": {
+    "phase": "sealed_package_validation",
+    "reason": "macos_metadata_sidecars",
+    "campaign_created": false,
+    "windows_launches": 0,
+    "retry_same_source_seal": true,
+    "local_log_sha256": "8c577f69bfbdb098f39b87d1650de1daa5afd8477a9b5036e82a4feb207c2756"
+  }
+}

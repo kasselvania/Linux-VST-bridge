@@ -606,6 +606,18 @@ fn dependency_retirement_lines(v: &serde_json::Value) -> Vec<String> {
     let mut lines=vec![format!("Dependency service stop: {}",if r["service_retirement_confirmed"]==true {"confirmed"}else{"not confirmed"}),
          format!("Dependency process cleanup: {}",if r["process_cleanup_confirmed"]==true {"confirmed"}else{"not confirmed"}),
          format!("Forced cleanup: {}",if r["forced_cleanup_used"]==true {"used; does not confirm a clean service stop"}else{"not reported"})];
+    if let Some(error)=v["error"].as_str() {
+        let explanation=match error {
+            "dependency_running_not_ready"=>"The service did not establish exact process and listener readiness; Native Access was not opened.",
+            "dependency_recovery_registration_missing"=>"The verified daemon exists, but its service registration is missing. Recovery did not reinstall it.",
+            "dependency_recovery_payload_changed"|"dependency_generation_changed"=>"The installed daemon differs from the admitted bundle payload. No replacement was attempted.",
+            "dependency_foreign_conflict"|"dependency_same_prefix_unowned"=>"A conflicting or unowned daemon prevents preparation. It was not adopted or stopped.",
+            "dependency_command_timeout"=>"A service or installer command did not provide its required acknowledgment in time.",
+            "dependency_installer_nonzero"=>"The installer returned a nonzero result. Installed files and service readiness are separate facts.",
+            _=>"The dependency operation did not complete; inspect the retained step and retirement results.",
+        };
+        lines.push(format!("Dependency failure: {error}. {explanation}"));
+    }
     if v["dependency"]["recovery"]["authority"]=="qualified_bundle_payload_and_retired_installation" {
         lines.push("Recovering the verified installed dependency without reinstalling; the earlier installer failure remains recorded.".into());
         lines.push(if v["dependency"]["ready_tested"]==true {"Fresh service readiness: verified."}else{"Fresh service readiness: not established."}.into());
@@ -717,7 +729,9 @@ mod tests {
     #[test]
     fn recovery_does_not_claim_readiness_or_erase_prior_failure() {
         let mut value=serde_json::json!({"dependency":{"recovery":{"authority":"qualified_bundle_payload_and_retired_installation"},"ready_tested":false}});
+        value["error"]=serde_json::json!("dependency_running_not_ready");
         let lines=dependency_retirement_lines(&value);
+        assert!(lines.iter().any(|s|s.contains("Native Access was not opened")));
         assert!(lines.iter().any(|s|s.contains("earlier installer failure remains")));
         assert!(lines.iter().any(|s|s=="Fresh service readiness: not established."));
         value["dependency"]["ready_tested"]=serde_json::json!(true);
