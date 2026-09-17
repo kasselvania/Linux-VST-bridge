@@ -120,3 +120,46 @@ remain non-selecting leads; raw root PIDs/times remain private.
 
 Run affected suites and AP8/AP12/PX2, then return the same draft PR. No installation,
 commercial launch or Native Access differential is authorized by this repair.
+
+## Accepted merge: installation and registration continuation
+
+PR #117 merged as `f12953cb31cbce11f64f29788cd51da26e6c92c0` with exact reviewed
+tree `5bbe3028247a6a340df34589f14d365e7c6dbdc6`. Merged-main AP8/AP12/PX2 passed.
+The separately authorized idle installation and exactly one RendererDiscover are
+complete; receipts are in `evidence/naui2/installation/`. Installed operator model
+is 6. The application has not been launched and no presentation was recorded.
+
+Stop at this installation/registration receipt for independent acceptance. Only a
+subsequent authorization may start A (inherited rendering). B and C remain gated by
+A/B results and positive cleanup. No further implementation or application launch
+is selected by this evidence-only continuation.
+
+### Subsequent human inherited observation
+
+The human subsequently ran inherited mode and reported a white window, then closed
+it. Exact operation `c44ae35d794f0a1f47ee97468e848a1c` and the attributed report are
+retained under `evidence/naui2/inherited-observation/`. Cleanup/service restoration
+passed; rendering cause is unresolved. This records observed activity, not an agent
+launch or a new authorization. Stop for review; software rendering remains gated.
+
+### Authorized software-rendering observation B
+
+The tech lead accepted A and authorized exactly one human-operated B. Idle preflight
+passed; the human launched software rendering, reported visible content, and closed
+normally. Operation `627e52ca72b7533a5774862da7df11cb` is retained separately under
+`evidence/naui2/software-rendering-observation/`. Effective policy/root match,
+drop counters are zero, and cleanup/service restoration/preservation passed.
+The result is a provisional software-rendering effect; cause remains unresolved.
+Stop for review. Restored inherited C is not authorized by this continuation.
+
+### Authorized restored inherited observation C
+
+The tech lead accepted B and authorized one restored inherited run. The human
+reported a white client area and closed normally. Exact operation
+`ac91282207c833b49de0779ebb1a635a` is retained separately under
+`evidence/naui2/restored-inherited-observation/`. A/B/C identities match, all drop
+counters are zero, and cleanup/service restoration/preservation passed. The
+white/content/white sequence satisfies `NAUI2_SOFTWARE_RENDERING_SELECTED` for
+exact operation-scoped --disable-gpu and this application generation. Specific
+rendering cause remains unresolved. No default or production source was changed.
+Stop for final review; no further application launch is authorized here.

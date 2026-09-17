@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "merge_commit": "f12953cb31cbce11f64f29788cd51da26e6c92c0",
+  "tree": "5bbe3028247a6a340df34589f14d365e7c6dbdc6",
+  "approved_head": "c8bb73b2e774853880ced9de46c2e254c5fceb5e",
+  "merged_tree_equals_reviewed_tree": true,
+  "package_sha256": "7ca1fcb465ec8099c3287bd3076932a369fb69035da8fe52addbaf1046b31b30",
+  "private_driver_and_log_sha256": {
+    "manager-build": "ea3a8718dabeddbb371ded167ecdc3f3c6e138cbf2e288a7f1a854632032a0a9",
+    "frontend-build": "d714cc6a5d06c965bd529af3ae4906bfc62cdad33f5e6e2701b6ad1162234e85",
+    "readback-client-build": "a04b137ba98f8565bc1c47a01489ac4fc824a66b8437abc79a97ed088921f635",
+    "installation-owner": "60668e4a2edee30f9af007f9649c26bb3c4300e2fe8a31cc24ac94e44e78d370",
+    "registration-owner": "1f03c861a3c336bff0fb9bc0e6078f4f6a3cd8d80ff3301cf09580e5b3879a76",
+    "final-readback-owner": "95b8e81b69588c9d93045945d5ad0607299e5f149265daa989a02f5418c7cff7"
+  },
+  "merged_main_checks": {
+    "AP8": {
+      "run": 35181944920,
+      "result": "success"
+    },
+    "AP12": {
+      "run": 35181946572,
+      "result": "success"
+    },
+    "PX2": {
+      "run": 35181903564,
+      "result": "success"
+    }
+  },
+  "native_access_launch": false,
+  "renderer_discover_requests": 1,
+  "renderer_open_requests": 0,
+  "production_source_changes": false
+}
