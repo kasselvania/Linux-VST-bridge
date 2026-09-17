@@ -104,3 +104,23 @@ class PEMetadataTests(unittest.TestCase):
   with tempfile.TemporaryFile() as f:
    f.write(self.executable());f.flush()
    self.assertEqual(metadata(f),dict(architecture='x86',version={},version_status='absent',version_reason=None))
+
+class RetainedResultTests(unittest.TestCase):
+ def test_completed_observation_stays_unresolved_and_sealed(self):
+  import hashlib
+  root=HERE.parents[1]/'evidence/nad1/observation/completed'
+  raw=(root/'observation.json').read_bytes();seal=(root/'source-seal.json').read_bytes()
+  self.assertEqual(hashlib.sha256(raw).hexdigest(),'3d14b33cf14fef1528cc7ac594fcd3707f262a227280f25b9f991938bdd0d5b2')
+  self.assertEqual(hashlib.sha256(seal).hexdigest(),'3989f31bb9d3924b47d2a8ffd5730a6bf1c43578db974d1c942e2dc9f2743212')
+  r=decode(raw);self.assertEqual(classify(r['state']),r['disposition'])
+  self.assertEqual(r['disposition'],'NAD1_IDENTITY_UNRESOLVED')
+  self.assertEqual(r['process_census']['unavailable'],5)
+  self.assertFalse(r['state']['complete'])
+  self.assertEqual(r['dependency_failure_snapshot_operation'],'354af73fea5773244ac3ebd21425e4ed')
+  for forbidden in [b'/home/deck',b'http://',b'https://',b'"pid"',b'"cmdline"',b'"environ"']:
+   self.assertNotIn(forbidden,raw)
+ def test_loss_cannot_be_overridden_by_absent_files_or_service(self):
+  r=decode((HERE.parents[1]/'evidence/nad1/observation/completed/observation.json').read_bytes())
+  for change in [{'service':'stopped'},{'readiness':'exact'},{'daemon':'exact'},{'foreign':'absent'},{'complete':True}]:
+   state=dict(r['state'],**change)
+   self.assertEqual(classify(state),'NAD1_IDENTITY_UNRESOLVED')

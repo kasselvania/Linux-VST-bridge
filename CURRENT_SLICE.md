@@ -121,3 +121,16 @@ corrections and reruns until completion. Each committed source generation has it
 own non-replacing marker. Unsupported optional version strings remain unavailable;
 architecture and stable image digest remain independent facts. No historical NAUI1
 reader or evidence is changed.
+
+The corrected observer `4d0121697631a8f73a239c010b314d7fface79b2` completed
+with `NAD1_IDENTITY_UNRESOLVED`. Its exact result and seal are retained under
+`evidence/nad1/observation/completed/`. Five unavailable process observations
+prevent foreign-daemon exclusion; no real readiness contract is admitted. The
+bundled x86 installer is identified by exact hash/size. No daemon executable at the
+admitted path or service registration was found. Preservation passed.
+
+This is an observer checkpoint, not completion of NAD1. The production dependency
+owner, launch readiness gate and generated service lifecycle qualification remain
+unimplemented. No installation/start behavior is selected from incomplete identity.
+PR #119 remains draft and unmerged. No further physical observation is planned from
+this checkpoint; the completed result and gaps are retained for review.
