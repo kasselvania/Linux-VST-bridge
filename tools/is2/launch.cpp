@@ -36,7 +36,9 @@ int wmain(int argc,wchar_t** argv){
     CloseHandle(request);if(!ok)return 122;
     std::wstring all(buffer.data(),bytes/2);std::vector<std::wstring> lines;size_t pos=0;
     for(;;){auto end=all.find(L'\n',pos);if(end==std::wstring::npos)break;lines.push_back(all.substr(pos,end-pos));pos=end+1;}
-    if(pos!=all.size()||lines.size()!=7||lines[0]!=L"IS2_LAUNCH_V1"||!hex(lines[1],32)||!hex(lines[2],64)||lines[3]!=L"2"||!hex(lines[4],64))return 123;
+    const bool renderer=lines.size()==8&&lines[0]==L"NAUI2_LAUNCH_V1";
+    if(pos!=all.size()||(!renderer&&(lines.size()!=7||lines[0]!=L"IS2_LAUNCH_V1"))||!hex(lines[1],32)||!hex(lines[2],64)||lines[3]!=L"2"||!hex(lines[4],64))return 123;
+    if(renderer&&lines[7]!=L"inherited"&&lines[7]!=L"software_rendering")return 123;
     wchar_t* end=nullptr;auto expected_size=wcstoull(lines[5].c_str(),&end,10);
     if(!end||*end||!expected_size||expected_size>2147483648ULL||lines[6].empty()||lines[6].find(L'"')!=std::wstring::npos)return 124;
     // Hold the exact image read-only without write/delete sharing through creation.
@@ -47,6 +49,7 @@ int wmain(int argc,wchar_t** argv){
     if(!ok){CloseHandle(image);return 126;}
     STARTUPINFOW si{};si.cb=sizeof(si);PROCESS_INFORMATION pi{};
     std::wstring command=L"\""+lines[6]+L"\"";
+    if(renderer&&lines[7]==L"software_rendering")command+=L" --disable-gpu";
     // Environment and current directory are inherited unchanged. No shell, extra
     // installer arguments, token in child environment, or manifest bypass.
     if(!CreateProcessW(lines[6].c_str(),command.data(),nullptr,nullptr,FALSE,CREATE_SUSPENDED,nullptr,nullptr,&si,&pi)){

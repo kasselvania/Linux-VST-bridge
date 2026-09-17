@@ -67,6 +67,7 @@ fn app_directory(m: &Manager) -> PathBuf {
     m.root.join("vendor-applications").join(ASC)
 }
 fn vendor_retired(m: &Manager) -> Result<bool> {
+    if !renderer_cli::all_retired(m)? {return Ok(false);}
     if !app_directory(m).exists() {
         return Ok(true);
     }
@@ -163,7 +164,7 @@ fn activity_with_capacity(m: &Manager, cap: Option<&CapacityReadback>) -> Result
         }
     }
     Ok(ui::Activity {
-        schema: 5,
+        schema: 6,
         system: ui::System {
             service: if cap.is_some() {
                 "active"
@@ -504,6 +505,7 @@ fn snapshot_for_operation(
             busy
         };
         vendor_applications.push(ui::VendorApplication {
+            details: json!({}),
             id: ASC.into(),
             name: "Arturia Software Center".into(),
             version: a.observed_installer_version,
@@ -552,6 +554,7 @@ fn snapshot_for_operation(
             ],
         });
     }
+    if let Some(app)=renderer_cli::project(m,busy)? {vendor_applications.push(app);}
     let mut incidents = Vec::new();
     let mut paths = crash_capture::incidents(m)?;
     paths.sort_by_key(|p| {
@@ -596,7 +599,7 @@ fn snapshot_for_operation(
     drop(recheck);
     Ok(ui::Snapshot {
         onboarding,
-        schema: 5,
+        schema: 6,
         state_token: after,
         system: live.system,
         environments,
@@ -683,7 +686,7 @@ fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
 }
 fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
     require(
-        request.schema == 5 && request.state_token == snapshot.state_token,
+        request.schema == 6 && request.state_token == snapshot.state_token,
         "operator_stale_request_refresh",
     )?;
     let offered = available(snapshot)
@@ -820,7 +823,7 @@ fn launch_reserved(
         return Err("operator_worker_launch_failed".into());
     }
     Ok(ui::Receipt {
-        schema: 5,
+        schema: 6,
         accepted: true,
         operation: Some(id.into()),
         refusal: None,
@@ -845,7 +848,7 @@ fn dispatch_recorded(
                 false,
             )?;
             Ok(ui::Receipt {
-                schema: 5,
+                schema: 6,
                 accepted: false,
                 operation: Some(id),
                 refusal: Some(reason),
@@ -912,6 +915,8 @@ fn creation_control_stamp(m: &Manager) -> Result<Vec<(PathBuf, onboarding::FileI
         m.root.join("operator/resume.json"),
         app_directory(m).join("operation.json"),
         app_directory(m).join("operation-result.json"),
+        renderer_cli::directory(m).join("application.json"),
+        renderer_cli::directory(m).join("current.json"),
     ] {
         if path.try_exists()? {
             paths.push(path);
@@ -1158,6 +1163,36 @@ fn execute_with_receipt_policy(
             atomic_json(&path, &value)?;
             Ok(json!({"export":path,"sanitized":true}))
         }
+        ui::Action::RendererDiscover {} => renderer_cli::discover(m),
+        ui::Action::RendererOpen { application, policy } => {
+            let _environment=m.lock("operator-environment.lock")?;
+            let owner=operation.ok_or("operator_operation_identity")?;
+            suspend(m,owner,Some(owner.into()))?;
+            if let Err(e)=renderer_cli::launch(m,application,*policy,owner) {
+                let _=resume_owned(m,owner);return Err(e);
+            }
+            write_operation(m,owner,&json!({"schema":1,"operation":owner,"state":"vendor_running","action":a}),false)?;
+            drop(projection.take());
+            let deadline=Instant::now()+Duration::from_secs(650);
+            loop {
+                if renderer_cli::retired_value(&renderer_cli::result(m,owner)?,owner) && !renderer_cli::live(owner)? {break;}
+                require(Instant::now()<deadline,"renderer_retirement_unconfirmed")?;
+                std::thread::sleep(Duration::from_millis(500));
+            }
+            resume_owned(m,owner)?;
+            Ok(json!({"application":"retired","service":"resumed","result":renderer_cli::result(m,owner)?}))
+        }
+        ui::Action::RendererStop { operation: target } => {
+            let _resume=resume_lock(m)?;
+            let saved=resume_record(m)?.ok_or("renderer_resume_owner_absent")?;
+            require(saved.owner_operation==*target && saved.vendor_operation.as_deref()==Some(target.as_str())
+                && matches!(recovery_request(m,&saved)?,ui::Action::RendererOpen{..}),"renderer_resume_owner_mismatch")?;
+            renderer_cli::stop(m,target)?;
+            resume_locked(m,target,|saved|restore_service(m,saved))?;
+            Ok(json!({"application":"stopped","operation":target}))
+        }
+        ui::Action::RendererFocus { operation: target } => renderer_cli::focus(m,target),
+        ui::Action::RendererObserve { operation: target, presentation } => renderer_cli::observe(m,target,*presentation),
         ui::Action::VendorApplicationOpen { application } => {
             vendor_application::ApplicationId::parse(application)?;
             let _environment = m.lock("operator-environment.lock")?;
@@ -1341,7 +1376,7 @@ fn resume_locked(
 fn recovery_request(m: &Manager, saved: &ResumeRecord) -> Result<ui::Action> {
     let request: ui::Request =
         read_json(&job_dir(m, &saved.owner_operation)?.join("request.json"))?;
-    require(request.schema == 5, "operator_resume_request_schema")?;
+    require(matches!(request.schema,5|6), "operator_resume_request_schema")?;
     Ok(request.action)
 }
 fn stop_vendor_with(
@@ -1387,7 +1422,7 @@ fn resume_interrupted(m: &Manager) -> Result<()> {
             recovery_request(m, &saved)?,
             ui::Action::InstallerStart { .. } | ui::Action::InstallerStartWithPolicy { .. }
                 | ui::Action::InstallerScan { .. }
-                | ui::Action::VendorApplicationOpen { .. }
+                | ui::Action::RendererOpen { .. } | ui::Action::VendorApplicationOpen { .. }
                 | ui::Action::EnvironmentRescan { .. } | ui::Action::PluginReinspect {..} | ui::Action::PluginInspect {..} | ui::Action::PluginPrepare {..}
         ),
         "operator_resume_action_mismatch",
@@ -1692,7 +1727,7 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
             let receipt = match dispatch(m, req) {
                 Ok(r) => r,
                 Err(e) => ui::Receipt {
-                    schema: 5,
+                    schema: 6,
                     accepted: false,
                     operation: None,
                     refusal: Some(e.to_string()),
@@ -1726,7 +1761,7 @@ mod tests {
     fn view(token: &str, action: ui::AvailableAction) -> ui::Snapshot {
         ui::Snapshot {
             onboarding: vec![],
-            schema: 5,
+            schema: 6,
             state_token: token.into(),
             system: ui::System {
                 service: "active".into(),
@@ -1756,7 +1791,7 @@ mod tests {
         };
         let s = view("current", action("Rollback", allowed.clone(), None));
         let mut r = ui::Request {
-            schema: 5,
+            schema: 6,
             state_token: "current".into(),
             action: allowed.clone(),
         };
@@ -1932,7 +1967,7 @@ mod tests {
     fn terminal_receipt_waits_for_an_existing_writer_instead_of_leaving_running() {
         let f = test_fixture::Fixture::new();
         let request = ui::Request {
-            schema: 5,
+            schema: 6,
             state_token: "t".into(),
             action: ui::Action::CaptureDisarm {},
         };
@@ -1964,7 +1999,7 @@ mod tests {
     fn failed_launch_and_dead_worker_have_terminal_receipts_without_overwriting_new_jobs() {
         let f = test_fixture::Fixture::new();
         let request = ui::Request {
-            schema: 5,
+            schema: 6,
             state_token: "t".into(),
             action: ui::Action::CaptureDisarm {},
         };
@@ -2038,7 +2073,7 @@ mod tests {
         launch_queued(
             m,
             &ui::Request {
-                schema: 5,
+                schema: 6,
                 state_token: "fixture".into(),
                 action,
             },
@@ -2353,7 +2388,7 @@ mod tests {
         fs::write(&source, bytes).unwrap();
         let installer = installer_import::import(&f.m, file(&source).unwrap()).unwrap();
         let request = ui::Request {
-            schema: 5,
+            schema: 6,
             state_token: token(&f.m).unwrap(),
             action: ui::Action::InstallerEnvironmentCreate {
                 installer: installer.id,

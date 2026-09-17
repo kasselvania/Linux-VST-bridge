@@ -4,6 +4,7 @@ mod managed_cli;
 mod test_fixture;
 mod transport_storage;
 mod vendor_cli;
+mod renderer_cli;
 mod vendor_product_cli;
 mod operator_cli;
 mod installer_import;

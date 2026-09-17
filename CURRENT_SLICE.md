@@ -6,10 +6,10 @@ head `5259d0069297e074501dda292c40239c1da04000` with the same tree.
 The earlier planning commit `e4062c50f5564024006866c284db333ae1fd94e6` was based on the
 pre-repair head and is superseded by this rebased preparation.
 
-This is repository preparation only. No NAUI2 implementation or physical renderer
-comparison is performed or authorized by this integration step. A later explicit
-implementation handoff must name this corrected planning basis. Its intended
-implementation scope remains source and generated proof only.
+The operator has explicitly authorized implementation on corrected planning head
+`7902e7afc3cafb0c528f4a64891509d8150caea1`. Build the production owner and
+source-owned generated proof, then return one draft PR. No real Native Access
+launch or software installation is part of this implementation.
 
 Installed executable source was last retained as merged IS4 main
 `8fb2f20c822320340e44f9cbae399633dd6e8a53`, tree

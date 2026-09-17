@@ -2,6 +2,12 @@
 use serde::{Deserialize, Serialize};
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+pub enum RendererPolicy { Inherited, SoftwareRendering }
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Presentation { BlankWhite, RenderedNonblank, Unavailable }
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum Powershell {
     Inherited,
     IntentionallyUnavailable,
@@ -21,6 +27,11 @@ pub struct PublicationIdentity { pub id: String, pub sha256: String }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    RendererDiscover {},
+    RendererOpen { application: String, policy: RendererPolicy },
+    RendererFocus { operation: String },
+    RendererStop { operation: String },
+    RendererObserve { operation: String, presentation: Presentation },
     PluginInspect { selection: String },
     PluginPrepare { selection: String, inspection: String, recipe: String, predecessor: Option<String> },
     PluginReinspect { selection: String },
@@ -134,6 +145,8 @@ pub struct Environment {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct VendorApplication {
+    #[serde(default)]
+    pub details: serde_json::Value,
     pub id: String,
     pub name: String,
     pub version: String,
@@ -229,7 +242,7 @@ impl Action {
     pub fn requires_inactive(&self) -> bool {
         matches!(
             self,
-            Self::PluginReinspect { .. } | Self::ExperimentalReplace { .. } | Self::CandidateWithdraw { .. } | Self::PluginInspect { .. } | Self::PluginPrepare { .. } | Self::ExperimentalEnable { .. } | Self::ExperimentalDisable { .. } | Self::CandidatePublishOrdinary { .. } | Self::InstallerEnvironmentCreate { .. }
+            Self::RendererDiscover {} | Self::RendererOpen { .. } | Self::PluginReinspect { .. } | Self::ExperimentalReplace { .. } | Self::CandidateWithdraw { .. } | Self::PluginInspect { .. } | Self::PluginPrepare { .. } | Self::ExperimentalEnable { .. } | Self::ExperimentalDisable { .. } | Self::CandidatePublishOrdinary { .. } | Self::InstallerEnvironmentCreate { .. }
                 | Self::InstallerNewAttempt { .. }
                 | Self::InstallerStart { .. }
                 | Self::InstallerStartWithPolicy { .. }

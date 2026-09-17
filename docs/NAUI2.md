@@ -13,10 +13,10 @@ PR #116 accepted head `5259d0069297e074501dda292c40239c1da04000` is an ancestor 
 that merge and has the same tree. The earlier planning commit `e4062c50f5564024006866c284db333ae1fd94e6`
 is superseded; it did not contain the accepted trace-completeness repair.
 
-This step only prepares the repository for a later implementation handoff. It does
-not implement NAUI2, install diagnostics or authorize an application launch. The
-last retained installed source is IS4 `8fb2f20c822320340e44f9cbae399633dd6e8a53`;
-no live installed-state readback was performed for this preparation.
+Implementation is authorized by the operator on this corrected basis. The manager
+now has an adjacent exact Native Access application owner, closed rendering modes,
+operation-bound observation and recovery, and a generated fixture campaign. This
+PR remains uninstalled and contains no real application comparison.
 
 ## Exact application basis
 
