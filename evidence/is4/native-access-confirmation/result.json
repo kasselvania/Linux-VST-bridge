@@ -1,0 +1,147 @@
+{
+  "schema": 1,
+  "claim": "One human-operated linked installer continuation reached a blank Native Access application window and retired normally; complete installation and application usability remain unproved.",
+  "environment": "627d2cba97edbecf113c22504eb4c81b",
+  "operation": "e4143128adc87de3fdbbdfb44f186ee5",
+  "previous_environment": "da0f50e64aa8c8aeb91d8e66cda3fb1d",
+  "installer_sha256": "82d7b7977d4fbc19db32aee8778c75906f6ddf935bcf2958f2d8d45141b2b2cc",
+  "installer_size": 179877344,
+  "root_binding": {
+    "schema": 1,
+    "operation": "e4143128adc87de3fdbbdfb44f186ee5",
+    "epoch": 2,
+    "token_sha256": "1f4ef2aecb5e7ae1f2656123de0fe5a8e7b67853bea8ed5fe79b03b90b326bf1",
+    "artifact_sha256": "82d7b7977d4fbc19db32aee8778c75906f6ddf935bcf2958f2d8d45141b2b2cc",
+    "size": 179877344,
+    "status": "bound",
+    "reason": null,
+    "root_ordinal": 13
+  },
+  "state": "completed",
+  "outer_exit": 0,
+  "owned_survivors": 0,
+  "cleanup_confirmed": true,
+  "cancellation": null,
+  "first_startup_problem": null,
+  "first_attributed_failure": null,
+  "transaction_outcome": "partial_installation",
+  "witnesses": {
+    "classification": "partial_installation",
+    "delta_counts": {
+      "files": {
+        "added": 15,
+        "changed": 0,
+        "removed": 0
+      },
+      "logs": {
+        "added": 3,
+        "changed": 0,
+        "removed": 0
+      },
+      "uninstall": {
+        "added": 4,
+        "changed": 0,
+        "removed": 0
+      },
+      "services": {
+        "added": 0,
+        "changed": 0,
+        "removed": 0
+      }
+    },
+    "matched_application_registrations": 0,
+    "incomplete_surface_count": 1,
+    "dependency_health": "unproved",
+    "postinstall_launch": "unproved",
+    "service_result_count": 21
+  },
+  "policy": {
+    "schema": 1,
+    "requested": {
+      "powershell": "intentionally_unavailable"
+    },
+    "effective": {
+      "schema": 1,
+      "operation": "e4143128adc87de3fdbbdfb44f186ee5",
+      "environment": "627d2cba97edbecf113c22504eb4c81b",
+      "environment_revision": 1,
+      "software_sha256": "016e51bf7a95f4da51baedd91f011a6a33d5d7008e54618b5c0732acab6af166",
+      "requested": {
+        "windows_scripting": {
+          "powershell": "intentionally_unavailable"
+        }
+      },
+      "effective": {
+        "windows_scripting": {
+          "powershell": "intentionally_unavailable"
+        }
+      },
+      "phase": "target_runner_after_prefix_initialization",
+      "monotonic_ns": 510324192263415,
+      "before": {
+        "present": false,
+        "length": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "after": {
+        "present": true,
+        "length": 15,
+        "sha256": "a156d13bd0ad6129fa13a0a7b76672634c09956c9b090e7c89edf60078979c63"
+      },
+      "authority": "supervisor_Popen_environment",
+      "behavior": "unproved_without_child_observation"
+    },
+    "operation": "e4143128adc87de3fdbbdfb44f186ee5"
+  },
+  "diagnostics": {
+    "runner": {
+      "capacity": 262144,
+      "record_capacity": 256,
+      "retained_bytes": 26760,
+      "dropped_bytes": 4571384,
+      "dropped_records": 48667
+    },
+    "accessibility_observer": {
+      "capacity": 32768,
+      "record_capacity": 64,
+      "retained_bytes": 2298,
+      "dropped_bytes": 0,
+      "dropped_records": 0
+    },
+    "msi": {
+      "capacity": 131072,
+      "record_capacity": 64,
+      "retained_bytes": 0,
+      "dropped_bytes": 0,
+      "dropped_records": 0
+    },
+    "line_drops": 0,
+    "retained_private_log_bytes": 53754,
+    "dropped_private_log_bytes": 0,
+    "dropped_private_log_records": 0,
+    "unfinished_line_bytes": 0,
+    "availability": "bounded_runner_pipes",
+    "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+  },
+  "presence_close": {
+    "schema": 1,
+    "observation_count": 0,
+    "dropped_observations": 0,
+    "actual_match_or_close_result": "unavailable_without_exact_object_observation",
+    "operation_classes": []
+  },
+  "human_observation": {
+    "installer_reported_complete": true,
+    "application_window_title": "Native Access",
+    "application_client_area": "blank white",
+    "closed_with_window_X": true,
+    "observation_provenance": "operator report and attached screenshot; no agent vendor UI input"
+  },
+  "nonclaims": [
+    "Native Access fallback mechanism was not observed",
+    "No selected rendering/framework cause",
+    "Complete installation and dependency health unproved",
+    "No application authorization or usability claim",
+    "No retry or subsequent launch performed"
+  ]
+}
