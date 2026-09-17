@@ -242,6 +242,7 @@ class IntegratedApplicationTests(unittest.TestCase):
     op='e'*32;spec={'operation':op,'report':str(root/'result.json'),'application_identity':'b'*64,'software_sha256':'c'*64,'renderer_policy':'software_rendering','installer_launch':{'path':'adapter'},'application':{'environment':{'root':str(root),'runner':{'entry_point':'fixture','proton':'fixture'}},'files':{'Native Access.exe':{'artifact':artifact,'size':image.stat().st_size}}}}
     events=[];children=[];real=subprocess.Popen;prior=[signal.getsignal(x) for x in (signal.SIGTERM,signal.SIGINT)]
     class Dependency:
+     runtime=type('Runtime',(),{'argv':lambda *_:['generated-command']})()
      anchor=type('Exited',(),{'returncode':1})() if case=='anchor_failure' else None
      process_cleanup_confirmed=False;forced_cleanup_used=False
      def __init__(self,*_,**__):pass

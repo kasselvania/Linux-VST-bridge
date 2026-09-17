@@ -382,3 +382,20 @@ independent readiness authority. Evidence is under `evidence/nad1/recovery/insta
 and `evidence/nad1/recovery/real-operation/`. The next functional question is whether
 Native Access connects successfully under the already-selected software-rendering
 policy; it was not exercised here.
+
+## Combined application launch: suspended-child access repair
+
+The human-launched application operation `06a22a3c22fc2c1922a756104f573d0d`
+passed fresh daemon readiness but opened no window and exited 2. Shared vendor
+logs positively report renderer launch failure 72; they remain separate from
+exact Windows-generation attribution. A source-owned reproduction at `739fd087`
+passes child-memory access before service startup and fails read/write with
+Windows access-denied 5 through the service-first route. This selects a combined
+runtime integration defect for repair, not a RAM diagnosis or sandbox bypass.
+
+Keep the service and application inside one operation-owned pinned runtime
+container, preserving host-side exact ownership, SCM readiness and retirement.
+Qualify the repair with the same generated child-memory test and existing
+application lifecycle cases. No additional real application or daemon launch is
+part of this source repair. Existing installation and historical evidence stay
+unchanged.

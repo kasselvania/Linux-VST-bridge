@@ -103,6 +103,7 @@ class ReportingTests(unittest.TestCase):
         owner = s.Nad1Owner(spec, ledger, None, lambda: False, fixture={
             'installer': 'Setup.exe', 'daemon': 'NTKDaemon.exe',
             'installer_sha256': self.owner.installer_sha, 'installer_size': 256})
+        owner.runtime = type("Runtime", (), {"argv": lambda *_: ["generated-command"]})()
         owner.token = self.owner.token
         raw = self.root_frame()+(self.exit_frame(status) if emit_result else b'')
         source = ('import os,time,subprocess,sys\n'

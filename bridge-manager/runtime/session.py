@@ -2478,6 +2478,8 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None):
         runner=env['runner'];argv=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',spec['installer_launch']['path'],windows(request_path,root/'compatdata/pfx')]
         launch_env=environment({'environment':env,'compatibility':{'disable_windows_accessibility':False}});launch_env['HOME']=str(root/'home')
         launch_env.update(PROTON_LOG='0',WINEDEBUG='-all,+timestamp,+pid,+tid,trace+process,err+gdi,err+module',DXVK_LOG_LEVEL='none',VKD3D_DEBUG='none')
+        if dependency_owner is not None:
+            argv=dependency_owner.runtime.argv(request_path,image.path.parent,launch_env)
         image.check()
         child=subprocess.Popen(argv,cwd=image.path.parent,env=launch_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
         ledger.launcher(child,'application_runner')
@@ -2673,6 +2675,82 @@ def nad1_preparation_inputs(spec):
     return None,None
 
 
+class Nad1Runtime:
+    """One private pressure-vessel container for an operation's Wine processes.
+
+    Separate containers sharing a wineserver break suspended-child memory access.
+    The host remains cgroup/ledger authority; the pinned launch client forwards
+    only closed owner-built commands and diagnostic settings into this container.
+    """
+    SERVICE_SHA = '8e725fdf7d38c81abd846b7c7274245e3247b92fa741286a250ace8b386b9722'
+    DEBUG_KEYS = ('WINEDEBUG','PROTON_LOG','DXVK_LOG_LEVEL','VKD3D_DEBUG')
+    def __init__(self,owner):
+        self.owner=owner;self.child=None;self.closed=False;self.directory=None
+        self.sel=selectors.DefaultSelector();self.capture=None;self.ready=False;self.output=bytearray()
+        self.runner=owner.spec['application']['environment']['runner']
+        base=pathlib.Path(self.runner['entry_point']).parent/'pressure-vessel'
+        self.client=base/'bin/steam-runtime-launch-client'
+        self.service=base/'libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service'
+    def verify_tools(self):
+        matches=[f for f in self.runner['files'] if f['path']==str(self.client)]
+        if len(matches)!=1:raise ValueError('dependency_runtime_client_identity')
+        verify(matches[0]);verify({'path':str(self.service),'sha256':self.SERVICE_SHA})
+    def start(self,env):
+        if self.child is not None or self.closed:raise ValueError('dependency_runtime_reentry')
+        self.verify_tools()
+        import tempfile
+        self.directory=pathlib.Path(tempfile.mkdtemp(prefix='lvb-runtime-',dir=f'/run/user/{os.getuid()}'))
+        private_directory(self.directory);self.socket=self.directory/'socket'
+        self.capture=PrivateCapture(self.owner.directory/(self.owner.op+'-runtime.private.log'),1024*1024,256)
+        argv=[self.runner['entry_point'],'--verb=run','--',str(self.service),
+              '--socket='+str(self.socket),'--exit-on-readable=0','--no-stop-on-exit']
+        self.child=subprocess.Popen(argv,cwd=self.owner.root/'home',env=env,stdin=subprocess.PIPE,
+                                    stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+        self.owner.ledger.launcher(self.child,'dependency_runtime')
+        for name,pipe in [('stdout',self.child.stdout),('stderr',self.child.stderr)]:
+            os.set_blocking(pipe.fileno(),False);self.sel.register(pipe,selectors.EVENT_READ,name)
+        deadline=time.monotonic()+30
+        while not self.ready:
+            self.owner.ledger.harvest();self.drain(.05)
+            if self.child.returncode is not None:raise ValueError('dependency_runtime_start_failed')
+            if self.owner.cancelled() and not self.owner.retiring:raise ValueError('dependency_cancelled')
+            if time.monotonic()>deadline:raise ValueError('dependency_runtime_start_timeout')
+            # Exact readiness comes from the private socket announced by this child.
+            if ('socket='+str(self.socket)+'\n').encode() in self.output:
+                md=self.socket.lstat()
+                if not stat.S_ISSOCK(md.st_mode) or md.st_uid!=os.getuid():raise ValueError('dependency_runtime_socket_identity')
+                self.ready=True
+    def drain(self,wait=0):
+        for key,_ in self.sel.select(wait):
+            data=os.read(key.fileobj.fileno(),8192)
+            if not data:self.sel.unregister(key.fileobj);continue
+            self.capture.write(data)
+            if key.data=='stdout':
+                if len(self.output)+len(data)>8192:raise ValueError('dependency_runtime_output_extent')
+                self.output.extend(data)
+    def argv(self,request,cwd,env):
+        if self.closed:raise ValueError('dependency_runtime_retired')
+        if self.child is None:self.start(env)
+        self.owner.ledger.harvest();self.drain()
+        if self.child.returncode is not None:raise ValueError('dependency_runtime_exited')
+        self.verify_tools()
+        return [str(self.client),'--socket='+str(self.socket),'--directory='+str(cwd),
+                *['--pass-env='+key for key in self.DEBUG_KEYS],'--',self.runner['proton'],
+                'runinprefix',self.owner.spec['installer_launch']['path'],
+                windows(request,self.owner.root/'compatdata/pfx')]
+    def close(self):
+        if self.closed:return
+        self.closed=True
+        if self.child is not None:
+            # EOF is an operation-local stop, only after SCM retirement was attempted.
+            self.child.stdin.close()
+            for pipe in (self.child.stdout,self.child.stderr):pipe.close()
+        self.sel.close()
+        if self.capture:self.capture.close()
+        if self.directory:
+            self.socket.unlink(missing_ok=True);self.directory.rmdir()
+
+
 class Nad1Owner:
     def __init__(self,spec,ledger,scope,cancelled,*,fixture=None):
         self.spec=spec;self.ledger=ledger;self.scope=scope;self.cancelled=cancelled;self.production=fixture is None
@@ -2683,7 +2761,7 @@ class Nad1Owner:
         self.daemon_relative=NAD1_DAEMON if fixture is None else fixture['daemon']
         self.installer_sha=NAD1_INSTALLER_SHA if fixture is None else fixture['installer_sha256']
         self.installer_size=35769456 if fixture is None else fixture['installer_size']
-        self.token=os.urandom(32).hex();self.anchor=None;self.recovery=None
+        self.token=os.urandom(32).hex();self.anchor=None;self.recovery=None;self.runtime=None
         self.service_possibility='unknown';self.retirement_authorized=False
         self.retiring=False;self.retirement_attempted=False
         self.service_stop_requested=False;self.service_retirement_confirmed=False
@@ -2693,6 +2771,7 @@ class Nad1Owner:
                 'service_stop_requested':self.service_stop_requested,'service_retirement_confirmed':self.service_retirement_confirmed,
                 'process_cleanup_confirmed':self.process_cleanup_confirmed,'forced_cleanup_used':self.forced_cleanup_used,
                 'retirement_error':self.retirement_error,'service_possibility':self.service_possibility,
+                'runtime':{'topology':'one_operation_container','ready':self.runtime.ready,'retirement_requested':self.runtime.closed,'service_sha256':self.runtime.SERVICE_SHA} if self.runtime else None,
                 'stages':self.stages,'readiness_contract':'SCM_exact_generation_and_Windows_owned_loopback_pair_and_unique_owned_Linux_image_generation_v1',
                 'linux_windows_join':False,'lifetime':'owned_operation_only_retired_before_bridge_resume'}
     def command(self,action):
@@ -2703,7 +2782,8 @@ class Nad1Owner:
         env=self.spec['application']['environment'];runner=env['runner']
         launch_env=environment({'environment':env,'compatibility':{'disable_windows_accessibility':False}})
         launch_env['HOME']=str(self.root/'home');launch_env.update(WINEDEBUG='-all',PROTON_LOG='0')
-        argv=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',self.spec['installer_launch']['path'],windows(request,self.root/'compatdata/pfx')]
+        if self.runtime is None:self.runtime=Nad1Runtime(self)
+        argv=self.runtime.argv(request,self.root/'home',launch_env)
         stdout=bytearray();capture=PrivateCapture(self.directory/f'{self.op}-dependency-{index}.log',1024*1024,256);sel=selectors.DefaultSelector()
         stage={'action':action,'launch':'prepared','exit':None,'result':'unavailable'};self.stages.append(stage)
         install=Nad1InstallObservation(self,stage) if action=='install' else None;child=None
@@ -2821,6 +2901,11 @@ class Nad1Owner:
 
 
     def retire(self):
+        try:return self._retire_service()
+        finally:
+            if self.runtime is not None:self.runtime.close()
+
+    def _retire_service(self):
         """One stop request, exact SCM generation retirement, then Linux absence.
 
         Cancellation does not interrupt this bounded safety transition. Failure
