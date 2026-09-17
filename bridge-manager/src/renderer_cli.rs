@@ -38,6 +38,7 @@ pub(super) fn launch(m: &Manager, identity: &str, policy: renderer::RendererPoli
     let app:renderer::Application=read_json(&directory(m).join("application.json"))?;
     require(app.identity()?==identity,"renderer_application_selection_changed")?;app.verify(&m.root)?;
     let sw=software(m)?;let d=operation_dir(m,op)?;
+    native_access_dependency::prepared(m,&app,&sw)?;
     let spec=renderer::bind(&app,&sw,op,policy,&d.join("result.json"))?;
     let _guard=m.lock("registry.lock")?;m.require_inactive(None)?;
     require(all_retired(m)?,"renderer_previous_cleanup_unconfirmed")?;

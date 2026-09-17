@@ -845,3 +845,6 @@ mod tests {
 }
 
 pub mod managed_candidate;
+
+pub mod native_access_dependency;
+pub mod dependency_session;

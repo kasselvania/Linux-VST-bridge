@@ -134,3 +134,21 @@ owner, launch readiness gate and generated service lifecycle qualification remai
 unimplemented. No installation/start behavior is selected from incomplete identity.
 PR #119 remains draft and unmerged. No further physical observation is planned from
 this checkpoint; the completed result and gaps are retained for review.
+
+## Corrected census and production-owner continuation
+
+The explicitly authorized corrected continuation executed source `351ae4c6ab88`
+and returned `NAD1_DEPENDENCY_ABSENT`. Its new seal and result are retained under
+`evidence/nad1/observation/repaired/`; all prior observations remain unchanged.
+Forty-two unrelated unreadable processes are informational and do not weaken the
+absence result. No positively led candidate or relevant extent exhaustion occurred.
+The source-owned pinned-runner lead qualification is retained separately.
+
+Production implementation now adds a closed dependency preparation operation and
+fresh service-readiness gating before Native Access launch. Preparation tests and
+retires its own cohort. A historical preparation receipt does not mean a live daemon:
+the subsequent application operation must freshly verify SCM, exact same-prefix
+image/generation, cgroup custody and both owned loopback listeners. Its dependency
+cohort retires with the application, before bridge service restoration. No real
+installation or service start is authorized in this PR. Generated qualification and
+final checks remain required before handoff.

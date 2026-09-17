@@ -6,6 +6,7 @@ sys.path.insert(1,str(pathlib.Path(__file__).resolve().parents[2]/'bridge-manage
 from common import read,decode,digest,canonical,require,publish
 SOURCES={n:'tools/nad1/'+n for n in ['package.py','observer.py','census.py','pe_metadata.py','classify.py','input.json']}
 SOURCES['dependency_process.py']='bridge-manager/runtime/dependency_process.py'
+SOURCES['ownership.py']='bridge-manager/runtime/ownership.py'
 SOURCES.update({n:'tools/naui1/'+n for n in ['common.py','identity.py']})
 def verify(root):
     root=pathlib.Path(root);require({p.name for p in root.iterdir()}==set(SOURCES)|{'seal.json'},'seal_file_set')

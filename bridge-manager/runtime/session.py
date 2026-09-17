@@ -1908,6 +1908,14 @@ def managed_install(spec, *, source_owned_is3=None):
         last=0
         while not stop:
             live=reap();startup.observe(live);transaction.images()
+            if dependency_owner is not None and child.returncode is not None:
+                # The dependency lives only with this application. Retire the exact
+                # cohort after the application adapter exits, never by daemon name.
+                clean=ledger.cleanup();live=[] if clean else live
+            if dependency_owner and child.returncode is not None:
+                clean=ledger.cleanup()
+                if not clean:raise ValueError('dependency_retirement_unconfirmed')
+                live=ledger.harvest()
             state=vendor_operation_state(child.returncode,len(live))
             if state in ('completed','failed'):
                 clean=True
@@ -2302,14 +2310,15 @@ def renderer_unique(pairs):
         result[key]=value
     return result
 
-def renderer_validate(spec):
+def renderer_validate(spec, *, dependency=False):
     # Installed entry: no caller-selected home, environment, manifest or fixture.
-    if set(spec)!={'schema','kind','application','application_identity','operation','renderer_policy','report','software','software_sha256','installer_launch'} or type(spec['schema']) is not int or spec['schema']!=1 or spec['kind']!='renderer_application' or spec['renderer_policy'] not in ('inherited','software_rendering'):raise ValueError('renderer_production_schema')
+    if set(spec)!={'schema','kind','application','application_identity','operation','renderer_policy','report','software','software_sha256','installer_launch'} or type(spec['schema']) is not int or spec['schema']!=1 or spec['kind']!=('native_access_dependency' if dependency else 'renderer_application') or spec['renderer_policy'] not in ('inherited','software_rendering'):raise ValueError('renderer_production_schema')
     expected=RENDERER_PRODUCTION
     managed=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed'
     op=spec.get('operation')
     if not isinstance(op,str) or not re.fullmatch('[0-9a-f]{32}',op):raise ValueError('renderer_operation')
-    directory=managed/'vendor-applications/native-access/operations'/op
+    namespace='native-access-dependency' if dependency else 'native-access'
+    directory=managed/'vendor-applications'/namespace/'operations'/op
     if spec.get('report')!=str(directory/'result.json') or directory.resolve()!=directory:raise ValueError('renderer_report_location')
     app=spec.get('application',{});env=app.get('environment',{})
     root=managed/'environments'/expected['environment'];drive=root/'compatdata/pfx/drive_c'
@@ -2327,9 +2336,9 @@ def renderer_validate(spec):
     if spec.get('software')!=renderer_read(managed/'software.json'):raise ValueError('renderer_current_software')
     # Persisted request and reservation must name this exact application and operation.
     if renderer_read(directory/'spec.json')!=spec:raise ValueError('renderer_persisted_spec')
-    if renderer_read(managed/'vendor-applications/native-access/current.json')!={'operation':op,'application':spec['application_identity'],'policy':spec['renderer_policy']}:raise ValueError('renderer_reservation')
+    if renderer_read(managed/'vendor-applications'/namespace/'current.json')!={'operation':op,'application':spec['application_identity'],'policy':spec['renderer_policy']}:raise ValueError('renderer_reservation')
     if hashlib.sha256(json.dumps(app,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()!=spec['application_identity']:raise ValueError('renderer_application_binding')
-    renderer_bound_inputs(spec)
+    renderer_bound_inputs(dict(spec,kind='renderer_application'))
     found=[];pending=[drive];count=0
     while pending:
         for entry in pending.pop().iterdir():
@@ -2400,9 +2409,10 @@ def renderer_focus(scope,image):
 def renderer_application(spec):
     # A foreign spec cannot publish even a refusal to its supplied report path.
     renderer_validate(spec)
-    return renderer_owned(spec)
+    dependency=nad1_prepared(spec)
+    return renderer_owned(spec,dependency=dependency)
 
-def renderer_owned(spec, preparation=None):
+def renderer_owned(spec, preparation=None, dependency=None):
     # Shared mechanism after independent production or sealed-fixture admission.
     # Manager reconciliation takes the same gate before closing an unused launch.
     report=pathlib.Path(spec['report']);op=spec['operation']
@@ -2412,7 +2422,7 @@ def renderer_owned(spec, preparation=None):
         installer_atomic(report.parent/'writer.json',{'schema':1,'operation':op,'started':True})
         try:
             if preparation is not None:preparation()
-            return renderer_run(spec)
+            return renderer_run(spec,dependency=dependency)
         except Exception as exc:
             scope=CompanionCgroup(renderer_operation=op);clean=not scope.members()
             atomic(report,{'schema':1,'operation':op,'application_identity':spec['application_identity'],
@@ -2423,12 +2433,12 @@ def renderer_owned(spec, preparation=None):
             return False
 
 
-def renderer_run(spec):
+def renderer_run(spec, dependency=None):
     """Exact companion operation; no prefix initialization or installer witnesses."""
     app=spec['application'];op=spec['operation'];env=app['environment'];root=pathlib.Path(env['root']);report=pathlib.Path(spec['report'])
     lock=(root/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     image=RendererImage(app['files']['Native Access.exe']);evidence=RendererEvidence(app['files']['Native Access.exe']['artifact'],root,image)
-    scope=None;ledger=None;child=None;clean=False;stop=False;error=None;effective=None;focus=None
+    scope=None;ledger=None;child=None;clean=False;stop=False;error=None;effective=None;focus=None;dependency_owner=None
     captures={name:PrivateCapture(report.parent/(op+'-'+name+'.private.log'),16*1024*1024,600) for name in ('stdout','stderr')}
     sel=selectors.DefaultSelector();began=time.monotonic();request_path=report.parent/(op+'-launch.private')
     def persist(value):
@@ -2452,6 +2462,7 @@ def renderer_run(spec):
     def result(state,live):
         return {'schema':1,'operation':op,'application_identity':spec['application_identity'],'state':state,
             'requested':spec['renderer_policy'],'effective':effective,'renderer':evidence.value(),
+            'dependency':dependency_owner.value() if dependency_owner else None,
             'outer_exit':child.returncode if child else None,'cleanup_confirmed':clean,'owned_live':live,
             'cancelled':stop,'error':error,'focus_result':focus,
             'application_image_verification':{'bytes':image.size,'hash_passes':1,'cache':'stable_open_file'},
@@ -2463,6 +2474,9 @@ def renderer_run(spec):
         if scope.members():raise ValueError('renderer_cgroup_occupied')
         ledger=InstallerLedger(scope,persist)
         if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('renderer_subreaper')
+        if dependency is not None:
+            dependency_owner=Nad1Owner(spec,ledger,scope,lambda:stop)
+            dependency_owner.ensure(False,dependency['daemon'])
         token=os.urandom(32).hex();evidence.trace.arm_root(op,token,image.size);evidence.begin();evidence.begin()
         content='\n'.join(['NAUI2_LAUNCH_V1',op,token,'2',image.sha,str(image.size),windows(image.path,root/'compatdata/pfx'),spec['renderer_policy'],''])
         with os.fdopen(os.open(request_path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'wb') as f:f.write(content.encode('utf-16le'));f.flush();os.fsync(f.fileno())
@@ -2477,6 +2491,10 @@ def renderer_run(spec):
         while not stop:
             live=ledger.harvest();drain(.05);image.check()
             confirm_effective()
+            if dependency_owner and child.returncode is not None:
+                clean=ledger.cleanup()
+                if not clean:raise ValueError('dependency_retirement_unconfirmed')
+                live=ledger.harvest()
             state=vendor_operation_state(child.returncode,len(live))
             if state in ('completed','failed'):
                 for _ in range(64):drain(0)
@@ -2514,6 +2532,220 @@ def renderer_run(spec):
     return clean and error is None
 
 
+# NAD1: exact dependency requests use the installed launch adapter's closed SCM
+# entry. There is no direct daemon execution and no operator-supplied argument.
+NAD1_INSTALLER = 'Program Files/Native Instruments/Native Access/resources/daemon/win/NTKDaemon 1.32.0 Setup PC.exe'
+NAD1_INSTALLER_SHA = '5f2199f4e1409d6eea5edaea9c4a8af31e8ee8ac3790851aa44d33e87a46b218'
+NAD1_DAEMON = 'Program Files/Common Files/Native Instruments/NTK/NTKDaemon.exe'
+NAD1_SERVICE = 'NTKDaemonService'
+
+def nad1_publish(path,value):
+    staging=path.with_name(path.name+'.staging-'+os.urandom(8).hex())
+    try:
+        installer_atomic(staging,value);os.link(staging,path)
+        fd=os.open(path.parent,os.O_RDONLY|os.O_DIRECTORY)
+        try:os.fsync(fd)
+        finally:os.close(fd)
+    finally:staging.unlink(missing_ok=True)
+
+def nad1_transition(state):
+    table={'absent':'install','unregistered':'install','stopped':'start_service',
+           'running_not_ready':'refuse','foreign_conflict':'refuse','ready':'verified_noop','unresolved':'refuse'}
+    if state not in table:raise ValueError('dependency_state')
+    return table[state]
+
+def nad1_scm_frame(raw,op,token):
+    lines=[x.split() for x in raw.decode('ascii',errors='strict').splitlines() if x.startswith('NAD1_SCM_V1 ')]
+    if len(lines)!=1 or len(lines[0])!=9:raise ValueError('dependency_scm_frame')
+    a=lines[0]
+    if a[1:3]!=[op,token] or a[3] not in ('absent','exact') or any(not re.fullmatch('[0-9]{1,20}',v) for v in a[4:8]):raise ValueError('dependency_scm_identity')
+    if a[3]=='absent' and a[4:]!=['1060','0','0','0','none']:raise ValueError('dependency_scm_absence')
+    if a[3]=='exact' and (int(a[5]) not in range(1,8) or (a[5]=='4' and (not re.fullmatch('[0-9a-f]{64}',a[8]) or int(a[6])==0 or int(a[7])==0))):raise ValueError('dependency_scm_generation')
+    return {'registration':a[3],'request_error':int(a[4]),'state':int(a[5]),'windows_pid':int(a[6]),'windows_created':int(a[7]),'image_sha256':a[8]}
+
+def nad1_listener_witness(candidate,scope,proc=pathlib.Path('/proc')):
+    # Linux generation/cgroup/descriptor custody only. SCM Windows IDs never enter
+    # this function and can never become Linux signal authority.
+    import ownership
+    pid=candidate['linux_pid'];start=candidate['start_ticks']
+    if not any(x['pid']==pid and x['start_ticks']==start for x in scope.members()):raise ValueError('dependency_process_not_owned')
+    p=proc/str(pid);before,_=ownership.generation(ownership.bounded(p/'stat','stat'),pid)
+    if before!=start:raise ValueError('dependency_process_reused')
+    inodes=set();count=0
+    with os.scandir(p/'fd') as entries:
+        for e in entries:
+            count+=1
+            if count>8192:raise ValueError('dependency_descriptor_extent')
+            try:target=os.readlink(e.path)
+            except FileNotFoundError:continue
+            m=re.fullmatch(r'socket:\[([0-9]+)\]',target)
+            if m:inodes.add(m[1])
+    ports=set()
+    for name in ('tcp','tcp6'):
+        with (p/'net'/name).open('rb') as stream:raw=stream.read(2*1024*1024+1)
+        if len(raw)>2*1024*1024 or raw.count(b'\n')>32768:raise ValueError('dependency_listener_extent')
+        for line in raw.decode().splitlines()[1:]:
+            fields=line.split()
+            if len(fields)<10:raise ValueError('dependency_listener_record')
+            address,port=fields[1].split(':')
+            if fields[3]=='0A' and fields[9] in inodes and address in ('0100007F','00000000000000000000000001000000'):
+                ports.add(int(port,16))
+    after,_=ownership.generation(ownership.bounded(p/'stat','stat'),pid)
+    if after!=start or not any(x['pid']==pid and x['start_ticks']==start for x in scope.members()):raise ValueError('dependency_process_reused')
+    return ports.issuperset({5146,5563})
+
+class Nad1Owner:
+    def __init__(self,spec,ledger,scope,cancelled,*,fixture=None):
+        self.spec=spec;self.ledger=ledger;self.scope=scope;self.cancelled=cancelled
+        self.root=pathlib.Path(spec['application']['environment']['root']);self.drive=self.root/'compatdata/pfx/drive_c'
+        self.directory=pathlib.Path(spec['report']).parent;self.op=spec['operation'];self.stages=[];self.daemon=None;self.ready=False
+        # Only a separately sealed source-owned entry may supply fixture constants.
+        self.installer_relative=NAD1_INSTALLER if fixture is None else fixture['installer']
+        self.daemon_relative=NAD1_DAEMON if fixture is None else fixture['daemon']
+        self.installer_sha=NAD1_INSTALLER_SHA if fixture is None else fixture['installer_sha256']
+        self.installer_size=35769456 if fixture is None else fixture['installer_size']
+        self.token=os.urandom(32).hex()
+    def value(self):
+        return {'schema':1,'ready_tested':self.ready,'daemon':self.daemon,
+                'stages':self.stages,'readiness_contract':'SCM_exact_image_generation_and_owned_same_prefix_generation_and_both_owned_loopback_listeners_v1',
+                'linux_windows_join':False,'lifetime':'owned_operation_only_retired_before_bridge_resume'}
+    def command(self,action):
+        if action not in ('query','install','start','stop'):raise ValueError('dependency_action')
+        index=len(self.stages);request=self.directory/f'{self.op}-dependency-{index}.private'
+        content='\n'.join(['NAD1_SERVICE_V1',self.op,self.token,action,self.installer_sha,''])
+        with request.open('xb') as f:f.write(content.encode('utf-16le'));f.flush();os.fsync(f.fileno())
+        env=self.spec['application']['environment'];runner=env['runner']
+        launch_env=environment({'environment':env,'compatibility':{'disable_windows_accessibility':False}})
+        launch_env['HOME']=str(self.root/'home');launch_env.update(WINEDEBUG='-all',PROTON_LOG='0')
+        argv=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',self.spec['installer_launch']['path'],windows(request,self.root/'compatdata/pfx')]
+        stdout=bytearray();capture=PrivateCapture(self.directory/f'{self.op}-dependency-{index}.log',1024*1024,256);sel=selectors.DefaultSelector()
+        stage={'action':action,'launch':'prepared','exit':None,'result':'unavailable'};self.stages.append(stage)
+        try:
+            child=subprocess.Popen(argv,cwd=self.root/'home',env=launch_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+            self.ledger.launcher(child,'dependency_'+action);stage['launch']='owned'
+            for name,pipe in [('stdout',child.stdout),('stderr',child.stderr)]:os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,name)
+            deadline=time.monotonic()+(200 if action=='install' else 40)
+            while child.returncode is None:
+                self.ledger.harvest()
+                if self.cancelled():raise ValueError('dependency_cancelled')
+                if time.monotonic()>deadline:raise ValueError('dependency_command_timeout')
+                for key,_ in sel.select(.05):
+                    data=os.read(key.fileobj.fileno(),8192)
+                    if not data:sel.unregister(key.fileobj);key.fileobj.close();continue
+                    capture.write(data)
+                    if key.data=='stdout':
+                        if len(stdout)+len(data)>65536:raise ValueError('dependency_helper_output_extent')
+                        stdout.extend(data)
+            for _ in range(16):
+                for key,_ in sel.select(0):
+                    data=os.read(key.fileobj.fileno(),8192)
+                    if not data:sel.unregister(key.fileobj);key.fileobj.close();continue
+                    capture.write(data)
+                    if key.data=='stdout':
+                        if len(stdout)+len(data)>65536:raise ValueError('dependency_helper_output_extent')
+                        stdout.extend(data)
+            stage['exit']=child.returncode
+            if child.returncode!=0:raise ValueError('dependency_command_nonzero')
+            if action=='install':
+                expected=f'NAD1_INSTALL_V1 {self.op} {self.token} 0'
+                if bytes(stdout).decode().splitlines().count(expected)!=1:raise ValueError('dependency_install_acknowledgment')
+                roots=[line.split() for line in bytes(stdout).decode().splitlines() if line.startswith('NAD1_INSTALL_ROOT_V1 ')]
+                if len(roots)!=1 or len(roots[0])!=7 or roots[0][1:5]!=[self.op,self.token,self.installer_sha,str(self.installer_size)] or any(not x.isdigit() or int(x)==0 for x in roots[0][5:]):raise ValueError('dependency_installer_root_unbound')
+                nad1_publish(self.directory/f'{self.op}-installer-root.private.json',{'frame':roots[0]})
+                stage['root_binding']={'operation':self.op,'token_sha256':hashlib.sha256(self.token.encode()).hexdigest(),'sha256':self.installer_sha,'size':self.installer_size,'status':'bound'}
+                stage['result']='outer_zero_only';return None
+            result=nad1_scm_frame(bytes(stdout),self.op,self.token)
+            installer_atomic(self.directory/f'{self.op}-scm-{index}.private.json',result)
+            stage['result']=result['registration'];stage['service_state']=result['state'];return result
+        finally:
+            stage['diagnostic_dropped_bytes']=capture.discarded;capture.close()
+            for key in list(sel.get_map().values()):key.fileobj.close()
+            sel.close()
+            nad1_publish(self.directory/f'{self.op}-dependency-stage-{index}.json',stage)
+    def ensure(self,allow_install,admitted=None):
+        import ownership
+        image=RendererImage({'artifact':{'path':str(self.drive/self.installer_relative),'sha256':self.installer_sha},'size':self.installer_size});image.close()
+        path=self.drive/self.daemon_relative
+        actual=ownership.image_identity(path) if path.exists() else None
+        if admitted is not None and actual!=admitted:raise ValueError('dependency_generation_changed')
+        # Presence is not admitted generation identity until this operation installs
+        # it or an exact previous preparation receipt supplies its digest.
+        if actual is not None and admitted is None:raise ValueError('dependency_existing_unadmitted_generation')
+        scan=ownership.census(self.root/'compatdata/pfx',admitted)
+        installer_atomic(self.directory/f'{self.op}-dependency-before.private.json',scan)
+        if scan['unavailable']:raise ValueError('dependency_identity_unresolved')
+        if any(p['prefix_relation'] in ('foreign','deleted') for p in scan['candidates']):raise ValueError('dependency_foreign_conflict')
+        service=self.command('query')
+        absent=actual is None;unregistered=service['registration']=='absent'
+        if absent or unregistered:
+            if not allow_install:raise ValueError('dependency_prepare_required')
+            self.command('install')
+            actual=ownership.image_identity(path)
+            service=self.command('query')
+            if service['registration']!='exact':raise ValueError('dependency_install_registration_missing')
+        self.daemon=actual
+        if service['state']==1:service=self.command('start')
+        elif service['state'] not in (2,4):raise ValueError('dependency_service_state_unavailable')
+        deadline=time.monotonic()+25
+        while time.monotonic()<deadline:
+            if self.cancelled():raise ValueError('dependency_cancelled')
+            self.ledger.harvest();service=self.command('query')
+            scan=ownership.census(self.root/'compatdata/pfx',actual)
+            installer_atomic(self.directory/f'{self.op}-dependency-current.private.json',scan)
+            if scan['unavailable']:raise ValueError('dependency_candidate_ambiguous')
+            if any(p['prefix_relation'] in ('foreign','deleted') for p in scan['candidates']):raise ValueError('dependency_foreign_conflict')
+            matches=[p for p in scan['private'] if p.get('exact') and p.get('prefix_relation')=='same']
+            if service['state']==4 and service['image_sha256']==actual['sha256'] and len(matches)==1 and nad1_listener_witness(matches[0],self.scope):
+                self.ready=True;return self.value()
+            time.sleep(.1)
+        raise ValueError('dependency_running_not_ready')
+
+def nad1_prepared(spec):
+    managed=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed';directory=managed/'vendor-applications/native-access-dependency'
+    r=renderer_read(directory/'prepared.json')
+    if set(r)!={'schema','operation','application','software_sha256','installer_sha256','daemon','result_sha256'} or r['schema']!=1 or r['application']!=spec['application_identity'] or r['software_sha256']!=spec['software_sha256'] or r['installer_sha256']!=NAD1_INSTALLER_SHA or not re.fullmatch('[0-9a-f]{32}',r['operation']):raise ValueError('dependency_prepared_identity')
+    receipt=directory/'operations'/r['operation']/'result.json'
+    verify({'path':str(receipt),'sha256':r['result_sha256']});v=renderer_read(receipt)
+    if v.get('state')!='completed' or not v.get('cleanup_confirmed') or v.get('owned_live')!=0 or v.get('dependency',{}).get('ready_tested') is not True or v['dependency']['daemon']!=r['daemon']:raise ValueError('dependency_prepared_receipt')
+    return r
+
+def nad1_owned(spec,*,fixture=None):
+    report=pathlib.Path(spec['report']);op=spec['operation'];root=pathlib.Path(spec['application']['environment']['root'])
+    with os.fdopen(os.open(report.parent/'writer.lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600),'a+b') as gate:
+        fcntl.flock(gate,fcntl.LOCK_EX)
+        if report.exists():raise ValueError('dependency_terminal_exists')
+        lock=(root/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        scope=CompanionCgroup(dependency_operation=op)
+        if scope.members():raise ValueError('dependency_cgroup_occupied')
+        ledger=InstallerLedger(scope,lambda v:installer_atomic(report.parent/(op+'-ledger.private.json'),v))
+        if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('dependency_subreaper')
+        stopped=[False]
+        def cancel(*_):stopped[0]=True;ledger.cancelled=True
+        signal.signal(signal.SIGTERM,cancel);signal.signal(signal.SIGINT,cancel)
+        owner=Nad1Owner(spec,ledger,scope,lambda:stopped[0],fixture=fixture);error=None;clean=False
+        installer_atomic(report.parent/'writer.json',{'schema':1,'operation':op,'started':True})
+        try:
+            admitted=fixture.get('admitted') if fixture else None
+            if fixture is None:
+                try:admitted=nad1_prepared(spec)['daemon']
+                except FileNotFoundError:pass
+            owner.ensure(True,admitted)
+            owner.command('stop')
+        except Exception as exc:error=str(exc) if isinstance(exc,ValueError) else 'dependency_owner_'+type(exc).__name__
+        finally:
+            clean=ledger.cleanup();ledger.commit();lock.close()
+            value={'schema':1,'operation':op,'application_identity':spec['application_identity'],'state':'cleanup_unconfirmed' if not clean else 'cancelled' if stopped[0] else 'failed' if error else 'completed','dependency':owner.value(),'cleanup_confirmed':clean,'owned_live':0 if clean else None,'error':error,'cancelled':stopped[0]}
+            nad1_publish(report,value)
+        return clean and error is None
+
+def nad1_application(spec):
+    renderer_validate(spec,dependency=True)
+    if spec['renderer_policy']!='software_rendering':raise ValueError('dependency_policy')
+    root=pathlib.Path(spec['application']['environment']['root'])
+    image=RendererImage({'artifact':{'path':str(root/'compatdata/pfx/drive_c'/NAD1_INSTALLER),'sha256':NAD1_INSTALLER_SHA},'size':35769456});image.close()
+    return nad1_owned(spec)
+
+
 def vendor_application(spec):
     """Own every process in the dedicated unit until observed retirement.
 
@@ -2521,6 +2753,7 @@ def vendor_application(spec):
     survives rapid double-fork, Wine bootstrap and parent replacement. Unknown
     members prevent unit exit just as known main/Agent processes do.
     """
+    if spec.get('kind')=='native_access_dependency':return nad1_application(spec)
     if spec.get('kind')=='renderer_application':return renderer_application(spec)
     app=spec['application'];env=app['environment'];directory=pathlib.Path(env['root'])
     report=pathlib.Path(spec['report']);stop=False;child=None;scope=None;clean=False;error=None
@@ -2611,6 +2844,10 @@ def vendor_application(spec):
                     focus_result={'request':request['request'],'result':vendor_focus(scope,app)}
                 except Exception:
                     focus_result={'request':request_id,'result':'refused_exact_window_unavailable'}
+            if dependency_owner and child.returncode is not None:
+                clean=ledger.cleanup()
+                if not clean:raise ValueError('dependency_retirement_unconfirmed')
+                live=ledger.harvest()
             state=vendor_operation_state(child.returncode,len(live))
             if state in ('completed','failed'):
                 # No member remains that could create a later handoff. A

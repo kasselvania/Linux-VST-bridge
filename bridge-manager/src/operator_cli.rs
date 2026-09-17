@@ -67,7 +67,9 @@ fn app_directory(m: &Manager) -> PathBuf {
     m.root.join("vendor-applications").join(ASC)
 }
 fn vendor_retired(m: &Manager) -> Result<bool> {
-    if !renderer_cli::all_retired(m)? {return Ok(false);}
+    if !renderer_cli::all_retired(m)? || !dependency_cli::all_retired(m)? {
+        return Ok(false);
+    }
     if !app_directory(m).exists() {
         return Ok(true);
     }
@@ -164,7 +166,7 @@ fn activity_with_capacity(m: &Manager, cap: Option<&CapacityReadback>) -> Result
         }
     }
     Ok(ui::Activity {
-        schema: 6,
+        schema: 7,
         system: ui::System {
             service: if cap.is_some() {
                 "active"
@@ -210,10 +212,20 @@ fn inactive_reason(
     }
 }
 pub(super) fn require_engineering_inactive(m: &Manager) -> Result<()> {
-    let cap=live_capacity(m)?;
-    let _guard=m.lock("registry.lock")?;
-    require(cap.owners==capacity::owners(m)?,"operator_owners_changed")?;
-    if let Some(reason)=inactive_reason(Some(&cap), vendor_retired(m)? && onboarding::all_retired(m)?, pending_transactions(m)?, false) {return Err(reason.into());}
+    let cap = live_capacity(m)?;
+    let _guard = m.lock("registry.lock")?;
+    require(
+        cap.owners == capacity::owners(m)?,
+        "operator_owners_changed",
+    )?;
+    if let Some(reason) = inactive_reason(
+        Some(&cap),
+        vendor_retired(m)? && onboarding::all_retired(m)?,
+        pending_transactions(m)?,
+        false,
+    ) {
+        return Err(reason.into());
+    }
     m.require_inactive(None)
 }
 fn require_operator_inactive_with(
@@ -273,7 +285,8 @@ fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
                 .unwrap_or("unknown")
                 .into(),
             publication: r.id.clone(),
-            active: entry.publication==Publication::Published && entry.managed_revision.as_ref() == Some(&reference),
+            active: entry.publication == Publication::Published
+                && entry.managed_revision.as_ref() == Some(&reference),
             rollback_allowed: ordinary && ancestors.contains(&r.id),
         });
     }
@@ -429,7 +442,11 @@ fn snapshot_for_operation(
         .environments
         .iter()
         .map(|e| e.environment.clone())
-        .chain(onboarding::history_records(m)?.into_iter().map(|r| r.environment))
+        .chain(
+            onboarding::history_records(m)?
+                .into_iter()
+                .map(|r| r.environment),
+        )
         .collect();
     for env in &inventory_environments {
         let path = m.root.join("inventory").join(format!("{}.json", env.id));
@@ -476,7 +493,11 @@ fn snapshot_for_operation(
                     continue;
                 }
                 let current = stale.is_none();
-                let inspection_hint=if current{inventory::inspection_hint(&module).ok().flatten()}else{None};
+                let inspection_hint = if current {
+                    inventory::inspection_hint(&module).ok().flatten()
+                } else {
+                    None
+                };
                 for class in module.classes {
                     if class.category != "Audio Module Class"
                         || products.iter().any(|p| {
@@ -492,7 +513,7 @@ fn snapshot_for_operation(
             }
         }
     }
-    preparation_cli::project(m,&sw,&mut products,busy)?;
+    preparation_cli::project(m, &sw, &mut products, busy)?;
     let mut vendor_applications = Vec::new();
     let app = app_directory(m).join("application.json");
     if app.exists() {
@@ -554,7 +575,10 @@ fn snapshot_for_operation(
             ],
         });
     }
-    if let Some(app)=renderer_cli::project(m,busy)? {vendor_applications.push(app);}
+    if let Some(mut app) = renderer_cli::project(m, busy)? {
+        dependency_cli::project(m, &mut app, busy)?;
+        vendor_applications.push(app);
+    }
     let mut incidents = Vec::new();
     let mut paths = crash_capture::incidents(m)?;
     paths.sort_by_key(|p| {
@@ -599,7 +623,7 @@ fn snapshot_for_operation(
     drop(recheck);
     Ok(ui::Snapshot {
         onboarding,
-        schema: 6,
+        schema: 7,
         state_token: after,
         system: live.system,
         environments,
@@ -686,12 +710,12 @@ fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
 }
 fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
     require(
-        request.schema == 6 && request.state_token == snapshot.state_token,
+        request.schema == 7 && request.state_token == snapshot.state_token,
         "operator_stale_request_refresh",
     )?;
     let offered = available(snapshot)
         .into_iter()
-        .find(|a| preparation_cli::offered(&request.action,&a.action))
+        .find(|a| preparation_cli::offered(&request.action, &a.action))
         .ok_or("operator_action_not_available")?;
     require(
         offered.disabled_reason.is_none(),
@@ -753,7 +777,11 @@ fn finish_operation(m: &Manager, id: &str) -> Result<()> {
         let request: ui::Request = read_json(&job_dir(m, id)?.join("request.json"))?;
         if let ui::Action::InstallerStart {
             onboarding: ref key,
-        } | ui::Action::InstallerStartWithPolicy { onboarding: ref key, .. } = request.action
+        }
+        | ui::Action::InstallerStartWithPolicy {
+            onboarding: ref key,
+            ..
+        } = request.action
         {
             let r = onboarding::load(m, key)?;
             if r.installation_operation.as_deref() == Some(id) {
@@ -765,7 +793,7 @@ fn finish_operation(m: &Manager, id: &str) -> Result<()> {
         }
         Ok(())
     })();
-    let preparation_cleanup=preparation::build::cleanup_work(m,id);
+    let preparation_cleanup = preparation::build::cleanup_work(m, id);
     // A failed installer readback must not leave the generic worker queued.
     let finalized = finish_operation_with(m, id, |saved| restore_service(m, saved));
     installer_cleanup?;
@@ -823,7 +851,7 @@ fn launch_reserved(
         return Err("operator_worker_launch_failed".into());
     }
     Ok(ui::Receipt {
-        schema: 6,
+        schema: 7,
         accepted: true,
         operation: Some(id.into()),
         refusal: None,
@@ -848,7 +876,7 @@ fn dispatch_recorded(
                 false,
             )?;
             Ok(ui::Receipt {
-                schema: 6,
+                schema: 7,
                 accepted: false,
                 operation: Some(id),
                 refusal: Some(reason),
@@ -1040,23 +1068,40 @@ fn execute_with_receipt_policy(
     require_operator_inactive_with(m, a, capacity_read)?;
 
     if preparation_cli::is_action(a) {
-        let owner=operation.ok_or("operator_operation_identity")?;
-        if matches!(a,ui::Action::PluginReinspect{..}|ui::Action::PluginInspect{..}|ui::Action::PluginPrepare{..}) {
-            let _environment=m.lock("operator-environment.lock")?;
-            suspend(m,owner,None)?;
+        let owner = operation.ok_or("operator_operation_identity")?;
+        if matches!(
+            a,
+            ui::Action::PluginReinspect { .. }
+                | ui::Action::PluginInspect { .. }
+                | ui::Action::PluginPrepare { .. }
+        ) {
+            let _environment = m.lock("operator-environment.lock")?;
+            suspend(m, owner, None)?;
             drop(projection.take());
-            let result=preparation_cli::execute(m,a,owner);
-            let cleanup=resume_owned(m,owner);
-            let value=result?;cleanup?;return Ok(value);
+            let result = preparation_cli::execute(m, a, owner);
+            let cleanup = resume_owned(m, owner);
+            let value = result?;
+            cleanup?;
+            return Ok(value);
         }
-        return preparation_cli::execute(m,a,owner);
+        return preparation_cli::execute(m, a, owner);
     }
     match a {
-        ui::Action::PluginReinspect{..}|ui::Action::PluginInspect{..}|ui::Action::PluginPrepare{..}|ui::Action::ExperimentalReplace{..}|ui::Action::CandidateWithdraw{..}|ui::Action::ExperimentalEnable{..}|ui::Action::ExperimentalDisable{..}|ui::Action::CandidateObserve{..}|ui::Action::CandidateReview{..}|ui::Action::CandidatePublishOrdinary{..}=>unreachable!(),
+        ui::Action::PluginReinspect { .. }
+        | ui::Action::PluginInspect { .. }
+        | ui::Action::PluginPrepare { .. }
+        | ui::Action::ExperimentalReplace { .. }
+        | ui::Action::CandidateWithdraw { .. }
+        | ui::Action::ExperimentalEnable { .. }
+        | ui::Action::ExperimentalDisable { .. }
+        | ui::Action::CandidateObserve { .. }
+        | ui::Action::CandidateReview { .. }
+        | ui::Action::CandidatePublishOrdinary { .. } => unreachable!(),
         ui::Action::InstallerEnvironmentCreate { .. } | ui::Action::InstallerNewAttempt { .. } => {
             unreachable!()
         }
-        ui::Action::InstallerStart { onboarding: id } | ui::Action::InstallerStartWithPolicy { onboarding: id, .. } => {
+        ui::Action::InstallerStart { onboarding: id }
+        | ui::Action::InstallerStartWithPolicy { onboarding: id, .. } => {
             let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
             let prior = onboarding::load(m, id)?;
@@ -1163,38 +1208,110 @@ fn execute_with_receipt_policy(
             atomic_json(&path, &value)?;
             Ok(json!({"export":path,"sanitized":true}))
         }
-        ui::Action::RendererDiscover {} => renderer_cli::discover(m),
-        ui::Action::RendererOpen { application, policy } => {
-            let _environment=m.lock("operator-environment.lock")?;
-            let owner=operation.ok_or("operator_operation_identity")?;
-            suspend(m,owner,Some(owner.into()))?;
-            let submission=match renderer_cli::launch(m,application,*policy,owner) {
-                Ok(state)=>state,
-                Err(e)=>{
-                    // Before reservation no unit can have been submitted. After
-                    // reservation every error retains exact recovery authority.
-                    if renderer_cli::current(m)?["operation"]!=owner {resume_owned(m,owner)?;return Err(e);}
-                    renderer_cli::reconcile(m,owner)?
+        ui::Action::DependencyPrepare {} => {
+            let _environment = m.lock("operator-environment.lock")?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            suspend(m, owner, Some(owner.into()))?;
+            let submission = match dependency_cli::launch(m, owner) {
+                Ok(s) => s,
+                Err(e) => {
+                    if dependency_session::current(m)?["operation"] != owner {
+                        resume_owned(m, owner)?;
+                        return Err(e);
+                    }
+                    dependency_session::reconcile(m, owner)?
                 }
             };
-            write_operation(m,owner,&json!({"schema":1,"operation":owner,"state":if submission==renderer_session::Submission::AcknowledgmentUncertain{"submission_uncertain"}else{"vendor_running"},"action":a}),false)?;
+            write_operation(
+                m,
+                owner,
+                &json!({"schema":1,"operation":owner,"state":if submission==dependency_session::Submission::AcknowledgmentUncertain{"submission_uncertain"}else{"vendor_running"},"action":a}),
+                false,
+            )?;
             drop(projection.take());
-            let deadline=Instant::now()+Duration::from_secs(650);
+            let deadline = Instant::now() + Duration::from_secs(650);
             loop {
-                renderer_cli::reconcile(m,owner)?;
-                if renderer_session::retired(m,owner)? {break;}
-                require(Instant::now()<deadline,"renderer_retirement_unconfirmed")?;
+                dependency_session::reconcile(m, owner)?;
+                if dependency_session::retired(m, owner)? {
+                    break;
+                }
+                require(
+                    Instant::now() < deadline,
+                    "dependency_retirement_unconfirmed",
+                )?;
                 std::thread::sleep(Duration::from_millis(500));
             }
-            resume_owned(m,owner)?;
-            Ok(json!({"application":"retired","service":"resumed","result":renderer_cli::result(m,owner)?}))
+            resume_owned(m, owner)?;
+            dependency_cli::retain(m, owner)?;
+            Ok(
+                json!({"dependency":"prepared_and_retired","live_readiness":"not_claimed","service":"resumed"}),
+            )
+        }
+        ui::Action::DependencyStop { operation: target } => {
+            stop_dependency_with(
+                m,
+                target,
+                |op| dependency_session::stop(m, op),
+                |saved| restore_service(m, saved),
+            )?;
+            Ok(json!({"dependency":"stopped","operation":target}))
+        }
+        ui::Action::RendererDiscover {} => renderer_cli::discover(m),
+        ui::Action::RendererOpen {
+            application,
+            policy,
+        } => {
+            dependency_cli::prepared(m)?;
+            let _environment = m.lock("operator-environment.lock")?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            suspend(m, owner, Some(owner.into()))?;
+            let submission = match renderer_cli::launch(m, application, *policy, owner) {
+                Ok(state) => state,
+                Err(e) => {
+                    // Before reservation no unit can have been submitted. After
+                    // reservation every error retains exact recovery authority.
+                    if renderer_cli::current(m)?["operation"] != owner {
+                        resume_owned(m, owner)?;
+                        return Err(e);
+                    }
+                    renderer_cli::reconcile(m, owner)?
+                }
+            };
+            write_operation(
+                m,
+                owner,
+                &json!({"schema":1,"operation":owner,"state":if submission==renderer_session::Submission::AcknowledgmentUncertain{"submission_uncertain"}else{"vendor_running"},"action":a}),
+                false,
+            )?;
+            drop(projection.take());
+            let deadline = Instant::now() + Duration::from_secs(650);
+            loop {
+                renderer_cli::reconcile(m, owner)?;
+                if renderer_session::retired(m, owner)? {
+                    break;
+                }
+                require(Instant::now() < deadline, "renderer_retirement_unconfirmed")?;
+                std::thread::sleep(Duration::from_millis(500));
+            }
+            resume_owned(m, owner)?;
+            Ok(
+                json!({"application":"retired","service":"resumed","result":renderer_cli::result(m,owner)?}),
+            )
         }
         ui::Action::RendererStop { operation: target } => {
-            stop_renderer_with(m,target,|id|renderer_cli::stop(m,id),|saved|restore_service(m,saved))?;
+            stop_renderer_with(
+                m,
+                target,
+                |id| renderer_cli::stop(m, id),
+                |saved| restore_service(m, saved),
+            )?;
             Ok(json!({"application":"stopped","operation":target}))
         }
-        ui::Action::RendererFocus { operation: target } => renderer_cli::focus(m,target),
-        ui::Action::RendererObserve { operation: target, presentation } => renderer_cli::observe(m,target,*presentation),
+        ui::Action::RendererFocus { operation: target } => renderer_cli::focus(m, target),
+        ui::Action::RendererObserve {
+            operation: target,
+            presentation,
+        } => renderer_cli::observe(m, target, *presentation),
         ui::Action::VendorApplicationOpen { application } => {
             vendor_application::ApplicationId::parse(application)?;
             let _environment = m.lock("operator-environment.lock")?;
@@ -1378,17 +1495,58 @@ fn resume_locked(
 fn recovery_request(m: &Manager, saved: &ResumeRecord) -> Result<ui::Action> {
     let request: ui::Request =
         read_json(&job_dir(m, &saved.owner_operation)?.join("request.json"))?;
-    require(matches!(request.schema,5|6), "operator_resume_request_schema")?;
+    require(
+        matches!(request.schema, 5..=7),
+        "operator_resume_request_schema",
+    )?;
     Ok(request.action)
 }
-fn stop_renderer_with(m:&Manager,target:&str,close:impl FnOnce(&str)->Result<()>,restore:impl FnOnce(&ResumeRecord)->Result<()>)->Result<()> {
-    let _resume=resume_lock(m)?;
-    let saved=resume_record(m)?.ok_or("renderer_resume_owner_absent")?;
-    require(saved.owner_operation==target && saved.vendor_operation.as_deref()==Some(target),"renderer_resume_owner_mismatch")?;
-    let ui::Action::RendererOpen{application,policy}=recovery_request(m,&saved)? else{return Err("renderer_resume_action_mismatch".into());};
-    require(renderer_cli::current(m)?==json!({"operation":target,"application":application,"policy":policy}),"renderer_resume_reservation_mismatch")?;
+fn stop_dependency_with(
+    m: &Manager,
+    target: &str,
+    close: impl FnOnce(&str) -> Result<()>,
+    restore: impl FnOnce(&ResumeRecord) -> Result<()>,
+) -> Result<()> {
+    let _resume = resume_lock(m)?;
+    let saved = resume_record(m)?.ok_or("dependency_resume_absent")?;
+    require(
+        saved.owner_operation == target && saved.vendor_operation.as_deref() == Some(target),
+        "dependency_stop_wrong_operation",
+    )?;
+    require(
+        recovery_request(m, &saved)? == ui::Action::DependencyPrepare {},
+        "dependency_resume_action",
+    )?;
+    dependency_session::exact(m, target)?;
     close(target)?;
-    resume_locked(m,target,restore)
+    resume_locked(m, target, restore)
+}
+fn stop_renderer_with(
+    m: &Manager,
+    target: &str,
+    close: impl FnOnce(&str) -> Result<()>,
+    restore: impl FnOnce(&ResumeRecord) -> Result<()>,
+) -> Result<()> {
+    let _resume = resume_lock(m)?;
+    let saved = resume_record(m)?.ok_or("renderer_resume_owner_absent")?;
+    require(
+        saved.owner_operation == target && saved.vendor_operation.as_deref() == Some(target),
+        "renderer_resume_owner_mismatch",
+    )?;
+    let ui::Action::RendererOpen {
+        application,
+        policy,
+    } = recovery_request(m, &saved)?
+    else {
+        return Err("renderer_resume_action_mismatch".into());
+    };
+    require(
+        renderer_cli::current(m)?
+            == json!({"operation":target,"application":application,"policy":policy}),
+        "renderer_resume_reservation_mismatch",
+    )?;
+    close(target)?;
+    resume_locked(m, target, restore)
 }
 fn stop_vendor_with(
     m: &Manager,
@@ -1428,19 +1586,48 @@ fn resume_interrupted(m: &Manager) -> Result<()> {
         return Ok(());
     };
     let _environment = m.lock("operator-environment.lock")?;
-    if matches!(recovery_request(m,&saved)?,ui::Action::RendererOpen{..}) {
-        require(saved.vendor_operation.as_deref()==Some(saved.owner_operation.as_str()),"renderer_resume_owner_mismatch")?;
-        renderer_cli::reconcile(m,&saved.owner_operation)?;
-        require(renderer_session::retired(m,&saved.owner_operation)?,"renderer_custody_still_uncertain")?;
-        return resume_locked(m,&saved.owner_operation,|saved|restore_service(m,saved));
+    if matches!(
+        recovery_request(m, &saved)?,
+        ui::Action::DependencyPrepare {}
+    ) {
+        require(
+            saved.vendor_operation.as_deref() == Some(saved.owner_operation.as_str()),
+            "dependency_resume_owner",
+        )?;
+        dependency_session::reconcile(m, &saved.owner_operation)?;
+        require(
+            dependency_session::retired(m, &saved.owner_operation)?,
+            "dependency_custody_uncertain",
+        )?;
+        return resume_locked(m, &saved.owner_operation, |saved| restore_service(m, saved));
+    }
+    if matches!(
+        recovery_request(m, &saved)?,
+        ui::Action::RendererOpen { .. }
+    ) {
+        require(
+            saved.vendor_operation.as_deref() == Some(saved.owner_operation.as_str()),
+            "renderer_resume_owner_mismatch",
+        )?;
+        renderer_cli::reconcile(m, &saved.owner_operation)?;
+        require(
+            renderer_session::retired(m, &saved.owner_operation)?,
+            "renderer_custody_still_uncertain",
+        )?;
+        return resume_locked(m, &saved.owner_operation, |saved| restore_service(m, saved));
     }
     require(
         matches!(
             recovery_request(m, &saved)?,
-            ui::Action::InstallerStart { .. } | ui::Action::InstallerStartWithPolicy { .. }
+            ui::Action::InstallerStart { .. }
+                | ui::Action::InstallerStartWithPolicy { .. }
                 | ui::Action::InstallerScan { .. }
-                | ui::Action::RendererOpen { .. } | ui::Action::VendorApplicationOpen { .. }
-                | ui::Action::EnvironmentRescan { .. } | ui::Action::PluginReinspect {..} | ui::Action::PluginInspect {..} | ui::Action::PluginPrepare {..}
+                | ui::Action::RendererOpen { .. }
+                | ui::Action::VendorApplicationOpen { .. }
+                | ui::Action::EnvironmentRescan { .. }
+                | ui::Action::PluginReinspect { .. }
+                | ui::Action::PluginInspect { .. }
+                | ui::Action::PluginPrepare { .. }
         ),
         "operator_resume_action_mismatch",
     )?;
@@ -1744,7 +1931,7 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
             let receipt = match dispatch(m, req) {
                 Ok(r) => r,
                 Err(e) => ui::Receipt {
-                    schema: 6,
+                    schema: 7,
                     accepted: false,
                     operation: None,
                     refusal: Some(e.to_string()),
@@ -1761,15 +1948,36 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
 
 /// Retained per-product feedback is selected by exact request identity, never by
 /// whichever global receipt happened to arrive last.
-pub(super) fn product_receipt(m:&Manager,selection:&str,candidate:Option<&str>)->Result<Option<Value>> {
- let dir=m.root.join("operator"); if !dir.exists(){return Ok(None)}
- let mut found=vec![];
- for entry in fs::read_dir(dir)?.take(1025){let p=entry?.path();let Some(id)=p.file_name().and_then(|v|v.to_str()) else{continue};if !valid_hex(id,32)||!p.is_dir(){continue}
-  let r=optional(&p.join("request.json"))?;
-  let matched=r["action"]["selection"]==selection || candidate.is_some_and(|c|r["action"]["candidate"]==c);
-  if matched{let result=optional(&p.join("result.json"))?;if !result.is_null(){found.push((fs::metadata(p.join("request.json"))?.modified()?,result));}}
- }
- found.sort_by_key(|(time,_)|*time);Ok(found.pop().map(|(_,r)|r))
+pub(super) fn product_receipt(
+    m: &Manager,
+    selection: &str,
+    candidate: Option<&str>,
+) -> Result<Option<Value>> {
+    let dir = m.root.join("operator");
+    if !dir.exists() {
+        return Ok(None);
+    }
+    let mut found = vec![];
+    for entry in fs::read_dir(dir)?.take(1025) {
+        let p = entry?.path();
+        let Some(id) = p.file_name().and_then(|v| v.to_str()) else {
+            continue;
+        };
+        if !valid_hex(id, 32) || !p.is_dir() {
+            continue;
+        }
+        let r = optional(&p.join("request.json"))?;
+        let matched = r["action"]["selection"] == selection
+            || candidate.is_some_and(|c| r["action"]["candidate"] == c);
+        if matched {
+            let result = optional(&p.join("result.json"))?;
+            if !result.is_null() {
+                found.push((fs::metadata(p.join("request.json"))?.modified()?, result));
+            }
+        }
+    }
+    found.sort_by_key(|(time, _)| *time);
+    Ok(found.pop().map(|(_, r)| r))
 }
 
 #[cfg(test)]
@@ -1778,7 +1986,7 @@ mod tests {
     fn view(token: &str, action: ui::AvailableAction) -> ui::Snapshot {
         ui::Snapshot {
             onboarding: vec![],
-            schema: 6,
+            schema: 7,
             state_token: token.into(),
             system: ui::System {
                 service: "active".into(),
@@ -1808,7 +2016,7 @@ mod tests {
         };
         let s = view("current", action("Rollback", allowed.clone(), None));
         let mut r = ui::Request {
-            schema: 6,
+            schema: 7,
             state_token: "current".into(),
             action: allowed.clone(),
         };
@@ -1984,7 +2192,7 @@ mod tests {
     fn terminal_receipt_waits_for_an_existing_writer_instead_of_leaving_running() {
         let f = test_fixture::Fixture::new();
         let request = ui::Request {
-            schema: 6,
+            schema: 7,
             state_token: "t".into(),
             action: ui::Action::CaptureDisarm {},
         };
@@ -2016,7 +2224,7 @@ mod tests {
     fn failed_launch_and_dead_worker_have_terminal_receipts_without_overwriting_new_jobs() {
         let f = test_fixture::Fixture::new();
         let request = ui::Request {
-            schema: 6,
+            schema: 7,
             state_token: "t".into(),
             action: ui::Action::CaptureDisarm {},
         };
@@ -2090,7 +2298,7 @@ mod tests {
         launch_queued(
             m,
             &ui::Request {
-                schema: 6,
+                schema: 7,
                 state_token: "fixture".into(),
                 action,
             },
@@ -2172,34 +2380,283 @@ mod tests {
     }
     #[test]
     fn renderer_stop_preserves_uncertain_resume_and_restores_exactly_once() {
-        use renderer_session::{self as r,UnitState};
-        let f=test_fixture::Fixture::new();let application="ab".repeat(32);
-        let owner=queued_test_action(&f.m,ui::Action::RendererOpen{application:application.clone(),policy:ui::RendererPolicy::Inherited});
-        saved_test_resume(&f.m,&owner,Some(owner.clone()));
-        let spec=json!({"operation":owner,"application_identity":application,"renderer_policy":"inherited","report":r::operation_dir(&f.m,&owner).unwrap().join("result.json")});
-        assert_eq!(r::submit_with(&f.m,&spec,|_|Err("lost acknowledgment".into()),||Err("unit unavailable".into())).unwrap(),r::Submission::AcknowledgmentUncertain);
-        let path=f.m.root.join("operator/resume.json");let retained=fs::read(&path).unwrap();
-        assert!(stop_renderer_with(&f.m,&"ff".repeat(16),|_|panic!("wrong stop"),|_|panic!("wrong restore")).is_err());
-        assert!(stop_renderer_with(&f.m,&owner,|id|r::stop_with(&f.m,id,||Ok(()),||Err("unknown".into())),|_|panic!("uncertain service must remain stopped")).is_err());
-        assert_eq!(fs::read(&path).unwrap(),retained);
-        let mut restores=0;
-        stop_renderer_with(&f.m,&owner,|id|r::stop_with(&f.m,id,||panic!("absent unit needs no signal"),||Ok(UnitState{exists:false,empty:true,observation:None})),|saved|{assert_eq!(saved.owner_operation,owner);restores+=1;Ok(())}).unwrap();
-        assert_eq!(restores,1);assert!(!path.exists());
-        resume_owned_with(&f.m,&owner,|_|{restores+=1;Ok(())}).unwrap();assert_eq!(restores,1);
-        assert!(r::terminal(&r::result(&f.m,&owner).unwrap(),&owner));
+        use renderer_session::{self as r, UnitState};
+        let f = test_fixture::Fixture::new();
+        let application = "ab".repeat(32);
+        let owner = queued_test_action(
+            &f.m,
+            ui::Action::RendererOpen {
+                application: application.clone(),
+                policy: ui::RendererPolicy::Inherited,
+            },
+        );
+        saved_test_resume(&f.m, &owner, Some(owner.clone()));
+        let spec = json!({"operation":owner,"application_identity":application,"renderer_policy":"inherited","report":r::operation_dir(&f.m,&owner).unwrap().join("result.json")});
+        assert_eq!(
+            r::submit_with(
+                &f.m,
+                &spec,
+                |_| Err("lost acknowledgment".into()),
+                || Err("unit unavailable".into())
+            )
+            .unwrap(),
+            r::Submission::AcknowledgmentUncertain
+        );
+        let path = f.m.root.join("operator/resume.json");
+        let retained = fs::read(&path).unwrap();
+        assert!(stop_renderer_with(
+            &f.m,
+            &"ff".repeat(16),
+            |_| panic!("wrong stop"),
+            |_| panic!("wrong restore")
+        )
+        .is_err());
+        assert!(stop_renderer_with(
+            &f.m,
+            &owner,
+            |id| r::stop_with(&f.m, id, || Ok(()), || Err("unknown".into())),
+            |_| panic!("uncertain service must remain stopped")
+        )
+        .is_err());
+        assert_eq!(fs::read(&path).unwrap(), retained);
+        let mut restores = 0;
+        stop_renderer_with(
+            &f.m,
+            &owner,
+            |id| {
+                r::stop_with(
+                    &f.m,
+                    id,
+                    || panic!("absent unit needs no signal"),
+                    || {
+                        Ok(UnitState {
+                            exists: false,
+                            empty: true,
+                            observation: None,
+                        })
+                    },
+                )
+            },
+            |saved| {
+                assert_eq!(saved.owner_operation, owner);
+                restores += 1;
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(restores, 1);
+        assert!(!path.exists());
+        resume_owned_with(&f.m, &owner, |_| {
+            restores += 1;
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(restores, 1);
+        assert!(r::terminal(&r::result(&f.m, &owner).unwrap(), &owner));
     }
     #[test]
     fn renderer_lost_ack_live_result_then_exact_stop_preserves_failure_and_resume_owner() {
-        use renderer_session::{self as r,UnitState};
-        let f=test_fixture::Fixture::new();let application="ab".repeat(32);
-        let owner=queued_test_action(&f.m,ui::Action::RendererOpen{application:application.clone(),policy:ui::RendererPolicy::Inherited});
-        saved_test_resume(&f.m,&owner,Some(owner.clone()));
-        let d=r::operation_dir(&f.m,&owner).unwrap();let spec=json!({"operation":owner,"application_identity":application,"renderer_policy":"inherited","report":d.join("result.json")});
-        assert_eq!(r::submit_with(&f.m,&spec,|_|Ok(false),||Ok(UnitState{exists:true,empty:false,observation:None})).unwrap(),r::Submission::SubmittedOrLive);
-        atomic_json(&d.join("result.json"),&json!({"schema":1,"operation":owner,"state":"running","renderer":{"cause":"gpu"}})).unwrap();
-        let mut probes=0;let mut stops=0;let mut restores=0;
-        stop_renderer_with(&f.m,&owner,|id|r::stop_with(&f.m,id,||{stops+=1;Ok(())},||{probes+=1;Ok(UnitState{exists:true,empty:probes>1,observation:None})}),|_|{restores+=1;Ok(())}).unwrap();
-        assert_eq!((stops,restores),(1,1));assert_eq!(r::result(&f.m,&owner).unwrap()["renderer"]["cause"],"gpu");
+        use renderer_session::{self as r, UnitState};
+        let f = test_fixture::Fixture::new();
+        let application = "ab".repeat(32);
+        let owner = queued_test_action(
+            &f.m,
+            ui::Action::RendererOpen {
+                application: application.clone(),
+                policy: ui::RendererPolicy::Inherited,
+            },
+        );
+        saved_test_resume(&f.m, &owner, Some(owner.clone()));
+        let d = r::operation_dir(&f.m, &owner).unwrap();
+        let spec = json!({"operation":owner,"application_identity":application,"renderer_policy":"inherited","report":d.join("result.json")});
+        assert_eq!(
+            r::submit_with(
+                &f.m,
+                &spec,
+                |_| Ok(false),
+                || Ok(UnitState {
+                    exists: true,
+                    empty: false,
+                    observation: None
+                })
+            )
+            .unwrap(),
+            r::Submission::SubmittedOrLive
+        );
+        atomic_json(
+            &d.join("result.json"),
+            &json!({"schema":1,"operation":owner,"state":"running","renderer":{"cause":"gpu"}}),
+        )
+        .unwrap();
+        let mut probes = 0;
+        let mut stops = 0;
+        let mut restores = 0;
+        stop_renderer_with(
+            &f.m,
+            &owner,
+            |id| {
+                r::stop_with(
+                    &f.m,
+                    id,
+                    || {
+                        stops += 1;
+                        Ok(())
+                    },
+                    || {
+                        probes += 1;
+                        Ok(UnitState {
+                            exists: true,
+                            empty: probes > 1,
+                            observation: None,
+                        })
+                    },
+                )
+            },
+            |_| {
+                restores += 1;
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!((stops, restores), (1, 1));
+        assert_eq!(r::result(&f.m, &owner).unwrap()["renderer"]["cause"], "gpu");
+    }
+    #[test]
+    fn dependency_stop_preserves_uncertain_resume_and_restores_exactly_once() {
+        use dependency_session::{self as r, UnitState};
+        let f = test_fixture::Fixture::new();
+        let application = "ab".repeat(32);
+        let owner = queued_test_action(
+            &f.m,
+            ui::Action::DependencyPrepare {},
+        );
+        saved_test_resume(&f.m, &owner, Some(owner.clone()));
+        let spec = json!({"operation":owner,"application_identity":application,"renderer_policy":"inherited","report":r::operation_dir(&f.m,&owner).unwrap().join("result.json")});
+        assert_eq!(
+            r::submit_with(
+                &f.m,
+                &spec,
+                |_| Err("lost acknowledgment".into()),
+                || Err("unit unavailable".into())
+            )
+            .unwrap(),
+            r::Submission::AcknowledgmentUncertain
+        );
+        let path = f.m.root.join("operator/resume.json");
+        let retained = fs::read(&path).unwrap();
+        assert!(stop_dependency_with(
+            &f.m,
+            &"ff".repeat(16),
+            |_| panic!("wrong stop"),
+            |_| panic!("wrong restore")
+        )
+        .is_err());
+        assert!(stop_dependency_with(
+            &f.m,
+            &owner,
+            |id| r::stop_with(&f.m, id, || Ok(()), || Err("unknown".into())),
+            |_| panic!("uncertain service must remain stopped")
+        )
+        .is_err());
+        assert_eq!(fs::read(&path).unwrap(), retained);
+        let mut restores = 0;
+        stop_dependency_with(
+            &f.m,
+            &owner,
+            |id| {
+                r::stop_with(
+                    &f.m,
+                    id,
+                    || panic!("absent unit needs no signal"),
+                    || {
+                        Ok(UnitState {
+                            exists: false,
+                            empty: true,
+                            observation: None,
+                        })
+                    },
+                )
+            },
+            |saved| {
+                assert_eq!(saved.owner_operation, owner);
+                restores += 1;
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(restores, 1);
+        assert!(!path.exists());
+        resume_owned_with(&f.m, &owner, |_| {
+            restores += 1;
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(restores, 1);
+        assert!(r::terminal(&r::result(&f.m, &owner).unwrap(), &owner));
+    }
+    #[test]
+    fn dependency_lost_ack_live_result_then_exact_stop_preserves_failure_and_resume_owner() {
+        use dependency_session::{self as r, UnitState};
+        let f = test_fixture::Fixture::new();
+        let application = "ab".repeat(32);
+        let owner = queued_test_action(
+            &f.m,
+            ui::Action::DependencyPrepare {},
+        );
+        saved_test_resume(&f.m, &owner, Some(owner.clone()));
+        let d = r::operation_dir(&f.m, &owner).unwrap();
+        let spec = json!({"operation":owner,"application_identity":application,"renderer_policy":"inherited","report":d.join("result.json")});
+        assert_eq!(
+            r::submit_with(
+                &f.m,
+                &spec,
+                |_| Ok(false),
+                || Ok(UnitState {
+                    exists: true,
+                    empty: false,
+                    observation: None
+                })
+            )
+            .unwrap(),
+            r::Submission::SubmittedOrLive
+        );
+        atomic_json(
+            &d.join("result.json"),
+            &json!({"schema":1,"operation":owner,"state":"running","dependency":{"cause":"not_ready"}}),
+        )
+        .unwrap();
+        let mut probes = 0;
+        let mut stops = 0;
+        let mut restores = 0;
+        stop_dependency_with(
+            &f.m,
+            &owner,
+            |id| {
+                r::stop_with(
+                    &f.m,
+                    id,
+                    || {
+                        stops += 1;
+                        Ok(())
+                    },
+                    || {
+                        probes += 1;
+                        Ok(UnitState {
+                            exists: true,
+                            empty: probes > 1,
+                            observation: None,
+                        })
+                    },
+                )
+            },
+            |_| {
+                restores += 1;
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!((stops, restores), (1, 1));
+        assert_eq!(r::result(&f.m, &owner).unwrap()["dependency"]["cause"], "not_ready");
     }
     #[test]
     fn stop_asc_recovers_only_the_exact_vendor_open_operation() {
@@ -2411,7 +2868,7 @@ mod tests {
         let sw = Software {
             installer_launch: None,
             preparation_kit: None,
-        manager: a.clone(),
+            manager: a.clone(),
             operator_frontend: None,
             supervisor: a.clone(),
             ownership: a.clone(),
@@ -2436,7 +2893,7 @@ mod tests {
         fs::write(&source, bytes).unwrap();
         let installer = installer_import::import(&f.m, file(&source).unwrap()).unwrap();
         let request = ui::Request {
-            schema: 6,
+            schema: 7,
             state_token: token(&f.m).unwrap(),
             action: ui::Action::InstallerEnvironmentCreate {
                 installer: installer.id,

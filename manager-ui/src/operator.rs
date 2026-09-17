@@ -320,7 +320,7 @@ impl Operator {
         self.action_inflight = false;
         match reply {
             Reply::Snapshot(s) => {
-                if s.schema != 6 {
+                if s.schema != 7 {
                     self.message = "Unsupported manager schema".into();
                 } else {
                     if let Some(f) = &mut self.feedback {
@@ -459,7 +459,7 @@ impl eframe::App for Operator {
                 }
                 egui::CollapsingHeader::new("Arturia environment and software center").default_open(true).show(ui,|ui|{
                     for app in &s.vendor_applications{ui.heading(&app.name);
-                        if app.id=="native-access" {ui.label(if app.details["effective"].is_object(){"Renderer policy applied to the exact owned application"}else{"Renderer policy application not confirmed"});ui.label(format!("Rendering cause: {}",app.details["renderer"]["cause"].as_str().unwrap_or("unresolved")));}
+                        if app.id=="native-access" {ui.label(if app.details["dependency_prepared"]==true {"Dependency prepared; live readiness is checked before launch"}else{"Dependency preparation required"});ui.label(if app.details["effective"].is_object(){"Renderer policy applied to the exact owned application"}else{"Renderer policy application not confirmed"});ui.label(format!("Rendering cause: {}",app.details["renderer"]["cause"].as_str().unwrap_or("unresolved")));}
                         ui.label(format!("{} · {}",app.version,app.state));Self::buttons(ui,&app.actions,busy,controls_pending,&mut chosen);}
                     for e in &s.environments{ui.label(format!("{} · revision {} · pinned runner {}",e.family,e.revision,e.runner));ui.small(&e.authorization);if !e.last_scan["id"].is_null(){ui.small(format!("Last scan: {} modules · completed at {}",e.last_scan["module_count"],e.last_scan["completed_at"]));ui.small(format!("Changes: {} added · {} changed · {} removed · {} unchanged",e.last_scan["changes"]["added"],e.last_scan["changes"]["changed"],e.last_scan["changes"]["removed"],e.last_scan["changes"]["unchanged"]));}Self::buttons(ui,&e.actions,busy,controls_pending,&mut chosen);}
                 });
@@ -519,7 +519,7 @@ impl eframe::App for Operator {
         } else if let Some(a) = chosen {
             if let Some(s) = &self.snapshot {
                 self.capture_action(Request {
-                    schema: 6,
+                    schema: 7,
                     state_token: s.state_token.clone(),
                     action: a,
                 });
@@ -741,7 +741,7 @@ mod tests {
     }
     fn create_request() -> Request {
         Request {
-            schema: 6,
+            schema: 7,
             state_token: "snapshot".into(),
             action: Action::InstallerEnvironmentCreate {
                 installer: "ab".repeat(32),
@@ -752,7 +752,7 @@ mod tests {
     fn running_snapshot(operation: &str) -> Snapshot {
         let id = "aa".repeat(16);
         Snapshot {
-            schema: 6,
+            schema: 7,
             state_token: "current".into(),
             system: System {
                 service: "capacity unavailable".into(),
@@ -799,7 +799,7 @@ mod tests {
         }));
         if acknowledged {
             o.handle_reply(Reply::Receipt(Receipt {
-                schema: 6,
+                schema: 7,
                 accepted: true,
                 operation: Some("current-op".into()),
                 refusal: None,
@@ -811,7 +811,7 @@ mod tests {
     }
     fn activity_from(s: &Snapshot) -> Reply {
         Reply::Activity(Activity {
-            schema: 6,
+            schema: 7,
             system: s.system.clone(),
             capture: s.capture.clone(),
             operation: s.operation.clone(),
@@ -1063,7 +1063,7 @@ mod tests {
         let old =
             serde_json::json!({"operation":"old","state":"refused","reason":"old lock failure"});
         f.receipt(&Receipt {
-            schema: 6,
+            schema: 7,
             accepted: false,
             operation: Some("new".into()),
             refusal: Some("fresh refusal".into()),
@@ -1075,7 +1075,7 @@ mod tests {
         assert!(!f.for_installer(&"ef".repeat(32)));
         f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 6,
+            schema: 7,
             accepted: true,
             operation: Some("new".into()),
             refusal: None,
@@ -1091,7 +1091,7 @@ mod tests {
     fn vendor_controls_unlock_only_after_current_snapshot_without_losing_feedback() {
         let mut f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 6,
+            schema: 7,
             accepted: true,
             operation: Some("new".into()),
             refusal: None,
@@ -1104,7 +1104,7 @@ mod tests {
         assert!(f.terminal);
         let mut f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 6,
+            schema: 7,
             accepted: false,
             operation: Some("refused".into()),
             refusal: Some("reason".into()),

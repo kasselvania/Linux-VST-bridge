@@ -25,6 +25,7 @@ static std::string hash(HANDLE f) {
 static bool hex(const std::wstring& s,size_t length){if(s.size()!=length)return false;for(auto c:s)if(!((c>=L'0'&&c<=L'9')||(c>=L'a'&&c<=L'f')))return false;return true;}
 static unsigned long long time_of(HANDLE p){FILETIME c{},e{},k{},u{};if(!GetProcessTimes(p,&c,&e,&k,&u))return 0;return (static_cast<unsigned long long>(c.dwHighDateTime)<<32)|c.dwLowDateTime;}
 static bool same_file(HANDLE a,HANDLE b){BY_HANDLE_FILE_INFORMATION x{},y{};return GetFileInformationByHandle(a,&x)&&GetFileInformationByHandle(b,&y)&&x.dwVolumeSerialNumber==y.dwVolumeSerialNumber&&x.nFileIndexHigh==y.nFileIndexHigh&&x.nFileIndexLow==y.nFileIndexLow;}
+#include "nad1_service.h"
 int wmain(int argc,wchar_t** argv){
     if(argc==2 && std::wstring(argv[1])==L"--self-test")return hex(L"0123456789abcdef",16)&&!hex(L"g",1)?0:1;
     if(argc!=2)return 120;
@@ -36,6 +37,7 @@ int wmain(int argc,wchar_t** argv){
     CloseHandle(request);if(!ok)return 122;
     std::wstring all(buffer.data(),bytes/2);std::vector<std::wstring> lines;size_t pos=0;
     for(;;){auto end=all.find(L'\n',pos);if(end==std::wstring::npos)break;lines.push_back(all.substr(pos,end-pos));pos=end+1;}
+    if(!lines.empty()&&lines[0]==L"NAD1_SERVICE_V1")return pos==all.size()?nad1_service_request(lines):123;
     const bool renderer=lines.size()==8&&lines[0]==L"NAUI2_LAUNCH_V1";
     if(pos!=all.size()||(!renderer&&(lines.size()!=7||lines[0]!=L"IS2_LAUNCH_V1"))||!hex(lines[1],32)||!hex(lines[2],64)||lines[3]!=L"2"||!hex(lines[4],64))return 123;
     if(renderer&&lines[7]!=L"inherited"&&lines[7]!=L"software_rendering")return 123;

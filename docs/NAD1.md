@@ -447,3 +447,37 @@ After independent review, merge and deliberate installation, a separately author
 continuation may perform the exact selected dependency transition and one
 software-rendered Native Access readiness observation. No product install or account
 interaction is automatically authorized by NAD1.
+
+## Implemented lifetime and bounded readiness contract
+
+The dependency has an operation lifetime, not a foreign or host-wide daemon lifetime.
+`DependencyPrepare` has no caller parameters. It uses the exact bundled SHA-256 and
+size, the fixed `/s` argument, and an adapter-bound installer root. It verifies the
+resulting image and exact own-process Windows service registration; outer exit zero
+alone is insufficient. The fixed Windows adapter queries or starts only
+`NTKDaemonService` through SCM. It never executes `NTKDaemon.exe` directly.
+
+Readiness requires all of: SCM running with exact service image and Windows creation
+identity; one exact admitted image mapped by a stable Linux PID/start generation in
+the same prefix and owned cgroup; both loopback listeners 5146/5563 owned by that
+Linux generation; no ambiguous or foreign/deleted candidate. Windows and Linux PID
+numbers are not joined. This is a local dependency readiness contract, not a claim
+about vendor authorization, HTTP behavior or successful Native Access use.
+
+Preparation stops and retires its cohort, retaining immutable stage and terminal
+receipts. A seven-field `prepared.json` pointer binds that terminal receipt, application,
+software and resulting daemon artifact. It is historical preparation, not current
+readiness. Each later renderer operation freshly verifies and starts the same service
+before application launch, and retires the dependency cohort when the application
+closes. Neither Software nor Environment gains persistent fields. Older software
+generations and all prior renderer results remain readable and immutable.
+
+Unknown existing daemon bytes refuse until admitted; filename and metadata alone
+cannot authorize them. Running-but-not-ready refuses without reinstall. Foreign or
+deleted-prefix candidates refuse without adoption or signalling. Submission uses an
+exact reservation and writer gate; uncertain acknowledgment preserves service-resume
+custody. Only confirmed empty retirement restores the bridge service.
+
+The generated service uses a separately sealed internal entry and compile-time fixed
+fixture service/path constants. The installed persisted-spec entry has no fixture or
+test-mode switch. The fixture is source-owned and does not establish vendor behavior.
