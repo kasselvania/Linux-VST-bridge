@@ -8,6 +8,7 @@
 #include <vector>
 #include <array>
 #include <cstdint>
+#include <algorithm>
 
 static std::string hash(HANDLE f) {
     BCRYPT_ALG_HANDLE alg{}; BCRYPT_HASH_HANDLE state{}; DWORD size=0,n=0;
@@ -27,11 +28,12 @@ static bool hex(const std::wstring& s,size_t length){if(s.size()!=length)return 
 static unsigned long long time_of(HANDLE p){FILETIME c{},e{},k{},u{};if(!GetProcessTimes(p,&c,&e,&k,&u))return 0;return (static_cast<unsigned long long>(c.dwHighDateTime)<<32)|c.dwLowDateTime;}
 static bool same_file(HANDLE a,HANDLE b){BY_HANDLE_FILE_INFORMATION x{},y{};return GetFileInformationByHandle(a,&x)&&GetFileInformationByHandle(b,&y)&&x.dwVolumeSerialNumber==y.dwVolumeSerialNumber&&x.nFileIndexHigh==y.nFileIndexHigh&&x.nFileIndexLow==y.nFileIndexLow;}
 #include "nad1_service.h"
+#include "native_access_callback.h"
 // Installer timeout is unchanged; an owned application has no normal-use cap.
 static constexpr DWORD target_wait(bool renderer){return renderer?INFINITE:3600000;}
 static_assert(target_wait(true)==INFINITE&&target_wait(false)==3600000);
 int wmain(int argc,wchar_t** argv){
-    if(argc==2 && std::wstring(argv[1])==L"--self-test")return hex(L"0123456789abcdef",16)&&!hex(L"g",1)?0:1;
+    if(argc==2 && std::wstring(argv[1])==L"--self-test")return hex(L"0123456789abcdef",16)&&!hex(L"g",1)&&callback_uri("native-access:fixture%20code")&&!callback_uri("native-access:x --no-sandbox")&&!callback_uri("native-access:%00")?0:1;
     if(argc!=2)return 120;
     HANDLE request=CreateFileW(argv[1],GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
     if(request==INVALID_HANDLE_VALUE)return 121;
@@ -42,7 +44,8 @@ int wmain(int argc,wchar_t** argv){
     std::wstring all(buffer.data(),bytes/2);std::vector<std::wstring> lines;size_t pos=0;
     for(;;){auto end=all.find(L'\n',pos);if(end==std::wstring::npos)break;lines.push_back(all.substr(pos,end-pos));pos=end+1;}
     if(!lines.empty()&&lines[0]==L"NAD1_SERVICE_V1")return pos==all.size()?nad1_service_request(lines):123;
-    const bool renderer=lines.size()==8&&lines[0]==L"NAUI2_LAUNCH_V1";
+    const bool callback=lines.size()==8&&lines[0]==L"NAUI2_AUTH_LAUNCH_V1";
+    const bool renderer=lines.size()==8&&(lines[0]==L"NAUI2_LAUNCH_V1"||callback);
     if(pos!=all.size()||(!renderer&&(lines.size()!=7||lines[0]!=L"IS2_LAUNCH_V1"))||!hex(lines[1],32)||!hex(lines[2],64)||lines[3]!=L"2"||!hex(lines[4],64))return 123;
     if(renderer&&lines[7]!=L"inherited"&&lines[7]!=L"software_rendering")return 123;
     wchar_t* end=nullptr;auto expected_size=wcstoull(lines[5].c_str(),&end,10);
@@ -72,7 +75,13 @@ int wmain(int argc,wchar_t** argv){
     char frame[512]{};int n=std::snprintf(frame,sizeof(frame),"IS2_ROOT_V1 %ls %ls 2 %s %llu %lu %llu %lu %llu\n",lines[1].c_str(),lines[2].c_str(),expected.c_str(),expected_size,pi.dwProcessId,created,GetCurrentProcessId(),own_created);
     DWORD written=0;ok=n>0&&n<static_cast<int>(sizeof(frame))&&WriteFile(GetStdHandle(STD_ERROR_HANDLE),frame,static_cast<DWORD>(n),&written,nullptr)&&written==static_cast<DWORD>(n);
     if(!ok||ResumeThread(pi.hThread)==static_cast<DWORD>(-1)){TerminateProcess(pi.hProcess,129);WaitForSingleObject(pi.hProcess,5000);CloseHandle(pi.hThread);CloseHandle(pi.hProcess);CloseHandle(image);return 129;}
-    CloseHandle(pi.hThread);CloseHandle(image);
-    DWORD result=130;if(WaitForSingleObject(pi.hProcess,target_wait(renderer))==WAIT_OBJECT_0)GetExitCodeProcess(pi.hProcess,&result);
+    CloseHandle(pi.hThread);
+    DWORD result=130;
+    if(callback){
+        NativeAccessCallback returns(image,pi.hProcess,lines[6],lines[1],lines[7]);
+        while(WaitForSingleObject(pi.hProcess,50)==WAIT_TIMEOUT)returns.tick();
+        GetExitCodeProcess(pi.hProcess,&result);
+    }else if(WaitForSingleObject(pi.hProcess,target_wait(renderer))==WAIT_OBJECT_0)GetExitCodeProcess(pi.hProcess,&result);
+    CloseHandle(image);
     CloseHandle(pi.hProcess);return static_cast<int>(result);
 }

@@ -1,5 +1,5 @@
 """Integrated sealed application/dependency campaign, source-owned only."""
-import hashlib,json,os,pathlib,shutil,subprocess,time
+import hashlib,json,os,pathlib,shutil,socket,struct,subprocess,time
 from owner_package import verify,digest,read,publish,canonical
 from owner_campaign import preservation,compare_preservation
 from application_supervise import CASES
@@ -42,11 +42,18 @@ def run(package,seal,out,*,cases=CASES):
   subprocess.run([str(p/'binding-owner'),str(case/'app.private.json'),str(case/'software.private.json'),op,'software_rendering',str(report),str(spec),'application'],check=True,timeout=20)
   # Production renderer reservation/Stop owner, sealed generated entry only.
   subprocess.run([str(p/'binding-owner'),'application-submit',str(manager),str(spec),str(p),seal],check=True,timeout=30)
-  unit='linux-vst-bridge-renderer-'+op+'.service';deadline=time.monotonic()+320;stopped=False;held_since=None;lifetime=[]
+  unit='linux-vst-bridge-renderer-'+op+'.service';deadline=time.monotonic()+320;stopped=False;held_since=None;lifetime=[];returned=False
   try:
    while time.monotonic()<deadline:
     if report.exists() and read(report).get('cleanup_confirmed'):break
-    if scenario=='lifetime' and (root/'compatdata/pfx/drive_c/NAD1Fixture/application-started').exists() and report.exists() and read(report).get('effective'):
+    if scenario=='callback' and not returned and report.exists() and read(report).get('browser_return') is not None and (root/'compatdata/pfx/drive_c/NAD1Fixture/application-started').exists():
+     with socket.socket(socket.AF_UNIX) as peer:
+      peer.settimeout(25);peer.connect('\0lvb-native-access-'+str(os.getuid())+'-'+op);peer.sendall(op.encode())
+      if peer.recv(4)!=b'NAC1':raise ValueError('callback_owner_handshake')
+      value=b'native-access:source-owned-fixture';peer.sendall(struct.pack('<I',len(value))+value)
+      if peer.recv(1)!=b'\0':raise ValueError('callback_delivery')
+     returned=True
+    if scenario=='lifetime'  and (root/'compatdata/pfx/drive_c/NAD1Fixture/application-started').exists() and report.exists() and read(report).get('effective'):
      if held_since is None:
       lifetime.append(lifetime_sample(report,op));held_since=time.monotonic()
      elif len(lifetime)==1 and time.monotonic()-held_since>=12:
@@ -71,6 +78,10 @@ def run(package,seal,out,*,cases=CASES):
     if not memory[name]['child_retired']:raise ValueError('memory_child_cleanup')
   launched=(root/'compatdata/pfx/drive_c/NAD1Fixture/application-started').exists()
   if launched!=(scenario!='not_ready'):raise ValueError('fixture_application_gate')
+  if scenario=='callback':
+   if not returned or not (root/'compatdata/pfx/drive_c/NAD1Fixture/callback-received').exists() or r['browser_return']['dispatched']!=1 or r['browser_return']['authentication']!='not_observed' or not r['authentication_privacy']['raw_capture_suspended'] or r['renderer']['complete']:raise ValueError('callback_result')
+   for log in report.parent.iterdir():
+    if log.is_file() and log.stat().st_size<64*1024*1024 and b'native-access:source-owned-fixture' in log.read_bytes():raise ValueError('callback_secret_retained')
   dep=r['dependency']
   if dep['service_retirement_confirmed']!=(scenario!='stop_failure') or dep['forced_cleanup_used']!=(scenario=='stop_failure') or not dep['process_cleanup_confirmed'] or not dep['service_stop_requested']:raise ValueError('fixture_retirement_result')
   actions=[x['action'] for x in dep['stages']]
@@ -79,7 +90,7 @@ def run(package,seal,out,*,cases=CASES):
   if scenario=='stop_failure' and r['error']!='application_outer_nonzero':raise ValueError('first_failure_replaced')
   if scenario!='normal':shutil.rmtree(root)
   row={'case':scenario,'operation':op,'result':r,'result_sha256':digest(report if report.exists() else report.parent/'recovery-result.json'),'application_launched':launched,'prefix_removed':scenario!='normal','unit_absent':True,'manager_stop':stopped,'lifetime_samples':lifetime,'child_memory':memory};publish(case/'proof.json',row);rows.append(row)
-  expected='completed' if scenario in ('normal','repeat','lifetime') else 'cancelled' if scenario=='cancel' else 'failed'
+  expected='completed' if scenario in ('normal','repeat','lifetime','callback') else 'cancelled' if scenario=='cancel' else 'failed'
   if scenario=='child_memory':expected='completed' if memory['memory-service.json']['passed'] else 'failed'
   if scenario=='lifetime' and (len(lifetime)!=2 or lifetime[1]['elapsed_ns']-lifetime[0]['elapsed_ns']<12_000_000_000 or stopped):raise ValueError('lifetime_interval')
   if r['state']!=expected:raise ValueError('fixture_case_result_'+scenario)

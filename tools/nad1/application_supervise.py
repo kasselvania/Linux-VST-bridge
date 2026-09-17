@@ -2,7 +2,7 @@
 import ctypes,os,pathlib,shutil,subprocess,sys,time
 sys.dont_write_bytecode=True
 from owner_package import verify,read,digest,publish
-CASES=('normal','repeat','cancel','not_ready','stop_failure','application_failure','lifetime','child_memory')
+CASES=('normal','repeat','cancel','not_ready','stop_failure','application_failure','lifetime','child_memory','callback')
 def run(package,seal,spec_path):
  p=pathlib.Path(package);manifest=verify(p,seal);spec=read(spec_path);d=pathlib.Path(spec_path).parents[5];op=spec['operation']
  case=read(d/'case.json')['case']
@@ -54,6 +54,7 @@ def run(package,seal,spec_path):
   previous=read(d.parent/'normal/proof.json')['result']
   if previous['state']!='completed' or not previous['dependency']['service_retirement_confirmed'] or previous['dependency']['forced_cleanup_used']:raise ValueError('fixture_repeat_prior_retirement')
   (directory/'application-started').unlink()
+ if case=='callback':(directory/'await-callback').touch()
  if case=='child_memory':(directory/'probe-child-memory').touch()
  if case=='not_ready':(directory/'not-ready').touch()
  if case=='lifetime':(directory/'await-explicit-exit').touch()
@@ -63,7 +64,7 @@ def run(package,seal,spec_path):
  admitted=ownership.image_identity(directory/'NTKDaemon.exe')
  if admitted['sha256']!=manifest['files']['Setup.exe']:raise ValueError('fixture_daemon_changed')
  verify(p,seal)
- return s.renderer_owned(spec,dependency={'daemon':admitted},dependency_fixture=fixture)
+ return s.renderer_owned(spec,dependency={'daemon':admitted},dependency_fixture=fixture,callback_fixture=case=='callback')
 if __name__=='__main__':
  if len(sys.argv)!=3:raise ValueError('fixture_arguments')
  sys.exit(0 if run(pathlib.Path(__file__).parent,sys.argv[1],sys.argv[2]) else 1)

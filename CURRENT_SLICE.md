@@ -439,3 +439,16 @@ retirement passed. The manager's separate 650-second wait had expired; exact
 retained under `evidence/nad1/recovery/child-memory/real-application/`. Final state
 is idle, two keepers, zero leases and no resume record. Credentials and callback
 material are excluded. No additional vendor launch occurred.
+
+## Authorized continued repair: login return and normal-session recovery
+
+The operator explicitly requested continued implementation after the successful
+rendered login test, with review to follow. Continue on the existing branch. Fix
+the remaining manager waiting-worker deadline and route only the declared
+`native-access:` scheme into the exact already-running application operation.
+Never launch an application from a callback alone; no arbitrary command, prefix
+or argument API. Transport the opaque callback in memory, never in receipts or
+request files. Suspend raw application diagnostics before delivery, explicitly
+mark observation incomplete, retain non-secret delivery status only. Vendor login
+and token validation remain vendor-owned. Qualify with generated callbacks and
+source-owned Windows instances; no real credentials or replayed login link.

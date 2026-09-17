@@ -772,6 +772,11 @@ fn refuse_unfinished(m: &Manager, id: &str, reason: &str) -> Result<()> {
         false,
     )
 }
+fn wait_renderer_retirement(mut retired: impl FnMut() -> Result<bool>, mut wait: impl FnMut()) -> Result<()> {
+    while !retired()? { wait(); }
+    Ok(())
+}
+
 fn finish_operation(m: &Manager, id: &str) -> Result<()> {
     let installer_cleanup: Result<()> = (|| {
         let request: ui::Request = read_json(&job_dir(m, id)?.join("request.json"))?;
@@ -1284,15 +1289,12 @@ fn execute_with_receipt_policy(
                 false,
             )?;
             drop(projection.take());
-            let deadline = Instant::now() + Duration::from_secs(650);
-            loop {
-                renderer_cli::reconcile(m, owner)?;
-                if renderer_session::retired(m, owner)? {
-                    break;
-                }
-                require(Instant::now() < deadline, "renderer_retirement_unconfirmed")?;
-                std::thread::sleep(Duration::from_millis(500));
-            }
+            // Normal application lifetime belongs to the exact operation, not a
+            // wall-clock budget. Stop and cleanup retain their separate bounds.
+            wait_renderer_retirement(
+                || { renderer_cli::reconcile(m, owner)?; renderer_session::retired(m, owner) },
+                || std::thread::sleep(Duration::from_millis(500)),
+            )?;
             resume_owned(m, owner)?;
             Ok(
                 json!({"application":"retired","service":"resumed","result":renderer_cli::result(m,owner)?}),
@@ -3494,5 +3496,19 @@ mod tests {
         db.revision += 1;
         atomic_json(&f.m.root.join("registry.json"), &db).unwrap();
         assert_ne!(b, token(&f.m).unwrap());
+    }
+}
+
+#[cfg(test)]
+mod renderer_lifetime_regression {
+    use super::*;
+    #[test]
+    fn long_normal_session_keeps_recovery_owner_until_exact_retirement() {
+        let mut observations=0;let mut waits=0;
+        wait_renderer_retirement(|| {observations+=1;Ok(observations==2001)},||waits+=1).unwrap();
+        assert_eq!(waits,2000); // More polls than the former 650-second/500ms cap.
+        let mut waits=0;
+        assert!(wait_renderer_retirement(||Err("exact_probe_failed".into()),||waits+=1).is_err());
+        assert_eq!(waits,0);
     }
 }

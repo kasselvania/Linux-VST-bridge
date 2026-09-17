@@ -1,5 +1,5 @@
 """Source-owned fixed SCM fixture on an ephemeral Windows CI worker."""
-import hashlib,os,pathlib,shutil,subprocess,sys,tempfile,time
+import hashlib,os,pathlib,shutil,subprocess,sys,tempfile,time,struct
 
 def run(build):
  build=pathlib.Path(build).resolve();root=pathlib.Path('C:/NAD1Fixture')
@@ -31,6 +31,24 @@ def run(build):
   assert ' exact 0 4 ' in response and sha in response and response.split()[-1]=='3'
   assert subprocess.run([str(build/'nad1-application-fixture.exe'),'--disable-gpu'],timeout=10).returncode==0
   assert (root/'application-started').exists()
+  # Exact secondary-instance browser return through the same retained adapter.
+  (root/'application-started').unlink();(root/'await-callback').touch()
+  payload=build/'nad1-application-fixture.exe';callback_sha=hashlib.sha256(payload.read_bytes()).hexdigest()
+  request=root/'application-request';request.write_bytes(('\n'.join(['NAUI2_AUTH_LAUNCH_V1',op,token,'2',callback_sha,str(payload.stat().st_size),str(payload),'software_rendering',''])).encode('utf-16le'))
+  adapter=subprocess.Popen([str(build/'is2-launch.exe'),str(request)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+  try:
+   deadline=time.monotonic()+15
+   while not (root/'application-started').exists() and time.monotonic()<deadline:time.sleep(.05)
+   assert (root/'application-started').exists()
+   # Allow the fixture to create its private pipe after its start marker.
+   time.sleep(.2);value=b'native-access:source-owned-fixture'
+   out,err=adapter.communicate(struct.pack('<I',len(value))+value,timeout=20)
+   assert adapter.returncode==0,(adapter.returncode,out,err)
+   assert (b'NA_AUTH_V1 '+op.encode()+b' 1 0') in out
+   assert (root/'callback-received').exists()
+   assert value not in out+err
+  finally:
+   if adapter.poll() is None:adapter.kill();adapter.wait(timeout=10)
   stopped=command('stop')
   assert 'NAD1_RETIRE_V1 '+op+' '+token+' 1 ' in stopped
   assert ' exact 0 1 0 0 none ' in stopped

@@ -21,6 +21,7 @@ mod test_fixture;
 pub mod vendor_application;
 pub mod renderer_application;
 pub mod renderer_session;
+pub mod native_access_callback;
 pub mod ui_observation;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

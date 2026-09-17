@@ -2407,7 +2407,104 @@ def renderer_application(spec):
     dependency=nad1_prepared(spec)
     return renderer_owned(spec,dependency=dependency)
 
-def renderer_owned(spec, preparation=None, dependency=None, *, dependency_fixture=None):
+def native_access_uri(value):
+    if not isinstance(value,bytes) or not 14<len(value)<=2048 or not value.startswith(b'native-access:'):return False
+    i=14
+    while i<len(value):
+        c=value[i]
+        if not 33<=c<=126 or c in b'"\'\\`<>':return False
+        if c==37:
+            if i+2>=len(value) or any(x not in b'0123456789abcdefABCDEF' for x in value[i+1:i+3]):return False
+            decoded=int(value[i+1:i+3],16)
+            if decoded<32 or decoded==127:return False
+            i+=2
+        i+=1
+    return True
+
+
+class RendererCallback:
+    """One exact running operation's ephemeral broker. No secret-bearing files.
+
+    Accepting a return suppresses raw application diagnostics for the remainder
+    of the operation. The vendor may echo a code without its URL prefix; regex
+    redaction cannot promise privacy. Generation completeness becomes false.
+    """
+    def __init__(self,operation,child,privacy_cutoff,*,address=None):
+        import socket
+        self.op=operation;self.child=child;self.cutoff=privacy_cutoff
+        self.listener=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
+        try:
+            self.listener.bind(address or ('\0lvb-native-access-'+str(os.getuid())+'-'+operation))
+            self.listener.listen(1);self.listener.setblocking(False)
+        except Exception:self.listener.close();raise
+        self.peer=None;self.pending=bytearray();self.phase='operation';self.deadline=0
+        self.attempts=0;self.delivered=0;self.last=None;self.closed=False;self.acks=bytearray()
+        os.set_blocking(child.stdin.fileno(),False)
+    def finish(self,code,status):
+        self.last=status
+        if self.peer is not None:
+            try:self.peer.send(bytes([code]))
+            except OSError:pass
+            self.peer.close();self.peer=None
+        for i in range(len(self.pending)):self.pending[i]=0
+        self.pending.clear();self.phase='operation'
+    def tick(self):
+        import socket,struct
+        if self.closed:return
+        if self.child.returncode is not None:self.close();return
+        if self.peer is None:
+            try:peer,_=self.listener.accept()
+            except BlockingIOError:return
+            pid,uid,_=struct.unpack('3i',peer.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12))
+            if uid!=os.getuid() or pid<=0 or self.attempts>=4:peer.close();return
+            peer.setblocking(False);self.peer=peer;self.deadline=time.monotonic()+5
+        if time.monotonic()>self.deadline:self.finish(2,'delivery_unconfirmed');return
+        if self.phase=='ack':return
+        try:data=self.peer.recv(2053)
+        except BlockingIOError:return
+        if not data:self.finish(1,'client_closed');return
+        self.pending.extend(data)
+        if self.phase=='operation':
+            if len(self.pending)>32:self.finish(1,'invalid_operation');return
+            if len(self.pending)==32:
+                if self.pending!=self.op.encode():self.finish(1,'invalid_operation');return
+                try:self.peer.sendall(b'NAC1')
+                except OSError:self.finish(1,'client_closed');return
+                self.pending.clear();self.phase='uri'
+            return
+        if len(self.pending)>2052:self.finish(1,'invalid_return');return
+        if len(self.pending)<4:return
+        n=int.from_bytes(self.pending[:4],'little')
+        if not 14<n<=2048 or len(self.pending)>4+n:self.finish(1,'invalid_return');return
+        if len(self.pending)!=4+n:return
+        if not native_access_uri(bytes(self.pending[4:])):self.finish(1,'invalid_return');return
+        # This is deliberately before any write to the Windows adapter.
+        self.cutoff();self.attempts+=1
+        try:
+            n=os.write(self.child.stdin.fileno(),self.pending)
+            if n!=len(self.pending):raise OSError('short_callback_write')
+        except OSError:self.finish(2,'delivery_unconfirmed');return
+        for i in range(len(self.pending)):self.pending[i]=0
+        self.pending.clear();self.phase='ack';self.deadline=time.monotonic()+22
+    def feed_ack(self,data):
+        # Only complete fixed adapter frames survive; all other output is discarded.
+        for b in data:
+            if b==10:
+                if len(self.acks)<=128:
+                    parts=bytes(self.acks).split()
+                    if len(parts)==4 and parts[:2]==[b'NA_AUTH_V1',self.op.encode()] and parts[2]==str(self.attempts).encode() and parts[3] in (b'0',b'1',b'2') and self.phase=='ack':
+                        code=int(parts[3]);self.delivered+=int(code==0);self.finish(code,'dispatched' if code==0 else 'delivery_unconfirmed')
+                self.acks.clear()
+            elif len(self.acks)<=128:self.acks.append(b)
+    def value(self):return {'schema':1,'scheme':'native-access','attempts':self.attempts,'dispatched':self.delivered,'last_result':self.last,'authentication':'not_observed','secret_retained':False}
+    def close(self):
+        if self.closed:return
+        self.closed=True
+        if self.peer is not None:self.finish(2,'delivery_unconfirmed')
+        self.listener.close();self.acks.clear()
+
+
+def renderer_owned(spec, preparation=None, dependency=None, *, dependency_fixture=None, callback_fixture=False):
     # Shared mechanism after independent production or sealed-fixture admission.
     # Manager reconciliation takes the same gate before closing an unused launch.
     report=pathlib.Path(spec['report']);op=spec['operation']
@@ -2417,7 +2514,7 @@ def renderer_owned(spec, preparation=None, dependency=None, *, dependency_fixtur
         installer_atomic(report.parent/'writer.json',{'schema':1,'operation':op,'started':True})
         try:
             if preparation is not None:preparation()
-            return renderer_run(spec,dependency=dependency,dependency_fixture=dependency_fixture)
+            return renderer_run(spec,dependency=dependency,dependency_fixture=dependency_fixture,callback_fixture=callback_fixture)
         except Exception as exc:
             scope=CompanionCgroup(renderer_operation=op);clean=not scope.members()
             atomic(report,{'schema':1,'operation':op,'application_identity':spec['application_identity'],
@@ -2428,12 +2525,17 @@ def renderer_owned(spec, preparation=None, dependency=None, *, dependency_fixtur
             return False
 
 
-def renderer_run(spec, dependency=None, *, dependency_fixture=None):
+def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fixture=False):
     """Exact companion operation; no prefix initialization or installer witnesses."""
     app=spec['application'];op=spec['operation'];env=app['environment'];root=pathlib.Path(env['root']);report=pathlib.Path(spec['report'])
     lock=(root/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     image=RendererImage(app['files']['Native Access.exe']);evidence=RendererEvidence(app['files']['Native Access.exe']['artifact'],root,image)
     scope=None;ledger=None;child=None;clean=False;stop=False;error=None;effective=None;focus=None;dependency_owner=None
+    callback=None;auth_private=False;auth_discarded=0
+    callback_enabled=dependency is not None and (app['id']=='native-access' or callback_fixture)
+    if callback_enabled:
+        import resource
+        resource.setrlimit(resource.RLIMIT_CORE,(0,0))
     captures={name:PrivateCapture(report.parent/(op+'-'+name+'.private.log'),16*1024*1024,600) for name in ('stdout','stderr')}
     sel=selectors.DefaultSelector();request_path=report.parent/(op+'-launch.private')
     def persist(value):
@@ -2443,10 +2545,20 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None):
         stop=True
         if ledger:ledger.cancelled=True
         evidence.trace.cancelled=True
+    def privacy_cutoff():
+        nonlocal auth_private
+        if not auth_private:
+            auth_private=True;evidence.trace.dropped+=1
+            evidence.pending.clear();evidence.line_pending.clear()
     def drain(wait):
+        nonlocal auth_discarded
         for key,_ in sel.select(wait):
             data=os.read(key.fileobj.fileno(),65536)
-            if data:captures[key.data].write(data);evidence.feed(data,key.data)
+            if data:
+                if auth_private:
+                    auth_discarded+=len(data)
+                    if callback and key.data=='stdout':callback.feed_ack(data)
+                else:captures[key.data].write(data);evidence.feed(data,key.data)
             else:sel.unregister(key.fileobj)
     def confirm_effective():
         nonlocal effective
@@ -2460,6 +2572,8 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None):
             'dependency':dependency_owner.value() if dependency_owner else None,
             'outer_exit':child.returncode if child else None,'cleanup_confirmed':clean,'owned_live':live,
             'cancelled':stop,'error':error,'focus_result':focus,
+            'browser_return':callback.value() if callback else None,
+            'authentication_privacy':{'raw_capture_suspended':auth_private,'discarded_bytes':auth_discarded},
             'application_image_verification':{'bytes':image.size,'hash_passes':1,'cache':'stable_open_file'},
             'diagnostics':{k:{'retained':v.retained,'dropped':v.discarded} for k,v in captures.items()}}
     signal.signal(signal.SIGTERM,cancel);signal.signal(signal.SIGINT,cancel)
@@ -2473,7 +2587,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None):
             dependency_owner=Nad1Owner(spec,ledger,scope,lambda:stop,fixture=dependency_fixture)
             dependency_owner.ensure(False,dependency['daemon'])
         token=os.urandom(32).hex();evidence.trace.arm_root(op,token,image.size);evidence.begin();evidence.begin()
-        content='\n'.join(['NAUI2_LAUNCH_V1',op,token,'2',image.sha,str(image.size),windows(image.path,root/'compatdata/pfx'),spec['renderer_policy'],''])
+        content='\n'.join(['NAUI2_AUTH_LAUNCH_V1' if callback_enabled else 'NAUI2_LAUNCH_V1',op,token,'2',image.sha,str(image.size),windows(image.path,root/'compatdata/pfx'),spec['renderer_policy'],''])
         with os.fdopen(os.open(request_path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'wb') as f:f.write(content.encode('utf-16le'));f.flush();os.fsync(f.fileno())
         runner=env['runner'];argv=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',spec['installer_launch']['path'],windows(request_path,root/'compatdata/pfx')]
         launch_env=environment({'environment':env,'compatibility':{'disable_windows_accessibility':False}});launch_env['HOME']=str(root/'home')
@@ -2481,7 +2595,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None):
         if dependency_owner is not None:
             argv=dependency_owner.runtime.argv(request_path,image.path.parent,launch_env)
         image.check()
-        child=subprocess.Popen(argv,cwd=image.path.parent,env=launch_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+        child=subprocess.Popen(argv,cwd=image.path.parent,env=launch_env,stdin=subprocess.PIPE if callback_enabled else subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
         ledger.launcher(child,'application_runner')
         for name,pipe in [('stdout',child.stdout),('stderr',child.stderr)]:os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,name)
         last=0
@@ -2489,6 +2603,9 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None):
             live=ledger.harvest();drain(.05);image.check()
             if dependency_owner and dependency_owner.anchor is not None and dependency_owner.anchor.returncode is not None and child.returncode is None:raise ValueError('dependency_service_anchor_exited')
             confirm_effective()
+            if callback_enabled and effective and child.returncode is None:
+                if callback is None:callback=RendererCallback(op,child,privacy_cutoff)
+                callback.tick()
             if dependency_owner and child.returncode is not None:
                 if child.returncode!=0:error='application_outer_nonzero'
                 if effective is None:error=error or 'application_root_unconfirmed'
@@ -2516,6 +2633,8 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None):
             if time.monotonic()-last>.5:atomic(report,result(state,len(live)));last=time.monotonic()
     except Exception as exc:error=str(exc) if isinstance(exc,ValueError) else 'renderer_owner_'+type(exc).__name__
     finally:
+        if callback:callback.close()
+        if child and callback_enabled and child.stdin:child.stdin.close()
         if dependency_owner is not None:
             try:
                 if child is not None:renderer_retire_image(scope,ledger,image,drain)
