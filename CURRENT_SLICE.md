@@ -87,3 +87,15 @@ inherited -> software_rendering -> restored inherited
 Stop after any cleanup failure, unexpected installation mutation, application hang
 or already-rendered inherited control. A later sandbox-policy cut is permitted only
 if exact child/sandbox evidence selects it; NAUI2 never bundles `--no-sandbox`.
+
+## Delivered implementation and generated result
+
+PR #117 implements the selected application owner and renderer policy. Executed
+source `56ed25b03ceee9a57143f9f0f7cecd7c6e150cdc` passed the production-supervised
+67 MiB inherited/software/restored fixture and exact Stop after a retained child
+failure. See `evidence/naui2/README.md` and the sealed generated result.
+
+The manager projects operator model 6 with exact application selection, rendering
+mode, Focus/Stop and attributed presentation observations. No installed generation
+was replaced; no Native Access or DAW session occurred. This PR remains draft for
+independent review, with physical application comparison still separately gated.

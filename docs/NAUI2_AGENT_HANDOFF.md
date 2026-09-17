@@ -1,9 +1,9 @@
 # NAUI2 implementation-agent handoff
 
-Prepared handoff for **NAUI2 — Controlled Native Access renderer differential**.
-Use it only after an explicit implementation handoff names this corrected planning
-basis. This repository-preparation step authorizes no implementation or physical
-application comparison.
+The operator authorized and the implementation completed the source/generated cut
+in PR #117. This document retains the original bounded assignment; current results
+are in `evidence/naui2/README.md`. No additional implementation handoff is needed.
+A real Native Access comparison still requires review and deliberate installation.
 
 ## Exact basis
 
