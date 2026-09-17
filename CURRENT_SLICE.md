@@ -120,3 +120,16 @@ remain non-selecting leads; raw root PIDs/times remain private.
 
 Run affected suites and AP8/AP12/PX2, then return the same draft PR. No installation,
 commercial launch or Native Access differential is authorized by this repair.
+
+## Accepted merge: installation and registration continuation
+
+PR #117 merged as `f12953cb31cbce11f64f29788cd51da26e6c92c0` with exact reviewed
+tree `5bbe3028247a6a340df34589f14d365e7c6dbdc6`. Merged-main AP8/AP12/PX2 passed.
+The separately authorized idle installation and exactly one RendererDiscover are
+complete; receipts are in `evidence/naui2/installation/`. Installed operator model
+is 6. The application has not been launched and no presentation was recorded.
+
+Stop at this installation/registration receipt for independent acceptance. Only a
+subsequent authorization may start A (inherited rendering). B and C remain gated by
+A/B results and positive cleanup. No further implementation or application launch
+is selected by this evidence-only continuation.

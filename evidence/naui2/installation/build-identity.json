@@ -1,0 +1,25 @@
+{
+  "merge_commit": "f12953cb31cbce11f64f29788cd51da26e6c92c0",
+  "source_head": "f12953cb31cbce11f64f29788cd51da26e6c92c0",
+  "source_tree": "5bbe3028247a6a340df34589f14d365e7c6dbdc6",
+  "approved_head": "c8bb73b2e774853880ced9de46c2e254c5fceb5e",
+  "target": "x86_64-unknown-linux-gnu",
+  "toolchain": "rustc 1.95.0",
+  "linker": "Zig x86_64-linux-gnu",
+  "linker_sha256": "932cdba20d00698761e7767039ea2d99b51ccb75566ebab56fedbca5276b25d6",
+  "artifacts": {
+    "linux-vst-bridge": "f1846e66ad1b139abf6e96ff9f1b6b77a899a593c0d2bb5d6962aa80b7dcd2fc",
+    "linux-audio-compatibility-manager": "b3e784fe196cb97b03ff9471b28b99d7c1665455882f74e04aa7b9b1295947c2",
+    "session.py": "f3c2a600b64f40489686817f47323de6dbdf7fe2d8f37b77461f78e55cea39a7",
+    "ownership.py": "15824639864ceb3be26c95760bfc90520a9ef28b9450d732b7123fe1a7f321ab",
+    "installer-launch.exe": "890db6fab34baff2d93df9ed9989781c64d93e6787231eee361d63db84db1e2e",
+    "frontend-readback-client": "f0a930b4dc14493f964859f7e5594200384be941c1f152cb471ba84f42b59ada"
+  },
+  "adapter_ci_run": 35181944920,
+  "adapter_build_checkout": "f12953cb31cbce11f64f29788cd51da26e6c92c0",
+  "adapter_inventory_sha256": "5ccb14ce68b115f5a3749e97109c25397c90228e13a11e08ccfc4bb8b547ae0f",
+  "frontend_client_source_sha256": "9e22720af772ca98e5a51c51d0471090e22c3c9c1d60d468213319ada9a9ead1",
+  "operator_model_source_sha256": "3c3f435491a01aed8c94a8700aff23bdb9946a3188b148e7d023a7335ccc9d6a",
+  "readback_client_driver_sha256": "ff352d0105111ee64352cc29ae82a6fc9d210b7bd273a5efe77bcce52e7fd5fb",
+  "readback_client_installed": false
+}
