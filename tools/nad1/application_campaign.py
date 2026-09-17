@@ -46,7 +46,7 @@ def run(package,seal,out,*,cases=CASES):
   try:
    while time.monotonic()<deadline:
     if report.exists() and read(report).get('cleanup_confirmed'):break
-    if scenario=='callback' and not returned and report.exists() and read(report).get('browser_return') is not None and (root/'compatdata/pfx/drive_c/NAD1Fixture/application-started').exists():
+    if scenario=='callback' and not returned and report.exists() and read(report).get('browser_return') is not None and (root/'compatdata/pfx/drive_c/NAD1Fixture/callback-ready').exists():
      with socket.socket(socket.AF_UNIX) as peer:
       peer.settimeout(25);peer.connect('\0lvb-native-access-'+str(os.getuid())+'-'+op);peer.sendall(op.encode())
       if peer.recv(4)!=b'NAC1':raise ValueError('callback_owner_handshake')

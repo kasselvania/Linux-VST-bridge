@@ -8,6 +8,8 @@ static constexpr wchar_t callback_value[]=L"native-access:source-owned-fixture";
 static bool callback_primary(){
  HANDLE pipe=CreateNamedPipeW(callback_pipe,PIPE_ACCESS_INBOUND,PIPE_TYPE_BYTE|PIPE_READMODE_BYTE|PIPE_NOWAIT,1,64,64,0,nullptr);
  if(pipe==INVALID_HANDLE_VALUE)return false;
+ HANDLE ready=CreateFileW(L"C:\\NAD1Fixture\\callback-ready",GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
+ if(ready==INVALID_HANDLE_VALUE){CloseHandle(pipe);return false;}CloseHandle(ready);
  // Only the generated fixture has a wall-clock safety bound.
  auto deadline=GetTickCount64()+45000;bool received=false;
  while(GetTickCount64()<deadline){

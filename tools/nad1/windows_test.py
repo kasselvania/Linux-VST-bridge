@@ -38,10 +38,9 @@ def run(build):
   adapter=subprocess.Popen([str(build/'is2-launch.exe'),str(request)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
   try:
    deadline=time.monotonic()+15
-   while not (root/'application-started').exists() and time.monotonic()<deadline:time.sleep(.05)
-   assert (root/'application-started').exists()
-   # Allow the fixture to create its private pipe after its start marker.
-   time.sleep(.2);value=b'native-access:source-owned-fixture'
+   while not (root/'callback-ready').exists() and time.monotonic()<deadline:time.sleep(.05)
+   assert (root/'callback-ready').exists()
+   value=b'native-access:source-owned-fixture'
    out,err=adapter.communicate(struct.pack('<I',len(value))+value,timeout=20)
    assert adapter.returncode==0,(adapter.returncode,out,err)
    assert (b'NA_AUTH_V1 '+op.encode()+b' 1 0') in out
