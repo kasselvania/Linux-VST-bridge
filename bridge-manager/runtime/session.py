@@ -1061,7 +1061,8 @@ def keep(spec):
     return {'cleanup_confirmed':clean}
 
 def install(spec):
-    if spec.get('schema')==2:return managed_install(spec)
+    if spec.get('schema') in (2,3):return managed_install(spec)
+    if 'installer_capability' in spec:raise RuntimeError('installer policy requires schema 3')
     env=spec['environment'];rootdir=pathlib.Path(env['root']);lock=(rootdir/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     for a in [spec['installer'],*env['runner']['files']]:verify(a)
     reg={'environment':env,'compatibility':{'disable_windows_accessibility':False}};runner=env['runner'];command=[runner['entry_point'],'--verb=run','--',runner['proton'],'run',spec['installer']['path']]
@@ -1722,6 +1723,79 @@ def is3_target_environment(spec, fixture, inherited):
         'authority':'supervisor_Popen_environment','loader_result':'unavailable_without_behavior_or_loader_observation'}
 
 
+def installer_policy_validate(spec):
+    """Closed manager-generated binding; no general environment input capability."""
+    policy=spec.get('installer_capability')
+    if policy is None:
+        if spec.get('schema')==3:raise ValueError('installer_policy_missing')
+        return None
+    if spec.get('schema')!=3 or not isinstance(policy,dict) or set(policy)!={'schema','operation','environment','installer','software_sha256','software','owners','windows_scripting','format','installer_launch'}:
+        raise ValueError('installer_policy_schema')
+    if policy['schema']!=1 or policy['operation']!=spec['operation'] or policy['environment']!=spec['environment'] or policy['installer']!=spec['installer']:
+        raise ValueError('installer_policy_binding')
+    if not re.fullmatch('[a-f0-9]{64}',policy['software_sha256']):raise ValueError('installer_policy_software')
+    software=policy['software']
+    if hashlib.sha256(json.dumps(software,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()!=policy['software_sha256']:
+        raise ValueError('installer_policy_software_digest')
+    if policy['owners']!={k:software[k] for k in ('manager','supervisor','ownership')} or software.get('installer_launch')!=spec.get('installer_launch'):
+        raise ValueError('installer_policy_software_owners')
+    if policy['format']!='pe_executable' or spec.get('format')!=policy['format']:
+        raise ValueError('installer_policy_format')
+    adapter=policy['installer_launch']
+    if not isinstance(adapter,dict) or set(adapter)!={'path','sha256'} or adapter!=spec.get('installer_launch') or adapter!=software.get('installer_launch'):
+        raise ValueError('installer_policy_adapter')
+    verify(adapter)
+    scripting=policy['windows_scripting']
+    if not isinstance(scripting,dict) or set(scripting)!={'powershell'} or scripting['powershell'] not in ('inherited','intentionally_unavailable'):
+        raise ValueError('installer_policy_capability')
+    owners=policy['owners']
+    if not isinstance(owners,dict) or set(owners)!={'manager','supervisor','ownership'}:raise ValueError('installer_policy_owners')
+    for artifact in owners.values():
+        if not isinstance(artifact,dict) or set(artifact)!={'path','sha256'}:raise ValueError('installer_policy_artifact')
+        verify(artifact)
+    for name,path in [('supervisor',__file__),('ownership',sys.modules['ownership'].__file__)]:
+        actual=pathlib.Path(path)
+        if actual.resolve()!=pathlib.Path(owners[name]['path']).resolve():raise ValueError('installer_policy_executing_owner')
+        verify({'path':str(actual),'sha256':owners[name]['sha256']})
+    return policy
+
+def installer_override_absence(value):
+    """Only exact powershell.exe rules are replaced; unrelated segments stay byte exact.
+
+    Multiple exact rules and mixed name lists containing powershell.exe refuse.
+    A single case-insensitive rule is replaced in place, or one is appended.
+    Never normalize/rewrite unrelated overrides or guess wildcard semantics.
+    """
+    if value is None:return 'powershell.exe='
+    if not isinstance(value,str) or len(value.encode())>16384 or '\0' in value:raise ValueError('installer_override_bound')
+    parts=value.split(';');matches=[]
+    for i,part in enumerate(parts):
+        names,sep,_=part.partition('=')
+        keys=[name.strip().casefold() for name in names.split(',')]
+        if 'powershell.exe' in keys:
+            if not sep or len(keys)!=1:raise ValueError('installer_override_ambiguous_rule')
+            matches.append(i)
+    if len(matches)>1:raise ValueError('installer_override_duplicate_powershell')
+    if matches:parts[matches[0]]='powershell.exe=';return ';'.join(parts)
+    return value+('' if not value or value.endswith(';') else ';')+'powershell.exe='
+
+def installer_policy_environment(policy, inherited):
+    if policy is None:return inherited,None
+    requested=policy['windows_scripting']['powershell']
+    changed=dict(inherited)
+    if requested=='intentionally_unavailable':
+        changed['WINEDLLOVERRIDES']=installer_override_absence(inherited.get('WINEDLLOVERRIDES'))
+    def identity(value):
+        return {'present':value is not None,'length':len((value or '').encode()),'sha256':hashlib.sha256((value or '').encode()).hexdigest()}
+    receipt={'schema':1,'operation':policy['operation'],'environment':policy['environment']['id'],
+        'environment_revision':policy['environment']['revision'],'software_sha256':policy['software_sha256'],
+        'requested':{'windows_scripting':policy['windows_scripting']},'effective':{'windows_scripting':policy['windows_scripting']},
+        'phase':'target_runner_after_prefix_initialization','monotonic_ns':time.monotonic_ns(),
+        'before':identity(inherited.get('WINEDLLOVERRIDES')),'after':identity(changed.get('WINEDLLOVERRIDES')),
+        'authority':'supervisor_Popen_environment','behavior':'unproved_without_child_observation'}
+    return changed,receipt
+
+
 def managed_install(spec, *, source_owned_is3=None):
     """MF2 initial installer, exact dedicated unit. No product admission authority."""
     op=spec['operation'];env=spec['environment'];root=pathlib.Path(env['root']);report=pathlib.Path(spec['report'])
@@ -1730,6 +1804,7 @@ def managed_install(spec, *, source_owned_is3=None):
     scope=None;child=None;stop=False;clean=False;error=None;focus_result=None;diagnostics=RecentCapture(131072,64);private_report_written=False
     sel=selectors.DefaultSelector();start=time.monotonic();startup=InstallerStartup(op,spec['installer'],root)
     transaction=InstallerTransaction(op,root,report,spec['installer']);ledger=None;msi_fd=None;msi_fifo=None;launch_request=None
+    policy=None;policy_receipt=None
     is3_capture=IS3FixtureCapture() if source_owned_is3 is not None else None
     def stopping(*_):
         nonlocal stop
@@ -1754,10 +1829,17 @@ def managed_install(spec, *, source_owned_is3=None):
     def outer_exit():
         return child.returncode if child and getattr(child,"installer_phase",None)=="target_runner" else None
     def value(state,live):
-        return {'schema':2,'operation':op,'state':state,'raw_exit':outer_exit(),
+        result={'schema':2,'operation':op,'state':state,'raw_exit':outer_exit(),
                 'owned_live':live,'cleanup_confirmed':clean,'error':error,'discarded_diagnostic_bytes':diagnostics.dropped_bytes,'retained_diagnostic_bytes':diagnostics.bytes,'private_diagnostics_written':private_report_written,
                 'startup':startup.value(),'transaction':transaction.summary(outer_exit(),clean,stop,state in ('starting','running','unknown')),'focus_result':focus_result,'human_action':'installer_ui' if state in ('running','unknown') else None}
+        if spec.get('installer_capability') is not None:
+            result['installer_capability']={'schema':1,'requested':policy['windows_scripting'] if policy is not None else None,
+                'effective':policy_receipt,'operation':op}
+        return result
     try:
+        policy=installer_policy_validate(spec)
+        if policy is not None and source_owned_is3 is not None and source_owned_is3['mode']=='unix_override':
+            raise ValueError('installer_policy_cannot_mix_diagnostic_override')
         for a in [spec['installer'],*env['runner']['files']]:verify(a)
         scope=CompanionCgroup(installer_operation=op)
         if scope.members():raise RuntimeError('installer cgroup initially occupied')
@@ -1815,7 +1897,14 @@ def managed_install(spec, *, source_owned_is3=None):
         transaction.before=transaction.witness.snapshot();ledger.commit()
         launch_env,is3_receipt=is3_target_environment(spec,source_owned_is3,launch_env)
         if is3_receipt is not None:atomic(report.parent/(op+'-is3-unix.private.json'),is3_receipt)
+        launch_env,prepared_policy=installer_policy_environment(policy,launch_env)
         child=launch(argv,'target_runner')
+        # launch() has created and registered the exact owned child. Preparation
+        # alone is never public authority that a target launch received policy.
+        if prepared_policy is not None:
+            prepared_policy['monotonic_ns']=time.monotonic_ns()
+            atomic(report.parent/(op+'-installer-policy.private.json'),prepared_policy)
+            policy_receipt=prepared_policy
         last=0
         while not stop:
             live=reap();startup.observe(live);transaction.images()

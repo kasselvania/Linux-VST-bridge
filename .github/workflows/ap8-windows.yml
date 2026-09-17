@@ -7,6 +7,7 @@ on:
       - 'tools/is1/**'
       - 'tools/is2/**'
       - 'tools/is3/**'
+      - 'tools/is4/**'
       - 'tools/mf3/**'
       - '.github/workflows/ap8-windows.yml'
       - 'windows-factory-probe/**'

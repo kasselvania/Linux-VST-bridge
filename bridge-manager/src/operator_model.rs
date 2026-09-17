@@ -1,5 +1,13 @@
 //! Versioned operator projection and closed requests. No filesystem or launch authority.
 use serde::{Deserialize, Serialize};
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Powershell {
+    Inherited,
+    IntentionallyUnavailable,
+}
+
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Request {
@@ -33,6 +41,10 @@ pub enum Action {
     },
     InstallerStart {
         onboarding: String,
+    },
+    InstallerStartWithPolicy {
+        onboarding: String,
+        powershell: Powershell,
     },
     InstallerFocus {
         onboarding: String,
@@ -220,6 +232,7 @@ impl Action {
             Self::PluginReinspect { .. } | Self::ExperimentalReplace { .. } | Self::CandidateWithdraw { .. } | Self::PluginInspect { .. } | Self::PluginPrepare { .. } | Self::ExperimentalEnable { .. } | Self::ExperimentalDisable { .. } | Self::CandidatePublishOrdinary { .. } | Self::InstallerEnvironmentCreate { .. }
                 | Self::InstallerNewAttempt { .. }
                 | Self::InstallerStart { .. }
+                | Self::InstallerStartWithPolicy { .. }
                 | Self::InstallerScan { .. }
                 | Self::VendorApplicationOpen { .. }
                 | Self::EnvironmentRescan { .. }

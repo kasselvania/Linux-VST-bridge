@@ -163,7 +163,7 @@ fn activity_with_capacity(m: &Manager, cap: Option<&CapacityReadback>) -> Result
         }
     }
     Ok(ui::Activity {
-        schema: 4,
+        schema: 5,
         system: ui::System {
             service: if cap.is_some() {
                 "active"
@@ -596,7 +596,7 @@ fn snapshot_for_operation(
     drop(recheck);
     Ok(ui::Snapshot {
         onboarding,
-        schema: 4,
+        schema: 5,
         state_token: after,
         system: live.system,
         environments,
@@ -683,7 +683,7 @@ fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
 }
 fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
     require(
-        request.schema == 4 && request.state_token == snapshot.state_token,
+        request.schema == 5 && request.state_token == snapshot.state_token,
         "operator_stale_request_refresh",
     )?;
     let offered = available(snapshot)
@@ -750,7 +750,7 @@ fn finish_operation(m: &Manager, id: &str) -> Result<()> {
         let request: ui::Request = read_json(&job_dir(m, id)?.join("request.json"))?;
         if let ui::Action::InstallerStart {
             onboarding: ref key,
-        } = request.action
+        } | ui::Action::InstallerStartWithPolicy { onboarding: ref key, .. } = request.action
         {
             let r = onboarding::load(m, key)?;
             if r.installation_operation.as_deref() == Some(id) {
@@ -820,7 +820,7 @@ fn launch_reserved(
         return Err("operator_worker_launch_failed".into());
     }
     Ok(ui::Receipt {
-        schema: 4,
+        schema: 5,
         accepted: true,
         operation: Some(id.into()),
         refusal: None,
@@ -845,7 +845,7 @@ fn dispatch_recorded(
                 false,
             )?;
             Ok(ui::Receipt {
-                schema: 4,
+                schema: 5,
                 accepted: false,
                 operation: Some(id),
                 refusal: Some(reason),
@@ -1051,7 +1051,7 @@ fn execute_with_receipt_policy(
         ui::Action::InstallerEnvironmentCreate { .. } | ui::Action::InstallerNewAttempt { .. } => {
             unreachable!()
         }
-        ui::Action::InstallerStart { onboarding: id } => {
+        ui::Action::InstallerStart { onboarding: id } | ui::Action::InstallerStartWithPolicy { onboarding: id, .. } => {
             let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
             let prior = onboarding::load(m, id)?;
@@ -1068,7 +1068,11 @@ fn execute_with_receipt_policy(
                     return Err(e);
                 }
             };
-            let launched = onboarding::launch(m, &r);
+            let policy = match a {
+                ui::Action::InstallerStartWithPolicy { powershell, .. } => Some(*powershell),
+                _ => None,
+            };
+            let launched = onboarding::launch(m, &r, policy);
             drop(projection.take());
             if launched.is_ok() {
                 write_operation(
@@ -1337,7 +1341,7 @@ fn resume_locked(
 fn recovery_request(m: &Manager, saved: &ResumeRecord) -> Result<ui::Action> {
     let request: ui::Request =
         read_json(&job_dir(m, &saved.owner_operation)?.join("request.json"))?;
-    require(request.schema == 4, "operator_resume_request_schema")?;
+    require(request.schema == 5, "operator_resume_request_schema")?;
     Ok(request.action)
 }
 fn stop_vendor_with(
@@ -1381,7 +1385,7 @@ fn resume_interrupted(m: &Manager) -> Result<()> {
     require(
         matches!(
             recovery_request(m, &saved)?,
-            ui::Action::InstallerStart { .. }
+            ui::Action::InstallerStart { .. } | ui::Action::InstallerStartWithPolicy { .. }
                 | ui::Action::InstallerScan { .. }
                 | ui::Action::VendorApplicationOpen { .. }
                 | ui::Action::EnvironmentRescan { .. } | ui::Action::PluginReinspect {..} | ui::Action::PluginInspect {..} | ui::Action::PluginPrepare {..}
@@ -1688,7 +1692,7 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
             let receipt = match dispatch(m, req) {
                 Ok(r) => r,
                 Err(e) => ui::Receipt {
-                    schema: 4,
+                    schema: 5,
                     accepted: false,
                     operation: None,
                     refusal: Some(e.to_string()),
@@ -1722,7 +1726,7 @@ mod tests {
     fn view(token: &str, action: ui::AvailableAction) -> ui::Snapshot {
         ui::Snapshot {
             onboarding: vec![],
-            schema: 4,
+            schema: 5,
             state_token: token.into(),
             system: ui::System {
                 service: "active".into(),
@@ -1752,7 +1756,7 @@ mod tests {
         };
         let s = view("current", action("Rollback", allowed.clone(), None));
         let mut r = ui::Request {
-            schema: 4,
+            schema: 5,
             state_token: "current".into(),
             action: allowed.clone(),
         };
@@ -1928,7 +1932,7 @@ mod tests {
     fn terminal_receipt_waits_for_an_existing_writer_instead_of_leaving_running() {
         let f = test_fixture::Fixture::new();
         let request = ui::Request {
-            schema: 4,
+            schema: 5,
             state_token: "t".into(),
             action: ui::Action::CaptureDisarm {},
         };
@@ -1960,7 +1964,7 @@ mod tests {
     fn failed_launch_and_dead_worker_have_terminal_receipts_without_overwriting_new_jobs() {
         let f = test_fixture::Fixture::new();
         let request = ui::Request {
-            schema: 4,
+            schema: 5,
             state_token: "t".into(),
             action: ui::Action::CaptureDisarm {},
         };
@@ -2034,7 +2038,7 @@ mod tests {
         launch_queued(
             m,
             &ui::Request {
-                schema: 4,
+                schema: 5,
                 state_token: "fixture".into(),
                 action,
             },
@@ -2349,7 +2353,7 @@ mod tests {
         fs::write(&source, bytes).unwrap();
         let installer = installer_import::import(&f.m, file(&source).unwrap()).unwrap();
         let request = ui::Request {
-            schema: 4,
+            schema: 5,
             state_token: token(&f.m).unwrap(),
             action: ui::Action::InstallerEnvironmentCreate {
                 installer: installer.id,

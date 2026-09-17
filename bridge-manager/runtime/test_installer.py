@@ -84,6 +84,44 @@ class InstallerTests(unittest.TestCase):
                     for sig,handler in zip((signal.SIGTERM,signal.SIGINT),old):signal.signal(sig,handler)
                     session.ctypes.CDLL(None).prctl(36,0,0,0,0)
 
+class PolicyLaunchTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform.startswith('linux'),'Linux supervisor subreaper')
+    def test_effective_requires_owned_target_after_successful_prefix_initialization(self):
+        from test_installer_policy import PolicyTests
+        for fail in (True,False):
+            with self.subTest(target_creation_fails=fail),tempfile.TemporaryDirectory() as tmp:
+                root=pathlib.Path(tmp);(root/'operation.lock').touch();(root/'home').mkdir()
+                (root/'compatdata/pfx').mkdir(parents=True);(root/'compatdata/pfx/system.reg').touch()
+                spec=PolicyTests().bound();spec['environment'].update(root=str(root),runner={'entry_point':'fixed-runner','proton':'fixed-proton','files':[]})
+                spec['report']=str(root/'result.json');spec['installer_capability']['environment']=spec['environment']
+                real_popen=subprocess.Popen;children=[];calls=[]
+                def launch_owned(args,**kwargs):
+                    calls.append((args,dict(kwargs['env'])))
+                    if len(calls)==2 and fail:raise OSError('source-owned target creation failure')
+                    p=real_popen([sys.executable,'-c','print("source-owned ready")'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+                    children.append(p);return p
+                old=[signal.getsignal(s) for s in (signal.SIGTERM,signal.SIGINT)]
+                try:
+                    with patch.object(session,'CompanionCgroup',return_value=Scope()),patch.object(session.subprocess,'Popen',side_effect=launch_owned),patch.object(session,'environment',return_value={'WINEDLLOVERRIDES':'other=n'}):
+                        self.assertEqual(session.install(spec),not fail)
+                    v=json.loads((root/'result.json').read_text());policy=v['installer_capability']
+                    self.assertEqual(len(calls),2);self.assertEqual(calls[0][0][-2:],['getcompatpath','/'])
+                    self.assertEqual(calls[0][1]['WINEDLLOVERRIDES'],'other=n')
+                    self.assertEqual(calls[1][1]['WINEDLLOVERRIDES'],'other=n;powershell.exe=')
+                    self.assertEqual(policy['requested'],{'powershell':'intentionally_unavailable'})
+                    receipt=root/(spec['operation']+'-installer-policy.private.json')
+                    self.assertEqual(receipt.exists(),not fail)
+                    if fail:self.assertIsNone(policy['effective']);self.assertIsNone(v['raw_exit'])
+                    else:self.assertEqual(policy['effective'],json.loads(receipt.read_text()));self.assertEqual(v['raw_exit'],0)
+                    self.assertEqual(v['state'],'failed' if fail else 'completed')
+                    self.assertTrue(v['cleanup_confirmed']);self.assertEqual(v['owned_live'],0)
+                    self.assertTrue(any(r['stage']=='prefix_initialization_exit' and r['exit']==0 for r in v['startup']['stages']))
+                finally:
+                    for sig,handler in zip((signal.SIGTERM,signal.SIGINT),old):signal.signal(sig,handler)
+                    for p in children:
+                        if p.poll() is None:p.kill();p.wait()
+                    session.ctypes.CDLL(None).prctl(36,0,0,0,0)
+
 class StartupTests(unittest.TestCase):
     def test_fault_survives_modal_lifetime_cancellation_and_cleanup(self):
         s=session.InstallerStartup('ab'*16,{'path':'/unused','sha256':'cd'*32},'/private')

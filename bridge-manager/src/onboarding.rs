@@ -454,7 +454,7 @@ pub fn reserve(m: &Manager, id: &str, op: &str) -> Result<Record> {
     atomic_json(&dir.join("record.json"), &r)?;
     Ok(r)
 }
-pub fn launch(m: &Manager, r: &Record) -> Result<()> {
+pub fn launch(m: &Manager, r: &Record, policy: Option<linux_vst_bridge::installer_policy::Powershell>) -> Result<()> {
     let op = r
         .installation_operation
         .as_deref()
@@ -463,11 +463,12 @@ pub fn launch(m: &Manager, r: &Record) -> Result<()> {
     let installer = installer_import::load(m, &r.installer)?;
     let dir = directory(m, &r.id)?;
     let path = dir.join(format!("{op}-spec.json"));
-    atomic_json(
-        &path,
-        &json!({"schema":2,"operation":op,"environment":r.environment,"installer":installer.artifact,
-        "format":installer.format,"installer_launch":sw.installer_launch,"report":dir.join(format!("{op}-result.json"))}),
-    )?;
+    let mut spec = json!({"schema":2,"operation":op,"environment":r.environment,"installer":installer.artifact,
+        "format":installer.format,"installer_launch":sw.installer_launch,"report":dir.join(format!("{op}-result.json"))});
+    if let Some(policy) = policy {
+        linux_vst_bridge::installer_policy::bind(&mut spec, &sw, policy)?;
+    }
+    atomic_json(&path, &spec)?;
     let status = Command::new("systemd-run")
         .args([
             "--user",
@@ -631,6 +632,14 @@ pub fn projection(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::Onboarding>
                     disabled_reason: busy.map(Into::into),
                 });
             }
+            if r.installation_operation.is_none() && software(m).is_ok_and(|sw| linux_vst_bridge::installer_policy::eligible_adapter(&installer.format, &sw).is_ok()) {
+                actions.push(ui::AvailableAction {
+                    label: "Run installer with PowerShell intentionally unavailable".into(),
+                    action: ui::Action::InstallerStartWithPolicy { onboarding: r.id.clone(),
+                        powershell: linux_vst_bridge::installer_policy::Powershell::IntentionallyUnavailable },
+                    disabled_reason: busy.map(Into::into),
+                });
+            }
             actions.extend(new_attempt_actions(&v, &r.id, &runners,
                 records.iter().any(|x| x.previous_attempt.as_deref() == Some(&r.id)), busy));
             let scan_path = m.root.join("inventory").join(format!("{}.json", r.id));
@@ -747,6 +756,41 @@ mod tests {
         fs::write(&p, b).unwrap();
         let i = installer_import::import(&f.m, file(&p).unwrap()).unwrap();
         (f, i)
+    }
+    #[test]
+    fn policy_action_requires_current_verified_pe_adapter() {
+        use linux_vst_bridge::catalogue::{Catalogue, EnvironmentBinding};
+        let (f,p,_,native)=test_fixture::prepared();
+        let mut b=vec![0;1024];b[..2].copy_from_slice(b"MZ");b[60]=128;
+        b[128..132].copy_from_slice(b"PE\0\0");b[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        b[148]=2;b[150]=2;b[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+        let input=f.outer.join("policy-pe");fs::write(&input,b).unwrap();
+        let i=installer_import::import(&f.m,file(&input).unwrap()).unwrap();
+        let path=f.m.root.join("software/catalogue.json");
+        atomic_json(&path,&Catalogue { schema:3,natives:vec![native],hosts:vec![],
+            environments:vec![EnvironmentBinding {family:p.requirements.environment_family,environment:f.r.environment.clone()}] }).unwrap();
+        create_exact(&f.m,&i,f.r.environment.runner.clone(),&"ab".repeat(16),&f.m.lock("registry.lock").unwrap(),None).unwrap();
+        let a=f.r.host.clone();
+        let mut sw=Software { manager:a.clone(),supervisor:a.clone(),ownership:a.clone(),host:a.clone(),
+            source_manifest:a.clone(),source_sha256:a.sha256.clone(),operator_frontend:None,
+            native_catalogue:Some(Artifact {sha256:digest(&path).unwrap(),path}),preparation_kit:None,installer_launch:None };
+        let count=|| projection(&f.m,None).unwrap().iter().flat_map(|r| &r.actions)
+            .filter(|a| matches!(a.action,ui::Action::InstallerStartWithPolicy{..})).count();
+        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();assert_eq!(count(),0);
+        sw.installer_launch=Some(a.clone());atomic_json(&f.m.root.join("software.json"),&sw).unwrap();assert_eq!(count(),1);
+        let p=f.outer.join("compound");let mut b=vec![0;1024];
+        b[..8].copy_from_slice(&[0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1]);
+        b[26]=3;b[28]=0xfe;b[29]=0xff;b[30]=9;b[32]=6;fs::write(&p,b).unwrap();
+        let msi=installer_import::import(&f.m,file(&p).unwrap()).unwrap();
+        create_exact(&f.m,&msi,f.r.environment.runner.clone(),&"cd".repeat(16),&f.m.lock("registry.lock").unwrap(),None).unwrap();
+        assert_eq!(count(),1); // PE only, despite a second eligible ordinary install.
+        assert!(projection(&f.m,None).unwrap().iter().filter(|r| r.installer==msi.id)
+            .flat_map(|r| &r.actions).all(|a| !matches!(a.action,ui::Action::InstallerStartWithPolicy{..})));
+        sw.installer_launch.as_mut().unwrap().sha256="00".repeat(32);
+        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();assert!(projection(&f.m,None).is_err());
+        sw.installer_launch=None;atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
+        // Ordinary Start remains offered even when policy is ineligible.
+        assert!(projection(&f.m,None).unwrap().iter().flat_map(|r| &r.actions).any(|a| matches!(a.action,ui::Action::InstallerStart{..})));
     }
     #[test]
     fn terminal_durable_outcome_controls_projection_and_guarded_new_attempt() {
