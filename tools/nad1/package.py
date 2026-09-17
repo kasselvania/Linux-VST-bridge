@@ -3,7 +3,7 @@ import os,pathlib,subprocess,sys
 # Local tests import shared source; sealed packages carry the same committed files.
 sys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]/'naui1'))
 from common import read,decode,digest,canonical,require,publish
-SOURCES={n:'tools/nad1/'+n for n in ['package.py','observer.py','census.py','classify.py','input.json']}
+SOURCES={n:'tools/nad1/'+n for n in ['package.py','observer.py','census.py','pe_metadata.py','classify.py','input.json']}
 SOURCES.update({n:'tools/naui1/'+n for n in ['common.py','identity.py']})
 def verify(root):
     root=pathlib.Path(root);require({p.name for p in root.iterdir()}==set(SOURCES)|{'seal.json'},'seal_file_set')

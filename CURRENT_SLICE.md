@@ -113,3 +113,11 @@ that disposition. No real NTKDaemon or Native Access operation has been performe
 
 The operator explicitly authorized one corrected read-only rerun after the refusal.
 It uses a separate fixed one-use continuation directory and preserves the first marker.
+
+The authorized continuation at `8cbf791` refused at an optional PE version string
+before completing the census. Its seal, refusal, and private-before-record hash are
+retained separately. The operator then explicitly authorized bounded read-only
+corrections and reruns until completion. Each committed source generation has its
+own non-replacing marker. Unsupported optional version strings remain unavailable;
+architecture and stable image digest remain independent facts. No historical NAUI1
+reader or evidence is changed.

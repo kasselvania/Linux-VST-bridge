@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "source_head": "8cbf79162d2f38cb165a11c5ad72d6a5338d55ae",
+  "source_tree": "21299a1ab1e59b9c0525bc08cb3336ee96bb9ac9",
+  "seal_sha256": "a3cea99ea538f60d4c0dbc809a46a5cf3f5bdf47cff786b35542ebdbebfe5268",
+  "result": "version_string_type",
+  "stage": "bundled_installer_optional_version_metadata",
+  "environment_observation_started": true,
+  "census_completed": false,
+  "before_after_preservation_completed": false,
+  "disposition": "NAD1_IDENTITY_UNRESOLVED",
+  "observation_status": "incomplete_owner_refusal_not_current_dependency_classification",
+  "started_record_sha256": "02a07750eb6e9b6cd275fe44690f5d730586c7afd842c8ffe8e1eadc48a829d2",
+  "before_private_sha256": "1d9c18db65f9224512b15e10de354aff8ec775212cb0129535083126358f8b3f",
+  "windows_launches": 0,
+  "one_use_marker_preserved": true
+}

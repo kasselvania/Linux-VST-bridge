@@ -73,3 +73,34 @@ class AttributionTests(unittest.TestCase):
   v=ObserverTests().state();v.update(installer='absent',daemon='absent',registration='absent',service='absent',process='absent',readiness='unavailable')
   self.assertEqual(classify(v),'NAD1_DEPENDENCY_ABSENT');v['complete']=False
   self.assertEqual(classify(v),'NAD1_IDENTITY_UNRESOLVED')
+
+class PEMetadataTests(unittest.TestCase):
+ def executable(self, architecture=0x14c):
+  import struct
+  data=bytearray(512);data[:2]=b'MZ';struct.pack_into('<I',data,60,64)
+  data[64:68]=b'PE\0\0';struct.pack_into('<HH',data,68,architecture,1)
+  struct.pack_into('<HH',data,84,224,2)
+  struct.pack_into('<H',data,88,0x10b if architecture==0x14c else 0x20b)
+  return data
+ def test_optional_version_refusal_retains_architecture_not_strings(self):
+  from unittest.mock import patch
+  from pe_metadata import metadata
+  for machine,want in [(0x14c,'x86'),(0x8664,'x64')]:
+   with tempfile.TemporaryFile() as f:
+    f.write(self.executable(machine));f.flush()
+    with patch('pe_metadata.pe',side_effect=Refusal('version_string_type')):
+     self.assertEqual(metadata(f),dict(architecture=want,version={},version_status='unavailable',version_reason='version_string_type'))
+ def test_structural_or_architecture_failure_is_not_optional(self):
+  from unittest.mock import patch
+  from pe_metadata import metadata
+  with tempfile.TemporaryFile() as f:
+   f.write(self.executable());f.flush()
+   for code in ['metadata_truncated','pe_resource_mapping','version_duplicate']:
+    with patch('pe_metadata.pe',side_effect=Refusal(code)),self.assertRaises(Refusal):metadata(f)
+   f.seek(88);f.write(b'\x0b\x02');f.flush()
+   with self.assertRaises(Refusal):metadata(f)
+ def test_absent_version_is_distinct_from_unreadable(self):
+  from pe_metadata import metadata
+  with tempfile.TemporaryFile() as f:
+   f.write(self.executable());f.flush()
+   self.assertEqual(metadata(f),dict(architecture='x86',version={},version_status='absent',version_reason=None))

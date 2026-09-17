@@ -1,7 +1,7 @@
 """Bounded offline artifact/registry/process census. No Windows execution or TCP request."""
 import hashlib,os,pathlib,re,stat,time
 from common import read,require,file_identity,opened,stamp,digest
-from identity import pe
+from pe_metadata import metadata as pe
 SERVICE='NTKDaemonService'
 DAEMON='Program Files/Common Files/Native Instruments/NTK/NTKDaemon.exe'
 BUNDLE='Program Files/Native Instruments/Native Access/resources/daemon/win'
