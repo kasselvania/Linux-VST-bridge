@@ -419,3 +419,11 @@ Receipt: `evidence/nad1/recovery/child-memory/installation/`. No application or
 daemon launch occurred during installation. The fresh readiness transition is
 pending explicit service approval after automatic approval review blocked it.
 The old preparation receipt and all historical evidence remain unchanged.
+
+The operator explicitly approved the pending fresh readiness transition. Operation
+`58e0b2883e909a68fe80bd605e7b116b` completed through the shared runtime, proved
+exact readiness and retired SCM/process ownership without forced cleanup. No
+installer or Native Access launch occurred. The service is active with two keepers
+and protected state is preserved. New evidence is retained under
+`evidence/nad1/recovery/child-memory/real-readiness/`. The human application
+confirmation is now ready; historical evidence remains unchanged.
