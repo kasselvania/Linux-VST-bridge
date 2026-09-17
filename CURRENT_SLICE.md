@@ -267,3 +267,13 @@ bounded by the operation owner. The first delayed receipt remains a valid short
 process observation, but its source-level statement of no application deadline was
 incomplete. Preserve it unchanged and supersede that statement with a new sealed
 qualification of the complete application route; do not install either generation.
+
+Final qualification executed `6d014a0fdf48e37305df160225034f5dbef5f612` with
+seal `e66e83439166b9da1051e37f37689d4eb5ed2ffa41b874b70f3b7efff42bcbde`.
+The new delayed case retained identical live generations 12.033822441 seconds
+apart, then normal exit and confirmed SCM/process retirement without forced cleanup.
+`evidence/nad1/lifetime-complete/` supersedes only the initial source-law overclaim;
+both observations and all earlier evidence remain unchanged. The final source
+passed AP8/AP12/PX2 and 193 Linux runtime tests. Final idle readback matches the
+completed campaign. No real dependency transition or new census occurred. Keep
+PR #119 draft/unmerged for rereview of the amended exact head.

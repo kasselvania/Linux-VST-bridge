@@ -1,0 +1,73 @@
+{
+  "AP10": "out_of_scope",
+  "development_outcomes": [
+    {
+      "corrected_result": "24 frontend tests passed",
+      "kind": "wrong_frontend_manifest_path",
+      "result": "refused_before_tests",
+      "windows_launches": 0
+    },
+    {
+      "correction": "renderer_wait_infinite_installer_wait_unchanged",
+      "initial_complete_lifetime_source_claim": "superseded",
+      "initial_delayed_observation": "preserved_valid_short_observation",
+      "kind": "additional_renderer_one_hour_wait_found_in_final_source_audit",
+      "new_sealed_delayed_case": "passed",
+      "real_windows_launches": 0
+    }
+  ],
+  "focused_owner": {
+    "platform_skips": 1,
+    "result": "passed",
+    "tests": 36
+  },
+  "frontend": 24,
+  "hosted_source_checks": [
+    {
+      "name": "AP8",
+      "result": "success",
+      "run": 35254933610
+    },
+    {
+      "name": "AP12",
+      "result": "success",
+      "run": 35254933625
+    },
+    {
+      "name": "PX2",
+      "result": "success",
+      "run": 35254933622
+    }
+  ],
+  "integrated_lifetime_sessions": 1,
+  "linux_runtime": {
+    "result": "passed",
+    "skipped": 1,
+    "tests": 193
+  },
+  "local_private_log_sha256": {
+    "nad1-lifetime-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "nad1-lifetime-complete-focused.log": "5db8629b935e51b189c513c903f7e3190d155f65ded714a7fa0868eb60a6b9a5",
+    "nad1-lifetime-focused.log": "6a0fd732b18890b68ad4653e0e9fdaeadf2bde88531ee3837b1096c6215ecfd1",
+    "nad1-lifetime-frontend-clippy.log": "3819f5a7ceecd9222e0fbd258fbc5b3461b920ebd412d521eff393866d195f71",
+    "nad1-lifetime-frontend-corrected.log": "51ea45b3ff4eee342dcbcaa9fe963f454f322d6744da1ddc3ed07fd4559f7685",
+    "nad1-lifetime-frontend.log": "417258f56b1634e615361d345c6a6bd16846ccf90671b59cce4397e56827df31",
+    "nad1-lifetime-local-runtime.log": "33b1ef1c377cb08106e9933f61d9291aed530c4ce556e67e6fe1f97dd7c9b884",
+    "nad1-lifetime-manager-clippy.log": "c96ab2e8fe0548c38e8bd18349fa8d725d6d1f54f7d01503c1ae1b747ac6a0a8",
+    "nad1-lifetime-manager.log": "dfd2d34ae743f78d200500816fe1cedaf7576a3c7a02236d26b69c14627221e7",
+    "nad1-lifetime-package-build-2.log": "06d5c7b3de263c13d3a16965390a1aef934d62e039a06d2e8400987fdde13226",
+    "nad1-lifetime-package-build.log": "ade30fe6781d4355aa2d656585335fcadf61a01a6196df21926d99325280b369",
+    "nad1-lifetime-source-2-ap8.log": "6dd2f93988849bd179dc82a8a71b5cf12b90733cd3666753f49f70160e0326fa"
+  },
+  "manager_binary": 79,
+  "manager_library": 136,
+  "nad1_package_observer": 22,
+  "python_compilation": "passed",
+  "schema": 1,
+  "source": {
+    "head": "6d014a0fdf48e37305df160225034f5dbef5f612",
+    "tree": "2a1c45aa226336b812446fbd360fe765de622e50"
+  },
+  "strict_frontend_clippy": "passed",
+  "strict_manager_clippy": "passed"
+}

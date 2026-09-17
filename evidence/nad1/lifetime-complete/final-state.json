@@ -1,0 +1,23 @@
+{
+  "application_history_unchanged": true,
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "private_sha256": "d9206ea90c60b38c3df9b1e7d823946b54972ebb643ac19f401827271fb1fa9f",
+  "products_publications_unchanged": true,
+  "projects_unchanged": 5,
+  "retained_unchanged": 307,
+  "schema": 1,
+  "software_unchanged": true,
+  "system": {
+    "ceiling": 6,
+    "cleanup_unconfirmed": false,
+    "dsp": 0,
+    "keepers": 2,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "service": "active",
+    "stale_transports": 0
+  }
+}
