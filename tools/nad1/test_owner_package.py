@@ -25,3 +25,18 @@ class Package(unittest.TestCase):
      m=p.read(d/'seal.json');del m['files']['session.py'];(d/'seal.json').unlink();p.publish(d/'seal.json',m);seal=p.digest(d/'seal.json')
     with self.assertRaises(ValueError):p.verify(d,seal)
 if __name__=='__main__':unittest.main()
+
+class Preservation(unittest.TestCase):
+ def test_only_exact_hardlinked_runtime_ctime_is_noncontent_change(self):
+  from owner_campaign import compare_preservation
+  import copy
+  a={'system':{'active':True},'real_prefix_metadata_sha256':'a','environment_metadata':{'runtime-var/file':[0o100644,4,10,20,30,40],'compatdata/pfx/system.reg':[0o100644,4,10,20,30,41]},'runtime_content':{'runtime-var/file':{'sha256':'b'*64,'links':48}}}
+  b=copy.deepcopy(a);b['environment_metadata']['runtime-var/file'][3]+=1;b['real_prefix_metadata_sha256']='c'
+  self.assertEqual(compare_preservation(a,b)['runtime_shared_inode_ctime_changes'],1)
+  for case in ['registry','content','mode','inode','mtime','links']:
+   c=copy.deepcopy(b)
+   if case=='registry':c['environment_metadata']['compatdata/pfx/system.reg'][3]+=1
+   elif case=='content':c['runtime_content']['runtime-var/file']['sha256']='d'*64
+   elif case=='links':c['runtime_content']['runtime-var/file']['links']=1
+   else:c['environment_metadata']['runtime-var/file'][{'mode':0,'inode':5,'mtime':2}[case]]+=1
+   with self.assertRaises(ValueError):compare_preservation(a,c)

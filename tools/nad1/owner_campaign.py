@@ -15,9 +15,29 @@ def preservation():
     rows[str(path.relative_to(root))]=[s.st_mode,s.st_size,s.st_mtime_ns,s.st_ctime_ns,s.st_dev,s.st_ino]
     if stat.S_ISDIR(s.st_mode):pending.append(path)
  value['real_prefix_metadata_sha256']=hashlib.sha256(canonical(rows)).hexdigest();value['real_prefix_entries']=len(rows)
+ value['environment_metadata']=rows;runtime={};total=0
+ for name,row in rows.items():
+  if name.startswith('runtime-var/') and stat.S_ISREG(row[0]):
+   total+=row[1]
+   if total>4*1024**3 or row[1]>512*1024**2:raise ValueError('runtime_content_extent')
+   file=root/name;before=file.stat();h=digest(file);after=file.stat()
+   if (before.st_dev,before.st_ino,before.st_size,before.st_mtime_ns)!=(after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns):raise ValueError('runtime_content_changed')
+   runtime[name]={'sha256':h,'links':after.st_nlink}
+ value['runtime_content']=runtime
  managed=root.parents[1]
  value['renderer_records']={str(f.relative_to(managed)):digest(f) for f in (managed/'vendor-applications/native-access').rglob('*.json') if f.is_file()}
  return value
+
+def compare_preservation(before,after):
+ allowed={'environment_metadata','real_prefix_metadata_sha256','runtime_content'}
+ if {k:v for k,v in before.items() if k not in allowed}!={k:v for k,v in after.items() if k not in allowed}:raise ValueError('preservation_changed')
+ a=before['environment_metadata'];b=after['environment_metadata'];count=0
+ if set(a)!=set(b) or before['runtime_content']!=after['runtime_content']:raise ValueError('preservation_content_changed')
+ for name in a:
+  if a[name]==b[name]:continue
+  if not name.startswith('runtime-var/') or not stat.S_ISREG(a[name][0]) or before['runtime_content'].get(name,{}).get('links',0)<2 or any(a[name][i]!=b[name][i] for i in (0,1,2,4,5)):raise ValueError('preservation_metadata_changed')
+  count+=1
+ return {'runtime_shared_inode_ctime_changes':count,'runtime_content_unchanged':True,'windows_prefix_metadata_unchanged':True,'private_home_metadata_unchanged':True}
 
 def run(package,seal,out):
  p=pathlib.Path(package).resolve();manifest=verify(p,seal);d=pathlib.Path(out).resolve();os.umask(0o077);d.mkdir(mode=0o700)
@@ -58,8 +78,8 @@ def run(package,seal,out):
   expected='completed' if scenario in ('absent','unregistered','stopped','ready') else 'cancelled' if scenario=='cancel' else 'failed'
   if r['state']!=expected:raise ValueError('fixture_case_result_'+scenario)
  after=preservation();publish(d/'after.private.json',after)
- if canonical(before)!=canonical(after):raise ValueError('preservation_changed')
- result={'schema':1,'source':manifest['source'],'seal':seal,'runner_sha256':hashlib.sha256(canonical(template['runner'])).hexdigest(),'installed_software_sha256':hashlib.sha256(canonical(before['software'])).hexdigest(),'sessions':rows,'preservation':{'unchanged':True,'system':after['system'],'capture':after['capture'],'retained':len(after['retained']),'projects':len(after['projects']),'real_prefix_entries':after['real_prefix_entries'],'real_prefix_metadata_sha256':after['real_prefix_metadata_sha256'],'renderer_records_sha256':hashlib.sha256(canonical(after['renderer_records'])).hexdigest()},'real_dependency_mutations':0,'commercial_launch':False}
+ preservation_result=compare_preservation(before,after)
+ result={'schema':1,'source':manifest['source'],'seal':seal,'runner_sha256':hashlib.sha256(canonical(template['runner'])).hexdigest(),'installed_software_sha256':hashlib.sha256(canonical(before['software'])).hexdigest(),'sessions':rows,'preservation':{'protected_state_unchanged':True,**preservation_result,'system':after['system'],'capture':after['capture'],'retained':len(after['retained']),'projects':len(after['projects']),'real_prefix_entries':after['real_prefix_entries'],'real_prefix_metadata_sha256':after['real_prefix_metadata_sha256'],'renderer_records_sha256':hashlib.sha256(canonical(after['renderer_records'])).hexdigest()},'real_dependency_mutations':0,'commercial_launch':False}
  publish(d/'proof.json',result)
 if __name__=='__main__':
  import sys

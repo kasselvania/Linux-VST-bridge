@@ -28,7 +28,7 @@ def run(build):
    response=command('query')
    if ' exact 0 4 ' in response:break
    time.sleep(.1)
-  assert ' exact 0 4 ' in response and sha in response
+  assert ' exact 0 4 ' in response and sha in response and response.split()[-1]=='3'
   command('stop')
   assert anchor.wait(timeout=10)==0
  finally:
