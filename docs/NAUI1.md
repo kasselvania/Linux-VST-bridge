@@ -338,3 +338,63 @@ After independent acceptance:
 - Other outcomes select their corresponding narrow boundary or further evidence.
 
 No NAUI2 route is active merely because this document names it.
+
+## Implemented diagnostic law
+
+`tools/naui1/input.json` binds the accepted installed software/artifact generation,
+exact retained operation, import, result and private transaction. `package.py`
+seals committed diagnostic bytes and the input manifest into a fixed file set.
+The remote custodian verifies that detached seal before invoking `run.py` without
+arguments. The read-only owner itself rechecks the seal and writes a one-use start
+marker outside the environment, so a refusal cannot silently become another pass.
+
+The application law requires exactly one regular, unaliased `Native Access.exe`,
+parsed PE resource ProductName, matching ASAR package metadata and an available
+selected main entry. Electron-family evidence additionally requires a literal
+Electron module import in that entry plus collocated ICU, Chromium PAK and V8
+snapshot families. Every present allowlisted resource is hashed. The ASAR header,
+package metadata and main-entry bytes are hashed without extracting files; selected
+links/unpacked entries refuse. No vendor text is published. Optional resources and
+unavailable renderer version remain distinct from application absence. Product
+names locate candidates; the conjunction of parsed metadata and exact bytes binds
+the resulting observation, not executable admission or authenticity certification.
+
+Only the two fixed readback subprocess commands (verified manager snapshot and
+exact installer-unit status) may run. Prefix census uses no-follow directory
+handles, skips symlink traversal, and opens selected files with no-follow on every
+component. Files with multiple links, foreign ownership or group/other write access
+refuse. Bounds: 100,000 census entries, 45 seconds per census, 512 MiB per selected
+file, 1 GiB selected identity hash budget, 8 MiB ASAR header, 256 KiB package.json,
+32 MiB selected main, 512 Windows generations and 2 MiB of operation-owned log
+sinks. Before/after preservation uses metadata for all exact-environment entries,
+content hashes for selected application inputs and previously retained witnesses.
+It does not claim a complete content hash of every unselected prefix file.
+
+Retained create completions are validated for ordinal order, epoch, active parent,
+nonoverlapping PID generations, exact root binding and self-exit domain. Raw create
+request/completion pairing confers a role only with the exact retained completion
+identity. Current application bytes alone do not retroactively establish launch
+bytes: a decisive generation also needs its retained image digest to match.
+Unbound canonical diagnostics are counted as leads and cannot select a cause.
+Chromium diagnostic headers are interpreted only in the Windows application
+context and only with a single matching retained Windows generation across both
+epochs; Linux PID records are never used to complete that match. PID reuse removes
+this diagnostic authority. Source-location and message grammars must both match;
+a helper's numeric status, arbitrary prose, screenshot or accessibility message
+cannot substitute for these records. Several distinct specific failure families
+produce unresolved, not an arbitrary precedence-selected remedy.
+
+The following primary sources were consulted for format/semantic context; no source
+was copied. They are not a claim that the installed application matches upstream
+main:
+
+- [Electron process model](https://www.electronjs.org/docs/latest/tutorial/process-model).
+- [ASAR disk format owner](https://github.com/electron/asar/blob/main/src/disk.ts).
+- [Chromium logging](https://github.com/chromium/chromium/blob/main/base/logging.cc)
+  and [Windows process identifiers](https://github.com/chromium/chromium/blob/main/base/process/process_handle_win.cc).
+- [Chromium GPU process host](https://github.com/chromium/chromium/blob/main/content/browser/gpu/gpu_process_host.cc).
+- [Pinned nilinux comparative launcher](https://github.com/dguedry/nilinux/blob/e332e69c03d697c60b369c0fbca73be34ba31e65/nilinux/native_access.py).
+
+The comparative launcher also performs unrelated modifications. None was copied,
+executed or admitted as platform policy. A GDI exhaustion signature can select the
+font/GDI family; repeated font names without a handle/time authority cannot.
