@@ -2703,7 +2703,7 @@ class Nad1Runtime:
         private_directory(self.directory);self.socket=self.directory/'socket'
         self.capture=PrivateCapture(self.owner.directory/(self.owner.op+'-runtime.private.log'),1024*1024,256)
         argv=[self.runner['entry_point'],'--verb=run','--',str(self.service),
-              '--socket='+str(self.socket),'--exit-on-readable=0','--no-stop-on-exit']
+              '--socket='+str(self.socket),'--stop-on-parent-exit','--no-stop-on-exit']
         # Expose only this fresh owner-private socket directory, not the host HOME.
         container_env=dict(env,PRESSURE_VESSEL_FILESYSTEMS_RW=str(self.directory))
         self.child=subprocess.Popen(argv,cwd=self.owner.root/'home',env=container_env,stdin=subprocess.PIPE,
@@ -2744,7 +2744,8 @@ class Nad1Runtime:
         if self.closed:return
         self.closed=True
         if self.child is not None:
-            # EOF is an operation-local stop, only after SCM retirement was attempted.
+            # Revoke the private connection after SCM retirement. The exact ledger
+            # owns final runtime-process termination; container stdin is not a lease.
             self.child.stdin.close()
             for pipe in (self.child.stdout,self.child.stderr):pipe.close()
         self.sel.close()
