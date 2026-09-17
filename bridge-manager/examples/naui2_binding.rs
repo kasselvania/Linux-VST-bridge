@@ -2,6 +2,7 @@
 use linux_vst_bridge::{catalogue::Software, renderer_application::{Application,RendererPolicy,bind}};
 use std::{fs,io::Write,path::Path};
 fn main()->Result<(),Box<dyn std::error::Error+Send+Sync>> {
+    unsafe {libc::umask(0o077);}
     let args:Vec<_>=std::env::args().collect();
     if args.get(1).is_some_and(|s|matches!(s.as_str(),"submit"|"stop"|"reconcile")) {
         use linux_vst_bridge::{Manager,renderer_session as lifecycle};
