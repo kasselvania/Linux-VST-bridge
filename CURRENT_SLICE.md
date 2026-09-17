@@ -133,3 +133,11 @@ Stop at this installation/registration receipt for independent acceptance. Only 
 subsequent authorization may start A (inherited rendering). B and C remain gated by
 A/B results and positive cleanup. No further implementation or application launch
 is selected by this evidence-only continuation.
+
+### Subsequent human inherited observation
+
+The human subsequently ran inherited mode and reported a white window, then closed
+it. Exact operation `c44ae35d794f0a1f47ee97468e848a1c` and the attributed report are
+retained under `evidence/naui2/inherited-observation/`. Cleanup/service restoration
+passed; rendering cause is unresolved. This records observed activity, not an agent
+launch or a new authorization. Stop for review; software rendering remains gated.
