@@ -398,3 +398,12 @@ main:
 The comparative launcher also performs unrelated modifications. None was copied,
 executed or admitted as platform policy. A GDI exhaustion signature can select the
 font/GDI family; repeated font names without a handle/time authority cannot.
+
+## Observed result
+
+The single read-only pass identified x64 Native Access 3.26.0 (PE 3.26.0.962)
+with exact Electron/Chromium-family packaging. It admitted no decisive failure
+fact or exact application process generation from the retained lossy operation
+records. Disposition: `NAUI1_ELECTRON_IDENTITY_ONLY_CAUSE_UNRESOLVED`.
+See `evidence/naui1/README.md` for exact source, artifact hashes, observation limits
+and preservation. No application was launched and no remedy was applied.

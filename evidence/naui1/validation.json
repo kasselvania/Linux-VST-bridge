@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "executed_source": "f37d7aebe7bb86722aac1349ba79cb80d1439ab3",
+  "executed_tree": "0bf6fd05707e6f740094166f253a74971df617d5",
+  "suites": [
+    {
+      "suite": "NAUI1",
+      "tests": 38,
+      "skipped": 0,
+      "passed": true,
+      "log_sha256": "aded43f77402ecb5417f530ad0da6c27d545d2b60b96ecda6d15fb4354fa7345"
+    },
+    {
+      "suite": "installer_runtime_local",
+      "tests": 120,
+      "skipped": 37,
+      "passed": true,
+      "log_sha256": "6fd221ed7ad188353025f892fd9909c60cd2a032f43daf27b9832dfaeb395e58"
+    },
+    {
+      "suite": "IS4",
+      "tests": 25,
+      "skipped": 0,
+      "passed": true,
+      "log_sha256": "c6f8565ee4ef1b8a906b6ca0cca7d16b0f4bd4773f0832d7edd5a42b80e77d00"
+    }
+  ],
+  "development_correction": "The negative operation-ID fixture initially rejected the exact unit-status read before onboarding-binding validation. Validation was moved ahead of that status query; generated tests then passed. No Deck observation had occurred.",
+  "rust_changed": false,
+  "windows_inputs_changed": false,
+  "native_audio_changed": false,
+  "local_python_compile": true,
+  "hosted_required": [
+    "AP12 registered owner",
+    "PX2 proof policy"
+  ]
+}
