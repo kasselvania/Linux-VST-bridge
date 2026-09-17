@@ -249,3 +249,13 @@ requests an explicit normal fixture exit. It retains a new receipt separately fr
 the accepted integrated campaign. Focused negative tests cover pre-query authority,
 uncertain installation and generated lifetime-sample identity loss. Qualification
 and exact-head AP8/AP12/PX2 remain pending until retained by the evidence amendment.
+
+The new lifetime package executed committed source `5fbe40eb678691f8c43bec59c2c36ed401e6a588`
+and completed its one disposable case. Identical live application/service-anchor
+Linux generations were retained 12.03 seconds apart before explicit normal exit;
+SCM retirement and process cleanup were confirmed without forced cleanup. Exact
+unit/cgroup/prefix retirement and unchanged real state are retained separately in
+`evidence/nad1/lifetime/`. The source has no normal-operation deadline; this is not
+a ten-minute endurance claim. All prior physical/generated evidence remains
+unchanged. Source-head AP8/AP12/PX2 passed. Return this evidence-only amendment with
+final-head checks in the same draft PR #119; no real transition is authorized.
