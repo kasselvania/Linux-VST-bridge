@@ -571,3 +571,30 @@ assertion fixes this split; no timeout or argument is supplied by the operator.
 The first lifetime package predates this final shared-adapter correction, so its
 short observation is retained without treating it as proof of the complete source
 lifetime law. The succeeding sealed package owns that corrected claim.
+
+### Recovery of the qualified partial installation
+
+The real installer returned 100 and left an exact bundle-matching daemon plus a
+registered service. Its failure is preserved; installer success is not assumed.
+`native_access_recovery.json` qualifies only those daemon bytes, the exact bundled
+installer and three immutable sources of operation `6345df5fd7ea38a5f07bfc6a2300e999`.
+Rust preparation admission and the installed Python owner independently verify
+these inputs. Python also requires the same complete application/environment and
+prior positive retirement. The current software generation is validated normally;
+the historical operation intentionally belongs to the retained older generation.
+No raw vendor log or executable is distributed in the qualification.
+
+When no artifact record exists but the qualified daemon does, Prepare recovers it
+through SCM query/start, exact owned process/listener readiness and clean retirement.
+It cannot reinstall if registration is missing. Unknown existing bytes still
+refuse. The result records recovery provenance separately from fresh readiness.
+Only a completed, ready, cleanly retired operation can produce `prepared.json` and
+unlock the existing application action. Every application launch continues to
+check fresh readiness; renderer policy is unchanged. Recovery does not fabricate
+an installer-success artifact receipt or replace the earlier failure.
+
+The source-owned recovery campaign seeds an installer exit 100 after writing its
+fixture daemon and registering the service. Recovery then tests readiness, refusal
+and manager-owned cancellation without another installer execution. This proves
+the recovery mechanism; the real daemon's readiness remains untested until an
+explicit deployment and real preparation continuation.

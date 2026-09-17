@@ -31,7 +31,7 @@ int wmain(int argc,wchar_t**argv){
   SC_HANDLE scm=OpenSCManagerW(nullptr,nullptr,SC_MANAGER_CREATE_SERVICE);if(!scm)return 12;
   std::wstring command=L"\"";command+=daemon;command+=L"\"";
   SC_HANDLE s=CreateServiceW(scm,service,service,SERVICE_ALL_ACCESS,SERVICE_WIN32_OWN_PROCESS,SERVICE_DEMAND_START,SERVICE_ERROR_NORMAL,command.c_str(),nullptr,nullptr,nullptr,nullptr,nullptr);
-  if(!s){CloseServiceHandle(scm);return 13;}CloseServiceHandle(s);CloseServiceHandle(scm);return 0;
+  if(!s){CloseServiceHandle(scm);return 13;}CloseServiceHandle(s);CloseServiceHandle(scm);return GetFileAttributesW(L"C:\\NAD1Fixture\\fail-after-register")!=INVALID_FILE_ATTRIBUTES?100:0;
  }
  if(argc==2&&std::wstring(argv[1])==L"--remove"){
   SC_HANDLE scm=OpenSCManagerW(nullptr,nullptr,SC_MANAGER_CONNECT);if(!scm)return 14;

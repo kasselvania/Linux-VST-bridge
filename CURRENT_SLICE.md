@@ -321,3 +321,21 @@ and recognizes numbered offline control sets. Local source-owned regressions
 qualify reporting; no vendor compatibility success is inferred. Exit 100's
 meaning remains unknown because the native installer action log was not enabled.
 No production installation or real replay is included in this repair.
+
+## Authorized partial-install recovery repair
+
+The operator explicitly requested building the missing recovery path in PR #120.
+The real attempt left the exact bundled daemon and service registration but no
+artifact/preparation receipt. Extend the existing parameter-free Prepare action:
+verify the fixed bundle-member qualification plus immutable failed-operation
+sources, verify the current installed payload, then use SCM-only readiness and
+retirement. Recovery never reruns the installer. Missing registration, unknown or
+changed bytes, conflicting processes, unavailable readiness and uncertain cleanup
+remain failures with their specific cause. The failed installer result is retained;
+a new successful readiness receipt is a separate fact. Current software admission
+remains exact; the historical installation source may be the retained predecessor.
+
+Use source-owned fixtures for recovery, readiness failure and cancellation. Do not
+install replacement software, start the real daemon, launch Native Access or change
+the real registry during this repair. Preserve the prior physical evidence. Keep
+PR #120 draft for review with source, tests and new generated proof together.

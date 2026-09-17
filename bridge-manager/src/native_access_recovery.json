@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "operation": "6345df5fd7ea38a5f07bfc6a2300e999",
+  "application_identity": "7228a542c01b89daa5d04b9c8566af235ee7a2358e52f741b8918239c3a7d26e",
+  "installer_sha256": "5f2199f4e1409d6eea5edaea9c4a8af31e8ee8ac3790851aa44d33e87a46b218",
+  "installer_size": 35769456,
+  "daemon": {
+    "sha256": "e20b3d30b72d6a12e0a37b5fbd1a5c21e0db9e53459b4aab165270f7f739343b",
+    "size": 18259440,
+    "architecture": "x64"
+  },
+  "sources": {
+    "spec.json": {
+      "sha256": "022f08f79fcb4a95442e604b09a4e4c1cf27b40600223a6a81554e8db6c0131d",
+      "size": 12628
+    },
+    "result.json": {
+      "sha256": "d124e9714e6dce0986dd406f2e732cfda09bc4801a00fd6c309b421e840b4f82",
+      "size": 1360
+    },
+    "6345df5fd7ea38a5f07bfc6a2300e999-dependency-1.log": {
+      "sha256": "d038b87ea193bada3591109dfe4b9dc2c5f91b50d371df68d2fc5fba0ba4c423",
+      "size": 688
+    }
+  }
+}

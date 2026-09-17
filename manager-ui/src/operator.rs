@@ -606,6 +606,10 @@ fn dependency_retirement_lines(v: &serde_json::Value) -> Vec<String> {
     let mut lines=vec![format!("Dependency service stop: {}",if r["service_retirement_confirmed"]==true {"confirmed"}else{"not confirmed"}),
          format!("Dependency process cleanup: {}",if r["process_cleanup_confirmed"]==true {"confirmed"}else{"not confirmed"}),
          format!("Forced cleanup: {}",if r["forced_cleanup_used"]==true {"used; does not confirm a clean service stop"}else{"not reported"})];
+    if v["dependency"]["recovery"]["authority"]=="qualified_bundle_payload_and_retired_installation" {
+        lines.push("Recovering the verified installed dependency without reinstalling; the earlier installer failure remains recorded.".into());
+        lines.push(if v["dependency"]["ready_tested"]==true {"Fresh service readiness: verified."}else{"Fresh service readiness: not established."}.into());
+    }
     if let Some(stages)=v["dependency"]["stages"].as_array() {
         for stage in stages.iter().filter(|s| s["action"]=="install") {
             let result=&stage["installer_result"];
@@ -710,6 +714,15 @@ fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json:
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn recovery_does_not_claim_readiness_or_erase_prior_failure() {
+        let mut value=serde_json::json!({"dependency":{"recovery":{"authority":"qualified_bundle_payload_and_retired_installation"},"ready_tested":false}});
+        let lines=dependency_retirement_lines(&value);
+        assert!(lines.iter().any(|s|s.contains("earlier installer failure remains")));
+        assert!(lines.iter().any(|s|s=="Fresh service readiness: not established."));
+        value["dependency"]["ready_tested"]=serde_json::json!(true);
+        assert!(dependency_retirement_lines(&value).iter().any(|s|s=="Fresh service readiness: verified."));
+    }
     #[test]
     fn dependency_installer_exit_survives_runner_timeout_and_cleanup() {
         let mut value=serde_json::json!({"error":"dependency_runner_retirement_timeout","dependency":{

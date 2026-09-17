@@ -2612,6 +2612,49 @@ class Nad1InstallObservation:
         return None
 
 
+# Fixed recovery qualification: observed bundle member and retained failed install.
+# No runtime argument, arbitrary existing image, or vendor exit-code reinterpretation.
+NAD1_RECOVERY = {'schema': 1, 'operation': '6345df5fd7ea38a5f07bfc6a2300e999', 'application_identity': '7228a542c01b89daa5d04b9c8566af235ee7a2358e52f741b8918239c3a7d26e', 'installer_sha256': '5f2199f4e1409d6eea5edaea9c4a8af31e8ee8ac3790851aa44d33e87a46b218', 'installer_size': 35769456, 'daemon': {'sha256': 'e20b3d30b72d6a12e0a37b5fbd1a5c21e0db9e53459b4aab165270f7f739343b', 'size': 18259440, 'architecture': 'x64'}, 'sources': {'spec.json': {'sha256': '022f08f79fcb4a95442e604b09a4e4c1cf27b40600223a6a81554e8db6c0131d', 'size': 12628}, 'result.json': {'sha256': 'd124e9714e6dce0986dd406f2e732cfda09bc4801a00fd6c309b421e840b4f82', 'size': 1360}, '6345df5fd7ea38a5f07bfc6a2300e999-dependency-1.log': {'sha256': 'd038b87ea193bada3591109dfe4b9dc2c5f91b50d371df68d2fc5fba0ba4c423', 'size': 688}}}
+
+def nad1_recovery_inputs(spec, prior_directory, qualification, installer_relative, daemon_relative):
+    """Shared file-only verifier; fixture qualifications enter only via sealed tools.
+
+    Production always supplies NAD1_RECOVERY. Keep input descriptors open until
+    parsed metadata and all image checks agree, then recheck path/generation.
+    """
+    import ownership
+    q=qualification;held=[];records={}
+    if spec['application_identity']!=q['application_identity'] or spec['operation']==q['operation']:
+        raise ValueError('dependency_recovery_application')
+    drive=pathlib.Path(spec['application']['environment']['root'])/'compatdata/pfx/drive_c'
+    try:
+        for name,witness in q['sources'].items():
+            if pathlib.Path(name).name!=name:raise ValueError('dependency_recovery_source')
+            image=RendererImage({'artifact':{'path':str(prior_directory/name),'sha256':witness['sha256']},'size':witness['size']});held.append(image)
+            if name in ('spec.json','result.json'):
+                os.lseek(image.fd,0,os.SEEK_SET)
+                records[name]=json.loads(os.read(image.fd,witness['size']),object_pairs_hook=renderer_unique)
+        prior=records['spec.json'];result=records['result.json']
+        if prior['operation']!=q['operation'] or prior['kind']!='native_access_dependency' or prior['application']!=spec['application'] or prior['application_identity']!=q['application_identity']:
+            raise ValueError('dependency_recovery_origin')
+        if result['operation']!=q['operation'] or result['state']!='failed' or result['cleanup_confirmed'] is not True or result['owned_live']!=0 or result['dependency']['service_retirement_confirmed'] is not True or result['dependency']['process_cleanup_confirmed'] is not True or result['dependency']['forced_cleanup_used'] is not False:
+            raise ValueError('dependency_recovery_prior_not_retired')
+        image=RendererImage({'artifact':{'path':str(drive/installer_relative),'sha256':q['installer_sha256']},'size':q['installer_size']});held.append(image)
+        actual=ownership.image_identity(drive/daemon_relative)
+        if actual!=q['daemon']:raise ValueError('dependency_recovery_payload_changed')
+        for image in held:image.check()
+        return {'schema':1,'authority':'qualified_bundle_payload_and_retired_installation',
+                'prior_operation':q['operation'],'prior_result_sha256':q['sources']['result.json']['sha256'],
+                'qualification_sha256':hashlib.sha256(json.dumps(q,sort_keys=True,separators=(',',':')).encode()).hexdigest(),
+                'daemon':actual,'installer_reexecuted':False,'prior_failure_preserved':True}
+    finally:
+        for image in held:image.close()
+
+def nad1_recovery(spec):
+    directory=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed/vendor-applications/native-access-dependency'
+    return nad1_recovery_inputs(spec,directory/'operations'/NAD1_RECOVERY['operation'],NAD1_RECOVERY,NAD1_INSTALLER,NAD1_DAEMON)
+
+
 class Nad1Owner:
     def __init__(self,spec,ledger,scope,cancelled,*,fixture=None):
         self.spec=spec;self.ledger=ledger;self.scope=scope;self.cancelled=cancelled;self.production=fixture is None
@@ -2622,13 +2665,13 @@ class Nad1Owner:
         self.daemon_relative=NAD1_DAEMON if fixture is None else fixture['daemon']
         self.installer_sha=NAD1_INSTALLER_SHA if fixture is None else fixture['installer_sha256']
         self.installer_size=35769456 if fixture is None else fixture['installer_size']
-        self.token=os.urandom(32).hex();self.anchor=None
+        self.token=os.urandom(32).hex();self.anchor=None;self.recovery=None
         self.service_possibility='unknown';self.retirement_authorized=False
         self.retiring=False;self.retirement_attempted=False
         self.service_stop_requested=False;self.service_retirement_confirmed=False
         self.process_cleanup_confirmed=False;self.forced_cleanup_used=False;self.retirement_error=None
     def value(self):
-        return {'schema':1,'ready_tested':self.ready,'daemon':self.daemon,
+        return {'schema':1,'ready_tested':self.ready,'daemon':self.daemon,'recovery':self.recovery,
                 'service_stop_requested':self.service_stop_requested,'service_retirement_confirmed':self.service_retirement_confirmed,
                 'process_cleanup_confirmed':self.process_cleanup_confirmed,'forced_cleanup_used':self.forced_cleanup_used,
                 'retirement_error':self.retirement_error,'service_possibility':self.service_possibility,
@@ -2728,7 +2771,7 @@ class Nad1Owner:
         self.retirement_authorized=service['registration']=='exact'
         absent=actual is None;unregistered=service['registration']=='absent'
         if absent or unregistered:
-            if not allow_install:raise ValueError('dependency_prepare_required')
+            if not allow_install:raise ValueError('dependency_recovery_registration_missing' if self.recovery else 'dependency_prepare_required')
             # Exact installer admission grants one retirement attempt even if
             # its acknowledgment is lost after registration. No retry follows.
             self.service_possibility='may_exist';self.retirement_authorized=True
@@ -2883,12 +2926,15 @@ def nad1_owned(spec,*,fixture=None):
         try:
             admitted=fixture.get('admitted') if fixture else None
             if fixture is None:
-                try:admitted=nad1_admitted(spec)
-                except FileNotFoundError:pass
+                pointer=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed/vendor-applications/native-access-dependency/artifact.json'
+                if os.path.lexists(pointer):admitted=nad1_admitted(spec)
+                elif os.path.lexists(owner.drive/owner.daemon_relative):owner.recovery=nad1_recovery(spec)
+            else:owner.recovery=fixture.get('recovery')
+            if owner.recovery:admitted=owner.recovery['daemon']
             if fixture and fixture.get('prestart'):
                 owner.service_possibility='may_exist';owner.retirement_authorized=True
                 owner.command('start')
-            owner.ensure(True,admitted)
+            owner.ensure(owner.recovery is None,admitted)
         except Exception as exc:error=str(exc) if isinstance(exc,ValueError) else 'dependency_owner_'+type(exc).__name__
         finally:
             if not owner.retire():error=error or 'dependency_service_retirement_unconfirmed'
