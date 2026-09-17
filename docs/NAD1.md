@@ -499,3 +499,36 @@ recovery after a later registration/readiness failure without treating filename 
 identity or blindly reinstalling changed bytes. It grants no readiness. All runtime
 application admission still requires the completed preparation receipt and fresh
 owned readiness check.
+
+
+## Exact service retirement amendment
+
+PR #119 review accepts the corrected absence observation and six-case service
+campaign unchanged. This amendment closes service retirement and qualifies the
+integrated application route; no real-prefix transition or new census is authorized.
+
+`Nad1Owner.retire()` owns one fixed SCM stop request after every path that may have
+started or inherited the service. The adapter retains the exact pre-stop Windows
+process handle, polls SCM STOPPED, waits that generation and verifies its endpoints
+are gone. The Python owner independently requires a fresh stopped/absent SCM query
+and complete daemon absence before ordinary cohort cleanup. Cancellation cannot
+skip the bounded retirement phase. No second stop/start/install is attempted after
+uncertain acknowledgment. Results distinguish service stop requested, service
+retirement confirmed, process cleanup confirmed and forced cleanup used. Earlier
+failure evidence is retained when retirement fails.
+
+Renderer retirement first retires exact mapped application generations, then stops
+the dependency, then empties the cgroup. Dedicated renderer/dependency units use
+KillMode=mixed and a 90-second stop bound so manager Stop signals the supervisor
+first; the cgroup remains the final kill boundary. An interrupted writer's process
+cleanup is explicitly not an SCM-stop receipt. Preparation admission requires both
+clean service retirement and process cleanup, without forced cleanup.
+
+The new sealed source-owned application campaign is separate from the accepted
+six-case campaign. It covers normal close, repeated fresh start in the same scratch
+prefix, exact manager Stop, readiness refusal before application creation,
+application failure and SCM stop refusal. Real bridge restoration is not exercised
+by a vendor launch: generated manager transition tests prove exact one-time resume
+ownership, while the disposable campaign runs the production reservation/Stop and
+Python application/service owners. Final qualification remains pending until its
+new sealed results and exact-head checks are retained.

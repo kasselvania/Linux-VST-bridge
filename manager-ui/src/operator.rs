@@ -470,7 +470,7 @@ impl eframe::App for Operator {
                 }
                 egui::CollapsingHeader::new("Arturia environment and software center").default_open(true).show(ui,|ui|{
                     for app in &s.vendor_applications{ui.heading(&app.name);
-                        if app.id=="native-access" {ui.label(if app.details["dependency_prepared"]==true {"Dependency prepared; live readiness is checked before launch"}else{"Dependency preparation required"});ui.label(if app.details["effective"].is_object(){"Renderer policy applied to the exact owned application"}else{"Renderer policy application not confirmed"});ui.label(format!("Rendering cause: {}",app.details["renderer"]["cause"].as_str().unwrap_or("unresolved")));}
+                        if app.id=="native-access" {ui.label(if app.details["dependency_prepared"]==true {"Dependency prepared; live readiness is checked before launch"}else{"Dependency preparation required"});ui.label(if app.details["effective"].is_object(){"Renderer policy applied to the exact owned application"}else{"Renderer policy application not confirmed"});ui.label(format!("Rendering cause: {}",app.details["renderer"]["cause"].as_str().unwrap_or("unresolved")));for line in dependency_retirement_lines(&app.details["dependency_operation"]){ui.small(line);}if app.details["dependency"].is_object(){for line in dependency_retirement_lines(&app.details){ui.small(line);}}}
                         ui.label(format!("{} · {}",app.version,app.state));Self::buttons(ui,&app.actions,busy,controls_pending,&mut chosen);}
                     for e in &s.environments{ui.label(format!("{} · revision {} · pinned runner {}",e.family,e.revision,e.runner));ui.small(&e.authorization);if !e.last_scan["id"].is_null(){ui.small(format!("Last scan: {} modules · completed at {}",e.last_scan["module_count"],e.last_scan["completed_at"]));ui.small(format!("Changes: {} added · {} changed · {} removed · {} unchanged",e.last_scan["changes"]["added"],e.last_scan["changes"]["changed"],e.last_scan["changes"]["removed"],e.last_scan["changes"]["unchanged"]));}Self::buttons(ui,&e.actions,busy,controls_pending,&mut chosen);}
                 });
@@ -600,6 +600,14 @@ fn installer_lines(v: &serde_json::Value) -> Vec<String> {
     lines
 }
 
+fn dependency_retirement_lines(v: &serde_json::Value) -> Vec<String> {
+    if v.is_null() { return Vec::new(); }
+    let r=if v["dependency_retirement"].is_object(){&v["dependency_retirement"]}else{&v["dependency"]};
+    vec![format!("Dependency service stop: {}",if r["service_retirement_confirmed"]==true {"confirmed"}else{"not confirmed"}),
+         format!("Dependency process cleanup: {}",if r["process_cleanup_confirmed"]==true {"confirmed"}else{"not confirmed"}),
+         format!("Forced cleanup: {}",if r["forced_cleanup_used"]==true {"used; does not confirm a clean service stop"}else{"not reported"})]
+}
+
 fn installer_policy_lines(v: &serde_json::Value) -> Vec<&'static str> {
     let Some(policy)=v.get("installer_capability") else { return vec![] };
     let requested=policy["requested"]["powershell"].as_str();
@@ -688,6 +696,16 @@ fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json:
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn process_cleanup_never_projects_clean_service_retirement() {
+        let value=serde_json::json!({"dependency":{"service_retirement_confirmed":false,"process_cleanup_confirmed":true,"forced_cleanup_used":true}});
+        let lines=dependency_retirement_lines(&value);
+        assert!(lines[0].ends_with("not confirmed"));
+        assert!(lines[1].ends_with("confirmed"));
+        assert!(lines[2].contains("does not confirm"));
+        let recovered=serde_json::json!({"dependency":{"service_retirement_confirmed":true},"dependency_retirement":{"service_retirement_confirmed":false,"process_cleanup_confirmed":true}});
+        assert!(dependency_retirement_lines(&recovered)[0].ends_with("not confirmed"));
+    }
     #[test]
     fn installer_root_and_presence_do_not_claim_close_from_helper_success() {
         let mut v=serde_json::json!({"operation":"exact","cleanup_confirmed":true,"transaction":{

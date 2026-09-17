@@ -1,9 +1,10 @@
 """Exact closed source package for the generated SCM owner qualification."""
 import hashlib,json,os,pathlib,shutil,stat,subprocess,tempfile
-SOURCES={n:'tools/nad1/'+n for n in ('owner_package.py','owner_campaign.py','owner_supervise.py','service_fixture.cpp')}
+SOURCES={n:'tools/nad1/'+n for n in ('owner_package.py','owner_campaign.py','owner_supervise.py','service_fixture.cpp','application_fixture.cpp','application_supervise.py','application_campaign.py')}
 SOURCES.update({n:'bridge-manager/runtime/'+n for n in ('session.py','ownership.py')})
 SOURCES.update({'launch.cpp':'tools/is2/launch.cpp','nad1_service.h':'tools/is2/nad1_service.h','readback.py':'tools/naui2/readback.py','binding.rs':'bridge-manager/examples/nad1_binding.rs','dependency.rs':'bridge-manager/src/native_access_dependency.rs','lifecycle.rs':'bridge-manager/src/dependency_session.rs','operator_cli.rs':'bridge-manager/src/operator_cli.rs','linker.py':'tools/is4/linker.py','Cargo.toml':'bridge-manager/Cargo.toml','Cargo.lock':'bridge-manager/Cargo.lock'})
-REQUIRED=set(SOURCES)|{'Setup.exe','adapter.exe','binding-owner'}
+SOURCES['renderer_lifecycle.rs']='bridge-manager/src/renderer_session.rs'
+REQUIRED=set(SOURCES)|{'Setup.exe','application.exe','adapter.exe','binding-owner'}
 def digest(p):
  with open(p,'rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
 def canonical(v):return json.dumps(v,sort_keys=True,separators=(',',':')).encode()+b'\n'
@@ -28,7 +29,7 @@ def build(repo,out):
  source={'head':git('rev-parse','HEAD').decode().strip(),'tree':git('rev-parse','HEAD^{tree}').decode().strip()}
  for n,p in SOURCES.items():(out/n).write_bytes(git('show',source['head']+':'+p))
  with tempfile.TemporaryDirectory() as d:
-  for name,src,flags in [('Setup.exe','service_fixture.cpp',['-lws2_32','-ladvapi32']),('adapter.exe','launch.cpp',['-DNAD1_GENERATED_SERVICE','-lbcrypt','-ladvapi32'])]:
+  for name,src,flags in [('application.exe','application_fixture.cpp',['-ladvapi32']),('Setup.exe','service_fixture.cpp',['-lws2_32','-ladvapi32']),('adapter.exe','launch.cpp',['-DNAD1_GENERATED_SERVICE','-lbcrypt','-ladvapi32'])]:
    output=pathlib.Path(d)/name;subprocess.run(['zig','c++','-target','x86_64-windows-gnu','-std=c++20','-O2','-municode',str(out/src),*flags,'-o',str(output)],check=True,timeout=180);shutil.copyfile(output,out/name)
  env=dict(os.environ,IS4_ZIG=shutil.which('zig'),CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=str(repo/'tools/is4/linker.py'))
  subprocess.run(['cargo','+1.95.0','build','--manifest-path',str(repo/'bridge-manager/Cargo.toml'),'--locked','--release','--target','x86_64-unknown-linux-gnu','--example','nad1_binding'],env=env,check=True,timeout=300)

@@ -2404,7 +2404,7 @@ def renderer_application(spec):
     dependency=nad1_prepared(spec)
     return renderer_owned(spec,dependency=dependency)
 
-def renderer_owned(spec, preparation=None, dependency=None):
+def renderer_owned(spec, preparation=None, dependency=None, *, dependency_fixture=None):
     # Shared mechanism after independent production or sealed-fixture admission.
     # Manager reconciliation takes the same gate before closing an unused launch.
     report=pathlib.Path(spec['report']);op=spec['operation']
@@ -2414,7 +2414,7 @@ def renderer_owned(spec, preparation=None, dependency=None):
         installer_atomic(report.parent/'writer.json',{'schema':1,'operation':op,'started':True})
         try:
             if preparation is not None:preparation()
-            return renderer_run(spec,dependency=dependency)
+            return renderer_run(spec,dependency=dependency,dependency_fixture=dependency_fixture)
         except Exception as exc:
             scope=CompanionCgroup(renderer_operation=op);clean=not scope.members()
             atomic(report,{'schema':1,'operation':op,'application_identity':spec['application_identity'],
@@ -2425,7 +2425,7 @@ def renderer_owned(spec, preparation=None, dependency=None):
             return False
 
 
-def renderer_run(spec, dependency=None):
+def renderer_run(spec, dependency=None, *, dependency_fixture=None):
     """Exact companion operation; no prefix initialization or installer witnesses."""
     app=spec['application'];op=spec['operation'];env=app['environment'];root=pathlib.Path(env['root']);report=pathlib.Path(spec['report'])
     lock=(root/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -2467,7 +2467,7 @@ def renderer_run(spec, dependency=None):
         ledger=InstallerLedger(scope,persist)
         if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('renderer_subreaper')
         if dependency is not None:
-            dependency_owner=Nad1Owner(spec,ledger,scope,lambda:stop)
+            dependency_owner=Nad1Owner(spec,ledger,scope,lambda:stop,fixture=dependency_fixture)
             dependency_owner.ensure(False,dependency['daemon'])
         token=os.urandom(32).hex();evidence.trace.arm_root(op,token,image.size);evidence.begin();evidence.begin()
         content='\n'.join(['NAUI2_LAUNCH_V1',op,token,'2',image.sha,str(image.size),windows(image.path,root/'compatdata/pfx'),spec['renderer_policy'],''])
@@ -2485,9 +2485,9 @@ def renderer_run(spec, dependency=None):
             if dependency_owner and dependency_owner.anchor is not None and dependency_owner.anchor.returncode is not None and child.returncode is None:raise ValueError('dependency_service_anchor_exited')
             confirm_effective()
             if dependency_owner and child.returncode is not None:
-                clean=ledger.cleanup()
-                if not clean:raise ValueError('dependency_retirement_unconfirmed')
-                live=ledger.harvest()
+                if child.returncode!=0:error='application_outer_nonzero'
+                if effective is None:error=error or 'application_root_unconfirmed'
+                break  # finally owns SCM retirement before cohort cleanup.
             state=vendor_operation_state(child.returncode,len(live))
             if state in ('completed','failed'):
                 for _ in range(64):drain(0)
@@ -2510,14 +2510,22 @@ def renderer_run(spec, dependency=None):
                 except Exception:focus={'request':req.get('request') if isinstance(req,dict) else None,'result':'refused_exact_window_unavailable'}
             if time.monotonic()-began>600:error='application_time_bound';break
             if time.monotonic()-last>.5:atomic(report,result(state,len(live)));last=time.monotonic()
-    except Exception as exc:error='renderer_owner_'+type(exc).__name__
+    except Exception as exc:error=str(exc) if isinstance(exc,ValueError) else 'renderer_owner_'+type(exc).__name__
     finally:
+        if dependency_owner is not None:
+            try:
+                if child is not None:renderer_retire_image(scope,ledger,image,drain)
+            except Exception:
+                error=error or 'application_retirement_unconfirmed'
+                dependency_owner.forced_cleanup_used=True
+            if not dependency_owner.retire():error=error or 'dependency_service_retirement_unconfirmed'
         if scope is not None and not clean:
             try:clean=ledger.cleanup() if ledger else not scope.members()
-            except Exception:error='renderer_cleanup_failed'
+            except Exception:error=error or 'renderer_cleanup_failed'
         if child:
             for _ in range(64):drain(0)
             child.stdout.close();child.stderr.close()
+        if dependency_owner is not None:dependency_owner.process_cleanup_confirmed=clean
         if ledger:ledger.commit()
         sel.close();request_path.unlink(missing_ok=True);image.close()
         for c in captures.values():c.close()
@@ -2575,8 +2583,14 @@ class Nad1Owner:
         self.installer_sha=NAD1_INSTALLER_SHA if fixture is None else fixture['installer_sha256']
         self.installer_size=35769456 if fixture is None else fixture['installer_size']
         self.token=os.urandom(32).hex();self.anchor=None
+        self.service_may_exist=False;self.retiring=False;self.retirement_attempted=False
+        self.service_stop_requested=False;self.service_retirement_confirmed=False
+        self.process_cleanup_confirmed=False;self.forced_cleanup_used=False;self.retirement_error=None
     def value(self):
         return {'schema':1,'ready_tested':self.ready,'daemon':self.daemon,
+                'service_stop_requested':self.service_stop_requested,'service_retirement_confirmed':self.service_retirement_confirmed,
+                'process_cleanup_confirmed':self.process_cleanup_confirmed,'forced_cleanup_used':self.forced_cleanup_used,
+                'retirement_error':self.retirement_error,
                 'stages':self.stages,'readiness_contract':'SCM_exact_generation_and_Windows_owned_loopback_pair_and_unique_owned_Linux_image_generation_v1',
                 'linux_windows_join':False,'lifetime':'owned_operation_only_retired_before_bridge_resume'}
     def command(self,action):
@@ -2594,10 +2608,10 @@ class Nad1Owner:
             child=subprocess.Popen(argv,cwd=self.root/'home',env=launch_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
             self.ledger.launcher(child,'dependency_'+action);stage['launch']='owned'
             for name,pipe in [('stdout',child.stdout),('stderr',child.stderr)]:os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,name)
-            deadline=time.monotonic()+(200 if action=='install' else 40)
+            deadline=time.monotonic()+(20 if self.retiring else 200 if action=='install' else 40)
             while child.returncode is None:
                 self.ledger.harvest()
-                if self.cancelled():raise ValueError('dependency_cancelled')
+                if self.cancelled() and not self.retiring:raise ValueError('dependency_cancelled')
                 if time.monotonic()>deadline:raise ValueError('dependency_command_timeout')
                 for key,_ in sel.select(.05):
                     data=os.read(key.fileobj.fileno(),8192)
@@ -2618,6 +2632,9 @@ class Nad1Owner:
                         if len(stdout)+len(data)>65536:raise ValueError('dependency_helper_output_extent')
                         stdout.extend(data)
             stage['exit']=child.returncode
+            if action=='stop':
+                # Preserve even a nonzero stop/timeout observation privately.
+                installer_atomic(self.directory/f'{self.op}-retirement.private.json',{'stdout_sha256':hashlib.sha256(stdout).hexdigest(),'frames':bytes(stdout).decode('ascii',errors='replace').splitlines()})
             if child.returncode!=0 and not (action=='start' and self.anchor is child and child.returncode is None):raise ValueError('dependency_command_nonzero')
             if action=='install':
                 expected=f'NAD1_INSTALL_V1 {self.op} {self.token} 0'
@@ -2628,6 +2645,12 @@ class Nad1Owner:
                 stage['root_binding']={'operation':self.op,'token_sha256':hashlib.sha256(self.token.encode()).hexdigest(),'sha256':self.installer_sha,'size':self.installer_size,'status':'bound'}
                 stage['result']='outer_zero_only';return None
             result=nad1_scm_frame(bytes(stdout),self.op,self.token)
+            if action=='stop' and result['registration']=='exact':
+                frames=[line.split() for line in bytes(stdout).decode('ascii').splitlines() if line.startswith('NAD1_RETIRE_V1 ')]
+                if len(frames)!=1 or len(frames[0])!=7 or frames[0][1:4]!=[self.op,self.token,'1'] or frames[0][6]!='0' or any(not re.fullmatch('[0-9]{1,20}',x) for x in frames[0][4:6]):raise ValueError('dependency_retirement_generation_unconfirmed')
+                if (int(frames[0][4])==0)!=(int(frames[0][5])==0):raise ValueError('dependency_retirement_generation_unconfirmed')
+                if result['state']!=1 or result['windows_pid']!=0 or result['owned_endpoint_mask']!=0:raise ValueError('dependency_retirement_state')
+                result['retirement_generation_confirmed']=True
             installer_atomic(self.directory/f'{self.op}-scm-{index}.private.json',result)
             stage['result']=result['registration'];stage['service_state']=result['state'];stage['service_exit']=result['service_exit'];stage['service_specific_exit']=result['service_specific_exit'];stage['owned_endpoint_mask']=result['owned_endpoint_mask'];return result
         finally:
@@ -2648,10 +2671,13 @@ class Nad1Owner:
         installer_atomic(self.directory/f'{self.op}-dependency-before.private.json',scan)
         if scan['unavailable']:raise ValueError('dependency_identity_unresolved')
         if any(p['prefix_relation'] in ('foreign','deleted') for p in scan['candidates']):raise ValueError('dependency_foreign_conflict')
+        if any(p.get('prefix_relation')=='same' and not nad1_generation_owned(p,self.scope) for p in scan['private']):raise ValueError('dependency_same_prefix_unowned')
         service=self.command('query')
+        self.service_may_exist=service['registration']=='exact'
         absent=actual is None;unregistered=service['registration']=='absent'
         if absent or unregistered:
             if not allow_install:raise ValueError('dependency_prepare_required')
+            self.service_may_exist=True # Installer acknowledgment may be lost after service creation.
             self.command('install')
             actual=ownership.image_identity(path)
             self.daemon=actual
@@ -2663,7 +2689,7 @@ class Nad1Owner:
         elif service['state'] not in (2,4):raise ValueError('dependency_service_state_unavailable')
         deadline=time.monotonic()+25
         while time.monotonic()<deadline:
-            if self.cancelled():raise ValueError('dependency_cancelled')
+            if self.cancelled() and not self.retiring:raise ValueError('dependency_cancelled')
             self.ledger.harvest()
             if self.anchor is not None and self.anchor.returncode is not None:raise ValueError('dependency_service_anchor_exited')
             service=self.command('query')
@@ -2676,6 +2702,73 @@ class Nad1Owner:
                 self.ready=True;return self.value()
             time.sleep(.1)
         raise ValueError('dependency_running_not_ready')
+
+
+    def retire(self):
+        """One stop request, exact SCM generation retirement, then Linux absence.
+
+        Cancellation does not interrupt this bounded safety transition. Failure
+        never changes the earlier cause and never turns forced cleanup into SCM
+        success. A second caller reads the retained outcome; it cannot retry.
+        """
+        if self.retirement_attempted:return self.service_retirement_confirmed
+        self.retirement_attempted=True;self.retiring=True
+        if not self.service_may_exist:
+            self.service_retirement_confirmed=True;return True
+        try:
+            import ownership
+            self.service_stop_requested=True
+            stopped=self.command('stop')
+            if stopped['registration']=='exact' and not stopped.get('retirement_generation_confirmed'):raise ValueError('dependency_stop_generation_unconfirmed')
+            deadline=time.monotonic()+15
+            while time.monotonic()<deadline:
+                self.ledger.harvest()
+                state=self.command('query')
+                scan=ownership.census(self.root/'compatdata/pfx',self.daemon)
+                installer_atomic(self.directory/f'{self.op}-dependency-retired.private.json',scan)
+                inactive=state['registration']=='absent' or (state['state']==1 and state['windows_pid']==0 and state['owned_endpoint_mask']==0)
+                if inactive and not scan['unavailable'] and not scan['candidates']:
+                    self.service_retirement_confirmed=True;return True
+                time.sleep(.1)
+            raise ValueError('dependency_stop_observation_timeout')
+        except Exception as exc:
+            self.retirement_error=str(exc) if isinstance(exc,ValueError) else 'dependency_retirement_'+type(exc).__name__
+            self.forced_cleanup_used=True
+            return False
+
+
+def renderer_retire_image(scope,ledger,image,drain):
+    """Retire only exact mapped application generations before stopping SCM.
+
+    The whole cgroup remains the final fallback. It is never used here to stop
+    the still-running service prematurely. Pidfds and repeated cgroup/start/file
+    identity checks guard every application signal.
+    """
+    import ownership
+    dev,ino=image.stamp[:2];expected=(os.major(dev),os.minor(dev),ino)
+    deadline=time.monotonic()+5
+    while True:
+        ledger.harvest();drain(0);image.check();matches=[]
+        for row in scope.members():
+            if row['state']=='Z':continue
+            try:raw=ownership.bounded(scope.proc_root/str(row['pid'])/'maps','maps')
+            except (FileNotFoundError,ProcessLookupError):continue
+            for line in raw.splitlines():
+                parts=line.split(None,5)
+                if len(parts)<5:continue
+                major,minor=parts[3].split(b':')
+                if (int(major,16),int(minor,16),int(parts[4]))==expected:matches.append(row);break
+        if not matches:return
+        if time.monotonic()>=deadline:raise ValueError('application_retirement_timeout')
+        for row in matches:
+            try:
+                fd=os.pidfd_open(row['pid'])
+                try:
+                    now=scope.identity(row['pid'])
+                    if now and now['start_ticks']==row['start_ticks'] and scope.contains(scope.group_of(row['pid'])):signal.pidfd_send_signal(fd,signal.SIGTERM)
+                finally:os.close(fd)
+            except ProcessLookupError:pass
+        time.sleep(.05)
 
 def nad1_retain_artifact(spec,daemon):
     # Installation identity survives a later registration/readiness failure. It
@@ -2709,7 +2802,7 @@ def nad1_prepared(spec):
     if set(r)!={'schema','operation','application','software_sha256','installer_sha256','daemon','result_sha256'} or r['schema']!=1 or r['application']!=spec['application_identity'] or r['software_sha256']!=spec['software_sha256'] or r['installer_sha256']!=NAD1_INSTALLER_SHA or not re.fullmatch('[0-9a-f]{32}',r['operation']):raise ValueError('dependency_prepared_identity')
     receipt=directory/'operations'/r['operation']/'result.json'
     verify({'path':str(receipt),'sha256':r['result_sha256']});v=renderer_read(receipt)
-    if v.get('state')!='completed' or not v.get('cleanup_confirmed') or v.get('owned_live')!=0 or v.get('dependency',{}).get('ready_tested') is not True or v['dependency']['daemon']!=r['daemon']:raise ValueError('dependency_prepared_receipt')
+    if v.get('state')!='completed' or not v.get('cleanup_confirmed') or v.get('owned_live')!=0 or v.get('dependency',{}).get('ready_tested') is not True or v['dependency']['daemon']!=r['daemon'] or v['dependency'].get('service_retirement_confirmed') is not True or v['dependency'].get('process_cleanup_confirmed') is not True or v['dependency'].get('forced_cleanup_used') is not False:raise ValueError('dependency_prepared_receipt')
     return r
 
 def nad1_owned(spec,*,fixture=None):
@@ -2734,10 +2827,10 @@ def nad1_owned(spec,*,fixture=None):
                 except FileNotFoundError:pass
             if fixture and fixture.get('prestart'):owner.command('start')
             owner.ensure(True,admitted)
-            owner.command('stop')
         except Exception as exc:error=str(exc) if isinstance(exc,ValueError) else 'dependency_owner_'+type(exc).__name__
         finally:
-            clean=ledger.cleanup();ledger.commit();lock.close()
+            if not owner.retire():error=error or 'dependency_service_retirement_unconfirmed'
+            clean=ledger.cleanup();owner.process_cleanup_confirmed=clean;ledger.commit();lock.close()
             value={'schema':1,'operation':op,'application_identity':spec['application_identity'],'state':'cleanup_unconfirmed' if not clean else 'cancelled' if stopped[0] else 'failed' if error else 'completed','dependency':owner.value(),'cleanup_confirmed':clean,'owned_live':0 if clean else None,'error':error,'cancelled':stopped[0]}
             nad1_publish(report,value)
         return clean and error is None

@@ -29,7 +29,15 @@ def run(build):
    if ' exact 0 4 ' in response:break
    time.sleep(.1)
   assert ' exact 0 4 ' in response and sha in response and response.split()[-1]=='3'
-  command('stop')
+  assert subprocess.run([str(build/'nad1-application-fixture.exe'),'--disable-gpu'],timeout=10).returncode==0
+  assert (root/'application-started').exists()
+  stopped=command('stop')
+  assert 'NAD1_RETIRE_V1 '+op+' '+token+' 1 ' in stopped
+  assert ' exact 0 1 0 0 none ' in stopped
+  assert anchor.wait(timeout=10)==0
+  assert ' exact 0 1 0 0 none ' in command('query')
+  command('start')
+  assert 'NAD1_RETIRE_V1 '+op+' '+token+' 1 ' in command('stop')
   assert anchor.wait(timeout=10)==0
  finally:
   if installed:subprocess.run([str(root/'Setup.exe'),'--remove'],check=True,timeout=15)

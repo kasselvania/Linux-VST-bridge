@@ -68,9 +68,39 @@ static int nad1_service_request(const std::vector<std::wstring>& r) {
     ok=ok&&config->dwServiceType==SERVICE_WIN32_OWN_PROCESS&&config->lpBinaryPathName
        && (expected==config->lpBinaryPathName || quoted==config->lpBinaryPathName);
     if(!ok){CloseServiceHandle(service);CloseServiceHandle(scm);return 147;}
+    // Stop authority keeps a handle to the exact pre-stop Windows generation.
+    // A later PID reuse cannot turn a different process into retirement proof.
+    if(r[3]==L"stop") {
+        SERVICE_STATUS_PROCESS before{};DWORD count=0;HANDLE process=nullptr;
+        bool observed=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&before),sizeof(before),&count)!=FALSE;
+        unsigned long long created=0;DWORD pid=observed?before.dwProcessId:0;
+        if(observed && pid) {
+            process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION|SYNCHRONIZE,FALSE,pid);
+            std::array<wchar_t,32768> path{};DWORD length=static_cast<DWORD>(path.size());
+            observed=process&&QueryFullProcessImageNameW(process,0,path.data(),&length)&&_wcsicmp(path.data(),nad1_image)==0;
+            if(observed){created=time_of(process);observed=created!=0;}
+        } else if(observed) observed=before.dwCurrentState==SERVICE_STOPPED;
+        DWORD request_error=0;bool confirmed=false;DWORD mask=4;SERVICE_STATUS_PROCESS after{};
+        if(observed) {
+            SERVICE_STATUS ignored{};
+            if(!ControlService(service,SERVICE_CONTROL_STOP,&ignored))request_error=GetLastError();
+            if(request_error==0 || request_error==ERROR_SERVICE_NOT_ACTIVE) {
+                auto deadline=GetTickCount64()+12000;
+                do {
+                    bool queried=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&after),sizeof(after),&count)!=FALSE;
+                    bool exited=!process || WaitForSingleObject(process,0)==WAIT_OBJECT_0;
+                    mask=pid?nad1_endpoints(pid):0;
+                    if(queried&&after.dwCurrentState==SERVICE_STOPPED&&after.dwProcessId==0&&exited&&mask==0){confirmed=true;break;}
+                    Sleep(50);
+                }while(GetTickCount64()<deadline);
+            }
+        }
+        std::fprintf(stdout,"NAD1_RETIRE_V1 %ls %ls %u %lu %llu %lu\n",r[1].c_str(),r[2].c_str(),confirmed?1u:0u,pid,created,mask);
+        if(confirmed)std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls exact %lu 1 0 0 none %lu %lu 0\n",r[1].c_str(),r[2].c_str(),request_error,after.dwWin32ExitCode,after.dwServiceSpecificExitCode);
+        std::fflush(stdout);if(process)CloseHandle(process);CloseServiceHandle(service);CloseServiceHandle(scm);return confirmed?0:149;
+    }
     DWORD request_error=0;
     if(r[3]==L"start"&&!StartServiceW(service,0,nullptr)){request_error=GetLastError();if(request_error!=ERROR_SERVICE_ALREADY_RUNNING){CloseServiceHandle(service);CloseServiceHandle(scm);return 148;}}
-    if(r[3]==L"stop"){SERVICE_STATUS status{};if(!ControlService(service,SERVICE_CONTROL_STOP,&status)){request_error=GetLastError();if(request_error!=ERROR_SERVICE_NOT_ACTIVE){CloseServiceHandle(service);CloseServiceHandle(scm);return 149;}}}
     SERVICE_STATUS_PROCESS status{};
     ok=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&status),sizeof(status),&needed)!=FALSE;
     std::string image_hash="none";unsigned long long created=0;DWORD endpoints=0;

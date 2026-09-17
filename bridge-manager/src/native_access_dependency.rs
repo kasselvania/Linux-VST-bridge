@@ -100,6 +100,9 @@ pub fn prepared(m: &Manager, application: &app::Application, software: &Software
     let result: Value = read_json(&receipt)?;
     require(
         result["dependency"]["ready_tested"] == true
+            && result["dependency"]["service_retirement_confirmed"] == true
+            && result["dependency"]["process_cleanup_confirmed"] == true
+            && result["dependency"]["forced_cleanup_used"] == false
             && result["dependency"]["daemon"] == v["daemon"]
             && result["cleanup_confirmed"] == true
             && result["owned_live"] == 0
@@ -137,7 +140,10 @@ pub fn retain_prepared(
             && r["state"] == "completed"
             && r["cleanup_confirmed"] == true
             && r["owned_live"] == 0
-            && r["dependency"]["ready_tested"] == true,
+            && r["dependency"]["ready_tested"] == true
+            && r["dependency"]["service_retirement_confirmed"] == true
+            && r["dependency"]["process_cleanup_confirmed"] == true
+            && r["dependency"]["forced_cleanup_used"] == false,
         "dependency_qualification_failed",
     )?;
     let record = json!({"schema":1,"operation":op,"application":application.identity()?,"software_sha256":hex(&Sha256::digest(serde_json::to_vec(&serde_json::to_value(software)?)?)),"installer_sha256":INSTALLER_SHA,"daemon":r["dependency"]["daemon"],"result_sha256":digest(&path)?});

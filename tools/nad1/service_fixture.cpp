@@ -11,7 +11,7 @@ static HANDLE stop_event{};
 static constexpr auto service=L"NAD1FixtureService";
 static constexpr auto daemon=L"C:\\NAD1Fixture\\NTKDaemon.exe";
 static void publish(DWORD state){status.dwServiceType=SERVICE_WIN32_OWN_PROCESS;status.dwCurrentState=state;status.dwControlsAccepted=state==SERVICE_RUNNING?SERVICE_ACCEPT_STOP:0;audit("state",state);SetServiceStatus(handle,&status);}
-static DWORD WINAPI control(DWORD code,DWORD,LPVOID,LPVOID){if(code==SERVICE_CONTROL_STOP){publish(SERVICE_STOP_PENDING);SetEvent(stop_event);}return NO_ERROR;}
+static DWORD WINAPI control(DWORD code,DWORD,LPVOID,LPVOID){if(code==SERVICE_CONTROL_STOP){if(GetFileAttributesW(L"C:\\NAD1Fixture\\refuse-stop")!=INVALID_FILE_ATTRIBUTES){audit("stop_refused");return ERROR_ACCESS_DENIED;}audit("stop_requested");publish(SERVICE_STOP_PENDING);SetEvent(stop_event);}return NO_ERROR;}
 static void WINAPI service_main(DWORD,LPWSTR*){
  audit("service_main");handle=RegisterServiceCtrlHandlerExW(service,control,nullptr);if(!handle){audit("handler_error",GetLastError());return;}
  stop_event=CreateEventW(nullptr,TRUE,FALSE,nullptr);publish(SERVICE_START_PENDING);

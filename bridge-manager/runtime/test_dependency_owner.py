@@ -19,7 +19,8 @@ class OwnerTests(unittest.TestCase):
    if action==self.fail:raise ValueError('generated_uncertain_acknowledgment')
    if action=='install':self.daemon.write_bytes(self.bytes);self.registered=True;return None
    if action=='start':self.service_state=4
-   return {'registration':'exact' if self.registered else 'absent','state':self.service_state,'image_sha256':self.artifact['sha256'],'owned_endpoint_mask':3}
+   if action=='stop':self.service_state=1
+   return {'registration':'exact' if self.registered else 'absent','state':self.service_state,'image_sha256':self.artifact['sha256'],'owned_endpoint_mask':3 if self.service_state==4 else 0,'windows_pid':123 if self.service_state==4 else 0,'retirement_generation_confirmed':action=='stop'}
   self.owner.command=command
   self.scan={'candidates':[],'private':[],'unavailable':0}
   def scan(*_):
@@ -39,7 +40,8 @@ class OwnerTests(unittest.TestCase):
  def test_ready_no_start_or_install(self):
   self.owner.ensure(True,self.existing(state=4));self.assertEqual(self.commands,['query','query'])
  def test_running_not_ready_does_not_reinstall(self):
-  admitted=self.existing(state=4);self.listener.return_value=False
+  admitted=self.existing(state=4);command=self.owner.command
+  self.owner.command=lambda action:dict(command(action),owned_endpoint_mask=0)
   with patch.object(s.time,'monotonic',side_effect=[0,1,30]),patch.object(s.time,'sleep'),self.assertRaisesRegex(ValueError,'running_not_ready'):self.owner.ensure(True,admitted)
   self.assertNotIn('install',self.commands);self.assertNotIn('start',self.commands)
  def test_unowned_or_unavailable_windows_endpoints_cannot_be_ready(self):
@@ -75,6 +77,43 @@ class OwnerTests(unittest.TestCase):
   with self.assertRaisesRegex(ValueError,'generation_changed'):self.owner.ensure(True,dict(self.artifact,sha256='0'*64))
   self.installer.write_bytes(b'changed')
   with self.assertRaises(ValueError):self.owner.ensure(True,self.artifact)
+  self.assertEqual(self.commands,[])
+ def test_retirement_after_success_is_idempotent_and_separate_from_cleanup(self):
+  self.owner.ensure(True)
+  self.assertTrue(self.owner.retire());self.assertTrue(self.owner.retire())
+  self.assertEqual(self.commands.count('stop'),1)
+  self.assertTrue(self.owner.value()['service_retirement_confirmed'])
+  self.assertFalse(self.owner.value()['process_cleanup_confirmed'])
+  self.assertFalse(self.owner.value()['forced_cleanup_used'])
+ def test_failure_and_cancel_still_stop_exact_service_once(self):
+  for failure in ['not_ready','cancel','start_ack']:
+   with self.subTest(failure=failure):
+    self.commands.clear();self.owner.retirement_attempted=False;self.owner.retiring=False
+    self.owner.service_retirement_confirmed=False;self.owner.cancelled=lambda:False
+    admitted=self.existing();self.fail='start' if failure=='start_ack' else None
+    if failure=='cancel':self.owner.cancelled=lambda:True
+    if failure=='not_ready':self.listener.return_value=False
+    with patch.object(s.time,'monotonic',side_effect=[0,1,30]),patch.object(s.time,'sleep'),self.assertRaises(ValueError):self.owner.ensure(True,admitted)
+    self.fail=None
+    self.assertTrue(self.owner.retire());self.assertEqual(self.commands.count('stop'),1)
+ def test_stop_acknowledgment_loss_never_promotes_forced_cleanup(self):
+  self.owner.ensure(True);self.fail='stop'
+  self.assertFalse(self.owner.retire());self.assertFalse(self.owner.retire())
+  self.owner.process_cleanup_confirmed=True
+  self.assertEqual(self.commands.count('stop'),1)
+  self.assertFalse(self.owner.value()['service_retirement_confirmed'])
+  self.assertTrue(self.owner.value()['forced_cleanup_used'])
+  self.assertEqual(self.owner.retirement_error,'generated_uncertain_acknowledgment')
+ def test_query_state_or_linux_survivor_cannot_claim_service_retirement(self):
+  self.owner.ensure(True);command=self.owner.command
+  self.owner.command=lambda a:dict(command(a),windows_pid=123) if a=='query' else command(a)
+  with patch.object(s.time,'monotonic',side_effect=[0,1,30]),patch.object(s.time,'sleep'):
+   self.assertFalse(self.owner.retire())
+  self.assertTrue(self.owner.forced_cleanup_used)
+ def test_foreign_refusal_never_stops_service(self):
+  self.scan['candidates']=[{'prefix_relation':'foreign'}]
+  with self.assertRaises(ValueError):self.owner.ensure(True)
+  self.assertTrue(self.owner.retire());self.assertFalse(self.owner.service_stop_requested)
   self.assertEqual(self.commands,[])
  def test_closed_transition_table(self):
   for state in ['running_not_ready','foreign_conflict','unresolved']:self.assertEqual(s.nad1_transition(state),'refuse')
@@ -139,3 +178,52 @@ class ArtifactRecovery(unittest.TestCase):
    with self.assertRaises(RuntimeError):s.nad1_admitted(spec)
 
 if __name__=='__main__':unittest.main()
+
+@unittest.skipUnless(__import__('sys').platform.startswith('linux'),'Linux production loop and subreaper')
+class IntegratedApplicationTests(unittest.TestCase):
+ def test_all_terminal_paths_retire_dependency_and_preserve_first_error(self):
+  import os,signal,subprocess,sys
+  from test_installer import Scope
+  for case in ['normal','cancel','readiness_failure','application_failure','anchor_failure','stop_failure','launch_failure']:
+   with self.subTest(case=case),tempfile.TemporaryDirectory() as tmp:
+    root=pathlib.Path(tmp).resolve();(root/'compatdata/pfx').mkdir(parents=True);(root/'compatdata/pfx/system.reg').touch()
+    image=root/'application.exe';image.write_bytes(b'MZfixture');artifact={'path':str(image),'sha256':hashlib.sha256(image.read_bytes()).hexdigest()}
+    op='e'*32;spec={'operation':op,'report':str(root/'result.json'),'application_identity':'b'*64,'software_sha256':'c'*64,'renderer_policy':'software_rendering','installer_launch':{'path':'adapter'},'application':{'environment':{'root':str(root),'runner':{'entry_point':'fixture','proton':'fixture'}},'files':{'Native Access.exe':{'artifact':artifact,'size':image.stat().st_size}}}}
+    events=[];children=[];real=subprocess.Popen;prior=[signal.getsignal(x) for x in (signal.SIGTERM,signal.SIGINT)]
+    class Dependency:
+     anchor=type('Exited',(),{'returncode':1})() if case=='anchor_failure' else None
+     process_cleanup_confirmed=False;forced_cleanup_used=False
+     def __init__(self,*_,**__):pass
+     def ensure(self,*_):
+      events.append('ready')
+      if case=='readiness_failure':raise ValueError('dependency_running_not_ready')
+     def retire(self):events.append('service_stop');return case!='stop_failure'
+     def value(self):return {'service_retirement_confirmed':case!='stop_failure','process_cleanup_confirmed':self.process_cleanup_confirmed}
+    def launch(*args,**kwargs):
+     self.assertEqual(events,['ready']);events.append('application_launch')
+     if case=='launch_failure':raise OSError('generated refusal')
+     request=(root/(op+'-launch.private')).read_bytes().decode('utf-16le').splitlines()
+     frame='IS2_ROOT_V1 '+' '.join(request[1:6])+' 100 1000 50 500\n'
+     code=7 if case in ('application_failure','stop_failure') else 0
+     child=real([sys.executable,'-c','import sys,time;sys.stderr.write('+repr(frame)+');sys.stderr.flush();time.sleep(.2);sys.exit('+str(code)+')'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+     children.append(child)
+     if case=='cancel':signal.getsignal(signal.SIGTERM)(None,None)
+     return child
+    try:
+     with patch.object(s,'CompanionCgroup',return_value=Scope()),patch.object(s,'environment',return_value={}),patch.object(s,'Nad1Owner',Dependency),patch.object(s,'renderer_retire_image',side_effect=lambda *_:events.append('application_retire')),patch.object(s.subprocess,'Popen',side_effect=launch):
+      s.renderer_owned(spec,dependency={'daemon':{}})
+     r=json.loads((root/'result.json').read_bytes())
+     self.assertEqual(events.count('service_stop'),1);self.assertTrue(r['cleanup_confirmed']);self.assertTrue(r['dependency']['process_cleanup_confirmed'])
+     if case in ('readiness_failure','launch_failure'):
+      self.assertNotIn('application_retire',events)
+     else:self.assertLess(events.index('application_retire'),events.index('service_stop'))
+     if case=='readiness_failure':self.assertEqual(events,['ready','service_stop'])
+     if case=='stop_failure':self.assertEqual(r['error'],'application_outer_nonzero');self.assertFalse(r['dependency']['service_retirement_confirmed'])
+     if case=='normal':self.assertEqual(r['state'],'completed')
+     elif case=='cancel':self.assertEqual(r['state'],'cancelled')
+     else:self.assertEqual(r['state'],'failed')
+    finally:
+     for sig,value in zip((signal.SIGTERM,signal.SIGINT),prior):signal.signal(sig,value)
+     for child in children:
+      if child.poll() is None:child.kill();child.wait()
+     s.ctypes.CDLL(None).prctl(36,0,0,0,0)

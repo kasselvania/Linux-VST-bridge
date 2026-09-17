@@ -164,6 +164,11 @@ fn close_empty(m: &Manager, op: &str, probe: &UnitState) -> Result<Submission> {
         recovered["cleanup_confirmed"] = json!(true);
         recovered["owned_live"] = json!(0);
         recovered["error"] = json!("dependency_writer_retired_without_terminal_receipt");
+        // An empty cgroup after an interrupted writer proves process cleanup,
+        // never a Windows SCM transition. Preserve the prior receipt by hash.
+        recovered["dependency_retirement"] = json!({"service_stop_requested":null,
+            "service_retirement_confirmed":false,"process_cleanup_confirmed":true,
+            "forced_cleanup_used":true,"authority":"interrupted_writer_process_cleanup_only"});
         recovered["recovery"] = json!({"writer_gate":"exclusive","unit_empty":true,"prior_result_sha256":digest(&d.join("result.json"))?});
         immutable(&d.join("recovery-result.json"), &recovered)?;
         return Ok(Submission::SubmittedOrLive);
@@ -173,7 +178,7 @@ fn close_empty(m: &Manager, op: &str, probe: &UnitState) -> Result<Submission> {
     immutable(
         &d.join("result.json"),
         &json!({"schema":1,"operation":op,"application_identity":spec["application_identity"],
-        "requested":spec["renderer_policy"],"state":"failed","effective":null,"outer_exit":null,"cleanup_confirmed":true,"owned_live":0,"cancelled":false,
+        "requested":spec["renderer_policy"],"state":"failed","effective":null,"outer_exit":null,"dependency_retirement":{"service_stop_requested":null,"service_retirement_confirmed":false,"process_cleanup_confirmed":true,"forced_cleanup_used":writer||probe.exists,"authority":"no_scm_receipt"},"cleanup_confirmed":true,"owned_live":0,"cancelled":false,
         "error":if writer||probe.exists{"dependency_retired_without_receipt"}else{"dependency_definitely_not_submitted"},
         "dependency":{"cause":"unresolved","complete":false},"recovery":{"writer_gate":"exclusive","unit_empty":true,"prior_writer":writer}}),
     )?;
@@ -469,6 +474,8 @@ mod tests {
         assert_eq!(fs::read(d.join("result.json")).unwrap(), bytes);
         let retired = result(&f.m, &op).unwrap();
         assert!(terminal(&retired, &op));
+        assert_eq!(retired["dependency_retirement"]["service_retirement_confirmed"], false);
+        assert_eq!(retired["dependency_retirement"]["process_cleanup_confirmed"], true);
         assert_eq!(retired["dependency"], prior["dependency"]);
         assert_eq!(retired["effective"], prior["effective"]);
     }

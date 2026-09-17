@@ -35,8 +35,8 @@ pub(super) fn launch(m: &Manager, op: &str) -> Result<life::Submission> {
                     "--collect",
                     "--slice=app.slice",
                     "--property=UMask=0077",
-                    "--property=KillMode=control-group",
-                    "--property=TimeoutStopSec=30",
+                    "--property=KillMode=mixed",
+                    "--property=TimeoutStopSec=90",
                     "--property=StandardOutput=null",
                     "--property=StandardError=null",
                 ])
