@@ -68,14 +68,13 @@ static int nad1_service_request(const std::vector<std::wstring>& r) {
     }
     if(ok)std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls exact %lu %lu %lu %llu %s %lu %lu\n",r[1].c_str(),r[2].c_str(),request_error,status.dwCurrentState,status.dwProcessId,created,image_hash.c_str(),status.dwWin32ExitCode,status.dwServiceSpecificExitCode);
     std::fflush(stdout);
-    // Keep the target runner alive while its service cohort is owned. A short
-    // successful SCM helper is not a service lifetime. Parent pipe closure, the
-    // fixed retirement byte, or the ten-minute bound ends only this anchor.
+    // Hold the target runner while the exact SCM service is active. Container
+    // stdin is not service-lifetime authority. Exact cgroup cleanup can retire
+    // this bounded anchor; it never adopts or signals another service.
     if(ok && r[3]==L"start") {
-        HANDLE input=GetStdHandle(STD_INPUT_HANDLE);auto deadline=GetTickCount64()+600000;
-        while(GetTickCount64()<deadline){DWORD available=0;
-            if(!PeekNamedPipe(input,nullptr,0,nullptr,&available,nullptr))break;
-            if(available){char byte=0;DWORD count=0;if(!ReadFile(input,&byte,1,&count,nullptr)||count!=1||byte=='q')break;}
+        auto deadline=GetTickCount64()+600000;
+        while(GetTickCount64()<deadline){SERVICE_STATUS_PROCESS current{};DWORD used=0;
+            if(!QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&current),sizeof(current),&used)||current.dwCurrentState==SERVICE_STOPPED)break;
             Sleep(50);
         }
     }

@@ -1908,14 +1908,6 @@ def managed_install(spec, *, source_owned_is3=None):
         last=0
         while not stop:
             live=reap();startup.observe(live);transaction.images()
-            if dependency_owner is not None and child.returncode is not None:
-                # The dependency lives only with this application. Retire the exact
-                # cohort after the application adapter exits, never by daemon name.
-                clean=ledger.cleanup();live=[] if clean else live
-            if dependency_owner and child.returncode is not None:
-                clean=ledger.cleanup()
-                if not clean:raise ValueError('dependency_retirement_unconfirmed')
-                live=ledger.harvest()
             state=vendor_operation_state(child.returncode,len(live))
             if state in ('completed','failed'):
                 clean=True
@@ -2622,7 +2614,7 @@ class Nad1Owner:
         stdout=bytearray();capture=PrivateCapture(self.directory/f'{self.op}-dependency-{index}.log',1024*1024,256);sel=selectors.DefaultSelector()
         stage={'action':action,'launch':'prepared','exit':None,'result':'unavailable'};self.stages.append(stage)
         try:
-            child=subprocess.Popen(argv,cwd=self.root/'home',env=launch_env,stdin=subprocess.PIPE if action=='start' else subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+            child=subprocess.Popen(argv,cwd=self.root/'home',env=launch_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
             self.ledger.launcher(child,'dependency_'+action);stage['launch']='owned'
             for name,pipe in [('stdout',child.stdout),('stderr',child.stderr)]:os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,name)
             deadline=time.monotonic()+(200 if action=='install' else 40)
@@ -2850,10 +2842,6 @@ def vendor_application(spec):
                     focus_result={'request':request['request'],'result':vendor_focus(scope,app)}
                 except Exception:
                     focus_result={'request':request_id,'result':'refused_exact_window_unavailable'}
-            if dependency_owner and child.returncode is not None:
-                clean=ledger.cleanup()
-                if not clean:raise ValueError('dependency_retirement_unconfirmed')
-                live=ledger.harvest()
             state=vendor_operation_state(child.returncode,len(live))
             if state in ('completed','failed'):
                 # No member remains that could create a later handoff. A

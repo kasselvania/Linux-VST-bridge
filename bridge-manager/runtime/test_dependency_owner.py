@@ -94,4 +94,29 @@ class OwnerTests(unittest.TestCase):
   with patch.object(s,'renderer_validate'),patch.object(s,'nad1_prepared',side_effect=ValueError('not_ready')),patch.object(s,'renderer_owned') as run:
    with self.assertRaisesRegex(ValueError,'not_ready'):s.renderer_application({})
    run.assert_not_called()
+
+class ListenerCustodyTests(unittest.TestCase):
+ def test_owned_socket_pair_requires_exact_generation_and_cgroup(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   proc=pathlib.Path(tmp);p=proc/'123';p.mkdir();(p/'fd').mkdir();(p/'net').mkdir()
+   def stat(ticks): (p/'stat').write_text('123 (NTKDaemon.exe) S '+'0 '*18+str(ticks)+'\n')
+   stat(10)
+   (p/'fd/4').symlink_to('socket:[20]');(p/'fd/5').symlink_to('socket:[21]')
+   def sockets(owned=True):
+    (p/'net/tcp').write_text('header\n'+''.join(f'0: 0100007F:{port:04X} 00000000:0000 0A 0 0 0 0 0 {inode if owned else 99}\n' for port,inode in [(5146,20),(5563,21)]));(p/'net/tcp6').write_text('header\n')
+   sockets();scope=type('Scope',(),{'members':lambda _: [{'pid':123,'start_ticks':10}]})()
+   candidate={'linux_pid':123,'start_ticks':10}
+   self.assertTrue(s.nad1_listener_witness(candidate,scope,proc))
+   sockets(False);self.assertFalse(s.nad1_listener_witness(candidate,scope,proc))
+   sockets();stat(11)
+   with self.assertRaisesRegex(ValueError,'reused'):s.nad1_listener_witness(candidate,scope,proc)
+   stat(10);scope.members=lambda:[]
+   with self.assertRaisesRegex(ValueError,'not_owned'):s.nad1_listener_witness(candidate,scope,proc)
+ def test_fixed_service_request_rejects_injection_before_process_creation(self):
+  owner=s.Nad1Owner({'operation':'a'*32,'report':'/unused/result.json','application':{'environment':{'root':'/unused'}}},None,None,lambda:False)
+  with patch.object(s.subprocess,'Popen') as launch:
+   for action in ['start NTKDaemon','direct','install /other','service=other']:
+    with self.assertRaisesRegex(ValueError,'dependency_action'):owner.command(action)
+   launch.assert_not_called()
+
 if __name__=='__main__':unittest.main()

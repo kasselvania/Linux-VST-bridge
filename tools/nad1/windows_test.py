@@ -6,8 +6,13 @@ def run(build):
  if root.exists():raise ValueError('fixture_directory_already_exists')
  root.mkdir();shutil.copyfile(build/'nad1-service-fixture.exe',root/'Setup.exe')
  op=os.urandom(16).hex();token=os.urandom(32).hex();sha=hashlib.sha256((root/'Setup.exe').read_bytes()).hexdigest()
+ anchor=None
  def command(action):
+  nonlocal anchor
   request=root/'request';request.write_bytes(('\n'.join(['NAD1_SERVICE_V1',op,token,action,sha,''])).encode('utf-16le'))
+  if action=='start':
+   anchor=subprocess.Popen([str(build/'nad1-service-adapter.exe'),str(request)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+   return anchor.stdout.readline().decode()
   p=subprocess.run([str(build/'nad1-service-adapter.exe'),str(request)],capture_output=True,timeout=60)
   if p.returncode:raise ValueError(('adapter_failure',action,p.returncode))
   return p.stdout.decode()
@@ -25,6 +30,7 @@ def run(build):
    time.sleep(.1)
   assert ' exact 0 4 ' in response and sha in response
   command('stop')
+  assert anchor.wait(timeout=10)==0
  finally:
   if installed:subprocess.run([str(root/'Setup.exe'),'--remove'],check=True,timeout=15)
   shutil.rmtree(root)
