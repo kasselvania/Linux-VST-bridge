@@ -1,6 +1,8 @@
 // Closed NAD1 SCM boundary; included after the existing exact-file hash owner.
 // No caller-selected service, binary location, endpoint or installer arguments.
 #include <winsvc.h>
+#include <iphlpapi.h>
+#include <cstddef>
 #ifdef NAD1_GENERATED_SERVICE
 static constexpr auto nad1_service=L"NAD1FixtureService";
 static constexpr auto nad1_image=L"C:\\NAD1Fixture\\NTKDaemon.exe";
@@ -10,6 +12,21 @@ static constexpr auto nad1_service=L"NTKDaemonService";
 static constexpr auto nad1_image=L"C:\\Program Files\\Common Files\\Native Instruments\\NTK\\NTKDaemon.exe";
 static constexpr auto nad1_installer=L"C:\\Program Files\\Native Instruments\\Native Access\\resources\\daemon\\win\\NTKDaemon 1.32.0 Setup PC.exe";
 #endif
+// IP Helper assigns endpoint ownership in the Windows PID domain. Never join
+// those PIDs to Linux IDs; the Linux census independently supplies cgroup custody.
+static DWORD nad1_endpoints(DWORD pid) {
+    HMODULE dll=LoadLibraryExW(L"iphlpapi.dll",nullptr,LOAD_LIBRARY_SEARCH_SYSTEM32);if(!dll)return 4;
+    using Query=DWORD (WINAPI*)(PVOID,PDWORD,BOOL,ULONG,TCP_TABLE_CLASS,ULONG);
+    auto query=reinterpret_cast<Query>(GetProcAddress(dll,"GetExtendedTcpTable"));
+    std::vector<unsigned char> bytes(2*1024*1024);DWORD length=static_cast<DWORD>(bytes.size());DWORD mask=0;
+    if(!query||query(bytes.data(),&length,FALSE,AF_INET,TCP_TABLE_OWNER_PID_LISTENER,0)!=NO_ERROR||length>bytes.size()||length<offsetof(MIB_TCPTABLE_OWNER_PID,table)){FreeLibrary(dll);return 4;}
+    auto table=reinterpret_cast<MIB_TCPTABLE_OWNER_PID*>(bytes.data());
+    if(table->dwNumEntries>32768||offsetof(MIB_TCPTABLE_OWNER_PID,table)+table->dwNumEntries*sizeof(MIB_TCPROW_OWNER_PID)>length){FreeLibrary(dll);return 4;}
+    for(DWORD i=0;i<table->dwNumEntries;i++){const auto& row=table->table[i];
+        DWORD port=((row.dwLocalPort&255)<<8)|((row.dwLocalPort>>8)&255);
+        if(row.dwOwningPid==pid&&row.dwState==MIB_TCP_STATE_LISTEN&&row.dwLocalAddr==0x0100007f){if(port==5146)mask|=1;if(port==5563)mask|=2;}}
+    FreeLibrary(dll);return mask;
+}
 static int nad1_service_request(const std::vector<std::wstring>& r) {
     if(r.size()!=5 || r[0]!=L"NAD1_SERVICE_V1" || !hex(r[1],32) || !hex(r[2],64)
        || (r[3]!=L"query" && r[3]!=L"start" && r[3]!=L"stop" && r[3]!=L"install") || !hex(r[4],64)) return 140;
@@ -43,7 +60,7 @@ static int nad1_service_request(const std::vector<std::wstring>& r) {
     if(r[3]==L"stop")access|=SERVICE_STOP;
     SC_HANDLE service=OpenServiceW(scm,nad1_service,access);
     if(!service){DWORD error=GetLastError();CloseServiceHandle(scm);
-        std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls absent %lu 0 0 0 none 0 0\n",r[1].c_str(),r[2].c_str(),error);std::fflush(stdout);return error==ERROR_SERVICE_DOES_NOT_EXIST?0:146;}
+        std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls absent %lu 0 0 0 none 0 0 0\n",r[1].c_str(),r[2].c_str(),error);std::fflush(stdout);return error==ERROR_SERVICE_DOES_NOT_EXIST?0:146;}
     alignas(QUERY_SERVICE_CONFIGW) std::array<unsigned char,8192> buffer{};DWORD needed=0;
     bool ok=QueryServiceConfigW(service,reinterpret_cast<QUERY_SERVICE_CONFIGW*>(buffer.data()),static_cast<DWORD>(buffer.size()),&needed)!=FALSE;
     auto config=reinterpret_cast<QUERY_SERVICE_CONFIGW*>(buffer.data());
@@ -56,17 +73,19 @@ static int nad1_service_request(const std::vector<std::wstring>& r) {
     if(r[3]==L"stop"){SERVICE_STATUS status{};if(!ControlService(service,SERVICE_CONTROL_STOP,&status)){request_error=GetLastError();if(request_error!=ERROR_SERVICE_NOT_ACTIVE){CloseServiceHandle(service);CloseServiceHandle(scm);return 149;}}}
     SERVICE_STATUS_PROCESS status{};
     ok=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&status),sizeof(status),&needed)!=FALSE;
-    std::string image_hash="none";unsigned long long created=0;
+    std::string image_hash="none";unsigned long long created=0;DWORD endpoints=0;
     if(ok&&status.dwCurrentState==SERVICE_RUNNING){
         HANDLE process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,status.dwProcessId);
         std::array<wchar_t,32768> path{};DWORD length=static_cast<DWORD>(path.size());
         ok=process&&QueryFullProcessImageNameW(process,0,path.data(),&length)&&_wcsicmp(path.data(),nad1_image)==0;
         if(ok){created=time_of(process);HANDLE file=CreateFileW(path.data(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
             if(file!=INVALID_HANDLE_VALUE){image_hash=hash(file);CloseHandle(file);}else ok=false;}
+        if(ok){endpoints=nad1_endpoints(status.dwProcessId);SERVICE_STATUS_PROCESS after{};DWORD count=0,exit=0;
+            ok=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&after),sizeof(after),&count)&&after.dwProcessId==status.dwProcessId&&after.dwCurrentState==SERVICE_RUNNING&&GetExitCodeProcess(process,&exit)&&exit==STILL_ACTIVE&&time_of(process)==created;}
         if(process)CloseHandle(process);
         if(!created||image_hash.size()!=64)ok=false;
     }
-    if(ok)std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls exact %lu %lu %lu %llu %s %lu %lu\n",r[1].c_str(),r[2].c_str(),request_error,status.dwCurrentState,status.dwProcessId,created,image_hash.c_str(),status.dwWin32ExitCode,status.dwServiceSpecificExitCode);
+    if(ok)std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls exact %lu %lu %lu %llu %s %lu %lu %lu\n",r[1].c_str(),r[2].c_str(),request_error,status.dwCurrentState,status.dwProcessId,created,image_hash.c_str(),status.dwWin32ExitCode,status.dwServiceSpecificExitCode,endpoints);
     std::fflush(stdout);
     // Hold the target runner while the exact SCM service is active. Container
     // stdin is not service-lifetime authority. Exact cgroup cleanup can retire

@@ -2549,12 +2549,19 @@ def nad1_transition(state):
 
 def nad1_scm_frame(raw,op,token):
     lines=[x.split() for x in raw.decode('ascii',errors='strict').splitlines() if x.startswith('NAD1_SCM_V1 ')]
-    if len(lines)!=1 or len(lines[0])!=11:raise ValueError('dependency_scm_frame')
+    if len(lines)!=1 or len(lines[0])!=12:raise ValueError('dependency_scm_frame')
     a=lines[0]
-    if a[1:3]!=[op,token] or a[3] not in ('absent','exact') or any(not re.fullmatch('[0-9]{1,20}',v) for v in a[4:8]+a[9:11]):raise ValueError('dependency_scm_identity')
-    if a[3]=='absent' and a[4:]!=['1060','0','0','0','none','0','0']:raise ValueError('dependency_scm_absence')
+    if a[1:3]!=[op,token] or a[3] not in ('absent','exact') or any(not re.fullmatch('[0-9]{1,20}',v) for v in a[4:8]+a[9:12]):raise ValueError('dependency_scm_identity')
+    if a[3]=='absent' and a[4:]!=['1060','0','0','0','none','0','0','0']:raise ValueError('dependency_scm_absence')
     if a[3]=='exact' and (int(a[5]) not in range(1,8) or (a[5]=='4' and (not re.fullmatch('[0-9a-f]{64}',a[8]) or int(a[6])==0 or int(a[7])==0))):raise ValueError('dependency_scm_generation')
-    return {'registration':a[3],'request_error':int(a[4]),'state':int(a[5]),'windows_pid':int(a[6]),'windows_created':int(a[7]),'image_sha256':a[8],'service_exit':int(a[9]),'service_specific_exit':int(a[10])}
+    if int(a[11]) not in range(5):raise ValueError('dependency_endpoint_extent')
+    return {'registration':a[3],'request_error':int(a[4]),'state':int(a[5]),'windows_pid':int(a[6]),'windows_created':int(a[7]),'image_sha256':a[8],'service_exit':int(a[9]),'service_specific_exit':int(a[10]),'owned_endpoint_mask':int(a[11])}
+
+def nad1_generation_owned(candidate,scope):
+    import ownership
+    pid=candidate['linux_pid'];start=candidate['start_ticks']
+    actual,_=ownership.generation(ownership.bounded(pathlib.Path('/proc')/str(pid)/'stat','stat'),pid)
+    return actual==start and any(x['pid']==pid and x['start_ticks']==start for x in scope.members())
 
 def nad1_listener_witness(candidate,scope,proc=pathlib.Path('/proc')):
     # Linux generation/cgroup/descriptor custody only. SCM Windows IDs never enter
@@ -2600,7 +2607,7 @@ class Nad1Owner:
         self.token=os.urandom(32).hex();self.anchor=None
     def value(self):
         return {'schema':1,'ready_tested':self.ready,'daemon':self.daemon,
-                'stages':self.stages,'readiness_contract':'SCM_exact_image_generation_and_owned_same_prefix_generation_and_both_owned_loopback_listeners_v1',
+                'stages':self.stages,'readiness_contract':'SCM_exact_generation_and_Windows_owned_loopback_pair_and_unique_owned_Linux_image_generation_v1',
                 'linux_windows_join':False,'lifetime':'owned_operation_only_retired_before_bridge_resume'}
     def command(self,action):
         if action not in ('query','install','start','stop'):raise ValueError('dependency_action')
@@ -2652,7 +2659,7 @@ class Nad1Owner:
                 stage['result']='outer_zero_only';return None
             result=nad1_scm_frame(bytes(stdout),self.op,self.token)
             installer_atomic(self.directory/f'{self.op}-scm-{index}.private.json',result)
-            stage['result']=result['registration'];stage['service_state']=result['state'];stage['service_exit']=result['service_exit'];stage['service_specific_exit']=result['service_specific_exit'];return result
+            stage['result']=result['registration'];stage['service_state']=result['state'];stage['service_exit']=result['service_exit'];stage['service_specific_exit']=result['service_specific_exit'];stage['owned_endpoint_mask']=result['owned_endpoint_mask'];return result
         finally:
             stage['diagnostic_dropped_bytes']=capture.discarded;capture.close()
             for key in list(sel.get_map().values()):key.fileobj.close()
@@ -2693,7 +2700,7 @@ class Nad1Owner:
             if scan['unavailable']:raise ValueError('dependency_candidate_ambiguous')
             if any(p['prefix_relation'] in ('foreign','deleted') for p in scan['candidates']):raise ValueError('dependency_foreign_conflict')
             matches=[p for p in scan['private'] if p.get('exact') and p.get('prefix_relation')=='same']
-            if service['state']==4 and service['image_sha256']==actual['sha256'] and len(matches)==1 and nad1_listener_witness(matches[0],self.scope):
+            if service['state']==4 and service['image_sha256']==actual['sha256'] and service['owned_endpoint_mask']==3 and len(matches)==1 and nad1_generation_owned(matches[0],self.scope):
                 self.ready=True;return self.value()
             time.sleep(.1)
         raise ValueError('dependency_running_not_ready')

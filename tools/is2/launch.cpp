@@ -1,5 +1,6 @@
 // Source-owned installer launch observer. No SDK/audio/vendor-name behavior.
 // CreateProcessW retains its normal manifest refusal; no runas/elevation override.
+#include <winsock2.h>
 #include <windows.h>
 #include <bcrypt.h>
 #include <cstdio>

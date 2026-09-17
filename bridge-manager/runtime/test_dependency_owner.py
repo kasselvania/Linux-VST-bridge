@@ -19,7 +19,7 @@ class OwnerTests(unittest.TestCase):
    if action==self.fail:raise ValueError('generated_uncertain_acknowledgment')
    if action=='install':self.daemon.write_bytes(self.bytes);self.registered=True;return None
    if action=='start':self.service_state=4
-   return {'registration':'exact' if self.registered else 'absent','state':self.service_state,'image_sha256':self.artifact['sha256']}
+   return {'registration':'exact' if self.registered else 'absent','state':self.service_state,'image_sha256':self.artifact['sha256'],'owned_endpoint_mask':3}
   self.owner.command=command
   self.scan={'candidates':[],'private':[],'unavailable':0}
   def scan(*_):
@@ -28,7 +28,7 @@ class OwnerTests(unittest.TestCase):
     value['candidates']=[{'prefix_relation':'same','exact':True}];value['private']=[{'prefix_relation':'same','exact':True,'linux_pid':10,'start_ticks':20}]
    return value
   self.scan_patch=patch.object(ownership,'census',side_effect=scan);self.scan_patch.start();self.addCleanup(self.scan_patch.stop)
-  self.listener=patch.object(s,'nad1_listener_witness',return_value=True).start();self.addCleanup(patch.stopall)
+  self.listener=patch.object(s,'nad1_generation_owned',return_value=True).start();self.addCleanup(patch.stopall)
  def existing(self,registered=True,state=1):self.daemon.write_bytes(self.bytes);self.registered=registered;self.service_state=state;return self.artifact
  def test_absent_installs_registers_then_service_only_start(self):
   r=self.owner.ensure(True);self.assertTrue(r['ready_tested']);self.assertEqual(self.commands,['query','install','query','start','query'])
@@ -78,7 +78,7 @@ class OwnerTests(unittest.TestCase):
   with self.assertRaises(FileExistsError):s.nad1_publish(self.report,{'state':'success'})
   self.assertEqual(json.loads(self.report.read_bytes()),{'state':'first_failure'})
  def test_scm_generation_protocol_is_closed_and_separate(self):
-  op='a'*32;token='b'*64;raw=f'NAD1_SCM_V1 {op} {token} exact 0 4 123 1000 '+self.artifact['sha256']+' 0 0\n'
+  op='a'*32;token='b'*64;raw=f'NAD1_SCM_V1 {op} {token} exact 0 4 123 1000 '+self.artifact['sha256']+' 0 0 3\n'
   v=s.nad1_scm_frame(raw.encode(),op,token);self.assertEqual(v['windows_pid'],123);self.assertNotIn('linux_pid',v)
   for changed in [raw.replace(token,'c'*64),raw+raw,raw.replace('4 123','4 0'),raw.replace(self.artifact['sha256'],'none'),raw.replace(' 4 ',' 99 ')]:
    with self.assertRaises(ValueError):s.nad1_scm_frame(changed.encode(),op,token)
