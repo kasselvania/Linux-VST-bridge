@@ -635,6 +635,35 @@ fn dependency_retirement_lines(v: &serde_json::Value) -> Vec<String> {
             });
         }
     }
+    let observation=&r["stop_observation"];
+    if observation["schema"]==3 {
+        let explanation=match observation["classification"].as_str() {
+            Some("NAD2_STOP_CONFIRMED")=>"Exact service, process-generation, and listener retirement was confirmed.",
+            Some("NAD2_STOP_SUBMITTED_PROGRESSING")=>"A stop was submitted or already pending and bounded progress was observed; retirement was not confirmed.",
+            Some("NAD2_STOP_SUBMITTED_NO_TRANSITION")=>"The stop request was submitted, but no SCM, exact-process, or listener transition was observed before the bound.",
+            Some("NAD2_STOP_NOT_SUBMITTED")=>"The stop request was not submitted; the retained control error is authoritative.",
+            Some("NAD2_STOPPED_PROCESS_OR_LISTENER_REMAINS")=>"SCM reported stopped while the exact process or an owned listener remained.",
+            Some("NAD2_STOP_OBSERVATION_UNAVAILABLE")=>"The bounded stop observation was unavailable.",
+            _=>"The bounded stop classification was unavailable.",
+        };
+        lines.push(format!("Bounded stop response: {} {explanation}",observation["classification"].as_str().unwrap_or("unavailable")));
+        lines.push(format!("SCM state: {} -> {}; controls masks: {} -> {}; checkpoint: {} -> {}; wait hint: {} -> {} ms.",
+            observation["initial_state"],observation["final_state"],observation["initial_controls_accepted"],
+            observation["final_controls_accepted"],observation["initial_checkpoint"],observation["checkpoint"],
+            observation["initial_wait_hint_ms"],observation["wait_hint_ms"]));
+        if observation["control_submitted"]==true {
+            lines.push(format!("ControlService result: submitted in {} ms; returned state {}, controls mask {}, checkpoint {}, wait hint {} ms.",
+                observation["control_elapsed_ms"],observation["control_return"]["state"],
+                observation["control_return"]["controls_accepted"],observation["control_return"]["checkpoint"],
+                observation["control_return"]["wait_hint_ms"]));
+        } else if !observation["control_error"].is_null() {
+            lines.push(format!("ControlService result: not submitted; error {}.",observation["control_error"]));
+        }
+        lines.push(format!("Exact process wait: {} ({}); listener mask: {} -> {}; distinct transitions: {} total, {} retained, {} dropped.",
+            observation["process_wait_class"],observation["process_wait"],observation["initial_listener_mask"],
+            observation["listener_mask"],observation["transition_count_total"],observation["transition_count_retained"],
+            observation["transition_count_dropped"]));
+    }
     lines
 }
 
@@ -757,6 +786,26 @@ mod tests {
         assert!(lines[2].contains("does not confirm"));
         let recovered=serde_json::json!({"dependency":{"service_retirement_confirmed":true},"dependency_retirement":{"service_retirement_confirmed":false,"process_cleanup_confirmed":true}});
         assert!(dependency_retirement_lines(&recovered)[0].ends_with("not confirmed"));
+    }
+    #[test]
+    fn nad2_stop_characterizations_are_bounded_and_never_claim_acceptance() {
+        let classes=[
+            "NAD2_STOP_CONFIRMED","NAD2_STOP_SUBMITTED_PROGRESSING","NAD2_STOP_SUBMITTED_NO_TRANSITION",
+            "NAD2_STOP_NOT_SUBMITTED","NAD2_STOPPED_PROCESS_OR_LISTENER_REMAINS","NAD2_STOP_OBSERVATION_UNAVAILABLE"];
+        for class in classes {
+            let value=serde_json::json!({"dependency":{"service_retirement_confirmed":class=="NAD2_STOP_CONFIRMED",
+                "process_cleanup_confirmed":false,"forced_cleanup_used":class!="NAD2_STOP_CONFIRMED","stop_observation":{
+                    "schema":3,"classification":class,"initial_state":4,"final_state":4,"initial_controls_accepted":1,
+                    "final_controls_accepted":1,"initial_checkpoint":0,"checkpoint":0,"initial_wait_hint_ms":0,
+                    "wait_hint_ms":0,"control_submitted":true,"control_error":0,"control_elapsed_ms":3,
+                    "control_return":{"state":4,"controls_accepted":1,"checkpoint":0,"wait_hint_ms":0},
+                    "process_wait_class":"timeout","process_wait":258,"initial_listener_mask":3,"listener_mask":3,
+                    "transition_count_total":1,"transition_count_retained":1,"transition_count_dropped":0}}});
+            let lines=dependency_retirement_lines(&value);let text=lines.join(" ");
+            assert!(text.contains(class));assert!(text.contains("ControlService result: submitted"));
+            assert!(!text.contains("request accepted")&&!text.contains("service accepted"));
+            if class!="NAD2_STOP_CONFIRMED" { assert!(lines[0].ends_with("not confirmed")); }
+        }
     }
     #[test]
     fn installer_root_and_presence_do_not_claim_close_from_helper_success() {

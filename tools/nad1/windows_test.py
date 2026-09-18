@@ -7,7 +7,7 @@ def run(build):
  root.mkdir();shutil.copyfile(build/'nad1-service-fixture.exe',root/'Setup.exe')
  op=os.urandom(16).hex();token=os.urandom(32).hex();sha=hashlib.sha256((root/'Setup.exe').read_bytes()).hexdigest()
  anchor=None;generation=(0,0)
- def command(action):
+ def command(action,expected=(0,)):
   nonlocal anchor,generation
   request=root/'request';fields=['NAD1_SERVICE_V1',op,token,action,sha]
   if action=='stop':fields=['NAD1_STOP_REQUEST_V2',op,token,action,sha,*map(str,generation)]
@@ -20,11 +20,32 @@ def run(build):
    generation=(int(fields[6]),int(fields[7]))
    return output
   p=subprocess.run([str(build/'nad1-service-adapter.exe'),str(request)],capture_output=True,timeout=60)
-  if p.returncode:raise ValueError(('adapter_failure',action,p.returncode))
+  if p.returncode not in expected:raise ValueError(('adapter_failure',action,p.returncode,p.stdout,p.stderr))
   output=p.stdout.decode();rows=[line.split() for line in output.splitlines() if line.startswith('NAD1_SCM_V1 ')]
   if rows and rows[0][5]=='4':generation=(int(rows[0][6]),int(rows[0][7]))
   elif rows and rows[0][5]=='1':generation=(0,0)
   return output
+ def characterization(output):
+  rows=[line.split() for line in output.splitlines() if line.startswith('NAD2_STOP_CHARACTERIZATION_V1 ')]
+  assert len(rows)==1 and len(rows[0])==45,rows
+  values=list(map(int,rows[0][4:]))
+  return {'classification':rows[0][3],'initial_state':values[1],'control_count':values[11],
+   'control_submitted':values[12],'control_error':values[13],'control_state':values[16],
+   'final_state':values[23],'process_wait':values[30],'listener_mask':values[32],
+   'elapsed_ms':values[35],'progress_count':values[37],'transition_total':values[38],
+   'transition_retained':values[39],'transition_dropped':values[40]}
+ def wait_running():
+  deadline=time.monotonic()+15
+  while time.monotonic()<deadline:
+   response=command('query')
+   if ' exact 0 4 ' in response:return response
+   time.sleep(.05)
+  raise AssertionError(('service_not_running',response))
+ def normal_after_adverse():
+  nonlocal anchor
+  command('start');wait_running();stopped=command('stop');observed=characterization(stopped)
+  assert observed['classification']=='NAD2_STOP_CONFIRMED' and observed['control_count']==1,observed
+  assert anchor.wait(timeout=15)==0
  installed=False
  try:
   assert ' absent 1060 ' in command('query')
@@ -60,12 +81,16 @@ def run(build):
   stopped=command('stop')
   assert 'NAD1_RETIRE_V1 '+op+' '+token+' 1 ' in stopped
   assert ' exact 0 1 0 0 none ' in stopped
+  observed=characterization(stopped)
+  assert observed['classification']=='NAD2_STOP_CONFIRMED' and observed['initial_state']==4 and observed['final_state']==1,observed
+  assert observed['control_count']==1 and observed['control_submitted']==1 and observed['control_error']==0,observed
   assert anchor.wait(timeout=10)==0
   assert ' exact 0 1 0 0 none ' in command('query')
   command('start');deadline=time.monotonic()+15
   while ' exact 0 4 ' not in command('query'):
    assert time.monotonic()<deadline;time.sleep(.05)
-  assert 'NAD1_RETIRE_V1 '+op+' '+token+' 1 ' in command('stop')
+  stopped=command('stop');assert 'NAD1_RETIRE_V1 '+op+' '+token+' 1 ' in stopped
+  assert characterization(stopped)['classification']=='NAD2_STOP_CONFIRMED'
   assert anchor.wait(timeout=10)==0
   # Slow clean shutdown must be observed rather than rejected at STOP_PENDING.
   (root/'delay-stop').touch();command('start')
@@ -73,6 +98,10 @@ def run(build):
   while ' exact 0 4 ' not in command('query'):
    assert time.monotonic()<deadline;time.sleep(.05)
   stopped=command('stop');assert 'NAD1_RETIRE_V1 '+op+' '+token+' 1 ' in stopped
+  delayed_observation=characterization(stopped)
+  assert delayed_observation['classification']=='NAD2_STOP_CONFIRMED',delayed_observation
+  assert delayed_observation['transition_retained']==12 and delayed_observation['transition_dropped']>0,delayed_observation
+  assert delayed_observation['transition_total']==delayed_observation['transition_retained']+delayed_observation['transition_dropped']
   assert anchor.wait(timeout=10)==0
   # An externally pending stop has already received its single control.
   command('start');deadline=time.monotonic()+15
@@ -83,6 +112,8 @@ def run(build):
   stopped=command('stop')
   observation=next(line.split()[3:] for line in stopped.splitlines() if line.startswith('NAD1_STOP_OBSERVATION_V2 '))
   assert observation[0]=='1' and observation[1]=='3' and observation[10]=='0',observation
+  pending_observation=characterization(stopped)
+  assert pending_observation['classification']=='NAD2_STOP_CONFIRMED' and pending_observation['control_count']==0,pending_observation
   assert (root/'events.private').read_text().count('stop_requested')==controls+1
   assert anchor.wait(timeout=10)==0
   # Completed external stop: the anchor has released its process handle before
@@ -121,7 +152,53 @@ def run(build):
   assert observation[0]=='1' and observation[1]=='1' and observation[10]=='0',observation
   assert (root/'events.private').read_text().count('stop_requested')==controls+1
   assert receipt.read_bytes()==retained
+  # Adverse service responses cross the production adapter and are followed by
+  # a fresh ordinary operation so fixture cleanup cannot hide poisoned state.
+  def release_adverse(*names):
+   (root/'release-stop').touch()
+   assert anchor.wait(timeout=20) in (0,150)
+   for name in (*names,'release-stop'):(root/name).unlink(missing_ok=True)
+   assert ' exact 0 1 ' in command('query')
+
+  (root/'no-transition').touch();command('start');wait_running()
+  unchanged=characterization(command('stop',expected=(149,)))
+  assert unchanged['classification']=='NAD2_STOP_SUBMITTED_NO_TRANSITION',unchanged
+  assert unchanged['control_count']==1 and unchanged['control_submitted']==1 and unchanged['progress_count']==0,unchanged
+  assert unchanged['process_wait']==258 and unchanged['listener_mask']==3 and unchanged['elapsed_ms']>=12000,unchanged
+  release_adverse('no-transition');normal_after_adverse()
+
+  (root/'control-failure').touch();command('start');wait_running()
+  refused=characterization(command('stop',expected=(149,)))
+  assert refused['classification']=='NAD2_STOP_NOT_SUBMITTED' and refused['control_count']==1,refused
+  assert refused['control_submitted']==0 and refused['control_error']!=0,refused
+  release_adverse('control-failure');normal_after_adverse()
+
+  (root/'query-failure').touch();command('start');wait_running()
+  unavailable=characterization(command('stop',expected=(149,)))
+  assert unavailable['classification']=='NAD2_STOP_OBSERVATION_UNAVAILABLE',unavailable
+  (root/'query-failure').unlink();assert anchor.wait(timeout=15)==0
+  normal_after_adverse()
+
+  for hold,expected_mask in [('stopped-process-hold',0),('stopped-listener-hold',3)]:
+   (root/hold).touch();command('start');wait_running()
+   residue=characterization(command('stop',expected=(149,)))
+   assert residue['classification']=='NAD2_STOPPED_PROCESS_OR_LISTENER_REMAINS',residue
+   assert residue['final_state']==1 and residue['listener_mask']==expected_mask,residue
+   release_adverse(hold);normal_after_adverse()
+
+  (root/'pending-hold').touch();(root/'pending-progress').touch();command('start');wait_running()
+  controls=(root/'events.private').read_text().count('stop_requested')
+  subprocess.run(['sc.exe','stop','NAD1FixtureService'],check=True,capture_output=True,timeout=10)
+  progressing=characterization(command('stop',expected=(149,)))
+  assert progressing['classification']=='NAD2_STOP_SUBMITTED_PROGRESSING',progressing
+  assert progressing['initial_state']==3 and progressing['control_count']==0 and progressing['progress_count']>0,progressing
+  assert (root/'events.private').read_text().count('stop_requested')==controls+1
+  release_adverse('pending-hold','pending-progress');normal_after_adverse()
  finally:
+  if root.exists():
+   (root/'release-stop').touch()
+   for name in ('no-transition','refuse-stop','control-failure','query-failure','stopped-process-hold','stopped-listener-hold','pending-hold','pending-progress','delay-stop','self-stop'):
+    (root/name).unlink(missing_ok=True)
   if installed:subprocess.run([str(root/'Setup.exe'),'--remove'],check=True,timeout=15)
   shutil.rmtree(root)
 if __name__=='__main__':run(sys.argv[1])

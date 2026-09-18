@@ -128,11 +128,11 @@ static int nad1_service_request(const std::vector<std::wstring>& r,const std::ws
             Nad1StopStatus refresh(){
                 SERVICE_STATUS_PROCESS status{};DWORD used=0,error=0;
                 if(!QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&status),sizeof(status),&used))error=GetLastError();
-                return {status.dwCurrentState,status.dwCheckPoint,status.dwWaitHint,status.dwWin32ExitCode,status.dwServiceSpecificExitCode,error};
+                return {status.dwCurrentState,status.dwCheckPoint,status.dwWaitHint,status.dwWin32ExitCode,status.dwServiceSpecificExitCode,error,status.dwControlsAccepted,status.dwServiceType};
             }
             uint32_t endpoints(uint32_t pid){return nad1_endpoints(pid);}
         } admission_io{service,request_path,r};
-        Nad1StopStatus first{initial.dwCurrentState,initial.dwCheckPoint,initial.dwWaitHint,initial.dwWin32ExitCode,initial.dwServiceSpecificExitCode,first_error};
+        Nad1StopStatus first{initial.dwCurrentState,initial.dwCheckPoint,initial.dwWaitHint,initial.dwWin32ExitCode,initial.dwServiceSpecificExitCode,first_error,initial.dwControlsAccepted,initial.dwServiceType};
         auto admission=nad1_admit_stop_generation(admission_io,first,initial.dwProcessId,static_cast<DWORD>(prior_pid),prior_created);
         HANDLE process=admission_io.process;DWORD pid=admission.pid;unsigned long long created=admission.created;
         bool valid=admission.valid;DWORD identity_error=admission.identity_error;bool exit_witness=admission.exit_witness;
@@ -143,11 +143,23 @@ static int nad1_service_request(const std::vector<std::wstring>& r,const std::ws
             Nad1StopStatus query(){
                 SERVICE_STATUS_PROCESS st{};DWORD count=0,error=0;
                 if(initial){initial=false;return first;}
+#ifdef NAD1_GENERATED_SERVICE
+                else if(GetFileAttributesW(L"C:\\NAD1Fixture\\query-failure")!=INVALID_FILE_ATTRIBUTES)error=ERROR_ACCESS_DENIED;
+#endif
                 else if(!QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&st),sizeof(st),&count))error=GetLastError();
-                return {st.dwCurrentState,st.dwCheckPoint,st.dwWaitHint,st.dwWin32ExitCode,st.dwServiceSpecificExitCode,error};
+                return {st.dwCurrentState,st.dwCheckPoint,st.dwWaitHint,st.dwWin32ExitCode,st.dwServiceSpecificExitCode,error,st.dwControlsAccepted,st.dwServiceType};
             }
             void begin_control(uint32_t state){std::fprintf(stdout,"NAD1_STOP_BEGIN_V1 %ls %ls %u\n",request[1].c_str(),request[2].c_str(),state);std::fflush(stdout);}
-            uint32_t stop(){SERVICE_STATUS st{};return ControlService(service,SERVICE_CONTROL_STOP,&st)?0:GetLastError();}
+            Nad1ControlResult stop(){
+#ifdef NAD1_GENERATED_SERVICE
+                if(GetFileAttributesW(L"C:\\NAD1Fixture\\control-failure")!=INVALID_FILE_ATTRIBUTES)
+                    return {false,ERROR_ACCESS_DENIED,{}};
+#endif
+                SERVICE_STATUS st{};
+                if(!ControlService(service,SERVICE_CONTROL_STOP,&st))return {false,GetLastError(),{}};
+                return {true,0,{st.dwCurrentState,st.dwCheckPoint,st.dwWaitHint,st.dwWin32ExitCode,
+                    st.dwServiceSpecificExitCode,0,st.dwControlsAccepted,st.dwServiceType}};
+            }
             uint32_t wait(uint32_t& error){DWORD result=process?WaitForSingleObject(process,0):WAIT_OBJECT_0;error=result==WAIT_FAILED?GetLastError():0;return result;}
             uint32_t endpoints(){return pid?nad1_endpoints(pid):0;}
             void sleep(){Sleep(50);}
@@ -158,6 +170,29 @@ static int nad1_service_request(const std::vector<std::wstring>& r,const std::ws
             result.last.checkpoint,result.last.hint,result.process_wait,result.wait_error,result.endpoints,result.control_sent?1u:0u,result.control_error,
             static_cast<unsigned long long>(result.control_started),static_cast<unsigned long long>(result.control_elapsed),static_cast<unsigned long long>(result.elapsed),
             result.queries,result.progress,static_cast<unsigned>(identity_error),result.last.win32,result.last.specific);
+        const auto& before=result.before;const auto& control=result.control_status;const auto& last=result.last;
+        std::fprintf(stdout,"NAD2_STOP_CHARACTERIZATION_V1 %ls %ls %s "
+            "%u %u %u %u %u %u %u %u %u %u %u "
+            "%u %u %u %u %u %u %u %u %u %u %u "
+            "%u %u %u %u %u %u %u %u %u %u %u "
+            "%llu %llu %llu %u %u %u %u %u\n",
+            r[1].c_str(),r[2].c_str(),nad2_stop_classification_name(result.classification),
+            before.type,before.state,before.controls,before.checkpoint,before.hint,before.win32,before.specific,before.error,
+            result.initial_process_wait,result.initial_wait_error,result.initial_endpoints,
+            result.control_count,result.control_submitted?1u:0u,result.control_error,result.control_status_available?1u:0u,
+            control.type,control.state,control.controls,control.checkpoint,control.hint,control.win32,control.specific,
+            last.type,last.state,last.controls,last.checkpoint,last.hint,last.win32,last.specific,last.error,
+            result.process_wait,result.wait_error,result.endpoints,
+            static_cast<unsigned long long>(result.control_started),static_cast<unsigned long long>(result.control_elapsed),
+            static_cast<unsigned long long>(result.elapsed),result.queries,result.progress,result.transition_total,
+            result.transition_retained,result.transition_dropped);
+        for(uint32_t i=0;i<result.transition_retained;i++){
+            const auto& item=result.transitions[i];const auto& status=item.service;
+            std::fprintf(stdout,"NAD2_STOP_TRANSITION_V1 %ls %ls %u %u %llu %u %u %u %u %u %u %u %u %u %u %u\n",
+                r[1].c_str(),r[2].c_str(),i+1,item.source,static_cast<unsigned long long>(item.elapsed),
+                status.type,status.state,status.controls,status.checkpoint,status.hint,status.win32,status.specific,status.error,
+                item.process_wait_class,item.wait_error,item.endpoints);
+        }
         if(exit_witness)std::fprintf(stdout,"NAD1_EXIT_WITNESS_V1 %ls %ls %lu %llu\n",r[1].c_str(),r[2].c_str(),pid,created);
         std::fprintf(stdout,"NAD1_RETIRE_V1 %ls %ls %u %lu %llu %u\n",r[1].c_str(),r[2].c_str(),result.confirmed?1u:0u,pid,created,result.endpoints);
         if(result.confirmed)std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls exact %u 1 0 0 none %u %u 0\n",r[1].c_str(),r[2].c_str(),result.control_error,result.last.win32,result.last.specific);
