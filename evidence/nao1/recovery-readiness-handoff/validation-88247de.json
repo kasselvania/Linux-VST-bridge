@@ -1,0 +1,62 @@
+{
+  "schema": "vst.nao1-recovery-readiness-handoff-validation/v1",
+  "source": "88247de9c79c565b17b88af277df4cbe819c53db",
+  "tree": "3746cc05f7a27f177d08b4c99b378b139cd295fc",
+  "base": "a544645792aa1428d0388191e4fee45e7801b921",
+  "package_seal": "8685f43dd463aba356f758b3e5362e74f4f0a6c234c3c6f329f0d109ac5bf9ca",
+  "proof_sha256": "870c97a0dea51825872c15fd7c43d162658b5f3d1856e66bd90a3972e823fee9",
+  "local_validation": {
+    "focused_rust_session_admission": {"passed": 2, "result": "pass"},
+    "focused_python_recovery_readiness_session": {"ran": 72, "skipped": 1, "result": "pass"},
+    "full_runtime": {"ran": 265, "skipped": 44, "result": "pass"},
+    "nad1_nad2": {"passed": 24, "result": "pass"},
+    "naui1": {"passed": 47, "result": "pass"},
+    "naui2": {"passed": 3, "result": "pass"},
+    "manager_library": {"passed": 146, "result": "pass"},
+    "manager_binary": {"passed": 86, "result": "pass"},
+    "manager_report": {"passed": 5, "result": "pass"},
+    "frontend": {"passed": 32, "result": "pass"},
+    "strict_manager_clippy": "pass",
+    "strict_frontend_clippy": "pass",
+    "python_compilation": "pass",
+    "production_windows_adapter_cross_compile": "pass",
+    "source_owned_windows_fixtures_cross_compile": "pass"
+  },
+  "generated_qualification": {
+    "platform": "maintainer Steam Deck",
+    "sessions": 15,
+    "recovery_origin_sessions": 15,
+    "physical_topology_case": "pass",
+    "persistent_absence_refusal": "pass",
+    "second_fresh_session": "pass",
+    "preservation": "pass",
+    "real_dependency_mutations": 0,
+    "commercial_launch": false
+  },
+  "hosted_source_validation": {
+    "AP8": {
+      "head": "88247de9c79c565b17b88af277df4cbe819c53db",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35380455078",
+      "result": "pass"
+    },
+    "AP12": {
+      "head": "88247de9c79c565b17b88af277df4cbe819c53db",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35380454871",
+      "result": "pass"
+    },
+    "PX2": {
+      "head": "88247de9c79c565b17b88af277df4cbe819c53db",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35380454860",
+      "result": "pass"
+    }
+  },
+  "boundaries": {
+    "candidate_installed": false,
+    "second_real_click": false,
+    "real_native_access_launched": false,
+    "real_ntkdaemon_started_or_stopped": false,
+    "installer_or_updater_replayed": false,
+    "daw_or_plugin_launched": false,
+    "production_operation": false
+  }
+}

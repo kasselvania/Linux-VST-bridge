@@ -1,0 +1,45 @@
+{
+  "schema": "vst.nao1-recovery-readiness-handoff-preservation/v1",
+  "source": "88247de9c79c565b17b88af277df4cbe819c53db",
+  "base": "a544645792aa1428d0388191e4fee45e7801b921",
+  "base_evidence_file_count": 703,
+  "base_evidence_git_manifest_sha256": "f58d03611cc658358e4b0ff2198fc78a2293c582ebad301d57bf2ccab8e96aee",
+  "base_evidence_unchanged": true,
+  "source_evidence_additions": [
+    "evidence/nao1/recovery-readiness-handoff/real-starting-point.json"
+  ],
+  "campaign": {
+    "protected_state_unchanged": true,
+    "runtime_content_unchanged": true,
+    "windows_prefix_metadata_unchanged": true,
+    "private_home_metadata_unchanged": true,
+    "runtime_shared_inode_ctime_changes": 6701,
+    "protected_projects": 5,
+    "retained_witnesses": 307,
+    "real_prefix_entries": 11985,
+    "real_prefix_metadata_sha256": "c5232ad009aa276a8e8906a59a3f03c0f3d9b06a0291183f6f4514ac599e86a8",
+    "renderer_records_sha256": "d4c7e198ed5aa3682137154d0206a8b2da3d874881bc646125057f2c490890c7",
+    "real_dependency_mutations": 0,
+    "commercial_application_launch": false
+  },
+  "terminal_system": {
+    "bridge_service": "active",
+    "keepers": 2,
+    "dsp_leases": 0,
+    "maintenance_leases": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false,
+    "capture_armed": false,
+    "active_capture_retention": 0
+  },
+  "physical_boundaries": {
+    "second_click": false,
+    "real_native_access_launch": false,
+    "real_ntkdaemon_transition": false,
+    "installer_replay": false,
+    "candidate_installation": false,
+    "daw_or_plugin": false,
+    "production_operation": false
+  }
+}
