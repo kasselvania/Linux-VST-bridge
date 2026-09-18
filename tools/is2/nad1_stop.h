@@ -12,6 +12,51 @@ struct Nad1StopObservation {
     uint32_t queries=0, progress=0;
     uint64_t control_started=0, control_elapsed=0, elapsed=0;
 };
+struct Nad1ProcessAdmission {
+    bool opened=false, valid=false;
+    uint64_t created=0;
+    uint32_t error=0;
+};
+struct Nad1StopAdmission {
+    Nad1StopStatus first{};
+    bool valid=false, exit_witness=false;
+    uint32_t pid=0, identity_error=0;
+    uint64_t created=0;
+};
+// Admit either the exact retained process handle or the exact receipt published
+// before that handle was released. A failed acquisition gets one bounded handoff
+// recheck: fresh STOPPED, exact receipt and zero listeners. An opened but
+// unverified process is never replaced by receipt evidence.
+template<class IO> Nad1StopAdmission nad1_admit_stop_generation(
+    IO& io,Nad1StopStatus first,uint32_t observed_pid,uint32_t prior_pid,uint64_t prior_created) {
+    Nad1StopAdmission r;r.first=first;
+    if(first.error)return r;
+    r.valid=true;
+    if(first.state==4){r.pid=observed_pid;if(prior_pid&&r.pid!=prior_pid){r.valid=false;r.identity_error=13;}}
+    else if(prior_pid)r.pid=prior_pid;
+    else if(first.state!=1){r.valid=false;r.identity_error=13;}
+    if(!r.valid||!r.pid)return r;
+    if(first.state==1&&prior_created){
+        const int witness=io.exit_witness(r.pid,prior_created);
+        if(witness<0){r.valid=false;r.identity_error=13;return r;}
+        if(witness==1){r.exit_witness=true;r.created=prior_created;return r;}
+    }
+    auto process=io.acquire(r.pid,prior_created);
+    if(process.opened){
+        r.valid=process.valid&&process.created&&(!prior_created||process.created==prior_created);
+        r.created=process.created;
+        if(!r.valid)r.identity_error=process.error?process.error:13;
+        return r;
+    }
+    r.valid=false;r.identity_error=process.error?process.error:13;
+    auto fresh=io.refresh();
+    if(fresh.error||fresh.state!=1||!prior_created)return r;
+    const int witness=io.exit_witness(r.pid,prior_created);
+    if(witness<0){r.identity_error=13;return r;}
+    if(witness!=1||io.endpoints(r.pid)!=0)return r;
+    r.first=fresh;r.valid=true;r.exit_witness=true;r.created=prior_created;r.identity_error=0;
+    return r;
+}
 template<class IO> Nad1StopObservation nad1_observe_stop(IO& io, bool generation_valid) {
     Nad1StopObservation r;const auto begin=io.now();
     r.before=r.last=io.query();++r.queries;

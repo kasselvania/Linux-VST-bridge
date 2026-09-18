@@ -112,33 +112,37 @@ static int nad1_service_request(const std::vector<std::wstring>& r,const std::ws
         if(!number(r[5],prior_pid)||!number(r[6],prior_created)||prior_pid>0xffffffffULL||(prior_pid==0)!=(prior_created==0)){CloseServiceHandle(service);CloseServiceHandle(scm);return 140;}
         SERVICE_STATUS_PROCESS initial{};DWORD count=0;
         bool queried=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&initial),sizeof(initial),&count)!=FALSE;
-        DWORD first_error=queried?0:GetLastError();HANDLE process=nullptr;DWORD pid=0;unsigned long long created=0;
-        bool valid=queried;DWORD identity_error=0;bool exit_witness=false;
-        if(queried&&initial.dwCurrentState==SERVICE_RUNNING){
-            pid=initial.dwProcessId;
-            if(prior_pid&&pid!=prior_pid){valid=false;identity_error=ERROR_INVALID_DATA;}
-        }else if(queried&&prior_pid)pid=static_cast<DWORD>(prior_pid);
-        else if(queried&&initial.dwCurrentState!=SERVICE_STOPPED){valid=false;identity_error=ERROR_INVALID_DATA;}
-        if(valid&&pid&&initial.dwCurrentState==SERVICE_STOPPED&&prior_created){
-            const int witness=nad1_exit_read(request_path,r,pid,prior_created);
-            if(witness<0){valid=false;identity_error=ERROR_INVALID_DATA;}
-            else if(witness==1){exit_witness=true;created=prior_created;}
-        }
-        if(valid&&pid&&!exit_witness){
-            process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION|SYNCHRONIZE,FALSE,pid);
-            if(!process)identity_error=GetLastError();
-            std::array<wchar_t,32768> path{};DWORD length=static_cast<DWORD>(path.size());
-            valid=process&&QueryFullProcessImageNameW(process,0,path.data(),&length)&&_wcsicmp(path.data(),nad1_image)==0;
-            if(valid){created=time_of(process);valid=created!=0&&(!prior_created||created==prior_created);}
-            if(!valid&&!identity_error)identity_error=ERROR_INVALID_DATA;
-        }
+        DWORD first_error=queried?0:GetLastError();
+        struct AdmissionIO {
+            SC_HANDLE service;const std::wstring& path;const std::vector<std::wstring>& request;HANDLE process=nullptr;
+            int exit_witness(uint32_t pid,uint64_t created){return nad1_exit_read(path,request,pid,created);}
+            Nad1ProcessAdmission acquire(uint32_t pid,uint64_t prior_created){
+                process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION|SYNCHRONIZE,FALSE,pid);
+                if(!process)return {false,false,0,GetLastError()};
+                std::array<wchar_t,32768> image{};DWORD length=static_cast<DWORD>(image.size());
+                bool valid=QueryFullProcessImageNameW(process,0,image.data(),&length)&&_wcsicmp(image.data(),nad1_image)==0;
+                auto created=valid?time_of(process):0;
+                valid=valid&&created&&(!prior_created||created==prior_created);
+                return {true,valid,created,valid?0u:static_cast<uint32_t>(ERROR_INVALID_DATA)};
+            }
+            Nad1StopStatus refresh(){
+                SERVICE_STATUS_PROCESS status{};DWORD used=0,error=0;
+                if(!QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&status),sizeof(status),&used))error=GetLastError();
+                return {status.dwCurrentState,status.dwCheckPoint,status.dwWaitHint,status.dwWin32ExitCode,status.dwServiceSpecificExitCode,error};
+            }
+            uint32_t endpoints(uint32_t pid){return nad1_endpoints(pid);}
+        } admission_io{service,request_path,r};
+        Nad1StopStatus first{initial.dwCurrentState,initial.dwCheckPoint,initial.dwWaitHint,initial.dwWin32ExitCode,initial.dwServiceSpecificExitCode,first_error};
+        auto admission=nad1_admit_stop_generation(admission_io,first,initial.dwProcessId,static_cast<DWORD>(prior_pid),prior_created);
+        HANDLE process=admission_io.process;DWORD pid=admission.pid;unsigned long long created=admission.created;
+        bool valid=admission.valid;DWORD identity_error=admission.identity_error;bool exit_witness=admission.exit_witness;
         struct IO {
-            SC_HANDLE service;HANDLE process;DWORD pid;SERVICE_STATUS_PROCESS first;DWORD first_error;bool initial=true;
+            SC_HANDLE service;HANDLE process;DWORD pid;Nad1StopStatus first;bool initial=true;
             const std::vector<std::wstring>& request;
             uint64_t now(){return GetTickCount64();}
             Nad1StopStatus query(){
                 SERVICE_STATUS_PROCESS st{};DWORD count=0,error=0;
-                if(initial){st=first;error=first_error;initial=false;}
+                if(initial){initial=false;return first;}
                 else if(!QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&st),sizeof(st),&count))error=GetLastError();
                 return {st.dwCurrentState,st.dwCheckPoint,st.dwWaitHint,st.dwWin32ExitCode,st.dwServiceSpecificExitCode,error};
             }
@@ -147,7 +151,7 @@ static int nad1_service_request(const std::vector<std::wstring>& r,const std::ws
             uint32_t wait(uint32_t& error){DWORD result=process?WaitForSingleObject(process,0):WAIT_OBJECT_0;error=result==WAIT_FAILED?GetLastError():0;return result;}
             uint32_t endpoints(){return pid?nad1_endpoints(pid):0;}
             void sleep(){Sleep(50);}
-        } io{service,process,pid,initial,first_error,true,r};
+        } io{service,process,pid,admission.first,true,r};
         auto result=nad1_observe_stop(io,valid);
         std::fprintf(stdout,"NAD1_STOP_OBSERVATION_V2 %ls %ls %u %u %u %u %u %u %u %u %u %u %u %u %llu %llu %llu %u %u %u %u %u\n",
             r[1].c_str(),r[2].c_str(),result.confirmed?1u:0u,result.before.state,result.before.error,result.last.state,result.last.error,

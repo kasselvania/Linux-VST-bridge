@@ -13,6 +13,19 @@ struct IO {
  uint32_t endpoints(){return mask;}
  void sleep(){++sleeps;clock+=50;}
 };
+struct AdmissionIO {
+ int receipt=0;bool publish_during_acquire=false,anchor_alive=true,opened=false,identity=true;
+ uint32_t open_error=5,mask=0,witnesses=0,acquisitions=0,refreshes=0,censuses=0;
+ uint64_t created=456;Nad1StopStatus fresh{1};
+ int exit_witness(uint32_t,uint64_t){++witnesses;return receipt;}
+ Nad1ProcessAdmission acquire(uint32_t,uint64_t){
+  ++acquisitions;
+  if(publish_during_acquire){receipt=1;anchor_alive=false;}
+  return {opened,opened&&identity,opened?created:0,opened&&identity?0u:open_error};
+ }
+ Nad1StopStatus refresh(){++refreshes;return fresh;}
+ uint32_t endpoints(uint32_t){++censuses;return mask;}
+};
 int main(){
  // Pending stop: retain exact handle, never send another control, poll progress.
  IO pending{{{3,1,1000},{3,2,1000},{1,0,0}}};auto p=nad1_observe_stop(pending,true);
@@ -33,4 +46,27 @@ int main(){
  // Time in ControlService counts against the existing bound; no fresh 12s window.
  IO slow_control{{{4},{3}}};slow_control.control_delay=12500;auto c=nad1_observe_stop(slow_control,true);
  assert(!c.confirmed&&c.elapsed==12500&&c.control_elapsed==12500&&slow_control.sleeps==0&&slow_control.controls==1);
+ // Receipt already published before admission remains the direct handoff case.
+ AdmissionIO before;before.receipt=1;auto a=nad1_admit_stop_generation(before,{1},0,123,456);
+ assert(a.valid&&a.exit_witness&&a.pid==123&&a.created==456&&before.acquisitions==0&&before.witnesses==1);
+ IO before_stop{{a.first,{1}}};assert(nad1_observe_stop(before_stop,a.valid).confirmed&&before_stop.controls==0);
+ // Exact race: first receipt lookup misses; acquisition publishes the receipt
+ // and releases the original anchor handle; one fresh STOPPED/read/census wins.
+ AdmissionIO during;during.publish_during_acquire=true;auto b=nad1_admit_stop_generation(during,{1},0,123,456);
+ assert(b.valid&&b.exit_witness&&!during.anchor_alive&&during.witnesses==2&&during.acquisitions==1&&during.refreshes==1&&during.censuses==1);
+ IO during_stop{{b.first,{1}}};assert(nad1_observe_stop(during_stop,b.valid).confirmed&&during_stop.controls==0);
+ // Pending and running observations use the same bounded handoff after failed acquisition.
+ for(auto state:{3u,4u}){AdmissionIO crossing;crossing.publish_during_acquire=true;
+  auto admitted=nad1_admit_stop_generation(crossing,{state},state==4?123u:0u,123,456);
+  assert(admitted.valid&&admitted.exit_witness&&admitted.first.state==1&&crossing.witnesses==1&&crossing.refreshes==1&&crossing.censuses==1);
+  IO observed{{admitted.first,{1}}};assert(nad1_observe_stop(observed,admitted.valid).confirmed&&observed.controls==0);
+ }
+ // Missing/malformed evidence, non-stopped refresh and live listeners refuse.
+ AdmissionIO missing;auto m=nad1_admit_stop_generation(missing,{1},0,123,456);assert(!m.valid&&m.identity_error==5&&missing.witnesses==2);
+ AdmissionIO malformed;malformed.receipt=-1;auto malformed_result=nad1_admit_stop_generation(malformed,{3},0,123,456);assert(!malformed_result.valid&&malformed_result.identity_error==13);
+ AdmissionIO not_stopped;not_stopped.publish_during_acquire=true;not_stopped.fresh={3};assert(!nad1_admit_stop_generation(not_stopped,{3},0,123,456).valid);
+ AdmissionIO listeners;listeners.publish_during_acquire=true;listeners.mask=3;assert(!nad1_admit_stop_generation(listeners,{3},0,123,456).valid);
+ // An opened process with unresolved identity cannot switch to receipt authority.
+ AdmissionIO unresolved;unresolved.opened=true;unresolved.identity=false;unresolved.publish_during_acquire=true;
+ auto u=nad1_admit_stop_generation(unresolved,{3},0,123,456);assert(!u.valid&&!u.exit_witness&&unresolved.refreshes==0&&unresolved.witnesses==0);
 }

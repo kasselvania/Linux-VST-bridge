@@ -505,3 +505,17 @@ The completed-stop correction is generated-qualified at source
 failed first candidate and unchanged-evidence witness are retained separately in
 `evidence/nad1/recovery/completed-stop-handoff/`. No device/vendor operation or
 installation occurred. PR #121 remains draft for rereview.
+
+## In-flight receipt/acquisition handoff correction
+
+The tech-lead rereview at `18007a0` identifies one remaining interleaving: the
+anchor can publish its exact exit receipt and release the original process handle
+after the stop helper's first receipt lookup but before `OpenProcess`. Correct only
+that handoff on this draft branch. After failed process acquisition, allow one
+bounded recheck requiring a fresh exact receipt, fresh SCM STOPPED observation and
+zero listeners for the admitted generation. Apply the same recheck when the first
+SCM state was STOP_PENDING or RUNNING. Missing, malformed, aliased, inaccessible or
+mismatched evidence remains refusal; an opened handle with unresolved identity is
+never bypassed. Qualify the exact production admission law with a deterministic
+generated schedule. Keep Native Access closed and perform no real daemon transition
+or installation. The preserved live listener failure remains unexplained.
