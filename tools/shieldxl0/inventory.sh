@@ -18,7 +18,7 @@ capture() {
 
 tr -d '\000' </proc/device-tree/model >"$OUTPUT/model.txt"
 read_revision >"$OUTPUT/board-revision.txt"
-capture uname uname -a
+capture uname uname -srmv
 capture os-release sed -n '1,160p' /etc/os-release
 capture architecture dpkg --print-architecture
 capture page-size getconf PAGESIZE
@@ -43,7 +43,7 @@ capture jack-processes pgrep -a jackd
 capture temperature vcgencmd measure_temp
 capture throttling vcgencmd get_throttled
 capture cpu-governor sh -c 'for f in /sys/devices/system/cpu/cpufreq/policy*/scaling_governor; do printf "%s " "$f"; cat "$f"; done'
-capture cpu-clock-range sh -c 'for f in /sys/devices/system/cpu/cpufreq/policy*/cpuinfo_{min,max}_freq; do printf "%s " "$f"; cat "$f"; done'
+capture cpu-clock-range bash -c 'for f in /sys/devices/system/cpu/cpufreq/policy*/cpuinfo_min_freq /sys/devices/system/cpu/cpufreq/policy*/cpuinfo_max_freq; do [[ -r $f ]] || continue; printf "%s " "$f"; cat "$f"; done'
 capture repositories sh -c 'grep -RhE "^[[:space:]]*(deb|URIs:|Suites:|Components:)" /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null'
 capture packages dpkg-query -W -f='${binary:Package}\t${Version}\t${Architecture}\n'
 

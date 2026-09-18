@@ -31,6 +31,12 @@ class ContractTest(unittest.TestCase):
         self.assertEqual(evidence["config_results"]["CONFIG_SND_SOC_CS4270"], "not set")
         self.assertFalse(evidence["decision"]["custom_kernel_image"])
 
+    def test_wrong_board_refusal_is_retained_without_claiming_acceptance(self):
+        evidence = json.loads((REPO / "evidence/shieldxl0/fixture-admission-failure.json").read_text())
+        self.assertEqual(evidence["result"], "refused_wrong_board")
+        self.assertEqual(evidence["observed"]["board_revision"], "a020d3")
+        self.assertFalse(evidence["changes"]["provisioning_started"])
+
 
 if __name__ == "__main__":
     unittest.main()

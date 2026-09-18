@@ -97,6 +97,7 @@
   },
   "known_limitations": [
     "Physical Raspberry Pi 4 and ShieldXL verification has not run.",
+    "The first powered candidate was refused because it identified as Raspberry Pi 3 Model B Plus Rev 1.3, revision a020d3, rather than the required Pi 4 Model B.",
     "Exact Pi revision, RAM, ALSA/JACK identities, XRUNs, controls, USB MIDI, OLED, and thermal results remain unobserved.",
     "ShieldXL TRS/UART MIDI is deliberately deferred; USB MIDI is the required first path."
   ]

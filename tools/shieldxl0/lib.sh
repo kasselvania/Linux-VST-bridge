@@ -49,7 +49,7 @@ require_platform() {
   # shellcheck disable=SC1091
   source /etc/os-release
   codename=${VERSION_CODENAME:-}
-  [[ ${ID:-} == raspbian && $codename == trixie ]] ||
+  [[ ${ID:-} == debian && $codename == trixie ]] ||
     die "unsupported OS: expected Raspberry Pi OS Trixie, observed ${ID:-unknown}/${codename:-unknown}"
   grep -Fqx 'Raspberry Pi reference 2026-09-15' /etc/rpi-issue ||
     die 'image identity differs from the pinned 2026-09-15 Raspberry Pi OS image'
