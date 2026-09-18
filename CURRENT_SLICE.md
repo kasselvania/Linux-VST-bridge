@@ -28,11 +28,6 @@ NAD2 adds bounded diagnostic characterization only. It must not introduce anothe
 stop request, a longer production wait, a replacement shutdown strategy, direct
 daemon termination as success, or a Native Access session.
 
-Development review uses an **external VST cut-review tool** after the draft PR exists.
-No Jev client, semantic annex, evidence packet, candidate ledger, or review receipt
-belongs in this repository. Do not add or restore `tools/jev-preflight`, a
-`docs/review/*jev*` contract, or Jev-specific repository process machinery.
-
 During implementation and PR qualification:
 
 - do not install a candidate;

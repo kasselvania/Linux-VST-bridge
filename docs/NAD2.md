@@ -198,31 +198,7 @@ Run:
 
 AP10 remains out of scope unless native/audio source changes.
 
-## 7. External VST cut review
-
-The VST cut-review tool is external development tooling. It is not part of this
-repository, the runtime, the manager, or the evidence model.
-
-After implementation and deterministic qualification are complete:
-
-1. Freeze one candidate at an exact commit and tree.
-2. Open or update the draft PR against `main`.
-3. Run the external VST cut-review wrapper against that exact PR.
-4. Pin this document and `CURRENT_SLICE.md` to the accepted slice-selection commit,
-   not to a candidate-edited authority file.
-5. Supply changed tests automatically and only a short explicit list of unchanged
-   focused tests when needed.
-6. Investigate the wrapper's exact-hunk review leads.
-7. Repair a credible lead when warranted, then rerun once against the new exact PR
-   head.
-8. Hand the PR and compact review report to the independent tech lead.
-
-The wrapper is advisory. It must not output approval, merge authority, installation
-authority, readiness percentage, a semantic annex, or a candidate evidence ledger.
-Do not add Jev code, dependencies, configuration, reports, or process standards to
-Linux-VST-bridge.
-
-## 8. Delivery
+## 7. Delivery
 
 Return one draft PR, uninstalled and unmerged, containing:
 
@@ -230,7 +206,6 @@ Return one draft PR, uninstalled and unmerged, containing:
 - generated qualification evidence;
 - exact executable-source and final-head identities;
 - AP8/AP12/PX2 results;
-- a concise external cut-review summary and actions taken;
 - explicit preservation of prior Native Access, Arturia, VST, product and project
   behavior;
 - an explicit statement that reliable real-daemon shutdown remains unqualified.
