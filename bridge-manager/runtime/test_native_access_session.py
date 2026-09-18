@@ -112,7 +112,7 @@ class SessionAdmission(unittest.TestCase):
  def test_renderer_launch_uses_recovery_session_admission_not_prepared_receipt(self):
   value=self.recovery_spec()
   with patch.object(s,'renderer_validate'),patch.object(s,'nad1_session_admitted',return_value=self.recovery_session) as admit,patch.object(s,'nad1_prepared',side_effect=AssertionError('historical gate used')),patch.object(s,'renderer_owned',return_value=True) as run:
-   self.assertTrue(s.renderer_application(value));admit.assert_called_once_with(value);run.assert_called_once()
+   self.assertTrue(s.renderer_application(value));admit.assert_called_once_with(value);run.assert_called_once_with(value,dependency=self.recovery_session)
  def test_application_failure_and_operator_stop_remain_distinct_terminal_states(self):
   self.assertEqual(s.renderer_terminal_state(True,False,None),'completed')
   self.assertEqual(s.renderer_terminal_state(True,True,None),'cancelled')

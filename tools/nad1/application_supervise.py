@@ -2,7 +2,7 @@
 import ctypes,os,pathlib,shutil,subprocess,sys,time
 sys.dont_write_bytecode=True
 from owner_package import verify,read,digest,publish
-CASES=('normal','repeat','cancel','not_ready','stop_failure','application_failure','lifetime','child_memory','callback',
+CASES=('normal','repeat','registration_handoff','registration_absent','cancel','not_ready','stop_failure','application_failure','lifetime','child_memory','callback',
  'no_transition_cleanup','not_submitted_cleanup','stopped_residue_cleanup','observation_unavailable_cleanup')
 def recovery_session(package,manifest,spec,d,fixture_directory):
  """Cross Rust and Python admission with an exact artifact-absent recovery origin."""
@@ -26,7 +26,7 @@ def recovery_session(package,manifest,spec,d,fixture_directory):
  session=read(session_path);spec['dependency_session']=session;s.renderer_bound_inputs(spec)
  if s.nad1_session_admitted_inputs(spec,recovery,q,'NAD1Fixture/Setup.exe','NAD1Fixture/NTKDaemon.exe')!=session:raise ValueError('fixture_session_admission_disagreement')
  if (recovery/'artifact.json').exists() or (recovery/'prepared.json').exists():raise ValueError('fixture_recovery_pointer_created')
- return session
+ return session,recovery,q
 def run(package,seal,spec_path):
  p=pathlib.Path(package);manifest=verify(p,seal);spec=read(spec_path);d=pathlib.Path(spec_path).parents[5];op=spec['operation']
  case=read(d/'case.json')['case']
@@ -78,7 +78,10 @@ def run(package,seal,spec_path):
   previous=read(d.parent/'normal/proof.json')['result']
   if previous['state']!='completed' or not previous['dependency']['service_retirement_confirmed'] or previous['dependency']['forced_cleanup_used']:raise ValueError('fixture_repeat_prior_retirement')
   (directory/'application-started').unlink()
- session=recovery_session(p,manifest,spec,d,directory)
+ session,recovery,qualification=recovery_session(p,manifest,spec,d,directory)
+ fixture.update(session_directory=str(recovery),session_qualification=qualification)
+ if case=='registration_handoff':(directory/'query-absent-once').touch()
+ if case=='registration_absent':(directory/'query-absent-always').touch()
  if case=='callback':(directory/'await-callback').touch()
  if case=='child_memory':(directory/'probe-child-memory').touch()
  if case=='not_ready':(directory/'not-ready').touch()
@@ -93,7 +96,7 @@ def run(package,seal,spec_path):
  admitted=session['daemon']
  if admitted['sha256']!=manifest['files']['Setup.exe']:raise ValueError('fixture_daemon_changed')
  verify(p,seal)
- return s.renderer_owned(spec,dependency={'daemon':admitted},dependency_fixture=fixture,callback_fixture=case=='callback')
+ return s.renderer_owned(spec,dependency=session,dependency_fixture=fixture,callback_fixture=case=='callback')
 if __name__=='__main__':
  if len(sys.argv)!=3:raise ValueError('fixture_arguments')
  sys.exit(0 if run(pathlib.Path(__file__).parent,sys.argv[1],sys.argv[2]) else 1)

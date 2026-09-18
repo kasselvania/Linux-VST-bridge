@@ -2599,7 +2599,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
         ledger=InstallerLedger(scope,persist)
         if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('renderer_subreaper')
         if dependency is not None:
-            dependency_owner=Nad1Owner(spec,ledger,scope,lambda:stop,fixture=dependency_fixture)
+            dependency_owner=Nad1Owner(spec,ledger,scope,lambda:stop,fixture=dependency_fixture,session_authority=dependency)
             dependency_owner.ensure(False,dependency['daemon'])
         token=os.urandom(32).hex();evidence.trace.arm_root(op,token,image.size);evidence.begin();evidence.begin()
         content='\n'.join(['NAUI2_AUTH_LAUNCH_V1' if callback_enabled else 'NAUI2_LAUNCH_V1',op,token,'2',image.sha,str(image.size),windows(image.path,root/'compatdata/pfx'),spec['renderer_policy'],''])
@@ -2610,7 +2610,8 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
         if dependency_owner is not None:
             argv=dependency_owner.runtime.argv(request_path,image.path.parent,launch_env)
         image.check()
-        child=subprocess.Popen(argv,cwd=image.path.parent,env=launch_env,stdin=subprocess.PIPE if callback_enabled else subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+        try:child=subprocess.Popen(argv,cwd=image.path.parent,env=launch_env,stdin=subprocess.PIPE if callback_enabled else subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+        except Exception as exc:raise ValueError('application_launch_failed') from exc
         ledger.launcher(child,'application_runner')
         for name,pipe in [('stdout',child.stdout),('stderr',child.stderr)]:os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,name)
         last=0
@@ -2695,6 +2696,7 @@ NAD1_INSTALLER = 'Program Files/Native Instruments/Native Access/resources/daemo
 NAD1_INSTALLER_SHA = '5f2199f4e1409d6eea5edaea9c4a8af31e8ee8ac3790851aa44d33e87a46b218'
 NAD1_DAEMON = 'Program Files/Common Files/Native Instruments/NTK/NTKDaemon.exe'
 NAD1_SERVICE = 'NTKDaemonService'
+NAD1_REGISTRATION_REOBSERVATION_SECONDS = 1.0
 
 def nad1_listener_census(proc=pathlib.Path('/proc')):
     """Bounded passive absence check for NAO1's two fixed loopback ports."""
@@ -3106,7 +3108,7 @@ class Nad1Runtime:
 
 
 class Nad1Owner:
-    def __init__(self,spec,ledger,scope,cancelled,*,fixture=None):
+    def __init__(self,spec,ledger,scope,cancelled,*,fixture=None,session_authority=None):
         self.spec=spec;self.ledger=ledger;self.scope=scope;self.cancelled=cancelled;self.production=fixture is None
         self.root=pathlib.Path(spec['application']['environment']['root']);self.prefix=self.root/'compatdata/pfx';self.drive=self.prefix/'drive_c'
         try:prefix=self.prefix.lstat();self.prefix_identity=(prefix.st_dev,prefix.st_ino)
@@ -3118,6 +3120,15 @@ class Nad1Owner:
         self.installer_sha=NAD1_INSTALLER_SHA if fixture is None else fixture['installer_sha256']
         self.installer_size=35769456 if fixture is None else fixture['installer_size']
         self.token=os.urandom(32).hex();self.anchor=None;self.recovery=None;self.runtime=None;self.diagnostic_privacy=False
+        self.session_authority=self._session_authority(session_authority,fixture)
+        self.registration_reobservation={'attempted':False,'count':0,'delay_ms':0,'result':'not_applicable'}
+        if self.session_authority is not None:
+            origin=self.session_authority['origin'];kind=origin['kind']
+            projection={'kind':kind,'authority_sha256':hashlib.sha256(json.dumps(self.session_authority,sort_keys=True,separators=(',',':')).encode()).hexdigest(),
+                'service':self.session_authority['service'],'listeners':self.session_authority['listeners'],
+                'installer':self.session_authority['installer'],'daemon':self.session_authority['daemon'],
+                'installer_reexecuted':False,'validated':True}
+            if kind=='qualified_recovered_installation':self.recovery=projection
         self.service_possibility='unknown';self.retirement_authorized=False
         self.retiring=False;self.retirement_attempted=False
         self.service_stop_requested=False;self.service_stop_request_count=None;self.service_retirement_confirmed=False
@@ -3126,6 +3137,8 @@ class Nad1Owner:
         self.dependency_cleanup_disposition='cleanup_unconfirmed';self.post_cleanup=None
     def value(self):
         return {'schema':1,'ready_tested':self.ready,'daemon':self.daemon,'recovery':self.recovery,
+                'session_origin':({'kind':self.session_authority['origin']['kind'],'validated':True} if self.session_authority else None),
+                'registration_reobservation':self.registration_reobservation,
                 'service_stop_requested':self.service_stop_requested,'service_stop_request_count':self.service_stop_request_count,
                 'service_retirement_confirmed':self.service_retirement_confirmed,
                 'process_cleanup_confirmed':self.process_cleanup_confirmed,'forced_cleanup_used':self.forced_cleanup_used,
@@ -3135,6 +3148,41 @@ class Nad1Owner:
                 'runtime':{'topology':'one_operation_container','ready':self.runtime.ready,'retirement_requested':self.runtime.closed,'service_sha256':self.runtime.SERVICE_SHA} if self.runtime else None,
                 'stages':self.stages,'readiness_contract':'SCM_exact_generation_and_Windows_owned_loopback_pair_and_unique_owned_Linux_image_generation_v1',
                 'linux_windows_join':False,'lifetime':'owned_operation_only_retired_before_bridge_resume'}
+    def _session_authority(self,supplied,fixture):
+        expected=self.spec.get('dependency_session')
+        if expected is None:
+            if supplied is not None:raise ValueError('dependency_recovery_authority_lost')
+            return None
+        if supplied is None:raise ValueError('dependency_recovery_authority_missing')
+        if supplied!=expected:raise ValueError('dependency_recovery_authority_lost')
+        try:
+            if fixture is None:
+                admitted=nad1_session_admitted(self.spec)
+            else:
+                if not {'session_directory','session_qualification'}<=set(fixture):raise ValueError('dependency_recovery_authority_missing')
+                admitted=nad1_session_admitted_inputs(self.spec,fixture['session_directory'],fixture['session_qualification'],self.installer_relative,self.daemon_relative)
+        except Exception as exc:
+            if isinstance(exc,ValueError) and str(exc)=='dependency_recovery_authority_missing':raise
+            raise ValueError('dependency_recovery_authority_lost') from exc
+        if admitted!=supplied:raise ValueError('dependency_recovery_authority_lost')
+        if (admitted.get('origin',{}).get('kind') not in ('retained_installation_artifact','qualified_recovered_installation')
+            or admitted.get('service')!=NAD1_SERVICE or admitted.get('listeners')!=[5146,5563]):
+            raise ValueError('dependency_recovery_authority_lost')
+        return json.loads(json.dumps(admitted))
+    def _registration_reobserve(self):
+        self.registration_reobservation={'attempted':True,'count':1,
+            'delay_ms':int(NAD1_REGISTRATION_REOBSERVATION_SECONDS*1000),'result':'unavailable'}
+        if self.runtime is not None:self.runtime.drain(NAD1_REGISTRATION_REOBSERVATION_SECONDS)
+        else:time.sleep(NAD1_REGISTRATION_REOBSERVATION_SECONDS)
+        try:service=self.command('query')
+        except Exception as exc:
+            self.registration_reobservation['result']='observation_unavailable'
+            raise ValueError('dependency_registration_recovery_failed') from exc
+        self.registration_reobservation['result']=service['registration']
+        if service['registration']!='exact':
+            self.service_possibility='proved_absent'
+            raise ValueError('dependency_qualified_registration_absent')
+        return service
     def command(self,action):
         if action not in ('query','install','start','stop'):raise ValueError('dependency_action')
         index=len(self.stages);request=self.directory/f'{self.op}-dependency-{index}.private'
@@ -3249,12 +3297,19 @@ class Nad1Owner:
         if scan['unavailable']:raise ValueError('dependency_identity_unresolved')
         if any(p['prefix_relation'] in ('foreign','deleted') for p in scan['candidates']):raise ValueError('dependency_foreign_conflict')
         if any(p.get('prefix_relation')=='same' and not nad1_generation_owned(p,self.scope) for p in scan['private']):raise ValueError('dependency_same_prefix_unowned')
-        service=self.command('query')
+        try:service=self.command('query')
+        except Exception as exc:
+            if self.session_authority is not None:raise ValueError('dependency_registration_observation_unavailable') from exc
+            raise
         self.service_possibility='proved_absent' if service['registration']=='absent' else 'exact_registered'
         self.retirement_authorized=service['registration']=='exact'
         absent=actual is None;unregistered=service['registration']=='absent'
+        if unregistered and not absent and self.session_authority is not None:
+            self.service_possibility='may_exist';self.retirement_authorized=False
+            service=self._registration_reobserve();unregistered=False
+            self.service_possibility='exact_registered';self.retirement_authorized=True
         if absent or unregistered:
-            if not allow_install:raise ValueError('dependency_recovery_registration_missing' if self.recovery else 'dependency_prepare_required')
+            if not allow_install:raise ValueError('dependency_qualified_registration_absent' if self.session_authority is not None else 'dependency_prepare_required')
             # Exact installer admission grants one retirement attempt even if
             # its acknowledgment is lost after registration. No retry follows.
             self.service_possibility='may_exist';self.retirement_authorized=True
@@ -3282,7 +3337,7 @@ class Nad1Owner:
             if service['state']==4 and service['image_sha256']==actual['sha256'] and service['owned_endpoint_mask']==3 and len(matches)==1 and nad1_generation_owned(matches[0],self.scope):
                 self.ready=True;return self.value()
             time.sleep(.1)
-        raise ValueError('dependency_running_not_ready')
+        raise ValueError('dependency_readiness_failed' if self.session_authority is not None else 'dependency_running_not_ready')
 
 
     def retire(self):
@@ -3351,6 +3406,7 @@ class Nad1Owner:
         if self.retirement_attempted:return self.service_retirement_confirmed
         self.retirement_attempted=True;self.retiring=True
         if self.service_possibility=='proved_absent':
+            self.service_stop_request_count=0;self.service_stop_requested=False
             self.service_retirement_confirmed=True;return True
         if not self.retirement_authorized:
             # Unowned/conflicting candidates are never adopted or signalled.

@@ -31,6 +31,19 @@ class OwnerTests(unittest.TestCase):
   self.scan_patch=patch.object(ownership,'census',side_effect=scan);self.scan_patch.start();self.addCleanup(self.scan_patch.stop)
   self.listener=patch.object(s,'nad1_generation_owned',return_value=True).start();self.addCleanup(patch.stopall)
  def existing(self,registered=True,state=1):self.daemon.write_bytes(self.bytes);self.registered=registered;self.service_state=state;return self.artifact
+ def session_owner(self,authority=None):
+  authority=authority or {'schema':1,'authority':'closed_exact_installation_origin_and_current_software',
+   'application':'b'*64,'software_sha256':'c'*64,'manager_sha256':'d'*64,'environment':'fixture',
+   'prefix':{'path_sha256':'e'*64,'device':1,'inode':2},'installation':{'path':'fixture','sha256':'f'*64},
+   'service':s.NAD1_SERVICE,'listeners':[5146,5563],
+   'installer':{'sha256':self.artifact['sha256'],'size':256},'daemon':self.artifact,
+   'origin':{'kind':'qualified_recovered_installation'},'current_software':{'fixture':True}}
+  spec={'operation':'a'*32,'report':str(self.report),'application':{'environment':{'root':str(self.root)}},'dependency_session':authority}
+  fixture={'installer':'Setup.exe','daemon':'NTKDaemon.exe','installer_sha256':self.artifact['sha256'],'installer_size':256,
+   'session_directory':str(self.root/'recovery'),'session_qualification':{'fixture':True}}
+  with patch.object(s,'nad1_session_admitted_inputs',return_value=copy.deepcopy(authority)):
+   return s.Nad1Owner(spec,type('Ledger',(),{'harvest':lambda _:None})(),None,lambda:False,
+    fixture=fixture,session_authority=copy.deepcopy(authority))
  def test_absent_installs_registers_then_service_only_start(self):
   r=self.owner.ensure(True);self.assertTrue(r['ready_tested']);self.assertEqual(self.commands,['query','install','query','start','query'])
  def test_unregistered_installs_but_never_direct_exec(self):
@@ -71,6 +84,46 @@ class OwnerTests(unittest.TestCase):
  def test_application_path_cannot_reinstall(self):
   with self.assertRaisesRegex(ValueError,'prepare_required'):self.owner.ensure(False)
   self.assertNotIn('install',self.commands)
+ def test_qualified_recovery_authority_survives_one_same_runtime_registration_reobservation(self):
+  admitted=self.existing(True);owner=self.session_owner();command=self.owner.command;queries=[0]
+  def transient(action):
+   result=command(action)
+   if action=='query' and queries[0]==0:
+    queries[0]+=1;return dict(result,registration='absent',state=0,image_sha256='none',owned_endpoint_mask=0,windows_pid=0)
+   return result
+  owner.command=transient
+  with patch.object(s.time,'sleep'):result=owner.ensure(False,admitted)
+  self.assertTrue(result['ready_tested']);self.assertEqual(self.commands[:3],['query','query','start'])
+  self.assertEqual(result['session_origin'],{'kind':'qualified_recovered_installation','validated':True})
+  self.assertEqual(result['registration_reobservation'],{'attempted':True,'count':1,'delay_ms':1000,'result':'exact'})
+  self.assertEqual(result['recovery']['kind'],'qualified_recovered_installation')
+  self.assertNotIn('install',self.commands)
+ def test_persistent_absence_and_registration_observation_fail_closed(self):
+  admitted=self.existing(False)
+  owner=self.session_owner();owner.command=self.owner.command
+  with patch.object(s.time,'sleep'),self.assertRaisesRegex(ValueError,'qualified_registration_absent'):owner.ensure(False,admitted)
+  self.assertEqual(self.commands,['query','query']);self.assertNotIn('install',self.commands)
+  for failure,expected in [(1,'registration_observation_unavailable'),(2,'registration_recovery_failed')]:
+   with self.subTest(failure=failure):
+    self.commands.clear();owner=self.session_owner();calls=[0]
+    def unavailable(action):
+     calls[0]+=1
+     if calls[0]==failure:raise ValueError('fixture_query_unavailable')
+     self.commands.append(action)
+     return {'registration':'absent','state':0,'image_sha256':'none','owned_endpoint_mask':0,'windows_pid':0}
+    owner.command=unavailable
+    with patch.object(s.time,'sleep'),self.assertRaisesRegex(ValueError,expected):owner.ensure(False,admitted)
+    if failure==2:self.assertFalse(owner.retire());self.assertFalse(owner.service_retirement_confirmed)
+ def test_renderer_owner_refuses_missing_or_changed_recovery_authority(self):
+  authority=self.session_owner().session_authority
+  spec={'operation':'a'*32,'report':str(self.report),'application':{'environment':{'root':str(self.root)}},'dependency_session':authority}
+  fixture={'installer':'Setup.exe','daemon':'NTKDaemon.exe','installer_sha256':self.artifact['sha256'],'installer_size':256,
+   'session_directory':str(self.root/'recovery'),'session_qualification':{'fixture':True}}
+  with self.assertRaisesRegex(ValueError,'authority_missing'):
+   s.Nad1Owner(spec,None,None,lambda:False,fixture=fixture)
+  changed=copy.deepcopy(authority);changed['origin']['kind']='retained_installation_artifact'
+  with self.assertRaisesRegex(ValueError,'authority_lost'):
+   s.Nad1Owner(spec,None,None,lambda:False,fixture=fixture,session_authority=changed)
  def test_changed_daemon_installer_or_unknown_generation_refuses(self):
   self.existing()
   with self.assertRaisesRegex(ValueError,'unadmitted'):self.owner.ensure(True)
@@ -343,6 +396,7 @@ class IntegratedApplicationTests(unittest.TestCase):
       self.assertNotIn('application_retire',events)
      else:self.assertLess(events.index('application_retire'),events.index('service_stop'))
      if case=='readiness_failure':self.assertEqual(events,['ready','service_stop'])
+     if case=='launch_failure':self.assertEqual(r['error'],'application_launch_failed')
      if case=='stop_failure':self.assertEqual(r['error'],'application_outer_nonzero');self.assertFalse(r['dependency']['service_retirement_confirmed'])
      if case=='normal':self.assertEqual(r['state'],'completed')
      elif case=='cancel':self.assertEqual(r['state'],'cancelled')
