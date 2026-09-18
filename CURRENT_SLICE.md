@@ -1,3 +1,62 @@
+# NAO1 — Bind the owned session to Proton's initialized command service
+
+Focused repair basis:
+
+- merged qualified-recovery repair: `c38b5c9deb8bd32f5a509258c30f31b3e795fe59`
+- merged tree: `6d661a80a707157f30d3f4815e04a72b1cb38586`
+- installed immutable generation: `91ff69f049863e074f907a051d5c4c5913cb04c9633d71db3b2838246ed03b2e`
+- retained failed physical operation: `ca95619b7609089e3a9b3a439780785d`
+- retained error: `dependency_qualified_registration_absent`
+
+The second physical NAO1 attempt correctly preserved the complete qualified-recovery
+authority but again stopped before readiness or application launch after two exact SCM
+queries returned error 1060. Read-only comparison then established that this was not a
+missing installation: the intended physical prefix was unchanged, its selected control
+set contained the exact fixed `NTKDaemonService` registration, and the daemon image was
+unchanged. Direct queries through the exact pinned Proton runtime saw that service as
+`STOPPED`.
+
+The defect is the operation-private runtime topology. It starts a bare
+`srt-launcher-service` outside Proton and then submits `proton runinprefix` as a child of
+that service. Proton 11's `runinprefix` path does not initialize the Proton session or
+create its command service. That constructed runtime therefore queried a different
+Wine/SCM universe from the initialized prefix and truthfully returned 1060 for the wrong
+universe.
+
+The selected repair keeps one exact source-owned Windows anchor alive through Proton's
+ordinary `run` path with the exact verified launcher interface enabled. It binds the
+private command-service name emitted by that exact root and submits every dependency
+helper and the Native Access launch adapter through the exact verified launch client
+and Wine executable in that same session. The anchor, helpers, daemon, and application
+remain inside the existing renderer cgroup and cleanup boundary. No bus name, command,
+path, service, or environment value becomes caller authority.
+
+Generated qualification must prove that:
+
+- the exact entry point, Proton script, launcher interface, launch client, Wine image,
+  Windows adapter, operation, and nonce are verified and bound;
+- one Proton `run` root is retained for the operation and all closed commands reuse its
+  one private command service;
+- the old bare-service plus `runinprefix` topology is absent from the dependency and
+  application path;
+- startup refuses missing, duplicate, malformed, changed, or mismatched identities and
+  readiness frames;
+- continuous draining, callback privacy, exact SCM/process/listener ownership, one-stop
+  authority, and exact-owned cleanup remain unchanged;
+- a generated artifact-absent qualified-recovery session reaches readiness, launches
+  its source-owned application fixture, closes truthfully, and can reopen once.
+
+This repair does not reinstall or repair NTKDaemon registration. The physical
+installation is already registered in the intended initialized Proton session. During
+implementation and qualification, do not install the candidate, launch Native Access,
+start or stop the real daemon, replay the installer, or mutate the real prefix. Preserve
+both failed physical operations and the private recovery checkpoint. Return one draft,
+uninstalled PR for independent source review; direct user interaction resumes only
+after an exact reviewed generation is installed.
+
+The earlier NAO1 authorities follow and remain in force where they do not conflict with
+this later, physically established repair.
+
 # NAO1 — Qualified-recovery readiness handoff repair
 
 Focused repair basis:

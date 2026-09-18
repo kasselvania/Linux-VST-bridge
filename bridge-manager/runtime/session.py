@@ -2996,39 +2996,63 @@ def nad1_preparation_inputs(spec):
 
 
 class Nad1Runtime:
-    """One private pressure-vessel container for an operation's Wine processes.
+    """One pinned Proton command session for an operation's Wine processes.
 
-    Separate containers sharing a wineserver break suspended-child memory access.
-    The host remains cgroup/ledger authority; the pinned launch client forwards
-    only closed owner-built commands and diagnostic settings into this container.
+    Proton's ``run`` path initializes Wine and owns its command-launcher service.
+    A separately started launcher service followed by ``runinprefix`` can enter a
+    different Wine/SCM universe even when every prefix pathname is identical.
+    Keep one source-owned Windows anchor alive and send only closed owner-built
+    commands through the exact launch client bound to that Proton session.
     """
-    SERVICE_SHA = '8e725fdf7d38c81abd846b7c7274245e3247b92fa741286a250ace8b386b9722'
     DEBUG_KEYS = ('WINEDEBUG','PROTON_LOG','DXVK_LOG_LEVEL','VKD3D_DEBUG')
     def __init__(self,owner):
-        self.owner=owner;self.child=None;self.closed=False;self.directory=None
-        self.sel=selectors.DefaultSelector();self.capture=None;self.ready=False;self.output=bytearray()
+        self.owner=owner;self.child=None;self.closed=False;self.request=None;self.bus_name=None
+        self.sel=selectors.DefaultSelector();self.capture=None;self.ready=False
+        self.startup_output={'stdout':bytearray(),'stderr':bytearray()}
         self.pump_thread=None;self.pump_stop=threading.Event();self.output_lock=threading.Lock()
-        self.pump_error=None;self.close_errors=[];self.discarded_private=0
+        self.pump_error=None;self.close_errors=[];self.discarded_private=0;self.tool_sha256={}
         self.runner=owner.spec['application']['environment']['runner']
         base=pathlib.Path(self.runner['entry_point']).parent/'pressure-vessel'
         self.client=base/'bin/steam-runtime-launch-client'
-        self.service=base/'libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service'
+        self.interface=base/'bin/steam-runtime-launcher-interface-0'
+        self.wine=pathlib.Path(self.runner['proton']).parent/'files/bin/wine'
     def verify_tools(self):
-        matches=[f for f in self.runner['files'] if f['path']==str(self.client)]
-        if len(matches)!=1:raise ValueError('dependency_runtime_client_identity')
-        verify(matches[0]);verify({'path':str(self.service),'sha256':self.SERVICE_SHA})
+        required=(('entry',pathlib.Path(self.runner['entry_point'])),('proton',pathlib.Path(self.runner['proton'])),
+                  ('client',self.client),('interface',self.interface),('wine',self.wine))
+        admitted={}
+        for name,path in required:
+            matches=[f for f in self.runner['files'] if f['path']==str(path)]
+            if len(matches)!=1:raise ValueError('dependency_runtime_'+name+'_identity')
+            verify(matches[0]);admitted[name]=matches[0]['sha256']
+        self.tool_sha256=admitted
+    def _runtime_request(self):
+        request=self.owner.directory/f'{self.owner.op}-runtime-anchor.private'
+        content='\n'.join(['NAD1_RUNTIME_V1',self.owner.op,self.owner.token,''])
+        with request.open('xb') as f:f.write(content.encode('utf-16le'));f.flush();os.fsync(f.fileno())
+        return request
+    def _root_argv(self,request):
+        return [self.runner['entry_point'],'--verb=run','--',self.runner['proton'],'run',
+                self.owner.spec['installer_launch']['path'],windows(request,self.owner.root/'compatdata/pfx')]
+    def _root_environment(self,env):
+        # The exact verified interface must be the only launcher-interface
+        # candidate Proton can select. The remaining PATH is the closed manager
+        # environment, not caller input.
+        return dict(env,STEAM_COMPAT_LAUNCHER_SERVICE='proton',
+                    PATH=str(self.interface.parent)+os.pathsep+env['PATH'])
+    @staticmethod
+    def _startup_binding(stdout,stderr,operation,token):
+        frames=re.findall(rb'(?m)^NAD1_RUNTIME_V1 ([0-9a-f]{32}) ([0-9a-f]{64})\r?$',stdout)
+        buses=re.findall(rb'(?m)^[ \t]*--bus-name=(:1\.[0-9]+)[ \t]*\\?\r?$',stderr)
+        if len(frames)>1 or len(buses)>1:raise ValueError('dependency_runtime_startup_ambiguity')
+        if not frames or not buses:return None
+        if frames[0]!=(operation.encode(),token.encode()):raise ValueError('dependency_runtime_anchor_identity')
+        return buses[0].decode('ascii')
     def start(self,env):
         if self.child is not None or self.closed:raise ValueError('dependency_runtime_reentry')
         self.verify_tools()
-        import tempfile
-        self.directory=pathlib.Path(tempfile.mkdtemp(prefix='lvb-runtime-',dir='/tmp'))
-        private_directory(self.directory);self.socket=self.directory/'socket'
+        self.request=self._runtime_request()
         self.capture=PrivateCapture(self.owner.directory/(self.owner.op+'-runtime.private.log'),1024*1024,256)
-        argv=[self.runner['entry_point'],'--verb=run','--',str(self.service),
-              '--socket='+str(self.socket),'--stop-on-parent-exit','--no-stop-on-exit']
-        # Expose only this fresh owner-private socket directory, not the host HOME.
-        container_env=dict(env,PRESSURE_VESSEL_FILESYSTEMS_RW=str(self.directory))
-        self.child=subprocess.Popen(argv,cwd=self.owner.root/'home',env=container_env,stdin=subprocess.PIPE,
+        self.child=subprocess.Popen(self._root_argv(self.request),cwd=self.owner.root/'home',env=self._root_environment(env),stdin=subprocess.PIPE,
                                     stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
         self.owner.ledger.launcher(self.child,'dependency_runtime')
         for name,pipe in [('stdout',self.child.stdout),('stderr',self.child.stderr)]:
@@ -3041,12 +3065,11 @@ class Nad1Runtime:
             if self.child.returncode is not None:raise ValueError('dependency_runtime_start_failed')
             if self.owner.cancelled() and not self.owner.retiring:raise ValueError('dependency_cancelled')
             if time.monotonic()>deadline:raise ValueError('dependency_runtime_start_timeout')
-            # Exact readiness comes from the private socket announced by this child.
             with self.output_lock:
-                if ('socket='+str(self.socket)+'\n').encode() in self.output:
-                    md=self.socket.lstat()
-                    if not stat.S_ISSOCK(md.st_mode) or md.st_uid!=os.getuid():raise ValueError('dependency_runtime_socket_identity')
-                    self.ready=True;self.output.clear()
+                bus=self._startup_binding(bytes(self.startup_output['stdout']),bytes(self.startup_output['stderr']),self.owner.op,self.owner.token)
+                if bus:
+                    self.bus_name=bus;self.ready=True
+                    self.startup_output['stdout'].clear();self.startup_output['stderr'].clear()
     def _pump(self):
         # Dedicated operation-owned reader: command waits, image hashing and
         # application use cannot leave the container's diagnostic pipes blocked.
@@ -3063,9 +3086,10 @@ class Nad1Runtime:
             with self.output_lock:
                 if self.owner.diagnostic_privacy:self.discarded_private+=len(data)
                 elif self.pump_error is None:self.capture.write(data)
-                if key.data=='stdout' and not self.ready:
-                    if len(self.output)+len(data)>8192:raise ValueError('dependency_runtime_output_extent')
-                    self.output.extend(data)
+                if not self.ready:
+                    output=self.startup_output[key.data]
+                    if len(output)+len(data)>65536:raise ValueError('dependency_runtime_output_extent')
+                    output.extend(data)
     def drain(self,wait=0):
         if self.pump_thread is None:self._drain(wait)
         elif wait:self.pump_stop.wait(wait)
@@ -3079,17 +3103,26 @@ class Nad1Runtime:
         if self.child is None:self.start(env)
         self.owner.ledger.harvest();self.drain()
         if self.child.returncode is not None:raise ValueError('dependency_runtime_exited')
+        if not self.ready or self.bus_name is None:raise ValueError('dependency_runtime_not_ready')
         self.verify_tools()
-        return [str(self.client),'--socket='+str(self.socket),'--directory='+str(cwd),
-                *['--pass-env='+key for key in self.DEBUG_KEYS],'--',self.runner['proton'],
-                'runinprefix',self.owner.spec['installer_launch']['path'],
+        return [str(self.client),'--bus-name='+self.bus_name,'--directory='+str(cwd),
+                *['--pass-env='+key for key in self.DEBUG_KEYS],'--',str(self.wine),self.owner.spec['installer_launch']['path'],
                 windows(request,self.owner.root/'compatdata/pfx')]
+    def value(self):
+        return {'topology':'one_operation_proton_command_session','ready':self.ready,
+                'retirement_requested':self.closed,'tool_sha256':dict(self.tool_sha256)}
     def close(self):
         if self.closed:return
         self.closed=True
         def close_step(name,call):
             try:call()
             except Exception as exc:self.close_errors.append(name+'_'+type(exc).__name__)
+        if self.child is not None:
+            pipe=getattr(self.child,'stdin',None)
+            if pipe:close_step('stdin',pipe.close)
+            deadline=time.monotonic()+5
+            while self.child.poll() is None and time.monotonic()<deadline:time.sleep(.01)
+            if self.child.poll() is None:self.close_errors.append('anchor_retirement_timeout')
         self.pump_stop.set()
         if self.pump_thread:
             self.pump_thread.join(timeout=1)
@@ -3097,14 +3130,11 @@ class Nad1Runtime:
                 self.close_errors.append('reader_join_timeout')
                 return  # Never close descriptors beneath the reader.
         if self.child is not None:
-            for name in ('stdin','stdout','stderr'):
+            for name in ('stdout','stderr'):
                 pipe=getattr(self.child,name,None)
                 if pipe:close_step(name,pipe.close)
         close_step('selector',self.sel.close)
         if self.capture:close_step('capture',self.capture.close)
-        if self.directory:
-            close_step('socket',lambda:self.socket.unlink(missing_ok=True))
-            close_step('directory',self.directory.rmdir)
 
 
 class Nad1Owner:
@@ -3147,7 +3177,7 @@ class Nad1Owner:
                 'dependency_cleanup_disposition':self.dependency_cleanup_disposition,'post_cleanup':self.post_cleanup,
                 'retirement_error':self.retirement_error,'service_possibility':self.service_possibility,
                 'runtime_close_errors':self.runtime_close_errors,'stop_observation':self.stop_observation,
-                'runtime':{'topology':'one_operation_container','ready':self.runtime.ready,'retirement_requested':self.runtime.closed,'service_sha256':self.runtime.SERVICE_SHA} if self.runtime else None,
+                'runtime':self.runtime.value() if self.runtime else None,
                 'stages':self.stages,'readiness_contract':'SCM_exact_generation_and_Windows_owned_loopback_pair_and_unique_owned_Linux_image_generation_v1',
                 'linux_windows_join':False,'lifetime':'owned_operation_only_retired_before_bridge_resume'}
     def _session_authority(self,supplied,fixture):

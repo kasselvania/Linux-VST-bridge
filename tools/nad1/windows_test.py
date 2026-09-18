@@ -48,6 +48,18 @@ def run(build):
   assert anchor.wait(timeout=15)==0
  installed=False
  try:
+  # The production adapter also supplies the inert Windows root that keeps one
+  # initialized Proton command session alive. It has no SCM authority and exits
+  # only when its inherited owner pipe closes.
+  runtime_request=root/'runtime-request'
+  runtime_request.write_bytes(('\n'.join(['NAD1_RUNTIME_V1',op,token,''])).encode('utf-16le'))
+  runtime=subprocess.Popen([str(build/'nad1-service-adapter.exe'),str(runtime_request)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+  runtime_frame=runtime.stdout.readline().decode().strip()
+  assert runtime_frame==f'NAD1_RUNTIME_V1 {op} {token}' and runtime.poll() is None,runtime_frame
+  runtime.stdin.close();assert runtime.wait(timeout=10)==0
+  runtime_request.write_bytes(('\n'.join(['NAD1_RUNTIME_V1',op,'wrong',''])).encode('utf-16le'))
+  refused=subprocess.run([str(build/'nad1-service-adapter.exe'),str(runtime_request)],input=b'',capture_output=True,timeout=10)
+  assert refused.returncode==153 and b'NAD1_RUNTIME_V1 ' not in refused.stdout
   assert ' absent 1060 ' in command('query')
   assert subprocess.run([str(root/'Setup.exe')],timeout=10).returncode==1063
   assert 'NAD1_INSTALL_ROOT_V1 '+op in command('install');installed=True

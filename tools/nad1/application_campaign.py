@@ -83,6 +83,12 @@ def run(package,seal,out,*,cases=CASES):
    for log in report.parent.iterdir():
     if log.is_file() and log.stat().st_size<64*1024*1024 and b'native-access:source-owned-fixture' in log.read_bytes():raise ValueError('callback_secret_retained')
   dep=r['dependency'];forced=scenario in ('stop_failure','no_transition_cleanup','not_submitted_cleanup','stopped_residue_cleanup','observation_unavailable_cleanup')
+  runtime=dep['runtime']
+  if (runtime['topology']!='one_operation_proton_command_session' or runtime['ready'] is not True
+      or runtime['retirement_requested'] is not True
+      or set(runtime['tool_sha256'])!={'entry','proton','client','interface','wine'}
+      or any(len(value)!=64 for value in runtime['tool_sha256'].values())
+      or set(runtime)&{'bus_name','socket','service_sha256'}):raise ValueError('fixture_proton_session_topology')
   if dep['service_retirement_confirmed']!=(not forced) or dep['forced_cleanup_used']!=forced or not dep['process_cleanup_confirmed']:raise ValueError('fixture_retirement_result')
   if dep['service_stop_request_count'] not in (0,1) or dep['service_stop_requested']!=(dep['service_stop_request_count']==1):raise ValueError('fixture_stop_count')
   exact=scenario in ('stop_failure','no_transition_cleanup','not_submitted_cleanup','stopped_residue_cleanup')

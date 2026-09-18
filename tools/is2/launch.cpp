@@ -27,6 +27,17 @@ static std::string hash(HANDLE f) {
 static bool hex(const std::wstring& s,size_t length){if(s.size()!=length)return false;for(auto c:s)if(!((c>=L'0'&&c<=L'9')||(c>=L'a'&&c<=L'f')))return false;return true;}
 static unsigned long long time_of(HANDLE p){FILETIME c{},e{},k{},u{};if(!GetProcessTimes(p,&c,&e,&k,&u))return 0;return (static_cast<unsigned long long>(c.dwHighDateTime)<<32)|c.dwLowDateTime;}
 static bool same_file(HANDLE a,HANDLE b){BY_HANDLE_FILE_INFORMATION x{},y{};return GetFileInformationByHandle(a,&x)&&GetFileInformationByHandle(b,&y)&&x.dwVolumeSerialNumber==y.dwVolumeSerialNumber&&x.nFileIndexHigh==y.nFileIndexHigh&&x.nFileIndexLow==y.nFileIndexLow;}
+static int nad1_runtime_request(const std::vector<std::wstring>& lines) {
+    if(lines.size()!=3||lines[0]!=L"NAD1_RUNTIME_V1"||!hex(lines[1],32)||!hex(lines[2],64))return 153;
+    HANDLE input=GetStdHandle(STD_INPUT_HANDLE);
+    if(input==INVALID_HANDLE_VALUE||input==nullptr||GetFileType(input)!=FILE_TYPE_PIPE)return 154;
+    std::fprintf(stdout,"NAD1_RUNTIME_V1 %ls %ls\n",lines[1].c_str(),lines[2].c_str());std::fflush(stdout);
+    std::array<unsigned char,256> discarded{};
+    for(;;){DWORD count=0;
+        if(ReadFile(input,discarded.data(),static_cast<DWORD>(discarded.size()),&count,nullptr)){if(!count)return 0;continue;}
+        return GetLastError()==ERROR_BROKEN_PIPE?0:155;
+    }
+}
 #include "nad1_service.h"
 #include "native_access_callback.h"
 // Installer timeout is unchanged; an owned application has no normal-use cap.
@@ -43,6 +54,7 @@ int wmain(int argc,wchar_t** argv){
     CloseHandle(request);if(!ok)return 122;
     std::wstring all(buffer.data(),bytes/2);std::vector<std::wstring> lines;size_t pos=0;
     for(;;){auto end=all.find(L'\n',pos);if(end==std::wstring::npos)break;lines.push_back(all.substr(pos,end-pos));pos=end+1;}
+    if(!lines.empty()&&lines[0]==L"NAD1_RUNTIME_V1")return pos==all.size()?nad1_runtime_request(lines):123;
     if(!lines.empty()&&(lines[0]==L"NAD1_SERVICE_V1"||lines[0]==L"NAD1_STOP_REQUEST_V2"))return pos==all.size()?nad1_service_request(lines,argv[1]):123;
     const bool callback=lines.size()==8&&lines[0]==L"NAUI2_AUTH_LAUNCH_V1";
     const bool renderer=lines.size()==8&&(lines[0]==L"NAUI2_LAUNCH_V1"||callback);
