@@ -11,7 +11,11 @@ does not consume a commercial plug-in.
   `rpi0-windows-probe`.
 - Linux AArch64: install JACK development headers, then configure with
   `RPI0_ARM_BUILD_ONLY=ON`. The build produces `lvb-arm-standalone`,
-  `rpi0-layout-assertions`, `rpi0-linux-probe`, and `rpi0-core-tests`.
+  `rpi0-layout-assertions`, and `rpi0-core-tests`.
+- Linux x86-64 preflight: compile `rpi0/preflight/linux_probe.c` with an
+  exact recorded x86-64 Linux cross toolchain. The source refuses a non-x86-64
+  compiler. Deterministic CI inspects the resulting ELF identity but does not
+  execute it on ARM; only the pinned Box64 physical preflight may do that.
 - Existing x86-64 targets retain their existing architecture guards. RPI0 does
   not widen those targets.
 

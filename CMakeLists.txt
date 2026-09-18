@@ -23,13 +23,12 @@ if(RPI0_ARM_BUILD_ONLY)
     pkg_check_modules(RPI0_JACK REQUIRED jack)
     add_executable(rpi0-layout-assertions rpi0/layout_assertions.cpp)
     target_compile_features(rpi0-layout-assertions PRIVATE cxx_std_20)
-    add_executable(rpi0-linux-probe rpi0/preflight/linux_probe.c)
     add_executable(rpi0-core-tests rpi0/core_tests.cpp)
     target_compile_features(rpi0-core-tests PRIVATE cxx_std_20)
     add_custom_target(lvb-arm-standalone ALL
         COMMAND "${RPI0_CARGO}" build --locked --release --features jack-runtime
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/rpi0/standalone"
-        DEPENDS rpi0-layout-assertions rpi0-linux-probe rpi0-core-tests
+        DEPENDS rpi0-layout-assertions rpi0-core-tests
         VERBATIM)
     return()
 endif()

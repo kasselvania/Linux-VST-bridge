@@ -41,15 +41,17 @@ jobs:
         with:
           persist-credentials: false
       - name: Install JACK development boundary
-        run: sudo apt-get update && sudo apt-get install --yes libjack-jackd2-dev pkg-config
+        run: sudo apt-get update && sudo apt-get install --yes libjack-jackd2-dev pkg-config gcc-x86-64-linux-gnu
       - name: Build and test native AArch64 appliance
         run: |
           cargo test --manifest-path rpi0/standalone/Cargo.toml --locked
           cmake -S . -B "${{ runner.temp }}/rpi0-arm" -DRPI0_ARM_BUILD_ONLY=ON
           cmake --build "${{ runner.temp }}/rpi0-arm" --parallel 2
           "${{ runner.temp }}/rpi0-arm/rpi0-layout-assertions"
-          "${{ runner.temp }}/rpi0-arm/rpi0-linux-probe" --self-test
           "${{ runner.temp }}/rpi0-arm/rpi0-core-tests"
+          x86_64-linux-gnu-gcc -std=c11 -O2 -Wall -Wextra -Werror -static rpi0/preflight/linux_probe.c -o "${{ runner.temp }}/rpi0-x86-64-linux-probe"
+          x86_64-linux-gnu-readelf -h "${{ runner.temp }}/rpi0-x86-64-linux-probe" | grep --extended-regexp 'Class:[[:space:]]+ELF64'
+          x86_64-linux-gnu-readelf -h "${{ runner.temp }}/rpi0-x86-64-linux-probe" | grep --extended-regexp 'Machine:[[:space:]]+Advanced Micro Devices X86-64'
   existing-x86-64-rust:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
