@@ -1,0 +1,33 @@
+{
+  "schema": "vst.nao1-recovery-origin-preservation/v1",
+  "comparison_head": "20225afa0dff83f9fac9bef4ed24061d6bbd6136",
+  "prior_evidence_file_count": 698,
+  "prior_evidence_git_manifest_sha256": "6cc04a4ab9a8e995fbc331c46c93fae4a29666387ac49d5a441a4d651207252d",
+  "prior_evidence_unchanged": true,
+  "starting_head": "b34c63013290b50bf2cc771566a509290802b97c",
+  "starting_evidence_file_count": 693,
+  "starting_evidence_git_manifest_sha256": "5bea5739795bc10755b5ff011e18d6da45e3763b6ca7252217fcafa47676cb8f",
+  "starting_evidence_unchanged": true,
+  "campaign": {
+    "protected_state_unchanged": true,
+    "runtime_content_unchanged": true,
+    "windows_prefix_metadata_unchanged": true,
+    "private_home_metadata_unchanged": true,
+    "protected_projects": 5,
+    "retained_witnesses": 307,
+    "real_prefix_entries": 11985,
+    "real_dependency_mutations": 0,
+    "commercial_application_launch": false
+  },
+  "terminal_system": {
+    "bridge_service": "active",
+    "keepers": 2,
+    "dsp_leases": 0,
+    "maintenance_leases": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false,
+    "capture_armed": false,
+    "active_capture_retention": 0
+  }
+}

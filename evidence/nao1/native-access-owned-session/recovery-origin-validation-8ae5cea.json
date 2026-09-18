@@ -1,0 +1,71 @@
+{
+  "schema": "vst.nao1-recovery-origin-repair/v1",
+  "source": "8ae5cea569491471ee6b1fdf6d234e3276dac09d",
+  "tree": "eb686bcf0f6faa6f1bb87f902587dbb7394b3e85",
+  "base": "a86f03e8a5d5302d9872f995a0a5ba376a0ab6d5",
+  "superseded_executable_source": "4462e168462f88a3189202188b331d630f0eceb4",
+  "package_seal": "732b72bdf2ffaefdf3197bf75f378f06a2a8cff1e1899b39f2056cbb1c82ed6f",
+  "proof_sha256": "1b7d02a4e2763a0262841e9182357767c8f1ad23edf2a32b5fc61459d0c5392c",
+  "admission": {
+    "origins": [
+      "retained_installation_artifact",
+      "qualified_recovered_installation"
+    ],
+    "mutually_exclusive": true,
+    "present_invalid_artifact_falls_back": false,
+    "pointer_appearance_or_disappearance_refuses": true,
+    "recovery_sources_and_current_images_exact": true,
+    "artifact_created": false,
+    "prepared_created": false
+  },
+  "campaign": {
+    "sessions": 13,
+    "recovery_origin_sessions": 13,
+    "commercial_launch": false,
+    "real_dependency_mutations": 0,
+    "result": "pass"
+  },
+  "local_validation": {
+    "focused_rust_session_admission": {"passed": 7, "result": "pass"},
+    "focused_python_recovery_and_session": {"passed": 27, "result": "pass"},
+    "nad1_nad2_adapter": {"passed": 24, "result": "pass"},
+    "naui1": {"passed": 47, "result": "pass"},
+    "naui2": {"passed": 3, "result": "pass"},
+    "runtime": {"passed": 262, "skipped": 44, "result": "pass"},
+    "manager_library": {"passed": 146, "result": "pass"},
+    "manager_binary": {"passed": 86, "result": "pass"},
+    "manager_report": {"passed": 5, "result": "pass"},
+    "frontend": {"passed": 32, "result": "pass"},
+    "strict_manager_clippy": "pass",
+    "strict_frontend_clippy": "pass",
+    "python_compilation": "pass",
+    "production_windows_adapter_cross_compile": "pass",
+    "source_owned_windows_fixtures_cross_compile": "pass"
+  },
+  "hosted_validation": {
+    "AP8": {
+      "head": "8ae5cea569491471ee6b1fdf6d234e3276dac09d",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35371566239",
+      "result": "pass"
+    },
+    "AP12": {
+      "head": "8ae5cea569491471ee6b1fdf6d234e3276dac09d",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35371566251",
+      "result": "pass"
+    },
+    "PX2": {
+      "head": "8ae5cea569491471ee6b1fdf6d234e3276dac09d",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35371566291",
+      "result": "pass"
+    }
+  },
+  "boundaries": {
+    "candidate_installed": false,
+    "real_native_access_launched": false,
+    "real_ntkdaemon_started_or_stopped": false,
+    "daw_or_plugin_launched": false,
+    "installer_or_updater_replayed": false,
+    "production_operation": false,
+    "reliable_graceful_ntkdaemon_shutdown_qualified": false
+  }
+}
