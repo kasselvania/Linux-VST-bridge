@@ -1,0 +1,29 @@
+{
+  "schema": "vst.nao1-preservation/v1",
+  "starting_head": "b34c63013290b50bf2cc771566a509290802b97c",
+  "prior_evidence_file_count": 693,
+  "prior_evidence_git_manifest_sha256": "5bea5739795bc10755b5ff011e18d6da45e3763b6ca7252217fcafa47676cb8f",
+  "prior_evidence_unchanged": true,
+  "campaign": {
+    "protected_state_unchanged": true,
+    "runtime_content_unchanged": true,
+    "windows_prefix_metadata_unchanged": true,
+    "private_home_metadata_unchanged": true,
+    "protected_projects": 5,
+    "retained_witnesses": 307,
+    "real_prefix_entries": 11985,
+    "real_dependency_mutations": 0,
+    "commercial_application_launch": false
+  },
+  "terminal_system": {
+    "bridge_service": "active",
+    "keepers": 2,
+    "dsp_leases": 0,
+    "maintenance_leases": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false,
+    "capture_armed": false,
+    "active_capture_retention": 0
+  }
+}

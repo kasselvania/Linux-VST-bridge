@@ -779,6 +779,53 @@ fn wait_renderer_retirement(mut retired: impl FnMut() -> Result<bool>, mut wait:
     while !retired()? { wait(); }
     Ok(())
 }
+fn native_access_restoration_value(value:&ui::Activity,resume_pending:bool)->Result<Value> {
+    let s=&value.system;
+    require(s.service=="active" && s.keepers==2 && s.dsp==0 && s.maintenance==0
+        && s.pending_transactions==0 && s.stale_transports==0 && !s.cleanup_unconfirmed
+        && !resume_pending && value.capture["armed"]==false && value.capture["active_retention"]==0,
+        "renderer_bridge_recovery_unconfirmed")?;
+    Ok(json!({"bridge":"active","keepers":s.keepers,"dsp_leases":s.dsp,
+        "maintenance_leases":s.maintenance,"pending_transactions":s.pending_transactions,
+        "stale_transports":s.stale_transports,"pending_resume_owner":false,"capture":"off"}))
+}
+fn native_access_restoration(m:&Manager)->Result<Value> {
+    native_access_restoration_value(&activity(m)?,resume_record(m)?.is_some())
+}
+fn native_access_session_summary(result:&Value,recovery:&Value)->Result<Value> {
+    let state=result["state"].as_str().ok_or("renderer_session_state")?;
+    require(matches!(state,"completed"|"cancelled"|"failed"),"renderer_session_state")?;
+    let dependency=&result["dependency"];
+    let disposition=dependency["dependency_cleanup_disposition"].as_str()
+        .ok_or("renderer_dependency_cleanup_disposition")?;
+    let cleanup_confirmed=match disposition {
+        "graceful_service_retirement"=>dependency["service_retirement_confirmed"]==true
+            && dependency["process_cleanup_confirmed"]==true
+            && dependency["forced_cleanup_used"]==false,
+        "exact_owned_session_cleanup"=>dependency["service_retirement_confirmed"]==false
+            && dependency["process_cleanup_confirmed"]==true
+            && dependency["forced_cleanup_used"]==true
+            && dependency["service_stop_request_count"].as_u64().is_some_and(|v|v<=1)
+            && dependency["stop_observation"]["classification"]!="NAD2_STOP_OBSERVATION_UNAVAILABLE"
+            && dependency["post_cleanup"]["cgroup_empty"]==true
+            && dependency["post_cleanup"]["exact_daemon_generation_absent"]==true
+            && dependency["post_cleanup"]["listener_mask"]==0
+            && dependency["post_cleanup"]["candidate_count"]==0
+            && dependency["post_cleanup"]["candidate_observation_unavailable"]==0
+            && dependency["post_cleanup"]["application_image_unchanged"]==true
+            && dependency["post_cleanup"]["daemon_image_unchanged"]==true,
+        "cleanup_unconfirmed"=>false,
+        _=>return Err("renderer_dependency_cleanup_disposition".into()),
+    };
+    require(state=="failed" || cleanup_confirmed,"renderer_session_cleanup_unconfirmed")?;
+    require(recovery["bridge"]=="active" && recovery["keepers"]==2
+        && recovery["dsp_leases"]==0 && recovery["maintenance_leases"]==0
+        && recovery["pending_transactions"]==0 && recovery["stale_transports"]==0
+        && recovery["pending_resume_owner"]==false && recovery["capture"]=="off",
+        "renderer_bridge_recovery_unconfirmed")?;
+    Ok(json!({"state":state,"dependency_cleanup_disposition":disposition,
+        "fresh_session_restartable":cleanup_confirmed,"bridge_recovery":recovery}))
+}
 
 fn finish_operation(m: &Manager, id: &str) -> Result<()> {
     let installer_cleanup: Result<()> = (|| {
@@ -1269,7 +1316,6 @@ fn execute_with_receipt_policy(
             application,
             policy,
         } => {
-            dependency_cli::prepared(m)?;
             let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
             suspend(m, owner, Some(owner.into()), timeout, waits)?;
@@ -1299,8 +1345,11 @@ fn execute_with_receipt_policy(
                 || std::thread::sleep(Duration::from_millis(500)),
             )?;
             resume_owned(m, owner)?;
+            let recovery=native_access_restoration(m)?;
+            let result=renderer_cli::result(m,owner)?;
+            let session=native_access_session_summary(&result,&recovery)?;
             Ok(
-                json!({"application":"retired","service":"resumed","result":renderer_cli::result(m,owner)?}),
+                json!({"application":"retired","service":"resumed","recovery":recovery,"session":session,"result":result}),
             )
         }
         ui::Action::RendererStop { operation: target } => {
@@ -1310,7 +1359,10 @@ fn execute_with_receipt_policy(
                 |id| renderer_cli::stop(m, id),
                 |saved| restore_service(m, saved),
             )?;
-            Ok(json!({"application":"stopped","operation":target}))
+            let recovery=native_access_restoration(m)?;
+            let result=renderer_cli::result(m,target)?;
+            let session=native_access_session_summary(&result,&recovery)?;
+            Ok(json!({"application":"stopped","operation":target,"recovery":recovery,"session":session,"result":result}))
         }
         ui::Action::RendererFocus { operation: target } => renderer_cli::focus(m, target),
         ui::Action::RendererObserve {
@@ -2967,6 +3019,44 @@ mod tests {
         }
         assert_eq!(restores.get(), 1);
         assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    #[test]
+    fn native_access_restoration_requires_idle_bridge_two_keepers_and_no_resume_owner() {
+        let base=json!({"schema":7,"system":{"service":"active","keepers":2,"dsp":0,"maintenance":0,
+            "ceiling":6,"pending_transactions":0,"stale_transports":0,"cleanup_unconfirmed":false},
+            "capture":{"armed":false,"active_retention":0},"operation":null});
+        let activity:ui::Activity=serde_json::from_value(base.clone()).unwrap();
+        assert_eq!(native_access_restoration_value(&activity,false).unwrap()["pending_resume_owner"],false);
+        assert!(native_access_restoration_value(&activity,true).is_err());
+        for (field,value) in [("service",json!("inactive")),("keepers",json!(1)),("dsp",json!(1)),
+            ("maintenance",json!(1)),("pending_transactions",json!(1)),("stale_transports",json!(1)),
+            ("cleanup_unconfirmed",json!(true))] {
+            let mut bad=base.clone();bad["system"][field]=value;
+            assert!(native_access_restoration_value(&serde_json::from_value(bad).unwrap(),false).is_err());
+        }
+        for (field,value) in [("armed",json!(true)),("active_retention",json!(1))] {
+            let mut bad=base.clone();bad["capture"][field]=value;
+            assert!(native_access_restoration_value(&serde_json::from_value(bad).unwrap(),false).is_err());
+        }
+    }
+    #[test]
+    fn native_access_session_summary_distinguishes_graceful_exact_owned_and_failed_cleanup() {
+        let recovery=json!({"bridge":"active","keepers":2,"dsp_leases":0,"maintenance_leases":0,
+            "pending_transactions":0,"stale_transports":0,"pending_resume_owner":false,"capture":"off"});
+        let graceful=json!({"state":"completed","dependency":{"dependency_cleanup_disposition":"graceful_service_retirement",
+            "service_retirement_confirmed":true,"process_cleanup_confirmed":true,"forced_cleanup_used":false}});
+        assert_eq!(native_access_session_summary(&graceful,&recovery).unwrap()["fresh_session_restartable"],true);
+        let exact=json!({"state":"cancelled","dependency":{"dependency_cleanup_disposition":"exact_owned_session_cleanup",
+            "service_retirement_confirmed":false,"process_cleanup_confirmed":true,"forced_cleanup_used":true,
+            "service_stop_request_count":1,"stop_observation":{"classification":"NAD2_STOP_SUBMITTED_NO_TRANSITION"},
+            "post_cleanup":{"cgroup_empty":true,"exact_daemon_generation_absent":true,"listener_mask":0,
+                "candidate_count":0,"candidate_observation_unavailable":0,"application_image_unchanged":true,
+                "daemon_image_unchanged":true}}});
+        assert_eq!(native_access_session_summary(&exact,&recovery).unwrap()["dependency_cleanup_disposition"],"exact_owned_session_cleanup");
+        let mut unavailable=exact.clone();unavailable["dependency"]["stop_observation"]["classification"]=json!("NAD2_STOP_OBSERVATION_UNAVAILABLE");
+        assert!(native_access_session_summary(&unavailable,&recovery).is_err());
+        let failed=json!({"state":"failed","dependency":{"dependency_cleanup_disposition":"cleanup_unconfirmed"}});
+        assert_eq!(native_access_session_summary(&failed,&recovery).unwrap()["fresh_session_restartable"],false);
     }
     #[test]
     fn renderer_preflight_contention_timeout_never_stops_or_reserves() {

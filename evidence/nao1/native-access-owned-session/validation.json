@@ -1,0 +1,72 @@
+{
+  "schema": "vst.nao1-generated-qualification/v1",
+  "source": "4462e168462f88a3189202188b331d630f0eceb4",
+  "tree": "f21f81e3f4a6d947dce83386ae45cb44bdbf4be7",
+  "starting_head": "b34c63013290b50bf2cc771566a509290802b97c",
+  "base": "a86f03e8a5d5302d9872f995a0a5ba376a0ab6d5",
+  "scope": "generated_only",
+  "package_seal": "579fe3bfe12b861d668551094f11a07f096a1f6fc276efd911cdd7b8375cf203",
+  "proof_sha256": "7e3dd57fd52c998a7a3c588129ceffaae773b25ccfdc695e506e2a1f6363f993",
+  "generated_cases": [
+    {"case": "exact_artifact_fresh_readiness_graceful", "result": "pass", "evidence": "rust_python_tests_and_normal_campaign"},
+    {"case": "launch_without_prepared_json", "result": "pass", "evidence": "rust_python_tests_and_campaign"},
+    {"case": "changed_daemon_refuses_before_launch", "result": "pass", "evidence": "rust_python_tests"},
+    {"case": "wrong_application_software_installer_or_artifact_refuses", "result": "pass", "evidence": "rust_python_tests"},
+    {"case": "foreign_prefix_refuses_before_launch", "result": "pass", "evidence": "python_tests"},
+    {"case": "deleted_prefix_refuses_before_launch", "result": "pass", "evidence": "python_tests"},
+    {"case": "same_prefix_unowned_refuses_before_launch", "result": "pass", "evidence": "python_tests"},
+    {"case": "ambiguous_or_unavailable_census_refuses_before_launch", "result": "pass", "evidence": "python_tests"},
+    {"case": "submitted_no_transition_exact_owned_cleanup", "result": "pass", "evidence": "no_transition_cleanup"},
+    {"case": "not_submitted_exact_owned_cleanup", "result": "pass", "evidence": "not_submitted_cleanup"},
+    {"case": "stopped_residue_removed_before_completion", "result": "pass", "evidence": "stopped_residue_cleanup"},
+    {"case": "observation_unavailable_refuses_compatibility_cleanup", "result": "pass", "evidence": "observation_unavailable_cleanup"},
+    {"case": "process_cleanup_failure_refuses", "result": "pass", "evidence": "python_tests"},
+    {"case": "listener_residue_refuses", "result": "pass", "evidence": "python_tests"},
+    {"case": "foreign_unavailable_or_unowned_post_cleanup_candidate_refuses", "result": "pass", "evidence": "python_tests"},
+    {"case": "application_failure_remains_failure", "result": "pass", "evidence": "application_failure"},
+    {"case": "operator_stop_remains_cancellation", "result": "pass", "evidence": "cancel"},
+    {"case": "no_preparation_receipt_created", "result": "pass", "evidence": "rust_python_tests_and_campaign"},
+    {"case": "fresh_second_session_after_exact_cleanup", "result": "pass", "evidence": "repeat"},
+    {"case": "browser_privacy_and_continuous_drain", "result": "pass", "evidence": "callback_and_runtime_tests"},
+    {"case": "arturia_completion_unchanged", "result": "pass", "evidence": "runtime_tests"},
+    {"case": "ordinary_vst_audio_editor_paths_unchanged", "result": "pass", "evidence": "path_scope_and_hosted_validation"}
+  ],
+  "campaign": {
+    "sessions": 13,
+    "commercial_launch": false,
+    "real_dependency_mutations": 0,
+    "first_archive_preflight": "refused_before_execution_due_to_appledouble_entries",
+    "clean_archive_runs": 1,
+    "result": "pass"
+  },
+  "local_validation": {
+    "nad1_nad2_adapter_tests": {"passed": 24, "result": "pass"},
+    "naui1_tests": {"passed": 47, "result": "pass"},
+    "naui2_tests": {"passed": 3, "result": "pass"},
+    "runtime": {"passed": 259, "skipped": 44, "result": "pass"},
+    "manager_library": {"passed": 145, "result": "pass"},
+    "manager_binary": {"passed": 86, "result": "pass"},
+    "manager_report": {"passed": 5, "result": "pass"},
+    "frontend": {"passed": 32, "result": "pass"},
+    "strict_manager_clippy": "pass",
+    "strict_frontend_clippy": "pass",
+    "python_compilation": "pass",
+    "focused_cpp_stop_law": "pass",
+    "production_windows_adapter_cross_compile": "pass",
+    "source_owned_windows_fixture_cross_compile": "pass"
+  },
+  "hosted_validation": {
+    "AP8": {"head": "4462e168462f88a3189202188b331d630f0eceb4", "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35365247459", "result": "pass"},
+    "AP12": {"head": "4462e168462f88a3189202188b331d630f0eceb4", "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35365247485", "result": "pass"},
+    "PX2": {"head": "4462e168462f88a3189202188b331d630f0eceb4", "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35365247562", "result": "pass"}
+  },
+  "boundaries": {
+    "candidate_installed": false,
+    "real_native_access_launched": false,
+    "real_ntkdaemon_started_or_stopped": false,
+    "daw_or_plugin_launched": false,
+    "installer_or_updater_replayed": false,
+    "production_operation": false,
+    "reliable_graceful_ntkdaemon_shutdown_qualified": false
+  }
+}

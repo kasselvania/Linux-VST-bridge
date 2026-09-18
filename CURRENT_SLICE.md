@@ -1,42 +1,55 @@
-# NAD2 — Exact NTKDaemon stop-response characterization
+# NAO1 — Native Access owned session
 
 Active basis:
 
-- merged source: `710b0f3be642cca342f2a5915d37158246023aed`
-- reviewed/merged tree: `77efd70fac7985a051343407d4ec13ca183422a8`
-- retained production evidence: `b175fdf5317a6afb512b17dc02cd40fdd907a201`
-- installed immutable generation: `67e3004b087fe1dbb9c1bbd2c0b667a3eab1d1ac8cf14f7931f5ac37bb38880f`
-- installed software record: `bd831fb3659ea27bc52d07bd63327206e46efb87e76af29c604c6ee281a96553`
+- merged NAD2: `a86f03e8a5d5302d9872f995a0a5ba376a0ab6d5`
+- merged tree: `11a9fefbbe8b184c52058f4b4610da3a5e3b06e4`
+- qualified NAD2 executable source: `81bbf198e8bbe7df337312f2529c84b318c1ed64`
+- installed Native Access identity: exact 3.26.0 application retained by NAUI2
+- installed dependency: exact NTKDaemon 1.32.0 payload and `NTKDaemonService`
 
-NAD1 established the exact Native Access renderer policy, exact NTKDaemon payload
-and registration, fresh process/listener readiness, one-stop ownership, truthful
-retirement reporting, bounded fallback cleanup, and one rendered signed-in Native
-Access session. Preserve all NAD1 and NAUI2 results.
+NAD1 and NAD2 established exact dependency identity, fresh same-prefix process and
+listener readiness, one-stop ownership, truthful stop-response characterization,
+bounded process cleanup, renderer/browser-return ownership, and a prior rendered
+signed-in Native Access session.
 
-The latest one-shot real operation `f4a2b703d8ea518d14c893c480fd93ed`
-established readiness and both owned listeners, then submitted one SCM stop request.
-The API returned without a control error, but SCM remained `RUNNING`, the exact
-process did not exit, and both listeners remained throughout the 12,045 ms bounded
-observation. Exit-receipt fallback was correctly inapplicable. Forced cleanup
-recovered the bridge and keepers, and no successful preparation receipt was created.
+The remaining product blocker is the historical preparation gate. Native Access launch
+currently requires a prior dependency operation that both proved readiness and achieved
+graceful SCM retirement. The real daemon proved ready but remained `RUNNING` after the
+single submitted stop request, so no preparation receipt was created even though exact
+owned cleanup restored the bridge and keepers.
 
-Selected next slice: **NAD2 — exact NTKDaemon stop-response characterization**.
+Selected next slice: **NAO1 — Native Access owned session**.
 
-Authoritative slice document: `docs/NAD2.md`.
+Authoritative slice document: `docs/NAO1.md`.
 
-NAD2 adds bounded diagnostic characterization only. It must not introduce another
-stop request, a longer production wait, a replacement shutdown strategy, direct
-daemon termination as success, or a Native Access session.
+NAO1 makes the Native Access application operation own its exact NTKDaemon dependency
+for the same session. Launch must use one of two mutually exclusive exact installation
+origins: the retained installation-artifact record, or the fixed qualified-recovery
+record while that artifact pointer remains absent. Both origins require the current
+application, software, installer, daemon, environment, and prefix identities plus fresh
+per-session readiness; launch must not depend on a historical graceful-retirement
+receipt.
 
-During implementation and PR qualification:
+At session close, the manager still attempts one graceful SCM stop. If graceful
+retirement is not confirmed, exact-owned process cleanup may complete the Native Access
+session only when all owned processes and listeners are absent and all identity,
+privacy, preservation, and bridge-recovery checks pass. The result must continue to
+report `service_retirement_confirmed=false` and `forced_cleanup_used=true`; it must not
+create a dependency-preparation receipt or claim graceful shutdown.
 
-- do not install a candidate;
-- do not start or stop the real NTKDaemon;
-- do not launch Native Access, a DAW, a plug-in, an updater, or a product installer;
-- do not replay the daemon installer;
-- do not increase the 12-second production observation bound;
-- do not turn forced cleanup or bridge recovery into successful retirement;
+This is an exact Native Access 3.26.0 / NTKDaemon 1.32.0 compatibility policy, not a
+general Windows-service framework.
+
+During the implementation PR:
+
+- do not install the candidate;
+- do not launch Native Access or transition the real daemon;
+- do not change the selected `--disable-gpu` renderer policy;
+- do not weaken exact process, listener, prefix, application, or software identity;
+- do not change Arturia, VST, audio, editor, product-publication, or capacity behavior;
 - do not rewrite prior evidence.
 
-Return one draft PR, uninstalled and unmerged, for independent tech-lead review.
-Reliable real-daemon shutdown remains unqualified.
+Return one draft PR, uninstalled and unmerged, for independent tech-lead review. After
+that source is accepted, the next action is one installation and one real Native Access
+session—not another daemon-diagnostics slice.

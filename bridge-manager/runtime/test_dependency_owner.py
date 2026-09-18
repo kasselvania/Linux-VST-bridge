@@ -191,8 +191,8 @@ class OwnerTests(unittest.TestCase):
    with patch.object(s.subprocess,'Popen') as launch,patch.object(s.fcntl,'flock') as lock,patch.object(s,'nad1_publish') as write:
     with self.assertRaises(ValueError):s.nad1_application({'schema':1,'kind':'native_access_dependency',field:'untrusted'})
     launch.assert_not_called();lock.assert_not_called();write.assert_not_called()
- def test_no_renderer_launch_without_preparation(self):
-  with patch.object(s,'renderer_validate'),patch.object(s,'nad1_prepared',side_effect=ValueError('not_ready')),patch.object(s,'renderer_owned') as run:
+ def test_no_renderer_launch_without_exact_session_admission(self):
+  with patch.object(s,'renderer_validate'),patch.object(s,'nad1_session_admitted',side_effect=ValueError('not_ready')),patch.object(s,'renderer_owned') as run:
    with self.assertRaisesRegex(ValueError,'not_ready'):s.renderer_application({})
    run.assert_not_called()
 
@@ -215,6 +215,61 @@ class ListenerCustodyTests(unittest.TestCase):
    for action in ['start NTKDaemon','direct','install /other','service=other']:
     with self.assertRaisesRegex(ValueError,'dependency_action'):owner.command(action)
    launch.assert_not_called()
+
+class SessionCleanupTests(unittest.TestCase):
+ def setUp(self):
+  self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.root=pathlib.Path(self.tmp.name).resolve()
+  self.drive=self.root/'compatdata/pfx/drive_c';self.drive.mkdir(parents=True)
+  s.installer_atomic(self.root/'environment.json',{'root':str(self.root)})
+  self.daemon=self.drive/'NTKDaemon.exe';data=bytearray(256);data[:2]=b'MZ';struct.pack_into('<I',data,60,64);data[64:68]=b'PE\0\0';data[68:70]=b'\x64\x86';self.daemon.write_bytes(data)
+  self.identity=ownership.image_identity(self.daemon);self.scope=unittest.mock.Mock();self.scope.members.return_value=[]
+  spec={'operation':'a'*32,'report':str(self.root/'result.json'),'application':{'environment':{'root':str(self.root)}}}
+  fixture={'installer':'Setup.exe','daemon':'NTKDaemon.exe','installer_sha256':'d'*64,'installer_size':256}
+  self.owner=s.Nad1Owner(spec,None,self.scope,lambda:False,fixture=fixture);self.owner.ready=True;self.owner.daemon=self.identity;self.owner.process_cleanup_confirmed=True
+  self.owner.stop_observation={'schema':3,'classification':'NAD2_STOP_SUBMITTED_NO_TRANSITION','control_count':1}
+  self.image=unittest.mock.Mock()
+  self.scan={'candidates':[],'private':[],'unavailable':0}
+ def verify(self,classification=None,control_count=None):
+  if classification is not None:self.owner.stop_observation['classification']=classification
+  if control_count is not None:self.owner.stop_observation['control_count']=control_count
+  with patch.object(ownership,'census',return_value=copy.deepcopy(self.scan)),patch.object(s,'nad1_listener_census',return_value={'schema':1,'listener_mask':0,'rows_observed':1,'authority':'fixture'}):
+   return self.owner.verify_session_cleanup(self.image,False)
+ def test_nontransition_and_not_submitted_both_qualify_only_as_exact_owned_cleanup(self):
+  for classification,count in [('NAD2_STOP_SUBMITTED_NO_TRANSITION',1),('NAD2_STOP_NOT_SUBMITTED',1),('NAD2_STOPPED_PROCESS_OR_LISTENER_REMAINS',0)]:
+   with self.subTest(classification=classification):
+    self.owner.dependency_cleanup_disposition='cleanup_unconfirmed';self.assertTrue(self.verify(classification,count))
+    self.assertFalse(self.owner.service_retirement_confirmed);self.assertTrue(self.owner.forced_cleanup_used)
+    self.assertEqual(self.owner.dependency_cleanup_disposition,'exact_owned_session_cleanup')
+    self.assertTrue(self.owner.post_cleanup['exact_daemon_generation_absent'])
+ def test_unavailable_observation_or_process_cleanup_refuses(self):
+  with self.assertRaisesRegex(ValueError,'observation_unavailable'):self.verify('NAD2_STOP_OBSERVATION_UNAVAILABLE',1)
+  self.owner.process_cleanup_confirmed=False
+  with self.assertRaisesRegex(ValueError,'prerequisite'):self.verify('NAD2_STOP_SUBMITTED_NO_TRANSITION',1)
+ def test_listener_candidate_unavailable_or_cgroup_residue_refuses(self):
+  with patch.object(ownership,'census',return_value=copy.deepcopy(self.scan)),patch.object(s,'nad1_listener_census',return_value={'listener_mask':1}):
+   with self.assertRaisesRegex(ValueError,'post_cleanup_unconfirmed'):self.owner.verify_session_cleanup(self.image,False)
+  for change in ({'candidates':[{'prefix_relation':'foreign'}]},{'unavailable':1}):
+   self.scan={'candidates':[],'private':[],'unavailable':0,**change}
+   with self.assertRaisesRegex(ValueError,'post_cleanup_unconfirmed'):self.verify()
+  self.scan={'candidates':[],'private':[],'unavailable':0};self.scope.members.return_value=[{'pid':7}]
+  with self.assertRaisesRegex(ValueError,'post_cleanup_unconfirmed'):self.verify()
+ def test_changed_daemon_refuses_and_second_fresh_generated_session_can_verify(self):
+  self.daemon.write_bytes(b'changed')
+  with self.assertRaises(ValueError):self.verify()
+  self.daemon.write_bytes(bytearray(256));self.daemon.write_bytes(b'MZ'+b'\0'*254)
+  # Restore the exact admitted source-owned bytes, then use two independent owners.
+  data=bytearray(256);data[:2]=b'MZ';struct.pack_into('<I',data,60,64);data[64:68]=b'PE\0\0';data[68:70]=b'\x64\x86';self.daemon.write_bytes(data)
+  self.assertTrue(self.verify())
+  other=s.Nad1Owner(self.owner.spec,None,self.scope,lambda:False,fixture={'installer':'Setup.exe','daemon':'NTKDaemon.exe','installer_sha256':'d'*64,'installer_size':256})
+  other.ready=True;other.daemon=self.identity;other.process_cleanup_confirmed=True;other.stop_observation={'schema':3,'classification':'NAD2_STOP_NOT_SUBMITTED','control_count':1}
+  with patch.object(ownership,'census',return_value={'candidates':[],'private':[],'unavailable':0}),patch.object(s,'nad1_listener_census',return_value={'listener_mask':0}):self.assertTrue(other.verify_session_cleanup(self.image,False))
+
+ def test_fixed_listener_census_reports_only_expected_loopback_listeners(self):
+  proc=self.root/'proc';(proc/'net').mkdir(parents=True)
+  header='  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n'
+  (proc/'net/tcp').write_text(header+'   0: 0100007F:141A 00000000:0000 0A 0:0 0:0 0 0 0\n')
+  (proc/'net/tcp6').write_text(header+'   0: 00000000000000000000000001000000:15BB 00000000000000000000000000000000:0000 0A 0:0 0:0 0 0 0\n')
+  self.assertEqual(s.nad1_listener_census(proc)['listener_mask'],3)
 
 
 class ArtifactRecovery(unittest.TestCase):
@@ -249,13 +304,26 @@ class IntegratedApplicationTests(unittest.TestCase):
     class Dependency:
      runtime=type('Runtime',(),{'argv':lambda *_:['generated-command'],'drain':lambda *_:None})()
      anchor=type('Exited',(),{'returncode':1})() if case=='anchor_failure' else None
-     process_cleanup_confirmed=False;forced_cleanup_used=False
-     def __init__(self,*_,**__):pass
+     process_cleanup_confirmed=False;forced_cleanup_used=False;retirement_error=None
+     def __init__(self,*_,**__):
+      self.ready=False;self.service_retirement_confirmed=False
+      self.dependency_cleanup_disposition='cleanup_unconfirmed';self.post_cleanup=None
      def ensure(self,*_):
       events.append('ready')
       if case=='readiness_failure':raise ValueError('dependency_running_not_ready')
-     def retire(self):events.append('service_stop');return case!='stop_failure'
-     def value(self):return {'service_retirement_confirmed':case!='stop_failure','process_cleanup_confirmed':self.process_cleanup_confirmed}
+      self.ready=True
+     def retire_service(self):
+      events.append('service_stop');self.service_retirement_confirmed=case!='stop_failure';self.forced_cleanup_used=not self.service_retirement_confirmed
+      return self.service_retirement_confirmed
+     def close_runtime(self):return True
+     def verify_session_cleanup(self,*_):
+      if not self.ready:raise ValueError('dependency_session_cleanup_prerequisite')
+      self.dependency_cleanup_disposition='graceful_service_retirement' if self.service_retirement_confirmed else 'exact_owned_session_cleanup'
+      self.post_cleanup={'cgroup_empty':True,'exact_daemon_generation_absent':True,'listener_mask':0}
+      return True
+     def value(self):return {'ready_tested':self.ready,'service_retirement_confirmed':self.service_retirement_confirmed,
+      'process_cleanup_confirmed':self.process_cleanup_confirmed,'forced_cleanup_used':self.forced_cleanup_used,
+      'dependency_cleanup_disposition':self.dependency_cleanup_disposition,'post_cleanup':self.post_cleanup}
     def launch(*args,**kwargs):
      self.assertEqual(events,['ready']);events.append('application_launch')
      if case=='launch_failure':raise OSError('generated refusal')

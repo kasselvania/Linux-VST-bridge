@@ -2306,6 +2306,7 @@ def renderer_validate(spec, *, dependency=False):
     # Installed entry: no caller-selected home, environment, manifest or fixture.
     fields={'schema','kind','application','application_identity','operation','renderer_policy','report','software','software_sha256','installer_launch'}
     if dependency:fields.add('dependency_mode')
+    else:fields.add('dependency_session')
     if set(spec)!=fields or type(spec['schema']) is not int or spec['schema']!=(2 if dependency else 1) or spec['kind']!=('native_access_dependency' if dependency else 'renderer_application') or spec['renderer_policy'] not in ('inherited','software_rendering'):raise ValueError('renderer_production_schema')
     if dependency and spec['dependency_mode'] not in ('prepare','recover_installed'):raise ValueError('dependency_mode')
     expected=RENDERER_PRODUCTION
@@ -2353,7 +2354,8 @@ def renderer_validate(spec, *, dependency=False):
     return app
 
 def renderer_bound_inputs(spec):
-    if set(spec)!={'schema','kind','application','application_identity','operation','renderer_policy','report','software','software_sha256','installer_launch'} or spec['schema']!=1 or spec['kind']!='renderer_application':raise ValueError('renderer_spec_schema')
+    base={'schema','kind','application','application_identity','operation','renderer_policy','report','software','software_sha256','installer_launch'}
+    if set(spec) not in (base,base|{'dependency_session'}) or spec['schema']!=1 or spec['kind']!='renderer_application':raise ValueError('renderer_spec_schema')
     if not re.fullmatch('[0-9a-f]{32}',spec['operation']) or spec['renderer_policy'] not in ('inherited','software_rendering'):raise ValueError('renderer_policy')
     app=spec['application'];sw=spec['software']
     if set(app)!={'schema','id','environment','files','installation','observation_sha256','source_seal_sha256'} or app['schema']!=1:raise ValueError('renderer_application_schema')
@@ -2364,6 +2366,11 @@ def renderer_bound_inputs(spec):
     for name,path in [('supervisor',__file__),('ownership',sys.modules['ownership'].__file__)]:
         if pathlib.Path(sw[name]['path']).resolve()!=pathlib.Path(path).resolve():raise ValueError('renderer_executing_owner')
     if hashlib.sha256(canonical(app)).hexdigest()!=spec['application_identity']:raise ValueError('renderer_application_binding')
+    if 'dependency_session' in spec:
+        session=spec['dependency_session']
+        if (not isinstance(session,dict) or session.get('application')!=spec['application_identity']
+            or session.get('software_sha256')!=spec['software_sha256'] or session.get('current_software')!=sw):
+            raise ValueError('dependency_session_binding')
     env=app['environment'];root=pathlib.Path(env['root'])
     if not re.fullmatch('[0-9a-f]{32}',env['id']) or type(env['revision']) is not int or env['revision']<1:raise ValueError('renderer_environment')
     if json.loads((root/'environment.json').read_text())!=env:raise ValueError('renderer_environment_changed')
@@ -2404,7 +2411,7 @@ def renderer_focus(scope,image):
 def renderer_application(spec):
     # A foreign spec cannot publish even a refusal to its supplied report path.
     renderer_validate(spec)
-    dependency=nad1_prepared(spec)
+    dependency=nad1_session_admitted(spec)
     return renderer_owned(spec,dependency=dependency)
 
 def native_access_uri(value):
@@ -2505,6 +2512,10 @@ class RendererCallback:
         self.listener.close();self.acks.clear()
 
 
+def renderer_terminal_state(clean,stop,error):
+    if type(clean) is not bool or type(stop) is not bool:raise ValueError('renderer_terminal_state')
+    return 'failed' if not clean or error else 'cancelled' if stop else 'completed'
+
 def renderer_owned(spec, preparation=None, dependency=None, *, dependency_fixture=None, callback_fixture=False):
     # Shared mechanism after independent production or sealed-fixture admission.
     # Manager reconciliation takes the same gate before closing an unused launch.
@@ -2519,7 +2530,7 @@ def renderer_owned(spec, preparation=None, dependency=None, *, dependency_fixtur
         except Exception as exc:
             scope=CompanionCgroup(renderer_operation=op);clean=not scope.members()
             atomic(report,{'schema':1,'operation':op,'application_identity':spec['application_identity'],
-                'state':'failed' if clean else 'cleanup_unconfirmed','requested':spec['renderer_policy'],
+                'state':'failed','requested':spec['renderer_policy'],
                 'effective':None,'outer_exit':None,'cleanup_confirmed':clean,'owned_live':0 if clean else None,
                 'cancelled':False,'error':'renderer_admission_'+type(exc).__name__,
                 'renderer':{'cause':'unresolved','complete':False}})
@@ -2638,6 +2649,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
             if time.monotonic()-last>.5:atomic(report,result(state,len(live)));last=time.monotonic()
     except Exception as exc:error=str(exc) if isinstance(exc,ValueError) else 'renderer_owner_'+type(exc).__name__
     finally:
+        graceful=False
         def finish(name,call):
             nonlocal error
             try:return call()
@@ -2650,7 +2662,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
             except Exception:
                 error=error or 'application_retirement_unconfirmed'
                 dependency_owner.forced_cleanup_used=True
-            if not finish('dependency_retirement_failed',dependency_owner.retire):error=error or getattr(dependency_owner,'retirement_error',None) or 'dependency_service_retirement_unconfirmed'
+            graceful=dependency_owner.retire_service()
         # None of the preceding resource/service failures may skip process cleanup.
         if scope is not None and not clean:
             clean=bool(finish('renderer_cleanup_failed',ledger.cleanup if ledger else lambda:not scope.members()))
@@ -2658,14 +2670,22 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
             for _ in range(64):finish('renderer_drain_failed',lambda:drain(0))
             finish('renderer_stdout_close_failed',child.stdout.close)
             finish('renderer_stderr_close_failed',child.stderr.close)
-        if dependency_owner is not None:dependency_owner.process_cleanup_confirmed=clean
+        if dependency_owner is not None:
+            dependency_owner.process_cleanup_confirmed=clean
+            runtime_closed=dependency_owner.close_runtime()
+            verified=False
+            if clean and runtime_closed:
+                try:verified=dependency_owner.verify_session_cleanup(image,graceful)
+                except Exception as exc:
+                    dependency_owner.retirement_error=dependency_owner.retirement_error or (str(exc) if isinstance(exc,ValueError) else 'dependency_session_cleanup_'+type(exc).__name__)
+            if not verified:error=error or dependency_owner.retirement_error or 'dependency_cleanup_unconfirmed'
         if ledger:finish('renderer_ledger_commit_failed',ledger.commit)
         finish('renderer_selector_close_failed',sel.close)
         finish('renderer_request_remove_failed',lambda:request_path.unlink(missing_ok=True))
         finish('renderer_image_close_failed',image.close)
         for c in captures.values():finish('renderer_capture_close_failed',c.close)
         finish('renderer_lock_close_failed',lock.close)
-        atomic(report,result('cleanup_unconfirmed' if not clean else 'cancelled' if stop else 'failed' if error else 'completed',0 if clean else None))
+        atomic(report,result(renderer_terminal_state(clean,stop,error),0 if clean else None))
     return clean and error is None
 
 
@@ -2675,6 +2695,25 @@ NAD1_INSTALLER = 'Program Files/Native Instruments/Native Access/resources/daemo
 NAD1_INSTALLER_SHA = '5f2199f4e1409d6eea5edaea9c4a8af31e8ee8ac3790851aa44d33e87a46b218'
 NAD1_DAEMON = 'Program Files/Common Files/Native Instruments/NTK/NTKDaemon.exe'
 NAD1_SERVICE = 'NTKDaemonService'
+
+def nad1_listener_census(proc=pathlib.Path('/proc')):
+    """Bounded passive absence check for NAO1's two fixed loopback ports."""
+    ports={5146:1,5563:2};mask=0;rows=0
+    for name in ('tcp','tcp6'):
+        path=proc/'net'/name
+        with os.fdopen(os.open(path,os.O_RDONLY|os.O_NOFOLLOW),'rb') as f:
+            data=f.read(4*1024*1024+1)
+        if len(data)>4*1024*1024:raise ValueError('dependency_listener_census_extent')
+        for raw in data.splitlines()[1:]:
+            rows+=1
+            if rows>65536:raise ValueError('dependency_listener_census_extent')
+            fields=raw.split()
+            if len(fields)<4:raise ValueError('dependency_listener_census_shape')
+            try:address,port=fields[1].decode('ascii').split(':');port=int(port,16)
+            except (UnicodeDecodeError,ValueError):raise ValueError('dependency_listener_census_shape') from None
+            if fields[3]==b'0A' and port in ports and address in ('0100007F','00000000000000000000000001000000'):
+                mask|=ports[port]
+    return {'schema':1,'listener_mask':mask,'rows_observed':rows,'authority':'bounded_passive_fixed_loopback_absence'}
 
 def nad1_publish(path,value):
     staging=path.with_name(path.name+'.staging-'+os.urandom(8).hex())
@@ -2905,6 +2944,9 @@ def nad1_recovery_inputs(spec, prior_directory, qualification, installer_relativ
     """
     import ownership
     q=qualification;held=[];records={}
+    for relative in (installer_relative,daemon_relative):
+        candidate=pathlib.PurePath(relative)
+        if candidate.is_absolute() or not candidate.parts or any(part in ('','.', '..') for part in candidate.parts):raise ValueError('dependency_recovery_relative_path')
     if spec['application_identity']!=q['application_identity'] or spec['operation']==q['operation']:
         raise ValueError('dependency_recovery_application')
     drive=pathlib.Path(spec['application']['environment']['root'])/'compatdata/pfx/drive_c'
@@ -3066,7 +3108,9 @@ class Nad1Runtime:
 class Nad1Owner:
     def __init__(self,spec,ledger,scope,cancelled,*,fixture=None):
         self.spec=spec;self.ledger=ledger;self.scope=scope;self.cancelled=cancelled;self.production=fixture is None
-        self.root=pathlib.Path(spec['application']['environment']['root']);self.drive=self.root/'compatdata/pfx/drive_c'
+        self.root=pathlib.Path(spec['application']['environment']['root']);self.prefix=self.root/'compatdata/pfx';self.drive=self.prefix/'drive_c'
+        try:prefix=self.prefix.lstat();self.prefix_identity=(prefix.st_dev,prefix.st_ino)
+        except OSError:self.prefix_identity=None
         self.directory=pathlib.Path(spec['report']).parent;self.op=spec['operation'];self.stages=[];self.daemon=None;self.ready=False
         # Only a separately sealed source-owned entry may supply fixture constants.
         self.installer_relative=NAD1_INSTALLER if fixture is None else fixture['installer']
@@ -3076,13 +3120,16 @@ class Nad1Owner:
         self.token=os.urandom(32).hex();self.anchor=None;self.recovery=None;self.runtime=None;self.diagnostic_privacy=False
         self.service_possibility='unknown';self.retirement_authorized=False
         self.retiring=False;self.retirement_attempted=False
-        self.service_stop_requested=False;self.service_retirement_confirmed=False
+        self.service_stop_requested=False;self.service_stop_request_count=None;self.service_retirement_confirmed=False
         self.runtime_close_errors=[];self.service_generation=None;self.stop_observation=None
         self.process_cleanup_confirmed=False;self.forced_cleanup_used=False;self.retirement_error=None
+        self.dependency_cleanup_disposition='cleanup_unconfirmed';self.post_cleanup=None
     def value(self):
         return {'schema':1,'ready_tested':self.ready,'daemon':self.daemon,'recovery':self.recovery,
-                'service_stop_requested':self.service_stop_requested,'service_retirement_confirmed':self.service_retirement_confirmed,
+                'service_stop_requested':self.service_stop_requested,'service_stop_request_count':self.service_stop_request_count,
+                'service_retirement_confirmed':self.service_retirement_confirmed,
                 'process_cleanup_confirmed':self.process_cleanup_confirmed,'forced_cleanup_used':self.forced_cleanup_used,
+                'dependency_cleanup_disposition':self.dependency_cleanup_disposition,'post_cleanup':self.post_cleanup,
                 'retirement_error':self.retirement_error,'service_possibility':self.service_possibility,
                 'runtime_close_errors':self.runtime_close_errors,'stop_observation':self.stop_observation,
                 'runtime':{'topology':'one_operation_container','ready':self.runtime.ready,'retirement_requested':self.runtime.closed,'service_sha256':self.runtime.SERVICE_SHA} if self.runtime else None,
@@ -3240,20 +3287,59 @@ class Nad1Owner:
 
     def retire(self):
         retired=False
-        try:retired=self._retire_service()
+        try:retired=self.retire_service()
         except Exception as exc:
             self.retirement_error=self.retirement_error or 'dependency_retirement_'+type(exc).__name__
             self.forced_cleanup_used=True
         finally:
-            if self.runtime is not None:
-                try:
-                    self.runtime.close()
-                    self.runtime_close_errors=list(self.runtime.close_errors)
-                except Exception as exc:self.runtime_close_errors=['runtime_close_'+type(exc).__name__]
-                if self.runtime_close_errors:
-                    self.retirement_error=self.retirement_error or 'dependency_runtime_close_failed'
-                    retired=False
+            if not self.close_runtime():retired=False
         return retired
+
+    def retire_service(self):
+        try:return self._retire_service()
+        except Exception as exc:
+            self.retirement_error=self.retirement_error or 'dependency_retirement_'+type(exc).__name__
+            self.forced_cleanup_used=True
+            return False
+
+    def close_runtime(self):
+        if self.runtime is not None:
+            try:
+                self.runtime.close();self.runtime_close_errors=list(self.runtime.close_errors)
+            except Exception as exc:self.runtime_close_errors=['runtime_close_'+type(exc).__name__]
+        if self.runtime_close_errors:
+            self.retirement_error=self.retirement_error or 'dependency_runtime_close_failed'
+            return False
+        return True
+
+    def verify_session_cleanup(self,application_image,graceful,*,proc=pathlib.Path('/proc')):
+        import ownership
+        if not self.ready or not self.process_cleanup_confirmed:raise ValueError('dependency_session_cleanup_prerequisite')
+        observation=self.stop_observation
+        if not graceful:
+            if (not isinstance(observation,dict) or observation.get('classification') in (None,'NAD2_STOP_OBSERVATION_UNAVAILABLE')
+                or observation.get('control_count') not in (0,1)):
+                raise ValueError('dependency_session_stop_observation_unavailable')
+        application_image.check()
+        prefix=self.prefix.lstat()
+        if (self.prefix_identity is None or not stat.S_ISDIR(prefix.st_mode) or self.prefix.resolve()!=self.prefix
+            or (prefix.st_dev,prefix.st_ino)!=self.prefix_identity
+            or renderer_read(self.root/'environment.json')!=self.spec['application']['environment']):
+            raise ValueError('dependency_session_prefix_changed')
+        actual=ownership.image_identity(self.drive/self.daemon_relative)
+        if actual!=self.daemon:raise ValueError('dependency_session_daemon_changed')
+        members=self.scope.members()
+        scan=ownership.census(self.root/'compatdata/pfx',self.daemon,proc=proc)
+        listeners=nad1_listener_census(proc)
+        self.post_cleanup={'schema':1,'cgroup_empty':not members,'exact_daemon_generation_absent':not scan['candidates'] and not scan['unavailable'],
+            'listener_mask':listeners['listener_mask'],'candidate_count':len(scan['candidates']),
+            'candidate_observation_unavailable':scan['unavailable'],'application_image_unchanged':True,
+            'daemon_image_unchanged':True,'authority':'exact_owned_renderer_cohort_and_bounded_daemon_listener_census'}
+        if members or scan['unavailable'] or scan['candidates'] or listeners['listener_mask']:
+            raise ValueError('dependency_session_post_cleanup_unconfirmed')
+        self.dependency_cleanup_disposition='graceful_service_retirement' if graceful else 'exact_owned_session_cleanup'
+        self.forced_cleanup_used=not graceful
+        return True
 
     def _retire_service(self):
         """One stop request, exact SCM generation retirement, then Linux absence.
@@ -3273,8 +3359,11 @@ class Nad1Owner:
             return False
         try:
             import ownership
-            self.service_stop_requested=True
-            stopped=self.command('stop')
+            try:stopped=self.command('stop')
+            finally:
+                count=self.stop_observation.get('control_count') if isinstance(self.stop_observation,dict) else None
+                self.service_stop_request_count=count if type(count) is int and count in (0,1) else None
+                self.service_stop_requested=self.service_stop_request_count==1
             if stopped['registration']=='exact' and not stopped.get('retirement_generation_confirmed'):raise ValueError('dependency_stop_generation_unconfirmed')
             deadline=time.monotonic()+15
             while time.monotonic()<deadline:
@@ -3352,6 +3441,91 @@ def nad1_admitted(spec):
     if len(frame)!=7 or frame[0]!='NAD1_INSTALL_ROOT_V1' or frame[1]!=r['operation'] or frame[3:5]!=[NAD1_INSTALLER_SHA,'35769456']:raise ValueError('dependency_artifact_root')
     return r['daemon']
 
+def nad1_session_admitted_inputs(spec,directory,qualification,installer_relative,daemon_relative):
+    """Revalidate Rust's closed session admission from immutable local inputs.
+
+    Exactly one origin is admitted: a retained installation artifact, or the
+    fixed qualified recovery while the artifact pointer remains absent. The
+    renderer spec separately binds the current installed manager generation;
+    neither origin is live readiness or retirement authority.
+    """
+    import ownership
+    session=spec.get('dependency_session')
+    fields={'schema','authority','application','software_sha256','manager_sha256','environment',
+        'prefix','installation','service','listeners','installer','daemon','origin','current_software'}
+    if not isinstance(session,dict) or set(session)!=fields or session['schema']!=1 or session['authority']!='closed_exact_installation_origin_and_current_software':raise ValueError('dependency_session_schema')
+    q=qualification
+    app=spec['application'];root=pathlib.Path(app['environment']['root']);prefix=root/'compatdata/pfx'
+    if (session['application']!=spec['application_identity'] or session['software_sha256']!=spec['software_sha256']
+        or session['manager_sha256']!=spec['software'].get('manager',{}).get('sha256')
+        or session['environment']!=app['environment']['id']
+        or session['installation']!=app['installation'] or session['service']!=NAD1_SERVICE
+        or session['listeners']!=[5146,5563]
+        or session['installer']!={'sha256':q['installer_sha256'],'size':q['installer_size']}
+        or session['current_software']!=spec['software']):raise ValueError('dependency_session_binding')
+    prefix_md=prefix.lstat()
+    if (session['prefix']!={'path_sha256':hashlib.sha256(os.fsencode(prefix)).hexdigest(),
+            'device':prefix_md.st_dev,'inode':prefix_md.st_ino}
+        or not stat.S_ISDIR(prefix_md.st_mode) or prefix.resolve()!=prefix):raise ValueError('dependency_session_prefix_identity')
+    directory=pathlib.Path(directory)
+    directory_md=directory.lstat()
+    if not stat.S_ISDIR(directory_md.st_mode) or directory.resolve()!=directory:raise ValueError('dependency_session_directory')
+    directory_stamp=(directory_md.st_dev,directory_md.st_ino,directory_md.st_size,directory_md.st_mtime_ns,directory_md.st_ctime_ns)
+    pointer=directory/'artifact.json';had_pointer=os.path.lexists(pointer)
+    origin=session['origin']
+    if not isinstance(origin,dict):raise ValueError('dependency_session_origin')
+    def exact(path,digest):
+        md=path.lstat();image=RendererImage({'artifact':{'path':str(path),'sha256':digest},'size':md.st_size})
+        try:image.check()
+        finally:image.close()
+    if had_pointer:
+        artifact_fields={'kind','operation','artifact_sha256','spec_sha256','root_sha256','software_sha256'}
+        if set(origin)!=artifact_fields or origin.get('kind')!='retained_installation_artifact' or not re.fullmatch('[0-9a-f]{32}',str(origin.get('operation'))):raise ValueError('dependency_session_origin')
+        operation=origin['operation'];d=directory/'operations'/operation
+        exact(pointer,origin['artifact_sha256']);record=renderer_read(pointer)
+        if (set(record)!={'schema','operation','application','software_sha256','installer_sha256','daemon','root_sha256','spec_sha256'}
+            or record['schema']!=1 or record['operation']!=operation or record['application']!=spec['application_identity']
+            or record['installer_sha256']!=q['installer_sha256'] or record['spec_sha256']!=origin['spec_sha256']
+            or record['root_sha256']!=origin['root_sha256'] or record['software_sha256']!=origin['software_sha256']
+            or record['daemon']!=session['daemon']):raise ValueError('dependency_session_artifact_identity')
+        exact(d/'artifact.json',origin['artifact_sha256'])
+        if renderer_read(d/'artifact.json')!=record:raise ValueError('dependency_session_artifact_pointer')
+        exact(d/'spec.json',origin['spec_sha256']);prior=renderer_read(d/'spec.json')
+        canonical=lambda value:json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()
+        if (prior.get('schema')!=2 or prior.get('kind')!='native_access_dependency' or prior.get('operation')!=operation
+            or prior.get('application')!=app or prior.get('application_identity')!=spec['application_identity']
+            or prior.get('software_sha256')!=record['software_sha256']
+            or hashlib.sha256(canonical(prior.get('software'))).hexdigest()!=record['software_sha256']):raise ValueError('dependency_session_artifact_origin')
+        root_record=d/(operation+'-installer-root.private.json');exact(root_record,origin['root_sha256'])
+        frame=renderer_read(root_record).get('frame')
+        if (not isinstance(frame,list) or len(frame)!=7 or frame[:2]!=['NAD1_INSTALL_ROOT_V1',operation]
+            or frame[3:5]!=[q['installer_sha256'],str(q['installer_size'])]):raise ValueError('dependency_session_root_frame')
+        exact(pointer,origin['artifact_sha256'])
+        if renderer_read(pointer)!=record:raise ValueError('dependency_session_artifact_changed')
+    else:
+        recovery=nad1_recovery_inputs(spec,directory/'operations'/q['operation'],q,installer_relative,daemon_relative)
+        if recovery['daemon']!=session['daemon']:raise ValueError('dependency_session_daemon_origin')
+        expected={'kind':'qualified_recovered_installation','operation':q['operation'],
+            'application_identity':q['application_identity'],'installer_sha256':q['installer_sha256'],
+            'sources':q['sources'],'qualification_sha256':recovery['qualification_sha256']}
+        if origin!=expected:raise ValueError('dependency_session_recovery_origin')
+    after=directory.lstat()
+    if (os.path.lexists(pointer)!=had_pointer
+        or (after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns,after.st_ctime_ns)!=directory_stamp):raise ValueError('dependency_session_origin_changed')
+    for relative in (installer_relative,daemon_relative):
+        candidate=pathlib.PurePath(relative)
+        if candidate.is_absolute() or not candidate.parts or any(part in ('','.', '..') for part in candidate.parts):raise ValueError('dependency_recovery_relative_path')
+    image=RendererImage({'artifact':{'path':str(root/'compatdata/pfx/drive_c'/installer_relative),'sha256':q['installer_sha256']},'size':q['installer_size']})
+    try:image.check()
+    finally:image.close()
+    actual=ownership.image_identity(root/'compatdata/pfx/drive_c'/daemon_relative)
+    if actual!=session['daemon']:raise ValueError('dependency_session_daemon_changed')
+    return session
+
+def nad1_session_admitted(spec):
+    directory=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed/vendor-applications/native-access-dependency'
+    return nad1_session_admitted_inputs(spec,directory,NAD1_RECOVERY,NAD1_INSTALLER,NAD1_DAEMON)
+
 def nad1_prepared(spec):
     managed=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed';directory=managed/'vendor-applications/native-access-dependency'
     r=renderer_read(directory/'prepared.json')
@@ -3374,7 +3548,7 @@ def nad1_owned(spec,*,fixture=None):
         stopped=[False]
         def cancel(*_):stopped[0]=True;ledger.cancelled=True
         signal.signal(signal.SIGTERM,cancel);signal.signal(signal.SIGINT,cancel)
-        owner=Nad1Owner(spec,ledger,scope,lambda:stopped[0],fixture=fixture);error=None;clean=False
+        owner=Nad1Owner(spec,ledger,scope,lambda:stopped[0],fixture=fixture);error=None;clean=False;retired=False
         installer_atomic(report.parent/'writer.json',{'schema':1,'operation':op,'started':True})
         try:
             admitted=fixture.get('admitted') if fixture else None
@@ -3388,11 +3562,13 @@ def nad1_owned(spec,*,fixture=None):
         except Exception as exc:error=str(exc) if isinstance(exc,ValueError) else 'dependency_owner_'+type(exc).__name__
         finally:
             try:
-                if not owner.retire():error=error or owner.retirement_error or 'dependency_service_retirement_unconfirmed'
+                retired=owner.retire()
+                if not retired:error=error or owner.retirement_error or 'dependency_service_retirement_unconfirmed'
             except Exception:error=error or 'dependency_retirement_failed'
             try:clean=ledger.cleanup()
             except Exception:error=error or 'dependency_process_cleanup_failed'
             owner.process_cleanup_confirmed=clean
+            if retired and clean and not owner.runtime_close_errors:owner.dependency_cleanup_disposition='graceful_service_retirement'
             try:ledger.commit()
             except Exception:error=error or 'dependency_ledger_commit_failed'
             try:lock.close()
