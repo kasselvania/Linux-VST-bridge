@@ -90,7 +90,7 @@
     "observed_clock_range_hz": null
   },
   "provisioning": {
-    "commit": null,
+    "commit": "e697cd02b4026fc356a6c07d9e4087e52a23d8af",
     "paths": ["tools/shieldxl0", "evidence/shieldxl0"],
     "rollback": "tools/shieldxl0/uninstall.sh",
     "physical_verification_completed": false
