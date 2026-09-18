@@ -3111,7 +3111,7 @@ class Nad1Runtime:
         if self.child.returncode is not None:raise ValueError('dependency_runtime_exited')
         if not self.ready or self.bus_name is None:raise ValueError('dependency_runtime_not_ready')
         self.verify_tools()
-        return [str(self.client),'--bus-name='+self.bus_name,'--directory='+str(cwd),
+        return [str(self.client),'--verbose','--bus-name='+self.bus_name,'--directory='+str(cwd),
                 *['--pass-env='+key for key in self.DEBUG_KEYS],'--',self.runner['proton'],'runinprefix',
                 self.owner.spec['installer_launch']['path'],windows(request,self.owner.root/'compatdata/pfx')]
     def value(self):

@@ -76,8 +76,8 @@ class RuntimeTests(unittest.TestCase):
   with patch.object(r,'start') as start,patch.object(r,'drain'),patch.object(r,'verify_tools'):
    a=r.argv(self.owner.root/'one.private',self.owner.root,{'EVIL':'value'})
    b=r.argv(self.owner.root/'two.private',self.owner.root/'home',{})
-  start.assert_not_called();self.assertEqual(a[0],str(r.client));self.assertEqual(a[1],b[1])
-  self.assertEqual(a[1],'--bus-name=:1.42')
+  start.assert_not_called();self.assertEqual(a[0],str(r.client));self.assertEqual(a[2],b[2])
+  self.assertEqual(a[1:3],['--verbose','--bus-name=:1.42'])
   self.assertNotIn('EVIL',' '.join(a));self.assertNotIn('--clear-env',a)
   self.assertEqual([x for x in a if x.startswith('--pass-env=')],['--pass-env='+x for x in r.DEBUG_KEYS])
   self.assertEqual(a[-4:-1],['/fixed/proton','runinprefix','/fixed/adapter.exe'])
