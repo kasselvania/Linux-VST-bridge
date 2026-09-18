@@ -99,10 +99,5 @@ pub(super) fn project(
     }
     card.details["dependency_prepared"] = json!(prepared);
     card.details["dependency_ready_now"] = Value::Null;
-    for a in &mut card.actions {
-        if matches!(a.action, ui::Action::RendererOpen { .. }) && !prepared {
-            a.disabled_reason=Some("Prepare the exact Native Access dependency first; live service readiness is checked before application launch".into());
-        }
-    }
     Ok(())
 }

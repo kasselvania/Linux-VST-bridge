@@ -2,7 +2,8 @@
 import ctypes,os,pathlib,shutil,subprocess,sys,time
 sys.dont_write_bytecode=True
 from owner_package import verify,read,digest,publish
-CASES=('normal','repeat','cancel','not_ready','stop_failure','application_failure','lifetime','child_memory','callback')
+CASES=('normal','repeat','cancel','not_ready','stop_failure','application_failure','lifetime','child_memory','callback',
+ 'no_transition_cleanup','not_submitted_cleanup','stopped_residue_cleanup','observation_unavailable_cleanup')
 def run(package,seal,spec_path):
  p=pathlib.Path(package);manifest=verify(p,seal);spec=read(spec_path);d=pathlib.Path(spec_path).parents[5];op=spec['operation']
  case=read(d/'case.json')['case']
@@ -61,6 +62,10 @@ def run(package,seal,spec_path):
  if case=='cancel':(directory/'hold-application').touch()
  if case in ('application_failure','stop_failure'):(directory/'fail-application').touch()
  if case=='stop_failure':(directory/'refuse-stop').touch()
+ if case=='no_transition_cleanup':(directory/'no-transition').touch()
+ if case=='not_submitted_cleanup':(directory/'control-failure').touch()
+ if case=='stopped_residue_cleanup':(directory/'stopped-listener-hold').touch()
+ if case=='observation_unavailable_cleanup':(directory/'query-failure').touch()
  admitted=ownership.image_identity(directory/'NTKDaemon.exe')
  if admitted['sha256']!=manifest['files']['Setup.exe']:raise ValueError('fixture_daemon_changed')
  verify(p,seal)

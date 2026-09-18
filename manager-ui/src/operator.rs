@@ -470,7 +470,7 @@ impl eframe::App for Operator {
                 }
                 egui::CollapsingHeader::new("Arturia environment and software center").default_open(true).show(ui,|ui|{
                     for app in &s.vendor_applications{ui.heading(&app.name);
-                        if app.id=="native-access" {ui.label(if app.details["dependency_prepared"]==true {"Dependency prepared; live readiness is checked before launch"}else{"Dependency preparation required"});ui.label(if app.details["effective"].is_object(){"Renderer policy applied to the exact owned application"}else{"Renderer policy application not confirmed"});ui.label(format!("Rendering cause: {}",app.details["renderer"]["cause"].as_str().unwrap_or("unresolved")));for line in dependency_retirement_lines(&app.details["dependency_operation"]){ui.small(line);}if app.details["dependency"].is_object(){for line in dependency_retirement_lines(&app.details){ui.small(line);}}}
+                        if app.id=="native-access" {ui.label(if app.details["dependency_prepared"]==true {"Historical dependency preparation retained; each launch still requires exact session admission and fresh readiness"}else{"Historical dependency preparation is absent; launch uses exact session admission and fresh readiness"});ui.label(if app.details["effective"].is_object(){"Renderer policy applied to the exact owned application"}else{"Renderer policy application not confirmed"});ui.label(format!("Rendering cause: {}",app.details["renderer"]["cause"].as_str().unwrap_or("unresolved")));for line in dependency_retirement_lines(&app.details["dependency_operation"]){ui.small(line);}if app.details["dependency"].is_object(){for line in dependency_retirement_lines(&app.details){ui.small(line);}}}
                         ui.label(format!("{} · {}",app.version,app.state));Self::buttons(ui,&app.actions,busy,controls_pending,&mut chosen);}
                     for e in &s.environments{ui.label(format!("{} · revision {} · pinned runner {}",e.family,e.revision,e.runner));ui.small(&e.authorization);if !e.last_scan["id"].is_null(){ui.small(format!("Last scan: {} modules · completed at {}",e.last_scan["module_count"],e.last_scan["completed_at"]));ui.small(format!("Changes: {} added · {} changed · {} removed · {} unchanged",e.last_scan["changes"]["added"],e.last_scan["changes"]["changed"],e.last_scan["changes"]["removed"],e.last_scan["changes"]["unchanged"]));}Self::buttons(ui,&e.actions,busy,controls_pending,&mut chosen);}
                 });
@@ -606,6 +606,11 @@ fn dependency_retirement_lines(v: &serde_json::Value) -> Vec<String> {
     let mut lines=vec![format!("Dependency service stop: {}",if r["service_retirement_confirmed"]==true {"confirmed"}else{"not confirmed"}),
          format!("Dependency process cleanup: {}",if r["process_cleanup_confirmed"]==true {"confirmed"}else{"not confirmed"}),
          format!("Forced cleanup: {}",if r["forced_cleanup_used"]==true {"used; does not confirm a clean service stop"}else{"not reported"})];
+    lines.push(match r["dependency_cleanup_disposition"].as_str() {
+        Some("graceful_service_retirement")=>"Native Access closed with graceful dependency retirement.".into(),
+        Some("exact_owned_session_cleanup")=>"Native Access closed with exact-owned compatibility cleanup; graceful service shutdown was not confirmed.".into(),
+        _=>"Native Access or dependency cleanup is not confirmed.".into(),
+    });
     if let Some(error)=v["error"].as_str() {
         let explanation=match error {
             "dependency_running_not_ready"=>"The service did not establish exact process and listener readiness; Native Access was not opened.",
@@ -791,6 +796,19 @@ mod tests {
         assert!(lines[2].contains("does not confirm"));
         let recovered=serde_json::json!({"dependency":{"service_retirement_confirmed":true},"dependency_retirement":{"service_retirement_confirmed":false,"process_cleanup_confirmed":true}});
         assert!(dependency_retirement_lines(&recovered)[0].ends_with("not confirmed"));
+    }
+    #[test]
+    fn native_access_cleanup_dispositions_do_not_conflate_owned_cleanup_with_graceful_stop() {
+        let graceful=serde_json::json!({"dependency":{"dependency_cleanup_disposition":"graceful_service_retirement",
+            "service_retirement_confirmed":true,"process_cleanup_confirmed":true,"forced_cleanup_used":false}});
+        let exact=serde_json::json!({"dependency":{"dependency_cleanup_disposition":"exact_owned_session_cleanup",
+            "service_retirement_confirmed":false,"process_cleanup_confirmed":true,"forced_cleanup_used":true}});
+        let failed=serde_json::json!({"dependency":{"dependency_cleanup_disposition":"cleanup_unconfirmed",
+            "service_retirement_confirmed":false,"process_cleanup_confirmed":false,"forced_cleanup_used":true}});
+        assert!(dependency_retirement_lines(&graceful).iter().any(|s|s=="Native Access closed with graceful dependency retirement."));
+        let exact_text=dependency_retirement_lines(&exact).join(" ");
+        assert!(exact_text.contains("exact-owned compatibility cleanup"));assert!(exact_text.contains("graceful service shutdown was not confirmed"));
+        assert!(dependency_retirement_lines(&failed).iter().any(|s|s=="Native Access or dependency cleanup is not confirmed."));
     }
     #[test]
     fn nad2_stop_characterizations_are_bounded_and_never_claim_acceptance() {

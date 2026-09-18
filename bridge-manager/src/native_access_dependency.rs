@@ -7,6 +7,7 @@ pub const DAEMON: &str = "Program Files/Common Files/Native Instruments/NTK/NTKD
 pub const OBSERVATION: &[u8] =
     include_bytes!("../../evidence/nad1/observation/repaired/observation.json");
 pub const SERVICE: &str = "NTKDaemonService";
+pub const LISTENERS: [u16; 2] = [5146, 5563];
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum State {
@@ -94,6 +95,107 @@ fn verify_recovery_files(drive: &Path, directory: &Path, q: &Value) -> Result<()
         path: drive.join(DAEMON),
         sha256: q["daemon"]["sha256"].as_str().ok_or("dependency_recovery_digest")?.into() },
         size: q["daemon"]["size"].as_u64().ok_or("dependency_recovery_size")? })
+}
+fn exact_record<T: serde::de::DeserializeOwned>(path: &Path, why: &str) -> Result<T> {
+    let md=fs::symlink_metadata(path)?;
+    require(md.file_type().is_file() && md.nlink()==1 && path.canonicalize()?==path,why)?;
+    read_json(path)
+}
+fn software_sha256(software: &Software) -> Result<String> {
+    Ok(hex(&Sha256::digest(serde_json::to_vec(&serde_json::to_value(software)?)?)))
+}
+fn session_origin(
+    application: &app::Application,
+    software: &Software,
+    directory: &Path,
+    qualified: &Value,
+) -> Result<Value> {
+    let pointer=directory.join("artifact.json");
+    let record:Value=exact_record(&pointer,"dependency_session_artifact_alias")?;
+    require(record.as_object().is_some_and(|o|o.len()==8)
+        && record["schema"]==1
+        && record["application"]==application.identity()?
+        && record["installer_sha256"]==INSTALLER_SHA,
+        "dependency_session_artifact_identity")?;
+    let operation=record["operation"].as_str().ok_or("dependency_session_artifact_operation")?;
+    require(valid_hex(operation,32),"dependency_session_artifact_operation")?;
+    let operation_dir=directory.join("operations").join(operation);
+    let retained:Value=exact_record(&operation_dir.join("artifact.json"),"dependency_session_artifact_alias")?;
+    require(retained==record,"dependency_session_artifact_pointer")?;
+    let spec_path=operation_dir.join("spec.json");
+    require(digest(&spec_path)?==record["spec_sha256"].as_str().ok_or("dependency_session_spec_digest")?,
+        "dependency_session_spec_changed")?;
+    let prior:Value=exact_record(&spec_path,"dependency_session_spec_alias")?;
+    let prior_software=prior["software"].clone();
+    let prior_software_sha=hex(&Sha256::digest(serde_json::to_vec(&prior_software)?));
+    require(prior["schema"]==2 && prior["kind"]=="native_access_dependency"
+        && prior["operation"]==operation && prior["application"]==serde_json::to_value(application)?
+        && prior["application_identity"]==record["application"]
+        && prior["software_sha256"]==record["software_sha256"]
+        && prior_software_sha==record["software_sha256"],
+        "dependency_session_artifact_origin")?;
+    let root=operation_dir.join(format!("{operation}-installer-root.private.json"));
+    require(digest(&root)?==record["root_sha256"].as_str().ok_or("dependency_session_root_digest")?,
+        "dependency_session_root_changed")?;
+    let root_record:Value=exact_record(&root,"dependency_session_root_alias")?;
+    let frame=root_record["frame"].as_array().ok_or("dependency_session_root_frame")?;
+    require(frame.len()==7 && frame[0]=="NAD1_INSTALL_ROOT_V1" && frame[1]==operation
+        && frame[3]==INSTALLER_SHA && frame[4]=="35769456",
+        "dependency_session_root_frame")?;
+    require(record["daemon"]==qualified["daemon"],"dependency_session_daemon_origin")?;
+    let prefix=application.environment.root.join("compatdata/pfx");
+    let prefix_md=fs::symlink_metadata(&prefix)?;
+    require(prefix_md.is_dir() && prefix.canonicalize()? == prefix,
+        "dependency_session_prefix_identity")?;
+    let current=serde_json::to_value(software)?;
+    let current_sha=software_sha256(software)?;
+    Ok(json!({"schema":1,"authority":"retained_exact_installation_artifact_and_current_software",
+        "application":application.identity()?,"software_sha256":current_sha,
+        "manager_sha256":software.manager.sha256,"environment":application.environment.id,
+        "prefix":{"path_sha256":hex(&Sha256::digest(prefix.as_os_str().as_encoded_bytes())),
+            "device":prefix_md.dev(),"inode":prefix_md.ino()},
+        "installation":application.installation,"service":SERVICE,"listeners":LISTENERS,
+        "installer":{"sha256":INSTALLER_SHA,"size":35769456_u64},"daemon":record["daemon"],
+        "origin":{"operation":operation,"artifact_sha256":digest(&pointer)?,
+            "spec_sha256":record["spec_sha256"],"root_sha256":record["root_sha256"],
+            "software_sha256":record["software_sha256"]},
+        "current_software":current}))
+}
+/// Closed application-session admission. Historical installation origin and the
+/// current immutable manager generation are separate facts; neither implies
+/// readiness or successful service retirement.
+pub fn session_admission(
+    m: &Manager,
+    application: &app::Application,
+    software: &Software,
+) -> Result<Value> {
+    application.verify(&m.root)?;
+    installer(application)?;
+    require(read_json::<Value>(&m.root.join("software.json"))?==serde_json::to_value(software)?,
+        "dependency_session_current_software")?;
+    let directory=m.root.join("vendor-applications/native-access-dependency");
+    let qualified:Value=serde_json::from_slice(RECOVERY)?;
+    verify_recovery(application,&directory)?;
+    let admission=session_origin(application,software,&directory,&qualified)?;
+    let daemon=&admission["daemon"];
+    app::verify_image(&app::Image{artifact:Artifact{
+        path:application.environment.root.join("compatdata/pfx/drive_c").join(DAEMON),
+        sha256:daemon["sha256"].as_str().ok_or("dependency_session_daemon_digest")?.into()},
+        size:daemon["size"].as_u64().ok_or("dependency_session_daemon_size")?})?;
+    Ok(admission)
+}
+pub fn bind_session(
+    m:&Manager,
+    application:&app::Application,
+    software:&Software,
+    op:&str,
+    policy:app::RendererPolicy,
+    report:&Path,
+) -> Result<Value> {
+    let admission=session_admission(m,application,software)?;
+    let mut spec=app::bind(application,software,op,policy,report)?;
+    spec["dependency_session"]=admission;
+    Ok(spec)
 }
 pub fn record_path(m: &Manager) -> PathBuf {
     m.root
@@ -263,5 +365,55 @@ mod recovery_tests {
         assert_eq!(q["sources"]["result.json"]["sha256"],observed["original_result_sha256"]);
         assert_eq!(q["operation"],observed["operation"]);
         assert_eq!(q["installer_sha256"],INSTALLER_SHA);
+    }
+}
+
+#[cfg(test)]
+mod session_tests {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    fn put(path:&Path,value:&Value) {
+        if let Some(parent)=path.parent(){fs::create_dir_all(parent).unwrap();}
+        atomic_json(path,value).unwrap();
+    }
+    #[test]
+    fn session_origin_binds_historical_artifact_and_current_software_separately() {
+        let fixture=crate::test_fixture::Fixture::new();
+        let image=app::Image{artifact:fixture.r.module.clone(),size:fs::metadata(&fixture.r.module.path).unwrap().len()};
+        let application=app::Application{schema:1,id:app::ID.into(),environment:fixture.r.environment.clone(),
+            files:BTreeMap::from([("Native Access.exe".into(),image)]),installation:fixture.r.module.clone(),
+            observation_sha256:"1".repeat(64),source_seal_sha256:"2".repeat(64)};
+        let artifact=fixture.r.host.clone();
+        let software:Software=serde_json::from_value(json!({"installer_launch":artifact,"manager":artifact,
+            "supervisor":artifact,"ownership":artifact,"host":artifact,"source_manifest":artifact,
+            "source_sha256":"3".repeat(64)})).unwrap();
+        let directory=fixture.outer.join("dependency");let operation="ab".repeat(16);let op=directory.join("operations").join(&operation);
+        fs::create_dir_all(&op).unwrap();
+        let historical=json!({"manager":{"path":"/historical/manager","sha256":"4".repeat(64)}});
+        let historical_sha=hex(&Sha256::digest(serde_json::to_vec(&historical).unwrap()));
+        let prior=json!({"schema":2,"kind":"native_access_dependency","operation":operation,
+            "application":application,"application_identity":application.identity().unwrap(),
+            "software":historical,"software_sha256":historical_sha});
+        put(&op.join("spec.json"),&prior);let spec_sha=digest(&op.join("spec.json")).unwrap();
+        let root=json!({"frame":["NAD1_INSTALL_ROOT_V1",operation,"5".repeat(64),INSTALLER_SHA,"35769456","10","20"]});
+        let root_path=op.join(format!("{operation}-installer-root.private.json"));put(&root_path,&root);let root_sha=digest(&root_path).unwrap();
+        let daemon=json!({"sha256":"6".repeat(64),"size":18259440,"architecture":"x64"});
+        let record=json!({"schema":1,"operation":operation,"application":application.identity().unwrap(),
+            "software_sha256":historical_sha,"installer_sha256":INSTALLER_SHA,"daemon":daemon,
+            "root_sha256":root_sha,"spec_sha256":spec_sha});
+        put(&op.join("artifact.json"),&record);put(&directory.join("artifact.json"),&record);
+        let admission=session_origin(&application,&software,&directory,&json!({"daemon":daemon})).unwrap();
+        assert_eq!(admission["origin"]["software_sha256"],historical_sha);
+        assert_eq!(admission["software_sha256"],software_sha256(&software).unwrap());
+        assert_ne!(admission["origin"]["software_sha256"],admission["software_sha256"]);
+        assert_eq!(admission["service"],SERVICE);assert_eq!(admission["listeners"],json!(LISTENERS));
+        assert!(!directory.join("prepared.json").exists());
+        for (field,value) in [("application",json!("7".repeat(64))),("installer_sha256",json!("8".repeat(64))),
+            ("daemon",json!({"sha256":"9".repeat(64),"size":1,"architecture":"x64"}))] {
+            let mut bad=record.clone();bad[field]=value;fs::remove_file(directory.join("artifact.json")).unwrap();put(&directory.join("artifact.json"),&bad);
+            assert!(session_origin(&application,&software,&directory,&json!({"daemon":daemon})).is_err());
+            fs::remove_file(directory.join("artifact.json")).unwrap();put(&directory.join("artifact.json"),&record);
+        }
     }
 }
