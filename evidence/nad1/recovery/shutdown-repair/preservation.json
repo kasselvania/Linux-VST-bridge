@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "prior_checkpoint": "ddbbd54e028931854a6d5ec44ae57576b352735b",
+  "source": "f3487e5616a8a7141ce8ae113562d18d1c14da02",
+  "all_prior_tracked_evidence_unchanged": true,
+  "prior_evidence_git_manifest_sha256": "8752ff01e5ed4a018665f26fb4ff5ab916f5070381ef37f24122d7af65f1414a",
+  "prior_evidence_files": 668,
+  "device_access_during_repair": false,
+  "production_installation": false,
+  "real_dependency_transition": false,
+  "native_access_launch": false,
+  "physical_preservation_remeasured": false,
+  "note": "Repository equality is checked against the reviewed checkpoint. Existing physical readbacks remain historical; no new live-health claim is made."
+}

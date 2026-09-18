@@ -1,0 +1,68 @@
+{
+  "schema": 1,
+  "source": "f3487e5616a8a7141ce8ae113562d18d1c14da02",
+  "tree": "44120a7f90081892e825e3546c09537e695ef07c",
+  "scope": "Generated repair inputs; complete repository source is bound by the Git tree. No Deck package or vendor operation.",
+  "files": {
+    "bridge-manager/runtime/session.py": {
+      "sha256": "400bc279af817bed641c2bdd3e36626a1249ab7a88ae40056d55f6f32caa4b53",
+      "size": 238112
+    },
+    "bridge-manager/runtime/ownership.py": {
+      "sha256": "cc81d05876043ccf96c1540c556a790e62f57f4a6e72aabbd820a5d133311add",
+      "size": 29249
+    },
+    "bridge-manager/runtime/test_dependency_runtime.py": {
+      "sha256": "c769aad434ec93145022f0d8a34f153de1f30c7309e316650e9d5394512b45aa",
+      "size": 8638
+    },
+    "bridge-manager/runtime/test_dependency_stop.py": {
+      "sha256": "66c1bf01689b96a91f02f5c049f1c37b0bca2329abfab779071c3807f08627f4",
+      "size": 3239
+    },
+    "bridge-manager/runtime/test_dependency_owner.py": {
+      "sha256": "a3e4684caec19c887971080f426ec427a669d024964d79a9de7eed053dbd042a",
+      "size": 20911
+    },
+    "bridge-manager/runtime/test_vendor_completion.py": {
+      "sha256": "70db8a108ccd383121a357d2dedf6724c5849084bd6bb29a87c8dcd55b5de465",
+      "size": 1537
+    },
+    "tools/is2/launch.cpp": {
+      "sha256": "b6984f0b1e249481b0d263690f772d2a340ace67b7e4df4382de53ec2c7c4aed",
+      "size": 7680
+    },
+    "tools/is2/nad1_service.h": {
+      "sha256": "443f5ef23617398ea4c08028fd77f24c50bed696d6dfbf16f054e7c8ff4dfe91",
+      "size": 14093
+    },
+    "tools/is2/nad1_stop.h": {
+      "sha256": "07099c0663dd9e12892e746e609c1437169257669fc577426a7a5e73eb27f213",
+      "size": 1922
+    },
+    "tools/nad1/stop_logic_test.cpp": {
+      "sha256": "a3940ed71b315591d1bacc81b8dea4e1a13bd16ffac7e69a611b18b5287636be",
+      "size": 2788
+    },
+    "tools/nad1/test_stop_logic.py": {
+      "sha256": "83ca9d0905210984ffd664e9d32ddf8e2ffc2de1015337f695396607d426215d",
+      "size": 664
+    },
+    "tools/nad1/service_fixture.cpp": {
+      "sha256": "5c10c3a3f8c68a1737e4ae585d1754e6d1519ffdbea31e9f4bf6d7d0636c8797",
+      "size": 4602
+    },
+    "tools/nad1/windows_test.py": {
+      "sha256": "627206271ccdecd620f290b8fae14fa055c8fbe318a8813112d191739da27c71",
+      "size": 5207
+    },
+    ".github/workflows/ap8-windows.yml": {
+      "sha256": "759a6cbc7b34f26e8f952d06213366ad8683c730d0e2aad927f53a1ddef6b981",
+      "size": 8410
+    },
+    ".github/workflows/ap12-manager.yml": {
+      "sha256": "fc3ceda8d9b0d9dd2976ee8dbd9ba407f4dfa530ca9913db9010117dec6b8e4f",
+      "size": 2990
+    }
+  }
+}

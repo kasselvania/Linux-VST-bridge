@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "source": "f3487e5616a8a7141ce8ae113562d18d1c14da02",
+  "tree": "44120a7f90081892e825e3546c09537e695ef07c",
+  "hosted_checkout": "4510260bb938d21cdf0a1681108477b4a58fd203",
+  "hosted_checkout_tree_equals_source": true,
+  "hosted": {
+    "AP8": {
+      "run": 35297629223,
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35297629223",
+      "head": "f3487e5616a8a7141ce8ae113562d18d1c14da02",
+      "event": "pull_request",
+      "conclusion": "success"
+    },
+    "AP12": {
+      "run": 35297629115,
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35297629115",
+      "head": "f3487e5616a8a7141ce8ae113562d18d1c14da02",
+      "event": "pull_request",
+      "conclusion": "success"
+    },
+    "PX2": {
+      "run": 35297629136,
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35297629136",
+      "head": "f3487e5616a8a7141ce8ae113562d18d1c14da02",
+      "event": "pull_request",
+      "conclusion": "success"
+    }
+  },
+  "hosted_counts": {
+    "manager_library": 144,
+    "manager_binary": 87,
+    "frontend": 26,
+    "runtime": 242,
+    "nad1": 24,
+    "naui1": 47,
+    "naui2": 3,
+    "is3": 24,
+    "is4": 25,
+    "strict_manager_clippy": "passed",
+    "strict_frontend_clippy": "passed",
+    "windows_delayed_and_pending_scm_fixture": "passed"
+  },
+  "local": {
+    "runtime_discovered": 242,
+    "runtime_passed": 198,
+    "runtime_platform_skips": 44,
+    "final_focused_dependency_discovered": 92,
+    "final_focused_dependency_passed": 91,
+    "final_focused_dependency_platform_skips": 1,
+    "manager_library_passed": 144,
+    "manager_binary_passed_with_socket_access": 84,
+    "frontend_passed": 26,
+    "strict_manager_frontend_clippy": "passed",
+    "python_compilation": "passed",
+    "nad1_passed": 24,
+    "naui1_passed": 47,
+    "naui2_passed": 3
+  },
+  "development_outcomes": [
+    {
+      "kind": "local_sandbox_socket_refusals",
+      "failed": 4,
+      "reason": "Unix socket bind denied by sandbox",
+      "resolution": "Same manager binary tests passed with generated local socket access; full Linux suite also passed AP12."
+    },
+    {
+      "kind": "redundant_dispatch_cancelled",
+      "runs": [
+        35297291058,
+        35297289514
+      ],
+      "reason": "PR checks exercised the same candidate; no test failure inferred."
+    }
+  ],
+  "local_log_sha256": {
+    "nad1-stop-ap8-final.log": "a88abe04d20d60d79ae08e6f2b64ddc5d29f8d907b0666521fd0b62441eeca4d",
+    "nad1-stop-ap12-final.log": "673a48d740088ad4d8d0a9190c06eb5cfbed6de203da615ca655c38728480794",
+    "nad1-repair-runtime-all.log": "587d0fe405d3988237be2ba2f537140e42e1e59e68ee5de3035ba9d10e201b65",
+    "nad1-stop-focused-final.log": "c14e13f47955520aac8ce58fc52809bfbb84866bcac263e37789981b62fcf382",
+    "nad1-shutdown-manager-bin-unrestricted.log": "104e289c19250e0c176ca1e2954be14f7c2af5da1353711b2afcbc2c9e2b7ad2",
+    "nad1-shutdown-manager-clippy.log": "a1f8e32ed95d52cddc8c8ccb74f992941eed02bae0cd60294dfbaf078cf6dede",
+    "nad1-shutdown-frontend-clippy.log": "b772f92781170258738a9f773ab445fc24b9fe20774e4aba8aedc9b4c19e3acf"
+  },
+  "nonclaims": [
+    "No real NTKDaemon check",
+    "No production installation",
+    "No Native Access launch",
+    "Prior real exit 149 cause remains unresolved"
+  ]
+}
