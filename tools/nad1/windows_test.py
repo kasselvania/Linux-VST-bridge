@@ -181,6 +181,7 @@ def run(build):
   normal_after_adverse()
 
   for hold,expected_mask in [('stopped-process-hold',0),('stopped-listener-hold',3)]:
+   (root/'release-stop').unlink(missing_ok=True)
    (root/hold).touch();command('start');wait_running()
    residue=characterization(command('stop',expected=(149,)))
    assert residue['classification']=='NAD2_STOPPED_PROCESS_OR_LISTENER_REMAINS',residue

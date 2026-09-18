@@ -14,6 +14,7 @@ static bool marker(const wchar_t* path){return GetFileAttributesW(path)!=INVALID
 static void publish(DWORD state){status.dwServiceType=SERVICE_WIN32_OWN_PROCESS;status.dwCurrentState=state;status.dwControlsAccepted=state==SERVICE_RUNNING?SERVICE_ACCEPT_STOP:0;audit("state",state);SetServiceStatus(handle,&status);}
 static DWORD WINAPI control(DWORD code,DWORD,LPVOID,LPVOID){if(code==SERVICE_CONTROL_STOP){if(marker(L"C:\\NAD1Fixture\\refuse-stop")){audit("stop_refused");return ERROR_ACCESS_DENIED;}audit("stop_requested");if(marker(L"C:\\NAD1Fixture\\no-transition"))return NO_ERROR;publish(SERVICE_STOP_PENDING);SetEvent(stop_event);}return NO_ERROR;}
 static void WINAPI service_main(DWORD,LPWSTR*){
+ DeleteFileW(L"C:\\NAD1Fixture\\release-stop");
  audit("service_main");handle=RegisterServiceCtrlHandlerExW(service,control,nullptr);if(!handle){audit("handler_error",GetLastError());return;}
  stop_event=CreateEventW(nullptr,TRUE,FALSE,nullptr);publish(SERVICE_START_PENDING);
  WSADATA wsa{};if(WSAStartup(MAKEWORD(2,2),&wsa)!=0){status.dwWin32ExitCode=1;publish(SERVICE_STOPPED);return;}
