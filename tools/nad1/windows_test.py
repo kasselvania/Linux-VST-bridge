@@ -156,6 +156,7 @@ def run(build):
   # a fresh ordinary operation so fixture cleanup cannot hide poisoned state.
   def release_adverse(*names):
    (root/'release-stop').touch()
+   time.sleep(.25)  # Let the held service observe release even if its anchor already timed out.
    assert anchor.wait(timeout=20) in (0,150)
    for name in (*names,'release-stop'):(root/name).unlink(missing_ok=True)
    assert ' exact 0 1 ' in command('query')
