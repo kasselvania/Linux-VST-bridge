@@ -1,0 +1,34 @@
+{
+  "schema": "vst.nao1-proton-launcher-topology-preservation/v1",
+  "base": "c38b5c9deb8bd32f5a509258c30f31b3e795fe59",
+  "source": "e4a6bfa471308cf50917d361f02c8fe4d594ff18",
+  "base_evidence_file_count": 714,
+  "base_evidence_unchanged": true,
+  "failed_generated_candidates_retained": true,
+  "campaign": {
+    "protected_state_unchanged": true,
+    "runtime_content_unchanged": true,
+    "windows_prefix_metadata_unchanged": true,
+    "private_home_metadata_unchanged": true,
+    "real_dependency_mutations": 0,
+    "commercial_application_launch": false
+  },
+  "terminal_system": {
+    "bridge_service": "active",
+    "keepers": 2,
+    "dsp_leases": 0,
+    "maintenance_leases": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "capture_armed": false,
+    "active_capture_retention": 0
+  },
+  "physical_boundaries": {
+    "real_native_access_launch": false,
+    "real_ntkdaemon_transition": false,
+    "installer_replay": false,
+    "candidate_installation": false,
+    "daw_or_plugin": false,
+    "production_operation": false
+  }
+}
