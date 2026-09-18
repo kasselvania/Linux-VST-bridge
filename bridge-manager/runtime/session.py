@@ -2728,16 +2728,29 @@ def nad2_process_wait_class(value):
 
 def nad2_stop_classification(v,identity_error,confirmed):
     if confirmed:return 'NAD2_STOP_CONFIRMED'
-    if (identity_error or v['initial_query_error'] or v['final_query_error'] or v['process_wait_error']
-        or v['listener_mask']==4 or nad2_process_wait_class(v['process_wait'])=='unexpected'):
+    if (identity_error or v['initial_query_error'] or v['final_query_error'] or v['initial_process_wait_error']
+        or v['process_wait_error'] or v['initial_listener_mask']==4 or v['listener_mask']==4
+        or nad2_process_wait_class(v['initial_process_wait']) in ('unavailable','unexpected')
+        or nad2_process_wait_class(v['process_wait']) in ('unavailable','unexpected')):
+        return 'NAD2_STOP_OBSERVATION_UNAVAILABLE'
+    if (v['initial_state'] not in (1,3,4) or v['final_state'] not in (1,3,4)
+        or v['control_status_available'] and v['control_state'] not in (1,3,4)):
         return 'NAD2_STOP_OBSERVATION_UNAVAILABLE'
     if v['final_state']==1 and (v['process_wait']!=0 or v['listener_mask']!=0):
         return 'NAD2_STOPPED_PROCESS_OR_LISTENER_REMAINS'
     if v['control_count']==1 and not v['control_submitted']:return 'NAD2_STOP_NOT_SUBMITTED'
-    if (v['control_submitted'] and v['initial_state']==4 and v['final_state']==4 and not v['progress_count']
-        and v['transition_count_total']==1 and v['process_wait']==258 and v['listener_mask']!=0):
+    if (v['control_submitted'] and v['control_state']==4 and v['initial_state']==4
+        and v['final_state']==4 and not v['progress_count']
+        and v['initial_process_wait']==258 and v['process_wait']==258
+        and v['initial_listener_mask']==v['listener_mask'] and v['listener_mask']!=0):
         return 'NAD2_STOP_SUBMITTED_NO_TRANSITION'
-    if v['control_submitted'] or v['initial_state']==3:return 'NAD2_STOP_SUBMITTED_PROGRESSING'
+    process_retiring=v['initial_process_wait']==258 and v['process_wait']==0
+    listeners_retiring=(v['initial_listener_mask']<=3 and v['listener_mask']<=3
+        and v['initial_listener_mask']!=v['listener_mask']
+        and v['listener_mask']&v['initial_listener_mask']==v['listener_mask'])
+    if ((v['control_submitted'] or v['initial_state']==3)
+        and (v['control_state']==3 or v['final_state']==3 or process_retiring or listeners_retiring)):
+        return 'NAD2_STOP_SUBMITTED_PROGRESSING'
     return 'NAD2_STOP_OBSERVATION_UNAVAILABLE'
 
 def nad2_stop_observation(raw,op,token,legacy):

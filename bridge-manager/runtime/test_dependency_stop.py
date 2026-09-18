@@ -58,7 +58,7 @@ class StopReporting(unittest.TestCase):
     progress_count=2,initial_process_wait=258,initial_listener_mask=3),
    'NAD2_STOP_SUBMITTED_PROGRESSING':{},
    'NAD2_STOP_SUBMITTED_NO_TRANSITION':dict(final_state=4,checkpoint=0,wait_hint_ms=0,progress_count=0,
-    transition_count_total=1,transition_count_retained=1),
+    control_state=4,control_checkpoint=0,control_wait_hint_ms=0,transition_count_total=1,transition_count_retained=1),
    'NAD2_STOP_NOT_SUBMITTED':dict(final_state=4,checkpoint=0,wait_hint_ms=0,progress_count=0,control_error=5,
     control_submitted=0,transition_count_total=1,transition_count_retained=1),
    'NAD2_STOPPED_PROCESS_OR_LISTENER_REMAINS':dict(final_state=1,checkpoint=0,wait_hint_ms=0,process_wait=258,
@@ -73,12 +73,35 @@ class StopReporting(unittest.TestCase):
     if value['control_submitted']:
      self.assertTrue(value['control_return']['submitted']);self.assertIn('controls_accepted',value['control_return'])
   no_transition=s.nad1_stop_observation(self.characterized('NAD2_STOP_SUBMITTED_NO_TRANSITION',final_state=4,
-   checkpoint=0,wait_hint_ms=0,progress_count=0,transition_count_total=1,transition_count_retained=1),'a'*32,'b'*64)
+   checkpoint=0,wait_hint_ms=0,progress_count=0,control_state=4,control_checkpoint=0,control_wait_hint_ms=0,
+   transition_count_total=1,transition_count_retained=1),'a'*32,'b'*64)
   self.assertEqual(no_transition['transition_count_dropped'],0);self.assertEqual(no_transition['process_wait_class'],'timeout')
   for raw in [self.characterized('NAD2_STOP_CONFIRMED'),
-   self.characterized(transition_count_total=3,transition_count_retained=2,transition_count_dropped=0),
-   self.characterized(control_status_available=0)]:
+    self.characterized(transition_count_total=3,transition_count_retained=2,transition_count_dropped=0),
+    self.characterized(control_status_available=0)]:
    with self.assertRaises(ValueError):s.nad1_stop_observation(raw,'a'*32,'b'*64)
+ def test_nad2_initial_process_wait_failure_remains_unavailable(self):
+  raw=self.characterized('NAD2_STOP_OBSERVATION_UNAVAILABLE',initial_process_wait=0xffffffff,
+   initial_process_wait_error=6,process_wait=258,process_wait_error=0,final_state=4,
+   checkpoint=0,wait_hint_ms=0,progress_count=0)
+  value=s.nad1_stop_observation(raw,'a'*32,'b'*64)
+  self.assertEqual(value['classification'],'NAD2_STOP_OBSERVATION_UNAVAILABLE')
+ def test_nad2_controls_mask_only_change_is_not_stop_progress(self):
+  raw=self.characterized('NAD2_STOP_SUBMITTED_NO_TRANSITION',final_state=4,checkpoint=0,
+   wait_hint_ms=0,progress_count=0,initial_controls_accepted=1,final_controls_accepted=2,
+   control_state=4,control_checkpoint=0,control_wait_hint_ms=0,transition_count_total=2,transition_count_retained=2)
+  value=s.nad1_stop_observation(raw,'a'*32,'b'*64)
+  self.assertEqual(value['classification'],'NAD2_STOP_SUBMITTED_NO_TRANSITION')
+ def test_nad2_non_stop_service_state_is_observation_unavailable(self):
+  raw=self.characterized('NAD2_STOP_OBSERVATION_UNAVAILABLE',final_state=7,checkpoint=0,
+   wait_hint_ms=0,progress_count=1,process_wait=258,endpoint_mask=3)
+  value=s.nad1_stop_observation(raw,'a'*32,'b'*64)
+  self.assertEqual(value['classification'],'NAD2_STOP_OBSERVATION_UNAVAILABLE')
+ def test_nad2_initial_listener_census_failure_remains_unavailable(self):
+  raw=self.characterized('NAD2_STOP_OBSERVATION_UNAVAILABLE',initial_listener_mask=4,
+   listener_mask=3,endpoint_mask=3,final_state=4,checkpoint=0,wait_hint_ms=0,progress_count=0)
+  value=s.nad1_stop_observation(raw,'a'*32,'b'*64)
+  self.assertEqual(value['classification'],'NAD2_STOP_OBSERVATION_UNAVAILABLE')
  def test_failed_stop_keeps_structured_facts_with_raw_capture_disabled(self):
   with tempfile.TemporaryDirectory() as tmp:
    root=pathlib.Path(tmp);(root/'home').mkdir()

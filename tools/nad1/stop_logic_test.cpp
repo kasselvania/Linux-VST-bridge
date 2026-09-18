@@ -45,11 +45,27 @@ int main(){
  auto unchanged_result=nad1_observe_stop(unchanged,true);
  assert(!unchanged_result.confirmed&&unchanged_result.classification==Nad2StopClassification::SubmittedNoTransition);
  assert(unchanged_result.transition_total==1&&unchanged_result.elapsed==12000&&unchanged.controls==1);
+ // A controls-accepted mask change is diagnostic evidence, not stop progress.
+ IO controls_only{{{4,0,0,0,0,0,1},{4,0,0,0,0,0,2}}};controls_only.wait_result=258;controls_only.mask=3;
+ controls_only.control_status={4,0,0,0,0,0,1};
+ auto controls_only_result=nad1_observe_stop(controls_only,true);
+ assert(controls_only_result.progress==0&&controls_only_result.transition_total==2);
+ assert(controls_only_result.classification==Nad2StopClassification::SubmittedNoTransition);
+ // The complete ControlService return can itself establish a STOP_PENDING transition.
+ IO control_pending{{{4},{4}}};control_pending.wait_result=258;control_pending.mask=3;
+ control_pending.control_status={3,1,1000};
+ auto control_pending_result=nad1_observe_stop(control_pending,true);
+ assert(control_pending_result.control_status_available&&control_pending_result.control_status.state==3);
+ assert(control_pending_result.classification==Nad2StopClassification::SubmittedProgressing);
  // An already pending stop may progress without completing and sends no control.
  IO pending_progress{{{3,1,1000},{3,2,900}}};pending_progress.wait_result=258;pending_progress.mask=3;
  auto pending_progress_result=nad1_observe_stop(pending_progress,true);
  assert(!pending_progress_result.confirmed&&pending_progress_result.classification==Nad2StopClassification::SubmittedProgressing);
  assert(pending_progress.controls==0&&pending_progress_result.progress==1);
+ // A non-stop SCM state is not evidence of progress toward retirement.
+ IO paused{{{4},{7}}};paused.wait_result=258;paused.mask=3;paused.control_status={4};
+ auto paused_result=nad1_observe_stop(paused,true);
+ assert(paused_result.last.state==7&&paused_result.classification==Nad2StopClassification::ObservationUnavailable);
  // Race into pending after the initial running observation rejects control.
  IO racing{{{4},{3,1,500},{1}}};racing.control_error=1061;auto r=nad1_observe_stop(racing,true);
  assert(r.confirmed&&racing.controls==1&&r.control_error==1061);
@@ -59,9 +75,20 @@ int main(){
   assert(!y.confirmed&&y.endpoints==mask&&y.elapsed==12000&&y.classification==Nad2StopClassification::StoppedProcessOrListenerRemains);}
  IO unknown_listener{{{1},{1}}};unknown_listener.mask=4;auto unknown=nad1_observe_stop(unknown_listener,true);
  assert(!unknown.confirmed&&unknown.classification==Nad2StopClassification::ObservationUnavailable);
+ // An unavailable initial listener census is not repaired by a later census.
+ IO initial_listener_failure{{{4},{4}}};initial_listener_failure.wait_result=258;initial_listener_failure.mask=3;
+ initial_listener_failure.masks={4,3,3};initial_listener_failure.control_status={4};
+ auto initial_listener_failure_result=nad1_observe_stop(initial_listener_failure,true);
+ assert(initial_listener_failure_result.initial_endpoints==4&&initial_listener_failure_result.endpoints==3);
+ assert(initial_listener_failure_result.classification==Nad2StopClassification::ObservationUnavailable);
  IO live{{{1},{1}}};live.wait_result=258;auto live_result=nad1_observe_stop(live,true);
  assert(!live_result.confirmed&&live_result.classification==Nad2StopClassification::StoppedProcessOrListenerRemains);
  IO bad_handle{{{4},{1}}};bad_handle.wait_result=0xffffffffu;auto h=nad1_observe_stop(bad_handle,true);assert(!h.confirmed&&h.wait_error==6);
+ // An unavailable initial exact-process wait is not repaired by a later timeout.
+ IO initial_wait_failure{{{4},{4}}};initial_wait_failure.waits={0xffffffffu,258,258};initial_wait_failure.mask=3;
+ auto initial_wait_failure_result=nad1_observe_stop(initial_wait_failure,true);
+ assert(!initial_wait_failure_result.confirmed&&initial_wait_failure_result.initial_wait_error==6);
+ assert(initial_wait_failure_result.wait_error==0&&initial_wait_failure_result.classification==Nad2StopClassification::ObservationUnavailable);
  IO unowned{{{3},{1}}};auto unowned_result=nad1_observe_stop(unowned,false);
  assert(!unowned_result.confirmed&&unowned.controls==0&&unowned_result.classification==Nad2StopClassification::ObservationUnavailable);
  IO query_loss{{{4},{0,0,0,0,0,5}}};auto q=nad1_observe_stop(query_loss,true);

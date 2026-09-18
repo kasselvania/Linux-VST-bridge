@@ -116,14 +116,26 @@ static void nad1_record_transition(Nad1StopObservation& r,const Nad1StopTransiti
 }
 static Nad2StopClassification nad1_classify_stop(const Nad1StopObservation& r,bool generation_valid) {
     if(r.confirmed)return Nad2StopClassification::Confirmed;
-    if(!generation_valid||r.before.error||r.last.error||r.wait_error||r.endpoints==4
-       ||nad1_process_wait_class(r.process_wait)>3)return Nad2StopClassification::ObservationUnavailable;
+    if(!generation_valid||r.before.error||r.last.error||r.initial_wait_error||r.wait_error
+       ||r.initial_endpoints==4||r.endpoints==4||nad1_process_wait_class(r.initial_process_wait)>=3
+       ||nad1_process_wait_class(r.process_wait)>=3)return Nad2StopClassification::ObservationUnavailable;
+    if((r.before.state!=1&&r.before.state!=3&&r.before.state!=4)
+       ||(r.last.state!=1&&r.last.state!=3&&r.last.state!=4)
+       ||(r.control_status_available&&r.control_status.state!=1
+          &&r.control_status.state!=3&&r.control_status.state!=4))
+        return Nad2StopClassification::ObservationUnavailable;
     if(r.last.state==1&&(r.process_wait!=0||r.endpoints!=0))
         return Nad2StopClassification::StoppedProcessOrListenerRemains;
     if(r.control_sent&&!r.control_submitted)return Nad2StopClassification::NotSubmitted;
-    if(r.control_submitted&&r.before.state==4&&r.last.state==4&&r.progress==0&&r.transition_total==1
-       &&r.process_wait==258&&r.endpoints!=0)return Nad2StopClassification::SubmittedNoTransition;
-    if(r.control_submitted||r.before.state==3)return Nad2StopClassification::SubmittedProgressing;
+    if(r.control_submitted&&r.control_status.state==4&&r.before.state==4&&r.last.state==4&&r.progress==0
+       &&r.initial_process_wait==258&&r.process_wait==258&&r.initial_endpoints==r.endpoints
+       &&r.endpoints!=0)return Nad2StopClassification::SubmittedNoTransition;
+    const bool process_retiring=r.initial_process_wait==258&&r.process_wait==0;
+    const bool listeners_retiring=r.initial_endpoints<=3&&r.endpoints<=3
+        &&r.initial_endpoints!=r.endpoints&&(r.endpoints&r.initial_endpoints)==r.endpoints;
+    if((r.control_submitted||r.before.state==3)
+       &&(r.control_status.state==3||r.last.state==3||process_retiring||listeners_retiring))
+        return Nad2StopClassification::SubmittedProgressing;
     return Nad2StopClassification::ObservationUnavailable;
 }
 template<class IO> Nad1StopObservation nad1_observe_stop(IO& io, bool generation_valid) {
