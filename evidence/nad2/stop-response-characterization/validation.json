@@ -1,0 +1,158 @@
+{
+  "schema": "vst.nad2-generated-qualification/v1",
+  "source": "0ea735e471b2d34a68d9ce817506fe89fdd1ca23",
+  "tree": "cd567a0b113924b87b15213d7cd8a4baf3213dbb",
+  "starting_head": "bea752e5b78631bafcc118b4cc8502141b1b7d88",
+  "basis": "b175fdf5317a6afb512b17dc02cd40fdd907a201",
+  "scope": "generated_only",
+  "classifications": [
+    "NAD2_STOP_CONFIRMED",
+    "NAD2_STOP_SUBMITTED_PROGRESSING",
+    "NAD2_STOP_SUBMITTED_NO_TRANSITION",
+    "NAD2_STOP_NOT_SUBMITTED",
+    "NAD2_STOPPED_PROCESS_OR_LISTENER_REMAINS",
+    "NAD2_STOP_OBSERVATION_UNAVAILABLE"
+  ],
+  "generated_cases": [
+    {
+      "case": "running_pending_stopped",
+      "classification": "NAD2_STOP_CONFIRMED",
+      "result": "pass"
+    },
+    {
+      "case": "submitted_unchanged_running",
+      "classification": "NAD2_STOP_SUBMITTED_NO_TRANSITION",
+      "result": "pass"
+    },
+    {
+      "case": "already_pending_completes_without_second_control",
+      "classification": "NAD2_STOP_CONFIRMED",
+      "result": "pass"
+    },
+    {
+      "case": "pending_progresses_without_completion",
+      "classification": "NAD2_STOP_SUBMITTED_PROGRESSING",
+      "result": "pass"
+    },
+    {
+      "case": "control_refused",
+      "classification": "NAD2_STOP_NOT_SUBMITTED",
+      "result": "pass"
+    },
+    {
+      "case": "query_failed",
+      "classification": "NAD2_STOP_OBSERVATION_UNAVAILABLE",
+      "result": "pass"
+    },
+    {
+      "case": "stopped_exact_process_alive",
+      "classification": "NAD2_STOPPED_PROCESS_OR_LISTENER_REMAINS",
+      "result": "pass"
+    },
+    {
+      "case": "stopped_owned_listeners_present",
+      "classification": "NAD2_STOPPED_PROCESS_OR_LISTENER_REMAINS",
+      "result": "pass"
+    },
+    {
+      "case": "transition_ledger_saturation",
+      "retained_limit": 12,
+      "result": "pass"
+    },
+    {
+      "case": "dropped_transition_accounting",
+      "invariant": "total equals retained plus dropped",
+      "result": "pass"
+    },
+    {
+      "case": "manager_runtime_all_classifications",
+      "result": "pass"
+    },
+    {
+      "case": "public_private_projection",
+      "result": "pass"
+    },
+    {
+      "case": "forced_cleanup_not_success",
+      "result": "pass"
+    },
+    {
+      "case": "fresh_operation_after_each_windows_adverse_case",
+      "result": "pass"
+    }
+  ],
+  "local_validation": {
+    "nad1_nad2_adapter_tests": {
+      "passed": 24,
+      "result": "pass"
+    },
+    "runtime": {
+      "passed": 244,
+      "skipped": 44,
+      "result": "pass"
+    },
+    "manager_library": {
+      "passed": 144,
+      "result": "pass"
+    },
+    "manager_binary": {
+      "passed": 84,
+      "result": "pass"
+    },
+    "manager_report": {
+      "passed": 5,
+      "result": "pass"
+    },
+    "frontend": {
+      "passed": 27,
+      "result": "pass"
+    },
+    "strict_manager_clippy": "pass",
+    "strict_frontend_clippy": "pass",
+    "python_compilation": "pass",
+    "production_windows_adapter_cross_compile": "pass",
+    "source_owned_windows_fixture_cross_compile": "pass"
+  },
+  "hosted_validation": {
+    "AP8": {
+      "head": "0ea735e471b2d34a68d9ce817506fe89fdd1ca23",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35317428659",
+      "result": "pass"
+    },
+    "AP12": {
+      "head": "0ea735e471b2d34a68d9ce817506fe89fdd1ca23",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35317428498",
+      "result": "pass"
+    },
+    "PX2": {
+      "head": "0ea735e471b2d34a68d9ce817506fe89fdd1ca23",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35317428504",
+      "result": "pass"
+    }
+  },
+  "retained_development_runs": [
+    {
+      "head": "f6e0cf0b50236d466a16e64d5bcf84a4d77c40a8",
+      "workflow": "AP8",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35316474493",
+      "result": "failure",
+      "disposition": "generated stopped-process residue completed unexpectedly because a stale fixture release marker was visible"
+    },
+    {
+      "head": "38139c3b5ab1c0ecc6410458244def5d67ffe9bf",
+      "workflow": "AP8",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35316924618",
+      "result": "failure",
+      "disposition": "generated stopped-process residue completed after SCM released the stopped service dispatcher"
+    }
+  ],
+  "boundaries": {
+    "candidate_installed": false,
+    "real_ntkdaemon_started_or_stopped": false,
+    "native_access_launched": false,
+    "daw_or_plugin_launched": false,
+    "installer_or_updater_replayed": false,
+    "production_operation": false,
+    "reliable_real_daemon_shutdown_qualified": false
+  }
+}
