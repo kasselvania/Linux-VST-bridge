@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "reviewed_checkpoint": "7e2ae5b5691dd8272ee7572f69d3ecefdb280ff4",
+  "source": "d42b245a495c79f847894600acabf4e38deca8bd",
+  "all_prior_tracked_evidence_unchanged": true,
+  "prior_evidence_files": 672,
+  "prior_evidence_git_manifest_sha256": "b17e436ad446a35d905aa60191b2bf732b49a1e0e18164950ca81c86bc04cc2a",
+  "device_access": false,
+  "production_installation": false,
+  "native_access_launch": false,
+  "real_dependency_transition": false,
+  "live_health_remeasured": false
+}

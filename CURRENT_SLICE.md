@@ -498,3 +498,10 @@ invokes retirement with the old generation; malformed/aliased receipts and a
 missing receipt with failed process lookup refuse. All prior evidence is preserved.
 
 The first amendment Windows run `35299668099` failed its fast repeated-stop anchor-exit assertion. Startup could still acknowledge START_PENDING before retaining a running handle. The correction delays start acknowledgment until the existing exact RUNNING validation has retained that handle, with a 25-second startup bound and no normal-operation deadline. The failed candidate is retained separately in the handoff evidence.
+
+The completed-stop correction is generated-qualified at source
+`d42b245a495c79f847894600acabf4e38deca8bd`; AP8 `35300202967`, AP12
+`35300203043` and PX2 `35300203042` passed. Its source seal, successful checks,
+failed first candidate and unchanged-evidence witness are retained separately in
+`evidence/nad1/recovery/completed-stop-handoff/`. No device/vendor operation or
+installation occurred. PR #121 remains draft for rereview.
