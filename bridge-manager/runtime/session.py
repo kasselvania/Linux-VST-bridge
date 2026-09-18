@@ -2998,13 +2998,14 @@ def nad1_preparation_inputs(spec):
 class Nad1Runtime:
     """One pinned Proton command session for an operation's Wine processes.
 
-    Pressure Vessel owns the command-launcher service around one Proton
-    ``runinprefix`` root. A separately started launcher service followed by a
-    nested ``proton runinprefix`` can enter a different Wine/SCM universe even
-    when every prefix pathname is identical. Keep one source-owned Windows
-    anchor alive and send only closed owner-built direct-Wine commands through
-    the exact launch client bound to that root. Proton ``run`` is intentionally
-    excluded because this pinned runner routes it through built-in steam.exe.
+    The verified launcher interface owns one command service around one Proton
+    ``runinprefix`` root. A separately started bare launcher service followed by
+    a launch-client command that starts another ``proton runinprefix`` can enter
+    a different Wine/SCM universe even when every prefix pathname is identical.
+    Keep one source-owned Windows anchor alive and send only closed owner-built
+    direct-Wine commands through the exact launch client bound to that root.
+    Proton ``run`` is intentionally excluded because this pinned runner routes
+    it through built-in steam.exe.
     """
     DEBUG_KEYS = ('WINEDEBUG','PROTON_LOG','DXVK_LOG_LEVEL','VKD3D_DEBUG')
     def __init__(self,owner):
@@ -3033,8 +3034,9 @@ class Nad1Runtime:
         with request.open('xb') as f:f.write(content.encode('utf-16le'));f.flush();os.fsync(f.fileno())
         return request
     def _root_argv(self,request):
-        return [self.runner['entry_point'],'--verb=run','--',self.runner['proton'],'runinprefix',
-                self.owner.spec['installer_launch']['path'],windows(request,self.owner.root/'compatdata/pfx')]
+        return [self.runner['entry_point'],'--verb=run','--',str(self.interface),'proton',
+                self.runner['proton'],'runinprefix',self.owner.spec['installer_launch']['path'],
+                windows(request,self.owner.root/'compatdata/pfx')]
     def _root_environment(self,env):
         # The exact verified interface must be the only launcher-interface
         # candidate Proton can select. The remaining PATH is the closed manager

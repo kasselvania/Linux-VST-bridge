@@ -23,22 +23,23 @@ universe from the initialized prefix and truthfully returned 1060 for the wrong
 universe.
 
 The selected repair keeps one exact source-owned Windows anchor alive as the single
-Proton `runinprefix` root of Pressure Vessel's command service. It binds the private
-command-service name emitted by that exact root and submits every dependency helper
-and the Native Access launch adapter as direct exact-Wine commands through the verified
-launch client in that same session. Proton `run` is excluded: the pinned runner routes
-it through built-in `steam.exe`, and the first disposable candidate produced a
-source-owned qualification assertion rather than an admissible product runtime. The
-anchor, helpers, daemon, and application remain inside the existing renderer cgroup
-and cleanup boundary. No bus name, command, path, service, or environment value becomes
-caller authority.
+Proton `runinprefix` root wrapped by the verified Pressure Vessel launcher interface.
+It binds the private command-service name emitted by that exact root and submits every
+dependency helper and the Native Access launch adapter as direct exact-Wine commands
+through the verified launch client in that same session. Proton `run` is excluded: the
+pinned runner routes it through built-in `steam.exe`, and the first disposable
+candidate produced a source-owned qualification assertion rather than an admissible
+product runtime. A bare service without the interface is also excluded. The anchor,
+helpers, daemon, and application remain inside the existing renderer cgroup and cleanup
+boundary. No bus name, command, path, service, or environment value becomes caller
+authority.
 
 Generated qualification must prove that:
 
 - the exact entry point, Proton script, launcher interface, launch client, Wine image,
   Windows adapter, operation, and nonce are verified and bound;
-- one Proton `runinprefix` root is retained for the operation and all closed commands reuse its
-  one private command service;
+- one verified launcher-interface + Proton `runinprefix` root is retained for the
+  operation and all closed commands reuse its one private command service;
 - the old bare-service plus `runinprefix` topology is absent from the dependency and
   application path;
 - startup refuses missing, duplicate, malformed, changed, or mismatched identities and

@@ -32,11 +32,11 @@ class RuntimeTests(unittest.TestCase):
   self.assertEqual(self.runtime.tool_sha256,{name:artifact['sha256'] for name,artifact in zip(('entry','proton','client','interface','wine'),artifacts)})
   with patch.object(s,'verify',side_effect=RuntimeError('changed')):
    with self.assertRaises(RuntimeError):self.runtime.verify_tools()
- def test_root_is_exact_proton_runinprefix_anchor_with_closed_launcher_selection(self):
+ def test_root_is_exact_interface_owned_proton_anchor(self):
   r=self.runtime;request=r._runtime_request()
   self.assertEqual(request.read_bytes().decode('utf-16le').splitlines(),['NAD1_RUNTIME_V1','a'*32,'b'*64])
-  self.assertEqual(r._root_argv(request),['/fixed/runtime/_v2-entry-point','--verb=run','--','/fixed/proton','runinprefix',
-   '/fixed/adapter.exe',s.windows(request,self.owner.root/'compatdata/pfx')])
+  self.assertEqual(r._root_argv(request),['/fixed/runtime/_v2-entry-point','--verb=run','--',str(r.interface),'proton',
+   '/fixed/proton','runinprefix','/fixed/adapter.exe',s.windows(request,self.owner.root/'compatdata/pfx')])
   env=r._root_environment({'PATH':'/usr/bin:/bin','CLOSED':'yes'})
   self.assertEqual(env['STEAM_COMPAT_LAUNCHER_SERVICE'],'proton')
   self.assertEqual(env['PATH'],str(r.interface.parent)+':/usr/bin:/bin');self.assertEqual(env['CLOSED'],'yes')
