@@ -1,0 +1,40 @@
+{
+  "application_current_unchanged": "efe3c75c228f1247cb669c08c55e67c4",
+  "dependency_preparation": {
+    "forced_cleanup_used": false,
+    "installer_reexecuted": false,
+    "operation": "2438321e16cec0ffd078d756f1106708",
+    "owned_live": 0,
+    "process_cleanup_confirmed": true,
+    "ready_tested": true,
+    "service_retirement_confirmed": true,
+    "state": "completed"
+  },
+  "failed_operator_operation": "c4530539a41c9d0798b8e1592b14bc19",
+  "final_readback": {
+    "capture_armed": false,
+    "cleanup_unconfirmed": false,
+    "dsp": 0,
+    "keepers": 2,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "resume_pending": false,
+    "service": "active",
+    "stale_transports": 0
+  },
+  "mutation_started": false,
+  "native_access_started": false,
+  "read_only_capacity_samples": {
+    "ok": 22,
+    "refusal": {
+      "code": "local_record_or_io_failure",
+      "detail": "operation already running"
+    },
+    "refusal_count": 2,
+    "samples": 24
+  },
+  "refusal": "Operator action: capacity_readback_unavailable",
+  "repair": "Non-RT capacity status waits up to two seconds for registry ownership and reads fresh state. Admission remains fail-fast.",
+  "requested_action": "renderer_open_software_rendering",
+  "schema": 1
+}

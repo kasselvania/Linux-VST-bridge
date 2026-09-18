@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "source": "fa65e4b0c84eea8688a769ad8ca3021eb0cc1eef",
+  "tree": "e545bde710eb626337dde6624d39a8104ac2b6cb",
+  "files": {
+    "bridge-manager/runtime/session.py": {
+      "sha256": "aac4fd971b312b813d63e6b61ab55d17206deefe3f86cbccfe00d10433cd6eb8",
+      "size": 238794
+    },
+    "bridge-manager/runtime/ownership.py": {
+      "sha256": "cc81d05876043ccf96c1540c556a790e62f57f4a6e72aabbd820a5d133311add",
+      "size": 29249
+    },
+    "bridge-manager/runtime/test_dependency_stop.py": {
+      "sha256": "ddc81117e768a7a3e55854520f643e5b82641b66b6b807eab64accbea92f66e8",
+      "size": 5125
+    },
+    "tools/is2/launch.cpp": {
+      "sha256": "aa3e5f4397dc3f1e21fb74fe108f1ffbdc57df5cf5f007f03ac834b6c30ad164",
+      "size": 7688
+    },
+    "tools/is2/nad1_service.h": {
+      "sha256": "2e11dd6d6c605b740eb1a2535d443669c8b8837952fd7a23a4a9e8568071d2b1",
+      "size": 18089
+    },
+    "tools/is2/nad1_stop.h": {
+      "sha256": "07099c0663dd9e12892e746e609c1437169257669fc577426a7a5e73eb27f213",
+      "size": 1922
+    },
+    "tools/nad1/windows_test.py": {
+      "sha256": "bd8441ff02edb66134bbaf6465de4fb1aa2b42d955305b41fd1ad7b6c863d51f",
+      "size": 7891
+    },
+    "tools/nad1/service_fixture.cpp": {
+      "sha256": "5c10c3a3f8c68a1737e4ae585d1754e6d1519ffdbea31e9f4bf6d7d0636c8797",
+      "size": 4602
+    },
+    ".github/workflows/ap8-windows.yml": {
+      "sha256": "759a6cbc7b34f26e8f952d06213366ad8683c730d0e2aad927f53a1ddef6b981",
+      "size": 8410
+    },
+    ".github/workflows/ap12-manager.yml": {
+      "sha256": "fc3ceda8d9b0d9dd2976ee8dbd9ba407f4dfa530ca9913db9010117dec6b8e4f",
+      "size": 2990
+    }
+  }
+}

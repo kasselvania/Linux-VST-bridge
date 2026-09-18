@@ -1,0 +1,286 @@
+{
+  "AP12": 35294380689,
+  "attempts": 1,
+  "authorized_pointer_changes": [
+    "dependency_current"
+  ],
+  "cancelled": false,
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "cgroup_absent": true,
+  "cleanup_confirmed": true,
+  "daemon_unchanged": true,
+  "dependency": {
+    "daemon": {
+      "architecture": "x64",
+      "sha256": "e20b3d30b72d6a12e0a37b5fbd1a5c21e0db9e53459b4aab165270f7f739343b",
+      "size": 18259440
+    },
+    "forced_cleanup_used": true,
+    "lifetime": "owned_operation_only_retired_before_bridge_resume",
+    "linux_windows_join": false,
+    "process_cleanup_confirmed": true,
+    "readiness_contract": "SCM_exact_generation_and_Windows_owned_loopback_pair_and_unique_owned_Linux_image_generation_v1",
+    "ready_tested": true,
+    "recovery": {
+      "authority": "qualified_bundle_payload_and_retired_installation",
+      "daemon": {
+        "architecture": "x64",
+        "sha256": "e20b3d30b72d6a12e0a37b5fbd1a5c21e0db9e53459b4aab165270f7f739343b",
+        "size": 18259440
+      },
+      "installer_reexecuted": false,
+      "prior_failure_preserved": true,
+      "prior_operation": "6345df5fd7ea38a5f07bfc6a2300e999",
+      "prior_result_sha256": "d124e9714e6dce0986dd406f2e732cfda09bc4801a00fd6c309b421e840b4f82",
+      "qualification_sha256": "3e0cc2500b5d90abaa6d512f88d8148e05e5fc40a8e2b90f8d2d04d81d54a06f",
+      "schema": 1
+    },
+    "retirement_error": "dependency_command_nonzero",
+    "runtime": {
+      "ready": true,
+      "retirement_requested": true,
+      "service_sha256": "8e725fdf7d38c81abd846b7c7274245e3247b92fa741286a250ace8b386b9722",
+      "topology": "one_operation_container"
+    },
+    "schema": 1,
+    "service_possibility": "exact_registered",
+    "service_retirement_confirmed": false,
+    "service_stop_requested": true,
+    "stages": [
+      {
+        "action": "query",
+        "diagnostic_dropped_bytes": 0,
+        "exit": 0,
+        "launch": "owned",
+        "owned_endpoint_mask": 0,
+        "result": "exact",
+        "runner_retirement": "observed",
+        "service_exit": 1077,
+        "service_specific_exit": 0,
+        "service_state": 1
+      },
+      {
+        "action": "start",
+        "diagnostic_dropped_bytes": 0,
+        "exit": null,
+        "launch": "owned",
+        "lifetime": "owned_anchor_until_service_retirement_or_identity_failure",
+        "owned_endpoint_mask": 0,
+        "result": "exact",
+        "runner_retirement": "not_observed_at_command_return",
+        "service_exit": 0,
+        "service_specific_exit": 0,
+        "service_state": 4
+      },
+      {
+        "action": "query",
+        "diagnostic_dropped_bytes": 0,
+        "exit": 0,
+        "launch": "owned",
+        "owned_endpoint_mask": 0,
+        "result": "exact",
+        "runner_retirement": "observed",
+        "service_exit": 0,
+        "service_specific_exit": 0,
+        "service_state": 4
+      },
+      {
+        "action": "query",
+        "diagnostic_dropped_bytes": 0,
+        "exit": 0,
+        "launch": "owned",
+        "owned_endpoint_mask": 0,
+        "result": "exact",
+        "runner_retirement": "observed",
+        "service_exit": 0,
+        "service_specific_exit": 0,
+        "service_state": 4
+      },
+      {
+        "action": "query",
+        "diagnostic_dropped_bytes": 0,
+        "exit": 0,
+        "launch": "owned",
+        "owned_endpoint_mask": 2,
+        "result": "exact",
+        "runner_retirement": "observed",
+        "service_exit": 0,
+        "service_specific_exit": 0,
+        "service_state": 4
+      },
+      {
+        "action": "query",
+        "diagnostic_dropped_bytes": 0,
+        "exit": 0,
+        "launch": "owned",
+        "owned_endpoint_mask": 2,
+        "result": "exact",
+        "runner_retirement": "observed",
+        "service_exit": 0,
+        "service_specific_exit": 0,
+        "service_state": 4
+      },
+      {
+        "action": "query",
+        "diagnostic_dropped_bytes": 0,
+        "exit": 0,
+        "launch": "owned",
+        "owned_endpoint_mask": 2,
+        "result": "exact",
+        "runner_retirement": "observed",
+        "service_exit": 0,
+        "service_specific_exit": 0,
+        "service_state": 4
+      },
+      {
+        "action": "query",
+        "diagnostic_dropped_bytes": 0,
+        "exit": 0,
+        "launch": "owned",
+        "owned_endpoint_mask": 3,
+        "result": "exact",
+        "runner_retirement": "observed",
+        "service_exit": 0,
+        "service_specific_exit": 0,
+        "service_state": 4
+      },
+      {
+        "action": "stop",
+        "diagnostic_dropped_bytes": 0,
+        "exit": 149,
+        "launch": "owned",
+        "result": "unavailable",
+        "runner_retirement": "observed"
+      }
+    ]
+  },
+  "dependency_mode": "recover_installed",
+  "error": "dependency_service_retirement_unconfirmed",
+  "installer_launched": false,
+  "last_observed_service_endpoint_mask": 3,
+  "native_access_launched": false,
+  "operation": "7d73a24ec9ec740b1174539f9d01d4e2",
+  "operator_lock_waits": [
+    {
+      "attempts": 1,
+      "elapsed_wait_us": 44,
+      "holder": "unknown",
+      "mode": "exclusive",
+      "name": "operator-canonical.lock",
+      "operation": "7d73a24ec9ec740b1174539f9d01d4e2",
+      "outcome": "acquired",
+      "policy": "bounded",
+      "purpose": "action_serialization",
+      "timeout_ms": 10000
+    },
+    {
+      "attempts": 1,
+      "elapsed_wait_us": 30,
+      "holder": "unknown",
+      "mode": "exclusive",
+      "name": "registry.lock",
+      "operation": "7d73a24ec9ec740b1174539f9d01d4e2",
+      "outcome": "acquired",
+      "policy": "bounded",
+      "purpose": "operator_validation_readback",
+      "timeout_ms": 9878
+    },
+    {
+      "attempts": 1,
+      "elapsed_wait_us": 27,
+      "holder": "unknown",
+      "mode": "exclusive",
+      "name": "registry.lock",
+      "operation": "7d73a24ec9ec740b1174539f9d01d4e2",
+      "outcome": "acquired",
+      "policy": "bounded",
+      "purpose": "operator_validation_readback",
+      "timeout_ms": 10000
+    },
+    {
+      "attempts": 1,
+      "elapsed_wait_us": 27,
+      "holder": "unknown",
+      "mode": "exclusive",
+      "name": "operator-canonical.lock",
+      "operation": "7d73a24ec9ec740b1174539f9d01d4e2",
+      "outcome": "acquired",
+      "policy": "bounded",
+      "purpose": "action_serialization",
+      "timeout_ms": 10000
+    },
+    {
+      "attempts": 1,
+      "elapsed_wait_us": 27,
+      "holder": "unknown",
+      "mode": "exclusive",
+      "name": "registry.lock",
+      "operation": "7d73a24ec9ec740b1174539f9d01d4e2",
+      "outcome": "acquired",
+      "policy": "bounded",
+      "purpose": "operator_validation_readback",
+      "timeout_ms": 10000
+    },
+    {
+      "attempts": 1,
+      "elapsed_wait_us": 12,
+      "holder": "unknown",
+      "mode": "exclusive",
+      "name": "registry.lock",
+      "operation": "7d73a24ec9ec740b1174539f9d01d4e2",
+      "outcome": "acquired",
+      "policy": "bounded",
+      "purpose": "operator_validation_readback",
+      "timeout_ms": 10000
+    }
+  ],
+  "operator_result_sha256": "3c5fc700fceb5914db28eba29edb8b465b3dd11f054520fb266ef673af0103e9",
+  "operator_state": "refused",
+  "owned_live": 0,
+  "prepared_receipt_unchanged": true,
+  "prepared_sha256": "9b904e4f1b09d0cfe51fb475b11a6c0100ccffff6292c6bc6b43958e0cbe5028",
+  "preservation_counts": {
+    "immediate_predecessor": 23,
+    "older_predecessor_files": 23,
+    "predecessor_files": 23,
+    "projects": 5,
+    "protected": 143,
+    "retained": 307
+  },
+  "previous_native_access_operation_unchanged": true,
+  "private_sha256": {
+    "after.private.json": "0d7812a89da5b2ce6ea5b9a41b10d2f3f38edd1d74bb6a072d5418ab41d07c4c",
+    "before.private.json": "deca33d5d64155347f72eb5fc9b72af5065c6701a1c592a34bfdfbe1087dfd4d",
+    "dispatch-attempt.json": "c30d1eaef4d9ca57dea0eb404d3e5909a17f425053fa745b09481d1ed7471df7",
+    "receipt.json": "ffc37e0c8df74dd8cb5b0fcf171fd853399a383e77c130fbb72c5bfa182c032b",
+    "request.private.json": "a3632e1f1537853cd22fb578b97ca9edc855b771e4f7e964ddd3aeb27ffc1941",
+    "terminal.private.json": "dc3faab25cd54ba13aab317cb20e2601dcebef279cf96a732446ca435df69538"
+  },
+  "products_publications_imports_environments_prior_history_unchanged": true,
+  "registry_byte_equality_claimed": false,
+  "result_sha256": "33434119c79541418b2939cddb5449b35a9910e74e56d6c0a4d1ce4391ed9378",
+  "resume_pending": false,
+  "schema": 1,
+  "software_rendering_action_available": false,
+  "software_sha256": "6feb9e810aaeaf3463da7a8f396a40fc0cd98dc7a638d0c8783a4a0aade63bb7",
+  "source": "f2bf67dfaafe9c1dd24b245e162cb895bdcfce2f",
+  "spec_sha256": "fb99c0efd67b9badac6a9e0713fea1db0601a31ed114f2e9f78073b3707405ad",
+  "state": "failed",
+  "stop_confirmation_bound_seconds": 12,
+  "stop_helper_exit": 149,
+  "system": {
+    "ceiling": 6,
+    "cleanup_unconfirmed": false,
+    "dsp": 0,
+    "keepers": 2,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "service": "active",
+    "stale_transports": 0
+  },
+  "tree": "65500929e01152a0f16371214e3a302053a75cdf",
+  "unit_absent": true
+}

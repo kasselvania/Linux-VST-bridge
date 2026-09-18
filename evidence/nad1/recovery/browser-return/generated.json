@@ -1,0 +1,84 @@
+{
+  "authentication_privacy": {
+    "discarded_bytes": 4618,
+    "raw_capture_suspended": true
+  },
+  "browser_return": {
+    "attempts": 1,
+    "authentication": "not_observed",
+    "dispatched": 1,
+    "last_result": "dispatched",
+    "schema": 1,
+    "scheme": "native-access",
+    "secret_retained": false
+  },
+  "commercial_launch": false,
+  "effective": {
+    "application_identity": "d8d6a6c254d1aa321ca0240577427bf1efed62e66c0f1b996743a51aa353392b",
+    "monotonic_ns": 592389760783214,
+    "operation": "d9d41bf074f2bb9df96cea79b91dcc1e",
+    "policy": "software_rendering",
+    "root_ordinal": 2,
+    "software_sha256": "e9c7e11dfe75cd9c10cc43c970f935efe64a513ab4a56465d951ff46ddbf3857"
+  },
+  "forced_cleanup_used": false,
+  "launch_binding": {
+    "artifact_sha256": "b16495921acfd89e86b10a91c479a1544929a2f743118c14349f7a67f4a2bbbc",
+    "epoch": 2,
+    "operation": "d9d41bf074f2bb9df96cea79b91dcc1e",
+    "reason": null,
+    "root_ordinal": 2,
+    "schema": 1,
+    "size": 410112,
+    "status": "bound",
+    "token_sha256": "28c4852a5d756230e7c223c7e9296aa08a713312429d8a178305af69a7921bc4"
+  },
+  "manifest_sha256": "ef0a7a55ac2f7cd91f877a5dcf6d8dcbbbb3e7c3e7457b9632791e8a941164b5",
+  "operation": "d9d41bf074f2bb9df96cea79b91dcc1e",
+  "outer_exit": 0,
+  "owned_live": 0,
+  "prefix_removed": true,
+  "preservation": {
+    "capture": {
+      "active_retention": 0,
+      "armed": false
+    },
+    "decrease_per_changed_inode": 2,
+    "decreased_runtime_link_counts": 6701,
+    "explanation": "two_previous_retired_scratch_prefixes_removed_during_this_run",
+    "original_campaign_comparison": "refused_shared_cache_link_count_change",
+    "projects": 5,
+    "protected_state_unchanged": true,
+    "real_windows_prefix_and_private_home_metadata_unchanged": true,
+    "retained": 307,
+    "runtime_content_hashes_unchanged": true,
+    "runtime_ctime_changes": 6701,
+    "system": {
+      "ceiling": 6,
+      "cleanup_unconfirmed": false,
+      "dsp": 0,
+      "keepers": 2,
+      "maintenance": 0,
+      "pending_transactions": 0,
+      "service": "active",
+      "stale_transports": 0
+    }
+  },
+  "private_evidence": {
+    "after.private.json": "3c9c59618bada696938cf4794146c01c99510bc20458233f405810bb7c6ca3d5",
+    "before.private.json": "5768422ad601a7c7b0827aae5e8eb3878c63a643ecec597a4eaa7cf8d0dea332",
+    "callback/proof.json": "f3fe95f24cd625e666a2b5a3dd542f884bbb701ddf6a3544fc6e44434a557cb7"
+  },
+  "process_cleanup_confirmed": true,
+  "real_dependency_mutations": 0,
+  "renderer_complete": false,
+  "result_sha256": "a99ca1e6b04ea1718ed9b00bbf8ca059e50b87a45a42233711250d79a5f0ed5b",
+  "schema": 1,
+  "service_retirement_confirmed": true,
+  "source": {
+    "head": "31c261eea5784175faa5f36f6c8f28dfb9c2c8b0",
+    "tree": "8709c769f69ad62cb1cb7aef6bc6bf54dc62def9"
+  },
+  "state": "completed",
+  "unit_absent": true
+}

@@ -367,3 +367,175 @@ cleanup. All real state and historical source witnesses reverified unchanged.
 The final amendment contains evidence only; production source is the executed
 sealed generation. Real dependency readiness remains untested; no deployment or
 real application/service transition occurred during this repair.
+
+## Recovery repair deployed; real readiness established
+
+PR #120 merged at `a6ea9a57358dec1b188f1b02cf47c532e70182c3` with the tested
+tree `dca72e2076e23fd75f7a3dd0c190c8769fdea915`; merged-main AP8/AP12/PX2
+passed. One immutable software generation was installed and verified at operator
+model 7. The operator explicitly authorized one real service recovery test.
+Operation `26c5f1e3ff31a786c8646e3764d60262` selected `recover_installed`,
+started the existing exact daemon through SCM, proved exact readiness, stopped it
+and restored the bridge cleanly. No installer or Native Access launch occurred.
+The earlier failed installer result remains unchanged; the new prepared record is
+independent readiness authority. Evidence is under `evidence/nad1/recovery/installation/`
+and `evidence/nad1/recovery/real-operation/`. The next functional question is whether
+Native Access connects successfully under the already-selected software-rendering
+policy; it was not exercised here.
+
+## Combined application launch: suspended-child access repair
+
+The human-launched application operation `06a22a3c22fc2c1922a756104f573d0d`
+passed fresh daemon readiness but opened no window and exited 2. Shared vendor
+logs positively report renderer launch failure 72; they remain separate from
+exact Windows-generation attribution. A source-owned reproduction at `739fd087`
+passes child-memory access before service startup and fails read/write with
+Windows access-denied 5 through the service-first route. This selects a combined
+runtime integration defect for repair, not a RAM diagnosis or sandbox bypass.
+
+Keep the service and application inside one operation-owned pinned runtime
+container, preserving host-side exact ownership, SCM readiness and retirement.
+Qualify the repair with the same generated child-memory test and existing
+application lifecycle cases. No additional real application or daemon launch is
+part of this source repair. Existing installation and historical evidence stay
+unchanged.
+
+The shared-runtime repair is implemented. The source-owned child-memory
+comparison now passes before and after service startup; the previous split-runtime
+failure remains separately retained. Source `8b4cb0435f2608449aaa34cf305acdd4f472320b`
+then qualified normal/repeated application exit, exact manager Stop, readiness
+refusal, stop refusal with forced cleanup, application failure, and delayed exit.
+The collected-unit Stop race is repaired with fresh absence and exclusive writer
+custody, without retrying a signal. All seven generated cases retired their exact
+cohorts and removed their disposable prefixes; real state remained unchanged.
+This repair is pushed but uninstalled. No additional real Native Access or daemon
+operation occurred. A real application confirmation remains outstanding.
+
+## Shared-runtime candidate test installation
+
+The operator requested testing before review. Candidate `98c2e15b` was installed
+immutably and model-7 manager/frontend agreement plus idle preservation passed.
+Receipt: `evidence/nad1/recovery/child-memory/installation/`. No application or
+daemon launch occurred during installation. The fresh readiness transition is
+pending explicit service approval after automatic approval review blocked it.
+The old preparation receipt and all historical evidence remain unchanged.
+
+The operator explicitly approved the pending fresh readiness transition. Operation
+`58e0b2883e909a68fe80bd605e7b116b` completed through the shared runtime, proved
+exact readiness and retired SCM/process ownership without forced cleanup. No
+installer or Native Access launch occurred. The service is active with two keepers
+and protected state is preserved. New evidence is retained under
+`evidence/nad1/recovery/child-memory/real-readiness/`. The human application
+confirmation is now ready; historical evidence remains unchanged.
+
+## Real combined application result and next observed gaps
+
+The human application test `efe3c75c228f1247cb669c08c55e67c4` reached rendered
+login content with fresh exact daemon readiness. The browser reported login
+success, but Linux has no `native-access:` handler; app-session completion remains
+unproved. The human closed both windows. Native Access exit zero and exact SCM
+retirement passed. The manager's separate 650-second wait had expired; exact
+`operator finish` restored the bridge after positive retirement. Both gaps are
+retained under `evidence/nad1/recovery/child-memory/real-application/`. Final state
+is idle, two keepers, zero leases and no resume record. Credentials and callback
+material are excluded. No additional vendor launch occurred.
+
+## Authorized continued repair: login return and normal-session recovery
+
+The operator explicitly requested continued implementation after the successful
+rendered login test, with review to follow. Continue on the existing branch. Fix
+the remaining manager waiting-worker deadline and route only the declared
+`native-access:` scheme into the exact already-running application operation.
+Never launch an application from a callback alone; no arbitrary command, prefix
+or argument API. Transport the opaque callback in memory, never in receipts or
+request files. Suspend raw application diagnostics before delivery, explicitly
+mark observation incomplete, retain non-secret delivery status only. Vendor login
+and token validation remain vendor-owned. Qualify with generated callbacks and
+source-owned Windows instances; no real credentials or replayed login link.
+
+The browser-return repair is generated-qualified at source `31c261eea5784175faa5f36f6c8f28dfb9c2c8b0` / tree `8709c769f69ad62cb1cb7aef6bc6bf54dc62def9`. Hosted AP8/AP12 passed. The corrected console-compatible reader delivered one fake return in the pinned Deck runtime and retired cleanly. See `evidence/nad1/recovery/browser-return/` for both the successful transport and the explicit shared-cache link-count preservation exception. The real installed generation remains unchanged pending explicit candidate-install approval requested after automatic review rejected it. No real sign-in success is claimed.
+
+
+The operator explicitly approved the pending candidate installation. Source `31c261ee` is now installed as immutable generation `d943552a9e642c75425861de3d5ef3e5f51301751ee06f174810bfeab7bdddf5`. The exact desktop handler resolves, model-7 manager/frontend agree, both keepers resumed and preservation passed. See `evidence/nad1/recovery/browser-return/installation/`. No Native Access or real dependency transition occurred. The previous readiness record is retained unchanged; fresh new-generation preparation and human sign-in remain outstanding.
+
+
+The human completed candidate dependency preparation `2438321e16cec0ffd078d756f1106708` cleanly. Their subsequent application request `c4530539a41c9d0798b8e1592b14bc19` refused before launch with `capacity_readback_unavailable`. Read-only sampling reproduced registry-lock contention in the service capacity reader. The repair gives only non-real-time status acquisition a bounded two-second wait; admission remains fail-fast and reads current owners. See `evidence/nad1/recovery/browser-return/capacity-contention/`. No additional Native Access launch or dependency transition occurred during diagnosis.
+
+
+The contention repair `d1209955f173e44eb25049126998f3950713e48d` is installed as immutable generation `2b81a22e234b70c17222567b436ef30a82aaf13da6f7527258d81580009e942d`. AP12 run 35289628896 passed. All 24 concurrent live capacity readbacks succeeded; model 7, two keepers, idle state and preservation passed. No vendor/dependency launch occurred during this repair. The human may prepare the dependency once for this new software generation, then open software rendering for a fresh sign-in. Callback delivery and actual Native Access authentication still require that human test.
+
+
+The real human session `4af751390ab34dd3b5b05a5052d410cf` dispatched one browser return and displayed the signed-in library according to the operator. It later retired with exact SCM stop and zero survivors. Two subsequent reopen requests refused on generic lock contention before reservation. The first contention repair omitted the action inactivity and suspension locks; both now use bounded, recorded acquisition and recheck durable ownership. Evidence is under `evidence/nad1/recovery/browser-return/launch-contention/`. No new vendor operation occurred during this source repair.
+
+The user authorized installation of `f2bf67d` and one daemon recovery check. Installation and exact-source AP12 passed. Operation `7d73a24ec9ec740b1174539f9d01d4e2` passed manager preflight, started the existing daemon and proved readiness, then failed its single SCM stop verification (helper exit 149, final endpoint mask 3). Forced process cleanup completed; bridge and both keepers recovered with zero owners and preserved assets. The prior prepared receipt remains unchanged; no new preparation success, Native Access launch or repeated check is claimed. See `launch-contention/installation.json` and `launch-contention/readiness.json`. The remaining observed blocker is service retirement after readiness, separate from the repaired preflight contention.
+
+## Current repair: runtime cleanup, pipe drainage and SCM stop observation
+
+The tech-lead review of `ddbbd54` authorizes source repair and generated proof before another real daemon operation. Keep Native Access closed and leave installed generation `f2bf67d` unchanged. Continue on this branch and open a new draft PR against main because PR #120 is already merged. Preserve the signed-in library result, rendering comparison, installation and failed preparation exactly.
+
+The amendment makes runtime resource closure best-effort with retained errors, guarantees remaining process cleanup and terminal reporting, continuously drains the shared container through a private operation-owned reader, and synchronizes the raw-output privacy cutoff. SCM retirement uses the previously admitted Windows generation when a stop is already pending; it never treats the invalid STOPPED PID as authority or sends another stop for a pending transition. One bounded observation includes time spent in the control request, checkpoints, wait hints, query errors, process-handle wait result and listener ownership. Those closed numeric facts remain available after login suppresses raw diagnostics. No timeout increase or real shutdown remedy is selected from the old exit 149.
+
+The unrelated Arturia completion typo is a separate small commit with a normal-exit regression. Validation uses generated local/Linux process cases, deterministic SCM state tests and the Windows SCM fixture with delayed/pending shutdown. No vendor/device operation or production installation is part of this repair.
+
+Generated repair source `f3487e5616a8a7141ce8ae113562d18d1c14da02` / tree `44120a7f90081892e825e3546c09537e695ef07c` passed AP8 `35297629223`, AP12 `35297629115`, and PX2 `35297629136`. The identical-tree hosted test merge is `4510260bb938d21cdf0a1681108477b4a58fd203`. New evidence is retained under `evidence/nad1/recovery/shutdown-repair/`; all prior evidence is unchanged. Draft PR #121 remains uninstalled and unmerged. No real device/vendor operation occurred; another daemon test is not part of this repair.
+
+## Completed-stop handoff amendment
+
+The tech-lead rereview of PR #121 at `7e2ae5b` requests one focused correction:
+preserve exact original-generation exit authority when external shutdown completes
+and the start anchor exits before the stop helper begins. Continue in the same
+draft PR; no real daemon transition, Native Access launch or installation.
+
+The anchor now retains the initial verified running handle without an intervening
+close and publishes a non-replacing, operation/nonce/generation-bound private exit
+receipt only after SCM STOPPED, that handle's exit, and zero owned listeners.
+Publication completes before handle release. The stop helper accepts this receipt
+only with a fresh STOPPED observation and still checks listener absence. Missing or
+invalid receipts never convert an arbitrary failed process lookup into success.
+The supervisor checks the returned generation against its admitted generation.
+Generated Windows coverage completes an external stop, waits for anchor exit, then
+invokes retirement with the old generation; malformed/aliased receipts and a
+missing receipt with failed process lookup refuse. All prior evidence is preserved.
+
+The first amendment Windows run `35299668099` failed its fast repeated-stop anchor-exit assertion. Startup could still acknowledge START_PENDING before retaining a running handle. The correction delays start acknowledgment until the existing exact RUNNING validation has retained that handle, with a 25-second startup bound and no normal-operation deadline. The failed candidate is retained separately in the handoff evidence.
+
+The completed-stop correction is generated-qualified at source
+`d42b245a495c79f847894600acabf4e38deca8bd`; AP8 `35300202967`, AP12
+`35300203043` and PX2 `35300203042` passed. Its source seal, successful checks,
+failed first candidate and unchanged-evidence witness are retained separately in
+`evidence/nad1/recovery/completed-stop-handoff/`. No device/vendor operation or
+installation occurred. PR #121 remains draft for rereview.
+
+## Receipt/acquisition handoff correction
+
+The tech-lead rereview at `18007a0` identifies one remaining interleaving: the
+anchor can publish its exact exit receipt and release the original process handle
+after the stop helper's first receipt lookup but before `OpenProcess`. Correct only
+that handoff on this draft branch. After failed process acquisition, allow one
+bounded recheck requiring a fresh exact receipt, fresh SCM STOPPED observation and
+zero listeners for the admitted generation. Apply the same recheck when the first
+SCM state was STOP_PENDING or RUNNING. Missing, malformed, aliased, inaccessible or
+mismatched evidence remains refusal; an opened handle with unresolved identity is
+never bypassed. Qualify the exact production admission law with a deterministic
+generated schedule. Keep Native Access closed and perform no real daemon transition
+or installation. The preserved live listener failure remains unexplained.
+
+The correction is generated-qualified at source
+`0b2ca827b5a10e36027c9d7286c887c5683fa520` / tree
+`7b79c24f8c77162e74c96bfad80320d3b440eeb4`. After failed process acquisition,
+the production admission law performs exactly one fresh SCM query, receipt read
+and listener census. Only exact STOPPED plus the admitted receipt and zero
+listeners converts that failure to retained-anchor authority. The deterministic
+test publishes the receipt and releases the modeled original handle inside the
+failed acquisition for initial STOPPED, STOP_PENDING and RUNNING observations.
+Missing/malformed receipts, non-stopped refresh, live listeners and an opened but
+unverified process refuse.
+
+AP8 `35302848875`, AP12 `35302848927` and PX2 `35302848879` passed at the exact
+source commit. The Windows job built the production adapter and passed the existing
+SCM fixture; AP12 compiled and ran the deterministic production admission/observer
+case. Local NAD1 and runtime checks also passed. Exact source, validation and
+unchanged-evidence records are under
+`evidence/nad1/recovery/receipt-acquisition-handoff/`. No device/vendor operation,
+installation or real daemon transition occurred. PR #121 remains draft for
+rereview; real-daemon shutdown remains unqualified.

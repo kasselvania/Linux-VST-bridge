@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "source": "0b2ca827b5a10e36027c9d7286c887c5683fa520",
+  "tree": "7b79c24f8c77162e74c96bfad80320d3b440eeb4",
+  "hosted": {
+    "AP8": {
+      "run": 35302848875,
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35302848875",
+      "head": "0b2ca827b5a10e36027c9d7286c887c5683fa520",
+      "event": "pull_request",
+      "conclusion": "success"
+    },
+    "AP12": {
+      "run": 35302848927,
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35302848927",
+      "head": "0b2ca827b5a10e36027c9d7286c887c5683fa520",
+      "event": "pull_request",
+      "conclusion": "success"
+    },
+    "PX2": {
+      "run": 35302848879,
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35302848879",
+      "head": "0b2ca827b5a10e36027c9d7286c887c5683fa520",
+      "event": "pull_request",
+      "conclusion": "success"
+    }
+  },
+  "hosted_counts": {
+    "manager_library": 144,
+    "manager_binary": 87,
+    "manager_example": 5,
+    "frontend": 26,
+    "runtime": 243,
+    "nad1": 24,
+    "strict_manager_clippy": "passed",
+    "strict_frontend_clippy": "passed"
+  },
+  "local": {
+    "runtime_discovered": 243,
+    "runtime_passed": 199,
+    "runtime_platform_skips": 44,
+    "nad1_passed": 24,
+    "windows_cross_compile": "passed",
+    "python_compile": "passed"
+  },
+  "cases": [
+    "receipt published before helper admission remains confirmed",
+    "receipt published and original handle released between missing receipt lookup and failed acquisition confirms retirement",
+    "initial STOP_PENDING and RUNNING transitions use the same exact bounded handoff",
+    "fresh stopped state prevents a duplicate stop control",
+    "missing or malformed receipt refuses",
+    "fresh non-stopped state or live listeners refuse",
+    "opened process with unresolved identity cannot switch to receipt authority"
+  ],
+  "development": [
+    {
+      "kind": "additional_strict_cross_compile",
+      "result": "pre_existing_warning",
+      "detail": "Clang -Werror rejected the unchanged GetProcAddress function-pointer cast in nad1_endpoints; the normal Windows cross-compile and hosted MSVC /W4 build passed."
+    }
+  ]
+}

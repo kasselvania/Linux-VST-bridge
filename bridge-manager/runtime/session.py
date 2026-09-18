@@ -4,7 +4,7 @@
 No registration writes, checkout imports, scan guesses, global Wine overrides or
 callback work. The Rust manager supplies an exact verified registration.
 """
-import ctypes,mmap,collections,re
+import ctypes,mmap,collections,re,threading
 import fcntl,hashlib,json,os,pathlib,pwd,selectors,shutil,signal,socket,stat,struct,subprocess,sys,time
 from ownership import process_identities,descendant_identities,cleanup_process,ProcessTracker,CompanionCgroup,InstallerLedger
 
@@ -2407,7 +2407,105 @@ def renderer_application(spec):
     dependency=nad1_prepared(spec)
     return renderer_owned(spec,dependency=dependency)
 
-def renderer_owned(spec, preparation=None, dependency=None, *, dependency_fixture=None):
+def native_access_uri(value):
+    if not isinstance(value,bytes) or not 14<len(value)<=2048 or not value.startswith(b'native-access:'):return False
+    i=14
+    while i<len(value):
+        c=value[i]
+        if not 33<=c<=126 or c in b'"\'\\`<>':return False
+        if c==37:
+            if i+2>=len(value) or any(x not in b'0123456789abcdefABCDEF' for x in value[i+1:i+3]):return False
+            decoded=int(value[i+1:i+3],16)
+            if decoded<32 or decoded==127:return False
+            i+=2
+        i+=1
+    return True
+
+
+class RendererCallback:
+    """One exact running operation's ephemeral broker. No secret-bearing files.
+
+    Accepting a return suppresses raw application diagnostics for the remainder
+    of the operation. The vendor may echo a code without its URL prefix; regex
+    redaction cannot promise privacy. Generation completeness becomes false.
+    """
+    def __init__(self,operation,child,privacy_cutoff,*,address=None):
+        import socket
+        self.op=operation;self.child=child;self.cutoff=privacy_cutoff
+        self.listener=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
+        try:
+            self.listener.bind(address or ('\0lvb-native-access-'+str(os.getuid())+'-'+operation))
+            self.listener.listen(1);self.listener.setblocking(False)
+        except Exception:self.listener.close();raise
+        self.peer=None;self.pending=bytearray();self.phase='operation';self.deadline=0
+        self.attempts=0;self.delivered=0;self.last=None;self.closed=False;self.acks=bytearray()
+        os.set_blocking(child.stdin.fileno(),False)
+    def finish(self,code,status):
+        self.last=status
+        if self.peer is not None:
+            try:self.peer.send(bytes([code]))
+            except OSError:pass
+            self.peer.close();self.peer=None
+        for i in range(len(self.pending)):self.pending[i]=0
+        self.pending.clear();self.phase='operation'
+    def tick(self):
+        import socket,struct
+        if self.closed:return
+        if self.child.returncode is not None:self.close();return
+        if self.peer is None:
+            try:peer,_=self.listener.accept()
+            except BlockingIOError:return
+            pid,uid,_=struct.unpack('3i',peer.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12))
+            if uid!=os.getuid() or pid<=0 or self.attempts>=4:peer.close();return
+            peer.setblocking(False);self.peer=peer;self.deadline=time.monotonic()+5
+        if time.monotonic()>self.deadline:self.finish(2,'delivery_unconfirmed');return
+        if self.phase=='ack':return
+        try:data=self.peer.recv(2053)
+        except BlockingIOError:return
+        if not data:self.finish(1,'client_closed');return
+        self.pending.extend(data)
+        if self.phase=='operation':
+            if len(self.pending)>32:self.finish(1,'invalid_operation');return
+            if len(self.pending)==32:
+                if self.pending!=self.op.encode():self.finish(1,'invalid_operation');return
+                try:self.peer.sendall(b'NAC1')
+                except OSError:self.finish(1,'client_closed');return
+                self.pending.clear();self.phase='uri'
+            return
+        if len(self.pending)>2052:self.finish(1,'invalid_return');return
+        if len(self.pending)<4:return
+        n=int.from_bytes(self.pending[:4],'little')
+        if not 14<n<=2048 or len(self.pending)>4+n:self.finish(1,'invalid_return');return
+        if len(self.pending)!=4+n:return
+        if not native_access_uri(bytes(self.pending[4:])):self.finish(1,'invalid_return');return
+        # This is deliberately before any write to the Windows adapter.
+        self.cutoff();self.attempts+=1
+        try:
+            frame=bytes(self.pending[4:])+b'\n'
+            n=os.write(self.child.stdin.fileno(),frame)
+            if n!=len(frame):raise OSError('short_callback_write')
+        except OSError:self.finish(2,'delivery_unconfirmed');return
+        for i in range(len(self.pending)):self.pending[i]=0
+        self.pending.clear();self.phase='ack';self.deadline=time.monotonic()+22
+    def feed_ack(self,data):
+        # Only complete fixed adapter frames survive; all other output is discarded.
+        for b in data:
+            if b==10:
+                if len(self.acks)<=128:
+                    parts=bytes(self.acks).split()
+                    if len(parts)==4 and parts[:2]==[b'NA_AUTH_V1',self.op.encode()] and parts[2]==str(self.attempts).encode() and parts[3] in (b'0',b'1',b'2') and self.phase=='ack':
+                        code=int(parts[3]);self.delivered+=int(code==0);self.finish(code,'dispatched' if code==0 else 'delivery_unconfirmed')
+                self.acks.clear()
+            elif len(self.acks)<=128:self.acks.append(b)
+    def value(self):return {'schema':1,'scheme':'native-access','attempts':self.attempts,'dispatched':self.delivered,'last_result':self.last,'authentication':'not_observed','secret_retained':False}
+    def close(self):
+        if self.closed:return
+        self.closed=True
+        if self.peer is not None:self.finish(2,'delivery_unconfirmed')
+        self.listener.close();self.acks.clear()
+
+
+def renderer_owned(spec, preparation=None, dependency=None, *, dependency_fixture=None, callback_fixture=False):
     # Shared mechanism after independent production or sealed-fixture admission.
     # Manager reconciliation takes the same gate before closing an unused launch.
     report=pathlib.Path(spec['report']);op=spec['operation']
@@ -2417,7 +2515,7 @@ def renderer_owned(spec, preparation=None, dependency=None, *, dependency_fixtur
         installer_atomic(report.parent/'writer.json',{'schema':1,'operation':op,'started':True})
         try:
             if preparation is not None:preparation()
-            return renderer_run(spec,dependency=dependency,dependency_fixture=dependency_fixture)
+            return renderer_run(spec,dependency=dependency,dependency_fixture=dependency_fixture,callback_fixture=callback_fixture)
         except Exception as exc:
             scope=CompanionCgroup(renderer_operation=op);clean=not scope.members()
             atomic(report,{'schema':1,'operation':op,'application_identity':spec['application_identity'],
@@ -2428,12 +2526,17 @@ def renderer_owned(spec, preparation=None, dependency=None, *, dependency_fixtur
             return False
 
 
-def renderer_run(spec, dependency=None, *, dependency_fixture=None):
+def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fixture=False):
     """Exact companion operation; no prefix initialization or installer witnesses."""
     app=spec['application'];op=spec['operation'];env=app['environment'];root=pathlib.Path(env['root']);report=pathlib.Path(spec['report'])
     lock=(root/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     image=RendererImage(app['files']['Native Access.exe']);evidence=RendererEvidence(app['files']['Native Access.exe']['artifact'],root,image)
     scope=None;ledger=None;child=None;clean=False;stop=False;error=None;effective=None;focus=None;dependency_owner=None
+    callback=None;auth_private=False;auth_discarded=0
+    callback_enabled=dependency is not None and (app['id']=='native-access' or callback_fixture)
+    if callback_enabled:
+        import resource
+        resource.setrlimit(resource.RLIMIT_CORE,(0,0))
     captures={name:PrivateCapture(report.parent/(op+'-'+name+'.private.log'),16*1024*1024,600) for name in ('stdout','stderr')}
     sel=selectors.DefaultSelector();request_path=report.parent/(op+'-launch.private')
     def persist(value):
@@ -2443,10 +2546,23 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None):
         stop=True
         if ledger:ledger.cancelled=True
         evidence.trace.cancelled=True
+    def privacy_cutoff():
+        nonlocal auth_private
+        if not auth_private:
+            auth_private=True;evidence.trace.dropped+=1
+            if dependency_owner is not None:
+                dependency_owner.diagnostic_privacy=True
+                if dependency_owner.runtime:dependency_owner.runtime.suppress_diagnostics()
+            evidence.pending.clear();evidence.line_pending.clear()
     def drain(wait):
+        nonlocal auth_discarded
         for key,_ in sel.select(wait):
             data=os.read(key.fileobj.fileno(),65536)
-            if data:captures[key.data].write(data);evidence.feed(data,key.data)
+            if data:
+                if auth_private:
+                    auth_discarded+=len(data)
+                    if callback and key.data=='stdout':callback.feed_ack(data)
+                else:captures[key.data].write(data);evidence.feed(data,key.data)
             else:sel.unregister(key.fileobj)
     def confirm_effective():
         nonlocal effective
@@ -2460,6 +2576,8 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None):
             'dependency':dependency_owner.value() if dependency_owner else None,
             'outer_exit':child.returncode if child else None,'cleanup_confirmed':clean,'owned_live':live,
             'cancelled':stop,'error':error,'focus_result':focus,
+            'browser_return':callback.value() if callback else None,
+            'authentication_privacy':{'raw_capture_suspended':auth_private,'discarded_bytes':auth_discarded},
             'application_image_verification':{'bytes':image.size,'hash_passes':1,'cache':'stable_open_file'},
             'diagnostics':{k:{'retained':v.retained,'dropped':v.discarded} for k,v in captures.items()}}
     signal.signal(signal.SIGTERM,cancel);signal.signal(signal.SIGINT,cancel)
@@ -2473,20 +2591,26 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None):
             dependency_owner=Nad1Owner(spec,ledger,scope,lambda:stop,fixture=dependency_fixture)
             dependency_owner.ensure(False,dependency['daemon'])
         token=os.urandom(32).hex();evidence.trace.arm_root(op,token,image.size);evidence.begin();evidence.begin()
-        content='\n'.join(['NAUI2_LAUNCH_V1',op,token,'2',image.sha,str(image.size),windows(image.path,root/'compatdata/pfx'),spec['renderer_policy'],''])
+        content='\n'.join(['NAUI2_AUTH_LAUNCH_V1' if callback_enabled else 'NAUI2_LAUNCH_V1',op,token,'2',image.sha,str(image.size),windows(image.path,root/'compatdata/pfx'),spec['renderer_policy'],''])
         with os.fdopen(os.open(request_path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'wb') as f:f.write(content.encode('utf-16le'));f.flush();os.fsync(f.fileno())
         runner=env['runner'];argv=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',spec['installer_launch']['path'],windows(request_path,root/'compatdata/pfx')]
         launch_env=environment({'environment':env,'compatibility':{'disable_windows_accessibility':False}});launch_env['HOME']=str(root/'home')
         launch_env.update(PROTON_LOG='0',WINEDEBUG='-all,+timestamp,+pid,+tid,trace+process,err+gdi,err+module',DXVK_LOG_LEVEL='none',VKD3D_DEBUG='none')
+        if dependency_owner is not None:
+            argv=dependency_owner.runtime.argv(request_path,image.path.parent,launch_env)
         image.check()
-        child=subprocess.Popen(argv,cwd=image.path.parent,env=launch_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+        child=subprocess.Popen(argv,cwd=image.path.parent,env=launch_env,stdin=subprocess.PIPE if callback_enabled else subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
         ledger.launcher(child,'application_runner')
         for name,pipe in [('stdout',child.stdout),('stderr',child.stderr)]:os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,name)
         last=0
         while not stop:
             live=ledger.harvest();drain(.05);image.check()
+            if dependency_owner and dependency_owner.runtime:dependency_owner.runtime.drain()
             if dependency_owner and dependency_owner.anchor is not None and dependency_owner.anchor.returncode is not None and child.returncode is None:raise ValueError('dependency_service_anchor_exited')
             confirm_effective()
+            if callback_enabled and effective and child.returncode is None:
+                if callback is None:callback=RendererCallback(op,child,privacy_cutoff)
+                callback.tick()
             if dependency_owner and child.returncode is not None:
                 if child.returncode!=0:error='application_outer_nonzero'
                 if effective is None:error=error or 'application_root_unconfirmed'
@@ -2514,24 +2638,34 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None):
             if time.monotonic()-last>.5:atomic(report,result(state,len(live)));last=time.monotonic()
     except Exception as exc:error=str(exc) if isinstance(exc,ValueError) else 'renderer_owner_'+type(exc).__name__
     finally:
+        def finish(name,call):
+            nonlocal error
+            try:return call()
+            except Exception:error=error or name
+        if callback:finish('renderer_callback_close_failed',callback.close)
+        if child and callback_enabled and child.stdin:finish('renderer_stdin_close_failed',child.stdin.close)
         if dependency_owner is not None:
             try:
                 if child is not None:renderer_retire_image(scope,ledger,image,drain)
             except Exception:
                 error=error or 'application_retirement_unconfirmed'
                 dependency_owner.forced_cleanup_used=True
-            if not dependency_owner.retire():error=error or 'dependency_service_retirement_unconfirmed'
+            if not finish('dependency_retirement_failed',dependency_owner.retire):error=error or getattr(dependency_owner,'retirement_error',None) or 'dependency_service_retirement_unconfirmed'
+        # None of the preceding resource/service failures may skip process cleanup.
         if scope is not None and not clean:
-            try:clean=ledger.cleanup() if ledger else not scope.members()
-            except Exception:error=error or 'renderer_cleanup_failed'
+            clean=bool(finish('renderer_cleanup_failed',ledger.cleanup if ledger else lambda:not scope.members()))
         if child:
-            for _ in range(64):drain(0)
-            child.stdout.close();child.stderr.close()
+            for _ in range(64):finish('renderer_drain_failed',lambda:drain(0))
+            finish('renderer_stdout_close_failed',child.stdout.close)
+            finish('renderer_stderr_close_failed',child.stderr.close)
         if dependency_owner is not None:dependency_owner.process_cleanup_confirmed=clean
-        if ledger:ledger.commit()
-        sel.close();request_path.unlink(missing_ok=True);image.close()
-        for c in captures.values():c.close()
-        atomic(report,result('cleanup_unconfirmed' if not clean else 'cancelled' if stop else 'failed' if error else 'completed',0 if clean else None));lock.close()
+        if ledger:finish('renderer_ledger_commit_failed',ledger.commit)
+        finish('renderer_selector_close_failed',sel.close)
+        finish('renderer_request_remove_failed',lambda:request_path.unlink(missing_ok=True))
+        finish('renderer_image_close_failed',image.close)
+        for c in captures.values():finish('renderer_capture_close_failed',c.close)
+        finish('renderer_lock_close_failed',lock.close)
+        atomic(report,result('cleanup_unconfirmed' if not clean else 'cancelled' if stop else 'failed' if error else 'completed',0 if clean else None))
     return clean and error is None
 
 
@@ -2566,6 +2700,23 @@ def nad1_scm_frame(raw,op,token):
     if a[3]=='exact' and (int(a[5]) not in range(1,8) or (a[5]=='4' and (not re.fullmatch('[0-9a-f]{64}',a[8]) or int(a[6])==0 or int(a[7])==0))):raise ValueError('dependency_scm_generation')
     if int(a[11]) not in range(5):raise ValueError('dependency_endpoint_extent')
     return {'registration':a[3],'request_error':int(a[4]),'state':int(a[5]),'windows_pid':int(a[6]),'windows_created':int(a[7]),'image_sha256':a[8],'service_exit':int(a[9]),'service_specific_exit':int(a[10]),'owned_endpoint_mask':int(a[11])}
+
+NAD1_STOP_FIELDS=('confirmed','initial_state','initial_query_error','final_state','final_query_error',
+    'checkpoint','wait_hint_ms','process_wait','process_wait_error','endpoint_mask',
+    'control_sent','control_error','control_started_ms','control_elapsed_ms','elapsed_ms',
+    'query_count','progress_count','identity_error','service_exit','service_specific_exit')
+
+def nad1_stop_observation(raw,op,token):
+    rows=[x.split() for x in raw.decode('ascii',errors='strict').splitlines() if x.startswith('NAD1_STOP_OBSERVATION_V2 ')]
+    if not rows:return None
+    if len(rows)!=1 or len(rows[0])!=3+len(NAD1_STOP_FIELDS) or rows[0][1:3]!=[op,token]:raise ValueError('dependency_stop_observation_identity')
+    fields=rows[0][3:]
+    if any(not re.fullmatch('[0-9]{1,10}',x) or int(x)>0xffffffff for x in fields):raise ValueError('dependency_stop_observation_extent')
+    v=dict(zip(NAD1_STOP_FIELDS,map(int,fields)))
+    if v['confirmed'] not in (0,1) or v['control_sent'] not in (0,1) or v['initial_state']>7 or v['final_state']>7 or v['endpoint_mask']>4 or v['process_wait'] not in (0,258,0xffffffff):raise ValueError('dependency_stop_observation_shape')
+    if v['confirmed'] and (v['final_state']!=1 or v['final_query_error'] or v['identity_error'] or v['process_wait'] or v['endpoint_mask']):raise ValueError('dependency_stop_observation_false_success')
+    if v['control_started_ms']+v['control_elapsed_ms']>v['elapsed_ms']:raise ValueError('dependency_stop_observation_timing')
+    return dict(schema=2,**v)
 
 def nad1_generation_owned(candidate,scope):
     import ownership
@@ -2673,6 +2824,118 @@ def nad1_preparation_inputs(spec):
     return None,None
 
 
+class Nad1Runtime:
+    """One private pressure-vessel container for an operation's Wine processes.
+
+    Separate containers sharing a wineserver break suspended-child memory access.
+    The host remains cgroup/ledger authority; the pinned launch client forwards
+    only closed owner-built commands and diagnostic settings into this container.
+    """
+    SERVICE_SHA = '8e725fdf7d38c81abd846b7c7274245e3247b92fa741286a250ace8b386b9722'
+    DEBUG_KEYS = ('WINEDEBUG','PROTON_LOG','DXVK_LOG_LEVEL','VKD3D_DEBUG')
+    def __init__(self,owner):
+        self.owner=owner;self.child=None;self.closed=False;self.directory=None
+        self.sel=selectors.DefaultSelector();self.capture=None;self.ready=False;self.output=bytearray()
+        self.pump_thread=None;self.pump_stop=threading.Event();self.output_lock=threading.Lock()
+        self.pump_error=None;self.close_errors=[];self.discarded_private=0
+        self.runner=owner.spec['application']['environment']['runner']
+        base=pathlib.Path(self.runner['entry_point']).parent/'pressure-vessel'
+        self.client=base/'bin/steam-runtime-launch-client'
+        self.service=base/'libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service'
+    def verify_tools(self):
+        matches=[f for f in self.runner['files'] if f['path']==str(self.client)]
+        if len(matches)!=1:raise ValueError('dependency_runtime_client_identity')
+        verify(matches[0]);verify({'path':str(self.service),'sha256':self.SERVICE_SHA})
+    def start(self,env):
+        if self.child is not None or self.closed:raise ValueError('dependency_runtime_reentry')
+        self.verify_tools()
+        import tempfile
+        self.directory=pathlib.Path(tempfile.mkdtemp(prefix='lvb-runtime-',dir='/tmp'))
+        private_directory(self.directory);self.socket=self.directory/'socket'
+        self.capture=PrivateCapture(self.owner.directory/(self.owner.op+'-runtime.private.log'),1024*1024,256)
+        argv=[self.runner['entry_point'],'--verb=run','--',str(self.service),
+              '--socket='+str(self.socket),'--stop-on-parent-exit','--no-stop-on-exit']
+        # Expose only this fresh owner-private socket directory, not the host HOME.
+        container_env=dict(env,PRESSURE_VESSEL_FILESYSTEMS_RW=str(self.directory))
+        self.child=subprocess.Popen(argv,cwd=self.owner.root/'home',env=container_env,stdin=subprocess.PIPE,
+                                    stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+        self.owner.ledger.launcher(self.child,'dependency_runtime')
+        for name,pipe in [('stdout',self.child.stdout),('stderr',self.child.stderr)]:
+            os.set_blocking(pipe.fileno(),False);self.sel.register(pipe,selectors.EVENT_READ,name)
+        self.pump_thread=threading.Thread(target=self._pump,name="dependency-runtime-output",daemon=True)
+        self.pump_thread.start()
+        deadline=time.monotonic()+30
+        while not self.ready:
+            self.owner.ledger.harvest();self.drain(.05)
+            if self.child.returncode is not None:raise ValueError('dependency_runtime_start_failed')
+            if self.owner.cancelled() and not self.owner.retiring:raise ValueError('dependency_cancelled')
+            if time.monotonic()>deadline:raise ValueError('dependency_runtime_start_timeout')
+            # Exact readiness comes from the private socket announced by this child.
+            with self.output_lock:
+                if ('socket='+str(self.socket)+'\n').encode() in self.output:
+                    md=self.socket.lstat()
+                    if not stat.S_ISSOCK(md.st_mode) or md.st_uid!=os.getuid():raise ValueError('dependency_runtime_socket_identity')
+                    self.ready=True;self.output.clear()
+    def _pump(self):
+        # Dedicated operation-owned reader: command waits, image hashing and
+        # application use cannot leave the container's diagnostic pipes blocked.
+        while not self.pump_stop.is_set():
+            try:self._drain(.05)
+            except Exception as exc:
+                self.pump_error='dependency_runtime_drain_'+type(exc).__name__
+                # Continue consuming even when capture/storage has failed.
+                self.pump_stop.wait(.01)
+    def _drain(self,wait=0):
+        for key,_ in self.sel.select(wait):
+            data=os.read(key.fileobj.fileno(),65536)
+            if not data:self.sel.unregister(key.fileobj);continue
+            with self.output_lock:
+                if self.owner.diagnostic_privacy:self.discarded_private+=len(data)
+                elif self.pump_error is None:self.capture.write(data)
+                if key.data=='stdout' and not self.ready:
+                    if len(self.output)+len(data)>8192:raise ValueError('dependency_runtime_output_extent')
+                    self.output.extend(data)
+    def drain(self,wait=0):
+        if self.pump_thread is None:self._drain(wait)
+        elif wait:self.pump_stop.wait(wait)
+        if self.pump_error:raise ValueError(self.pump_error)
+    def suppress_diagnostics(self):
+        # Synchronize with capture writes: once this returns no login-era output
+        # can enter the raw runtime capture. Reading/discarding never stops.
+        with self.output_lock:self.owner.diagnostic_privacy=True
+    def argv(self,request,cwd,env):
+        if self.closed:raise ValueError('dependency_runtime_retired')
+        if self.child is None:self.start(env)
+        self.owner.ledger.harvest();self.drain()
+        if self.child.returncode is not None:raise ValueError('dependency_runtime_exited')
+        self.verify_tools()
+        return [str(self.client),'--socket='+str(self.socket),'--directory='+str(cwd),
+                *['--pass-env='+key for key in self.DEBUG_KEYS],'--',self.runner['proton'],
+                'runinprefix',self.owner.spec['installer_launch']['path'],
+                windows(request,self.owner.root/'compatdata/pfx')]
+    def close(self):
+        if self.closed:return
+        self.closed=True
+        def close_step(name,call):
+            try:call()
+            except Exception as exc:self.close_errors.append(name+'_'+type(exc).__name__)
+        self.pump_stop.set()
+        if self.pump_thread:
+            self.pump_thread.join(timeout=1)
+            if self.pump_thread.is_alive():
+                self.close_errors.append('reader_join_timeout')
+                return  # Never close descriptors beneath the reader.
+        if self.child is not None:
+            for name in ('stdin','stdout','stderr'):
+                pipe=getattr(self.child,name,None)
+                if pipe:close_step(name,pipe.close)
+        close_step('selector',self.sel.close)
+        if self.capture:close_step('capture',self.capture.close)
+        if self.directory:
+            close_step('socket',lambda:self.socket.unlink(missing_ok=True))
+            close_step('directory',self.directory.rmdir)
+
+
 class Nad1Owner:
     def __init__(self,spec,ledger,scope,cancelled,*,fixture=None):
         self.spec=spec;self.ledger=ledger;self.scope=scope;self.cancelled=cancelled;self.production=fixture is None
@@ -2683,29 +2946,37 @@ class Nad1Owner:
         self.daemon_relative=NAD1_DAEMON if fixture is None else fixture['daemon']
         self.installer_sha=NAD1_INSTALLER_SHA if fixture is None else fixture['installer_sha256']
         self.installer_size=35769456 if fixture is None else fixture['installer_size']
-        self.token=os.urandom(32).hex();self.anchor=None;self.recovery=None
+        self.token=os.urandom(32).hex();self.anchor=None;self.recovery=None;self.runtime=None;self.diagnostic_privacy=False
         self.service_possibility='unknown';self.retirement_authorized=False
         self.retiring=False;self.retirement_attempted=False
         self.service_stop_requested=False;self.service_retirement_confirmed=False
+        self.runtime_close_errors=[];self.service_generation=None;self.stop_observation=None
         self.process_cleanup_confirmed=False;self.forced_cleanup_used=False;self.retirement_error=None
     def value(self):
         return {'schema':1,'ready_tested':self.ready,'daemon':self.daemon,'recovery':self.recovery,
                 'service_stop_requested':self.service_stop_requested,'service_retirement_confirmed':self.service_retirement_confirmed,
                 'process_cleanup_confirmed':self.process_cleanup_confirmed,'forced_cleanup_used':self.forced_cleanup_used,
                 'retirement_error':self.retirement_error,'service_possibility':self.service_possibility,
+                'runtime_close_errors':self.runtime_close_errors,'stop_observation':self.stop_observation,
+                'runtime':{'topology':'one_operation_container','ready':self.runtime.ready,'retirement_requested':self.runtime.closed,'service_sha256':self.runtime.SERVICE_SHA} if self.runtime else None,
                 'stages':self.stages,'readiness_contract':'SCM_exact_generation_and_Windows_owned_loopback_pair_and_unique_owned_Linux_image_generation_v1',
                 'linux_windows_join':False,'lifetime':'owned_operation_only_retired_before_bridge_resume'}
     def command(self,action):
         if action not in ('query','install','start','stop'):raise ValueError('dependency_action')
         index=len(self.stages);request=self.directory/f'{self.op}-dependency-{index}.private'
-        content='\n'.join(['NAD1_SERVICE_V1',self.op,self.token,action,self.installer_sha,''])
+        fields=['NAD1_SERVICE_V1',self.op,self.token,action,self.installer_sha]
+        if action=='stop':fields=['NAD1_STOP_REQUEST_V2',self.op,self.token,action,self.installer_sha,*map(str,self.service_generation or (0,0))]
+        content='\n'.join([*fields,''])
         with request.open('xb') as f:f.write(content.encode('utf-16le'));f.flush();os.fsync(f.fileno())
         env=self.spec['application']['environment'];runner=env['runner']
         launch_env=environment({'environment':env,'compatibility':{'disable_windows_accessibility':False}})
         launch_env['HOME']=str(self.root/'home');launch_env.update(WINEDEBUG='-all',PROTON_LOG='0')
-        argv=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',self.spec['installer_launch']['path'],windows(request,self.root/'compatdata/pfx')]
+        if self.runtime is None:self.runtime=Nad1Runtime(self)
+        argv=self.runtime.argv(request,self.root/'home',launch_env)
         stdout=bytearray();capture=PrivateCapture(self.directory/f'{self.op}-dependency-{index}.log',1024*1024,256);sel=selectors.DefaultSelector()
         stage={'action':action,'launch':'prepared','exit':None,'result':'unavailable'};self.stages.append(stage)
+        command_started=time.monotonic()
+        if action=='stop':stage['control_dispatch_observed']=False
         install=Nad1InstallObservation(self,stage) if action=='install' else None;child=None
         try:
             child=subprocess.Popen(argv,cwd=self.root/'home',env=launch_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
@@ -2713,16 +2984,19 @@ class Nad1Owner:
             for name,pipe in [('stdout',child.stdout),('stderr',child.stderr)]:os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,name)
             deadline=time.monotonic()+(20 if self.retiring else 200 if action=='install' else 40)
             while child.returncode is None:
-                self.ledger.harvest()
+                self.ledger.harvest();self.runtime.drain()
                 if self.cancelled() and not self.retiring:raise ValueError('dependency_cancelled')
                 for key,_ in sel.select(.05):
                     data=os.read(key.fileobj.fileno(),8192)
                     if not data:sel.unregister(key.fileobj);key.fileobj.close();continue
-                    capture.write(data)
+                    if not self.diagnostic_privacy:capture.write(data)
                     if key.data=='stdout':
                         if len(stdout)+len(data)>65536:raise ValueError('dependency_helper_output_extent')
                         stdout.extend(data)
                     if install and key.data=='stdout':install.feed(data)
+                    if action=='stop' and key.data=='stdout':
+                        begin=[line.split() for line in bytes(stdout).splitlines() if line.startswith(b'NAD1_STOP_BEGIN_V1 ')]
+                        if begin and begin[0][1:3]==[self.op.encode(),self.token.encode()]:stage['control_dispatch_observed']=True
                 if install and install.failure():
                     stage['result']='installer_nonzero' if install.result!=144 else 'installer_result_unavailable'
                     raise ValueError(install.failure())
@@ -2734,7 +3008,7 @@ class Nad1Owner:
                 for key,_ in sel.select(0):
                     data=os.read(key.fileobj.fileno(),8192)
                     if not data:sel.unregister(key.fileobj);key.fileobj.close();continue
-                    capture.write(data)
+                    if not self.diagnostic_privacy:capture.write(data)
                     if key.data=='stdout':
                         if len(stdout)+len(data)>65536:raise ValueError('dependency_helper_output_extent')
                         stdout.extend(data)
@@ -2742,7 +3016,7 @@ class Nad1Owner:
             stage['exit']=child.returncode
             if action=='stop':
                 # Preserve even a nonzero stop/timeout observation privately.
-                installer_atomic(self.directory/f'{self.op}-retirement.private.json',{'stdout_sha256':hashlib.sha256(stdout).hexdigest(),'frames':bytes(stdout).decode('ascii',errors='replace').splitlines()})
+                installer_atomic(self.directory/f'{self.op}-retirement.private.json',{'raw_diagnostics_suppressed':True} if self.diagnostic_privacy else {'stdout_sha256':hashlib.sha256(stdout).hexdigest(),'frames':bytes(stdout).decode('ascii',errors='replace').splitlines()})
             if install:
                 if install.failure():
                     stage['result']='installer_nonzero' if install.result!=144 else 'installer_result_unavailable'
@@ -2750,13 +3024,23 @@ class Nad1Owner:
                 if install.result is None:raise ValueError('dependency_install_acknowledgment')
                 if child.returncode!=0:raise ValueError('dependency_runner_nonzero_after_installer_zero')
                 stage['result']='outer_zero_only';return None
+            if action=='stop':
+                self.stop_observation=nad1_stop_observation(bytes(stdout),self.op,self.token)
+                stage['stop_observation']=self.stop_observation
             if child.returncode!=0 and not (action=='start' and self.anchor is child and child.returncode is None):raise ValueError('dependency_command_nonzero')
             result=nad1_scm_frame(bytes(stdout),self.op,self.token)
+            if result['registration']=='exact' and result['state']==4:self.service_generation=(result['windows_pid'],result['windows_created'])
             if action=='stop' and result['registration']=='exact':
+                if not self.stop_observation or not self.stop_observation['confirmed']:raise ValueError('dependency_stop_observation_unconfirmed')
                 frames=[line.split() for line in bytes(stdout).decode('ascii').splitlines() if line.startswith('NAD1_RETIRE_V1 ')]
                 if len(frames)!=1 or len(frames[0])!=7 or frames[0][1:4]!=[self.op,self.token,'1'] or frames[0][6]!='0' or any(not re.fullmatch('[0-9]{1,20}',x) for x in frames[0][4:6]):raise ValueError('dependency_retirement_generation_unconfirmed')
                 if (int(frames[0][4])==0)!=(int(frames[0][5])==0):raise ValueError('dependency_retirement_generation_unconfirmed')
-                if result['state']!=1 or result['windows_pid']!=0 or result['owned_endpoint_mask']!=0:raise ValueError('dependency_retirement_state')
+                generation=tuple(map(int,frames[0][4:6]))
+                if self.service_generation is not None and generation!=self.service_generation:raise ValueError('dependency_retirement_generation_changed')
+                witnesses=[line.split() for line in bytes(stdout).decode('ascii').splitlines() if line.startswith('NAD1_EXIT_WITNESS_V1 ')]
+                if witnesses and (len(witnesses)!=1 or witnesses[0]!=['NAD1_EXIT_WITNESS_V1',self.op,self.token,*frames[0][4:6]] or generation==(0,0)):raise ValueError('dependency_exit_witness_identity')
+                stage['retirement_generation_authority']='retained_anchor_exit' if witnesses else 'retained_process_handle' if generation!=(0,0) else 'exact_already_inactive'
+                if result['state']!=1 or result['owned_endpoint_mask']!=0:raise ValueError('dependency_retirement_state')
                 result['retirement_generation_confirmed']=True
             installer_atomic(self.directory/f'{self.op}-scm-{index}.private.json',result)
             stage['result']=result['registration'];stage['service_state']=result['state'];stage['service_exit']=result['service_exit'];stage['service_specific_exit']=result['service_specific_exit'];stage['owned_endpoint_mask']=result['owned_endpoint_mask'];return result
@@ -2764,6 +3048,11 @@ class Nad1Owner:
             if child is not None:
                 stage['exit']=child.returncode
                 stage['runner_retirement']='observed' if child.returncode is not None else 'not_observed_at_command_return'
+            if action=='stop':
+                stage['helper_elapsed_ms']=max(0,int((time.monotonic()-command_started)*1000))
+                if self.stop_observation is None:
+                    self.stop_observation={'schema':2,'availability':'final_observation_unavailable','control_dispatch_observed':stage['control_dispatch_observed'],'helper_elapsed_ms':stage['helper_elapsed_ms']}
+                stage['stop_observation']=self.stop_observation
             stage['diagnostic_dropped_bytes']=capture.discarded;capture.close()
             for key in list(sel.get_map().values()):key.fileobj.close()
             sel.close()
@@ -2821,6 +3110,23 @@ class Nad1Owner:
 
 
     def retire(self):
+        retired=False
+        try:retired=self._retire_service()
+        except Exception as exc:
+            self.retirement_error=self.retirement_error or 'dependency_retirement_'+type(exc).__name__
+            self.forced_cleanup_used=True
+        finally:
+            if self.runtime is not None:
+                try:
+                    self.runtime.close()
+                    self.runtime_close_errors=list(self.runtime.close_errors)
+                except Exception as exc:self.runtime_close_errors=['runtime_close_'+type(exc).__name__]
+                if self.runtime_close_errors:
+                    self.retirement_error=self.retirement_error or 'dependency_runtime_close_failed'
+                    retired=False
+        return retired
+
+    def _retire_service(self):
         """One stop request, exact SCM generation retirement, then Linux absence.
 
         Cancellation does not interrupt this bounded safety transition. Failure
@@ -2847,7 +3153,7 @@ class Nad1Owner:
                 state=self.command('query')
                 scan=ownership.census(self.root/'compatdata/pfx',self.daemon)
                 installer_atomic(self.directory/f'{self.op}-dependency-retired.private.json',scan)
-                inactive=state['registration']=='absent' or (state['state']==1 and state['windows_pid']==0 and state['owned_endpoint_mask']==0)
+                inactive=state['registration']=='absent' or (state['state']==1 and state['owned_endpoint_mask']==0)
                 if inactive and not scan['unavailable'] and not scan['candidates']:
                     self.service_retirement_confirmed=True;return True
                 time.sleep(.1)
@@ -2952,8 +3258,16 @@ def nad1_owned(spec,*,fixture=None):
             owner.ensure(owner.recovery is None,admitted)
         except Exception as exc:error=str(exc) if isinstance(exc,ValueError) else 'dependency_owner_'+type(exc).__name__
         finally:
-            if not owner.retire():error=error or 'dependency_service_retirement_unconfirmed'
-            clean=ledger.cleanup();owner.process_cleanup_confirmed=clean;ledger.commit();lock.close()
+            try:
+                if not owner.retire():error=error or owner.retirement_error or 'dependency_service_retirement_unconfirmed'
+            except Exception:error=error or 'dependency_retirement_failed'
+            try:clean=ledger.cleanup()
+            except Exception:error=error or 'dependency_process_cleanup_failed'
+            owner.process_cleanup_confirmed=clean
+            try:ledger.commit()
+            except Exception:error=error or 'dependency_ledger_commit_failed'
+            try:lock.close()
+            except Exception:error=error or 'dependency_lock_close_failed'
             value={'schema':1,'operation':op,'application_identity':spec['application_identity'],'state':'cleanup_unconfirmed' if not clean else 'cancelled' if stopped[0] else 'failed' if error else 'completed','dependency':owner.value(),'cleanup_confirmed':clean,'owned_live':0 if clean else None,'error':error,'cancelled':stopped[0]}
             nad1_publish(report,value)
         return clean and error is None
@@ -3069,7 +3383,6 @@ def vendor_application(spec):
                 # No member remains that could create a later handoff. A
                 # second ancestry sample or a fixed grace period is not proof.
                 for _ in range(64):drain(0)
-                confirm_effective()
                 clean=True
                 if state=='failed':error='vendor_application_launcher_failed_after_cgroup_empty'
                 event('cgroup_empty',launcher_exit=child.returncode)

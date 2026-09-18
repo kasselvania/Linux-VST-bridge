@@ -1,0 +1,26 @@
+{
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "dependency_transition": false,
+  "maximum_elapsed_ms": 1793,
+  "native_access_launch": false,
+  "reader_threads": 2,
+  "refusals": [],
+  "requests": 24,
+  "resume_pending": false,
+  "schema": 1,
+  "source": "d1209955f173e44eb25049126998f3950713e48d",
+  "successes": 24,
+  "system": {
+    "ceiling": 6,
+    "cleanup_unconfirmed": false,
+    "dsp": 0,
+    "keepers": 2,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "service": "active",
+    "stale_transports": 0
+  }
+}

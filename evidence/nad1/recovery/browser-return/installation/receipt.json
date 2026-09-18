@@ -1,0 +1,69 @@
+{
+  "AP12": 35286474513,
+  "AP8": 35286472521,
+  "application_identity": "7228a542c01b89daa5d04b9c8566af235ee7a2358e52f741b8918239c3a7d26e",
+  "application_record_sha256": "efa17763785548cce9a7ac4da7d37ec453ea3dff323a77c72ce501066648a0cd",
+  "artifacts": {
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "installer_launch": "08181f28864e20f8be4cd0752232e2a14c5a09ed2a20c849b1cfd51fdc9ba76b",
+    "manager": "fee695090cd08f4d9edb383bc6e9665d54e74c80701260532bc0f30edc8a6754",
+    "native_catalogue": "7c69282e42afb45f2bcc34107cea3dcc6a95efbc4132436309d0dbe337a6146f",
+    "operator_frontend": "0c88634d7dc66e946d26c238bf39afd61d4df37eab013a7e23cede968823caca",
+    "ownership": "cc81d05876043ccf96c1540c556a790e62f57f4a6e72aabbd820a5d133311add",
+    "preparation_kit": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "supervisor": "0628b967035adff2bfb1db54a05c790bec7649012748195f78e3c2920623f679"
+  },
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "commercial_launch": false,
+  "frontend": {
+    "action_submitted": false,
+    "frontend_activity_decoded": true,
+    "frontend_snapshot_decoded": true,
+    "gui_launched": false,
+    "operator_schema": 7
+  },
+  "handler": "linux-vst-bridge-native-access.desktop",
+  "operator_schema": 7,
+  "predecessor_retained": true,
+  "preservation_counts": {
+    "immediate_predecessor": 23,
+    "older_predecessor_files": 23,
+    "predecessor_files": 23,
+    "projects": 5,
+    "protected": 143,
+    "retained": 307
+  },
+  "previous_generation": "d7d5d779b644e06333f1bc54d0a7d8ae9c7a3baa674f09513658f9e0ba68baf1",
+  "previous_software_record_sha256": "912e53ea4a9386835874cb030584a27544c42fbc9763bd2e5fc83af43fbdba69",
+  "private_sha256": {
+    "after.private.json": "b041ca0036146ac5919af6f7f36f1cb5f3a161badcefc01a078b39686444d467",
+    "before.private.json": "dc5788311319ee4f03b477a91fd9c2e1a6676278892c44c8a512c8f293c92dd3",
+    "installation-attempt.json": "24a99a0f33b7ffbcd0bc0ab764abeb482bb575c3b591af8388904d3c3baaaafa",
+    "setup.private.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "real_dependency_transition": false,
+  "records_unchanged": 172,
+  "registry_and_daemon_unchanged": true,
+  "resume_pending": false,
+  "review": "pending_test_candidate",
+  "schema": 1,
+  "selected_generation": "d943552a9e642c75425861de3d5ef3e5f51301751ee06f174810bfeab7bdddf5",
+  "selected_software_record_sha256": "c28d9b5111ec7e1f6a1cf5cd32f5198e571c390d17f4a0c57241e8184a8c457a",
+  "software_rendering_unchanged": true,
+  "source": "31c261eea5784175faa5f36f6c8f28dfb9c2c8b0",
+  "system": {
+    "ceiling": 6,
+    "cleanup_unconfirmed": false,
+    "dsp": 0,
+    "keepers": 2,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "service": "active",
+    "stale_transports": 0
+  },
+  "tree": "8709c769f69ad62cb1cb7aef6bc6bf54dc62def9"
+}

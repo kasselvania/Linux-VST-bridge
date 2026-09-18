@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "source": "d42b245a495c79f847894600acabf4e38deca8bd",
+  "tree": "1bd0aa66c3973fe92d38881af27aac672e5592b6",
+  "hosted": {
+    "AP8": {
+      "run": 35300202967,
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35300202967",
+      "head": "d42b245a495c79f847894600acabf4e38deca8bd",
+      "event": "pull_request",
+      "conclusion": "success"
+    },
+    "AP12": {
+      "run": 35300203043,
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35300203043",
+      "head": "d42b245a495c79f847894600acabf4e38deca8bd",
+      "event": "pull_request",
+      "conclusion": "success"
+    },
+    "PX2": {
+      "run": 35300203042,
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35300203042",
+      "head": "d42b245a495c79f847894600acabf4e38deca8bd",
+      "event": "pull_request",
+      "conclusion": "success"
+    }
+  },
+  "hosted_counts": {
+    "manager_library": 144,
+    "manager_binary": 87,
+    "frontend": 26,
+    "runtime": 243,
+    "nad1": 24,
+    "strict_manager_clippy": "passed",
+    "strict_frontend_clippy": "passed"
+  },
+  "local": {
+    "runtime_discovered": 243,
+    "runtime_passed": 199,
+    "runtime_platform_skips": 44,
+    "nad1_passed": 24,
+    "windows_cross_compile": "passed"
+  },
+  "cases": [
+    "external stop complete; original anchor exits; later stop consumes original-generation exit receipt",
+    "pending stop and delayed stop remain qualified",
+    "wrong operation, nonce, generation, truncated/extended and hard-linked receipts refuse",
+    "missing receipt and failed process lookup refuse without a control request",
+    "Python validates returned generation and exit-witness frame under privacy suppression",
+    "already-inactive no-generation path is named separately"
+  ],
+  "development": [
+    {
+      "head": "fa65e4b0c84eea8688a769ad8ca3021eb0cc1eef",
+      "AP8": 35299668099,
+      "conclusion": "failure",
+      "assertion": "fast repeated-stop anchor exit was nonzero",
+      "source_gap": "START_PENDING acknowledgment could precede anchor handle acquisition",
+      "correction": "f6e0f6a retains verified RUNNING handle before startup acknowledgment",
+      "failure_log_sha256": "9e8f23afb53bbaab61fb7e3856ef6f30a97b50916cd4ee279f7be8917fc3af1e"
+    },
+    {
+      "kind": "cross_compile_cache_access",
+      "initial_result": "sandbox AccessDenied before compilation",
+      "resolution": "cross-compilation passed with compiler cache access"
+    }
+  ],
+  "hosted_checkout": {
+    "commit": "7daf7115a798e04f26be7c4c3149d1abc0acf9bd",
+    "tree": "1bd0aa66c3973fe92d38881af27aac672e5592b6",
+    "tree_equals_source": true
+  },
+  "log_sha256": {
+    "nad1-handoff-ap8-final.log": "5794f2fc73d440b3ac6ace58dc87f8646eec48f95a2e25756b8ade6d06a727a3",
+    "nad1-handoff-runtime-final.log": "31e70a7548999355cc80d2f8941991c3768a924c1b25cd2584aad0d16e2c603a",
+    "nad1-handoff-tools-final.log": "53d249f53778a200a69bcdfcd19b381176c26a1365a76461e6cc89984bcd1792"
+  }
+}

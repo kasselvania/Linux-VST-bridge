@@ -106,10 +106,15 @@ class OwnerTests(unittest.TestCase):
   self.assertEqual(self.owner.retirement_error,'generated_uncertain_acknowledgment')
  def test_query_state_or_linux_survivor_cannot_claim_service_retirement(self):
   self.owner.ensure(True);command=self.owner.command
-  self.owner.command=lambda a:dict(command(a),windows_pid=123) if a=='query' else command(a)
+  self.owner.command=lambda a:dict(command(a),state=3) if a=='query' else command(a)
   with patch.object(s.time,'monotonic',side_effect=[0,1,30]),patch.object(s.time,'sleep'):
    self.assertFalse(self.owner.retire())
   self.assertTrue(self.owner.forced_cleanup_used)
+ def test_stopped_query_pid_is_not_authority(self):
+  self.owner.ensure(True);command=self.owner.command
+  self.owner.command=lambda a:dict(command(a),windows_pid=999) if a=='query' else command(a)
+  self.assertTrue(self.owner.retire())
+  self.assertEqual(self.commands.count('stop'),1)
  def test_foreign_refusal_never_stops_service(self):
   self.scan['candidates']=[{'prefix_relation':'foreign'}]
   with self.assertRaises(ValueError):self.owner.ensure(True)
@@ -239,9 +244,10 @@ class IntegratedApplicationTests(unittest.TestCase):
    with self.subTest(case=case),tempfile.TemporaryDirectory() as tmp:
     root=pathlib.Path(tmp).resolve();(root/'compatdata/pfx').mkdir(parents=True);(root/'compatdata/pfx/system.reg').touch()
     image=root/'application.exe';image.write_bytes(b'MZfixture');artifact={'path':str(image),'sha256':hashlib.sha256(image.read_bytes()).hexdigest()}
-    op='e'*32;spec={'operation':op,'report':str(root/'result.json'),'application_identity':'b'*64,'software_sha256':'c'*64,'renderer_policy':'software_rendering','installer_launch':{'path':'adapter'},'application':{'environment':{'root':str(root),'runner':{'entry_point':'fixture','proton':'fixture'}},'files':{'Native Access.exe':{'artifact':artifact,'size':image.stat().st_size}}}}
+    op='e'*32;spec={'operation':op,'report':str(root/'result.json'),'application_identity':'b'*64,'software_sha256':'c'*64,'renderer_policy':'software_rendering','installer_launch':{'path':'adapter'},'application':{'id':'nad1-source-owned','environment':{'root':str(root),'runner':{'entry_point':'fixture','proton':'fixture'}},'files':{'Native Access.exe':{'artifact':artifact,'size':image.stat().st_size}}}}
     events=[];children=[];real=subprocess.Popen;prior=[signal.getsignal(x) for x in (signal.SIGTERM,signal.SIGINT)]
     class Dependency:
+     runtime=type('Runtime',(),{'argv':lambda *_:['generated-command'],'drain':lambda *_:None})()
      anchor=type('Exited',(),{'returncode':1})() if case=='anchor_failure' else None
      process_cleanup_confirmed=False;forced_cleanup_used=False
      def __init__(self,*_,**__):pass

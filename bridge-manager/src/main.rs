@@ -1091,8 +1091,14 @@ fn main() -> Result<()> {
     unsafe {
         libc::umask(0o077);
     }
-    let m = Manager::installed()?;
+    // Browser return URIs are ephemeral secret-bearing inputs, never dump data.
+    if std::env::args_os().nth(1).as_deref()==Some(std::ffi::OsStr::new("native-access-callback")) {
+        unsafe { let limit=libc::rlimit{rlim_cur:0,rlim_max:0};require(libc::setrlimit(libc::RLIMIT_CORE,&limit)==0,"callback_privacy")?; }
+        #[cfg(target_os="linux")]
+        unsafe { require(libc::prctl(libc::PR_SET_DUMPABLE,0,0,0,0)==0,"callback_privacy")?; }
+    }
     let args: Vec<_> = std::env::args().skip(1).collect();
+    let m = Manager::installed()?;
     match args.first().map(String::as_str){
   Some("setup") if args.len()==2=>setup(&m,Some(Path::new(&args[1]))),
   Some("accept-editor") if args.len()==1=>managed_cli::run_acceptance(&m),
@@ -1103,6 +1109,7 @@ fn main() -> Result<()> {
   Some("managed")=>managed_cli::run(&m,&args[1..]),
   Some("capture")=>crash_capture::run(&m,&args[1..]),
   Some("operator")=>operator_cli::run(&m,&args[1..]),
+  Some("native-access-callback") if args.len()==2=>native_access_callback::deliver(&m,&args[1]).map_err(|_|"Native Access login return could not be delivered. Open Native Access through the manager and start a fresh sign-in.".into()),
   Some("import-installer") if args.len()==1=>{let source=fs::File::from(std::io::stdin().as_fd().try_clone_to_owned()?);println!("{}",serde_json::to_string(&installer_import::import(&m,source)?)?);Ok(())},
   Some("vendor-app")=>vendor_cli::run(&m,&args[1..]),
   Some("vendor-product")=>vendor_product_cli::run(&m,&args[1..]),

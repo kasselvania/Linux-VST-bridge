@@ -53,6 +53,38 @@ fn owned_file(path: &Path, prefix: Option<&str>) -> Result<Option<Vec<u8>>> {
         }
     }
 }
+/// Edit only this scheme's default. Unrelated associations are byte-preserved;
+/// a foreign default is never silently replaced.
+fn callback_default(before: &[u8]) -> Result<Vec<u8>> {
+    const KEY: &str = "x-scheme-handler/native-access";
+    const VALUE: &str = "linux-vst-bridge-native-access.desktop;";
+    let text=std::str::from_utf8(before)?;
+    require(!text.contains('\0'),"callback_association_invalid")?;
+    let mut inside=false;let mut section=false;let mut found=false;
+    let mut insertion=text.len();let mut offset=0;
+    for line in text.split_inclusive('\n') {
+        let trim=line.trim();
+        if trim.starts_with('[') {
+            if inside {insertion=offset;}
+            inside=trim=="[Default Applications]";
+            if inside {require(!section,"callback_association_duplicate_section")?;section=true;}
+        } else if inside {
+            if let Some((key,value))=trim.split_once('=') {
+                if key.trim()==KEY {
+                    require(!found,"callback_association_duplicate")?;found=true;
+                    require(value.trim()==VALUE||value.trim()==VALUE.trim_end_matches(';'),"callback_association_foreign")?;
+                }
+            }
+        }
+        offset+=line.len();
+    }
+    if found{return Ok(before.to_vec());}
+    let entry=format!("{KEY}={VALUE}\n");
+    let mut out=text[..insertion].to_string();
+    if !out.is_empty()&&!out.ends_with('\n'){out.push('\n');}
+    if !section{out.push_str("[Default Applications]\n");}
+    out.push_str(&entry);out.push_str(&text[insertion..]);Ok(out.into_bytes())
+}
 fn put(path: &Path, bytes: &[u8]) -> Result<()> {
     let parent = path.parent().ok_or("setup_parent")?;
     fs::create_dir_all(parent)?;
@@ -141,6 +173,20 @@ pub(super) fn commit(
             "operator_frontend_retention_required",
         )?;
     }
+    // Scheme-only desktop entry; this command cannot launch an application. The
+    // current manager must admit an existing exact operation before forwarding.
+    // A legacy rollback receives no new Software field; its unknown command
+    // refuses rather than launching the callback elsewhere.
+    let handler=home.join(".local/share/applications/linux-vst-bridge-native-access.desktop");
+    let executable=home.join(".local/bin/linux-vst-bridge");
+    let executable=executable.to_str().ok_or("callback_desktop_path")?;
+    require(!executable.chars().any(char::is_control),"callback_desktop_path")?;
+    let escaped=executable.replace('\\',"\\\\").replace('"',"\\\"").replace('`',"\\`").replace('$',"\\$").replace('%',"%%");
+    files.push(FileChange{before:owned_file(&handler,Some(DESKTOP_OWNER))?,path:handler,after:format!("{DESKTOP_OWNER}Type=Application\nName=Native Access login return (Linux Audio Compatibility Manager)\nExec=\"{escaped}\" native-access-callback %u\nTerminal=false\nNoDisplay=true\nMimeType=x-scheme-handler/native-access;\n").into_bytes()});
+    let associations=home.join(".config/mimeapps.list");
+    let before=owned_file(&associations,None)?;
+    let after=callback_default(before.as_deref().unwrap_or(b""))?;
+    files.push(FileChange{path:associations,before,after});
     let unit = home.join(".config/systemd/user/linux-vst-bridge.service");
     files.push(FileChange{before:owned_file(&unit,Some(SERVICE_OWNER))?,path:unit,after:format!("{SERVICE_OWNER}After=graphical-session.target\n\n[Service]\nType=simple\nExecStart={} serve\nUMask=0077\nRestart=on-failure\nRestartSec=2\nKillMode=control-group\nTimeoutStopSec=30\n\n[Install]\nWantedBy=default.target\n",systemd(installed.manager.path.to_str().ok_or("executable path encoding")?)).into_bytes()});
     let manifest = m.root.join("software.json");
@@ -233,6 +279,8 @@ mod tests {
             home.join(".local/bin/linux-audio-compatibility-manager"),
             home.join(".local/share/applications/linux-audio-compatibility-manager.desktop"),
             home.join(".config/systemd/user/linux-vst-bridge.service"),
+            home.join(".local/share/applications/linux-vst-bridge-native-access.desktop"),
+            home.join(".config/mimeapps.list"),
         ]
         .into_iter()
         .map(|p| {
@@ -410,7 +458,7 @@ mod tests {
     }
     #[test]
     fn foreign_preflight_and_each_commit_failure_leave_all_stable_surfaces_unchanged() {
-        for foreign in ["frontend", "desktop", "unit"] {
+        for foreign in ["frontend", "desktop", "callback", "association", "unit"] {
             let f = test_fixture::Fixture::new();
             let home = f.outer.join("home");
             let old = software_fixture(&f, "old");
@@ -429,6 +477,8 @@ mod tests {
                     "foreign desktop",
                 )
                 .unwrap(),
+                "association" => fs::write(home.join(".config/mimeapps.list"), "[Default Applications]\nx-scheme-handler/native-access=foreign.desktop;\n").unwrap(),
+                "callback" => fs::write(home.join(".local/share/applications/linux-vst-bridge-native-access.desktop"), "foreign callback").unwrap(),
                 _ => fs::write(
                     home.join(".config/systemd/user/linux-vst-bridge.service"),
                     "foreign service",
@@ -439,7 +489,7 @@ mod tests {
             assert!(commit(&f.m, &home, &new, Some(&old), None).is_err());
             assert_eq!(state(&f.m, &home), before);
         }
-        for boundary in 1..=5 {
+        for boundary in 1..=7 {
             let f = test_fixture::Fixture::new();
             let home = f.outer.join("home");
             let old = software_fixture(&f, "old");
@@ -471,5 +521,21 @@ mod tests {
         );
         fs::write(&a.path, "changed frontend").unwrap();
         assert!(software(&f.m).is_err());
+    }
+}
+
+#[cfg(test)]
+mod callback_association_tests {
+    use super::*;
+    #[test]
+    fn only_own_default_changes_and_conflicts_refuse() {
+        let before=b"# user comment\n[Default Applications]\ntext/plain=editor.desktop;\n[Added Associations]\nx-test=other.desktop;\n";
+        let after=callback_default(before).unwrap();
+        assert_eq!(after,b"# user comment\n[Default Applications]\ntext/plain=editor.desktop;\nx-scheme-handler/native-access=linux-vst-bridge-native-access.desktop;\n[Added Associations]\nx-test=other.desktop;\n");
+        assert_eq!(callback_default(&after).unwrap(),after);
+        assert!(callback_default(b"[Default Applications]\nx-scheme-handler/native-access=foreign.desktop;\n").is_err());
+        assert!(callback_default(b"[Default Applications]\n[Default Applications]\n").is_err());
+        assert!(callback_default(b"\0").is_err());
+        assert_eq!(callback_default(b"# preserved").unwrap(),b"# preserved\n[Default Applications]\nx-scheme-handler/native-access=linux-vst-bridge-native-access.desktop;\n");
     }
 }

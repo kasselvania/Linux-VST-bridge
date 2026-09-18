@@ -1,10 +1,12 @@
 """Exact closed source package for the generated SCM owner qualification."""
 import hashlib,json,os,pathlib,shutil,stat,subprocess,tempfile
-SOURCES={n:'tools/nad1/'+n for n in ('owner_package.py','owner_campaign.py','owner_supervise.py','service_fixture.cpp','application_fixture.cpp','application_supervise.py','application_campaign.py','lifetime_campaign.py','recovery_campaign.py')}
+SOURCES={n:'tools/nad1/'+n for n in ('owner_package.py','owner_campaign.py','owner_supervise.py','service_fixture.cpp','application_fixture.cpp','application_supervise.py','application_campaign.py','lifetime_campaign.py','recovery_campaign.py','child_memory.h','child_memory_campaign.py','callback_campaign.py')}
 SOURCES.update({n:'bridge-manager/runtime/'+n for n in ('session.py','ownership.py')})
 SOURCES.update({'launch.cpp':'tools/is2/launch.cpp','nad1_service.h':'tools/is2/nad1_service.h','readback.py':'tools/naui2/readback.py','binding.rs':'bridge-manager/examples/nad1_binding.rs','dependency.rs':'bridge-manager/src/native_access_dependency.rs','lifecycle.rs':'bridge-manager/src/dependency_session.rs','operator_cli.rs':'bridge-manager/src/operator_cli.rs','linker.py':'tools/is4/linker.py','Cargo.toml':'bridge-manager/Cargo.toml','Cargo.lock':'bridge-manager/Cargo.lock'})
 SOURCES['native_access_recovery.json']='bridge-manager/src/native_access_recovery.json'
 SOURCES['renderer_lifecycle.rs']='bridge-manager/src/renderer_session.rs'
+SOURCES['nad1_stop.h']='tools/is2/nad1_stop.h'
+SOURCES['native_access_callback.h']='tools/is2/native_access_callback.h'
 REQUIRED=set(SOURCES)|{'Setup.exe','application.exe','adapter.exe','binding-owner'}
 def digest(p):
  with open(p,'rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()

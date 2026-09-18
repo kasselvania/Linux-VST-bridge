@@ -1,0 +1,100 @@
+{
+  "application_identity": "7228a542c01b89daa5d04b9c8566af235ee7a2358e52f741b8918239c3a7d26e",
+  "authentication_completed_in_native_access": "not_established",
+  "cancelled": false,
+  "candidate_commit": "98c2e15b44a2d7cea9e2c368b95485ffc9b31c75",
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "cgroup_absent": true,
+  "cleanup_confirmed": true,
+  "dependency": {
+    "forced_cleanup_used": false,
+    "process_cleanup_confirmed": true,
+    "ready_tested": true,
+    "retirement_error": null,
+    "runtime": {
+      "ready": true,
+      "retirement_requested": true,
+      "service_sha256": "8e725fdf7d38c81abd846b7c7274245e3247b92fa741286a250ace8b386b9722",
+      "topology": "one_operation_container"
+    },
+    "service_retirement_confirmed": true,
+    "service_stop_requested": true
+  },
+  "effective": {
+    "application_identity": "7228a542c01b89daa5d04b9c8566af235ee7a2358e52f741b8918239c3a7d26e",
+    "monotonic_ns": 586222306194441,
+    "operation": "efe3c75c228f1247cb669c08c55e67c4",
+    "policy": "software_rendering",
+    "root_ordinal": 2,
+    "software_sha256": "b2f8342523aebbb4247b02a33a224e3314ca860f5be20b0066ff837375a6e72f"
+  },
+  "error": null,
+  "human_observations": [
+    "rendered_login_screen",
+    "browser_login_callback_error_then_fresh_signin",
+    "browser_reported_logged_in",
+    "Linux_application_chooser_for_native_access_scheme",
+    "browser_and_application_closed_normally"
+  ],
+  "launch_binding": {
+    "artifact_sha256": "7b2413e90db79538cd1edc7c6169ff384aea181a85635c43a363f4aa18b9e841",
+    "epoch": 2,
+    "operation": "efe3c75c228f1247cb669c08c55e67c4",
+    "reason": null,
+    "root_ordinal": 2,
+    "schema": 1,
+    "size": 225757168,
+    "status": "bound",
+    "token_sha256": "05fb2f2407b20a2d5b1a8519095a796deaecb487933209c359452f8a2eb2a46f"
+  },
+  "login_links_tokens_and_account_data_retained": false,
+  "native_access_url_handler": "unregistered",
+  "operation": "efe3c75c228f1247cb669c08c55e67c4",
+  "operation_result_sha256": "d20f23d7cc3d0a8f790ec4f69bc96739942146a8ec45078d44dab7dff544233f",
+  "operator_reason": "Operator action: renderer_retirement_unconfirmed",
+  "operator_state": "refused",
+  "outer_exit": 0,
+  "owned_live": 0,
+  "prefix_account_state_immutability_claimed": false,
+  "preservation_counts": {
+    "older_predecessor_files": 23,
+    "predecessor_files": 23,
+    "projects": 5,
+    "protected": 143,
+    "retained": 307
+  },
+  "private_after_sha256": "87efba8f53d628599ab04df2fae373106f01d9b3027aca8dfdc3ff341a2f437d",
+  "products_publications_projects_software_prior_evidence_unchanged": true,
+  "recovery": {
+    "automatic_bridge_resume": false,
+    "bridge_restored": true,
+    "exact_operator_finish_invoked_after_positive_retirement": true,
+    "manager_wait_deadline_seconds": 650
+  },
+  "renderer": {
+    "cause": "unresolved",
+    "complete": true,
+    "fact_drops": 0,
+    "line_drops": 0,
+    "windows_dropped_observations": 0
+  },
+  "requested": "software_rendering",
+  "resume_pending": false,
+  "schema": 1,
+  "software_record_sha256": "912e53ea4a9386835874cb030584a27544c42fbc9763bd2e5fc83af43fbdba69",
+  "state": "completed",
+  "system": {
+    "ceiling": 6,
+    "cleanup_unconfirmed": false,
+    "dsp": 0,
+    "keepers": 2,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "service": "active",
+    "stale_transports": 0
+  },
+  "unit_absent": true
+}
