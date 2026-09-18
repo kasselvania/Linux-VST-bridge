@@ -2706,6 +2706,132 @@ NAD1_STOP_FIELDS=('confirmed','initial_state','initial_query_error','final_state
     'control_sent','control_error','control_started_ms','control_elapsed_ms','elapsed_ms',
     'query_count','progress_count','identity_error','service_exit','service_specific_exit')
 
+NAD2_STOP_CLASSIFICATIONS=('NAD2_STOP_CONFIRMED','NAD2_STOP_SUBMITTED_PROGRESSING',
+    'NAD2_STOP_SUBMITTED_NO_TRANSITION','NAD2_STOP_NOT_SUBMITTED',
+    'NAD2_STOPPED_PROCESS_OR_LISTENER_REMAINS','NAD2_STOP_OBSERVATION_UNAVAILABLE')
+NAD2_STOP_FIELDS=(
+    'initial_service_type','initial_state','initial_controls_accepted','initial_checkpoint','initial_wait_hint_ms',
+    'initial_service_exit','initial_service_specific_exit','initial_query_error','initial_process_wait',
+    'initial_process_wait_error','initial_listener_mask',
+    'control_count','control_submitted','control_error','control_status_available','control_service_type',
+    'control_state','control_controls_accepted','control_checkpoint','control_wait_hint_ms','control_service_exit',
+    'control_service_specific_exit',
+    'final_service_type','final_state','final_controls_accepted','final_checkpoint','final_wait_hint_ms',
+    'final_service_exit','final_service_specific_exit','final_query_error','process_wait','process_wait_error',
+    'listener_mask','control_started_ms','control_elapsed_ms','elapsed_ms','query_count','progress_count',
+    'transition_count_total','transition_count_retained','transition_count_dropped')
+NAD2_TRANSITION_FIELDS=('ordinal','source','elapsed_ms','service_type','state','controls_accepted','checkpoint',
+    'wait_hint_ms','service_exit','service_specific_exit','query_error','process_wait_class','process_wait_error','listener_mask')
+
+def nad2_process_wait_class(value):
+    return {0:'signaled',258:'timeout',0xffffffff:'unavailable'}.get(value,'unexpected')
+
+def nad2_stop_classification(v,identity_error,confirmed):
+    if confirmed:return 'NAD2_STOP_CONFIRMED'
+    if (identity_error or v['initial_query_error'] or v['final_query_error'] or v['initial_process_wait_error']
+        or v['process_wait_error'] or v['initial_listener_mask']==4 or v['listener_mask']==4
+        or nad2_process_wait_class(v['initial_process_wait']) in ('unavailable','unexpected')
+        or nad2_process_wait_class(v['process_wait']) in ('unavailable','unexpected')):
+        return 'NAD2_STOP_OBSERVATION_UNAVAILABLE'
+    if (v['initial_state'] not in (1,3,4) or v['final_state'] not in (1,3,4)
+        or v['control_status_available'] and v['control_state'] not in (1,3,4)):
+        return 'NAD2_STOP_OBSERVATION_UNAVAILABLE'
+    if v['final_state']==1 and (v['process_wait']!=0 or v['listener_mask']!=0):
+        return 'NAD2_STOPPED_PROCESS_OR_LISTENER_REMAINS'
+    if v['control_count']==1 and not v['control_submitted']:return 'NAD2_STOP_NOT_SUBMITTED'
+    if (v['control_submitted'] and v['control_state']==4 and v['initial_state']==4
+        and v['final_state']==4 and not v['progress_count']
+        and v['initial_process_wait']==258 and v['process_wait']==258
+        and v['initial_listener_mask']==v['listener_mask'] and v['listener_mask']!=0):
+        return 'NAD2_STOP_SUBMITTED_NO_TRANSITION'
+    process_retiring=v['initial_process_wait']==258 and v['process_wait']==0
+    listeners_retiring=(v['initial_listener_mask']<=3 and v['listener_mask']<=3
+        and v['initial_listener_mask']!=v['listener_mask']
+        and v['listener_mask']&v['initial_listener_mask']==v['listener_mask'])
+    if ((v['control_submitted'] or v['initial_state']==3)
+        and (v['control_state']==3 or v['final_state']==3 or process_retiring or listeners_retiring)):
+        return 'NAD2_STOP_SUBMITTED_PROGRESSING'
+    return 'NAD2_STOP_OBSERVATION_UNAVAILABLE'
+
+def nad2_stop_observation(raw,op,token,legacy):
+    decoded=raw.decode('ascii',errors='strict').splitlines()
+    rows=[x.split() for x in decoded if x.startswith('NAD2_STOP_CHARACTERIZATION_V1 ')]
+    if not rows:return None
+    if (len(rows)!=1 or len(rows[0])!=4+len(NAD2_STOP_FIELDS) or rows[0][1:3]!=[op,token]
+        or rows[0][3] not in NAD2_STOP_CLASSIFICATIONS):raise ValueError('dependency_stop_characterization_identity')
+    fields=rows[0][4:]
+    if any(not re.fullmatch('[0-9]{1,20}',x) or int(x)>0xffffffffffffffff for x in fields):raise ValueError('dependency_stop_characterization_extent')
+    v=dict(zip(NAD2_STOP_FIELDS,map(int,fields)))
+    u32=set(NAD2_STOP_FIELDS)-{'control_started_ms','control_elapsed_ms','elapsed_ms'}
+    if any(v[name]>0xffffffff for name in u32):raise ValueError('dependency_stop_characterization_extent')
+    if (v['initial_state']>7 or v['final_state']>7 or v['control_state']>7
+        or v['initial_listener_mask']>4 or v['listener_mask']>4
+        or v['initial_process_wait'] not in (0,258,0xffffffff) or v['process_wait'] not in (0,258,0xffffffff)
+        or v['control_count'] not in (0,1) or v['control_submitted'] not in (0,1)
+        or v['control_status_available'] not in (0,1) or v['control_submitted']!=v['control_status_available']
+        or v['transition_count_retained']>12
+        or v['transition_count_total']!=v['transition_count_retained']+v['transition_count_dropped']
+        or v['control_started_ms']+v['control_elapsed_ms']>v['elapsed_ms']):
+        raise ValueError('dependency_stop_characterization_shape')
+    expected_control=0 if v['initial_query_error'] or legacy['identity_error'] or v['initial_state'] in (1,3) else 1
+    if v['control_count']!=expected_control or (not v['control_count'] and (v['control_submitted'] or v['control_error'])):
+        raise ValueError('dependency_stop_characterization_control')
+    if v['control_submitted'] and v['control_error'] or not v['control_submitted'] and any(v[name] for name in (
+        'control_service_type','control_state','control_controls_accepted','control_checkpoint','control_wait_hint_ms',
+        'control_service_exit','control_service_specific_exit')):
+        raise ValueError('dependency_stop_characterization_control')
+    transition_rows=[x.split() for x in decoded if x.startswith('NAD2_STOP_TRANSITION_V1 ')]
+    if len(transition_rows)!=v['transition_count_retained']:raise ValueError('dependency_stop_transition_count')
+    transitions=[]
+    for index,row in enumerate(transition_rows,1):
+        if len(row)!=3+len(NAD2_TRANSITION_FIELDS) or row[1:3]!=[op,token]:raise ValueError('dependency_stop_transition_identity')
+        values=row[3:]
+        if any(not re.fullmatch('[0-9]{1,20}',x) or int(x)>0xffffffffffffffff for x in values):raise ValueError('dependency_stop_transition_extent')
+        item=dict(zip(NAD2_TRANSITION_FIELDS,map(int,values)))
+        if (item['ordinal']!=index or item['source'] not in (1,2) or item['listener_mask']>4
+            or item['process_wait_class'] not in (1,2,3,4) or any(item[name]>0xffffffff for name in set(NAD2_TRANSITION_FIELDS)-{'elapsed_ms'})):
+            raise ValueError('dependency_stop_transition_shape')
+        item['process_wait_class']={1:'signaled',2:'timeout',3:'unavailable',4:'unexpected'}[item['process_wait_class']]
+        transitions.append(item)
+    if not transitions:raise ValueError('dependency_stop_transition_missing')
+    first=transitions[0]
+    if (first['source']!=1 or first['service_type']!=v['initial_service_type'] or first['state']!=v['initial_state']
+        or first['controls_accepted']!=v['initial_controls_accepted'] or first['checkpoint']!=v['initial_checkpoint']
+        or first['wait_hint_ms']!=v['initial_wait_hint_ms'] or first['service_exit']!=v['initial_service_exit']
+        or first['service_specific_exit']!=v['initial_service_specific_exit'] or first['query_error']!=v['initial_query_error']
+        or first['process_wait_class']!=nad2_process_wait_class(v['initial_process_wait'])
+        or first['process_wait_error']!=v['initial_process_wait_error'] or first['listener_mask']!=v['initial_listener_mask']):
+        raise ValueError('dependency_stop_transition_initial')
+    old_pairs={'confirmed':'confirmed','initial_state':'initial_state','initial_query_error':'initial_query_error',
+        'final_state':'final_state','final_query_error':'final_query_error','checkpoint':'final_checkpoint',
+        'wait_hint_ms':'final_wait_hint_ms','process_wait':'process_wait','process_wait_error':'process_wait_error',
+        'endpoint_mask':'listener_mask','control_error':'control_error','control_started_ms':'control_started_ms',
+        'control_elapsed_ms':'control_elapsed_ms','elapsed_ms':'elapsed_ms','query_count':'query_count',
+        'progress_count':'progress_count','service_exit':'final_service_exit','service_specific_exit':'final_service_specific_exit'}
+    if any(legacy[old]!=v[new] for old,new in old_pairs.items() if old!='confirmed') or legacy['control_sent']!=v['control_count']:
+        raise ValueError('dependency_stop_characterization_legacy_mismatch')
+    classification=nad2_stop_classification(v,legacy['identity_error'],legacy['confirmed'])
+    if rows[0][3]!=classification:raise ValueError('dependency_stop_characterization_false_classification')
+    control_return=None
+    if v['control_submitted']:
+        control_return={'submitted':True,'service_type':v['control_service_type'],'state':v['control_state'],
+            'controls_accepted':v['control_controls_accepted'],'checkpoint':v['control_checkpoint'],
+            'wait_hint_ms':v['control_wait_hint_ms'],'service_exit':v['control_service_exit'],
+            'service_specific_exit':v['control_service_specific_exit']}
+    result=dict(legacy)
+    result.update(schema=3,classification=classification,
+        initial_service_type=v['initial_service_type'],initial_controls_accepted=v['initial_controls_accepted'],
+        initial_checkpoint=v['initial_checkpoint'],initial_wait_hint_ms=v['initial_wait_hint_ms'],
+        initial_service_exit=v['initial_service_exit'],initial_service_specific_exit=v['initial_service_specific_exit'],
+        initial_process_wait=v['initial_process_wait'],initial_process_wait_class=nad2_process_wait_class(v['initial_process_wait']),
+        initial_process_wait_error=v['initial_process_wait_error'],initial_listener_mask=v['initial_listener_mask'],
+        control_count=v['control_count'],control_submitted=bool(v['control_submitted']),control_return=control_return,
+        final_service_type=v['final_service_type'],final_controls_accepted=v['final_controls_accepted'],
+        process_wait_class=nad2_process_wait_class(v['process_wait']),listener_mask=v['listener_mask'],
+        transition_count_total=v['transition_count_total'],transition_count_retained=v['transition_count_retained'],
+        transition_count_dropped=v['transition_count_dropped'],transitions=transitions)
+    return result
+
 def nad1_stop_observation(raw,op,token):
     rows=[x.split() for x in raw.decode('ascii',errors='strict').splitlines() if x.startswith('NAD1_STOP_OBSERVATION_V2 ')]
     if not rows:return None
@@ -2716,7 +2842,8 @@ def nad1_stop_observation(raw,op,token):
     if v['confirmed'] not in (0,1) or v['control_sent'] not in (0,1) or v['initial_state']>7 or v['final_state']>7 or v['endpoint_mask']>4 or v['process_wait'] not in (0,258,0xffffffff):raise ValueError('dependency_stop_observation_shape')
     if v['confirmed'] and (v['final_state']!=1 or v['final_query_error'] or v['identity_error'] or v['process_wait'] or v['endpoint_mask']):raise ValueError('dependency_stop_observation_false_success')
     if v['control_started_ms']+v['control_elapsed_ms']>v['elapsed_ms']:raise ValueError('dependency_stop_observation_timing')
-    return dict(schema=2,**v)
+    legacy=dict(schema=2,**v)
+    return nad2_stop_observation(raw,op,token,legacy) or legacy
 
 def nad1_generation_owned(candidate,scope):
     import ownership
@@ -3051,7 +3178,9 @@ class Nad1Owner:
             if action=='stop':
                 stage['helper_elapsed_ms']=max(0,int((time.monotonic()-command_started)*1000))
                 if self.stop_observation is None:
-                    self.stop_observation={'schema':2,'availability':'final_observation_unavailable','control_dispatch_observed':stage['control_dispatch_observed'],'helper_elapsed_ms':stage['helper_elapsed_ms']}
+                    self.stop_observation={'schema':3,'availability':'final_observation_unavailable',
+                        'classification':'NAD2_STOP_OBSERVATION_UNAVAILABLE',
+                        'control_dispatch_observed':stage['control_dispatch_observed'],'helper_elapsed_ms':stage['helper_elapsed_ms']}
                 stage['stop_observation']=self.stop_observation
             stage['diagnostic_dropped_bytes']=capture.discarded;capture.close()
             for key in list(sel.get_map().values()):key.fileobj.close()

@@ -1,0 +1,107 @@
+{
+  "attempts": 1,
+  "dependency_mode": "recover_installed",
+  "dependency_state": "failed",
+  "disposition": "REAL_DAEMON_QUALIFICATION_FAILED_DEPENDENCY_COMMAND_NONZERO",
+  "retained_failure_disposition": "REAL_DAEMON_SHUTDOWN_RETIREMENT_UNCONFIRMED",
+  "error": "dependency_command_nonzero",
+  "installer_reexecuted": false,
+  "managed_result_sha256": "4e13223233a88d8f90ef3eda79d023acaac7deb3d15db17e52fb9e5cd318eb4f",
+  "managed_spec_sha256": "7260b844607be6121c30de34381178db50a2e7e4ba7c1daa10f0089562a0152b",
+  "operation": "f4a2b703d8ea518d14c893c480fd93ed",
+  "operator_result_sha256": "470cd02cd59eda944d399ce99d4fa9cd3c03b24d2a0b67eb86aecdaf35899850",
+  "operator_state": "refused",
+  "parameters": 0,
+  "preparation_receipt_correct": true,
+  "preservation": {
+    "daemon_unchanged": true,
+    "environments_unchanged": true,
+    "links_unchanged": true,
+    "native_access_history_unchanged": true,
+    "onboarding_unchanged": true,
+    "products_unchanged": true,
+    "records_unchanged": true,
+    "software_unchanged": true,
+    "witness_groups": {
+      "immediate_predecessor": true,
+      "older_predecessor_files": true,
+      "predecessor_files": true,
+      "projects": true,
+      "protected": true,
+      "retained": true
+    }
+  },
+  "private_sha256": {
+    "acknowledgment.private.json": "baef3790f299e38bfd9cbb1c7fa9c45e95ee60a4628f0315d8c80ec6b6779acb",
+    "before.private.json": "3f7dec6a8968a13eee2b3342bb7716c8686f5ab627b307f395ad93961d5246b9",
+    "dispatch-attempt.json": "29773ae2d6eccffc6fcb6d6c1303138a98a144e41447c882aaa76bff383c54ac",
+    "request.private.json": "765875f07967f4da5ca8b80a6456fe9c73abe3a6f60aabf2c05fdf01df3a7d63",
+    "terminal.private.json": "f25c0e2afda3fa89bd1e3c90a7f75303a08c4b9cbdcaaf29ed534a0d691b78b4"
+  },
+  "readiness": {
+    "initial_listener_mask": 3,
+    "readiness_contract": "SCM_exact_generation_and_Windows_owned_loopback_pair_and_unique_owned_Linux_image_generation_v1",
+    "ready_tested": true
+  },
+  "recovery": {
+    "bridge_and_keepers_idle": true,
+    "capture": {
+      "active_retention": 0,
+      "armed": false
+    },
+    "dependency_cgroup_absent": true,
+    "dependency_unit_absent": true,
+    "forbidden_process_count": 0,
+    "native_access_closed": true,
+    "resume_pending": false,
+    "system": {
+      "ceiling": 6,
+      "cleanup_unconfirmed": false,
+      "dsp": 0,
+      "keepers": 2,
+      "maintenance": 0,
+      "pending_transactions": 0,
+      "service": "active",
+      "stale_transports": 0
+    }
+  },
+  "retirement": {
+    "checkpoint": 0,
+    "control_elapsed_ms": 670,
+    "control_error": 0,
+    "control_sent": 1,
+    "control_started_ms": 0,
+    "exit_receipt_fallback": {
+      "admitted": false,
+      "considered": false,
+      "refused": false
+    },
+    "final_listener_mask": 3,
+    "final_query_error": 0,
+    "final_scm_state": 4,
+    "forced_cleanup_used": true,
+    "generation_authority": null,
+    "identity_error": 0,
+    "initial_listener_mask": 3,
+    "initial_query_error": 0,
+    "initial_scm_state": 4,
+    "process_acquisition": "opened_and_exact_generation_verified_but_wait_timed_out",
+    "process_generation_verified": true,
+    "process_handle_acquired": true,
+    "process_cleanup_confirmed": true,
+    "process_wait": 258,
+    "process_wait_error": 0,
+    "progress_count": 0,
+    "query_count": 209,
+    "retirement_error": "dependency_command_nonzero",
+    "service_exit": 0,
+    "service_retirement_confirmed": false,
+    "service_specific_exit": 0,
+    "service_stop_requested": true,
+    "stop_requests": 1,
+    "stop_helper_exit": 149,
+    "total_observation_elapsed_ms": 12045,
+    "wait_hint_ms": 0
+  },
+  "schema": 1
+}

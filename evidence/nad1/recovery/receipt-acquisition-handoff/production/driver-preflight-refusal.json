@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "stage": "pre_install_validation",
+  "error": "release_driver_selected_activity_view_without_products",
+  "old_driver_sha256": "fd540f486c0da64c72a0bd8ce967fda34314d32997d8e262aadae8a0123e78bd",
+  "installation_attempt_marker_absent": true,
+  "setup_log_absent": true,
+  "installation_receipt_absent": true,
+  "bridge_service_remained_active": true,
+  "installed_software_record_sha256": "6feb9e810aaeaf3463da7a8f396a40fc0cd98dc7a638d0c8783a4a0aade63bb7",
+  "production_install_selected": false,
+  "real_dependency_operation_selected": false,
+  "executable_source_changed": false,
+  "package_changed": false
+}

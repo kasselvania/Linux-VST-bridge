@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "base": "bea752e5b78631bafcc118b4cc8502141b1b7d88",
+  "source": "0ea735e471b2d34a68d9ce817506fe89fdd1ca23",
+  "tree": "cd567a0b113924b87b15213d7cd8a4baf3213dbb",
+  "authority": {
+    "CURRENT_SLICE.md": "bea752e5b78631bafcc118b4cc8502141b1b7d88",
+    "docs/NAD2.md": "bea752e5b78631bafcc118b4cc8502141b1b7d88"
+  },
+  "files": {
+    "bridge-manager/runtime/session.py": {
+      "sha256": "0f807b6df84e316da2d1b5fbddbd76fe418c58e076b816f9cdd05f4b91bad456",
+      "size": 248549
+    },
+    "bridge-manager/runtime/test_dependency_stop.py": {
+      "sha256": "b4a7418b5ea2988ce527e163383b8910225b503804e6e801639afc93326dc4a3",
+      "size": 10757
+    },
+    "manager-ui/src/operator.rs": {
+      "sha256": "e652a9d12b680f56fde3c672fe1a1d932ad5489bb9e0a691e24cbd4f33b40d36",
+      "size": 82790
+    },
+    "tools/is2/nad1_service.h": {
+      "sha256": "43a518781283d5ab32cbb73f0438e6c6827105c832ca8c1835b6e8d4785686f5",
+      "size": 21421
+    },
+    "tools/is2/nad1_stop.h": {
+      "sha256": "c4609b9da70a3ec416fbd5d0ad6a4d42d798c642340bbcaf28d955dedcb1e9f4",
+      "size": 9174
+    },
+    "tools/nad1/service_fixture.cpp": {
+      "sha256": "317567d6f5f95f1f3cedd517527635912e7082438cc11ab089e0d7932b0d0ad4",
+      "size": 6022
+    },
+    "tools/nad1/stop_logic_test.cpp": {
+      "sha256": "39376b720f6ce68f3b877df0dcf4d4e2a3588b507946afe1f919cc04e9daf16a",
+      "size": 9240
+    },
+    "tools/nad1/windows_test.py": {
+      "sha256": "c6ee7c620250741882feff6a34bd1d3910e92b8ee064d3d5b23dd779f06fd452",
+      "size": 13226
+    }
+  }
+}

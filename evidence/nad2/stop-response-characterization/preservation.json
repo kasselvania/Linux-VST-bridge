@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "base": "bea752e5b78631bafcc118b4cc8502141b1b7d88",
+  "source": "0ea735e471b2d34a68d9ce817506fe89fdd1ca23",
+  "all_prior_tracked_evidence_unchanged": true,
+  "prior_evidence_files": 685,
+  "prior_evidence_git_manifest_sha256": "148af89b75ec4401d3a43e566905873b272ef284dfc42577f171c3aefe5c0fbd",
+  "candidate_installed": false,
+  "real_ntkdaemon_started_or_stopped": false,
+  "native_access_launched": false,
+  "daw_or_plugin_launched": false,
+  "installer_or_updater_replayed": false,
+  "production_operation": false,
+  "reliable_real_daemon_shutdown_qualified": false
+}
