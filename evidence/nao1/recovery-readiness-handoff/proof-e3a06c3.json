@@ -1,0 +1,54 @@
+{
+  "schema": "vst.nao1-delayed-registration-ownership-proof/v1",
+  "source": {
+    "commit": "e3a06c3ebf9a94e0f18e1deeefa59410dd04366f",
+    "tree": "a61575fb7fad56c44f961c8679a3ad5ab3f9fe32"
+  },
+  "package_seal_sha256": "15f13e2773c299e964b1e545f66f2836c86735b1af5321542be00e9e94c313a6",
+  "private_campaign_proof_sha256": "f3d88824604f21ae23a907ec7483c78a82373658c5be52bb5e642418db1e0180",
+  "campaign": {
+    "sessions": 15,
+    "recovery_origin_sessions": 15,
+    "commercial_launch": false,
+    "real_dependency_mutations": 0,
+    "installer_replays": 0,
+    "result": "pass"
+  },
+  "ownership_law": {
+    "exact_registration_is_process_ownership": false,
+    "exact_registration_is_retirement_authority": false,
+    "delayed_exact_registration_revalidates_physical_prefix": true,
+    "delayed_exact_registration_runs_fresh_bounded_census": true,
+    "running_or_start_pending_requires_one_exact_owned_generation": true,
+    "stopped_requires_empty_census_before_one_owned_start": true,
+    "preownership_failure_stop_requests": 0
+  },
+  "deterministic_regressions": [
+    {"case":"same_prefix_unowned_appears_during_delay","result":"refused","application_launches":0,"stop_requests":0},
+    {"case":"fresh_census_unavailable","result":"refused","application_launches":0,"stop_requests":0},
+    {"case":"fresh_census_ambiguous","result":"refused","stop_requests":0},
+    {"case":"fresh_census_foreign_or_deleted","result":"refused","stop_requests":0},
+    {"case":"owned_running_or_start_pending_generation_appears","result":"accepted_into_readiness"},
+    {"case":"exact_stopped_registration_empty_census","result":"one_owned_start"},
+    {"case":"physical_prefix_changes_during_delay","result":"refused","stop_requests":0}
+  ],
+  "generated_registration_handoff": {
+    "origin": "qualified_recovered_installation",
+    "initial_registration": "absent",
+    "fresh_registration": "exact",
+    "fresh_service_state": "stopped",
+    "fresh_candidate_count": 0,
+    "ownership_revalidation": "owned_start_required",
+    "start_requests": 1,
+    "application_after_readiness": true,
+    "stop_requests": 1,
+    "result": "completed"
+  },
+  "generated_persistent_absence": {
+    "queries": 2,
+    "application_launches": 0,
+    "start_requests": 0,
+    "stop_requests": 0,
+    "terminal_error": "dependency_qualified_registration_absent"
+  }
+}
