@@ -1,0 +1,98 @@
+{
+  "application_identity": "7228a542c01b89daa5d04b9c8566af235ee7a2358e52f741b8918239c3a7d26e",
+  "application_record_sha256": "efa17763785548cce9a7ac4da7d37ec453ea3dff323a77c72ce501066648a0cd",
+  "artifacts": {
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "installer_launch": "08181f28864e20f8be4cd0752232e2a14c5a09ed2a20c849b1cfd51fdc9ba76b",
+    "manager": "5305e090e380305d513f2003bcb5c7156aabf72be95a5ce5575837dbe5dc771b",
+    "native_catalogue": "47024e6ac20651c2e1cc2718e7c5b1d234d5664d7e08e1162f317fcc5c8889ba",
+    "operator_frontend": "0c88634d7dc66e946d26c238bf39afd61d4df37eab013a7e23cede968823caca",
+    "ownership": "cc81d05876043ccf96c1540c556a790e62f57f4a6e72aabbd820a5d133311add",
+    "preparation_kit": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "supervisor": "0628b967035adff2bfb1db54a05c790bec7649012748195f78e3c2920623f679"
+  },
+  "authorized_preflight_pointer_changes": {
+    "application/current.json": {
+      "current_sha256": "69de9eb87c0ec9cedf0b848097dcb769d4f8f5ec8af1bb88602343f8520e4eb3",
+      "operation": "4af751390ab34dd3b5b05a5052d410cf",
+      "previous_sha256": "a39fcdc976419bddffe868e5a3e2f8c9f7ee43962d15946f046e93fba2297efe"
+    },
+    "current.json": {
+      "current_sha256": "746b8390d40020518d8077965e7e8a8c4dd248e9b5d96e442605b9ddd574ec64",
+      "operation": "f023e63b2774df620e370b55b9d1cc48",
+      "previous_sha256": "fd5bf65cd393262172c7dc63ad6d410d6c88126e412369f448486c59e7ea455b"
+    },
+    "prepared.json": {
+      "current_sha256": "9b904e4f1b09d0cfe51fb475b11a6c0100ccffff6292c6bc6b43958e0cbe5028",
+      "operation": "f023e63b2774df620e370b55b9d1cc48",
+      "previous_sha256": "0a3af1118653f6ff679cd6a4e5c64b136aa8f1c8642ad5f8b842b77653d70bfa"
+    }
+  },
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "commercial_launch": false,
+  "frontend": {
+    "action_submitted": false,
+    "frontend_activity_decoded": true,
+    "frontend_snapshot_decoded": true,
+    "gui_launched": false,
+    "operator_schema": 7
+  },
+  "handler": "linux-vst-bridge-native-access.desktop",
+  "hosted_validation": {
+    "conclusion": "success",
+    "head": "f2bf67dfaafe9c1dd24b245e162cb895bdcfce2f",
+    "run": 35294380689,
+    "workflow": "AP12 registered owner"
+  },
+  "local_validation": {
+    "linux_x86_64_release_build": true,
+    "manager_binary": 84,
+    "strict_manager_clippy_all_targets": true
+  },
+  "operator_schema": 7,
+  "predecessor_retained": true,
+  "preservation_counts": {
+    "immediate_predecessor": 23,
+    "older_predecessor_files": 23,
+    "predecessor_files": 23,
+    "projects": 5,
+    "protected": 143,
+    "retained": 307
+  },
+  "previous_generation": "2b81a22e234b70c17222567b436ef30a82aaf13da6f7527258d81580009e942d",
+  "previous_software_record_sha256": "f92382e18525fa80ceb11a0011a829c5720db46445d7105a63ed950db8132a6b",
+  "private_installation_receipt_sha256": "73b707858cfc8a5d8196e9db11b67ae1bd0c77c49bde116b45945949bb05fff4",
+  "private_sha256": {
+    "after.private.json": "2d7ec81face9255c537603c5002d661d9917b42ea5ef5263d8f2986e29c2d700",
+    "before.private.json": "93c22e71c585bbe7b8b471afaae72b37d03bf8cdf0e119d6066b755ef9451e02",
+    "installation-attempt.json": "53c5d01d54a32c2d58272e0818799f5ecb052fb2d188d42570dec87495495302",
+    "setup.private.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "real_dependency_transition": false,
+  "records_unchanged": 262,
+  "registry_and_daemon_unchanged": true,
+  "resume_pending": false,
+  "reused_adapter_AP8": 35286472521,
+  "reused_adapter_source": "31c261eea5784175faa5f36f6c8f28dfb9c2c8b0",
+  "review": "pending_test_candidate",
+  "schema": 1,
+  "selected_generation": "1b80d78e644c9783c9373f07d5e3daaa0c381f8b46d6b907605816b916c7f6d0",
+  "selected_software_record_sha256": "6feb9e810aaeaf3463da7a8f396a40fc0cd98dc7a638d0c8783a4a0aade63bb7",
+  "software_rendering_unchanged": true,
+  "source": "f2bf67dfaafe9c1dd24b245e162cb895bdcfce2f",
+  "system": {
+    "ceiling": 6,
+    "cleanup_unconfirmed": false,
+    "dsp": 0,
+    "keepers": 2,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "service": "active",
+    "stale_transports": 0
+  },
+  "tree": "65500929e01152a0f16371214e3a302053a75cdf"
+}
