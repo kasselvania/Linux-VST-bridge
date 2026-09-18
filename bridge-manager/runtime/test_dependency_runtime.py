@@ -92,8 +92,8 @@ class CleanupAndPipeTests(unittest.TestCase):
    self.assertFalse(r.socket.exists());self.assertTrue((root/'unexpected').exists())
  def test_resource_failure_never_skips_either_owner_cleanup_or_terminal_result(self):
   import json,hashlib,signal
-  for application in (False,True):
-   with self.subTest(application=application),tempfile.TemporaryDirectory() as tmp:
+  for application,original_failure in ((False,True),(True,True),(False,False)):
+   with self.subTest(application=application,original_failure=original_failure),tempfile.TemporaryDirectory() as tmp:
     root=pathlib.Path(tmp).resolve();(root/'compatdata/pfx').mkdir(parents=True);(root/'compatdata/pfx/system.reg').touch()
     image=root/'fixture.exe';image.write_bytes(b'MZfixture')
     spec={'operation':'a'*32,'application_identity':'b'*64,'software_sha256':'c'*64,'renderer_policy':'software_rendering','report':str(root/'result.json'),'application':{'id':'nad1-source-owned','environment':{'root':str(root),'runner':{'entry_point':'/fixture'}},'files':{'Native Access.exe':{'artifact':{'path':str(image),'sha256':hashlib.sha256(image.read_bytes()).hexdigest()},'size':image.stat().st_size}}}}
@@ -101,7 +101,7 @@ class CleanupAndPipeTests(unittest.TestCase):
     library=Mock();library.prctl.return_value=0
     def ensure(owner,*_):
      owner.runtime=s.Nad1Runtime(owner);r=owner.runtime;r.directory=root/'runtime';r.directory.mkdir();r.socket=r.directory/'socket';r.socket.touch();(r.directory/'unexpected').touch()
-     raise ValueError('original_readiness_failure')
+     if original_failure:raise ValueError('original_readiness_failure')
     signals=[signal.getsignal(x) for x in (signal.SIGTERM,signal.SIGINT)]
     try:
      with patch.object(s,'CompanionCgroup',return_value=scope),patch.object(s,'InstallerLedger',return_value=ledger),patch.object(s.ctypes,'CDLL',return_value=library),patch.object(s.Nad1Owner,'ensure',ensure),patch.object(s.Nad1Owner,'_retire_service',return_value=True):
@@ -109,7 +109,7 @@ class CleanupAndPipeTests(unittest.TestCase):
       else:s.nad1_owned(spec,fixture={'installer':'Setup.exe','daemon':'NTKDaemon.exe','installer_sha256':'d'*64,'installer_size':256})
      ledger.cleanup.assert_called_once()
      v=json.loads((root/'result.json').read_bytes())
-     self.assertEqual(v['error'],'original_readiness_failure');self.assertTrue(v['cleanup_confirmed']);self.assertEqual(v['owned_live'],0)
+     self.assertEqual(v['error'],'original_readiness_failure' if original_failure else 'dependency_runtime_close_failed');self.assertTrue(v['cleanup_confirmed']);self.assertEqual(v['owned_live'],0)
      self.assertIn('directory_OSError',v['dependency']['runtime_close_errors'])
     finally:
      for sig,old in zip((signal.SIGTERM,signal.SIGINT),signals):signal.signal(sig,old)

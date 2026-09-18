@@ -2650,7 +2650,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
             except Exception:
                 error=error or 'application_retirement_unconfirmed'
                 dependency_owner.forced_cleanup_used=True
-            if not finish('dependency_retirement_failed',dependency_owner.retire):error=error or 'dependency_service_retirement_unconfirmed'
+            if not finish('dependency_retirement_failed',dependency_owner.retire):error=error or getattr(dependency_owner,'retirement_error',None) or 'dependency_service_retirement_unconfirmed'
         # None of the preceding resource/service failures may skip process cleanup.
         if scope is not None and not clean:
             clean=bool(finish('renderer_cleanup_failed',ledger.cleanup if ledger else lambda:not scope.members()))
@@ -3254,7 +3254,7 @@ def nad1_owned(spec,*,fixture=None):
         except Exception as exc:error=str(exc) if isinstance(exc,ValueError) else 'dependency_owner_'+type(exc).__name__
         finally:
             try:
-                if not owner.retire():error=error or 'dependency_service_retirement_unconfirmed'
+                if not owner.retire():error=error or owner.retirement_error or 'dependency_service_retirement_unconfirmed'
             except Exception:error=error or 'dependency_retirement_failed'
             try:clean=ledger.cleanup()
             except Exception:error=error or 'dependency_process_cleanup_failed'
