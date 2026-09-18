@@ -1,0 +1,27 @@
+{
+  "schema": "linux-vst-bridge-rpi0-deterministic-qualification/v1",
+  "physical_status": "PHYSICAL_FIXTURE_UNAVAILABLE",
+  "rpi0_passed": false,
+  "required_start_head": "de0c16eb4dbe7e3558bf4d5af422c024eb55dca5",
+  "required_start_tree": "3e253dff1db4c9823cfaa517bdef7f8613780d7a",
+  "base": "a86f03e8a5d5302d9872f995a0a5ba376a0ab6d5",
+  "base_tree": "11a9fefbbe8b184c52058f4b4610da3a5e3b06e4",
+  "box64_commit": "2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a",
+  "wine_commit": "db11d0fe6a169c457e23d007e20404643d067aa8",
+  "observed": {
+    "rust_standalone": {"passed": 9, "failed": 0},
+    "portable_synth_core": {"passed": 7, "failed": 0},
+    "aarch64_linux_compile_check": "passed",
+    "local_host": "Apple ARM64; not a Raspberry Pi"
+  },
+  "not_observed": [
+    "Box64 preflight on Pi",
+    "Wine preflight on Pi",
+    "Windows host preflight on Pi",
+    "physical MIDI",
+    "physical stereo audio",
+    "real Pi editor interaction",
+    "physical performance and thermal campaign",
+    "clean physical restart"
+  ]
+}

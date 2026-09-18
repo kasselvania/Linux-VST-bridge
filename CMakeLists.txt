@@ -10,6 +10,30 @@ project(
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
+option(RPI0_ARM_BUILD_ONLY "Build only the isolated RPI0 Linux AArch64 appliance" OFF)
+if(RPI0_ARM_BUILD_ONLY)
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+        message(FATAL_ERROR "RPI0 requires native Linux AArch64")
+    endif()
+    if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+        message(FATAL_ERROR "RPI0 requires a 64-bit compiler")
+    endif()
+    find_program(RPI0_CARGO cargo REQUIRED)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(RPI0_JACK REQUIRED jack)
+    add_executable(rpi0-layout-assertions rpi0/layout_assertions.cpp)
+    target_compile_features(rpi0-layout-assertions PRIVATE cxx_std_20)
+    add_executable(rpi0-linux-probe rpi0/preflight/linux_probe.c)
+    add_executable(rpi0-core-tests rpi0/core_tests.cpp)
+    target_compile_features(rpi0-core-tests PRIVATE cxx_std_20)
+    add_custom_target(lvb-arm-standalone ALL
+        COMMAND "${RPI0_CARGO}" build --locked --release --features jack-runtime
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/rpi0/standalone"
+        DEPENDS rpi0-layout-assertions rpi0-linux-probe rpi0-core-tests
+        VERBATIM)
+    return()
+endif()
+
 option(WF0_BUILD_ONLY "Build only the authorized WF0 Windows probe and fault fixtures" OFF)
 
 if(WF0_BUILD_ONLY)

@@ -75,6 +75,32 @@ namespace wf0 = linux_vst_bridge::wf0;
 namespace {
 
 constexpr const char* kHandshakeSchema = "linux-vst-bridge-wf0-handshake/v1";
+constexpr const char* kRpi0Class = "class:5250493041524d41505053594e540001";
+
+struct alignas(8) Rpi0Architecture {
+    char magic[8]; uint32_t version, extent, endian, pointer_bits, event_extent,
+        context_extent, gui_extent, atomic32, atomic64, page_size, reserved, padding;
+    uint64_t layout_digest;
+};
+static_assert(sizeof(Rpi0Architecture) == 64 && alignof(Rpi0Architecture) == 8);
+std::string read_bounded(const std::wstring& path);
+void atomic_write(const std::wstring& path, const std::string& bytes);
+
+void rpi0_architecture(const std::wstring& directory) {
+    const auto native_path = directory + L"\\rpi0.arch.native";
+    const auto windows_path = directory + L"\\rpi0.arch.windows";
+    const auto bytes = read_bounded(native_path);
+    if (bytes.size() != sizeof(Rpi0Architecture)) throw std::runtime_error("RPI0 native architecture extent");
+    Rpi0Architecture native{};std::memcpy(&native, bytes.data(), sizeof(native));
+    const auto page = uint32_t([]{SYSTEM_INFO info{};GetSystemInfo(&info);return info.dwPageSize;}());
+    Rpi0Architecture local{{'L','V','B','R','P','I','0','\0'},1,sizeof(Rpi0Architecture),0x04030201,64,32,96,608,1,1,page,0,0,0x715f58adee37950cULL};
+    const bool pages = native.page_size >= 4096 && native.page_size <= 65536 &&
+        (native.page_size & (native.page_size - 1)) == 0;
+    auto comparable_native=native,comparable_local=local;comparable_native.page_size=0;comparable_local.page_size=0;
+    if (!pages || std::memcmp(&comparable_native,&comparable_local,sizeof(local)) != 0)
+        throw std::runtime_error("RPI0 native architecture mismatch");
+    atomic_write(windows_path,std::string(reinterpret_cast<const char*>(&local),sizeof(local)));
+}
 
 bool is_lower_hex(const std::string& value, std::size_t size) {
     return value.size() == size &&
@@ -242,6 +268,18 @@ int main(int argc, char** argv) {
     bool pc0_mode = false;
     int first_primary = 0;
     try {
+        if (argc == 3 && std::string(argv[1]) == "--rpi0-preflight") {
+            wf0::UiApartment apartment;
+            const auto stop = wf0::utf8_to_wide(argv[2]);
+            if (!path_absent(stop)) return 64;
+            const auto deadline = GetTickCount64() + 15000;
+            while (path_absent(stop)) {
+                if (GetTickCount64() >= deadline || !apartment.pump()) return 74;
+                MsgWaitForMultipleObjectsEx(0, nullptr, 20, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+            }
+            std::puts("RPI0_WINDOWS_HOST_PREFLIGHT_PASS");
+            return 0;
+        }
         // One process owns shared Wine infrastructure, without loading any VST.
         // Its private lifetime token is created and retired by the user broker.
         if(argc==5 && std::string(argv[1])=="--environment-owner") {
@@ -268,6 +306,8 @@ int main(int argc, char** argv) {
             wf0::sha256_file(module_path) != args.at("--module-sha256")) return 64;
 
         wf0::EventWriter events(1048576);
+        if (args.at("--component-case") == kRpi0Class)
+            rpi0_architecture(ready_path.substr(0,ready_path.find_last_of(L"\\/")));
         events.lifecycle("scanner_started", ",\"session\":\"" + args.at("--session") + "\"");
         const std::string binding = handshake(args);
         atomic_write(ready_path, binding);

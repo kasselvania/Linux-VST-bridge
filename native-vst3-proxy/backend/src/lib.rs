@@ -16,6 +16,8 @@ mod queue;
 mod queued;
 mod recovery;
 mod state;
+#[cfg(feature = "rpi0")]
+pub mod rpi0;
 use ap1_native_client::{
     endpoint::{receive_version, send_version, Prepared},
     mapping::{barrier, Mapping},

@@ -47,7 +47,9 @@ pub fn validate_wire(b: &[u8]) -> io::Result<()> {
     )
 }
 pub fn validate_delay(max: u32, delay: u32) -> io::Result<()> {
-    need((1..=1024).contains(&max) && matches!(delay, 256 | 512) && delay >= max,
+    let supported = matches!(delay, 256 | 512)
+        || cfg!(feature = "rpi0") && matches!(delay, 1024 | 2048);
+    need((1..=1024).contains(&max) && supported && delay >= max,
         "selected bridge delay cannot cover the negotiated host maximum")
 }
 pub fn selected_delay(max: u32) -> io::Result<u32> {

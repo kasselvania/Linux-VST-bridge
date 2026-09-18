@@ -1,0 +1,25 @@
+# Copy to the Pi and replace every PATH/HASH token with an exact absolute path or SHA-256.
+box64_source_commit=2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a
+box64_path=/opt/lvb-rpi0/box64/bin/box64
+box64_sha256=HASH
+wine_source_commit=db11d0fe6a169c457e23d007e20404643d067aa8
+wine_path=/opt/lvb-rpi0/wine/bin/wine64
+wine_sha256=HASH
+linux_probe_path=/opt/lvb-rpi0/probes/rpi0-linux-probe
+linux_probe_sha256=HASH
+windows_probe_path=/opt/lvb-rpi0/prefix/drive_c/bridge/probes/rpi0-windows-probe.exe
+windows_probe_sha256=HASH
+windows_host_path=/opt/lvb-rpi0/prefix/drive_c/bridge/bin/wf0-factory-probe.exe
+windows_host_sha256=HASH
+plugin_path=/opt/lvb-rpi0/prefix/drive_c/bridge/fixtures/LVB ARM Appliance Synth.vst3
+plugin_sha256=HASH
+prefix_path=/opt/lvb-rpi0/prefix
+box64_rc_path=/opt/lvb-rpi0/box64rc
+box64_rc_sha256=HASH
+source_manifest_sha256=HASH
+bridge_frames=2048
+jack_client=lvb-arm-standalone
+evidence_path=/opt/lvb-rpi0/evidence/session-01.jsonl
+windows_evidence_path=/opt/lvb-rpi0/evidence/session-01-windows.jsonl
+protocol_minor=12
+sample_rate=48000

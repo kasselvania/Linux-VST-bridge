@@ -46,6 +46,37 @@ target_include_directories(ap10-return-fixture PRIVATE "${WF0_VST3_SDK_ROOT}")
 target_compile_definitions(ap10-return-fixture PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_link_libraries(ap10-return-fixture PRIVATE sdk)
 set_target_properties(ap10-return-fixture PROPERTIES PREFIX "" SUFFIX ".vst3" RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+add_library(rpi0-arm-appliance-synth SHARED
+    ../windows-fixtures/rpi0/instrument.cpp
+    "${WF0_VST3_SDK_ROOT}/public.sdk/source/main/dllmain.cpp")
+target_include_directories(rpi0-arm-appliance-synth PRIVATE
+    "${WF0_VST3_SDK_ROOT}" ../windows-fixtures/rpi0)
+target_compile_definitions(rpi0-arm-appliance-synth PRIVATE
+    UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(rpi0-arm-appliance-synth PRIVATE /W4 /permissive- /EHsc /Brepro)
+target_link_options(rpi0-arm-appliance-synth PRIVATE /Brepro /INCREMENTAL:NO)
+target_link_libraries(rpi0-arm-appliance-synth PRIVATE sdk user32 gdi32)
+set_target_properties(rpi0-arm-appliance-synth PROPERTIES PREFIX "" SUFFIX ".vst3"
+    OUTPUT_NAME "LVB ARM Appliance Synth"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/rpi0/bin")
+
+add_executable(rpi0-windows-tests ../windows-fixtures/rpi0/tests.cpp)
+target_include_directories(rpi0-windows-tests PRIVATE
+    "${WF0_VST3_SDK_ROOT}" ../windows-fixtures/rpi0)
+target_compile_definitions(rpi0-windows-tests PRIVATE
+    UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(rpi0-windows-tests PRIVATE /W4 /permissive- /EHsc /Brepro)
+target_link_options(rpi0-windows-tests PRIVATE /Brepro /INCREMENTAL:NO)
+target_link_libraries(rpi0-windows-tests PRIVATE sdk user32 gdi32)
+set_target_properties(rpi0-windows-tests PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/rpi0/bin")
+
+add_executable(rpi0-windows-probe ../rpi0/preflight/windows_probe.cpp)
+target_compile_options(rpi0-windows-probe PRIVATE /W4 /permissive- /Brepro)
+target_link_options(rpi0-windows-probe PRIVATE /Brepro /INCREMENTAL:NO)
+set_target_properties(rpi0-windows-probe PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/rpi0/bin")
 add_executable(ap10-results-tests ../tools/ap10-tests/results.cpp)
 target_include_directories(ap10-results-tests PRIVATE "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/native-vst3-proxy/include" "${WF0_VST3_SDK_ROOT}")
 target_compile_options(ap10-results-tests PRIVATE /UNDEBUG)
