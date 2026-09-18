@@ -47,15 +47,25 @@ Replace it with an exact **session admission** that validates:
 
 - the canonical Native Access application identity;
 - the canonical installed software generation;
-- the retained installation-artifact record for this exact application/software pair;
+- exactly one closed installation origin:
+  - the retained installation-artifact record for the exact application and its
+    historical software generation; or
+  - while that artifact pointer remains absent, the fixed qualified-recovery record,
+    including its exact historical operation source digests;
 - the exact NTKDaemon image hash and size;
 - the exact bundled installer identity;
 - the expected environment and prefix;
 - no alias, replacement, changed image, foreign-prefix daemon, deleted-prefix daemon,
   ambiguous candidate, or same-prefix unowned live generation.
 
-The session-admission record must be bound into the exact renderer operation. Rust and
-Python must independently validate the same exact daemon identity.
+The two origins are mutually exclusive. A present malformed or mismatched artifact
+pointer refuses without recovery fallback, and appearance or disappearance of the
+pointer during admission refuses. The recovery origin must not manufacture an artifact
+pointer or preparation receipt.
+
+The session-admission record must bind the selected origin into the exact renderer
+operation. Rust and Python must independently validate the same exact origin and daemon
+identity.
 
 Do not treat a failed preparation result as successful. Do not synthesize or retain a
 `prepared.json` record for this policy.
@@ -212,28 +222,31 @@ presentation.
 Cover at least:
 
 1. exact artifact admission and fresh readiness followed by normal graceful retirement;
-2. application launch without `prepared.json`;
-3. changed daemon bytes refuse before launch;
-4. wrong application/software/installer identity refuses before launch;
-5. foreign or deleted-prefix daemon refuses before launch;
-6. same-prefix unowned daemon refuses before launch;
-7. ambiguous or unavailable process census refuses before launch;
-8. submitted-no-transition followed by exact-owned cleanup completes the application
+2. qualified recovery admission with both `artifact.json` and `prepared.json` absent;
+3. a full generated application session through that recovery origin;
+4. present invalid artifact refuses without recovery fallback;
+5. artifact pointer appearance or disappearance during admission refuses;
+6. changed recovery source, installer, or daemon bytes refuse before launch;
+7. wrong application/software/installer identity refuses before launch;
+8. foreign or deleted-prefix daemon refuses before launch;
+9. same-prefix unowned daemon refuses before launch;
+10. ambiguous or unavailable process census refuses before launch;
+11. submitted-no-transition followed by exact-owned cleanup completes the application
    session with truthful fields;
-9. control refusal followed by exact-owned cleanup completes only under the same exact
+12. control refusal followed by exact-owned cleanup completes only under the same exact
    post-cleanup requirements;
-10. STOPPED with process/listener residue followed by exact-owned cleanup completes only
+13. STOPPED with process/listener residue followed by exact-owned cleanup completes only
     after residue is gone;
-11. unavailable stop observation does not qualify compatibility cleanup;
-12. process cleanup failure does not qualify compatibility cleanup;
-13. listener residue after cleanup does not qualify compatibility cleanup;
-14. foreign/unowned candidate after cleanup does not qualify compatibility cleanup;
-15. application failure remains failure even when dependency cleanup succeeds;
-16. operator cancellation remains cancellation, not completion;
-17. no successful dependency-preparation receipt is created by either cleanup path;
-18. a second fresh Native Access generated session succeeds after exact-owned cleanup;
-19. browser-return privacy and continuous output draining remain intact;
-20. Arturia application completion and ordinary VST paths remain unchanged.
+14. unavailable stop observation does not qualify compatibility cleanup;
+15. process cleanup failure does not qualify compatibility cleanup;
+16. listener residue after cleanup does not qualify compatibility cleanup;
+17. foreign/unowned candidate after cleanup does not qualify compatibility cleanup;
+18. application failure remains failure even when dependency cleanup succeeds;
+19. operator cancellation remains cancellation, not completion;
+20. no successful dependency-preparation receipt is created by either cleanup path;
+21. a second fresh Native Access generated session succeeds after exact-owned cleanup;
+22. browser-return privacy and continuous output draining remain intact;
+23. Arturia application completion and ordinary VST paths remain unchanged.
 
 Preserve meaningful failed qualification candidates rather than relabelling them.
 

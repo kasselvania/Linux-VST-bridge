@@ -1,6 +1,7 @@
 //! Source-owned generated fixture driver; absent from installed manager CLI.
 use linux_vst_bridge::{
     catalogue::Software,
+    native_access_dependency,
     renderer_application::{bind, Application, RendererPolicy},
 };
 use std::{fs, io::Write, path::Path};
@@ -9,6 +10,16 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         libc::umask(0o077);
     }
     let args: Vec<_> = std::env::args().collect();
+    if args.get(1).is_some_and(|s|s=="application-session") {
+        if args.len()!=7 {return Err("fixture session arguments".into());}
+        let app:Application=serde_json::from_slice(&fs::read(&args[2])?)?;
+        let sw:Software=serde_json::from_slice(&fs::read(&args[3])?)?;
+        let q:serde_json::Value=serde_json::from_slice(&fs::read(&args[5])?)?;
+        let session=native_access_dependency::session_admission_inputs(&app,&sw,Path::new(&args[4]),&q,
+            "NAD1Fixture/Setup.exe","NAD1Fixture/NTKDaemon.exe")?;
+        let mut f=fs::OpenOptions::new().write(true).create_new(true).open(&args[6])?;
+        f.write_all(&serde_json::to_vec(&session)?)?;f.sync_all()?;return Ok(());
+    }
     if args
         .get(1)
         .is_some_and(|s| matches!(s.as_str(), "submit" | "stop" | "reconcile" | "application-submit" | "application-stop" | "application-reconcile"))

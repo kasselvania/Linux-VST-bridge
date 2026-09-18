@@ -24,8 +24,11 @@ Selected next slice: **NAO1 — Native Access owned session**.
 Authoritative slice document: `docs/NAO1.md`.
 
 NAO1 makes the Native Access application operation own its exact NTKDaemon dependency
-for the same session. Launch must use the retained exact installed-artifact authority
-and fresh per-session readiness; it must not depend on a historical graceful-retirement
+for the same session. Launch must use one of two mutually exclusive exact installation
+origins: the retained installation-artifact record, or the fixed qualified-recovery
+record while that artifact pointer remains absent. Both origins require the current
+application, software, installer, daemon, environment, and prefix identities plus fresh
+per-session readiness; launch must not depend on a historical graceful-retirement
 receipt.
 
 At session close, the manager still attempts one graceful SCM stop. If graceful

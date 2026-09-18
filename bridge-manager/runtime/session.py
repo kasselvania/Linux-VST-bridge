@@ -2944,6 +2944,9 @@ def nad1_recovery_inputs(spec, prior_directory, qualification, installer_relativ
     """
     import ownership
     q=qualification;held=[];records={}
+    for relative in (installer_relative,daemon_relative):
+        candidate=pathlib.PurePath(relative)
+        if candidate.is_absolute() or not candidate.parts or any(part in ('','.', '..') for part in candidate.parts):raise ValueError('dependency_recovery_relative_path')
     if spec['application_identity']!=q['application_identity'] or spec['operation']==q['operation']:
         raise ValueError('dependency_recovery_application')
     drive=pathlib.Path(spec['application']['environment']['root'])/'compatdata/pfx/drive_c'
@@ -3438,61 +3441,90 @@ def nad1_admitted(spec):
     if len(frame)!=7 or frame[0]!='NAD1_INSTALL_ROOT_V1' or frame[1]!=r['operation'] or frame[3:5]!=[NAD1_INSTALLER_SHA,'35769456']:raise ValueError('dependency_artifact_root')
     return r['daemon']
 
-def nad1_session_admitted(spec):
+def nad1_session_admitted_inputs(spec,directory,qualification,installer_relative,daemon_relative):
     """Revalidate Rust's closed session admission from immutable local inputs.
 
-    The installation artifact's historical software generation remains origin
-    evidence. The renderer spec separately binds the current installed manager
-    generation; neither record is live readiness or retirement authority.
+    Exactly one origin is admitted: a retained installation artifact, or the
+    fixed qualified recovery while the artifact pointer remains absent. The
+    renderer spec separately binds the current installed manager generation;
+    neither origin is live readiness or retirement authority.
     """
     import ownership
     session=spec.get('dependency_session')
     fields={'schema','authority','application','software_sha256','manager_sha256','environment',
         'prefix','installation','service','listeners','installer','daemon','origin','current_software'}
-    if not isinstance(session,dict) or set(session)!=fields or session['schema']!=1 or session['authority']!='retained_exact_installation_artifact_and_current_software':raise ValueError('dependency_session_schema')
+    if not isinstance(session,dict) or set(session)!=fields or session['schema']!=1 or session['authority']!='closed_exact_installation_origin_and_current_software':raise ValueError('dependency_session_schema')
+    q=qualification
     app=spec['application'];root=pathlib.Path(app['environment']['root']);prefix=root/'compatdata/pfx'
     if (session['application']!=spec['application_identity'] or session['software_sha256']!=spec['software_sha256']
         or session['manager_sha256']!=spec['software'].get('manager',{}).get('sha256')
         or session['environment']!=app['environment']['id']
         or session['installation']!=app['installation'] or session['service']!=NAD1_SERVICE
-        or session['listeners']!=[5146,5563] or session['installer']!={'sha256':NAD1_INSTALLER_SHA,'size':35769456}
+        or session['listeners']!=[5146,5563]
+        or session['installer']!={'sha256':q['installer_sha256'],'size':q['installer_size']}
         or session['current_software']!=spec['software']):raise ValueError('dependency_session_binding')
     prefix_md=prefix.lstat()
     if (session['prefix']!={'path_sha256':hashlib.sha256(os.fsencode(prefix)).hexdigest(),
             'device':prefix_md.st_dev,'inode':prefix_md.st_ino}
         or not stat.S_ISDIR(prefix_md.st_mode) or prefix.resolve()!=prefix):raise ValueError('dependency_session_prefix_identity')
+    directory=pathlib.Path(directory)
+    directory_md=directory.lstat()
+    if not stat.S_ISDIR(directory_md.st_mode) or directory.resolve()!=directory:raise ValueError('dependency_session_directory')
+    directory_stamp=(directory_md.st_dev,directory_md.st_ino,directory_md.st_size,directory_md.st_mtime_ns,directory_md.st_ctime_ns)
+    pointer=directory/'artifact.json';had_pointer=os.path.lexists(pointer)
     origin=session['origin']
-    if not isinstance(origin,dict) or set(origin)!={'operation','artifact_sha256','spec_sha256','root_sha256','software_sha256'} or not re.fullmatch('[0-9a-f]{32}',str(origin['operation'])):raise ValueError('dependency_session_origin')
-    directory=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed/vendor-applications/native-access-dependency'
-    pointer=directory/'artifact.json';operation=origin['operation'];d=directory/'operations'/operation
+    if not isinstance(origin,dict):raise ValueError('dependency_session_origin')
     def exact(path,digest):
         md=path.lstat();image=RendererImage({'artifact':{'path':str(path),'sha256':digest},'size':md.st_size})
         try:image.check()
         finally:image.close()
-    exact(pointer,origin['artifact_sha256'])
-    record=renderer_read(pointer)
-    if (set(record)!={'schema','operation','application','software_sha256','installer_sha256','daemon','root_sha256','spec_sha256'}
-        or record['schema']!=1 or record['operation']!=operation or record['application']!=spec['application_identity']
-        or record['installer_sha256']!=NAD1_INSTALLER_SHA or record['spec_sha256']!=origin['spec_sha256']
-        or record['root_sha256']!=origin['root_sha256'] or record['software_sha256']!=origin['software_sha256']
-        or record['daemon']!=session['daemon']):raise ValueError('dependency_session_artifact_identity')
-    exact(d/'artifact.json',origin['artifact_sha256'])
-    if renderer_read(d/'artifact.json')!=record:raise ValueError('dependency_session_artifact_pointer')
-    exact(d/'spec.json',origin['spec_sha256']);prior=renderer_read(d/'spec.json')
-    canonical=lambda value:json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()
-    if (prior.get('schema')!=2 or prior.get('kind')!='native_access_dependency' or prior.get('operation')!=operation
-        or prior.get('application')!=app or prior.get('application_identity')!=spec['application_identity']
-        or prior.get('software_sha256')!=record['software_sha256']
-        or hashlib.sha256(canonical(prior.get('software'))).hexdigest()!=record['software_sha256']):raise ValueError('dependency_session_artifact_origin')
-    root_record=d/(operation+'-installer-root.private.json');exact(root_record,origin['root_sha256'])
-    frame=renderer_read(root_record).get('frame')
-    if (not isinstance(frame,list) or len(frame)!=7 or frame[:2]!=['NAD1_INSTALL_ROOT_V1',operation]
-        or frame[3:5]!=[NAD1_INSTALLER_SHA,'35769456']):raise ValueError('dependency_session_root_frame')
-    recovery=nad1_recovery(spec)
-    if recovery['daemon']!=record['daemon']:raise ValueError('dependency_session_daemon_origin')
-    actual=ownership.image_identity(root/'compatdata/pfx/drive_c'/NAD1_DAEMON)
-    if actual!=record['daemon']:raise ValueError('dependency_session_daemon_changed')
+    if had_pointer:
+        artifact_fields={'kind','operation','artifact_sha256','spec_sha256','root_sha256','software_sha256'}
+        if set(origin)!=artifact_fields or origin.get('kind')!='retained_installation_artifact' or not re.fullmatch('[0-9a-f]{32}',str(origin.get('operation'))):raise ValueError('dependency_session_origin')
+        operation=origin['operation'];d=directory/'operations'/operation
+        exact(pointer,origin['artifact_sha256']);record=renderer_read(pointer)
+        if (set(record)!={'schema','operation','application','software_sha256','installer_sha256','daemon','root_sha256','spec_sha256'}
+            or record['schema']!=1 or record['operation']!=operation or record['application']!=spec['application_identity']
+            or record['installer_sha256']!=q['installer_sha256'] or record['spec_sha256']!=origin['spec_sha256']
+            or record['root_sha256']!=origin['root_sha256'] or record['software_sha256']!=origin['software_sha256']
+            or record['daemon']!=session['daemon']):raise ValueError('dependency_session_artifact_identity')
+        exact(d/'artifact.json',origin['artifact_sha256'])
+        if renderer_read(d/'artifact.json')!=record:raise ValueError('dependency_session_artifact_pointer')
+        exact(d/'spec.json',origin['spec_sha256']);prior=renderer_read(d/'spec.json')
+        canonical=lambda value:json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()
+        if (prior.get('schema')!=2 or prior.get('kind')!='native_access_dependency' or prior.get('operation')!=operation
+            or prior.get('application')!=app or prior.get('application_identity')!=spec['application_identity']
+            or prior.get('software_sha256')!=record['software_sha256']
+            or hashlib.sha256(canonical(prior.get('software'))).hexdigest()!=record['software_sha256']):raise ValueError('dependency_session_artifact_origin')
+        root_record=d/(operation+'-installer-root.private.json');exact(root_record,origin['root_sha256'])
+        frame=renderer_read(root_record).get('frame')
+        if (not isinstance(frame,list) or len(frame)!=7 or frame[:2]!=['NAD1_INSTALL_ROOT_V1',operation]
+            or frame[3:5]!=[q['installer_sha256'],str(q['installer_size'])]):raise ValueError('dependency_session_root_frame')
+        exact(pointer,origin['artifact_sha256'])
+        if renderer_read(pointer)!=record:raise ValueError('dependency_session_artifact_changed')
+    else:
+        recovery=nad1_recovery_inputs(spec,directory/'operations'/q['operation'],q,installer_relative,daemon_relative)
+        if recovery['daemon']!=session['daemon']:raise ValueError('dependency_session_daemon_origin')
+        expected={'kind':'qualified_recovered_installation','operation':q['operation'],
+            'application_identity':q['application_identity'],'installer_sha256':q['installer_sha256'],
+            'sources':q['sources'],'qualification_sha256':recovery['qualification_sha256']}
+        if origin!=expected:raise ValueError('dependency_session_recovery_origin')
+    after=directory.lstat()
+    if (os.path.lexists(pointer)!=had_pointer
+        or (after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns,after.st_ctime_ns)!=directory_stamp):raise ValueError('dependency_session_origin_changed')
+    for relative in (installer_relative,daemon_relative):
+        candidate=pathlib.PurePath(relative)
+        if candidate.is_absolute() or not candidate.parts or any(part in ('','.', '..') for part in candidate.parts):raise ValueError('dependency_recovery_relative_path')
+    image=RendererImage({'artifact':{'path':str(root/'compatdata/pfx/drive_c'/installer_relative),'sha256':q['installer_sha256']},'size':q['installer_size']})
+    try:image.check()
+    finally:image.close()
+    actual=ownership.image_identity(root/'compatdata/pfx/drive_c'/daemon_relative)
+    if actual!=session['daemon']:raise ValueError('dependency_session_daemon_changed')
     return session
+
+def nad1_session_admitted(spec):
+    directory=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed/vendor-applications/native-access-dependency'
+    return nad1_session_admitted_inputs(spec,directory,NAD1_RECOVERY,NAD1_INSTALLER,NAD1_DAEMON)
 
 def nad1_prepared(spec):
     managed=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed';directory=managed/'vendor-applications/native-access-dependency'

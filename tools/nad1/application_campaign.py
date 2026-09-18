@@ -93,8 +93,11 @@ def run(package,seal,out,*,cases=CASES):
   if actions.count('stop')!=1 or actions.count('start')!=1 or 'install' in actions:raise ValueError('fixture_no_duplicate_transition')
   if scenario!='not_ready' and (r.get('effective') is None or r['renderer']['launch_binding']['status']!='bound'):raise ValueError('fixture_application_root')
   if scenario=='stop_failure' and r['error']!='application_outer_nonzero':raise ValueError('first_failure_replaced')
+  session=read(case/'dependency-session.private.json');origin=session['origin'];recovery_home=case/'session-recovery'
+  if origin.get('kind')!='qualified_recovered_installation' or (recovery_home/'artifact.json').exists() or (recovery_home/'prepared.json').exists():raise ValueError('fixture_recovery_session_origin')
   if scenario!='normal':shutil.rmtree(root)
-  row={'case':scenario,'operation':op,'result':r,'result_sha256':digest(report if report.exists() else report.parent/'recovery-result.json'),'application_launched':launched,'prefix_removed':scenario!='normal','unit_absent':True,'manager_stop':stopped,'lifetime_samples':lifetime,'child_memory':memory};publish(case/'proof.json',row);rows.append(row)
+  row={'case':scenario,'operation':op,'result':r,'result_sha256':digest(report if report.exists() else report.parent/'recovery-result.json'),'application_launched':launched,'prefix_removed':scenario!='normal','unit_absent':True,'manager_stop':stopped,'lifetime_samples':lifetime,'child_memory':memory,
+   'session_origin':{'kind':origin['kind'],'operation':origin['operation'],'qualification_sha256':origin['qualification_sha256'],'artifact_absent':True,'prepared_absent':True}};publish(case/'proof.json',row);rows.append(row)
   expected='completed' if scenario in ('normal','repeat','lifetime','callback','no_transition_cleanup','not_submitted_cleanup','stopped_residue_cleanup') else 'cancelled' if scenario=='cancel' else 'failed'
   if scenario=='child_memory':expected='completed' if memory['memory-service.json']['passed'] else 'failed'
   if scenario=='lifetime' and (len(lifetime)!=2 or lifetime[1]['elapsed_ns']-lifetime[0]['elapsed_ns']<12_000_000_000 or stopped):raise ValueError('lifetime_interval')
@@ -102,7 +105,7 @@ def run(package,seal,out,*,cases=CASES):
  if (d/'normal/environment').exists():raise ValueError('repeat_prefix_not_removed')
  after=preservation();publish(d/'after.private.json',after)
  preservation_result=compare_preservation(before,after)
- result={'schema':1,'source':manifest['source'],'seal':seal,'runner_sha256':hashlib.sha256(canonical(template['runner'])).hexdigest(),'installed_software_sha256':hashlib.sha256(canonical(before['software'])).hexdigest(),'sessions':rows,'preservation':{'protected_state_unchanged':True,**preservation_result,'system':after['system'],'capture':after['capture'],'retained':len(after['retained']),'projects':len(after['projects']),'real_prefix_entries':after['real_prefix_entries'],'real_prefix_metadata_sha256':after['real_prefix_metadata_sha256'],'renderer_records_sha256':hashlib.sha256(canonical(after['renderer_records'])).hexdigest()},'real_dependency_mutations':0,'commercial_launch':False}
+ result={'schema':1,'source':manifest['source'],'seal':seal,'runner_sha256':hashlib.sha256(canonical(template['runner'])).hexdigest(),'installed_software_sha256':hashlib.sha256(canonical(before['software'])).hexdigest(),'sessions':rows,'recovery_origin_sessions':sum(row['session_origin']['kind']=='qualified_recovered_installation' for row in rows),'preservation':{'protected_state_unchanged':True,**preservation_result,'system':after['system'],'capture':after['capture'],'retained':len(after['retained']),'projects':len(after['projects']),'real_prefix_entries':after['real_prefix_entries'],'real_prefix_metadata_sha256':after['real_prefix_metadata_sha256'],'renderer_records_sha256':hashlib.sha256(canonical(after['renderer_records'])).hexdigest()},'real_dependency_mutations':0,'commercial_launch':False}
  publish(d/'proof.json',result)
 if __name__=='__main__':
  import sys
