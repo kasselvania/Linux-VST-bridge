@@ -16,7 +16,8 @@ def run(build):
    anchor=subprocess.Popen([str(build/'nad1-service-adapter.exe'),str(request)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
    output=anchor.stdout.readline().decode()
    fields=output.split()
-   if len(fields)==12 and fields[5]=='4':generation=(int(fields[6]),int(fields[7]))
+   assert len(fields)==12 and fields[5]=='4',('start_ack_not_running',output)
+   generation=(int(fields[6]),int(fields[7]))
    return output
   p=subprocess.run([str(build/'nad1-service-adapter.exe'),str(request)],capture_output=True,timeout=60)
   if p.returncode:raise ValueError(('adapter_failure',action,p.returncode))

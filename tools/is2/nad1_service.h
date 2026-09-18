@@ -163,6 +163,15 @@ static int nad1_service_request(const std::vector<std::wstring>& r,const std::ws
     if(r[3]==L"start"&&!StartServiceW(service,0,nullptr)){request_error=GetLastError();if(request_error!=ERROR_SERVICE_ALREADY_RUNNING){CloseServiceHandle(service);CloseServiceHandle(scm);return 148;}}
     SERVICE_STATUS_PROCESS status{};
     ok=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&status),sizeof(status),&needed)!=FALSE;
+    // Startup acknowledgment must not outrun ownership of the running handle.
+    // This bounds startup only; the healthy operation anchor has no deadline.
+    if(ok&&r[3]==L"start"){
+        const auto startup_deadline=GetTickCount64()+25000;
+        while(ok&&status.dwCurrentState==SERVICE_START_PENDING&&GetTickCount64()<startup_deadline){
+            Sleep(50);ok=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&status),sizeof(status),&needed)!=FALSE;
+        }
+        ok=ok&&status.dwCurrentState==SERVICE_RUNNING;
+    }
     std::string image_hash="none";unsigned long long created=0;DWORD endpoints=0;HANDLE start_anchor=nullptr;
     if(ok&&status.dwCurrentState==SERVICE_RUNNING){
         HANDLE process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION|SYNCHRONIZE,FALSE,status.dwProcessId);
@@ -192,14 +201,7 @@ static int nad1_service_request(const std::vector<std::wstring>& r,const std::ws
                 break;
             }
             if(current.dwCurrentState==SERVICE_RUNNING){
-                if(!anchor){
-                    anchor_pid=current.dwProcessId;
-                    anchor=OpenProcess(SYNCHRONIZE|PROCESS_QUERY_LIMITED_INFORMATION,FALSE,anchor_pid);
-                    std::vector<wchar_t> path(32768);DWORD length=static_cast<DWORD>(path.size());
-                    ok=anchor&&QueryFullProcessImageNameW(anchor,0,path.data(),&length)&&_wcsicmp(path.data(),nad1_image)==0;
-                    if(ok){anchor_created=time_of(anchor);ok=anchor_created!=0&&(!created||(anchor_pid==status.dwProcessId&&anchor_created==created));}
-                }
-                if(ok)ok=current.dwProcessId==anchor_pid&&time_of(anchor)==anchor_created&&WaitForSingleObject(anchor,0)==WAIT_TIMEOUT;
+                ok=anchor&&current.dwProcessId==anchor_pid&&time_of(anchor)==anchor_created&&WaitForSingleObject(anchor,0)==WAIT_TIMEOUT;
             }else if(current.dwCurrentState!=SERVICE_START_PENDING&&current.dwCurrentState!=SERVICE_STOP_PENDING)ok=false;
             if(ok)Sleep(50);
         }

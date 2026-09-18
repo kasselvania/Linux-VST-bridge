@@ -496,3 +496,5 @@ The supervisor checks the returned generation against its admitted generation.
 Generated Windows coverage completes an external stop, waits for anchor exit, then
 invokes retirement with the old generation; malformed/aliased receipts and a
 missing receipt with failed process lookup refuse. All prior evidence is preserved.
+
+The first amendment Windows run `35299668099` failed its fast repeated-stop anchor-exit assertion. Startup could still acknowledge START_PENDING before retaining a running handle. The correction delays start acknowledgment until the existing exact RUNNING validation has retained that handle, with a 25-second startup bound and no normal-operation deadline. The failed candidate is retained separately in the handoff evidence.
