@@ -27,15 +27,19 @@ static std::string hash(HANDLE f) {
 static bool hex(const std::wstring& s,size_t length){if(s.size()!=length)return false;for(auto c:s)if(!((c>=L'0'&&c<=L'9')||(c>=L'a'&&c<=L'f')))return false;return true;}
 static unsigned long long time_of(HANDLE p){FILETIME c{},e{},k{},u{};if(!GetProcessTimes(p,&c,&e,&k,&u))return 0;return (static_cast<unsigned long long>(c.dwHighDateTime)<<32)|c.dwLowDateTime;}
 static bool same_file(HANDLE a,HANDLE b){BY_HANDLE_FILE_INFORMATION x{},y{};return GetFileInformationByHandle(a,&x)&&GetFileInformationByHandle(b,&y)&&x.dwVolumeSerialNumber==y.dwVolumeSerialNumber&&x.nFileIndexHigh==y.nFileIndexHigh&&x.nFileIndexLow==y.nFileIndexLow;}
+static bool runtime_input_type(DWORD type){return type==FILE_TYPE_PIPE||type==FILE_TYPE_CHAR;}
 static int nad1_runtime_request(const std::vector<std::wstring>& lines) {
     if(lines.size()!=3||lines[0]!=L"NAD1_RUNTIME_V1"||!hex(lines[1],32)||!hex(lines[2],64))return 153;
     HANDLE input=GetStdHandle(STD_INPUT_HANDLE);
-    if(input==INVALID_HANDLE_VALUE||input==nullptr||GetFileType(input)!=FILE_TYPE_PIPE)return 154;
+    // Pressure Vessel/Proton can forward the launcher's pipe as a Windows
+    // character handle. It is still the operation-owned blocking input: disk,
+    // unknown and detached handles remain inadmissible.
+    if(input==INVALID_HANDLE_VALUE||input==nullptr||!runtime_input_type(GetFileType(input)))return 154;
     std::fprintf(stdout,"NAD1_RUNTIME_V1 %ls %ls\n",lines[1].c_str(),lines[2].c_str());std::fflush(stdout);
     std::array<unsigned char,256> discarded{};
     for(;;){DWORD count=0;
         if(ReadFile(input,discarded.data(),static_cast<DWORD>(discarded.size()),&count,nullptr)){if(!count)return 0;continue;}
-        return GetLastError()==ERROR_BROKEN_PIPE?0:155;
+        auto error=GetLastError();return error==ERROR_BROKEN_PIPE||error==ERROR_HANDLE_EOF?0:155;
     }
 }
 #include "nad1_service.h"
@@ -44,7 +48,7 @@ static int nad1_runtime_request(const std::vector<std::wstring>& lines) {
 static constexpr DWORD target_wait(bool renderer){return renderer?INFINITE:3600000;}
 static_assert(target_wait(true)==INFINITE&&target_wait(false)==3600000);
 int wmain(int argc,wchar_t** argv){
-    if(argc==2 && std::wstring(argv[1])==L"--self-test")return hex(L"0123456789abcdef",16)&&!hex(L"g",1)&&callback_uri("native-access:fixture%20code")&&!callback_uri("native-access:x --no-sandbox")&&!callback_uri("native-access:%00")?0:1;
+    if(argc==2 && std::wstring(argv[1])==L"--self-test")return hex(L"0123456789abcdef",16)&&!hex(L"g",1)&&runtime_input_type(FILE_TYPE_PIPE)&&runtime_input_type(FILE_TYPE_CHAR)&&!runtime_input_type(FILE_TYPE_DISK)&&callback_uri("native-access:fixture%20code")&&!callback_uri("native-access:x --no-sandbox")&&!callback_uri("native-access:%00")?0:1;
     if(argc!=2)return 120;
     HANDLE request=CreateFileW(argv[1],GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
     if(request==INVALID_HANDLE_VALUE)return 121;
