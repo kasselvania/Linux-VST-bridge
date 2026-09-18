@@ -1,6 +1,6 @@
-# SHIELDXL0 Raspberry Pi 4 hardware platform
+# SHIELDXL0 Raspberry Pi 5 hardware platform
 
-This directory provisions only the Raspberry Pi 4 + ShieldXL hardware lane selected by
+This directory provisions only the Raspberry Pi 5 8 GB + ShieldXL hardware lane selected by
 `docs/experiments/SHIELDXL0.md`. It does not install or run a VST host, DAW, Box64/FEX,
 Wine/Proton, Native Access, commercial plug-in, or licensing software.
 
@@ -17,13 +17,26 @@ commits, inspected-file hashes, and adapted-overlay hashes. `verify-image.sh` ve
 download before it is written to a **fresh** SD card. Never point an imaging tool or any
 script here at the retained working norns card.
 
+The historical branch name contains `pi4`; it is retained for custody continuity and is
+not the selected hardware claim.
+
 ## Why one external kernel module exists
 
-The exact official Pi 4 kernel package was inspected before implementation. It ships
-the I2S, simple-card, rotary-encoder, GPIO-key, and spidev drivers but has
+The exact official Pi 5 `rpi-2712` kernel package was inspected before implementation.
+It uses 16 KiB pages and ships RP1 DesignWare I2S, simple-card, rotary-encoder, GPIO-key,
+and spidev drivers but has
 `CONFIG_SND_SOC_CS4270` disabled. `kernel-driver-admission.json` preserves that concrete
 deficiency. `build-cs4270-module.sh` builds the unmodified upstream Linux v6.18 codec
-driver against the exact distribution headers; it does not replace the kernel image.
+driver against the exact distribution headers; it refuses drift in the image's pinned
+compiler, binutils, make, build-essential, or kernel-header packages and does not replace
+the kernel image.
+
+The overlay is Pi-5-specific. It targets RP1 GPIO/I2C/SPI and the RP1
+`i2s_clk_consumer` DAI because the CS4270 owns bit and frame clocks. Static application
+to the exact packaged `bcm2712-rpi-5-b.dtb` is retained, but remains a nonclaim about
+physical boot or electrical behavior. GPIO17 is deliberately described active-high:
+the pinned Linux driver uses logical 0 to assert the directly wired active-low codec
+reset and logical 1 to deassert it.
 
 The old out-of-tree SSD1322 framebuffer driver is not carried. The display uses the
 distribution spidev module through a bounded ordinary-user service. The adapted overlay
@@ -33,18 +46,22 @@ and upstream codec source remain GPL-2.0-only; see `THIRD_PARTY_NOTICES.md`.
 
 Run these from an exact checkout of the experiment branch on the fresh Pi image.
 
-1. Before changes, run `./inventory.sh PRIVATE_OUTPUT_DIRECTORY`. Keep that output
-   private until it has been reviewed and sanitized.
+1. Before changes, run the inventory through the thermal wrapper:
+   `./observed-run.sh --label baseline-inventory --shield-airflow STATUS --cooling none
+   --output PRIVATE_RUN_DIRECTORY -- ./inventory.sh PRIVATE_INVENTORY_DIRECTORY`.
+   Replace `STATUS` with `obstructed`, `not-obstructed`, or `unknown`; keep both output
+   directories private until they have been reviewed and sanitized.
 2. Run `sudo ./prepare-buses.sh`. It adds one managed boot include and enables only I2C.
 3. Reboot the fresh card.
 4. Run `sudo ./provision.sh --user YOUR_ORDINARY_USER`.
 5. Reboot again, then run `./verify-platform.sh PRIVATE_OUTPUT_DIRECTORY`.
 
-The split is deliberate: full provisioning will not proceed until the physical codec
+The split is deliberate: full provisioning will not proceed until an 8 GB Pi 5 running
+the exact 16 KiB-page kernel is admitted and the physical codec
 acknowledges exactly address `0x48` through one SMBus Quick presence transaction. It also
 refuses the wrong architecture, wrong board, wrong image, wrong kernel, wrong page size,
-prohibited RPI0 software, unexpected boot configuration, package-version drift, or a
-foreign replacement file.
+prohibited RPI0 software, explicit overclock configuration, unexpected boot
+configuration, package-version drift, or a foreign replacement file.
 
 The scripts modify only:
 
@@ -88,15 +105,25 @@ OLED verification. With operator confirmation between physical steps:
 5. `audio-test.sh reopen`;
 6. activate services, then run `jack-matrix.sh --user USER --loopback-connected OUTPUT`
    for 128/256/512/1024 frames;
-7. USB MIDI `midi-test.sh CLIENT:PORT OUTPUT`, unplug/reconnect, and identity comparison;
-8. three-detent turns in both directions for each encoder and press/release for each
+7. three-detent turns in both directions for each encoder and press/release for each
    button while `controls.py` records events;
-9. OLED clear, fill, text, changing number, stop, and restart through `oled_client.py`;
+8. OLED clear, fill, text, changing number, stop, and restart through `oled_client.py`;
+9. USB MIDI `midi-test.sh CLIENT:PORT OUTPUT`, unplug/reconnect, and identity comparison;
 10. bounded `thermal-observe.sh` run while native JACK loopback is active, normal service
     restart, and final reboot identity comparison.
 
 Do not infer a physical pass from script availability or process liveness. Populate
 `evidence/shieldxl0/hardware-contract.json` only from observed results.
+
+Run every physical command through `observed-run.sh`, declaring whether the ShieldXL
+obstructs passive airflow and the exact cooling fixture. It retains temperature,
+throttling flags, CPU frequency, and monotonic duration before/during/after the command.
+Throttling does not erase bounded functional results, but it classifies sustained
+performance as thermally unqualified. Do not overclock or reduce a declared workload to
+manufacture a clean result.
+
+The initial fixture is open and unenclosed with `--cooling none`. External airflow, if
+added later, is a separate fixture change and must use `--cooling external-airflow`.
 
 ## OLED examples
 

@@ -3,6 +3,8 @@
   "schema_version": 1,
   "acceptance_status": "pending_physical_fixture",
   "pi": {
+    "required_model": "Raspberry Pi 5 Model B",
+    "required_ram_bytes": 8589934592,
     "model": null,
     "revision": null,
     "ram_bytes": null
@@ -18,7 +20,7 @@
   },
   "kernel": {
     "release": null,
-    "package": "linux-image-6.18.50+rpt-rpi-v8",
+    "package": "linux-image-6.18.50+rpt-rpi-2712",
     "package_version": "1:6.18.50-1+rpt1",
     "firmware_package": "raspi-firmware",
     "firmware_version": "1:1.20260907-1",
@@ -31,9 +33,9 @@
   "overlays": [
     {
       "source": "tools/shieldxl0/overlays/shieldxl0-overlay.dts",
-      "source_sha256": "b3ed0036060b27365d6fc1cf8212a2b27131af6666f612111ad5c88742b6967a",
+      "source_sha256": "25a4feedd593c0d374d29085f5cd5f2d6a1d0a624541248fc17f9f909b903a23",
       "binary": "tools/shieldxl0/overlays/shieldxl0.dtbo",
-      "binary_sha256": "272febea28603b08600126770ae1d3f6238f2d08340f3e17d79613c691e62448",
+      "binary_sha256": "53133944a3f24d51aaf14bce73ea362d8277f6517540e8a2fa824c279b50e592",
       "compiler": "DTC 1.7.2"
     }
   ],
@@ -82,22 +84,27 @@
     "audio_independent_failure": true
   },
   "thermal": {
+    "initial_cooling_fixture": "none; board open and unenclosed",
+    "shieldxl_passive_airflow_obstruction": null,
+    "physical_runs": [],
     "bounded_run_max_c": null,
     "throttling_flags_before": null,
     "throttling_flags_after": null,
     "no_throttling": null,
     "cpu_governor": null,
-    "observed_clock_range_hz": null
+    "observed_clock_range_hz": null,
+    "sustained_performance_classification": null
   },
   "provisioning": {
-    "commit": "e697cd02b4026fc356a6c07d9e4087e52a23d8af",
+    "commit": null,
     "paths": ["tools/shieldxl0", "evidence/shieldxl0"],
     "rollback": "tools/shieldxl0/uninstall.sh",
     "physical_verification_completed": false
   },
   "known_limitations": [
-    "Physical Raspberry Pi 4 and ShieldXL verification has not run.",
-    "The first powered candidate was refused because it identified as Raspberry Pi 3 Model B Plus Rev 1.3, revision a020d3, rather than the required Pi 4 Model B.",
+    "Physical Raspberry Pi 5 8 GB and ShieldXL verification has not run.",
+    "The first powered candidate was refused because it identified as Raspberry Pi 3 Model B Plus Rev 1.3, revision a020d3; it remains outside the accepted Pi 5 fixture.",
+    "The initial Pi 5 fixture has no active cooler; every physical run must retain temperature, throttling, CPU frequency, duration, and ShieldXL airflow-obstruction observations.",
     "Exact Pi revision, RAM, ALSA/JACK identities, XRUNs, controls, USB MIDI, OLED, and thermal results remain unobserved.",
     "ShieldXL TRS/UART MIDI is deliberately deferred; USB MIDI is the required first path."
   ]

@@ -3,8 +3,11 @@
 set -Eeuo pipefail
 
 SHIELDXL0_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-SHIELDXL0_KERNEL=6.18.50+rpt-rpi-v8
-SHIELDXL0_MODEL='Raspberry Pi 4 Model B'
+SHIELDXL0_KERNEL=6.18.50+rpt-rpi-2712
+SHIELDXL0_MODEL='Raspberry Pi 5 Model B'
+SHIELDXL0_PAGE_SIZE=16384
+SHIELDXL0_RAM_KIB_MIN=7500000
+SHIELDXL0_RAM_KIB_MAX=8500000
 SHIELDXL0_STATE_DIR=/var/lib/shieldxl0
 SHIELDXL0_CONFIG_DIR=/etc/shieldxl0
 
@@ -38,10 +41,10 @@ read_revision() {
 }
 
 require_platform() {
-  local model architecture release codename page_size
+  local model architecture release codename page_size ram_kib
   [[ -r /proc/device-tree/model ]] || die 'device-tree model is unavailable; this is not an admitted Pi fixture'
   model=$(read_model)
-  [[ $model == "$SHIELDXL0_MODEL"* ]] || die "wrong board: expected Pi 4 Model B, observed '$model'"
+  [[ $model == "$SHIELDXL0_MODEL"* ]] || die "wrong board: expected Pi 5 Model B, observed '$model'"
   architecture=$(dpkg --print-architecture)
   [[ $architecture == arm64 ]] || die "wrong architecture: expected arm64, observed '$architecture'"
   release=$(uname -r)
@@ -54,7 +57,11 @@ require_platform() {
   grep -Fqx 'Raspberry Pi reference 2026-09-15' /etc/rpi-issue ||
     die 'image identity differs from the pinned 2026-09-15 Raspberry Pi OS image'
   page_size=$(getconf PAGESIZE)
-  [[ $page_size == 4096 ]] || die "unsupported page size: expected 4096, observed $page_size"
+  [[ $page_size == "$SHIELDXL0_PAGE_SIZE" ]] ||
+    die "unsupported page size: expected $SHIELDXL0_PAGE_SIZE, observed $page_size"
+  ram_kib=$(awk '/^MemTotal:/ {print $2; exit}' /proc/meminfo)
+  [[ $ram_kib =~ ^[0-9]+$ && $ram_kib -ge $SHIELDXL0_RAM_KIB_MIN && $ram_kib -le $SHIELDXL0_RAM_KIB_MAX ]] ||
+    die "wrong RAM fixture: expected Pi 5 8 GB, observed MemTotal ${ram_kib:-unknown} KiB"
   [[ -n $(read_revision) ]] || die 'Pi board revision is unavailable'
   for prohibited in box64 FEXInterpreter wine wine64 proton; do
     command -v "$prohibited" >/dev/null 2>&1 &&
@@ -70,7 +77,7 @@ boot_config_path() {
 
 refuse_boot_conflicts() {
   local config=$1
-  if grep -Eiq '^[[:space:]]*(kernel=|dtoverlay=(monome-snd-4270|norns-buttons-encoders|ssd1322-spi|midi-uart0)|include[[:space:]]+shieldxl0\.conf[^[:space:]]+)' "$config"; then
+  if grep -Eiq '^[[:space:]]*(kernel=|dtoverlay=(monome-snd-4270|norns-buttons-encoders|ssd1322-spi|midi-uart0)|include[[:space:]]+shieldxl0\.conf[^[:space:]]+|(arm|core|gpu|v3d|isp|hevc)_freq(_min)?=|over_voltage(_min|_delta)?=|force_turbo=)' "$config"; then
     die "unexpected conflicting boot configuration in $config"
   fi
   while IFS= read -r overlay; do

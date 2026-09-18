@@ -1,8 +1,8 @@
-# SHIELDXL0 — Raspberry Pi 4 hardware bring-up
+# SHIELDXL0 — Raspberry Pi 5 hardware bring-up
 
 ## Purpose
 
-SHIELDXL0 prepares the physical Raspberry Pi 4 + shieldXL appliance platform that the
+SHIELDXL0 prepares the physical Raspberry Pi 5 + shieldXL appliance platform that the
 separate RPI0 ARM/translation agent will consume.
 
 This lane is not a VST host, Box64/Wine port, DAW, or commercial plug-in test. Its job
@@ -31,21 +31,31 @@ without importing norns itself or depending on an obsolete 32-bit image.
 This branch is experimental. Do not merge it automatically into the ordinary x86-64
 product line or into the separate RPI0 branch.
 
+The branch name predates the fixture change and is retained for custody continuity. It
+does not authorize a Pi 4 claim. The selected physical target is the Pi 5 fixture below.
+
 ## Physical fixture
 
 Primary fixture:
 
-- Raspberry Pi 4 Model B already attached to a shieldXL;
-- fresh removable SD card for this experiment;
+- Raspberry Pi 5 with 8 GB RAM attached to a shieldXL through the standard 40-pin
+  header;
+- fresh removable storage for this experiment;
 - existing working norns/shield card retained unchanged as rollback/reference media;
-- active cooling and a stable Pi 4 power supply;
+- correct 5 V / 5 A-class power;
+- initially no active cooler, with the board open and unenclosed;
 - HDMI display and USB keyboard/mouse available;
 - network access only for pinned package/source acquisition;
 - shieldXL line output connected to a safe monitor, mixer, or powered speaker;
 - physical loopback cable available between shieldXL line output and line input;
 - USB MIDI controller available.
 
-Record the exact Pi RAM size rather than assuming it.
+Record the exact model, board revision, and RAM rather than assuming them.
+
+A Raspberry Pi 3 Model B Plus may be used only for non-destructive preparation or a
+bounded ShieldXL wiring/interface check when that materially reduces risk. It is not an
+accepted audio-performance, sustained-performance, RPI0, or translated-plug-in fixture.
+Never weaken the Pi 5/8 GB provisioning gate to admit it.
 
 Never modify the existing working norns SD card. If it is inspected, mount it read-only.
 
@@ -132,7 +142,7 @@ start of the run. Record and pin:
 - boot firmware identity;
 - architecture and page size;
 - enabled repositories;
-- every added package and version.
+- every installed package and exact version.
 
 Do not use the historical norns image as the new product image.
 
@@ -141,7 +151,8 @@ the current kernel already provides:
 
 - `snd-soc-cs4270`;
 - `simple-audio-card`;
-- BCM2835 I2S support;
+- RP1 DesignWare I2S support, including the external-clock-consumer path;
+- RP1 GPIO, I2C, and SPI support for the 40-pin header;
 - rotary-encoder input support;
 - gpio-keys;
 - the required SPI/OLED support.
@@ -181,6 +192,7 @@ replacement of the complete boot configuration.
 Before changing the fresh image, record:
 
 - `/proc/device-tree/model`;
+- board revision;
 - `uname -a`;
 - `dpkg --print-architecture`;
 - page size;
@@ -198,10 +210,32 @@ Before changing the fresh image, record:
 
 Do not probe arbitrary I2C registers. A bounded address presence check is sufficient.
 
+## Thermal observation discipline
+
+The absence of active cooling does not block functional bring-up. Begin with the board
+open and unenclosed. Do not overclock.
+
+Every physical run, including short functional tests, must retain:
+
+- temperature before, sampled during, and after;
+- `vcgencmd get_throttled` before, during, and after;
+- observed CPU frequency before, during, and after;
+- monotonic workload duration;
+- whether the attached ShieldXL obstructs passive airflow;
+- any external-airflow fixture change.
+
+Do not shorten or reduce a declared workload merely to avoid an observed thermal limit.
+If a sustained run throttles, retain the result and classify sustained performance as
+thermally unqualified. That classification does not erase otherwise valid bounded
+functional hardware results.
+
 ## Phase 2 — CS4270 audio
 
-Adapt or reuse the pinned `monome-snd-4270` overlay against the selected current kernel.
-Retain exact source and compiled DTBO digests.
+Adapt the pinned `monome-snd-4270` overlay against the selected current Pi 5/RP1 kernel.
+Do not assume the old Pi 4 targets, clock direction, pin controller, or bus aliases work
+unchanged. The CS4270 owns bit and frame clocks, so the Pi 5 CPU DAI must use the RP1 I2S
+clock-consumer controller. Retain exact source and compiled DTBO digests and prove static
+application against the exact packaged Pi 5 base DTB before physical admission.
 
 The accepted card must expose:
 
@@ -300,32 +334,7 @@ button(index=0..2, pressed=bool, monotonic_ns)
 
 No control reader may run inside the future audio callback.
 
-## Phase 5 — MIDI
-
-USB MIDI is the required first path.
-
-Verify:
-
-- one physical USB MIDI controller appears through ALSA sequencer and JACK MIDI;
-- note-on, note-off, velocity, sustain, and all-notes-off can be observed;
-- hot-unplug is reported rather than blocking the server;
-- reconnect restores a stable selectable identity.
-
-ShieldXL TRS/UART MIDI is a secondary result. Use the pinned ShieldXL/ttymidi work only
-as prior art. If implemented:
-
-- establish the exact UART and baud/clock configuration physically required by this
-  hardware;
-- pin the exact ttymidi source or replace it with a smaller reviewed equivalent;
-- do not install old ARMHF binaries on the AArch64 system;
-- use a least-privilege systemd unit;
-- record Type A/B switch posture and actual successful direction;
-- prove ordinary MIDI events through the physical jack.
-
-Failure of TRS MIDI does not block the first ARM synth proof when USB MIDI passes, but
-it must remain visible as incomplete.
-
-## Phase 6 — OLED
+## Phase 5 — OLED
 
 Bring up the ShieldXL OLED using the pinned prior art or a current maintained path.
 
@@ -347,6 +356,31 @@ Do not build the final synth UI in this lane. Supply a minimal status renderer a
 interface contract for later display of preset, macro values, CPU, gaps, and thermal
 state.
 
+## Phase 6 — MIDI
+
+USB MIDI is the required first path.
+
+Verify:
+
+- one physical USB MIDI controller appears through ALSA sequencer and JACK MIDI;
+- note-on, note-off, velocity, sustain, and all-notes-off can be observed;
+- hot-unplug is reported rather than blocking the server;
+- reconnect restores a stable selectable identity.
+
+ShieldXL TRS/UART MIDI is a secondary result. Use the pinned ShieldXL/ttymidi work only
+as prior art. If implemented:
+
+- establish the exact UART and baud/clock configuration physically required by this
+  hardware;
+- pin the exact ttymidi source or replace it with a smaller reviewed equivalent;
+- do not install old ARMHF binaries on the AArch64 system;
+- use a least-privilege systemd unit;
+- record Type A/B switch posture and actual successful direction;
+- prove ordinary MIDI events through the physical jack.
+
+Failure of TRS MIDI does not block the first RPI0 integration when USB MIDI passes, but
+it must remain visible as incomplete.
+
 ## Integration record
 
 Publish a machine-readable record, for example:
@@ -357,7 +391,7 @@ evidence/shieldxl0/hardware-contract.json
 
 It must include:
 
-- Pi model, RAM, OS, kernel, architecture, page size;
+- Pi model, RAM, OS, kernel, boot firmware, architecture, page size;
 - ShieldXL prior-art commits;
 - overlay source and DTBO digests;
 - ALSA card and PCM identities;
@@ -368,7 +402,8 @@ It must include:
 - UART MIDI status;
 - encoder/button stable aliases and event semantics;
 - OLED device/interface and geometry;
-- temperature/throttling observations;
+- temperature, throttling, CPU-frequency, duration, airflow-obstruction, and cooling-
+  fixture observations for every physical run;
 - provisioning commit and package manifest;
 - known limitations.
 
@@ -411,13 +446,16 @@ SHIELDXL0 passes only when the fresh AArch64 image demonstrates:
 8. OLED test output;
 9. clean audio-server restart;
 10. reboot with all accepted identities preserved;
-11. no thermal throttling during the bounded native hardware test;
+11. complete thermal observations for every run, with sustained performance explicitly
+    classified as qualified or thermally unqualified;
 12. a complete integration record suitable for the RPI0 agent.
 
 TRS MIDI is desirable but may remain a recorded follow-up if USB MIDI passes.
 
-No Windows plug-in, Box64, Wine, Proton, Native Access, Pigments, Serum, or DAW result is
-part of SHIELDXL0 acceptance.
+No Windows plug-in, Box64, Wine, Proton, Native Access, Pigments, Serum, source synth,
+VST host, or DAW result is part of SHIELDXL0 acceptance. The thermal permission for a
+future short integration smoke test does not authorize installing or running those
+components in this hardware task.
 
 ## Hard boundaries
 
@@ -441,7 +479,7 @@ Do not:
 Open one draft PR against `main` titled:
 
 ```text
-Experiment: SHIELDXL0 Pi 4 hardware bring-up — do not merge
+Experiment: SHIELDXL0 Pi 5 hardware bring-up — do not merge
 ```
 
 Return:
@@ -461,4 +499,5 @@ Return:
 - physical failures and retained limitations;
 - concise handoff for the separate RPI0 agent.
 
-Stop at the draft experimental PR. Do not merge.
+Stop when the hardware integration contract is ready in the draft experimental PR. Do
+not merge.

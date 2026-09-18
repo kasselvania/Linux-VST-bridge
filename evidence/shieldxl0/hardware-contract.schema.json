@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kasselvania.invalid/linux-vst-bridge/shieldxl0/hardware-contract.schema.json",
-  "title": "SHIELDXL0 Raspberry Pi 4 hardware contract",
+  "title": "SHIELDXL0 Raspberry Pi 5 hardware contract",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -15,8 +15,10 @@
     "acceptance_status": {"enum": ["pending_physical_fixture", "accepted", "failed"]},
     "pi": {
       "type": "object", "additionalProperties": false,
-      "required": ["model", "revision", "ram_bytes"],
+      "required": ["required_model", "required_ram_bytes", "model", "revision", "ram_bytes"],
       "properties": {
+        "required_model": {"const": "Raspberry Pi 5 Model B"},
+        "required_ram_bytes": {"const": 8589934592},
         "model": {"type": ["string", "null"]},
         "revision": {"type": ["string", "null"]},
         "ram_bytes": {"type": ["integer", "null"]}

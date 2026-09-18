@@ -67,7 +67,7 @@ fi
 rm -f "$module_path"
 rm -f "$SHIELDXL0_STATE_DIR/cs4270-module.sha256"
 rmdir "/lib/modules/$SHIELDXL0_KERNEL/updates/shieldxl0" 2>/dev/null || true
-for program in controls.py oled_service.py oled_client.py audio_probe.py audio-test.sh mixer-state.sh thermal-observe.sh; do
+for program in controls.py oled_service.py oled_client.py audio_probe.py audio-test.sh mixer-state.sh observed-run.sh thermal-observe.sh; do
   destination="/usr/local/libexec/shieldxl0/$program"
   if [[ -e $destination ]]; then
     [[ ! -L $destination && -f $destination ]] || die "unexpected installed program path type: $destination"

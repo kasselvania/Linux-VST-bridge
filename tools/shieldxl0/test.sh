@@ -17,6 +17,7 @@ python3 -m json.tool "$REPO_DIR/evidence/shieldxl0/hardware-contract.json" >/dev
 python3 -m json.tool "$REPO_DIR/evidence/shieldxl0/hardware-contract.schema.json" >/dev/null
 python3 -m json.tool "$REPO_DIR/evidence/shieldxl0/kernel-driver-admission.json" >/dev/null
 python3 -m json.tool "$REPO_DIR/evidence/shieldxl0/overlay-base-admission.json" >/dev/null
+python3 -m json.tool "$REPO_DIR/evidence/shieldxl0/fixture-admission-failure.json" >/dev/null
 
 python3 - "$SCRIPT_DIR" "$REPO_DIR/evidence/shieldxl0/hardware-contract.json" <<'PY'
 import hashlib, json, pathlib, sys

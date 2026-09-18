@@ -38,7 +38,7 @@ check 'OLED stable SPI alias exists' test -e /dev/shieldxl-oled-spi
 timeout --signal=INT 1s aplay --dump-hw-params -D shieldxl -f S16_LE -r 48000 -c 2 /dev/zero >"$OUTPUT/playback-hw-params.txt" 2>&1 || true
 arecord --dump-hw-params -D shieldxl -f S16_LE -r 48000 -c 2 -d 1 -t raw /dev/null >"$OUTPUT/capture-hw-params.txt" 2>&1 || true
 amixer -c SHIELDXL scontents >"$OUTPUT/mixer-state.txt" 2>&1 || true
-journalctl -b -k --no-hostname | grep -Ei 'shieldxl|cs4270|bcm2835.*i2s|simple.card|xrun|underrun|overrun' >"$OUTPUT/kernel-audio-log.txt" || true
+journalctl -b -k --no-hostname | grep -Ei 'shieldxl|cs4270|designware.*i2s|rp1.*i2s|simple.card|xrun|underrun|overrun' >"$OUTPUT/kernel-audio-log.txt" || true
 systemctl --no-pager --full status "shieldxl-jack@$(python3 -c 'import json; print(json.load(open("/var/lib/shieldxl0/state.json"))["target_user"])').service" >"$OUTPUT/jack-service.txt" 2>&1 || true
 systemctl --no-pager --full status "shieldxl-oled@$(python3 -c 'import json; print(json.load(open("/var/lib/shieldxl0/state.json"))["target_user"])').service" >"$OUTPUT/oled-service.txt" 2>&1 || true
 

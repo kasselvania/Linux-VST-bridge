@@ -129,7 +129,7 @@ install_exact "$SCRIPT_DIR/config/jack.env" "$SHIELDXL0_CONFIG_DIR/jack.env" 064
 install_exact "$SCRIPT_DIR/config/99-shieldxl0-limits.conf" /etc/security/limits.d/99-shieldxl0.conf 0644
 install_exact "$SCRIPT_DIR/systemd/shieldxl-jack@.service" /etc/systemd/system/shieldxl-jack@.service 0644
 install_exact "$SCRIPT_DIR/systemd/shieldxl-oled@.service" /etc/systemd/system/shieldxl-oled@.service 0644
-for program in controls.py oled_service.py oled_client.py audio_probe.py audio-test.sh mixer-state.sh thermal-observe.sh; do
+for program in controls.py oled_service.py oled_client.py audio_probe.py audio-test.sh mixer-state.sh observed-run.sh thermal-observe.sh; do
   install_exact "$SCRIPT_DIR/$program" "/usr/local/libexec/shieldxl0/$program" 0755
 done
 

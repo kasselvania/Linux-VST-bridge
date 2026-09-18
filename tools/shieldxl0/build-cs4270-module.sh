@@ -10,6 +10,18 @@ OUTPUT=${1:-$PWD/snd-soc-cs4270.ko}
 require_platform
 [[ $(sha256_file "$SCRIPT_DIR/kernel/cs4270.c") == ec028f382ec93a795d5c6abaf40acb47e9c0ff5eccc0a1de934d581b49bc0029 ]] ||
   die 'vendored upstream CS4270 source hash differs from the pinned v6.18 input'
+declare -A build_packages=(
+  [binutils]='2.44-3'
+  [build-essential]='12.12'
+  [gcc]='4:14.2.0-1'
+  [linux-headers-6.18.50+rpt-rpi-2712]='1:6.18.50-1+rpt1'
+  [make]='4.4.1-2'
+)
+for package in binutils build-essential gcc linux-headers-6.18.50+rpt-rpi-2712 make; do
+  observed=$(dpkg-query -W -f='${Version}' "$package" 2>/dev/null || true)
+  [[ $observed == "${build_packages[$package]}" ]] ||
+    die "build package drift for $package: expected ${build_packages[$package]}, observed ${observed:-absent}"
+done
 [[ -d /lib/modules/$SHIELDXL0_KERNEL/build ]] || die "kernel headers are missing for $SHIELDXL0_KERNEL"
 command -v strip >/dev/null 2>&1 || die 'GNU strip is required for a deterministic module payload'
 
