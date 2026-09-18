@@ -57,7 +57,13 @@ int wmain(int argc,wchar_t**argv){
   SC_HANDLE s=OpenServiceW(scm,service,DELETE|SERVICE_STOP|SERVICE_QUERY_STATUS);if(!s){CloseServiceHandle(scm);return 15;}
   SERVICE_STATUS st{};ControlService(s,SERVICE_CONTROL_STOP,&st);for(int i=0;i<100;i++){QueryServiceStatus(s,&st);if(st.dwCurrentState==SERVICE_STOPPED)break;Sleep(50);}bool ok=DeleteService(s)!=FALSE;CloseServiceHandle(s);CloseServiceHandle(scm);return ok?0:16;
  }
- if(argc!=1)return 64;
- SERVICE_TABLE_ENTRYW table[]={{const_cast<LPWSTR>(service),service_main},{nullptr,nullptr}};
- audit("dispatcher");if(!StartServiceCtrlDispatcherW(table)){DWORD error=GetLastError();audit("dispatcher_error",error);return static_cast<int>(error);}return 0;
+	if(argc!=1)return 64;
+	SERVICE_TABLE_ENTRYW table[]={{const_cast<LPWSTR>(service),service_main},{nullptr,nullptr}};
+	audit("dispatcher");if(!StartServiceCtrlDispatcherW(table)){DWORD error=GetLastError();audit("dispatcher_error",error);return static_cast<int>(error);}
+	// SCM may release its dispatcher as soon as SERVICE_STOPPED is published,
+	// before service_main returns. Keep this generated own-process image alive
+	// for the two residue fixtures until the test releases it explicitly.
+	if(marker(L"C:\\NAD1Fixture\\stopped-process-hold")||marker(L"C:\\NAD1Fixture\\stopped-listener-hold"))
+	 while(!marker(L"C:\\NAD1Fixture\\release-stop"))Sleep(100);
+	return 0;
 }
