@@ -3278,7 +3278,6 @@ def vendor_application(spec):
                 # No member remains that could create a later handoff. A
                 # second ancestry sample or a fixed grace period is not proof.
                 for _ in range(64):drain(0)
-                confirm_effective()
                 clean=True
                 if state=='failed':error='vendor_application_launcher_failed_after_cgroup_empty'
                 event('cgroup_empty',launcher_exit=child.returncode)
