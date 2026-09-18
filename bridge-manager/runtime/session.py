@@ -3122,6 +3122,7 @@ class Nad1Owner:
         self.token=os.urandom(32).hex();self.anchor=None;self.recovery=None;self.runtime=None;self.diagnostic_privacy=False
         self.session_authority=self._session_authority(session_authority,fixture)
         self.registration_reobservation={'attempted':False,'count':0,'delay_ms':0,'result':'not_applicable'}
+        self.registration_ownership_revalidation={'attempted':False,'result':'not_applicable','candidate_count':0,'unavailable':0}
         if self.session_authority is not None:
             origin=self.session_authority['origin'];kind=origin['kind']
             projection={'kind':kind,'authority_sha256':hashlib.sha256(json.dumps(self.session_authority,sort_keys=True,separators=(',',':')).encode()).hexdigest(),
@@ -3139,6 +3140,7 @@ class Nad1Owner:
         return {'schema':1,'ready_tested':self.ready,'daemon':self.daemon,'recovery':self.recovery,
                 'session_origin':({'kind':self.session_authority['origin']['kind'],'validated':True} if self.session_authority else None),
                 'registration_reobservation':self.registration_reobservation,
+                'registration_ownership_revalidation':self.registration_ownership_revalidation,
                 'service_stop_requested':self.service_stop_requested,'service_stop_request_count':self.service_stop_request_count,
                 'service_retirement_confirmed':self.service_retirement_confirmed,
                 'process_cleanup_confirmed':self.process_cleanup_confirmed,'forced_cleanup_used':self.forced_cleanup_used,
@@ -3183,6 +3185,55 @@ class Nad1Owner:
             self.service_possibility='proved_absent'
             raise ValueError('dependency_qualified_registration_absent')
         return service
+    def _revalidate_registration_ownership(self,service,admitted):
+        """A fresh SCM registration is not process or retirement authority."""
+        import ownership
+        result={'attempted':True,'result':'unavailable','candidate_count':0,'unavailable':0}
+        self.registration_ownership_revalidation=result
+        try:
+            prefix=self.prefix.lstat()
+            if (self.prefix_identity is None or not stat.S_ISDIR(prefix.st_mode) or self.prefix.resolve()!=self.prefix
+                or (prefix.st_dev,prefix.st_ino)!=self.prefix_identity
+                or renderer_read(self.root/'environment.json')!=self.spec['application']['environment']):
+                raise ValueError('changed')
+        except Exception as exc:
+            result['result']='prefix_changed'
+            raise ValueError('dependency_registration_prefix_changed') from exc
+        try:current=ownership.image_identity(self.drive/self.daemon_relative)
+        except Exception as exc:
+            result['result']='daemon_unavailable'
+            raise ValueError('dependency_registration_daemon_changed') from exc
+        if current!=admitted:
+            result['result']='daemon_changed'
+            raise ValueError('dependency_registration_daemon_changed')
+        scan=ownership.census(self.root/'compatdata/pfx',admitted)
+        installer_atomic(self.directory/f'{self.op}-dependency-registration-current.private.json',scan)
+        result['candidate_count']=len(scan['candidates']);result['unavailable']=scan['unavailable']
+        if scan['unavailable']:
+            result['result']='candidate_unavailable'
+            raise ValueError('dependency_registration_candidate_unavailable')
+        if any(p['prefix_relation'] in ('foreign','deleted') for p in scan['candidates']):
+            result['result']='foreign_or_deleted'
+            raise ValueError('dependency_registration_foreign_conflict')
+        if any(p.get('prefix_relation')=='same' and not nad1_generation_owned(p,self.scope) for p in scan['private']):
+            result['result']='same_prefix_unowned'
+            raise ValueError('dependency_registration_same_prefix_unowned')
+        matches=[p for p in scan['private'] if p.get('exact') and p.get('prefix_relation')=='same']
+        if service['state'] in (2,4):
+            if (service['state']==4 and service['image_sha256']!=admitted['sha256']) or len(matches)!=1 or len(scan['candidates'])!=1:
+                result['result']='ownership_unconfirmed'
+                raise ValueError('dependency_registration_ownership_unconfirmed')
+            # The fresh exact Linux generation is inside this renderer cohort.
+            result['result']='owned_generation';self.retirement_authorized=True
+            return False
+        if service['state']==1:
+            if scan['candidates']:
+                result['result']='stopped_process_conflict'
+                raise ValueError('dependency_registration_process_conflict')
+            result['result']='owned_start_required'
+            return True
+        result['result']='service_state_unavailable'
+        raise ValueError('dependency_service_state_unavailable')
     def command(self,action):
         if action not in ('query','install','start','stop'):raise ValueError('dependency_action')
         index=len(self.stages);request=self.directory/f'{self.op}-dependency-{index}.private'
@@ -3303,11 +3354,12 @@ class Nad1Owner:
             raise
         self.service_possibility='proved_absent' if service['registration']=='absent' else 'exact_registered'
         self.retirement_authorized=service['registration']=='exact'
-        absent=actual is None;unregistered=service['registration']=='absent'
+        absent=actual is None;unregistered=service['registration']=='absent';owned_start=False
         if unregistered and not absent and self.session_authority is not None:
             self.service_possibility='may_exist';self.retirement_authorized=False
             service=self._registration_reobserve();unregistered=False
-            self.service_possibility='exact_registered';self.retirement_authorized=True
+            self.service_possibility='exact_registered'
+            owned_start=self._revalidate_registration_ownership(service,actual)
         if absent or unregistered:
             if not allow_install:raise ValueError('dependency_qualified_registration_absent' if self.session_authority is not None else 'dependency_prepare_required')
             # Exact installer admission grants one retirement attempt even if
@@ -3321,7 +3373,13 @@ class Nad1Owner:
             if service['registration']!='exact':raise ValueError('dependency_install_registration_missing')
             self.service_possibility='exact_registered'
         self.daemon=actual
-        if service['state']==1:service=self.command('start')
+        if service['state']==1:
+            if owned_start:
+                # The stopped service and empty fresh census authorize only this
+                # operation's single exact start. Preserve cleanup authority if
+                # the owned start acknowledgment is lost after submission.
+                self.service_possibility='may_exist';self.retirement_authorized=True
+            service=self.command('start')
         elif service['state'] not in (2,4):raise ValueError('dependency_service_state_unavailable')
         deadline=time.monotonic()+25
         while time.monotonic()<deadline:
@@ -3411,6 +3469,7 @@ class Nad1Owner:
         if not self.retirement_authorized:
             # Unowned/conflicting candidates are never adopted or signalled.
             # Ordinary cleanup only owns this operation's cohort, not that service.
+            self.service_stop_request_count=0;self.service_stop_requested=False
             self.retirement_error='dependency_retirement_authority_unavailable'
             return False
         try:

@@ -98,6 +98,7 @@ def run(package,seal,out,*,cases=CASES):
   if scenario=='registration_handoff':
    if actions[:3]!=['query','query','start'] or actions.count('query')<3:raise ValueError('fixture_registration_reobservation_sequence')
    if dep['registration_reobservation']!={'attempted':True,'count':1,'delay_ms':1000,'result':'exact'}:raise ValueError('fixture_registration_reobservation_result')
+   if dep['registration_ownership_revalidation']!={'attempted':True,'result':'owned_start_required','candidate_count':0,'unavailable':0}:raise ValueError('fixture_registration_ownership_revalidation')
   elif scenario!='registration_absent' and dep['registration_reobservation']['attempted']:raise ValueError('fixture_unexpected_registration_reobservation')
   if scenario not in ('not_ready','registration_absent') and (r.get('effective') is None or r['renderer']['launch_binding']['status']!='bound'):raise ValueError('fixture_application_root')
   if scenario=='stop_failure' and r['error']!='application_outer_nonzero':raise ValueError('first_failure_replaced')

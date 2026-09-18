@@ -18,8 +18,14 @@ missing registration.
 This repair carries the complete validated session authority into `Nad1Owner` instead
 of reducing it to the daemon image. An initial exact 1060 observation for either closed
 session origin receives exactly one delayed query in the same operation-owned runtime.
-Exact registration continues into ordinary fresh readiness; another absence or an
-unavailable observation refuses before application launch. The repair performs no
+Exact registration is not process-generation ownership or retirement authority. After
+that delayed query reports exact registration, the owner revalidates the physical
+prefix and runs one fresh bounded process census. `RUNNING` or `START_PENDING` may
+continue only with one exact same-prefix generation already owned by this renderer
+cohort. `STOPPED` may continue only with no candidate, through this operation's one
+owned start. Unavailable, ambiguous, foreign, deleted-prefix, or same-prefix unowned
+candidates refuse before application launch and leave stop authority absent. Another
+SCM absence or an unavailable observation also refuses. The repair performs no
 registration mutation, installer replay, artifact/preparation synthesis, or second
 physical operation. A persistently absent real registration remains a separately
 reviewed product/design decision.

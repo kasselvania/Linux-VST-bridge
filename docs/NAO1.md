@@ -27,9 +27,17 @@ operation-owned runtime. This is observation only:
 initial exact 1060
 → retain full session authority and the same private runtime
 → one bounded fresh query
-→ exact registration: continue through ordinary start and fresh readiness
+→ exact registration: revalidate prefix and run a fresh bounded process census
+→ RUNNING/START_PENDING: continue only with one exact renderer-owned generation
+→ STOPPED: continue only with no candidate, through one operation-owned start
 → absent or unavailable: refuse before application launch
 ```
+
+Exact registration is not process ownership and does not itself grant retirement
+authority. An unavailable or ambiguous census, foreign or deleted-prefix candidate, or
+same-prefix unowned candidate refuses before application launch. A readiness failure
+before one exact generation is owned leaves retirement authority false, so terminal
+cleanup cannot submit a Stop request.
 
 No installer is replayed, no service configuration is written, and no artifact or
 preparation receipt is created. Persistent absence is reported distinctly as
