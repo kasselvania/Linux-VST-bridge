@@ -43,7 +43,7 @@ int wmain(int argc,wchar_t** argv){
     CloseHandle(request);if(!ok)return 122;
     std::wstring all(buffer.data(),bytes/2);std::vector<std::wstring> lines;size_t pos=0;
     for(;;){auto end=all.find(L'\n',pos);if(end==std::wstring::npos)break;lines.push_back(all.substr(pos,end-pos));pos=end+1;}
-    if(!lines.empty()&&lines[0]==L"NAD1_SERVICE_V1")return pos==all.size()?nad1_service_request(lines):123;
+    if(!lines.empty()&&(lines[0]==L"NAD1_SERVICE_V1"||lines[0]==L"NAD1_STOP_REQUEST_V2"))return pos==all.size()?nad1_service_request(lines):123;
     const bool callback=lines.size()==8&&lines[0]==L"NAUI2_AUTH_LAUNCH_V1";
     const bool renderer=lines.size()==8&&(lines[0]==L"NAUI2_LAUNCH_V1"||callback);
     if(pos!=all.size()||(!renderer&&(lines.size()!=7||lines[0]!=L"IS2_LAUNCH_V1"))||!hex(lines[1],32)||!hex(lines[2],64)||lines[3]!=L"2"||!hex(lines[4],64))return 123;

@@ -6,16 +6,24 @@ def run(build):
  if root.exists():raise ValueError('fixture_directory_already_exists')
  root.mkdir();shutil.copyfile(build/'nad1-service-fixture.exe',root/'Setup.exe')
  op=os.urandom(16).hex();token=os.urandom(32).hex();sha=hashlib.sha256((root/'Setup.exe').read_bytes()).hexdigest()
- anchor=None
+ anchor=None;generation=(0,0)
  def command(action):
-  nonlocal anchor
-  request=root/'request';request.write_bytes(('\n'.join(['NAD1_SERVICE_V1',op,token,action,sha,''])).encode('utf-16le'))
+  nonlocal anchor,generation
+  request=root/'request';fields=['NAD1_SERVICE_V1',op,token,action,sha]
+  if action=='stop':fields=['NAD1_STOP_REQUEST_V2',op,token,action,sha,*map(str,generation)]
+  request.write_bytes(('\n'.join([*fields,''])).encode('utf-16le'))
   if action=='start':
    anchor=subprocess.Popen([str(build/'nad1-service-adapter.exe'),str(request)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-   return anchor.stdout.readline().decode()
+   output=anchor.stdout.readline().decode()
+   fields=output.split()
+   if len(fields)==12 and fields[5]=='4':generation=(int(fields[6]),int(fields[7]))
+   return output
   p=subprocess.run([str(build/'nad1-service-adapter.exe'),str(request)],capture_output=True,timeout=60)
   if p.returncode:raise ValueError(('adapter_failure',action,p.returncode))
-  return p.stdout.decode()
+  output=p.stdout.decode();rows=[line.split() for line in output.splitlines() if line.startswith('NAD1_SCM_V1 ')]
+  if rows and rows[0][5]=='4':generation=(int(rows[0][6]),int(rows[0][7]))
+  elif rows and rows[0][5]=='1':generation=(0,0)
+  return output
  installed=False
  try:
   assert ' absent 1060 ' in command('query')
@@ -53,8 +61,28 @@ def run(build):
   assert ' exact 0 1 0 0 none ' in stopped
   assert anchor.wait(timeout=10)==0
   assert ' exact 0 1 0 0 none ' in command('query')
-  command('start')
+  command('start');deadline=time.monotonic()+15
+  while ' exact 0 4 ' not in command('query'):
+   assert time.monotonic()<deadline;time.sleep(.05)
   assert 'NAD1_RETIRE_V1 '+op+' '+token+' 1 ' in command('stop')
+  assert anchor.wait(timeout=10)==0
+  # Slow clean shutdown must be observed rather than rejected at STOP_PENDING.
+  (root/'delay-stop').touch();command('start')
+  deadline=time.monotonic()+15
+  while ' exact 0 4 ' not in command('query'):
+   assert time.monotonic()<deadline;time.sleep(.05)
+  stopped=command('stop');assert 'NAD1_RETIRE_V1 '+op+' '+token+' 1 ' in stopped
+  assert anchor.wait(timeout=10)==0
+  # An externally pending stop has already received its single control.
+  command('start');deadline=time.monotonic()+15
+  while ' exact 0 4 ' not in command('query'):
+   assert time.monotonic()<deadline;time.sleep(.05)
+  controls=(root/'events.private').read_text().count('stop_requested')
+  subprocess.run(['sc.exe','stop','NAD1FixtureService'],check=True,capture_output=True,timeout=10)
+  stopped=command('stop')
+  observation=next(line.split()[3:] for line in stopped.splitlines() if line.startswith('NAD1_STOP_OBSERVATION_V2 '))
+  assert observation[0]=='1' and observation[1]=='3' and observation[10]=='0',observation
+  assert (root/'events.private').read_text().count('stop_requested')==controls+1
   assert anchor.wait(timeout=10)==0
  finally:
   if installed:subprocess.run([str(root/'Setup.exe'),'--remove'],check=True,timeout=15)

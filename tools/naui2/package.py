@@ -3,6 +3,7 @@ import hashlib,json,os,pathlib,shutil,stat,subprocess,tempfile
 SOURCES={n:'tools/naui2/'+n for n in ('package.py','campaign.py','supervise.py','readback.py','application.cpp')}
 SOURCES.update({n:'bridge-manager/runtime/'+n for n in ('session.py','ownership.py')})
 SOURCES.update({'linker.py':'tools/is4/linker.py','Cargo.lock':'bridge-manager/Cargo.lock','Cargo.toml':'bridge-manager/Cargo.toml'})
+SOURCES['nad1_stop.h']='tools/is2/nad1_stop.h'
 SOURCES['nad1_service.h']='tools/is2/nad1_service.h'
 SOURCES.update({'launch.cpp':'tools/is2/launch.cpp','binding.rs':'bridge-manager/examples/naui2_binding.rs','application.rs':'bridge-manager/src/renderer_application.rs','lifecycle.rs':'bridge-manager/src/renderer_session.rs','operator_cli.rs':'bridge-manager/src/operator_cli.rs'})
 SOURCES['native_access_callback.h']='tools/is2/native_access_callback.h'

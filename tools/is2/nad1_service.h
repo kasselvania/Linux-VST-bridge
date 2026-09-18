@@ -3,6 +3,7 @@
 #include <winsvc.h>
 #include <iphlpapi.h>
 #include <cstddef>
+#include "nad1_stop.h"
 #ifdef NAD1_GENERATED_SERVICE
 static constexpr auto nad1_service=L"NAD1FixtureService";
 static constexpr auto nad1_image=L"C:\\NAD1Fixture\\NTKDaemon.exe";
@@ -28,7 +29,8 @@ static DWORD nad1_endpoints(DWORD pid) {
     FreeLibrary(dll);return mask;
 }
 static int nad1_service_request(const std::vector<std::wstring>& r) {
-    if(r.size()!=5 || r[0]!=L"NAD1_SERVICE_V1" || !hex(r[1],32) || !hex(r[2],64)
+    const bool stop_v2=r.size()==7&&r[0]==L"NAD1_STOP_REQUEST_V2"&&r[3]==L"stop";
+    if((!stop_v2&&(r.size()!=5 || r[0]!=L"NAD1_SERVICE_V1" || r[3]==L"stop")) || !hex(r[1],32) || !hex(r[2],64)
        || (r[3]!=L"query" && r[3]!=L"start" && r[3]!=L"stop" && r[3]!=L"install") || !hex(r[4],64)) return 140;
     if(r[3]==L"install") {
         HANDLE image=CreateFileW(nad1_installer,GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
@@ -68,36 +70,56 @@ static int nad1_service_request(const std::vector<std::wstring>& r) {
     ok=ok&&config->dwServiceType==SERVICE_WIN32_OWN_PROCESS&&config->lpBinaryPathName
        && (expected==config->lpBinaryPathName || quoted==config->lpBinaryPathName);
     if(!ok){CloseServiceHandle(service);CloseServiceHandle(scm);return 147;}
-    // Stop authority keeps a handle to the exact pre-stop Windows generation.
-    // A later PID reuse cannot turn a different process into retirement proof.
+    // Only a prior RUNNING observation may supply a pending service generation.
+    // Request material remains private and cannot be selected by an operator.
     if(r[3]==L"stop") {
-        SERVICE_STATUS_PROCESS before{};DWORD count=0;HANDLE process=nullptr;
-        bool observed=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&before),sizeof(before),&count)!=FALSE;
-        unsigned long long created=0;DWORD pid=observed?before.dwProcessId:0;
-        if(observed && pid) {
+        auto number=[](const std::wstring& text,unsigned long long& value){
+            if(text.empty()||text.size()>20)return false;value=0;
+            for(auto c:text){if(c<L'0'||c>L'9')return false;auto d=static_cast<unsigned>(c-L'0');
+                if(value>(0xffffffffffffffffULL-d)/10)return false;value=value*10+d;}return true;};
+        unsigned long long prior_pid=0,prior_created=0;
+        if(!number(r[5],prior_pid)||!number(r[6],prior_created)||prior_pid>0xffffffffULL||(prior_pid==0)!=(prior_created==0)){CloseServiceHandle(service);CloseServiceHandle(scm);return 140;}
+        SERVICE_STATUS_PROCESS initial{};DWORD count=0;
+        bool queried=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&initial),sizeof(initial),&count)!=FALSE;
+        DWORD first_error=queried?0:GetLastError();HANDLE process=nullptr;DWORD pid=0;unsigned long long created=0;
+        bool valid=queried;DWORD identity_error=0;
+        if(queried&&initial.dwCurrentState==SERVICE_RUNNING){
+            pid=initial.dwProcessId;
+            if(prior_pid&&pid!=prior_pid){valid=false;identity_error=ERROR_INVALID_DATA;}
+        }else if(queried&&prior_pid)pid=static_cast<DWORD>(prior_pid);
+        else if(queried&&initial.dwCurrentState!=SERVICE_STOPPED){valid=false;identity_error=ERROR_INVALID_DATA;}
+        if(valid&&pid){
             process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION|SYNCHRONIZE,FALSE,pid);
             std::array<wchar_t,32768> path{};DWORD length=static_cast<DWORD>(path.size());
-            observed=process&&QueryFullProcessImageNameW(process,0,path.data(),&length)&&_wcsicmp(path.data(),nad1_image)==0;
-            if(observed){created=time_of(process);observed=created!=0;}
-        } else if(observed) observed=before.dwCurrentState==SERVICE_STOPPED;
-        DWORD request_error=0;bool confirmed=false;DWORD mask=4;SERVICE_STATUS_PROCESS after{};
-        if(observed) {
-            SERVICE_STATUS ignored{};
-            if(!ControlService(service,SERVICE_CONTROL_STOP,&ignored))request_error=GetLastError();
-            if(request_error==0 || request_error==ERROR_SERVICE_NOT_ACTIVE) {
-                auto deadline=GetTickCount64()+12000;
-                do {
-                    bool queried=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&after),sizeof(after),&count)!=FALSE;
-                    bool exited=!process || WaitForSingleObject(process,0)==WAIT_OBJECT_0;
-                    mask=pid?nad1_endpoints(pid):0;
-                    if(queried&&after.dwCurrentState==SERVICE_STOPPED&&after.dwProcessId==0&&exited&&mask==0){confirmed=true;break;}
-                    Sleep(50);
-                }while(GetTickCount64()<deadline);
-            }
+            valid=process&&QueryFullProcessImageNameW(process,0,path.data(),&length)&&_wcsicmp(path.data(),nad1_image)==0;
+            if(valid){created=time_of(process);valid=created!=0&&(!prior_created||created==prior_created);}
+            if(!valid)identity_error=ERROR_INVALID_DATA;
         }
-        std::fprintf(stdout,"NAD1_RETIRE_V1 %ls %ls %u %lu %llu %lu\n",r[1].c_str(),r[2].c_str(),confirmed?1u:0u,pid,created,mask);
-        if(confirmed)std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls exact %lu 1 0 0 none %lu %lu 0\n",r[1].c_str(),r[2].c_str(),request_error,after.dwWin32ExitCode,after.dwServiceSpecificExitCode);
-        std::fflush(stdout);if(process)CloseHandle(process);CloseServiceHandle(service);CloseServiceHandle(scm);return confirmed?0:149;
+        struct IO {
+            SC_HANDLE service;HANDLE process;DWORD pid;SERVICE_STATUS_PROCESS first;DWORD first_error;bool initial=true;
+            const std::vector<std::wstring>& request;
+            uint64_t now(){return GetTickCount64();}
+            Nad1StopStatus query(){
+                SERVICE_STATUS_PROCESS st{};DWORD count=0,error=0;
+                if(initial){st=first;error=first_error;initial=false;}
+                else if(!QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&st),sizeof(st),&count))error=GetLastError();
+                return {st.dwCurrentState,st.dwCheckPoint,st.dwWaitHint,st.dwWin32ExitCode,st.dwServiceSpecificExitCode,error};
+            }
+            void begin_control(uint32_t state){std::fprintf(stdout,"NAD1_STOP_BEGIN_V1 %ls %ls %u\n",request[1].c_str(),request[2].c_str(),state);std::fflush(stdout);}
+            uint32_t stop(){SERVICE_STATUS st{};return ControlService(service,SERVICE_CONTROL_STOP,&st)?0:GetLastError();}
+            uint32_t wait(uint32_t& error){DWORD result=process?WaitForSingleObject(process,0):WAIT_OBJECT_0;error=result==WAIT_FAILED?GetLastError():0;return result;}
+            uint32_t endpoints(){return pid?nad1_endpoints(pid):0;}
+            void sleep(){Sleep(50);}
+        } io{service,process,pid,initial,first_error,true,r};
+        auto result=nad1_observe_stop(io,valid);
+        std::fprintf(stdout,"NAD1_STOP_OBSERVATION_V2 %ls %ls %u %u %u %u %u %u %u %u %u %u %u %u %llu %llu %llu %u %u %u %u %u\n",
+            r[1].c_str(),r[2].c_str(),result.confirmed?1u:0u,result.before.state,result.before.error,result.last.state,result.last.error,
+            result.last.checkpoint,result.last.hint,result.process_wait,result.wait_error,result.endpoints,result.control_sent?1u:0u,result.control_error,
+            static_cast<unsigned long long>(result.control_started),static_cast<unsigned long long>(result.control_elapsed),static_cast<unsigned long long>(result.elapsed),
+            result.queries,result.progress,static_cast<unsigned>(identity_error),result.last.win32,result.last.specific);
+        std::fprintf(stdout,"NAD1_RETIRE_V1 %ls %ls %u %lu %llu %u\n",r[1].c_str(),r[2].c_str(),result.confirmed?1u:0u,pid,created,result.endpoints);
+        if(result.confirmed)std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls exact %u 1 0 0 none %u %u 0\n",r[1].c_str(),r[2].c_str(),result.control_error,result.last.win32,result.last.specific);
+        std::fflush(stdout);if(process)CloseHandle(process);CloseServiceHandle(service);CloseServiceHandle(scm);return result.confirmed?0:149;
     }
     DWORD request_error=0;
     if(r[3]==L"start"&&!StartServiceW(service,0,nullptr)){request_error=GetLastError();if(request_error!=ERROR_SERVICE_ALREADY_RUNNING){CloseServiceHandle(service);CloseServiceHandle(scm);return 148;}}
@@ -115,7 +137,7 @@ static int nad1_service_request(const std::vector<std::wstring>& r) {
         if(process)CloseHandle(process);
         if(!created||image_hash.size()!=64)ok=false;
     }
-    if(ok)std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls exact %lu %lu %lu %llu %s %lu %lu %lu\n",r[1].c_str(),r[2].c_str(),request_error,status.dwCurrentState,status.dwProcessId,created,image_hash.c_str(),status.dwWin32ExitCode,status.dwServiceSpecificExitCode,endpoints);
+    if(ok)std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls exact %lu %lu %lu %llu %s %lu %lu %lu\n",r[1].c_str(),r[2].c_str(),request_error,status.dwCurrentState,status.dwCurrentState==SERVICE_RUNNING?status.dwProcessId:0,created,image_hash.c_str(),status.dwWin32ExitCode,status.dwServiceSpecificExitCode,endpoints);
     std::fflush(stdout);
     // Normal use has no wall-clock deadline. The owner bounds cancellation and
     // cleanup separately. Retain one service generation; never adopt a restart.

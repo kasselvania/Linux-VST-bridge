@@ -20,7 +20,12 @@ static void WINAPI service_main(DWORD,LPWSTR*){
  const bool ready=GetFileAttributesW(L"C:\\NAD1Fixture\\not-ready") == INVALID_FILE_ATTRIBUTES;
  if(ready){int i=0;for(unsigned short port:{5146,5563}){SOCKET s=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);sockaddr_in addr{};addr.sin_family=AF_INET;addr.sin_addr.s_addr=htonl(INADDR_LOOPBACK);addr.sin_port=htons(port);
   if(s==INVALID_SOCKET||bind(s,reinterpret_cast<sockaddr*>(&addr),sizeof(addr))!=0||listen(s,2)!=0){if(s!=INVALID_SOCKET)closesocket(s);status.dwWin32ExitCode=2;for(auto old:sockets)if(old!=INVALID_SOCKET)closesocket(old);publish(SERVICE_STOPPED);return;}sockets[i++]=s;}}
- publish(SERVICE_RUNNING);WaitForSingleObject(stop_event,90000);
+ publish(SERVICE_RUNNING);
+ if(GetFileAttributesW(L"C:\\NAD1Fixture\\self-stop")!=INVALID_FILE_ATTRIBUTES){audit("self_stop");publish(SERVICE_STOP_PENDING);SetEvent(stop_event);}
+ WaitForSingleObject(stop_event,90000);
+ if(GetFileAttributesW(L"C:\\NAD1Fixture\\delay-stop")!=INVALID_FILE_ATTRIBUTES){
+  for(DWORD i=1;i<=30;i++){status.dwCheckPoint=i;status.dwWaitHint=2000;publish(SERVICE_STOP_PENDING);Sleep(100);}}
+
  for(auto s:sockets)if(s!=INVALID_SOCKET)closesocket(s);WSACleanup();CloseHandle(stop_event);publish(SERVICE_STOPPED);
 }
 int wmain(int argc,wchar_t**argv){

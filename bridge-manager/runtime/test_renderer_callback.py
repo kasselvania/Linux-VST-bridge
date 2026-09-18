@@ -45,6 +45,7 @@ class RuntimePrivacyTests(unittest.TestCase):
   runtime=object.__new__(s.Nad1Runtime)
   runtime.owner=types.SimpleNamespace(diagnostic_privacy=True)
   runtime.capture=Mock();runtime.output=bytearray();runtime.sel=Mock()
+  runtime.pump_thread=None;runtime.pump_error=None;runtime.ready=True;runtime.discarded_private=0;runtime.output_lock=__import__("threading").Lock()
   runtime.sel.select.return_value=[(types.SimpleNamespace(fileobj=types.SimpleNamespace(fileno=lambda:4),data='stderr'),None)]
   with patch.object(s.os,'read',return_value=b'generated-return-code'):
    runtime.drain()
