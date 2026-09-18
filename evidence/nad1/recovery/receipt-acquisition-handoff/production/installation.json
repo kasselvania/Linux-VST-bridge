@@ -1,0 +1,105 @@
+{
+  "approved_executable_source": "0b2ca827b5a10e36027c9d7286c887c5683fa520",
+  "approved_head": "92bb809801e773b6f86726c9a2657e012b5db224",
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "daemon_unchanged": true,
+  "dependency_current_unchanged": true,
+  "dependency_preparation_receipt_created": false,
+  "dependency_prepare_selected": false,
+  "dependency_prepared_unchanged": true,
+  "environment_records_unchanged": 7,
+  "frontend_agreement": {
+    "action_submitted": false,
+    "frontend_activity_decoded": true,
+    "frontend_snapshot_decoded": true,
+    "gui_launched": false,
+    "operator_schema": 7
+  },
+  "imports_environments_histories_unchanged": true,
+  "installed_artifacts": {
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "installer_launch": "b45362127398f960d911279cba613b272bcf4eb29bb574164f3b72c2e26cf7e4",
+    "manager": "d5d2bb08f66d1de36a626b0938fe54481f665c02073f385433ed2953d2bf4d20",
+    "native_catalogue": "9fd747ce393deb436783a67a98bafdf596cc529176c37221e5564e708194ccf2",
+    "operator_frontend": "81d373a1788b7554a9990789f4ca8d3b81b8b772a7a37e2666458f3b16bfb1fa",
+    "ownership": "cc81d05876043ccf96c1540c556a790e62f57f4a6e72aabbd820a5d133311add",
+    "preparation_kit": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "supervisor": "069c2408ef0abc0582e009a5409f39348a215964094233780c8f129a5d3c1129"
+  },
+  "merge_commit": "710b0f3be642cca342f2a5915d37158246023aed",
+  "merged_main_workflows": [
+    {
+      "conclusion": "success",
+      "databaseId": 35304856700,
+      "headSha": "710b0f3be642cca342f2a5915d37158246023aed",
+      "name": "AP8 Windows host",
+      "status": "completed",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35304856700"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 35304857556,
+      "headSha": "710b0f3be642cca342f2a5915d37158246023aed",
+      "name": "AP12 registered owner",
+      "status": "completed",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35304857556"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 35304826401,
+      "headSha": "710b0f3be642cca342f2a5915d37158246023aed",
+      "name": "PX2 proof policy",
+      "status": "completed",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35304826401"
+    }
+  ],
+  "merged_tree": "77efd70fac7985a051343407d4ec13ca183422a8",
+  "native_access_closed": true,
+  "operator_schema_after": 7,
+  "operator_schema_before": 7,
+  "package_sha256": "208eba63cd5cfbc5b92ea5792d96b55d0c57d876d603c736816152e5c3d4c991",
+  "predecessor_retained": true,
+  "preservation_counts": {
+    "immediate_predecessor": 23,
+    "older_predecessor_files": 23,
+    "predecessor_files": 23,
+    "projects": 5,
+    "protected": 143,
+    "retained": 307
+  },
+  "previous_generation": "1b80d78e644c9783c9373f07d5e3daaa0c381f8b46d6b907605816b916c7f6d0",
+  "previous_software_record_sha256": "6feb9e810aaeaf3463da7a8f396a40fc0cd98dc7a638d0c8783a4a0aade63bb7",
+  "private_sha256": {
+    "after.private.json": "e7be42962dfb49d17dd19e619210d62c0241406f1f8ba53013cb3e2d631d355e",
+    "before.private.json": "22487905b13f21f69195f8f5be1b2eacc3cf624c9c365322c6d2488c4d754b43",
+    "installation-attempt.json": "f1202d78b77f781847ad89c5507ae50c5d3f54779105bd2885eb4e8f247edd10",
+    "installation.private.json": "752a708070433faae940f7749a800c1c3b7e669680e8dbce9b1b7d16a5fffe40",
+    "preflight.json": "ba1957f4716ffa4ea3e4ff6d810f67b63c97e988a8bbfa09991228ffec5075fe",
+    "setup.private.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "production_installs": 1,
+  "products_unchanged": true,
+  "projects_and_retained_evidence_unchanged": true,
+  "publications_unchanged": true,
+  "real_scm_transition": false,
+  "records_unchanged": 309,
+  "resume_pending": false,
+  "schema": 1,
+  "selected_generation": "67e3004b087fe1dbb9c1bbd2c0b667a3eab1d1ac8cf14f7931f5ac37bb38880f",
+  "selected_software_record_sha256": "bd831fb3659ea27bc52d07bd63327206e46efb87e76af29c604c6ee281a96553",
+  "service_registration_unchanged": true,
+  "system": {
+    "ceiling": 6,
+    "cleanup_unconfirmed": false,
+    "dsp": 0,
+    "keepers": 2,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "service": "active",
+    "stale_transports": 0
+  }
+}

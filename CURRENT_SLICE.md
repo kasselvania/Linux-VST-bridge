@@ -539,3 +539,24 @@ unchanged-evidence records are under
 `evidence/nad1/recovery/receipt-acquisition-handoff/`. No device/vendor operation,
 installation or real daemon transition occurred. PR #121 remains draft for
 rereview; real-daemon shutdown remains unqualified.
+
+## PR #121 release and real qualification result
+
+The tech lead approved final head `92bb809801e773b6f86726c9a2657e012b5db224`
+with executable source `0b2ca827b5a10e36027c9d7286c887c5683fa520`. It merged as
+`710b0f3be642cca342f2a5915d37158246023aed`; the reviewed and merged tree is
+`77efd70fac7985a051343407d4ec13ca183422a8`. Merged-main AP8, AP12 and PX2 passed.
+One immutable manager generation was installed without a dependency transition.
+
+The one authorized real operation `f4a2b703d8ea518d14c893c480fd93ed` selected
+`recover_installed` and established fresh exact-generation readiness with both owned
+listeners. Its single SCM stop request did not retire the service: the helper returned
+149, process wait timed out, SCM remained RUNNING and both listeners remained. The
+receipt fallback was not applicable because process acquisition succeeded. Bounded
+forced cleanup completed, the bridge and both keepers recovered to idle, and no
+successful preparation receipt was created. Preserve the exact disposition
+`REAL_DAEMON_SHUTDOWN_RETIREMENT_UNCONFIRMED` (manager error
+`dependency_command_nonzero`). Do not repeat this physical check or claim reliable
+daemon shutdown from generated evidence. Native Access remains closed. Sanitized
+installation and operation receipts are under
+`evidence/nad1/recovery/receipt-acquisition-handoff/production/`.
