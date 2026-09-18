@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "status": "static_overlay_application_passed",
+  "kernel_package": {
+    "name": "linux-image-6.18.50+rpt-rpi-v8",
+    "version": "1:6.18.50-1+rpt1",
+    "sha256": "8d44827fea22875e0f801252bdbc0f541c03144e970caafa3115bf485ff3c4bd"
+  },
+  "base_dtb": {
+    "path_in_package": "usr/lib/modules/6.18.50+rpt-rpi-v8/dtb/broadcom/bcm2711-rpi-4-b.dtb",
+    "sha256": "75761b73c284e26623e4d1624bff13e67bce2ae620880efd81d6571a3739fcfb"
+  },
+  "overlay": {
+    "source_sha256": "b3ed0036060b27365d6fc1cf8212a2b27131af6666f612111ad5c88742b6967a",
+    "dtbo_sha256": "272febea28603b08600126770ae1d3f6238f2d08340f3e17d79613c691e62448",
+    "compiler": "DTC 1.7.2"
+  },
+  "application": {
+    "tool": "fdtoverlay from DTC 1.7.2",
+    "result": "pass",
+    "resulting_dtb_sha256": "fadedf19ba3ade6e3593ce018233e26d699ec1a0a86ced3302842852ff3722ba",
+    "resolved_nodes": [
+      "/soc/sound",
+      "/soc/i2c@7e804000/codec@48",
+      "/soc/spi@7e204000/spidev@0",
+      "/shieldxl-encoder-1",
+      "/shieldxl-encoder-2",
+      "/shieldxl-encoder-3",
+      "/shieldxl-button-1",
+      "/shieldxl-button-2",
+      "/shieldxl-button-3"
+    ]
+  },
+  "nonclaim": "Static application proves symbol and tree compatibility with the packaged Pi 4 DTB only. It does not prove boot, probe, electrical behavior, or physical hardware acceptance."
+}

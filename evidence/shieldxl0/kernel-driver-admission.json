@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "status": "current_distribution_kernel_deficiency_preserved",
+  "observed_at_utc": "2026-09-18T17:00:00Z",
+  "image": {
+    "filename": "2026-09-15-raspios-trixie-arm64-lite.img.xz",
+    "sha256": "cdf4f3bfac35ae947b46e4e767f935453810549779ac3290e05a6754aee627e5"
+  },
+  "inspected_kernel_package": {
+    "name": "linux-image-6.18.50+rpt-rpi-v8",
+    "version": "1:6.18.50-1+rpt1",
+    "sha256": "8d44827fea22875e0f801252bdbc0f541c03144e970caafa3115bf485ff3c4bd",
+    "published_sha256_verified": true,
+    "config_path": "boot/config-6.18.50+rpt-rpi-v8"
+  },
+  "config_results": {
+    "CONFIG_SND_BCM2835_SOC_I2S": "m",
+    "CONFIG_SND_SIMPLE_CARD": "m",
+    "CONFIG_INPUT_GPIO_ROTARY_ENCODER": "m",
+    "CONFIG_KEYBOARD_GPIO": "m",
+    "CONFIG_SPI_SPIDEV": "m",
+    "CONFIG_SND_SOC_CS4270": "not set"
+  },
+  "decision": {
+    "retain_distribution_kernel": true,
+    "custom_kernel_image": false,
+    "bounded_repair": "Build the unmodified upstream Linux v6.18 CS4270 codec as one out-of-tree module against the exact distribution headers.",
+    "oled": "Use the distribution spidev module and a bounded user-space service; do not carry the historical fbtft SSD1322 driver."
+  },
+  "nonclaim": "Package inspection proves driver configuration only. It does not prove that the module loads or the physical codec works on the Pi fixture."
+}

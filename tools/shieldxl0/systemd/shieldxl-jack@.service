@@ -1,0 +1,21 @@
+[Unit]
+Description=ShieldXL JACK2 audio server for %i
+After=sound.target
+ConditionPathExists=/dev/snd
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+SupplementaryGroups=audio
+EnvironmentFile=/etc/shieldxl0/jack.env
+Environment=JACK_NO_AUDIO_RESERVATION=1
+LimitRTPRIO=90
+LimitMEMLOCK=infinity
+ExecStart=/usr/bin/jackd -R -P 70 -d alsa -d hw:SHIELDXL -r ${SHIELDXL_SAMPLE_RATE} -p ${SHIELDXL_PERIOD_FRAMES} -n ${SHIELDXL_PERIODS} -S -X seq
+Restart=on-failure
+RestartSec=2s
+TimeoutStopSec=10s
+
+[Install]
+WantedBy=multi-user.target

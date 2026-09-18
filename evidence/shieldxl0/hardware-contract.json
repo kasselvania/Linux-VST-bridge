@@ -1,0 +1,103 @@
+{
+  "$schema": "hardware-contract.schema.json",
+  "schema_version": 1,
+  "acceptance_status": "pending_physical_fixture",
+  "pi": {
+    "model": null,
+    "revision": null,
+    "ram_bytes": null
+  },
+  "os": {
+    "image": "2026-09-15-raspios-trixie-arm64-lite.img.xz",
+    "release": "Raspberry Pi OS Trixie 2026-09-15",
+    "image_sha256": "cdf4f3bfac35ae947b46e4e767f935453810549779ac3290e05a6754aee627e5",
+    "architecture": null,
+    "page_size": null,
+    "repositories": null,
+    "package_manifest": null
+  },
+  "kernel": {
+    "release": null,
+    "package": "linux-image-6.18.50+rpt-rpi-v8",
+    "package_version": "1:6.18.50-1+rpt1",
+    "firmware_package": "raspi-firmware",
+    "firmware_version": "1:1.20260907-1",
+    "cs4270_module_sha256": null
+  },
+  "prior_art": [
+    {"repository": "https://github.com/okyeron/shieldXL", "commit": "eace215e99e8e0c3cb06dcd029ff14964da433c2"},
+    {"repository": "https://github.com/monome/linux", "commit": "458e2253667a09bd01f1d50cc2b4063c14c491ec"}
+  ],
+  "overlays": [
+    {
+      "source": "tools/shieldxl0/overlays/shieldxl0-overlay.dts",
+      "source_sha256": "b3ed0036060b27365d6fc1cf8212a2b27131af6666f612111ad5c88742b6967a",
+      "binary": "tools/shieldxl0/overlays/shieldxl0.dtbo",
+      "binary_sha256": "272febea28603b08600126770ae1d3f6238f2d08340f3e17d79613c691e62448",
+      "compiler": "DTC 1.7.2"
+    }
+  ],
+  "audio": {
+    "alsa_card_id": null,
+    "playback_pcm": null,
+    "capture_pcm": null,
+    "sample_rate_hz": 48000,
+    "accepted_formats": [],
+    "mixer_state_sha256": null,
+    "silent_playback": null,
+    "tone_audible": null,
+    "capture": null,
+    "physical_loopback": null,
+    "repeated_open_close": null,
+    "reboot_identity_preserved": null
+  },
+  "audio_server": {
+    "implementation": "JACK2",
+    "version": "1.9.22~dfsg-4",
+    "ordinary_user": null,
+    "ports": {"capture": [], "playback": [], "midi": []},
+    "configurations": [],
+    "recommended_period_frames": null,
+    "clean_restart": null
+  },
+  "midi": {
+    "usb": {"identity": null, "alsa_port": null, "jack_port": null, "events": null, "disconnect_reconnect": null},
+    "trs_uart": {"status": "not_implemented_first_pass", "type_switch": null, "input": null, "output": null}
+  },
+  "controls": {
+    "reader": "/usr/local/libexec/shieldxl0/controls.py",
+    "event_format": "JSON Lines: encoder{index,delta,monotonic_ns} or button{index,pressed,monotonic_ns}",
+    "encoders": [],
+    "buttons": []
+  },
+  "oled": {
+    "interface": "/run/shieldxl0/oled.sock",
+    "geometry": {"width": 128, "height": 64},
+    "orientation_degrees": 180,
+    "logical_format": "4-bit grayscale",
+    "wire_format": "one duplicated-nibble byte per logical pixel",
+    "maximum_update_hz": 20,
+    "clear_fill_text_numeric": null,
+    "clean_restart": null,
+    "audio_independent_failure": true
+  },
+  "thermal": {
+    "bounded_run_max_c": null,
+    "throttling_flags_before": null,
+    "throttling_flags_after": null,
+    "no_throttling": null,
+    "cpu_governor": null,
+    "observed_clock_range_hz": null
+  },
+  "provisioning": {
+    "commit": null,
+    "paths": ["tools/shieldxl0", "evidence/shieldxl0"],
+    "rollback": "tools/shieldxl0/uninstall.sh",
+    "physical_verification_completed": false
+  },
+  "known_limitations": [
+    "Physical Raspberry Pi 4 and ShieldXL verification has not run.",
+    "Exact Pi revision, RAM, ALSA/JACK identities, XRUNs, controls, USB MIDI, OLED, and thermal results remain unobserved.",
+    "ShieldXL TRS/UART MIDI is deliberately deferred; USB MIDI is the required first path."
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "captured_at_utc": "2026-09-18T17:00:00Z",
+  "os_image": {
+    "name": "Raspberry Pi OS Lite (64-bit), Debian Trixie",
+    "release": "2026-09-15",
+    "architecture": "arm64",
+    "filename": "2026-09-15-raspios-trixie-arm64-lite.img.xz",
+    "url": "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2026-09-15/2026-09-15-raspios-trixie-arm64-lite.img.xz",
+    "sha256": "cdf4f3bfac35ae947b46e4e767f935453810549779ac3290e05a6754aee627e5",
+    "signature_url": "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2026-09-15/2026-09-15-raspios-trixie-arm64-lite.img.xz.sig",
+    "build_source": {
+      "repository": "https://github.com/RPi-Distro/pi-gen",
+      "commit": "2c235fa703cacb65e0fe0b2ab2fcb23d44dfd268",
+      "stage": "stage2"
+    }
+  },
+  "kernel": {
+    "release": "6.18.50+rpt-rpi-v8",
+    "package": "linux-image-6.18.50+rpt-rpi-v8",
+    "package_version": "1:6.18.50-1+rpt1",
+    "package_url": "https://archive.raspberrypi.com/debian/pool/main/l/linux/linux-image-6.18.50+rpt-rpi-v8_6.18.50-1+rpt1_arm64.deb",
+    "package_sha256": "8d44827fea22875e0f801252bdbc0f541c03144e970caafa3115bf485ff3c4bd",
+    "config_admission": {
+      "CONFIG_SND_BCM2835_SOC_I2S": "m",
+      "CONFIG_SND_SIMPLE_CARD": "m",
+      "CONFIG_INPUT_GPIO_ROTARY_ENCODER": "m",
+      "CONFIG_KEYBOARD_GPIO": "m",
+      "CONFIG_SPI_SPIDEV": "m",
+      "CONFIG_SND_SOC_CS4270": "not set"
+    }
+  },
+  "firmware": {
+    "package": "raspi-firmware",
+    "version": "1:1.20260907-1",
+    "eeprom_package": "rpi-eeprom",
+    "eeprom_package_version": "28.31-1"
+  },
+  "prior_art": [
+    {
+      "repository": "https://github.com/okyeron/shieldXL",
+      "commit": "eace215e99e8e0c3cb06dcd029ff14964da433c2",
+      "license": "GPL-3.0",
+      "inspected_files": {
+        "README.md": "bb7d364d22ed8089893dfd68ff49da5fcf42c912cc785c490122f8111f7266d1",
+        "install/boot/config.txt": "b5f413ea5fc7bba0ef0c60c38df3e8319b34fd8f9c420f199b092a92fba4f97a",
+        "install-midi.sh": "98549bbd19943c4cf60dd30e31d1d046549f91d5eabc83b0f8fee7974445e773",
+        "install/systemd/ttymidi0.service": "09f182da85702d8db0de946d52cf7eccd8ab76567312e6db04755cb18b48dd32"
+      }
+    },
+    {
+      "repository": "https://github.com/monome/linux",
+      "commit": "458e2253667a09bd01f1d50cc2b4063c14c491ec",
+      "license": "GPL-2.0-only",
+      "inspected_files": {
+        "arch/arm/boot/dts/overlays/monome-snd-4270-overlay.dts": "84bb3120df3abdfcfe98a6a729e72f36c7770abadd39f34d4b420856f450640d",
+        "arch/arm/boot/dts/overlays/norns-buttons-encoders-overlay.dts": "9d4a9a744cbef0f7ada978bbe0ffcd1c538152de3e1f2e02fbbbf3d4aab4de20",
+        "arch/arm/boot/dts/overlays/ssd1322-spi-overlay.dts": "54ca5ff3168d50019ad24d2244f4925360ae2e324c423c61440191b1b8fcc30d"
+      }
+    }
+  ],
+  "upstream_cs4270": {
+    "repository": "https://github.com/torvalds/linux",
+    "tag": "v6.18",
+    "tag_commit": "7d0a66e4bb9081d75c82ec4957c50034cb0ea449",
+    "source_path": "sound/soc/codecs/cs4270.c",
+    "source_sha256": "ec028f382ec93a795d5c6abaf40acb47e9c0ff5eccc0a1de934d581b49bc0029",
+    "binding_path": "Documentation/devicetree/bindings/sound/cirrus,cs4270.yaml",
+    "binding_sha256": "d19dd81a375936e9ddcb7e5f00a2fdaad42d724b3d6124f9a95a7f4dbdb0932d",
+    "license": "GPL-2.0-only"
+  },
+  "adapted_overlay": {
+    "source": "overlays/shieldxl0-overlay.dts",
+    "source_sha256": "b3ed0036060b27365d6fc1cf8212a2b27131af6666f612111ad5c88742b6967a",
+    "binary": "overlays/shieldxl0.dtbo",
+    "binary_sha256": "272febea28603b08600126770ae1d3f6238f2d08340f3e17d79613c691e62448",
+    "compiler": "DTC 1.7.2",
+    "command": "dtc -@ -H epapr -I dts -O dtb -o shieldxl0.dtbo shieldxl0-overlay.dts",
+    "license": "GPL-2.0-only"
+  },
+  "image_packages_used_without_addition": {
+    "alsa-utils": "1.2.14-1+rpt1",
+    "device-tree-compiler": "1.7.2-2+b1",
+    "gpiod": "2.2.1-2+deb13u1",
+    "kmod": "34.2-2",
+    "python3": "3.13.5-1",
+    "python3-libgpiod": "2.2.1-2+deb13u1",
+    "python3-smbus2": "0.4.3-1",
+    "python3-spidev": "3.6-1+b6"
+  },
+  "packages_added_by_provisioning": {
+    "evtest": {
+      "version": "1:1.35-1+b1",
+      "sha256": "7fee662f317a35b27325b7beaf7c3e82ddabf508b5ab49e39ee83a34343338c4"
+    },
+    "i2c-tools": {
+      "version": "4.4-2",
+      "sha256": "3123635e7da9c00d96daa24be09fda90c2f8e571702e4b515a910ee27b43d062"
+    },
+    "jackd2": {
+      "version": "1.9.22~dfsg-4",
+      "sha256": "9dfd3a8d4edfcb9f63be1c522eae2d187151ba1a77e650630ac990edb5318e2e"
+    }
+  }
+}
