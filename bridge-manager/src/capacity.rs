@@ -110,8 +110,27 @@ pub struct Envelope {
 }
 
 pub fn status(m: &Manager, limits: Limits, workers: usize, blocked: bool) -> Result<Status> {
+    status_with_wait(m, limits, workers, blocked, std::time::Duration::from_secs(2))
+}
+
+fn status_with_wait(
+    m: &Manager,
+    limits: Limits,
+    workers: usize,
+    blocked: bool,
+    wait: std::time::Duration,
+) -> Result<Status> {
     limits.verify()?;
-    let _lock = m.lock("registry.lock")?;
+    // UI polls and operator validation share this registry. A readback may
+    // briefly wait for their lock; admission below remains fail-fast. Read all
+    // owners only after acquisition, never reuse an earlier healthy snapshot.
+    // Two seconds leaves room inside the LVC1 client's five-second read bound.
+    let (_lock, _) = m.lock_bounded(
+        operator_model::OperatorLock::Registry,
+        operator_model::LockPurpose::OperatorReadback,
+        None,
+        wait,
+    )?;
     let extended = limits == service_limits()?;
     let ordinary_limits = fixture_limits();
     let verified = verified_envelope(m, if extended { &ordinary_limits } else { &limits })?;
@@ -481,6 +500,50 @@ mod tests {
         private_dir(path.parent().unwrap()).unwrap();
         atomic_json(&path, &report).unwrap();
         path
+    }
+    #[test]
+    fn status_waits_for_contention_and_reads_new_owners() {
+        let f = Fixture::new();
+        let held = f.m.lock("registry.lock").unwrap();
+        std::thread::scope(|scope| {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let m = &f.m;
+            let reader = scope.spawn(move || {
+                tx.send(()).unwrap();
+                status(m, limits(), 1, false).unwrap()
+            });
+            rx.recv().unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(40));
+            lease(&f, &limits().classes[0].class_id, Kind::Inspection);
+            drop(held);
+            let result = reader.join().unwrap();
+            assert_eq!(result.maintenance, 1);
+            assert_eq!(result.available_dsp, 0);
+            assert!(!result.maintenance_admissible);
+        });
+    }
+    #[test]
+    fn status_contention_is_bounded_and_admission_stays_fail_fast() {
+        let f = Fixture::new();
+        let _held = f.m.lock("registry.lock").unwrap();
+        let error = status_with_wait(
+            &f.m, limits(), 1, false, std::time::Duration::from_millis(20),
+        ).err().unwrap();
+        let failure = error.downcast_ref::<operator_lock::AcquisitionFailure>().unwrap();
+        assert_eq!(failure.facts.outcome, operator_model::LockOutcome::Timeout);
+        assert!(matches!(reserve(&f.m, &limits(), None, false).err().unwrap()
+            .downcast_ref::<Refusal>(), Some(Refusal::ServiceBusy)));
+    }
+    #[test]
+    fn status_does_not_hide_invalid_owners_or_cleanup_blocking() {
+        let f = Fixture::new();
+        let result = status(&f.m, limits(), 1, true).unwrap();
+        assert!(result.cleanup_unconfirmed);
+        assert_eq!(result.available_dsp, 0);
+        assert!(!result.maintenance_admissible);
+        private_dir(&f.m.root.join("runtime/leases")).unwrap();
+        fs::write(f.m.root.join("runtime/leases/broken.json"), b"invalid").unwrap();
+        assert!(status(&f.m, limits(), 1, false).is_err());
     }
     #[test]
     fn standalone_module_census_is_only_maintenance() {

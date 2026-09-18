@@ -1,0 +1,11 @@
+# Capacity readback contention during human application launch
+
+After the human completed new-generation dependency preparation, the manager refused their application request with `capacity_readback_unavailable` before reserving or launching Native Access. The previous application remained terminal. Fresh preparation had succeeded with exact readiness, clean SCM retirement, zero survivors and no installer invocation.
+
+A bounded series of 24 read-only capacity requests reproduced two service responses with `local_record_or_io_failure / operation already running`; 22 succeeded. The service remained active with two keepers and zero leases. The service capacity reader used fail-fast `registry.lock`, shared with UI readback and action validation. The action discarded the underlying refusal into its generic capacity-unavailable result. The exact historical failing read did not retain its underlying response; the observed lock race reproduces this failure path without a Windows launch.
+
+The repair changes only non-real-time capacity status acquisition: wait at most two seconds for registry ownership, then read current owners. It does not cache or assume an idle result, retry application dispatch, change capacity limits, or soften cleanup refusal. Actual admission remains fail-fast. Tests prove a new maintenance owner appearing while the read waits is observed and blocks admission, persistent contention refuses within a declared bound, malformed owners refuse, and cleanup blocking stays effective.
+
+Native Access, daemon software, the browser callback owner, renderer policy and Windows adapter are unchanged by this source repair. The original failed request and successful preparation remain retained.
+
+Validation: 144 manager-library tests, 81 manager-binary tests and 26 frontend tests passed; strict all-target manager Clippy passed. Four socket fixtures initially hit macOS sandbox permission denial and passed with local socket permission. Two worker-lock tests initially assumed the service readback itself was fail-fast; they now explicitly inject an unavailable first read to retain their original worker-deadline/resampling assertions independently of the service's new wait. Linux x86-64 release manager built successfully. No Windows or runtime source changed.

@@ -457,3 +457,6 @@ The browser-return repair is generated-qualified at source `31c261eea5784175faa5
 
 
 The operator explicitly approved the pending candidate installation. Source `31c261ee` is now installed as immutable generation `d943552a9e642c75425861de3d5ef3e5f51301751ee06f174810bfeab7bdddf5`. The exact desktop handler resolves, model-7 manager/frontend agree, both keepers resumed and preservation passed. See `evidence/nad1/recovery/browser-return/installation/`. No Native Access or real dependency transition occurred. The previous readiness record is retained unchanged; fresh new-generation preparation and human sign-in remain outstanding.
+
+
+The human completed candidate dependency preparation `2438321e16cec0ffd078d756f1106708` cleanly. Their subsequent application request `c4530539a41c9d0798b8e1592b14bc19` refused before launch with `capacity_readback_unavailable`. Read-only sampling reproduced registry-lock contention in the service capacity reader. The repair gives only non-real-time status acquisition a bounded two-second wait; admission remains fail-fast and reads current owners. See `evidence/nad1/recovery/browser-return/capacity-contention/`. No additional Native Access launch or dependency transition occurred during diagnosis.

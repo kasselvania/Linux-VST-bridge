@@ -3310,9 +3310,9 @@ mod tests {
     fn environment_worker_timeout_is_structured_retryable_and_never_mutates() {
         let (f, id) = onboarding_worker_fixture();
         let registry = f.m.lock("registry.lock").unwrap();
-        worker_with_capacity(&f.m, &id, Duration::from_millis(40), &|| {
-            capacity_fixture(&f.m)
-        })
+        // Exercise this worker's registry deadline independently of the
+        // service's separately bounded capacity-readback wait.
+        worker_with_capacity(&f.m, &id, Duration::from_millis(40), &|| None)
         .unwrap();
         let receipt = worker_receipt(&f.m, &id);
         assert_eq!(receipt["state"], "refused");
@@ -3365,9 +3365,16 @@ mod tests {
         let op = id.clone();
         let (tx, rx) = std::sync::mpsc::channel();
         let thread = std::thread::spawn(move || {
+            let first = std::cell::Cell::new(true);
             worker_with_capacity(&m, &op, Duration::from_secs(2), &|| {
-                let _ = tx.send(());
-                capacity_fixture(&m)
+                // An unavailable first read must still reach the worker's
+                // registry wait and resample after contention clears.
+                if first.replace(false) {
+                    tx.send(()).unwrap();
+                    None
+                } else {
+                    capacity_fixture(&m)
+                }
             })
         });
         rx.recv_timeout(Duration::from_secs(1)).unwrap();
