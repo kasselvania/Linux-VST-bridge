@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "refused_operations": [
+    "9a785308f8c81c22ffac6ec35f8b1911",
+    "5d45b5d8a3309482021177a9200b11e2"
+  ],
+  "reason": "Operator action: operation already running",
+  "phase": "worker action after successful snapshot validation",
+  "new_renderer_reservation": false,
+  "resume_record": false,
+  "last_application": {
+    "operation": "4af751390ab34dd3b5b05a5052d410cf",
+    "state": "completed",
+    "outer_exit": 0,
+    "cleanup_confirmed": true,
+    "owned_live": 0,
+    "service_retirement_confirmed": true,
+    "forced_cleanup_used": false,
+    "browser_returns_dispatched": 1,
+    "human_report": "signed-in application displayed library; later installation UI explored"
+  },
+  "system": {
+    "service": "active",
+    "keepers": 2,
+    "dsp": 0,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false,
+    "capture_armed": false
+  },
+  "historical_limitation": "generic LockBusy did not retain exact failing lock site; both pre-reservation registry sites were fail-fast and are now tested under contention"
+}

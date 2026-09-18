@@ -463,3 +463,6 @@ The human completed candidate dependency preparation `2438321e16cec0ffd078d756f1
 
 
 The contention repair `d1209955f173e44eb25049126998f3950713e48d` is installed as immutable generation `2b81a22e234b70c17222567b436ef30a82aaf13da6f7527258d81580009e942d`. AP12 run 35289628896 passed. All 24 concurrent live capacity readbacks succeeded; model 7, two keepers, idle state and preservation passed. No vendor/dependency launch occurred during this repair. The human may prepare the dependency once for this new software generation, then open software rendering for a fresh sign-in. Callback delivery and actual Native Access authentication still require that human test.
+
+
+The real human session `4af751390ab34dd3b5b05a5052d410cf` dispatched one browser return and displayed the signed-in library according to the operator. It later retired with exact SCM stop and zero survivors. Two subsequent reopen requests refused on generic lock contention before reservation. The first contention repair omitted the action inactivity and suspension locks; both now use bounded, recorded acquisition and recheck durable ownership. Evidence is under `evidence/nad1/recovery/browser-return/launch-contention/`. No new vendor operation occurred during this source repair.

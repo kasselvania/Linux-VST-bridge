@@ -232,12 +232,15 @@ fn require_operator_inactive_with(
     m: &Manager,
     a: &ui::Action,
     capacity_read: &dyn Fn() -> Option<CapacityReadback>,
+    operation: Option<&str>,
+    timeout: Duration,
+    waits: &mut Vec<ui::LockFacts>,
 ) -> Result<()> {
     if !a.requires_inactive() {
         return Ok(());
     }
     let cap = capacity_read().ok_or("capacity_readback_unavailable")?;
-    let _admission = m.lock("registry.lock")?;
+    let _admission = acquire_readback(m, ui::OperatorLock::Registry, operation, timeout, waits)?;
     if let Some(reason) = inactive_reason(
         Some(&cap),
         vendor_retired(m)? && onboarding::all_retired(m)?,
@@ -1070,7 +1073,7 @@ fn execute_with_receipt_policy(
             capacity_read,
         );
     }
-    require_operator_inactive_with(m, a, capacity_read)?;
+    require_operator_inactive_with(m, a, capacity_read, operation, timeout, waits)?;
 
     if preparation_cli::is_action(a) {
         let owner = operation.ok_or("operator_operation_identity")?;
@@ -1081,7 +1084,7 @@ fn execute_with_receipt_policy(
                 | ui::Action::PluginPrepare { .. }
         ) {
             let _environment = m.lock("operator-environment.lock")?;
-            suspend(m, owner, None)?;
+            suspend(m, owner, None, timeout, waits)?;
             drop(projection.take());
             let result = preparation_cli::execute(m, a, owner);
             let cleanup = resume_owned(m, owner);
@@ -1114,7 +1117,7 @@ fn execute_with_receipt_policy(
                 prior.installation_operation.is_none(),
                 "installer_initial_transaction_already_used",
             )?;
-            suspend(m, owner, None)?;
+            suspend(m, owner, None, timeout, waits)?;
             let reserved = onboarding::reserve(m, id, owner);
             let r = match reserved {
                 Ok(r) => r,
@@ -1166,7 +1169,7 @@ fn execute_with_receipt_policy(
                 "installer_retirement_required",
             )?;
             let owner = operation.ok_or("operator_operation_identity")?;
-            suspend(m, owner, None)?;
+            suspend(m, owner, None, timeout, waits)?;
             let result = rescan_environment(m, r.environment);
             let cleanup = resume_owned(m, owner);
             let value = result?;
@@ -1216,7 +1219,7 @@ fn execute_with_receipt_policy(
         ui::Action::DependencyPrepare {} => {
             let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
-            suspend(m, owner, Some(owner.into()))?;
+            suspend(m, owner, Some(owner.into()), timeout, waits)?;
             let submission = match dependency_cli::launch(m, owner) {
                 Ok(s) => s,
                 Err(e) => {
@@ -1269,7 +1272,7 @@ fn execute_with_receipt_policy(
             dependency_cli::prepared(m)?;
             let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
-            suspend(m, owner, Some(owner.into()))?;
+            suspend(m, owner, Some(owner.into()), timeout, waits)?;
             let submission = match renderer_cli::launch(m, application, *policy, owner) {
                 Ok(state) => state,
                 Err(e) => {
@@ -1319,7 +1322,7 @@ fn execute_with_receipt_policy(
             let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
             let vendor_operation = random_id()?;
-            suspend(m, owner, Some(vendor_operation.clone()))?;
+            suspend(m, owner, Some(vendor_operation.clone()), timeout, waits)?;
             let launched = vendor_cli::launch_owned(m, application, &vendor_operation);
             if let Err(e) = launched {
                 let _ = resume_owned(m, owner);
@@ -1382,7 +1385,7 @@ fn execute_with_receipt_policy(
         ui::Action::EnvironmentRescan { environment } => {
             let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
-            suspend(m, owner, None)?;
+            suspend(m, owner, None, timeout, waits)?;
             let result = rescan(m, environment);
             let cleanup = resume_owned(m, owner);
             let value = result?;
@@ -1441,14 +1444,24 @@ fn create_resume(m: &Manager, saved: &ResumeRecord) -> Result<()> {
     job_dir(m, &saved.owner_operation)?;
     atomic_json(&m.root.join("operator/resume.json"), saved)
 }
-fn suspend(m: &Manager, owner: &str, vendor_operation: Option<String>) -> Result<()> {
+fn suspend(
+    m: &Manager, owner: &str, vendor_operation: Option<String>,
+    timeout: Duration, waits: &mut Vec<ui::LockFacts>,
+) -> Result<()> {
+    suspend_with(m, owner, vendor_operation, timeout, waits, (|| active(SERVICE), || service("stop")))
+}
+fn suspend_with(
+    m: &Manager, owner: &str, vendor_operation: Option<String>,
+    timeout: Duration, waits: &mut Vec<ui::LockFacts>,
+    service_io: (impl FnOnce() -> bool, impl FnOnce() -> Result<()>),
+) -> Result<()> {
     // Same lock order as recovery: resume, then registry. Hold through Stop so
     // even the matching owner cannot consume the record before suspension.
     let _resume = resume_lock(m)?;
-    let _lock = m.lock("registry.lock")?;
+    let _lock = acquire_readback(m, ui::OperatorLock::Registry, Some(owner), timeout, waits)?;
     m.require_inactive(None)?;
     require(vendor_retired(m)?, "operator_vendor_active")?;
-    let was_active = active(SERVICE);
+    let was_active = service_io.0();
     create_resume(
         m,
         &ResumeRecord {
@@ -1460,7 +1473,7 @@ fn suspend(m: &Manager, owner: &str, vendor_operation: Option<String>) -> Result
         },
     )?;
     if was_active {
-        service("stop")?;
+        service_io.1()?;
     }
     require(!reconcile_leases(m)?, "operator_cleanup_unconfirmed")?;
     Ok(())
@@ -2910,6 +2923,96 @@ mod tests {
         capacity::status(m, capacity::fixture_limits(), 0, false)
             .ok()
             .and_then(|v| serde_json::from_value(serde_json::to_value(v).unwrap()).ok())
+    }
+    fn contended_registry<T>(m: &Manager, run: impl FnOnce() -> T) -> T {
+        let held = m.lock("registry.lock").unwrap();
+        std::thread::scope(|scope| {
+            scope.spawn(move || {
+                std::thread::sleep(Duration::from_millis(60));
+                drop(held);
+            });
+            run()
+        })
+    }
+    fn idle_test_capacity() -> Option<CapacityReadback> {
+        Some(serde_json::from_value(capacity_json(false, 0, 0)["capacity"].clone()).unwrap())
+    }
+    #[test]
+    fn renderer_preflight_and_suspension_wait_for_polling_then_restore_once() {
+        let (f, _) = onboarding_worker_fixture();
+        let action = ui::Action::RendererOpen {
+            application: "ab".repeat(32), policy: renderer_application::RendererPolicy::SoftwareRendering,
+        };
+        let owner = queued_test_action(&f.m, action.clone());
+        let mut waits = vec![];
+        contended_registry(&f.m, || require_operator_inactive_with(
+            &f.m, &action, &idle_test_capacity, Some(&owner), Duration::from_secs(2), &mut waits,
+        )).unwrap();
+        assert!(!f.m.root.join("operator/resume.json").exists());
+        let stops = std::cell::Cell::new(0);
+        contended_registry(&f.m, || suspend_with(
+            &f.m, &owner, Some(owner.clone()), Duration::from_secs(2), &mut waits,
+            (|| true, || { stops.set(stops.get()+1); Ok(()) }),
+        )).unwrap();
+        assert_eq!(stops.get(), 1);
+        let saved = resume_record(&f.m).unwrap().unwrap();
+        assert_eq!(saved.owner_operation, owner);
+        assert_eq!(saved.vendor_operation.as_deref(), Some(owner.as_str()));
+        assert!(waits.iter().filter(|w| w.name == ui::OperatorLock::Registry)
+            .all(|w| w.attempts > 1 && w.outcome == ui::LockOutcome::Acquired));
+        assert_eq!(waits.len(), 2);
+        let restores = std::cell::Cell::new(0);
+        for _ in 0..2 {
+            resume_owned_with(&f.m, &owner, |_| { restores.set(restores.get()+1); Ok(()) }).unwrap();
+        }
+        assert_eq!(restores.get(), 1);
+        assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    #[test]
+    fn renderer_preflight_contention_timeout_never_stops_or_reserves() {
+        let (f, owner) = onboarding_worker_fixture();
+        let held = f.m.lock("registry.lock").unwrap();
+        let action = ui::Action::RendererOpen {
+            application: "ab".repeat(32), policy: renderer_application::RendererPolicy::SoftwareRendering,
+        };
+        let mut waits = vec![];
+        let error = require_operator_inactive_with(&f.m, &action, &idle_test_capacity,
+            Some(&owner), Duration::from_millis(20), &mut waits).unwrap_err();
+        assert!(error.is::<linux_vst_bridge::operator_lock::AcquisitionFailure>());
+        let error = suspend_with(&f.m, &owner, Some(owner.clone()), Duration::from_millis(20), &mut waits,
+            (|| panic!("must not inspect service before lock"), || panic!("must not stop service"))).unwrap_err();
+        assert!(error.is::<linux_vst_bridge::operator_lock::AcquisitionFailure>());
+        assert_eq!(waits.len(), 2);
+        assert!(waits.iter().all(|w| w.outcome == ui::LockOutcome::Timeout));
+        assert!(!f.m.root.join("operator/resume.json").exists());
+        assert!(!f.m.root.join("vendor-applications/native-access/current.json").exists());
+        drop(held);
+    }
+    #[test]
+    fn renderer_preflight_rechecks_durable_owners_after_contention() {
+        let (f, owner) = onboarding_worker_fixture();
+        let sid = "cd".repeat(16);
+        let report = f.m.root.join("runtime/results").join(format!("windows-{sid}.json"));
+        let spec = f.r.environment.root.join("compatdata/pfx/drive_c/bridge/sessions").join(&sid).join("owner.json");
+        private_dir(spec.parent().unwrap()).unwrap();
+        atomic_json(&spec, &json!({"session":sid,"report":report,"keeper":false,
+            "registration":{"metadata":{"class_id":f.r.key()}}})).unwrap();
+        private_dir(&f.m.root.join("runtime/leases")).unwrap();
+        atomic_json(&f.m.root.join("runtime/leases").join(format!("{sid}.json")), &report).unwrap();
+        let action = ui::Action::RendererOpen {
+            application: "ab".repeat(32), policy: renderer_application::RendererPolicy::SoftwareRendering,
+        };
+        let mut waits = vec![];
+        let error = contended_registry(&f.m, || require_operator_inactive_with(
+            &f.m, &action, &idle_test_capacity, Some(&owner), Duration::from_secs(2), &mut waits,
+        )).unwrap_err();
+        assert_eq!(error.to_string(), "active_device_lease");
+        let error = contended_registry(&f.m, || suspend_with(
+            &f.m, &owner, Some(owner.clone()), Duration::from_secs(2), &mut waits,
+            (|| panic!("must not inspect service"), || panic!("must not stop service")),
+        )).unwrap_err();
+        assert_eq!(error.to_string(), "active_device_lease");
+        assert!(!f.m.root.join("operator/resume.json").exists());
     }
     fn worker_receipt(m: &Manager, id: &str) -> Value {
         read_json(&job_dir(m, id).unwrap().join("result.json")).unwrap()
