@@ -6,13 +6,26 @@
   "required_start_tree": "3e253dff1db4c9823cfaa517bdef7f8613780d7a",
   "base": "a86f03e8a5d5302d9872f995a0a5ba376a0ab6d5",
   "base_tree": "11a9fefbbe8b184c52058f4b4610da3a5e3b06e4",
+  "executable_source_head": "53fb9f2a334e2f5fbc3d3c1cf4469148fef30b45",
+  "executable_source_tree": "fb4a662eba4ac1f8c733a41d63e5c98419832139",
   "box64_commit": "2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a",
   "wine_commit": "db11d0fe6a169c457e23d007e20404643d067aa8",
-  "observed": {
+  "local_observed": {
     "rust_standalone": {"passed": 9, "failed": 0},
     "portable_synth_core": {"passed": 7, "failed": 0},
     "aarch64_linux_compile_check": "passed",
     "local_host": "Apple ARM64; not a Raspberry Pi"
+  },
+  "hosted_observed": {
+    "github_actions_run": 35376913147,
+    "native_aarch64_standalone": {"passed": 11, "failed": 0},
+    "native_aarch64_jack_release_build": "passed",
+    "x86_64_linux_probe": "statically cross-compiled and ELF identity verified; not executed",
+    "windows_fixture_editor": {"passed": 10, "failed": 0},
+    "windows_preflight_probe": "passed on native x86-64 Windows runner",
+    "ap8_windows_host_regression": {"github_actions_run": 35376913041, "status": "passed"},
+    "existing_x86_64_native_audio_client": {"passed": 11, "failed": 0},
+    "existing_x86_64_backend": {"passed": 69, "failed": 0, "ignored": 1}
   },
   "not_observed": [
     "Box64 preflight on Pi",

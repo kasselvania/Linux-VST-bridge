@@ -9,6 +9,8 @@ on:
       - 'native-audio-client/**'
       - 'windows-factory-probe/**'
       - 'CMakeLists.txt'
+      - 'docs/experiments/RPI0_RESULT.md'
+      - 'evidence/rpi0-standalone-arm64-appliance/deterministic-qualification.json'
       - '.github/workflows/rpi0.yml'
 permissions:
   contents: read

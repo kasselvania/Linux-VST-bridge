@@ -13,11 +13,14 @@ inferred from compilation or simulation.
 ## Exact custody
 
 - branch: `experiment/rpi0-standalone-arm64-appliance`
-- required executable-source head: `de0c16eb4dbe7e3558bf4d5af422c024eb55dca5`
-- required executable-source tree: `3e253dff1db4c9823cfaa517bdef7f8613780d7a`
+- required starting head: `de0c16eb4dbe7e3558bf4d5af422c024eb55dca5`
+- required starting tree: `3e253dff1db4c9823cfaa517bdef7f8613780d7a`
 - base: `a86f03e8a5d5302d9872f995a0a5ba376a0ab6d5`
 - base tree: `11a9fefbbe8b184c52058f4b4610da3a5e3b06e4`
-- evidence head/tree: the draft PR head reported in the PR body
+- executable-source head: `53fb9f2a334e2f5fbc3d3c1cf4469148fef30b45`
+- executable-source tree: `fb4a662eba4ac1f8c733a41d63e5c98419832139`
+- evidence head/tree: the later evidence-only draft PR head reported in the
+  PR body
 
 The pre-existing working checkout contained unrelated untracked `handoffs/`
 material. It was left untouched. Work was performed in an isolated worktree at
@@ -79,21 +82,40 @@ There is no `pkill`, process-name cleanup, or global Wine termination.
 
 No third-party plug-in binary is committed.
 
-## Deterministic qualification observed locally
+## Deterministic qualification
+
+Hosted run
+[`35376913147`](https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35376913147)
+on the executable-source head passed:
+
+- native Linux AArch64 standalone tests: 11 passed, 0 failed;
+- native Linux AArch64 JACK release build: passed;
+- cross-architecture C++ layout assertions: passed;
+- portable synth core: 7 passed, 0 failed;
+- x86-64 Linux preflight probe: statically cross-compiled and verified as
+  ELF64/AMD x86-64, but deliberately not executed on ARM without Box64;
+- x86-64 Windows fixture/editor tests: 10 passed, 0 failed;
+- x86-64 Windows preflight probe: passed natively on the Windows runner;
+- unchanged Linux x86-64 native-audio-client: 11 passed, 0 failed;
+- unchanged Linux x86-64 backend: 69 passed, 0 failed, 1 ignored.
+
+AP8 Windows host regression run
+[`35376913041`](https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35376913041)
+also passed on the same source head. Hosted compilation and native Windows
+execution are deterministic qualification, not Pi or translation evidence.
+
+Local implementation-host observations:
 
 - Rust standalone unit tests: 9 passed, 0 failed.
 - Portable synth-core tests: 7 passed, 0 failed.
 - AArch64 Linux Rust compile check, including JACK and the full executable: passed.
 - C++ cross-architecture layout assertions: passed on the local ARM64 compiler.
-- Linux probe logic compiled and self-tested on the local ARM64 macOS host;
-  the required x86-64 Linux artifact and translated execution remain CI/physical work.
 - Existing backend baseline on this sandbox: 52 passed, 16 failed, 1 ignored;
   every observed failure was a local sandbox socket `EPERM`. The same class was
   observed in the native-audio-client baseline (10 passed, 1 `EPERM` failure).
 
-The draft PR runs native AArch64 and x86-64 Windows jobs. Their results must be
-reported separately from these local observations. Cross-compilation is not a
-physical ARM claim.
+The hosted x86-64 Linux probe build and all cross-compilation remain distinct
+from actual Box64 execution. None is a physical ARM claim.
 
 ## Physical sequence
 
@@ -115,8 +137,6 @@ editor absent; repeat a fresh playable session; stop and verify cleanup again.
 
 - The selected Box64/Wine lane has not passed any of its four physical Pi
   preflight checks.
-- The Windows fixture and Windows host require the draft PR Windows job before
-  their build/test result can be called observed.
 - No Pi hardware, OS image, kernel, firmware, page size, storage, cooling,
   temperature, governor, clock, JACK/PipeWire graph, editor display, CPU use, or
   memory peak has been observed.
