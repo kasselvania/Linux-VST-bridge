@@ -32,10 +32,10 @@ class RuntimeTests(unittest.TestCase):
   self.assertEqual(self.runtime.tool_sha256,{name:artifact['sha256'] for name,artifact in zip(('entry','proton','client','interface','wine'),artifacts)})
   with patch.object(s,'verify',side_effect=RuntimeError('changed')):
    with self.assertRaises(RuntimeError):self.runtime.verify_tools()
- def test_root_is_exact_proton_run_anchor_with_closed_launcher_selection(self):
+ def test_root_is_exact_proton_runinprefix_anchor_with_closed_launcher_selection(self):
   r=self.runtime;request=r._runtime_request()
   self.assertEqual(request.read_bytes().decode('utf-16le').splitlines(),['NAD1_RUNTIME_V1','a'*32,'b'*64])
-  self.assertEqual(r._root_argv(request),['/fixed/runtime/_v2-entry-point','--verb=run','--','/fixed/proton','run',
+  self.assertEqual(r._root_argv(request),['/fixed/runtime/_v2-entry-point','--verb=run','--','/fixed/proton','runinprefix',
    '/fixed/adapter.exe',s.windows(request,self.owner.root/'compatdata/pfx')])
   env=r._root_environment({'PATH':'/usr/bin:/bin','CLOSED':'yes'})
   self.assertEqual(env['STEAM_COMPAT_LAUNCHER_SERVICE'],'proton')
@@ -82,6 +82,8 @@ class RuntimeTests(unittest.TestCase):
   self.assertEqual([x for x in a if x.startswith('--pass-env=')],['--pass-env='+x for x in r.DEBUG_KEYS])
   self.assertEqual(a[-3:-1],[str(r.wine),'/fixed/adapter.exe'])
   self.assertIn('--directory='+str(self.owner.root/'home'),b)
+  # Only the retained root invokes Proton. Inserted commands invoke the
+  # verified Wine image directly inside its exact command service.
   self.assertNotIn('runinprefix',a)
   self.assertNotIn(':1.42',str(r.value()))
  def test_dead_or_retired_container_never_falls_back_to_another_container(self):

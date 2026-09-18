@@ -17,9 +17,9 @@ Read-only physical inspection established a narrower cause:
 - direct exact pinned-Proton registry and SCM probes saw the service as `STOPPED`;
 - the production adapter, when submitted through the manager's bare launcher service
   and nested `proton runinprefix`, consistently saw error 1060;
-- an inert source-owned Windows process started through Proton's ordinary `run` path
-  exposed Proton's own private command service, and a command inserted into that same
-  session saw the exact service registration.
+- Proton's ordinary `run` path is not admissible here because this pinned runner routes
+  it through built-in `steam.exe`; the first disposable generated candidate retained
+  that assertion failure and was stopped without any commercial launch.
 
 No real daemon or Native Access process was started by those probes. The result proves a
 manager launcher-topology defect, not missing vendor installation authority.
@@ -28,7 +28,7 @@ The operation-private runtime must therefore use this closed topology:
 
 ```text
 verify exact runtime entry point, Proton, launcher interface, launch client, and Wine
-→ start one source-owned Windows anchor through exact Proton `run`
+→ start one source-owned Windows anchor as the exact Proton `runinprefix` root
 → require the exact operation/nonce anchor frame
 → bind the one private command-service name emitted by that exact Proton root
 → submit every SCM helper and Native Access adapter through that exact service
@@ -36,9 +36,11 @@ verify exact runtime entry point, Proton, launcher interface, launch client, and
 → close the anchor only after dependency retirement, before final cohort cleanup
 ```
 
-The manager must not start a bare `srt-launcher-service` or nest `proton runinprefix`
-inside it for this path. `runinprefix` alone does not initialize the Proton session and
-is not authority for the live service database.
+The manager must not start a bare `srt-launcher-service` and then nest another
+`proton runinprefix` inside it for this path. The retained root is the only Proton
+invocation; commands inserted into its exact private service invoke the verified Wine
+image directly. A dead or ambiguous root must refuse rather than fall back to a new
+runtime.
 
 The command-service name is an operation-private transport identity, not public result
 data or caller input. Startup refuses missing or duplicate exact tool identities,

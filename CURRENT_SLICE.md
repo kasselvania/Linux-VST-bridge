@@ -17,25 +17,27 @@ unchanged. Direct queries through the exact pinned Proton runtime saw that servi
 `STOPPED`.
 
 The defect is the operation-private runtime topology. It starts a bare
-`srt-launcher-service` outside Proton and then submits `proton runinprefix` as a child of
-that service. Proton 11's `runinprefix` path does not initialize the Proton session or
-create its command service. That constructed runtime therefore queried a different
-Wine/SCM universe from the initialized prefix and truthfully returned 1060 for the wrong
+`srt-launcher-service` outside Proton and then submits a nested `proton runinprefix` as a
+child of that service. That constructed runtime therefore queried a different Wine/SCM
+universe from the initialized prefix and truthfully returned 1060 for the wrong
 universe.
 
-The selected repair keeps one exact source-owned Windows anchor alive through Proton's
-ordinary `run` path with the exact verified launcher interface enabled. It binds the
-private command-service name emitted by that exact root and submits every dependency
-helper and the Native Access launch adapter through the exact verified launch client
-and Wine executable in that same session. The anchor, helpers, daemon, and application
-remain inside the existing renderer cgroup and cleanup boundary. No bus name, command,
-path, service, or environment value becomes caller authority.
+The selected repair keeps one exact source-owned Windows anchor alive as the single
+Proton `runinprefix` root of Pressure Vessel's command service. It binds the private
+command-service name emitted by that exact root and submits every dependency helper
+and the Native Access launch adapter as direct exact-Wine commands through the verified
+launch client in that same session. Proton `run` is excluded: the pinned runner routes
+it through built-in `steam.exe`, and the first disposable candidate produced a
+source-owned qualification assertion rather than an admissible product runtime. The
+anchor, helpers, daemon, and application remain inside the existing renderer cgroup
+and cleanup boundary. No bus name, command, path, service, or environment value becomes
+caller authority.
 
 Generated qualification must prove that:
 
 - the exact entry point, Proton script, launcher interface, launch client, Wine image,
   Windows adapter, operation, and nonce are verified and bound;
-- one Proton `run` root is retained for the operation and all closed commands reuse its
+- one Proton `runinprefix` root is retained for the operation and all closed commands reuse its
   one private command service;
 - the old bare-service plus `runinprefix` topology is absent from the dependency and
   application path;
