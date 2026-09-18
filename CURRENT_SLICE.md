@@ -32,9 +32,12 @@ each inserted command. Proton `run` is excluded: the pinned runner routes it thr
 built-in `steam.exe`, and the first disposable candidate produced a source-owned
 qualification assertion rather than an admissible product runtime. Bare Wine is also
 excluded because it loses Proton's prefix/session environment. A bare service without
-the interface remains excluded. The anchor, helpers, daemon, and application stay
-inside the existing renderer cgroup and cleanup boundary. No bus name, command, path,
-service, or environment value becomes caller authority.
+the interface remains excluded. The Windows root validates and retains one exact
+operation/nonce-bound hold-file generation; forwarded stdin is not lifetime authority.
+Only removal of that exact hold after dependency retirement requests root closure. The
+anchor, helpers, daemon, and application stay inside the existing renderer cgroup and
+cleanup boundary. No bus name, command, path, service, or environment value becomes
+caller authority.
 
 Generated qualification must prove that:
 
@@ -45,7 +48,7 @@ Generated qualification must prove that:
 - the old bare-service plus `runinprefix` topology is absent from the dependency and
   application path;
 - startup refuses missing, duplicate, malformed, changed, or mismatched identities and
-  readiness frames;
+  readiness frames, or missing/replaced hold authority;
 - continuous draining, callback privacy, exact SCM/process/listener ownership, one-stop
   authority, and exact-owned cleanup remain unchanged;
 - a generated artifact-absent qualified-recovery session reaches readiness, launches

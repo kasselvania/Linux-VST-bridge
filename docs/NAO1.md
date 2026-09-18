@@ -30,12 +30,13 @@ The operation-private runtime must therefore use this closed topology:
 verify exact runtime entry point, Proton, launcher interface, launch client, and Wine
 → wrap one exact Proton `runinprefix` root in the verified launcher interface
 → start one source-owned Windows anchor as that root's Windows process
+→ validate and retain its exact operation/nonce-bound hold-file generation
 → require the exact operation/nonce anchor frame
 → bind the one private command-service name emitted by that exact Proton root
 → submit every SCM helper and Native Access adapter through that exact service
   using exact Proton `runinprefix`
 → keep root, helpers, daemon, and application in the renderer-owned cgroup
-→ close the anchor only after dependency retirement, before final cohort cleanup
+→ remove the exact hold only after dependency retirement, before final cohort cleanup
 ```
 
 The manager must not start a bare `srt-launcher-service` and then use its client to
@@ -44,6 +45,11 @@ interface owns the retained root and its command service; inserted commands use 
 verified Proton script so Proton reconstructs its exact Wine environment while the
 root keeps the one Wine/SCM universe alive. Bare Wine is not an admissible shortcut. A
 dead or ambiguous root must refuse rather than fall back to a new runtime.
+
+Forwarded stdin is not anchor-lifetime authority: this Proton path exposes it as a
+character stream that can reach EOF while the Linux owner remains alive. The adapter
+retains the exact initial hold-file object and refuses replacement; owner removal is the
+only ordinary close signal.
 
 The command-service name is an operation-private transport identity, not public result
 data or caller input. Startup refuses missing or duplicate exact tool identities,

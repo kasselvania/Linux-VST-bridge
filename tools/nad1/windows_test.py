@@ -50,13 +50,25 @@ def run(build):
  try:
   # The production adapter also supplies the inert Windows root that keeps one
   # initialized Proton command session alive. It has no SCM authority and exits
-  # only when its inherited owner pipe closes.
+  # only when its exact operation-private hold file is removed.
   runtime_request=root/'runtime-request'
   runtime_request.write_bytes(('\n'.join(['NAD1_RUNTIME_V1',op,token,''])).encode('utf-16le'))
-  runtime=subprocess.Popen([str(build/'nad1-service-adapter.exe'),str(runtime_request)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+  runtime_hold=pathlib.Path(str(runtime_request)+'.hold')
+  runtime_hold.write_bytes(('\n'.join(['NAD1_RUNTIME_HOLD_V1',op,token,''])).encode('utf-16le'))
+  runtime=subprocess.Popen([str(build/'nad1-service-adapter.exe'),str(runtime_request)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
   runtime_frame=runtime.stdout.readline().decode().strip()
   assert runtime_frame==f'NAD1_RUNTIME_V1 {op} {token}' and runtime.poll() is None,runtime_frame
-  runtime.stdin.close();assert runtime.wait(timeout=10)==0
+  runtime_hold.unlink();assert runtime.wait(timeout=10)==0
+  runtime_hold.write_bytes(('\n'.join(['NAD1_RUNTIME_HOLD_V1',op,token,''])).encode('utf-16le'))
+  replaced=subprocess.Popen([str(build/'nad1-service-adapter.exe'),str(runtime_request)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+  replaced_frame=replaced.stdout.readline().decode().strip()
+  assert replaced_frame==f'NAD1_RUNTIME_V1 {op} {token}' and replaced.poll() is None,replaced_frame
+  replacement=pathlib.Path(str(runtime_hold)+'.replacement')
+  replacement.write_bytes(runtime_hold.read_bytes());replacement.replace(runtime_hold)
+  assert replaced.wait(timeout=10)==156
+  runtime_hold.unlink()
+  missing=subprocess.run([str(build/'nad1-service-adapter.exe'),str(runtime_request)],capture_output=True,timeout=10)
+  assert missing.returncode==154 and b'NAD1_RUNTIME_V1 ' not in missing.stdout
   runtime_request.write_bytes(('\n'.join(['NAD1_RUNTIME_V1',op,'wrong',''])).encode('utf-16le'))
   refused=subprocess.run([str(build/'nad1-service-adapter.exe'),str(runtime_request)],input=b'',capture_output=True,timeout=10)
   assert refused.returncode==153 and b'NAD1_RUNTIME_V1 ' not in refused.stdout

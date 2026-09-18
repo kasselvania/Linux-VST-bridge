@@ -1,5 +1,5 @@
 """Operation-owned Proton-session authority, with no Wine or proprietary application."""
-import hashlib,pathlib,sys,tempfile,types,unittest
+import hashlib,os,pathlib,stat,sys,tempfile,types,unittest
 from unittest.mock import Mock,patch
 import session as s
 
@@ -35,6 +35,7 @@ class RuntimeTests(unittest.TestCase):
  def test_root_is_exact_interface_owned_proton_anchor(self):
   r=self.runtime;request=r._runtime_request()
   self.assertEqual(request.read_bytes().decode('utf-16le').splitlines(),['NAD1_RUNTIME_V1','a'*32,'b'*64])
+  self.assertEqual(r.hold.read_bytes().decode('utf-16le').splitlines(),['NAD1_RUNTIME_HOLD_V1','a'*32,'b'*64])
   self.assertEqual(r._root_argv(request),['/fixed/runtime/_v2-entry-point','--verb=run','--',str(r.interface),'proton',
    '/fixed/proton','runinprefix','/fixed/adapter.exe',s.windows(request,self.owner.root/'compatdata/pfx')])
   env=r._root_environment({'PATH':'/usr/bin:/bin','CLOSED':'yes'})
@@ -49,15 +50,25 @@ class RuntimeTests(unittest.TestCase):
   with self.assertRaisesRegex(ValueError,'anchor_identity'):s.Nad1Runtime._startup_binding(frame.replace(op.encode(),b'c'*32),hint,op,token)
   for stdout,stderr in ((frame+frame,hint),(frame,hint+hint)):
    with self.assertRaisesRegex(ValueError,'startup_ambiguity'):s.Nad1Runtime._startup_binding(stdout,stderr,op,token)
+ def test_owner_does_not_remove_a_replaced_hold(self):
+  r=self.runtime;r._runtime_request();replacement=r.hold.with_suffix('.replacement')
+  replacement.write_bytes(r.hold.read_bytes());replacement.replace(r.hold)
+  r.child=Mock(returncode=0);r.child.poll.return_value=0
+  r.close()
+  self.assertIn('hold_unlink_RuntimeError',r.close_errors);self.assertTrue(r.hold.exists())
  def test_production_start_and_close_bind_one_long_lived_anchor(self):
   root=self.owner.root;runtime_root=root/'runtime';runner_root=root/'runner'
   (runtime_root/'pressure-vessel/bin').mkdir(parents=True);(runner_root/'files/bin').mkdir(parents=True)
   entry=runtime_root/'_v2-entry-point';proton=runner_root/'proton';wine=runner_root/'files/bin/wine'
   client=runtime_root/'pressure-vessel/bin/steam-runtime-launch-client';interface=runtime_root/'pressure-vessel/bin/steam-runtime-launcher-interface-0'
   source=(f'#!{sys.executable}\nimport sys\n'
+   'import pathlib,time\n'
    'sys.stderr.write("\\t--bus-name=:1.77 \\\\\\n");sys.stderr.flush()\n'
    f'sys.stdout.write("NAD1_RUNTIME_V1 {"a"*32} {"b"*64}\\n");sys.stdout.flush()\n'
-   'sys.stdin.buffer.read()\n')
+   'request=sys.argv[-1]\n'
+   'if request.startswith("Z:"):request=request[2:].replace("\\\\","/")\n'
+   'hold=pathlib.Path(request+".hold")\n'
+   'while hold.exists():time.sleep(.01)\n')
   entry.write_text(source)
   for path in (entry,proton,wine,client,interface):
    if not path.exists():path.write_bytes(b'source-owned')
@@ -109,7 +120,7 @@ class CleanupAndPipeTests(unittest.TestCase):
     'for i in range(128):\n os.write(1,b"x"*8192);os.write(2,b"y"*8192)\n'
     f'pathlib.Path({str(done)!r}).touch()\n'
     f'while not pathlib.Path({str(go)!r}).exists():time.sleep(.01)\n'
-    'for i in range(128):\n os.write(1,b"PRIVATE_LOGIN_DATA"*512);os.write(2,b"PRIVATE_LOGIN_DATA"*512)\n'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    'for i in range(128):\n os.write(1,b"PRIVATE_LOGIN_DATA"*512);os.write(2,b"PRIVATE_LOGIN_DATA"*512)\n'],stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
    runtime.child=child
    for name in ('stdout','stderr'):
     pipe=getattr(child,name);os.set_blocking(pipe.fileno(),False);runtime.sel.register(pipe,s.selectors.EVENT_READ,name)
@@ -132,10 +143,12 @@ class CleanupAndPipeTests(unittest.TestCase):
  def test_all_runtime_close_steps_attempted_on_enotempty_and_pipe_error(self):
   owner=types.SimpleNamespace(spec={'application':{'environment':{'runner':{'entry_point':'/fixture','proton':'/proton'}}}})
   r=s.Nad1Runtime(owner);r.child=Mock(returncode=0);r.child.poll.return_value=0
-  r.child.stdin.close.side_effect=OSError('generated pipe close');r.capture=Mock();r.capture.close.side_effect=OSError('generated capture close')
+  r.hold=Mock();r.hold_identity=(1,2,3)
+  r.hold.lstat.return_value=types.SimpleNamespace(st_mode=stat.S_IFREG|0o400,st_uid=os.getuid(),st_nlink=1,st_dev=1,st_ino=2,st_size=3)
+  r.hold.unlink.side_effect=OSError('generated hold unlink');r.capture=Mock();r.capture.close.side_effect=OSError('generated capture close')
   r.close();r.close()
   r.child.stderr.close.assert_called_once();r.capture.close.assert_called_once()
-  self.assertEqual(r.close_errors,['stdin_OSError','capture_OSError'])
+  self.assertEqual(r.close_errors,['hold_unlink_OSError','capture_OSError'])
  def test_resource_failure_never_skips_either_owner_cleanup_or_terminal_result(self):
   import json,hashlib,signal
   for application,original_failure in ((False,True),(True,True),(False,False)):

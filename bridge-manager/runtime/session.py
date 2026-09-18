@@ -3011,7 +3011,7 @@ class Nad1Runtime:
     """
     DEBUG_KEYS = ('WINEDEBUG','PROTON_LOG','DXVK_LOG_LEVEL','VKD3D_DEBUG')
     def __init__(self,owner):
-        self.owner=owner;self.child=None;self.closed=False;self.request=None;self.bus_name=None
+        self.owner=owner;self.child=None;self.closed=False;self.request=None;self.hold=None;self.hold_identity=None;self.bus_name=None
         self.sel=selectors.DefaultSelector();self.capture=None;self.ready=False
         self.startup_output={'stdout':bytearray(),'stderr':bytearray()}
         self.pump_thread=None;self.pump_stop=threading.Event();self.output_lock=threading.Lock()
@@ -3032,6 +3032,11 @@ class Nad1Runtime:
         self.tool_sha256=admitted
     def _runtime_request(self):
         request=self.owner.directory/f'{self.owner.op}-runtime-anchor.private'
+        self.hold=pathlib.Path(str(request)+'.hold')
+        hold='\n'.join(['NAD1_RUNTIME_HOLD_V1',self.owner.op,self.owner.token,''])
+        with self.hold.open('xb') as f:
+            f.write(hold.encode('utf-16le'));f.flush();os.fsync(f.fileno());os.fchmod(f.fileno(),0o400)
+            held=os.fstat(f.fileno());self.hold_identity=(held.st_dev,held.st_ino,held.st_size)
         content='\n'.join(['NAD1_RUNTIME_V1',self.owner.op,self.owner.token,''])
         with request.open('xb') as f:f.write(content.encode('utf-16le'));f.flush();os.fsync(f.fileno())
         return request
@@ -3058,7 +3063,7 @@ class Nad1Runtime:
         self.verify_tools()
         self.request=self._runtime_request()
         self.capture=PrivateCapture(self.owner.directory/(self.owner.op+'-runtime.private.log'),1024*1024,256)
-        self.child=subprocess.Popen(self._root_argv(self.request),cwd=self.owner.root/'home',env=self._root_environment(env),stdin=subprocess.PIPE,
+        self.child=subprocess.Popen(self._root_argv(self.request),cwd=self.owner.root/'home',env=self._root_environment(env),stdin=subprocess.DEVNULL,
                                     stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
         self.owner.ledger.launcher(self.child,'dependency_runtime')
         for name,pipe in [('stdout',self.child.stdout),('stderr',self.child.stderr)]:
@@ -3123,9 +3128,15 @@ class Nad1Runtime:
         def close_step(name,call):
             try:call()
             except Exception as exc:self.close_errors.append(name+'_'+type(exc).__name__)
+        def release_hold():
+            visible=self.hold.lstat()
+            if (not stat.S_ISREG(visible.st_mode) or visible.st_uid!=os.getuid() or visible.st_nlink!=1
+                or (visible.st_dev,visible.st_ino,visible.st_size)!=self.hold_identity):
+                raise RuntimeError('hold identity changed')
+            self.hold.unlink()
+        if self.hold is not None and self.hold_identity is not None:close_step('hold_unlink',release_hold)
+        elif self.child is not None:self.close_errors.append('hold_identity_unavailable')
         if self.child is not None:
-            pipe=getattr(self.child,'stdin',None)
-            if pipe:close_step('stdin',pipe.close)
             deadline=time.monotonic()+5
             while self.child.poll() is None and time.monotonic()<deadline:time.sleep(.01)
             if self.child.poll() is None:self.close_errors.append('anchor_retirement_timeout')
