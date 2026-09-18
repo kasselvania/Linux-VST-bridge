@@ -3039,7 +3039,7 @@ class Nad1Owner:
                 if self.service_generation is not None and generation!=self.service_generation:raise ValueError('dependency_retirement_generation_changed')
                 witnesses=[line.split() for line in bytes(stdout).decode('ascii').splitlines() if line.startswith('NAD1_EXIT_WITNESS_V1 ')]
                 if witnesses and (len(witnesses)!=1 or witnesses[0]!=['NAD1_EXIT_WITNESS_V1',self.op,self.token,*frames[0][4:6]] or generation==(0,0)):raise ValueError('dependency_exit_witness_identity')
-                stage['retirement_generation_authority']='retained_anchor_exit' if witnesses else 'retained_process_handle'
+                stage['retirement_generation_authority']='retained_anchor_exit' if witnesses else 'retained_process_handle' if generation!=(0,0) else 'exact_already_inactive'
                 if result['state']!=1 or result['owned_endpoint_mask']!=0:raise ValueError('dependency_retirement_state')
                 result['retirement_generation_confirmed']=True
             installer_atomic(self.directory/f'{self.op}-scm-{index}.private.json',result)

@@ -42,7 +42,7 @@ class StopReporting(unittest.TestCase):
    self.assertEqual(json.loads((root/('a'*32+'-retirement.private.json')).read_bytes()),{'raw_diagnostics_suppressed':True})
    self.assertNotIn('LOGIN_SECRET',json.dumps(owner.value()))
  def test_anchor_exit_handoff_remains_bound_and_private(self):
-  for mutation in ('none','generation','nonce','duplicate'):
+  for mutation in ('none','inactive','generation','nonce','duplicate'):
    with self.subTest(mutation=mutation),tempfile.TemporaryDirectory() as tmp:
     root=pathlib.Path(tmp);(root/'home').mkdir();op='a'*32;token='b'*64
     spec={'operation':op,'report':str(root/'result.json'),'application':{'environment':{'root':str(root),'runner':{}}},'installer_launch':{'path':'unused'}}
@@ -53,7 +53,8 @@ class StopReporting(unittest.TestCase):
     witness=f'NAD1_EXIT_WITNESS_V1 {op} {token} 123 456\n'
     if mutation=='nonce':witness=witness.replace(token,'c'*64)
     if mutation=='duplicate':witness*=2
-    generation='124 456' if mutation=='generation' else '123 456'
+    if mutation=='inactive':owner.service_generation=None;witness=''
+    generation='0 0' if mutation=='inactive' else '124 456' if mutation=='generation' else '123 456'
     frames=self.frame(confirmed=1,initial_state=1,final_state=1,process_wait=0,endpoint_mask=0,control_sent=0,control_started_ms=0,control_elapsed_ms=0)+witness.encode()+f'NAD1_RETIRE_V1 {op} {token} 1 {generation} 0\nNAD1_SCM_V1 {op} {token} exact 0 1 0 0 none 0 0 0\n'.encode()
     class Runtime:
      ready=True;closed=False;SERVICE_SHA=s.Nad1Runtime.SERVICE_SHA
@@ -61,9 +62,9 @@ class StopReporting(unittest.TestCase):
      def drain(self):pass
     owner.runtime=Runtime()
     with patch.object(s,'environment',return_value={}):
-     if mutation=='none':
+     if mutation in ('none','inactive'):
       self.assertTrue(owner.command('stop')['retirement_generation_confirmed'])
-      self.assertEqual(owner.stages[0]['retirement_generation_authority'],'retained_anchor_exit')
+      self.assertEqual(owner.stages[0]['retirement_generation_authority'],'exact_already_inactive' if mutation=='inactive' else 'retained_anchor_exit')
      else:
       with self.assertRaises(ValueError):owner.command('stop')
     self.assertNotIn('NAD1_EXIT_WITNESS',json.dumps(owner.value()))
