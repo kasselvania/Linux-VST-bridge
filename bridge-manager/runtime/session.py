@@ -3003,9 +3003,11 @@ class Nad1Runtime:
     a launch-client command that starts another ``proton runinprefix`` can enter
     a different Wine/SCM universe even when every prefix pathname is identical.
     Keep one source-owned Windows anchor alive and send only closed owner-built
-    direct-Wine commands through the exact launch client bound to that root.
-    Proton ``run`` is intentionally excluded because this pinned runner routes
-    it through built-in steam.exe.
+    Proton ``runinprefix`` commands through the exact launch client bound to
+    that root. The anchor keeps the one Wine/SCM universe alive while Proton
+    reconstructs its own closed environment for each helper. Proton ``run`` is
+    intentionally excluded because this pinned runner routes it through
+    built-in steam.exe.
     """
     DEBUG_KEYS = ('WINEDEBUG','PROTON_LOG','DXVK_LOG_LEVEL','VKD3D_DEBUG')
     def __init__(self,owner):
@@ -3110,8 +3112,8 @@ class Nad1Runtime:
         if not self.ready or self.bus_name is None:raise ValueError('dependency_runtime_not_ready')
         self.verify_tools()
         return [str(self.client),'--bus-name='+self.bus_name,'--directory='+str(cwd),
-                *['--pass-env='+key for key in self.DEBUG_KEYS],'--',str(self.wine),self.owner.spec['installer_launch']['path'],
-                windows(request,self.owner.root/'compatdata/pfx')]
+                *['--pass-env='+key for key in self.DEBUG_KEYS],'--',self.runner['proton'],'runinprefix',
+                self.owner.spec['installer_launch']['path'],windows(request,self.owner.root/'compatdata/pfx')]
     def value(self):
         return {'topology':'one_operation_proton_command_session','ready':self.ready,
                 'retirement_requested':self.closed,'tool_sha256':dict(self.tool_sha256)}

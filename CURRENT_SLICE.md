@@ -25,14 +25,16 @@ universe.
 The selected repair keeps one exact source-owned Windows anchor alive as the single
 Proton `runinprefix` root wrapped by the verified Pressure Vessel launcher interface.
 It binds the private command-service name emitted by that exact root and submits every
-dependency helper and the Native Access launch adapter as direct exact-Wine commands
-through the verified launch client in that same session. Proton `run` is excluded: the
-pinned runner routes it through built-in `steam.exe`, and the first disposable
-candidate produced a source-owned qualification assertion rather than an admissible
-product runtime. A bare service without the interface is also excluded. The anchor,
-helpers, daemon, and application remain inside the existing renderer cgroup and cleanup
-boundary. No bus name, command, path, service, or environment value becomes caller
-authority.
+dependency helper and the Native Access launch adapter through the verified launch
+client and exact Proton `runinprefix` in that same session. The retained anchor keeps
+the Wine/SCM universe alive; Proton reconstructs its own closed Wine environment for
+each inserted command. Proton `run` is excluded: the pinned runner routes it through
+built-in `steam.exe`, and the first disposable candidate produced a source-owned
+qualification assertion rather than an admissible product runtime. Bare Wine is also
+excluded because it loses Proton's prefix/session environment. A bare service without
+the interface remains excluded. The anchor, helpers, daemon, and application stay
+inside the existing renderer cgroup and cleanup boundary. No bus name, command, path,
+service, or environment value becomes caller authority.
 
 Generated qualification must prove that:
 

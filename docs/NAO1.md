@@ -33,15 +33,17 @@ verify exact runtime entry point, Proton, launcher interface, launch client, and
 → require the exact operation/nonce anchor frame
 → bind the one private command-service name emitted by that exact Proton root
 → submit every SCM helper and Native Access adapter through that exact service
+  using exact Proton `runinprefix`
 → keep root, helpers, daemon, and application in the renderer-owned cgroup
 → close the anchor only after dependency retirement, before final cohort cleanup
 ```
 
 The manager must not start a bare `srt-launcher-service` and then use its client to
-start another `proton runinprefix`. The verified launcher interface owns the retained
-root and its command service; commands inserted into that exact private service invoke
-the verified Wine image directly. A dead or ambiguous root must refuse rather than
-fall back to a new runtime.
+start `proton runinprefix` without a retained Windows root. The verified launcher
+interface owns the retained root and its command service; inserted commands use the
+verified Proton script so Proton reconstructs its exact Wine environment while the
+root keeps the one Wine/SCM universe alive. Bare Wine is not an admissible shortcut. A
+dead or ambiguous root must refuse rather than fall back to a new runtime.
 
 The command-service name is an operation-private transport identity, not public result
 data or caller input. Startup refuses missing or duplicate exact tool identities,

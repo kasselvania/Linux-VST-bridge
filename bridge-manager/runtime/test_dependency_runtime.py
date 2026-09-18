@@ -80,11 +80,9 @@ class RuntimeTests(unittest.TestCase):
   self.assertEqual(a[1],'--bus-name=:1.42')
   self.assertNotIn('EVIL',' '.join(a));self.assertNotIn('--clear-env',a)
   self.assertEqual([x for x in a if x.startswith('--pass-env=')],['--pass-env='+x for x in r.DEBUG_KEYS])
-  self.assertEqual(a[-3:-1],[str(r.wine),'/fixed/adapter.exe'])
+  self.assertEqual(a[-4:-1],['/fixed/proton','runinprefix','/fixed/adapter.exe'])
   self.assertIn('--directory='+str(self.owner.root/'home'),b)
-  # Only the retained root invokes Proton. Inserted commands invoke the
-  # verified Wine image directly inside its exact command service.
-  self.assertNotIn('runinprefix',a)
+  self.assertEqual(a.count('runinprefix'),1)
   self.assertNotIn(':1.42',str(r.value()))
  def test_dead_or_retired_container_never_falls_back_to_another_container(self):
   r=self.runtime;r.child=Mock(returncode=1);r.ready=True;r.bus_name=':1.42'
