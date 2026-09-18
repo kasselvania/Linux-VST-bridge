@@ -84,6 +84,42 @@ def run(build):
   assert observation[0]=='1' and observation[1]=='3' and observation[10]=='0',observation
   assert (root/'events.private').read_text().count('stop_requested')==controls+1
   assert anchor.wait(timeout=10)==0
+  # Completed external stop: the anchor has released its process handle before
+  # our stop helper starts. Keep the earlier RUNNING generation, not a new query.
+  (root/'delay-stop').unlink();command('start');deadline=time.monotonic()+15
+  while ' exact 0 4 ' not in command('query'):
+   assert time.monotonic()<deadline;time.sleep(.05)
+  admitted=generation;controls=(root/'events.private').read_text().count('stop_requested')
+  subprocess.run(['sc.exe','stop','NAD1FixtureService'],check=True,capture_output=True,timeout=10)
+  assert anchor.wait(timeout=15)==0
+  receipt=root/f'{op}-{token}-{admitted[0]}-{admitted[1]}-anchor-exit.private'
+  retained=receipt.read_bytes();assert retained==f'NAD1_ANCHOR_EXIT_V1 {op} {token} {admitted[0]} {admitted[1]} 0 0\n'.encode()
+  # Wrong generation/nonce, truncation, extension and aliasing cannot substitute
+  # for the original handle observation, even if an OS process object lingers.
+  request=root/'request'
+  fields=['NAD1_STOP_REQUEST_V2',op,token,'stop',sha,*map(str,admitted),'']
+  request.write_bytes(('\n'.join(fields)).encode('utf-16le'))
+  for bad in (retained.replace(token.encode(),b'0'*64),retained.replace(op.encode(),b'0'*32),retained.replace(str(admitted[0]).encode(),b'1'),retained.replace(str(admitted[1]).encode(),b'1'),retained[:-1],retained+b'x'):
+   receipt.write_bytes(bad)
+   p=subprocess.run([str(build/'nad1-service-adapter.exe'),str(request)],capture_output=True,timeout=20)
+   assert p.returncode==149,(p.returncode,p.stdout)
+   assert b'NAD1_EXIT_WITNESS_V1 ' not in p.stdout
+  receipt.write_bytes(retained)
+  alias=root/'receipt-alias';os.link(receipt,alias)
+  p=subprocess.run([str(build/'nad1-service-adapter.exe'),str(request)],capture_output=True,timeout=20)
+  assert p.returncode==149;alias.unlink()
+  # A missing receipt and invalid process lookup cannot establish exit.
+  missing=['NAD1_STOP_REQUEST_V2',op,token,'stop',sha,'4294967295',str(admitted[1]),'']
+  request.write_bytes(('\n'.join(missing)).encode('utf-16le'))
+  p=subprocess.run([str(build/'nad1-service-adapter.exe'),str(request)],capture_output=True,timeout=20)
+  assert p.returncode==149 and b'NAD1_EXIT_WITNESS_V1 ' not in p.stdout and b'NAD1_STOP_BEGIN_V1 ' not in p.stdout
+  generation=admitted
+  stopped=command('stop')
+  assert f'NAD1_EXIT_WITNESS_V1 {op} {token} {admitted[0]} {admitted[1]}' in stopped
+  observation=next(line.split()[3:] for line in stopped.splitlines() if line.startswith('NAD1_STOP_OBSERVATION_V2 '))
+  assert observation[0]=='1' and observation[1]=='1' and observation[10]=='0',observation
+  assert (root/'events.private').read_text().count('stop_requested')==controls+1
+  assert receipt.read_bytes()==retained
  finally:
   if installed:subprocess.run([str(root/'Setup.exe'),'--remove'],check=True,timeout=15)
   shutil.rmtree(root)

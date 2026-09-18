@@ -478,3 +478,21 @@ The amendment makes runtime resource closure best-effort with retained errors, g
 The unrelated Arturia completion typo is a separate small commit with a normal-exit regression. Validation uses generated local/Linux process cases, deterministic SCM state tests and the Windows SCM fixture with delayed/pending shutdown. No vendor/device operation or production installation is part of this repair.
 
 Generated repair source `f3487e5616a8a7141ce8ae113562d18d1c14da02` / tree `44120a7f90081892e825e3546c09537e695ef07c` passed AP8 `35297629223`, AP12 `35297629115`, and PX2 `35297629136`. The identical-tree hosted test merge is `4510260bb938d21cdf0a1681108477b4a58fd203`. New evidence is retained under `evidence/nad1/recovery/shutdown-repair/`; all prior evidence is unchanged. Draft PR #121 remains uninstalled and unmerged. No real device/vendor operation occurred; another daemon test is not part of this repair.
+
+## Completed-stop handoff amendment
+
+The tech-lead rereview of PR #121 at `7e2ae5b` requests one focused correction:
+preserve exact original-generation exit authority when external shutdown completes
+and the start anchor exits before the stop helper begins. Continue in the same
+draft PR; no real daemon transition, Native Access launch or installation.
+
+The anchor now retains the initial verified running handle without an intervening
+close and publishes a non-replacing, operation/nonce/generation-bound private exit
+receipt only after SCM STOPPED, that handle's exit, and zero owned listeners.
+Publication completes before handle release. The stop helper accepts this receipt
+only with a fresh STOPPED observation and still checks listener absence. Missing or
+invalid receipts never convert an arbitrary failed process lookup into success.
+The supervisor checks the returned generation against its admitted generation.
+Generated Windows coverage completes an external stop, waits for anchor exit, then
+invokes retirement with the old generation; malformed/aliased receipts and a
+missing receipt with failed process lookup refuse. All prior evidence is preserved.

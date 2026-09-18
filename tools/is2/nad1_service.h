@@ -28,7 +28,38 @@ static DWORD nad1_endpoints(DWORD pid) {
         if(row.dwOwningPid==pid&&row.dwState==MIB_TCP_STATE_LISTEN&&row.dwLocalAddr==0x0100007f){if(port==5146)mask|=1;if(port==5563)mask|=2;}}
     FreeLibrary(dll);return mask;
 }
-static int nad1_service_request(const std::vector<std::wstring>& r) {
+// Private, non-replacing handoff from the original retained process handle.
+// This receipt is created only after that handle signals and its listeners retire.
+// The operation nonce and exact Windows generation prevent cross-operation reuse.
+static std::wstring nad1_exit_path(const std::wstring& request,const std::vector<std::wstring>& r,DWORD pid,unsigned long long created){
+    std::array<wchar_t,32768> full{};DWORD n=GetFullPathNameW(request.c_str(),static_cast<DWORD>(full.size()),full.data(),nullptr);
+    if(!n||n>=full.size())return {};
+    std::wstring path(full.data(),n);auto slash=path.find_last_of(L"\\/");if(slash==std::wstring::npos)return {};
+    return path.substr(0,slash+1)+r[1]+L"-"+r[2]+L"-"+std::to_wstring(pid)+L"-"+std::to_wstring(created)+L"-anchor-exit.private";
+}
+static std::string nad1_exit_bytes(const std::vector<std::wstring>& r,DWORD pid,unsigned long long created){
+    return "NAD1_ANCHOR_EXIT_V1 "+std::string(r[1].begin(),r[1].end())+" "+std::string(r[2].begin(),r[2].end())+" "+std::to_string(pid)+" "+std::to_string(created)+" 0 0\n";
+}
+static bool nad1_exit_publish(const std::wstring& request,const std::vector<std::wstring>& r,DWORD pid,unsigned long long created){
+    auto path=nad1_exit_path(request,r,pid,created);if(path.empty()||!pid||!created)return false;
+    auto temporary=path+L".writing";
+    HANDLE file=CreateFileW(temporary.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
+    if(file==INVALID_HANDLE_VALUE)return false;
+    auto bytes=nad1_exit_bytes(r,pid,created);DWORD written=0;
+    bool ok=WriteFile(file,bytes.data(),static_cast<DWORD>(bytes.size()),&written,nullptr)&&written==bytes.size()&&FlushFileBuffers(file);
+    CloseHandle(file);return ok&&MoveFileExW(temporary.c_str(),path.c_str(),MOVEFILE_WRITE_THROUGH);
+}
+// Missing is distinct from malformed/inaccessible. Neither proves retirement.
+static int nad1_exit_read(const std::wstring& request,const std::vector<std::wstring>& r,DWORD pid,unsigned long long created){
+    auto path=nad1_exit_path(request,r,pid,created);if(path.empty())return -1;
+    HANDLE file=CreateFileW(path.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
+    if(file==INVALID_HANDLE_VALUE)return GetLastError()==ERROR_FILE_NOT_FOUND?0:-1;
+    BY_HANDLE_FILE_INFORMATION info{};std::array<char,512> bytes{};DWORD read=0;auto expected=nad1_exit_bytes(r,pid,created);
+    bool ok=GetFileInformationByHandle(file,&info)&&!(info.dwFileAttributes&(FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT))&&info.nNumberOfLinks==1&&info.nFileSizeHigh==0&&info.nFileSizeLow==expected.size()
+        &&ReadFile(file,bytes.data(),static_cast<DWORD>(bytes.size()),&read,nullptr)&&read==expected.size()&&std::string(bytes.data(),read)==expected;
+    CloseHandle(file);return ok?1:-1;
+}
+static int nad1_service_request(const std::vector<std::wstring>& r,const std::wstring& request_path) {
     const bool stop_v2=r.size()==7&&r[0]==L"NAD1_STOP_REQUEST_V2"&&r[3]==L"stop";
     if((!stop_v2&&(r.size()!=5 || r[0]!=L"NAD1_SERVICE_V1" || r[3]==L"stop")) || !hex(r[1],32) || !hex(r[2],64)
        || (r[3]!=L"query" && r[3]!=L"start" && r[3]!=L"stop" && r[3]!=L"install") || !hex(r[4],64)) return 140;
@@ -82,18 +113,24 @@ static int nad1_service_request(const std::vector<std::wstring>& r) {
         SERVICE_STATUS_PROCESS initial{};DWORD count=0;
         bool queried=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&initial),sizeof(initial),&count)!=FALSE;
         DWORD first_error=queried?0:GetLastError();HANDLE process=nullptr;DWORD pid=0;unsigned long long created=0;
-        bool valid=queried;DWORD identity_error=0;
+        bool valid=queried;DWORD identity_error=0;bool exit_witness=false;
         if(queried&&initial.dwCurrentState==SERVICE_RUNNING){
             pid=initial.dwProcessId;
             if(prior_pid&&pid!=prior_pid){valid=false;identity_error=ERROR_INVALID_DATA;}
         }else if(queried&&prior_pid)pid=static_cast<DWORD>(prior_pid);
         else if(queried&&initial.dwCurrentState!=SERVICE_STOPPED){valid=false;identity_error=ERROR_INVALID_DATA;}
-        if(valid&&pid){
+        if(valid&&pid&&initial.dwCurrentState==SERVICE_STOPPED&&prior_created){
+            const int witness=nad1_exit_read(request_path,r,pid,prior_created);
+            if(witness<0){valid=false;identity_error=ERROR_INVALID_DATA;}
+            else if(witness==1){exit_witness=true;created=prior_created;}
+        }
+        if(valid&&pid&&!exit_witness){
             process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION|SYNCHRONIZE,FALSE,pid);
+            if(!process)identity_error=GetLastError();
             std::array<wchar_t,32768> path{};DWORD length=static_cast<DWORD>(path.size());
             valid=process&&QueryFullProcessImageNameW(process,0,path.data(),&length)&&_wcsicmp(path.data(),nad1_image)==0;
             if(valid){created=time_of(process);valid=created!=0&&(!prior_created||created==prior_created);}
-            if(!valid)identity_error=ERROR_INVALID_DATA;
+            if(!valid&&!identity_error)identity_error=ERROR_INVALID_DATA;
         }
         struct IO {
             SC_HANDLE service;HANDLE process;DWORD pid;SERVICE_STATUS_PROCESS first;DWORD first_error;bool initial=true;
@@ -117,6 +154,7 @@ static int nad1_service_request(const std::vector<std::wstring>& r) {
             result.last.checkpoint,result.last.hint,result.process_wait,result.wait_error,result.endpoints,result.control_sent?1u:0u,result.control_error,
             static_cast<unsigned long long>(result.control_started),static_cast<unsigned long long>(result.control_elapsed),static_cast<unsigned long long>(result.elapsed),
             result.queries,result.progress,static_cast<unsigned>(identity_error),result.last.win32,result.last.specific);
+        if(exit_witness)std::fprintf(stdout,"NAD1_EXIT_WITNESS_V1 %ls %ls %lu %llu\n",r[1].c_str(),r[2].c_str(),pid,created);
         std::fprintf(stdout,"NAD1_RETIRE_V1 %ls %ls %u %lu %llu %u\n",r[1].c_str(),r[2].c_str(),result.confirmed?1u:0u,pid,created,result.endpoints);
         if(result.confirmed)std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls exact %u 1 0 0 none %u %u 0\n",r[1].c_str(),r[2].c_str(),result.control_error,result.last.win32,result.last.specific);
         std::fflush(stdout);if(process)CloseHandle(process);CloseServiceHandle(service);CloseServiceHandle(scm);return result.confirmed?0:149;
@@ -125,27 +163,34 @@ static int nad1_service_request(const std::vector<std::wstring>& r) {
     if(r[3]==L"start"&&!StartServiceW(service,0,nullptr)){request_error=GetLastError();if(request_error!=ERROR_SERVICE_ALREADY_RUNNING){CloseServiceHandle(service);CloseServiceHandle(scm);return 148;}}
     SERVICE_STATUS_PROCESS status{};
     ok=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&status),sizeof(status),&needed)!=FALSE;
-    std::string image_hash="none";unsigned long long created=0;DWORD endpoints=0;
+    std::string image_hash="none";unsigned long long created=0;DWORD endpoints=0;HANDLE start_anchor=nullptr;
     if(ok&&status.dwCurrentState==SERVICE_RUNNING){
-        HANDLE process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,status.dwProcessId);
+        HANDLE process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION|SYNCHRONIZE,FALSE,status.dwProcessId);
         std::array<wchar_t,32768> path{};DWORD length=static_cast<DWORD>(path.size());
         ok=process&&QueryFullProcessImageNameW(process,0,path.data(),&length)&&_wcsicmp(path.data(),nad1_image)==0;
         if(ok){created=time_of(process);HANDLE file=CreateFileW(path.data(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
             if(file!=INVALID_HANDLE_VALUE){image_hash=hash(file);CloseHandle(file);}else ok=false;}
         if(ok){endpoints=nad1_endpoints(status.dwProcessId);SERVICE_STATUS_PROCESS after{};DWORD count=0,exit=0;
             ok=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&after),sizeof(after),&count)&&after.dwProcessId==status.dwProcessId&&after.dwCurrentState==SERVICE_RUNNING&&GetExitCodeProcess(process,&exit)&&exit==STILL_ACTIVE&&time_of(process)==created;}
-        if(process)CloseHandle(process);
         if(!created||image_hash.size()!=64)ok=false;
+        if(ok&&r[3]==L"start")start_anchor=process;
+        else if(process)CloseHandle(process);
     }
     if(ok)std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls exact %lu %lu %lu %llu %s %lu %lu %lu\n",r[1].c_str(),r[2].c_str(),request_error,status.dwCurrentState,status.dwCurrentState==SERVICE_RUNNING?status.dwProcessId:0,created,image_hash.c_str(),status.dwWin32ExitCode,status.dwServiceSpecificExitCode,endpoints);
     std::fflush(stdout);
     // Normal use has no wall-clock deadline. The owner bounds cancellation and
     // cleanup separately. Retain one service generation; never adopt a restart.
     if(ok && r[3]==L"start") {
-        HANDLE anchor=nullptr;DWORD anchor_pid=0;unsigned long long anchor_created=0;
+        HANDLE anchor=start_anchor;DWORD anchor_pid=anchor?status.dwProcessId:0;unsigned long long anchor_created=anchor?created:0;
         while(ok){SERVICE_STATUS_PROCESS current{};DWORD used=0;
             if(!QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&current),sizeof(current),&used)){ok=false;break;}
-            if(current.dwCurrentState==SERVICE_STOPPED)break;
+            if(current.dwCurrentState==SERVICE_STOPPED){
+                // Publish before releasing the original handle. A vanished PID
+                // must never be mistaken for this generation's exit observation.
+                ok=anchor&&WaitForSingleObject(anchor,12000)==WAIT_OBJECT_0&&time_of(anchor)==anchor_created
+                    &&nad1_endpoints(anchor_pid)==0&&nad1_exit_publish(request_path,r,anchor_pid,anchor_created);
+                break;
+            }
             if(current.dwCurrentState==SERVICE_RUNNING){
                 if(!anchor){
                     anchor_pid=current.dwProcessId;

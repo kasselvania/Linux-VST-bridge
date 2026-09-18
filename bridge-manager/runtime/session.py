@@ -3035,6 +3035,11 @@ class Nad1Owner:
                 frames=[line.split() for line in bytes(stdout).decode('ascii').splitlines() if line.startswith('NAD1_RETIRE_V1 ')]
                 if len(frames)!=1 or len(frames[0])!=7 or frames[0][1:4]!=[self.op,self.token,'1'] or frames[0][6]!='0' or any(not re.fullmatch('[0-9]{1,20}',x) for x in frames[0][4:6]):raise ValueError('dependency_retirement_generation_unconfirmed')
                 if (int(frames[0][4])==0)!=(int(frames[0][5])==0):raise ValueError('dependency_retirement_generation_unconfirmed')
+                generation=tuple(map(int,frames[0][4:6]))
+                if self.service_generation is not None and generation!=self.service_generation:raise ValueError('dependency_retirement_generation_changed')
+                witnesses=[line.split() for line in bytes(stdout).decode('ascii').splitlines() if line.startswith('NAD1_EXIT_WITNESS_V1 ')]
+                if witnesses and (len(witnesses)!=1 or witnesses[0]!=['NAD1_EXIT_WITNESS_V1',self.op,self.token,*frames[0][4:6]] or generation==(0,0)):raise ValueError('dependency_exit_witness_identity')
+                stage['retirement_generation_authority']='retained_anchor_exit' if witnesses else 'retained_process_handle'
                 if result['state']!=1 or result['owned_endpoint_mask']!=0:raise ValueError('dependency_retirement_state')
                 result['retirement_generation_confirmed']=True
             installer_atomic(self.directory/f'{self.op}-scm-{index}.private.json',result)
