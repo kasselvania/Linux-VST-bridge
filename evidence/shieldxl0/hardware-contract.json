@@ -96,7 +96,7 @@
     "sustained_performance_classification": null
   },
   "provisioning": {
-    "commit": null,
+    "commit": "a3fed20a6dcc9f4572fb68725e62d10e2af2bd4c",
     "paths": ["tools/shieldxl0", "evidence/shieldxl0"],
     "rollback": "tools/shieldxl0/uninstall.sh",
     "physical_verification_completed": false
