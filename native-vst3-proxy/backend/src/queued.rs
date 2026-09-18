@@ -762,19 +762,43 @@ pub(crate) unsafe fn open(
     minor: u64,
     identity: Option<state::Identity>,
 ) -> u32 {
+    open_with(max, handle, minor, identity, None, || {
+        if minor >= 6 {
+            crate::preview::discover_performance(identity)
+        } else if let Some(identity) = identity {
+            crate::preview::discover_commercial(identity)
+        } else {
+            binding(minor == 4)
+        }
+    })
+}
+
+#[cfg(feature = "rpi0")]
+pub(crate) unsafe fn open_bound(
+    max: u32,
+    handle: *mut u64,
+    identity: state::Identity,
+    binding: crate::preview::Binding,
+) -> u32 {
+    let report = binding.directory.join("rpi0.performance.jsonl");
+    open_with(max, handle, 12, Some(identity), Some(report), || Ok(binding))
+}
+
+unsafe fn open_with(
+    max: u32,
+    handle: *mut u64,
+    minor: u64,
+    identity: Option<state::Identity>,
+    report_override: Option<std::path::PathBuf>,
+    binding: impl FnOnce() -> io::Result<crate::preview::Binding>,
+) -> u32 {
     if handle.is_null() || !(1..=256).contains(&max) {
         return 1;
     }
     crate::ffi(|| {
         match INSTANCES.insert(|| {
-            let binding = if minor >= 6 {
-                crate::preview::discover_performance(identity)?
-            } else if let Some(identity) = identity {
-                crate::preview::discover_commercial(identity)?
-            } else {
-                binding(minor == 4)?
-            };
-            let report = binding.owner.as_ref().map(|_| {
+            let binding = binding()?;
+            let report = report_override.or_else(|| binding.owner.as_ref().map(|_| {
                 if minor >= 6 {
                     crate::preview::performance_root(identity.is_some())
                         .join("results")
@@ -787,7 +811,7 @@ pub(crate) unsafe fn open(
                 } else {
                     crate::preview::report_path(binding.session)
                 }
-            });
+            }));
             let installed_delay = binding.installed_delay;
             let mut session = Session::open(binding, max as usize, minor)?;
             session.identity = identity;
@@ -1454,13 +1478,13 @@ unsafe fn process_events(
 #[repr(C)]
 #[derive(Default)]
 pub struct Stats {
-    fault: u64,
-    first_position: u64,
-    processed: u64,
-    request_high: u64,
-    result_high: u64,
-    position: u64,
-    epoch: u64,
+    pub fault: u64,
+    pub first_position: u64,
+    pub processed: u64,
+    pub request_high: u64,
+    pub result_high: u64,
+    pub position: u64,
+    pub epoch: u64,
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap3_stats(id: u64, out: *mut Stats) -> u32 {
