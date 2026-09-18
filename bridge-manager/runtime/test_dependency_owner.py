@@ -10,7 +10,8 @@ class OwnerTests(unittest.TestCase):
   self.installer=self.drive/'Setup.exe';self.daemon=self.drive/'NTKDaemon.exe'
   self.bytes=bytearray(256);self.bytes[:2]=b'MZ';struct.pack_into('<I',self.bytes,60,64);self.bytes[64:68]=b'PE\0\0';self.bytes[68:70]=b'\x64\x86';self.installer.write_bytes(self.bytes)
   self.artifact=ownership.image_identity(self.installer);self.report=self.root/'result.json'
-  spec={'operation':'a'*32,'report':str(self.report),'application':{'environment':{'root':str(self.root)}}}
+  self.environment={'root':str(self.root)};s.installer_atomic(self.root/'environment.json',self.environment)
+  spec={'operation':'a'*32,'report':str(self.report),'application':{'environment':self.environment}}
   fixture={'installer':'Setup.exe','daemon':'NTKDaemon.exe','installer_sha256':self.artifact['sha256'],'installer_size':256}
   self.owner=s.Nad1Owner(spec,type('Ledger',(),{'harvest':lambda _:None})(),None,lambda:False,fixture=fixture)
   self.commands=[];self.registered=False;self.service_state=1;self.fail=None
@@ -31,6 +32,35 @@ class OwnerTests(unittest.TestCase):
   self.scan_patch=patch.object(ownership,'census',side_effect=scan);self.scan_patch.start();self.addCleanup(self.scan_patch.stop)
   self.listener=patch.object(s,'nad1_generation_owned',return_value=True).start();self.addCleanup(patch.stopall)
  def existing(self,registered=True,state=1):self.daemon.write_bytes(self.bytes);self.registered=registered;self.service_state=state;return self.artifact
+ def session_owner(self,authority=None):
+  authority=authority or {'schema':1,'authority':'closed_exact_installation_origin_and_current_software',
+   'application':'b'*64,'software_sha256':'c'*64,'manager_sha256':'d'*64,'environment':'fixture',
+   'prefix':{'path_sha256':'e'*64,'device':1,'inode':2},'installation':{'path':'fixture','sha256':'f'*64},
+   'service':s.NAD1_SERVICE,'listeners':[5146,5563],
+   'installer':{'sha256':self.artifact['sha256'],'size':256},'daemon':self.artifact,
+   'origin':{'kind':'qualified_recovered_installation'},'current_software':{'fixture':True}}
+  spec={'operation':'a'*32,'report':str(self.report),'application':{'environment':self.environment},'dependency_session':authority}
+  fixture={'installer':'Setup.exe','daemon':'NTKDaemon.exe','installer_sha256':self.artifact['sha256'],'installer_size':256,
+   'session_directory':str(self.root/'recovery'),'session_qualification':{'fixture':True}}
+  with patch.object(s,'nad1_session_admitted_inputs',return_value=copy.deepcopy(authority)):
+   return s.Nad1Owner(spec,type('Ledger',(),{'harvest':lambda _:None})(),None,lambda:False,
+    fixture=fixture,session_authority=copy.deepcopy(authority))
+ def exact_scan(self,*,unavailable=0):
+  if unavailable:return {'candidates':[],'private':[],'unavailable':unavailable}
+  public={'prefix_relation':'same','exact':True}
+  private={'prefix_relation':'same','exact':True,'linux_pid':10,'start_ticks':20}
+  return {'candidates':[public],'private':[private],'unavailable':0}
+ def delayed_running(self,owner,*,fresh_state=4):
+  admitted=self.existing(True,state=4);command=self.owner.command;queries=[0]
+  def transient(action):
+   result=command(action)
+   if action=='query':
+    queries[0]+=1
+    if queries[0]==1:return dict(result,registration='absent',state=0,image_sha256='none',owned_endpoint_mask=0,windows_pid=0)
+    if queries[0]==2:return dict(result,state=fresh_state,image_sha256=self.artifact['sha256'] if fresh_state==4 else 'none',owned_endpoint_mask=0 if fresh_state==2 else 3)
+   return result
+  owner.command=transient
+  return admitted
  def test_absent_installs_registers_then_service_only_start(self):
   r=self.owner.ensure(True);self.assertTrue(r['ready_tested']);self.assertEqual(self.commands,['query','install','query','start','query'])
  def test_unregistered_installs_but_never_direct_exec(self):
@@ -71,6 +101,97 @@ class OwnerTests(unittest.TestCase):
  def test_application_path_cannot_reinstall(self):
   with self.assertRaisesRegex(ValueError,'prepare_required'):self.owner.ensure(False)
   self.assertNotIn('install',self.commands)
+ def test_qualified_recovery_authority_survives_one_same_runtime_registration_reobservation(self):
+  admitted=self.existing(True);owner=self.session_owner();command=self.owner.command;queries=[0]
+  def transient(action):
+   result=command(action)
+   if action=='query' and queries[0]==0:
+    queries[0]+=1;return dict(result,registration='absent',state=0,image_sha256='none',owned_endpoint_mask=0,windows_pid=0)
+   return result
+  owner.command=transient
+  with patch.object(s.time,'sleep'):result=owner.ensure(False,admitted)
+  self.assertTrue(result['ready_tested']);self.assertEqual(self.commands[:3],['query','query','start'])
+  self.assertEqual(self.commands.count('start'),1)
+  self.assertEqual(result['session_origin'],{'kind':'qualified_recovered_installation','validated':True})
+  self.assertEqual(result['registration_reobservation'],{'attempted':True,'count':1,'delay_ms':1000,'result':'exact'})
+  self.assertEqual(result['registration_ownership_revalidation'],{'attempted':True,'result':'owned_start_required','candidate_count':0,'unavailable':0})
+  self.assertEqual(result['recovery']['kind'],'qualified_recovered_installation')
+  self.assertTrue(owner.retirement_authorized)
+  self.assertNotIn('install',self.commands)
+ def test_delayed_exact_running_refuses_same_prefix_unowned_without_stop_or_launch(self):
+  owner=self.session_owner();admitted=self.delayed_running(owner);empty={'candidates':[],'private':[],'unavailable':0}
+  with patch.object(ownership,'census',side_effect=[empty,self.exact_scan()]),patch.object(s,'nad1_generation_owned',return_value=False),patch.object(s.time,'sleep'),patch.object(s.subprocess,'Popen') as launch:
+   with self.assertRaisesRegex(ValueError,'registration_same_prefix_unowned'):owner.ensure(False,admitted)
+   launch.assert_not_called()
+  self.assertFalse(owner.retirement_authorized);self.assertFalse(owner.retire())
+  self.assertEqual(owner.service_stop_request_count,0);self.assertFalse(owner.service_stop_requested)
+  self.assertEqual(self.commands,['query','query'])
+  self.assertEqual(owner.registration_ownership_revalidation['result'],'same_prefix_unowned')
+ def test_delayed_exact_registration_refuses_unavailable_census_without_stop_or_launch(self):
+  owner=self.session_owner();admitted=self.delayed_running(owner);empty={'candidates':[],'private':[],'unavailable':0}
+  with patch.object(ownership,'census',side_effect=[empty,self.exact_scan(unavailable=1)]),patch.object(s.time,'sleep'),patch.object(s.subprocess,'Popen') as launch:
+   with self.assertRaisesRegex(ValueError,'registration_candidate_unavailable'):owner.ensure(False,admitted)
+   launch.assert_not_called()
+  self.assertFalse(owner.retirement_authorized);self.assertFalse(owner.retire())
+  self.assertEqual(owner.service_stop_request_count,0);self.assertFalse(owner.service_stop_requested)
+  self.assertEqual(self.commands,['query','query'])
+  self.assertEqual(owner.registration_ownership_revalidation['result'],'candidate_unavailable')
+ def test_delayed_exact_registration_refuses_ambiguous_foreign_or_deleted_without_stop(self):
+  empty={'candidates':[],'private':[],'unavailable':0}
+  ambiguous=self.exact_scan();ambiguous['candidates']*=2;ambiguous['private']*=2
+  for name,scan,error in (
+   ('ambiguous',ambiguous,'registration_ownership_unconfirmed'),
+   ('foreign',{'candidates':[{'prefix_relation':'foreign','exact':True}],'private':[],'unavailable':0},'registration_foreign_conflict'),
+   ('deleted',{'candidates':[{'prefix_relation':'deleted','exact':True}],'private':[],'unavailable':0},'registration_foreign_conflict')):
+   with self.subTest(name=name):
+    self.commands.clear();owner=self.session_owner();admitted=self.delayed_running(owner)
+    with patch.object(ownership,'census',side_effect=[empty,scan]),patch.object(s,'nad1_generation_owned',return_value=True),patch.object(s.time,'sleep'):
+     with self.assertRaisesRegex(ValueError,error):owner.ensure(False,admitted)
+    self.assertFalse(owner.retirement_authorized);self.assertFalse(owner.retire())
+    self.assertEqual(owner.service_stop_request_count,0);self.assertNotIn('stop',self.commands)
+ def test_delayed_exact_running_or_start_pending_accepts_only_owned_generation(self):
+  for state in (2,4):
+   with self.subTest(state=state):
+    self.commands.clear();owner=self.session_owner();admitted=self.delayed_running(owner,fresh_state=state)
+    empty={'candidates':[],'private':[],'unavailable':0};owned=self.exact_scan()
+    with patch.object(ownership,'census',side_effect=[empty,owned,owned]),patch.object(s,'nad1_generation_owned',return_value=True),patch.object(s.time,'sleep'):
+     result=owner.ensure(False,admitted)
+    self.assertTrue(result['ready_tested']);self.assertTrue(owner.retirement_authorized)
+    self.assertNotIn('start',self.commands)
+    self.assertEqual(result['registration_ownership_revalidation']['result'],'owned_generation')
+ def test_delayed_registration_revalidates_physical_prefix_before_authority(self):
+  owner=self.session_owner();admitted=self.delayed_running(owner);owner.prefix_identity=(0,0)
+  empty={'candidates':[],'private':[],'unavailable':0}
+  with patch.object(ownership,'census',return_value=empty),patch.object(s.time,'sleep'):
+   with self.assertRaisesRegex(ValueError,'registration_prefix_changed'):owner.ensure(False,admitted)
+  self.assertFalse(owner.retirement_authorized);self.assertFalse(owner.retire())
+  self.assertEqual(owner.service_stop_request_count,0);self.assertNotIn('stop',self.commands)
+ def test_persistent_absence_and_registration_observation_fail_closed(self):
+  admitted=self.existing(False)
+  owner=self.session_owner();owner.command=self.owner.command
+  with patch.object(s.time,'sleep'),self.assertRaisesRegex(ValueError,'qualified_registration_absent'):owner.ensure(False,admitted)
+  self.assertEqual(self.commands,['query','query']);self.assertNotIn('install',self.commands)
+  for failure,expected in [(1,'registration_observation_unavailable'),(2,'registration_recovery_failed')]:
+   with self.subTest(failure=failure):
+    self.commands.clear();owner=self.session_owner();calls=[0]
+    def unavailable(action):
+     calls[0]+=1
+     if calls[0]==failure:raise ValueError('fixture_query_unavailable')
+     self.commands.append(action)
+     return {'registration':'absent','state':0,'image_sha256':'none','owned_endpoint_mask':0,'windows_pid':0}
+    owner.command=unavailable
+    with patch.object(s.time,'sleep'),self.assertRaisesRegex(ValueError,expected):owner.ensure(False,admitted)
+    if failure==2:self.assertFalse(owner.retire());self.assertFalse(owner.service_retirement_confirmed)
+ def test_renderer_owner_refuses_missing_or_changed_recovery_authority(self):
+  authority=self.session_owner().session_authority
+  spec={'operation':'a'*32,'report':str(self.report),'application':{'environment':{'root':str(self.root)}},'dependency_session':authority}
+  fixture={'installer':'Setup.exe','daemon':'NTKDaemon.exe','installer_sha256':self.artifact['sha256'],'installer_size':256,
+   'session_directory':str(self.root/'recovery'),'session_qualification':{'fixture':True}}
+  with self.assertRaisesRegex(ValueError,'authority_missing'):
+   s.Nad1Owner(spec,None,None,lambda:False,fixture=fixture)
+  changed=copy.deepcopy(authority);changed['origin']['kind']='retained_installation_artifact'
+  with self.assertRaisesRegex(ValueError,'authority_lost'):
+   s.Nad1Owner(spec,None,None,lambda:False,fixture=fixture,session_authority=changed)
  def test_changed_daemon_installer_or_unknown_generation_refuses(self):
   self.existing()
   with self.assertRaisesRegex(ValueError,'unadmitted'):self.owner.ensure(True)
@@ -343,6 +464,7 @@ class IntegratedApplicationTests(unittest.TestCase):
       self.assertNotIn('application_retire',events)
      else:self.assertLess(events.index('application_retire'),events.index('service_stop'))
      if case=='readiness_failure':self.assertEqual(events,['ready','service_stop'])
+     if case=='launch_failure':self.assertEqual(r['error'],'application_launch_failed')
      if case=='stop_failure':self.assertEqual(r['error'],'application_outer_nonzero');self.assertFalse(r['dependency']['service_retirement_confirmed'])
      if case=='normal':self.assertEqual(r['state'],'completed')
      elif case=='cancel':self.assertEqual(r['state'],'cancelled')

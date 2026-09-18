@@ -1,0 +1,73 @@
+{
+  "schema": "linux-vst-bridge-nao1-recovery-readiness-handoff-start/v1",
+  "source_basis": {
+    "commit": "a544645792aa1428d0388191e4fee45e7801b921",
+    "tree": "d438c67d68f2f64ff94cd7110aaff390c05e9e04",
+    "installed_generation": "c4380746a60f85d711c9bd39fc9e5e48bafc501a18eddff7a49d4d68b0cdc3c0"
+  },
+  "physical_attempt": {
+    "operation": "d3762548dc0597464d52ef2b63a77b5a",
+    "disposition": "REAL_NATIVE_ACCESS_SESSION_ADMISSION_FAILED_DEPENDENCY_PREPARE_REQUIRED",
+    "attempt_seal_sha256": "57aaa12eb4b481e2159ba4c6b1dc6c59775bc92e7b78ebc9d754dca7058e63e6",
+    "read_only_diagnosis_sha256": "3bbc4b30a068fccc6cebb795439d1a60966384aaa07c2abf9bb27bda76e1fd08",
+    "read_only_diagnosis_seal_sha256": "fc3d1f6b711455f4bac7d445cb3394c7aee41381373739df50602c148000eff7",
+    "user_observation_image_sha256": "b0a86de78e506b0cf002a39da5a54ef6d27cc7d99c089795fea4d98e66eb5ab1"
+  },
+  "admission": {
+    "origin_kind": "qualified_recovered_installation",
+    "installer": {
+      "sha256": "5f2199f4e1409d6eea5edaea9c4a8af31e8ee8ac3790851aa44d33e87a46b218",
+      "size": 35769456,
+      "current_file_existed": true,
+      "current_file_matched": true
+    },
+    "daemon": {
+      "sha256": "e20b3d30b72d6a12e0a37b5fbd1a5c21e0db9e53459b4aab165270f7f739343b",
+      "size": 18259440,
+      "architecture": "x64",
+      "current_file_existed": true,
+      "current_file_matched": true
+    }
+  },
+  "first_dependency_observation": {
+    "action": "query",
+    "service": "NTKDaemonService",
+    "registration": "absent",
+    "request_error": 1060,
+    "state": 0,
+    "owned_listener_mask": 0,
+    "start_or_readiness_loop_observed": false,
+    "registration_absence_transient_or_persistent": "unavailable_from_single_query"
+  },
+  "application": {
+    "launch_attempted": false,
+    "window_created": false,
+    "blank_window_claimed": false
+  },
+  "terminal": {
+    "error": "dependency_prepare_required",
+    "owned_processes_remaining": 0,
+    "owned_listeners_remaining": 0,
+    "bridge_active": true,
+    "keepers_healthy": 2,
+    "leases": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "pending_resume_owner": false,
+    "capture_active": false,
+    "second_launch_occurred": false
+  },
+  "repair_selection": {
+    "authority_handoff": "full_closed_session_record",
+    "registration_handling": "one_bounded_same_runtime_reobservation",
+    "registration_mutation": false,
+    "installer_replay": false,
+    "artifact_or_preparation_receipt_created": false,
+    "persistent_absence_disposition": "refuse_before_application_launch"
+  },
+  "privacy": {
+    "raw_operation_nonce_retained_here": false,
+    "process_generation_retained_here": false,
+    "callback_or_credentials_retained_here": false
+  }
+}

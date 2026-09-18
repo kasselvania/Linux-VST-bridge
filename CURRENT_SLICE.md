@@ -1,3 +1,37 @@
+# NAO1 — Qualified-recovery readiness handoff repair
+
+Focused repair basis:
+
+- merged NAO1 source: `a544645792aa1428d0388191e4fee45e7801b921`
+- merged tree: `d438c67d68f2f64ff94cd7110aaff390c05e9e04`
+- installed immutable generation: `c4380746a60f85d711c9bd39fc9e5e48bafc501a18eddff7a49d4d68b0cdc3c0`
+- retained failed physical operation: `d3762548dc0597464d52ef2b63a77b5a`
+- retained disposition: `REAL_NATIVE_ACCESS_SESSION_ADMISSION_FAILED_DEPENDENCY_PREPARE_REQUIRED`
+
+The first physical NAO1 attempt admitted the exact
+`qualified_recovered_installation` origin and reverified the installer and daemon
+images. Its only SCM query then reported exact error 1060 (`service does not exist`).
+No start/readiness loop or application launch followed. The retained record cannot
+distinguish a transient private-runtime SCM initialization observation from persistent
+missing registration.
+
+This repair carries the complete validated session authority into `Nad1Owner` instead
+of reducing it to the daemon image. An initial exact 1060 observation for either closed
+session origin receives exactly one delayed query in the same operation-owned runtime.
+Exact registration is not process-generation ownership or retirement authority. After
+that delayed query reports exact registration, the owner revalidates the physical
+prefix and runs one fresh bounded process census. `RUNNING` or `START_PENDING` may
+continue only with one exact same-prefix generation already owned by this renderer
+cohort. `STOPPED` may continue only with no candidate, through this operation's one
+owned start. Unavailable, ambiguous, foreign, deleted-prefix, or same-prefix unowned
+candidates refuse before application launch and leave stop authority absent. Another
+SCM absence or an unavailable observation also refuses. The repair performs no
+registration mutation, installer replay, artifact/preparation synthesis, or second
+physical operation. A persistently absent real registration remains a separately
+reviewed product/design decision.
+
+The original NAO1 authority follows and remains in force.
+
 # NAO1 — Native Access owned session
 
 Active basis:

@@ -97,6 +97,9 @@ class CleanupAndPipeTests(unittest.TestCase):
     root=pathlib.Path(tmp).resolve();(root/'compatdata/pfx').mkdir(parents=True);(root/'compatdata/pfx/system.reg').touch()
     image=root/'fixture.exe';image.write_bytes(b'MZfixture')
     spec={'operation':'a'*32,'application_identity':'b'*64,'software_sha256':'c'*64,'renderer_policy':'software_rendering','report':str(root/'result.json'),'application':{'id':'nad1-source-owned','environment':{'root':str(root),'runner':{'entry_point':'/fixture'}},'files':{'Native Access.exe':{'artifact':{'path':str(image),'sha256':hashlib.sha256(image.read_bytes()).hexdigest()},'size':image.stat().st_size}}}}
+    authority={'origin':{'kind':'qualified_recovered_installation'},'service':s.NAD1_SERVICE,'listeners':[5146,5563],
+     'installer':{'sha256':'d'*64,'size':256},'daemon':{}}
+    if application:spec['dependency_session']=authority
     scope=Mock();scope.members.return_value=[];ledger=Mock();ledger.cleanup.return_value=True
     library=Mock();library.prctl.return_value=0
     def ensure(owner,*_):
@@ -104,8 +107,8 @@ class CleanupAndPipeTests(unittest.TestCase):
      if original_failure:raise ValueError('original_readiness_failure')
     signals=[signal.getsignal(x) for x in (signal.SIGTERM,signal.SIGINT)]
     try:
-     with patch.object(s,'CompanionCgroup',return_value=scope),patch.object(s,'InstallerLedger',return_value=ledger),patch.object(s.ctypes,'CDLL',return_value=library),patch.object(s.Nad1Owner,'ensure',ensure),patch.object(s.Nad1Owner,'_retire_service',return_value=True):
-      if application:s.renderer_run(spec,dependency={'daemon':{}},dependency_fixture={'installer':'Setup.exe','daemon':'NTKDaemon.exe','installer_sha256':'d'*64,'installer_size':256})
+     with patch.object(s,'CompanionCgroup',return_value=scope),patch.object(s,'InstallerLedger',return_value=ledger),patch.object(s.ctypes,'CDLL',return_value=library),patch.object(s,'nad1_session_admitted_inputs',return_value=authority),patch.object(s.Nad1Owner,'ensure',ensure),patch.object(s.Nad1Owner,'_retire_service',return_value=True):
+      if application:s.renderer_run(spec,dependency=authority,dependency_fixture={'installer':'Setup.exe','daemon':'NTKDaemon.exe','installer_sha256':'d'*64,'installer_size':256,'session_directory':str(root),'session_qualification':{}})
       else:s.nad1_owned(spec,fixture={'installer':'Setup.exe','daemon':'NTKDaemon.exe','installer_sha256':'d'*64,'installer_size':256})
      ledger.cleanup.assert_called_once()
      v=json.loads((root/'result.json').read_bytes())

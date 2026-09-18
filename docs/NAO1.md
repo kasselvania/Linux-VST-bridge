@@ -1,5 +1,52 @@
 # NAO1 — Native Access owned-session launch and cleanup
 
+## Focused repair amendment: qualified-recovery readiness handoff
+
+The first physical owned-session request at merged source
+`a544645792aa1428d0388191e4fee45e7801b921` failed before readiness and before Native
+Access launch. The renderer operation contained the complete validated
+`qualified_recovered_installation` session record, but the application path passed only
+its daemon identity to `Nad1Owner`. The owner therefore lost the admitted origin before
+its first SCM query and returned the historical `dependency_prepare_required` error
+after that query reported error 1060.
+
+The operation-owned owner must receive and independently revalidate the complete closed
+session record: origin, fixed recovery sources when selected, installer, daemon,
+application, software, environment, physical prefix, service, and listeners. Presence
+of daemon bytes alone never grants recovery authority. The retained artifact and fixed
+qualified-recovery origins remain the only two choices, and an invalid present artifact
+never falls back to recovery.
+
+The sealed physical result contains only one SCM query, so it does not establish
+whether error 1060 was transient during private-runtime initialization or represented
+persistent missing registration. The smallest authorized repair is one fixed one-second
+delay with continuous runtime draining followed by exactly one fresh query in the same
+operation-owned runtime. This is observation only:
+
+```text
+initial exact 1060
+→ retain full session authority and the same private runtime
+→ one bounded fresh query
+→ exact registration: revalidate prefix and run a fresh bounded process census
+→ RUNNING/START_PENDING: continue only with one exact renderer-owned generation
+→ STOPPED: continue only with no candidate, through one operation-owned start
+→ absent or unavailable: refuse before application launch
+```
+
+Exact registration is not process ownership and does not itself grant retirement
+authority. An unavailable or ambiguous census, foreign or deleted-prefix candidate, or
+same-prefix unowned candidate refuses before application launch. A readiness failure
+before one exact generation is owned leaves retirement authority false, so terminal
+cleanup cannot submit a Stop request.
+
+No installer is replayed, no service configuration is written, and no artifact or
+preparation receipt is created. Persistent absence is reported distinctly as
+`dependency_qualified_registration_absent`. Initial observation failure,
+re-observation failure, readiness failure, application-launch failure, and cleanup
+failure remain separate results. A future direct registration repair would require the
+complete exact service configuration and separate tech-lead review; this amendment does
+not guess or introduce it.
+
 ## 1. Product outcome
 
 The purpose of this slice is to make Native Access usable.

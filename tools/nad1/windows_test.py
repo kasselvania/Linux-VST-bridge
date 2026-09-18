@@ -52,6 +52,19 @@ def run(build):
   assert subprocess.run([str(root/'Setup.exe')],timeout=10).returncode==1063
   assert 'NAD1_INSTALL_ROOT_V1 '+op in command('install');installed=True
   assert ' exact 0 1 ' in command('query')
+  # The production request/parser path must preserve one transient exact 1060,
+  # then observe the already-registered fixed service without mutation.
+  (root/'query-absent-once').touch()
+  assert ' absent 1060 ' in command('query')
+  assert ' exact 0 1 ' in command('query')
+  # A genuinely persistent absence remains absence across the single bounded
+  # re-observation opportunity; removing the source-owned marker restores the
+  # ordinary exact fixture state for all later lifecycle cases.
+  (root/'query-absent-always').touch()
+  assert ' absent 1060 ' in command('query')
+  assert ' absent 1060 ' in command('query')
+  (root/'query-absent-always').unlink()
+  assert ' exact 0 1 ' in command('query')
   assert subprocess.run([str(root/'NTKDaemon.exe')],timeout=10).returncode==1063
   command('start');deadline=time.monotonic()+15
   while time.monotonic()<deadline:

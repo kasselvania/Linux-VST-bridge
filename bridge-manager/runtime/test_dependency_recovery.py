@@ -75,25 +75,26 @@ class RecoveryInputs(unittest.TestCase):
 class RecoveryLifecycle(unittest.TestCase):
  setUp=harness.OwnerTests.setUp
  existing=harness.OwnerTests.existing
+ session_owner=harness.OwnerTests.session_owner
  def recovery(self):
-  admitted=self.existing();self.owner.recovery={'authority':'qualified_bundle_payload_and_retired_installation','daemon':admitted,'prior_failure_preserved':True,'installer_reexecuted':False};return admitted
+  admitted=self.existing();command=self.owner.command;self.owner=self.session_owner();self.owner.command=command;return admitted
  def test_recovery_starts_and_retires_without_reinstall_or_direct_execution(self):
-  self.owner.ensure(False,self.recovery());self.assertTrue(self.owner.retire())
+  admitted=self.recovery();self.owner.ensure(False,admitted);self.assertTrue(self.owner.retire())
   self.assertEqual(self.commands,['query','start','query','stop','query']);self.assertTrue(self.owner.ready)
  def test_recovery_missing_registration_refuses_reinstall(self):
   admitted=self.recovery();self.registered=False
-  with self.assertRaisesRegex(ValueError,'recovery_registration_missing'):self.owner.ensure(False,admitted)
-  self.assertTrue(self.owner.retire());self.assertEqual(self.commands,['query'])
+  with patch.object(s.time,'sleep'),self.assertRaisesRegex(ValueError,'qualified_registration_absent'):self.owner.ensure(False,admitted)
+  self.assertTrue(self.owner.retire());self.assertEqual(self.commands,['query','query'])
  def test_recovery_query_loss_keeps_retirement_unconfirmed(self):
   admitted=self.recovery();self.fail='query'
   with self.assertRaises(ValueError):self.owner.ensure(False,admitted)
   self.assertFalse(self.owner.retire());self.assertEqual(self.commands,['query'])
  def test_recovery_readiness_failure_still_stops_and_never_grants_ready(self):
   admitted=self.recovery();self.listener.return_value=False
-  with patch.object(s.time,'monotonic',side_effect=[0,1,30]),patch.object(s.time,'sleep'),self.assertRaisesRegex(ValueError,'running_not_ready'):self.owner.ensure(False,admitted)
+  with patch.object(s.time,'monotonic',side_effect=[0,1,30]),patch.object(s.time,'sleep'),self.assertRaisesRegex(ValueError,'readiness_failed'):self.owner.ensure(False,admitted)
   self.assertTrue(self.owner.retire());self.assertFalse(self.owner.ready);self.assertEqual(self.commands.count('stop'),1);self.assertNotIn('install',self.commands)
  def test_recovery_stop_loss_never_claims_clean_preparation(self):
-  self.owner.ensure(False,self.recovery());self.fail='stop'
+  admitted=self.recovery();self.owner.ensure(False,admitted);self.fail='stop'
   self.assertFalse(self.owner.retire());self.assertFalse(self.owner.retire());self.assertEqual(self.commands.count('stop'),1)
   self.assertFalse(self.owner.service_retirement_confirmed);self.assertTrue(self.owner.forced_cleanup_used)
 

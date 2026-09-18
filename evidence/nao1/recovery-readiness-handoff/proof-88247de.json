@@ -1,0 +1,63 @@
+{
+  "schema": "vst.nao1-recovery-readiness-handoff-proof/v1",
+  "source": {
+    "commit": "88247de9c79c565b17b88af277df4cbe819c53db",
+    "tree": "3746cc05f7a27f177d08b4c99b378b139cd295fc"
+  },
+  "package_seal_sha256": "8685f43dd463aba356f758b3e5362e74f4f0a6c234c3c6f329f0d109ac5bf9ca",
+  "private_campaign_proof_sha256": "870c97a0dea51825872c15fd7c43d162658b5f3d1856e66bd90a3972e823fee9",
+  "campaign": {
+    "sessions": 15,
+    "recovery_origin_sessions": 15,
+    "artifact_absent_sessions": 15,
+    "prepared_absent_sessions": 15,
+    "commercial_launch": false,
+    "real_dependency_mutations": 0,
+    "installer_replays": 0,
+    "result": "pass"
+  },
+  "registration_policy": {
+    "initial_exact_absence_reobservations": 1,
+    "delay_ms": 1000,
+    "same_owned_runtime": true,
+    "service_mutation": false,
+    "persistent_absence_launches_application": false
+  },
+  "sessions": [
+    {"case":"normal","state":"completed","error":null,"application_launched":true,"cleanup":"graceful_service_retirement","stop_requests":1,"registration_reobservation":"not_applicable"},
+    {"case":"repeat","state":"completed","error":null,"application_launched":true,"cleanup":"graceful_service_retirement","stop_requests":1,"registration_reobservation":"not_applicable"},
+    {"case":"registration_handoff","state":"completed","error":null,"application_launched":true,"cleanup":"graceful_service_retirement","stop_requests":1,"registration_reobservation":"exact"},
+    {"case":"registration_absent","state":"failed","error":"dependency_qualified_registration_absent","application_launched":false,"cleanup":"cleanup_unconfirmed","stop_requests":0,"registration_reobservation":"absent"},
+    {"case":"cancel","state":"cancelled","error":null,"application_launched":true,"cleanup":"graceful_service_retirement","stop_requests":1,"registration_reobservation":"not_applicable"},
+    {"case":"not_ready","state":"failed","error":"dependency_readiness_failed","application_launched":false,"cleanup":"cleanup_unconfirmed","stop_requests":1,"registration_reobservation":"not_applicable"},
+    {"case":"stop_failure","state":"failed","error":"application_outer_nonzero","application_launched":true,"cleanup":"exact_owned_session_cleanup","stop_requests":1,"registration_reobservation":"not_applicable"},
+    {"case":"application_failure","state":"failed","error":"application_outer_nonzero","application_launched":true,"cleanup":"graceful_service_retirement","stop_requests":1,"registration_reobservation":"not_applicable"},
+    {"case":"lifetime","state":"completed","error":null,"application_launched":true,"cleanup":"graceful_service_retirement","stop_requests":1,"registration_reobservation":"not_applicable"},
+    {"case":"child_memory","state":"completed","error":null,"application_launched":true,"cleanup":"graceful_service_retirement","stop_requests":1,"registration_reobservation":"not_applicable"},
+    {"case":"callback","state":"completed","error":null,"application_launched":true,"cleanup":"graceful_service_retirement","stop_requests":1,"registration_reobservation":"not_applicable"},
+    {"case":"no_transition_cleanup","state":"completed","error":null,"application_launched":true,"cleanup":"exact_owned_session_cleanup","stop_requests":1,"registration_reobservation":"not_applicable"},
+    {"case":"not_submitted_cleanup","state":"completed","error":null,"application_launched":true,"cleanup":"exact_owned_session_cleanup","stop_requests":1,"registration_reobservation":"not_applicable"},
+    {"case":"stopped_residue_cleanup","state":"completed","error":null,"application_launched":true,"cleanup":"exact_owned_session_cleanup","stop_requests":1,"registration_reobservation":"not_applicable"},
+    {"case":"observation_unavailable_cleanup","state":"failed","error":"dependency_command_nonzero","application_launched":true,"cleanup":"cleanup_unconfirmed","stop_requests":1,"registration_reobservation":"not_applicable"}
+  ],
+  "physical_topology_case": {
+    "origin": "qualified_recovered_installation",
+    "artifact_absent": true,
+    "prepared_absent": true,
+    "initial_registration": "absent",
+    "fresh_registration": "exact",
+    "actions_prefix": ["query", "query", "start"],
+    "application_after_readiness": true,
+    "application_requests": 1,
+    "installer_replay": false,
+    "artifact_or_preparation_receipt_created": false,
+    "second_fresh_session_succeeded": true
+  },
+  "persistent_absence_case": {
+    "actions": ["query", "query"],
+    "application_requests": 0,
+    "start_requests": 0,
+    "stop_requests": 0,
+    "terminal_error": "dependency_qualified_registration_absent"
+  }
+}

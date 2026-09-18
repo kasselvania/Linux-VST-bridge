@@ -88,6 +88,21 @@ static int nad1_service_request(const std::vector<std::wstring>& r,const std::ws
         return static_cast<int>(code);
     }
     SC_HANDLE scm=OpenSCManagerW(nullptr,nullptr,SC_MANAGER_CONNECT);if(!scm)return 145;
+#ifdef NAD1_GENERATED_SERVICE
+    // Source-owned transient-registration fixture: the actual fixed service is
+    // already present. Emit one exact 1060 observation, then require the same
+    // operation-owned runtime to query the real SCM state. Production has no
+    // marker or alternate service-registration behavior.
+    if(r[3]==L"query"&&GetFileAttributesW(L"C:\\NAD1Fixture\\query-absent-always")!=INVALID_FILE_ATTRIBUTES){
+        CloseServiceHandle(scm);
+        std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls absent 1060 0 0 0 none 0 0 0\n",r[1].c_str(),r[2].c_str());std::fflush(stdout);return 0;
+    }
+    if(r[3]==L"query"&&GetFileAttributesW(L"C:\\NAD1Fixture\\query-absent-once")!=INVALID_FILE_ATTRIBUTES){
+        if(!DeleteFileW(L"C:\\NAD1Fixture\\query-absent-once")){CloseServiceHandle(scm);return 146;}
+        CloseServiceHandle(scm);
+        std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls absent 1060 0 0 0 none 0 0 0\n",r[1].c_str(),r[2].c_str());std::fflush(stdout);return 0;
+    }
+#endif
     DWORD access=SERVICE_QUERY_CONFIG|SERVICE_QUERY_STATUS;
     if(r[3]==L"start")access|=SERVICE_START;
     if(r[3]==L"stop")access|=SERVICE_STOP;

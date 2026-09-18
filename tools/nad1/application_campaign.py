@@ -77,7 +77,7 @@ def run(package,seal,out,*,cases=CASES):
     src=root/'compatdata/pfx/drive_c/NAD1Fixture'/name;memory[name]=read(src);shutil.copyfile(src,case/name)
     if not memory[name]['child_retired']:raise ValueError('memory_child_cleanup')
   launched=(root/'compatdata/pfx/drive_c/NAD1Fixture/application-started').exists()
-  if launched!=(scenario!='not_ready'):raise ValueError('fixture_application_gate')
+  if launched!=(scenario not in ('not_ready','registration_absent')):raise ValueError('fixture_application_gate')
   if scenario=='callback':
    if not returned or not (root/'compatdata/pfx/drive_c/NAD1Fixture/callback-received').exists() or r['browser_return']['dispatched']!=1 or r['browser_return']['authentication']!='not_observed' or not r['authentication_privacy']['raw_capture_suspended'] or r['renderer']['complete']:raise ValueError('callback_result')
    for log in report.parent.iterdir():
@@ -86,19 +86,28 @@ def run(package,seal,out,*,cases=CASES):
   if dep['service_retirement_confirmed']!=(not forced) or dep['forced_cleanup_used']!=forced or not dep['process_cleanup_confirmed']:raise ValueError('fixture_retirement_result')
   if dep['service_stop_request_count'] not in (0,1) or dep['service_stop_requested']!=(dep['service_stop_request_count']==1):raise ValueError('fixture_stop_count')
   exact=scenario in ('stop_failure','no_transition_cleanup','not_submitted_cleanup','stopped_residue_cleanup')
-  expected_cleanup='exact_owned_session_cleanup' if exact else 'cleanup_unconfirmed' if scenario in ('not_ready','observation_unavailable_cleanup') else 'graceful_service_retirement'
+  expected_cleanup='exact_owned_session_cleanup' if exact else 'cleanup_unconfirmed' if scenario in ('not_ready','registration_absent','observation_unavailable_cleanup') else 'graceful_service_retirement'
   if dep['dependency_cleanup_disposition']!=expected_cleanup:raise ValueError('fixture_cleanup_disposition')
   if exact and (dep['post_cleanup']['listener_mask']!=0 or not dep['post_cleanup']['cgroup_empty'] or not dep['post_cleanup']['exact_daemon_generation_absent']):raise ValueError('fixture_post_cleanup')
   actions=[x['action'] for x in dep['stages']]
-  if actions.count('stop')!=1 or actions.count('start')!=1 or 'install' in actions:raise ValueError('fixture_no_duplicate_transition')
-  if scenario!='not_ready' and (r.get('effective') is None or r['renderer']['launch_binding']['status']!='bound'):raise ValueError('fixture_application_root')
+  if scenario=='registration_absent':
+   if actions!=['query','query'] or dep['service_stop_request_count']!=0:raise ValueError('fixture_registration_absence_sequence')
+   if dep['registration_reobservation']!={'attempted':True,'count':1,'delay_ms':1000,'result':'absent'}:raise ValueError('fixture_registration_absence_result')
+   if r['error']!='dependency_qualified_registration_absent':raise ValueError('fixture_registration_absence_error')
+  elif actions.count('stop')!=1 or actions.count('start')!=1 or 'install' in actions:raise ValueError('fixture_no_duplicate_transition')
+  if scenario=='registration_handoff':
+   if actions[:3]!=['query','query','start'] or actions.count('query')<3:raise ValueError('fixture_registration_reobservation_sequence')
+   if dep['registration_reobservation']!={'attempted':True,'count':1,'delay_ms':1000,'result':'exact'}:raise ValueError('fixture_registration_reobservation_result')
+   if dep['registration_ownership_revalidation']!={'attempted':True,'result':'owned_start_required','candidate_count':0,'unavailable':0}:raise ValueError('fixture_registration_ownership_revalidation')
+  elif scenario!='registration_absent' and dep['registration_reobservation']['attempted']:raise ValueError('fixture_unexpected_registration_reobservation')
+  if scenario not in ('not_ready','registration_absent') and (r.get('effective') is None or r['renderer']['launch_binding']['status']!='bound'):raise ValueError('fixture_application_root')
   if scenario=='stop_failure' and r['error']!='application_outer_nonzero':raise ValueError('first_failure_replaced')
   session=read(case/'dependency-session.private.json');origin=session['origin'];recovery_home=case/'session-recovery'
   if origin.get('kind')!='qualified_recovered_installation' or (recovery_home/'artifact.json').exists() or (recovery_home/'prepared.json').exists():raise ValueError('fixture_recovery_session_origin')
   if scenario!='normal':shutil.rmtree(root)
   row={'case':scenario,'operation':op,'result':r,'result_sha256':digest(report if report.exists() else report.parent/'recovery-result.json'),'application_launched':launched,'prefix_removed':scenario!='normal','unit_absent':True,'manager_stop':stopped,'lifetime_samples':lifetime,'child_memory':memory,
    'session_origin':{'kind':origin['kind'],'operation':origin['operation'],'qualification_sha256':origin['qualification_sha256'],'artifact_absent':True,'prepared_absent':True}};publish(case/'proof.json',row);rows.append(row)
-  expected='completed' if scenario in ('normal','repeat','lifetime','callback','no_transition_cleanup','not_submitted_cleanup','stopped_residue_cleanup') else 'cancelled' if scenario=='cancel' else 'failed'
+  expected='completed' if scenario in ('normal','repeat','registration_handoff','lifetime','callback','no_transition_cleanup','not_submitted_cleanup','stopped_residue_cleanup') else 'cancelled' if scenario=='cancel' else 'failed'
   if scenario=='child_memory':expected='completed' if memory['memory-service.json']['passed'] else 'failed'
   if scenario=='lifetime' and (len(lifetime)!=2 or lifetime[1]['elapsed_ns']-lifetime[0]['elapsed_ns']<12_000_000_000 or stopped):raise ValueError('lifetime_interval')
   if r['state']!=expected:raise ValueError('fixture_case_result_'+scenario)
