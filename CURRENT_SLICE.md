@@ -506,7 +506,7 @@ failed first candidate and unchanged-evidence witness are retained separately in
 `evidence/nad1/recovery/completed-stop-handoff/`. No device/vendor operation or
 installation occurred. PR #121 remains draft for rereview.
 
-## In-flight receipt/acquisition handoff correction
+## Receipt/acquisition handoff correction
 
 The tech-lead rereview at `18007a0` identifies one remaining interleaving: the
 anchor can publish its exact exit receipt and release the original process handle
@@ -519,3 +519,23 @@ mismatched evidence remains refusal; an opened handle with unresolved identity i
 never bypassed. Qualify the exact production admission law with a deterministic
 generated schedule. Keep Native Access closed and perform no real daemon transition
 or installation. The preserved live listener failure remains unexplained.
+
+The correction is generated-qualified at source
+`0b2ca827b5a10e36027c9d7286c887c5683fa520` / tree
+`7b79c24f8c77162e74c96bfad80320d3b440eeb4`. After failed process acquisition,
+the production admission law performs exactly one fresh SCM query, receipt read
+and listener census. Only exact STOPPED plus the admitted receipt and zero
+listeners converts that failure to retained-anchor authority. The deterministic
+test publishes the receipt and releases the modeled original handle inside the
+failed acquisition for initial STOPPED, STOP_PENDING and RUNNING observations.
+Missing/malformed receipts, non-stopped refresh, live listeners and an opened but
+unverified process refuse.
+
+AP8 `35302848875`, AP12 `35302848927` and PX2 `35302848879` passed at the exact
+source commit. The Windows job built the production adapter and passed the existing
+SCM fixture; AP12 compiled and ran the deterministic production admission/observer
+case. Local NAD1 and runtime checks also passed. Exact source, validation and
+unchanged-evidence records are under
+`evidence/nad1/recovery/receipt-acquisition-handoff/`. No device/vendor operation,
+installation or real daemon transition occurred. PR #121 remains draft for
+rereview; real-daemon shutdown remains unqualified.
