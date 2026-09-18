@@ -51,20 +51,23 @@ ShieldXL connection, control, or audio contract before that authority exists.
 
 ## Controlled fixture
 
-The accepted primary RPI0 target is:
+The exact first physical RPI0 fixture is:
 
-- Raspberry Pi 4 Model B with 4 GB or 8 GB RAM;
+- Raspberry Pi 5 with 8 GB RAM;
+- ShieldXL CS4270/JACK hardware governed by the pending SHIELDXL0 contract;
 - AArch64 Linux;
-- active cooling;
+- no active cooling initially;
+- no overclock;
 - 64-bit userspace;
 - X11 or XWayland available for the Windows editor;
 - one USB MIDI controller;
-- one stereo audio sink through JACK or PipeWire's JACK compatibility layer.
+- ShieldXL stereo audio through JACK.
 
-Raspberry Pi 5 or Compute Module 5 with at least 8 GB RAM remains an accepted
-alternate target. The user's Raspberry Pi 4 plus ShieldXL is the intended first
-physical fixture. Its exact hardware integration remains governed by the pending
-SHIELDXL0 contract.
+Raspberry Pi 4 Model B with 4 GB or 8 GB RAM and Compute Module 5 with at least
+8 GB remain accepted RPI0 targets, but they are not the first physical fixture.
+Do not infer ShieldXL device enumeration, JACK ports, sample format, clocking,
+channel mapping, mixer state, startup, or cleanup behavior before SHIELDXL0
+supplies that contract.
 
 The first result does not require Bitwig, another DAW, Native Access, ASC, Pigments,
 Serum, iLok, or any account/license flow.
@@ -116,23 +119,22 @@ Build one native AArch64 standalone host which:
 Manual JACK/PipeWire routing is acceptable for the first proof. Do not add a DAW,
 plugin scanner, publication catalogue, vendor manager, or general desktop shell.
 
-## First acceptance sequence
+## Physical resumption and acceptance sequence
 
-The first accepted physical run is:
+After SHIELDXL0 supplies the hardware contract, resume this same branch in this
+order:
 
-1. Boot the exact Pi fixture and record OS, kernel, page size, CPU, cooling and
-   translation-runner identities.
-2. Start the standalone host with the exact source-owned Windows instrument.
-3. Connect one physical MIDI controller and one stereo audio sink.
-4. Play at least two notes with distinct velocities and hear nonzero stereo output.
-5. Hold and release notes; all notes must retire correctly.
-6. Open the real Windows plug-in editor.
-7. Change the fixture parameter with the mouse and establish a corresponding audible
-   or measured output change.
-8. Close and reopen the editor while audio continues.
-9. Save state, change the parameter, restore state, and establish the original value.
-10. Stop the standalone host and confirm all owned processes/transports are gone.
-11. Start a second fresh session and play again.
+1. Start the native AArch64 standalone host.
+2. Run the Box64 x86-64 Linux probe.
+3. Run the Wine Windows probe.
+4. Establish exact translated-host cleanup.
+5. Start the source-owned synth at 2048 bridge frames.
+6. Connect physical MIDI and ShieldXL audio; prove nonzero stereo output with
+   distinct pitches and velocities, note retirement, sustain, and all-notes-off.
+7. Exercise the real mouse-operable editor, close/reopen, and state
+   save/change/restore.
+8. Stop cleanly, establish complete owned-resource retirement, then start and
+   play a second fresh session and stop cleanly again.
 
 Success requires the complete sequence. A headless render, editor screenshot, MIDI
 receipt without audio, or one unrestartable session is not sufficient.
@@ -161,6 +163,11 @@ Report separately:
 - translated x86/Wine cohort CPU;
 - memory high-water marks;
 - temperature, throttling and clock state.
+
+Record temperature, throttling status, and observed clock state throughout every
+physical phase. A functionally successful run that thermally throttles may
+establish basic compatibility, but it cannot establish accepted performance,
+latency, polyphony, or sustained stability.
 
 Do not present a mean as a worst-case guarantee. Do not include audio-interface or
 converter latency in bridge-only measurements.

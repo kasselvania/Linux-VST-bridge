@@ -43,11 +43,12 @@ produce a concrete physical-preflight failure.
 
 ## Intended first physical fixture
 
-Raspberry Pi 4 Model B with 4 GB or 8 GB RAM is an accepted primary RPI0
-target. The user's Pi 4 plus ShieldXL is the intended first physical fixture.
-Its exact integration contract has not yet been supplied; the branch therefore
-waits at the SHIELDXL0 authority gate before physical preflight. Raspberry Pi 5
-or Compute Module 5 with at least 8 GB remains an accepted alternate.
+The first physical fixture is Raspberry Pi 5 with 8 GB RAM plus ShieldXL
+CS4270/JACK hardware. It begins without active cooling and without overclock.
+The ShieldXL integration contract has not yet been supplied; the branch
+therefore waits at the SHIELDXL0 authority gate before physical preflight.
+Raspberry Pi 4 Model B with 4 GB or 8 GB and Compute Module 5 with at least
+8 GB remain accepted targets, but they are not this first fixture.
 
 ## Implemented architecture
 
@@ -129,21 +130,29 @@ Local implementation-host observations:
 The hosted x86-64 Linux probe build and all cross-compilation remain distinct
 from actual Box64 execution. None is a physical ARM claim.
 
-## Physical sequence
+## Pending physical resumption sequence
 
-The required 23-step sequence from the implementation request was not started.
+The physical sequence was not started.
 Consequently there is no MIDI-controller identity, audio route, audible output,
 mouse acceptance, state acceptance, service distribution, gap count, deadline
 count, CPU/memory/thermal observation, throttling result, cleanup receipt, or
 second-session restart receipt.
 
-The exact pending sequence is: start the host; establish Box64/Wine and the
-fixture; connect physical MIDI and stereo audio; play two pitches at distinct
-velocities; prove audible and measured stereo output; hold/release; exercise
-sustain and release; exercise all-notes-off; open the real editor; change gain
-with the mouse and prove output change; close while playing; reopen on the same
-DSP instance; save; change; restore and verify; stop; verify cohort/cgroup/maps/
-editor absent; repeat a fresh playable session; stop and verify cleanup again.
+After SHIELDXL0 supplies the hardware contract, resume this same branch with:
+
+1. native AArch64 standalone startup;
+2. Box64 x86-64 Linux probe;
+3. Wine Windows probe;
+4. exact translated-host cleanup;
+5. source-owned synth at 2048 bridge frames;
+6. physical MIDI and ShieldXL audio;
+7. editor and state acceptance;
+8. clean stop and second-session restart.
+
+Temperature, throttling status, and observed clock state must be recorded
+throughout. A functionally successful but thermally throttled run may establish
+basic compatibility; it cannot establish accepted performance, latency,
+polyphony, or sustained stability.
 
 ## Preserved gaps and nonclaims
 

@@ -12,6 +12,16 @@
   "executable_source_tree": "fb4a662eba4ac1f8c733a41d63e5c98419832139",
   "box64_commit": "2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a",
   "wine_commit": "db11d0fe6a169c457e23d007e20404643d067aa8",
+  "intended_physical_fixture": {
+    "board": "Raspberry Pi 5",
+    "ram_gb": 8,
+    "audio": "ShieldXL CS4270/JACK",
+    "hardware_contract": "PENDING SHIELDXL0",
+    "initial_active_cooling": false,
+    "overclock": false,
+    "thermal_observation": "record temperature, throttling, and clock state throughout"
+  },
+  "thermal_acceptance": "a functionally successful throttled run may establish basic compatibility only; it cannot establish accepted performance, latency, polyphony, or sustained stability",
   "local_observed": {
     "rust_standalone": {"passed": 9, "failed": 0},
     "portable_synth_core": {"passed": 7, "failed": 0},
