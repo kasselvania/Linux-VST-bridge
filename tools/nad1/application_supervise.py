@@ -2,8 +2,34 @@
 import ctypes,os,pathlib,shutil,subprocess,sys,time
 sys.dont_write_bytecode=True
 from owner_package import verify,read,digest,publish
-CASES=('normal','repeat','registration_handoff','registration_absent','cancel','not_ready','stop_failure','application_failure','lifetime','child_memory','callback',
+CASES=('normal','repeat','cold_interop','registration_handoff','registration_absent','cancel','not_ready','stop_failure','application_failure','lifetime','child_memory','callback',
  'no_transition_cleanup','not_submitted_cleanup','stopped_residue_cleanup','observation_unavailable_cleanup')
+def cold_reference_install(package,manifest,spec,d,root,ledger,launch):
+ """Establish the fixed fixture through a separate full-Proton reference entry."""
+ import session as s
+ runner=spec['application']['environment']['runner'];prefix=root/'compatdata/pfx';op=spec['operation'];token=os.urandom(32).hex()
+ def command(action,index,timeout):
+  request=d/f'{op}-cold-reference-{index}.private'
+  with request.open('xb') as f:
+   f.write(('\n'.join(['NAD1_SERVICE_V1',op,token,action,manifest['files']['Setup.exe'],''])).encode('utf-16le'))
+   f.flush();os.fsync(f.fileno());os.fchmod(f.fileno(),0o400)
+  log=d/f'cold-reference-{index}.private.log'
+  with log.open('xb') as stream:
+   child=subprocess.Popen([runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',str(package/'adapter.exe'),s.windows(request,prefix)],
+    env=launch,cwd=root/'home',stdin=subprocess.DEVNULL,stdout=stream,stderr=stream,start_new_session=True)
+   ledger.launcher(child,'cold_reference_'+action);deadline=time.monotonic()+timeout
+   while child.returncode is None and time.monotonic()<deadline:ledger.harvest();time.sleep(.05)
+  code=child.returncode;clean=ledger.cleanup();output=log.read_bytes()
+  if code!=0 or not clean:raise ValueError('cold_reference_'+action+'_failed')
+  return output
+ installed=command('install',0,200)
+ expected=f'NAD1_INSTALL_V1 {op} {token} 0'.encode()
+ if installed.splitlines().count(expected)!=1:raise ValueError('cold_reference_install_result')
+ queried=command('query',1,40);service=s.nad1_scm_frame(queried,op,token)
+ if service['registration']!='exact' or service['state']!=1:raise ValueError('cold_reference_service_state')
+ result={'schema':1,'establishment':'separate_exact_proton_runinprefix','installer_result':0,
+  'registration':'exact','state':1,'manager_runtime_used':False,'service_started':False}
+ publish(d/'cold-reference.json',result);return result
 def recovery_session(package,manifest,spec,d,fixture_directory):
  """Cross Rust and Python admission with an exact artifact-absent recovery origin."""
  import session as s
@@ -66,14 +92,16 @@ def run(package,seal,spec_path):
     while child.returncode is None and time.monotonic()<deadline:ledger.harvest();time.sleep(.05)
     if not ledger.cleanup():raise ValueError('memory_control_cleanup')
    if not (directory/'memory-control.json').exists():raise ValueError('memory_control_missing')
-  seed=d/'seed';seed.mkdir(mode=0o700);seeder=s.Nad1Owner(dict(spec,report=str(seed/'result.json')),ledger,scope,lambda:False,fixture=fixture)
-  error=None
-  try:seeder.ensure(True)
-  except Exception as exc:error=type(exc).__name__;raise
-  finally:
-   retired=seeder.retire();clean=ledger.cleanup();seeder.process_cleanup_confirmed=clean
-   publish(seed/'result.json',{'dependency':seeder.value(),'error':error,'cleanup_confirmed':clean})
-   if not retired or not clean:raise ValueError('fixture_preparation_retirement')
+  if case=='cold_interop':cold_reference_install(p,manifest,spec,d,root,ledger,launch)
+  else:
+   seed=d/'seed';seed.mkdir(mode=0o700);seeder=s.Nad1Owner(dict(spec,report=str(seed/'result.json')),ledger,scope,lambda:False,fixture=fixture)
+   error=None
+   try:seeder.ensure(True)
+   except Exception as exc:error=type(exc).__name__;raise
+   finally:
+    retired=seeder.retire();clean=ledger.cleanup();seeder.process_cleanup_confirmed=clean
+    publish(seed/'result.json',{'dependency':seeder.value(),'error':error,'cleanup_confirmed':clean})
+    if not retired or not clean:raise ValueError('fixture_preparation_retirement')
  else:
   previous=read(d.parent/'normal/proof.json')['result']
   if previous['state']!='completed' or not previous['dependency']['service_retirement_confirmed'] or previous['dependency']['forced_cleanup_used']:raise ValueError('fixture_repeat_prior_retirement')

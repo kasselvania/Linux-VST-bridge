@@ -1,3 +1,72 @@
+# NAO1 — Bind the owned session to Proton's initialized command service
+
+Focused repair basis:
+
+- merged qualified-recovery repair: `c38b5c9deb8bd32f5a509258c30f31b3e795fe59`
+- merged tree: `6d661a80a707157f30d3f4815e04a72b1cb38586`
+- installed immutable generation: `91ff69f049863e074f907a051d5c4c5913cb04c9633d71db3b2838246ed03b2e`
+- retained failed physical operation: `ca95619b7609089e3a9b3a439780785d`
+- retained error: `dependency_qualified_registration_absent`
+
+The second physical NAO1 attempt correctly preserved the complete qualified-recovery
+authority but again stopped before readiness or application launch after two exact SCM
+queries returned error 1060. Read-only comparison then established that this was not a
+missing installation: the intended physical prefix was unchanged, its selected control
+set contained the exact fixed `NTKDaemonService` registration, and the daemon image was
+unchanged. Direct queries through the exact pinned Proton runtime saw that service as
+`STOPPED`.
+
+The defect is the operation-private runtime topology. It starts a bare
+`srt-launcher-service` outside Proton and then submits a nested `proton runinprefix` as a
+child of that service. That constructed runtime therefore queried a different Wine/SCM
+universe from the initialized prefix and truthfully returned 1060 for the wrong
+universe.
+
+The selected repair keeps one exact source-owned Windows anchor alive as the single
+Proton `runinprefix` root wrapped by the verified Pressure Vessel launcher interface.
+It binds the private command-service name emitted by that exact root and submits every
+dependency helper and the Native Access launch adapter through the verified launch
+client and exact Proton `runinprefix` in that same session. The retained anchor keeps
+the Wine/SCM universe alive; Proton reconstructs its own closed Wine environment for
+each inserted command. Proton `run` is excluded: the pinned runner routes it through
+built-in `steam.exe`, and the first disposable candidate produced a source-owned
+qualification assertion rather than an admissible product runtime. Bare Wine is also
+excluded because it loses Proton's prefix/session environment. A bare service without
+the interface remains excluded. The Windows root validates and retains one exact
+operation/nonce-bound hold-file generation; forwarded stdin is not lifetime authority.
+Only removal of that exact hold after dependency retirement requests root closure. The
+anchor, helpers, daemon, and application stay inside the existing renderer cgroup and
+cleanup boundary. No bus name, command, path, service, or environment value becomes
+caller authority.
+
+Generated qualification must prove that:
+
+- the exact entry point, Proton script, launcher interface, launch client, Wine image,
+  Windows adapter, operation, and nonce are verified and bound;
+- one verified launcher-interface + Proton `runinprefix` root is retained for the
+  operation and all closed commands reuse its one private command service;
+- the old bare-service plus `runinprefix` topology is absent from the dependency and
+  application path;
+- startup refuses missing, duplicate, malformed, changed, or mismatched identities and
+  readiness frames, or missing/aliased/replaced hold authority;
+- a stopped fixture service established and queried through a separate exact Proton
+  reference entry remains visible to a cold product runtime without reinstalling it;
+- continuous draining, callback privacy, exact SCM/process/listener ownership, one-stop
+  authority, and exact-owned cleanup remain unchanged;
+- a generated artifact-absent qualified-recovery session reaches readiness, launches
+  its source-owned application fixture, closes truthfully, and can reopen once.
+
+This repair does not reinstall or repair NTKDaemon registration. The physical
+installation is already registered in the intended initialized Proton session. During
+implementation and qualification, do not install the candidate, launch Native Access,
+start or stop the real daemon, replay the installer, or mutate the real prefix. Preserve
+both failed physical operations and the private recovery checkpoint. Return one draft,
+uninstalled PR for independent source review; direct user interaction resumes only
+after an exact reviewed generation is installed.
+
+The earlier NAO1 authorities follow and remain in force where they do not conflict with
+this later, physically established repair.
+
 # NAO1 — Qualified-recovery readiness handoff repair
 
 Focused repair basis:

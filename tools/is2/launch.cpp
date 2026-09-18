@@ -27,6 +27,30 @@ static std::string hash(HANDLE f) {
 static bool hex(const std::wstring& s,size_t length){if(s.size()!=length)return false;for(auto c:s)if(!((c>=L'0'&&c<=L'9')||(c>=L'a'&&c<=L'f')))return false;return true;}
 static unsigned long long time_of(HANDLE p){FILETIME c{},e{},k{},u{};if(!GetProcessTimes(p,&c,&e,&k,&u))return 0;return (static_cast<unsigned long long>(c.dwHighDateTime)<<32)|c.dwLowDateTime;}
 static bool same_file(HANDLE a,HANDLE b){BY_HANDLE_FILE_INFORMATION x{},y{};return GetFileInformationByHandle(a,&x)&&GetFileInformationByHandle(b,&y)&&x.dwVolumeSerialNumber==y.dwVolumeSerialNumber&&x.nFileIndexHigh==y.nFileIndexHigh&&x.nFileIndexLow==y.nFileIndexLow;}
+static int nad1_runtime_request(const std::vector<std::wstring>& lines,const std::wstring& request_path) {
+    if(lines.size()!=3||lines[0]!=L"NAD1_RUNTIME_V1"||!hex(lines[1],32)||!hex(lines[2],64))return 153;
+    const auto hold_path=request_path+L".hold";
+    HANDLE hold=CreateFileW(hold_path.c_str(),GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
+    if(hold==INVALID_HANDLE_VALUE)return 154;
+    const auto expected=L"NAD1_RUNTIME_HOLD_V1\n"+lines[1]+L"\n"+lines[2]+L"\n";
+    BY_HANDLE_FILE_INFORMATION info{};std::array<wchar_t,256> content{};DWORD bytes=0;
+    bool ok=GetFileInformationByHandle(hold,&info)&&!(info.dwFileAttributes&(FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT))
+        &&info.nNumberOfLinks==1&&info.nFileSizeHigh==0&&info.nFileSizeLow==expected.size()*sizeof(wchar_t)
+        &&ReadFile(hold,content.data(),info.nFileSizeLow,&bytes,nullptr)&&bytes==info.nFileSizeLow
+        &&std::wstring(content.data(),bytes/sizeof(wchar_t))==expected;
+    if(!ok){CloseHandle(hold);return 154;}
+    std::fprintf(stdout,"NAD1_RUNTIME_V1 %ls %ls\n",lines[1].c_str(),lines[2].c_str());std::fflush(stdout);
+    for(;;){
+        BY_HANDLE_FILE_INFORMATION retained{};
+        if(!GetFileInformationByHandle(hold,&retained)){CloseHandle(hold);return 155;}
+        if(retained.nNumberOfLinks>1){CloseHandle(hold);return 156;}
+        HANDLE current=CreateFileW(hold_path.c_str(),GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
+        if(current==INVALID_HANDLE_VALUE){auto error=GetLastError();CloseHandle(hold);return error==ERROR_FILE_NOT_FOUND||error==ERROR_PATH_NOT_FOUND?0:155;}
+        bool same=same_file(hold,current);CloseHandle(current);
+        if(!same){CloseHandle(hold);return 156;}
+        Sleep(50);
+    }
+}
 #include "nad1_service.h"
 #include "native_access_callback.h"
 // Installer timeout is unchanged; an owned application has no normal-use cap.
@@ -43,6 +67,7 @@ int wmain(int argc,wchar_t** argv){
     CloseHandle(request);if(!ok)return 122;
     std::wstring all(buffer.data(),bytes/2);std::vector<std::wstring> lines;size_t pos=0;
     for(;;){auto end=all.find(L'\n',pos);if(end==std::wstring::npos)break;lines.push_back(all.substr(pos,end-pos));pos=end+1;}
+    if(!lines.empty()&&lines[0]==L"NAD1_RUNTIME_V1")return pos==all.size()?nad1_runtime_request(lines,argv[1]):123;
     if(!lines.empty()&&(lines[0]==L"NAD1_SERVICE_V1"||lines[0]==L"NAD1_STOP_REQUEST_V2"))return pos==all.size()?nad1_service_request(lines,argv[1]):123;
     const bool callback=lines.size()==8&&lines[0]==L"NAUI2_AUTH_LAUNCH_V1";
     const bool renderer=lines.size()==8&&(lines[0]==L"NAUI2_LAUNCH_V1"||callback);

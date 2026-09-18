@@ -1,0 +1,85 @@
+{
+  "schema": "vst.nao1-proton-launcher-topology-real-session/v1",
+  "recorded_at": "2026-09-18T23:07:22Z",
+  "source": "e4a6bfa471308cf50917d361f02c8fe4d594ff18",
+  "source_tree": "65a88be6f260efbd6d2125ee5d38ac2854b027d4",
+  "installed_software_generation": "91d709e5a2fe75d2c53975b4cc38c78367eadd45d7f0a489bb19e5a95fcefe47",
+  "installation_receipt_sha256": "9d3c455f8effd4bc544693aefcb149e2bceaaa1469c597db54692ba8101dade7",
+  "installation_seal_sha256": "1ce05297d2f589547795a204ff5de9151267827802ca53a32bcde4a04109ec01",
+  "sessions": [
+    {
+      "ordinal": 1,
+      "open_actions": 1,
+      "rendering_policy": "software",
+      "fresh_dependency_readiness": true,
+      "window_created": true,
+      "user_observation": {
+        "initial_product_message": "loading products failed",
+        "recovered_without_another_open_action": true,
+        "signed_in_product_catalog_visible": true,
+        "library_navigation": "normal",
+        "product_install_update_or_repair_requested": false
+      },
+      "application_result": "completed",
+      "service_stop_request_count": 1,
+      "nad2_classification": "NAD2_STOP_CONFIRMED",
+      "dependency_cleanup_disposition": "graceful_service_retirement",
+      "service_retirement_confirmed": true,
+      "process_cleanup_confirmed": true,
+      "forced_cleanup_used": false,
+      "bridge_and_two_keepers_recovered": true,
+      "idle_state_confirmed": true,
+      "private_seal_sha256": "731eb81403e2490e7acad96a0d0bb7ef97cde8b2b0030ecc710ddbe03eda709b"
+    },
+    {
+      "ordinal": 2,
+      "purpose": "restartability",
+      "open_actions": 1,
+      "rendering_policy": "software",
+      "fresh_dependency_readiness": true,
+      "window_created": true,
+      "user_observation": {
+        "initial_library_state": "temporarily empty",
+        "recovered_without_another_open_action": true,
+        "signed_in_library_visible": true,
+        "library_presentation": "normal",
+        "product_install_update_or_repair_requested": false
+      },
+      "application_result": "completed",
+      "service_stop_request_count": 1,
+      "nad2_classification": "NAD2_STOP_CONFIRMED",
+      "dependency_cleanup_disposition": "graceful_service_retirement",
+      "service_retirement_confirmed": true,
+      "process_cleanup_confirmed": true,
+      "forced_cleanup_used": false,
+      "bridge_and_two_keepers_recovered": true,
+      "idle_state_confirmed": true,
+      "private_seal_sha256": "be3009a33534c208d71a3f3344b7e98fa92f43c267678b4ad22196e60af79387"
+    }
+  ],
+  "restartability_receipt_sha256": "a4da4fe608fde88d57476523c6063ac02d820d1fa349c8d8310b6c6e9de26d56",
+  "restartability_seal_sha256": "6175c32613a3fc8cd46848c524a5fa032fe6ab50cbc2c591530c0e00f6622cc1",
+  "terminal_state": {
+    "native_access_closed": true,
+    "active_owned_sessions": 0,
+    "owned_dependency_processes": 0,
+    "owned_listener_mask": 0,
+    "bridge_active": true,
+    "healthy_keepers": 2,
+    "dsp_leases": 0,
+    "maintenance_leases": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "pending_resume_owner": false,
+    "capture_enabled": false
+  },
+  "boundaries": {
+    "real_native_access_sessions": 2,
+    "third_launch_performed": false,
+    "native_instruments_product_installed_or_updated": false,
+    "daemon_installer_replayed": false,
+    "daw_or_plugin_launched": false,
+    "private_identity_material_in_this_record": false,
+    "general_reliable_ntkdaemon_shutdown_claimed": false
+  }
+}
