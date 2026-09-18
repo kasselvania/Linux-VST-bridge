@@ -59,8 +59,14 @@ source-owned exact Windows adapter with its owner-built private request. Existin
 exact-generation, listener, cgroup, privacy, one-stop, and cleanup rules remain
 unchanged.
 
-This amendment performs no service-registration mutation, installer replay, artifact
-or preparation synthesis, daemon transition, or real application launch. A generated
+Qualification must not rely only on a service created by the runtime under test. One
+disposable source-owned service is established and queried through a separate exact
+full-Proton reference entry; after that entry retires, a cold product runtime must find
+the stopped registration without reinstalling it before readiness and application
+launch may pass.
+
+This amendment performs no real service-registration mutation, vendor-installer replay,
+artifact or preparation synthesis, daemon transition, or real application launch. A generated
 artifact-absent qualified-recovery application campaign must cross the production
 Proton-session runtime and prove readiness-before-launch, truthful close, and one fresh
 reopen before another physical attempt is authorized.

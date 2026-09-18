@@ -49,6 +49,8 @@ Generated qualification must prove that:
   application path;
 - startup refuses missing, duplicate, malformed, changed, or mismatched identities and
   readiness frames, or missing/replaced hold authority;
+- a stopped fixture service established and queried through a separate exact Proton
+  reference entry remains visible to a cold product runtime without reinstalling it;
 - continuous draining, callback privacy, exact SCM/process/listener ownership, one-stop
   authority, and exact-owned cleanup remain unchanged;
 - a generated artifact-absent qualified-recovery session reaches readiness, launches

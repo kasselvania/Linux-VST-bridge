@@ -101,6 +101,13 @@ def run(package,seal,out,*,cases=CASES):
    if dep['registration_reobservation']!={'attempted':True,'count':1,'delay_ms':1000,'result':'absent'}:raise ValueError('fixture_registration_absence_result')
    if r['error']!='dependency_qualified_registration_absent':raise ValueError('fixture_registration_absence_error')
   elif actions.count('stop')!=1 or actions.count('start')!=1 or 'install' in actions:raise ValueError('fixture_no_duplicate_transition')
+  cold=None
+  if scenario=='cold_interop':
+   cold=read(case/'cold-reference.json')
+   if cold!={'schema':1,'establishment':'separate_exact_proton_runinprefix','installer_result':0,
+    'registration':'exact','state':1,'manager_runtime_used':False,'service_started':False}:raise ValueError('fixture_cold_reference')
+   first=dep['stages'][0]
+   if first['action']!='query' or first['result']!='exact' or first['service_state']!=1 or 'install' in actions:raise ValueError('fixture_cold_product_query')
   if scenario=='registration_handoff':
    if actions[:3]!=['query','query','start'] or actions.count('query')<3:raise ValueError('fixture_registration_reobservation_sequence')
    if dep['registration_reobservation']!={'attempted':True,'count':1,'delay_ms':1000,'result':'exact'}:raise ValueError('fixture_registration_reobservation_result')
@@ -111,9 +118,9 @@ def run(package,seal,out,*,cases=CASES):
   session=read(case/'dependency-session.private.json');origin=session['origin'];recovery_home=case/'session-recovery'
   if origin.get('kind')!='qualified_recovered_installation' or (recovery_home/'artifact.json').exists() or (recovery_home/'prepared.json').exists():raise ValueError('fixture_recovery_session_origin')
   if scenario!='normal':shutil.rmtree(root)
-  row={'case':scenario,'operation':op,'result':r,'result_sha256':digest(report if report.exists() else report.parent/'recovery-result.json'),'application_launched':launched,'prefix_removed':scenario!='normal','unit_absent':True,'manager_stop':stopped,'lifetime_samples':lifetime,'child_memory':memory,
+  row={'case':scenario,'operation':op,'result':r,'result_sha256':digest(report if report.exists() else report.parent/'recovery-result.json'),'application_launched':launched,'prefix_removed':scenario!='normal','unit_absent':True,'manager_stop':stopped,'lifetime_samples':lifetime,'child_memory':memory,'cold_interop':cold,
    'session_origin':{'kind':origin['kind'],'operation':origin['operation'],'qualification_sha256':origin['qualification_sha256'],'artifact_absent':True,'prepared_absent':True}};publish(case/'proof.json',row);rows.append(row)
-  expected='completed' if scenario in ('normal','repeat','registration_handoff','lifetime','callback','no_transition_cleanup','not_submitted_cleanup','stopped_residue_cleanup') else 'cancelled' if scenario=='cancel' else 'failed'
+  expected='completed' if scenario in ('normal','repeat','cold_interop','registration_handoff','lifetime','callback','no_transition_cleanup','not_submitted_cleanup','stopped_residue_cleanup') else 'cancelled' if scenario=='cancel' else 'failed'
   if scenario=='child_memory':expected='completed' if memory['memory-service.json']['passed'] else 'failed'
   if scenario=='lifetime' and (len(lifetime)!=2 or lifetime[1]['elapsed_ns']-lifetime[0]['elapsed_ns']<12_000_000_000 or stopped):raise ValueError('lifetime_interval')
   if r['state']!=expected:raise ValueError('fixture_case_result_'+scenario)
