@@ -30,29 +30,51 @@ immediate ARM-native plug-in rewrite.
 This branch is experimental and must not be merged into the normal product line
 without a separate decision.
 
+## Current gate status
+
+RPI0 has separate deterministic and physical gates:
+
+- deterministic implementation: **PASSED**;
+- Box64/Wine physical Pi preflight: **NOT RUN**;
+- physical MIDI/audio/editor acceptance: **NOT RUN**;
+- overall RPI0: **PENDING PHYSICAL VALIDATION**.
+
+An unavailable Pi does not convert a passed deterministic implementation into an
+implementation failure. Preserve executable source
+`53fb9f2a334e2f5fbc3d3c1cf4469148fef30b45`, tree
+`fb4a662eba4ac1f8c733a41d63e5c98419832139`. Do not reopen implementation
+work unless physical execution identifies a concrete defect.
+
+Resume this same branch at physical preflight and the acceptance sequence only
+after the SHIELDXL0 hardware integration contract is supplied. Do not infer the
+ShieldXL connection, control, or audio contract before that authority exists.
+
 ## Controlled fixture
 
-Target the following first physical fixture unless the agent records a narrower exact
-replacement:
+The accepted primary RPI0 target is:
 
-- Raspberry Pi 5 or Compute Module 5;
+- Raspberry Pi 4 Model B with 4 GB or 8 GB RAM;
 - AArch64 Linux;
-- at least 8 GB RAM;
 - active cooling;
 - 64-bit userspace;
 - X11 or XWayland available for the Windows editor;
 - one USB MIDI controller;
 - one stereo audio sink through JACK or PipeWire's JACK compatibility layer.
 
+Raspberry Pi 5 or Compute Module 5 with at least 8 GB RAM remains an accepted
+alternate target. The user's Raspberry Pi 4 plus ShieldXL is the intended first
+physical fixture. Its exact hardware integration remains governed by the pending
+SHIELDXL0 contract.
+
 The first result does not require Bitwig, another DAW, Native Access, ASC, Pigments,
 Serum, iLok, or any account/license flow.
 
 ## Translation lane
 
-RPI0 uses one pinned x86-64-on-ARM translation lane. Box64 is the initial candidate
-because it explicitly supports ARM64 Linux, Wine64/Proton, and Raspberry Pi 5-class
-hardware. The implementation agent must pin the exact Box64 source or package identity
-actually tested.
+RPI0 uses one pinned x86-64-on-ARM translation lane. Box64/Wine is provisionally
+selected pending the physical Pi preflight. The implementation agent must preserve
+the exact Box64 and Wine identities chosen by deterministic implementation and record
+the exact runtime artifacts actually tested.
 
 A short deterministic preflight may reject Box64 in favor of FEX, but the slice must
 not become a comparative emulator benchmark. Select one lane and continue. Any

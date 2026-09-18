@@ -1,7 +1,9 @@
 {
   "schema": "linux-vst-bridge-rpi0-deterministic-qualification/v1",
-  "physical_status": "PHYSICAL_FIXTURE_UNAVAILABLE",
-  "rpi0_passed": false,
+  "deterministic_implementation": "PASSED",
+  "box64_wine_physical_pi_preflight": "NOT RUN",
+  "physical_midi_audio_editor_acceptance": "NOT RUN",
+  "overall_rpi0": "PENDING PHYSICAL VALIDATION",
   "required_start_head": "de0c16eb4dbe7e3558bf4d5af422c024eb55dca5",
   "required_start_tree": "3e253dff1db4c9823cfaa517bdef7f8613780d7a",
   "base": "a86f03e8a5d5302d9872f995a0a5ba376a0ab6d5",

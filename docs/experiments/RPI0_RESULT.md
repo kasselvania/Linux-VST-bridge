@@ -2,13 +2,16 @@
 
 ## Disposition
 
-`PHYSICAL_FIXTURE_UNAVAILABLE`
+- deterministic implementation: **PASSED**
+- Box64/Wine physical Pi preflight: **NOT RUN**
+- physical MIDI/audio/editor acceptance: **NOT RUN**
+- overall RPI0: **PENDING PHYSICAL VALIDATION**
 
-RPI0 is **not passed**. This branch contains a Pi-ready deterministic
-implementation, but the implementation environment was an Apple ARM64 host,
-not a Raspberry Pi, and no authorized Pi endpoint, physical MIDI controller,
-stereo sink, or X11/XWayland Pi session was available. No physical result is
-inferred from compilation or simulation.
+The Pi-ready deterministic implementation passed at the preserved executable
+source and tree below. The implementation environment was an Apple ARM64 host,
+not a Raspberry Pi, so the physical gates were not run. That absence is not an
+implementation failure. No physical result is inferred from compilation or
+simulation.
 
 ## Exact custody
 
@@ -26,16 +29,25 @@ The pre-existing working checkout contained unrelated untracked `handoffs/`
 material. It was left untouched. Work was performed in an isolated worktree at
 the exact required branch head.
 
-## Selected lane
+## Provisionally selected lane
 
-The one selected lane is Box64 0.4.4 commit
+The provisionally selected lane is Box64 0.4.4 commit
 `2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a`, with a source-built x86-64 Wine
 11.0 commit `db11d0fe6a169c457e23d007e20404643d067aa8`.
 `rpi0/translation-lane.toml` fixes the build posture, x86-64 libraries, wrapped
 ARM libraries, environment, and exact Box64 configuration. These pins were
 verified against their upstream repositories; they were not built or executed
-on a Pi in this result. FEX was not attempted because Box64 did not fail a
-physical preflight; the physical preflight was unavailable.
+on a Pi in this result. Box64/Wine selection remains provisional until its four
+physical preflight checks pass. FEX was not attempted because Box64 did not
+produce a concrete physical-preflight failure.
+
+## Intended first physical fixture
+
+Raspberry Pi 4 Model B with 4 GB or 8 GB RAM is an accepted primary RPI0
+target. The user's Pi 4 plus ShieldXL is the intended first physical fixture.
+Its exact integration contract has not yet been supplied; the branch therefore
+waits at the SHIELDXL0 authority gate before physical preflight. Raspberry Pi 5
+or Compute Module 5 with at least 8 GB remains an accepted alternate.
 
 ## Implemented architecture
 
@@ -135,7 +147,7 @@ editor absent; repeat a fresh playable session; stop and verify cleanup again.
 
 ## Preserved gaps and nonclaims
 
-- The selected Box64/Wine lane has not passed any of its four physical Pi
+- The provisionally selected Box64/Wine lane has not run any of its four physical Pi
   preflight checks.
 - No Pi hardware, OS image, kernel, firmware, page size, storage, cooling,
   temperature, governor, clock, JACK/PipeWire graph, editor display, CPU use, or
@@ -146,4 +158,9 @@ editor absent; repeat a fresh playable session; stop and verify cleanup again.
 - There is no universal ARM, Snapdragon, production hardware, or low-latency
   claim.
 
-Because RPI0 has not passed, there is no RPI1 Pigments recommendation.
+The deterministic implementation is closed unless physical execution identifies
+a concrete defect. Resume the same branch only after the SHIELDXL0 hardware
+integration contract is supplied.
+
+Because overall RPI0 remains pending physical validation, there is no RPI1
+Pigments recommendation.
