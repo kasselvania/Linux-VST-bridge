@@ -315,11 +315,10 @@ fn invalid(message: impl Into<String>) -> io::Error {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     #[test]
     fn proc_start_identity_parser_uses_field_twenty_two_after_comm() {
         let stat =
-            "101 (name with spaces) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 424242 21";
+            "101 (name with spaces) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 424242 20";
         let end = stat.rfind(')').unwrap();
         assert_eq!(
             stat[end + 2..].split_whitespace().nth(19).unwrap(),

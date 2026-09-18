@@ -77,6 +77,18 @@ namespace {
 constexpr const char* kHandshakeSchema = "linux-vst-bridge-wf0-handshake/v1";
 constexpr const char* kRpi0Class = "class:5250493041524d41505053594e540001";
 
+bool pump_rpi0_preflight_messages() {
+    MSG message{};
+    for (unsigned dispatched = 0;
+         dispatched < 128 && PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE);
+         ++dispatched) {
+        if (message.message == WM_QUIT) return false;
+        TranslateMessage(&message);
+        DispatchMessageW(&message);
+    }
+    return true;
+}
+
 struct alignas(8) Rpi0Architecture {
     char magic[8]; uint32_t version, extent, endian, pointer_bits, event_extent,
         context_extent, gui_extent, atomic32, atomic64, page_size, reserved, padding;
@@ -274,7 +286,8 @@ int main(int argc, char** argv) {
             if (!path_absent(stop)) return 64;
             const auto deadline = GetTickCount64() + 15000;
             while (path_absent(stop)) {
-                if (GetTickCount64() >= deadline || !apartment.pump()) return 74;
+                if (GetTickCount64() >= deadline || !pump_rpi0_preflight_messages())
+                    return 74;
                 MsgWaitForMultipleObjectsEx(0, nullptr, 20, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
             }
             std::puts("RPI0_WINDOWS_HOST_PREFLIGHT_PASS");
