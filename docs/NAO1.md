@@ -48,8 +48,8 @@ dead or ambiguous root must refuse rather than fall back to a new runtime.
 
 Forwarded stdin is not anchor-lifetime authority: this Proton path exposes it as a
 character stream that can reach EOF while the Linux owner remains alive. The adapter
-retains the exact initial hold-file object and refuses replacement; owner removal is the
-only ordinary close signal.
+retains the exact initial hold-file object and refuses aliasing or replacement; owner
+removal is the only ordinary close signal.
 
 The command-service name is an operation-private transport identity, not public result
 data or caller input. Startup refuses missing or duplicate exact tool identities,

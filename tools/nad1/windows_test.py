@@ -60,12 +60,12 @@ def run(build):
   assert runtime_frame==f'NAD1_RUNTIME_V1 {op} {token}' and runtime.poll() is None,runtime_frame
   runtime_hold.unlink();assert runtime.wait(timeout=10)==0
   runtime_hold.write_bytes(('\n'.join(['NAD1_RUNTIME_HOLD_V1',op,token,''])).encode('utf-16le'))
-  replaced=subprocess.Popen([str(build/'nad1-service-adapter.exe'),str(runtime_request)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-  replaced_frame=replaced.stdout.readline().decode().strip()
-  assert replaced_frame==f'NAD1_RUNTIME_V1 {op} {token}' and replaced.poll() is None,replaced_frame
-  replacement=pathlib.Path(str(runtime_hold)+'.replacement')
-  replacement.write_bytes(runtime_hold.read_bytes());replacement.replace(runtime_hold)
-  assert replaced.wait(timeout=10)==156
+  aliased=subprocess.Popen([str(build/'nad1-service-adapter.exe'),str(runtime_request)],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+  aliased_frame=aliased.stdout.readline().decode().strip()
+  assert aliased_frame==f'NAD1_RUNTIME_V1 {op} {token}' and aliased.poll() is None,aliased_frame
+  alias=pathlib.Path(str(runtime_hold)+'.alias');os.link(runtime_hold,alias)
+  assert aliased.wait(timeout=10)==156
+  alias.unlink()
   runtime_hold.unlink()
   missing=subprocess.run([str(build/'nad1-service-adapter.exe'),str(runtime_request)],capture_output=True,timeout=10)
   assert missing.returncode==154 and b'NAD1_RUNTIME_V1 ' not in missing.stdout

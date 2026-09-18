@@ -43,6 +43,7 @@ static int nad1_runtime_request(const std::vector<std::wstring>& lines,const std
     for(;;){
         BY_HANDLE_FILE_INFORMATION retained{};
         if(!GetFileInformationByHandle(hold,&retained)){CloseHandle(hold);return 155;}
+        if(retained.nNumberOfLinks!=1){CloseHandle(hold);return 156;}
         HANDLE current=CreateFileW(hold_path.c_str(),GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
         if(current==INVALID_HANDLE_VALUE){auto error=GetLastError();CloseHandle(hold);return error==ERROR_FILE_NOT_FOUND||error==ERROR_PATH_NOT_FOUND?0:155;}
         bool same=same_file(hold,current);CloseHandle(current);

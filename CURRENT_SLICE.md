@@ -48,7 +48,7 @@ Generated qualification must prove that:
 - the old bare-service plus `runinprefix` topology is absent from the dependency and
   application path;
 - startup refuses missing, duplicate, malformed, changed, or mismatched identities and
-  readiness frames, or missing/replaced hold authority;
+  readiness frames, or missing/aliased/replaced hold authority;
 - a stopped fixture service established and queried through a separate exact Proton
   reference entry remains visible to a cold product runtime without reinstalling it;
 - continuous draining, callback privacy, exact SCM/process/listener ownership, one-stop
