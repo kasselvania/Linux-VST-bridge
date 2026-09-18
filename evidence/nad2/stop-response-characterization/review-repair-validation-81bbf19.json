@@ -1,0 +1,102 @@
+{
+  "schema": "vst.nad2-review-repair-qualification/v1",
+  "source": "81bbf198e8bbe7df337312f2529c84b318c1ed64",
+  "tree": "4713bfe14f2bfc57909f671254ee19e68e8e3a6b",
+  "scope": "generated_only",
+  "classifier_cases": [
+    {
+      "case": "initial_process_wait_failure_then_timeout",
+      "classification": "NAD2_STOP_OBSERVATION_UNAVAILABLE",
+      "result": "pass"
+    },
+    {
+      "case": "unchanged_running_controls_mask_only_change",
+      "classification": "NAD2_STOP_SUBMITTED_NO_TRANSITION",
+      "result": "pass"
+    },
+    {
+      "case": "final_paused_state",
+      "classification": "NAD2_STOP_OBSERVATION_UNAVAILABLE",
+      "result": "pass"
+    },
+    {
+      "case": "initial_listener_census_unavailable_then_ordinary",
+      "classification": "NAD2_STOP_OBSERVATION_UNAVAILABLE",
+      "result": "pass"
+    },
+    {
+      "case": "control_return_stop_pending",
+      "classification": "NAD2_STOP_SUBMITTED_PROGRESSING",
+      "result": "pass"
+    }
+  ],
+  "frontend_cases": [
+    {
+      "case": "initial_stop_pending_no_control_request",
+      "result": "pass"
+    },
+    {
+      "case": "initial_stopped_no_control_request",
+      "result": "pass"
+    },
+    {
+      "case": "initial_observation_unavailable_no_control_request",
+      "result": "pass"
+    },
+    {
+      "case": "control_refusal_nonzero_error",
+      "result": "pass"
+    }
+  ],
+  "local_validation": {
+    "nad1_nad2_adapter_tests": {
+      "passed": 24,
+      "result": "pass"
+    },
+    "runtime": {
+      "passed": 248,
+      "skipped": 44,
+      "result": "pass"
+    },
+    "manager_library": {
+      "passed": 144,
+      "result": "pass"
+    },
+    "manager_binary": {
+      "passed": 84,
+      "result": "pass"
+    },
+    "manager_report": {
+      "passed": 5,
+      "result": "pass"
+    },
+    "frontend": {
+      "passed": 31,
+      "result": "pass"
+    },
+    "strict_manager_clippy": "pass",
+    "strict_frontend_clippy": "pass",
+    "python_compilation": "pass",
+    "production_windows_adapter_cross_compile": "pass",
+    "source_owned_windows_fixture_cross_compile": "pass"
+  },
+  "hosted_validation": {
+    "AP8": {
+      "head": "81bbf198e8bbe7df337312f2529c84b318c1ed64",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35358431083",
+      "result": "pass"
+    },
+    "AP12": {
+      "head": "81bbf198e8bbe7df337312f2529c84b318c1ed64",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35358431069",
+      "result": "pass"
+    },
+    "PX2": {
+      "head": "81bbf198e8bbe7df337312f2529c84b318c1ed64",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35358431096",
+      "result": "pass"
+    }
+  },
+  "success_boundary_unchanged": true,
+  "real_daemon_qualification": false
+}

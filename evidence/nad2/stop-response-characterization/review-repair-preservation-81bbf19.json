@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "repair_parent": "c46a1cd1831ed88b1ce6ce4cdf143b46da5753d7",
+  "source": "81bbf198e8bbe7df337312f2529c84b318c1ed64",
+  "all_parent_evidence_unchanged": true,
+  "parent_evidence_files": 689,
+  "parent_evidence_git_manifest_sha256": "3062b56ad4313f37fd2549f1be628029928d88dcff101484be034ae7eebe09d0",
+  "selected_start_evidence_files": 685,
+  "selected_start_evidence_git_manifest_sha256": "148af89b75ec4401d3a43e566905873b272ef284dfc42577f171c3aefe5c0fbd",
+  "prior_nad2_qualification_rewritten": false,
+  "candidate_installed": false,
+  "real_ntkdaemon_started_or_stopped": false,
+  "native_access_launched": false,
+  "daw_or_plugin_launched": false,
+  "installer_or_updater_replayed": false,
+  "production_operation": false,
+  "reliable_real_daemon_shutdown_qualified": false
+}
