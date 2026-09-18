@@ -460,3 +460,6 @@ The operator explicitly approved the pending candidate installation. Source `31c
 
 
 The human completed candidate dependency preparation `2438321e16cec0ffd078d756f1106708` cleanly. Their subsequent application request `c4530539a41c9d0798b8e1592b14bc19` refused before launch with `capacity_readback_unavailable`. Read-only sampling reproduced registry-lock contention in the service capacity reader. The repair gives only non-real-time status acquisition a bounded two-second wait; admission remains fail-fast and reads current owners. See `evidence/nad1/recovery/browser-return/capacity-contention/`. No additional Native Access launch or dependency transition occurred during diagnosis.
+
+
+The contention repair `d1209955f173e44eb25049126998f3950713e48d` is installed as immutable generation `2b81a22e234b70c17222567b436ef30a82aaf13da6f7527258d81580009e942d`. AP12 run 35289628896 passed. All 24 concurrent live capacity readbacks succeeded; model 7, two keepers, idle state and preservation passed. No vendor/dependency launch occurred during this repair. The human may prepare the dependency once for this new software generation, then open software rendering for a fresh sign-in. Callback delivery and actual Native Access authentication still require that human test.

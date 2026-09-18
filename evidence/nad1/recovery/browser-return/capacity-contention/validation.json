@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "source": "d1209955f173e44eb25049126998f3950713e48d",
+  "tree": "4dce96206a480f9fcf9d6e3dff023740e66e120f",
+  "AP12": {
+    "run": 35289628896,
+    "conclusion": "success",
+    "manager": "success",
+    "operator_frontend": "success"
+  },
+  "AP8": "Windows source unchanged; reuse source31c261e inventory from run35286472521",
+  "local": {
+    "manager_library": 144,
+    "manager_binary": 81,
+    "frontend": 26,
+    "strict_manager_clippy": "passed",
+    "linux_x86_64_release": "built"
+  },
+  "installed_readback": {
+    "concurrent_requests": 24,
+    "successes": 24,
+    "refusals": 0
+  }
+}

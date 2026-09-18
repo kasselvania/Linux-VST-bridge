@@ -1,0 +1,87 @@
+{
+  "application_identity": "7228a542c01b89daa5d04b9c8566af235ee7a2358e52f741b8918239c3a7d26e",
+  "application_record_sha256": "efa17763785548cce9a7ac4da7d37ec453ea3dff323a77c72ce501066648a0cd",
+  "artifacts": {
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "installer_launch": "08181f28864e20f8be4cd0752232e2a14c5a09ed2a20c849b1cfd51fdc9ba76b",
+    "manager": "0c5961f9e14b6eb5bd1736c3d15bfa8c15440208236a01de9ffb340d0020744f",
+    "native_catalogue": "69c4c7119dd6a5aa20c829ca5797bae50543957e88671ece380b2a38a5ec5fed",
+    "operator_frontend": "0c88634d7dc66e946d26c238bf39afd61d4df37eab013a7e23cede968823caca",
+    "ownership": "cc81d05876043ccf96c1540c556a790e62f57f4a6e72aabbd820a5d133311add",
+    "preparation_kit": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "supervisor": "0628b967035adff2bfb1db54a05c790bec7649012748195f78e3c2920623f679"
+  },
+  "authorized_preflight_pointer_changes": {
+    "current.json": {
+      "current_sha256": "fd5bf65cd393262172c7dc63ad6d410d6c88126e412369f448486c59e7ea455b",
+      "operation": "2438321e16cec0ffd078d756f1106708",
+      "previous_sha256": "9ed0ccee7626660b3462a0adfdc5b88a5dc23bbc191813263f87507810735940"
+    },
+    "prepared.json": {
+      "current_sha256": "0a3af1118653f6ff679cd6a4e5c64b136aa8f1c8642ad5f8b842b77653d70bfa",
+      "operation": "2438321e16cec0ffd078d756f1106708",
+      "previous_sha256": "253788b178a0fd36156c3d669b17e444d650d7a950acee21b218b993766187fe"
+    }
+  },
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "commercial_launch": false,
+  "frontend": {
+    "action_submitted": false,
+    "frontend_activity_decoded": true,
+    "frontend_snapshot_decoded": true,
+    "gui_launched": false,
+    "operator_schema": 7
+  },
+  "handler": "linux-vst-bridge-native-access.desktop",
+  "local_validation": {
+    "frontend": 26,
+    "manager_binary": 81,
+    "manager_library": 144,
+    "strict_clippy": true
+  },
+  "operator_schema": 7,
+  "predecessor_retained": true,
+  "preservation_counts": {
+    "immediate_predecessor": 23,
+    "older_predecessor_files": 23,
+    "predecessor_files": 23,
+    "projects": 5,
+    "protected": 143,
+    "retained": 307
+  },
+  "previous_generation": "d943552a9e642c75425861de3d5ef3e5f51301751ee06f174810bfeab7bdddf5",
+  "previous_software_record_sha256": "c28d9b5111ec7e1f6a1cf5cd32f5198e571c390d17f4a0c57241e8184a8c457a",
+  "private_sha256": {
+    "after.private.json": "b4b03ce02ed565230585f5209176214942e1a8176a4371eefee01c1ff34bd7fd",
+    "before.private.json": "cc44b636969a70ea9b24507109aa88b0feaa02c5de197d87148a05b125fda3a0",
+    "installation-attempt.json": "8ed0f300508e778ad7c27ed9cecac00e14de5316678a827b6d76de3ead55a1ec",
+    "setup.private.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "real_dependency_transition": false,
+  "records_unchanged": 202,
+  "registry_and_daemon_unchanged": true,
+  "resume_pending": false,
+  "reused_adapter_AP8": 35286472521,
+  "reused_adapter_source": "31c261eea5784175faa5f36f6c8f28dfb9c2c8b0",
+  "review": "pending_test_candidate",
+  "schema": 1,
+  "selected_generation": "2b81a22e234b70c17222567b436ef30a82aaf13da6f7527258d81580009e942d",
+  "selected_software_record_sha256": "f92382e18525fa80ceb11a0011a829c5720db46445d7105a63ed950db8132a6b",
+  "software_rendering_unchanged": true,
+  "source": "d1209955f173e44eb25049126998f3950713e48d",
+  "system": {
+    "ceiling": 6,
+    "cleanup_unconfirmed": false,
+    "dsp": 0,
+    "keepers": 2,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "service": "active",
+    "stale_transports": 0
+  },
+  "tree": "4dce96206a480f9fcf9d6e3dff023740e66e120f"
+}
