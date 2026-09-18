@@ -174,7 +174,7 @@ static int nad1_service_request(const std::vector<std::wstring>& r,const std::ws
     }
     std::string image_hash="none";unsigned long long created=0;DWORD endpoints=0;HANDLE start_anchor=nullptr;
     if(ok&&status.dwCurrentState==SERVICE_RUNNING){
-        HANDLE process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION|SYNCHRONIZE,FALSE,status.dwProcessId);
+        HANDLE process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION|(r[3]==L"start"?SYNCHRONIZE:0),FALSE,status.dwProcessId);
         std::array<wchar_t,32768> path{};DWORD length=static_cast<DWORD>(path.size());
         ok=process&&QueryFullProcessImageNameW(process,0,path.data(),&length)&&_wcsicmp(path.data(),nad1_image)==0;
         if(ok){created=time_of(process);HANDLE file=CreateFileW(path.data(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
