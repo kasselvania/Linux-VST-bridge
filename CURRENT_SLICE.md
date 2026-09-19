@@ -1,3 +1,17 @@
+# User guide for crash capture
+
+2026-09-19: the operator requested step-by-step crash-capture instructions as a
+PDF on the Steam Deck desktop. Document the installed manager's actual controls,
+next-instance scope, current eligibility limits, report export and fix comparison.
+No runtime change or crash reproduction is part of this documentation task.
+
+The three-page [guide](output/pdf/Plug-in-Crash-Capture-Guide.pdf) was rendered and
+visually checked, then copied to the Deck desktop as `Plug-in Crash Capture Guide.pdf`.
+The remote SHA-256 matches the repository PDF. The read-only manager projection
+confirmed current action availability and capture off. Editable text lives in
+`docs/user/plug-in-crash-capture.md`; delivery details are in
+`evidence/manager-library/README.md`.
+
 # Authorized Deck installation of the approved manager UI
 
 2026-09-19: the operator approved installing the new manager after closing the

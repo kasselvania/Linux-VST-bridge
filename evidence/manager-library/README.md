@@ -68,3 +68,22 @@ identity and schema-7 inventory. Prior product statuses were preserved and both
 vendor applications expose their exact environment associations. Crash capture
 remains off. No GUI was opened or operated; this installation performed no new
 Blackhole scan, licensing, audio or plug-in qualification.
+
+## Desktop crash-capture guide
+
+2026-09-19: the operator requested a PDF guide on the Deck desktop. The
+[three-page PDF](../../output/pdf/Plug-in-Crash-Capture-Guide.pdf) and
+[editable source](../../docs/user/plug-in-crash-capture.md) describe the installed
+`ef9f36a` manager controls and CA1 behavior. ReportLab generated the document;
+Poppler rendered all pages for visual review. Its text, page breaks, legibility,
+button labels, export folder and final page numbering were checked.
+
+SSH installed `Plug-in Crash Capture Guide.pdf` on the user's Desktop with no
+existing file overwritten. The 71,197-byte local and remote PDFs match SHA-256
+`5810fc2c691d9a98928ee74c29bc36f825cc798eb696c832104859c1e26ba42d`.
+The installed manager hash still matches the deployment record. Its read-only
+projection offers the arm action for Pigments, Pure LoFi and Efx FRAGMENTS;
+Kontakt 8 and Serum 2 are disabled with `An exact ordinary publication is required`,
+and Serum 2 FX offers no capture action. Capture was off with no active retention.
+This verifies current action availability, not a new captured vendor failure.
+No capture was armed, no plug-in was launched and no GUI was operated.

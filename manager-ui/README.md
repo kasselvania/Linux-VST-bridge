@@ -14,6 +14,11 @@ submission/recovery behavior.
 
 ## Local checks and preview
 
+User instructions: [Crash capture guide (PDF)](../output/pdf/Plug-in-Crash-Capture-Guide.pdf)
+and [editable text](../docs/user/plug-in-crash-capture.md). The guide covers manual
+arming, a fresh processing instance, reproduction, sanitized export and comparing
+an attempted fix, including the current ordinary-publication requirement.
+
 ```sh
 cargo test --manifest-path manager-ui/Cargo.toml --locked
 cargo clippy --manifest-path manager-ui/Cargo.toml --locked --all-targets -- -D warnings
