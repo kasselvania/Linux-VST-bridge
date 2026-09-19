@@ -85,10 +85,23 @@ Manager SHA-256:
 Frontend SHA-256:
 `026b6f5072e6b6a732321acc55e6468011e414c35a18e59bb3db454ec9b8abb6`.
 
-Source commit: `fea71b4cc005b9fa6b3247af6daa3585138a9b7c`. Both binaries are
-staged privately on the Deck. Installation has not run: the manager frontend is
-open, and the operator was asked to close it. Installed manager/frontend remain
-at `ef9f36a`. No live retry or installed projection check of the repair has run.
+Source commit: `fea71b4cc005b9fa6b3247af6daa3585138a9b7c`. After the operator
+closed the manager, both binaries were installed through existing setup.
+Readback verified executable hashes, command targets, running service identity,
+the retained scanner error and the enabled exact-module retry bound to the
+original scan/module/report. Six runtime artifact digests, 43 protected
+registry/environment/onboarding/inventory/report files and nine native proxy
+files were unchanged. The service was active with zero DSP/maintenance activity,
+no pending transactions, no stale transports and confirmed cleanup. Private
+manifest/launcher backups and the old immutable software remain available for
+rollback. See [deployment receipt](deployment.sanitized.json).
+
+Two staging attempts stopped on local file permissions before setup could run;
+the old installation remained intact. Executable permissions were restored on
+the verified new binaries and already copied immutable runtime files were
+verified and reused. The next attempt completed. No live retry or GUI input
+occurred; projection readback does not prove the new button was used or resolve
+the underlying loading timeout.
 
 ## Deferred user request
 

@@ -37,11 +37,14 @@ launcher/manifest backups for rollback. Audio, activation, successful loading,
 and universal reporting classification remain unproved or deferred.
 
 The bounded reporting/retry repair is implemented and its focused checks and
-Linux build passed (`fea71b4`). Binaries are staged on the Deck; installation
-awaits the operator closing the open manager window. The installed revision is
-still `ef9f36a`. Blackhole's load timeout remains unresolved despite PACE reporting
-RUNNING; the next live investigation step is iLok startup in its existing
-environment with the operator reading the window. No retry or GUI input occurred.
+Linux build passed (`fea71b4`). After the operator closed the manager, setup
+installed the exact binaries and read-only projection verified the retained
+timeout and enabled exact-module retry. Service readiness, runtime digests,
+43 protected records and nine native proxy files were preserved; see
+`evidence/blackhole-immersive-deck/deployment.sanitized.json`. Blackhole's load
+timeout remains unresolved despite PACE reporting RUNNING; the next live
+investigation step is iLok startup in its existing environment with the operator
+reading the window. No retry or GUI input occurred.
 
 # User guide for crash capture
 
