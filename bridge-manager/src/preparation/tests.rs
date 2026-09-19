@@ -109,6 +109,63 @@ fn generic_selection_controller_and_exact_reuse() {
     );
 }
 #[test]
+fn stereo_layout_is_bidirectionally_bound_to_inspection_and_candidate() {
+    let (_f, c) = fixture();
+    assert!(serde_json::to_value(&c.inspection).unwrap()["audio_layout"].is_null());
+    assert!(inspect_record_with_layout(
+        c.selection.clone(),
+        c.inspection.report.clone(),
+        c.inspection.origin.clone(),
+        c.host.clone(),
+        c.source_manifest.clone(),
+        Some(AudioLayoutPolicy::StereoMainPair),
+    )
+    .is_err());
+
+    let mut raw: Value = read_json(&c.inspection.report.path).unwrap();
+    let records = raw["records"].as_array_mut().unwrap();
+    records.push(json!({"state":"ap18_audio_layout","policy":"stereo_main_pair","input_count":1,"output_count":1,"result":0,"verified":true}));
+    records.push(json!({"state":"ap8_bus","media":0,"direction":0,"index":0,"channels":2,"type":0,"flags":1,"arrangement":3,"name":"Input"}));
+    records.push(json!({"state":"ap8_bus","media":0,"direction":1,"index":0,"channels":2,"type":0,"flags":1,"arrangement":3,"name":"Output"}));
+    let path = c.inspection.report.path.with_file_name("stereo-inspection.json");
+    atomic_json(&path, &raw).unwrap();
+    let report = Artifact {
+        sha256: digest(&path).unwrap(),
+        path,
+    };
+    assert!(inspect_record_with(
+        c.selection.clone(),
+        report.clone(),
+        c.inspection.origin.clone(),
+        c.host.clone(),
+        c.source_manifest.clone(),
+    )
+    .is_err());
+    let inspection = inspect_record_with_layout(
+        c.selection.clone(),
+        report,
+        c.inspection.origin.clone(),
+        c.host.clone(),
+        c.source_manifest.clone(),
+        Some(AudioLayoutPolicy::StereoMainPair),
+    )
+    .unwrap();
+    assert_ne!(inspection.id().unwrap(), c.inspection.id().unwrap());
+    let candidate = prepared(
+        c.selection.clone(),
+        inspection,
+        c.native.clone(),
+        c.host.clone(),
+        c.source_manifest.clone(),
+        c.recipe_sha256.clone(),
+    )
+    .unwrap();
+    assert_eq!(
+        candidate.profile.capabilities.compatibility().audio_layout,
+        Some(AudioLayoutPolicy::StereoMainPair)
+    );
+}
+#[test]
 fn stale_inventory_inspection_and_scanner_refused() {
     let (f, c) = fixture();
     let s = &c.selection;

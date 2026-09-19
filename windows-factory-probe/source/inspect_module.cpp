@@ -110,6 +110,12 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         step("initializeComponent");ok(component->initialize(&host),"initializeComponent");initialized=true;
         step("queryAudioProcessor");ok(component->queryInterface(IAudioProcessor::iid,reinterpret_cast<void**>(&audio)),"queryAudioProcessor");
         if(!audio)throw std::runtime_error("null audio processor");
+        if(stereo_main_pair_policy()){
+            step("setStereoMainPair");
+            const auto applied=apply_stereo_main_pair(*component,*audio);
+            events.lifecycle("ap18_audio_layout",",\"policy\":\"stereo_main_pair\",\"input_count\":"+std::to_string(applied.readback.counts[0])+",\"output_count\":"+std::to_string(applied.readback.counts[1])+",\"result\":"+std::to_string(applied.result)+",\"verified\":"+(applied.verified?"true":"false"));
+            if(!applied.verified)throw std::runtime_error("stereo main-pair negotiation/readback");
+        }
         const auto initial_buses = bus_probe ? EventBusCensus::capture(*component,*audio,false) : EventBusCensus{};
         step("queryEditController");
         IEditController* queried_controller=nullptr;

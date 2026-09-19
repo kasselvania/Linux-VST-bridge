@@ -1,6 +1,7 @@
 //! Portable, closed policy. Profiles never execute work or identify local paths.
 use crate::*;
 use std::collections::BTreeSet;
+pub use crate::operator_model::AudioLayoutPolicy;
 
 pub const PROFILE_LIMIT: usize = 16 * 1024;
 pub const PROFILE_COUNT: usize = 16;
@@ -87,6 +88,8 @@ pub struct Capabilities {
     pub editor_lifetime: Option<EditorLifetime>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_output: Option<EventOutputPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_layout: Option<AudioLayoutPolicy>,
     pub accessibility: Accessibility,
     pub editor: Editor,
     pub state: State,
@@ -98,6 +101,7 @@ impl Capabilities {
         Compatibility {
             disable_windows_accessibility: self.accessibility == Accessibility::DisabledForVendorProcess,
             event_output: self.event_output.clone(),
+            audio_layout: self.audio_layout.clone(),
             editor_lifetime: self.editor_lifetime.clone(),
             vendor_retirement: self.vendor_retirement.clone(),
         }
@@ -353,10 +357,13 @@ mod event_policy_tests {
     fn policy_is_closed_optional_and_preserves_old_fingerprints() {
         let original=Profile::parse(include_bytes!("../../compatibility/ap18/revision-5/arturia-pigments.json")).unwrap();
         let bytes=serde_json::to_vec(&original).unwrap();
-        assert!(!String::from_utf8(bytes).unwrap().contains("event_output"));
+        let serialized=String::from_utf8(bytes).unwrap();
+        assert!(!serialized.contains("event_output"));
+        assert!(!serialized.contains("audio_layout"));
         assert_eq!(original.fingerprint().unwrap(),"5775b0f11dc60fa3d14da31edc35354a1445013dac56456685fb2bebf0e261b4");
         let mut corrected=original.clone();
         corrected.capabilities.event_output=Some(EventOutputPolicy::ReportedZeroEventChannelsUnspecified);
+        corrected.capabilities.audio_layout=Some(AudioLayoutPolicy::StereoMainPair);
         corrected.capabilities.editor_lifetime=Some(EditorLifetime::RetainEditorViewUntilInstanceRetirement);
         corrected.capabilities.vendor_retirement=Some(VendorRetirement::ProcessScopedVendorRetirement);
         assert_eq!(corrected.capabilities.compatibility().vendor_retirement,corrected.capabilities.vendor_retirement);
@@ -364,6 +371,7 @@ mod event_policy_tests {
         assert!(wrong.validate().is_err());
         assert_eq!(corrected.capabilities.compatibility().editor_lifetime,corrected.capabilities.editor_lifetime);
         assert_eq!(corrected.capabilities.compatibility().event_output,corrected.capabilities.event_output);
+        assert_eq!(corrected.capabilities.compatibility().audio_layout,corrected.capabilities.audio_layout);
         assert!(Profile::parse(&serde_json::to_vec(&corrected).unwrap()).is_ok());
         assert!(corrected.claim.require(SelectionPurpose::Activation).is_err());
         let mut retirement=serde_json::to_value(&corrected).unwrap();retirement["capabilities"]["vendor_retirement"]=serde_json::json!("all_processes");
@@ -371,6 +379,9 @@ mod event_policy_tests {
         let mut bad=serde_json::to_value(&corrected).unwrap();bad["capabilities"]["editor_lifetime"]=serde_json::json!("retain_everything");
         assert!(Profile::parse(&serde_json::to_vec(&bad).unwrap()).is_err());
         let mut value=serde_json::to_value(corrected).unwrap();value["capabilities"]["event_output"]=serde_json::json!("all_zero_buses");
+        assert!(Profile::parse(&serde_json::to_vec(&value).unwrap()).is_err());
+        value["capabilities"]["event_output"]=serde_json::json!("reported_zero_event_channels_unspecified");
+        value["capabilities"]["audio_layout"]=serde_json::json!("surround_guess");
         assert!(Profile::parse(&serde_json::to_vec(&value).unwrap()).is_err());
     }
 }

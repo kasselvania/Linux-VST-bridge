@@ -46,6 +46,18 @@ struct StereoNegotiationPlugin:AudioEffect {
  }
 };
 int main(){
+ {
+  HostApplication host;StereoNegotiationPlugin plugin;assert(plugin.initialize(&host)==kResultOk);
+  const auto applied=apply_stereo_main_pair(plugin,plugin);
+  assert(applied.result==kResultOk&&applied.verified&&applied.readback.stereo_main_pair_readback());
+  assert(plugin.current==SpeakerArr::kStereo&&plugin.calls==1&&plugin.terminate()==kResultOk);
+ }
+ {
+  HostApplication host;StereoNegotiationPlugin plugin;plugin.request_result=kResultFalse;assert(plugin.initialize(&host)==kResultOk);
+  const auto applied=apply_stereo_main_pair(plugin,plugin);
+  assert(applied.result==kResultFalse&&!applied.verified&&applied.readback.stereo_main_pair_readback());
+  assert(plugin.terminate()==kResultOk);
+ }
  for(auto request_result:{kResultOk,kResultFalse}){
   HostApplication host;StereoNegotiationPlugin plugin;plugin.request_result=request_result;assert(plugin.initialize(&host)==kResultOk);
   std::vector<std::string> stages;std::vector<StereoBusSnapshot> snapshots;StereoNegotiationResult requested{},restored{};

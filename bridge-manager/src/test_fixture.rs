@@ -134,6 +134,7 @@ pub(crate) fn prepared_accessibility(disabled: bool) -> (Fixture, Profile, Censu
             editor_lifetime: None,
             vendor_retirement: None,
             event_output: None,
+            audio_layout: None,
             accessibility: if disabled { Accessibility::DisabledForVendorProcess } else { Accessibility::WindowsDefault },
             editor: Editor::DetachedOwnerThreadWithNativePanel,
             state: State::ConcurrentReadOnlyCaptureV12,

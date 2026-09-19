@@ -212,6 +212,8 @@ pub struct Compatibility {
     pub editor_lifetime: Option<profiles::EditorLifetime>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_output: Option<profiles::EventOutputPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_layout: Option<profiles::AudioLayoutPolicy>,
     pub disable_windows_accessibility: bool,
 }
 /// Installed performance preference, independently versioned from vendor state

@@ -56,6 +56,12 @@ class BusCensusCommandTests(unittest.TestCase):
             self.assertNotIn('LVB_EVENT_OUTPUT_POLICY',session.environment(reg))
             reg['compatibility']['event_output']='reported_zero_event_channels_unspecified'
             self.assertEqual(session.environment(reg)['LVB_EVENT_OUTPUT_POLICY'],reg['compatibility']['event_output'])
+            self.assertNotIn('LVB_AUDIO_LAYOUT_POLICY',session.environment(reg))
+            reg['compatibility']['audio_layout']='stereo_main_pair'
+            self.assertEqual(session.environment(reg)['LVB_AUDIO_LAYOUT_POLICY'],'stereo_main_pair')
+            reg['compatibility']['audio_layout']='surround_guess'
+            with self.assertRaisesRegex(RuntimeError,'unsupported audio layout policy'):session.environment(reg)
+            del reg['compatibility']['audio_layout']
             self.assertNotIn('LVB_EDITOR_LIFETIME',session.environment(reg))
             reg['compatibility']['editor_lifetime']='retain_editor_view_until_instance_retirement'
             self.assertEqual(session.environment(reg)['LVB_EDITOR_LIFETIME'],reg['compatibility']['editor_lifetime'])

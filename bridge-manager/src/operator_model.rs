@@ -1,5 +1,10 @@
 //! Versioned operator projection and closed requests. No filesystem or launch authority.
 use serde::{Deserialize, Serialize};
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AudioLayoutPolicy {
+    StereoMainPair,
+}
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum RendererPolicy {
@@ -57,6 +62,8 @@ pub enum Action {
     },
     PluginInspect {
         selection: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        audio_layout: Option<AudioLayoutPolicy>,
     },
     PluginPrepare {
         selection: String,
@@ -66,6 +73,8 @@ pub enum Action {
     },
     PluginReinspect {
         selection: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        audio_layout: Option<AudioLayoutPolicy>,
     },
     ExperimentalReplace {
         candidate: String,

@@ -25,7 +25,7 @@ def main():
     names=subprocess.check_output(['git','ls-files','windows-factory-probe','native-vst3-proxy/include','vst-state','windows-fixtures/ap10','CMakeLists.txt'],cwd=root,text=True).splitlines()
     manifest=out/'host-source-manifest.json'
     manifest.write_text(json.dumps(dict(schema=1,source_commit=commit,host_sha256=sha(host),files={n:sha(root/n) for n in names}),sort_keys=True))
-    def inspect(case,expected,present,accepted,mode='ap8-module-inspection'):
+    def inspect(case,expected,present,accepted,mode='ap8-module-inspection',audio_layout=False):
         sid=uuid.uuid4().hex;directory=pathlib.Path('C:/bridge/sessions')/sid
         directory.mkdir(parents=True);fixture=directory/'fixture.vst3';shutil.copyfile(module,fixture)
         ready=directory/(sid+'.ready');gate=directory/(sid+'.gate')
@@ -37,7 +37,9 @@ def main():
               '--mode',mode,'--component-case','first-audio']
         environment=dict(os.environ)
         environment.pop('LVB_AP8_CONTROLLER_QUERY_CASE',None)
+        environment.pop('LVB_AUDIO_LAYOUT_POLICY',None)
         if case:environment['LVB_AP8_CONTROLLER_QUERY_CASE']=case
+        if audio_layout:environment['LVB_AUDIO_LAYOUT_POLICY']='stereo_main_pair'
         child=subprocess.Popen([str(host),*args],stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=environment)
         try:
             deadline=time.monotonic()+20
@@ -72,6 +74,11 @@ def main():
     inspect('false-null',1,False,True)
     inspect('success-null',0,False,False)
     inspect('error-nonnull',-2147024809,True,False)
+    production_stereo=inspect(None,-2147467262,False,True,audio_layout=True)
+    applied=[r for r in production_stereo if r.get('state')=='ap18_audio_layout']
+    assert len(applied)==1 and {k:applied[0].get(k) for k in ('policy','input_count','output_count','result','verified')}==dict(policy='stereo_main_pair',input_count=1,output_count=1,result=0,verified=True),applied
+    audio=[r for r in production_stereo if r.get('state')=='ap8_bus' and r.get('media')==0]
+    assert len(audio)==2 and {(r['direction'],r['index'],r['channels'],r['type'],r['arrangement']) for r in audio}=={(0,0,2,0,3),(1,0,2,0,3)},audio
     stereo=inspect(None,-2147467262,False,True,'ap18-stereo-negotiation')
     snapshots=[r for r in stereo if r.get('state')=='ap18_stereo_bus_snapshot']
     assert [r['stage'] for r in snapshots]==['before','after'],snapshots

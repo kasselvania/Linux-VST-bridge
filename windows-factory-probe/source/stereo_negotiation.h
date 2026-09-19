@@ -4,7 +4,9 @@
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/vstspeaker.h"
 #include <array>
+#include <cstdlib>
 #include <cstring>
+#include <string_view>
 
 namespace linux_vst_bridge::wf0 {
 
@@ -48,7 +50,43 @@ struct StereoBusSnapshot {
   for(const auto& bus:buses)if(bus.info.channelCount!=2||bus.arrangement!=Steinberg::Vst::SpeakerArr::kStereo)return false;
   return true;
  }
+ bool stereo_main_pair_readback()const {
+  if(!stereo_readback())return false;
+  for(const auto& bus:buses)if(bus.info.busType!=Steinberg::Vst::kMain)return false;
+  return true;
+ }
 };
+
+inline bool stereo_main_pair_policy(){
+ const char* value=std::getenv("LVB_AUDIO_LAYOUT_POLICY");
+ if(!value)return false;
+ ap1::require(std::string_view(value)=="stereo_main_pair","unknown audio layout policy");
+ return true;
+}
+
+struct StereoMainPairApplication {
+ Steinberg::tresult result=Steinberg::kResultFalse;
+ StereoBusSnapshot readback{};
+ bool verified=false;
+};
+
+// Closed production policy: the initialized, inactive component must expose
+// exactly one main audio input and one main audio output, then accept and report
+// the requested stereo arrangement. No auxiliary bus or channel is discarded.
+inline StereoMainPairApplication apply_stereo_main_pair(
+    Steinberg::Vst::IComponent& component,Steinberg::Vst::IAudioProcessor& processor){
+ using namespace Steinberg;using namespace Steinberg::Vst;
+ const auto before=StereoBusSnapshot::capture(component,processor);
+ ap1::require(before.exact_topology()&&
+              before.buses[0].info.busType==kMain&&before.buses[1].info.busType==kMain,
+              "stereo main-pair policy requires one main audio input and output");
+ SpeakerArrangement input=SpeakerArr::kStereo,output=SpeakerArr::kStereo;
+ StereoMainPairApplication applied;
+ applied.result=processor.setBusArrangements(&input,1,&output,1);
+ applied.readback=StereoBusSnapshot::capture(component,processor);
+ applied.verified=applied.result==kResultOk&&applied.readback.stereo_main_pair_readback();
+ return applied;
+}
 
 inline bool same_stereo_snapshot(const StereoBusSnapshot& left,const StereoBusSnapshot& right){
  if(left.counts!=right.counts)return false;
