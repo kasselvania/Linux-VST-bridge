@@ -45,7 +45,7 @@ def main():
                 if child.poll() is not None:raise RuntimeError('fixture exited before readiness')
                 if time.monotonic()>=deadline:raise RuntimeError('fixture readiness timeout')
                 try:actual=ready.read_bytes()
-                except FileNotFoundError:
+                except (FileNotFoundError,PermissionError):
                     time.sleep(.01);continue
                 if actual!=binding:raise RuntimeError('fixture readiness binding differs')
                 break
