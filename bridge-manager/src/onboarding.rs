@@ -773,6 +773,7 @@ mod tests {
         let a=f.r.host.clone();
         let mut sw=Software { manager:a.clone(),supervisor:a.clone(),ownership:a.clone(),host:a.clone(),
             source_manifest:a.clone(),source_sha256:a.sha256.clone(),operator_frontend:None,
+            kontakt8_adapter:None,kontakt8_runtime:None,
             native_catalogue:Some(Artifact {sha256:digest(&path).unwrap(),path}),preparation_kit:None,installer_launch:None };
         let count=|| projection(&f.m,None).unwrap().iter().flat_map(|r| &r.actions)
             .filter(|a| matches!(a.action,ui::Action::InstallerStartWithPolicy{..})).count();

@@ -474,6 +474,8 @@ with zipfile.ZipFile(path,'w') as z:
         let sw = crate::catalogue::Software {
             manager: a.clone(),
             operator_frontend: None,
+            kontakt8_adapter: None,
+            kontakt8_runtime: None,
             installer_launch: None,
             preparation_kit: Some(Artifact {
                 sha256: digest(&path).unwrap(),

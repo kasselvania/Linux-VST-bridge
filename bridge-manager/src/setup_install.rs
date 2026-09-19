@@ -262,8 +262,10 @@ mod tests {
         Software {
             installer_launch: None,
             preparation_kit: None,
-        manager: a("manager"),
+            manager: a("manager"),
             operator_frontend: Some(a("frontend")),
+            kontakt8_adapter: None,
+            kontakt8_runtime: None,
             supervisor: a("session"),
             ownership: a("ownership"),
             host: a("host"),

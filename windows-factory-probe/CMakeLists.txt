@@ -239,3 +239,25 @@ foreach(target nad1-service-fixture nad1-service-adapter nad1-application-fixtur
   target_link_options(${target} PRIVATE /Brepro /INCREMENTAL:NO)
   set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
 endforeach()
+
+# K8I1 fixed registry port. The 32-bit forwarding MSI DLL is built separately
+# under the exact x86 toolchain so its public ordinals can be audited directly.
+add_executable(k8i1-registry ../tools/k8i1/registry.cpp)
+target_compile_definitions(k8i1-registry PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(k8i1-registry PRIVATE /W4 /permissive- /EHsc /Brepro)
+target_link_options(k8i1-registry PRIVATE /Brepro /INCREMENTAL:NO)
+target_link_libraries(k8i1-registry PRIVATE advapi32)
+set_target_properties(k8i1-registry PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+add_executable(k8i1-setup-watch ../tools/k8i1/setup_watch.cpp)
+target_compile_definitions(k8i1-setup-watch PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(k8i1-setup-watch PRIVATE /W4 /permissive- /EHsc /Brepro)
+target_link_options(k8i1-setup-watch PRIVATE /Brepro /INCREMENTAL:NO)
+set_target_properties(k8i1-setup-watch PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+add_executable(k8i1-table-export ../tools/k8i1/table_export.cpp)
+target_compile_definitions(k8i1-table-export PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(k8i1-table-export PRIVATE /W4 /permissive- /EHsc /Brepro)
+target_link_options(k8i1-table-export PRIVATE /Brepro /INCREMENTAL:NO)
+target_link_libraries(k8i1-table-export PRIVATE msi)
+set_target_properties(k8i1-table-export PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")

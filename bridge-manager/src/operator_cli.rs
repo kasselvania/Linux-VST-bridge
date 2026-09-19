@@ -823,8 +823,61 @@ fn native_access_session_summary(result:&Value,recovery:&Value)->Result<Value> {
         && recovery["pending_transactions"]==0 && recovery["stale_transports"]==0
         && recovery["pending_resume_owner"]==false && recovery["capture"]=="off",
         "renderer_bridge_recovery_unconfirmed")?;
+    let product=&result["kontakt8"];
+    let product_summary=if product.is_null() {Value::Null} else {
+        require(product["schema"]==1
+            && product["adapter"]=="exact_kontakt8_8_13_1_msi_diversion"
+            && product["product"]=="Kontakt 8 Player" && product["version"]=="8.13.1"
+            && product["intercept_count"].as_u64().is_some_and(|v|v<=1)
+            && product["registry_calls"].as_u64().is_some()
+            && product["payload_deployment_verified"].is_boolean()
+            && product["shim_success_returned"].is_boolean()
+            && product["setup_exit_observed"].is_boolean()
+            && product["post_setup_state_verified"].is_boolean()
+            && product["native_access_recognition_observed"].is_boolean()
+            && matches!(product["native_access_recognition"].as_str(),Some("installed"|"not_installed"|"unavailable"))
+            && ((product["native_access_recognition_observed"]==false && product["native_access_recognition"]=="unavailable")
+                || (product["native_access_recognition_observed"]==true && product["native_access_recognition"]!="unavailable"))
+            && ((product["setup_exit_observed"]==false && product["setup_exit"].is_null())
+                || (product["setup_exit_observed"]==true && product["setup_exit"].is_object()
+                    && matches!(product["setup_exit"]["wait"].as_str(),Some("signaled"|"unavailable"))
+                    && (product["setup_exit"]["query_error"].is_u64() || product["setup_exit"]["query_error"].is_null())
+                    && (product["setup_exit"]["exit_code"].is_u64() || product["setup_exit"]["exit_code"].is_null()))),"kontakt8_result_schema")?;
+        match product["installer_transaction"].as_str() {
+            Some("not_requested")=>require(product["intercept_count"]==0
+                && product["payload_verification"]=="not_observed"
+                && product["native_instruments_product_state"]=="unavailable"
+                && product["payload_deployment_verified"]==false
+                && product["shim_success_returned"]==false
+                && product["setup_exit_observed"]==false
+                && product["post_setup_state_verified"]==false
+                && product["native_access_recognition_observed"]==false
+                && product["error"].is_null(),"kontakt8_result_truth")?,
+            Some("completed")=>require(product["intercept_count"]==1
+                && product["payload_verification"]=="verified"
+                && product["native_instruments_product_state"]=="installed"
+                && product["payload_deployment_verified"]==true
+                && product["shim_success_returned"]==true
+                && product["setup_exit_observed"]==true
+                && product["setup_exit"]["wait"]=="signaled"
+                && product["setup_exit"]["query_error"]==0
+                && product["setup_exit"]["exit_code"]==0
+                && product["post_setup_state_verified"]==true
+                && (product["native_access_recognition_observed"]==false
+                    || product["native_access_recognition"]=="installed")
+                && product["error"].is_null(),"kontakt8_result_truth")?,
+            Some("failed")=>require(state=="failed" && product["intercept_count"]==1
+                && matches!(product["payload_verification"].as_str(),Some("absent"|"incomplete"))
+                && product["native_instruments_product_state"]=="not_installed"
+                && product["post_setup_state_verified"]==false
+                && product["error"].is_string(),"kontakt8_result_truth")?,
+            _=>return Err("kontakt8_result_terminal_state".into()),
+        }
+        product.clone()
+    };
     Ok(json!({"state":state,"dependency_cleanup_disposition":disposition,
-        "fresh_session_restartable":cleanup_confirmed,"bridge_recovery":recovery}))
+        "fresh_session_restartable":cleanup_confirmed,"bridge_recovery":recovery,
+        "kontakt8":product_summary}))
 }
 
 fn finish_operation(m: &Manager, id: &str) -> Result<()> {
@@ -2937,6 +2990,8 @@ mod tests {
             preparation_kit: None,
             manager: a.clone(),
             operator_frontend: None,
+            kontakt8_adapter: None,
+            kontakt8_runtime: None,
             supervisor: a.clone(),
             ownership: a.clone(),
             host: a,
@@ -3057,6 +3112,29 @@ mod tests {
         assert!(native_access_session_summary(&unavailable,&recovery).is_err());
         let failed=json!({"state":"failed","dependency":{"dependency_cleanup_disposition":"cleanup_unconfirmed"}});
         assert_eq!(native_access_session_summary(&failed,&recovery).unwrap()["fresh_session_restartable"],false);
+        let mut installed=graceful.clone();
+        installed["kontakt8"]=json!({"schema":1,"adapter":"exact_kontakt8_8_13_1_msi_diversion",
+            "product":"Kontakt 8 Player","version":"8.13.1","intercept_count":1,
+            "installer_transaction":"completed","payload_verification":"verified",
+            "payload_deployment_verified":true,"shim_success_returned":true,"setup_exit_observed":true,
+            "setup_exit":{"wait":"signaled","query_error":0,"exit_code":0},"post_setup_state_verified":true,
+            "native_instruments_product_state":"installed","native_access_recognition":"unavailable",
+            "native_access_recognition_observed":false,"rollback_verified":null,"registry_calls":12,"error":null});
+        assert_eq!(native_access_session_summary(&installed,&recovery).unwrap()["kontakt8"]["installer_transaction"],"completed");
+        installed["kontakt8"]["native_instruments_product_state"]=json!("not_installed");
+        assert!(native_access_session_summary(&installed,&recovery).is_err());
+        installed["kontakt8"]["native_instruments_product_state"]=json!("installed");
+        installed["kontakt8"]["native_access_recognition_observed"]=json!(true);
+        assert!(native_access_session_summary(&installed,&recovery).is_err());
+        let mut rolled_back=failed.clone();
+        rolled_back["kontakt8"]=json!({"schema":1,"adapter":"exact_kontakt8_8_13_1_msi_diversion",
+            "product":"Kontakt 8 Player","version":"8.13.1","intercept_count":1,
+            "installer_transaction":"failed","payload_verification":"absent",
+            "payload_deployment_verified":false,"shim_success_returned":false,"setup_exit_observed":true,
+            "setup_exit":{"wait":"signaled","query_error":0,"exit_code":1603},"post_setup_state_verified":false,
+            "native_instruments_product_state":"not_installed","native_access_recognition":"unavailable",
+            "native_access_recognition_observed":false,"rollback_verified":true,"registry_calls":7,"error":"k8i1_generated_failure"});
+        assert_eq!(native_access_session_summary(&rolled_back,&recovery).unwrap()["kontakt8"]["rollback_verified"],true);
     }
     #[test]
     fn renderer_preflight_contention_timeout_never_stops_or_reserves() {

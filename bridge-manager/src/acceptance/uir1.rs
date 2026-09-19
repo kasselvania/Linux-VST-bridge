@@ -395,6 +395,8 @@ mod tests {
             installer_launch: None,
             preparation_kit: None,
             operator_frontend: None,
+            kontakt8_adapter: None,
+            kontakt8_runtime: None,
             manager: old_host.host.clone(),
             supervisor: old_host.host.clone(),
             ownership: old_host.host.clone(),

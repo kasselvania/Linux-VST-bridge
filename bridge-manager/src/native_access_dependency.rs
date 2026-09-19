@@ -320,6 +320,7 @@ pub fn bind_session(
     let admission=session_admission(m,application,software)?;
     let mut spec=app::bind(application,software,op,policy,report)?;
     spec["dependency_session"]=admission;
+    crate::kontakt8::bind(&mut spec,application,software)?;
     Ok(spec)
 }
 pub fn record_path(m: &Manager) -> PathBuf {
