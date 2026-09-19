@@ -59,6 +59,21 @@ card. Independent process readback confirmed the installed frontend, unchanged
 original scan/report and idle healthy bridge. No retry was pressed; iLok startup
 and the underlying load failure remain the next investigation step.
 
+On the operator's request to continue, run one bounded iLok startup observation
+in the same Blackhole environment, pinned runner and HOME. Use the installed
+verified launch adapter and companion cgroup ownership; restore the idle bridge
+after cleanup. Luna 5.6 Max observes Moonlight and reports non-sensitive startup
+text. No sign-in, activation, dependency update, prefix recreation or automatic
+module retry is part of this observation.
+
+iLok startup succeeded: Luna observed the Sign In screen without a startup/error
+dialog, and process evidence bound the exact installed image. The bounded
+diagnostic retired cleanly; a normal supervised user session is now open in the
+same environment/HOME with no runtime cutoff and bridge restart configured on
+application close. The operator has been asked to sign in, activate Blackhole
+if available and close iLok. Authorization and the follow-up module retry are
+pending that user action; the original loading timeout remains unresolved.
+
 # User guide for crash capture
 
 2026-09-19: the operator requested step-by-step crash-capture instructions as a

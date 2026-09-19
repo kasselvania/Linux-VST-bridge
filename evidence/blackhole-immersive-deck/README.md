@@ -15,10 +15,11 @@ No runner, prefix identity, licensing state, plug-in binary or publication chang
 | Installed payload | Blackhole VST3, iLok License Manager and PACE service executable exist; service registered | Existence does not establish licensing readiness |
 | User-triggered scan | `TimeoutError: Windows call deadline: load_library`; no factory record or classes | This is a loading timeout, not an attributed plug-in exception |
 | Failure containment | Scanner process cleanup and transport retirement confirmed | Does not prove successful product startup |
-| Library projection | Generic `inventory_factory_absent_or_duplicate`; original error omitted from quarantined card | Reporting defect hides the earlier failing stage |
+| Library projection before repair | Generic `inventory_factory_absent_or_duplicate`; original error omitted from quarantined card | Reporting defect hides the earlier failing stage |
 | Ordinary rescan | Unchanged quarantined module reuses its retained result | No fresh execution; user needs explicit retry after a relevant change |
 | PACE startup observation | Named service registers its handler and reports state 4 (RUNNING), start result 0 | Service state alone is not proof of successful license operations |
 | Instrumented module inspection | Same load timeout; 36.649 s total including startup/cleanup; cleanup and transport confirmed | No root cause or vendor authorization established |
+| iLok application startup | Exact installed executable opened to Sign In; Luna observed no startup/error dialog | Does not prove authorization or successful Blackhole loading |
 
 The actual VST3 module SHA-256 is
 `b8a33c57b04eded38d0ca717bb5e3721330439f4931c401ea70e5246b516e90b`.
@@ -125,6 +126,40 @@ unchanged. Bridge service remained active with zero DSP/maintenance activity,
 no pending transactions/stale transports and no unconfirmed cleanup. This
 establishes visible presentation of the retained failure and retry control,
 not successful retry execution or resolution of the loading failure.
+
+## iLok startup and user handoff
+
+On the operator's continuation request, the exact installed iLok executable was
+launched through the installed, verified launch adapter under the original
+Blackhole environment, pinned runner and managed HOME. The idle bridge was
+paused for the dedicated companion cgroup. The existing supervisor utilities
+verified runner/image artifacts, locked the environment, bound the launch and
+tracked the actual image mapping. Vendor output was discarded; no account or
+license material was inspected.
+
+Luna 5.6 Max observed the iLok License Manager window at its initial Sign In
+screen, with no startup/error dialog. This establishes application startup only.
+The first diagnostic had a five-minute runtime limit. The running systemd unit
+rejected a request to change that property, so the limit was not silently
+treated as removed. Luna confirmed the initial screen was still untouched;
+the diagnostic was retired with confirmed cleanup and zero remaining owned
+processes. A first handoff continuation stopped during the bridge's brief
+startup-readiness interval; refreshed readback confirmed healthy idle state.
+
+iLok was then reopened in the same environment as a supervised user session
+with no runtime cutoff. Luna confirmed the same initial screen. The launch
+binding, live image and unbounded normal application lifetime were read back;
+memory/task limits remain. Closing the application triggers owned cleanup and
+the configured bridge restart, which already completed after the diagnostic
+retirement. The current user session remains open for the operator: its cleanup
+and post-activation scan have not yet occurred. The operator was asked to sign
+in, activate Blackhole if available, and close iLok. No automated sign-in,
+activation, dependency update, prefix recreation or additional module scan ran.
+
+The original scan remains unchanged. Next gate: the operator's authorization
+result and application close, then one deliberate module retry. Successful iLok
+startup does not explain the original timeout or establish iLok-wide support.
+See [startup and handoff receipt](ilok-startup.sanitized.json).
 
 ## Deferred user request
 
