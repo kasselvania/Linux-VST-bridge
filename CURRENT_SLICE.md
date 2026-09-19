@@ -1,3 +1,77 @@
+# Operator steering: Jev-only GUI validation
+
+2026-09-19: the operator withdrew the Kontakt multi-output task and prohibited
+Codex GUI control. Jev remains authorized for bounded GUI actions. Do not resume
+the four-output exercise or replace it with a new headless testing campaign.
+Use the existing Jev worker, short explicit action/time bounds, and existing
+process/audio evidence where it answers the actual usability question.
+
+This continuation ran seven Jev decisions with zero Codex GUI actions. It found
+and repaired a streamed-window target-check limitation in the existing Jev
+harness. The repaired worker selected Kontakt's device and opened Bitwig's device
+menu; the application, engine and plugin-host process identities survived.
+Opening the actual Kontakt editor remained incomplete. This is not an audio,
+state-recall or general compatibility pass. See
+`evidence/kontakt-native-access-deck/jev-usability.sanitized.json`.
+
+The four-part project setup below is retained history, not active authority.
+Its unused MIDI/checker drafts were retained privately rather than delivered as
+new product or test machinery. The working KontaktStereo installation and its
+previous playback/recall evidence remain the baseline.
+
+# Kontakt four-part routing and independently checked Jev workflow
+
+Operator-approved continuation, 2026-09-19.
+
+- Bridge base: `fd23d7567ffefe707870a0e98127183ca9ce335d`;
+  tree: `1c3dcbd9706530ecdc2429ed8da236e7ebaeef01`.
+- Existing Jev harness base: `f658435f55b295236a7041f509a7e1b4367af495`.
+- Basis: AGENTS.md, Work to an outcome / Keep the engineering safeguards /
+  GUI test custody and delegated control; GOVERNANCE.md, What evidence means;
+  docs/ARCHITECTURE.md, 5.7 Native Linux VST3 proxy / 5.8 Windows VST3 host /
+  7.3 Audio shared memory / 7.5 Events and automation / 15.2 Commercial fixture
+  harness; docs/FIXTURE_CARDS.md, F3 Runtime/bridge questions and Required
+  acceptance classes.
+
+Primary claim: on the existing Deck installation, a four-part Kontakt project
+produces correctly separated audio and preserves its routing across a complete
+Bitwig restart, with one Jev-operated workflow independently verified.
+
+Fixture: existing Kontakt 8 Player 8.13.1 / Factory Selection 1.4.2, Native
+Access 3.26.0 environment, pinned corrected Proton runner, Bitwig 6.1 Flatpak /
+freedesktop runtime 25.08. Retain exact installed candidate identities from
+`evidence/kontakt-native-access-deck/shared-bus-playback.md`. Run at 48 kHz and
+512 host frames. Preserve the working KontaktStereo project and downloaded
+libraries; create a separate owned KontaktFourParts project.
+
+Scope: this contract, owned project setup, reusable development-only audio and
+state checker, the smallest integration with the existing Jev worker, necessary
+routing/editor/harness repairs, and sanitized evidence. Jev handles foreground
+interaction; controlled tools own lifecycle and independent verification. No
+replacement computer-use framework or vendor installation machinery.
+
+Acceptance: four separate MIDI parts reach separately mixable Bitwig outputs,
+including the highest declared output bus (index 31); effect processing on one
+output leaves the others independent. Capture the outputs, verify separation,
+save the project, fully close/restart Bitwig and verify instrument/routing recall.
+Run a real bounded Jev workflow whose success comes from the independent checker.
+Deliberately mute or disconnect one owned test output and require the checker to
+detect the missing result; restore the playable project afterward. Retain actual
+failures, versions, source identities, captures/hashes and project identity.
+
+Non-goals: all 32 simultaneous outputs, capacity or memory increases, 256/128
+frames, general timing qualification, Serum 2/FX, GUI redesign, iLok, ARM/Pi,
+other-library qualification and bulk campaigns. No merge or broad compatibility
+claim. Preserve existing successful observations without treating them as proof
+of this new routing claim.
+
+Cleanup/rollback: change only the owned project and test processes; retain its
+private save/capture artifacts without publishing proprietary state. Restore
+test mutes/effects and changed settings, retire only owned captures/sessions,
+record bridge activity, commit/push the focused result and update the draft PR.
+
+Earlier completed scope and observations follow as history.
+
 # Kontakt through Native Access on the Deck
 
 Observed continuation result, 2026-09-19: source `9d47606` is installed as an
