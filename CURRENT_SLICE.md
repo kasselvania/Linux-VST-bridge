@@ -1,3 +1,41 @@
+# Blackhole Immersive load failure and actionable scan recovery
+
+2026-09-19: the operator requested investigation and repair after Blackhole
+Immersive installed but its first scan timed out at `load_library`. Base:
+`c9758f58ed51254cf828d5622f1a86c0f57687e0`. Primary outcome: identify the observed
+blocking stage using retained installation and scanner facts, repair misleading
+scan reporting and provide deliberate exact-module retry after a relevant change.
+Investigate the installed PACE/iLok dependency in the existing isolated environment.
+Use bounded supervised diagnostics where retained evidence cannot answer the
+question; preserve the original failed scan and all installed identities.
+
+Scope: existing manager inventory, scan actions and presentation, dependency
+diagnosis, narrow verified launch preparation if needed, focused regressions and
+sanitized findings. No Codex GUI input, license/account inspection, arbitrary
+activation changes, prefix recreation, unrelated plug-in tests or performance
+campaign. The operator handles any vendor sign-in or activation UI. A timeout is
+not a proven PACE defect; installed files are not service-readiness evidence.
+Commit and push reviewable changes; do not merge. Record any remaining live gate.
+
+Base tree: `e584752e955f102266ff68c5fde006eb4beabfe1`. Basis: AGENTS.md,
+Core product invariants / Evidence requirements; GOVERNANCE.md, What evidence
+means; docs/ARCHITECTURE.md, 4.3 Readback / 5.1 Manager core. Fixture: the existing
+Deck installation of Blackhole Immersive 1.4.4, bundled PACE 5.10.2.4663 and its
+pinned Proton 11.0-2c / SLR 4 environment. No dependency version changes.
+
+Acceptance: show the retained scanner error separately from parser quarantine;
+offer a deliberate retry bound to the current environment, scan, module and
+report; scan only that module through existing supervision; retain other results
+and the original report. Reject changed identities and busy runtime state.
+Ordinary rescans retain their existing quarantine behavior. Verify the onboarding
+environment route without requiring publication, and permit identical verified
+scanner bytes to relocate during a manager update. Use focused regressions,
+Linux release builds and read-only installed projection checks. Retain sanitized
+findings under `evidence/blackhole-immersive-deck/`. Deployment changes only the
+manager/frontend through setup, retaining prior immutable software and private
+launcher/manifest backups for rollback. Audio, activation, successful loading,
+and universal reporting classification remain unproved or deferred.
+
 # User guide for crash capture
 
 2026-09-19: the operator requested step-by-step crash-capture instructions as a

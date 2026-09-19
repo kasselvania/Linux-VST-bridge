@@ -1,0 +1,96 @@
+# Blackhole Immersive first discovery failure
+
+2026-09-19; Steam Deck; Blackhole Immersive 1.4.4 (Windows VST3), bundled
+PACE License Support Win64 5.10.2.4663. Installed manager/frontend source:
+`ef9f36a29d6af70538bf3a2db6be6016faf530a3`; investigation base `c9758f5`.
+Pinned runtime: Proton 11.0-2c build 25118279 with Steam Linux Runtime 4
+4.0.20260805.254769, as recorded by this existing isolated installation.
+No runner, prefix identity, licensing state, plug-in binary or publication changed.
+
+## Observed stages
+
+| Stage | Retained observation | Limit |
+| --- | --- | --- |
+| Installer | Outer exit 0; durable files/registration present; cleanup confirmed | Transaction explicitly says `installation_completeness: unproved` |
+| Installed payload | Blackhole VST3, iLok License Manager and PACE service executable exist; service registered | Existence does not establish licensing readiness |
+| User-triggered scan | `TimeoutError: Windows call deadline: load_library`; no factory record or classes | This is a loading timeout, not an attributed plug-in exception |
+| Failure containment | Scanner process cleanup and transport retirement confirmed | Does not prove successful product startup |
+| Library projection | Generic `inventory_factory_absent_or_duplicate`; original error omitted from quarantined card | Reporting defect hides the earlier failing stage |
+| Ordinary rescan | Unchanged quarantined module reuses its retained result | No fresh execution; user needs explicit retry after a relevant change |
+| PACE startup observation | Named service registers its handler and reports state 4 (RUNNING), start result 0 | Service state alone is not proof of successful license operations |
+| Instrumented module inspection | Same load timeout; 36.649 s total including startup/cleanup; cleanup and transport confirmed | No root cause or vendor authorization established |
+
+The actual VST3 module SHA-256 is
+`b8a33c57b04eded38d0ca717bb5e3721330439f4931c401ea70e5246b516e90b`.
+Installed iLok License Manager executable SHA-256 is
+`61dca5ffe948c925b8e52b495a3211f3e27356094b69ee848773722677884834`.
+
+## Bounded diagnosis
+
+The original scan and installer records remain private on the Deck. The
+investigation used the installed supervisor's environment construction and
+module-inspection function with the same module, scanner, runner and HOME.
+An outer dedicated systemd unit bounded each diagnostic and its children.
+The idle bridge was paused and restored around the two diagnostic launches;
+final readback confirmed active service, zero DSP/maintenance activity, no
+pending transaction/stale transport and no unconfirmed cleanup.
+
+1. A service probe attempted `sc.exe queryex PaceLicenseDServices`. This runner's
+   utility did not return a query result (outer exit 103), so that exit is not
+   used as PACE status. Its separately retained startup trace binds the named
+   PACE service to `SetServiceStatus` state 4 and service start result 0.
+2. One instrumented production-supervisor module inspection retained bounded
+   loader/service/exception diagnostics. The existing 30-second Windows-call
+   deadline was unchanged. It again stopped at `load_library`. PACE's named
+   service reported RUNNING in this run too. Diagnostic observation totaled
+   1,436,708 bytes; first 128 KiB and last 256 KiB were retained separately.
+   The middle was not retained, which limits attribution. Observed handled
+   exception traffic does not establish a fatal PACE or plug-in crash.
+
+No GUI input, account inspection, activation, new installer, prefix recreation,
+DAW session or timing campaign occurred. Private traces can contain process and
+path details and are not part of this public evidence. The remaining live gate
+is the installed iLok application's startup and user-owned authorization flow
+in this same environment, followed by one deliberate fresh module inspection.
+
+## Manager repair
+
+Quarantined cards now retain and display the scanner's `inspection_error`
+separately from the generic factory-parser quarantine. Their explicit
+`Retry this exact module scan` action binds the environment, current scan,
+module index, module digest and original report digest. The existing inactive
+admission, pause/resume and supervised inspection path execute the retry.
+Other module records are carried forward unchanged. Ordinary rescan still
+reuses unchanged quarantines; this action makes a fresh attempt deliberate.
+
+The retry resolves both registered and onboarding-only environments, without
+registering a failed product. Changed inventory, report, environment, scanner
+bytes or scanner source are refused. Identical verified scanner bytes may move
+to another immutable software-generation directory during a manager update;
+a filesystem location is not the scanner's identity. Original reports and scan
+history remain available. No new runtime, dependency or licensing workaround
+is introduced.
+
+Focused regression checks passed for cause presentation, exact retry selection,
+ordinary quarantine reuse, onboarding-only routing, inactive admission, closed
+action payloads and scanner relocation. Both crates passed all-target Clippy
+with warnings denied; the Linux release build passed. Sandbox restrictions on
+local Unix sockets and the cross-linker required rerunning those affected checks
+with the permitted local access. No live retry was used as a reporting test.
+
+Built code diff SHA-256 (three code files, base `c9758f5`):
+`2e832a836388605c0c168f15059cb322d671645405b0472952f9d0c3c6d4c09f`.
+Manager SHA-256:
+`31e8c569cf783af84f5f55315e8a42088e52af4657bd1235025d93ea8364c7d0`.
+Frontend SHA-256:
+`026b6f5072e6b6a732321acc55e6468011e414c35a18e59bb3db454ec9b8abb6`.
+
+## Deferred user request
+
+The operator asked to remember, not implement here, a classification of tooling
+and reporting by scope: shared installer/plug-in infrastructure, cross-product
+dependencies such as iLok, and individual plug-in/profile behavior. The operator
+also reported Kontakt plug-in crashes without the reports seen for Arturia.
+This is a reporting-coverage observation, not an attributed common crash cause.
+The existing ordinary capture action excludes experimental Kontakt/Serum; its
+relationship to those particular incidents remains to be established.

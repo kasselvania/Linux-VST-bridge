@@ -63,6 +63,31 @@ fn action(label: &str, action: ui::Action, reason: Option<&str>) -> ui::Availabl
         disabled_reason: reason.map(Into::into),
     }
 }
+fn quarantined_product(scan: &inventory::Scan, module_index: usize,
+    module: inventory::Module, stale: Option<&str>, busy: Option<&str>)
+    -> Result<ui::Product> {
+    let reason=module.quarantine_reason.as_deref()
+        .ok_or("operator_quarantine_reason_absent")?;
+    let inspection_error=module.inspection_error.clone();
+    let mut limitations:Vec<String>=stale.into_iter().map(str::to_owned).collect();
+    if let Some(error)=&inspection_error { limitations.push(format!("Scanner reported: {error}")); }
+    limitations.push(reason.into());
+    let actions=vec![action("Retry this exact module scan",
+        ui::Action::QuarantinedModuleRetry {environment:scan.environment.id.clone(),
+            scan:scan.id.clone(),module_index,module_sha256:module.artifact.sha256.clone(),
+            report_sha256:module.report.sha256.clone()},busy.or(stale))];
+    Ok(ui::Product {class_id:String::new(),name:module.artifact.path.file_name()
+        .unwrap_or_default().to_string_lossy().into_owned(),vendor:"Unresolved factory".into(),
+        role:"unknown".into(),version:String::new(),
+        disposition:if stale.is_some(){"needs_attention"}else{"quarantined"}.into(),
+        active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),
+        runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256,
+        limitations,history:vec![],actions,
+        details:json!({"scan":scan.id,"scanner_host_sha256":scan.host.sha256,
+            "scanner_source_sha256":scan.host_source_sha256,"current":stale.is_none(),
+            "inspection_error":inspection_error,"quarantine_reason":reason,
+            "report_sha256":module.report.sha256,"activation_permitted":false})})
+}
 fn app_directory(m: &Manager) -> PathBuf {
     m.root.join("vendor-applications").join(ASC)
 }
@@ -459,7 +484,7 @@ fn snapshot_for_operation(
                 scan.schema == 1 && scan.environment.id == env.id,
                 "inventory_environment_binding",
             )?;
-            for module in scan.modules {
+            for (module_index, module) in scan.modules.iter().cloned().enumerate() {
                 let stale = inventory::stale_reason(
                     &module,
                     &scan.environment,
@@ -469,30 +494,8 @@ fn snapshot_for_operation(
                     &sw.host,
                     &sw.source_sha256,
                 );
-                if let Some(reason) = &module.quarantine_reason {
-                    products.push(ui::Product {
-                        class_id: String::new(),
-                        name: module
-                            .artifact
-                            .path
-                            .file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy()
-                            .into_owned(),
-                        vendor: "Unresolved factory".into(),
-                        role: "unknown".into(),
-                        version: String::new(),
-                        disposition: if stale.is_some(){"needs_attention"}else{"quarantined"}.into(),
-                        active_revision: None,
-                        recommended_revision: None,
-                        environment: scan.environment.id.clone(),
-                        runner: scan.environment.runner.id.clone(),
-                        module_sha256: module.artifact.sha256.clone(),
-                        limitations: stale.into_iter().map(str::to_owned).chain(std::iter::once(reason.clone())).collect(),
-                        history: vec![],
-                        actions: vec![],
-                        details: json!({"scan":scan.id,"scanner_host_sha256":scan.host.sha256,"scanner_source_sha256":scan.host_source_sha256,"current":stale.is_none(),"activation_permitted":false}),
-                    });
+                if module.quarantine_reason.is_some() {
+                    products.push(quarantined_product(&scan,module_index,module,stale,busy)?);
                     continue;
                 }
                 let current = stale.is_none();
@@ -1444,6 +1447,18 @@ fn execute_with_receipt_policy(
             cleanup?;
             Ok(value)
         }
+        ui::Action::QuarantinedModuleRetry { environment, scan, module_index,
+            module_sha256, report_sha256 } => {
+            let _environment = m.lock("operator-environment.lock")?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            suspend(m, owner, None, timeout, waits)?;
+            let result = retry_quarantined_module(m, environment, scan, *module_index,
+                module_sha256, report_sha256);
+            let cleanup = resume_owned(m, owner);
+            let value = result?;
+            cleanup?;
+            Ok(value)
+        }
     }
 }
 #[derive(Debug, Serialize, Deserialize)]
@@ -1692,6 +1707,7 @@ fn resume_interrupted(m: &Manager) -> Result<()> {
                 | ui::Action::RendererOpen { .. }
                 | ui::Action::VendorApplicationOpen { .. }
                 | ui::Action::EnvironmentRescan { .. }
+                | ui::Action::QuarantinedModuleRetry { .. }
                 | ui::Action::PluginReinspect { .. }
                 | ui::Action::PluginInspect { .. }
                 | ui::Action::PluginPrepare { .. }
@@ -1757,7 +1773,85 @@ fn rescan(m: &Manager, environment: &str) -> Result<Value> {
     drop(_lock);
     rescan_environment(m, env)
 }
+#[derive(Clone, Debug)]
+struct QuarantinedRetry {
+    scan: String,
+    module_index: usize,
+    module_sha256: String,
+    report_sha256: String,
+}
+fn retry_environment(m: &Manager, catalogue: &linux_vst_bridge::catalogue::Catalogue, environment: &str)
+    -> Result<Environment> {
+    let mut found:Option<Environment>=None;
+    for candidate in catalogue.environments.iter().map(|e|e.environment.clone())
+        .chain(onboarding::history_records(m)?.into_iter().map(|r|r.environment)) {
+        if candidate.id != environment { continue; }
+        if let Some(current)=&found {
+            require(current==&candidate,"operator_environment_identity_ambiguous")?;
+        } else { found=Some(candidate); }
+    }
+    found.ok_or_else(||"operator_environment_absent".into())
+}
+fn retry_quarantined_module(m: &Manager, environment: &str, scan: &str,
+    module_index: usize, module_sha256: &str, report_sha256: &str) -> Result<Value> {
+    let _lock = m.lock("registry.lock")?;
+    m.require_inactive(None)?;
+    let sw = software(m)?;
+    let c = sw.catalogue(m)?;
+    let env=retry_environment(m,&c,environment)?;
+    drop(_lock);
+    rescan_environment_with_retry(m, env, Some(QuarantinedRetry {
+        scan: scan.into(), module_index, module_sha256: module_sha256.into(),
+        report_sha256: report_sha256.into(),
+    }))
+}
 fn rescan_environment(m: &Manager, env: Environment) -> Result<Value> {
+    rescan_environment_with_retry(m, env, None)
+}
+fn reusable_quarantine<'a>(prior: Option<&'a inventory::Scan>, env: &Environment,
+    host: &Artifact, host_source_sha256: &str, module: &Artifact)
+    -> Option<&'a inventory::Module> {
+    prior.filter(|s| s.environment == *env && s.host == *host
+        && s.host_source_sha256 == host_source_sha256)
+        .and_then(|s| s.modules.iter().find(|p|
+            p.artifact == *module && p.quarantine_reason.is_some()))
+}
+fn reusable_scan_module<'a>(prior: Option<&'a inventory::Scan>, env: &Environment,
+    host: &Artifact, host_source_sha256: &str, module: &Artifact,
+    retry_target: Option<&Artifact>) -> Result<Option<&'a inventory::Module>> {
+    if let Some(target)=retry_target {
+        if module==target { return Ok(None); }
+        return Ok(Some(prior.and_then(|scan|scan.modules.iter()
+            .find(|old|old.artifact==*module))
+            .ok_or("operator_quarantine_retry_inventory_changed")?));
+    }
+    Ok(reusable_quarantine(prior,env,host,host_source_sha256,module))
+}
+fn exact_retry_target<'a>(prior: Option<&'a inventory::Scan>, env: &Environment,
+    host: &Artifact, host_source_sha256: &str, modules: &[Artifact],
+    retry: &QuarantinedRetry) -> Result<&'a inventory::Module> {
+    require(valid_hex(&retry.scan,32) && valid_hex(&retry.module_sha256,64)
+        && valid_hex(&retry.report_sha256,64),"operator_quarantine_retry_identity")?;
+    let prior=prior.ok_or("operator_quarantine_retry_scan_absent")?;
+    require(prior.schema==1 && prior.id==retry.scan && prior.environment==*env
+        && prior.host.sha256==host.sha256
+        && prior.host_source_sha256==host_source_sha256,
+        "operator_quarantine_retry_scan_changed")?;
+    require(prior.host.verify().is_ok() && host.verify().is_ok(),
+        "operator_quarantine_retry_scan_changed")?;
+    require(prior.modules.len()==modules.len() && prior.modules.iter().zip(modules)
+        .all(|(old,current)|old.artifact==*current),
+        "operator_quarantine_retry_inventory_changed")?;
+    let selected=prior.modules.get(retry.module_index)
+        .ok_or("operator_quarantine_retry_module_absent")?;
+    require(selected.artifact.sha256==retry.module_sha256
+        && selected.report.sha256==retry.report_sha256
+        && selected.quarantine_reason.is_some(),"operator_quarantine_retry_module_changed")?;
+    selected.report.verify()?;
+    Ok(selected)
+}
+fn rescan_environment_with_retry(m: &Manager, env: Environment,
+    retry: Option<QuarantinedRetry>) -> Result<Value> {
     let _lock = m.lock("registry.lock")?;
     m.require_inactive(None)?;
     let sw = software(m)?;
@@ -1770,22 +1864,14 @@ fn rescan_environment(m: &Manager, env: Environment) -> Result<Value> {
     } else {
         None
     };
+    let retry_target=retry.as_ref().map(|retry|exact_retry_target(prior.as_ref(),&env,
+        &sw.host,&sw.source_sha256,&modules,retry).map(|module|module.artifact.clone()))
+        .transpose()?;
     let start = Instant::now();
     let mut found = Vec::new();
     for module in modules {
-        if let Some(old) = prior
-            .as_ref()
-            .filter(|s| {
-                s.environment == env
-                    && s.host == sw.host
-                    && s.host_source_sha256 == sw.source_sha256
-            })
-            .and_then(|s| {
-                s.modules
-                    .iter()
-                    .find(|p| p.artifact == module && p.quarantine_reason.is_some())
-            })
-        {
+        if let Some(old)=reusable_scan_module(prior.as_ref(),&env,&sw.host,
+            &sw.source_sha256,&module,retry_target.as_ref())? {
             found.push(old.clone());
             continue;
         }
@@ -1855,7 +1941,10 @@ fn rescan_environment(m: &Manager, env: Environment) -> Result<Value> {
         &scan,
     )?;
     atomic_json(&dir.join(format!("{environment}.json")), &scan)?;
-    Ok(json!({"scan":scan.id,"modules":scan.modules.len(),"activation_permitted":false}))
+    Ok(json!({"scan":scan.id,"modules":scan.modules.len(),"activation_permitted":false,
+        "retry":retry.map(|retry|json!({"prior_scan":retry.scan,
+            "module_index":retry.module_index,"module_sha256":retry.module_sha256,
+            "prior_report_sha256":retry.report_sha256}))}))
 }
 fn worker(m: &Manager, id: &str) -> Result<()> {
     worker_with_capacity(m, id, OPERATOR_WAIT, &|| live_capacity(m).ok())
@@ -2050,6 +2139,116 @@ pub(super) fn product_receipt(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn quarantined_scan(f: &test_fixture::Fixture) -> inventory::Scan {
+        inventory::Scan {schema:1,id:"aa".repeat(16),environment:f.r.environment.clone(),
+            host:f.r.host.clone(),host_source_sha256:f.r.host_source_sha256.clone(),
+            completed_at:1,changes:inventory::Changes::default(),modules:vec![inventory::Module {
+                artifact:f.r.module.clone(),classes:vec![],report:f.r.host.clone(),
+                inspection_error:Some("TimeoutError: Windows call deadline: load_library".into()),
+                quarantine_reason:Some("inventory_factory_absent_or_duplicate".into()),
+            }]}
+    }
+    #[test]
+    fn quarantine_projection_retains_scanner_cause_and_exact_retry_identity() {
+        let f=test_fixture::Fixture::new();
+        let scan=quarantined_scan(&f);
+        let product=quarantined_product(&scan,0,scan.modules[0].clone(),None,None).unwrap();
+        assert_eq!(product.limitations[0],
+            "Scanner reported: TimeoutError: Windows call deadline: load_library");
+        assert_eq!(product.limitations[1],"inventory_factory_absent_or_duplicate");
+        assert_eq!(product.details["inspection_error"],
+            "TimeoutError: Windows call deadline: load_library");
+        assert_eq!(product.actions.len(),1);
+        assert_eq!(product.actions[0].action,ui::Action::QuarantinedModuleRetry {
+            environment:scan.environment.id.clone(),scan:scan.id.clone(),module_index:0,
+            module_sha256:scan.modules[0].artifact.sha256.clone(),
+            report_sha256:scan.modules[0].report.sha256.clone(),
+        });
+    }
+    #[test]
+    fn ordinary_rescan_reuses_quarantine_but_exact_retry_rescans_only_target() {
+        let f=test_fixture::Fixture::new();
+        let mut scan=quarantined_scan(&f);
+        let other_path=f.outer.join("other.vst3");
+        fs::write(&other_path,b"other module").unwrap();
+        scan.modules.push(inventory::Module {artifact:Artifact {
+            sha256:digest(&other_path).unwrap(),path:other_path},classes:vec![],
+            report:f.r.host.clone(),inspection_error:None,quarantine_reason:None});
+        let modules=scan.modules.iter().map(|module|module.artifact.clone()).collect::<Vec<_>>();
+        assert!(reusable_scan_module(Some(&scan),&scan.environment,&scan.host,
+            &scan.host_source_sha256,&modules[0],None).unwrap().is_some());
+        let retry=QuarantinedRetry {scan:scan.id.clone(),module_index:0,
+            module_sha256:modules[0].sha256.clone(),
+            report_sha256:scan.modules[0].report.sha256.clone()};
+        let target=exact_retry_target(Some(&scan),&scan.environment,&scan.host,
+            &scan.host_source_sha256,&modules,&retry).unwrap().artifact.clone();
+        assert!(reusable_scan_module(Some(&scan),&scan.environment,&scan.host,
+            &scan.host_source_sha256,&modules[0],Some(&target)).unwrap().is_none());
+        assert_eq!(reusable_scan_module(Some(&scan),&scan.environment,&scan.host,
+            &scan.host_source_sha256,&modules[1],Some(&target)).unwrap()
+            .unwrap().artifact,modules[1]);
+        let mut changed=retry;
+        changed.report_sha256="ff".repeat(32);
+        assert!(exact_retry_target(Some(&scan),&scan.environment,&scan.host,
+            &scan.host_source_sha256,&modules,&changed).is_err());
+    }
+    #[test]
+    fn exact_retry_accepts_verified_scanner_relocation_but_rejects_changed_identity() {
+        let f=test_fixture::Fixture::new();
+        let scan=quarantined_scan(&f);
+        let modules=scan.modules.iter().map(|module|module.artifact.clone()).collect::<Vec<_>>();
+        let retry=QuarantinedRetry {scan:scan.id.clone(),module_index:0,
+            module_sha256:modules[0].sha256.clone(),
+            report_sha256:scan.modules[0].report.sha256.clone()};
+        let generation=f.outer.join("immutable-generation");
+        private_dir(&generation).unwrap();
+        let relocated_path=generation.join("host.exe");
+        fs::copy(&scan.host.path,&relocated_path).unwrap();
+        let relocated=Artifact {path:relocated_path.clone(),sha256:scan.host.sha256.clone()};
+        assert!(exact_retry_target(Some(&scan),&scan.environment,&relocated,
+            &scan.host_source_sha256,&modules,&retry).is_ok());
+
+        fs::write(&relocated_path,b"changed scanner bytes").unwrap();
+        let changed=Artifact {sha256:digest(&relocated_path).unwrap(),path:relocated_path};
+        assert!(exact_retry_target(Some(&scan),&scan.environment,&changed,
+            &scan.host_source_sha256,&modules,&retry).is_err());
+        assert!(exact_retry_target(Some(&scan),&scan.environment,&scan.host,
+            &"ff".repeat(32),&modules,&retry).is_err());
+    }
+    #[test]
+    fn retry_route_resolves_unregistered_onboarding_environment_without_promoting_it() {
+        use linux_vst_bridge::catalogue::{Catalogue,EnvironmentBinding};
+        let (f,p,_,native)=test_fixture::prepared();
+        let catalogue=Catalogue {schema:3,natives:vec![native],environments:vec![
+            EnvironmentBinding {family:p.requirements.environment_family,
+                environment:f.r.environment.clone()}],hosts:vec![]};
+        let catalogue_path=f.m.root.join("software/catalogue.json");
+        atomic_json(&catalogue_path,&catalogue).unwrap();
+        let a=f.r.host.clone();
+        let sw=Software {installer_launch:None,preparation_kit:None,manager:a.clone(),
+            operator_frontend:None,supervisor:a.clone(),ownership:a.clone(),host:a,
+            source_manifest:Artifact {path:f.r.host.path.with_file_name("host-source-manifest.json"),
+                sha256:f.r.host_source_sha256.clone()},source_sha256:f.r.host_source_sha256.clone(),
+            native_catalogue:Some(Artifact {sha256:digest(&catalogue_path).unwrap(),
+                path:catalogue_path})};
+        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
+        let mut environment=f.r.environment.clone();
+        environment.id="11".repeat(16);
+        environment.root=f.m.root.join("environments").join(&environment.id);
+        private_dir(&environment.root).unwrap();
+        atomic_json(&environment.root.join("environment.json"),&environment).unwrap();
+        let directory=onboarding::directory(&f.m,&environment.id).unwrap();
+        private_dir(&directory).unwrap();
+        atomic_json(&directory.join("record.json"),&onboarding::Record {schema:1,
+            id:environment.id.clone(),installer:"ab".repeat(32),environment:environment.clone(),
+            created_at:1,creation_operation:"cd".repeat(16),
+            installation_operation:None,published:false,previous_attempt:None}).unwrap();
+        let error=retry_quarantined_module(&f.m,&environment.id,&"ef".repeat(16),0,
+            &f.r.module.sha256,&f.r.host.sha256).unwrap_err().to_string();
+        assert_eq!(error,"operator_quarantine_retry_scan_absent");
+        assert!(!f.m.registry().unwrap().classes.values()
+            .any(|entry|entry.registration.environment.id==environment.id));
+    }
     fn view(token: &str, action: ui::AvailableAction) -> ui::Snapshot {
         ui::Snapshot {
             onboarding: vec![],
@@ -2181,6 +2380,13 @@ mod tests {
             ui::Action::TransactionReconcile {},
             ui::Action::EnvironmentRescan {
                 environment: f.r.environment.id.clone(),
+            },
+            ui::Action::QuarantinedModuleRetry {
+                environment: f.r.environment.id.clone(),
+                scan: "ab".repeat(16),
+                module_index: 0,
+                module_sha256: "cd".repeat(32),
+                report_sha256: "ef".repeat(32),
             },
             ui::Action::VendorApplicationOpen {
                 application: ASC.into(),

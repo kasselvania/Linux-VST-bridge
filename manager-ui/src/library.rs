@@ -255,23 +255,28 @@ fn primary_action(action: &Action) -> bool {
         Action::PluginInspect { .. }
             | Action::PluginReinspect { .. }
             | Action::PluginPrepare { .. }
+            | Action::QuarantinedModuleRetry { .. }
             | Action::ExperimentalEnable { .. }
     )
 }
 
 fn problem(product: &Product) -> Option<String> {
     let prep = &product.details["preparation"];
-    [
+    let management = [
         product.details["refusal"].as_str(),
         product.details["preparation_failure"].as_str(),
         prep["operation"]["reason"].as_str(),
         prep["recovery"].as_str(),
-        product.details["inspection_hint"].as_str(),
     ]
     .into_iter()
     .flatten()
     .find(|s| !s.is_empty())
-    .map(|s| s.replace('_', " "))
+    .map(|s| s.replace('_', " "));
+    management
+    .or_else(|| product.details["inspection_error"].as_str()
+        .filter(|s|!s.is_empty()).map(str::to_owned))
+    .or_else(|| product.details["inspection_hint"].as_str()
+        .filter(|s|!s.is_empty()).map(|s|s.replace('_', " ")))
     .or_else(|| {
         (status(product).1 == "attention")
             .then(|| product.limitations.first().map(|s| s.replace('_', " ")))
@@ -414,6 +419,19 @@ mod tests {
         assert_eq!(status(&p).0, "Published · experimental");
         p.disposition = "another_configuration".into();
         assert_eq!(status(&p).1, "attention");
+    }
+
+    #[test]
+    fn quarantined_module_shows_retained_scanner_error_before_generic_reason() {
+        let mut p = snapshot().products.remove(0);
+        p.disposition = "quarantined".into();
+        p.details["inspection_error"] =
+            serde_json::json!("TimeoutError: Windows call deadline: load_library");
+        p.limitations = vec!["inventory_factory_absent_or_duplicate".into()];
+        assert_eq!(
+            problem(&p).as_deref(),
+            Some("TimeoutError: Windows call deadline: load_library")
+        );
     }
 
     #[test]
