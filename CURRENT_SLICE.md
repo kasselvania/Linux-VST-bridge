@@ -74,6 +74,25 @@ application close. The operator has been asked to sign in, activate Blackhole
 if available and close iLok. Authorization and the follow-up module retry are
 pending that user action; the original loading timeout remains unresolved.
 
+The operator now authorizes a private SSH credential handoff so Luna can enter
+their iLok User ID/password into the existing sign-in form. Add a bounded
+operator helper with hidden terminal prompts, private temporary runtime storage,
+15-minute expiration and one-time password consumption. Bind input to the exact
+owned iLok window/process; send text through stdin, never argv, environment,
+clipboard or diagnostic output. Luna owns field selection and sign-in submission;
+the parent never reads credential values. Keep Remember credentials unchecked.
+This is a developer/operator handoff for this live session, not a general product
+credential store or expanded compatibility claim. Verify refusal/consumption
+behavior and one harmless input path before providing the command to the user.
+
+The helper is installed and verified. Seven focused tests and one fictional-data
+SSH/GUI check passed, including hidden prompts, masked password input and
+one-time deletion. Luna restored both fields empty with Remember unchecked;
+status is `none`. The next user action is running `lvb-ilok-login` over an
+interactive SSH session and reporting that the handoff is ready. Luna may then
+select the exact fields, invoke the fixed fill commands without reading the
+credential file, and submit Sign In. Actual sign-in and activation are unproved.
+
 # User guide for crash capture
 
 2026-09-19: the operator requested step-by-step crash-capture instructions as a

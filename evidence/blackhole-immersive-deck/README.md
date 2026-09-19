@@ -161,6 +161,33 @@ result and application close, then one deliberate module retry. Successful iLok
 startup does not explain the original timeout or establish iLok-wide support.
 See [startup and handoff receipt](ilok-startup.sanitized.json).
 
+## Private SSH credential handoff
+
+The operator subsequently requested hidden SSH prompts so Luna can enter their
+iLok credentials while the operator is away from the GUI. The session-specific
+[helper](../../tools/ilok-login-handoff.py) was installed as `lvb-ilok-login`.
+It uses private temporary runtime storage, a scheduled 15-minute expiration,
+exact window/PID/start-time/cgroup binding and stdin-only keyboard delivery.
+It never passes values through argv, environment, clipboard or command output.
+The password record is removed before its single typing attempt; the helper
+does not submit the login. [Operator instructions](../../docs/user/remote-ilok-sign-in.md).
+
+Seven focused tests passed: hidden-input/non-TTY and echo-fallback refusal;
+permission/symlink refusal; exact cgroup/target binding; normal sequence and
+deletion before a failed password send; no replay; expiry-time recheck and
+blocking expiry cleanup; replacement-nonce protection. The installed helper
+matched SHA-256 `d6d8e64549c5c13451c0c61bd9ee5827f63655e6c8e0e500d4f52bb6eadc7460`.
+Live `verify` returned `binding-valid`; runtime storage was verified as tmpfs,
+directory mode 0700, with a scheduled expiration timer.
+
+One real SSH prompt/GUI path check used explicitly fictional values. Neither
+prompt echoed input. Luna selected each field and invoked each fill command
+once: the User ID appeared as expected, and Password displayed masked bullets.
+Luna cleared both fields and left User ID focused, Password empty and Remember
+unchecked. Final helper status was `none`. No Sign In, activation or live module
+scan was triggered. Actual operator credentials remain to be supplied; no real
+credential, account identifier or credential file is included in this evidence.
+
 ## Deferred user request
 
 The operator asked to remember, not implement here, a classification of tooling
