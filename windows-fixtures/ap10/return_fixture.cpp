@@ -11,6 +11,8 @@
 #include <cmath>
 #include <thread>
 #include <chrono>
+#include <cstdlib>
+#include <cstring>
 using namespace Steinberg;using namespace Steinberg::Vst;
 static const FUID processorID(0x41503130,0x52455455,0x524E5354,0x45535401);
 static const FUID controllerID(0x41503130,0x52455455,0x524E5354,0x45535402);
@@ -19,6 +21,15 @@ class ReturnProcessor final:public AudioEffect {
 public:
  ReturnProcessor(){setControllerClass(controllerID);}
  static FUnknown* create(void*){return static_cast<IAudioProcessor*>(new ReturnProcessor);}
+ tresult PLUGIN_API queryInterface(const TUID iid,void**object)override{
+  if(object&&FUnknownPrivate::iidEqual(iid,INLINE_UID_OF(IEditController))){
+   *object=nullptr;const char* mode=std::getenv("LVB_AP8_CONTROLLER_QUERY_CASE");
+   if(mode&&std::strcmp(mode,"false-null")==0)return kResultFalse;
+   if(mode&&std::strcmp(mode,"success-null")==0)return kResultOk;
+   if(mode&&std::strcmp(mode,"error-nonnull")==0){*object=static_cast<IComponent*>(this);return kInvalidArgument;}
+  }
+  return AudioEffect::queryInterface(iid,object);
+ }
  tresult PLUGIN_API initialize(FUnknown*host)override{auto r=AudioEffect::initialize(host);if(r!=kResultOk)return r;addAudioInput(STR16("Main input"),SpeakerArr::kStereo);addAudioOutput(STR16("Main output"),SpeakerArr::kStereo);addEventInput(STR16("Events in"),16);addEventOutput(STR16("Events out"),16,kMain,0);return kResultOk;}
  tresult PLUGIN_API setBusArrangements(SpeakerArrangement*in,int32 ni,SpeakerArrangement*out,int32 no)override{return ni==1&&no==1&&in&&out&&in[0]==SpeakerArr::kStereo&&out[0]==SpeakerArr::kStereo?AudioEffect::setBusArrangements(in,ni,out,no):kResultFalse;}
  tresult PLUGIN_API canProcessSampleSize(int32 n)override{return n==kSample32?kResultTrue:kResultFalse;}

@@ -1,0 +1,192 @@
+{
+  "schema": 7,
+  "state_token": "synthetic-preview-only",
+  "system": {
+    "service": "active",
+    "keepers": 0,
+    "dsp": 0,
+    "maintenance": 0,
+    "ceiling": 6,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "onboarding": [],
+  "products": [
+    {
+      "class_id": "fixture-kontakt",
+      "name": "Kontakt 8",
+      "vendor": "Native Instruments",
+      "role": "instrument",
+      "version": "8.13.1",
+      "disposition": "experimental",
+      "active_revision": null,
+      "recommended_revision": null,
+      "environment": "fixture-ni",
+      "runner": "fixture-runner",
+      "module_sha256": "fixture-kontakt",
+      "limitations": [],
+      "history": [],
+      "actions": [],
+      "details": {}
+    },
+    {
+      "class_id": "fixture-fragments",
+      "name": "Efx FRAGMENTS",
+      "vendor": "Arturia",
+      "role": "effect",
+      "version": "1.0 (example)",
+      "disposition": "ready",
+      "active_revision": null,
+      "recommended_revision": null,
+      "environment": "fixture-arturia",
+      "runner": "fixture-runner",
+      "module_sha256": "fixture-fragments",
+      "limitations": [],
+      "history": [],
+      "actions": [
+        {
+          "label": "Arm crash capture for next launch",
+          "action": {
+            "kind": "capture_arm",
+            "class_id": "fixture-fragments"
+          },
+          "disabled_reason": null
+        }
+      ],
+      "details": {}
+    },
+    {
+      "class_id": "fixture-serumfx",
+      "name": "Serum 2 FX",
+      "vendor": "Xfer Records",
+      "role": "effect",
+      "version": "2 (example)",
+      "disposition": "needs_attention",
+      "active_revision": null,
+      "recommended_revision": null,
+      "environment": "fixture-xfer",
+      "runner": "fixture-runner",
+      "module_sha256": "fixture-serumfx",
+      "limitations": [],
+      "history": [],
+      "actions": [],
+      "details": {
+        "inspection_hint": "The installed module changed. Rescan this installation before preparing it again."
+      }
+    }
+  ],
+  "environments": [
+    {
+      "id": "fixture-arturia",
+      "family": "Arturia",
+      "runner": "fixture-runner",
+      "revision": 1,
+      "authorization": "Preview data",
+      "last_scan": {},
+      "actions": [
+        {
+          "label": "Rescan installation",
+          "action": {
+            "kind": "environment_rescan",
+            "environment": "fixture-arturia"
+          },
+          "disabled_reason": null
+        }
+      ]
+    },
+    {
+      "id": "fixture-ni",
+      "family": "Native Instruments",
+      "runner": "fixture-runner",
+      "revision": 1,
+      "authorization": "Preview data",
+      "last_scan": {},
+      "actions": [
+        {
+          "label": "Rescan installation",
+          "action": {
+            "kind": "environment_rescan",
+            "environment": "fixture-ni"
+          },
+          "disabled_reason": null
+        }
+      ]
+    },
+    {
+      "id": "fixture-xfer",
+      "family": "Xfer Records",
+      "runner": "fixture-runner",
+      "revision": 1,
+      "authorization": "Preview data",
+      "last_scan": {},
+      "actions": [
+        {
+          "label": "Rescan installation",
+          "action": {
+            "kind": "environment_rescan",
+            "environment": "fixture-xfer"
+          },
+          "disabled_reason": null
+        }
+      ]
+    }
+  ],
+  "vendor_applications": [
+    {
+      "id": "fixture-asc",
+      "name": "Arturia Software Center",
+      "version": "example",
+      "state": "closed",
+      "details": {
+        "environment": "fixture-arturia"
+      },
+      "actions": [
+        {
+          "label": "Open Arturia Software Center",
+          "action": {
+            "kind": "vendor_application_open",
+            "application": "fixture-asc"
+          },
+          "disabled_reason": null
+        }
+      ]
+    },
+    {
+      "id": "fixture-na",
+      "name": "Native Access",
+      "version": "example",
+      "state": "closed",
+      "details": {
+        "environment": "fixture-ni"
+      },
+      "actions": [
+        {
+          "label": "Open Native Access",
+          "action": {
+            "kind": "renderer_open",
+            "application": "fixture-native-access-identity",
+            "policy": "inherited"
+          },
+          "disabled_reason": null
+        }
+      ]
+    }
+  ],
+  "active_sessions": [],
+  "capture": {
+    "armed": false,
+    "active_retention": 0
+  },
+  "recent_incidents": [],
+  "actions": [
+    {
+      "label": "Disarm crash capture",
+      "action": {
+        "kind": "capture_disarm"
+      },
+      "disabled_reason": null
+    }
+  ],
+  "operation": null
+}

@@ -247,6 +247,16 @@ pub fn inspect_record_with(
     host: Artifact,
     source_manifest: Artifact,
 ) -> Result<Inspection> {
+    inspect_record_with_layout(s, report, origin, host, source_manifest, None)
+}
+pub fn inspect_record_with_layout(
+    s: Selection,
+    report: Artifact,
+    origin: Origin,
+    host: Artifact,
+    source_manifest: Artifact,
+    audio_layout: Option<AudioLayoutPolicy>,
+) -> Result<Inspection> {
     report.verify()?;
     host.verify()?;
     source_manifest.verify()?;
@@ -263,6 +273,7 @@ pub fn inspect_record_with(
         report.clone(),
         &s.class.id,
     )?;
+    verify_audio_layout(&raw, audio_layout.as_ref())?;
     Ok(Inspection {
         schema: 1,
         controller: association(&raw)?,
@@ -271,7 +282,48 @@ pub fn inspect_record_with(
         host,
         source_manifest,
         origin,
+        audio_layout,
     })
+}
+
+fn verify_audio_layout(raw: &Value, policy: Option<&AudioLayoutPolicy>) -> Result<()> {
+    let records = raw["records"].as_array().ok_or("inspection_records")?;
+    let applied: Vec<_> = records
+        .iter()
+        .filter(|row| row["state"] == "ap18_audio_layout")
+        .collect();
+    let Some(AudioLayoutPolicy::StereoMainPair) = policy else {
+        return require(applied.is_empty(), "unexpected_audio_layout_application");
+    };
+    require(
+        applied.len() == 1
+            && applied[0]["policy"] == "stereo_main_pair"
+            && applied[0]["input_count"] == 1
+            && applied[0]["output_count"] == 1
+            && applied[0]["result"] == 0
+            && applied[0]["verified"] == true,
+        "stereo_main_pair_application_missing",
+    )?;
+    let audio: Vec<_> = records
+        .iter()
+        .filter(|row| row["state"] == "ap8_bus" && row["media"] == 0)
+        .collect();
+    require(audio.len() == 2, "stereo_main_pair_bus_count")?;
+    for direction in 0..=1 {
+        let rows: Vec<_> = audio
+            .iter()
+            .filter(|row| row["direction"] == direction)
+            .collect();
+        require(
+            rows.len() == 1
+                && rows[0]["index"] == 0
+                && rows[0]["type"] == 0
+                && rows[0]["channels"] == 2
+                && rows[0]["arrangement"] == 3,
+            "stereo_main_pair_readback",
+        )?;
+    }
+    Ok(())
 }
 pub fn retain_inspection(m: &Manager, i: &Inspection) -> Result<()> {
     let dir = object(m, "inspections", &i.selection.id()?)?;
@@ -424,8 +476,12 @@ pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
             && c.profile.class.class_id == c.selection.class.id,
         "candidate_binding",
     )?;
+    let expected_compatibility = Compatibility {
+        audio_layout: c.inspection.audio_layout.clone(),
+        ..Compatibility::default()
+    };
     require(
-        c.profile.capabilities.compatibility() == Compatibility::default(),
+        c.profile.capabilities.compatibility() == expected_compatibility,
         "candidate_policy_requires_explicit_support",
     )?;
     require(
@@ -442,12 +498,13 @@ pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
     c.native.matches(&c.profile)?;
     c.native.artifact.verify()?;
     require(
-        inspect_record_with(
+        inspect_record_with_layout(
             c.selection.clone(),
             c.inspection.report.clone(),
             c.inspection.origin.clone(),
             c.host.clone(),
             c.source_manifest.clone(),
+            c.inspection.audio_layout.clone(),
         )? == c.inspection,
         "candidate_inspection_changed",
     )?;
@@ -519,6 +576,7 @@ pub fn prepared(
             vendor_retirement: None,
             editor_lifetime: None,
             event_output: None,
+            audio_layout: i.audio_layout.clone(),
         },
         limitations,
         evidence: vec!["docs/MF3.md".into()],

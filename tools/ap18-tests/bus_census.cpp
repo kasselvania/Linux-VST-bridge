@@ -1,4 +1,5 @@
 #include "bus_census.h"
+#include "stereo_negotiation.h"
 #include "public.sdk/source/vst/vstaudioeffect.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include <cassert>
@@ -35,7 +36,41 @@ struct MultiOutput:AudioEffect {
   return AudioEffect::activateBus(m,d,i,on);
  }
 };
+struct StereoNegotiationPlugin:AudioEffect {
+ tresult request_result=kResultOk;SpeakerArrangement current=SpeakerArr::kMono;int calls=0;
+ tresult PLUGIN_API initialize(FUnknown* h)override{auto r=AudioEffect::initialize(h);addAudioInput(u"In",SpeakerArr::kMono);addAudioOutput(u"Out",SpeakerArr::kMono);return r;}
+ tresult PLUGIN_API getBusInfo(MediaType m,BusDirection d,int32 i,BusInfo& b)override{auto r=AudioEffect::getBusInfo(m,d,i,b);if(r==kResultOk&&m==kAudio)b.channelCount=current==SpeakerArr::kStereo?2:1;return r;}
+ tresult PLUGIN_API getBusArrangement(BusDirection,int32,SpeakerArrangement& arrangement)override{arrangement=current;return kResultOk;}
+ tresult PLUGIN_API setBusArrangements(SpeakerArrangement* in,int32 ni,SpeakerArrangement* out,int32 no)override{
+  assert(ni==1&&no==1&&in&&out&&in[0]==out[0]);++calls;current=in[0];return current==SpeakerArr::kStereo?request_result:kResultOk;
+ }
+};
 int main(){
+ {
+  HostApplication host;StereoNegotiationPlugin plugin;assert(plugin.initialize(&host)==kResultOk);
+  const auto applied=apply_stereo_main_pair(plugin,plugin);
+  assert(applied.result==kResultOk&&applied.verified&&applied.readback.stereo_main_pair_readback());
+  assert(plugin.current==SpeakerArr::kStereo&&plugin.calls==1&&plugin.terminate()==kResultOk);
+ }
+ {
+  HostApplication host;StereoNegotiationPlugin plugin;plugin.request_result=kResultFalse;assert(plugin.initialize(&host)==kResultOk);
+  const auto applied=apply_stereo_main_pair(plugin,plugin);
+  assert(applied.result==kResultFalse&&!applied.verified&&applied.readback.stereo_main_pair_readback());
+  assert(plugin.terminate()==kResultOk);
+ }
+ for(auto request_result:{kResultOk,kResultFalse}){
+  HostApplication host;StereoNegotiationPlugin plugin;plugin.request_result=request_result;assert(plugin.initialize(&host)==kResultOk);
+  std::vector<std::string> stages;std::vector<StereoBusSnapshot> snapshots;StereoNegotiationResult requested{},restored{};
+  auto result=run_stereo_negotiation(plugin,plugin,
+   [&](const char* stage,const StereoBusSnapshot& row){stages.emplace_back(stage);snapshots.push_back(row);},
+   [&](const StereoNegotiationResult& row){requested=row;},[&](const StereoNegotiationResult& row){restored=row;},[](const char*){});
+  assert((stages==std::vector<std::string>{"before","after","restored"}));assert(snapshots.size()==3);
+  assert(snapshots[0].buses[0].arrangement==SpeakerArr::kMono&&snapshots[0].buses[1].info.channelCount==1);
+  assert(snapshots[1].stereo_readback()&&snapshots[2].buses[0].arrangement==SpeakerArr::kMono&&snapshots[2].buses[1].info.channelCount==1);
+  assert(result.request_result==request_result&&requested.request_result==request_result&&requested.readback_stereo&&requested.layout_changed);
+  assert(result.accepted==(request_result==kResultOk)&&result.restore_attempted&&result.restored&&restored.restored&&plugin.calls==2);
+  assert(plugin.current==SpeakerArr::kMono&&plugin.terminate()==kResultOk);
+ }
  {
   HostApplication host;MultiOutput plugin;assert(plugin.initialize(&host)==kResultOk);
   BusLayout layout;layout.read(plugin,plugin,false);assert(layout.size==34&&layout.counts[1]==32);

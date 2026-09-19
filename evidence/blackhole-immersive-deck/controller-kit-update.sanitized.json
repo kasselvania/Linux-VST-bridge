@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "prior_kit_sha256": "cd8824ac2c7108f5f0645f744934776a73fb848b5965d3d709b95ecdba1dcfba",
+  "kit_sha256": "763c2185af91a97b79c25b6dfabb17dfe34e6a9429163436bfd67ea7b2b687c4",
+  "changed_entries": [
+    "recipe.json",
+    "runtime/host-source-manifest.json",
+    "runtime/host.exe"
+  ],
+  "unchanged_entries": 73,
+  "native_code_and_compiler_artifact_preserved": true,
+  "native_source_basis": "9d47606251e4522c7b4f9b549f4fb71cedb16960",
+  "source_commit": "39c8da766efa542f9cbbc14adf4e6d09eb87275b",
+  "host_sha256": "9a7894cd08db1e32f1d1cde853269a561fd69c49b3171aa3b9c01c9b07e86325",
+  "source_manifest_sha256": "bfa50f708483a07361718f61a8f8ac071de158067a1eae421aef11f96e9fc28a"
+}

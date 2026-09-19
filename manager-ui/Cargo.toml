@@ -9,3 +9,6 @@ serde_json = "=1.0.150"
 
 rfd = { version = "=0.17.2", default-features = false, features = ["xdg-portal"] }
 libc = "=0.2.189"
+
+[dev-dependencies]
+png = "=0.18.1"

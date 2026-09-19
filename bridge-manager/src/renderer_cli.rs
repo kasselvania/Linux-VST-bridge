@@ -101,6 +101,7 @@ pub(super) fn project(m: &Manager, busy: Option<&str>) -> Result<Option<ui::Vend
                 actions.push(action(label,ui::Action::RendererObserve{operation:op.into(),presentation},None));}}
         }
     }
+    details["environment"]=json!(renderer::ENVIRONMENT);
     Ok(Some(ui::VendorApplication{id:renderer::ID.into(),name:"Native Access".into(),version:"3.26.0".into(),state,actions,details}))
 }
 

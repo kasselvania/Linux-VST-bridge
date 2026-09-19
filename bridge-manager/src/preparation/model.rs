@@ -27,6 +27,8 @@ pub struct Inspection {
     pub source_manifest: Artifact,
     pub controller: ControllerAssociation,
     pub origin: Origin,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_layout: Option<crate::profiles::AudioLayoutPolicy>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -129,6 +131,8 @@ pub struct View {
     pub candidates: Vec<CandidateView>,
     pub inspections: Vec<InspectionView>,
     pub recommended_inspection: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recommended_audio_layout: Option<crate::profiles::AudioLayoutPolicy>,
     pub current_revision: Option<crate::publication::RevisionRef>,
     pub current_profile_revision: Option<u32>,
     pub publication_facts: serde_json::Value,
@@ -225,6 +229,8 @@ pub struct InspectionView {
     pub host_sha256: String,
     pub source_sha256: String,
     pub origin: Origin,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_layout: Option<crate::profiles::AudioLayoutPolicy>,
     pub recommended: bool,
     pub candidate_bound: Vec<String>,
     pub disposition: String,
