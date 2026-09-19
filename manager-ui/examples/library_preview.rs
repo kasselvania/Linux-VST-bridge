@@ -1,5 +1,5 @@
 //! Local visual preview of the production library widget. No manager client or OS input.
-//! With OUTPUT.png [WIDTH] [SEARCH], saves its own rendered frame and exits.
+//! With OUTPUT.png [WIDTH] [SEARCH] [--diagnostics], saves its own rendered frame and exits.
 #[path = "../src/library.rs"]
 mod library;
 #[allow(dead_code)]
@@ -12,6 +12,7 @@ struct Preview {
     library: library::Library,
     output: Option<std::path::PathBuf>,
     frame: usize,
+    diagnostics: bool,
 }
 
 impl eframe::App for Preview {
@@ -49,6 +50,10 @@ impl eframe::App for Preview {
                             p.name
                         ));
                     });
+                if self.diagnostics {
+                    ui.add_space(16.0);
+                    library::diagnostics(ui, &self.snapshot, false, &mut selected, true);
+                }
             });
         });
         self.frame += 1;
@@ -73,8 +78,13 @@ fn main() -> eframe::Result {
         .unwrap_or(960.0);
     let mut library = library::Library::default();
     library.search = args.get(2).cloned().unwrap_or_default();
-    let snapshot =
+    let diagnostics = args.get(3).is_some_and(|arg| arg == "--diagnostics");
+    library.expand_details = diagnostics;
+    let mut snapshot: model::Snapshot =
         serde_json::from_str(include_str!("library-preview.json")).expect("preview data");
+    if diagnostics {
+        snapshot.capture = serde_json::json!({"armed": true, "active_retention": 0});
+    }
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([width, 800.0])
@@ -94,6 +104,7 @@ fn main() -> eframe::Result {
                 library,
                 output,
                 frame: 0,
+                diagnostics,
             }))
         }),
     )

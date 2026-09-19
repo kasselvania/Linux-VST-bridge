@@ -26,6 +26,14 @@ the user's installed inventory or new acceptance of Kontakt/Serum/FRAGMENTS.
 - [Wide library](library-wide.png)
 - [Narrow library](library-narrow.png)
 - [Filtered library](library-search.png)
+- [Expanded crash-capture controls](library-crash-capture.png)
+
+The added crash-capture preview expands Details and management and System status
+and diagnostics. It includes the existing arm action, a synthetic armed status,
+and the existing disarm action. The diagnostics widget is shared with production;
+its location, default collapsed state and capture behavior are unchanged. No
+capture was actually armed. The local build, 35 existing frontend tests and
+all-target Clippy passed after this preview addition.
 
 The first sandboxed preview launch could not connect to macOS window services
 and produced no image. Its owned process was stopped. Rendering succeeded with

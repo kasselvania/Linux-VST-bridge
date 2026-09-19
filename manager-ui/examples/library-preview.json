@@ -44,7 +44,16 @@
       "module_sha256": "fixture-fragments",
       "limitations": [],
       "history": [],
-      "actions": [],
+      "actions": [
+        {
+          "label": "Arm crash capture for next launch",
+          "action": {
+            "kind": "capture_arm",
+            "class_id": "fixture-fragments"
+          },
+          "disabled_reason": null
+        }
+      ],
       "details": {}
     },
     {
@@ -165,8 +174,19 @@
     }
   ],
   "active_sessions": [],
-  "capture": {},
+  "capture": {
+    "armed": false,
+    "active_retention": 0
+  },
   "recent_incidents": [],
-  "actions": [],
+  "actions": [
+    {
+      "label": "Disarm crash capture",
+      "action": {
+        "kind": "capture_disarm"
+      },
+      "disabled_reason": null
+    }
+  ],
   "operation": null
 }
