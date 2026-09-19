@@ -254,7 +254,7 @@ documents `kNoInterface` for an absent interface. Blackhole's observed response
 differs from that contract. However, the pinned official
 [PlugProvider](https://github.com/steinbergmedia/vst3_public_sdk/blob/586dc5e6c8012c3e4b01c79389375cbe96bdb1da/source/vst/hosting/plugprovider.cpp#L147)
 tries the component's declared separate-controller ID after a failed combined
-query. The proposed compatibility repair admits only the additional observed
+query. The compatibility repair admits only the additional observed
 `kResultFalse`/null tuple, preserving exact controller identity and refusing
 inconsistent success/null, failure/non-null and unrelated error responses.
 
@@ -300,8 +300,54 @@ including the native builder and compiled native library, remained byte-identica
 their repository inputs are unchanged between the old recipe source and
 `39c8da7`. Setup preserved 59 canonical records/reports/proxy files. With the GUI
 closed, the offered **Check compatibility** action completed and retained the
-exact controller association. The short inner registry wait is being corrected
-before the final GUI verification; the failed action remains retained.
+exact controller association. Source `42c3d93` replaces the inner fail-fast lock
+with the existing bounded, operation-attributed registry acquisition. It
+rechecks inactivity while holding the verified guard, then drops that guard
+before launching the inspector. The focused contention test, Rust checks,
+Clippy with warnings denied and Linux release build passed. Normal setup
+installed this manager, preserving the frontend, runtime helpers, preparation
+kit and all 59 protected records/reports/proxy files. Previous software and
+private launcher/manifest backups remain available for rollback. See the
+[manager deployment](controller-manager-deployment.sanitized.json). The failed
+GUI action remains retained separately from subsequent outcomes.
+
+Luna then opened the updated manager normally and clicked **Refresh preliminary
+inspection** once. Operation `4b449f7bfa0790ecb4d581984be44510` completed with
+the exact separate-controller association. The new inner acquisition actually
+encountered contention: four attempts, 30.522 ms total, then acquired. A transient
+busy/status-unavailable presentation cleared without another action. Luna
+subsequently observed **This operation completed**, the Eventide Blackhole
+Immersive 1.4.4 card still **Installed - not published**, and **Prepare a test
+candidate for this inspection and recipe**. The parent performed no GUI input.
+
+Independent readback confirmed the completed receipt, installed manager hash,
+all 59 protected files unchanged, active bridge with three keepers and zero
+DSP/maintenance/pending transactions/stale transports, and no unconfirmed
+cleanup. See [GUI operation and readback](controller-gui-readback.sanitized.json).
+No preparation or publication was attempted. Inspection is complete; audio,
+editor attachment, Bitwig loading and project recall remain unproved. Blackhole
+declares a single 16-channel bus in each direction; the current descriptor/proxy
+supports stereo buses. The next audio decision is whether to investigate real
+stereo negotiation first or implement the full immersive layout.
+
+## CI fixture corrections
+
+The later CI run on `42c3d93` exposed two fixture defects, retained as failures:
+the [manager run](https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35464117061)
+matched the text `123` inside an allowed observation timestamp, and the
+[Windows run](https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35464117029)
+exited 82 immediately after readiness, before the controller query. The Windows
+test wrote directly to the gate path, allowing the host to read incomplete
+bytes. These failures do not invalidate the separately retained successful
+commercial inspections, and they are not reported as passes.
+
+Fixture-only source `2e4e600` checks forbidden private/PID field names
+structurally and validates the complete readiness binding before publishing
+a flushed gate file by atomic rename. Production host/gate behavior and all
+four controller acceptance assertions remain unchanged. The 12 dependency
+reporting tests, Python compilation and focused handshake/publication check
+passed locally. Hosted platform results are tracked on the PR; these local
+checks alone do not establish a passing Windows run for the corrected harness.
 
 ## Deferred user request
 

@@ -43,6 +43,17 @@ action already completed successfully on the updated kit. The newly observed
 16-channel input/output layout is a separate audio target; the operator has
 been asked to choose stereo negotiation first or full immersive support.
 
+The repaired manager is installed. Luna clicked **Refresh preliminary
+inspection** once with the manager open; operation
+`4b449f7bfa0790ecb4d581984be44510` completed. Its inner registry acquisition
+waited 30.522 ms over four attempts, then the exact separate-controller
+inspection completed and the bridge returned active and idle. The manager
+visibly showed the completed result and offered **Prepare a test candidate for
+this inspection and recipe**. All 59 protected records/reports/proxy files
+remain unchanged. No preparation, publication or audio test was attempted;
+the observed 16-channel layout remains outside the current stereo-bus support.
+See `evidence/blackhole-immersive-deck/controller-gui-readback.sanitized.json`.
+
 # Blackhole Immersive load failure and actionable scan recovery
 
 2026-09-19: the operator requested investigation and repair after Blackhole

@@ -1,0 +1,138 @@
+{
+  "schema": 1,
+  "kind": "gui_requested_controller_inspection_readback",
+  "operation": {
+    "operation": "4b449f7bfa0790ecb4d581984be44510",
+    "state": "completed",
+    "reason": null,
+    "failure": null,
+    "result": {
+      "controller": {
+        "class_id": "5653454248496D626C61636B686F6C65",
+        "kind": "separate"
+      },
+      "guarantee": false,
+      "inspection": "complete",
+      "publication_changed": false,
+      "selection": "68bfb79601fd35eece71e23088f373844ef536a15dab1fb125016868e7cd6547"
+    },
+    "lock_waits": [
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 28,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "operator-canonical.lock",
+        "operation": "4b449f7bfa0790ecb4d581984be44510",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "action_serialization",
+        "timeout_ms": 10000
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 49,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "registry.lock",
+        "operation": "4b449f7bfa0790ecb4d581984be44510",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "operator_validation_readback",
+        "timeout_ms": 9648
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 23,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "registry.lock",
+        "operation": "4b449f7bfa0790ecb4d581984be44510",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "operator_validation_readback",
+        "timeout_ms": 10000
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 26,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "operator-canonical.lock",
+        "operation": "4b449f7bfa0790ecb4d581984be44510",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "action_serialization",
+        "timeout_ms": 10000
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 47,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "registry.lock",
+        "operation": "4b449f7bfa0790ecb4d581984be44510",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "operator_validation_readback",
+        "timeout_ms": 10000
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 11,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "registry.lock",
+        "operation": "4b449f7bfa0790ecb4d581984be44510",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "operator_validation_readback",
+        "timeout_ms": 10000
+      },
+      {
+        "attempts": 4,
+        "elapsed_wait_us": 30522,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "registry.lock",
+        "operation": "4b449f7bfa0790ecb4d581984be44510",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "operator_validation_readback",
+        "timeout_ms": 10000
+      }
+    ]
+  },
+  "software": {
+    "manager": "7a7d85b250ef081e12e2056a8744344ba3f2e277851c938d380301b5a7a7130c",
+    "operator_frontend": "026b6f5072e6b6a732321acc55e6468011e414c35a18e59bb3db454ec9b8abb6",
+    "host": "9a7894cd08db1e32f1d1cde853269a561fd69c49b3171aa3b9c01c9b07e86325",
+    "source_manifest": "bfa50f708483a07361718f61a8f8ac071de158067a1eae421aef11f96e9fc28a",
+    "preparation_kit": "763c2185af91a97b79c25b6dfabb17dfe34e6a9429163436bfd67ea7b2b687c4"
+  },
+  "system": {
+    "service": "active",
+    "keepers": 3,
+    "dsp": 0,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "protected_files_and_proxies": 59,
+  "protected_files_and_proxies_unchanged": true,
+  "audio_qualification_performed": false,
+  "gui_observation": {
+    "executor": "Luna 5.6 Max",
+    "surface": "Moonlight",
+    "action": "Refresh preliminary inspection",
+    "action_count": 1,
+    "terminal_message": "This operation completed. Its current result is shown below.",
+    "card": "Eventide / Blackhole Immersive / Effect / 1.4.4",
+    "publication": "Installed - not published",
+    "next_control": "Prepare a test candidate for this inspection and recipe",
+    "transient_status_unavailable": true,
+    "additional_action_to_clear_transient": false,
+    "parent_gui_input": false
+  }
+}
