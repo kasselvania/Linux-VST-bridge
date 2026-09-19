@@ -67,6 +67,7 @@ struct AudioResult {
     n: u32,
     position: u64,
     flags: u64,
+    extra_slot: usize,
     data: [[f32; CAP]; 2],
 }
 impl AudioResult {
@@ -75,6 +76,7 @@ impl AudioResult {
             n: 0,
             position: 0,
             flags: 0,
+            extra_slot: crate::output_pool::NONE,
             data: [[0.; CAP]; 2],
         }
     }
@@ -92,6 +94,7 @@ impl From<Item> for Completion {
                 n: i.n,
                 position: i.position,
                 flags: i.flags,
+                extra_slot: crate::output_pool::NONE,
                 data: i.data,
             },
             epoch: i.epoch,
@@ -114,6 +117,7 @@ struct Shared {
     retired: AtomicBool,
     requests: Queue<Item>,
     results: Queue<Completion>,
+    extra: std::sync::OnceLock<crate::output_pool::Pool>,
     wanted: AtomicU64,
     fault: AtomicU64,
     ack: AtomicU64,
@@ -156,6 +160,7 @@ impl Shared {
             retired: AtomicBool::new(false),
             requests: Queue::new(DESCRIPTORS),
             results: Queue::new(DESCRIPTORS),
+            extra: std::sync::OnceLock::new(),
             wanted: AtomicU64::new(0),
             fault: AtomicU64::new(0),
             ack: AtomicU64::new(9),
@@ -180,6 +185,19 @@ impl Shared {
             first_requests: std::array::from_fn(|_| AtomicU64::new(0)),
             first_results: std::array::from_fn(|_| AtomicU64::new(0)),
         }
+    }
+    fn prepare_outputs(&self, bytes: &[u8]) -> io::Result<()> {
+        let channels=crate::performance::output_channels(bytes)? - 2;
+        if let Some(pool)=self.extra.get() {
+            ap1_native_client::need(pool.channels==channels,"output layout changed")?;
+        } else if channels>0 {
+            self.extra.set(crate::output_pool::Pool::new(channels,DESCRIPTORS))
+                .map_err(|_| invalid("output pool already prepared"))?;
+        }
+        Ok(())
+    }
+    fn release_output(&self, audio: &AudioResult) {
+        if let Some(pool)=self.extra.get() {pool.release(audio.extra_slot);}
     }
     fn terminal_record(&self) -> Option<crate::terminal::Record> {
         let record = self.terminal.as_ref()?.read()?;
@@ -267,6 +285,14 @@ impl Callback {
             delivery: Delivery::default(),
         }
     }
+    fn clear_audio(&mut self, s: &Shared) {
+        if self.have {s.release_output(&self.current); self.have=false;}
+        while let Some(a)=self.audio.pop_front() {s.release_output(&a);}
+        for _ in 0..DESCRIPTORS {
+            let Some(c)=s.results.pop() else {break;};
+            s.release_output(&c.audio);
+        }
+    }
     fn transition(&mut self, s: &Shared, op: u32) -> u32 {
         if s.fault.load(Ordering::Acquire) != 0 {
             return 2;
@@ -275,19 +301,18 @@ impl Callback {
             START if !self.running && self.epoch < u64::MAX => {
                 self.epoch += 1;
                 self.position = 0;
-                self.have = false;
+                self.clear_audio(s);
                 self.offset = 0;
                 self.next_result = 0;
                 self.in_gap = false;
-                s.results.discard_published();
-                self.audio.clear();
+
                 self.returned.reset();
                 s.wanted.store(self.epoch, Ordering::Release);
                 self.running = true;
             }
             STOP if self.running => {
                 self.running = false;
-                self.audio.clear();
+                self.clear_audio(s);
                 self.returned.reset();
                 s.wanted.store(0, Ordering::Release);
             }
@@ -299,18 +324,25 @@ impl Callback {
         }
         0
     }
+    #[cfg(test)]
     fn process(
         &mut self,
         s: &Shared,
-        mut request: Item,
+        request: Item,
         out: &mut [[f32; CAP]; 2],
-    ) -> Result<u64, u32> {
+    ) -> Result<u64, u32> { self.process_outputs(s,request,out,&[],0) }
+    fn process_outputs(&mut self, s: &Shared, mut request: Item,
+        out: &mut [[f32; CAP]; 2], extra: &[*mut f32], destination: usize,
+    ) -> Result<u64,u32> {
         if !self.running || request.n as usize > CAP {
             return Err(1);
         }
         if s.fault.load(Ordering::Acquire) != 0 || s.terminal_latched.load(Ordering::Acquire) {
             return Err(2);
         }
+        for &p in extra { if !p.is_null() { unsafe {
+            std::ptr::write_bytes(p.add(destination),0,request.n as usize);
+        } } }
         request.epoch = self.epoch;
         request.position = self.position;
         request.queued = Some(Instant::now());
@@ -329,7 +361,7 @@ impl Callback {
         }
         self.delivery = Delivery::default();
         let n = request.n as usize;
-        let mut flags = 3;
+        let mut flags = channel_mask(2+extra.len());
         // Consume whole completions independently of audio presentation. This
         // admits zero-frame results and preserves late events before audio expiry.
         for _ in 0..DESCRIPTORS {
@@ -337,6 +369,7 @@ impl Callback {
                 break;
             };
             if item.epoch < self.epoch {
+                s.release_output(&item.audio);
                 continue;
             }
             let a = item.audio;
@@ -417,6 +450,7 @@ impl Callback {
                 self.offset = expired;
             }
             if self.offset == self.current.n as usize {
+                s.release_output(&self.current);
                 self.have = false;
                 continue;
             }
@@ -429,11 +463,18 @@ impl Callback {
             for (out, input) in out.iter_mut().zip(&self.current.data) {
                 out[i..i + count].copy_from_slice(&input[self.offset..self.offset + count]);
             }
+            if let Some(pool)=s.extra.get() {
+                if self.current.extra_slot==crate::output_pool::NONE || extra.len()!=pool.channels {
+                    s.fail(CORRELATION,position);return Err(2);
+                }
+                unsafe {pool.copy(self.current.extra_slot,self.offset,count,extra,destination+i);}
+            }
             self.delivery.delivered_frames += count as u64;
             self.in_gap = false;
             self.offset += count;
             i += count;
             if self.offset == self.current.n as usize {
+                s.release_output(&self.current);
                 self.have = false;
             }
         }
@@ -618,7 +659,16 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                     let publish = s.wanted.load(Ordering::Acquire) == item.epoch;
                     let mut completion = Completion::from(item);
                     completion.returned = session.returned;
+                    if publish && n>0 {
+                        if let Some(pool)=s.extra.get() {
+                            let slot=s.results.published() as usize % DESCRIPTORS;
+                            let map=session.mapping.as_ref().ok_or_else(||invalid("output mapping absent"))?;
+                            if !pool.publish(slot,&map.extra,n) {return Err(invalid("extra output capacity"));}
+                            completion.audio.extra_slot=slot;
+                        }
+                    }
                     if publish && !s.results.push(completion) {
+                        s.release_output(&completion.audio);
                         s.fail(OVERFLOW, item.position);
                         return Err(invalid("completed output capacity"));
                     }
@@ -967,6 +1017,7 @@ pub unsafe extern "C" fn ap6_recover(
                 return Err(error);
             }
             let mut shared = Shared::new();
+            if l.minor>=13 {if let Some(bytes)=&l.setup {shared.prepare_outputs(bytes)?;}}
             shared.gui = session.gui.clone();
             shared.terminal = session.fault_status.as_ref().map(|f| f.terminal.clone());
             shared.generation = l
@@ -1151,6 +1202,10 @@ unsafe fn setup(
                 bytes.extend(io);
             }
             crate::performance::validate_wire(&bytes)?;
+            {
+                let live=INSTANCES.lease(id).ok_or_else(||invalid("setup instance absent"))?;
+                if live.minor>=13 {live.shared.prepare_outputs(&bytes)?;}
+            }
             let reply = control(id, 20, bytes.clone())?;
             let vendor = ap1_native_client::get(&reply[..4]) as u32;
             let total = vendor
@@ -1320,6 +1375,7 @@ pub unsafe extern "C" fn ap7_process(
         false,
         0,
         false,
+        &[],
     )
 }
 // Mirrors the fixed C ABI and adds a borrowed bounded event span.
@@ -1340,6 +1396,7 @@ unsafe fn process_events(
     detailed: bool,
     entered_ns: u64,
     contain_terminal: bool,
+    extra: &[*mut f32],
 ) -> u32 {
     let Some(l) = INSTANCES.lease(id) else {
         return 1;
@@ -1348,6 +1405,9 @@ unsafe fn process_events(
         return 3;
     };
     let n = n as usize;
+    if extra.len()>62 || (n>0 && extra.len()!=l.shared.extra.get().map_or(0,|p|p.channels)) {
+        return if detailed {0x101} else {1};
+    }
     if (n == 0 && !l.shared.state_capable.load(Ordering::Acquire))
         || n > l.max
         || flags > 3
@@ -1393,7 +1453,7 @@ unsafe fn process_events(
     }
     let entered_ns = if entered_ns == 0 { crate::observer::monotonic_ns() } else { entered_ns };
     let mut total = Delivery::default();
-    let mut combined = 3;
+    let mut combined = channel_mask(2+extra.len());
     let mut offset = 0;
     loop {
         let count = (n - offset).min(CAP);
@@ -1417,7 +1477,7 @@ unsafe fn process_events(
         }
         let mut out = [[0.; CAP]; 2];
         let callback = &mut *l.callback.get();
-        match callback.process(&l.shared, item, &mut out) {
+        match callback.process_outputs(&l.shared, item, &mut out,extra,offset) {
             Ok(f) => {
                 combined &= f;
                 for (ch, p) in [out_left, out_right].into_iter().enumerate() {
@@ -1635,7 +1695,7 @@ pub unsafe extern "C" fn ap9_open(identity: *const u8, handle: *mut u64) -> u32 
     open(
         256,
         handle,
-        if identity.is_some() { 12 } else { 6 },
+        if identity.is_some() { 13 } else { 6 },
         identity,
     )
 }
@@ -1692,6 +1752,7 @@ pub unsafe extern "C" fn ap8_process(
         false,
         0,
         false,
+        &[],
     )
 }
 
@@ -1791,7 +1852,23 @@ unsafe fn process_current(
         true,
         entered_ns,
         contain_terminal,
+        &[],
     )
+}
+
+fn channel_mask(channels: usize) -> u64 { if channels==64 {u64::MAX} else {(1u64<<channels)-1} }
+#[no_mangle]
+pub unsafe extern "C" fn ap19_process_outputs(
+    id:u64,n:u32,events:*const Event,count:u32,context:*const crate::context::Context,
+    flags:u64,left:*const f32,right:*const f32,outputs:*const *mut f32,channels:u32,
+    out_flags:*mut u64,delivery:*mut Delivery,entered_ns:u64,
+)->u32 {
+    if count as usize>MAX_EVENTS || (count>0&&events.is_null()) || context.is_null()
+        || outputs.is_null() || channels<2 || channels>64 || channels%2!=0 {return 1;}
+    let outputs=std::slice::from_raw_parts(outputs,channels as usize);
+    let events=if count==0 {&[]} else {std::slice::from_raw_parts(events,count as usize)};
+    process_events(id,n,f64::NAN,flags,left,right,outputs[0],outputs[1],out_flags,delivery,
+        events,*context,true,entered_ns,true,&outputs[2..])
 }
 
 #[no_mangle]
@@ -1925,6 +2002,39 @@ pub unsafe extern "C" fn ap10_fail_results(id: u64) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn all_output_planes_share_timeline_and_release_on_stop() {
+        let shared=Shared::new();
+        shared.extra.set(crate::output_pool::Pool::new(62,DESCRIPTORS)).ok().unwrap();
+        let pool=shared.extra.get().unwrap();
+        let mut callback=Callback::new();
+        assert_eq!(callback.transition(&shared,START),0);
+        assert_eq!(shared.requests.pop().unwrap().kind,START);
+        let mut main=[[0.;CAP];2];
+        let mut extra=vec![[0.;CAP];62];
+        let pointers:Vec<_>=extra.iter_mut().map(|p|p.as_mut_ptr()).collect();
+        for block in 0..8 {
+            let mut request=Item::control(AUDIO,0);request.n=CAP as u32;
+            callback.process_outputs(&shared,request,&mut main,&pointers,0).unwrap();
+            if block>=4 {
+                assert_eq!(main[0],[block as f32-4.;CAP]);
+                for ch in 0..62 {assert_eq!(extra[ch],[100.+ch as f32+block as f32-4.;CAP]);}
+            } else {assert!(extra.iter().flatten().all(|x|*x==0.));}
+            let request=shared.requests.pop().unwrap();
+            let mut completion=Completion::from(request);
+            completion.audio.data=[[block as f32;CAP];2];
+            completion.audio.flags=0;
+            let planes:Vec<_>=(0..62).map(|ch|[100.+ch as f32+block as f32;CAP]).collect();
+            let slot=shared.results.published() as usize % DESCRIPTORS;
+            assert!(pool.publish(slot,&planes,CAP));
+            completion.audio.extra_slot=slot;
+            assert!(shared.results.push(completion));
+        }
+        assert_eq!(callback.transition(&shared,STOP),0);
+        let planes=vec![[0.;CAP];62];
+        for slot in 0..8 {assert!(pool.publish(slot,&planes,CAP));pool.release(slot);}
+    }
+
     #[test]
     fn setup_abi_delivers_complete_multi_output_contract() {
         let shared = Arc::new(Shared::new());

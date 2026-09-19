@@ -77,6 +77,7 @@ private:
   std::atomic<bool> terminal_latched_{false};
   bool terminal();
   bool stateSession();
+  uint32_t output_mask_=1;
 #ifdef AP8_PREVIEW
   AP10Results::Output returned_;
   bool gui_polling_=false;

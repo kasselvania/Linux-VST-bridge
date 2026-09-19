@@ -2,15 +2,24 @@
 
 Operator continuation: implement shared bus handling and get Kontakt audio into
 Bitwig for a first real test. Start from `544c02e2781e77d08c8e7ce7aa9e7cec49c69e45`.
-Preserve every declared output identity and negotiate the complete layout. The
-first live milestone carries bus zero through the existing stereo transport;
-other outputs remain explicitly inactive and unsupported activation is refused.
-This shared mechanism has no Kontakt-specific executable branch. Independent
-multi-output transport remains a subsequent extension, not a claim of this
-first audio test. Keep the installed NI environment and existing published
+Preserve every declared output identity and negotiate the complete layout. The first-stereo-only milestone was tried and failed: Bitwig activates
+output 31 before running Kontakt. The continuation therefore carries every
+active stereo output through a versioned shared mapping and bounded, owner-
+allocated native storage. No output is silently discarded. This mechanism has
+no Kontakt-specific executable branch. Keep the installed NI environment and existing published
 profiles intact; build a separate preparation kit and experimental candidate.
 Verify bus metadata/activation/buffer safety, actual Kontakt audio and a
 disposable Bitwig save/reopen. Retain the actual result and any remaining failure.
+
+Transport continuation: protocol 1.13 selects mapping layout 2 (two input planes,
+64 output planes, 68,176 bytes); 1.12/layout 1 remains readable by the Windows
+host. SDK bus indices map to consecutive stereo planes. The existing 2,048
+completion descriptors retain their capacity. Extra planes use one pre-touched
+slot pool, allocated during inactive setup: 4 MiB per additional stereo output,
+124 MiB at 32 outputs, and no extra pool for a single output. Slots remain owned
+until callback delivery/discard; no callback allocation or deallocation. This is
+a bounded first implementation, not a many-instance memory-efficiency claim.
+
 
 Operator continuation, 2026-09-18: install Kontakt using Native Access on the
 Deck, then discover/publish the real VST3 for Bitwig and test it. Each observed

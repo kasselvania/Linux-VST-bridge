@@ -486,12 +486,8 @@ pub fn prepared(
     )?;
     let raw: Value = bounded(&i.report.path)?;
     require(raw["error"].is_null(), "inspection_failed")?;
-    let mut limitations=vec![Limitation::DirectEditorUnderQualification,
+    let limitations=vec![Limitation::DirectEditorUnderQualification,
         Limitation::Unqualified256,Limitation::DetachedFocusRefusal];
-    if raw["records"].as_array().ok_or("inspection_records")?.iter().filter(|r|
-        r["state"]=="ap8_bus" && r["media"]==0 && r["direction"]==1).count()>1 {
-        limitations.push(Limitation::FirstStereoOutputOnly);
-    }
     let profile = Profile {
         schema: 1,
         id: format!(

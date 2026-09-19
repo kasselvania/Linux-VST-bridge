@@ -34,16 +34,19 @@ pub struct Prepared {
 }
 impl Prepared {
     pub fn create(path: &Path, session: [u8; 16]) -> io::Result<Self> {
-        let mut mapping = Mapping::new(&path.join("ap1.audio"))?;
+        Self::with_channels(path, session, 2)
+    }
+    pub fn with_channels(path: &Path, session: [u8; 16], channels: usize) -> io::Result<Self> {
+        let mut mapping = Mapping::with_channels(&path.join("ap1.audio"), channels)?;
         let capability = random::<32>()?;
         let witness = u64::from_le_bytes(random::<8>()?);
         let mut header = [0; 64];
         for (o, v) in [
             (0, 0x4d315041),
-            (4, 1),
+            (4, if channels == 2 { 1 } else { 2 }),
             (8, CAP as u64),
-            (12, 2),
-            (16, MAP_BYTES as u64),
+            (12, channels as u64),
+            (16, mapping.bytes as u64),
             (20, INPUT as u64),
             (24, OUTPUT as u64),
             (28, STRIDE as u64),
@@ -125,7 +128,7 @@ impl Prepared {
         need(
             difference == 0
                 && get(&hello.payload[32..36]) == CAP as u64
-                && get(&hello.payload[36..40]) == MAP_BYTES as u64,
+                && get(&hello.payload[36..40]) == mapping.bytes as u64,
             "Hello authentication/layout",
         )?;
         barrier();

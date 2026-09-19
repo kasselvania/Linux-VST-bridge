@@ -16,34 +16,42 @@ pub struct Mapping {
     pointer: NonNull<u8>,
     _file: File,
     unmapped: bool,
+    pub bytes: usize,
+    pub output_channels: usize,
+    pub extra: Vec<[f32; CAP]>,
 }
 impl Mapping {
     pub fn new(path: &Path) -> io::Result<Self> {
+        Self::with_channels(path, 2)
+    }
+    pub fn with_channels(path: &Path, channels: usize) -> io::Result<Self> {
+        need(matches!(channels, 2 | MULTI_CHANNELS), "mapping channel capacity")?;
+        let bytes = OUTPUT + channels * STRIDE;
         let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create_new(true)
             .mode(0o600)
             .open(path)?;
-        file.set_len(MAP_BYTES as u64)?;
+        file.set_len(bytes as u64)?;
         // MAP_SHARED=1, PROT_READ|PROT_WRITE=3 on this Linux/x86-64 target.
-        let p = unsafe { mmap(std::ptr::null_mut(), MAP_BYTES, 3, 1, file.as_raw_fd(), 0) };
+        let p = unsafe { mmap(std::ptr::null_mut(), bytes, 3, 1, file.as_raw_fd(), 0) };
         need(p as isize != -1, "mapping failed")?;
         Ok(Self {
             pointer: NonNull::new(p as *mut u8).ok_or_else(|| invalid("null mapping"))?,
             _file: file,
-            unmapped: false,
+            unmapped: false, bytes, output_channels: 2, extra: vec![[0.; CAP]; channels - 2],
         })
     }
     pub fn close(mut self) -> io::Result<()> {
-        let result = unsafe { munmap(self.pointer.as_ptr() as *mut c_void, MAP_BYTES) };
+        let result = unsafe { munmap(self.pointer.as_ptr() as *mut c_void, self.bytes) };
         need(result == 0, "native mapping unmap failed")?;
         self.unmapped = true;
         Ok(())
     }
     pub fn write(&mut self, offset: usize, b: &[u8]) -> io::Result<()> {
         need(
-            offset.checked_add(b.len()).is_some_and(|n| n <= MAP_BYTES),
+            offset.checked_add(b.len()).is_some_and(|n| n <= self.bytes),
             "mapping write bounds",
         )?;
         // No references into the shared view escape. Called only while Linux owns it.
@@ -54,7 +62,7 @@ impl Mapping {
     }
     pub fn read(&self, offset: usize, n: usize) -> io::Result<Vec<u8>> {
         need(
-            offset.checked_add(n).is_some_and(|end| end <= MAP_BYTES),
+            offset.checked_add(n).is_some_and(|end| end <= self.bytes),
             "mapping read bounds",
         )?;
         let mut b = vec![0; n];
@@ -82,7 +90,7 @@ impl Mapping {
 impl Drop for Mapping {
     fn drop(&mut self) {
         if !self.unmapped {
-            unsafe { munmap(self.pointer.as_ptr() as *mut c_void, MAP_BYTES) };
+            unsafe { munmap(self.pointer.as_ptr() as *mut c_void, self.bytes) };
         }
     }
 }

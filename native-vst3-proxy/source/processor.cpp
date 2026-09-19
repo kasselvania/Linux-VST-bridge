@@ -135,32 +135,35 @@ bool parameters(IParameterChanges *p, double &gain, bool &changed) {
   return true;
 }
 #endif
-bool outputs(ProcessData &d, int maximum) {
+bool outputs(ProcessData &d, int maximum, uint32_t mask=1) {
 #ifdef AP8_PREVIEW
   constexpr int count=std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& b){return b.media==kAudio&&b.direction==kOutput;});
-  // The host may omit trailing inactive buses. It may also supply the complete
-  // descriptor layout; those inactive buffers never acquire a transport lane.
+  // Trailing inactive buses may be omitted. Every active bus needs storage.
   if(d.numOutputs<1||d.numOutputs>count||!d.outputs)return false;
-  for(int i=1;i<d.numOutputs;++i)if(d.outputs[i].numChannels!=2)return false;
+  if(d.numOutputs<32&&(mask>>d.numOutputs))return false;
+  for(int i=1;i<d.numOutputs;++i){
+    if(d.outputs[i].numChannels!=2)return false;
+    if((mask&(uint32_t(1)<<i))&&(!d.outputs[i].channelBuffers32||!d.outputs[i].channelBuffers32[0]||!d.outputs[i].channelBuffers32[1]))return false;
+  }
   const bool extent=true;
 #else
-  const bool extent=d.numOutputs==1;
+  (void)mask;const bool extent=d.numOutputs==1;
 #endif
   return d.symbolicSampleSize == kSample32 && d.numSamples > 0 &&
          d.numSamples <= maximum && extent && d.outputs &&
          d.outputs[0].numChannels == 2 && d.outputs[0].channelBuffers32 &&
          d.outputs[0].channelBuffers32[0] && d.outputs[0].channelBuffers32[1];
 }
-void silenceOutput(ProcessData& d) {
-  // Only bus zero can be activated in this transport. Do not dereference
-  // inactive host buffers: they may be absent or alias other host storage.
-  auto& bus=d.outputs[0];
-  for(int ch=0;ch<2;++ch)std::fill_n(bus.channelBuffers32[ch],d.numSamples,0.f);
-  bus.silenceFlags=3;
+void silenceOutput(ProcessData& d,uint32_t mask=1) {
+  for(int i=0;i<d.numOutputs;++i)if(mask&(uint32_t(1)<<i)){
+    auto& bus=d.outputs[i];
+    for(int ch=0;ch<2;++ch)std::fill_n(bus.channelBuffers32[ch],d.numSamples,0.f);
+    bus.silenceFlags=3;
+  }
 }
-tresult failure(ProcessData &d, int maximum) {
-  if (outputs(d, maximum)) {
-    silenceOutput(d);
+tresult failure(ProcessData &d, int maximum,uint32_t mask=1) {
+  if (outputs(d, maximum,mask)) {
+    silenceOutput(d,mask);
   }
   return kResultFalse;
 }
@@ -547,6 +550,7 @@ tresult PLUGIN_API Processor::initialize(FUnknown *context) {
     bool enabled=supported&&(b.flags&BusInfo::kDefaultActive);
     if(b.media==kAudio&&b.direction==kInput&&b.index==0&&supported)stereo_input_ordinal_=int(ordinal);
     bus_active_[ordinal++]=enabled;
+    if(b.media==kAudio&&b.direction==kOutput){if(enabled)output_mask_|=uint32_t(1)<<b.index;else output_mask_&=~(uint32_t(1)<<b.index);}
     // Preserve the observed descriptor; native default activation must describe
     // what this proxy can actually activate. A sole stereo auxiliary input
     // retains its role; additional auxiliaries remain visible but inactive.
@@ -586,7 +590,7 @@ tresult PLUGIN_API Processor::activateBus(MediaType media,BusDirection direction
     if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));
     return kResultFalse;
    }
-   auto r=AudioEffect::activateBus(media,direction,index,active);if(r==kResultOk)bus_active_[ordinal]=active!=0;return r;
+   auto r=AudioEffect::activateBus(media,direction,index,active);if(r==kResultOk){bus_active_[ordinal]=active!=0;if(media==kAudio&&direction==kOutput){if(active)output_mask_|=uint32_t(1)<<index;else output_mask_&=~(uint32_t(1)<<index);}}return r;
   }++ordinal;
  }return kResultFalse;
 #else
@@ -727,12 +731,12 @@ tresult PLUGIN_API Processor::setProcessing(TBool running) {
 // Successful silence and latency priming are counted separately at return.
 tresult Processor::rejected(ProcessData &d) {
   callback_rejections_.fetch_add(1, std::memory_order_relaxed);
-  if (outputs(d, maximum_)) {
+  if (outputs(d, maximum_,output_mask_)) {
     rejected_frames_.fetch_add(static_cast<uint64_t>(d.numSamples), std::memory_order_relaxed);
     if (!last_callback_rejected_.exchange(true, std::memory_order_relaxed))
       discontinuities_.fetch_add(1, std::memory_order_relaxed);
   }
-  return failure(d, maximum_);
+  return failure(d, maximum_,output_mask_);
 }
 tresult PLUGIN_API Processor::process(ProcessData &d) {
 #ifdef AP8_PREVIEW
@@ -791,7 +795,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
     return kResultOk;
   }
   #endif
-  if ((!queued_ && blocks_ >= 64) || !outputs(d, maximum_) ||
+  if ((!queued_ && blocks_ >= 64) || !outputs(d, maximum_,output_mask_) ||
 #ifdef AP8_PREVIEW
       d.numInputs != int(std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& b){return b.media==kAudio&&b.direction==kInput;})))return reject();
   float silent_input[1024]{};float* in[2]={silent_input,silent_input};uint64_t input_flags=3;
@@ -811,6 +815,16 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   auto input_flags = d.inputs[0].silenceFlags;
   #endif
   auto **out = d.outputs[0].channelBuffers32;
+#ifdef AP8_PREVIEW
+  constexpr size_t output_count=std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& b){return b.media==kAudio&&b.direction==kOutput;});
+  std::array<float*,2*output_count> output_planes{};
+  for(size_t bus=0;bus<output_count;++bus)if(output_mask_&(uint32_t(1)<<bus))
+    for(int ch=0;ch<2;++ch)output_planes[2*bus+ch]=d.outputs[bus].channelBuffers32[ch];
+  for(size_t ch=0;ch<output_planes.size();++ch)if(output_planes[ch]){
+    for(size_t other=0;other<ch;++other)if(output_planes[other]&&overlap(output_planes[ch],output_planes[other],d.numSamples))return reject();
+    if(ch>=2&&receive_input&&(overlap(output_planes[ch],in[0],d.numSamples)||overlap(output_planes[ch],in[1],d.numSamples)))return reject();
+  }
+#endif
 #ifdef AP8_PREVIEW
   if(overlap(out[0],out[1],d.numSamples))return reject();
   if(receive_input&&(overlap(in[0],in[1],d.numSamples)||overlap(out[0],in[1],d.numSamples)||overlap(out[1],in[0],d.numSamples)||(in[0]!=out[0]&&overlap(in[0],out[0],d.numSamples))||(in[1]!=out[1]&&overlap(in[1],out[1],d.numSamples))))return reject();
@@ -855,7 +869,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
 #endif
   auto r =
 #ifdef AP8_PREVIEW
-      if2_process(handle_,static_cast<uint32_t>(d.numSamples),events,event_count,&c,input_flags,in[0],in[1],out[0],out[1],&silence,&delivery,entered_ns);
+      output_count==1?if2_process(handle_,static_cast<uint32_t>(d.numSamples),events,event_count,&c,input_flags,in[0],in[1],out[0],out[1],&silence,&delivery,entered_ns):ap19_process_outputs(handle_,static_cast<uint32_t>(d.numSamples),events,event_count,&c,input_flags,in[0],in[1],output_planes.data(),uint32_t(output_planes.size()),&silence,&delivery,entered_ns);
 #else
       queued_
           ? static_cast<int32_t>(ap7_process(
@@ -882,7 +896,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
     return reject();
   }
   last_callback_rejected_.store(false, std::memory_order_relaxed);
-  if (silence == 3 && !delivery.missing_frames) {
+  if ((silence&3) == 3 && !delivery.missing_frames) {
     ++silent_callbacks_;
     silent_frames_ += static_cast<uint64_t>(d.numSamples);
   }
@@ -898,7 +912,10 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   gain_min_ = std::min(gain_min_, pending);
   gain_max_ = std::max(gain_max_, pending);
   ++blocks_;
-  d.outputs[0].silenceFlags = silence;
+  d.outputs[0].silenceFlags = silence&3;
+#ifdef AP8_PREVIEW
+  for(int bus=1;bus<d.numOutputs;++bus)if(output_mask_&(uint32_t(1)<<bus))d.outputs[bus].silenceFlags=(silence>>(2*bus))&3;
+#endif
 #ifdef AP8_PREVIEW
   if(!deliverResults(d)){phase_=Failed;returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});return reject();}
 #endif
@@ -911,7 +928,7 @@ tresult Processor::containedSilence(ProcessData& d) {
   // These are locally owned Note Offs, never a request to the dead endpoint.
   returned_.release(d,[&](int bus){return eventOutputActive(bus);});
   if(d.numSamples>0){
-    silenceOutput(d);
+    silenceOutput(d,output_mask_);
   }
   ++contained_callbacks_;contained_frames_+=uint64_t(d.numSamples);
   return kResultOk;

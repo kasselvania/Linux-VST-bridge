@@ -14,7 +14,7 @@
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 static unsigned setups=0,activations=0,closes=0,processes=0;
-static bool input_enabled=true;
+static bool input_enabled=true,last_output=false;
 static std::array<float,32> expected_left{},expected_right{};
 static uint64_t expected_silence=3;
 extern "C" {
@@ -24,7 +24,7 @@ uint32_t __wrap_ap5_report_path(uint64_t,uint8_t*p,uint32_t n){if(n)*p=0;return 
 uint32_t __wrap_ap10_setup(uint64_t,uint32_t,uint32_t,double,const uint8_t*p,uint32_t n,uint32_t,uint32_t*t){
  assert(n==1060&&p[0]==33);assert(p[4+16]==kAux);
  assert(p[4+20]==unsigned(input_enabled)&&p[4+32+20]==1);
- for(unsigned i=2;i<33;++i)assert(p[4+32*i+20]==0);
+ for(unsigned i=2;i<33;++i)assert(p[4+32*i+20]==unsigned(i==32&&last_output));
  ++setups;t[0]=512;t[1]=t[2]=0;return 0;
 }
 uint32_t __wrap_ap4_activate(uint64_t,uint32_t,uint32_t){++activations;return 0;}
@@ -37,6 +37,15 @@ uint32_t __wrap_if2_process(uint64_t,uint32_t n,const ap8_event_t*e,uint32_t cou
  assert(n==0||n==32);
  if(n){assert(silence==expected_silence);for(unsigned i=0;i<n;++i){assert(l[i]==expected_left[i]);assert(r[i]==expected_right[i]);}}
  std::copy_n(l,n,ol);std::copy_n(r,n,orr);*out=silence;*d={};d->delivered_frames=n;++processes;return 0;
+}
+uint32_t __wrap_ap19_process_outputs(uint64_t id,uint32_t n,const ap8_event_t*e,uint32_t count,const ap10_context_t*c,uint64_t silence,const float*l,const float*r,float*const*outputs,uint32_t channels,uint64_t*flags,ap7_delivery_t*d,uint64_t entered){
+ assert(channels==64);
+ auto result=__wrap_if2_process(id,n,e,count,c,silence,l,r,outputs[0],outputs[1],flags,d,entered);
+ for(unsigned ch=2;ch<64;++ch){
+  assert(bool(outputs[ch])==(last_output&&ch>=62));
+  if(outputs[ch])std::fill_n(outputs[ch],n,float(ch)/64.f);
+ }
+ return result;
 }
 uint32_t __wrap_if2_close(uint64_t){++closes;return 0;}
 }
@@ -52,8 +61,8 @@ int main(){
  assert(p->getBusCount(kAudio,kOutput)==32);
  for(int i=1;i<32;++i){
   BusInfo info{};assert(p->getBusInfo(kAudio,kOutput,i,info)==kResultOk);
-  assert(info.busType==kMain&&info.channelCount==2&&!(info.flags&BusInfo::kDefaultActive));
-  assert(p->activateBus(kAudio,kOutput,i,true)==kResultFalse);
+  assert(info.busType==kMain&&info.channelCount==2&&(info.flags&BusInfo::kDefaultActive));
+  assert(p->activateBus(kAudio,kOutput,i,true)==kResultOk);
   assert(p->activateBus(kAudio,kOutput,i,false)==kResultOk);
  }
  assert(p->activateBus(kAudio,kInput,0,true)==kResultOk);
@@ -93,6 +102,19 @@ int main(){
  input_enabled=false;assert(p->activateBus(kAudio,kInput,0,false)==kResultOk);assert(p->setActive(true)==kResultOk);assert(p->setProcessing(true)==kResultOk);
  left.fill(.8f);right.fill(-.4f);ib.channelBuffers32=nullptr;assert(p->process(d)==kResultOk);
  for(unsigned i=0;i<32;++i)assert(out[0][i]==0&&out[1][i]==0);
+ // Activate output 31 and verify both independent planes reach the actual SDK host.
+ assert(p->setProcessing(false)==kResultOk);assert(p->setActive(false)==kResultOk);
+ last_output=true;assert(p->activateBus(kAudio,kOutput,31,true)==kResultOk);
+ assert(p->setActive(true)==kResultOk);assert(p->setProcessing(true)==kResultOk);
+ std::array<float,36> extra_left{},extra_right{};extra_left.fill(99);extra_right.fill(99);
+ float* extra[]={extra_left.data()+1,extra_right.data()+1};
+ outputs[31].channelBuffers32=extra;d.numOutputs=32;d.outputs=outputs.data();
+ assert(p->process(d)==kResultOk);
+ for(unsigned i=1;i<33;++i){assert(extra_left[i]==62.f/64);assert(extra_right[i]==63.f/64);}
+ assert(extra_left[0]==99&&extra_left[33]==99&&extra_right[0]==99&&extra_right[33]==99);
+ auto processed=processes;outputs[31].channelBuffers32=inactive;
+ assert(p->process(d)!=kResultOk&&processes==processed);outputs[31].channelBuffers32=extra;
+ d.numOutputs=1;d.outputs=&ob;assert(p->process(d)!=kResultOk&&processes==processed);
  // Zero-frame event/parameter flush remains independent of input storage.
  notes.clear();note.sampleOffset=0;notes.addEvent(note);parameters.clearQueue();parameters.addParameterData(0,qi)->addPoint(0,.5,pi);
  d.numSamples=0;d.numInputs=d.numOutputs=0;d.inputs=d.outputs=nullptr;assert(p->process(d)==kResultOk);

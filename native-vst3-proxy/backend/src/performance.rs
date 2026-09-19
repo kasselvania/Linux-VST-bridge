@@ -50,6 +50,21 @@ pub fn validate_wire(b: &[u8]) -> io::Result<()> {
         "unsupported setup",
     )
 }
+// Validated SDK output records define planar channel order, never friendly names.
+pub(crate) fn output_channels(bytes: &[u8]) -> io::Result<usize> {
+    validate_wire(bytes)?;
+    if bytes.len() == 24 { return Ok(2); }
+    let mut buses = 0;
+    for r in bytes[28..].chunks_exact(32) {
+        if get(&r[..4]) == 0 && get(&r[4..8]) == 1 {
+            need(get(&r[8..12]) == buses && get(&r[12..16]) == 2 && get(&r[24..32]) == 3,
+                 "stereo output order")?;
+            buses += 1;
+        }
+    }
+    need((1..=32).contains(&buses), "output bus capacity")?;
+    Ok(buses as usize * 2)
+}
 #[cfg(test)]
 mod bus_tests {
     use super::*;

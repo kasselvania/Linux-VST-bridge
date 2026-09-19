@@ -11,12 +11,11 @@ constexpr int capacity(int media,int direction) {
 // The existing stereo transport has one input lane. It can carry the declared
 // main input or an auxiliary input when that is the sole audio input. A main
 // plus sidechain layout still needs another lane and remains unsupported.
-// Every output retains its SDK identity. Only index zero has a transport lane
-// in this first milestone; other outputs must never be advertised as active.
+// Every stereo output retains its SDK identity and its own planar transport lane.
 constexpr bool supported(int media,int direction,int index,int type,int audio_inputs,int channels,uint64_t arrangement) {
  using namespace Steinberg::Vst;
  if(media==kAudio&&direction==kOutput)
-  return index==0&&type==kMain&&channels==2&&arrangement==SpeakerArr::kStereo;
+  return index>=0&&index<max_audio_outputs&&channels==2&&arrangement==SpeakerArr::kStereo;
  return type==kMain || (media==kAudio&&direction==kInput&&index==0&&
                          type==kAux&&audio_inputs==1&&channels==2&&arrangement==SpeakerArr::kStereo);
 }

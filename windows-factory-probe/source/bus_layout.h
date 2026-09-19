@@ -65,9 +65,10 @@ struct BusLayout {
   int index=0;
   for(size_t i=0;i<size;++i){const auto& b=buses[i];
    if(b.info.mediaType!=Steinberg::Vst::kAudio||b.info.direction!=Steinberg::Vst::kOutput)continue;
-   const bool selected=index==0&&b.supported&&b.active;
+   const bool selected=b.supported&&b.active;
+   auto** lane=transported+2*index;
    auto& output=outputs[size_t(index++)];output.numChannels=b.info.channelCount;
-   output.channelBuffers32=selected?transported:inactive;output.silenceFlags=selected?0:3;
+   output.channelBuffers32=selected?lane:inactive;output.silenceFlags=selected?0:3;
   }
  }
  void negotiate(Steinberg::Vst::IAudioProcessor& p){
