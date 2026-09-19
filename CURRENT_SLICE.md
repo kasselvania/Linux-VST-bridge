@@ -1,3 +1,34 @@
+# K8I1 — Exact Kontakt 8 MSI diversion and verified deployment
+
+Selected basis:
+
+- working Native Access session source: PR #127 head
+  `745974b2325e9ace4f7aef21c82f62f29e7e2ff3`
+- basis tree: `b6213087918811f1e90f27d827285dc30785bb3f`
+- exact fixture: Kontakt 8 Player 8.13.1
+- authoritative slice document: `docs/K8I1.md`
+
+The working NAO1 Proton-session architecture remains unchanged. The selected product
+failure is Kontakt setup's exact Windows Installer execution boundary: the accepted
+Wine table fixes make the rewritten MSI readable, but `MsiInstallProductA/W` does not
+complete the transformed package under the pinned runner.
+
+K8I1 adds one source-owned 32-bit forwarding `msi.dll` loaded only for the exact
+`Kontakt 8 Setup PC.exe`. All ordinary MSI exports forward to the exact patched Wine
+MSI implementation. Only the exact Kontakt 8 Player 8.13.1 `MsiInstallProductA/W`
+transaction may enter one operation-bound, package-derived deployment transaction.
+Success is returned only after complete selected-payload and Native Instruments product
+state verification. Failure is rolled back and terminates the exact setup with 1603.
+
+No managed-prefix mutation, Native Access Install click, or further open-ended tracing
+is authorized during source implementation. Generated qualification and one fresh
+disposable-prefix success plus forced-failure rollback proof precede any separately
+reviewed managed-prefix operation. The adapter is not a generic MSI hook or installer
+framework, and it does not manufacture licensing state.
+
+The earlier NAO1 authorities follow as retained context and remain in force where they
+do not conflict with K8I1.
+
 # NAO1 — Bind the owned session to Proton's initialized command service
 
 Focused repair basis:

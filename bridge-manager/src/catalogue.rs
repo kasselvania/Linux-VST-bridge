@@ -40,6 +40,13 @@ pub struct Software {
     pub preparation_kit: Option<Artifact>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub operator_frontend: Option<Artifact>,
+    /// Optional source-owned, immutable Kontakt 8 compatibility adapter.
+    /// Its presence does not authorize a product transaction; the closed
+    /// renderer session binds it to the exact package.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kontakt8_adapter: Option<Artifact>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kontakt8_runtime: Option<Artifact>,
     pub manager: Artifact,
     pub supervisor: Artifact,
     pub ownership: Artifact,

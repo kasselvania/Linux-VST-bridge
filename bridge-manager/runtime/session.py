@@ -7,6 +7,7 @@ callback work. The Rust manager supplies an exact verified registration.
 import ctypes,mmap,collections,re,threading
 import fcntl,hashlib,json,os,pathlib,pwd,selectors,shutil,signal,socket,stat,struct,subprocess,sys,time
 from ownership import process_identities,descendant_identities,cleanup_process,ProcessTracker,CompanionCgroup,InstallerLedger
+import kontakt8
 
 def atomic(path,value):
     temp=path.with_suffix(path.suffix+'.tmp')
@@ -2307,7 +2308,8 @@ def renderer_validate(spec, *, dependency=False):
     fields={'schema','kind','application','application_identity','operation','renderer_policy','report','software','software_sha256','installer_launch'}
     if dependency:fields.add('dependency_mode')
     else:fields.add('dependency_session')
-    if set(spec)!=fields or type(spec['schema']) is not int or spec['schema']!=(2 if dependency else 1) or spec['kind']!=('native_access_dependency' if dependency else 'renderer_application') or spec['renderer_policy'] not in ('inherited','software_rendering'):raise ValueError('renderer_production_schema')
+    allowed=(set(spec)==fields or (not dependency and set(spec)==fields|{'kontakt8_session'}))
+    if not allowed or type(spec['schema']) is not int or spec['schema']!=(2 if dependency else 1) or spec['kind']!=('native_access_dependency' if dependency else 'renderer_application') or spec['renderer_policy'] not in ('inherited','software_rendering'):raise ValueError('renderer_production_schema')
     if dependency and spec['dependency_mode'] not in ('prepare','recover_installed'):raise ValueError('dependency_mode')
     expected=RENDERER_PRODUCTION
     managed=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed'
@@ -2355,7 +2357,8 @@ def renderer_validate(spec, *, dependency=False):
 
 def renderer_bound_inputs(spec):
     base={'schema','kind','application','application_identity','operation','renderer_policy','report','software','software_sha256','installer_launch'}
-    if set(spec) not in (base,base|{'dependency_session'}) or spec['schema']!=1 or spec['kind']!='renderer_application':raise ValueError('renderer_spec_schema')
+    accepted=(base,base|{'dependency_session'},base|{'dependency_session','kontakt8_session'})
+    if set(spec) not in accepted or spec['schema']!=1 or spec['kind']!='renderer_application':raise ValueError('renderer_spec_schema')
     if not re.fullmatch('[0-9a-f]{32}',spec['operation']) or spec['renderer_policy'] not in ('inherited','software_rendering'):raise ValueError('renderer_policy')
     app=spec['application'];sw=spec['software']
     if set(app)!={'schema','id','environment','files','installation','observation_sha256','source_seal_sha256'} or app['schema']!=1:raise ValueError('renderer_application_schema')
@@ -2371,6 +2374,12 @@ def renderer_bound_inputs(spec):
         if (not isinstance(session,dict) or session.get('application')!=spec['application_identity']
             or session.get('software_sha256')!=spec['software_sha256'] or session.get('current_software')!=sw):
             raise ValueError('dependency_session_binding')
+    if 'kontakt8_session' in spec:
+        if 'dependency_session' not in spec:raise ValueError('k8i1_dependency_session_required')
+        runtime=sw.get('kontakt8_runtime')
+        if (not runtime or pathlib.Path(runtime['path']).resolve()!=pathlib.Path(kontakt8.__file__).resolve()):raise ValueError('k8i1_runtime_binding')
+        verify(runtime)
+        kontakt8.validate_session(spec,spec['kontakt8_session'])
     env=app['environment'];root=pathlib.Path(env['root'])
     if not re.fullmatch('[0-9a-f]{32}',env['id']) or type(env['revision']) is not int or env['revision']<1:raise ValueError('renderer_environment')
     if json.loads((root/'environment.json').read_text())!=env:raise ValueError('renderer_environment_changed')
@@ -2542,7 +2551,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
     app=spec['application'];op=spec['operation'];env=app['environment'];root=pathlib.Path(env['root']);report=pathlib.Path(spec['report'])
     lock=(root/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     image=RendererImage(app['files']['Native Access.exe']);evidence=RendererEvidence(app['files']['Native Access.exe']['artifact'],root,image)
-    scope=None;ledger=None;child=None;clean=False;stop=False;error=None;effective=None;focus=None;dependency_owner=None
+    scope=None;ledger=None;child=None;clean=False;stop=False;error=None;effective=None;focus=None;dependency_owner=None;kontakt8_owner=None
     callback=None;auth_private=False;auth_discarded=0
     callback_enabled=dependency is not None and (app['id']=='native-access' or callback_fixture)
     if callback_enabled:
@@ -2585,6 +2594,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
         return {'schema':1,'operation':op,'application_identity':spec['application_identity'],'state':state,
             'requested':spec['renderer_policy'],'effective':effective,'renderer':evidence.value(),
             'dependency':dependency_owner.value() if dependency_owner else None,
+            'kontakt8':kontakt8_owner.value() if kontakt8_owner else None,
             'outer_exit':child.returncode if child else None,'cleanup_confirmed':clean,'owned_live':live,
             'cancelled':stop,'error':error,'focus_result':focus,
             'browser_return':callback.value() if callback else None,
@@ -2601,6 +2611,9 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
         if dependency is not None:
             dependency_owner=Nad1Owner(spec,ledger,scope,lambda:stop,fixture=dependency_fixture,session_authority=dependency)
             dependency_owner.ensure(False,dependency['daemon'])
+            if spec.get('kontakt8_session') is not None:
+                kontakt8_owner=Kontakt8Owner(spec,dependency_owner,scope,lambda:stop)
+                kontakt8_owner.open()
         token=os.urandom(32).hex();evidence.trace.arm_root(op,token,image.size);evidence.begin();evidence.begin()
         content='\n'.join(['NAUI2_AUTH_LAUNCH_V1' if callback_enabled else 'NAUI2_LAUNCH_V1',op,token,'2',image.sha,str(image.size),windows(image.path,root/'compatdata/pfx'),spec['renderer_policy'],''])
         with os.fdopen(os.open(request_path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'wb') as f:f.write(content.encode('utf-16le'));f.flush();os.fsync(f.fileno())
@@ -2618,6 +2631,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
         while not stop:
             live=ledger.harvest();drain(.05);image.check()
             if dependency_owner and dependency_owner.runtime:dependency_owner.runtime.drain()
+            if kontakt8_owner:kontakt8_owner.tick()
             if dependency_owner and dependency_owner.anchor is not None and dependency_owner.anchor.returncode is not None and child.returncode is None:raise ValueError('dependency_service_anchor_exited')
             confirm_effective()
             if callback_enabled and effective and child.returncode is None:
@@ -2657,12 +2671,14 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
             except Exception:error=error or name
         if callback:finish('renderer_callback_close_failed',callback.close)
         if child and callback_enabled and child.stdin:finish('renderer_stdin_close_failed',child.stdin.close)
+        if kontakt8_owner:finish('k8i1_transaction_retirement_unconfirmed',kontakt8_owner.quiesce)
         if dependency_owner is not None:
             try:
                 if child is not None:renderer_retire_image(scope,ledger,image,drain)
             except Exception:
                 error=error or 'application_retirement_unconfirmed'
                 dependency_owner.forced_cleanup_used=True
+            if kontakt8_owner:finish('k8i1_disarm_unconfirmed',kontakt8_owner.close)
             graceful=dependency_owner.retire_service()
         # None of the preceding resource/service failures may skip process cleanup.
         if scope is not None and not clean:
@@ -3119,6 +3135,19 @@ class Nad1Runtime:
         return [str(self.client),'--verbose','--bus-name='+self.bus_name,'--directory='+str(cwd),
                 *['--pass-env='+key for key in self.DEBUG_KEYS],'--',self.runner['proton'],'runinprefix',
                 self.owner.spec['installer_launch']['path'],windows(request,self.owner.root/'compatdata/pfx')]
+    def k8i1_registry_argv(self,adapter,request,env):
+        """Launch only the sealed K8I1 registry helper in this command session."""
+        if self.closed:raise ValueError('dependency_runtime_retired')
+        if self.child is None:self.start(env)
+        if self.child.returncode is not None or not self.ready or self.bus_name is None:raise ValueError('dependency_runtime_not_ready')
+        tool=adapter.root/'k8i1-registry.exe';witness=adapter.manifest['artifacts']['k8i1-registry.exe']
+        exact_file=kontakt8.exact_file(tool,maximum=16*1024*1024)
+        if exact_file.st_size!=witness['size'] or kontakt8.digest(tool)!=witness['sha256']:
+            raise ValueError('k8i1_registry_helper_changed')
+        self.verify_tools()
+        return [str(self.client),'--verbose','--bus-name='+self.bus_name,'--directory='+str(self.owner.root/'home'),
+                *['--pass-env='+key for key in self.DEBUG_KEYS],'--',self.runner['proton'],'runinprefix',
+                str(tool),windows(request,self.owner.root/'compatdata/pfx')]
     def value(self):
         return {'topology':'one_operation_proton_command_session','ready':self.ready,
                 'retirement_requested':self.closed,'tool_sha256':dict(self.tool_sha256)}
@@ -3542,6 +3571,172 @@ class Nad1Owner:
             self.retirement_error=str(exc) if isinstance(exc,ValueError) else 'dependency_retirement_'+type(exc).__name__
             self.forced_cleanup_used=True
             return False
+
+
+class Kontakt8Owner:
+    """One exact package interception inside one owned Native Access session."""
+    def __init__(self,spec,dependency_owner,scope,cancelled):
+        authority=kontakt8.validate_session(spec,spec.get('kontakt8_session'))
+        if authority is None:raise ValueError('k8i1_authority_missing')
+        self.spec=spec;self.dependency=dependency_owner;self.scope=scope;self.cancelled=cancelled
+        self.directory=pathlib.Path(spec['report']).parent;self.op=spec['operation'];self.nonce=os.urandom(32).hex()
+        self.authority=authority;self.adapter=kontakt8.Adapter.extract(authority,self.directory)
+        self.request=self.directory/(self.op+'-k8i1-request.private')
+        self.result=self.directory/(self.op+'-k8i1-result.private')
+        self.registry_counter=0;self.registry_stages=[];self.registry=kontakt8.RuntimeRegistry(self._registry_invoke)
+        self.arm=kontakt8.PrefixArm(self.adapter,authority,dependency_owner.prefix,self.directory,self.op,self.nonce,
+                                    self.request,self.result,self.registry)
+        self.thread=None;self.thread_error=None;self.transaction=None;self.request_value=None
+        self.stop_event=threading.Event();self.closed=False;self.intercept_count=0
+
+    def _launch_environment(self):
+        env=environment({'environment':self.spec['application']['environment'],
+                         'compatibility':{'disable_windows_accessibility':False}})
+        env['HOME']=str(self.dependency.root/'home');env.update(WINEDEBUG='-all',PROTON_LOG='0')
+        return env
+
+    def _registry_invoke(self,action,row):
+        if self.closed:raise ValueError('k8i1_registry_after_close')
+        index=self.registry_counter;self.registry_counter+=1
+        request=self.directory/f'{self.op}-k8i1-registry-{index}.private'
+        with os.fdopen(os.open(request,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'wb') as handle:
+            handle.write(kontakt8.registry_request_bytes(self.op,self.nonce,action,row));handle.flush();os.fsync(handle.fileno())
+        env=self._launch_environment();argv=self.dependency.runtime.k8i1_registry_argv(self.adapter,request,env)
+        stage={'ordinal':index,'action':action,'launch':'prepared','exit':None,'result':'unavailable'};self.registry_stages.append(stage)
+        child=None;selector=selectors.DefaultSelector();stdout=bytearray();stderr_size=0
+        try:
+            child=subprocess.Popen(argv,cwd=self.dependency.root/'home',env=env,stdin=subprocess.DEVNULL,
+                                   stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+            stage['launch']='owned';deadline=time.monotonic()+30
+            for name,pipe in [('stdout',child.stdout),('stderr',child.stderr)]:os.set_blocking(pipe.fileno(),False);selector.register(pipe,selectors.EVENT_READ,name)
+            while child.poll() is None or selector.get_map():
+                for key,_ in selector.select(.05):
+                    data=os.read(key.fileobj.fileno(),8192)
+                    if not data:selector.unregister(key.fileobj);key.fileobj.close();continue
+                    if key.data=='stdout':
+                        if len(stdout)+len(data)>65536:raise ValueError('k8i1_registry_output_extent')
+                        stdout.extend(data)
+                    else:
+                        stderr_size+=len(data)
+                        if stderr_size>65536:raise ValueError('k8i1_registry_output_extent')
+                if time.monotonic()>deadline:raise ValueError('k8i1_registry_timeout')
+            stage['exit']=child.returncode
+            if child.returncode!=0:raise ValueError('k8i1_registry_nonzero')
+            value=kontakt8.parse_registry_result(bytes(stdout),self.op,self.nonce,action)
+            stage['result']='confirmed';return value
+        finally:
+            if child is not None and child.poll() is None:
+                try:os.killpg(child.pid,signal.SIGKILL)
+                except ProcessLookupError:pass
+                try:child.wait(timeout=5)
+                except subprocess.TimeoutExpired:pass
+            stage['exit']=child.returncode if child is not None else None
+            for key in list(selector.get_map().values()):key.fileobj.close()
+            selector.close();request.unlink(missing_ok=True)
+            installer_atomic(self.directory/f'{self.op}-k8i1-registry-{index}.private.json',stage)
+
+    def open(self):
+        if self.dependency.runtime is None or not self.dependency.ready:raise ValueError('k8i1_dependency_not_ready')
+        self.arm.arm(lambda path:windows(path,self.dependency.prefix))
+
+    def _owned_setup(self,path):
+        import ownership
+        opened=kontakt8.exact_file(path,maximum=2*1024*1024*1024)
+        expected=(os.major(opened.st_dev),os.minor(opened.st_dev),opened.st_ino);matches=[]
+        for row in self.scope.members():
+            if row['state']=='Z':continue
+            try:raw=ownership.bounded(self.scope.proc_root/str(row['pid'])/'maps','maps')
+            except (FileNotFoundError,ProcessLookupError,PermissionError) as exc:raise ValueError('k8i1_setup_ownership_unavailable') from exc
+            for line in raw.splitlines():
+                fields=line.split(None,5)
+                if len(fields)<5:continue
+                try:major,minor=fields[3].split(b':');identity=(int(major,16),int(minor,16),int(fields[4]))
+                except (ValueError,IndexError):raise ValueError('k8i1_setup_ownership_unavailable') from None
+                if identity==expected:matches.append((row['pid'],row['start_ticks']));break
+        if len(matches)!=1:raise ValueError('k8i1_setup_ownership_unconfirmed')
+        return {'linux_pid':matches[0][0],'linux_start_ticks':matches[0][1]}
+
+    def _admit_request(self):
+        request=kontakt8.parse_request(self.request,self.op,self.nonce)
+        prefix=self.dependency.prefix.lstat();bound=self.authority['prefix']
+        if (not stat.S_ISDIR(prefix.st_mode) or self.dependency.prefix.resolve()!=self.dependency.prefix
+            or (prefix.st_dev,prefix.st_ino)!=(bound['device'],bound['inode'])
+            or hashlib.sha256(os.fsencode(self.dependency.prefix)).hexdigest()!=bound['path_sha256']):
+            raise ValueError('k8i1_prefix_changed')
+        setup=kontakt8.host_windows_path(request['setup'],self.dependency.prefix)
+        package=kontakt8.host_windows_path(request['package'],self.dependency.prefix)
+        setup_md=kontakt8.exact_file(setup,maximum=2*1024*1024*1024)
+        cached=self.adapter.manifest['cached_msi'];package_md=kontakt8.exact_file(package,maximum=64*1024*1024)
+        if (setup.name.lower()!=kontakt8.SETUP_BASENAME.lower() or setup_md.st_size!=kontakt8.SETUP_SIZE
+            or kontakt8.digest(setup)!=kontakt8.SETUP_SHA256):raise ValueError('k8i1_setup_identity')
+        if (package.name.lower()!=kontakt8.MSI_BASENAME.lower() or package_md.st_size!=cached['size']
+            or kontakt8.digest(package)!=cached['sha256']):raise ValueError('k8i1_cached_msi_identity')
+        owned=self._owned_setup(setup);offline=kontakt8.exact_offline(self.adapter.plan,package)
+        request.update(setup_sha256=kontakt8.SETUP_SHA256,cached_msi_sha256=cached['sha256'],
+                       linux_generation=owned,offline_tree_sha256=self.adapter.plan['source_tree_sha256'])
+        installer_atomic(self.directory/f'{self.op}-k8i1-request.private.json',request)
+        self.request_value=request
+        return offline
+
+    def _publish(self,data):
+        staging=self.result.with_name(self.result.name+'.staging-'+os.urandom(8).hex())
+        with os.fdopen(os.open(staging,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'wb') as handle:
+            handle.write(data);handle.flush();os.fsync(handle.fileno())
+        try:os.link(staging,self.result)
+        finally:staging.unlink(missing_ok=True)
+
+    def _execute(self,offline):
+        try:
+            def confirm(receipt):
+                receipt.update(operation=self.op,request_ordinal=1,plan_sha256=self.adapter.manifest['plan_sha256'],
+                               setup_sha256=kontakt8.SETUP_SHA256,cached_msi_sha256=self.adapter.manifest['cached_msi']['sha256'])
+                path=self.directory/f'{self.op}-k8i1-transaction-verified.private.json';installer_atomic(path,receipt)
+                receipt_sha=hashlib.sha256(path.read_bytes()).hexdigest()
+                self._publish(kontakt8.result_bytes(self.op,self.nonce,self.adapter.manifest['plan_sha256'],receipt_sha))
+            receipt=kontakt8.execute_transaction(self.adapter.plan,offline,self.dependency.drive,self.directory,
+                self.registry,lambda:self.stop_event.is_set() or self.cancelled(),confirm)
+            self.transaction=receipt
+        except Exception as exc:
+            self.thread_error=str(exc) if isinstance(exc,ValueError) else 'k8i1_transaction_'+type(exc).__name__
+            try:self._publish(kontakt8.failure_result_bytes(self.op,self.nonce,self.adapter.manifest['plan_sha256']))
+            except Exception:self.thread_error += ':k8i1_failure_result_unavailable'
+
+    def tick(self):
+        if self.thread_error:raise ValueError(self.thread_error)
+        if self.thread is not None:
+            if not self.thread.is_alive() and self.thread_error:raise ValueError(self.thread_error)
+            return
+        if self.request.exists():
+            if self.intercept_count:raise ValueError('k8i1_duplicate_request')
+            offline=self._admit_request();self.intercept_count=1
+            self.thread=threading.Thread(target=self._execute,args=(offline,),name='k8i1-transaction',daemon=False);self.thread.start()
+
+    def quiesce(self):
+        self.stop_event.set()
+        if self.thread is not None:
+            self.thread.join(timeout=45)
+            if self.thread.is_alive():raise ValueError('k8i1_transaction_retirement_timeout')
+        if self.thread_error:raise ValueError(self.thread_error)
+
+    def close(self):
+        if self.closed:return
+        try:self.quiesce()
+        finally:self.arm.close();self.closed=True
+
+    def value(self):
+        state='failed' if self.thread_error else 'verified' if self.transaction else 'processing' if self.thread else 'not_requested'
+        rollback=None
+        if self.thread_error:
+            try:
+                rollback=bool(renderer_read(self.directory/'k8i1-transaction.private.json').get('rollback_verified'))
+            except Exception:
+                rollback=False
+        return {'schema':1,'adapter':'exact_kontakt8_8_13_1_msi_diversion','product':kontakt8.PRODUCT,
+                'version':kontakt8.VERSION,'intercept_count':self.intercept_count,'installer_transaction':state,
+                'payload_verification':'verified' if self.transaction else 'absent' if self.thread_error else 'not_observed',
+                'native_instruments_product_state':'installed' if self.transaction else 'not_installed' if self.thread_error else 'unavailable',
+                'native_access_recognition':'unavailable','rollback_verified':rollback,
+                'registry_calls':len(self.registry_stages),'error':self.thread_error}
 
 
 def renderer_retire_image(scope,ledger,image,drain):

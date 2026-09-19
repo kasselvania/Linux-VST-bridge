@@ -189,6 +189,12 @@ fn software(m: &Manager) -> Result<Software> {
     if let Some(a) = &s.operator_frontend {
         a.verify()?;
     }
+    require(s.kontakt8_adapter.is_some()==s.kontakt8_runtime.is_some(),"kontakt8_software_pair")?;
+    if let Some(a)=&s.kontakt8_adapter {a.verify()?;}
+    if let Some(a)=&s.kontakt8_runtime {
+        a.verify()?;
+        require(a.sha256==hex(&sha2::Sha256::digest(include_bytes!("../runtime/kontakt8.py"))),"kontakt8_runtime_identity")?;
+    }
     if let Some(a) = &s.native_catalogue {
         a.verify()?;
     }
@@ -295,12 +301,28 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
         )
     };
     let mut files=files.to_vec();
+    let kontakt8_runtime=package.map(|p|p.join("kontakt8.py")).filter(|p|p.exists());
+    let retained_kontakt8_runtime=previous.as_ref().and_then(|s|s.kontakt8_runtime.clone()).filter(|_|kontakt8_runtime.is_none());
+    if let Some(a)=&retained_kontakt8_runtime {
+        a.verify()?;
+        require(a.sha256==hex(&sha2::Sha256::digest(include_bytes!("../runtime/kontakt8.py"))),"kontakt8_runtime_identity")?;
+    }
+    if let Some(path)=kontakt8_runtime {
+        require(digest(&path)?==hex(&sha2::Sha256::digest(include_bytes!("../runtime/kontakt8.py"))),"kontakt8_runtime_identity")?;
+        files.push(("kontakt8.py",path));
+    }
     let frontend = package
         .map(|p| p.join("linux-audio-compatibility-manager"))
         .filter(|p| p.exists());
     let retained_frontend =
         setup_install::retained_frontend(frontend.as_deref(), previous.as_ref())?;
     if let Some(path)=frontend {files.push(("linux-audio-compatibility-manager",path));}
+    let kontakt8=package.map(|p|p.join("kontakt8-adapter.zip")).filter(|p|p.exists());
+    let retained_kontakt8=previous.as_ref().and_then(|s|s.kontakt8_adapter.clone()).filter(|_|kontakt8.is_none());
+    if let Some(a)=&retained_kontakt8 {a.verify()?;}
+    if let Some(path)=kontakt8 {files.push(("kontakt8-adapter.zip",path));}
+    require((files.iter().any(|(n,_)|*n=="kontakt8.py")||retained_kontakt8_runtime.is_some())
+        ==(files.iter().any(|(n,_)|*n=="kontakt8-adapter.zip")||retained_kontakt8.is_some()),"kontakt8_software_pair")?;
     require(
         valid_hex(&source, 64) && digest(&files[4].1)? == source,
         "host source manifest hash differs",
@@ -328,6 +350,8 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
     if let Some(a) = &retained_frontend {
         identity.push_str(&serde_json::to_string(a)?);
     }
+    if let Some(a)=&retained_kontakt8 {identity.push_str(&serde_json::to_string(a)?);}
+    if let Some(a)=&retained_kontakt8_runtime {identity.push_str(&serde_json::to_string(a)?);}
     let id = hex(&sha2::Sha256::digest(identity.as_bytes()));
     let dest = m.root.join("software").join(&id);
     catalogue::verify_host_path(&dest.join("host.exe"))?;
@@ -449,6 +473,8 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
         installer_launch: if files.iter().any(|(n,_)|*n=="installer-launch.exe"){Some(a("installer-launch.exe")?)}else{retained_adapter},
         preparation_kit: if files.iter().any(|(n,_)|*n=="preparation-kit.zip"){Some(a("preparation-kit.zip")?)}else{retained_kit},
         operator_frontend: if files.iter().any(|(n,_)|*n=="linux-audio-compatibility-manager") {Some(a("linux-audio-compatibility-manager")?)}else{retained_frontend},
+        kontakt8_adapter: if files.iter().any(|(n,_)|*n=="kontakt8-adapter.zip"){Some(a("kontakt8-adapter.zip")?)}else{retained_kontakt8},
+        kontakt8_runtime: if files.iter().any(|(n,_)|*n=="kontakt8.py"){Some(a("kontakt8.py")?)}else{retained_kontakt8_runtime},
         manager: a("linux-vst-bridge")?,
         supervisor: a("session.py")?,
         ownership: a("ownership.py")?,

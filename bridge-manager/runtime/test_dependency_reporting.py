@@ -43,7 +43,17 @@ class ReportingTests(unittest.TestCase):
             self.observer.feed(bytes([byte]))
         self.assertEqual(self.stage['installer_result']['installer_exit'], 100)
         self.assertEqual(self.observer.failure(), 'dependency_installer_nonzero')
-        self.assertNotIn('123', json.dumps(self.stage))
+        def scalars(value):
+            if isinstance(value, dict):
+                return [item for child in value.values() for item in scalars(child)]
+            if isinstance(value, list):
+                return [item for child in value for item in scalars(child)]
+            return [value]
+        # Numeric process identity is private.  Do not search for its decimal
+        # digits as a substring: unrelated monotonic timestamps can contain
+        # the same three digits.
+        self.assertNotIn(123, scalars(self.stage))
+        self.assertNotIn(456, scalars(self.stage))
         self.assertNotIn(self.owner.token, json.dumps(self.stage))
 
     def test_exit_without_root_or_changed_identity_refuses(self):

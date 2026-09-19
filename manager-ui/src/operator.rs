@@ -470,7 +470,7 @@ impl eframe::App for Operator {
                 }
                 egui::CollapsingHeader::new("Arturia environment and software center").default_open(true).show(ui,|ui|{
                     for app in &s.vendor_applications{ui.heading(&app.name);
-                        if app.id=="native-access" {ui.label(if app.details["dependency_prepared"]==true {"Historical dependency preparation retained; each launch still requires exact session admission and fresh readiness"}else{"Historical dependency preparation is absent; launch uses exact session admission and fresh readiness"});ui.label(if app.details["effective"].is_object(){"Renderer policy applied to the exact owned application"}else{"Renderer policy application not confirmed"});ui.label(format!("Rendering cause: {}",app.details["renderer"]["cause"].as_str().unwrap_or("unresolved")));for line in dependency_retirement_lines(&app.details["dependency_operation"]){ui.small(line);}if app.details["dependency"].is_object(){for line in dependency_retirement_lines(&app.details){ui.small(line);}}}
+                        if app.id=="native-access" {ui.label(if app.details["dependency_prepared"]==true {"Historical dependency preparation retained; each launch still requires exact session admission and fresh readiness"}else{"Historical dependency preparation is absent; launch uses exact session admission and fresh readiness"});ui.label(if app.details["effective"].is_object(){"Renderer policy applied to the exact owned application"}else{"Renderer policy application not confirmed"});ui.label(format!("Rendering cause: {}",app.details["renderer"]["cause"].as_str().unwrap_or("unresolved")));for line in dependency_retirement_lines(&app.details["dependency_operation"]){ui.small(line);}if app.details["dependency"].is_object(){for line in dependency_retirement_lines(&app.details){ui.small(line);}}for line in kontakt8_lines(&app.details["kontakt8"]){ui.small(line);}}
                         ui.label(format!("{} · {}",app.version,app.state));Self::buttons(ui,&app.actions,busy,controls_pending,&mut chosen);}
                     for e in &s.environments{ui.label(format!("{} · revision {} · pinned runner {}",e.family,e.revision,e.runner));ui.small(&e.authorization);if !e.last_scan["id"].is_null(){ui.small(format!("Last scan: {} modules · completed at {}",e.last_scan["module_count"],e.last_scan["completed_at"]));ui.small(format!("Changes: {} added · {} changed · {} removed · {} unchanged",e.last_scan["changes"]["added"],e.last_scan["changes"]["changed"],e.last_scan["changes"]["removed"],e.last_scan["changes"]["unchanged"]));}Self::buttons(ui,&e.actions,busy,controls_pending,&mut chosen);}
                 });
@@ -597,6 +597,24 @@ fn installer_lines(v: &serde_json::Value) -> Vec<String> {
         }
     }
     lines.push(if v["cleanup_confirmed"]==true {"Owned process cleanup confirmed."} else {"Owned process cleanup not yet confirmed."}.into());
+    lines
+}
+
+fn kontakt8_lines(v:&serde_json::Value)->Vec<String> {
+    if !v.is_object(){return Vec::new();}
+    let mut lines=vec![match v["installer_transaction"].as_str() {
+        Some("verified")=>"Kontakt 8 installer transaction: verified package deployment completed.".into(),
+        Some("failed")=>"Kontakt 8 installer transaction: failed; installation was not accepted.".into(),
+        Some("not_requested")=>"Kontakt 8 installer transaction: not requested in this Native Access session.".into(),
+        _=>"Kontakt 8 installer transaction: terminal result unavailable.".into(),
+    }];
+    if v["installer_transaction"]=="verified" {
+        lines.push("Kontakt payload and Native Instruments product state: independently verified.".into());
+        lines.push("Native Access recognition: not yet observed; its banner is not installation authority.".into());
+    } else if v["installer_transaction"]=="failed" {
+        lines.push(if v["rollback_verified"]==true {"Kontakt transaction rollback: verified.".into()}
+            else {"Kontakt transaction rollback: not confirmed.".into()});
+    }
     lines
 }
 
@@ -809,6 +827,22 @@ mod tests {
         let exact_text=dependency_retirement_lines(&exact).join(" ");
         assert!(exact_text.contains("exact-owned compatibility cleanup"));assert!(exact_text.contains("graceful service shutdown was not confirmed"));
         assert!(dependency_retirement_lines(&failed).iter().any(|s|s=="Native Access or dependency cleanup is not confirmed."));
+    }
+    #[test]
+    fn kontakt8_transaction_is_separate_from_application_and_dependency_cleanup() {
+        let verified=serde_json::json!({"installer_transaction":"verified","payload_verification":"verified",
+            "native_instruments_product_state":"installed","native_access_recognition":"unavailable"});
+        let text=kontakt8_lines(&verified).join(" ");
+        assert!(text.contains("verified package deployment"));
+        assert!(text.contains("independently verified"));
+        assert!(text.contains("recognition: not yet observed"));
+        let failed=serde_json::json!({"installer_transaction":"failed","rollback_verified":true});
+        let text=kontakt8_lines(&failed).join(" ");
+        assert!(text.contains("installation was not accepted"));
+        assert!(text.contains("rollback: verified"));
+        let idle=serde_json::json!({"installer_transaction":"not_requested"});
+        assert!(kontakt8_lines(&idle).join(" ").contains("not requested"));
+        assert!(kontakt8_lines(&serde_json::Value::Null).is_empty());
     }
     #[test]
     fn nad2_stop_characterizations_are_bounded_and_never_claim_acceptance() {

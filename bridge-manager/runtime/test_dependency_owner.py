@@ -413,6 +413,51 @@ if __name__=='__main__':unittest.main()
 
 @unittest.skipUnless(__import__('sys').platform.startswith('linux'),'Linux production loop and subreaper')
 class IntegratedApplicationTests(unittest.TestCase):
+ def test_kontakt_adapter_arms_after_readiness_and_disarms_before_service_stop(self):
+  import os,signal,subprocess,sys
+  from test_installer import Scope
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp).resolve();(root/'compatdata/pfx').mkdir(parents=True);(root/'compatdata/pfx/system.reg').touch()
+   image=root/'application.exe';image.write_bytes(b'MZfixture');artifact={'path':str(image),'sha256':hashlib.sha256(image.read_bytes()).hexdigest()}
+   op='e'*32;spec={'operation':op,'report':str(root/'result.json'),'application_identity':'b'*64,'software_sha256':'c'*64,
+    'renderer_policy':'software_rendering','installer_launch':{'path':'adapter'},'kontakt8_session':{'fixture':True},
+    'application':{'id':'nad1-source-owned','environment':{'root':str(root),'runner':{'entry_point':'fixture','proton':'fixture'}},
+    'files':{'Native Access.exe':{'artifact':artifact,'size':image.stat().st_size}}}}
+   events=[];children=[];real=subprocess.Popen;prior=[signal.getsignal(x) for x in (signal.SIGTERM,signal.SIGINT)]
+   class Dependency:
+    runtime=type('Runtime',(),{'argv':lambda *_:['generated-command'],'drain':lambda *_:None})()
+    anchor=None;process_cleanup_confirmed=False;forced_cleanup_used=False;retirement_error=None
+    def __init__(self,*_,**__):self.ready=False;self.service_retirement_confirmed=False;self.dependency_cleanup_disposition='cleanup_unconfirmed';self.post_cleanup=None
+    def ensure(self,*_):events.append('ready');self.ready=True
+    def retire_service(self):events.append('service_stop');self.service_retirement_confirmed=True;return True
+    def close_runtime(self):return True
+    def verify_session_cleanup(self,*_):self.dependency_cleanup_disposition='graceful_service_retirement';self.post_cleanup={'cgroup_empty':True,'exact_daemon_generation_absent':True,'listener_mask':0};return True
+    def value(self):return {'ready_tested':self.ready,'service_retirement_confirmed':self.service_retirement_confirmed,
+     'process_cleanup_confirmed':self.process_cleanup_confirmed,'forced_cleanup_used':self.forced_cleanup_used,
+     'dependency_cleanup_disposition':self.dependency_cleanup_disposition,'post_cleanup':self.post_cleanup}
+   class Product:
+    def __init__(self,*_):events.append('product_construct')
+    def open(self):events.append('product_arm')
+    def tick(self):pass
+    def quiesce(self):events.append('product_quiesce')
+    def close(self):events.append('product_disarm')
+    def value(self):return {'schema':1,'installer_transaction':'not_requested'}
+   def launch(*args,**kwargs):
+    events.append('application_launch')
+    request=(root/(op+'-launch.private')).read_bytes().decode('utf-16le').splitlines()
+    frame='IS2_ROOT_V1 '+' '.join(request[1:6])+' 100 1000 50 500\n'
+    child=real([sys.executable,'-c','import sys,time;sys.stderr.write('+repr(frame)+');sys.stderr.flush();time.sleep(.1)'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    children.append(child);return child
+   try:
+    with patch.object(s,'CompanionCgroup',return_value=Scope()),patch.object(s,'environment',return_value={}),patch.object(s,'Nad1Owner',Dependency),patch.object(s,'Kontakt8Owner',Product),patch.object(s,'renderer_retire_image',side_effect=lambda *_:events.append('application_retire')),patch.object(s.subprocess,'Popen',side_effect=launch):
+     self.assertTrue(s.renderer_run(spec,dependency={'daemon':{}}))
+    self.assertEqual(events,['ready','product_construct','product_arm','application_launch','product_quiesce','application_retire','product_quiesce','product_disarm','service_stop'])
+   finally:
+    for sig,value in zip((signal.SIGTERM,signal.SIGINT),prior):signal.signal(sig,value)
+    for child in children:
+     if child.poll() is None:child.kill();child.wait()
+    s.ctypes.CDLL(None).prctl(36,0,0,0,0)
+
  def test_all_terminal_paths_retire_dependency_and_preserve_first_error(self):
   import os,signal,subprocess,sys
   from test_installer import Scope
