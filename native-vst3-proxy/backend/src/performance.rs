@@ -6,6 +6,8 @@ use std::{
     os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::PathBuf,
 };
+pub(crate) const MAX_BUSES: usize = 56;
+pub(crate) const MAX_BUS_CONTRACT_BYTES: u32 = (4 + 32 * MAX_BUSES) as u32;
 pub fn wire(max: u32, mode: u32, rate: f64) -> io::Result<Vec<u8>> {
     need((1..=1024).contains(&max), "host maximum outside 1..1024")?;
     let mut bytes = Vec::with_capacity(24);
@@ -22,7 +24,7 @@ pub fn validate_wire(b: &[u8]) -> io::Result<()> {
         need(b.len() >= 28, "bus header")?;
         let count = get(&b[24..28]) as usize;
         // 8 audio inputs, 32 audio outputs, 8 event buses per direction.
-        need(count <= 56 && b.len() == 28 + 32 * count, "bus extent")?;
+        need(count <= MAX_BUSES && b.len() == 28 + 32 * count, "bus extent")?;
         for r in b[28..].chunks_exact(32) {
             need(
                 get(&r[..4]) <= 1

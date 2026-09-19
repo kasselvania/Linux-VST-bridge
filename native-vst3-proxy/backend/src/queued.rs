@@ -1106,7 +1106,8 @@ pub unsafe extern "C" fn ap10_setup(
     notifications: u32,
     out: *mut u32,
 ) -> u32 {
-    if io.is_null() || out.is_null() || notifications > 1 || !(4..=1028).contains(&len) {
+    if io.is_null() || out.is_null() || notifications > 1
+        || !(4..=crate::performance::MAX_BUS_CONTRACT_BYTES).contains(&len) {
         return 1;
     }
     setup(
@@ -1924,6 +1925,50 @@ pub unsafe extern "C" fn ap10_fail_results(id: u64) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn setup_abi_delivers_complete_multi_output_contract() {
+        let shared = Arc::new(Shared::new());
+        shared.state_capable.store(true, Ordering::Release);
+        let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
+            shared: shared.clone(), callback: UnsafeCell::new(Callback::new()),
+            busy: AtomicBool::new(false), worker: None, report: None,
+            max: 512, recovery_blocked: false, installed_delay: Some(512),
+            minor: 12, setup: None,
+        })).unwrap().unwrap();
+        let mut contract = 34u32.to_le_bytes().to_vec();
+        for (media, direction, index, channels) in (0u32..32)
+            .map(|i| (0u32, 1u32, i, 2u32))
+            .chain([(1, 0, 0, 16), (1, 1, 0, 16)]) {
+            for value in [media, direction, index, channels, 0, u32::from(index == 0)] {
+                contract.extend(value.to_le_bytes());
+            }
+            contract.extend((if media == 0 { 3u64 } else { 0 }).to_le_bytes());
+        }
+        let expected = contract.clone();
+        let peer = thread::spawn(move || {
+            let until = Instant::now() + Duration::from_secs(3);
+            loop {
+                if let Some(c) = shared.control.lock().unwrap().as_mut() {
+                    assert_eq!(c.op, 20);
+                    assert_eq!(&c.bytes[24..], expected);
+                    let mut reply = vec![0; 16];
+                    reply[8] = 1;
+                    c.result = Some(Ok(reply));
+                    break;
+                }
+                assert!(Instant::now() < until, "setup ABI did not deliver bus contract");
+                thread::yield_now();
+            }
+        });
+        let mut traits = [0u32; 3];
+        assert_eq!(unsafe { ap10_setup(id, 512, 0, 48000., contract.as_ptr(),
+            contract.len() as u32, 1, traits.as_mut_ptr()) }, 0);
+        assert_eq!(traits, [512, 0, 0]);
+        peer.join().unwrap();
+        assert_eq!(unsafe { ap10_setup(id, 512, 0, 48000., contract.as_ptr(),
+            crate::performance::MAX_BUS_CONTRACT_BYTES + 1, 1, traits.as_mut_ptr()) }, 1);
+        INSTANCES.remove(id, |_| ()).unwrap();
+    }
     #[test]
     fn gui_abi_rejects_short_prefix_before_forming_full_message() {
         for mut prefix in [[2u32, 584u32], [4, 8], [3, 608], [5, 608], [0, 0]] {
