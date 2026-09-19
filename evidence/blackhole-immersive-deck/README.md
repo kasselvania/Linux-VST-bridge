@@ -1,5 +1,12 @@
 # Blackhole Immersive first discovery failure
 
+**Current result:** vendor activation, discovery, stereo inspection, experimental
+publication and exact Bitwig device loading completed. A real playback with the
+blank editor left open produced stereo effect output and a late reverb tail.
+The editor remains unusable and hangs on close; project recall, audio quality
+and timing remain untested. Owned cleanup completed; the saved dry project is intact.
+The sections below preserve the earlier failures and subsequent repairs.
+
 2026-09-19; Steam Deck; Blackhole Immersive 1.4.4 (Windows VST3), bundled
 PACE License Support Win64 5.10.2.4663. Installed manager/frontend source:
 `ef9f36a29d6af70538bf3a2db6be6016faf530a3`; investigation base `c9758f5`.
@@ -349,6 +356,56 @@ reporting tests, Python compilation and focused handshake/publication check
 passed locally. Hosted platform results are tracked on the PR; these local
 checks alone do not establish a passing Windows run for the corrected harness.
 
+## Stereo negotiation continuation
+
+The operator authorized checking stereo negotiation after the completed
+controller inspection. The [vendor product page](https://www.eventideaudio.com/plug-ins/blackhole-immersive/)
+lists stereo among supported layouts. The initial 16-channel bus census is a
+default-layout observation, not a complete enumeration of supported layouts.
+The [SDK arrangement contract](https://steinbergmedia.github.io/vst3_doc/vstinterfaces/classSteinberg_1_1Vst_1_1IAudioProcessor.html)
+requires reading back the resulting bus information even when the requested
+arrangement is refused, because refusal may still alter the configuration.
+
+Source `c9fa919` adds explicit diagnostic mode `ap18-stereo-negotiation` at the
+existing Windows SDK boundary. It captures the original one-input/one-output
+layout, requests `kStereo` on both buses, records the actual return code and
+subsequent bus information, then restores and verifies the original layout
+whenever it changed. Ordinary inspection and runtime behavior remain unchanged.
+The existing SDK fixture checks successful change/restoration and a false
+response that still changes the layout; the gated Windows fixture also checks
+the mode's real launch/readiness path on an already-stereo source-owned module.
+These checks are instrumentation validation, not commercial audio evidence.
+
+The first Windows run stopped on a transient `PermissionError` while the test
+read the newly published readiness file, before any commercial execution.
+Fixture-only source `b984c77` waits until the file is readable under the existing
+deadline, still requiring exact binding bytes. The replacement
+[Windows run](https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35465789210)
+passed before its artifact was used.
+
+One real diagnostic completed in 7.812 seconds. Blackhole returned success (0)
+for one stereo input and output; both `getBusInfo` calls reported two channels
+and both arrangement queries reported `kStereo` (3). The original 16-channel
+layout was then restored with success and exact metadata readback. Cleanup and
+transport retirement passed, all 55 protected canonical/proxy files and the
+prefix identity were preserved, and installed software did not change. See
+[stereo negotiation and build receipt](stereo-negotiation.sanitized.json).
+This establishes real stereo negotiation on the declared fixture.
+
+The existing commercial audio test was also found to be instrument-shaped:
+it sends notes without audio input. That cannot establish an effect's input/output
+behavior. A later Blackhole audio check must supply nonzero stereo input and
+retain output measurements. Negotiation alone is not preparation, publication,
+audio processing or DAW qualification.
+
+The operator subsequently authorized Luna 5.6 Max to use Bitwig through
+Moonlight. A new disposable project folder contains a 12-second, 48 kHz stereo
+PCM16 source: quiet left/right tone pulses in the first four seconds followed
+by eight seconds of silence. It is test input, not substitute plug-in output.
+The intended audio check uses the normal experimental-candidate publication
+path and captures only Bitwig's outputs, after inspection and runtime both
+carry the same verified stereo policy.
+
 ## Deferred user request
 
 The operator asked to remember, not implement here, a classification of tooling
@@ -358,3 +415,126 @@ also reported Kontakt plug-in crashes without the reports seen for Arturia.
 This is a reporting-coverage observation, not an attributed common crash cause.
 The existing ordinary capture action excludes experimental Kontakt/Serum; its
 relationship to those particular incidents remains to be established.
+
+
+## Experimental stereo candidate and Bitwig fixture
+
+Source `443277f` adds one explicit `stereo_main_pair` choice to compatibility
+inspection. The policy is bound into the inspection, candidate, profile and
+runtime registration. It requests and verifies one main stereo input/output on
+the initialized, inactive component before the canonical inspection bus rows or
+runtime bus layout are read. Default omitted-policy serialization and existing
+profile fingerprints remain unchanged. No channels are discarded, no immersive
+routing is implemented, and no work is added to the audio callback.
+
+The exact Windows build passed in run `35466904843`. Focused preparation,
+action/projection, frontend and supervisor checks passed, as did all-target
+Clippy and both Linux release builds. Delivery preserves the default scanner
+and its inventory identity; the new preparation-kit host is separate. All 73
+other kit entries were retained and repository source entries were verified
+against the new commit. Installation preserved 62 existing records/reports,
+proxy and fixture files, along with prefix identity. The first staging attempt
+lacked executable permission and stopped before setup ran; verified executable
+modes were corrected and normal setup then succeeded. Rollback copies remain.
+
+The ordinary **Check stereo compatibility** action completed with SDK result 0,
+canonical input/output counts 1/1, channel counts 2/2, arrangement 3 (`kStereo`),
+state capture and confirmed cleanup. Normal preparation built candidate
+`d7933fdaedb30958669caacb801934399adac3819e22c03c7aada805ca8e7d02`.
+**Enable experimental use in Bitwig** published that exact candidate and policy.
+It remains experimental; no ordinary acceptance was granted.
+
+The test project contains one stereo audio track with a real 12-second clip:
+quiet alternating 220 Hz left and 330 Hz right pulses during the first four
+seconds, followed by eight seconds of silence. An official-schema-validated
+DAWproject was imported and saved by Luna as `LVB-BH.bwproject`. A long-path
+entry was initially corrupted in the file chooser; selecting a short filename
+from the Projects folder succeeded. This was not an import-format failure.
+The first playback attempt found Bitwig's engine inactive and recorded silence.
+Luna activated the engine, then playback produced a dry recording identical to
+the source clip sample for sample after alignment, including the silent tail.
+The recorder was connected explicitly to Bitwig out1/out2; no microphone or
+other application audio was captured. Recorder exit 1 at its requested sample
+count is retained separately from the valid 2,880,000-frame WAV.
+
+See [runtime, delivery and DAW receipt](stereo-runtime.sanitized.json).
+
+
+Moonlight subsequently corrupted the device-browser search text and did not
+clear it on the bounded correction attempt. Neither attempt inserted a device;
+this is retained as an input-entry failure, not a missing-plug-in conclusion.
+The follow-up fixture `LVB-BH-Wet.dawproject` references the published native
+processor UUID `bd150fc2-a260-511a-beda-185d9dcb276e` on the same audio track.
+The ID was read from the exact publication and encoded using DAWproject's
+[canonical UUID form](https://github.com/bitwig/dawproject/blob/ee4dcdde75940f30e14e55401a26955a58b8322b/src/main/java/com/bitwig/dawproject/device/Device.java).
+No vendor state or preset was fabricated or supplied. The project XML passes
+the official schema. A valid project file alone does not prove that Bitwig
+loaded or processed its effect.
+
+
+The browser detour was a commander error: `Creator` filters preset authors,
+not plug-in manufacturers, and the attempted `Location` selection did not
+establish the required file kind. Restarting Bitwig did not fix that route.
+Following the official [File Kind / Vendor controls](https://www.bitwig.com/userguide/latest/common_browser_elements/)
+resolved insertion: Luna selected **File Kind → Plug-ins**, then the exact
+Eventide Blackhole Immersive x64 VST3. The device appeared on the audio track,
+and independent capacity readback confirmed one Blackhole DSP instance.
+The native session reports 48 kHz, host maximum 512 frames, transport maximum
+256 and 512 frames of bridge delay. These are observed setup values, not a
+buffer-size stress or performance qualification. The editor initially opened
+as a white window; presentation and audio outcomes are tracked separately.
+
+The editor remained blank and became **Not Responding** during normal close
+attempts. Playback was never started. The attempted 90-second wet capture
+contains only silence; it is not evidence of an audio-processing defect or a
+successful effect check. Idle processing counters advanced, but there was no
+nonzero test signal through the effect. The editor's root cause is unresolved.
+
+The custodian verified the exact session owner and terminated only its
+supervisor through a PID handle. Existing owned-child cleanup reported raw
+exit -15, cleanup confirmed and transport retired. The report's null error
+describes this explicit stop, not editor success. The capacity returned to zero
+DSP and maintenance instances, with no unconfirmed cleanup. All 61 protected
+files, excluding the expected registry observation update, were unchanged.
+Luna removed the failed unsaved device, accepting only its named-plugin
+state-save warning; the track and source clip remain, transport is stopped and
+the original saved dry project was not overwritten. That post-termination
+undo-state refusal is not a normal save/recall test.
+
+The manager now records **DAW load: passed**, **editor: failed**, and
+**audio: not tested** on the exact experimental candidate. Wet output, usable
+editor behavior and project recall remain outstanding. No ordinary acceptance,
+full immersive support or iLok-wide compatibility claim follows from this run.
+
+### Before-close reproduction and real effect audio
+
+The retained first-run snapshot localizes the close failure: owner stage 22 is
+`EditorSession::service`, and view stage 212 is immediately before
+`IPlugView::removed()` in `VendorView::close`. Owner activity lagged the still
+advancing delivery thread by 257.823 seconds. This establishes a synchronous
+block in the vendor close call, not the cause of the earlier white surface.
+
+One discriminating repetition left the white editor untouched. Two atomic
+diagnostic reads two seconds apart showed owner publication 47,203 → 48,963
+and editor heartbeat 11,793 → 12,233, with owner stage 0 and view/open stage 100.
+The host owner/message loop was active while the editor remained blank. No
+bridge lock or missing required SDK lifecycle call was established by the
+targeted source review. Child-surface geometry, parent clipping styles and DPI
+remain specific investigation leads, not demonstrated causes or fixes.
+
+Luna raised the same disposable Bitwig project without closing the editor,
+played the source from 1.1.1.00, observed transport and meters advancing, then
+stopped. The single Bitwig-only output recording contains stereo signal, with
+peak amplitudes 0.062286 and 0.057831. In the late window five to eight seconds
+after the first signal, channel RMS values are 0.005001 and 0.004547; the source's
+final pulse ended 3.5 seconds after its first pulse. The dry baseline was exactly
+silent there. This is real stereo effect processing and a reverb tail on the
+declared candidate, not substitute DSP or instrument-note stimulation.
+
+The second test instance was explicitly retired through its exact verified
+supervisor: child cleanup and transport retirement passed. The new audio
+observation supersedes the first run's **not tested** status with this bounded
+**passed** result; the earlier silent capture and failed editor result remain
+retained. No parameter change, audio-quality judgment, performance stress or
+saved-project recall was tested. Blackhole remains experimental and its editor
+still needs repair before ordinary usability can be claimed.

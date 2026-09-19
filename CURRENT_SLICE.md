@@ -1,3 +1,87 @@
+# Blackhole stereo-layout continuation
+
+The operator authorized the recommended next step: test genuine stereo
+negotiation for the installed Blackhole Immersive 1.4.4. Base commit
+`150042b6a078b0b87adf1e4739a8a01b2c617460`, tree
+`d4ab06a3e8640183e15c1bd02df9fd2561b43f82`. Primary claim: determine whether
+the exact component accepts one stereo input and one stereo output through
+`IAudioProcessor::setBusArrangements`, with matching bus-info and arrangement
+readback. Eventide lists stereo among supported layouts, but that is not live
+evidence for this runner/host combination.
+
+Reuse the existing supervised candidate-host inspection in the unchanged
+activated environment. Any diagnostic request must be explicit; preserve the
+normal default inspection. Record original layout, requested layout, actual
+SDK result, subsequent bus counts/info/arrangements and restoration of the
+original layout before cleanup. A false result may still change the layout;
+never infer readback or discard channels. Reuse the existing Windows fixture
+for focused coverage. Sol 5.6 Extra High owns code; the parent owns supervision,
+fixture identity and evidence; Luna 5.6 Max alone performs any GUI actions.
+
+No full immersive implementation, license/prefix/runner changes, publication,
+or DAW/audio acceptance is implied by negotiation. Preserve installed software,
+inventory, existing native proxies and prefix identity. Retain sanitized build,
+negotiation and cleanup evidence. Successful negotiation establishes the next
+bounded integration path; refusal remains an explicit observed result. Commit
+and push the changes on the existing draft PR; do not merge.
+
+Basis: AGENTS.md / Work to an outcome, Keep the engineering safeguards, GUI
+test custody; architecture SDK boundary and exact identity; official VST3
+IAudioProcessor arrangement contract. Fixture remains the existing Deck,
+Blackhole 1.4.4, PACE 5.10.2.4663 and pinned Proton 11.0-2c / SLR 4.
+
+The live diagnostic from source `b984c77` passed: Blackhole accepted stereo
+with result 0, changed both buses to two channels/arrangement 3, then restored
+its exact original 16-channel layout with result 0. Cleanup, transport retirement,
+55 protected files and prefix identity were preserved. See the stereo receipt.
+
+The operator also explicitly authorizes Luna 5.6 Max to use Bitwig through
+Moonlight. Continue to a useful experimental stereo candidate and real DAW
+effect check. Add one closed `stereo_main_pair` arrangement choice to normal
+inspection/preparation and its exact candidate/profile identity. The Windows
+inspection must emit canonical stereo bus facts only after successful request
+and readback; runtime must apply the same policy before validating its bus
+contract. Preserve omitted-policy identity/default behavior for existing
+products. Limit this choice to one main audio input/output; no general immersive
+implementation or new work in the real-time callback.
+
+Use existing supported candidate preparation and experimental publication,
+then Luna's new disposable Bitwig project with an actual 12-second stereo
+audio clip. Capture only Bitwig's outputs and distinguish dry baseline, effect
+output, editor access and saved-project recall as observed. The existing
+instrument-shaped headless commercial test is not effect evidence and need not
+be expanded for this DAW check. Preserve all existing projects/publications;
+retain rollback for delivered software and the new experimental publication.
+
+
+Source `443277f` implements the closed policy; focused checks, Linux manager
+and frontend builds, and exact Windows CI `35466904843` passed. It is installed
+with the prior default scanner and inventory identity preserved. The ordinary
+stereo inspection passed and candidate `d7933fdaedb3` was built and published
+experimentally as revision `0332c95f49d207729d84820080190b6b`. Bitwig's native
+index contains its exact processor ID and name. The dry audio fixture's captured
+output matches its source sample for sample. Luna then inserted the exact
+Blackhole device in Bitwig; its runtime independently verified the stereo
+policy and admitted a DSP session. The editor opened blank and became
+unresponsive before playback started. The attempted wet recording is silent
+because playback was never initiated; it establishes no audio outcome.
+The custodian stopped only the verified test supervisor, confirmed child cleanup
+and transport retirement, and Luna removed the failed unsaved device. The audio
+track, clip and saved dry baseline remain intact. Normal manager observations
+record DAW load passed, editor failed and audio not tested. Wet processing and
+saved-project recall remained unproved at that point.
+
+A single before-close repetition showed the owner loop and editor heartbeat
+advancing while the editor stayed blank. The prior close hang is localized to
+the synchronous `IPlugView::removed()` call; the white surface remains unresolved.
+With that editor left open, Luna played the real source once in Bitwig. Its
+recorded stereo output contains a late reverb tail where the sample-exact dry
+baseline is silent. This establishes bounded real stereo effect processing;
+the manager audio observation is updated accordingly. Exact test-host cleanup
+and transport retirement passed again. Editor usability, audio quality, timing
+stress and saved-project recall remain unproved. See the stereo runtime receipt
+for exact identities, both attempts and their separate outcomes.
+
 # Blackhole controller-interface continuation
 
 The operator authorized continuation after successful vendor activation and the
