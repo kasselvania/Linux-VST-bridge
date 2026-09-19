@@ -1,7 +1,9 @@
 import array
+import json
 import pathlib
 import struct
 import sys
+import tempfile
 import unittest
 sys.path.insert(0,str(pathlib.Path(__file__).parent))
 from x11 import normalized,summaries,X11
@@ -102,6 +104,41 @@ class Tests(unittest.TestCase):
         with patch('capture.pathlib.Path') as path:
             path.return_value.read_text.return_value=rows
             self.assertEqual(renderer(123),['libEGL.so','libGL.so','winewayland.drv','winex11.drv'])
+
+    def test_graphics_trace_admission_and_private_capacity_are_closed(self):
+        import renderer_graphics as g
+        registration={'metadata':{'class_id':g.CLASS},'environment':{'id':g.ENVIRONMENT},
+            'module':{'sha256':g.MODULE},'host':{'sha256':g.HOST},'host_source_sha256':g.SOURCE}
+        admission={'schema':1,'profile_fingerprint':g.PROFILE,'registration':registration,
+            'accessibility_probe_permitted':False,'maximum_seconds':30,'maximum_records':16384}
+        self.assertIs(g.validate_admission(admission),registration)
+        for path,value in [('profile_fingerprint','0'*64),('maximum_seconds',31)]:
+            changed=json.loads(json.dumps(admission));changed[path]=value
+            with self.assertRaisesRegex(RuntimeError,'admission'):g.validate_admission(changed)
+        changed=json.loads(json.dumps(admission));changed['registration']['host']['sha256']='0'*64
+        with self.assertRaisesRegex(RuntimeError,'admission changed'):g.validate_admission(changed)
+        with tempfile.TemporaryDirectory() as d:
+            capture=g.Capture(pathlib.Path(d)/'trace',5);capture.attach(7)
+            capture.consume(8,b'foreign');capture.consume(7,b'abcdefg');capture.close()
+            self.assertEqual((pathlib.Path(d)/'trace').read_bytes(),b'abcde')
+            self.assertEqual((capture.retained,capture.discarded),(5,2))
+    def test_graphics_trace_capacity_accepts_only_resolved_keepers(self):
+        import renderer_graphics as g
+        with tempfile.TemporaryDirectory() as directory:
+            root=pathlib.Path(directory);sid='1'*32
+            (root/'runtime/leases').mkdir(parents=True);(root/'runtime/results').mkdir()
+            sessions=root/'environments/e/compatdata/pfx/drive_c/bridge/sessions'
+            (sessions/sid).mkdir(parents=True)
+            report=root/'runtime/results'/f'environment-{sid}.json'
+            (root/'runtime/leases'/f'{sid}.json').write_text(json.dumps(str(report)))
+            owner={'session':sid,'report':str(report),'keeper':True}
+            (sessions/sid/'owner.json').write_text(json.dumps(owner))
+            self.assertEqual(g.existing_owners(root),[owner])
+            owner['keeper']=False;(sessions/sid/'owner.json').write_text(json.dumps(owner))
+            with self.assertRaisesRegex(RuntimeError,'non-keeper'):g.existing_owners(root)
+            owner['keeper']=True;owner['report']=str(report.with_name('wrong.json'))
+            (sessions/sid/'owner.json').write_text(json.dumps(owner))
+            with self.assertRaisesRegex(RuntimeError,'owner lease changed'):g.existing_owners(root)
     def test_server_receipt_is_exact_target_not_global_input(self):
         b=struct.pack('<BBHIIIIhhhhHBB',4,1,2,15,20,99,0,100,200,3,4,256,1,0)
         r=pointer_packet(b,99);self.assertEqual(r['client'],[3,4]);self.assertEqual(r['state'],256)
