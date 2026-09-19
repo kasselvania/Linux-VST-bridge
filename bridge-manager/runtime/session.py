@@ -2938,6 +2938,15 @@ class Nad1InstallObservation:
 # No runtime argument, arbitrary existing image, or vendor exit-code reinterpretation.
 NAD1_RECOVERY = {'schema': 1, 'operation': '6345df5fd7ea38a5f07bfc6a2300e999', 'application_identity': '7228a542c01b89daa5d04b9c8566af235ee7a2358e52f741b8918239c3a7d26e', 'installer_sha256': '5f2199f4e1409d6eea5edaea9c4a8af31e8ee8ac3790851aa44d33e87a46b218', 'installer_size': 35769456, 'daemon': {'sha256': 'e20b3d30b72d6a12e0a37b5fbd1a5c21e0db9e53459b4aab165270f7f739343b', 'size': 18259440, 'architecture': 'x64'}, 'sources': {'spec.json': {'sha256': '022f08f79fcb4a95442e604b09a4e4c1cf27b40600223a6a81554e8db6c0131d', 'size': 12628}, 'result.json': {'sha256': 'd124e9714e6dce0986dd406f2e732cfda09bc4801a00fd6c309b421e840b4f82', 'size': 1360}, '6345df5fd7ea38a5f07bfc6a2300e999-dependency-1.log': {'sha256': 'd038b87ea193bada3591109dfe4b9dc2c5f91b50d371df68d2fc5fba0ba4c423', 'size': 688}}}
 
+def same_vendor_installation(current, installed):
+    if current == installed:return True
+    if not isinstance(installed.get('environment'),dict) or not isinstance(current.get('environment'),dict):return False
+    if not all(k in e for e in (current['environment'],installed['environment']) for k in ('revision','runner')):return False
+    if current['environment']['revision'] <= installed['environment']['revision']:return False
+    historical=dict(current,environment=dict(current['environment'],
+        runner=installed['environment']['runner'],revision=installed['environment']['revision']))
+    return historical == installed
+
 def nad1_recovery_inputs(spec, prior_directory, qualification, installer_relative, daemon_relative):
     """Shared file-only verifier; fixture qualifications enter only via sealed tools.
 
@@ -2949,7 +2958,8 @@ def nad1_recovery_inputs(spec, prior_directory, qualification, installer_relativ
     for relative in (installer_relative,daemon_relative):
         candidate=pathlib.PurePath(relative)
         if candidate.is_absolute() or not candidate.parts or any(part in ('','.', '..') for part in candidate.parts):raise ValueError('dependency_recovery_relative_path')
-    if spec['application_identity']!=q['application_identity'] or spec['operation']==q['operation']:
+    current_identity=hashlib.sha256(json.dumps(spec['application'],sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+    if spec['application_identity']!=current_identity or spec['operation']==q['operation']:
         raise ValueError('dependency_recovery_application')
     drive=pathlib.Path(spec['application']['environment']['root'])/'compatdata/pfx/drive_c'
     try:
@@ -2960,7 +2970,8 @@ def nad1_recovery_inputs(spec, prior_directory, qualification, installer_relativ
                 os.lseek(image.fd,0,os.SEEK_SET)
                 records[name]=json.loads(os.read(image.fd,witness['size']),object_pairs_hook=renderer_unique)
         prior=records['spec.json'];result=records['result.json']
-        if prior['operation']!=q['operation'] or prior['kind']!='native_access_dependency' or prior['application']!=spec['application'] or prior['application_identity']!=q['application_identity']:
+        prior_identity=hashlib.sha256(json.dumps(prior['application'],sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+        if prior['operation']!=q['operation'] or prior['kind']!='native_access_dependency' or not same_vendor_installation(spec['application'],prior['application']) or prior_identity!=q['application_identity'] or prior['application_identity']!=q['application_identity']:
             raise ValueError('dependency_recovery_origin')
         if result['operation']!=q['operation'] or result['state']!='failed' or result['cleanup_confirmed'] is not True or result['owned_live']!=0 or result['dependency']['service_retirement_confirmed'] is not True or result['dependency']['process_cleanup_confirmed'] is not True or result['dependency']['forced_cleanup_used'] is not False:
             raise ValueError('dependency_recovery_prior_not_retired')

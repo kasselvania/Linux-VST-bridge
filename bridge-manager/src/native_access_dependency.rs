@@ -101,8 +101,8 @@ fn verify_recovery_inputs(
     installer_relative:&str,
     daemon_relative:&str,
 )->Result<Value> {
-    require(q.as_object().is_some_and(|o|o.len()==7) && q["schema"]==1
-        && q["application_identity"]==application.identity()?,"dependency_recovery_application")?;
+    require(q.as_object().is_some_and(|o|o.len()==7) && q["schema"]==1,
+        "dependency_recovery_application")?;
     let operation=q["operation"].as_str().ok_or("dependency_recovery_operation")?;
     require(valid_hex(operation,32),"dependency_recovery_operation")?;
     let sources=q["sources"].as_object().ok_or("dependency_recovery_sources")?;
@@ -118,8 +118,10 @@ fn verify_recovery_inputs(
         if name=="spec.json" || name=="result.json" {records.insert(name.clone(),exact_record(&image.artifact.path,"dependency_recovery_source_alias")?);}
     }
     let spec=&records["spec.json"];
+    let installed:app::Application=serde_json::from_value(spec["application"].clone())?;
     require(spec["operation"]==operation && spec["kind"]=="native_access_dependency"
-        && spec["application"]==serde_json::to_value(application)?
+        && application.same_installation(&installed)
+        && installed.identity()?==q["application_identity"]
         && spec["application_identity"]==q["application_identity"],"dependency_recovery_origin")?;
     let result=&records["result.json"];
     require(result["operation"]==operation && result["state"]=="failed"
@@ -298,8 +300,7 @@ pub fn session_admission(
         "dependency_session_current_software")?;
     let directory=m.root.join("vendor-applications/native-access-dependency");
     let qualified:Value=serde_json::from_slice(RECOVERY)?;
-    require(qualified["application_identity"]==application.identity()?
-        && qualified["installer_sha256"]==INSTALLER_SHA && qualified["installer_size"]==35769456_u64,
+    require(qualified["installer_sha256"]==INSTALLER_SHA && qualified["installer_size"]==35769456_u64,
         "dependency_session_recovery_qualification")?;
     let admission=session_admission_inputs(application,software,&directory,&qualified,INSTALLER,DAEMON)?;
     let daemon=&admission["daemon"];
@@ -553,6 +554,22 @@ mod session_tests {
             assert!(session_admission_inputs(&i.application,&i.software,&i.directory,&i.qualified,i.installer,i.daemon).is_err());
             fs::remove_file(i.directory.join("artifact.json")).unwrap();put(&i.directory.join("artifact.json"),&record);
         }
+    }
+    #[test]
+    fn runner_revision_keeps_installation_origin_without_rewriting_history() {
+        let mut i=inputs();
+        let prior=i.application.identity().unwrap();
+        i.application.environment.revision+=1;
+        i.application.environment.runner.id="corrected-msi-runner".into();
+        let admission=session_admission_inputs(&i.application,&i.software,&i.directory,&i.qualified,i.installer,i.daemon).unwrap();
+        assert_eq!(admission["application"],i.application.identity().unwrap());
+        assert_eq!(admission["origin"]["application_identity"],prior);
+        let valid=i.application.clone();
+        i.application.installation.sha256="f".repeat(64);
+        assert!(session_admission_inputs(&i.application,&i.software,&i.directory,&i.qualified,i.installer,i.daemon).is_err());
+        i.application=valid;
+        i.application.environment.revision-=1;
+        assert!(session_admission_inputs(&i.application,&i.software,&i.directory,&i.qualified,i.installer,i.daemon).is_err());
     }
     #[test]
     fn qualified_recovery_origin_admits_only_with_absent_artifact_and_exact_sources() {

@@ -1,3 +1,30 @@
+# Kontakt through Native Access on the Deck
+
+Operator continuation, 2026-09-18: install Kontakt using Native Access on the
+Deck, then discover/publish the real VST3 for Bitwig and test it. Each observed
+stage is reported separately; installation alone does not establish audio.
+
+Base commit: `0f7d122bb08e5b491461847a8c818a19fe3d2c86`.
+Primary outcome: the existing NI environment uses the corrected pinned runner
+and Native Access performs the real Kontakt installation.
+
+Scope: the MSI correction, runner/environment transition and existing Native
+Access session admission; subsequent exact Kontakt scan/profile/proxy work
+needed for the requested Bitwig test. Rust owns product changes. Existing
+supervision is reused; there is no replacement vendor installer. Preserve
+historical installation evidence and the existing prefix/machine identity.
+
+Fixture: Steam Deck Galileo, existing Native Access 3.26.0 environment and lawful
+Kontakt 8 Player 8.13.1 package, pinned Proton 11.0-2c candidate documented below.
+Acceptance proceeds through actual Native Access install and reopen recognition,
+SDK class discovery, native proxy publication, then a disposable Bitwig project
+with editor/audio/state checks. Report any concrete failure at its actual stage.
+Before live mutation retain a private prefix/metadata rollback copy, close owned
+sessions, and verify the exact runner modules. Do not alter other environments,
+Steam's installed runner, account state, or vendor product registration manually.
+
+The earlier investigation follows as retained evidence and reproduction detail.
+
 # Kontakt MSI runner correction investigation
 
 Selected by the operator's 2026-09-18 reset: identify the actual Kontakt
