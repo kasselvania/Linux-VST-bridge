@@ -1,3 +1,33 @@
+# Blackhole controller-interface continuation
+
+The operator authorized continuation after successful vendor activation and the
+post-activation scan's `controller query tuple` rejection. Base commit
+`4e53c42a55d6063bd37f75c909e5397099c7ebe3`, tree
+`4d675fff30e50f558921b610ddfe06508ca0d3ff`. Primary outcome: determine the actual
+controller-interface response and correct the host's acquisition path where
+official SDK semantics support it, then verify the real Blackhole inspection.
+Basis: AGENTS.md, Work to an outcome / Keep the engineering safeguards / GUI test
+custody and delegated control; existing architecture's SDK boundary and exact
+identity preservation. Fixture remains Blackhole Immersive 1.4.4, PACE
+5.10.2.4663 and the existing pinned Proton 11.0-2c environment on the Deck.
+
+Scope: Windows SDK controller acquisition and structured diagnostic records,
+focused regression coverage, verified build artifacts and one relevant live
+inspection per materially changed candidate. Sol 5.6 Extra High handles code;
+the parent owns supervision/deployment/evidence; Luna 5.6 Max alone operates the
+GUI. First measure the missing return code and pointer-presence without logging
+addresses or secrets. Preserve successful component initialization and distinguish
+valid separate-controller fallback from malformed responses. No licensing,
+runner, prefix, vendor-binary, existing publication or unrelated plug-in change.
+
+Use a separately identified candidate host with existing supervision for the
+initial diagnostic, preserving installed software/inventory authority. Retain
+the actual query tuple, selected association, subsequent failure or completed
+inspection, source/build identity and cleanup. Install a proven repair through
+normal setup with rollback if needed for the manager's follow-up path. Do not
+claim audio or Bitwig usability from inspection alone; no repeated unchanged
+scan, UI test campaign or broad compatibility claim is in scope.
+
 # Blackhole Immersive load failure and actionable scan recovery
 
 2026-09-19: the operator requested investigation and repair after Blackhole
