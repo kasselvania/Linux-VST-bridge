@@ -218,6 +218,47 @@ fn experimental_enable_disable_preserves_installation_and_history() {
     assert_eq!(publication_state(&f.m, &c).unwrap(), "experimental");
 }
 #[test]
+fn managed_observation_requires_exact_current_retained_publication() {
+    let (f, c) = fixture();
+    enable(&f.m, &c, false).unwrap();
+    let admitted =
+        crate::ui_observation::admit_managed_observation(&f.m, &c.selection.class.id).unwrap();
+    assert_eq!(
+        admitted.profile_fingerprint,
+        c.profile.fingerprint().unwrap()
+    );
+    assert_eq!(admitted.registration.module, c.selection.module);
+    assert_eq!(admitted.registration.host, c.host);
+    assert_eq!(
+        admitted.registration.host_source_sha256,
+        c.source_manifest.sha256
+    );
+    assert_eq!(admitted.maximum_seconds, 30);
+    assert!(crate::ui_observation::admit(&f.m, &c.selection.class.id).is_err());
+
+    fs::write(&c.inspection.report.path, b"changed retained inspection").unwrap();
+    assert!(crate::ui_observation::admit_managed_observation(&f.m, &c.selection.class.id).is_err());
+
+    for changed in 0..4 {
+        let (f, c) = fixture();
+        enable(&f.m, &c, false).unwrap();
+        let path = match changed {
+            0 => &c.selection.module.path,
+            1 => &c.native.artifact.path,
+            2 => &c.host.path,
+            _ => &c.source_manifest.path,
+        };
+        fs::write(path, b"changed retained artifact").unwrap();
+        assert!(crate::ui_observation::admit_managed_observation(&f.m, &c.selection.class.id).is_err());
+    }
+
+    let (f, c) = fixture();
+    enable(&f.m, &c, false).unwrap();
+    fs::remove_file(f.m.link(&c.selection.class.id)).unwrap();
+    assert!(crate::ui_observation::admit_managed_observation(&f.m, &c.selection.class.id).is_err());
+    assert!(crate::ui_observation::admit_managed_observation(&f.m, &"ff".repeat(16)).is_err());
+}
+#[test]
 fn explicit_review_needs_complete_attributed_results() {
     let (f, c) = fixture();
     record_candidate(&f.m, &c).unwrap();

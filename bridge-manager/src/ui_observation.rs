@@ -13,36 +13,79 @@ pub struct Admission {
 }
 
 pub fn admit(m: &Manager, class: &str) -> Result<Admission> {
-    admit_selected(m, class, None)
+    admit_selected(m, class, AdmissionKind::Ordinary)
 }
 /// The development experiment has its own exact compiled admission. It does
 /// not grant ordinary UIO1 or activation authority to arbitrary candidates.
 pub fn admit_uir1(m: &Manager) -> Result<Admission> {
-    admit_selected(m, &crate::qualification::uir1_candidate()?.class.class_id, Some(Qualification::Uir1Input))
+    admit_selected(
+        m,
+        &crate::qualification::uir1_candidate()?.class.class_id,
+        AdmissionKind::Qualification(Qualification::Uir1Input),
+    )
 }
 pub fn admit_if1(m: &Manager) -> Result<Admission> {
-    admit_selected(m, &crate::qualification::if1_candidate()?.class.class_id, Some(Qualification::If1Failure))
+    admit_selected(
+        m,
+        &crate::qualification::if1_candidate()?.class.class_id,
+        AdmissionKind::Qualification(Qualification::If1Failure),
+    )
 }
-fn admit_selected(m: &Manager, class: &str, purpose: Option<Qualification>) -> Result<Admission> {
+/// Read-only diagnostics may observe the exact currently published managed
+/// experiment. This does not admit the candidate for ordinary activation,
+/// mutate its retained review evidence, or authorize input.
+pub fn admit_managed_observation(m: &Manager, class: &str) -> Result<Admission> {
+    admit_selected(m, class, AdmissionKind::ManagedObservation)
+}
+
+#[derive(Clone, Copy)]
+enum AdmissionKind {
+    Ordinary,
+    Qualification(Qualification),
+    ManagedObservation,
+}
+
+fn admit_selected(m: &Manager, class: &str, kind: AdmissionKind) -> Result<Admission> {
     let _lock = m.lock("registry.lock")?;
     let db = m.registry()?;
     let e = db.classes.get(class).ok_or("uio1_class_absent")?;
     let reference = e.managed_revision.as_ref().ok_or("uio1_profile_absent")?;
     let revision = m.load_revision(class, reference)?;
-    if let Some(purpose) = purpose {
-        let exact = match purpose {
-            Qualification::Uir1Input => crate::qualification::uir1_candidate()?,
-            Qualification::If1Failure => crate::qualification::if1_candidate()?,
-            _ => return Err("uio1_unsupported_qualification".into()),
-        };
-        require(revision.profile == exact && revision.qualification == Some(purpose),
-            "uio1_exact_uir1_qualification_required")?;
-        m.verify_retained_authority(&revision, &[exact])?;
-    } else {
-        let installed = installed_profiles()?;
-        require(installed.contains(&revision.profile), "uio1_exact_installed_profile_required")?;
-        require(revision.profile.claim == Claim::VerifiedExactFixture && revision.qualification.is_none(),
-            "uio1_ordinary_profile_required")?;
+    match kind {
+        AdmissionKind::Qualification(purpose) => {
+            let exact = match purpose {
+                Qualification::Uir1Input => crate::qualification::uir1_candidate()?,
+                Qualification::If1Failure => crate::qualification::if1_candidate()?,
+                _ => return Err("uio1_unsupported_qualification".into()),
+            };
+            require(
+                revision.profile == exact && revision.qualification == Some(purpose),
+                "uio1_exact_uir1_qualification_required",
+            )?;
+            m.verify_retained_authority(&revision, &[exact])?;
+        }
+        AdmissionKind::ManagedObservation => {
+            require(
+                revision.profile.claim == Claim::ReviewCandidate
+                    && revision.qualification == Some(Qualification::ManagedExperimental),
+                "uio1_managed_experimental_required",
+            )?;
+            // This re-verifies the retained candidate, inspection, native,
+            // module, runner, host/source, and completed physical publication.
+            m.verify_retained_authority(&revision, &[])?;
+        }
+        AdmissionKind::Ordinary => {
+            let installed = installed_profiles()?;
+            require(
+                installed.contains(&revision.profile),
+                "uio1_exact_installed_profile_required",
+            )?;
+            require(
+                revision.profile.claim == Claim::VerifiedExactFixture
+                    && revision.qualification.is_none(),
+                "uio1_ordinary_profile_required",
+            )?;
+        }
     }
     require(
         e.publication == Publication::Published
@@ -69,7 +112,11 @@ fn admit_selected(m: &Manager, class: &str, purpose: Option<Qualification>) -> R
         registration: e.registration.clone(),
         accessibility_probe_permitted: revision.profile.capabilities.accessibility
             == Accessibility::WindowsDefault,
-        maximum_seconds: 180,
+        maximum_seconds: if matches!(kind, AdmissionKind::ManagedObservation) {
+            30
+        } else {
+            180
+        },
         maximum_records: 16384,
     })
 }

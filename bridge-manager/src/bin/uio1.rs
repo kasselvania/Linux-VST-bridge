@@ -9,6 +9,10 @@ fn run() -> Result<()> {
             "{}",
             serde_json::to_string(&admit(&Manager::installed()?, class)?)?
         ),
+        [command, class] if command == "admit-managed-observation" => println!(
+            "{}",
+            serde_json::to_string(&admit_managed_observation(&Manager::installed()?, class)?)?
+        ),
         [command, path] if command == "validate" => {
             let report: Waterfall = linux_vst_bridge::read_json(std::path::Path::new(path))?;
             report.validate()?;
@@ -19,7 +23,7 @@ fn run() -> Result<()> {
             println!("{}", serde_json::to_string(&report.project()?)?);
         }
         _ => {
-            return Err("usage: uio1 admit CLASS | validate REPORT | project CLOCKED_REPORT".into())
+            return Err("usage: uio1 admit CLASS | admit-managed-observation CLASS | validate REPORT | project CLOCKED_REPORT".into())
         }
     }
     Ok(())

@@ -79,6 +79,29 @@ class Tests(unittest.TestCase):
         self.assertEqual(meta['region_hashes'],b['region_hashes']);self.assertNotEqual(meta['sha256'],b['sha256'])
         c,_=summaries(a.tobytes(),16,16,64,new);self.assertEqual(c['changed_sample_percent'],0)
         with self.assertRaises(ValueError):summaries(b'',16,16,64)
+    def test_renderer_metrics_distinguish_local_white_and_zero_child_geometry(self):
+        from renderer_observe import frame_metrics,graph_metrics,record_metrics
+        from types import SimpleNamespace
+        white=(bytes((255,255,255,0))*64)
+        metrics=frame_metrics(dict(width=8,height=8,stride=32),white)
+        self.assertEqual(metrics['near_white_percent'],100)
+        self.assertEqual(metrics['distinct_sampled_rgb'],1)
+        editor=SimpleNamespace(hwnd=10)
+        graph={'windows':[
+            dict(hwnd=10,root=10,visible=1,enabled=1,minimized=0,dpi=96,style=1,exstyle=2,rect=[0,0,100,100],client=[0,0,100,100]),
+            dict(hwnd=11,root=10,visible=1,enabled=1,minimized=0,dpi=96,style=3,exstyle=4,rect=[0,0,0,0],client=[0,0,0,0]) ]}
+        gm=graph_metrics(graph,editor);self.assertEqual(gm['child_count'],1);self.assertEqual(gm['zero_client_children'],1)
+        rm=record_metrics([dict(source=4,message=0,result=100),dict(source=1,message=15,result=0)],1000)
+        self.assertEqual(rm['heartbeat_records'],1);self.assertEqual(rm['wm_paint_records'],1)
+        self.assertIn('does not establish',rm['interpretation'])
+    def test_renderer_module_names_are_bounded_and_normalized(self):
+        from capture import renderer
+        from unittest.mock import patch
+        rows='\n'.join(['/usr/lib/wine/x86_64-unix/winex11.drv.so','/usr/lib/winewayland.drv.so (deleted)','/usr/lib/libGL.so.1.7.0',
+            '/usr/lib/libEGL.so.1','/private/account/vendor-secret.dll'])
+        with patch('capture.pathlib.Path') as path:
+            path.return_value.read_text.return_value=rows
+            self.assertEqual(renderer(123),['libEGL.so','libGL.so','winewayland.drv','winex11.drv'])
     def test_server_receipt_is_exact_target_not_global_input(self):
         b=struct.pack('<BBHIIIIhhhhHBB',4,1,2,15,20,99,0,100,200,3,4,256,1,0)
         r=pointer_packet(b,99);self.assertEqual(r['client'],[3,4]);self.assertEqual(r['state'],256)
@@ -120,6 +143,14 @@ class Tests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'unknown diagnostic'):c.helper('unreviewed.exe',[],pathlib.Path('/tmp/unused'),1)
         c.admission={'accessibility_probe_permitted':False}
         with self.assertRaisesRegex(RuntimeError,'prohibits'):c.helper('uio1-accessibility.exe',[],pathlib.Path('/tmp/unused'),1)
+    def test_managed_observation_is_a_distinct_non_conflicting_admission(self):
+        from launch import admission_command
+        self.assertEqual(admission_command('ab'*16,managed_observation=True),
+            ['admit-managed-observation','ab'*16])
+        self.assertEqual(admission_command('ab'*16),['admit','ab'*16])
+        for flags in ((True,True,False),(True,False,True),(False,True,True)):
+            with self.assertRaisesRegex(RuntimeError,'conflicting'):
+                admission_command('ab'*16,*flags)
     def test_replaced_or_aliased_helper_bytes_refused(self):
         from launch import sealed_bytes
         import tempfile,hashlib
