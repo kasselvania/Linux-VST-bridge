@@ -25,6 +25,14 @@ pub const WINE_PATCHES: [&str; 2] = [
     "e0130972d5ffe578a4a25d75f4c1d0229c880a8c",
 ];
 
+/// K8I1 deliberately has no production admission until the exact compiler
+/// result and disposable-prefix proof have been reviewed.  The follow-up
+/// evidence-only promotion changes these three constants together; an archive
+/// merely present in an installed Software record is never authority.
+pub const APPROVED_ADAPTER_SHA256: Option<&str> = None;
+pub const APPROVED_COMPILER_RESULT_SHA256: Option<&str> = None;
+pub const APPROVED_DISPOSABLE_PROOF_SHA256: Option<&str> = None;
+
 fn software_sha256(software: &Software) -> Result<String> {
     Ok(hex(&Sha256::digest(serde_json::to_vec(
         &serde_json::to_value(software)?,
@@ -45,6 +53,15 @@ pub fn session_authority(application: &Application, software: &Software) -> Resu
         .kontakt8_runtime
         .as_ref()
         .ok_or("kontakt8_software_pair")?;
+    let approved_adapter = APPROVED_ADAPTER_SHA256.ok_or("kontakt8_adapter_not_qualified")?;
+    let _approved_compiler =
+        APPROVED_COMPILER_RESULT_SHA256.ok_or("kontakt8_compiler_result_not_qualified")?;
+    let _approved_proof =
+        APPROVED_DISPOSABLE_PROOF_SHA256.ok_or("kontakt8_disposable_proof_not_qualified")?;
+    require(
+        adapter.sha256 == approved_adapter,
+        "kontakt8_adapter_not_qualified",
+    )?;
     adapter.verify()?;
     runtime.verify()?;
     require(
@@ -119,5 +136,8 @@ mod tests {
         assert!(valid_hex(PRISTINE_MSI_SHA256, 64));
         assert_eq!(WINE_PATCHES.len(), 2);
         assert_ne!(WINE_PATCHES[0], WINE_PATCHES[1]);
+        assert!(APPROVED_ADAPTER_SHA256.is_none());
+        assert!(APPROVED_COMPILER_RESULT_SHA256.is_none());
+        assert!(APPROVED_DISPOSABLE_PROOF_SHA256.is_none());
     }
 }

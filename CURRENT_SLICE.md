@@ -20,11 +20,31 @@ transaction may enter one operation-bound, package-derived deployment transactio
 Success is returned only after complete selected-payload and Native Instruments product
 state verification. Failure is rolled back and terminates the exact setup with 1603.
 
+The plan is compiled directly from a fresh complete projection of the exact pristine
+MSI. Caller-supplied plans and table directories are not authority. The compiler
+derives every selected file through the package's File, Component, Directory,
+FeatureComponents, and Feature relationships; derives registry state from exact rows;
+joins custom actions to their execution sequence; classifies every present table; and
+binds the normalized intercepted properties. Package code and version are derived
+from the MSI rather than supplied by a caller. Unresolved or manually substituted
+relationships refuse.
+
+Payload verification authorizes only the shim's success return. The exact setup
+generation must then exit successfully, its descendants must be absent, and the entire
+selected payload/product surface must survive independent post-wrapper verification
+before the installer transaction is reported complete. Rollback and temporary adapter
+state remain prefix-journaled and recoverable until that boundary; no worker may
+outlive adapter or dependency retirement.
+
 No managed-prefix mutation, Native Access Install click, or further open-ended tracing
 is authorized during source implementation. Generated qualification and one fresh
 disposable-prefix success plus forced-failure rollback proof precede any separately
 reviewed managed-prefix operation. The adapter is not a generic MSI hook or installer
 framework, and it does not manufacture licensing state.
+
+Production adapter sealing and renderer admission are source-disabled until the exact
+reviewed compiler-result digest, disposable-proof digest, and final archive digest are
+pinned. This source candidate produces no installable adapter archive.
 
 The earlier NAO1 authorities follow as retained context and remain in force where they
 do not conflict with K8I1.

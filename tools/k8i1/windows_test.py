@@ -44,12 +44,14 @@ def export_rows(text: str) -> dict[int, tuple[str, str | None]]:
 
 
 def main() -> None:
-    if len(sys.argv) != 4:
-        raise SystemExit("usage: windows_test.py SHIM REGISTRY SHIM_FIXTURE")
-    shim, registry, fixture = map(lambda value: pathlib.Path(value).resolve(), sys.argv[1:])
+    if len(sys.argv) != 6:
+        raise SystemExit("usage: windows_test.py SHIM REGISTRY SETUP_WATCH SHIM_FIXTURE FORWARD_SENTINEL")
+    shim, registry, watcher, fixture, sentinel = map(lambda value: pathlib.Path(value).resolve(), sys.argv[1:])
     assert machine(shim) == 0x14C
     assert machine(registry) == 0x8664
+    assert machine(watcher) == 0x8664
     assert machine(fixture) == 0x14C
+    assert machine(sentinel) == 0x14C
     rows = generate_forwarders.parse(HERE / "pinned-msi-exports.txt")
     exports = output("dumpbin", "/nologo", "/exports", str(shim))
     observed = export_rows(exports)
@@ -70,9 +72,11 @@ def main() -> None:
     subprocess.run([str(registry), "--self-test"], check=True, timeout=10)
     with tempfile.TemporaryDirectory(prefix="k8i1-shim-") as raw:
         root=pathlib.Path(raw).resolve();setup=root/"Kontakt 8 Setup PC.exe";package=root/"Kontakt 8 Setup PC.msi"
-        shutil.copy2(shim,root/"msi.dll");shutil.copy2(fixture,setup)
+        shutil.copy2(shim,root/"msi.dll");shutil.copy2(sentinel,root/"msi_lvb_real.dll");shutil.copy2(fixture,setup)
         with setup.open("r+b") as handle:handle.truncate(1_188_804_208)
         with package.open("wb") as handle:handle.truncate(4_222_976)
+        forwarded=subprocess.run([str(setup),"F"],cwd=root,timeout=20)
+        assert forwarded.returncode==0,forwarded.returncode
         operation="a"*32;nonce="b"*64;plan="c"*64;receipt="d"*64
         request=root/"request.private";result=root/"result.private"
         config="\n".join(["K8I1_CONFIG_V1",operation,nonce,"e"*64,"1188804208","f"*64,
@@ -89,7 +93,7 @@ def main() -> None:
         refused=subprocess.run([str(setup),"A",str(package)],cwd=root,timeout=20)
         assert refused.returncode==1603,refused.returncode
         assert request.read_bytes().decode("utf-16le").splitlines()[4]=="A"
-    print("K8I1_WINDOWS_FIXTURE_V1 exports=296 forwarded=294 intercepted=2 success=1 forced_failure=1603 registry=closed")
+    print("K8I1_WINDOWS_FIXTURE_V2 exports=296 forwarded=294 forwarded_executed=1 intercepted=2 success=1 forced_failure=1603 registry=closed setup_watch=exact")
 
 
 if __name__ == "__main__":

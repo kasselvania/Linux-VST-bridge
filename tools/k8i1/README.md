@@ -7,15 +7,20 @@ This directory contains the source-owned parts of the exact Kontakt 8 Player
   `MsiInstallProductA/W`; every other export forwards to `msi_lvb_real.dll`.
 - `registry.cpp` exposes only the per-application MSI override and the four
   fixed Kontakt product values.
-- `package.py` seals built artifacts and a private package plan only after the
-  exact setup, pristine MSI, rewritten MSI, OFFLINE payload, and IDT table
-  projection all match.
+- `table_export.cpp` opens the exact pristine MSI read-only and projects its
+  complete table roster and rows through the Windows Installer API.
+- `compile_plan.py` invokes that exporter itself and compiles the selected
+  files, destinations, registry state, mutation-table dispositions, custom
+  actions, and normalized MSI properties from the package relationships.
+- `package.py` validates the compiler result and disposable proof before it can
+  seal built artifacts.
 
-No adapter archive is checked into this repository. `package.py` deliberately
-does not infer destination roots or custom-action dispositions. Those must be
-derived from the private exact package and reviewed before sealing. The current
-source candidate is therefore not installable and does not authorize a Native
-Access Install click.
+No adapter archive is checked into this repository. Caller-supplied plans and
+caller-supplied table projections are rejected. Production sealing and renderer
+admission are source-disabled until the exact reviewed compiler-result,
+disposable-proof, and final-archive digests are pinned. The current source
+candidate is therefore not installable and does not authorize a Native Access
+Install click.
 
 The real MSI library is built from Wine
 `dc26e61847081a1b5cb0733dc30feba6ee575482` with the two ordered upstream

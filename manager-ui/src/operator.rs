@@ -603,14 +603,23 @@ fn installer_lines(v: &serde_json::Value) -> Vec<String> {
 fn kontakt8_lines(v:&serde_json::Value)->Vec<String> {
     if !v.is_object(){return Vec::new();}
     let mut lines=vec![match v["installer_transaction"].as_str() {
-        Some("verified")=>"Kontakt 8 installer transaction: verified package deployment completed.".into(),
+        Some("completed")=>"Kontakt 8 installer transaction: exact setup generation exited successfully and post-setup state was verified.".into(),
+        Some("processing")=>"Kontakt 8 installer transaction: payload work may be in progress; installation is not yet accepted.".into(),
         Some("failed")=>"Kontakt 8 installer transaction: failed; installation was not accepted.".into(),
         Some("not_requested")=>"Kontakt 8 installer transaction: not requested in this Native Access session.".into(),
         _=>"Kontakt 8 installer transaction: terminal result unavailable.".into(),
     }];
-    if v["installer_transaction"]=="verified" {
-        lines.push("Kontakt payload and Native Instruments product state: independently verified.".into());
-        lines.push("Native Access recognition: not yet observed; its banner is not installation authority.".into());
+    if v["installer_transaction"]=="completed" {
+        lines.push("Kontakt payload and Native Instruments product state: independently reverified after setup exit.".into());
+        lines.push(if v["native_access_recognition_observed"]==true {
+            "Native Access recognition: observed after the terminal setup transaction.".into()
+        } else {
+            "Native Access recognition: not yet observed; its banner is not installation authority.".into()
+        });
+    } else if v["installer_transaction"]=="processing" {
+        if v["payload_deployment_verified"]==true {
+            lines.push("Payload deployment verified, but the exact setup transaction and post-setup verification remain pending.".into());
+        }
     } else if v["installer_transaction"]=="failed" {
         lines.push(if v["rollback_verified"]==true {"Kontakt transaction rollback: verified.".into()}
             else {"Kontakt transaction rollback: not confirmed.".into()});
@@ -830,12 +839,16 @@ mod tests {
     }
     #[test]
     fn kontakt8_transaction_is_separate_from_application_and_dependency_cleanup() {
-        let verified=serde_json::json!({"installer_transaction":"verified","payload_verification":"verified",
-            "native_instruments_product_state":"installed","native_access_recognition":"unavailable"});
+        let verified=serde_json::json!({"installer_transaction":"completed","payload_verification":"verified",
+            "native_instruments_product_state":"installed","native_access_recognition":"unavailable",
+            "native_access_recognition_observed":false});
         let text=kontakt8_lines(&verified).join(" ");
-        assert!(text.contains("verified package deployment"));
-        assert!(text.contains("independently verified"));
+        assert!(text.contains("setup generation exited successfully"));
+        assert!(text.contains("independently reverified"));
         assert!(text.contains("recognition: not yet observed"));
+        let processing=serde_json::json!({"installer_transaction":"processing","payload_deployment_verified":true});
+        let text=kontakt8_lines(&processing).join(" ");
+        assert!(text.contains("not yet accepted"));assert!(text.contains("setup transaction"));
         let failed=serde_json::json!({"installer_transaction":"failed","rollback_verified":true});
         let text=kontakt8_lines(&failed).join(" ");
         assert!(text.contains("installation was not accepted"));

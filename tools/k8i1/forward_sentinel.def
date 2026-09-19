@@ -1,0 +1,3 @@
+LIBRARY msi_lvb_real.dll
+EXPORTS
+MsiGetFileVersionA=_MsiGetFileVersionA@20 @194
