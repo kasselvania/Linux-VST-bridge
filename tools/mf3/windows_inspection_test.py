@@ -4,6 +4,19 @@ Runs only on the Windows fixture lane. The source-owned DLL spawns no processes.
 import hashlib, json, os, pathlib, shutil, subprocess, sys, time, uuid
 
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
+def handshake(sid,scanner,module,manifest):
+    return ''.join((
+        'schema=linux-vst-bridge-wf0-handshake/v1\n',f'session={sid}\n',
+        f'scanner_sha256={scanner}\n',f'module_sha256={module}\n',
+        f'bundle_manifest_sha256={"02"*32}\n',
+        f'implementation_source_manifest_sha256={manifest}\n',
+        'mode=ap8-module-inspection\n','component_case=first-audio\n','run_ordinal=1\n')).encode()
+def publish_gate(path,binding):
+    temporary=path.with_name(path.name+'.tmp')
+    if path.exists():raise RuntimeError('fixture gate already exists')
+    with temporary.open('xb') as stream:
+        stream.write(binding);stream.flush();os.fsync(stream.fileno())
+    os.replace(temporary,path)
 def main():
     out=pathlib.Path(sys.argv[1]).resolve()
     host=out/'wf0-factory-probe.exe';module=out/'ap10-return-fixture.vst3'
@@ -16,8 +29,10 @@ def main():
         sid=uuid.uuid4().hex;directory=pathlib.Path('C:/bridge/sessions')/sid
         directory.mkdir(parents=True);fixture=directory/'fixture.vst3';shutil.copyfile(module,fixture)
         ready=directory/(sid+'.ready');gate=directory/(sid+'.gate')
-        args=['--session',sid,'--scanner-sha256',sha(host),'--implementation-source-manifest-sha256',sha(manifest),
-              '--module',str(fixture),'--module-sha256',sha(fixture),'--bundle-manifest-sha256','02'*32,
+        scanner_sha=sha(host);module_sha=sha(fixture);manifest_sha=sha(manifest)
+        binding=handshake(sid,scanner_sha,module_sha,manifest_sha)
+        args=['--session',sid,'--scanner-sha256',scanner_sha,'--implementation-source-manifest-sha256',manifest_sha,
+              '--module',str(fixture),'--module-sha256',module_sha,'--bundle-manifest-sha256','02'*32,
               '--ready',str(ready),'--gate',str(gate),'--max-classes','256','--stdout-cap','1048576',
               '--mode','ap8-module-inspection','--component-case','first-audio']
         environment=dict(os.environ)
@@ -26,11 +41,15 @@ def main():
         child=subprocess.Popen([str(host),*args],stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=environment)
         try:
             deadline=time.monotonic()+20
-            while not ready.exists():
+            while True:
                 if child.poll() is not None:raise RuntimeError('fixture exited before readiness')
                 if time.monotonic()>=deadline:raise RuntimeError('fixture readiness timeout')
-                time.sleep(.01)
-            gate.write_bytes(ready.read_bytes());output,error=child.communicate(timeout=30)
+                try:actual=ready.read_bytes()
+                except FileNotFoundError:
+                    time.sleep(.01);continue
+                if actual!=binding:raise RuntimeError('fixture readiness binding differs')
+                break
+            publish_gate(gate,binding);output,error=child.communicate(timeout=30)
             assert child.returncode==(0 if accepted else 90),(case,child.returncode,error[-1024:],output[-2048:])
             assert len(output)<=1048576
             records=[json.loads(line) for line in output.splitlines()]
