@@ -174,6 +174,17 @@ was identified. Installing VC++ again would not repair these MSI row widths.
 
 ## Lesson and next installation route
 
+**Subsequent managed installation completed:** the existing NI prefix was moved
+to the corrected pinned runner without changing its Windows MachineGuid. Native
+Access 3.26.0 installed Kontakt 8 Player 8.13.1 and Factory Selection 1.4.2 through
+its normal Install buttons, and a fresh launch recognized both as installed.
+VST3 scanning and SDK inspection succeeded. Native proxy preparation then exposed
+the separate 32-output-bus limitation in the bridge; Bitwig audio is not yet
+tested. The exact continuation, rollback and results are in
+[`evidence/kontakt-native-access-deck/README.md`](../evidence/kontakt-native-access-deck/README.md).
+The direct-installer observations and unexplained wrapper status above remain
+unchanged; they are not the basis of the later Native Access success claim.
+
 1. Repair the demonstrated MSI decoding defect in the pinned runner and test the
    untouched vendor wrapper in a disposable prefix.
 2. Require final payload, vendor registration, and installer completion together.

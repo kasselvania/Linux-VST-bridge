@@ -5,6 +5,7 @@ Deck, then discover/publish the real VST3 for Bitwig and test it. Each observed
 stage is reported separately; installation alone does not establish audio.
 
 Base commit: `0f7d122bb08e5b491461847a8c818a19fe3d2c86`.
+Base tree: `8142b9ca0aec5883a1d8631ea6d6f4c72fddda88`.
 Primary outcome: the existing NI environment uses the corrected pinned runner
 and Native Access performs the real Kontakt installation.
 
@@ -22,6 +23,14 @@ with editor/audio/state checks. Report any concrete failure at its actual stage.
 Before live mutation retain a private prefix/metadata rollback copy, close owned
 sessions, and verify the exact runner modules. Do not alter other environments,
 Steam's installed runner, account state, or vendor product registration manually.
+
+Observed result: Native Access installation and recognition after reopening
+completed; scan and SDK inspection completed. Proxy preparation refused Kontakt's
+32 stereo outputs at the current single-output implementation. No proxy was
+published and no Bitwig audio/editor/state test was run. Preserve these completed
+sub-results. The remaining work is actual bus support across the proxy/Windows
+host, not another installer implementation or a removed bounds check. See
+`evidence/kontakt-native-access-deck/README.md`.
 
 The earlier investigation follows as retained evidence and reproduction detail.
 

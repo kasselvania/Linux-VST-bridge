@@ -1,0 +1,17 @@
+{
+  "payload": [
+    {
+      "name": "Kontakt 8.exe",
+      "bytes": 178397680,
+      "sha256": "965b47d7d15125c862c541a0f1c30bb1e8fab222e6815a5d0acdf77a42dcf60c"
+    },
+    {
+      "name": "Kontakt 8.vst3",
+      "bytes": 178699760,
+      "sha256": "b4a3d79b194adfc307e5741059c05bdbd7d8e3cbfed4ca7a8e8e8cf755d06563"
+    }
+  ],
+  "matches_disposable_correction_runs": true,
+  "installed_by": "Native Access UI",
+  "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769-ni-msi-ed4a47d3b167"
+}
