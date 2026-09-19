@@ -34,6 +34,18 @@ struct Config {
     DWORD timeout_ms;
 };
 
+/* The setup makes exactly one admitted install call.  Keeping the bounded
+ * protocol buffers in the image avoids the CRT stack-probe dependency while
+ * the interlocked gate prevents concurrent use. */
+static struct Config g_config;
+static WCHAR g_config_content[K8I1_MAX_CONFIG / sizeof(WCHAR)];
+static WCHAR g_request[K8I1_MAX_REQUEST / sizeof(WCHAR)];
+static WCHAR g_result[K8I1_MAX_RESULT / sizeof(WCHAR)];
+static WCHAR g_setup_path[MAX_PATH * 4];
+static WCHAR g_wide_package[MAX_PATH * 4];
+static WCHAR g_wide_command[32768];
+static LONG g_intercept_started;
+
 static int is_hex(const WCHAR *value, DWORD length) {
     DWORD i;
     if (!value || lstrlenW(value) != (int)length) return 0;
@@ -115,7 +127,6 @@ static int config_path(WCHAR *out, DWORD capacity) {
 
 static int read_config(struct Config *cfg) {
     WCHAR path[MAX_PATH * 4];
-    WCHAR content[K8I1_MAX_CONFIG / sizeof(WCHAR)];
     WCHAR *cursor;
     WCHAR *line[11];
     HANDLE file;
@@ -131,13 +142,13 @@ static int read_config(struct Config *cfg) {
         (info.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) ||
         info.nNumberOfLinks != 1 || info.nFileSizeHigh || !info.nFileSizeLow ||
         info.nFileSizeLow >= K8I1_MAX_CONFIG || (info.nFileSizeLow & 1u) ||
-        !ReadFile(file, content, info.nFileSizeLow, &bytes, NULL) || bytes != info.nFileSizeLow) {
+        !ReadFile(file, g_config_content, info.nFileSizeLow, &bytes, NULL) || bytes != info.nFileSizeLow) {
         CloseHandle(file);
         return 0;
     }
     CloseHandle(file);
-    content[bytes / sizeof(WCHAR)] = 0;
-    cursor = content;
+    g_config_content[bytes / sizeof(WCHAR)] = 0;
+    cursor = g_config_content;
     for (i = 0; i < 11; ++i) if (!(line[i] = next_line(&cursor))) return 0;
     if (*cursor || lstrcmpW(line[0], L"K8I1_CONFIG_V1") ||
         !is_hex(line[1], 32) || !is_hex(line[2], 64) || !is_hex(line[3], 64) ||
@@ -162,9 +173,12 @@ static int current_setup_matches(const struct Config *cfg) {
 }
 
 static int append_utf16(WCHAR *out, DWORD capacity, DWORD *used, const WCHAR *value) {
-    DWORD length = (DWORD)lstrlenW(value);
+    DWORD i, length = (DWORD)lstrlenW(value);
+    volatile WCHAR *target;
+    const volatile WCHAR *source;
     if (*used + length + 1 >= capacity) return 0;
-    CopyMemory(out + *used, value, length * sizeof(WCHAR));
+    target = out + *used; source = value;
+    for (i = 0; i < length; ++i) target[i] = source[i];
     *used += length; out[(*used)++] = L'\n'; out[*used] = 0;
     return 1;
 }
@@ -194,35 +208,32 @@ static int append_hex_utf16(WCHAR *out, DWORD capacity, DWORD *used, const WCHAR
 
 static UINT publish_and_wait(const struct Config *cfg, const WCHAR *package,
                              const WCHAR *properties, WCHAR call_kind) {
-    WCHAR request[K8I1_MAX_REQUEST / sizeof(WCHAR)];
-    WCHAR result[K8I1_MAX_RESULT / sizeof(WCHAR)];
     WCHAR call[2] = {call_kind, 0};
-    WCHAR setup_path[MAX_PATH * 4];
     FILETIME created, exited, kernel, user;
     ULONGLONG created_value;
     DWORD used = 0, written = 0, bytes = 0, waited = 0;
     HANDLE file;
-    if (!GetModuleFileNameW(NULL, setup_path, (DWORD)(sizeof(setup_path)/sizeof(setup_path[0]))) ||
+    if (!GetModuleFileNameW(NULL, g_setup_path, (DWORD)(sizeof(g_setup_path)/sizeof(g_setup_path[0]))) ||
         !GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user))
         return K8I1_INSTALL_FAILURE;
     created_value = ((ULONGLONG)created.dwHighDateTime << 32) | created.dwLowDateTime;
-    request[0] = 0;
-    if (!append_utf16(request, (DWORD)(sizeof(request)/sizeof(request[0])), &used, L"K8I1_REQUEST_V1") ||
-        !append_utf16(request, (DWORD)(sizeof(request)/sizeof(request[0])), &used, cfg->operation) ||
-        !append_utf16(request, (DWORD)(sizeof(request)/sizeof(request[0])), &used, cfg->nonce) ||
-        !append_utf16(request, (DWORD)(sizeof(request)/sizeof(request[0])), &used, L"1") ||
-        !append_utf16(request, (DWORD)(sizeof(request)/sizeof(request[0])), &used, call) ||
-        !append_u64(request, (DWORD)(sizeof(request)/sizeof(request[0])), &used, GetCurrentProcessId()) ||
-        !append_u64(request, (DWORD)(sizeof(request)/sizeof(request[0])), &used, created_value) ||
-        !append_hex_utf16(request, (DWORD)(sizeof(request)/sizeof(request[0])), &used, setup_path) ||
-        !append_hex_utf16(request, (DWORD)(sizeof(request)/sizeof(request[0])), &used, package) ||
-        !append_hex_utf16(request, (DWORD)(sizeof(request)/sizeof(request[0])), &used, properties ? properties : L""))
+    g_request[0] = 0;
+    if (!append_utf16(g_request, (DWORD)(sizeof(g_request)/sizeof(g_request[0])), &used, L"K8I1_REQUEST_V1") ||
+        !append_utf16(g_request, (DWORD)(sizeof(g_request)/sizeof(g_request[0])), &used, cfg->operation) ||
+        !append_utf16(g_request, (DWORD)(sizeof(g_request)/sizeof(g_request[0])), &used, cfg->nonce) ||
+        !append_utf16(g_request, (DWORD)(sizeof(g_request)/sizeof(g_request[0])), &used, L"1") ||
+        !append_utf16(g_request, (DWORD)(sizeof(g_request)/sizeof(g_request[0])), &used, call) ||
+        !append_u64(g_request, (DWORD)(sizeof(g_request)/sizeof(g_request[0])), &used, GetCurrentProcessId()) ||
+        !append_u64(g_request, (DWORD)(sizeof(g_request)/sizeof(g_request[0])), &used, created_value) ||
+        !append_hex_utf16(g_request, (DWORD)(sizeof(g_request)/sizeof(g_request[0])), &used, g_setup_path) ||
+        !append_hex_utf16(g_request, (DWORD)(sizeof(g_request)/sizeof(g_request[0])), &used, package) ||
+        !append_hex_utf16(g_request, (DWORD)(sizeof(g_request)/sizeof(g_request[0])), &used, properties ? properties : L""))
         return K8I1_INSTALL_FAILURE;
     file = CreateFileW(cfg->request, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_NEW,
                        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, NULL);
     if (file == INVALID_HANDLE_VALUE) return K8I1_INSTALL_FAILURE;
     bytes = used * sizeof(WCHAR);
-    if (!WriteFile(file, request, bytes, &written, NULL) || written != bytes || !FlushFileBuffers(file)) {
+    if (!WriteFile(file, g_request, bytes, &written, NULL) || written != bytes || !FlushFileBuffers(file)) {
         CloseHandle(file); return K8I1_INSTALL_FAILURE;
     }
     CloseHandle(file);
@@ -237,14 +248,14 @@ static UINT publish_and_wait(const struct Config *cfg, const WCHAR *package,
         BY_HANDLE_FILE_INFORMATION info;
         if (!GetFileInformationByHandle(file, &info) ||
             (info.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) ||
-            info.nNumberOfLinks != 1 || info.nFileSizeHigh || info.nFileSizeLow >= sizeof(result) ||
+            info.nNumberOfLinks != 1 || info.nFileSizeHigh || info.nFileSizeLow >= sizeof(g_result) ||
             (info.nFileSizeLow & 1u)) { CloseHandle(file); return K8I1_INSTALL_FAILURE; }
     }
-    if (!ReadFile(file, result, sizeof(result)-sizeof(WCHAR), &bytes, NULL) ||
-        bytes >= sizeof(result) || (bytes & 1u)) { CloseHandle(file); return K8I1_INSTALL_FAILURE; }
-    CloseHandle(file); result[bytes/sizeof(WCHAR)] = 0;
+    if (!ReadFile(file, g_result, sizeof(g_result)-sizeof(WCHAR), &bytes, NULL) ||
+        bytes >= sizeof(g_result) || (bytes & 1u)) { CloseHandle(file); return K8I1_INSTALL_FAILURE; }
+    CloseHandle(file); g_result[bytes/sizeof(WCHAR)] = 0;
     {
-        WCHAR *cursor = result;
+        WCHAR *cursor = g_result;
         WCHAR *line[7];
         DWORD i;
         for (i=0; i<7; ++i) if (!(line[i]=next_line(&cursor))) return K8I1_INSTALL_FAILURE;
@@ -256,12 +267,12 @@ static UINT publish_and_wait(const struct Config *cfg, const WCHAR *package,
 }
 
 static UINT intercept_w(const WCHAR *package, const WCHAR *properties, WCHAR kind) {
-    struct Config cfg;
     UINT result;
-    if (!read_config(&cfg) || !current_setup_matches(&cfg) || !package ||
-        !same_basename(package, k_package_name) || !exact_plain_file(package, cfg.package_size))
+    if (InterlockedCompareExchange(&g_intercept_started, 1, 0) != 0 ||
+        !read_config(&g_config) || !current_setup_matches(&g_config) || !package ||
+        !same_basename(package, k_package_name) || !exact_plain_file(package, g_config.package_size))
         ExitProcess(K8I1_INSTALL_FAILURE);
-    result = publish_and_wait(&cfg, package, properties, kind);
+    result = publish_and_wait(&g_config, package, properties, kind);
     if (result != ERROR_SUCCESS) ExitProcess(K8I1_INSTALL_FAILURE);
     return ERROR_SUCCESS;
 }
@@ -271,17 +282,15 @@ __declspec(dllexport) UINT WINAPI MsiInstallProductW(LPCWSTR package, LPCWSTR co
 }
 
 __declspec(dllexport) UINT WINAPI MsiInstallProductA(LPCSTR package, LPCSTR command_line) {
-    WCHAR wide_package[MAX_PATH * 4];
-    WCHAR wide_command[32768];
     int p, c;
     if (!package) ExitProcess(K8I1_INSTALL_FAILURE);
-    p = MultiByteToWideChar(CP_ACP, MB_ERR_INVALID_CHARS, package, -1, wide_package,
-                            (int)(sizeof(wide_package)/sizeof(wide_package[0])));
+    p = MultiByteToWideChar(CP_ACP, MB_ERR_INVALID_CHARS, package, -1, g_wide_package,
+                            (int)(sizeof(g_wide_package)/sizeof(g_wide_package[0])));
     c = command_line ? MultiByteToWideChar(CP_ACP, MB_ERR_INVALID_CHARS, command_line, -1,
-                                            wide_command, (int)(sizeof(wide_command)/sizeof(wide_command[0]))) : 1;
+                                            g_wide_command, (int)(sizeof(g_wide_command)/sizeof(g_wide_command[0]))) : 1;
     if (!p || !c) ExitProcess(K8I1_INSTALL_FAILURE);
-    if (!command_line) wide_command[0] = 0;
-    return intercept_w(wide_package, wide_command, L'A');
+    if (!command_line) g_wide_command[0] = 0;
+    return intercept_w(g_wide_package, g_wide_command, L'A');
 }
 
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {

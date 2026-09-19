@@ -126,7 +126,7 @@ jobs:
           if errorlevel 1 exit /b %errorlevel%
           cl /nologo /c /TC /O2 /W4 /GS- /Zl tools\k8i1\msi_shim.c /Fo:"${{ runner.temp }}\k8i1-msi.obj"
           if errorlevel 1 exit /b %errorlevel%
-          link /nologo /DLL /NODEFAULTLIB /ENTRY:_DllMain@12 /DEF:"${{ runner.temp }}\k8i1-msi.def" "${{ runner.temp }}\k8i1-msi.obj" "${{ runner.temp }}\k8i1-msi-real.lib" kernel32.lib /OUT:"${{ runner.temp }}\ap8-build\wf0\bin\Release\k8i1-msi.dll" /INCREMENTAL:NO /BREPRO
+          link /nologo /DLL /NODEFAULTLIB /ENTRY:DllMain@12 /DEF:"${{ runner.temp }}\k8i1-msi.def" "${{ runner.temp }}\k8i1-msi.obj" "${{ runner.temp }}\k8i1-msi-real.lib" kernel32.lib /OUT:"${{ runner.temp }}\ap8-build\wf0\bin\Release\k8i1-msi.dll" /INCREMENTAL:NO /BREPRO
           if errorlevel 1 exit /b %errorlevel%
           cl /nologo /TC /O2 /W4 /DUNICODE /D_UNICODE tools\k8i1\shim_fixture.c /link /OUT:"${{ runner.temp }}\ap8-build\wf0\bin\Release\k8i1-shim-fixture.exe" /INCREMENTAL:NO /BREPRO
           if errorlevel 1 exit /b %errorlevel%
