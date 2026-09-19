@@ -292,15 +292,15 @@ public:
     ++resizing_;
     stage(12);
     Steinberg::ViewRect current{};
-    auto result = view_->getSize(&current);
-    if (result == Steinberg::kResultOk) {
-      stage(13);
-      result = resize(*size) ? Steinberg::kResultOk : Steinberg::kResultFalse;
-      stage(15);
-      if (result == Steinberg::kResultOk && !same(current, *size)) {
-        stage(14);
-        result = view_->onSize(size);
-      }
+    const bool have_current = view_->getSize(&current) == Steinberg::kResultOk;
+    // getSize is optional in the SDK resizeView sequence. The requested size
+    // still must reach the platform and onSize synchronously when unknown.
+    stage(13);
+    auto result = resize(*size) ? Steinberg::kResultOk : Steinberg::kResultFalse;
+    stage(15);
+    if (result == Steinberg::kResultOk && (!have_current || !same(current, *size))) {
+      stage(14);
+      result = view_->onSize(size);
     }
     stage(16);
     --resizing_;
@@ -392,17 +392,16 @@ public:
       }
       stage(6);
       ViewRect rect{};
-      if (view_->getSize(&rect) != kResultOk) {
-        error_ = AP11::Size;
-        close();
-        return false;
-      }
+      // A platform view can defer its size until attached() creates it. Keep
+      // the private parent hidden, then require a valid size after attachment.
+      // This preserves pre-frame scaling for views that already expose size.
+      const bool initial_size = view_->getSize(&rect) == kResultOk;
       RECT work{};
       SystemParametersInfoW(SPI_GETWORKAREA, 0, &work, 0);
       FUnknownPtr<IPlugViewContentScaleSupport> content(view_);
       scale_supported = bool(content);
       scale = 1.f;
-      if (content && rect.getWidth() > 0 && rect.getHeight() > 0) {
+      if (initial_size && content && rect.getWidth() > 0 && rect.getHeight() > 0) {
         scale =
             std::min({1.f, float(work.right - work.left - 24) / rect.getWidth(),
                       float(work.bottom - work.top - 64) / rect.getHeight()});
@@ -429,7 +428,7 @@ public:
         return false;
       }
       stage(8);
-      if (!resize(rect)) {
+      if (initial_size && !resize(rect)) {
         error_ = AP11::Size;
         close();
         return false;

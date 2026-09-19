@@ -39,7 +39,7 @@ struct Stats {
   bool retained_test = false, processing = false, forbid_release = false, refuse_frame = false;
   std::vector<int> retirement;
   bool refuse = false, refuse_attach = false, refuse_size = false, lost_parent = false,
-       close_during_attach = false;
+       close_during_attach = false, size_after_attach = false;
 };
 struct View final : CPluginView, IPlugViewContentScaleSupport {
   Stats &stats;
@@ -73,7 +73,7 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
     if(!frame&&stats.refuse_frame)return kResultFalse;
     if (!frame && stats.retained_test) { check(!stats.processing, "no frame detach during processing"); stats.retirement.push_back(1); }
     auto r = CPluginView::setFrame(frame);
-    if (frame) {
+    if (frame && !stats.refuse_size && !stats.size_after_attach) {
       ViewRect same{};
       check(getSize(&same) == kResultOk &&
                 frame->resizeView(this, &same) == kResultOk,
@@ -115,7 +115,7 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
     return CPluginView::onSize(r);
   }
   tresult PLUGIN_API getSize(ViewRect *r) override {
-    return stats.refuse_size ? kResultFalse : CPluginView::getSize(r);
+    return stats.refuse_size || (stats.size_after_attach && !systemWindow) ? kResultFalse : CPluginView::getSize(r);
   }
   tresult PLUGIN_API onFocus(TBool) override {
     ++stats.focus;
@@ -484,6 +484,12 @@ void lifecycle_faults() {
       ++native.native_view;
     }
     c->stats.refuse_attach=c->stats.refuse_size=false;
+    c->stats.size_after_attach=true;
+    native.command(AP11::Open);session.service(true);native.drain();
+    check(session.is_open() && session.view().opens==1,
+          "platform size unavailable before attach remains a usable view");
+    native.close();session.service(true);native.drain();++native.native_view;
+    c->stats.size_after_attach=false;
     // Close while opening cancels only that native lifetime, even when the
     // next generation is already in the same command batch.
     const auto created=c->stats.created;
