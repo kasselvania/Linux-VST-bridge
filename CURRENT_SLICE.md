@@ -1,3 +1,21 @@
+# Authorized Deck installation of the approved manager UI
+
+2026-09-19: the operator approved installing the new manager after closing the
+manager and completing the Blackhole Immersive installer. Deploy the manager and
+frontend built from `ef9f36a29d6af70538bf3a2db6be6016faf530a3` through the existing
+setup procedure, with a private rollback record. Preserve installed host/native
+artifacts, runner/prefix identities, registry, installer results and user projects.
+Verify executable hashes, desktop/command targets, service readiness and read-only
+operator inventory. GUI interaction and new audio/plug-in qualification remain
+outside this installation. This approval supersedes the earlier no-deployment
+limit below; the implementation and earlier local result remain unchanged.
+
+Installation completed through `setup` with no UI interaction. New executable
+hashes, desktop target, running service identity and schema-7 inventory were
+verified. The eight native proxies, runtime artifact hashes, 34 protected
+registry/environment/installer records and two Kontakt project files were
+preserved. See `evidence/manager-library/deployment.sanitized.json`.
+
 # Manager plug-in library presentation
 
 Operator-approved implementation, 2026-09-19.

@@ -2,8 +2,8 @@
 
 2026-09-19; base `813a179355c9e22159e3adaaa6e93004e3ef2923`.
 Implemented on `codex/manager-plugin-library`. Local macOS arm64,
-Rust 1.95.0, eframe/egui 0.36.2. This result covers frontend presentation,
-not Deck deployment or plug-in compatibility.
+Rust 1.95.0, eframe/egui 0.36.2. The initial result below covers frontend presentation; the later authorized
+Deck installation is recorded at the end. Neither result qualifies plug-ins.
 
 - Frontend build (binaries and examples): passed.
 - Existing frontend checks plus three focused library tests: 35 passed.
@@ -43,3 +43,28 @@ were made, and the Deck was not contacted. The production manager was not launch
 
 The installed Deck software, Bitwig session, projects, prefixes, libraries and
 publication records are unchanged. End-to-end Deck interaction remains untested.
+
+## Authorized Deck installation
+
+The operator subsequently approved deployment after the Blackhole Immersive
+installer completed and the old UI was closed. Sol 5.6 at Extra High built the
+Linux x86_64 release manager and frontend from `ef9f36a29d6af70538bf3a2db6be6016faf530a3`
+using `tools/mf1/build-linux.sh`, Rust 1.95.0 and Zig 0.14.1. The first sandboxed
+build could not write Zig's cache; the permitted identical build succeeded.
+
+The installer operation was completed, with zero DSP/maintenance activity and no
+pending transactions or unresolved cleanup. The existing setup transaction
+installed the two verified binaries and restarted the idle bridge service.
+Its unchanged verified host, host-source manifest, supervisor, ownership helper,
+installer-launch adapter and preparation kit were retained. All eight native
+proxy hashes and catalogue environment bindings were preserved. Hash comparisons
+also preserved 34 registry/environment/installer records and two Kontakt project
+files. Prior immutable software plus private setup/launcher records remain on
+Deck for rollback.
+
+[Sanitized readback](deployment.sanitized.json) records the installed hashes,
+matching desktop launcher, resolved frontend dependencies, running service
+identity and schema-7 inventory. Prior product statuses were preserved and both
+vendor applications expose their exact environment associations. Crash capture
+remains off. No GUI was opened or operated; this installation performed no new
+Blackhole scan, licensing, audio or plug-in qualification.

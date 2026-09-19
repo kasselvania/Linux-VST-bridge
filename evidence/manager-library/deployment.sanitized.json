@@ -1,0 +1,82 @@
+{
+  "schema": 1,
+  "kind": "manager_ui_deployment",
+  "source_commit": "ef9f36a29d6af70538bf3a2db6be6016faf530a3",
+  "manager_sha256": "44042a52e2e200b69fc7737558ab1c6111d4e2ff7933c9487792b473f94aa72d",
+  "frontend_sha256": "fef546304910f2562d5a29d4179fa9ac917246b8943c1375e3030da794249b41",
+  "desktop_launcher_matches": true,
+  "frontend_dependencies_resolve": true,
+  "running_service_uses_new_manager": true,
+  "system": {
+    "service": "active",
+    "keepers": 0,
+    "dsp": 0,
+    "maintenance": 0,
+    "ceiling": 6,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "vendor_applications": [
+    {
+      "name": "Arturia Software Center",
+      "state": "closed",
+      "has_environment_binding": true
+    },
+    {
+      "name": "Native Access",
+      "state": "closed",
+      "has_environment_binding": true
+    }
+  ],
+  "products": [
+    {
+      "name": "Pigments",
+      "version": "7.0.1.6772",
+      "disposition": "ready"
+    },
+    {
+      "name": "Pure LoFi",
+      "version": "1.0.0.6121",
+      "disposition": "ready"
+    },
+    {
+      "name": "Efx FRAGMENTS",
+      "version": "1.0.0.2925",
+      "disposition": "ready"
+    },
+    {
+      "name": "Serum 2",
+      "version": "2.1.5",
+      "disposition": "experimental"
+    },
+    {
+      "name": "Kontakt 8",
+      "version": "8.13.1",
+      "disposition": "experimental"
+    },
+    {
+      "name": "Serum 2 FX",
+      "version": "2.1.5",
+      "disposition": "installed_unqualified"
+    }
+  ],
+  "installer_completed_count": 3,
+  "gui_opened_or_operated": false,
+  "audio_or_plugin_qualification_performed": false,
+  "runtime_artifacts_preserved": {
+    "host": true,
+    "source_manifest": true,
+    "supervisor": true,
+    "ownership": true,
+    "installer_launch": true,
+    "preparation_kit": true
+  },
+  "native_proxy_count_preserved": 8,
+  "protected_record_count": 34,
+  "protected_project_count": 2
+}
