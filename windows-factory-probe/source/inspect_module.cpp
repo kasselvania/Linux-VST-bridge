@@ -1,5 +1,6 @@
 #include "inspect_module.h"
 #include "bus_census.h"
+#include "stereo_negotiation.h"
 #include "offline_processing.h"
 #include "vendor_handler.h"
 #include "ap8_state.h"
@@ -46,7 +47,7 @@ template<size_t N> std::string bounded(const char (&value)[N]) {
 }
 
 }
-int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id, ExternalProcessing* external, const std::wstring& access_directory, bool bus_probe) {
+int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id, ExternalProcessing* external, const std::wstring& access_directory, bool bus_probe, bool stereo_probe) {
     using namespace Steinberg;using namespace Steinberg::Vst;
     HostApplication host;VendorHandler handler;handler.external=external;
     IComponent* component=nullptr;IAudioProcessor* audio=nullptr;IEditController* controller=nullptr;
@@ -155,6 +156,25 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             // No process, editor, parameter or state operation in this probe.
             // The outer inspection owner contains any unresponsive SDK call.
             run_event_bus_census(*component,*audio,emit,step,ok);
+        }else if(stereo_probe){
+            auto emit_snapshot=[&](const char* stage,const StereoBusSnapshot& row){
+                std::string fields=",\"stage\":"+quoted(stage)+",\"input_count\":"+std::to_string(row.counts[0])+",\"output_count\":"+std::to_string(row.counts[1])+",\"buses\":[";
+                for(size_t i=0;i<row.buses.size();++i){if(i)fields+=',';const auto& bus=row.buses[i];
+                    fields+="{\"direction\":"+std::to_string(bus.direction)+",\"index\":0,\"info_result\":"+std::to_string(bus.info_result)+",\"arrangement_result\":"+std::to_string(bus.arrangement_result)+",\"arrangement\":"+std::to_string(bus.arrangement);
+                    if(bus.info_result==kResultOk)fields+=",\"media\":"+std::to_string(bus.info.mediaType)+",\"channels\":"+std::to_string(bus.info.channelCount)+",\"type\":"+std::to_string(bus.info.busType)+",\"flags\":"+std::to_string(bus.info.flags)+",\"name\":"+text16(bus.info.name);
+                    fields+='}';}
+                events.lifecycle("ap18_stereo_bus_snapshot",fields+"]");
+            };
+            auto emit_request=[&](const StereoNegotiationResult& result){
+                events.lifecycle("ap18_stereo_request",",\"input_count\":1,\"output_count\":1,\"input_arrangement\":"+std::to_string(SpeakerArr::kStereo)+",\"output_arrangement\":"+std::to_string(SpeakerArr::kStereo)+",\"result\":"+std::to_string(result.request_result)+",\"readback_stereo\":"+(result.readback_stereo?"true":"false")+",\"accepted\":"+(result.accepted?"true":"false")+",\"layout_changed\":"+(result.layout_changed?"true":"false"));
+            };
+            auto emit_restore=[&](const StereoNegotiationResult& result){
+                std::string fields=",\"attempted\":"+std::string(result.restore_attempted?"true":"false");
+                if(result.restore_attempted)fields+=",\"result\":"+std::to_string(result.restore_result);
+                fields+=",\"verified\":"+std::string(result.restored?"true":"false");
+                events.lifecycle("ap18_stereo_restore",fields);
+            };
+            run_stereo_negotiation(*component,*audio,emit_snapshot,emit_request,emit_restore,step);
         }else{
         int n=controller->getParameterCount();if(n<0||n>8192)throw std::runtime_error("parameter count bound");
         events.lifecycle("ap8_parameter_count",",\"count\":"+std::to_string(n));
