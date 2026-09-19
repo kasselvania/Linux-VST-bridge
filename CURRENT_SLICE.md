@@ -1,3 +1,212 @@
+# Blackhole controller-interface continuation
+
+The operator authorized continuation after successful vendor activation and the
+post-activation scan's `controller query tuple` rejection. Base commit
+`4e53c42a55d6063bd37f75c909e5397099c7ebe3`, tree
+`4d675fff30e50f558921b610ddfe06508ca0d3ff`. Primary outcome: determine the actual
+controller-interface response and correct the host's acquisition path where
+official SDK semantics support it, then verify the real Blackhole inspection.
+Basis: AGENTS.md, Work to an outcome / Keep the engineering safeguards / GUI test
+custody and delegated control; existing architecture's SDK boundary and exact
+identity preservation. Fixture remains Blackhole Immersive 1.4.4, PACE
+5.10.2.4663 and the existing pinned Proton 11.0-2c environment on the Deck.
+
+Scope: Windows SDK controller acquisition and structured diagnostic records,
+focused regression coverage, verified build artifacts and one relevant live
+inspection per materially changed candidate. Sol 5.6 Extra High handles code;
+the parent owns supervision/deployment/evidence; Luna 5.6 Max alone operates the
+GUI. First measure the missing return code and pointer-presence without logging
+addresses or secrets. Preserve successful component initialization and distinguish
+valid separate-controller fallback from malformed responses. No licensing,
+runner, prefix, vendor-binary, existing publication or unrelated plug-in change.
+
+Use a separately identified candidate host with existing supervision for the
+initial diagnostic, preserving installed software/inventory authority. Retain
+the actual query tuple, selected association, subsequent failure or completed
+inspection, source/build identity and cleanup. Install a proven repair through
+normal setup with rollback if needed for the manager's follow-up path. Do not
+claim audio or Bitwig usability from inspection alone; no repeated unchanged
+scan, UI test campaign or broad compatibility claim is in scope.
+
+# Blackhole Immersive load failure and actionable scan recovery
+
+2026-09-19: the operator requested investigation and repair after Blackhole
+Immersive installed but its first scan timed out at `load_library`. Base:
+`c9758f58ed51254cf828d5622f1a86c0f57687e0`. Primary outcome: identify the observed
+blocking stage using retained installation and scanner facts, repair misleading
+scan reporting and provide deliberate exact-module retry after a relevant change.
+Investigate the installed PACE/iLok dependency in the existing isolated environment.
+Use bounded supervised diagnostics where retained evidence cannot answer the
+question; preserve the original failed scan and all installed identities.
+
+Scope: existing manager inventory, scan actions and presentation, dependency
+diagnosis, narrow verified launch preparation if needed, focused regressions and
+sanitized findings. No Codex GUI input, license/account inspection, arbitrary
+activation changes, prefix recreation, unrelated plug-in tests or performance
+campaign. The operator handles any vendor sign-in or activation UI. A timeout is
+not a proven PACE defect; installed files are not service-readiness evidence.
+Commit and push reviewable changes; do not merge. Record any remaining live gate.
+
+Base tree: `e584752e955f102266ff68c5fde006eb4beabfe1`. Basis: AGENTS.md,
+Core product invariants / Evidence requirements; GOVERNANCE.md, What evidence
+means; docs/ARCHITECTURE.md, 4.3 Readback / 5.1 Manager core. Fixture: the existing
+Deck installation of Blackhole Immersive 1.4.4, bundled PACE 5.10.2.4663 and its
+pinned Proton 11.0-2c / SLR 4 environment. No dependency version changes.
+
+Acceptance: show the retained scanner error separately from parser quarantine;
+offer a deliberate retry bound to the current environment, scan, module and
+report; scan only that module through existing supervision; retain other results
+and the original report. Reject changed identities and busy runtime state.
+Ordinary rescans retain their existing quarantine behavior. Verify the onboarding
+environment route without requiring publication, and permit identical verified
+scanner bytes to relocate during a manager update. Use focused regressions,
+Linux release builds and read-only installed projection checks. Retain sanitized
+findings under `evidence/blackhole-immersive-deck/`. Deployment changes only the
+manager/frontend through setup, retaining prior immutable software and private
+launcher/manifest backups for rollback. Audio, activation, successful loading,
+and universal reporting classification remain unproved or deferred.
+
+The bounded reporting/retry repair is implemented and its focused checks and
+Linux build passed (`fea71b4`). After the operator closed the manager, setup
+installed the exact binaries and read-only projection verified the retained
+timeout and enabled exact-module retry. Service readiness, runtime digests,
+43 protected records and nine native proxy files were preserved; see
+`evidence/blackhole-immersive-deck/deployment.sanitized.json`. Blackhole's load
+timeout remains unresolved despite PACE reporting RUNNING; the next live
+investigation step is iLok startup in its existing environment with the operator
+reading the window. No retry or GUI input occurred.
+
+The operator subsequently authorized Luna 5.6 at Max to use Moonlight computer
+control for the manager steps. The bounded GUI check opens the installed
+manager, clears filters, finds Blackhole and reads its failure/retry control.
+The parent retains candidate/evidence custody and does not operate the GUI.
+This check does not authorize another unchanged module scan or establish iLok
+startup, activation or successful plug-in loading.
+
+Luna completed that check: the card visibly showed the retained timeout, generic
+factory reason and active-styled retry control. The manager remains open on the
+card. Independent process readback confirmed the installed frontend, unchanged
+original scan/report and idle healthy bridge. No retry was pressed; iLok startup
+and the underlying load failure remain the next investigation step.
+
+On the operator's request to continue, run one bounded iLok startup observation
+in the same Blackhole environment, pinned runner and HOME. Use the installed
+verified launch adapter and companion cgroup ownership; restore the idle bridge
+after cleanup. Luna 5.6 Max observes Moonlight and reports non-sensitive startup
+text. No sign-in, activation, dependency update, prefix recreation or automatic
+module retry is part of this observation.
+
+iLok startup succeeded: Luna observed the Sign In screen without a startup/error
+dialog, and process evidence bound the exact installed image. The bounded
+diagnostic retired cleanly; a normal supervised user session is now open in the
+same environment/HOME with no runtime cutoff and bridge restart configured on
+application close. The operator has been asked to sign in, activate Blackhole
+if available and close iLok. Authorization and the follow-up module retry are
+pending that user action; the original loading timeout remains unresolved.
+
+The operator now authorizes a private SSH credential handoff so Luna can enter
+their iLok User ID/password into the existing sign-in form. Add a bounded
+operator helper with hidden terminal prompts, private temporary runtime storage,
+15-minute expiration and one-time password consumption. Bind input to the exact
+owned iLok window/process; send text through stdin, never argv, environment,
+clipboard or diagnostic output. Luna owns field selection and sign-in submission;
+the parent never reads credential values. Keep Remember credentials unchecked.
+This is a developer/operator handoff for this live session, not a general product
+credential store or expanded compatibility claim. Verify refusal/consumption
+behavior and one harmless input path before providing the command to the user.
+
+The helper is installed and verified. Seven focused tests and one fictional-data
+SSH/GUI check passed, including hidden prompts, masked password input and
+one-time deletion. Luna restored both fields empty with Remember unchecked;
+status is `none`. The next user action is running `lvb-ilok-login` over an
+interactive SSH session and reporting that the handoff is ready. Luna may then
+select the exact fields, invoke the fixed fill commands without reading the
+credential file, and submit Sign In. Actual sign-in and activation are unproved.
+
+The operator supplied the handoff and requested Luna to continue. One sign-in
+succeeded; the handoff file was verified absent. Luna then activated the exact
+Blackhole license on the offered current local computer through the vendor UI,
+observed Successful Activation and closed iLok normally. Owned cleanup completed
+with zero remaining processes, the unit retired and the bridge returned healthy
+and idle. Luna submitted one post-activation exact-module retry. The original
+load timeout did not recur: factory discovery returned three classes, component
+creation/initialization and the audio-processor query succeeded. Inspection then
+stopped at `controller query tuple` (SDK host code 90). The existing record omits
+the query result/pointer tuple, so the precise incompatible response remains
+unknown. The manager now shows Eventide Blackhole Immersive 1.4.4 as Installed -
+not published, with the error and Check compatibility action. Cleanup and
+transport retirement were confirmed, the original report was retained and the
+bridge is active with no DSP, pending work or stale transports. No publication,
+audio test, additional scan or runtime change occurred. See the sanitized
+activation and post-activation scan receipts; the next technical issue is the
+controller-interface rejection, not another unmodified installer/iLok replay.
+
+# User guide for crash capture
+
+2026-09-19: the operator requested step-by-step crash-capture instructions as a
+PDF on the Steam Deck desktop. Document the installed manager's actual controls,
+next-instance scope, current eligibility limits, report export and fix comparison.
+No runtime change or crash reproduction is part of this documentation task.
+
+The three-page [guide](output/pdf/Plug-in-Crash-Capture-Guide.pdf) was rendered and
+visually checked, then copied to the Deck desktop as `Plug-in Crash Capture Guide.pdf`.
+The remote SHA-256 matches the repository PDF. The read-only manager projection
+confirmed current action availability and capture off. Editable text lives in
+`docs/user/plug-in-crash-capture.md`; delivery details are in
+`evidence/manager-library/README.md`.
+
+# Authorized Deck installation of the approved manager UI
+
+2026-09-19: the operator approved installing the new manager after closing the
+manager and completing the Blackhole Immersive installer. Deploy the manager and
+frontend built from `ef9f36a29d6af70538bf3a2db6be6016faf530a3` through the existing
+setup procedure, with a private rollback record. Preserve installed host/native
+artifacts, runner/prefix identities, registry, installer results and user projects.
+Verify executable hashes, desktop/command targets, service readiness and read-only
+operator inventory. GUI interaction and new audio/plug-in qualification remain
+outside this installation. This approval supersedes the earlier no-deployment
+limit below; the implementation and earlier local result remain unchanged.
+
+Installation completed through `setup` with no UI interaction. New executable
+hashes, desktop target, running service identity and schema-7 inventory were
+verified. The eight native proxies, runtime artifact hashes, 34 protected
+registry/environment/installer records and two Kontakt project files were
+preserved. See `evidence/manager-library/deployment.sanitized.json`.
+
+# Manager plug-in library presentation
+
+Operator-approved implementation, 2026-09-19.
+
+- Base: `813a179355c9e22159e3adaaa6e93004e3ef2923`; tree:
+  `585c5497eb245edb5bce6485bda74cc7bd4c2d6b`.
+- Basis: AGENTS.md; GOVERNANCE.md, What evidence means;
+  docs/ARCHITECTURE.md, 2.5 UI toolkit / 4.3 Readback / 5.1 Manager core.
+- Primary claim: the existing native manager presents all discovered plug-ins in
+  a searchable vendor-grouped library, with role/version/publication status,
+  relevant existing actions, and expandable technical details.
+- Scope: manager-ui and exact environment metadata in the existing operator
+  projection. Preserve schema 7, request validation, disabled reasons, and
+  manager ownership. No runtime or dependency version updates.
+- Verification: local frontend build, existing frontend checks, focused checks
+  for filtering/status visibility and exact action association, plus a visual
+  preview from the actual widget using clearly labeled synthetic records.
+  Unknown states must remain visible; disabled actions must remain disabled;
+  matching vendor names must not associate different environments.
+- Non-goals: Deck deployment, Bitwig interaction, computer-use automation,
+  Kontakt routing, capacity/timing changes, compatibility or audio acceptance.
+  Kontakt and Jev GUI experiments are deferred by the operator.
+- Deliver one reviewable PR, commit and push. Preserve the installed Deck,
+  projects and vendor environments. Rollback is the prior frontend revision;
+  this change performs no data migration. Retain prior observations below as
+  history only, not active work.
+
+Local implementation is complete: frontend build, 35 frontend tests, Clippy and
+manager compile passed. Wide/narrow/search images use the actual widget with
+synthetic records. See `evidence/manager-library/README.md`. Deck deployment and
+interaction are not part of this result.
+
+# Prior work (deferred / historical)
+
 # Operator steering: Jev-only GUI validation
 
 2026-09-19: the operator withdrew the Kontakt multi-output task and prohibited

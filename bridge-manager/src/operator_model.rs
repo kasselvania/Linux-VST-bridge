@@ -133,6 +133,13 @@ pub enum Action {
     EnvironmentRescan {
         environment: String,
     },
+    QuarantinedModuleRetry {
+        environment: String,
+        scan: String,
+        module_index: usize,
+        module_sha256: String,
+        report_sha256: String,
+    },
     OrdinaryRollback {
         class_id: String,
         publication: String,
@@ -313,6 +320,7 @@ impl Action {
                 | Self::InstallerScan { .. }
                 | Self::VendorApplicationOpen { .. }
                 | Self::EnvironmentRescan { .. }
+                | Self::QuarantinedModuleRetry { .. }
                 | Self::OrdinaryRollback { .. }
                 | Self::OrdinaryRestoreRecommended { .. }
                 | Self::TransactionReconcile {}
@@ -355,6 +363,7 @@ mod tests {
             r#"{"kind":"inspect_and_publish","class_id":"a"}"#,
             r#"{"kind":"capture_disarm","path":"/tmp/other"}"#,
             r#"{"kind":"vendor_application_focus","application":"asc","pid":42}"#,
+            r#"{"kind":"quarantined_module_retry","environment":"a","scan":"b","module_index":0,"module_sha256":"c","report_sha256":"d","path":"/tmp/plugin.vst3"}"#,
             r#"{"kind":"ordinary_activate_candidate","class_id":"a"}"#,
         ] {
             assert!(serde_json::from_str::<Action>(raw).is_err());

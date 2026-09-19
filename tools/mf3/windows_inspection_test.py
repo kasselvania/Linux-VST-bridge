@@ -32,6 +32,10 @@ def main():
         assert child.returncode==0,(child.returncode,error[-1024:],output[-2048:])
         assert len(output)<=1048576
         records=[json.loads(line) for line in output.splitlines()]
+        queries=[r for r in records if r.get('state')=='ap8_controller_query']
+        # The pinned Windows SDK is COM-compatible: kNoInterface is
+        # E_NOINTERFACE (0x80004002) represented as a signed tresult.
+        assert len(queries)==1 and queries[0]['result']==-2147467262 and queries[0]['pointer_present'] is False,queries
         rows=[r for r in records if r.get('state')=='ap8_controller_association']
         assert len(rows)==1 and rows[0]['combined'] is False
         assert rows[0]['class_id']=='4150313052455455524E535445535402',rows

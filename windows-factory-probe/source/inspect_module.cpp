@@ -110,7 +110,10 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         step("queryAudioProcessor");ok(component->queryInterface(IAudioProcessor::iid,reinterpret_cast<void**>(&audio)),"queryAudioProcessor");
         if(!audio)throw std::runtime_error("null audio processor");
         const auto initial_buses = bus_probe ? EventBusCensus::capture(*component,*audio,false) : EventBusCensus{};
+        step("queryEditController");
         auto query=component->queryInterface(IEditController::iid,reinterpret_cast<void**>(&controller));
+        events.lifecycle("ap8_result",",\"operation\":\"queryEditController\",\"result\":"+std::to_string(query));
+        events.lifecycle("ap8_controller_query",",\"result\":"+std::to_string(query)+",\"pointer_present\":"+std::string(controller?"true":"false"));
         if(query==kNoInterface&&controller==nullptr){
             TUID cid{};step("getControllerClassId");ok(component->getControllerClassId(cid),"getControllerClassId");
             char controller_id[33]{};FUID::fromTUID(cid).toString(controller_id);
