@@ -225,5 +225,15 @@ class Kontakt8Tests(unittest.TestCase):
         for forbidden in ("CreateProcess", "ShellExecute", "WinExec", "WinHttp", "InternetOpen", "start.exe"):
             self.assertNotIn(forbidden,source)
 
+    def test_windows_export_audit_distinguishes_forwarders_from_intercepts(self):
+        sys.path.insert(0,str(ROOT/"tools/k8i1"))
+        try:import windows_test
+        finally:sys.path.pop(0)
+        observed=windows_test.export_rows("""
+              5    0          MsiAdvertiseProductA (forwarded to msi_lvb_real.MsiAdvertiseProductA)
+             87   52 00001000 MsiInstallProductA
+        """)
+        self.assertEqual(observed,{5:("MsiAdvertiseProductA","msi_lvb_real.MsiAdvertiseProductA"),87:("MsiInstallProductA",None)})
+
 
 if __name__ == "__main__": unittest.main()

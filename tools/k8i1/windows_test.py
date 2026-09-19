@@ -27,6 +27,22 @@ def machine(path: pathlib.Path) -> int:
     return int.from_bytes(data[offset + 4:offset + 6], "little")
 
 
+def export_rows(text: str) -> dict[int, tuple[str, str | None]]:
+    observed: dict[int, tuple[str, str | None]] = {}
+    for line in text.splitlines():
+        # dumpbin omits the RVA field for PE forwarders and renders their
+        # target in parentheses; locally implemented exports retain the RVA.
+        match = re.match(
+            r"^\s*([0-9]+)\s+[0-9A-Fa-f]+\s+"
+            r"(?:[0-9A-Fa-f]{8,16}\s+)?([A-Za-z_][A-Za-z0-9_]*)"
+            r"(?:\s+=\s+([^\s]+)|\s+\(forwarded to ([^)]+)\))?\s*$",
+            line,
+        )
+        if match:
+            observed[int(match[1])] = (match[2], match[3] or match[4])
+    return observed
+
+
 def main() -> None:
     if len(sys.argv) != 4:
         raise SystemExit("usage: windows_test.py SHIM REGISTRY SHIM_FIXTURE")
@@ -36,11 +52,7 @@ def main() -> None:
     assert machine(fixture) == 0x14C
     rows = generate_forwarders.parse(HERE / "pinned-msi-exports.txt")
     exports = output("dumpbin", "/nologo", "/exports", str(shim))
-    observed = {}
-    for line in exports.splitlines():
-        match = re.match(r"^\s*([0-9]+)\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+=\s+([^\s]+))?\s*$", line)
-        if match:
-            observed[int(match[1])] = (match[2], match[3])
+    observed = export_rows(exports)
     assert len(observed) == 296, ("export_count", len(observed))
     for ordinal, name in rows:
         assert ordinal in observed and observed[ordinal][0] == name, (ordinal, name, observed.get(ordinal))
