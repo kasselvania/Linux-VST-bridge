@@ -27,6 +27,9 @@
 namespace AP2 {
 using namespace Steinberg;
 using namespace Steinberg::Vst;
+#ifdef AP8_PREVIEW
+static_assert(std::size(AP8::buses)<=AP18Buses::max_buses);
+#endif
 namespace {
 struct Guard {
   std::atomic_flag &flag;
@@ -133,16 +136,31 @@ bool parameters(IParameterChanges *p, double &gain, bool &changed) {
 }
 #endif
 bool outputs(ProcessData &d, int maximum) {
+#ifdef AP8_PREVIEW
+  constexpr int count=std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& b){return b.media==kAudio&&b.direction==kOutput;});
+  // The host may omit trailing inactive buses. It may also supply the complete
+  // descriptor layout; those inactive buffers never acquire a transport lane.
+  if(d.numOutputs<1||d.numOutputs>count||!d.outputs)return false;
+  for(int i=1;i<d.numOutputs;++i)if(d.outputs[i].numChannels!=2)return false;
+  const bool extent=true;
+#else
+  const bool extent=d.numOutputs==1;
+#endif
   return d.symbolicSampleSize == kSample32 && d.numSamples > 0 &&
-         d.numSamples <= maximum && d.numOutputs == 1 && d.outputs &&
+         d.numSamples <= maximum && extent && d.outputs &&
          d.outputs[0].numChannels == 2 && d.outputs[0].channelBuffers32 &&
          d.outputs[0].channelBuffers32[0] && d.outputs[0].channelBuffers32[1];
 }
+void silenceOutput(ProcessData& d) {
+  // Only bus zero can be activated in this transport. Do not dereference
+  // inactive host buffers: they may be absent or alias other host storage.
+  auto& bus=d.outputs[0];
+  for(int ch=0;ch<2;++ch)std::fill_n(bus.channelBuffers32[ch],d.numSamples,0.f);
+  bus.silenceFlags=3;
+}
 tresult failure(ProcessData &d, int maximum) {
   if (outputs(d, maximum)) {
-    for (int ch = 0; ch < 2; ++ch)
-      std::fill_n(d.outputs[0].channelBuffers32[ch], d.numSamples, 0.f);
-    d.outputs[0].silenceFlags = 3;
+    silenceOutput(d);
   }
   return kResultFalse;
 }
@@ -639,7 +657,7 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
   if (active) {
     if(phase_!=Setup&&phase_!=Deactivated)return kResultFalse;
 #ifdef AP8_PREVIEW
-    size_t i=0;for(const auto& b:AP8::buses){if(b.media==kAudio&&b.type==kMain&&!bus_active_[i])return kResultFalse;++i;}
+    size_t i=0;for(const auto& b:AP8::buses){if(b.media==kAudio&&b.type==kMain&&b.index==0&&!bus_active_[i])return kResultFalse;++i;}
     uint32_t traits[3]{};if(!setupBuses(uint32_t(maximum_),uint32_t(process_mode_),requested_rate_,traits))return kResultFalse;
     latency_=traits[0];tail_=traits[1];
 #ifdef AP8_PREVIEW
@@ -893,9 +911,7 @@ tresult Processor::containedSilence(ProcessData& d) {
   // These are locally owned Note Offs, never a request to the dead endpoint.
   returned_.release(d,[&](int bus){return eventOutputActive(bus);});
   if(d.numSamples>0){
-    auto** out=d.outputs[0].channelBuffers32;
-    std::fill_n(out[0],d.numSamples,0.f);std::fill_n(out[1],d.numSamples,0.f);
-    d.outputs[0].silenceFlags=3;
+    silenceOutput(d);
   }
   ++contained_callbacks_;contained_frames_+=uint64_t(d.numSamples);
   return kResultOk;

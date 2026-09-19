@@ -5,6 +5,7 @@
 #include <thread>
 #ifdef AP8_PREVIEW
 #include "ap8_descriptor.h"
+#include "ap18_bus_support.h"
 #include "output_results.h"
 #include <vector>
 #include <array>
@@ -87,7 +88,7 @@ private:
   int eventOutputActive(int)const;
   uint64_t terminal_notified_generation_=0;
   bool notifications_=false;uint32_t vendor_latency_=0;
-  std::array<bool,32> bus_active_{};
+  std::array<bool,AP18Buses::max_buses> bus_active_{};
   int stereo_input_ordinal_=-1; // SDK-selected input lane, never product-role dispatch.
   bool setupBuses(uint32_t maximum,uint32_t mode,double rate,uint32_t* traits);
   // Written under busy_ by the callback, read only after quiescence at terminate.

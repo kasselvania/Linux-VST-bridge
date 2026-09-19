@@ -74,6 +74,7 @@ closed_enum!(Limitation {
     InstrumentUnderQualification,
     AuxiliaryInputInactive,
     SoleStereoAuxiliaryInputOnly,
+    FirstStereoOutputOnly,
     ReturnedResultDiagnosis
 });
 

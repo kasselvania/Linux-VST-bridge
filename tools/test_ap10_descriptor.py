@@ -23,6 +23,14 @@ class Descriptor(unittest.TestCase):
   a=self.gen(self.records());self.assertIn('effect=true',a);self.assertIn('{0,0,1,2,1,1,3,',a)
   self.assertIn('{1,1,0,16,0,1,0,', self.gen(self.records(False)))
   self.assertEqual([s for s in a.splitlines() if '_UID 'in s],[s for s in self.gen(self.records(False)).splitlines() if '_UID 'in s])
+ def test_multiple_main_outputs_preserve_every_sdk_index(self):
+  r=self.records(False);first=r[0]
+  r[1:1]=[{**first,'index':i,'name':'Output '+str(i+1)} for i in range(1,32)]
+  text=self.gen(r)
+  self.assertIn('{0,1,31,2,0,1,3,u"Output 32"}',text)
+  self.assertEqual(sum(x.get('state')=='ap8_bus' for x in r),34)
+  r.insert(32,{**first,'index':32})
+  with self.assertRaises(ValueError):self.gen(r)
  def test_instrument_auxiliary_only_input_preserves_inactive_bus(self):
   r=self.records(False)
   r.insert(0,dict(state='ap8_bus',media=0,direction=0,index=0,channels=2,type=1,flags=1,arrangement=3,name='Sidechain'))

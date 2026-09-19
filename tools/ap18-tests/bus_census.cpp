@@ -14,7 +14,42 @@ struct Plugin:AudioEffect {
  tresult PLUGIN_API setProcessing(TBool on)override{processing+=on?1:-1;return kResultOk;}
  tresult PLUGIN_API process(ProcessData&)override{++process_calls;assert(false);return kResultFalse;}
 };
+struct MultiOutput:AudioEffect {
+ std::array<bool,32> enabled{};
+ tresult PLUGIN_API initialize(FUnknown* h)override{
+  auto r=AudioEffect::initialize(h);
+  for(int i=0;i<32;++i)addAudioOutput(u"Output",SpeakerArr::kStereo,kMain);
+  addEventInput(u"Notes",16);addEventOutput(u"Notes",16);return r;
+ }
+ tresult PLUGIN_API setBusArrangements(SpeakerArrangement*,int32 ni,SpeakerArrangement* out,int32 no)override{
+  assert(ni==0&&no==32);for(int i=0;i<no;++i)assert(out[i]==SpeakerArr::kStereo);return kResultOk;
+ }
+ tresult PLUGIN_API activateBus(MediaType m,BusDirection d,int32 i,TBool on)override{
+  if(m==kAudio&&d==kOutput)enabled[size_t(i)]=on!=0;
+  return AudioEffect::activateBus(m,d,i,on);
+ }
+};
 int main(){
+ {
+  HostApplication host;MultiOutput plugin;assert(plugin.initialize(&host)==kResultOk);
+  BusLayout layout;layout.read(plugin,plugin,false);assert(layout.size==34&&layout.counts[1]==32);
+  layout.negotiate(plugin);layout.activate(plugin,true);
+  assert(plugin.enabled[0]);for(size_t i=1;i<32;++i)assert(!plugin.enabled[i]);
+  float left=1,right=2;float* channels[]={&left,&right};float* inactive[]={nullptr,nullptr};
+  std::array<AudioBusBuffers,32> buffers{};layout.map_outputs(buffers,channels,inactive);
+  assert(buffers[0].channelBuffers32==channels&&buffers[0].numChannels==2);
+  for(size_t i=1;i<32;++i)assert(buffers[i].numChannels==2&&buffers[i].channelBuffers32==inactive&&buffers[i].silenceFlags==3);
+  std::vector<uint8_t> contract(28+32*layout.size);ap1::put(contract.data()+20,1,4);ap1::put(contract.data()+24,layout.size,4);
+  std::array<int,4> indices{};
+  for(size_t i=0;i<layout.size;++i){auto& b=layout.buses[i];auto* p=contract.data()+28+32*i;
+   ap1::put(p,b.info.mediaType,4);ap1::put(p+4,b.info.direction,4);ap1::put(p+8,indices[b.info.mediaType*2+b.info.direction]++,4);
+   ap1::put(p+12,b.effective_channels,4);ap1::put(p+16,b.info.busType,4);ap1::put(p+20,b.active?1:0,4);ap1::put(p+24,b.arrangement,8);
+  }
+  layout.contract(contract);ap1::put(contract.data()+28+32*31+20,1,4);
+  bool refused=false;try{layout.contract(contract);}catch(const std::exception&){refused=true;}assert(refused);
+  layout.activate(plugin,false);for(bool on:plugin.enabled)assert(!on);
+  assert(plugin.terminate()==kResultOk);
+ }
  for(auto counts: {std::pair{0,0},std::pair{0,16},std::pair{7,7}}){
   HostApplication host;Plugin plugin;plugin.initial=counts.first;plugin.operational=counts.second;assert(plugin.initialize(&host)==kResultOk);
   auto initial=EventBusCensus::capture(plugin,plugin,false);assert(initial.info.channelCount==counts.first&&!initial.activated);

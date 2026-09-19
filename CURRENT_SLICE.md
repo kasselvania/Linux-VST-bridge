@@ -1,5 +1,17 @@
 # Kontakt through Native Access on the Deck
 
+Operator continuation: implement shared bus handling and get Kontakt audio into
+Bitwig for a first real test. Start from `544c02e2781e77d08c8e7ce7aa9e7cec49c69e45`.
+Preserve every declared output identity and negotiate the complete layout. The
+first live milestone carries bus zero through the existing stereo transport;
+other outputs remain explicitly inactive and unsupported activation is refused.
+This shared mechanism has no Kontakt-specific executable branch. Independent
+multi-output transport remains a subsequent extension, not a claim of this
+first audio test. Keep the installed NI environment and existing published
+profiles intact; build a separate preparation kit and experimental candidate.
+Verify bus metadata/activation/buffer safety, actual Kontakt audio and a
+disposable Bitwig save/reopen. Retain the actual result and any remaining failure.
+
 Operator continuation, 2026-09-18: install Kontakt using Native Access on the
 Deck, then discover/publish the real VST3 for Bitwig and test it. Each observed
 stage is reported separately; installation alone does not establish audio.
