@@ -46,6 +46,19 @@ timeout remains unresolved despite PACE reporting RUNNING; the next live
 investigation step is iLok startup in its existing environment with the operator
 reading the window. No retry or GUI input occurred.
 
+The operator subsequently authorized Luna 5.6 at Max to use Moonlight computer
+control for the manager steps. The bounded GUI check opens the installed
+manager, clears filters, finds Blackhole and reads its failure/retry control.
+The parent retains candidate/evidence custody and does not operate the GUI.
+This check does not authorize another unchanged module scan or establish iLok
+startup, activation or successful plug-in loading.
+
+Luna completed that check: the card visibly showed the retained timeout, generic
+factory reason and active-styled retry control. The manager remains open on the
+card. Independent process readback confirmed the installed frontend, unchanged
+original scan/report and idle healthy bridge. No retry was pressed; iLok startup
+and the underlying load failure remain the next investigation step.
+
 # User guide for crash capture
 
 2026-09-19: the operator requested step-by-step crash-capture instructions as a

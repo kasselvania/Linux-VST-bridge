@@ -103,6 +103,29 @@ verified and reused. The next attempt completed. No live retry or GUI input
 occurred; projection readback does not prove the new button was used or resolve
 the underlying loading timeout.
 
+## Authorized Moonlight presentation check
+
+The operator explicitly authorized Luna 5.6 at Max for computer control. Luna
+used the existing Moonlight stream, opened the manager through the normal
+launcher, waited for installed-state readback, searched `Blackhole` and expanded
+the card details. The parent performed no GUI input.
+
+Luna reported these visible observations: `Blackhole Immersive.vst3`,
+`Unresolved factory`, `Scan needs attention`, version unavailable,
+`TimeoutError: Windows call deadline: load_library`, and
+`inventory factory absent or duplicate`. `Retry this exact module scan` was
+visible with active-button styling. Its backend availability was independently
+verified during deployment. The button was not pressed; the manager was left
+open with this card and its details visible. No iLok window or audio behavior
+was inspected during this bounded presentation check.
+
+Independent post-check process readback verified the running frontend uses the
+deployed immutable executable. The original scan ID and report bytes were
+unchanged. Bridge service remained active with zero DSP/maintenance activity,
+no pending transactions/stale transports and no unconfirmed cleanup. This
+establishes visible presentation of the retained failure and retry control,
+not successful retry execution or resolution of the loading failure.
+
 ## Deferred user request
 
 The operator asked to remember, not implement here, a classification of tooling
