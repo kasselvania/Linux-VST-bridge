@@ -12,6 +12,16 @@ An approved implementation task includes ordinary code changes, necessary builds
 
 The operator's current instruction takes precedence over repository process documents. These rules replace the older mandatory selection/receipt/diagnostic/acceptance sequence. `docs/campaigns/`, `docs/maintenance/`, `docs/process/` and previous slice instructions retain historical context, not standing requirements for new work. Platform/tool approvals and security restrictions are separate and remain in force; never route around a denial.
 
+## Prove the next real boundary
+
+Keep the current user-visible outcome explicit throughout the task. A locally correct repair, safer refusal, richer diagnostic, passing fixture or successful cleanup does not establish that the end-to-end blocker has been removed. State exactly which real product boundary moved and which boundary remains untested.
+
+When physical behavior and generated tests disagree, compare the known-working and failing execution paths before adding policy, schemas or abstractions. Identify the first materially different boundary—runtime construction, process ownership, vendor application, installer child, package execution, payload state, plug-in discovery, DAW loading or audio—and test that boundary directly with the smallest discriminating experiment, preferably in a disposable environment.
+
+Once a concrete mechanism is known, repair that mechanism and continue through the selected product outcome in the same task unless a destructive action, security boundary or genuinely consequential design choice requires review. Do not expand architecture around an unexplained failure or require a new tech-lead round trip for every observation, ordinary repair or informative failed test.
+
+Keep application execution, product installation, licensing, discovery, plug-in loading, audio behavior and cleanup as separate facts. Build reusable infrastructure only for proven shared concerns such as runtime identity, ownership, transactions, verification and rollback. Keep vendor- or package-specific incompatibilities in narrow compatibility adapters until repeated evidence justifies a broader abstraction.
+
 ## Keep the engineering safeguards
 
 - Use the actual Windows plug-in, not substitute DSP or fabricated state. Respect SDK interfaces, object lifetime, thread affinity and explicit protocol boundaries. Keep Rust primary and C++ limited to the SDK edges.
