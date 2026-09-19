@@ -85,6 +85,11 @@ Manager SHA-256:
 Frontend SHA-256:
 `026b6f5072e6b6a732321acc55e6468011e414c35a18e59bb3db454ec9b8abb6`.
 
+Source commit: `fea71b4cc005b9fa6b3247af6daa3585138a9b7c`. Both binaries are
+staged privately on the Deck. Installation has not run: the manager frontend is
+open, and the operator was asked to close it. Installed manager/frontend remain
+at `ef9f36a`. No live retry or installed projection check of the repair has run.
+
 ## Deferred user request
 
 The operator asked to remember, not implement here, a classification of tooling

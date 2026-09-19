@@ -36,6 +36,13 @@ manager/frontend through setup, retaining prior immutable software and private
 launcher/manifest backups for rollback. Audio, activation, successful loading,
 and universal reporting classification remain unproved or deferred.
 
+The bounded reporting/retry repair is implemented and its focused checks and
+Linux build passed (`fea71b4`). Binaries are staged on the Deck; installation
+awaits the operator closing the open manager window. The installed revision is
+still `ef9f36a`. Blackhole's load timeout remains unresolved despite PACE reporting
+RUNNING; the next live investigation step is iLok startup in its existing
+environment with the operator reading the window. No retry or GUI input occurred.
+
 # User guide for crash capture
 
 2026-09-19: the operator requested step-by-step crash-capture instructions as a
