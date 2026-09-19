@@ -179,8 +179,12 @@ to the corrected pinned runner without changing its Windows MachineGuid. Native
 Access 3.26.0 installed Kontakt 8 Player 8.13.1 and Factory Selection 1.4.2 through
 its normal Install buttons, and a fresh launch recognized both as installed.
 VST3 scanning and SDK inspection succeeded. Native proxy preparation then exposed
-the separate 32-output-bus limitation in the bridge; Bitwig audio is not yet
-tested. The exact continuation, rollback and results are in
+the separate 32-output-bus limitation in the bridge. The later shared-bus
+continuation now plays Factory Selection Pad - Noir in Bitwig and restores it
+after a full Bitwig restart; see
+[`shared-bus-playback.md`](../evidence/kontakt-native-access-deck/shared-bus-playback.md)
+for the measured result and remaining limitations. Installation, rollback and
+recognition results are in
 [`evidence/kontakt-native-access-deck/README.md`](../evidence/kontakt-native-access-deck/README.md).
 The direct-installer observations and unexplained wrapper status above remain
 unchanged; they are not the basis of the later Native Access success claim.
@@ -196,12 +200,11 @@ unchanged; they are not the basis of the later Native Access success claim.
 4. Store the package/runner match and measured outcome as compatibility data.
    Do not encode an unverified replacement installer as the compatibility policy.
 
-Concretely, the next product change is a pinned runner revision containing the
-two upstream patches plus this MSI-reader correction. Bind it through the existing
-runner/environment owner, preserve a rollback snapshot of the existing NI prefix,
-and run the original vendor package through the working Native Access/Proton
-session there. Resolve the recorded wrapper outcome and verify Native Access
-recognition after reopening before declaring managed installation complete.
+The managed installation used a pinned runner revision containing the two
+upstream patches plus this MSI-reader correction, bound through the existing
+runner/environment owner with a rollback snapshot of the NI prefix. The original
+vendor package ran through Native Access/Proton, and recognition after reopening
+was verified. The earlier standalone wrapper outcome remains separately unresolved.
 Do not copy files out of these disposable prefixes into the live prefix, recreate
 the licensed machine, or write Native Access's product database by hand.
 

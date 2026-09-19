@@ -1,5 +1,16 @@
 # Kontakt through Native Access on the Deck
 
+Observed continuation result, 2026-09-19: source `9d47606` is installed as an
+experimental candidate on the Deck. Actual Kontakt 8 Player 8.13.1 loaded Factory
+Selection Pad - Noir in Bitwig 6.1, played the owned MIDI clip, and produced
+finite nonzero stereo audio. Full Bitwig close/restart restored the instrument
+and produced audio again. Two 45-second captures and all seven actual load
+attempts are retained in `evidence/kontakt-native-access-deck/shared-bus-playback.md`
+and its sanitized JSON. Observed underruns, taskbar foreground workaround,
+124 MiB maximum extra output storage, and unproved graceful Windows retirement
+remain explicit limits. This is the requested first sound/recall test, not
+ordinary profile qualification, broad multi-output routing or timing acceptance.
+
 Operator continuation: implement shared bus handling and get Kontakt audio into
 Bitwig for a first real test. Start from `544c02e2781e77d08c8e7ce7aa9e7cec49c69e45`.
 Preserve every declared output identity and negotiate the complete layout. The first-stereo-only milestone was tried and failed: Bitwig activates

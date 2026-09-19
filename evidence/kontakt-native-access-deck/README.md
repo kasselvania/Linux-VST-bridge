@@ -2,6 +2,11 @@
 
 Continuation of the MSI investigation in `docs/KONTAKT_MSI_FINDINGS.md`.
 
+Later continuation: [shared bus playback and project recall](shared-bus-playback.md)
+records actual Kontakt sound in Bitwig and a successful save/close/reopen test.
+The original installation and preparation-blocker observations below are retained
+as history, not the current audio status.
+
 ## Installed change
 
 Source `dc36a3b` keeps vendor installation identity distinct from the current

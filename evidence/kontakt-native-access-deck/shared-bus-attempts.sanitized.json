@@ -1,0 +1,713 @@
+{
+  "schema": 1,
+  "fixture": "Kontakt 8 Player 8.13.1; Bitwig 6.1; Steam Deck Galileo; 48000Hz/512 frames",
+  "attempts": [
+    {
+      "session": "dfa600738cae06600bcc5b641d49d9f3",
+      "source": "69b1bcd",
+      "candidate": "a66eb6a5731329db39233ca5c4277fb89279888168e4d54b85e856b7cc4011fd",
+      "result": "failed_before_audio",
+      "windows_report_sha256": "526599b6d4f2b8b6157296fd75c04e9ab72a8c9529fc995c76d9129bf5cd4e62",
+      "native_report_sha256": "eaea593470cf35384ab8ed19c4e1a9467fc01300becf309de2ba11650f4a5b40",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "retirement_disposition": "terminal_instance_failure",
+      "raw_exit": -15,
+      "events": [
+        {
+          "event": "call_started",
+          "sequence": 10,
+          "operation": "init_dll",
+          "interface": null,
+          "ordinal": null,
+          "tier": null
+        }
+      ],
+      "native": [
+        {
+          "event": "ap5_worker_fault",
+          "generation": 1,
+          "fault": 3,
+          "first_position": 0,
+          "processed": 0,
+          "request_high": 0,
+          "result_high": 0,
+          "detail": "WouldBlock: Resource temporarily unavailable (os error 11)"
+        },
+        {
+          "event": "ap7_fault_progress",
+          "context_ready": true,
+          "epoch": 0,
+          "worker_op": 16,
+          "worker_epoch": 0,
+          "worker_position": 0,
+          "request_published": 0,
+          "request_consumed": 0,
+          "result_published": 0,
+          "result_consumed": 0,
+          "service_us_max_at_report": 0,
+          "observation_skips": 0
+        },
+        {
+          "event": "if2_terminal_cleanup",
+          "confirmed": true,
+          "normal_sdk_retirement": false
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 7,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 0,
+          "blocks": 0,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 0,
+          "successful_silent_frames": 0,
+          "priming_frames": 0,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 0,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 0,
+          "clean": true
+        }
+      ]
+    },
+    {
+      "session": "b50cdf899d3648a45cc4c1f90e0e59ae",
+      "source": "d23a72d",
+      "candidate": "7d11e4d385d40d100b07dfe0439472db802fc9dd91cb33404596d2179c261a4f",
+      "result": "failed_before_audio",
+      "windows_report_sha256": "3d8856584e93001ccf4a2af7fb6f949b77c8c88651788aae7472080416cfefad",
+      "native_report_sha256": "15cd659395593b1c5f6dd1b6ccd3a9dee54340b4613fbda0b381fb93172e1342",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "retirement_disposition": "terminal_instance_failure",
+      "raw_exit": -15,
+      "events": [
+        {
+          "event": "call_started",
+          "sequence": 9,
+          "operation": "init_dll",
+          "interface": null,
+          "ordinal": null,
+          "tier": null
+        },
+        {
+          "event": "call_completed",
+          "sequence": 10,
+          "attempt_sequence": 9,
+          "operation": "init_dll",
+          "interface": null,
+          "ordinal": null,
+          "tier": null,
+          "return_kind": "bool",
+          "bool_result": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 294,
+          "state": "ap8_inspected",
+          "controller_separate": false,
+          "state_bytes": 3876,
+          "latency_samples": 0,
+          "float32_result": 0,
+          "float64_result": 1,
+          "tail_samples": 4294967295
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 299,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 70212
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 300,
+          "state": "ap8_failure",
+          "reason": "control disconnected/IO"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 301,
+          "state": "ap11_editor_summary",
+          "opens": 0,
+          "closes": 0,
+          "focuses": 0,
+          "removal_messages": 0,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 0,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 9
+        }
+      ],
+      "native": [
+        {
+          "event": "ap5_worker_fault",
+          "generation": 1,
+          "fault": 3,
+          "first_position": 0,
+          "processed": 0,
+          "request_high": 0,
+          "result_high": 0,
+          "detail": "InvalidData: terminal instance failure"
+        },
+        {
+          "event": "ap7_fault_progress",
+          "context_ready": true,
+          "epoch": 0,
+          "worker_op": 0,
+          "worker_epoch": 0,
+          "worker_position": 0,
+          "request_published": 0,
+          "request_consumed": 0,
+          "result_published": 0,
+          "result_consumed": 0,
+          "service_us_max_at_report": 0,
+          "observation_skips": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 70212,
+          "sha256": "11e034028f1801a5a1c719698ea137fbc8c619f60ab2fdaba9abb9527a59c33f",
+          "gain": 0
+        },
+        {
+          "event": "if2_terminal_cleanup",
+          "confirmed": true,
+          "normal_sdk_retirement": false
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 1,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 0,
+          "blocks": 0,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 0,
+          "successful_silent_frames": 0,
+          "priming_frames": 0,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 0,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 0,
+          "clean": true
+        }
+      ]
+    },
+    {
+      "session": "65934fd467704cc57f806c7abbca1126",
+      "source": "df30658",
+      "candidate": "cd3ca19ac1c922a7ea94a5d4cf9c2aac89621f9cd300f3ee8ef7f1af3e98fcf8",
+      "result": "failed_before_audio",
+      "windows_report_sha256": "a08c5076461bd1168ce24736434c250092f100cdb9b88f30a9e5cba881d26bb7",
+      "native_report_sha256": "9edabb499c8eaf6f31b87a420575ba9995942edd3e09cfe925c46546c89bea41",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "retirement_disposition": "terminal_instance_failure",
+      "raw_exit": -15,
+      "events": [
+        {
+          "event": "call_started",
+          "sequence": 9,
+          "operation": "init_dll",
+          "interface": null,
+          "ordinal": null,
+          "tier": null
+        },
+        {
+          "event": "call_completed",
+          "sequence": 10,
+          "attempt_sequence": 9,
+          "operation": "init_dll",
+          "interface": null,
+          "ordinal": null,
+          "tier": null,
+          "return_kind": "bool",
+          "bool_result": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 294,
+          "state": "ap8_inspected",
+          "controller_separate": false,
+          "state_bytes": 3876,
+          "latency_samples": 0,
+          "float32_result": 0,
+          "float64_result": 1,
+          "tail_samples": 4294967295
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 296,
+          "state": "ap11_controller_refusal",
+          "operation": "refresh_string_termination",
+          "parameter_id": 0,
+          "sdk_result": 1
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 300,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 70212
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 301,
+          "state": "ap8_failure",
+          "reason": "control disconnected/IO"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 302,
+          "state": "ap11_editor_summary",
+          "opens": 0,
+          "closes": 0,
+          "focuses": 0,
+          "removal_messages": 0,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 0,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 9
+        }
+      ],
+      "native": [
+        {
+          "event": "ap5_worker_fault",
+          "generation": 1,
+          "fault": 3,
+          "first_position": 0,
+          "processed": 0,
+          "request_high": 0,
+          "result_high": 0,
+          "detail": "InvalidData: terminal instance failure"
+        },
+        {
+          "event": "ap7_fault_progress",
+          "context_ready": true,
+          "epoch": 0,
+          "worker_op": 0,
+          "worker_epoch": 0,
+          "worker_position": 0,
+          "request_published": 0,
+          "request_consumed": 0,
+          "result_published": 0,
+          "result_consumed": 0,
+          "service_us_max_at_report": 0,
+          "observation_skips": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 70212,
+          "sha256": "02b9a4a11689cdbaf5c79945a456934b7908ef70a4324b0e122ba6eda17394d5",
+          "gain": 0
+        },
+        {
+          "event": "if2_terminal_cleanup",
+          "confirmed": true,
+          "normal_sdk_retirement": false
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 1,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 0,
+          "blocks": 0,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 0,
+          "successful_silent_frames": 0,
+          "priming_frames": 0,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 0,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 0,
+          "clean": true
+        }
+      ]
+    },
+    {
+      "session": "8b48d80f127a160338b625f47cf413df",
+      "source": "ded1006a1baa350b8165f586ff2ea9d253f6e6c3",
+      "candidate": "b3e8c2b3627698f2d227b27b4c995ad3d3a0ff7682917b52660ec6aeb4b6468d",
+      "result": "failed_bus_activation_before_audio",
+      "windows_report_sha256": "bed63686001141efd1c2a37be625603895ed7c28cd284d1834cad686c1887939",
+      "native_report_sha256": "e5e5f5592cdcd963f978fb1d4880fc49b7c3bec4c12e18072ab4c2e642b10c4a",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "raw_exit": 0,
+      "native": [
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 0,
+          "total_frames": 512,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap10_unsupported_bus_activation",
+          "media": 0,
+          "direction": 1,
+          "index": 31,
+          "active": true
+        }
+      ],
+      "processed_audio_frames": 0
+    },
+    {
+      "session": "b5a88a67ce29ed07a36be2c5c213c9b2",
+      "source": "f5342e88c6a9794bcf282103c977c03a7edf2abe",
+      "candidate": "ac5798794e0ad78ca3e4f89bb31d7df2084434435355fb30816f9dc71d7f19de",
+      "result": "loaded_and_processed_empty_instrument_editor_size_refused",
+      "windows_report_sha256": "7ca33a093c6c6ec4184585b5ec641fd3eaee64e33a9ca816778ee03f9d5643a1",
+      "native_report_sha256": "723dbf2bf2ddd81bcf14593d0149a5b8caa1caa59c628222e0bbd755fa3bc031",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "raw_exit": -15,
+      "processed_audio_frames": 14764032,
+      "delivered_frames": 14276608,
+      "callback_rejections": 0,
+      "discontinuities": 0,
+      "startup_underrun_frames": 486912,
+      "underrun_gaps": 2,
+      "priming_frames": 512,
+      "editor": {
+        "opens": 0,
+        "open_attempts": 2,
+        "result": 7,
+        "open_stage": 6,
+        "failure": 0
+      },
+      "musical_audio_verified": false,
+      "note": "All declared output buses accepted and processed. No instrument loaded; editor failed initial getSize before attachment. Empty-instrument output is not musical audio acceptance."
+    },
+    {
+      "session": "d028a7f533c489ae9c148ee4bb2c723f",
+      "source": "9d47606251e4522c7b4f9b549f4fb71cedb16960",
+      "candidate": "2c05013dea1a854461cacc5862c1184734efd5bc29a435059224f41be5fa9eaf",
+      "result": "instrument_loaded_and_midi_played",
+      "windows_report_sha256": "713ff44331cdf4408b0baac3fc268e92e00529abb7ff064d185551a2428d8238",
+      "native_report_sha256": "3b1a776be0a3bd03823517d9cda335e8ac5b3a70d048ca939f4ad1f3ae62d2de",
+      "error": null,
+      "raw_exit": -15,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "vendor_retirement": null,
+      "editor": [
+        {
+          "event": "lifecycle",
+          "sequence": 346,
+          "state": "ap11_editor_summary",
+          "opens": 2,
+          "closes": 2,
+          "focuses": 1,
+          "removal_messages": 23,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 58,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": true,
+          "scale": 1.0,
+          "failure": 0
+        }
+      ],
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 70199,
+          "sha256": "ce60e3e0e425dc0a3a98de5b1f291d4dd19351ebc906d97a449c76da6d0de883",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 0,
+          "total_frames": 512,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 70338,
+          "sha256": "f2c4373724a7163f5892d929667d9edfd71e7458c14181a84534d73e02ca2897",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 0,
+          "total_frames": 512,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 0,
+          "total_frames": 512,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 135675,
+          "sha256": "38f67bf493c1ac1f7a135ef135ddd093e3115de28e13a9ad0fadc35d30ebd2a8",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 135675,
+          "sha256": "9bc6ce5c1492f160da9a7388da29f8101401c721d96000d61e4a0b53ecc23e04",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 135675,
+          "sha256": "95a23f78d5286e2558b9d4667fa4b3a3ade058a2aa1f817f407e08b46b0ffc42",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 135675,
+          "sha256": "1c1e39472e1b0cb1fbbab79f9a7e145d8ad7c119c86e21050241ceff451d9727",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 135675,
+          "sha256": "3f62537f7ed3537f543377f0cc8f42cc0fdc381c6e53f6a0de650f741b0b6637",
+          "gain": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 14764032,
+          "blocks": 28836,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 170496,
+          "underrun_gaps": 3,
+          "underrun_callbacks": 333,
+          "expired_output_frames": 170496,
+          "delivered_frames": 14593024,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "audio_capture": {
+        "rate": 48000,
+        "channels": 2,
+        "frames": 2160000,
+        "seconds": 45.0,
+        "all_finite": true,
+        "nonzero_samples": 3297856,
+        "peak": 0.04013851284980774,
+        "rms": 0.00653741696747913,
+        "wav_sha256": "aba0f0f222179567dda50dd8b002d9df64a5995e0752748effffa13b92bc9851",
+        "source": "Only Bitwig Studio out1/out2 explicitly linked",
+        "recorder_exit": 1
+      }
+    },
+    {
+      "session": "881f417639762d6b07da225977706fe6",
+      "source": "9d47606251e4522c7b4f9b549f4fb71cedb16960",
+      "candidate": "2c05013dea1a854461cacc5862c1184734efd5bc29a435059224f41be5fa9eaf",
+      "result": "saved_project_reopened_and_midi_played",
+      "windows_report_sha256": "bbce98f5078ee240107d8da7315c82c64fe4d33065d07d8d1bf747233ceca0a6",
+      "native_report_sha256": "426ced25a6df8174930a9179bb6f448ae9d2fa97304c9705a96c0534e93ea6a1",
+      "error": null,
+      "raw_exit": -15,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "vendor_retirement": null,
+      "editor": [
+        {
+          "event": "lifecycle",
+          "sequence": 338,
+          "state": "ap11_editor_summary",
+          "opens": 1,
+          "closes": 1,
+          "focuses": 0,
+          "removal_messages": 6,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 16,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": true,
+          "scale": 1.0,
+          "failure": 0
+        }
+      ],
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 70213,
+          "sha256": "e8a18e263c7426703c82217af47c62807bb086538fd059b5891c9032a9b420b1",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 0,
+          "total_frames": 512,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 70353,
+          "sha256": "1d058ea4e4a60f447f121044231ea846bd78d8f9aebfa35c7a8609d2e408572d",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 135686,
+          "sha256": "4a0ba6549b15315b106ee6c333a72fa07495c15bb6190f15fc3f6bbc2cddf440",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 0,
+          "total_frames": 512,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 0,
+          "total_frames": 512,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 135687,
+          "sha256": "9427da65dd849857fadbd93f7c12a5fb73cfb5706e8542652fd3680c7f3e629b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 135687,
+          "sha256": "b9c0bc4c16467a2bc0620d50eeb2f8bb5bd0bd5cc37fe174bac7ac59c74f458d",
+          "gain": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 6593536,
+          "blocks": 12878,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 512,
+          "underrun_gaps": 2,
+          "underrun_callbacks": 2,
+          "expired_output_frames": 256,
+          "delivered_frames": 6592512,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "audio_capture": {
+        "rate": 48000,
+        "channels": 2,
+        "frames": 2160000,
+        "seconds": 45.0,
+        "all_finite": true,
+        "nonzero_samples": 3298880,
+        "peak": 0.04013851284980774,
+        "rms": 0.006538341997673263,
+        "wav_sha256": "607d9ca6fe52d56d2c3143c307f6e2793010e85396c49f0923bfee9578dadc90",
+        "recorder_exit": 1,
+        "source": "Only Bitwig Studio out1/out2 explicitly linked"
+      }
+    }
+  ]
+}
