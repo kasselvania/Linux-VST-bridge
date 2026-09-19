@@ -93,6 +93,24 @@ interactive SSH session and reporting that the handoff is ready. Luna may then
 select the exact fields, invoke the fixed fill commands without reading the
 credential file, and submit Sign In. Actual sign-in and activation are unproved.
 
+The operator supplied the handoff and requested Luna to continue. One sign-in
+succeeded; the handoff file was verified absent. Luna then activated the exact
+Blackhole license on the offered current local computer through the vendor UI,
+observed Successful Activation and closed iLok normally. Owned cleanup completed
+with zero remaining processes, the unit retired and the bridge returned healthy
+and idle. Luna submitted one post-activation exact-module retry. The original
+load timeout did not recur: factory discovery returned three classes, component
+creation/initialization and the audio-processor query succeeded. Inspection then
+stopped at `controller query tuple` (SDK host code 90). The existing record omits
+the query result/pointer tuple, so the precise incompatible response remains
+unknown. The manager now shows Eventide Blackhole Immersive 1.4.4 as Installed -
+not published, with the error and Check compatibility action. Cleanup and
+transport retirement were confirmed, the original report was retained and the
+bridge is active with no DSP, pending work or stale transports. No publication,
+audio test, additional scan or runtime change occurred. See the sanitized
+activation and post-activation scan receipts; the next technical issue is the
+controller-interface rejection, not another unmodified installer/iLok replay.
+
 # User guide for crash capture
 
 2026-09-19: the operator requested step-by-step crash-capture instructions as a

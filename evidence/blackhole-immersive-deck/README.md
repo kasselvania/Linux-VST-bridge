@@ -188,6 +188,57 @@ unchecked. Final helper status was `none`. No Sign In, activation or live module
 scan was triggered. Actual operator credentials remain to be supplied; no real
 credential, account identifier or credential file is included in this evidence.
 
+## Vendor sign-in and activation
+
+After the operator supplied the private SSH handoff and requested Luna to
+continue, Luna invoked the two fixed field commands and submitted Sign In once.
+The authenticated iLok view loaded without an error or additional-verification
+prompt. Independent readback confirmed the temporary handoff file was absent.
+Remember credentials remained unchecked; no credential value was printed or
+included in the retained evidence.
+
+The exact Blackhole Immersive license offered the current local computer as
+its activation destination. Luna completed one vendor activation and observed
+`Successful Activation`, then verified the current local activation and closed
+iLok normally. No other license action, transfer, trial signup or purchase was
+performed. The owned session reported zero remaining processes and confirmed
+cleanup; its unit retired. Independent bridge readback was active and idle with
+no pending transactions, stale transports or unconfirmed cleanup. A stale
+manager status message during bridge startup did not persist in this readback.
+See [activation receipt](ilok-activation.sanitized.json).
+
+## Single post-activation scan
+
+Luna submitted the exact-module retry once after manager refresh completed.
+The backend recorded that action and a new inventory, preserving the original
+failed report and module/scanner identities. The previous `load_library` timeout
+did not recur in this run. Factory enumeration returned the audio-module,
+controller and compatibility classes. Creating and initializing the component,
+then querying its audio-processor interface, returned success.
+
+Inspection subsequently reported `ap8_failure: controller query tuple`, followed
+by SDK host exit 90. The rejection is at the component's `IEditController` query
+in `windows-factory-probe/source/inspect_module.cpp`: this branch accepts either
+a successful non-null combined controller or `kNoInterface` with a null pointer
+before creating a separate controller. The actual returned code and pointer
+presence were not recorded, so this evidence does not distinguish an overly
+strict host check from an inconsistent plug-in response. Repeating the same
+check cannot supply those missing values. No runtime change or second retry
+was performed.
+
+Luna observed the Eventide card as **Installed - not published**, **Effect ·
+1.4.4**, with `Windows SDK Host failed: 90` and **Check compatibility**. No vendor
+dialog appeared. Scanner cleanup and transport retirement were confirmed; the
+bridge is active with three keepers, zero DSP/maintenance/pending transactions,
+zero stale transports and no unconfirmed cleanup. The launcher's raw -15 exit
+is retained separately from the host's structured code 90. The temporary
+credential handoff remains absent. See the [scan receipt](post-activation-scan.sanitized.json).
+
+This establishes vendor activation and progress beyond the original loader
+failure on the exact fixture. It does not prove why that earlier timeout
+occurred, complete compatibility inspection, publication, Bitwig operation or
+audio. The remaining specific issue is controller-interface handling.
+
 ## Deferred user request
 
 The operator asked to remember, not implement here, a classification of tooling
