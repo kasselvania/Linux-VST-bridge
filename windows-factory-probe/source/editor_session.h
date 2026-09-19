@@ -127,16 +127,23 @@ class EditorSession : public VendorEditSink {
       m.value = controller_.getParamNormalized(info.id);
       m.flags = info.flags;
       m.steps = info.stepCount;
-      std::memcpy(m.title, info.title, sizeof(m.title));
-      std::memcpy(m.units, info.units, sizeof(m.units));
-      if (!std::isfinite(m.value) || m.value < 0 || m.value > 1) {
-        m.result=1; // explicitly unavailable readback; zero bytes carry no value
-        m.value=0;
-      }
-      if (m.title[127] || m.units[127]) {
+      // SDK strings end at their first NUL; bytes after it are unspecified.
+      // Copy only the live string into the zero-initialized wire message, so
+      // neither trailing vendor bytes nor false termination failures escape.
+      auto copy_string=[](auto& target,const auto& source) {
+        const auto end=std::find(std::begin(source),std::end(source),0);
+        if(end==std::end(source))return false;
+        std::copy(std::begin(source),end,std::begin(target));
+        return true;
+      };
+      if (!copy_string(m.title,info.title) || !copy_string(m.units,info.units)) {
         controller_failure("refresh_string_termination",info.id,Steinberg::kResultFalse);
         channel_.fail(AP11::Controller);
         return;
+      }
+      if (!std::isfinite(m.value) || m.value < 0 || m.value > 1) {
+        m.result=1; // explicitly unavailable readback; zero bytes carry no value
+        m.value=0;
       }
       if (!channel_.send(m))
         return;

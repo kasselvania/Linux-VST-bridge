@@ -142,6 +142,17 @@ struct Controller final : EditController {
   IComponentHandler *retainedHandler() { componentHandler->addRef(); return componentHandler; }
   Stats stats;
   bool echo = true, no_view = false, invalid_readback=false;
+  bool dirty_string_tail=false;
+  tresult PLUGIN_API getParameterInfo(int32 index,ParameterInfo& info) override {
+    auto result=EditController::getParameterInfo(index,info);
+    if(result==kResultOk&&dirty_string_tail) {
+      // Legal short strings with unspecified trailing bytes, as observed in
+      // Kontakt's first controller parameter. Neither tail may be forwarded.
+      std::fill(std::begin(info.title)+5,std::end(info.title),char16(0x1234));
+      std::fill(std::begin(info.units)+1,std::end(info.units),char16(0x5678));
+    }
+    return result;
+  }
   ParamValue PLUGIN_API getParamNormalized(ParamID id) override {
     return invalid_readback?-1:EditController::getParamNormalized(id);
   }
@@ -669,6 +680,7 @@ int main(int argc,char** argv) {
   check(c->getParamNormalized(42) == .4 && session.suppressed_echoes == 3 &&
             native.drain().empty(),
         "reverse controller update without gesture echo");
+  c->dirty_string_tail=true;
   check(handler.restartComponent(kParamValuesChanged | kParamTitlesChanged) ==
             kResultOk,
         "preset invalidation accepted");
@@ -678,6 +690,11 @@ int main(int argc,char** argv) {
             refresh[1].kind == AP11::Parameter && refresh[1].id == 42 &&
             refresh[1].value == .4 && refresh[2].kind == AP11::RefreshEnd,
         "SDK metadata and value refresh");
+  check(channel.failure()==0 && refresh[1].title[0]=='G' && refresh[1].title[3]=='n' &&
+        std::all_of(std::begin(refresh[1].title)+4,std::end(refresh[1].title),[](auto c){return c==0;}) &&
+        std::all_of(std::begin(refresh[1].units),std::end(refresh[1].units),[](auto c){return c==0;}),
+        "terminated SDK strings ignore and sanitize unused buffer tails");
+  c->dirty_string_tail=false;
   c->invalid_readback=true;
   check(handler.restartComponent(kParamValuesChanged)==kResultOk,"genuine invalidation accepted");
   session.service(true);auto unavailable=native.drain();
