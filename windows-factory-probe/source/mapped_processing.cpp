@@ -280,7 +280,7 @@ void MappedSession::bind_controller(Steinberg::Vst::IEditController* c,bool sepa
  if(c){auto n=c->getParameterCount();require(n>=0&&n<=8192,"controller update parameter bound");std::vector<uint32_t> ids;
   for(int i=0;i<n;++i){Steinberg::Vst::ParameterInfo info{};require(c->getParameterInfo(i,info)==Steinberg::kResultOk,"controller update metadata");ids.push_back(info.id);}
   require(x.controller_updates.configure(ids),"duplicate controller parameter identity");
-  if(x.gui){x.editor=std::make_unique<EditorSession>(*x.gui,*c,handler);x.editor->fault_status(x.fault.get());x.editor->name(x.editor_title);}}
+  if(x.gui){x.editor=std::make_unique<EditorSession>(*x.gui,*c,handler);x.editor->fault_status(x.fault.get());x.editor->diagnostics(x.events);x.editor->name(x.editor_title);}}
 }
 bool MappedSession::hosted() const{return impl_->hosted;}
 bool MappedSession::sustained() const{return impl_->sustained;}

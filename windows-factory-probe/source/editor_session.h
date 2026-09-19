@@ -2,6 +2,7 @@
 #include "fault_status.h"
 #include "vendor_view.h"
 #include "vendor_handler.h"
+#include "linux_vst_bridge/wf0_probe/events.h"
 #include <chrono>
 #include <vector>
 #include <cstdlib>
@@ -38,6 +39,11 @@ class EditorSession : public VendorEditSink {
       lifecycle_ < AP11::ClosedByVendor;
   }
   FaultStatus* fault_=nullptr;
+  EventWriter* events_=nullptr;
+  void controller_failure(const char* operation, uint32_t id, int32_t result) {
+    if(events_) events_->lifecycle("ap11_controller_refusal", ",\"operation\":\""+std::string(operation)+
+      "\",\"parameter_id\":"+std::to_string(id)+",\"sdk_result\":"+std::to_string(result));
+  }
   Clock::time_point serviced_{};
   uint64_t floor_ = 0, close_cutoff_ = 0, refresh_revision_ = 0;
   uint32_t refresh_flags_ = 0, pending_refresh_ = 0;
@@ -107,10 +113,10 @@ class EditorSession : public VendorEditSink {
                          channel_.available() > 64;
          ++n, ++refresh_cursor_) {
       Steinberg::Vst::ParameterInfo info{};
-      if (controller_.getParameterCount() != int(parameters_.size()) ||
-          controller_.getParameterInfo(int(refresh_cursor_), info) !=
-              Steinberg::kResultOk ||
-          !parameter(info.id)) {
+      const auto count=controller_.getParameterCount();
+      const auto metadata=controller_.getParameterInfo(int(refresh_cursor_), info);
+      if (count != int(parameters_.size()) || metadata != Steinberg::kResultOk || !parameter(info.id)) {
+        controller_failure(count != int(parameters_.size()) ? "refresh_count" : metadata != Steinberg::kResultOk ? "refresh_metadata" : "refresh_identity",info.id,metadata);
         channel_.fail(AP11::Controller);
         return;
       }
@@ -128,6 +134,7 @@ class EditorSession : public VendorEditSink {
         m.value=0;
       }
       if (m.title[127] || m.units[127]) {
+        controller_failure("refresh_string_termination",info.id,Steinberg::kResultFalse);
         channel_.fail(AP11::Controller);
         return;
       }
@@ -202,6 +209,7 @@ public:
     return instance_handler_ ? instance_handler_->restartComponent(flags) : restart(flags);
   }
   void fault_status(FaultStatus* f) { fault_=f; }
+  void diagnostics(EventWriter& events) { events_=&events; }
   void name(const std::wstring &name) { name_ = name; }
   bool host_value(uint32_t id, double value, uint64_t revision) {
     if (owner_ != std::this_thread::get_id())
@@ -222,8 +230,10 @@ public:
       return false;
     }
     host_update_ = false;
-    if (r != Steinberg::kResultOk)
+    if (r != Steinberg::kResultOk) {
+      controller_failure("setParamNormalized",id,r);
       return false;
+    }
     p->accepted = revision;
     ++host_updates;
     return true;
@@ -521,6 +531,7 @@ public:
     try {
       refresh();
     } catch (...) {
+      controller_failure("refresh_exception",0,Steinberg::kResultFalse);
       channel_.fail(AP11::Controller);
       close();
     }
