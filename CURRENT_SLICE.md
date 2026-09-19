@@ -1,3 +1,55 @@
+# Kontakt MSI runner correction investigation
+
+Selected by the operator's 2026-09-18 reset: identify the actual Kontakt
+installation failure, correct the compatibility boundary, and retain the lesson.
+
+- Base: `745974b2325e9ace4f7aef21c82f62f29e7e2ff3`
+- Base tree: `b6213087918811f1e90f27d827285dc30785bb3f`
+- Basis: operator-provided AGENTS.md, Mission / Repository roles /
+  Compatibility-profile rules; checkout AGENTS.md, Work to an outcome /
+  Keep the engineering safeguards; GOVERNANCE.md, What evidence means;
+  docs/ARCHITECTURE.md, 2.1 Rust owns the product / 5.2 Runner builder and
+  inventory / 5.3 Environment manager / 5.4 Installer supervisor.
+- Fixture: retained lawful Kontakt 8 Player 8.13.1 package; Steam Deck Galileo;
+  pinned Proton 11.0-2c, Wine `dc26e61847081a1b5cb0733dc30feba6ee575482`.
+
+Primary claim: determine whether ambiguous MSI string-reference widths remain
+misparsed after the two earlier upstream backports, and whether correcting that
+runner defect lets the vendor installer finish in a fresh disposable prefix.
+
+Scope: this file, `docs/KONTAKT_MSI_FINDINGS.md`,
+`evidence/kontakt-msi-root-cause/**`, and
+`kontakt-msi-ambiguous-strrefs.patch`. Private Wine build/source and disposable
+prefixes are permitted outside the repository. No new product deployment engine.
+The K8I1 candidate remains preserved on its existing draft branch.
+
+Acceptance: explain the exact observed row-width error from the retained package
+and Wine source, build the narrow MSI correction, and run one bounded ordinary
+vendor installation in a fresh disposable environment. The first correction run
+deployed the final payload and exited in 232.22 seconds with Linux status 100.
+One additional fresh run with InstallAware's documented native logging switch
+finished in 232.65 seconds with identical final binary hashes. Its native MSI
+INSTALLEND record establishes a successful MSI execute sequence. Outer Linux
+status 100 and vendor variable COPYERROR=TRUE remain unexplained; full wrapper
+success is not claimed. The runner correction remained identical.
+Record actual deployment or the next actual failure. A successful table read alone
+is not installation.
+
+Negative acceptance: preserve the original failing cases; do not claim success
+from wrapper exit, staged files, tests, or partial registration. Stop at a new
+failure rather than silently broadening this correction.
+
+Evidence: sanitized package identities, table sizes/counts/reference validity,
+source/build identities, exact installer outcome, final payload observations,
+remaining gaps, and a reproducible route. No proprietary payload or MSI tables.
+
+Cleanup: retire only disposable processes from this operation, retain their
+private logs and prefix for inspection, and preserve the working managed NI
+environment and earlier candidates. No managed-prefix migration, licensing,
+Native Access interaction, DAW/audio acceptance, merge, or product release.
+
+Earlier NAO1 authority follows as retained context, not the active task.
+
 # NAO1 — Bind the owned session to Proton's initialized command service
 
 Focused repair basis:
