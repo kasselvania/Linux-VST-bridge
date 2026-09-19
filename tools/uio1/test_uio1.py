@@ -110,7 +110,7 @@ class Tests(unittest.TestCase):
         registration={'metadata':{'class_id':g.CLASS},'environment':{'id':g.ENVIRONMENT},
             'module':{'sha256':g.MODULE},'host':{'sha256':g.HOST},'host_source_sha256':g.SOURCE}
         admission={'schema':1,'profile_fingerprint':g.PROFILE,'registration':registration,
-            'accessibility_probe_permitted':False,'maximum_seconds':30,'maximum_records':16384}
+            'accessibility_probe_permitted':True,'maximum_seconds':30,'maximum_records':16384}
         self.assertIs(g.validate_admission(admission),registration)
         for path,value in [('profile_fingerprint','0'*64),('maximum_seconds',31)]:
             changed=json.loads(json.dumps(admission));changed[path]=value

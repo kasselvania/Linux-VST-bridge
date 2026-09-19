@@ -62,7 +62,7 @@ def validate_admission(value):
     keys={'schema','profile_fingerprint','registration','accessibility_probe_permitted','maximum_seconds','maximum_records'}
     if (not isinstance(value,dict) or set(value)!=keys or value['schema']!=1
             or value['maximum_seconds']!=SECONDS or value['maximum_records']!=16384
-            or value['accessibility_probe_permitted'] is not False):
+            or value['accessibility_probe_permitted'] is not True):
         raise RuntimeError('managed admission refused')
     reg=value['registration']
     facts=(value['profile_fingerprint'],reg['metadata']['class_id'],reg['environment']['id'],
