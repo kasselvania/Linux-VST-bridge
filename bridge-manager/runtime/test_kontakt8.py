@@ -211,12 +211,16 @@ class Kontakt8Tests(unittest.TestCase):
 
     def test_forwarder_roster_and_shim_have_no_hook_command(self):
         import subprocess,sys
-        roster=ROOT/"tools/k8i1/pinned-msi-exports.txt";output=pathlib.Path(tempfile.mktemp())
-        try:subprocess.run([sys.executable,str(ROOT/"tools/k8i1/generate_forwarders.py"),"--roster",str(roster),"--output",str(output)],check=True)
-        finally:data=output.read_text() if output.exists() else "";output.unlink(missing_ok=True)
+        roster=ROOT/"tools/k8i1/pinned-msi-exports.txt";output=pathlib.Path(tempfile.mktemp());real=pathlib.Path(tempfile.mktemp())
+        try:subprocess.run([sys.executable,str(ROOT/"tools/k8i1/generate_forwarders.py"),"--roster",str(roster),"--output",str(output),"--real-output",str(real)],check=True)
+        finally:
+            data=output.read_text() if output.exists() else "";real_data=real.read_text() if real.exists() else ""
+            output.unlink(missing_ok=True);real.unlink(missing_ok=True)
         self.assertEqual(len([line for line in data.splitlines()[2:] if "=msi_lvb_real." in line]),294)
         self.assertIn("MsiInstallProductA=_MsiInstallProductA@8 @87",data)
         self.assertIn("MsiInstallProductW=_MsiInstallProductW@8 @88",data)
+        self.assertEqual(real_data.splitlines()[:2],["LIBRARY msi_lvb_real.dll","EXPORTS"])
+        self.assertEqual(len(real_data.splitlines()[2:]),296)
         source=(ROOT/"tools/k8i1/msi_shim.c").read_text()
         for forbidden in ("CreateProcess", "ShellExecute", "WinExec", "WinHttp", "InternetOpen", "start.exe"):
             self.assertNotIn(forbidden,source)

@@ -120,11 +120,13 @@ jobs:
         run: |
           call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x86 -host_arch=x64 -winsdk=10.0.19041.0
           if errorlevel 1 exit /b %errorlevel%
-          python tools\k8i1\generate_forwarders.py --roster tools\k8i1\pinned-msi-exports.txt --output "${{ runner.temp }}\k8i1-msi.def"
+          python tools\k8i1\generate_forwarders.py --roster tools\k8i1\pinned-msi-exports.txt --output "${{ runner.temp }}\k8i1-msi.def" --real-output "${{ runner.temp }}\k8i1-msi-real.def"
           if errorlevel 1 exit /b %errorlevel%
-          cl /nologo /c /TC /O2 /W4 /GS- /Zl /DWIN32_LEAN_AND_MEAN tools\k8i1\msi_shim.c /Fo:"${{ runner.temp }}\k8i1-msi.obj"
+          lib /nologo /machine:x86 /def:"${{ runner.temp }}\k8i1-msi-real.def" /out:"${{ runner.temp }}\k8i1-msi-real.lib"
           if errorlevel 1 exit /b %errorlevel%
-          link /nologo /DLL /NODEFAULTLIB /ENTRY:_DllMain@12 /DEF:"${{ runner.temp }}\k8i1-msi.def" "${{ runner.temp }}\k8i1-msi.obj" kernel32.lib /OUT:"${{ runner.temp }}\ap8-build\wf0\bin\Release\k8i1-msi.dll" /INCREMENTAL:NO /BREPRO
+          cl /nologo /c /TC /O2 /W4 /GS- /Zl tools\k8i1\msi_shim.c /Fo:"${{ runner.temp }}\k8i1-msi.obj"
+          if errorlevel 1 exit /b %errorlevel%
+          link /nologo /DLL /NODEFAULTLIB /ENTRY:_DllMain@12 /DEF:"${{ runner.temp }}\k8i1-msi.def" "${{ runner.temp }}\k8i1-msi.obj" "${{ runner.temp }}\k8i1-msi-real.lib" kernel32.lib /OUT:"${{ runner.temp }}\ap8-build\wf0\bin\Release\k8i1-msi.dll" /INCREMENTAL:NO /BREPRO
           if errorlevel 1 exit /b %errorlevel%
           cl /nologo /TC /O2 /W4 /DUNICODE /D_UNICODE tools\k8i1\shim_fixture.c /link /OUT:"${{ runner.temp }}\ap8-build\wf0\bin\Release\k8i1-shim-fixture.exe" /INCREMENTAL:NO /BREPRO
           if errorlevel 1 exit /b %errorlevel%

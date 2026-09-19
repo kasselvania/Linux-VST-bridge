@@ -40,12 +40,22 @@ def definition(rows: list[tuple[int, str]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def real_definition(rows: list[tuple[int, str]]) -> str:
+    """Describe the pinned real DLL so MSVC can resolve mixed forwarders."""
+    lines = ["LIBRARY msi_lvb_real.dll", "EXPORTS"]
+    lines.extend(f"{name} @{ordinal}" for ordinal, name in rows)
+    return "\n".join(lines) + "\n"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--roster", type=pathlib.Path, required=True)
     parser.add_argument("--output", type=pathlib.Path, required=True)
+    parser.add_argument("--real-output", type=pathlib.Path, required=True)
     args = parser.parse_args()
-    args.output.write_text(definition(parse(args.roster)), encoding="ascii")
+    rows = parse(args.roster)
+    args.output.write_text(definition(rows), encoding="ascii")
+    args.real_output.write_text(real_definition(rows), encoding="ascii")
 
 
 if __name__ == "__main__":
