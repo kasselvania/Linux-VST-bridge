@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "full_frame_validation": [
+    {
+      "label": "first",
+      "pixels": 482448,
+      "rgb_white_pixels": 482448,
+      "all_rgb_pixels_white": true
+    },
+    {
+      "label": "second",
+      "pixels": 482448,
+      "rgb_white_pixels": 482448,
+      "all_rgb_pixels_white": true
+    }
+  ],
+  "retirement": "exact digest-verified test supervisor SIGTERM via pidfd; existing child cleanup",
+  "raw_exit": -15,
+  "error": null,
+  "cleanup_confirmed": true,
+  "transport_retired": true
+}

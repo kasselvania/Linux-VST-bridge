@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "diagnostic_source_commit": "6bb1480fd96072a46704d73001c63443ffbd66e5",
+  "product_review_head_unchanged": "1bda0e5c695fbc84e0ae5ab42728bca6d049e4ab",
+  "cli_sha256": "9460c3e44380a9995375ed64752f7dd3877da39eebdd48075cc3c1d207d6bdcc",
+  "cli_bytes": 1666888,
+  "cli_format": "Linux x86_64 ELF PIE",
+  "script_and_cli_digests": {
+    "tools/uio1/renderer_observe.py": "a3cb07645f88ad62d639abcfc747ef35fdc174df14be909f7bc5b809aab3eed6",
+    "tools/uio1/launch.py": "ce4b58485a1f5635aa7d5fd9cbed0c08e703cca4d40fd73032f7de0f88c56583",
+    "tools/uio1/observe.py": "c37a24472d49cf904829eabcf2d7dd4a0bc8196afef878c972c64e4529ebeb0c",
+    "tools/uio1/capture.py": "a6864df222e48e74abbfbf99a8adb5096b09055f06c550aba257a7077dacf69b",
+    "tools/uio1/x11.py": "818487f15af2a7a1f2a2d4705f36031d3fbed47b3dc6796a37d90f632e216fa1",
+    "tools/uio1/xrecord.py": "eed29926ceeaf83dd7221b5adf4a5d34327c8eef33f7f7d07537dc80c1c37d9c",
+    "tools/uio1/package.json": "979398d66ed7263021f785cf66a8a2e3e5727b8cb9f768fb12616bcfa711113a",
+    "tools/uio2/desktop.py": "464205b0f66fb3af1eb2adec7ddae7d15007dc40292827b3b8f76d2f08fce05f",
+    "tools/uio2/popup.py": "e79d2ef5d1cb09b5308ff51e2ed0add6669bd9e6a2dd77e8bbd28d00ed20b7bf",
+    "uio1": "9460c3e44380a9995375ed64752f7dd3877da39eebdd48075cc3c1d207d6bdcc"
+  },
+  "checks": {
+    "managed_observation_changed_artifact_and_publication_failures": "passed",
+    "focused_python_tests": 16,
+    "focused_clippy_warnings_denied": "passed",
+    "targeted_rustfmt": "passed",
+    "diff_check": "passed"
+  },
+  "new_windows_build": false,
+  "installed_product_replaced": false,
+  "scope": "development read-only observation of exact managed experimental publication"
+}

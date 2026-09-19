@@ -1,3 +1,65 @@
+# Blackhole editor rendering investigation
+
+The operator requests investigation of the blank Blackhole editor using the
+existing UI/rendering diagnostics and Pigments Wayland/X11 findings, while
+PR #131 is independently reviewed. Base commit
+`1bda0e5c695fbc84e0ae5ab42728bca6d049e4ab`, tree
+`01fc3a39bf55c600481970c35929641983f3a3ba`; retain that PR head unchanged.
+Work on `codex/blackhole-editor-diagnostic` in its isolated worktree.
+
+Primary claim: qualify the observed Blackhole visual failure at the actual
+local editor surface and window/message boundary, using existing bounded UI
+observers rather than a new testing framework. Record an actionable visual bug
+with supported findings and remaining diagnostic gaps. A renderer fix is not
+claimed from a white Moonlight image, running heartbeat, or loaded graphics DLL.
+
+Fixture: installed Blackhole Immersive 1.4.4, candidate `d7933fdaedb3`, Windows
+host `5fa0907b045df5ccb993a135fccffe932b365182bec7fa16c1a48a126b1869c2`,
+existing activated environment `8b064373d533b72230cb4009952eaab4`, pinned Proton
+11.0-2c / SLR4, Bitwig 6.1 and the current KDE Wayland/XWayland Deck desktop.
+Keep module, runner, prefix identity, licensing, publication and installed product bytes
+unchanged. Use only the disposable LVB-BH audio project for any reproduction;
+no repeat audio, performance, activation or broad plug-in campaign.
+
+Basis: AGENTS.md / Work to an outcome, engineering safeguards and GUI test
+custody; docs/ARCHITECTURE.md / 6.6 Editor; UIO1/UIO2 exact-window/capture and
+read-only identity contracts; UIR1's distinction between a responsive heartbeat
+and actual message-class delivery; retained Blackhole stereo runtime receipt.
+Sol 5.6 Extra High owns any code; Luna 5.6 Max alone performs bounded GUI input.
+The parent owns fixture identity, observation setup, interpretation and cleanup.
+
+Scope: reuse existing profile/candidate, publication, session and exact-window
+identity facts; local capture, child/parent geometry, DPI/style, graphics-module
+presence, and paint/message progress only as supported by the existing tools.
+Do not fabricate legacy observer admission or silently broaden its authority.
+Any small diagnostic adaptation must retain changed/foreign/stale identity and
+capture-refusal checks, bounded records/deadlines, and separate raw private
+artifacts from sanitized reports. No input injection, renderer setting, DPI,
+window-style, Wine DLL override, SDK-call or real-time-path change is implied.
+
+Verification: interpret the existing Pigments tests before one relevant live
+observation. Check any changed diagnostic adapter with focused failure tests;
+retain the actual local pixels privately and publish only bounded metrics and
+non-sensitive structural facts. A frame hash alone is not semantic UI success;
+a parent HWND alone is not a rendered child surface. Preserve the independent
+close hang in `IPlugView::removed()` and real stereo audio result.
+
+Stop the observer on identity drift, lost capture scope, terminal failure or
+capacity overflow. Only the exact test helper/host may be retired, using current
+owned cleanup. Leave protected project bytes and other plug-ins unchanged.
+Commit and push this investigation separately; do not merge either branch.
+
+The bounded claim is now observed. Diagnostic source `6bb1480` reused the pinned
+UIO1 observer and UIO2 graph/capture: two exact local 874×552 frames contain only
+white RGB pixels, while a visible, enabled child has the same extent at 96 DPI.
+The heartbeat remained responsive; zero settled-window WM_PAINT records do not
+establish paint failure. Mapped `winex11.drv`, D3D11 and DXGI bytes match the
+pinned runner's Wine built-ins. The presenting API and failing operation remain
+unobserved. Exact owned retirement and protected-file/prefix preservation passed;
+Luna removed the unsaved failed device. Bug #132, docs/BLACKHOLE_EDITOR.md and
+evidence/blackhole-editor retain the result and next discriminant. No renderer
+repair, normal-close repair, or additional audio claim follows from this slice.
+
 # Blackhole stereo-layout continuation
 
 The operator authorized the recommended next step: test genuine stereo
