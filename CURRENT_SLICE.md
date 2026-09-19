@@ -1,3 +1,37 @@
+# Manager plug-in library presentation
+
+Operator-approved implementation, 2026-09-19.
+
+- Base: `813a179355c9e22159e3adaaa6e93004e3ef2923`; tree:
+  `585c5497eb245edb5bce6485bda74cc7bd4c2d6b`.
+- Basis: AGENTS.md; GOVERNANCE.md, What evidence means;
+  docs/ARCHITECTURE.md, 2.5 UI toolkit / 4.3 Readback / 5.1 Manager core.
+- Primary claim: the existing native manager presents all discovered plug-ins in
+  a searchable vendor-grouped library, with role/version/publication status,
+  relevant existing actions, and expandable technical details.
+- Scope: manager-ui and exact environment metadata in the existing operator
+  projection. Preserve schema 7, request validation, disabled reasons, and
+  manager ownership. No runtime or dependency version updates.
+- Verification: local frontend build, existing frontend checks, focused checks
+  for filtering/status visibility and exact action association, plus a visual
+  preview from the actual widget using clearly labeled synthetic records.
+  Unknown states must remain visible; disabled actions must remain disabled;
+  matching vendor names must not associate different environments.
+- Non-goals: Deck deployment, Bitwig interaction, computer-use automation,
+  Kontakt routing, capacity/timing changes, compatibility or audio acceptance.
+  Kontakt and Jev GUI experiments are deferred by the operator.
+- Deliver one reviewable PR, commit and push. Preserve the installed Deck,
+  projects and vendor environments. Rollback is the prior frontend revision;
+  this change performs no data migration. Retain prior observations below as
+  history only, not active work.
+
+Local implementation is complete: frontend build, 35 frontend tests, Clippy and
+manager compile passed. Wide/narrow/search images use the actual widget with
+synthetic records. See `evidence/manager-library/README.md`. Deck deployment and
+interaction are not part of this result.
+
+# Prior work (deferred / historical)
+
 # Operator steering: Jev-only GUI validation
 
 2026-09-19: the operator withdrew the Kontakt multi-output task and prohibited

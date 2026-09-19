@@ -206,7 +206,7 @@ pub struct Operator {
     feedback: Option<RequestFeedback>,
     last_poll: Instant,
     message: String,
-    filter: String,
+    library: crate::library::Library,
     refresh_after: bool,
     product_form: Option<Action>,
 }
@@ -225,7 +225,7 @@ impl Operator {
             feedback: None,
             last_poll: Instant::now(),
             message: "Reading installed manager…".into(),
-            filter: String::new(),
+            library: crate::library::Library::default(),
             refresh_after: false,
             product_form: None,
         }
@@ -303,26 +303,7 @@ impl Operator {
         pending: bool,
         chosen: &mut Option<Action>,
     ) {
-        for a in actions {
-            let reason = if a.action.requires_inactive() {
-                busy.or(a.disabled_reason.as_deref())
-            } else {
-                a.disabled_reason.as_deref()
-            };
-            let response = ui.add_enabled(
-                !pending && reason.is_none(),
-                egui::Button::new(&a.label).min_size(egui::vec2(0.0, 42.0)),
-            );
-            if response.clicked() {
-                *chosen = Some(a.action.clone());
-            }
-            if let Some(reason) = reason.or(pending.then_some(
-                "Waiting for this request or canonical readback; duplicate submission is blocked",
-            )) {
-                response.on_disabled_hover_text(reason);
-                ui.small(reason);
-            }
-        }
+        crate::library::action_buttons(ui, actions, busy, pending, chosen);
     }
     fn handle_reply(&mut self, reply: Reply) {
         let was_action = self.action_inflight;
@@ -440,6 +421,26 @@ impl eframe::App for Operator {
             egui::ScrollArea::vertical().show(ui,|ui|{
                 let Some(s)=&self.snapshot else{ui.label("The installed Rust manager is the state authority. Waiting for readback.");return;};
                 let busy=s.system.inactive_reason();
+                if !s.system.capacity_available() { ui.colored_label(egui::Color32::YELLOW, "Manager status unavailable. Refresh to check active plug-ins and permitted actions."); }
+                if s.system.capacity_available() && s.system.cleanup_unconfirmed { ui.colored_label(egui::Color32::YELLOW, "Previous instance cleanup needs attention. New instances are blocked."); }
+                self.library.show(ui, s, controls_pending, &mut chosen, |ui, p| {
+                    for limit in &p.limitations { ui.label(limit.replace('_', " ")); }
+                    if let Some(v) = p.details.get("preparation") { Self::preparation_details(ui, v); }
+                    if let Some(revision) = p.active_revision { ui.label(format!("Published revision: {revision} · Recommended: {}", p.recommended_revision.map(|v| v.to_string()).unwrap_or_else(|| "none".into()))); }
+                    for h in &p.history { ui.label(format!("Revision {} · {}{}{}", h.revision, h.claim, if h.active { " · active" } else { "" }, if h.rollback_allowed && !h.active { " · rollback available" } else { "" })); }
+                    egui::CollapsingHeader::new("Technical details").show(ui, |ui| {
+                        ui.label(format!("Status: {}\nClass: {}\nModule SHA-256: {}\nEnvironment: {}\nRunner: {}", p.disposition, p.class_id, p.module_sha256, p.environment, p.runner));
+                        Self::value(ui, &p.details);
+                    });
+                });
+                ui.add_space(16.0);
+                egui::CollapsingHeader::new("Vendor applications and installation locations").default_open(false).show(ui,|ui|{
+                    for app in &s.vendor_applications{ui.heading(&app.name);
+                        if app.id=="native-access" {ui.label(if app.details["dependency_prepared"]==true {"Historical dependency preparation retained; each launch still requires exact session admission and fresh readiness"}else{"Historical dependency preparation is absent; launch uses exact session admission and fresh readiness"});ui.label(if app.details["effective"].is_object(){"Renderer policy applied to the exact owned application"}else{"Renderer policy application not confirmed"});ui.label(format!("Rendering cause: {}",app.details["renderer"]["cause"].as_str().unwrap_or("unresolved")));for line in dependency_retirement_lines(&app.details["dependency_operation"]){ui.small(line);}if app.details["dependency"].is_object(){for line in dependency_retirement_lines(&app.details){ui.small(line);}}}
+                        ui.label(format!("{} · {}",app.version,app.state));Self::buttons(ui,&app.actions,busy,controls_pending,&mut chosen);}
+                    for e in &s.environments{ui.label(format!("{} · revision {} · pinned runner {}",e.family,e.revision,e.runner));ui.small(&e.authorization);if !e.last_scan["id"].is_null(){ui.small(format!("Last scan: {} modules · completed at {}",e.last_scan["module_count"],e.last_scan["completed_at"]));ui.small(format!("Changes: {} added · {} changed · {} removed · {} unchanged",e.last_scan["changes"]["added"],e.last_scan["changes"]["changed"],e.last_scan["changes"]["removed"],e.last_scan["changes"]["unchanged"]));}Self::buttons(ui,&e.actions,busy,controls_pending,&mut chosen);}
+                });
+                egui::CollapsingHeader::new("System status and diagnostics").show(ui, |ui| {
                 if !s.system.capacity_available() { ui.colored_label(egui::Color32::YELLOW,"Service capacity unavailable — DSP, keeper and cleanup status cannot be confirmed"); }
                 else { ui.label(format!("Service: {}  ·  Keeper: {}  ·  DSP: {} / {}  ·  Pending: {}  ·  Stale transports: {}",s.system.service,s.system.keepers,s.system.dsp,s.system.ceiling,s.system.pending_transactions,s.system.stale_transports)); }
                 if s.system.capacity_available() { ui.label(format!("Installing / scanning: {}",s.system.maintenance)); }
@@ -448,31 +449,6 @@ impl eframe::App for Operator {
                 ui.label(if s.capture["armed"]==true{"Crash capture: armed for next admitted launch"}else if s.capture["active_retention"].as_u64().unwrap_or(0)>0{"Crash capture: retaining an active instance"}else{"Crash capture: off"});
                 if s.capture["armed"]==true { for action in &s.actions { if matches!(action.action,Action::CaptureDisarm{}) { Self::buttons(ui,std::slice::from_ref(action),busy,controls_pending,&mut chosen); } } }
                 if let Some(op)=&s.operation{egui::CollapsingHeader::new("Last operation receipt").show(ui,|ui|Self::value(ui,op));}
-                ui.separator();ui.horizontal(|ui|{ui.label("Find a product");ui.text_edit_singleline(&mut self.filter);});
-                for (state,label) in [("another_configuration","Another configuration published"),("experimental","Experimental use enabled"),("prepared","Test instances prepared"),("ready","Ready"),("needs_attention","Needs attention"),("installed_unqualified","Installed but unqualified"),("quarantined","Quarantined")]{
-                    let products:Vec<_>=s.products.iter().filter(|p|p.disposition==state && format!("{} {}",p.name,p.vendor).to_lowercase().contains(&self.filter.to_lowercase())).collect();
-                    ui.heading(format!("{} ({})",label,products.len()));
-                    for p in products{egui::Frame::group(ui.style()).show(ui,|ui|{
-                        ui.heading(&p.name);ui.label(format!("{} · {} · {}",p.vendor,p.role,p.version));
-                        let live=s.active_sessions.iter().filter(|o|o["class_id"]==p.class_id).count();if live>0{ui.label(format!("Live instances: {live}. Closing the manager leaves them running."));}
-                        if let Some(rev)=p.active_revision{ui.label(format!("Published revision: {rev} · Recommended: {}",p.recommended_revision.map(|v|v.to_string()).unwrap_or_else(||"none".into())));}
-                        for limit in &p.limitations{ui.small(limit.replace('_'," "));}
-                        if let Some(hint)=p.details["inspection_hint"].as_str(){ui.label(hint);}
-                        Self::buttons(ui,&p.actions,busy,controls_pending,&mut chosen);
-                        if let Some(v)=p.details.get("preparation") { Self::preparation_details(ui,v); }
-                        if let Some(reason)=p.details["preparation_failure"].as_str(){ui.colored_label(egui::Color32::YELLOW,reason);}
-                        egui::CollapsingHeader::new("Revision history and exact details").id_salt((&p.class_id,&p.module_sha256)).show(ui,|ui|{
-                            for h in &p.history{ui.label(format!("Revision {} · {}{}{}",h.revision,h.claim,if h.active{" · active"}else{""},if h.rollback_allowed && !h.active{" · rollback available"}else{""}));}
-                            ui.small("Experimental publication is a separate explicit choice. Candidate history is not a qualification decision.");
-                            ui.label(format!("Class: {}\nModule SHA-256: {}\nEnvironment: {}\nRunner: {}",p.class_id,p.module_sha256,p.environment,p.runner));Self::value(ui,&p.details);
-                        });
-                    });}
-                }
-                egui::CollapsingHeader::new("Arturia environment and software center").default_open(true).show(ui,|ui|{
-                    for app in &s.vendor_applications{ui.heading(&app.name);
-                        if app.id=="native-access" {ui.label(if app.details["dependency_prepared"]==true {"Historical dependency preparation retained; each launch still requires exact session admission and fresh readiness"}else{"Historical dependency preparation is absent; launch uses exact session admission and fresh readiness"});ui.label(if app.details["effective"].is_object(){"Renderer policy applied to the exact owned application"}else{"Renderer policy application not confirmed"});ui.label(format!("Rendering cause: {}",app.details["renderer"]["cause"].as_str().unwrap_or("unresolved")));for line in dependency_retirement_lines(&app.details["dependency_operation"]){ui.small(line);}if app.details["dependency"].is_object(){for line in dependency_retirement_lines(&app.details){ui.small(line);}}}
-                        ui.label(format!("{} · {}",app.version,app.state));Self::buttons(ui,&app.actions,busy,controls_pending,&mut chosen);}
-                    for e in &s.environments{ui.label(format!("{} · revision {} · pinned runner {}",e.family,e.revision,e.runner));ui.small(&e.authorization);if !e.last_scan["id"].is_null(){ui.small(format!("Last scan: {} modules · completed at {}",e.last_scan["module_count"],e.last_scan["completed_at"]));ui.small(format!("Changes: {} added · {} changed · {} removed · {} unchanged",e.last_scan["changes"]["added"],e.last_scan["changes"]["changed"],e.last_scan["changes"]["removed"],e.last_scan["changes"]["unchanged"]));}Self::buttons(ui,&e.actions,busy,controls_pending,&mut chosen);}
                 });
                 ui.separator();ui.heading("Add a plug-in");
                 if ui.add_enabled(!self.pending,egui::Button::new("Add Windows installer").min_size(egui::vec2(240.0,48.0))).clicked(){pick=true;}
@@ -948,7 +924,7 @@ mod tests {
             feedback: None,
             last_poll: Instant::now(),
             message: String::new(),
-            filter: String::new(),
+            library: crate::library::Library::default(),
             refresh_after: false,
             product_form: None,
         }

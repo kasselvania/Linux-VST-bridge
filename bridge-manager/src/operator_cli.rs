@@ -529,7 +529,7 @@ fn snapshot_for_operation(
             busy
         };
         vendor_applications.push(ui::VendorApplication {
-            details: json!({}),
+            details: json!({"environment":a.environment.id}),
             id: ASC.into(),
             name: "Arturia Software Center".into(),
             version: a.observed_installer_version,
