@@ -375,7 +375,8 @@ class Kontakt8Tests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,"generated_fault"):
                     k.execute_transaction(f.plan,f.offline,f.drive,f.operation,registry,fault=fault,
                                           setup_generation=GENERATION)
-                self.assertTrue(triggered);self.assertEqual(k._metadata(target),prior);self.assertEqual(registry.values,{})
+                self.assertTrue(triggered);self.assertEqual(target.lstat().st_atime_ns,prior["atime_ns"])
+                self.assertTrue(k._same_file_identity(k._metadata(target),prior));self.assertEqual(registry.values,{})
                 result=json.loads((f.operation/"k8i1-transaction.private.json").read_bytes())
                 self.assertEqual(result["state"],"failed");self.assertTrue(result["rollback_verified"])
         class Crash(BaseException):pass
@@ -461,7 +462,8 @@ class Kontakt8Tests(unittest.TestCase):
                 recovered=k.PrefixArm(adapter,f.authority,f.prefix,f.operation,"a"*32,"b"*64,
                     f.operation/"request",f.operation/"result",registry)
                 recovered.close()
-                self.assertEqual(k._metadata(system/"msi.dll"),prior)
+                self.assertEqual((system/"msi.dll").lstat().st_atime_ns,prior["atime_ns"])
+                self.assertTrue(k._same_file_identity(k._metadata(system/"msi.dll"),prior))
                 self.assertEqual(registry.values[("HKCU",k.PrefixArm.OVERRIDE["key"],"msi")],("REG_SZ","builtin"))
 
     def test_disarm_fault_boundaries_resume_from_prefix_journal(self):
@@ -482,7 +484,8 @@ class Kontakt8Tests(unittest.TestCase):
                 self.assertTrue(triggered)
                 recovered=k.PrefixArm(adapter,f.authority,f.prefix,f.operation,
                     "a"*32,"b"*64,f.operation/"request",f.operation/"result",registry)
-                recovered.close();self.assertEqual(k._metadata(system/"msi.dll"),prior)
+                recovered.close();self.assertEqual((system/"msi.dll").lstat().st_atime_ns,prior["atime_ns"])
+                self.assertTrue(k._same_file_identity(k._metadata(system/"msi.dll"),prior))
                 self.assertFalse((system/"k8i1.private").exists())
         class Crash(BaseException):pass
         with tempfile.TemporaryDirectory() as raw:
@@ -497,7 +500,8 @@ class Kontakt8Tests(unittest.TestCase):
                 arm.close(lambda point:(_ for _ in ()).throw(Crash()) if point=="after_arm_disarm_result" else None)
             recovered=k.PrefixArm(adapter,f.authority,f.prefix,f.operation,
                 "a"*32,"b"*64,f.operation/"request",f.operation/"result",registry)
-            recovered.close();self.assertTrue(k._same_file_identity(k._metadata(system/"msi.dll"),prior))
+            recovered.close();self.assertEqual((system/"msi.dll").lstat().st_atime_ns,prior["atime_ns"])
+            self.assertTrue(k._same_file_identity(k._metadata(system/"msi.dll"),prior))
 
     def test_plan_refuses_incomplete_or_ambiguous_mapping(self):
         with tempfile.TemporaryDirectory() as raw:

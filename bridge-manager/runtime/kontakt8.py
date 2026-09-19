@@ -1076,9 +1076,12 @@ class PrefixArm:
                 if prior is None:target.unlink(missing_ok=True)
                 else:
                     if prior.exists():os.replace(prior,target)
-                    elif not target.exists() or _metadata(target)!=record["prior"]:raise ValueError("k8i1_arm_backup_missing")
+                    elif not target.exists() or not _same_file_identity(_metadata(target),record["prior"]):
+                        raise ValueError("k8i1_arm_backup_missing")
                     _restore_metadata(target,record["prior"])
-                    if _metadata(target)!=record["prior"]:raise ValueError("k8i1_arm_restore_changed")
+                    if not _same_file_identity(_metadata(target),record["prior"]):
+                        raise ValueError("k8i1_arm_restore_changed")
+                    _restore_metadata(target,record["prior"])
                 _fsync_directory(target.parent)
                 fault("after_arm_file_restore")
             except Exception as exc:error=error or exc
