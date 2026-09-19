@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "kind": "installed_controller_repair_readback",
+  "scan": {
+    "id": "47bcddb94aff6d5be2fb9468260551d6",
+    "host_sha256": "9a7894cd08db1e32f1d1cde853269a561fd69c49b3171aa3b9c01c9b07e86325",
+    "host_source_sha256": "bfa50f708483a07361718f61a8f8ac071de158067a1eae421aef11f96e9fc28a",
+    "module_sha256": "b8a33c57b04eded38d0ca717bb5e3721330439f4931c401ea70e5246b516e90b",
+    "report_sha256": "d17549ea31324f5780a3106e9770c1cd25f8d856302ec4355cd3be0ba85784df",
+    "inspection_error": null,
+    "quarantine_reason": null
+  },
+  "gui_refusal": {
+    "operation": "d284fca6ea73d510a75caa1ef6910c34",
+    "state": "refused",
+    "reason": "Operator action: operation already running"
+  },
+  "gui_closed_compatibility": {
+    "operation": "f07d20b468cf9d9f66a1cd9b6a994671",
+    "state": "completed",
+    "reason": null,
+    "result": {
+      "controller": {
+        "class_id": "5653454248496D626C61636B686F6C65",
+        "kind": "separate"
+      },
+      "guarantee": false,
+      "inspection": "complete",
+      "publication_changed": false,
+      "selection": "68bfb79601fd35eece71e23088f373844ef536a15dab1fb125016868e7cd6547"
+    }
+  },
+  "system": {
+    "service": "active",
+    "keepers": 3,
+    "dsp": 0,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "audio_qualification_performed": false
+}

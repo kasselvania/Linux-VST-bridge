@@ -1,0 +1,193 @@
+{
+  "schema": 1,
+  "kind": "blackhole_controller_candidate_inspection",
+  "host_sha256": "9a7894cd08db1e32f1d1cde853269a561fd69c49b3171aa3b9c01c9b07e86325",
+  "host_source_sha256": "bfa50f708483a07361718f61a8f8ac071de158067a1eae421aef11f96e9fc28a",
+  "module_sha256": "b8a33c57b04eded38d0ca717bb5e3721330439f4931c401ea70e5246b516e90b",
+  "elapsed_seconds": 8.968,
+  "error": null,
+  "records": [
+    {
+      "event": "lifecycle",
+      "state": "ap8_controller_query",
+      "result": 1,
+      "pointer_present": false
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "getControllerClassId"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "getControllerClassId",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_controller_association",
+      "combined": false,
+      "class_id": "5653454248496D626C61636B686F6C65"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "createController"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "createController",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "initializeController"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "initializeController",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_bus",
+      "media": 0,
+      "direction": 0,
+      "index": 0,
+      "channels": 16,
+      "type": 0,
+      "flags": 1,
+      "arrangement": 1729382256960788031,
+      "name": "Input"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_bus",
+      "media": 0,
+      "direction": 1,
+      "index": 0,
+      "channels": 16,
+      "type": 0,
+      "flags": 1,
+      "arrangement": 1729382256960788031,
+      "name": "Output"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_parameter_count",
+      "count": 79
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap12_capabilities",
+      "latency_samples": 0,
+      "float32_result": 0,
+      "float64_result": 1,
+      "tail_samples": 220500
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "getComponentState"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "getComponentState",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap12_persistence",
+      "capture_available": true,
+      "sdk_result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "synchronizeController"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "synchronizeController",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_inspected",
+      "controller_separate": true,
+      "state_bytes": 7917,
+      "latency_samples": 0,
+      "float32_result": 0,
+      "float64_result": 1,
+      "tail_samples": 220500
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_editor_interface",
+      "created": true,
+      "hwnd_result": 0,
+      "attached": false
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "terminateController"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "terminateController",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "terminateComponent"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "terminateComponent",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_inspection_closed",
+      "exit_code": 0
+    }
+  ],
+  "cleanup_confirmed": true,
+  "transport_retired": true,
+  "raw_launcher_exit": -15,
+  "canonical_and_proxy_file_count": 54,
+  "canonical_and_proxy_files_preserved": true,
+  "prefix_identity_preserved": true,
+  "installed_software_changed": false,
+  "publication_performed": false,
+  "audio_qualification_performed": false,
+  "build": {
+    "schema": "linux-vst-bridge-blackhole-controller-host-source/v1",
+    "head_commit": "39c8da766efa542f9cbbc14adf4e6d09eb87275b",
+    "build_commit": "dc9e6534688846a160cd62790ddbd3d055a91988",
+    "tree": "81e12d1a1cc47e1165581956cc195e99f301028e",
+    "ci_run": 35462825941,
+    "artifact_id": 10590482156,
+    "artifact_zip_sha256": "688dbce2a143829c94f06d6d500ac82bcc2219081f11ff12a9249a82d8e7e977",
+    "host_sha256": "9a7894cd08db1e32f1d1cde853269a561fd69c49b3171aa3b9c01c9b07e86325",
+    "sdk_commit": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "sdk_lock": "cmake/WF0DependencyLock.cmake",
+    "toolchain": {
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "toolset": "v143",
+      "windows_sdk": "10.0.19041.0"
+    },
+    "source_manifest_sha256": "bfa50f708483a07361718f61a8f8ac071de158067a1eae421aef11f96e9fc28a"
+  }
+}

@@ -324,27 +324,39 @@ fn selected_inspection_spec(m: &Manager, binding: HostBinding) -> Result<(Sessio
     require(valid_hex(&binding.metadata.class_id, 32), "inspection_class_selection")?;
     spec(m, binding, true, false, false)
 }
-pub fn inspect(m: &Manager, s: &prep::Selection, sw: &Software) -> Result<prep::Inspection> {
+pub(super) fn admitted_inspection_spec(
+    m: &Manager,
+    binding: HostBinding,
+    admission: impl FnOnce() -> Result<Lock>,
+) -> Result<(SessionSpec, PathBuf)> {
+    let guard = admission()?;
+    guard.require_registry(m)?;
+    m.require_inactive(None)?;
+    selected_inspection_spec(m, binding)
+}
+pub fn inspect(
+    m: &Manager,
+    s: &prep::Selection,
+    sw: &Software,
+    admission: impl FnOnce() -> Result<Lock>,
+) -> Result<prep::Inspection> {
     prep::verify_selection(m, s, &sw.host, &sw.source_sha256)?;
     let runtime = prep::build::stage_runtime(m)?;
     let stamp = observation::ModuleStamp::read(&s.module.path)?;
-    let (job, path) = {
-        let _guard = m.lock("registry.lock")?;
-        m.require_inactive(None)?;
-        selected_inspection_spec(
-            m,
-            HostBinding {
-                metadata: ClassSelection {
-                    class_id: s.class.id.clone(),
-                },
-                environment: s.environment.clone(),
-                module: s.module.clone(),
-                host: runtime.host.clone(),
-                host_source_sha256: runtime.source_manifest.sha256.clone(),
-                compatibility: Compatibility::default(),
+    let (job, path) = admitted_inspection_spec(
+        m,
+        HostBinding {
+            metadata: ClassSelection {
+                class_id: s.class.id.clone(),
             },
-        )?
-    };
+            environment: s.environment.clone(),
+            module: s.module.clone(),
+            host: runtime.host.clone(),
+            host_source_sha256: runtime.source_manifest.sha256.clone(),
+            compatibility: Compatibility::default(),
+        },
+        admission,
+    )?;
     let mut pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
     let child = spawn(sw, &path, None)?;
     pending.expose();
@@ -367,12 +379,17 @@ pub fn inspect(m: &Manager, s: &prep::Selection, sw: &Software) -> Result<prep::
     prep::retain_inspection(m, &i)?;
     Ok(i)
 }
-pub fn execute(m: &Manager, a: &ui::Action, operation: &str) -> Result<Value> {
+pub fn execute(
+    m: &Manager,
+    a: &ui::Action,
+    operation: &str,
+    inspection_admission: impl FnOnce() -> Result<Lock>,
+) -> Result<Value> {
     let sw = software(m)?;
     match a {
         ui::Action::PluginInspect { selection } | ui::Action::PluginReinspect { selection } => {
             let s = prep::select(m, selection, &sw.host, &sw.source_sha256)?;
-            let i = inspect(m, &s, &sw)?;
+            let i = inspect(m, &s, &sw, inspection_admission)?;
             Ok(
                 json!({"selection":selection,"inspection":"complete","controller":i.controller,"guarantee":false,"publication_changed":false}),
             )

@@ -28,6 +28,21 @@ normal setup with rollback if needed for the manager's follow-up path. Do not
 claim audio or Bitwig usability from inspection alone; no repeated unchanged
 scan, UI test campaign or broad compatibility claim is in scope.
 
+The measured tuple was `kResultFalse`/null. Source `39c8da7` admits that additional
+tuple through the exact separate-controller path and keeps malformed responses
+out of owned cleanup. Windows CI and the real candidate inspection passed;
+the scanner was installed and the ordinary inventory scan also passed. The
+normal compatibility action exposed two remaining delivery details: it uses its
+own preparation-kit host, and its post-suspension registry acquisition could
+refuse immediately while a GUI snapshot held the lock. Update only the kit's
+host/source entries (all 73 other entries retained), and use the existing bounded
+operation-attributed acquisition at the inspector admission seam. This is an
+in-scope repair of the ordinary verification path, with a focused contention
+test and one final GUI action after deployment. The GUI-closed compatibility
+action already completed successfully on the updated kit. The newly observed
+16-channel input/output layout is a separate audio target; the operator has
+been asked to choose stereo negotiation first or full immersive support.
+
 # Blackhole Immersive load failure and actionable scan recovery
 
 2026-09-19: the operator requested investigation and repair after Blackhole

@@ -267,6 +267,42 @@ synthetic expectation for the Windows SDK's signed `E_NOINTERFACE`; the correcte
 build passed before its artifact was used. No real plug-in run used that stale
 test candidate.
 
+## Controller repair and installation
+
+Source `39c8da7` implements that narrow allowance and records the original query
+tuple. Failed-query outputs remain separate from owned controller pointers, so
+malformed non-null failures cannot be dereferenced or released during cleanup.
+The existing Windows fixture checks normal no-interface/null, false/null,
+success/null and error/non-null responses. The Windows build and tests passed.
+
+The real candidate then completed inspection in 8.968 seconds: exact separate
+controller `5653454248496D626C61636B686F6C65`, 79 parameters, a 7,917-byte state
+capture, float32 processing support and an editor interface supporting HWND.
+No editor was attached and no audio was processed. Its default audio layout is
+one 16-channel input bus and one 16-channel output bus. Cleanup and transport
+retirement passed; the same 54 protected files and prefix identity were retained.
+See [repaired-host receipt](controller-repair.sanitized.json).
+
+Normal setup installed that verified scanner, preserving 58 product records,
+reports and proxy files plus the manager, frontend and other runtime helpers.
+The first installed scan completed with three classes, no inspection error and
+no quarantine. See [scanner deployment](controller-deployment.sanitized.json).
+
+Luna's first **Check compatibility** click was refused with `operation already
+running`. The worker's recorded outer lock acquisitions succeeded; the manager
+uses a separate preparation-kit host and an inner fail-fast registry acquisition
+after releasing its serialization lock. A concurrently refreshing UI can hold
+that registry lock. This is a manager admission problem, not a Blackhole crash.
+
+The preparation kit still contained its earlier host, so its host and source
+manifest were updated to the same verified repair. All 73 other archive entries,
+including the native builder and compiled native library, remained byte-identical;
+their repository inputs are unchanged between the old recipe source and
+`39c8da7`. Setup preserved 59 canonical records/reports/proxy files. With the GUI
+closed, the offered **Check compatibility** action completed and retained the
+exact controller association. The short inner registry wait is being corrected
+before the final GUI verification; the failed action remains retained.
+
 ## Deferred user request
 
 The operator asked to remember, not implement here, a classification of tooling

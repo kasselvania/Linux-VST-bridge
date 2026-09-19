@@ -1136,13 +1136,29 @@ fn execute_with_receipt_policy(
             let _environment = m.lock("operator-environment.lock")?;
             suspend(m, owner, None, timeout, waits)?;
             drop(projection.take());
-            let result = preparation_cli::execute(m, a, owner);
+            let result = preparation_cli::execute(m, a, owner, || {
+                acquire_readback(
+                    m,
+                    ui::OperatorLock::Registry,
+                    Some(owner),
+                    timeout,
+                    waits,
+                )
+            });
             let cleanup = resume_owned(m, owner);
             let value = result?;
             cleanup?;
             return Ok(value);
         }
-        return preparation_cli::execute(m, a, owner);
+        return preparation_cli::execute(m, a, owner, || {
+            acquire_readback(
+                m,
+                ui::OperatorLock::Registry,
+                Some(owner),
+                timeout,
+                waits,
+            )
+        });
     }
     match a {
         ui::Action::PluginReinspect { .. }
@@ -3194,6 +3210,34 @@ mod tests {
     }
     fn idle_test_capacity() -> Option<CapacityReadback> {
         Some(serde_json::from_value(capacity_json(false, 0, 0)["capacity"].clone()).unwrap())
+    }
+    #[test]
+    fn preparation_inspection_admission_waits_for_polling_registry() {
+        let f = test_fixture::Fixture::new();
+        let owner = "ab".repeat(16);
+        let mut waits = vec![];
+        let (job, _) = contended_registry(&f.m, || {
+            preparation_cli::admitted_inspection_spec(&f.m, f.r.clone().into(), || {
+                acquire_readback(
+                    &f.m,
+                    ui::OperatorLock::Registry,
+                    Some(&owner),
+                    Duration::from_secs(2),
+                    &mut waits,
+                )
+            })
+        })
+        .unwrap();
+        assert!(job.inspect && !job.first_audio);
+        assert_eq!(waits.len(), 1);
+        assert_eq!(waits[0].name, ui::OperatorLock::Registry);
+        assert_eq!(waits[0].purpose, ui::LockPurpose::OperatorValidationReadback);
+        assert_eq!(waits[0].operation.as_deref(), Some(owner.as_str()));
+        assert!(waits[0].attempts > 1 && waits[0].outcome == ui::LockOutcome::Acquired);
+        assert!(matches!(
+            f.m.try_lock("registry.lock").unwrap(),
+            linux_vst_bridge::operator_lock::LockAttempt::Acquired(_)
+        ));
     }
     #[test]
     fn renderer_preflight_and_suspension_wait_for_polling_then_restore_once() {

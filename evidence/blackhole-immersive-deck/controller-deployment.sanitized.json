@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "kind": "blackhole_controller_scanner_installation",
+  "prior_host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+  "host_sha256": "9a7894cd08db1e32f1d1cde853269a561fd69c49b3171aa3b9c01c9b07e86325",
+  "source_manifest_sha256": "bfa50f708483a07361718f61a8f8ac071de158067a1eae421aef11f96e9fc28a",
+  "runtime_artifacts_preserved": {
+    "manager": true,
+    "operator_frontend": true,
+    "supervisor": true,
+    "ownership": true,
+    "installer_launch": true,
+    "preparation_kit": true
+  },
+  "protected_files_and_proxies": 58,
+  "protected_files_and_proxies_unchanged": true,
+  "software_rollback_retained": true,
+  "license_or_prefix_mutation_performed": false,
+  "system": {
+    "service": "active",
+    "keepers": 0,
+    "dsp": 0,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  }
+}
