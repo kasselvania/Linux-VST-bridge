@@ -30,6 +30,7 @@ and reverified by managed-observation admission. The admission fingerprint in
 | `graphics-stub-returns.sanitized.json` | Exact Wine DLL disassembly establishes E_NOTIMPL on every return path of the composition and VBlank stubs |
 | `graphics-preservation.sanitized.json` | Separate standalone graphics run cleanup and protected-state readback |
 | `graphics-preference-lead.sanitized.json` | Unmodified vendor graphics-preference lead; encoding and working software fallback unverified |
+| `software-renderer-trial.sanitized.json` | One reversible `GRMd=1|0` hypothesis, unchanged all-white local pixels, exact restoration and cleanup |
 
 ## Method and limits
 
@@ -117,3 +118,37 @@ accessibility capability. `8bde6be` matches the current exact profile's true
 value and still performs no accessibility operation. Eighteen focused Python
 checks passed for the launcher; the two affected graphics checks passed after
 the correction. No additional broad test matrix or Windows build was run.
+
+## Software-renderer preference hypothesis
+
+The module's `Software Renderer` and `Direct2D` labels and its `GRMd="0|0"`
+preference did not expose a reliable value mapping. Static callback inspection
+ended at protected code. A proposed process-memory read was approval-rejected
+because its process binding was insufficient for that invasive operation; it
+was not retried and no ptrace or security setting changed. A single client-area
+context click exposed no menu. The bounded accessibility helper returned exit 3
+with no records, but that exit combines `ElementFromHandle` and
+`get_RawViewWalker` failures and cannot establish that a vendor control is
+absent.
+
+Within the user's approved repair continuation, the custodian selected one
+bounded reversible experiment. With no live Blackhole owner and under the
+existing manager locks, the custodian retained the exact original preference
+bytes, digest and metadata, changed only `GRMd` from `0|0` to `1|0`, and reopened
+the exact stopped-Bitwig fixture. The candidate value persisted during the run.
+Two exact local 874×552 captures again contained 482,448 white pixels each and
+matched the baseline raw-frame digest. The observer injected no input; no audio
+playback or project save occurred. Because no rendered surface appeared, there
+was no close/reopen persistence check.
+
+This falsifies only the operational hypothesis that `1|0` would produce a
+usable renderer. It does not prove that `1|0` selected software rendering, that
+the software renderer is defective, or that the preference is unsupported. The
+original 140-byte preference and mode were restored exactly. Supervisor cleanup,
+transport retirement, four protected files, prefix identity and final capacity
+all passed after owned raw exit -15. Luna removed the failed device, leaving an
+empty Blackhole input chain in the stopped, unsaved project. The next
+preference-path discriminant requires a verified vendor control or exact mapping;
+implementing the missing composition presentation path is a separate, larger
+runtime correction. Exact facts are retained in
+[`software-renderer-trial.sanitized.json`](software-renderer-trial.sanitized.json).

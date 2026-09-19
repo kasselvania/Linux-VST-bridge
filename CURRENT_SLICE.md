@@ -1,3 +1,45 @@
+# Blackhole software-renderer repair continuation
+
+The operator approved a bounded software-renderer repair test from base
+`d1b46f2ec1f42d093d56d9aa330df101e50080e8`, tree
+`371e73a36ea17ca89271d3057afec5b6f2d04ca2`. Static inspection found a table
+containing `Software Renderer` / `Direct2D` labels, but the protected callbacks
+did not expose its persisted encoding. Run exactly one explicit reversible
+hypothesis: change only `GRMd` from `0|0` to `1|0`. This is not a proven mapping
+or product-support claim. Do not enumerate further values.
+
+Keep the exact module, Windows host, runner, licensing state, prefix identity,
+candidate publication and protected project bytes unchanged. Luna alone may
+perform any bounded GUI action and reopen. Apply the file change only with no
+live Blackhole owner, under the existing registry and environment-operation
+locks, after retaining the exact original bytes, hash and metadata. Verify the
+stopped Bitwig editor with the exact local observer; if it renders, close and
+reopen it once to check persistence. Restore the exact original preference
+immediately if ineffective. Do not rerun audio or performance work, add a
+workflow or framework, override Wine/DXVK DLLs, patch the vendor binary, or
+alter PR #131. Retain the hypothesis, local-frame result, close/reopen result,
+restoration and cleanup facts without publishing private paths or proprietary
+bytes. The rejected process-memory route remains a diagnostic boundary; do not
+retry it or change ptrace/security settings.
+
+Observed: the exact `1|0` value persisted during one stopped-Bitwig run, but
+both 874×552 local captures contained 482,448 white pixels and matched the
+baseline raw-frame digest. The hypothesis therefore failed to produce a usable
+renderer. It did not prove that software rendering was selected, unsupported or
+itself defective. No close/reopen check followed because no rendered surface was
+observed. The original 140-byte preference was restored with its exact digest
+and mode. The owned supervisor ended with raw exit -15; cleanup and transport
+retirement, four protected files, prefix identity and final zero-DSP/
+zero-maintenance capacity passed. Luna removed the failed device, leaving the
+empty Blackhole input chain in the stopped, unsaved project. A context click
+showed no menu; the bounded accessibility helper returned exit 3 with no records,
+which does not distinguish its two internal lookup failures. The process-memory
+route was approval-rejected and was not retried. Retain the sanitized
+[trial receipt](evidence/blackhole-editor/software-renderer-trial.sanitized.json).
+A verified vendor control or encoding is still required for the preference
+route; a complete runtime presentation correction remains a distinct larger
+route.
+
 # Blackhole graphics-call continuation
 
 The operator approved continuing from the qualified local white surface to the

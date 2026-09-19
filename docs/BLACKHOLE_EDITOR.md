@@ -176,15 +176,38 @@ admitted accessibility capability to be false. The actual exact profile permits
 it. That expectation was corrected, without invoking any accessibility query;
 the preliminary failure is retained as a diagnostic error, not a plug-in failure.
 
-## Smallest correction route still to verify
+## Renderer-preference hypothesis and remaining route
 
 Blackhole's small vendor preferences file contains `GRMd="0|0"`. The exact
 module also contains `Direct2D` and `Software Renderer` labels. This is a useful
 lead, but neither the key encoding nor an exposed working selection has been
 verified. The official [Blackhole Immersive guide](https://downloads.eventide.com/audio/manuals/plug-ins/Blackhole+Immersive+User+Guide.pdf)
-checked here does not document that encoding. No guessed value was written.
-The next correction test should establish and use the vendor's software-renderer
-selection if supported, then verify local pixels and actual Bitwig editor use.
+checked here does not document that encoding. At that stage no guessed value had
+been written. Within the user's approved repair continuation, the custodian later
+selected one bounded reversible experiment that changed only `GRMd` from `0|0`
+to `1|0`, without claiming the mapping was known. The candidate value persisted
+during the exact stopped-Bitwig run, but both 874×552 local captures remained all
+white and matched the baseline frame digest. The hypothesis therefore failed to
+produce a usable renderer. It does not establish that software rendering was
+selected, unsupported or defective.
+
+The original 140-byte preference was restored byte-for-byte with its mode. No
+close/reopen check followed because no rendered surface was observed. The owned
+supervisor ended with raw exit -15; exact cleanup and transport retirement
+passed, as did the four protected files, prefix identity and final capacity
+readback. Luna removed the failed device, leaving the empty Blackhole input
+chain in the stopped, unsaved project. Her single context click showed no menu.
+The bounded accessibility helper returned exit 3 with no records;
+because that result conflates `ElementFromHandle` and `get_RawViewWalker`
+failures, it does not establish that the vendor control is absent. A proposed
+process-memory read was rejected at approval because its process binding was
+insufficient for that invasive operation; it was not retried and no ptrace or
+security setting changed. See the sanitized
+[software-renderer trial](../evidence/blackhole-editor/software-renderer-trial.sanitized.json).
+
+This preference route now needs a verified vendor control or exact encoding
+before another selection. A complete runtime correction for the missing
+composition presentation path remains a separate, substantially larger route.
 
 There is no demonstrated one-DLL replacement fix. JUCE's
 [Wine fallback change](https://github.com/juce-framework/JUCE/commit/5179690)
