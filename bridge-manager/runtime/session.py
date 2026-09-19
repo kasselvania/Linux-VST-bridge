@@ -3587,7 +3587,7 @@ class Kontakt8Owner:
         self.arm=kontakt8.PrefixArm(self.adapter,authority,dependency_owner.prefix,self.directory,self.op,self.nonce,
                                     self.request,self.result,self.registry)
         self.thread=None;self.thread_error=None;self.transaction=None;self.request_value=None
-        self.stop_event=threading.Event();self.closed=False;self.intercept_count=0
+        self.stop_event=threading.Event();self.quiesced=False;self.closed=False;self.intercept_count=0
 
     def _launch_environment(self):
         env=environment({'environment':self.spec['application']['environment'],
@@ -3712,10 +3712,14 @@ class Kontakt8Owner:
             self.thread=threading.Thread(target=self._execute,args=(offline,),name='k8i1-transaction',daemon=False);self.thread.start()
 
     def quiesce(self):
+        if self.quiesced:
+            if self.thread_error:raise ValueError(self.thread_error)
+            return
         self.stop_event.set()
         if self.thread is not None:
             self.thread.join(timeout=45)
             if self.thread.is_alive():raise ValueError('k8i1_transaction_retirement_timeout')
+        self.quiesced=True
         if self.thread_error:raise ValueError(self.thread_error)
 
     def close(self):

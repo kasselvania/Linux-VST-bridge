@@ -451,7 +451,7 @@ class IntegratedApplicationTests(unittest.TestCase):
    try:
     with patch.object(s,'CompanionCgroup',return_value=Scope()),patch.object(s,'environment',return_value={}),patch.object(s,'Nad1Owner',Dependency),patch.object(s,'Kontakt8Owner',Product),patch.object(s,'renderer_retire_image',side_effect=lambda *_:events.append('application_retire')),patch.object(s.subprocess,'Popen',side_effect=launch):
      self.assertTrue(s.renderer_run(spec,dependency={'daemon':{}}))
-    self.assertEqual(events,['ready','product_construct','product_arm','application_launch','product_quiesce','application_retire','product_quiesce','product_disarm','service_stop'])
+    self.assertEqual(events,['ready','product_construct','product_arm','application_launch','product_quiesce','application_retire','product_disarm','service_stop'])
    finally:
     for sig,value in zip((signal.SIGTERM,signal.SIGINT),prior):signal.signal(sig,value)
     for child in children:
