@@ -239,6 +239,34 @@ failure on the exact fixture. It does not prove why that earlier timeout
 occurred, complete compatibility inspection, publication, Bitwig operation or
 audio. The remaining specific issue is controller-interface handling.
 
+## Controller-interface response
+
+A separately identified diagnostic host from source `5807e6b` recorded the
+missing tuple in the existing activated environment. Blackhole returned
+`kResultFalse` (1) with a null `IEditController` pointer. The old inspector only
+allowed `kNoInterface`/null to reach `getControllerClassId`, so it rejected this
+response before trying the separately declared controller. This pinpoints the
+post-activation failure in the bridge's acquisition policy; it does not explain
+the earlier pre-activation loader timeout.
+
+The [FUnknown contract](https://steinbergmedia.github.io/vst3_doc/base/classSteinberg_1_1FUnknown.html)
+documents `kNoInterface` for an absent interface. Blackhole's observed response
+differs from that contract. However, the pinned official
+[PlugProvider](https://github.com/steinbergmedia/vst3_public_sdk/blob/586dc5e6c8012c3e4b01c79389375cbe96bdb1da/source/vst/hosting/plugprovider.cpp#L147)
+tries the component's declared separate-controller ID after a failed combined
+query. The proposed compatibility repair admits only the additional observed
+`kResultFalse`/null tuple, preserving exact controller identity and refusing
+inconsistent success/null, failure/non-null and unrelated error responses.
+
+The diagnostic completed in 7.819 seconds with cleanup and transport retirement
+confirmed. All 54 protected canonical/proxy files and the prefix identity were
+preserved, with no installed-software change. The bridge returned active and
+idle. See [diagnostic and build receipt](controller-diagnostic.sanitized.json).
+The first diagnostic CI run was cancelled after review caught an incorrect
+synthetic expectation for the Windows SDK's signed `E_NOINTERFACE`; the corrected
+build passed before its artifact was used. No real plug-in run used that stale
+test candidate.
+
 ## Deferred user request
 
 The operator asked to remember, not implement here, a classification of tooling

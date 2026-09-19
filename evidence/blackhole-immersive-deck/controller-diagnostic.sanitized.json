@@ -1,0 +1,124 @@
+{
+  "schema": 1,
+  "kind": "blackhole_controller_candidate_inspection",
+  "host_sha256": "12056eb8c6473e89403e549d6cf2073dd580cc1181e6a0836d62e1bbce42aa45",
+  "host_source_sha256": "dd7fa8b01272abaab49413a99bdd2e47c02cebed62cd2c6ec643d59c36a36c57",
+  "module_sha256": "b8a33c57b04eded38d0ca717bb5e3721330439f4931c401ea70e5246b516e90b",
+  "elapsed_seconds": 7.819,
+  "error": "Windows SDK host failed: 90",
+  "records": [
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "createComponent"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "createComponent",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "initializeComponent"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "initializeComponent",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "queryAudioProcessor"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "queryAudioProcessor",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "queryEditController"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "queryEditController",
+      "result": 1
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_controller_query",
+      "result": 1,
+      "pointer_present": false
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_failure",
+      "reason": "controller query tuple"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "terminateComponent"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "terminateComponent",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_inspection_closed",
+      "exit_code": 90
+    }
+  ],
+  "cleanup_confirmed": true,
+  "transport_retired": true,
+  "raw_launcher_exit": -15,
+  "canonical_and_proxy_file_count": 54,
+  "canonical_and_proxy_files_preserved": true,
+  "prefix_identity_preserved": true,
+  "installed_software_changed": false,
+  "publication_performed": false,
+  "audio_qualification_performed": false,
+  "build": {
+    "schema": "linux-vst-bridge-blackhole-controller-host-source/v1",
+    "head_commit": "5807e6b14daf36b269365e2bcddd59667a4ef53b",
+    "build_commit": "59d8698d9fb0fe224417723a54e40f132a2b7a7d",
+    "tree": "42ed4865dd2f7885dbf611dd2393ff469eb58514",
+    "ci_run": 35462135318,
+    "artifact_id": 10589104971,
+    "artifact_zip_sha256": "1f0c424cec2071faf8aeee1489c8e3e892c705f28c32df1b35ef02749e1960f4",
+    "host_sha256": "12056eb8c6473e89403e549d6cf2073dd580cc1181e6a0836d62e1bbce42aa45",
+    "sdk_commit": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "sdk_lock": "cmake/WF0DependencyLock.cmake",
+    "toolchain": {
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "toolset": "v143",
+      "windows_sdk": "10.0.19041.0"
+    },
+    "source_manifest_sha256": "dd7fa8b01272abaab49413a99bdd2e47c02cebed62cd2c6ec643d59c36a36c57"
+  },
+  "superseded_build": {
+    "run": 35461977308,
+    "conclusion": "cancelled",
+    "reason": "Corrected synthetic test expectation to the Windows SDK E_NOINTERFACE value before accepting an artifact."
+  },
+  "system_after": {
+    "service": "active",
+    "keepers": 0,
+    "dsp": 0,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  }
+}

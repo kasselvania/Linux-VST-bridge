@@ -111,17 +111,25 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         if(!audio)throw std::runtime_error("null audio processor");
         const auto initial_buses = bus_probe ? EventBusCensus::capture(*component,*audio,false) : EventBusCensus{};
         step("queryEditController");
-        auto query=component->queryInterface(IEditController::iid,reinterpret_cast<void**>(&controller));
+        IEditController* queried_controller=nullptr;
+        auto query=component->queryInterface(IEditController::iid,reinterpret_cast<void**>(&queried_controller));
         events.lifecycle("ap8_result",",\"operation\":\"queryEditController\",\"result\":"+std::to_string(query));
-        events.lifecycle("ap8_controller_query",",\"result\":"+std::to_string(query)+",\"pointer_present\":"+std::string(controller?"true":"false"));
-        if(query==kNoInterface&&controller==nullptr){
+        events.lifecycle("ap8_controller_query",",\"result\":"+std::to_string(query)+",\"pointer_present\":"+std::string(queried_controller?"true":"false"));
+        // Blackhole returns kResultFalse/null here. Follow the official host's
+        // separate-controller sequence only for that observed tuple or kNoInterface/null.
+        if((query==kNoInterface||query==kResultFalse)&&queried_controller==nullptr){
             TUID cid{};step("getControllerClassId");ok(component->getControllerClassId(cid),"getControllerClassId");
             char controller_id[33]{};FUID::fromTUID(cid).toString(controller_id);
             events.lifecycle("ap8_controller_association",",\"combined\":false,\"class_id\":"+quoted(controller_id));
             step("createController");ok(factory->createInstance(cid,IEditController::iid,reinterpret_cast<void**>(&controller)),"createController");
             if(!controller)throw std::runtime_error("null controller");
             step("initializeController");ok(controller->initialize(&host),"initializeController");controller_initialized=true;
-        }else if(query!=kResultOk||!controller)throw std::runtime_error("controller query tuple");
+        }else if(query==kResultOk&&queried_controller!=nullptr)controller=queried_controller;
+        else {
+            // A failed query transfers no interface ownership. Never dereference
+            // or release a non-null output from a malformed failure tuple.
+            throw std::runtime_error("controller query tuple");
+        }
         if(!controller_initialized)events.lifecycle("ap8_controller_association",",\"combined\":true");
         step("setComponentHandler");ok(controller->setComponentHandler(&handler),"setComponentHandler");handler_set=true;
         component->queryInterface(IConnectionPoint::iid,reinterpret_cast<void**>(&cp));
