@@ -296,7 +296,7 @@ public:
     // getSize is optional in the SDK resizeView sequence. The requested size
     // still must reach the platform and onSize synchronously when unknown.
     stage(13);
-    auto result = resize(*size) ? Steinberg::kResultOk : Steinberg::kResultFalse;
+    Steinberg::tresult result = resize(*size) ? Steinberg::kResultOk : Steinberg::kResultFalse;
     stage(15);
     if (result == Steinberg::kResultOk && (!have_current || !same(current, *size))) {
       stage(14);
