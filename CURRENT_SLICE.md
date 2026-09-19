@@ -1,3 +1,47 @@
+# Blackhole graphics-call continuation
+
+The operator approved continuing from the qualified local white surface to the
+actual graphics initialization/presentation gap. Base commit
+`237034ca0fcaafd7e58c8d47f12ca2a523d45099`, tree
+`9a583b40cdab176beb0a59cebc794478d828a12e`, on the existing isolated diagnostic
+branch/PR #133. PR #131 remains unchanged for independent review.
+
+Use the exact existing activated Blackhole candidate, pinned runner and Windows
+host. First reuse the graphics diagnostic channels already compiled into that
+Wine build, with bounded private capture and selected sanitized findings.
+Avoid a new interception framework or a renderer/backend change merely to
+obtain logs. No authentication, installer, prefix recreation, vendor binary,
+publication, DLL override or real-time callback change belongs to this step.
+
+Primary claim: identify actual renderer initialization or submission calls and
+their reported results, or retain the precise remaining observation gap.
+A standalone vendor-editor run may isolate startup without an active audio
+callback, provided it uses exact admission and existing supervision/cleanup;
+its changed mode must remain explicit and cannot establish Bitwig acceptance.
+Do not describe a trace entry as a returned success or loaded modules as a
+presenting API. Preserve truncation and absence-of-coverage limits.
+
+Sol owns code; the parent owns the experiment and read-only SSH interpretation;
+Luna alone performs any necessary bounded GUI input. Keep raw logs private,
+limit the run and output, stop on drift or unexpected vendor flow, retire only
+the owned test, and verify protected files/prefix identity and capacity afterward.
+Retain the previous white-surface and close-hang findings separately. Commit
+and push the continuation to PR #133; do not merge or replay unaffected tests.
+
+Observed: diagnostic source `8bde6be` ran the exact standalone editor with the
+selected Wine channels. One D3D11 device-created record, 35 Direct2D context-created
+records and 22 EndDraw entry records preceded three composition-swapchain stub
+calls; no DXGI Present record occurred. Disassembly of the exact pinned DXGI
+module confirms every return path of CreateSwapChainForComposition and
+WaitForVBlank returns E_NOTIMPL (0x80004001). The latter emitted 33,691 stub
+records. The complete 4,104,682-byte private log had no discarded bytes.
+Editor-open was observed; graceful editor-close was not. Exact cleanup,
+transport retirement, protected files and prefix identity passed; no DSP or
+maintenance owner remains. The first launcher invocation refused before launch
+because its accessibility-capability expectation was wrong; the correction and
+failed attempt are retained. No workaround is installed. Eventide's GRMd=0|0
+preference and renderer label strings are a lead, not a verified setting map.
+
 # Blackhole editor rendering investigation
 
 The operator requests investigation of the blank Blackhole editor using the

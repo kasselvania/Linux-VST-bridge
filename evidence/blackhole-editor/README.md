@@ -4,7 +4,8 @@ Claim: the exact managed experimental Blackhole Immersive 1.4.4 editor has an
 all-white local client surface while its visible child is correctly nonzero in
 size and its owner/heartbeat continues. This is an editor-rendering failure,
 separate from the previously observed normal-close block and stereo processing.
-The underlying rendering operation and fix remain unidentified.
+The graphics continuation below identifies composition-swapchain creation as
+an actual missing runtime operation. A working correction remains unverified.
 
 Product/review base is `1bda0e5c695fbc84e0ae5ab42728bca6d049e4ab`; diagnostic
 code is `6bb1480fd96072a46704d73001c63443ffbd66e5`. No installed product, runner,
@@ -24,6 +25,11 @@ and reverified by managed-observation admission. The admission fingerprint in
 | `stderr-categories.sanitized.json` | Existing retained stderr inspected for recognizable graphics-channel failures, without publishing vendor text |
 | `cleanup.sanitized.json` | Full-pixel white validation for both images and exact owned test-host cleanup |
 | `preservation.sanitized.json` | Protected files/prefix identity, Luna's device removal, zero remaining DSP/maintenance and no unconfirmed cleanup |
+| `graphics-preliminary.sanitized.json` | Launcher preflight error before any plug-in launch; corrected exact capability expectation |
+| `graphics-trace.sanitized.json` | Actual D2D/D3D11/DXGI calls in the exact standalone editor, bounded private trace hash and no truncation |
+| `graphics-stub-returns.sanitized.json` | Exact Wine DLL disassembly establishes E_NOTIMPL on every return path of the composition and VBlank stubs |
+| `graphics-preservation.sanitized.json` | Separate standalone graphics run cleanup and protected-state readback |
+| `graphics-preference-lead.sanitized.json` | Unmodified vendor graphics-preference lead; encoding and working software fallback unverified |
 
 ## Method and limits
 
@@ -75,3 +81,39 @@ the live capture provides the product failure evidence.
 
 Analysis and next discriminant: [BLACKHOLE_EDITOR.md](../../docs/BLACKHOLE_EDITOR.md).
 Tracking: [bug #132](https://github.com/kasselvania/Linux-VST-bridge/issues/132).
+
+## Graphics-call continuation
+
+Source `8bde6be37e67bb90f9f77481f7d2d6f9d4f6b46e`, script SHA-256
+`c741d67ef3bee0b56e9926371cf94fbf15e33b1abc09e6801e4bb1eaa08530d7`,
+adds an exact-Blackhole development launcher without rebuilding or installing
+product software. It uses the same admitted class/module/host/environment in
+standalone vendor-access mode, holding the manager admission lock and a normal
+vendor-access lease. Its process-local Wine diagnostics tee the exact root
+stderr pipe already drained by the installed supervisor. No ambient debug
+setting, DLL override or prefix registry change is used.
+
+```sh
+python3 -B tools/uio1/renderer_graphics.py DIAGNOSTIC_CLI OBSERVATION_ID
+```
+
+The observation lasts 30 seconds, followed by the existing stop/cleanup path;
+the external service limit was 80 seconds plus a 15-second stop bound. Capture
+is private and capped at 16 MiB. The actual run retained 4,104,682 bytes with no
+discard, reached editor-open, and confirmed owned cleanup and transport
+retirement. Graceful editor-close did not complete. Private trace/disassembly
+and process/session identities remain on the Deck. The script retains a blocking
+lease if cleanup is uncertain.
+
+The selected channels expose device/context creation and EndDraw activity, three
+composition-swapchain stub calls, no DXGI Present record, and 33,691 VBlank stub
+calls. Exact DLL disassembly, rather than a latest-source inference, supplies
+the constant failing HRESULT. EndDraw entries are not treated as successful
+returns. No new visual or Bitwig acceptance follows from this standalone run;
+Luna's Moonlight view was too dim to interpret.
+
+The initial script `fcef9ab` refused before launch because it hardcoded the wrong
+accessibility capability. `8bde6be` matches the current exact profile's true
+value and still performs no accessibility operation. Eighteen focused Python
+checks passed for the launcher; the two affected graphics checks passed after
+the correction. No additional broad test matrix or Windows build was run.

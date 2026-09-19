@@ -3,7 +3,10 @@
 Tracking: [bug #132](https://github.com/kasselvania/Linux-VST-bridge/issues/132).
 The stereo implementation and evidence in PR #131 stay frozen at
 `1bda0e5c695fbc84e0ae5ab42728bca6d049e4ab` for review. This investigation changes
-only development observation and reporting; it does not select a renderer fix.
+only development observation and reporting; it does not install a renderer fix.
+The graphics-call continuation now identifies an actual missing runtime API:
+the exact Wine DXGI implementation returns `E_NOTIMPL` when Blackhole requests
+a composition swapchain. The provider renderer preference remains a repair lead.
 
 ## What is already observed
 
@@ -15,7 +18,8 @@ It separates these facts:
 
 | Boundary | Observation | What remains unproved |
 | --- | --- | --- |
-| Editor presentation | White surface in two earlier Luna/Moonlight sessions; both new exact local frames are entirely white | Presenting API and failed rendering operation |
+| Editor presentation | White surface in two earlier Luna/Moonlight sessions; both exact local frames are entirely white | Corrected pixels and usable controls |
+| Graphics calls | Standalone exact editor reaches Direct2D/D3D11; composition swapchain creation returns E_NOTIMPL | A working alternate rendering path and Bitwig repair |
 | Child geometry | One visible, enabled 874×552 child at 96 DPI; same extent as captured client area | Successful rendering within that child |
 | Owner progress before close | Owner publication and GUI heartbeat advanced over two seconds | Paint delivery and renderer progress |
 | Effect processing | Real stereo source produced signal and a late reverb tail in Bitwig | Audio quality, timing stress and project recall |
@@ -124,27 +128,79 @@ See the [evidence index](../evidence/blackhole-editor/README.md) for source/buil
 custody, local metrics, mapped module identities and cleanup. Raw pixels,
 window/process/session IDs and vendor log text remain private on the fixture.
 
-## Next discriminant
+## Graphics-call continuation
 
-Observe renderer initialization and frame submission for this exact candidate:
-the actual API family, device/factory/render-target creation results, and a
-bounded set of frame submission results correlated with local drawable changes.
-For a DXGI path this includes swap-chain creation and `Present`; a different
-path requires its actual equivalent rather than assuming DXGI from a loaded DLL.
-Record numeric results and bounded call counts, without raw pointers, shaders,
-vendor strings or account data.
+The next observation used `tools/uio1/renderer_graphics.py` at `8bde6be` and the
+existing installed supervisor's standalone `ap12-vendor-access` mode. Exact
+managed admission revalidated the current candidate. The launcher coordinated
+with the existing registry/operation locks and vendor-access lease, selected
+Wine graphics debug channels only in its own process, and reused existing
+process supervision and cleanup. Installed product/runner bytes and publication
+were not replaced. There was no input, audio callback or licensing action.
 
-| Observation | What it would localize |
+The 30-second observation retained 4,104,682 private log bytes under a 16 MiB cap,
+with zero discarded bytes. All enabled D2D/D3D11/DXGI records belong to one
+Windows process. This separates real graphics calls from earlier mapped-module
+hints:
+
+| Operation | Observed records |
 | --- | --- |
-| No relevant creation call | The loaded API may be incidental, or the renderer never starts |
-| Creation returns failure | Graphics initialization and its exact failure result |
-| Creation succeeds, no frame submission | Render-loop progress before presentation |
-| Submission succeeds, local drawable remains white | Submitted content or the Wine/X11 presentation path; success alone cannot distinguish them |
-| Local drawable changes but remote view remains white | Remote presentation, unlike the current all-white local result |
+| D3D11 device creation | One `Created ID3D11Device` record |
+| Direct2D device-context creation | 35 `Created device context` records |
+| Direct2D `EndDraw` | 22 entry records; these are not returned HRESULTs |
+| DXGI `CreateSwapChainForComposition` | Three `stub!` records |
+| DXGI presentation functions | No records in the complete enabled-channel capture |
+| DXGI `WaitForVBlank` | 33,691 `stub!` records |
 
-This is the next bounded investigation, not an implemented trace or a selected
-fix. Do not repeat the same screenshot campaign or change backends without a
-new discriminating observation.
+Disassembling the exact pinned Wine `dxgi.dll`, SHA-256
+`ef3fa2a3c199aa8f9cb97701778864ac70a76f2092cff821d645b8a21ba9a67a`,
+confirms **every return path** of both stub functions returns `0x80004001`
+(`E_NOTIMPL`, signed -2147467263). This conclusion is based on the actual tested
+binary, not an assumed correspondence with the current Wine source branch.
+Device/context construction is reached; the composition swapchain required by
+this rendering route cannot be constructed. The VBlank loop is another measured
+missing capability, not proof that adding a sleep would fix presentation.
+
+The editor-open lifecycle record was present. Graceful editor-close completion
+was absent; owned termination, child cleanup and transport retirement completed.
+The lease was removed only after positive cleanup. Four protected files and
+prefix device/inode remained unchanged, and final capacity had zero DSP, zero
+maintenance and no unconfirmed cleanup.
+
+This was a standalone editor diagnostic, not a new Bitwig/pixel acceptance run.
+Luna could not read the dimmed Moonlight stream and sent no plug-in input.
+Consequently, this receipt establishes the exact graphics-call failure; the
+earlier local all-white images remain the visual evidence. The first launcher
+attempt refused before opening any plug-in because it incorrectly required the
+admitted accessibility capability to be false. The actual exact profile permits
+it. That expectation was corrected, without invoking any accessibility query;
+the preliminary failure is retained as a diagnostic error, not a plug-in failure.
+
+## Smallest correction route still to verify
+
+Blackhole's small vendor preferences file contains `GRMd="0|0"`. The exact
+module also contains `Direct2D` and `Software Renderer` labels. This is a useful
+lead, but neither the key encoding nor an exposed working selection has been
+verified. The official [Blackhole Immersive guide](https://downloads.eventide.com/audio/manuals/plug-ins/Blackhole+Immersive+User+Guide.pdf)
+checked here does not document that encoding. No guessed value was written.
+The next correction test should establish and use the vendor's software-renderer
+selection if supported, then verify local pixels and actual Bitwig editor use.
+
+There is no demonstrated one-DLL replacement fix. JUCE's
+[Wine fallback change](https://github.com/juce-framework/JUCE/commit/5179690)
+and [follow-up explanation](https://github.com/juce-framework/JUCE/pull/1701)
+address both the peer renderer and native image backing. That source change
+cannot be assumed present in this proprietary binary. DXVK's
+[dummy composition path](https://github.com/doitsujin/dxvk/blob/master/src/dxgi/dxgi_factory.cpp)
+and [configuration caveat](https://github.com/doitsujin/dxvk/blob/master/dxvk.conf)
+do not establish functional DirectComposition presentation. The Wine developer's
+[DXGI/DComp implementation discussion](https://list.winehq.org/hyperkitty/list/wine-devel%40list.winehq.org/message/OMIIVWXQAWX7HEEEFIW4U4PCBGY3CXWT/)
+describes the additional composition/driver work. A runner replacement would be
+a separate, substantially larger correction route, not a justified toggle here.
+
+The shared observation tools and this exact-product graphics launcher have
+different applicability. The latter diagnoses the current Blackhole profile;
+this does not establish a shared iLok defect or general plug-in compatibility.
 
 ## Repair leads, not established causes
 
