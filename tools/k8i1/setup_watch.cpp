@@ -91,9 +91,10 @@ static DWORD watch_process(DWORD pid, ULONGLONG created_expected, const std::wst
 }
 
 static int self_test() {
-    WCHAR system[MAX_PATH], command[MAX_PATH * 2];
-    if (!GetSystemDirectoryW(system, MAX_PATH)) return 91;
-    swprintf_s(command, L"\"%ls\\cmd.exe\" /c exit 23", system);
+    WCHAR self[32768], command[65536];
+    DWORD self_length = GetModuleFileNameW(nullptr, self, 32768);
+    if (!self_length || self_length >= 32768) return 91;
+    swprintf_s(command, L"\"%ls\" --self-test-child", self);
     STARTUPINFOW startup{}; startup.cb = sizeof(startup); PROCESS_INFORMATION child{};
     if (!CreateProcessW(nullptr, command, nullptr, nullptr, FALSE, CREATE_SUSPENDED, nullptr, nullptr,
                         &startup, &child)) return 92;
@@ -114,6 +115,7 @@ static int self_test() {
 }
 
 int wmain(int argc, wchar_t **argv) {
+    if (argc == 2 && !_wcsicmp(argv[1], L"--self-test-child")) return 23;
     if (argc == 2 && !_wcsicmp(argv[1], L"--self-test")) return self_test();
     if (argc != 2) return 64;
     std::vector<std::wstring> lines;
