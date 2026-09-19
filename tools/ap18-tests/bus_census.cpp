@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 using namespace Steinberg;using namespace Steinberg::Vst;using namespace linux_vst_bridge::wf0;
+namespace ap1=linux_vst_bridge::ap1;
 struct Plugin:AudioEffect {
  int initial=0,operational=0;bool negotiated=false;int active=0,processing=0,process_calls=0;
  tresult PLUGIN_API initialize(FUnknown* h)override{auto r=AudioEffect::initialize(h);addAudioInput(u"Sidechain",SpeakerArr::kStereo,kAux);addAudioOutput(u"Out",SpeakerArr::kStereo);addEventInput(u"Midi In",16);addEventOutput(u"Midi Out",initial);return r;}
