@@ -6,7 +6,7 @@ the four-output exercise or replace it with a new headless testing campaign.
 Use the existing Jev worker, short explicit action/time bounds, and existing
 process/audio evidence where it answers the actual usability question.
 
-This continuation ran seven Jev decisions with zero Codex GUI actions. It found
+The first continuation ran seven Jev decisions with zero Codex GUI actions. It found
 and repaired a streamed-window target-check limitation in the existing Jev
 harness. The repaired worker selected Kontakt's device and opened Bitwig's device
 menu; the application, engine and plugin-host process identities survived.

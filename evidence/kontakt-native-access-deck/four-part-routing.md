@@ -66,3 +66,14 @@ Kontakt editor. Existing Bitwig process identities survived the bounded attempt.
 - [Bitwig multi-output chains](https://www.bitwig.com/support/technical_support/how-do-i-use-multi-out-vst-plug-ins-27/)
 
 These references informed setup; they do not establish a routing acceptance.
+
+## Jev readiness follow-up
+
+The subsequent Commander experiment remains blocked: Jev reached Bitwig's
+command browser, but the fixed editor-command search did not appear. It did
+not open Kontakt's editor. Fifteen validation calls and one cleanup call were
+used; no Codex GUI actions occurred. The failed Commander-specific adapter was
+removed from the active harness and retained privately. Existing Bitwig process
+identities survived, and the original KontaktStereo hash remained unchanged.
+See `jev-commander-blocked.sanitized.json`; this does not expand compatibility
+or audio acceptance.
