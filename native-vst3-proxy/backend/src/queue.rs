@@ -69,6 +69,7 @@ impl<T: Copy> Queue<T> {
     }
     // Consumer only. Copy slots have no destructor. An unpublished producer slot
     // stays owned by that producer and is subsequently checked by epoch.
+    #[cfg(test)]
     pub fn discard_published(&self) {
         self.read
             .store(self.write.load(Ordering::Acquire), Ordering::Release);

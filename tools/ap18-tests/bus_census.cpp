@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 using namespace Steinberg;using namespace Steinberg::Vst;using namespace linux_vst_bridge::wf0;
+namespace ap1=linux_vst_bridge::ap1;
 struct Plugin:AudioEffect {
  int initial=0,operational=0;bool negotiated=false;int active=0,processing=0,process_calls=0;
  tresult PLUGIN_API initialize(FUnknown* h)override{auto r=AudioEffect::initialize(h);addAudioInput(u"Sidechain",SpeakerArr::kStereo,kAux);addAudioOutput(u"Out",SpeakerArr::kStereo);addEventInput(u"Midi In",16);addEventOutput(u"Midi Out",initial);return r;}
@@ -14,7 +15,51 @@ struct Plugin:AudioEffect {
  tresult PLUGIN_API setProcessing(TBool on)override{processing+=on?1:-1;return kResultOk;}
  tresult PLUGIN_API process(ProcessData&)override{++process_calls;assert(false);return kResultFalse;}
 };
+struct MultiOutput:AudioEffect {
+ std::array<bool,32> enabled{};
+ tresult PLUGIN_API initialize(FUnknown* h)override{
+  auto r=AudioEffect::initialize(h);
+  for(int i=0;i<32;++i)addAudioOutput(u"Output",SpeakerArr::kStereo,kMain);
+  addEventInput(u"Notes",16);addEventOutput(u"Notes",16);return r;
+ }
+ tresult PLUGIN_API setBusArrangements(SpeakerArrangement*,int32 ni,SpeakerArrangement* out,int32 no)override{
+  assert(ni==0&&no==32);for(int i=0;i<no;++i)assert(out[i]==SpeakerArr::kStereo);return kResultOk;
+ }
+ tresult PLUGIN_API process(ProcessData& data)override{
+  assert(data.numOutputs==32&&data.numSamples==1);
+  for(int b=0;b<32;++b)for(int c=0;c<2;++c)data.outputs[b].channelBuffers32[c][0]=float(2*b+c);
+  return kResultOk;
+ }
+ tresult PLUGIN_API activateBus(MediaType m,BusDirection d,int32 i,TBool on)override{
+  if(m==kAudio&&d==kOutput)enabled[size_t(i)]=on!=0;
+  return AudioEffect::activateBus(m,d,i,on);
+ }
+};
 int main(){
+ {
+  HostApplication host;MultiOutput plugin;assert(plugin.initialize(&host)==kResultOk);
+  BusLayout layout;layout.read(plugin,plugin,false);assert(layout.size==34&&layout.counts[1]==32);
+  layout.negotiate(plugin);layout.activate(plugin,true);
+  for(bool enabled:plugin.enabled)assert(enabled);
+  std::array<float,64> samples{};float* channels[64];for(size_t i=0;i<64;++i)channels[i]=&samples[i];float* inactive[]={nullptr,nullptr};
+  std::array<AudioBusBuffers,32> buffers{};layout.map_outputs(buffers,channels,inactive);
+  assert(buffers[0].channelBuffers32==channels&&buffers[0].numChannels==2);
+  for(size_t i=1;i<32;++i)assert(buffers[i].numChannels==2&&buffers[i].channelBuffers32==channels+2*i&&buffers[i].silenceFlags==0);
+  ProcessData data{};data.numOutputs=32;data.numSamples=1;data.outputs=buffers.data();
+  assert(plugin.process(data)==kResultOk);for(size_t ch=0;ch<64;++ch)assert(samples[ch]==float(ch));
+  std::vector<uint8_t> contract(28+32*layout.size);ap1::put(contract.data()+20,1,4);ap1::put(contract.data()+24,layout.size,4);
+  std::array<int,4> indices{};
+  for(size_t i=0;i<layout.size;++i){auto& b=layout.buses[i];auto* p=contract.data()+28+32*i;
+   ap1::put(p,b.info.mediaType,4);ap1::put(p+4,b.info.direction,4);ap1::put(p+8,indices[b.info.mediaType*2+b.info.direction]++,4);
+   ap1::put(p+12,b.effective_channels,4);ap1::put(p+16,b.info.busType,4);ap1::put(p+20,b.active?1:0,4);ap1::put(p+24,b.arrangement,8);
+  }
+  layout.contract(contract);ap1::put(contract.data()+28+32*31+20,0,4);
+  layout.contract(contract);layout.map_outputs(buffers,channels,inactive);assert(buffers[31].channelBuffers32==inactive);
+  ap1::put(contract.data()+28+32*31+20,2,4);
+  bool refused=false;try{layout.contract(contract);}catch(const std::exception&){refused=true;}assert(refused);
+  layout.activate(plugin,false);for(bool on:plugin.enabled)assert(!on);
+  assert(plugin.terminate()==kResultOk);
+ }
  for(auto counts: {std::pair{0,0},std::pair{0,16},std::pair{7,7}}){
   HostApplication host;Plugin plugin;plugin.initial=counts.first;plugin.operational=counts.second;assert(plugin.initialize(&host)==kResultOk);
   auto initial=EventBusCensus::capture(plugin,plugin,false);assert(initial.info.channelCount==counts.first&&!initial.activated);

@@ -17,7 +17,7 @@ class SessionAdmission(unittest.TestCase):
   self.managed=self.home/'.local/share/linux-vst-bridge/managed';self.directory=self.managed/'vendor-applications/native-access-dependency';self.op='a'*32
   self.operation=self.directory/'operations'/self.op;self.operation.mkdir(parents=True)
   self.root=self.managed/'environments'/('e'*32);self.prefix=self.root/'compatdata/pfx';self.prefix.mkdir(parents=True)
-  self.app={'schema':1,'id':'native-access','environment':{'id':'e'*32,'root':str(self.root)},'files':{},
+  self.app={'schema':1,'id':'native-access','environment':{'id':'e'*32,'root':str(self.root),'revision':1,'runner':{'id':'original'}},'files':{},
    'installation':{'path':str(self.managed/'installation.json'),'sha256':'1'*64},'observation_sha256':'2'*64,'source_seal_sha256':'3'*64}
   self.appid=hashlib.sha256(canonical(self.app)).hexdigest();self.software={'manager':{'sha256':'4'*64}};self.software_sha=hashlib.sha256(canonical(self.software)).hexdigest()
   self.drive=self.prefix/'drive_c';self.installer=self.drive/s.NAD1_INSTALLER;self.daemon_path=self.drive/s.NAD1_DAEMON
@@ -78,6 +78,19 @@ class SessionAdmission(unittest.TestCase):
   for bad in cases:
    with self.subTest(bad=bad['dependency_session']):
     with self.assertRaises(ValueError):self.admit(bad)
+ def test_runner_revision_preserves_exact_historical_installation(self):
+  value=self.recovery_spec();original=(self.recovery/'spec.json').read_bytes()
+  value['application']['environment'].update(revision=2,runner={'id':'corrected-msi'})
+  value['application_identity']=hashlib.sha256(canonical(value['application'])).hexdigest()
+  value['dependency_session']['application']=value['application_identity']
+  self.assertEqual(self.admit(value)['origin']['application_identity'],self.appid)
+  self.assertEqual((self.recovery/'spec.json').read_bytes(),original)
+  for field,replacement in [('revision',1),('root',str(self.root/'different'))]:
+   bad=copy.deepcopy(value);bad['application']['environment'][field]=replacement
+   with self.assertRaises((ValueError,OSError)):self.admit(bad)
+  bad=copy.deepcopy(value);bad['application']['installation']['sha256']='f'*64
+  bad['dependency_session']['installation']=bad['application']['installation']
+  with self.assertRaises(ValueError):self.admit(bad)
  def test_changed_missing_malformed_or_aliased_artifact_refuses(self):
   pointer=self.directory/'artifact.json';original=pointer.read_bytes()
   for content in (b'{}',b'{"schema":1,"schema":2}',b'changed'):

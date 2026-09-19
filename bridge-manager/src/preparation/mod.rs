@@ -486,6 +486,8 @@ pub fn prepared(
     )?;
     let raw: Value = bounded(&i.report.path)?;
     require(raw["error"].is_null(), "inspection_failed")?;
+    let limitations=vec![Limitation::DirectEditorUnderQualification,
+        Limitation::Unqualified256,Limitation::DetachedFocusRefusal];
     let profile = Profile {
         schema: 1,
         id: format!(
@@ -518,11 +520,7 @@ pub fn prepared(
             editor_lifetime: None,
             event_output: None,
         },
-        limitations: vec![
-            Limitation::DirectEditorUnderQualification,
-            Limitation::Unqualified256,
-            Limitation::DetachedFocusRefusal,
-        ],
+        limitations,
         evidence: vec!["docs/MF3.md".into()],
     };
     profile.validate()?;

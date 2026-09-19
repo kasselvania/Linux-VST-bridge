@@ -1,0 +1,9 @@
+{
+  "exit": 0,
+  "seconds": 4.58,
+  "prefix_inode_preserved": true,
+  "module_hashes": {
+    "i386": "d9d9b3c0ec6361b7c89c6d9f68854e5c5af84e643104594f7af5a3e49ba59b8a",
+    "x86_64": "96551956a18a4d14660ae9fda8b63acf6085281657f5c95dbd079db37ece161b"
+  }
+}

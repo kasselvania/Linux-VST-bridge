@@ -1,0 +1,337 @@
+{
+  "schema": 1,
+  "fixture": "Steam Deck Galileo",
+  "source_commit": "dc36a3b",
+  "environment": "627d2cba97edbecf113c22504eb4c81b",
+  "environment_revision": 2,
+  "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769-ni-msi-ed4a47d3b167",
+  "product": {
+    "name": "Kontakt 8",
+    "vendor": "Native Instruments",
+    "version": "8.13.1",
+    "class_id": "5653544E694B386B6F6E74616B742038",
+    "module_sha256": "b4a3d79b194adfc307e5741059c05bdbd7d8e3cbfed4ca7a8e8e8cf755d06563",
+    "disposition": "installed_unqualified"
+  },
+  "scan": {
+    "scan": "8f7b10fa384c698e97021fea901bd4ed",
+    "scanner_host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "scanner_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "inspection_error": null
+  },
+  "inspection": {
+    "state": "complete",
+    "id": "d9f5cf82a1d1cbc280a9c4e88d8295d9c42b9374ab7193e3b9c1542a9dfcea2f",
+    "controller": {
+      "kind": "combined"
+    },
+    "component_initialized": true,
+    "controller_initialized": true,
+    "parameter_count": 4145,
+    "cleanup_confirmed": true,
+    "buses": [
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 0,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 1,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 2,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 3,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 4,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 5,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 6,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 7,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 8,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 9,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 10,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 11,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 12,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 13,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 14,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 15,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 16,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 17,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 18,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 19,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 20,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 21,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 22,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 23,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 24,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 25,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 26,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 27,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 28,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 29,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 30,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 3,
+        "channels": 2,
+        "direction": 1,
+        "index": 31,
+        "media": 0,
+        "type": 0
+      },
+      {
+        "arrangement": 0,
+        "channels": 16,
+        "direction": 0,
+        "index": 0,
+        "media": 1,
+        "type": 0
+      },
+      {
+        "arrangement": 0,
+        "channels": 16,
+        "direction": 1,
+        "index": 0,
+        "media": 1,
+        "type": 0
+      }
+    ],
+    "state_capture_available": true,
+    "editor_created": true,
+    "editor_attached": false
+  },
+  "preparation": {
+    "operation": "224a05555eb0da12d810720227e2fd4a",
+    "state": "refused",
+    "reason": "Operator action: bus count/index bound",
+    "result": null
+  },
+  "publication": {
+    "acceptance_policy": "publication_time_until_explicit_withdrawal",
+    "current_profile_sha256": null,
+    "current_revision": null,
+    "pending": false,
+    "physical_matches_retained": false,
+    "physical_present": false,
+    "qualification": null,
+    "registry_publication": null
+  },
+  "system_after": {
+    "service": "active",
+    "keepers": 2,
+    "dsp": 0,
+    "maintenance": 0,
+    "ceiling": 6,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "bitwig_test": "NOT RUN: proxy preparation refused bus count/index bound; no Kontakt native proxy published"
+}

@@ -14,10 +14,12 @@ class RecoveryInputs(unittest.TestCase):
   for name in ('Setup.exe','NTKDaemon.exe'):(self.drive/name).write_bytes(data)
   daemon=ownership.image_identity(self.drive/'NTKDaemon.exe')
   self.spec={'operation':'a'*32,'application_identity':'b'*64,'application':{'environment':{'root':str(self.root)}},'kind':'native_access_dependency','software':{'generation':'new'}}
+  self.spec['application_identity']=hashlib.sha256(json.dumps(self.spec['application'],sort_keys=True,separators=(',',':')).encode()).hexdigest()
   self.old=dict(self.spec,operation='c'*32,software={'generation':'old'})
   self.result={'operation':'c'*32,'state':'failed','error':'dependency_command_timeout','cleanup_confirmed':True,'owned_live':0,'dependency':{'ready_tested':False,'service_retirement_confirmed':True,'process_cleanup_confirmed':True,'forced_cleanup_used':False}}
   (self.prior/'spec.json').write_text(json.dumps(self.old));(self.prior/'result.json').write_text(json.dumps(self.result));(self.prior/'installer.log').write_bytes(b'private generated installer exit 100')
   self.q={'schema':1,'operation':'c'*32,'application_identity':'b'*64,'installer_sha256':daemon['sha256'],'installer_size':daemon['size'],'daemon':daemon,'sources':{}}
+  self.q['application_identity']=self.spec['application_identity']
   self.seal()
  def seal(self):
   self.q['sources']={p.name:{'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'size':p.stat().st_size} for p in self.prior.iterdir()}

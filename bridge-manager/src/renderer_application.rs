@@ -61,6 +61,16 @@ fn roots(prefix: &Path) -> Result<Vec<PathBuf>> {
     Ok(found)
 }
 impl Application {
+    /// An installation survives a runner revision. All vendor bytes, paths,
+    /// prefix identity and installation evidence must still match exactly.
+    pub fn same_installation(&self, installed: &Self) -> bool {
+        if self == installed { return true; }
+        if self.environment.revision <= installed.environment.revision { return false; }
+        let mut historical = self.clone();
+        historical.environment.runner = installed.environment.runner.clone();
+        historical.environment.revision = installed.environment.revision;
+        historical == *installed
+    }
     pub fn identity(&self) -> Result<String> {Ok(hex(&Sha256::digest(serde_json::to_vec(&serde_json::to_value(self)?)?)))}
     pub fn executable(&self) -> Result<&Image> {self.files.get("Native Access.exe").ok_or_else(||"renderer_executable_missing".into())}
     pub fn verify(&self, root: &Path) -> Result<()> {

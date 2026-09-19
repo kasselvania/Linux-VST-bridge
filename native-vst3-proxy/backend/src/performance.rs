@@ -6,6 +6,8 @@ use std::{
     os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::PathBuf,
 };
+pub(crate) const MAX_BUSES: usize = 56;
+pub(crate) const MAX_BUS_CONTRACT_BYTES: u32 = (4 + 32 * MAX_BUSES) as u32;
 pub fn wire(max: u32, mode: u32, rate: f64) -> io::Result<Vec<u8>> {
     need((1..=1024).contains(&max), "host maximum outside 1..1024")?;
     let mut bytes = Vec::with_capacity(24);
@@ -21,12 +23,14 @@ pub fn validate_wire(b: &[u8]) -> io::Result<()> {
     if matches!(get(&b[20..24]), 1 | 3) {
         need(b.len() >= 28, "bus header")?;
         let count = get(&b[24..28]) as usize;
-        need(count <= 32 && b.len() == 28 + 32 * count, "bus extent")?;
+        // 8 audio inputs, 32 audio outputs, 8 event buses per direction.
+        need(count <= MAX_BUSES && b.len() == 28 + 32 * count, "bus extent")?;
         for r in b[28..].chunks_exact(32) {
             need(
                 get(&r[..4]) <= 1
                     && get(&r[4..8]) <= 1
-                    && get(&r[8..12]) < 8
+                    && get(&r[8..12])
+                        < if get(&r[..4]) == 0 && get(&r[4..8]) == 1 { 32 } else { 8 }
                     && get(&r[12..16]) <= 16
                     && get(&r[16..20]) <= 1
                     && get(&r[20..24]) <= 1,
@@ -45,6 +49,47 @@ pub fn validate_wire(b: &[u8]) -> io::Result<()> {
             && get(&b[20..24]) <= 3,
         "unsupported setup",
     )
+}
+// Validated SDK output records define planar channel order, never friendly names.
+pub(crate) fn output_channels(bytes: &[u8]) -> io::Result<usize> {
+    validate_wire(bytes)?;
+    if bytes.len() == 24 { return Ok(2); }
+    let mut buses = 0;
+    for r in bytes[28..].chunks_exact(32) {
+        if get(&r[..4]) == 0 && get(&r[4..8]) == 1 {
+            need(get(&r[8..12]) == buses && get(&r[12..16]) == 2 && get(&r[24..32]) == 3,
+                 "stereo output order")?;
+            buses += 1;
+        }
+    }
+    need((1..=32).contains(&buses), "output bus capacity")?;
+    Ok(buses as usize * 2)
+}
+#[cfg(test)]
+mod bus_tests {
+    use super::*;
+    #[test]
+    fn full_output_census_fits_without_widening_event_indices() {
+        let mut bytes = wire(256, 0, 48000.).unwrap();
+        bytes[20..24].copy_from_slice(&1u32.to_le_bytes());
+        bytes.extend_from_slice(&34u32.to_le_bytes());
+        for (media, direction, index, channels) in (0u32..32)
+            .map(|i| (0u32, 1u32, i, 2u32))
+            .chain([(1, 0, 0, 16), (1, 1, 0, 16)]) {
+            for value in [media, direction, index, channels, 0, 0] {
+                bytes.extend_from_slice(&value.to_le_bytes());
+            }
+            bytes.extend_from_slice(&(if media == 0 { 3u64 } else { 0 }).to_le_bytes());
+        }
+        assert!(validate_wire(&bytes).is_ok());
+        let index = 28 + 31 * 32 + 8;
+        bytes[index..index + 4].copy_from_slice(&32u32.to_le_bytes());
+        assert!(validate_wire(&bytes).is_err());
+        bytes[index..index + 4].copy_from_slice(&31u32.to_le_bytes());
+        let event = 28 + 32 * 32 + 8;
+        bytes[event..event + 4].copy_from_slice(&8u32.to_le_bytes());
+        assert!(validate_wire(&bytes).is_err());
+    }
 }
 pub fn validate_delay(max: u32, delay: u32) -> io::Result<()> {
     need((1..=1024).contains(&max) && matches!(delay, 256 | 512) && delay >= max,

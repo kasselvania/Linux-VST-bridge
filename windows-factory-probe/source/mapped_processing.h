@@ -36,6 +36,7 @@ public:
     void after_process() override;
     void ready() override;
     bool next(ExternalBlock&,float*,float*) override;
+    void done_outputs(const Steinberg::Vst::AudioBusBuffers*,int,uint64_t,const ap10_results_t*) override;
     void done(const float*,const float*,uint64_t,uint64_t=0,const ap10_results_t* = nullptr) override;
     void finish(bool success);
 #ifdef LVB_LC1_TEST

@@ -1,0 +1,60 @@
+diff --git a/dlls/msi/table.c b/dlls/msi/table.c
+index 897df069..87e98546 100644
+--- a/dlls/msi/table.c
++++ b/dlls/msi/table.c
+@@ -390,6 +390,36 @@ static UINT table_get_row_size( MSIDATABASE *db, const struct column_info *cols,
+     return last_col->offset + bytes_per_column( db, last_col, bytes_per_strref );
+ }
+ 
++/* A table extent can be divisible by both string-reference row widths. Check
++ * the referenced strings as well before accepting the advertised width. */
++static BOOL table_strrefs_valid( MSIDATABASE *db, MSITABLE *table, const BYTE *data,
++                                UINT size, UINT width )
++{
++    UINT row_size = table_get_row_size( db, table->colinfo, table->col_count, width );
++    UINT rows, col, row, offset = 0;
++
++    if (!row_size || size % row_size >= 4) return FALSE;
++    rows = size / row_size;
++    for (col = 0; col < table->col_count; col++)
++    {
++        const struct column_info *info = &table->colinfo[col];
++        UINT bytes = bytes_per_column( db, info, width );
++
++        if ((info->type & MSITYPE_STRING) && !MSITYPE_IS_BINARY(info->type))
++        {
++            for (row = 0; row < rows; row++)
++            {
++                const BYTE *p = data + offset * rows + row * bytes;
++                UINT id = p[0] | (p[1] << 8);
++                if (bytes == 3) id |= p[2] << 16;
++                if (!msi_string_lookup( db->strings, id, NULL )) return FALSE;
++            }
++        }
++        offset += bytes;
++    }
++    return TRUE;
++}
++
+ /* add this table to the list of cached tables in the database */
+ static UINT read_table_from_storage( MSIDATABASE *db, MSITABLE *t, IStorage *stg )
+ {
+@@ -409,14 +439,16 @@ static UINT read_table_from_storage( MSIDATABASE *db, MSITABLE *t, IStorage *stg
+ 
+     TRACE("Read %d bytes\n", rawsize );
+ 
+-    if( rawsize % row_size )
++    if (rawsize % row_size ||
++        !table_strrefs_valid( db, t, rawdata, rawsize, bytes_per_strref ))
+     {
+         /* Check if the data was written with a different bytes_per_strref. This can happen
+          * when transforms change the string pool metadata without re-encoding all table streams. */
+         if (bytes_per_strref == LONG_STR_BYTES)
+         {
+             UINT alt_row_size = table_get_row_size( db, t->colinfo, t->col_count, sizeof(USHORT) );
+-            if (alt_row_size != row_size && rawsize % alt_row_size == 0)
++            if (alt_row_size != row_size && rawsize % alt_row_size == 0 &&
++                table_strrefs_valid( db, t, rawdata, rawsize, sizeof(USHORT) ))
+             {
+                 WARN("Table %s: data uses %u-byte string refs, not %u\n",
+                      debugstr_w(t->name), (UINT)sizeof(USHORT), bytes_per_strref);

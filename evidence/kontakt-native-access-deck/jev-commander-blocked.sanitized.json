@@ -1,0 +1,91 @@
+{
+  "claim": "Commander reached; Kontakt editor opening BLOCKED",
+  "base_harness_commit": "9cd52a7c52f2e854415ba3fbb71c19f0efe058d8",
+  "codex_gui_actions": 0,
+  "experiment_source_sha256": {
+    "typesafe_computer_use/actions.py": "93ec511a4b99ec40f96779b0c4504b117e1ae21ccf2434cbf0c33c0bf504ab53",
+    "typesafe_computer_use/cli.py": "650b2271d401155a3c4b96a0952a38b80919ddcf16517e2b40d8223d2800d8ac",
+    "typesafe_computer_use/decide.py": "4cf1a7e27a3932e3c72e205037c3f86f32308c02f0bb18e68b398820a6214fe8",
+    "typesafe_computer_use/local.py": "e49973a8133407453fee2de453e1ee8fc9680c2b7a45f7ac7f48807890be23bf",
+    "typesafe_computer_use/runner.py": "fa34c8777e7aa7c84f61086c3d1429451d617abe5ef1390f5375877c765edbbb",
+    "typesafe_computer_use/bitwig.py": "acd1401e2564cfab646cea99531c482b26d72e68e859e4e7e2ce0eb33de989aa",
+    "tests/test_bitwig.py": "50971dce493a588491e6aa62b85e5662974874aaf57f6978bc61c806fcc7c5eb"
+  },
+  "active_adapter_reverted_to_base": true,
+  "attempts": [
+    {
+      "attempt": 1,
+      "calls": 3,
+      "seconds": 10.9,
+      "outcome": "low confidence",
+      "actions": [
+        "pressed Escape",
+        "opened Bitwig Commander"
+      ]
+    },
+    {
+      "attempt": 2,
+      "calls": 2,
+      "seconds": 7.2,
+      "outcome": "low confidence",
+      "actions": [
+        "opened Bitwig Commander"
+      ]
+    },
+    {
+      "attempt": 3,
+      "calls": 2,
+      "seconds": 8.4,
+      "outcome": "low confidence",
+      "actions": [
+        "opened Bitwig Commander"
+      ]
+    },
+    {
+      "attempt": 4,
+      "calls": 2,
+      "seconds": 9.0,
+      "outcome": "blocked",
+      "actions": [
+        "searched Bitwig Commander for Toggle Device Window"
+      ]
+    },
+    {
+      "attempt": 5,
+      "calls": 3,
+      "seconds": 14.9,
+      "outcome": "step limit",
+      "actions": [
+        "clicked 'Bitwig Commander search field'",
+        "sent Bitwig Commander shortcut",
+        "sent Bitwig Commander shortcut"
+      ]
+    },
+    {
+      "attempt": 6,
+      "calls": 3,
+      "seconds": 13.2,
+      "outcome": "low confidence",
+      "actions": [
+        "clicked 'Bitwig Commander search field'",
+        "searched Bitwig Commander for Toggle Device Window"
+      ]
+    }
+  ],
+  "cleanup": {
+    "calls": 1,
+    "seconds": 4.7,
+    "actions": [
+      "sent Escape to owned Bitwig window"
+    ],
+    "command_browser_absent": false
+  },
+  "observed": {
+    "commander_opened_via_deck_input": true,
+    "text_query_visible": false,
+    "kontakt_editor_opened": false,
+    "same_bitwig_application_audio_engine_plugin_host": true,
+    "original_kontakt_stereo_sha256": "5f6094ad6e52e09edfe755dcc114a58b15497c99caf6bd79f51f83d58151b453"
+  },
+  "limits": "Per-attempt limits did not cap the overall debugging session: 15 validation calls plus one cleanup call. No broad reliability, audio or state claim."
+}

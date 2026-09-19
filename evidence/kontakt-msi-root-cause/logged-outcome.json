@@ -1,0 +1,40 @@
+{
+  "fixture": "Kontakt 8 Player 8.13.1 / Steam Deck Galileo / Proton 11.0-2c",
+  "operation": "untouched vendor setup /s with InstallAware native logging; second fresh disposable prefix",
+  "result": {
+    "wrapper_exit": 100,
+    "elapsed_seconds": 232.65
+  },
+  "msi_sequence": {
+    "installstart_observed": true,
+    "installend_field_3": 1,
+    "meaning": "!rc=1 in pinned Wine ACTION_ProcessExecSequence completion; rc=ERROR_SUCCESS",
+    "source": "Wine dc26e618 / dlls/msi/action.c / ACTION_ProcessExecSequence and INSTALLMESSAGE_INSTALLEND"
+  },
+  "payload": [
+    {
+      "name": "Kontakt 8.exe",
+      "bytes": 178397680,
+      "sha256": "965b47d7d15125c862c541a0f1c30bb1e8fab222e6815a5d0acdf77a42dcf60c"
+    },
+    {
+      "name": "Kontakt 8.vst3",
+      "bytes": 178699760,
+      "sha256": "b4a3d79b194adfc307e5741059c05bdbd7d8e3cbfed4ca7a8e8e8cf755d06563"
+    }
+  ],
+  "matches_first_run": true,
+  "msi_errors_in_log": 0,
+  "installer_private_log_sha256": "c576526458d382c251ad85ab26bf79768ee17f099966a98435d69eb062e4ddda",
+  "native_private_log_sha256": "fc331d3bdc382c56f1735289f7c6aaa7b043f7e4c4bb3d7690c682dc4bb2cc07",
+  "vendor_log_residual": {
+    "COPYERROR": "TRUE",
+    "interpretation": "Meaning and connection to outer status 100 unestablished; not accepted as full installer success"
+  },
+  "disposable_processes_remaining": 0,
+  "managed_registry_unchanged_from_before_first_run": true,
+  "limitations": [
+    "Outer Linux status 100 is not reclassified as success",
+    "No managed-prefix migration, Native Access recognition, standalone launch, VST3 enumeration, authorization or audio claim"
+  ]
+}
