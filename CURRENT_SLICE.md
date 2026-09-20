@@ -1,3 +1,357 @@
+# Catalog reliability: Blackhole and Kontakt owned graphical sessions
+
+Basis: commit `bbb43318e48ab5b3b40fab23a53f3766f437205f`, tree
+`d3c32017e71bbeb089d48643af7667351a476adf`.
+
+The operator selected the shared Linux-facing reliability work for both current
+Blackhole and Kontakt publications. This source slice performs no Moonlight,
+Bitwig, touchscreen, plug-in audio, installer, runner, prefix or vendor
+operation. The operator will perform the original physical interactions after
+the source candidate is installed separately.
+
+Primary claim: a catalog instance is either owned from its authenticated DAW
+graphical session through a live environment keeper and concrete supervisor, or
+it is refused before any lease, transport or native binding is exposed. A
+terminal editor, Windows-host or transport failure is visible in the manager
+without depending on optional detailed crash capture.
+
+In scope:
+
+- derive the small graphical context allowlist from the authenticated LVB3 Unix
+  peer and independently revalidate its process generation in the supervisor;
+- bind keepers and DSP/editor processes to that exact context;
+- warm a missing keeper behind an unowned bounded `ServiceBusy` response;
+- retire and recreate a keeper after a graphical-session change only when no
+  DSP owner remains;
+- recheck the keeper immediately before admission and create the supervisor
+  before publishing the accepted binding;
+- admit exact managed-experimental publications to the existing read-only
+  detailed capture path;
+- project IF1's existing exact terminal class into catalog status and present it
+  for any product, including Blackhole and Kontakt.
+
+Acceptance is deterministic source behavior: no accepted binding without a
+live exact keeper; no cross-display keeper reuse; no retirement while a DSP
+lease exists; bounded retry without ownership; managed capture admission;
+private graphical context with no ambient environment copying; and visible
+editor/host/transport terminal states. The existing audio callback, VST3 bus
+transport, runner policies and vendor-specific product behavior remain
+unchanged.
+
+Nonclaims: this slice does not establish that physical touchscreen input works,
+that Blackhole or Kontakt audio works in the next Bitwig session, that Gaming
+Mode window association is complete, or that any additional audio layout is
+qualified. Those remain original-action physical checks, not fixture results.
+
+# Prior stopping point: Blackhole experimental renderer submission
+
+Subsequent operator priorities are recorded in
+[`docs/PLUGIN_RELIABILITY_FOLLOWUP.md`](docs/PLUGIN_RELIABILITY_FOLLOWUP.md):
+touchscreen crashes and missing incident reporting, Gaming Mode/helper recovery
+with panic/reset, and actual plug-in audio I/O. These are follow-up work, not
+completed repairs or a new live-test run in this documentation update.
+
+Latest update (2026-09-20): the operator reports editor disappearance on any
+touch in installed non-Arturia plug-ins, no corresponding bridge failure, and
+continued active status in Bitwig. Arturia is the working comparison. Audio
+continuation after disappearance is unknown. Repository inspection identified
+the existing UIO3 delay evidence and experimental-profile capture-admission gap;
+no new touchscreen reproduction or input repair has run. See the follow-up
+document for the next bounded comparison and its remaining questions.
+
+The operator personally tested the installed Blackhole candidate and confirmed
+working audio, then requested an end to testing, commit/push and PR submission.
+The managed runner transition and fresh stereo inspection/preparation/
+experimental publication completed. The real Bitwig editor rendered, responded
+to Bypass and closed normally while the same processing instance stayed loaded.
+Keep this working candidate installed and PR #131 frozen. Submit PR #133 for
+review; do not merge or continue GUI/audio tests.
+
+Audio is operator-confirmed. Standalone normal close/reopen passed; same-instance
+Bitwig reopening, saved-project recall, performance qualification, additional
+audio channels and full Bitwig instance retirement remain unverified/deferred.
+At the original submission, two SSH attempts timed out, so neither the bounded recorder's final state
+nor a completed automated audio result was read back. Its configured service
+lifetime is 110 seconds; that bound is not a cleanup receipt.
+
+A subsequent live recovery confirmed that the prior Blackhole instance and
+bounded recorder had retired. The separate abandoned Serum launch was preserved
+and quarantined with Bitwig/Wine closed; the restarted service reported no
+cleanup block and zero owners. The automatic recovery defect remains pending.
+See `evidence/blackhole-editor/abandoned-launch-recovery.sanitized.json`.
+
+Implementation/build basis: `65347a2db8fe2b8b681cf16e31dd121cd159dea3`.
+Current findings and exact receipt identities are in
+[`docs/BLACKHOLE_EDITOR.md`](docs/BLACKHOLE_EDITOR.md) and
+[`direct-composition-bitwig.sanitized.json`](evidence/blackhole-editor/direct-composition-bitwig.sanitized.json).
+The earlier scoped instructions below remain the history of this work, not
+authority to resume deferred testing after the operator's stopping point.
+
+# Blackhole experimental DirectComposition runner transition
+
+The operator authorized a bounded transition from the successful standalone
+DirectComposition reference to one real Bitwig stereo/lifecycle test. The code
+basis remains commit `13a79468dcfa8a6aa93684a0a737ba20a9322902`, tree
+`b4ab4869e46eec16844108a79045b1128125427b`, on
+`codex/blackhole-editor-diagnostic`; PR #131 remains frozen.
+
+Primary claim: an explicitly selected, separately identified experimental
+runner can become the exact managed environment authority without changing the
+installed Blackhole module, prefix location, vendor licensing state, native
+proxy bytes or retained history. A fresh stereo inspection, preparation and
+ManagedExperimental publication must then bind that new runner, environment
+revision and closed runtime policy before Bitwig can launch it. The prior
+candidate/profile/publication must not be relabeled or reused.
+
+The only accepted runtime policy in this slice is
+`dcomp_wine_builtins_reference_v1`: built-in D2D1/D3D11/DXGI/DComp,
+`PROTON_USE_WINED3D=1`, `PROTON_DISABLE_NVAPI=1`, and Proton's supported
+`PROTON_DLL_COPY=*` provisioning. The policy is optional typed runner identity;
+omission preserves all existing serialized runners and profiles byte-for-byte.
+It must be copied into the generated profile requirements and applied by the
+normal supervisor. No graphics trace channels, ambient DLL override, arbitrary
+environment map or generalized runner switch is admitted.
+
+The transition is inactive-only and compare-and-swap bound to the exact
+environment marker digest, revision, prior runner digest, sealed candidate
+manifest and exact removed experimental publication revision. It requires the
+service stopped, all owners retired, the physical proxy absent, and exclusive
+canonical/registry/environment-operation custody. It retires only that removed
+current registry pointer, increments the environment revision, updates the
+onboarding copy, and retains exact rollback bytes and a transition receipt.
+Installation, prefix and historical result bytes are not rewritten. Stale,
+published, shared-environment, foreign-manifest, changed-artifact and cleanup
+states must refuse.
+
+The three authority files are a coordinated retained rollback, not a claim of
+crash-atomic multi-file storage. Normal validation failures restore their exact
+bytes. A process or power interruption after the prepared receipt leaves
+incompatible authority fail-closed; the custodian must apply the retained set
+under the same service/canonical/registry/environment locks before resuming.
+
+After the transition the parent owns live custody: rescan the exact onboarding
+environment, request `stereo_main_pair`, prepare a new candidate, publish only
+through the existing ExperimentalEnable/Replace path, then use the retained
+12-second stereo source for one Bitwig input/output observation, editor normal
+close/reopen, and exact retirement. Rendering and two normal closes already
+passed in the standalone vendor-access mode with exact local pixels and
+candidate graphics identities; those results do not establish Bitwig audio or
+publication acceptance. Preserve the complete prefix archive and original
+runner as rollback authority. Do not qualify the fork generally, add a new test
+framework, change Windows/native host bytes, merge, or alter PR #131.
+
+# Blackhole coherent DirectComposition runner continuation
+
+The operator approved auditing the effective graphics backend, preparing a
+separately identified coherent DirectComposition-capable runtime with rollback,
+and testing the exact Blackhole editor, close/reopen, stereo processing and
+retirement. Base commit `13a79468dcfa8a6aa93684a0a737ba20a9322902`, tree
+`b4ab4869e46eec16844108a79045b1128125427b`. Preserve PR #131.
+
+First obtain a working reference candidate before attempting patch reduction or
+productization. Build a coherent Wine reference from `giang17/wine` commit
+`c27f058814b402a5709e073adccd42baa66810b9` (`d2d1-dcomp-11.0`) in the pinned
+rootless Proton/Valve SDK build lane, then compose it with the byte-verified
+existing Proton distribution associated with source revision
+`5b89db940e0ebe3a137a6009a3589232fe084c09`. This reference does not claim that
+every packaged Proton component was rebuilt from that source revision. Record
+the exact Wine source, SDK configuration, retained Proton artifact identity and
+composed artifact digests. Keep the current Proton 11.0-2c runner and its Wine
+`dc26e618…` bytes as rollback authority; do not change the installed runner,
+prefix, registry, licensing, publication or product selection during the build.
+
+The parent owns the backend audit, candidate transition/rollback and live test;
+Sol owns build implementation. A later candidate run must be explicitly bound
+to the exact Blackhole module/host/environment and retain phase-aware graphics
+tracing, local pixels, normal close/reopen, the existing stereo input/output
+check and exact retirement. Do not replay an unchanged failure, hide Wine
+detection, read process memory, change security policy, create a new PR or merge.
+The previous preference and graphics-call scopes below remain historical
+evidence rather than authority to repeat them.
+
+The private coherent reference build completed in the pinned SteamRT4 SDK. Both
+architectures built and installed successfully. The composed candidate binds
+12,278 entries and 2,750,371,829 regular bytes, includes the fork's exact Wine
+Mono bootstrap dependency, retains only identified Proton bootstrap/runtime
+auxiliaries, and carries the associated Proton Wine `steamuser` compatibility
+policy as an exact recorded patch. The pinned Proton default-prefix packaging
+helper converted Wine built-ins to candidate-relative links and removed host
+device links before sealing.
+
+A fresh unlicensed prefix then completed normal initialization and a Windows
+hello process with `steamuser` `USERNAME`, `USERPROFILE` and `APPDATA`, exact
+candidate bytes for D2D1, D3D11, DComp, DXGI and wined3d in both Windows
+architectures, and confirmed cleanup. Failed intermediate bootstrap and harness
+attempts remain retained rather than relabeled. The sealed reference and this
+smoke are build/startup evidence only; actual loaded graphics identity,
+Blackhole pixels, normal close/reopen, stereo processing and retirement remain
+the parent-controlled live gates. Sanitized identities and limits are retained
+in `evidence/blackhole-editor/direct-composition-reference-build.sanitized.json`.
+
+The first existing-prefix initialization correctly stopped before plug-in
+launch when 56 Wine distribution targets disappeared behind the candidate's
+default-prefix links. Exact source comparison showed that the associated Proton
+Wine carries an `is_wine_file` guard which refuses write-enabling files under
+the Wine distribution; the DirectComposition fork does not. The candidate was
+restored from its preserved final install stage to the original sealed tree.
+Candidate-only provisioning now uses Proton's `PROTON_DLL_COPY=*` policy so an
+existing prefix receives owned regular built-in copies before Wine updates it.
+A focused unlicensed old-runner-to-candidate transition completed both
+initializers and a Windows hello, retained `steamuser`, kept all ten graphics
+bytes exact, retired cleanly, and left the sealed candidate tree unchanged.
+The remaining candidate-relative prefix links were six explicit ICU resources
+and eighteen fonts; no Wine built-in distribution link remained. The initial
+mutation and an over-strict harness assertion which also counted those expected
+resources remain recorded as failed boundaries.
+
+# Blackhole software-renderer repair continuation
+
+The operator approved a bounded software-renderer repair test from base
+`d1b46f2ec1f42d093d56d9aa330df101e50080e8`, tree
+`371e73a36ea17ca89271d3057afec5b6f2d04ca2`. Static inspection found a table
+containing `Software Renderer` / `Direct2D` labels, but the protected callbacks
+did not expose its persisted encoding. Run exactly one explicit reversible
+hypothesis: change only `GRMd` from `0|0` to `1|0`. This is not a proven mapping
+or product-support claim. Do not enumerate further values.
+
+Keep the exact module, Windows host, runner, licensing state, prefix identity,
+candidate publication and protected project bytes unchanged. Luna alone may
+perform any bounded GUI action and reopen. Apply the file change only with no
+live Blackhole owner, under the existing registry and environment-operation
+locks, after retaining the exact original bytes, hash and metadata. Verify the
+stopped Bitwig editor with the exact local observer; if it renders, close and
+reopen it once to check persistence. Restore the exact original preference
+immediately if ineffective. Do not rerun audio or performance work, add a
+workflow or framework, override Wine/DXVK DLLs, patch the vendor binary, or
+alter PR #131. Retain the hypothesis, local-frame result, close/reopen result,
+restoration and cleanup facts without publishing private paths or proprietary
+bytes. The rejected process-memory route remains a diagnostic boundary; do not
+retry it or change ptrace/security settings.
+
+Observed: the exact `1|0` value persisted during one stopped-Bitwig run, but
+both 874×552 local captures contained 482,448 white pixels and matched the
+baseline raw-frame digest. The hypothesis therefore failed to produce a usable
+renderer. It did not prove that software rendering was selected, unsupported or
+itself defective. No close/reopen check followed because no rendered surface was
+observed. The original 140-byte preference was restored with its exact digest
+and mode. The owned supervisor ended with raw exit -15; cleanup and transport
+retirement, four protected files, prefix identity and final zero-DSP/
+zero-maintenance capacity passed. Luna removed the failed device, leaving the
+empty Blackhole input chain in the stopped, unsaved project. A context click
+showed no menu; the bounded accessibility helper returned exit 3 with no records,
+which does not distinguish its two internal lookup failures. The process-memory
+route was approval-rejected and was not retried. Retain the sanitized
+[trial receipt](evidence/blackhole-editor/software-renderer-trial.sanitized.json).
+A verified vendor control or encoding is still required for the preference
+route; a complete runtime presentation correction remains a distinct larger
+route.
+
+# Blackhole graphics-call continuation
+
+The operator approved continuing from the qualified local white surface to the
+actual graphics initialization/presentation gap. Base commit
+`237034ca0fcaafd7e58c8d47f12ca2a523d45099`, tree
+`9a583b40cdab176beb0a59cebc794478d828a12e`, on the existing isolated diagnostic
+branch/PR #133. PR #131 remains unchanged for independent review.
+
+Use the exact existing activated Blackhole candidate, pinned runner and Windows
+host. First reuse the graphics diagnostic channels already compiled into that
+Wine build, with bounded private capture and selected sanitized findings.
+Avoid a new interception framework or a renderer/backend change merely to
+obtain logs. No authentication, installer, prefix recreation, vendor binary,
+publication, DLL override or real-time callback change belongs to this step.
+
+Primary claim: identify actual renderer initialization or submission calls and
+their reported results, or retain the precise remaining observation gap.
+A standalone vendor-editor run may isolate startup without an active audio
+callback, provided it uses exact admission and existing supervision/cleanup;
+its changed mode must remain explicit and cannot establish Bitwig acceptance.
+Do not describe a trace entry as a returned success or loaded modules as a
+presenting API. Preserve truncation and absence-of-coverage limits.
+
+Sol owns code; the parent owns the experiment and read-only SSH interpretation;
+Luna alone performs any necessary bounded GUI input. Keep raw logs private,
+limit the run and output, stop on drift or unexpected vendor flow, retire only
+the owned test, and verify protected files/prefix identity and capacity afterward.
+Retain the previous white-surface and close-hang findings separately. Commit
+and push the continuation to PR #133; do not merge or replay unaffected tests.
+
+Observed: diagnostic source `8bde6be` ran the exact standalone editor with the
+selected Wine channels. One D3D11 device-created record, 35 Direct2D context-created
+records and 22 EndDraw entry records preceded three composition-swapchain stub
+calls; no DXGI Present record occurred. Disassembly of the exact pinned DXGI
+module confirms every return path of CreateSwapChainForComposition and
+WaitForVBlank returns E_NOTIMPL (0x80004001). The latter emitted 33,691 stub
+records. The complete 4,104,682-byte private log had no discarded bytes.
+Editor-open was observed; graceful editor-close was not. Exact cleanup,
+transport retirement, protected files and prefix identity passed; no DSP or
+maintenance owner remains. The first launcher invocation refused before launch
+because its accessibility-capability expectation was wrong; the correction and
+failed attempt are retained. No workaround is installed. Eventide's GRMd=0|0
+preference and renderer label strings are a lead, not a verified setting map.
+
+# Blackhole editor rendering investigation
+
+The operator requests investigation of the blank Blackhole editor using the
+existing UI/rendering diagnostics and Pigments Wayland/X11 findings, while
+PR #131 is independently reviewed. Base commit
+`1bda0e5c695fbc84e0ae5ab42728bca6d049e4ab`, tree
+`01fc3a39bf55c600481970c35929641983f3a3ba`; retain that PR head unchanged.
+Work on `codex/blackhole-editor-diagnostic` in its isolated worktree.
+
+Primary claim: qualify the observed Blackhole visual failure at the actual
+local editor surface and window/message boundary, using existing bounded UI
+observers rather than a new testing framework. Record an actionable visual bug
+with supported findings and remaining diagnostic gaps. A renderer fix is not
+claimed from a white Moonlight image, running heartbeat, or loaded graphics DLL.
+
+Fixture: installed Blackhole Immersive 1.4.4, candidate `d7933fdaedb3`, Windows
+host `5fa0907b045df5ccb993a135fccffe932b365182bec7fa16c1a48a126b1869c2`,
+existing activated environment `8b064373d533b72230cb4009952eaab4`, pinned Proton
+11.0-2c / SLR4, Bitwig 6.1 and the current KDE Wayland/XWayland Deck desktop.
+Keep module, runner, prefix identity, licensing, publication and installed product bytes
+unchanged. Use only the disposable LVB-BH audio project for any reproduction;
+no repeat audio, performance, activation or broad plug-in campaign.
+
+Basis: AGENTS.md / Work to an outcome, engineering safeguards and GUI test
+custody; docs/ARCHITECTURE.md / 6.6 Editor; UIO1/UIO2 exact-window/capture and
+read-only identity contracts; UIR1's distinction between a responsive heartbeat
+and actual message-class delivery; retained Blackhole stereo runtime receipt.
+Sol 5.6 Extra High owns any code; Luna 5.6 Max alone performs bounded GUI input.
+The parent owns fixture identity, observation setup, interpretation and cleanup.
+
+Scope: reuse existing profile/candidate, publication, session and exact-window
+identity facts; local capture, child/parent geometry, DPI/style, graphics-module
+presence, and paint/message progress only as supported by the existing tools.
+Do not fabricate legacy observer admission or silently broaden its authority.
+Any small diagnostic adaptation must retain changed/foreign/stale identity and
+capture-refusal checks, bounded records/deadlines, and separate raw private
+artifacts from sanitized reports. No input injection, renderer setting, DPI,
+window-style, Wine DLL override, SDK-call or real-time-path change is implied.
+
+Verification: interpret the existing Pigments tests before one relevant live
+observation. Check any changed diagnostic adapter with focused failure tests;
+retain the actual local pixels privately and publish only bounded metrics and
+non-sensitive structural facts. A frame hash alone is not semantic UI success;
+a parent HWND alone is not a rendered child surface. Preserve the independent
+close hang in `IPlugView::removed()` and real stereo audio result.
+
+Stop the observer on identity drift, lost capture scope, terminal failure or
+capacity overflow. Only the exact test helper/host may be retired, using current
+owned cleanup. Leave protected project bytes and other plug-ins unchanged.
+Commit and push this investigation separately; do not merge either branch.
+
+The bounded claim is now observed. Diagnostic source `6bb1480` reused the pinned
+UIO1 observer and UIO2 graph/capture: two exact local 874×552 frames contain only
+white RGB pixels, while a visible, enabled child has the same extent at 96 DPI.
+The heartbeat remained responsive; zero settled-window WM_PAINT records do not
+establish paint failure. Mapped `winex11.drv`, D3D11 and DXGI bytes match the
+pinned runner's Wine built-ins. The presenting API and failing operation remain
+unobserved. Exact owned retirement and protected-file/prefix preservation passed;
+Luna removed the unsaved failed device. Bug #132, docs/BLACKHOLE_EDITOR.md and
+evidence/blackhole-editor retain the result and next discriminant. No renderer
+repair, normal-close repair, or additional audio claim follows from this slice.
+
 # Blackhole stereo-layout continuation
 
 The operator authorized the recommended next step: test genuine stereo

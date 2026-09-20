@@ -115,6 +115,8 @@ pub struct RunnerMatch {
     pub proton_sha256: String,
     pub entry_point_sha256: String,
     pub file_sha256: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy: Option<RunnerPolicy>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -250,6 +252,7 @@ impl Profile {
         require(
             e.runner.id == r.runner.id
                 && e.runner.version == r.runner.version
+                && e.runner.policy == r.runner.policy
                 && actual == expected
                 && e.runner
                     .files
@@ -383,5 +386,26 @@ mod event_policy_tests {
         value["capabilities"]["event_output"]=serde_json::json!("reported_zero_event_channels_unspecified");
         value["capabilities"]["audio_layout"]=serde_json::json!("surround_guess");
         assert!(Profile::parse(&serde_json::to_vec(&value).unwrap()).is_err());
+    }
+    #[test]
+    fn runner_policy_is_part_of_profile_environment_identity() {
+        let (fixture, mut profile, _, _) = crate::test_fixture::prepared_accessibility(false);
+        let mut environment = fixture.r.environment.clone();
+        assert!(profile
+            .verify_environment(&environment, &profile.requirements.environment_family)
+            .is_ok());
+        profile.requirements.runner.policy =
+            Some(RunnerPolicy::DcompWineBuiltinsReferenceV1);
+        assert_eq!(
+            profile
+                .verify_environment(&environment, &profile.requirements.environment_family)
+                .unwrap_err()
+                .to_string(),
+            "runner_mismatch"
+        );
+        environment.runner.policy = profile.requirements.runner.policy.clone();
+        assert!(profile
+            .verify_environment(&environment, &profile.requirements.environment_family)
+            .is_ok());
     }
 }

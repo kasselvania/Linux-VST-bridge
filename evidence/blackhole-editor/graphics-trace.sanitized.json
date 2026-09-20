@@ -1,0 +1,118 @@
+{
+  "schema": 1,
+  "kind": "blackhole_graphics_api_failure",
+  "source_commit": "8bde6be37e67bb90f9f77481f7d2d6f9d4f6b46e",
+  "script_sha256": "c741d67ef3bee0b56e9926371cf94fbf15e33b1abc09e6801e4bb1eaa08530d7",
+  "mode": "vendor_access_no_daw_audio",
+  "profile_fingerprint": "ff2872b44d9b02f0af378efb104de406440e6c1d08beea0c7131e5f5f0edae94",
+  "maximum_observation_seconds": 30,
+  "private_capture_capacity_bytes": 16777216,
+  "private_trace_sha256": "1b561c8dfe38e4d5d05c3e8fb22cc9847cac3b3f15b04fa239489b80268518e2",
+  "retained_bytes": 4104682,
+  "discarded_bytes": 0,
+  "wine_channels": "-all,+timestamp,+pid,+tid,+d2d,+d3d11,+dxgi,err+d3d,warn+d3d,err+winediag,warn+winediag,err+dwrite,warn+dwrite",
+  "graphics_process_count": 1,
+  "selected_functions": {
+    "d3d11_create_device": {
+      "records": 2,
+      "first_line": 43,
+      "last_line": 109,
+      "created_records": 1,
+      "stub_records": 0
+    },
+    "d2d_device_create_device_context": {
+      "records": 70,
+      "first_line": 131,
+      "last_line": 10165,
+      "created_records": 35,
+      "stub_records": 0
+    },
+    "d2d_device_context_EndDraw": {
+      "records": 22,
+      "first_line": 429,
+      "last_line": 9593,
+      "created_records": 0,
+      "stub_records": 0
+    },
+    "dxgi_output_WaitForVBlank": {
+      "records": 33691,
+      "first_line": 9905,
+      "last_line": 43879,
+      "created_records": 0,
+      "stub_records": 33691
+    },
+    "dxgi_factory_CreateSwapChainForComposition": {
+      "records": 3,
+      "first_line": 10028,
+      "last_line": 10196,
+      "created_records": 0,
+      "stub_records": 3
+    }
+  },
+  "all_presentation_function_records": [],
+  "graphics_warning_categories": [
+    {
+      "level": "warn",
+      "channel": "dwrite",
+      "function": "factory_create_system_fontset",
+      "records": 5
+    },
+    {
+      "level": "fixme",
+      "channel": "dxgi",
+      "function": "dxgi_factory_IsCurrent",
+      "records": 1
+    },
+    {
+      "level": "warn",
+      "channel": "dxgi",
+      "function": "dxgi_factory_IsCurrent",
+      "records": 2
+    },
+    {
+      "level": "fixme",
+      "channel": "dxgi",
+      "function": "DXGID3D10CreateDevice",
+      "records": 1
+    },
+    {
+      "level": "fixme",
+      "channel": "d2d",
+      "function": "d2d_device_create_device_context",
+      "records": 35
+    },
+    {
+      "level": "fixme",
+      "channel": "d3d11",
+      "function": "d3d11_device_context_SwapDeviceContextState",
+      "records": 1
+    },
+    {
+      "level": "warn",
+      "channel": "d3d",
+      "function": "wined3d_context_gl_bind_shader_resources",
+      "records": 132
+    },
+    {
+      "level": "fixme",
+      "channel": "dxgi",
+      "function": "dxgi_output_WaitForVBlank",
+      "records": 1
+    },
+    {
+      "level": "fixme",
+      "channel": "dxgi",
+      "function": "dxgi_factory_CreateSwapChainForComposition",
+      "records": 3
+    }
+  ],
+  "editor_open_observed": true,
+  "graceful_editor_close_observed": false,
+  "cleanup_confirmed": true,
+  "lease_retained": false,
+  "failure_present": false,
+  "gui_observation": "Moonlight stream dim and illegible; no new pixel or control usability claim",
+  "input_sent_to_plugin": false,
+  "visual_baseline": "earlier exact local white captures retained separately",
+  "scope": "Wine graphics calls inside an exact standalone vendor-access process; not a Bitwig processing or usability acceptance"
+}

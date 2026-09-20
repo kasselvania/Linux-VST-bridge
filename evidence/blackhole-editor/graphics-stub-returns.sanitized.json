@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "module": "dxgi.dll",
+  "sha256": "ef3fa2a3c199aa8f9cb97701778864ac70a76f2092cff821d645b8a21ba9a67a",
+  "bytes": 726475,
+  "method": "objdump -d --disassemble of exact pinned open-source Wine module; all return paths inspected",
+  "functions": [
+    {
+      "function": "dxgi_factory_CreateSwapChainForComposition",
+      "return_instructions": 2,
+      "loads_e_notimpl": 2,
+      "all_return_paths_constant": "0x80004001",
+      "signed_hresult": -2147467263,
+      "symbol": "E_NOTIMPL"
+    },
+    {
+      "function": "dxgi_output_WaitForVBlank",
+      "return_instructions": 3,
+      "loads_e_notimpl": 3,
+      "all_return_paths_constant": "0x80004001",
+      "signed_hresult": -2147467263,
+      "symbol": "E_NOTIMPL"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "cleanup_confirmed": true,
+  "transport_retired": true,
+  "raw_exit": -15,
+  "error": null,
+  "protected_files_checked": 4,
+  "protected_files_unchanged": true,
+  "prefix_identity_unchanged": true,
+  "capacity": {
+    "dsp": 0,
+    "maintenance": 0,
+    "keepers": 4,
+    "cleanup_unconfirmed": false
+  }
+}

@@ -172,13 +172,18 @@ impl Library {
                                 &p.version
                             }
                         ));
-                        let live = snapshot
-                            .active_sessions
-                            .iter()
-                            .filter(|session| session["class_id"] == p.class_id)
-                            .count();
-                        if live > 0 {
-                            ui.small(format!("{live} active instance(s) of this plug-in class"));
+                        let instances=instance_state(&snapshot.active_sessions,&p.class_id);
+                        if instances.active>0 {
+                            ui.small(format!("{} active instance(s) of this plug-in class",instances.active));
+                        }
+                        if instances.editor_failed>0 {
+                            ui.colored_label(warning_color(ui),format!("{} instance(s): vendor editor/controller failed; the instance is unavailable",instances.editor_failed));
+                        }
+                        if instances.host_failed>0 {
+                            ui.colored_label(warning_color(ui),format!("{} instance(s): Windows host exited unexpectedly; the instance is unavailable",instances.host_failed));
+                        }
+                        if instances.transport_failed>0 {
+                            ui.colored_label(warning_color(ui),format!("{} instance(s): bridge transport failed; the instance is unavailable",instances.transport_failed));
                         }
                         if let Some(reason) = problem(p) {
                             ui.colored_label(warning_color(ui), reason);
@@ -334,6 +339,22 @@ fn warning_color(ui: &egui::Ui) -> egui::Color32 {
     }
 }
 
+#[derive(Debug,Default,PartialEq,Eq)]
+struct InstanceState {active:usize,editor_failed:usize,host_failed:usize,transport_failed:usize}
+fn instance_state(sessions:&[serde_json::Value],class_id:&str)->InstanceState {
+    let mut result=InstanceState::default();
+    for session in sessions.iter().filter(|row|row["class_id"]==class_id) {
+        match session["terminal"].as_str() {
+            Some("editor_controller_failed")=>result.editor_failed+=1,
+            Some("windows_host_exited")=>result.host_failed+=1,
+            Some("transport_failed")=>result.transport_failed+=1,
+            _ if session["state"]=="active"=>result.active+=1,
+            _=>{}
+        }
+    }
+    result
+}
+
 pub fn action_buttons(
     ui: &mut egui::Ui,
     actions: &[AvailableAction],
@@ -454,5 +475,18 @@ mod tests {
         s.vendor_applications[1].details = serde_json::json!({});
         s.products[0].environment = "fixture-ni".into();
         assert_eq!(related_actions(&s.products[0], &s).len(), 1); // only the exact rescan
+    }
+
+    #[test]
+    fn basic_instance_failures_are_visible_for_any_published_product() {
+        let sessions=vec![
+            serde_json::json!({"class_id":"blackhole","state":"failed","terminal":"editor_controller_failed"}),
+            serde_json::json!({"class_id":"kontakt","state":"failed","terminal":"windows_host_exited"}),
+            serde_json::json!({"class_id":"kontakt","state":"active","terminal":null}),
+        ];
+        assert_eq!(instance_state(&sessions,"blackhole"),InstanceState{
+            editor_failed:1,..Default::default()});
+        assert_eq!(instance_state(&sessions,"kontakt"),InstanceState{
+            active:1,host_failed:1,..Default::default()});
     }
 }

@@ -851,6 +851,7 @@ fn runner_match(r: &Runner) -> Result<RunnerMatch> {
         proton_sha256: hash(&r.proton)?,
         entry_point_sha256: hash(&r.entry_point)?,
         file_sha256: files,
+        policy: r.policy.clone(),
     })
 }
 

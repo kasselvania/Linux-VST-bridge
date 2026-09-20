@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "read_only": true,
+  "filename": "Blackhole Immersive.properties",
+  "attribute_names": [
+    "edSz",
+    "TlTp",
+    "UICS",
+    "GRMd",
+    "onbd"
+  ],
+  "GRMd": "0|0",
+  "exact_module_graphics_label_strings": [
+    "Direct2D",
+    "Software Renderer"
+  ],
+  "meaning_and_encoding_verified": false,
+  "preference_changed": false,
+  "conclusion": "candidate vendor renderer preference; labels and key alone do not prove mapping or fallback completeness"
+}

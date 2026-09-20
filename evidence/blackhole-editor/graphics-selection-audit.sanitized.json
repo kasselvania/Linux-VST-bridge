@@ -1,0 +1,187 @@
+{
+  "schema": 1,
+  "prefix_graphics": [
+    {
+      "location": "system32/d2d1.dll",
+      "exists": true,
+      "symlink": true,
+      "bytes": 1325976,
+      "sha256": "345d4bb5e2376c2e2c2c84063ad86571cb892ad324125fcb0e1ad899f5c33e50",
+      "wine_builtin_marker": true,
+      "target_runner_relative": "lib/wine/x86_64-windows/d2d1.dll"
+    },
+    {
+      "location": "system32/d3d11.dll",
+      "exists": true,
+      "symlink": false,
+      "bytes": 6270976,
+      "sha256": "aaab753627957ef4d192d91c2816400e486fc0131b15a8d4bdae1ecf4b1a21b8",
+      "wine_builtin_marker": false,
+      "target_runner_relative": null
+    },
+    {
+      "location": "system32/d3d10core.dll",
+      "exists": true,
+      "symlink": false,
+      "bytes": 135168,
+      "sha256": "129621dc764a91f5d663462b6cb3805b592ebb5b53e653e0039b331d90daf7db",
+      "wine_builtin_marker": false,
+      "target_runner_relative": null
+    },
+    {
+      "location": "system32/dxgi.dll",
+      "exists": true,
+      "symlink": false,
+      "bytes": 4468736,
+      "sha256": "a5b73d280e42b4d972ce65c9e7b76fe2ef34077d4347a8468ed57c3b5681c0d3",
+      "wine_builtin_marker": false,
+      "target_runner_relative": null
+    },
+    {
+      "location": "system32/dcomp.dll",
+      "exists": true,
+      "symlink": true,
+      "bytes": 73167,
+      "sha256": "b5b57eb4bfa573678eb46b027c8cf1b0647ccfee8c5a458d8f205ba92ae85d24",
+      "wine_builtin_marker": true,
+      "target_runner_relative": "lib/wine/x86_64-windows/dcomp.dll"
+    },
+    {
+      "location": "system32/wined3d.dll",
+      "exists": true,
+      "symlink": true,
+      "bytes": 2171545,
+      "sha256": "28ecf236d1834840099e9a6a6647f38d604285098f3a88f5aada94eebd2df73a",
+      "wine_builtin_marker": true,
+      "target_runner_relative": "lib/wine/x86_64-windows/wined3d.dll"
+    },
+    {
+      "location": "syswow64/d2d1.dll",
+      "exists": true,
+      "symlink": true,
+      "bytes": 1203896,
+      "sha256": "6cefce678afac2ffe816f612f617e10fd000d850f8769d3678718a90b0742f97",
+      "wine_builtin_marker": true,
+      "target_runner_relative": "lib/wine/i386-windows/d2d1.dll"
+    },
+    {
+      "location": "syswow64/d3d11.dll",
+      "exists": true,
+      "symlink": false,
+      "bytes": 7139342,
+      "sha256": "f700a8b2bfadac3e054ae6977ef284f8488c2831e22679e16dd0208b4fb69370",
+      "wine_builtin_marker": false,
+      "target_runner_relative": null
+    },
+    {
+      "location": "syswow64/d3d10core.dll",
+      "exists": true,
+      "symlink": false,
+      "bytes": 172046,
+      "sha256": "c7124d7272df9a8a0141e5d1fc7e04c4d59eaec42125ee9a934360f462cd14e3",
+      "wine_builtin_marker": false,
+      "target_runner_relative": null
+    },
+    {
+      "location": "syswow64/dxgi.dll",
+      "exists": true,
+      "symlink": false,
+      "bytes": 5029902,
+      "sha256": "969161be5bd3dd0a042f64c8f1171695cd66da7ce8a66f8419d75fed4f98b1c4",
+      "wine_builtin_marker": false,
+      "target_runner_relative": null
+    },
+    {
+      "location": "syswow64/dcomp.dll",
+      "exists": true,
+      "symlink": true,
+      "bytes": 62137,
+      "sha256": "eec3af1dbe590cf43b71876b0d1017414a5a48e996bb18b1235da1224b200f52",
+      "wine_builtin_marker": true,
+      "target_runner_relative": "lib/wine/i386-windows/dcomp.dll"
+    },
+    {
+      "location": "syswow64/wined3d.dll",
+      "exists": true,
+      "symlink": true,
+      "bytes": 2030327,
+      "sha256": "773e1ef4808bc8c81382c1732b4a7e9fb31e8a2e7cfc7eaa51814515033e3b19",
+      "wine_builtin_marker": true,
+      "target_runner_relative": "lib/wine/i386-windows/wined3d.dll"
+    }
+  ],
+  "selected_registry_graphics_overrides": [],
+  "runtime_transition_not_started": true,
+  "kind": "blackhole_graphics_selection_read_only_audit",
+  "fixture": {
+    "product": "Eventide Blackhole Immersive",
+    "version": "1.4.4",
+    "class_id": "5653544248496D626C61636B686F6C65",
+    "module_sha256": "b8a33c57b04eded38d0ca717bb5e3721330439f4931c401ea70e5246b516e90b"
+  },
+  "source": {
+    "proton": "5b89db940e0ebe3a137a6009a3589232fe084c09",
+    "wine": "dc26e61847081a1b5cb0733dc30feba6ee575482",
+    "dxvk": "a6764047e587178283fcde4073ae6e1410af594f",
+    "installed_proton_script_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad"
+  },
+  "registry_files_checked": [
+    "user.reg",
+    "userdef.reg",
+    "system.reg"
+  ],
+  "prefix_dxvk_byte_matches": {
+    "system32": [
+      "d3d11.dll",
+      "dxgi.dll",
+      "d3d10core.dll"
+    ],
+    "syswow64": [
+      "d3d11.dll",
+      "dxgi.dll",
+      "d3d10core.dll"
+    ]
+  },
+  "supervisor_environment": {
+    "method": "recomputed installed supervisor environment and managed_home; no new editor launch",
+    "unset_graphics_inputs": [
+      "WINEDLLOVERRIDES",
+      "PROTON_USE_WINED3D",
+      "PROTON_USE_WINED3D11",
+      "PROTON_NO_D3D11",
+      "DXVK_CONFIG",
+      "DXVK_CONFIG_FILE",
+      "DXVK_LOG_LEVEL",
+      "PROTON_LOG",
+      "WINE_HIDE_WINE_VERSION"
+    ],
+    "runner_user_settings_py_present": false,
+    "disable_windows_accessibility": false
+  },
+  "builtin_pe_characteristics": {
+    "x86_64": {
+      "d3d11": "0x0160",
+      "dxgi": "0x0160"
+    },
+    "i386": {
+      "d3d11": "0x0140",
+      "dxgi": "0x0140"
+    },
+    "wine_prefer_native_flag": "0x0010",
+    "prefer_native_set": false
+  },
+  "selection_explanation": {
+    "proton_verb": "runinprefix",
+    "prefix_setup_skipped": true,
+    "native_dxvk_overrides_added_by_setup_prefix": false,
+    "wine_default": "LO_DEFAULT searches builtin first unless builtin prefers native",
+    "result": "consistent with prior actual mapped Wine builtins despite DXVK files in prefix",
+    "evidence_limit": "source plus current file/registry/supervisor-input audit; historical mapping receipt supplies actual loaded implementation, not a newly observed process environment"
+  },
+  "nonclaims": [
+    "No unchanged white-editor replay",
+    "No runtime candidate executed by this audit",
+    "DXVK DLL presence does not establish DXVK execution",
+    "No renderer repair or lifecycle success"
+  ]
+}

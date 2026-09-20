@@ -131,12 +131,20 @@ impl Artifact {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+pub enum RunnerPolicy {
+    #[serde(rename = "dcomp_wine_builtins_reference_v1")]
+    DcompWineBuiltinsReferenceV1,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct Runner {
     pub id: String,
     pub version: String,
     pub proton: PathBuf,
     pub entry_point: PathBuf,
     pub files: Vec<Artifact>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy: Option<RunnerPolicy>,
 }
 impl Runner {
     pub fn verify(&self) -> Result<()> {

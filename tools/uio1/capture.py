@@ -9,6 +9,7 @@ import ctypes as C
 import json
 import os
 import pathlib
+import re
 import signal
 import sys
 import time
@@ -49,12 +50,17 @@ def process_sample(pid):
 
 def renderer(pid):
     names={'d3d9.dll','d3d11.dll','d3d12.dll','dxgi.dll','d2d1.dll','opengl32.dll',
-        'winevulkan.dll','wined3d.dll','gdi32.dll','uiautomationcore.dll','libvulkan.so.1','libGL.so.1','libGLX.so.0','libEGL.so.1'}
+        'winevulkan.dll','wined3d.dll','gdi32.dll','uiautomationcore.dll'}
+    linux={'libgl':'libGL.so','libglx':'libGLX.so','libegl':'libEGL.so','libvulkan':'libvulkan.so'}
     found=set();lines=pathlib.Path(f'/proc/{pid}/maps').read_text().splitlines()
     if len(lines)>16384:raise RuntimeError('module mapping bound')
     for line in lines:
-        name=line.rsplit('/',1)[-1]
-        if name in names:found.add(name)
+        name=line.rsplit('/',1)[-1].removesuffix(' (deleted)');lower=name.lower()
+        if lower in names:found.add(lower)
+        elif re.fullmatch(r'(winex11|winewayland)\.drv(?:\.so)?',lower):found.add(lower.split('.')[0]+'.drv')
+        else:
+            match=re.fullmatch(r'(libgl|libglx|libegl|libvulkan)\.so(?:\..+)?',lower)
+            if match:found.add(linux[match.group(1)])
     return sorted(found)
 
 class Capture:

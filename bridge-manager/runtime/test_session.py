@@ -18,6 +18,22 @@ import ownership
 import session
 
 
+class GraphicalSessionTests(unittest.TestCase):
+    def test_exact_peer_generation_and_allowlisted_environment_are_revalidated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            proc=pathlib.Path(tmp);peer=proc/'41';peer.mkdir()
+            fields=['S']+['0']*18+['9001']+['0']*4
+            (peer/'stat').write_text('41 (bitwig-studio) '+' '.join(fields))
+            (peer/'environ').write_bytes(b'DISPLAY=:7\0WAYLAND_DISPLAY=gamescope-1\0HOME=/private\0')
+            bound={'schema':1,'peer_pid':41,'peer_start_ticks':9001,'display':':7','wayland_display':'gamescope-1'}
+            self.assertEqual(session.graphical_environment(bound,proc),
+                             {'DISPLAY':':7','WAYLAND_DISPLAY':'gamescope-1'})
+            with self.assertRaisesRegex(RuntimeError,'generation changed'):
+                session.graphical_environment(dict(bound,peer_start_ticks=9002),proc)
+            with self.assertRaisesRegex(RuntimeError,'environment changed'):
+                session.graphical_environment(dict(bound,display=':8'),proc)
+
+
 class ManagedHomeTests(unittest.TestCase):
     def test_private_home_retained_for_inspection_keeper_and_dsp_only_when_bound(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -76,6 +92,26 @@ class BusCensusCommandTests(unittest.TestCase):
             del reg['compatibility']['editor_lifetime']
             reg['compatibility']['event_output']='all_zero_buses'
             with self.assertRaisesRegex(RuntimeError,'unsupported event output policy'):session.environment(reg)
+
+    def test_reference_runner_policy_is_explicit_and_closed(self):
+        reg={'environment':{'root':'/fixture','runner':{}},
+             'compatibility':{'disable_windows_accessibility':False}}
+        with patch.object(session.subprocess,'check_output',return_value='DISPLAY=:0\n'):
+            default=session.environment(reg)
+            for key in ('PROTON_USE_WINED3D','PROTON_DISABLE_NVAPI','PROTON_DLL_COPY'):
+                self.assertNotIn(key,default)
+            reg['environment']['runner']['policy']='dcomp_wine_builtins_reference_v1'
+            selected=session.environment(reg)
+            self.assertEqual(selected['WINEDLLOVERRIDES'],'d2d1,d3d11,dxgi,dcomp=b')
+            self.assertEqual(selected['PROTON_USE_WINED3D'],'1')
+            self.assertEqual(selected['PROTON_DISABLE_NVAPI'],'1')
+            self.assertEqual(selected['PROTON_DLL_COPY'],'*')
+            reg['compatibility']['disable_windows_accessibility']=True
+            self.assertEqual(session.environment(reg)['WINEDLLOVERRIDES'],
+                             'd2d1,d3d11,dxgi,dcomp=b;uiautomationcore=')
+            reg['environment']['runner']['policy']='unknown'
+            with self.assertRaisesRegex(RuntimeError,'unsupported runner policy'):
+                session.environment(reg)
 
     def test_exact_inspection_selection_reaches_command_and_handshake(self):
         # Source-owned distinct instrument/effect IDs; no vendor naming dispatch.

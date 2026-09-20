@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "protected_files_checked": 4,
+  "protected_files_unchanged": true,
+  "prefix_inode_unchanged": true,
+  "prefix_device_unchanged": true,
+  "capacity_command_exit": 0,
+  "gui_cleanup": {
+    "operator": "Luna 5.6 Max",
+    "exact_failed_unsaved_device_removed": true,
+    "expected_state_save_warning_acknowledged": true,
+    "transport_stopped": true,
+    "project_not_saved": true,
+    "source_track_retained": true
+  },
+  "final_capacity": {
+    "dsp": 0,
+    "maintenance": 0,
+    "keepers": 4,
+    "cleanup_unconfirmed": false,
+    "available_dsp": 6
+  }
+}

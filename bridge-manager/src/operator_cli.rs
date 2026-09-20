@@ -638,7 +638,17 @@ fn snapshot_for_operation(
         active_sessions: cap
             .as_ref().into_iter().flat_map(|c|c.owners.iter())
             .filter(|o| o.kind == capacity::Kind::Dsp)
-            .map(|o| json!({"class_id":o.class_id,"state":if cap.as_ref().is_some_and(|c|c.cleanup_unconfirmed){"cleanup_unconfirmed"}else{"active"}}))
+            .map(|o| json!({
+                "class_id":o.class_id,
+                "state":if cap.as_ref().is_some_and(|c|c.cleanup_unconfirmed){
+                    "cleanup_unconfirmed"
+                }else if o.terminal.is_some(){
+                    "failed"
+                }else{
+                    "active"
+                },
+                "terminal":o.terminal,
+            }))
             .collect(),
         capture: capture_state(m)?,
         recent_incidents: incidents,
