@@ -1,5 +1,11 @@
 # Catalog reliability: Blackhole and Kontakt owned graphical sessions
 
+Correction basis: stacked merge `18cc2c11b35c6c3c04d88c4703c8a6d88996249a`,
+tree `9311091011ec69caa4799f2e12fa972e3ac74781`. That merge entered the
+still-unmerged Blackhole branch before review of PR #134 was complete. It was
+not merged to `main`, installed, or exercised physically. The corrective
+candidate remains a separate draft review boundary.
+
 Basis: commit `bbb43318e48ab5b3b40fab23a53f3766f437205f`, tree
 `d3c32017e71bbeb089d48643af7667351a476adf`.
 
@@ -37,6 +43,22 @@ private graphical context with no ambient environment copying; and visible
 editor/host/transport terminal states. The existing audio callback, VST3 bus
 transport, runner policies and vendor-specific product behavior remain
 unchanged.
+
+The production crossings are explicit:
+
+- IF1 is read only from the exact volatile tmpfs transport retained by the DSP
+  owner; the durable Wine-prefix symlink is checked as a view and is never read
+  as authority;
+- spawning the Python supervisor is not ownership. The manager waits for an
+  exact `LVO0 <session> ready` receipt after immutable and graphical preflight,
+  before exposing admission, transport, or a native binding;
+- every later prelaunch failure belongs to an outer finalizer that retires the
+  native peer and reports cleanup, while an early keeper refusal publishes an
+  exact empty-cohort cleanup result;
+- a bounded sanitized terminal summary survives confirmed lease retirement so
+  the manager can show the most recent editor, host, or transport failure even
+  when optional detailed capture was disabled. Failure-summary persistence is
+  not physical cleanup authority and cannot strand an already retired lease.
 
 Nonclaims: this slice does not establish that physical touchscreen input works,
 that Blackhole or Kontakt audio works in the next Bitwig session, that Gaming

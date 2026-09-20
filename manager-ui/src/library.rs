@@ -185,6 +185,18 @@ impl Library {
                         if instances.transport_failed>0 {
                             ui.colored_label(warning_color(ui),format!("{} instance(s): bridge transport failed; the instance is unavailable",instances.transport_failed));
                         }
+                        if instances.recent_editor_failed>0 {
+                            ui.colored_label(warning_color(ui),"Most recent instance: vendor editor/controller failed.");
+                        }
+                        if instances.recent_host_failed>0 {
+                            ui.colored_label(warning_color(ui),"Most recent instance: Windows host exited unexpectedly.");
+                        }
+                        if instances.recent_transport_failed>0 {
+                            ui.colored_label(warning_color(ui),"Most recent instance: bridge transport failed.");
+                        }
+                        if instances.recent_editor_failed+instances.recent_host_failed+instances.recent_transport_failed>0 {
+                            ui.small(if instances.recent_cleanup_unconfirmed>0 {"Cleanup remains unconfirmed."} else {"Cleanup confirmed."});
+                        }
                         if let Some(reason) = problem(p) {
                             ui.colored_label(warning_color(ui), reason);
                         }
@@ -340,14 +352,22 @@ fn warning_color(ui: &egui::Ui) -> egui::Color32 {
 }
 
 #[derive(Debug,Default,PartialEq,Eq)]
-struct InstanceState {active:usize,editor_failed:usize,host_failed:usize,transport_failed:usize}
+struct InstanceState {active:usize,editor_failed:usize,host_failed:usize,transport_failed:usize,
+    recent_editor_failed:usize,recent_host_failed:usize,recent_transport_failed:usize,
+    recent_cleanup_unconfirmed:usize}
 fn instance_state(sessions:&[serde_json::Value],class_id:&str)->InstanceState {
     let mut result=InstanceState::default();
     for session in sessions.iter().filter(|row|row["class_id"]==class_id) {
-        match session["terminal"].as_str() {
-            Some("editor_controller_failed")=>result.editor_failed+=1,
-            Some("windows_host_exited")=>result.host_failed+=1,
-            Some("transport_failed")=>result.transport_failed+=1,
+        if session["recent"]==true && (session["cleanup_confirmed"]!=true || session["transport_retired"]!=true) {
+            result.recent_cleanup_unconfirmed+=1;
+        }
+        match (session["recent"]==true,session["terminal"].as_str()) {
+            (true,Some("editor_controller_failed"))=>result.recent_editor_failed+=1,
+            (true,Some("windows_host_exited"))=>result.recent_host_failed+=1,
+            (true,Some("transport_failed"))=>result.recent_transport_failed+=1,
+            (_,Some("editor_controller_failed"))=>result.editor_failed+=1,
+            (_,Some("windows_host_exited"))=>result.host_failed+=1,
+            (_,Some("transport_failed"))=>result.transport_failed+=1,
             _ if session["state"]=="active"=>result.active+=1,
             _=>{}
         }
@@ -483,10 +503,12 @@ mod tests {
             serde_json::json!({"class_id":"blackhole","state":"failed","terminal":"editor_controller_failed"}),
             serde_json::json!({"class_id":"kontakt","state":"failed","terminal":"windows_host_exited"}),
             serde_json::json!({"class_id":"kontakt","state":"active","terminal":null}),
+            serde_json::json!({"class_id":"kontakt","state":"failed","terminal":"transport_failed","recent":true,
+                "cleanup_confirmed":true,"transport_retired":true}),
         ];
         assert_eq!(instance_state(&sessions,"blackhole"),InstanceState{
             editor_failed:1,..Default::default()});
         assert_eq!(instance_state(&sessions,"kontakt"),InstanceState{
-            active:1,host_failed:1,..Default::default()});
+            active:1,host_failed:1,recent_transport_failed:1,..Default::default()});
     }
 }

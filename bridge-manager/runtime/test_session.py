@@ -1,5 +1,7 @@
 """Installed supervision tests. Real child processes; no vendor qualification."""
 import hashlib
+import contextlib
+import io
 import json
 import os
 import pathlib
@@ -1099,3 +1101,68 @@ class TerminalInstanceTests(unittest.TestCase):
             self.assertEqual(first['last_completed_position'],512)
             t.close()
             with self.assertRaisesRegex(RuntimeError,'session/version'):session.TerminalStatus(root,'32'*16)
+@unittest.skipUnless(sys.platform.startswith('linux'),'Linux supervisor ownership boundary')
+class SupervisorOwnershipBoundaryTests(unittest.TestCase):
+    def fixture(self,root):
+        sid='3a'*16
+        durable=root/'compatdata/pfx/drive_c/bridge/sessions'/sid
+        durable.mkdir(parents=True,mode=0o700)
+        host=root/'host';module=root/'module'
+        host.write_bytes(b'host');module.write_bytes(b'module')
+        artifact=lambda path:{'path':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
+        return {'registration':{'host':artifact(host),'module':artifact(module),
+          'metadata':{'class_id':'01'*16},'host_source_sha256':'02'*32,
+          'environment':{'root':str(root),'runner':{'files':[],
+            'entry_point':'/fixture/entry','proton':'/fixture/proton'}},
+          'compatibility':{'disable_windows_accessibility':False}},
+          'session':sid,'directory':str(durable),'report':str(root/'result.json'),
+          'inspect':False,'binding_sent':True,'onboarding_home':False,
+          'shared_runtime':False,'keeper':False,'vendor_access':False},durable
+
+    def test_changed_graphical_generation_never_crosses_readiness(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,durable=self.fixture(pathlib.Path(tmp))
+            spec['graphical_session']={'schema':1,'peer_pid':os.getpid(),
+              'peer_start_ticks':1,'display':':1'}
+            output=io.StringIO()
+            with contextlib.redirect_stdout(output),self.assertRaisesRegex(RuntimeError,'generation changed'):
+                session.run(spec)
+            self.assertEqual(output.getvalue(),'')
+            self.assertTrue(durable.exists()) # Rust still owns this unexposed directory.
+
+    def test_native_disconnect_before_control_is_owned_and_retires(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,durable=self.fixture(pathlib.Path(tmp));owner,native=socket.socketpair();native.close()
+            output=io.StringIO()
+            with patch.object(session,'environment',return_value=os.environ.copy()),\
+                 patch.object(session,'command',return_value=(['/bin/false'],b'binding')),\
+                 contextlib.redirect_stdout(output):
+                result=session.run(spec,owner)
+            owner.close()
+            self.assertEqual(output.getvalue(),'LVO0 '+spec['session']+' ready\n')
+            self.assertTrue(result['cleanup_confirmed'] and result['transport_retired'])
+            self.assertIn('native setup disconnected',result['error'])
+            self.assertFalse(durable.exists())
+
+    def test_windows_root_launch_failure_after_readiness_is_truthful_and_clean(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,durable=self.fixture(pathlib.Path(tmp));output=io.StringIO()
+            with patch.object(session,'environment',return_value=os.environ.copy()),\
+                 patch.object(session,'command',return_value=(['/missing/windows-root'],b'binding')),\
+                 patch.object(session.subprocess,'Popen',side_effect=FileNotFoundError('fixture root absent')),\
+                 contextlib.redirect_stdout(output):
+                result=session.run(spec)
+            self.assertEqual(output.getvalue(),'LVO0 '+spec['session']+' ready\n')
+            self.assertTrue(result['cleanup_confirmed'] and result['transport_retired'])
+            self.assertIn('FileNotFoundError',result['error'])
+            self.assertFalse(durable.exists())
+
+    def test_keeper_graphical_preflight_failure_publishes_empty_cleanup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,durable=self.fixture(pathlib.Path(tmp));spec['keeper']=True;spec['inspect']=True
+            spec['graphical_session']={'schema':1,'peer_pid':os.getpid(),
+              'peer_start_ticks':1,'display':':1'}
+            result=session.keep(spec)
+            report=json.loads(pathlib.Path(spec['report']).read_text())
+            self.assertTrue(result['cleanup_confirmed'] and report['cleanup_confirmed'])
+            self.assertFalse(report['ready']);self.assertIn('generation changed',report['error'])

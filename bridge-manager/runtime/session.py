@@ -839,7 +839,68 @@ class IncidentCapture:
                 share['exceptions'].append(dict(code=e['code'],classification=e['classification'],fault={k:e['fault'].get(k) for k in ['module_sha256','offset']},stack=[{k:x.get(k) for k in ['module_sha256','offset']} for x in e['stack']]))
         atomic(self.path/'share.json',share);self.status(capture['state']);return capture
 
+def session_preflight(spec):
+    """Validate everything needed before Rust may expose a native binding.
+
+    This performs no Windows launch and creates no transport files. The outer
+    owner below is installed before the readiness receipt is published.
+    """
+    os.umask(0o077);reg=spec['registration'];session_directories(spec)
+    for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
+    command(spec);env=environment(reg,spec.get('graphical_session'))
+    managed_home(spec,env);transport_environment(spec,env);delivery_trace(spec,env)
+
+def prelaunch_owned_failure(spec,peer,error):
+    """Retire an exposed native transport when Windows ownership never began."""
+    directory,_=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
+    retired=peer is None
+    if peer is not None:
+        try:
+            peer.setblocking(False)
+            try:peer.sendall(b'F')
+            except (BlockingIOError,OSError):pass
+            end=time.monotonic()+10
+            while time.monotonic()<end:
+                try:
+                    if peer.recv(1)==b'':retired=True;break
+                    raise RuntimeError('unexpected native owner bytes')
+                except BlockingIOError:time.sleep(.02)
+                except OSError:retired=True;break
+        except OSError:retired=True
+    outcome={'vendor_retirement':None,'transport_storage':spec.get('transport'),
+      'fault_status':None,'fault_reporting_error':None,'ownership_schema':1,
+      'session':sid,'records':[],'exit_before_cleanup':None,'raw_exit':None,
+      'error':'prelaunch_owner_failure: '+type(error).__name__+': '+str(error)[:256],
+      'cleanup_confirmed':True,'gated':False,
+      'discarded_diagnostic_bytes':{'vendor':0,'stderr':0},'vendor_stdout':'','stderr':'',
+      'transport_retired':retired}
+    if retired:
+        try:retire_directories(spec)
+        except (OSError,RuntimeError) as exc:
+            outcome['transport_retired']=False
+            outcome['retirement_error']=type(exc).__name__+': '+str(exc)[:256]
+    atomic(report,outcome)
+    receipt={k:outcome.get(k,False) for k in ('session','cleanup_confirmed','transport_retired')}
+    receipt['reporting_error']=None
+    atomic(report.with_suffix('.ownership.json'),receipt)
+    return outcome
+
 def run(spec,peer=None):
+    session_preflight(spec)
+    interrupted=[False]
+    def before_owner_stop(*_):
+        interrupted[0]=True
+        raise InterruptedError('supervisor interrupted after readiness')
+    signal.signal(signal.SIGTERM,before_owner_stop);signal.signal(signal.SIGINT,before_owner_stop)
+    print('LVO0 '+spec['session']+' ready',flush=True)
+    try:return run_owned(spec,peer)
+    except Exception as error:
+        # Ordinary setup errors after LVO0 are all owned by the same finalizer.
+        # Do not let a missing LVO1 poison an
+        # exposed lease merely because the Windows root was never created.
+        return prelaunch_owned_failure(spec,peer,error)
+
+def run_owned(spec,peer=None):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
     cmd,binding=command(spec);env=environment(reg,spec.get('graphical_session'))
@@ -1071,13 +1132,14 @@ def keep(spec):
         nonlocal stop
         stop=True
     signal.signal(signal.SIGTERM,stopped);signal.signal(signal.SIGINT,stopped)
-    directory=pathlib.Path(spec['directory']);verify(reg['host'])
-    cmd=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',windows(reg['host']['path'],pathlib.Path(reg['environment']['root'])/'compatdata/pfx'),'--environment-owner',spec['session'],'--scanner-sha256',reg['host']['sha256']]
-    env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}},spec.get('graphical_session'));managed_home(spec,env);transport_environment(spec,env)
-    root=subprocess.Popen(cmd,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
-    sel=selectors.DefaultSelector();owned=set();text=bytearray();ready=False;started=time.monotonic();error=None;clean=False
-    for pipe in (root.stdout,root.stderr):os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ)
+    directory=pathlib.Path(spec['directory']);root=None;sel=selectors.DefaultSelector()
+    owned=set();text=bytearray();ready=False;started=time.monotonic();error=None;clean=False
     try:
+        verify(reg['host'])
+        cmd=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',windows(reg['host']['path'],pathlib.Path(reg['environment']['root'])/'compatdata/pfx'),'--environment-owner',spec['session'],'--scanner-sha256',reg['host']['sha256']]
+        env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}},spec.get('graphical_session'));managed_home(spec,env);transport_environment(spec,env)
+        root=subprocess.Popen(cmd,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+        for pipe in (root.stdout,root.stderr):os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ)
         tracker=ProcessTracker(root.pid)
         while not stop:
             owned.update(tracker.update())
@@ -1092,14 +1154,24 @@ def keep(spec):
             if not ready and time.monotonic()-started>180:raise TimeoutError('environment startup deadline')
     except Exception as e:error=str(e)
     finally:
-        root.stdin.close()
-        (directory/'environment.stop').write_text(spec['session']+'\n')
-        try:root.wait(timeout=2)
-        except subprocess.TimeoutExpired:pass
-        try:clean=all(cleanup_process(root,sorted(owned)).values())
-        except Exception as e:error=(error+'; ' if error else '')+str(e)
-        sel.close();root.stdout.close();root.stderr.close()
-        atomic(report,{'ready':False,'cleanup_confirmed':clean,'error':error,'raw_exit':root.returncode})
+        if root is None:
+            # Graphical/artifact/Popen refusal created no cohort. Publish that
+            # exact empty cleanup so the Rust keeper registry can retire the
+            # lease and a later valid graphical request can recover.
+            clean=True
+        else:
+            try:root.stdin.close()
+            except OSError:pass
+            try:(directory/'environment.stop').write_text(spec['session']+'\n')
+            except OSError as exc:error=(error+'; ' if error else '')+str(exc)
+            try:root.wait(timeout=2)
+            except subprocess.TimeoutExpired:pass
+            try:clean=all(cleanup_process(root,sorted(owned)).values())
+            except Exception as exc:error=(error+'; ' if error else '')+str(exc)
+            root.stdout.close();root.stderr.close()
+        sel.close()
+        atomic(report,{'ready':False,'cleanup_confirmed':clean,'error':error,
+          'raw_exit':None if root is None else root.returncode})
     return {'cleanup_confirmed':clean}
 
 def install(spec):

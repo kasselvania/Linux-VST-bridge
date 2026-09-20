@@ -2,6 +2,7 @@
 pub mod preparation;
 pub mod acceptance;
 pub mod capacity;
+pub mod transport_storage;
 pub mod catalogue;
 pub mod crash_capture;
 #[cfg(test)]

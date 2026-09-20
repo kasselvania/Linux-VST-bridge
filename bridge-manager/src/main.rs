@@ -2,7 +2,6 @@ use linux_vst_bridge::*;
 mod managed_cli;
 #[cfg(test)]
 mod test_fixture;
-mod transport_storage;
 mod vendor_cli;
 mod renderer_cli;
 mod native_access_runner;
@@ -18,7 +17,7 @@ use sha2::Digest;
 use std::{
     fs,
     io::{Read, Write},
-    os::fd::{AsFd, FromRawFd, IntoRawFd},
+    os::fd::{AsFd, AsRawFd, FromRawFd, IntoRawFd},
     os::unix::{
         fs::{OpenOptionsExt, PermissionsExt},
         net::{UnixListener, UnixStream},
@@ -727,8 +726,82 @@ fn startup_reply(peer: &mut UnixStream, bytes: &[u8]) -> Result<()> {
     peer.write_all(bytes)?;
     Ok(())
 }
-fn finish_supervised_delivery(delivery:Result<()>,child:&mut Child,
-    admission:&mut PendingAdmission,session:&str,transport:Option<&Path>)->Result<()> {
+fn supervisor_ready(child: &mut Child, session: &str, timeout: Duration) -> Result<()> {
+    let fd = child
+        .stdout
+        .as_ref()
+        .ok_or("supervisor readiness output absent")?
+        .as_raw_fd();
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    require(flags >= 0, "supervisor readiness output flags")?;
+    require(
+        unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } == 0,
+        "supervisor readiness output nonblocking",
+    )?;
+    let expected = format!("LVO0 {session} ready\n").into_bytes();
+    let mut received = Vec::with_capacity(expected.len());
+    let deadline = Instant::now() + timeout;
+    while received.len() < expected.len() {
+        if let Some(status) = child.try_wait()? {
+            return Err(format!("supervisor exited before readiness: {status}").into());
+        }
+        let now = Instant::now();
+        require(now < deadline, "supervisor readiness deadline")?;
+        let remaining = deadline.saturating_duration_since(now);
+        let mut descriptor = libc::pollfd {
+            fd,
+            events: libc::POLLIN | libc::POLLHUP | libc::POLLERR,
+            revents: 0,
+        };
+        let millis = remaining.as_millis().min(i32::MAX as u128) as i32;
+        let result = unsafe { libc::poll(&mut descriptor, 1, millis.max(1)) };
+        require(result >= 0, "supervisor readiness poll")?;
+        if result == 0 {
+            continue;
+        }
+        let mut bytes = [0u8; 128];
+        match child
+            .stdout
+            .as_mut()
+            .ok_or("supervisor readiness output absent")?
+            .read(&mut bytes[..(expected.len() - received.len()).min(128)])
+        {
+            Ok(0) => return Err("supervisor readiness output closed".into()),
+            Ok(count) => received.extend_from_slice(&bytes[..count]),
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => continue,
+            Err(error) => return Err(error.into()),
+        }
+        require(
+            expected.starts_with(&received),
+            "supervisor readiness receipt differs",
+        )?;
+    }
+    require(received == expected, "supervisor readiness receipt differs")
+}
+
+fn retire_unready_supervisor(child: &mut Child, owner: &Path) -> Result<()> {
+    if child.try_wait()?.is_none() {
+        child.kill()?;
+    }
+    child.wait()?;
+    if owner.try_exists()? {
+        fs::remove_file(owner)?;
+    }
+    let directory = owner.parent().ok_or("session owner parent absent")?;
+    if directory.try_exists()? {
+        fs::remove_dir(directory)?;
+    }
+    Ok(())
+}
+struct SupervisorDelivery<'a> {
+    manager: &'a Manager,
+    class_id: &'a str,
+    report: &'a Path,
+    session: &'a str,
+    transport: Option<&'a Path>,
+}
+fn finish_supervised_delivery(context:SupervisorDelivery<'_>,delivery:Result<()>,
+    child:&mut Child,admission:&mut PendingAdmission)->Result<()> {
     // Delivery failure does not abandon the exact process generation that was
     // already retained before exposure. Let its bounded socket-loss path
     // finish, publish cleanup, and retire this lease before returning the
@@ -737,7 +810,14 @@ fn finish_supervised_delivery(delivery:Result<()>,child:&mut Child,
         let status=child.wait()?;
         let mut disposition=String::new();
         if let Some(stdout)=child.stdout.take(){stdout.take(128).read_to_string(&mut disposition)?;}
-        admission.complete(session,status.success(),&disposition,transport)
+        // A sanitized terminal summary is user-facing incident evidence, not
+        // physical-cleanup authority. Preserve its error for the caller, but
+        // never leave an already retired exact owner exposed merely because
+        // that additional projection could not be written.
+        let terminal=capacity::retain_terminal_summary(context.manager,context.session,
+            context.class_id,context.report);
+        admission.complete(context.session,status.success(),&disposition,context.transport)?;
+        terminal
     })();
     delivery?;
     retirement
@@ -860,6 +940,11 @@ fn serve(m: Manager) -> Result<()> {
                     let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
                     job.shared_inspection=true;atomic_json(&path,&job)?;
                     let mut child=spawn(&s,&path,None)?;
+                    if let Err(readiness)=supervisor_ready(&mut child,&job.session,
+                        Duration::from_secs(4)) {
+                        retire_unready_supervisor(&mut child,&path)?;
+                        return Err(readiness);
+                    }
                     pending.expose();
                     drop(_admission);
                     let status=child.wait()?;
@@ -882,6 +967,11 @@ fn serve(m: Manager) -> Result<()> {
                     job.vendor_access=true;atomic_json(&path,&job)?;
                     let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
                     let mut child=spawn(&s,&path,None)?;
+                    if let Err(readiness)=supervisor_ready(&mut child,&job.session,
+                        Duration::from_secs(4)) {
+                        retire_unready_supervisor(&mut child,&path)?;
+                        return Err(readiness);
+                    }
                     pending.expose();
                     drop(_admission);
                     let _=peer.write_all(format!("Vendor access {}: editor only; no DAW audio or project recall. Close its window to finish.\n",job.session).as_bytes());
@@ -968,14 +1058,37 @@ fn serve(m: Manager) -> Result<()> {
                 require(reply.len() <= 1024, "session binding size")?;
                 peer.set_write_timeout(Some(Duration::from_secs(5)))?;
                 // Retain a concrete supervisor generation before telling the
-                // DAW that an accepted binding exists.
+                // DAW that an accepted binding exists. Process creation alone
+                // is not ownership: the exact supervisor must first validate
+                // its immutable inputs and graphical peer and install its
+                // outer finalizer.
                 let mut child=spawn(&s,&path,Some(peer.try_clone()?))?;
+                if let Err(readiness) = supervisor_ready(
+                    &mut child,
+                    &job.session,
+                    Duration::from_secs(4),
+                ) {
+                    let cleanup = retire_unready_supervisor(&mut child, &path);
+                    if version3 {
+                        let _ = startup_reply(
+                            &mut peer,
+                            &ap1_native_client::admission::refused(
+                                request,
+                                capacity::Refusal::BindingInvalid,
+                            ),
+                        );
+                    }
+                    cleanup?;
+                    return Err(readiness);
+                }
                 admission.expose();
                 storage.expose();
                 let delivery=startup_reply(&mut peer,&reply);
                 drop(peer);
-                finish_supervised_delivery(delivery,&mut child,&mut admission,
-                    &job.session,Some(&job.directory))?;
+                finish_supervised_delivery(SupervisorDelivery{manager:&m,
+                    class_id:&r.metadata.class_id,report:&job.report,
+                    session:&job.session,transport:Some(&job.directory)},delivery,
+                    &mut child,&mut admission)?;
                 Ok(())
             })();
             if let Err(e) = outcome {
@@ -1379,16 +1492,102 @@ mod tests {
     #[test]
     fn failed_binding_delivery_still_retires_the_retained_supervisor_owner() {
         let f=test_fixture::Fixture::new();
+        let session="aa".repeat(16);
         let lease=f.outer.join("delivery-lease.json");
+        let report=f.m.root.join("runtime/results/delivery.json");
+        private_dir(report.parent().unwrap()).unwrap();
+        atomic_json(&report,&serde_json::json!({"session":session,"error":null,
+            "gated":true,"cleanup_confirmed":true,"transport_retired":true,
+            "fault_status":null})).unwrap();
         fs::write(&lease,b"owner").unwrap();
         let blocked=Arc::new(AtomicBool::new(false));
         let mut pending=PendingAdmission::new(lease.clone(),blocked.clone());
         pending.expose();
-        let mut child=Command::new("/bin/sh").args(["-c","printf 'LVO1 exact retired\\n'"])
+        let command=format!("printf 'LVO1 {session} retired\\n'");
+        let mut child=Command::new("/bin/sh").args(["-c",&command])
             .stdout(Stdio::piped()).spawn().unwrap();
-        assert_eq!(finish_supervised_delivery(Err("delivery failed".into()),&mut child,
-            &mut pending,"exact",None).unwrap_err().to_string(),"delivery failed");
+        let class="01".repeat(16);
+        assert_eq!(finish_supervised_delivery(SupervisorDelivery{manager:&f.m,class_id:&class,
+            report:&report,session:&session,transport:None},Err("delivery failed".into()),
+            &mut child,&mut pending)
+            .unwrap_err().to_string(),"delivery failed");
         assert!(!lease.exists());
+        assert!(!blocked.load(Ordering::Acquire));
+    }
+    #[test]
+    fn terminal_projection_failure_cannot_abandon_a_retired_owner() {
+        let f=test_fixture::Fixture::new();
+        let session="ac".repeat(16);
+        let class="01".repeat(16);
+        let lease=f.outer.join("projection-lease.json");
+        let report=f.m.root.join("runtime/results/projection.json");
+        private_dir(report.parent().unwrap()).unwrap();
+        atomic_json(&report,&serde_json::json!({
+            "session":session,"error":"Windows host exited",
+            "gated":true,"cleanup_confirmed":true,"transport_retired":true,
+            "fault_status":{"before_containment":{"terminal_instance":{
+                "schema":1,"session":session,"failure_class":1,
+                "producer":2,"status_domain":3
+            }}}
+        })).unwrap();
+        private_dir(&f.m.root.join("runtime")).unwrap();
+        fs::write(f.m.root.join("runtime/terminal-summaries"),b"not a directory").unwrap();
+        fs::write(&lease,b"owner").unwrap();
+        let blocked=Arc::new(AtomicBool::new(false));
+        let mut pending=PendingAdmission::new(lease.clone(),blocked.clone());
+        pending.expose();
+        let command=format!("printf 'LVO1 {session} retired\\n'");
+        let mut child=Command::new("/bin/sh").args(["-c",&command])
+            .stdout(Stdio::piped()).spawn().unwrap();
+        assert!(finish_supervised_delivery(SupervisorDelivery{manager:&f.m,class_id:&class,
+            report:&report,session:&session,transport:None},Ok(()),&mut child,
+            &mut pending).is_err());
+        assert!(!lease.exists());
+        assert!(!blocked.load(Ordering::Acquire));
+    }
+    #[test]
+    fn exact_supervisor_readiness_precedes_exposure() {
+        let session="ab".repeat(16);
+        let command=format!("printf 'LVO0 {session} ready\\n'; sleep 5");
+        let mut child=Command::new("/bin/sh").args(["-c",&command])
+            .stdout(Stdio::piped()).spawn().unwrap();
+        supervisor_ready(&mut child,&session,Duration::from_secs(1)).unwrap();
+        child.kill().unwrap();child.wait().unwrap();
+
+        let mut wrong=Command::new("/bin/sh").args(["-c","printf 'LVO0 wrong ready\\n'"])
+            .stdout(Stdio::piped()).spawn().unwrap();
+        assert!(supervisor_ready(&mut wrong,&session,Duration::from_secs(1)).is_err());
+        wrong.wait().unwrap();
+
+        let f=test_fixture::Fixture::new();
+        let lease=f.outer.join("unready-lease.json");fs::write(&lease,b"unexposed").unwrap();
+        let blocked=Arc::new(AtomicBool::new(false));
+        drop(PendingAdmission::new(lease.clone(),blocked.clone()));
+        assert!(!lease.exists()&&!blocked.load(Ordering::Acquire));
+    }
+    #[test]
+    fn real_supervisor_preflight_refuses_before_exposure() {
+        let f=test_fixture::Fixture::new();
+        let (mut job,path)=spec(&f.m,f.r.clone().into(),false,false,false).unwrap();
+        job.graphical_session=Some(transport_storage::GraphicalSession{
+            schema:1,peer_pid:std::process::id() as i32,peer_start_ticks:1,
+            display:":fixture".into(),wayland_display:None,xauthority:None,
+            dbus_session_bus_address:None,
+        });
+        atomic_json(&path,&job).unwrap();
+        atomic_json(&job.lease,&job.report).unwrap();
+        let blocked=Arc::new(AtomicBool::new(false));
+        let pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
+        let (_native,supervisor)=UnixStream::pair().unwrap();
+        let stdin=unsafe{Stdio::from_raw_fd(supervisor.into_raw_fd())};
+        let script=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("runtime/session.py");
+        let mut child=Command::new("/usr/bin/python3").arg(script).arg(&path)
+            .stdin(stdin).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().unwrap();
+        assert!(supervisor_ready(&mut child,&job.session,Duration::from_secs(2)).is_err());
+        retire_unready_supervisor(&mut child,&path).unwrap();
+        drop(pending);
+        assert!(!job.lease.exists());
+        assert!(!job.directory.exists());
         assert!(!blocked.load(Ordering::Acquire));
     }
     #[test]

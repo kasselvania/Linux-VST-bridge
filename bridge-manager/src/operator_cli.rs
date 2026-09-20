@@ -53,7 +53,9 @@ fn optional(path: &Path) -> Result<Value> {
 }
 fn token(m: &Manager) -> Result<String> {
     Ok(hex(&sha2::Sha256::digest(serde_json::to_vec(
-        &json!({"software":optional(&m.root.join("software.json"))?,"registry":m.registry()?,"preparation":optional(&m.root.join("preparation/revision.json"))?}),
+        &json!({"software":optional(&m.root.join("software.json"))?,"registry":m.registry()?,
+            "preparation":optional(&m.root.join("preparation/revision.json"))?,
+            "terminal_summaries":capacity::terminal_summaries(m)?}),
     )?)))
 }
 fn action(label: &str, action: ui::Action, reason: Option<&str>) -> ui::AvailableAction {
@@ -62,6 +64,37 @@ fn action(label: &str, action: ui::Action, reason: Option<&str>) -> ui::Availabl
         action,
         disabled_reason: reason.map(Into::into),
     }
+}
+fn session_projection(
+    capacity: Option<&CapacityReadback>,
+    summaries: Vec<capacity::TerminalSummary>,
+) -> Vec<Value> {
+    let mut rows:Vec<_> = capacity
+        .into_iter().flat_map(|status|status.owners.iter())
+        .filter(|owner| owner.kind == capacity::Kind::Dsp)
+        .map(|owner| json!({
+            "class_id":owner.class_id,
+            "state":if capacity.is_some_and(|status|status.cleanup_unconfirmed){
+                "cleanup_unconfirmed"
+            }else if owner.terminal.is_some(){
+                "failed"
+            }else{
+                "active"
+            },
+            "terminal":owner.terminal,
+            "recent":false,
+        }))
+        .collect();
+    rows.extend(summaries.into_iter().map(|summary|json!({
+        "class_id":summary.class_id,
+        "state":"failed",
+        "terminal":summary.terminal,
+        "recent":true,
+        "cleanup_confirmed":summary.cleanup_confirmed,
+        "transport_retired":summary.transport_retired,
+        "observed_at":summary.observed_at,
+    })));
+    rows
 }
 fn quarantined_product(scan: &inventory::Scan, module_index: usize,
     module: inventory::Module, stale: Option<&str>, busy: Option<&str>)
@@ -627,6 +660,7 @@ fn snapshot_for_operation(
         "operator_state_changed_refresh",
     )?;
     drop(recheck);
+    let active_sessions=session_projection(cap.as_ref(),capacity::terminal_summaries(m)?);
     Ok(ui::Snapshot {
         onboarding,
         schema: 7,
@@ -635,21 +669,7 @@ fn snapshot_for_operation(
         environments,
         vendor_applications,
         products,
-        active_sessions: cap
-            .as_ref().into_iter().flat_map(|c|c.owners.iter())
-            .filter(|o| o.kind == capacity::Kind::Dsp)
-            .map(|o| json!({
-                "class_id":o.class_id,
-                "state":if cap.as_ref().is_some_and(|c|c.cleanup_unconfirmed){
-                    "cleanup_unconfirmed"
-                }else if o.terminal.is_some(){
-                    "failed"
-                }else{
-                    "active"
-                },
-                "terminal":o.terminal,
-            }))
-            .collect(),
+        active_sessions,
         capture: capture_state(m)?,
         recent_incidents: incidents,
         actions: vec![
@@ -2299,6 +2319,21 @@ mod tests {
             actions: vec![action],
             operation: None,
         }
+    }
+    #[test]
+    fn retired_terminal_summary_remains_in_manager_projection() {
+        let class="01".repeat(16);
+        let rows=session_projection(None,vec![capacity::TerminalSummary{
+            schema:1,session:"ab".repeat(16),class_id:class.clone(),
+            terminal:capacity::InstanceTerminal::WindowsHostExited,
+            producer:3,status_domain:4,cleanup_confirmed:true,
+            transport_retired:true,observed_at:1,
+        }]);
+        assert_eq!(rows,vec![json!({
+            "class_id":class,"state":"failed","terminal":"windows_host_exited",
+            "recent":true,"cleanup_confirmed":true,"transport_retired":true,
+            "observed_at":1,
+        })]);
     }
     #[test]
     fn stale_foreign_candidate_busy_and_unknown_requests_cannot_dispatch() {

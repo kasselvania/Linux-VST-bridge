@@ -1,6 +1,6 @@
 //! Session transport belongs to volatile memory, not the environment's journaled
 //! filesystem. This owner runs during service/admission only, never in a DAW.
-use linux_vst_bridge::*;
+use crate::*;
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
@@ -104,6 +104,49 @@ fn private(path: &Path) -> Result<fs::Metadata> {
     )?;
     require(path.canonicalize()? == path, "transport_directory_alias")?;
     Ok(m)
+}
+
+fn exact_session_directory(
+    root: &Path,
+    session: &str,
+    identity: &MemoryTransport,
+    require_memory: bool,
+) -> Result<PathBuf> {
+    require(
+        session.len() == 32
+            && session
+                .bytes()
+                .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+            && identity.schema == 1
+            && identity.device != 0
+            && identity.inode != 0,
+        "transport_session_identity",
+    )?;
+    let path = root.join(session);
+    let metadata = private(&path)?;
+    require(
+        (metadata.dev(), metadata.ino()) == (identity.device, identity.inode),
+        "transport_directory_replaced",
+    )?;
+    if require_memory {
+        memory_filesystem(&path)?;
+    }
+    Ok(path)
+}
+
+/// Resolve only the session directory retained by the exact admission record.
+/// Callers must still open individual files with O_NOFOLLOW.
+pub fn session_directory(session: &str, identity: &MemoryTransport) -> Result<PathBuf> {
+    exact_session_directory(&root(), session, identity, true)
+}
+
+#[cfg(test)]
+pub(crate) fn fixture_session_directory(
+    root: &Path,
+    session: &str,
+    identity: &MemoryTransport,
+) -> Result<PathBuf> {
+    exact_session_directory(root, session, identity, false)
 }
 #[cfg(target_os = "linux")]
 fn memory_filesystem(path: &Path) -> Result<()> {

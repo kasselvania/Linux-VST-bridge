@@ -2,14 +2,19 @@
 
 Source candidate update (2026-09-20): the shared Blackhole/Kontakt reliability
 slice now admits the exact current managed-experimental publication to optional
-detailed capture, projects existing IF1 editor/host/transport terminal custody
-into the catalog independently of that capture. Each request retains its
-authenticated DAW process generation, while the keeper is shared only by the
-exact allowlisted graphical context. Keeper warmup and a
-graphical-session replacement occur behind an unowned retryable refusal; no DSP
-lease, transport or native binding is exposed first. These are deterministic
-source results. The original physical touch and product-audio checks have not
-run and remain the operator's acceptance step.
+detailed capture and projects existing IF1 editor/host/transport terminal
+custody into the catalog independently of that capture. IF1 is opened through
+the exact retained volatile transport identity rather than its durable prefix
+symlink. Each request retains its authenticated DAW process generation, while
+the keeper is shared only by the exact allowlisted graphical context. Keeper
+warmup and a graphical-session replacement occur behind an unowned retryable
+refusal. A concrete supervisor must publish its exact preflight-ready receipt
+before any DSP lease, transport, or native binding is exposed, and its outer
+finalizer owns all later prelaunch failures. A small sanitized terminal summary
+survives successful owner cleanup so a fast failure does not disappear from the
+manager merely because its lease retired. These are deterministic source
+results. The original physical touch and product-audio checks have not run and
+remain the operator's acceptance step.
 
 The operator confirmed working Blackhole Immersive audio with the installed
 DirectComposition reference and identified the priorities below. This records
