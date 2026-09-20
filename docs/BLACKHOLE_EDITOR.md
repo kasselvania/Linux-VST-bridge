@@ -1,5 +1,8 @@
 # Blackhole experimental DirectComposition renderer
 
+Next reliability and routing work:
+[touchscreen failures, crash reporting, session recovery/reset and full audio I/O](PLUGIN_RELIABILITY_FOLLOWUP.md).
+
 Tracking: [bug #132](https://github.com/kasselvania/Linux-VST-bridge/issues/132).
 The stereo implementation and evidence in PR #131 stay frozen at
 `1bda0e5c695fbc84e0ae5ab42728bca6d049e4ab` for review. A separately identified

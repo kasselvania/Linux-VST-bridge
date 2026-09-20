@@ -1,5 +1,11 @@
 # Blackhole stopping point: submit the experimental renderer for review
 
+Subsequent operator priorities are recorded in
+[`docs/PLUGIN_RELIABILITY_FOLLOWUP.md`](docs/PLUGIN_RELIABILITY_FOLLOWUP.md):
+touchscreen crashes and missing incident reporting, Gaming Mode/helper recovery
+with panic/reset, and actual plug-in audio I/O. These are follow-up work, not
+completed repairs or a new live-test run in this documentation update.
+
 The operator personally tested the installed Blackhole candidate and confirmed
 working audio, then requested an end to testing, commit/push and PR submission.
 The managed runner transition and fresh stereo inspection/preparation/
