@@ -6,6 +6,7 @@ mod transport_storage;
 mod vendor_cli;
 mod renderer_cli;
 mod native_access_runner;
+mod experimental_runner;
 mod vendor_product_cli;
 mod operator_cli;
 mod installer_import;
@@ -1123,6 +1124,7 @@ fn main() -> Result<()> {
   Some("environment-create") if args.len()==2=>environment_create(&m,Path::new(&args[1])),
   Some("environment-import") if args.len()==2=>environment_import(&m,Path::new(&args[1])),
   Some("native-access-runner") if args.len()==2=>native_access_runner::update(&m,Path::new(&args[1])),
+  Some("experimental-runner") if args.len()==2=>experimental_runner::update(&m,Path::new(&args[1])),
   Some("install") if args.len()==4=>install(&m,&args[1],Path::new(&args[2]),&args[3]),
   Some("register") if args.len()==2=>m.register(read_json(Path::new(&args[1]))?),
   Some("unpublish") if args.len()==2=>m.unpublish(&args[1]),

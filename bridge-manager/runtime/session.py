@@ -39,6 +39,13 @@ def environment(reg):
         if key in ('DISPLAY','XAUTHORITY','WAYLAND_DISPLAY','DBUS_SESSION_BUS_ADDRESS'):env[key]=value
     if not env.get('DISPLAY'):raise RuntimeError('graphical user session is unavailable')
     if reg['compatibility']['disable_windows_accessibility']:env['WINEDLLOVERRIDES']='uiautomationcore='
+    runner_policy=reg.get('environment',{}).get('runner',{}).get('policy')
+    if runner_policy is not None:
+        if runner_policy!='dcomp_wine_builtins_reference_v1':raise RuntimeError('unsupported runner policy')
+        graphics='d2d1,d3d11,dxgi,dcomp=b'
+        prior=env.get('WINEDLLOVERRIDES')
+        env['WINEDLLOVERRIDES']=graphics+(';' + prior if prior else '')
+        env.update(PROTON_USE_WINED3D='1',PROTON_DISABLE_NVAPI='1',PROTON_DLL_COPY='*')
     policy=reg['compatibility'].get('event_output')
     if policy is not None:
         if policy!='reported_zero_event_channels_unspecified':raise RuntimeError('unsupported event output policy')

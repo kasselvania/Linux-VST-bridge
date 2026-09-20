@@ -122,6 +122,77 @@ class Tests(unittest.TestCase):
             capture.consume(8,b'foreign');capture.consume(7,b'abcdefg');capture.close()
             self.assertEqual((pathlib.Path(d)/'trace').read_bytes(),b'abcde')
             self.assertEqual((capture.retained,capture.discarded),(5,2))
+    def test_graphics_candidate_binds_complete_tree_and_exact_runner(self):
+        import renderer_graphics as g
+        with tempfile.TemporaryDirectory() as directory:
+            base=pathlib.Path(directory).resolve();root=base/'candidate';root.mkdir(mode=0o700)
+            entry=base/'entry';entry.write_bytes(b'entry')
+            prior=base/'prior-proton';prior.write_bytes(b'proton')
+            proton=root/'proton';proton.write_bytes(b'proton')
+            graphics={}
+            for name in sorted(g.GRAPHICS):
+                path=root/'files/lib/wine'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(name.encode())
+                graphics[name]=g.artifact(path)
+            original={'id':'installed','version':'11','proton':str(prior),'entry_point':str(entry),
+                'files':[g.artifact(prior),g.artifact(entry)]}
+            runner={'id':g.CANDIDATE_ID,'version':g.CANDIDATE_VERSION,'proton':str(proton),
+                'entry_point':str(entry),'files':[g.artifact(entry),g.artifact(proton),*graphics.values()]}
+            value={'schema':1,'kind':'blackhole_dcomp_reference_runner',
+                'source':{'proton_distribution_source_commit':g.PROTON_SOURCE,'wine_commit':g.WINE_SOURCE,
+                    'wine_tree':g.WINE_TREE,'wine_configure':['--enable-archs=i386,x86_64'],
+                    'wine_inf_sha256':''},
+                'build_recipe':{},
+                'base_runner_sha256':g.canonical_digest(original),'root':str(root),
+                'tree':g.tree_identity(root),'runner':runner,'graphics':graphics,'dll_overrides':g.DLL_POLICY}
+            wine_inf=root/'files/share/wine/wine.inf';wine_inf.parent.mkdir(parents=True,exist_ok=True);wine_inf.write_bytes(b'policy')
+            recipe=base/'recipe.json';recipe.write_bytes(b'{}')
+            value['tree']=g.tree_identity(root);value['source']['wine_inf_sha256']=g.digest(wine_inf)
+            value['build_recipe']=g.artifact(recipe)
+            manifest=base/'candidate.json';manifest.write_text(json.dumps(value))
+            registration={'environment':{'runner':original}}
+            selected,sha,observed=g.candidate_registration(manifest,registration)
+            self.assertEqual(selected['environment']['runner'],runner)
+            self.assertEqual(sha,g.digest(manifest))
+            self.assertEqual(registration['environment']['runner'],original)
+            (root/'proton').write_bytes(b'changed')
+            with self.assertRaisesRegex(RuntimeError,'tree changed'):g.candidate_registration(manifest,registration)
+            (root/'proton').write_bytes(b'proton')
+            outside=base/'outside';outside.write_bytes(b'outside');(root/'escape').symlink_to(outside)
+            with self.assertRaisesRegex(RuntimeError,'link escapes'):g.tree_identity(root)
+    def test_graphics_candidate_override_is_process_local_and_nonconflicting(self):
+        import renderer_graphics as g
+        before={'WINEDLLOVERRIDES':'uiautomationcore=','OTHER':'kept'}
+        selected=g.graphics_environment(before)
+        self.assertEqual(selected['WINEDLLOVERRIDES'],'uiautomationcore=;'+g.DLL_POLICY)
+        self.assertEqual(selected['PROTON_USE_WINED3D'],'1')
+        self.assertEqual(selected['PROTON_DISABLE_NVAPI'],'1')
+        self.assertEqual(selected['PROTON_DLL_COPY'],'*')
+        self.assertEqual(selected['OTHER'],'kept');self.assertEqual(before['WINEDLLOVERRIDES'],'uiautomationcore=')
+        with self.assertRaisesRegex(RuntimeError,'override conflict'):
+            g.graphics_environment({'WINEDLLOVERRIDES':'other=n;dxgi,d3d11=n'})
+    def test_graphics_candidate_requires_exact_prefix_links(self):
+        import renderer_graphics as g
+        with tempfile.TemporaryDirectory() as directory:
+            base=pathlib.Path(directory).resolve();root=base/'candidate';envroot=base/'environment'
+            graphics={}
+            for name in sorted(g.GRAPHICS):
+                source=root/'files/lib/wine'/name;source.parent.mkdir(parents=True,exist_ok=True)
+                source.write_bytes(name.encode());graphics[name]=g.artifact(source)
+            for windows,arch in (('system32','x86_64-windows'),('syswow64','i386-windows')):
+                target=envroot/'compatdata/pfx/drive_c/windows'/windows;target.mkdir(parents=True)
+                for name in ('d2d1','d3d11','dcomp','dxgi','wined3d'):
+                    (target/f'{name}.dll').symlink_to(root/'files/lib/wine'/arch/f'{name}.dll')
+            registration={'environment':{'root':str(envroot)}};candidate={'root':str(root),'graphics':graphics}
+            g.prefix_graphics(registration,candidate)
+            for path in (envroot/'compatdata/pfx/drive_c/windows/system32/d3d11.dll',
+                    envroot/'compatdata/pfx/drive_c/windows/system32/dxgi.dll',
+                    envroot/'compatdata/pfx/drive_c/windows/syswow64/d3d11.dll',
+                    envroot/'compatdata/pfx/drive_c/windows/syswow64/dxgi.dll'):
+                value=path.resolve(strict=True).read_bytes();path.unlink();path.write_bytes(value)
+            g.prefix_graphics(registration,candidate)
+            link=envroot/'compatdata/pfx/drive_c/windows/system32/dcomp.dll';link.unlink();link.write_bytes(b'changed')
+            with self.assertRaisesRegex(RuntimeError,'prefix graphics changed'):
+                g.prefix_graphics(registration,candidate)
     def test_graphics_trace_capacity_accepts_only_resolved_keepers(self):
         import renderer_graphics as g
         with tempfile.TemporaryDirectory() as directory:
@@ -134,6 +205,8 @@ class Tests(unittest.TestCase):
             owner={'session':sid,'report':str(report),'keeper':True}
             (sessions/sid/'owner.json').write_text(json.dumps(owner))
             self.assertEqual(g.existing_owners(root),[owner])
+            with self.assertRaisesRegex(RuntimeError,'candidate environment owner active'):
+                g.existing_owners(root,sessions)
             owner['keeper']=False;(sessions/sid/'owner.json').write_text(json.dumps(owner))
             with self.assertRaisesRegex(RuntimeError,'non-keeper'):g.existing_owners(root)
             owner['keeper']=True;owner['report']=str(report.with_name('wrong.json'))

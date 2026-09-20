@@ -77,6 +77,26 @@ class BusCensusCommandTests(unittest.TestCase):
             reg['compatibility']['event_output']='all_zero_buses'
             with self.assertRaisesRegex(RuntimeError,'unsupported event output policy'):session.environment(reg)
 
+    def test_reference_runner_policy_is_explicit_and_closed(self):
+        reg={'environment':{'root':'/fixture','runner':{}},
+             'compatibility':{'disable_windows_accessibility':False}}
+        with patch.object(session.subprocess,'check_output',return_value='DISPLAY=:0\n'):
+            default=session.environment(reg)
+            for key in ('PROTON_USE_WINED3D','PROTON_DISABLE_NVAPI','PROTON_DLL_COPY'):
+                self.assertNotIn(key,default)
+            reg['environment']['runner']['policy']='dcomp_wine_builtins_reference_v1'
+            selected=session.environment(reg)
+            self.assertEqual(selected['WINEDLLOVERRIDES'],'d2d1,d3d11,dxgi,dcomp=b')
+            self.assertEqual(selected['PROTON_USE_WINED3D'],'1')
+            self.assertEqual(selected['PROTON_DISABLE_NVAPI'],'1')
+            self.assertEqual(selected['PROTON_DLL_COPY'],'*')
+            reg['compatibility']['disable_windows_accessibility']=True
+            self.assertEqual(session.environment(reg)['WINEDLLOVERRIDES'],
+                             'd2d1,d3d11,dxgi,dcomp=b;uiautomationcore=')
+            reg['environment']['runner']['policy']='unknown'
+            with self.assertRaisesRegex(RuntimeError,'unsupported runner policy'):
+                session.environment(reg)
+
     def test_exact_inspection_selection_reaches_command_and_handshake(self):
         # Source-owned distinct instrument/effect IDs; no vendor naming dispatch.
         for selected in ('A'*32, 'B'*32):

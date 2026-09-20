@@ -1,3 +1,120 @@
+# Blackhole experimental DirectComposition runner transition
+
+The operator authorized a bounded transition from the successful standalone
+DirectComposition reference to one real Bitwig stereo/lifecycle test. The code
+basis remains commit `13a79468dcfa8a6aa93684a0a737ba20a9322902`, tree
+`b4ab4869e46eec16844108a79045b1128125427b`, on
+`codex/blackhole-editor-diagnostic`; PR #131 remains frozen.
+
+Primary claim: an explicitly selected, separately identified experimental
+runner can become the exact managed environment authority without changing the
+installed Blackhole module, prefix location, vendor licensing state, native
+proxy bytes or retained history. A fresh stereo inspection, preparation and
+ManagedExperimental publication must then bind that new runner, environment
+revision and closed runtime policy before Bitwig can launch it. The prior
+candidate/profile/publication must not be relabeled or reused.
+
+The only accepted runtime policy in this slice is
+`dcomp_wine_builtins_reference_v1`: built-in D2D1/D3D11/DXGI/DComp,
+`PROTON_USE_WINED3D=1`, `PROTON_DISABLE_NVAPI=1`, and Proton's supported
+`PROTON_DLL_COPY=*` provisioning. The policy is optional typed runner identity;
+omission preserves all existing serialized runners and profiles byte-for-byte.
+It must be copied into the generated profile requirements and applied by the
+normal supervisor. No graphics trace channels, ambient DLL override, arbitrary
+environment map or generalized runner switch is admitted.
+
+The transition is inactive-only and compare-and-swap bound to the exact
+environment marker digest, revision, prior runner digest, sealed candidate
+manifest and exact removed experimental publication revision. It requires the
+service stopped, all owners retired, the physical proxy absent, and exclusive
+canonical/registry/environment-operation custody. It retires only that removed
+current registry pointer, increments the environment revision, updates the
+onboarding copy, and retains exact rollback bytes and a transition receipt.
+Installation, prefix and historical result bytes are not rewritten. Stale,
+published, shared-environment, foreign-manifest, changed-artifact and cleanup
+states must refuse.
+
+The three authority files are a coordinated retained rollback, not a claim of
+crash-atomic multi-file storage. Normal validation failures restore their exact
+bytes. A process or power interruption after the prepared receipt leaves
+incompatible authority fail-closed; the custodian must apply the retained set
+under the same service/canonical/registry/environment locks before resuming.
+
+After the transition the parent owns live custody: rescan the exact onboarding
+environment, request `stereo_main_pair`, prepare a new candidate, publish only
+through the existing ExperimentalEnable/Replace path, then use the retained
+12-second stereo source for one Bitwig input/output observation, editor normal
+close/reopen, and exact retirement. Rendering and two normal closes already
+passed in the standalone vendor-access mode with exact local pixels and
+candidate graphics identities; those results do not establish Bitwig audio or
+publication acceptance. Preserve the complete prefix archive and original
+runner as rollback authority. Do not qualify the fork generally, add a new test
+framework, change Windows/native host bytes, merge, or alter PR #131.
+
+# Blackhole coherent DirectComposition runner continuation
+
+The operator approved auditing the effective graphics backend, preparing a
+separately identified coherent DirectComposition-capable runtime with rollback,
+and testing the exact Blackhole editor, close/reopen, stereo processing and
+retirement. Base commit `13a79468dcfa8a6aa93684a0a737ba20a9322902`, tree
+`b4ab4869e46eec16844108a79045b1128125427b`. Preserve PR #131.
+
+First obtain a working reference candidate before attempting patch reduction or
+productization. Build a coherent Wine reference from `giang17/wine` commit
+`c27f058814b402a5709e073adccd42baa66810b9` (`d2d1-dcomp-11.0`) in the pinned
+rootless Proton/Valve SDK build lane, then compose it with the byte-verified
+existing Proton distribution associated with source revision
+`5b89db940e0ebe3a137a6009a3589232fe084c09`. This reference does not claim that
+every packaged Proton component was rebuilt from that source revision. Record
+the exact Wine source, SDK configuration, retained Proton artifact identity and
+composed artifact digests. Keep the current Proton 11.0-2c runner and its Wine
+`dc26e618…` bytes as rollback authority; do not change the installed runner,
+prefix, registry, licensing, publication or product selection during the build.
+
+The parent owns the backend audit, candidate transition/rollback and live test;
+Sol owns build implementation. A later candidate run must be explicitly bound
+to the exact Blackhole module/host/environment and retain phase-aware graphics
+tracing, local pixels, normal close/reopen, the existing stereo input/output
+check and exact retirement. Do not replay an unchanged failure, hide Wine
+detection, read process memory, change security policy, create a new PR or merge.
+The previous preference and graphics-call scopes below remain historical
+evidence rather than authority to repeat them.
+
+The private coherent reference build completed in the pinned SteamRT4 SDK. Both
+architectures built and installed successfully. The composed candidate binds
+12,278 entries and 2,750,371,829 regular bytes, includes the fork's exact Wine
+Mono bootstrap dependency, retains only identified Proton bootstrap/runtime
+auxiliaries, and carries the associated Proton Wine `steamuser` compatibility
+policy as an exact recorded patch. The pinned Proton default-prefix packaging
+helper converted Wine built-ins to candidate-relative links and removed host
+device links before sealing.
+
+A fresh unlicensed prefix then completed normal initialization and a Windows
+hello process with `steamuser` `USERNAME`, `USERPROFILE` and `APPDATA`, exact
+candidate bytes for D2D1, D3D11, DComp, DXGI and wined3d in both Windows
+architectures, and confirmed cleanup. Failed intermediate bootstrap and harness
+attempts remain retained rather than relabeled. The sealed reference and this
+smoke are build/startup evidence only; actual loaded graphics identity,
+Blackhole pixels, normal close/reopen, stereo processing and retirement remain
+the parent-controlled live gates. Sanitized identities and limits are retained
+in `evidence/blackhole-editor/direct-composition-reference-build.sanitized.json`.
+
+The first existing-prefix initialization correctly stopped before plug-in
+launch when 56 Wine distribution targets disappeared behind the candidate's
+default-prefix links. Exact source comparison showed that the associated Proton
+Wine carries an `is_wine_file` guard which refuses write-enabling files under
+the Wine distribution; the DirectComposition fork does not. The candidate was
+restored from its preserved final install stage to the original sealed tree.
+Candidate-only provisioning now uses Proton's `PROTON_DLL_COPY=*` policy so an
+existing prefix receives owned regular built-in copies before Wine updates it.
+A focused unlicensed old-runner-to-candidate transition completed both
+initializers and a Windows hello, retained `steamuser`, kept all ten graphics
+bytes exact, retired cleanly, and left the sealed candidate tree unchanged.
+The remaining candidate-relative prefix links were six explicit ICU resources
+and eighteen fonts; no Wine built-in distribution link remained. The initial
+mutation and an over-strict harness assertion which also counted those expected
+resources remain recorded as failed boundaries.
+
 # Blackhole software-renderer repair continuation
 
 The operator approved a bounded software-renderer repair test from base
