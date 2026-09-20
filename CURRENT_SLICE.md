@@ -1,3 +1,27 @@
+# Blackhole stopping point: submit the experimental renderer for review
+
+The operator personally tested the installed Blackhole candidate and confirmed
+working audio, then requested an end to testing, commit/push and PR submission.
+The managed runner transition and fresh stereo inspection/preparation/
+experimental publication completed. The real Bitwig editor rendered, responded
+to Bypass and closed normally while the same processing instance stayed loaded.
+Keep this working candidate installed and PR #131 frozen. Submit PR #133 for
+review; do not merge or continue GUI/audio tests.
+
+Audio is operator-confirmed. Standalone normal close/reopen passed; same-instance
+Bitwig reopening, saved-project recall, performance qualification, additional
+audio channels and full Bitwig instance retirement remain unverified/deferred.
+Two final SSH attempts timed out, so neither the bounded recorder's final state
+nor a completed automated audio result was read back. Its configured service
+lifetime is 110 seconds; that bound is not a cleanup receipt.
+
+Implementation/build basis: `65347a2db8fe2b8b681cf16e31dd121cd159dea3`.
+Current findings and exact receipt identities are in
+[`docs/BLACKHOLE_EDITOR.md`](docs/BLACKHOLE_EDITOR.md) and
+[`direct-composition-bitwig.sanitized.json`](evidence/blackhole-editor/direct-composition-bitwig.sanitized.json).
+The earlier scoped instructions below remain the history of this work, not
+authority to resume deferred testing after the operator's stopping point.
+
 # Blackhole experimental DirectComposition runner transition
 
 The operator authorized a bounded transition from the successful standalone

@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "kind": "blackhole_direct_composition_reference_transition",
+  "candidate_tree_sha256": "5fde7d74c099818ea79cce78f329421425baecde5ed12da2ee427d7f4a0de1db",
+  "first_attempt": {
+    "normal_initialization_exit": 0,
+    "prefix_graphics_candidate_hash_matches": 10,
+    "prefix_graphics_links": 6,
+    "prefix_graphics_regular_copies": 4,
+    "initial_cleanup_assertion_passed": false,
+    "followup_wineserver_wait_exit": 0,
+    "followup_owned_prefix_processes": 0,
+    "initialization_unit_retired": true,
+    "editor_launch": "refused_before_session_creation",
+    "refusal": "candidate_link_escapes_due_to_missing_targets",
+    "candidate_distribution_targets_missing": 56,
+    "corresponding_original_runner_targets_present": 56,
+    "blackhole_module_launched": false,
+    "luna_observation": "stopped Bitwig baseline; no candidate editor or vendor dialog",
+    "interpretation": "runtime assembly/provisioning failure, not a Blackhole graphics result"
+  },
+  "rollback_after_first_attempt": {
+    "private_archive_verified_before_transition": true,
+    "environment_restored_from_archive": true,
+    "archive_compare_passed_after_restore": true,
+    "prefix_root_identity_preserved": true,
+    "protected_files_unchanged": 4,
+    "backup_never_executed_as_another_environment": true,
+    "restoration_staging_removed": true,
+    "bridge_service": "inactive_for_continuing_test"
+  },
+  "provisioning_correction": {
+    "source_boundary": "Proton Wine distribution-file write protection in ntdll/unix/file.c is absent in the selected fork",
+    "selected_existing_proton_control": "PROTON_DLL_COPY=*",
+    "candidate_restored_to_original_sealed_tree": true,
+    "old_runner_to_candidate_scratch_transition_passed": true,
+    "corrected_live_initialization_exit": 0,
+    "candidate_tree_unchanged_after_live_initialization": true,
+    "exact_candidate_graphics_files": 10,
+    "prefix_identity_preserved": true,
+    "canonical_protected_files_unchanged": true,
+    "initialization_unit_retired": true
+  },
+  "acceptance": {
+    "recognizable_standalone_editor": true,
+    "responsive_control": true,
+    "standalone_normal_close_reopen": true,
+    "candidate_stereo_processing": false,
+    "product_runtime_published": false,
+    "status": "standalone_reference_passed_managed_bitwig_candidate_pending",
+    "editor_receipt": "direct-composition-editor.sanitized.json"
+  },
+  "rollback_after_successful_standalone_reference": {
+    "environment_restored_from_verified_archive": true,
+    "archive_compare_passed": true,
+    "prefix_root_identity_preserved": true,
+    "protected_files_unchanged": 4,
+    "staging_used_only_for_restore": true,
+    "restoration_staging_removed": true,
+    "bridge_service": "active_original_runtime",
+    "dsp": 0,
+    "maintenance": 0,
+    "keepers": 0,
+    "cleanup_unconfirmed": false,
+    "purpose": "keep declared runtime and prefix consistent while managed candidate integration is built"
+  }
+}

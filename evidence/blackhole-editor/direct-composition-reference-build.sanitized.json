@@ -1,0 +1,128 @@
+{
+  "schema": 1,
+  "kind": "blackhole_direct_composition_reference_build",
+  "repository_basis": {
+    "commit": "13a79468dcfa8a6aa93684a0a737ba20a9322902",
+    "tree": "b4ab4869e46eec16844108a79045b1128125427b"
+  },
+  "source": {
+    "wine_repository": "giang17/wine",
+    "wine_commit": "c27f058814b402a5709e073adccd42baa66810b9",
+    "wine_tree": "622801bdffacb23188c29958c620cc12bf658843",
+    "wine_version": "11.0",
+    "configure": [
+      "--enable-archs=i386,x86_64"
+    ],
+    "proton_distribution_source_commit": "5b89db940e0ebe3a137a6009a3589232fe084c09",
+    "associated_proton_wine_commit": "dc26e61847081a1b5cb0733dc30feba6ee575482",
+    "proton_script_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad"
+  },
+  "sdk": {
+    "image": "registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64:4.0.20260331.220802-0",
+    "image_id": "65a5423161f5d45bc2c07d8ae36b61ace947d9b625984e3f264b137bab026d8b",
+    "repo_digest": "sha256:97526b794ce1a9bed5f891084462260b3a02399569f7438a3a57b5a253001db9"
+  },
+  "build": {
+    "compile_started_utc": "2026-09-19T23:55:33Z",
+    "compile_finished_utc": "2026-09-20T01:07:18Z",
+    "compile_exit": 0,
+    "install_started_utc": "2026-09-20T01:08:02Z",
+    "install_finished_utc": "2026-09-20T01:11:40Z",
+    "install_exit": 0,
+    "stage_files": 3945,
+    "stage_symlinks": 16,
+    "stage_bytes": 1646083978,
+    "full_proton_source_tree_rebuilt": false
+  },
+  "composition": {
+    "basis": "coherent Wine reference composed with the byte-verified existing Proton distribution",
+    "official_wine_mono_10_4_1_sha256": "071f4b2887e1c97a11d791ff3d65be9429eed6dec4c2708888bfd546ba358e23",
+    "inherited_proton_mono_version": "11.2.0",
+    "inherited_proton_gecko_version": "2.47.4",
+    "steamuser_policy_patch_sha256": "0378cfb251de1c2ad944473c5f2f7024ab5bab19fe2d1695340d03bd77dc46d1",
+    "steamuser_policy_i386_advapi32_sha256": "bbe2b5af36162c9ff8706ca60946de65d88395f46e8bab05a32ad81fd349ca2d",
+    "steamuser_policy_x86_64_advapi32_sha256": "04b14bba2f51772c4032a3f0cc891301d700504b9a2fc45b3222902f2788cfc5",
+    "default_prefix_helper_sha256": "474c182df7ea0fa5c6b0a6495728b24655cc504848c45b638fb48c3b25a5b794",
+    "default_prefix_helper_source_commit": "5b89db940e0ebe3a137a6009a3589232fe084c09",
+    "immutable_candidate_links_confined": true,
+    "graphics_dxvk_implementation": false,
+    "process_policy": {
+      "WINEDLLOVERRIDES": "d2d1,d3d11,dxgi,dcomp=b",
+      "PROTON_USE_WINED3D": "1",
+      "PROTON_DISABLE_NVAPI": "1",
+      "PROTON_DLL_COPY": "*"
+    }
+  },
+  "candidate": {
+    "id": "proton-11.0-2c-dcomp-c27f058-reference",
+    "manifest_sha256": "31a5a36e9d37dfc86972270ac6ec5630f9bb1aa1fd1e38a965869f7b3515f997",
+    "recipe_sha256": "8843a646bf4b94f1fb2939805159bdac3e1a4cca7f9719a3224af6ab88314e9b",
+    "launcher_sha256": "5ad05a741907933ad4551edcad992067a4c5ab8abdaa45270b9015e825a6713f",
+    "tree_entries": 12278,
+    "tree_regular_bytes": 2750371829,
+    "tree_sha256": "5fde7d74c099818ea79cce78f329421425baecde5ed12da2ee427d7f4a0de1db",
+    "wine_inf_sha256": "3b3e5c088988ae66da5b8908471751c7dee3255122ac6b66011840ded5e27d77"
+  },
+  "graphics": {
+    "i386": {
+      "d2d1": "183ebaa9d846d680e1457bfaf6f6b833b461db5de2275d9233622f3d6c0c1df6",
+      "d3d11": "6da0a0a1d486dd5daff5fcb12a965153b285f7968c909bf1af91cba0e34b3a32",
+      "dcomp": "140346cc757a9c37acf91c40dcbca915e8a4e5394ad8115c381771eaa7290c25",
+      "dxgi": "70f37f279a0b64ca4d2d6799d785f55490ebf518b68acf6ea07e95359132045c",
+      "wined3d": "e3abcc40faca8f78c899f4feda2ea0aedb42f02c772f0ceac917ed9d70e21e68"
+    },
+    "x86_64": {
+      "d2d1": "902afffb3a6cb5e4de660f2f7da9f19341c7b05e42f2213beac5933140454f6b",
+      "d3d11": "2b3a1f2c4ad36f5c55519ce54c39fe6cbdce8a1c76af296e34ac2c52ba398559",
+      "dcomp": "b35ebb711230e427907be6095eb418c7345d20929c39ae99466fa5a123e032a3",
+      "dxgi": "b3a9316695ef04e00a460957f479b015d62ad96de5fd32b110f5dd825264515f",
+      "wined3d": "138e9d256754791f6c5d1ff51aa60ff7590bb0ab943bb3fd4b188921555540d3"
+    }
+  },
+  "unlicensed_smoke": {
+    "initialization_exit": 0,
+    "hello_exit": 0,
+    "windows_username": "steamuser",
+    "userprofile_convention_matches_existing_prefix": true,
+    "appdata_convention_matches_existing_prefix": true,
+    "system32_graphics_exact": true,
+    "syswow64_graphics_exact": true,
+    "cleanup_confirmed": true,
+    "licensed_module_launched": false,
+    "runner_transition": {
+      "prior_runner_initialization_exit": 0,
+      "candidate_initialization_exit": 0,
+      "hello_exit": 0,
+      "windows_username": "steamuser",
+      "proton_dll_copy": "*",
+      "wine_builtin_distribution_links": 0,
+      "retained_resource_links": {
+        "icu": 6,
+        "fonts": 18
+      },
+      "candidate_tree_unchanged": true,
+      "result_sha256": "64aa0d901b6e24b6c666514d4aa06bb83574cc11cb52f635ab865e3f4c13ffa3"
+    },
+    "failed_attempts_retained": [
+      "missing Wine Mono bootstrap resource",
+      "missing scratch compatdata parent in the test harness",
+      "missing Proton prefix-provisioning auxiliaries",
+      "unpatched upstream Windows username convention",
+      "symlink-backed builtins let the upstream Wine fork mutate its distribution during an existing-prefix update",
+      "the first transition-smoke harness incorrectly rejected expected ICU and font resource links"
+    ]
+  },
+  "checks": {
+    "focused_python_tests": 21,
+    "focused_python_tests_passed": true,
+    "python_compile_passed": true,
+    "manifest_self_validation_passed": true
+  },
+  "nonclaims": [
+    "No installed runner, licensed prefix, registry or publication was changed by the build and smoke",
+    "No Blackhole module was launched by the unlicensed smoke",
+    "The build and smoke do not establish that the Blackhole editor renders",
+    "This reference is not a maintained product runtime or a full rebuild of every Proton component",
+    "Actual loaded graphics identity and editor lifecycle remain live-test gates"
+  ]
+}

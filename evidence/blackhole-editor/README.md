@@ -1,15 +1,22 @@
-# Blackhole editor observation
+# Blackhole editor observations and experimental renderer
 
-Claim: the exact managed experimental Blackhole Immersive 1.4.4 editor has an
+Original-runtime finding: the exact managed experimental Blackhole Immersive 1.4.4 editor has an
 all-white local client surface while its visible child is correctly nonzero in
 size and its owner/heartbeat continues. This is an editor-rendering failure,
 separate from the previously observed normal-close block and stereo processing.
 The graphics continuation below identifies composition-swapchain creation as
-an actual missing runtime operation. A working correction remains unverified.
+an actual missing runtime operation. A separate coherent DirectComposition
+candidate now renders the real editor in both standalone access and Bitwig,
+responds to Bypass, and closes normally. Standalone reopening also passed.
+The operator personally confirmed working audio on the installed Bitwig
+candidate and requested this stopping point; no automated audio result is
+claimed. Same-instance Bitwig reopening and broader qualification are deferred.
 
 Product/review base is `1bda0e5c695fbc84e0ae5ab42728bca6d049e4ab`; diagnostic
-code is `6bb1480fd96072a46704d73001c63443ffbd66e5`. No installed product, runner,
-prefix, compatibility setting or publication was replaced. Exact product,
+code is `6bb1480fd96072a46704d73001c63443ffbd66e5`. That initial observation
+replaced no installed product, runner, prefix, setting or publication. The later
+authorized candidate transition has its own build, rollback and editor receipts.
+Exact original product,
 candidate, host and native identities are inherited from the
 [stereo runtime receipt](../blackhole-immersive-deck/stereo-runtime.sanitized.json)
 and reverified by managed-observation admission. The admission fingerprint in
@@ -31,6 +38,20 @@ and reverified by managed-observation admission. The admission fingerprint in
 | `graphics-preservation.sanitized.json` | Separate standalone graphics run cleanup and protected-state readback |
 | `graphics-preference-lead.sanitized.json` | Unmodified vendor graphics-preference lead; encoding and working software fallback unverified |
 | `software-renderer-trial.sanitized.json` | One reversible `GRMd=1|0` hypothesis, unchanged all-white local pixels, exact restoration and cleanup |
+| `graphics-selection-audit.sanitized.json` | Prefix DXVK file identities, absence of graphics overrides, and exact Proton/Wine loader selection explain the retained built-in graphics run; no unchanged editor replay |
+| `direct-composition-reference-build.sanitized.json` | Coherent fork build, exact retained Proton components, bootstrap/profile corrections, immutable candidate identity and unlicensed startup/transition checks |
+| `direct-composition-transition.sanitized.json` | First provisioning failure before plug-in launch, original runner availability and exact environment rollback |
+| `direct-composition-editor.sanitized.json` | Patched mapped graphics, actual local controls and Bypass response, ordinary close/reopen, truncated trace limits and separate outer-process cleanup |
+| `direct-composition-bitwig.sanitized.json` | Installed managed candidate, fresh stereo inspection/publication, exact Bitwig editor pixels and normal close, operator-confirmed audio, deferred validation and final SSH limitation |
+
+The transition and standalone receipts describe their original stages, including
+the rollback to the original runtime before managed integration. Their pending
+Bitwig fields are historical, not the current installed state. The managed
+Bitwig receipt records the subsequent installation and operator stopping point.
+Its facts were transcribed from observations already retained in this task;
+final SSH timeouts prevented retrieving the Deck's separate managed receipt or
+confirming the bounded recorder's retirement. The working plugin was left in
+place, and no clean retirement of that Bitwig instance is claimed.
 
 ## Method and limits
 

@@ -1,14 +1,168 @@
-# Blackhole editor rendering investigation
+# Blackhole experimental DirectComposition renderer
 
 Tracking: [bug #132](https://github.com/kasselvania/Linux-VST-bridge/issues/132).
 The stereo implementation and evidence in PR #131 stay frozen at
-`1bda0e5c695fbc84e0ae5ab42728bca6d049e4ab` for review. This investigation changes
-only development observation and reporting; it does not install a renderer fix.
-The graphics-call continuation now identifies an actual missing runtime API:
-the exact Wine DXGI implementation returns `E_NOTIMPL` when Blackhole requests
-a composition swapchain. The provider renderer preference remains a repair lead.
+`1bda0e5c695fbc84e0ae5ab42728bca6d049e4ab` for review. A separately identified
+DirectComposition runtime reference is now installed and experimentally
+published for Blackhole in Bitwig. The actual editor renders, responds to Bypass,
+and closes normally while its processing instance remains loaded. The operator
+personally tested audio and reported it working, then requested that testing
+stop and this work be committed and submitted for review.
+The baseline graphics trace identified an actual missing runtime API:
+the original Wine DXGI implementation returns `E_NOTIMPL` when Blackhole requests
+a composition swapchain. The working reference supplies that implementation;
+the unknown provider preference encoding is not being guessed again.
 
-## What is already observed
+## Delivered Bitwig result and stopping point
+
+The [managed Bitwig receipt](../evidence/blackhole-editor/direct-composition-bitwig.sanitized.json)
+records implementation `65347a2db8fe2b8b681cf16e31dd121cd159dea3`, the delivered
+manager, the new runner/profile/publication, and observations retained before
+the final SSH disconnect. The exact installed module, Windows host and native
+proxy bytes remain unchanged. The existing prefix root and Windows profile
+convention were preserved; no activation material was exported or new licensing
+flow performed. The original runtime and private rollback material remain
+available. The working experimental candidate is intentionally left installed.
+
+The manager now admits one closed runtime policy,
+`dcomp_wine_builtins_reference_v1`, through an inactive-only, exact-artifact
+runner transition. The normal supervisor applies matching Wine graphics
+built-ins and Proton's copy provisioning. Rescan, stereo inspection, preparation
+and experimental publication produced new identities instead of relabeling the
+old candidate. Existing runners omit the optional policy and retain their
+serialized identity. Authority-file updates have coordinated retained rollback;
+they are not a crash-atomic multi-file transaction.
+
+Two exact local 874×552 Bitwig editor captures have SHA-256
+`7873aeb8a4e5ff77f26d804144d91b05f7fe43f92341acb7341a295adc39934f`,
+matching the successful standalone frame. Luna observed readable controls and
+toggled Bypass on and back off. The mapped graphics bytes match the candidate.
+Normal window closure returned through view stage 217, after `removed()`, view
+release and window destruction, with editor-open and failure both zero. The
+same supervised processing instance remained loaded without a terminal result.
+The old stage-212 close block did not recur in this observation.
+
+Audio success is **operator-confirmed**, not a completed automated recording
+assertion. A bounded Bitwig-output recorder had been started, but its result was
+not read before the operator ended testing. Two final SSH attempts timed out;
+the recorder had a configured 110-second service lifetime, but final retirement
+was not independently read back. No further GUI action was authorized after
+the stopping point, and the working DAW instance was left for the operator.
+
+Same-instance editor reopening remains unverified: the correct Bitwig reopen
+action was not established, so the navigation attempts do not demonstrate a
+runtime reopen failure. Additional VST audio channels, saved-project recall,
+performance/latency qualification, broader regression and clean retirement of
+this Bitwig instance are deferred. Earlier counters included gaps and missing
+frames; no zero-dropout claim follows. This is an experimental exact-fixture
+result, not general Blackhole, iLok, Wine-fork or Proton qualification.
+
+Focused implementation validation passed four transition/rollback checks, two
+profile checks, four session checks, 21 UIO1 checks, all-target Clippy and Linux
+release builds. Final documentation/evidence checks reuse those results; no
+additional live test is required by this stopping point.
+
+## Working standalone reference
+
+The [candidate editor receipt](../evidence/blackhole-editor/direct-composition-editor.sanitized.json)
+establishes the real Blackhole Immersive 1.4.4 editor drawing under the coherent
+DirectComposition candidate. Luna observed readable Eventide controls and the
+equalizer. Two exact local 874×552 captures bind the same owned process/window
+to the candidate's mapped D2D, D3D11, DXGI, DirectComposition, WineD3D and X11
+files. Toggling Bypass visibly changed its highlight and changed 1,830 local RGB
+pixels. Returning Bypass to off and closing the window produced normal editor
+closure, module exit/unload and completed host records before the deadline.
+A subsequent clean reopening reproduced the original rendered frame exactly
+and closed normally again.
+
+The retained trace observes a composition backing window, target creation,
+visual content/root connection, a commit and `Present1` entries. The 16 MiB
+trace limit was reached; counts are from the retained portion, not complete
+lifecycle totals. Actual displayed controls and their response establish the
+visible result; intermediate API entries alone do not.
+
+The first rendered attempt reached its 180-second deadline while the foreground
+window was being located. It receives no ordinary-close credit. The two later
+operator-closed runs completed the SDK lifecycle normally. All three retain an
+outer launcher exit of `-15`: the supervisor cleans remaining owned processes
+after the SDK host's completion. This is separate from editor-close success.
+
+This standalone receipt has no DAW audio and cannot establish same-instance
+editor reopening, candidate Bitwig processing or saved-project recall. The
+managed Bitwig result above is separate evidence; the previous measured stereo
+proof remains evidence for its original runtime.
+
+### Runtime construction lesson
+
+The [build receipt](../evidence/blackhole-editor/direct-composition-reference-build.sanitized.json)
+records the coherent Wine fork, pinned SDK, inherited Proton distribution and
+bootstrap dependencies. Preserve Proton's `steamuser` API behavior and supply
+the fork's expected Mono version; a compiled Wine tree alone is not a complete
+compatible Proton distribution.
+
+The first live initialization also exposed a concrete integration difference.
+The selected Proton Wine protects distribution DLLs against write-permission
+changes through prefix symlinks in `dlls/ntdll/unix/file.c`; this fork lacks that
+protection. Wine's update removed 56 candidate distribution targets through
+those links. The editor launcher refused the damaged artifact before launching
+Blackhole. The original runner remained available and the environment was
+restored from its verified private archive without changing the prefix root.
+This failed attempt is retained in the
+[transition receipt](../evidence/blackhole-editor/direct-composition-transition.sanitized.json).
+
+Use Proton's existing `PROTON_DLL_COPY=*` for this reference. An old-runner to
+candidate scratch transition and the corrected live transition both preserved
+the complete sealed candidate tree. Validate exact DLL bytes whether provisioning
+creates a copy or a confined symlink; do not require a particular file form
+without checking Proton's actual behavior. The remaining explicit ICU/font
+resource links are distinct from Wine builtin DLL links.
+
+These are candidate-specific construction requirements, not reasons to modify
+every working environment or change all `runinprefix` calls. A managed runner
+transition must update the declared runtime identity and obtain fresh profile/
+publication identities before its Bitwig results can be attributed to that runner.
+
+## Effective backend audit and runtime continuation
+
+The [read-only backend audit](../evidence/blackhole-editor/graphics-selection-audit.sanitized.json)
+explains why the retained run used Wine's graphics even though the prefix contains
+DXVK. Both Windows system directories contain `d3d11.dll`, `dxgi.dll` and
+`d3d10core.dll` byte-identical to the selected runner's DXVK distribution. There
+are no relevant global or application graphics overrides in `user.reg`,
+`userdef.reg` or `system.reg`. The installed supervisor's recomputed launch
+environment supplies no graphics override, and the runner has no `user_settings.py`.
+This was a baseline configuration audit before the candidate transition, not a
+new observation of a running editor's environment; the earlier mapped-file
+receipt establishes what actually loaded in that baseline.
+
+The installed Proton script matches revision
+`5b89db940e0ebe3a137a6009a3589232fe084c09`. Its `runinprefix` path initializes the
+session but skips `setup_prefix()`, including the native DXVK overrides normally
+added there. At the exact associated Wine revision
+`dc26e61847081a1b5cb0733dc30feba6ee575482`, an otherwise unspecified DLL uses
+`LO_DEFAULT`: look for a built-in, allowing native preference only when the
+built-in carries Wine's `0x0010` preference flag. The actual D3D11/DXGI built-ins
+have characteristics `0x0160` (64-bit) and `0x0140` (32-bit), without that flag.
+This selection chain explains the observed built-ins without assuming an explicit
+`PROTON_USE_WINED3D=1`. Changing every `runinprefix` call is not warranted.
+
+Sources: pinned [Proton launcher](https://github.com/ValveSoftware/Proton/blob/5b89db940e0ebe3a137a6009a3589232fe084c09/proton),
+[Wine load-order selection](https://github.com/ValveSoftware/wine/blob/dc26e61847081a1b5cb0733dc30feba6ee575482/dlls/ntdll/unix/loadorder.c),
+and [Wine loader](https://github.com/ValveSoftware/wine/blob/dc26e61847081a1b5cb0733dc30feba6ee575482/dlls/ntdll/unix/loader.c).
+
+The separately built reference uses `giang17/wine` revision
+`c27f058814b402a5709e073adccd42baa66810b9`, with its coherent Wine graphics stack
+and declared removal of Wine-hiding defaults. Its purpose is to test the real
+Blackhole editor before selecting a maintained Proton graphics change. Build
+success, DLL loading, a changed frame hash, and successful swapchain creation are
+not editor acceptance. Acceptance requires recognizable controls and text,
+responsive interaction, normal close/reopen, continued stereo processing and
+clean instance retirement. The results above establish a narrower stopping
+point: rendering, interaction and normal close, plus operator-confirmed audio.
+Standalone close/reopen passed; same-instance Bitwig reopen, recall and full
+Bitwig instance retirement remain unverified. Keep these scopes separate.
+
+## Original-runtime observations
 
 Blackhole Immersive 1.4.4 is the exact managed experimental stereo candidate
 `d7933fdaedb30958669caacb801934399adac3819e22c03c7aada805ca8e7d02`.
@@ -207,7 +361,7 @@ security setting changed. See the sanitized
 
 This preference route now needs a verified vendor control or exact encoding
 before another selection. A complete runtime correction for the missing
-composition presentation path remains a separate, substantially larger route.
+composition presentation path is the selected runtime continuation above.
 
 There is no demonstrated one-DLL replacement fix. JUCE's
 [Wine fallback change](https://github.com/juce-framework/JUCE/commit/5179690)
@@ -218,8 +372,9 @@ cannot be assumed present in this proprietary binary. DXVK's
 and [configuration caveat](https://github.com/doitsujin/dxvk/blob/master/dxvk.conf)
 do not establish functional DirectComposition presentation. The Wine developer's
 [DXGI/DComp implementation discussion](https://list.winehq.org/hyperkitty/list/wine-devel%40list.winehq.org/message/OMIIVWXQAWX7HEEEFIW4U4PCBGY3CXWT/)
-describes the additional composition/driver work. A runner replacement would be
-a separate, substantially larger correction route, not a justified toggle here.
+describes the additional composition/driver work. The selected coherent candidate
+implements that surrounding machinery; replacing one DLL or toggling an unknown
+preference would not establish it.
 
 The shared observation tools and this exact-product graphics launcher have
 different applicability. The latter diagnoses the current Blackhole profile;
