@@ -7,10 +7,14 @@ new broad GUI test campaign. Preserve the working runtime and existing projects.
 
 ## 1. Touchscreen failures and missing incident reports
 
-Operator report: using the Steam Deck touchscreen crashes Blackhole, Serum and
-Kontakt, and the bridge does not show the corresponding plug-in crash report.
-These are cross-product observations, not yet a demonstrated common cause in
-the Windows message pump, renderer or input translation.
+Latest operator clarification (2026-09-20): any touchscreen contact with the UI
+of the installed non-Arturia plug-ins makes the editor shut down/disappear.
+Blackhole, Serum and Kontakt were specifically reported; Arturia editors do not
+exhibit this behavior. No particular knob, menu or drag is required. The bridge
+does not display the failure, and Bitwig continues to register the instance as
+running. This is an operator-reported editor disappearance, not yet a measured
+process crash or demonstrated common cause in the Windows pump or renderer.
+Whether audio continues after the editor disappears is still unanswered.
 
 Start with one exact product/version, control and physical touch gesture in a
 disposable project. Compare that gesture with a mouse action on the same control.
@@ -19,6 +23,33 @@ hangs: editor host, processing host, native proxy/DAW, or environment helper.
 Physical Deck touch is a distinct input path from Moonlight mouse injection.
 Reuse the existing observers and supervisor records; avoid speculative fixes in
 every renderer or repeated reproductions that produce no new evidence.
+
+Use a working Arturia editor as a comparison for the same first-touch action.
+Distinguish a window being hidden/closed/destroyed, an editor thread hanging or
+failing while processing survives, and the entire Windows host exiting while
+Bitwig retains stale status. An active audio instance after an ordinary editor
+close is not itself incorrect. The bridge must surface an actual editor or host
+failure at the right boundary.
+
+Current investigation progress is repository inspection only; no new physical
+touch reproduction or repair has been performed. Two existing leads were found:
+
+- [UIO3's retained Pigments observation](../evidence/uio3/result.md) showed
+  Windows release handling continuing at least 16.514 seconds after the last
+  X11 release, without a terminal failure. That earlier delay is not proof of
+  the cause of the newly reported disappearing editors. Reuse its observer
+  only after verifying admission for the selected current instance.
+- `crash_capture::arm` in `bridge-manager/src/crash_capture.rs` selects ordinary
+  verified-profile observation admission. Managed experimental observation has
+  a separate path in `ui_observation.rs`. This is a concrete capture-eligibility
+  gap to address for the exact experimental instance; it does not establish
+  why the editor disappears or fully explain the reported missing status.
+
+Next bounded step: verify diagnostics can record the selected instance before
+launch, then have the operator perform one mouse/touch comparison. Retain the
+first useful input/window/process/terminal boundary and stop. Repair that
+demonstrated boundary and repeat the original action before extending the check
+to the other products. Do not replace physical touch with automated clicking.
 
 Investigate reporting as its own defect: determine whether the failed process
 was supervised, whether the manager received its exit/failure, and whether

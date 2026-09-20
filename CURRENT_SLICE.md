@@ -6,6 +6,14 @@ touchscreen crashes and missing incident reporting, Gaming Mode/helper recovery
 with panic/reset, and actual plug-in audio I/O. These are follow-up work, not
 completed repairs or a new live-test run in this documentation update.
 
+Latest update (2026-09-20): the operator reports editor disappearance on any
+touch in installed non-Arturia plug-ins, no corresponding bridge failure, and
+continued active status in Bitwig. Arturia is the working comparison. Audio
+continuation after disappearance is unknown. Repository inspection identified
+the existing UIO3 delay evidence and experimental-profile capture-admission gap;
+no new touchscreen reproduction or input repair has run. See the follow-up
+document for the next bounded comparison and its remaining questions.
+
 The operator personally tested the installed Blackhole candidate and confirmed
 working audio, then requested an end to testing, commit/push and PR submission.
 The managed runner transition and fresh stereo inspection/preparation/
@@ -17,9 +25,15 @@ review; do not merge or continue GUI/audio tests.
 Audio is operator-confirmed. Standalone normal close/reopen passed; same-instance
 Bitwig reopening, saved-project recall, performance qualification, additional
 audio channels and full Bitwig instance retirement remain unverified/deferred.
-Two final SSH attempts timed out, so neither the bounded recorder's final state
+At the original submission, two SSH attempts timed out, so neither the bounded recorder's final state
 nor a completed automated audio result was read back. Its configured service
 lifetime is 110 seconds; that bound is not a cleanup receipt.
+
+A subsequent live recovery confirmed that the prior Blackhole instance and
+bounded recorder had retired. The separate abandoned Serum launch was preserved
+and quarantined with Bitwig/Wine closed; the restarted service reported no
+cleanup block and zero owners. The automatic recovery defect remains pending.
+See `evidence/blackhole-editor/abandoned-launch-recovery.sanitized.json`.
 
 Implementation/build basis: `65347a2db8fe2b8b681cf16e31dd121cd159dea3`.
 Current findings and exact receipt identities are in
