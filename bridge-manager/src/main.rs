@@ -1612,10 +1612,10 @@ mod tests {
         supervisor_ready(&mut child,&job.session,Duration::from_secs(2)).unwrap();
         pending.expose();
         assert_eq!(unsafe{libc::kill(child.id() as i32,libc::SIGTERM)},0);
-        let mut byte=[0;1];native.read_exact(&mut byte).unwrap();assert_eq!(byte,b"F");
+        let mut byte=[0;1];native.read_exact(&mut byte).unwrap();assert_eq!(byte,[b'F']);
         assert!(job.directory.exists());
         native.shutdown(std::net::Shutdown::Write).unwrap();
-        native.read_exact(&mut byte).unwrap();assert_eq!(byte,b"R");
+        native.read_exact(&mut byte).unwrap();assert_eq!(byte,[b'R']);
         assert!(!job.directory.exists());
         let class=job.registration.metadata.class_id.clone();
         finish_supervised_delivery(SupervisorDelivery{manager:&f.m,class_id:&class,
