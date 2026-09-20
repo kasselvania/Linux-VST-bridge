@@ -1,5 +1,16 @@
 # Plug-in reliability and audio I/O follow-up
 
+Source candidate update (2026-09-20): the shared Blackhole/Kontakt reliability
+slice now admits the exact current managed-experimental publication to optional
+detailed capture, projects existing IF1 editor/host/transport terminal custody
+into the catalog independently of that capture. Each request retains its
+authenticated DAW process generation, while the keeper is shared only by the
+exact allowlisted graphical context. Keeper warmup and a
+graphical-session replacement occur behind an unowned retryable refusal; no DSP
+lease, transport or native binding is exposed first. These are deterministic
+source results. The original physical touch and product-audio checks have not
+run and remain the operator's acceptance step.
+
 The operator confirmed working Blackhole Immersive audio with the installed
 DirectComposition reference and identified the priorities below. This records
 the next work; it does not claim these repairs are implemented or authorize a
@@ -31,19 +42,19 @@ Bitwig retains stale status. An active audio instance after an ordinary editor
 close is not itself incorrect. The bridge must surface an actual editor or host
 failure at the right boundary.
 
-Current investigation progress is repository inspection only; no new physical
-touch reproduction or repair has been performed. Two existing leads were found:
+No new physical touch reproduction or input repair has been performed. Two
+source prerequisites have now been closed while preserving that boundary:
 
 - [UIO3's retained Pigments observation](../evidence/uio3/result.md) showed
   Windows release handling continuing at least 16.514 seconds after the last
   X11 release, without a terminal failure. That earlier delay is not proof of
   the cause of the newly reported disappearing editors. Reuse its observer
   only after verifying admission for the selected current instance.
-- `crash_capture::arm` in `bridge-manager/src/crash_capture.rs` selects ordinary
-  verified-profile observation admission. Managed experimental observation has
-  a separate path in `ui_observation.rs`. This is a concrete capture-eligibility
-  gap to address for the exact experimental instance; it does not establish
-  why the editor disappears or fully explain the reported missing status.
+- `crash_capture::arm` now selects the separate exact managed-experimental
+  observation admission when the current retained revision requires it. The
+  catalog also reads the existing exact IF1 terminal class without requiring
+  capture to have been armed. Neither change establishes why touch makes an
+  editor disappear.
 
 Next bounded step: verify diagnostics can record the selected instance before
 launch, then have the operator perform one mouse/touch comparison. Retain the
@@ -70,8 +81,11 @@ does not justify one universal renderer fix.
 Observed: four environment helpers exited; a subsequent Serum launch checked
 its dead helper after exposing the native binding and left an abandoned launch
 record that blocked new instances. Manual recovery restored an empty, available
-service. The operator associates this with switching to Gaming Mode. Establish
-the transition's causal role separately from the confirmed launch/recovery bug.
+service. The source candidate now starts/rechecks the keeper before creating an
+instance and retains a concrete supervisor before returning acceptance. It also
+refuses cross-display keeper reuse and retires an obsolete keeper only after all
+DSP owners are gone. The operator associates the original loss with switching
+to Gaming Mode; establish that physical transition separately.
 See [the retained recovery](BLACKHOLE_EDITOR.md#post-test-service-recovery-and-requested-follow-up).
 
 Correct the failed-launch cleanup and helper-loss handling. Desktop to Gaming

@@ -1,4 +1,49 @@
-# Blackhole stopping point: submit the experimental renderer for review
+# Catalog reliability: Blackhole and Kontakt owned graphical sessions
+
+Basis: commit `bbb43318e48ab5b3b40fab23a53f3766f437205f`, tree
+`d3c32017e71bbeb089d48643af7667351a476adf`.
+
+The operator selected the shared Linux-facing reliability work for both current
+Blackhole and Kontakt publications. This source slice performs no Moonlight,
+Bitwig, touchscreen, plug-in audio, installer, runner, prefix or vendor
+operation. The operator will perform the original physical interactions after
+the source candidate is installed separately.
+
+Primary claim: a catalog instance is either owned from its authenticated DAW
+graphical session through a live environment keeper and concrete supervisor, or
+it is refused before any lease, transport or native binding is exposed. A
+terminal editor, Windows-host or transport failure is visible in the manager
+without depending on optional detailed crash capture.
+
+In scope:
+
+- derive the small graphical context allowlist from the authenticated LVB3 Unix
+  peer and independently revalidate its process generation in the supervisor;
+- bind keepers and DSP/editor processes to that exact context;
+- warm a missing keeper behind an unowned bounded `ServiceBusy` response;
+- retire and recreate a keeper after a graphical-session change only when no
+  DSP owner remains;
+- recheck the keeper immediately before admission and create the supervisor
+  before publishing the accepted binding;
+- admit exact managed-experimental publications to the existing read-only
+  detailed capture path;
+- project IF1's existing exact terminal class into catalog status and present it
+  for any product, including Blackhole and Kontakt.
+
+Acceptance is deterministic source behavior: no accepted binding without a
+live exact keeper; no cross-display keeper reuse; no retirement while a DSP
+lease exists; bounded retry without ownership; managed capture admission;
+private graphical context with no ambient environment copying; and visible
+editor/host/transport terminal states. The existing audio callback, VST3 bus
+transport, runner policies and vendor-specific product behavior remain
+unchanged.
+
+Nonclaims: this slice does not establish that physical touchscreen input works,
+that Blackhole or Kontakt audio works in the next Bitwig session, that Gaming
+Mode window association is complete, or that any additional audio layout is
+qualified. Those remain original-action physical checks, not fixture results.
+
+# Prior stopping point: Blackhole experimental renderer submission
 
 Subsequent operator priorities are recorded in
 [`docs/PLUGIN_RELIABILITY_FOLLOWUP.md`](docs/PLUGIN_RELIABILITY_FOLLOWUP.md):

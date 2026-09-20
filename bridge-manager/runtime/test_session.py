@@ -18,6 +18,22 @@ import ownership
 import session
 
 
+class GraphicalSessionTests(unittest.TestCase):
+    def test_exact_peer_generation_and_allowlisted_environment_are_revalidated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            proc=pathlib.Path(tmp);peer=proc/'41';peer.mkdir()
+            fields=['S']+['0']*18+['9001']+['0']*4
+            (peer/'stat').write_text('41 (bitwig-studio) '+' '.join(fields))
+            (peer/'environ').write_bytes(b'DISPLAY=:7\0WAYLAND_DISPLAY=gamescope-1\0HOME=/private\0')
+            bound={'schema':1,'peer_pid':41,'peer_start_ticks':9001,'display':':7','wayland_display':'gamescope-1'}
+            self.assertEqual(session.graphical_environment(bound,proc),
+                             {'DISPLAY':':7','WAYLAND_DISPLAY':'gamescope-1'})
+            with self.assertRaisesRegex(RuntimeError,'generation changed'):
+                session.graphical_environment(dict(bound,peer_start_ticks=9002),proc)
+            with self.assertRaisesRegex(RuntimeError,'environment changed'):
+                session.graphical_environment(dict(bound,display=':8'),proc)
+
+
 class ManagedHomeTests(unittest.TestCase):
     def test_private_home_retained_for_inspection_keeper_and_dsp_only_when_bound(self):
         with tempfile.TemporaryDirectory() as tmp:
