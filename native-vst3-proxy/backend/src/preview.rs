@@ -107,18 +107,29 @@ pub fn connect_greeting(root: &Path, greeting: &[u8]) -> io::Result<Binding> {
     if !greeting.starts_with(ap1_native_client::admission::GREETING) {
         return connect_once(root, greeting, None);
     }
+    connect_greeting_with_policy(root, greeting, Duration::from_secs(65), 3250)
+}
+fn connect_greeting_with_policy(
+    root: &Path,
+    greeting: &[u8],
+    maximum: Duration,
+    attempts: usize,
+) -> io::Result<Binding> {
+    need(attempts > 0, "admission retry bound")?;
     // Concurrent project loads can briefly contend on registry.lock. Only a
-    // typed refusal that grants no ownership may be retried. EOF, a partial
-    // binding, protocol failure or an actual capacity refusal is never retried.
-    // This runs on non-RT instance startup, with one deadline and a finite count.
-    let end = Instant::now() + Duration::from_secs(10);
-    for attempt in 0..64 {
+    // typed refusal that grants no ownership may be retried. The same refusal
+    // also covers one bounded keeper warmup; no session or transport exists
+    // until the keeper is live. EOF, a partial binding, protocol failure or an
+    // actual capacity refusal is never retried. This runs on non-RT instance
+    // startup, with one deadline and a finite count.
+    let end = Instant::now() + maximum;
+    for attempt in 0..attempts {
         match connect_once(root, greeting, Some(end)) {
             Err(e)
                 if e.get_ref()
                     .and_then(|e| e.downcast_ref::<ap1_native_client::admission::Refusal>())
                     == Some(&ap1_native_client::admission::Refusal::ServiceBusy)
-                    && attempt < 63
+                    && attempt + 1 < attempts
                     && end.saturating_duration_since(Instant::now())
                         > Duration::from_millis(20) =>
             {
@@ -378,16 +389,20 @@ mod tests {
         }
     }
     #[test]
-    fn only_unowned_busy_can_retry_and_retry_count_is_bounded() {
+    fn only_unowned_busy_can_retry_and_keeper_warmup_outlives_the_old_64_attempt_limit() {
         use ap1_native_client::admission::{self, Refusal};
-        for succeeds in [true, false] {
+        for (busy_replies, succeeds) in [(100usize, true), (64usize, false)] {
             let dir = Directory::new();
             let socket = dir.0.join("owner.sock");
             let listener = UnixListener::bind(&socket).unwrap();
             fs::set_permissions(&socket, fs::Permissions::from_mode(0o600)).unwrap();
             let path = dir.0.clone();
             let peer = std::thread::spawn(move || {
-                let count = if succeeds { 2 } else { 64 };
+                let count = if succeeds {
+                    busy_replies + 1
+                } else {
+                    busy_replies
+                };
                 let mut identities = std::collections::BTreeSet::new();
                 for i in 0..count {
                     let (mut stream, _) = listener.accept().unwrap();
@@ -395,7 +410,7 @@ mod tests {
                     stream.read_exact(&mut hello).unwrap();
                     let request = hello[53..].try_into().unwrap();
                     assert!(identities.insert(request));
-                    let bytes = if succeeds && i == 1 {
+                    let bytes = if succeeds && i == busy_replies {
                         admission::accepted(
                             request,
                             &admission::Binding {
@@ -418,7 +433,12 @@ mod tests {
             });
             let mut greeting = admission::GREETING.to_vec();
             greeting.extend([7; 48]);
-            let result = connect_greeting(&dir.0, &greeting);
+            let result = connect_greeting_with_policy(
+                &dir.0,
+                &greeting,
+                Duration::from_secs(5),
+                busy_replies + usize::from(succeeds),
+            );
             if succeeds {
                 assert_eq!(result.unwrap().session, [9; 16]);
             } else {
@@ -427,7 +447,7 @@ mod tests {
                     Refusal::ServiceBusy.code()
                 );
             }
-            assert_eq!(peer.join().unwrap(), if succeeds { 2 } else { 64 });
+            assert_eq!(peer.join().unwrap(), busy_replies + usize::from(succeeds));
             assert_eq!(fs::read_dir(&dir.0).unwrap().count(), 1);
         }
     }

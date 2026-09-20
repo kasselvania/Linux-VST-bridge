@@ -27,16 +27,47 @@ def windows(path,prefix):
     try:return 'C:\\'+str(path.relative_to(prefix/'drive_c')).replace('/','\\')
     except ValueError:return 'Z:'+str(path).replace('/','\\')
 
-def environment(reg):
+def graphical_environment(graphical,proc_root=pathlib.Path('/proc')):
+    fields={'schema','peer_pid','peer_start_ticks','display','wayland_display','xauthority','dbus_session_bus_address'}
+    if (not isinstance(graphical,dict) or not set(graphical).issubset(fields)
+        or set(graphical)-{'wayland_display','xauthority','dbus_session_bus_address'}!={'schema','peer_pid','peer_start_ticks','display'}
+        or graphical['schema']!=1 or type(graphical['peer_pid']) is not int or graphical['peer_pid']<=0
+        or type(graphical['peer_start_ticks']) is not int or graphical['peer_start_ticks']<=0):raise RuntimeError('graphical peer context invalid')
+    proc=proc_root/str(graphical['peer_pid'])
+    raw=(proc/'stat').read_text();parts=raw.rsplit(') ',1)
+    if len(parts)!=2 or int(parts[1].split()[19])!=graphical['peer_start_ticks']:raise RuntimeError('graphical peer generation changed')
+    observed={}
+    for item in (proc/'environ').read_bytes().split(b'\0'):
+        if not item or b'=' not in item:continue
+        key,value=item.split(b'=',1)
+        try:key=key.decode();value=value.decode()
+        except UnicodeDecodeError:continue
+        if key in ('DISPLAY','WAYLAND_DISPLAY','XAUTHORITY','DBUS_SESSION_BUS_ADDRESS'):
+            if key in observed:raise RuntimeError('graphical peer environment ambiguous')
+            observed[key]=value
+    result={}
+    for source,target in [('display','DISPLAY'),('wayland_display','WAYLAND_DISPLAY'),('xauthority','XAUTHORITY'),('dbus_session_bus_address','DBUS_SESSION_BUS_ADDRESS')]:
+        value=graphical.get(source)
+        if value is not None:
+            if not isinstance(value,str) or not value or len(value)>4096 or '\n' in value or '\r' in value:raise RuntimeError('graphical peer value invalid')
+            if observed.get(target)!=value:raise RuntimeError('graphical peer environment changed')
+            result[target]=value
+        elif target in observed:raise RuntimeError('graphical peer environment changed')
+    return result
+
+def environment(reg,graphical=None):
     root=pathlib.Path(reg['environment']['root']);user=pwd.getpwuid(os.getuid())
     env={'HOME':user.pw_dir,'USER':user.pw_name,'LOGNAME':user.pw_name,'PATH':'/usr/bin:/bin','LANG':'C.UTF-8',
          'XDG_RUNTIME_DIR':f'/run/user/{os.getuid()}','STEAM_COMPAT_DATA_PATH':str(root/'compatdata'),
          'STEAM_COMPAT_CLIENT_INSTALL_PATH':str(root/'client'),'STEAM_COMPAT_APP_ID':'0','SteamAppId':'0','SteamGameId':'0',
          'STEAM_ZENITY':'','PRESSURE_VESSEL_VARIABLE_DIR':str(root/'runtime-var')}
     for key,folder in [('XDG_CACHE_HOME','host-cache'),('XDG_CONFIG_HOME','host-config'),('XDG_DATA_HOME','host-data'),('TMPDIR','host-tmp')]:env[key]=str(root/folder)
-    for line in subprocess.check_output(['systemctl','--user','show-environment'],text=True,timeout=5).splitlines():
-        key,_,value=line.partition('=')
-        if key in ('DISPLAY','XAUTHORITY','WAYLAND_DISPLAY','DBUS_SESSION_BUS_ADDRESS'):env[key]=value
+    if graphical is not None:
+        env.update(graphical_environment(graphical))
+    else:
+        for line in subprocess.check_output(['systemctl','--user','show-environment'],text=True,timeout=5).splitlines():
+            key,_,value=line.partition('=')
+            if key in ('DISPLAY','XAUTHORITY','WAYLAND_DISPLAY','DBUS_SESSION_BUS_ADDRESS'):env[key]=value
     if not env.get('DISPLAY'):raise RuntimeError('graphical user session is unavailable')
     if reg['compatibility']['disable_windows_accessibility']:env['WINEDLLOVERRIDES']='uiautomationcore='
     runner_policy=reg.get('environment',{}).get('runner',{}).get('policy')
@@ -811,7 +842,7 @@ class IncidentCapture:
 def run(spec,peer=None):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
-    cmd,binding=command(spec);env=environment(reg)
+    cmd,binding=command(spec);env=environment(reg,spec.get('graphical_session'))
     managed_home(spec,env)
     transport_environment(spec,env);delivery_trace(spec,env);stop=False
     capture=None;capture_error=None
@@ -1042,7 +1073,7 @@ def keep(spec):
     signal.signal(signal.SIGTERM,stopped);signal.signal(signal.SIGINT,stopped)
     directory=pathlib.Path(spec['directory']);verify(reg['host'])
     cmd=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',windows(reg['host']['path'],pathlib.Path(reg['environment']['root'])/'compatdata/pfx'),'--environment-owner',spec['session'],'--scanner-sha256',reg['host']['sha256']]
-    env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}});managed_home(spec,env);transport_environment(spec,env)
+    env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}},spec.get('graphical_session'));managed_home(spec,env);transport_environment(spec,env)
     root=subprocess.Popen(cmd,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
     sel=selectors.DefaultSelector();owned=set();text=bytearray();ready=False;started=time.monotonic();error=None;clean=False
     for pipe in (root.stdout,root.stderr):os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ)

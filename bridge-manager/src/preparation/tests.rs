@@ -258,6 +258,28 @@ fn managed_observation_requires_exact_current_retained_publication() {
     assert!(crate::ui_observation::admit_managed_observation(&f.m, &c.selection.class.id).is_err());
     assert!(crate::ui_observation::admit_managed_observation(&f.m, &"ff".repeat(16)).is_err());
 }
+
+#[test]
+fn managed_experimental_publication_can_arm_one_exact_crash_capture() {
+    let (f, c) = fixture();
+    enable(&f.m, &c, false).unwrap();
+    atomic_json(
+        &f.m.root.join("software.json"),
+        &json!({"fixture":true,"product":"managed-experimental"}),
+    )
+    .unwrap();
+
+    crate::crash_capture::arm(&f.m, Some(&c.selection.class.id)).unwrap();
+    let registration = f.m.registry().unwrap().classes[&c.selection.class.id]
+        .registration
+        .clone();
+    let capture = crate::crash_capture::claim(&f.m, &registration, &"ab".repeat(16))
+        .unwrap()
+        .unwrap();
+    let request: serde_json::Value = read_json(&capture.directory.join("request.json")).unwrap();
+    assert_eq!(request["session"], "abababababababababababababababab");
+    assert_eq!(request["registration"]["metadata"]["class_id"], registration.key());
+}
 #[test]
 fn explicit_review_needs_complete_attributed_results() {
     let (f, c) = fixture();

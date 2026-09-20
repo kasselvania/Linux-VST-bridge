@@ -13,12 +13,22 @@ pub enum Kind {
     VendorAccess,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum InstanceTerminal {
+    WindowsHostExited,
+    EditorControllerFailed,
+    TransportFailed,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Owner {
     pub session: String,
     pub class_id: String,
     pub kind: Kind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal: Option<InstanceTerminal>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -279,6 +289,60 @@ impl Limits {
     }
 }
 
+fn session_identity(session: &str) -> Result<[u8; 16]> {
+    require(valid_hex(session, 32), "terminal_session_identity")?;
+    let mut result = [0u8; 16];
+    for (index, byte) in result.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&session[index * 2..index * 2 + 2], 16)?;
+    }
+    Ok(result)
+}
+
+fn terminal_status(directory: &Path, session: &str) -> Result<Option<InstanceTerminal>> {
+    use std::os::unix::fs::FileExt;
+    let path = directory.join("if1.terminal");
+    if !path.try_exists()? { return Ok(None); }
+    let file = file(&path)?;
+    require(file.metadata()?.len() == 2048, "terminal_status_extent")?;
+    let mut header = [0u8; 32];
+    file.read_exact_at(&mut header, 0)?;
+    let identity = session_identity(session)?;
+    require(&header[..4] == b"LVIF"
+        && u32::from_le_bytes(header[4..8].try_into().unwrap()) == 1
+        && u32::from_le_bytes(header[8..12].try_into().unwrap()) == 2048
+        && header[16..32] == identity, "terminal_status_binding")?;
+    for _ in 0..3 {
+        let mut before = [0u8; 8];
+        file.read_exact_at(&mut before, 64)?;
+        let generation = u64::from_le_bytes(before);
+        if generation == 0 { return Ok(None); }
+        require((1..=3).contains(&generation), "terminal_status_generation")?;
+        let offset = 128 + (generation - 1) * 256;
+        let mut raw = [0u8; 192];
+        file.read_exact_at(&mut raw, offset)?;
+        let mut after = [0u8; 8];
+        file.read_exact_at(&mut after, 64)?;
+        if before != after { continue; }
+        let words: [u64; 24] = std::array::from_fn(|index| {
+            u64::from_le_bytes(raw[index * 8..index * 8 + 8].try_into().unwrap())
+        });
+        require(words[0] == 1
+            && words[1].to_le_bytes() == identity[..8]
+            && words[2].to_le_bytes() == identity[8..]
+            && words[3] != 0
+            && words[18] == generation
+            && (1..=5).contains(&words[19])
+            && words[20..].iter().all(|value| *value == 0), "terminal_status_record")?;
+        return Ok(Some(match words[14] {
+            1 => InstanceTerminal::WindowsHostExited,
+            2 => InstanceTerminal::EditorControllerFailed,
+            3 => InstanceTerminal::TransportFailed,
+            _ => return Err("terminal_status_class".into()),
+        }));
+    }
+    Err("terminal_status_unstable".into())
+}
+
 /// Caller holds registry.lock. Bound both collections before opening owner
 /// documents. Malformed, missing or duplicate ownership never counts as free.
 pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
@@ -322,10 +386,10 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
                 .join("owner.json");
             if p.try_exists()? {
                 require(found.is_none(), "duplicate_lease_identity")?;
-                found = Some(read_json::<serde_json::Value>(&p)?);
+                found = Some((read_json::<serde_json::Value>(&p)?, p));
             }
         }
-        let o = found.ok_or("active_lease_unresolved")?;
+        let (o, owner_path) = found.ok_or("active_lease_unresolved")?;
         require(
             o["session"].as_str() == Some(sid) && o["report"].as_str() == report.to_str(),
             "lease_identity",
@@ -380,6 +444,11 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
             session: sid.into(),
             class_id: class.to_uppercase(),
             kind,
+            terminal: if kind == Kind::Dsp {
+                terminal_status(owner_path.parent().unwrap(), sid)?
+            } else {
+                None
+            },
         });
     }
     result.sort_by(|a, b| a.session.cmp(&b.session));
@@ -624,6 +693,38 @@ mod tests {
             reason(reserve(&f.m, &policy, Some(b), true)),
             Refusal::CleanupUnconfirmed.code()
         );
+    }
+    #[test]
+    fn active_owner_projects_terminal_editor_failure_without_optional_capture() {
+        let f = Fixture::new();
+        let class = &limits().classes[0].class_id;
+        let lease = lease(&f, class, Kind::Dsp);
+        let session = lease.file_stem().unwrap().to_str().unwrap();
+        let owner = f.r.environment.root.join("compatdata/pfx/drive_c/bridge/sessions").join(session);
+        let mut bytes = vec![0u8; 2048];
+        bytes[..4].copy_from_slice(b"LVIF");
+        bytes[4..8].copy_from_slice(&1u32.to_le_bytes());
+        bytes[8..12].copy_from_slice(&2048u32.to_le_bytes());
+        let identity = session_identity(session).unwrap();
+        bytes[16..32].copy_from_slice(&identity);
+        bytes[64..72].copy_from_slice(&2u64.to_le_bytes());
+        let at = 128 + 256;
+        let mut words = [0u64; 24];
+        words[0] = 1;
+        words[1] = u64::from_le_bytes(identity[..8].try_into().unwrap());
+        words[2] = u64::from_le_bytes(identity[8..].try_into().unwrap());
+        words[3] = 7;
+        words[14] = 2;
+        words[15] = 1;
+        words[18] = 2;
+        words[19] = 3;
+        for (index, value) in words.into_iter().enumerate() {
+            bytes[at + index * 8..at + index * 8 + 8].copy_from_slice(&value.to_le_bytes());
+        }
+        fs::write(owner.join("if1.terminal"), bytes).unwrap();
+
+        let observed = owners(&f.m).unwrap();
+        assert_eq!(observed[0].terminal, Some(InstanceTerminal::EditorControllerFailed));
     }
     #[test]
     fn durable_ownership_survives_service_reconstruction_and_exact_release() {
