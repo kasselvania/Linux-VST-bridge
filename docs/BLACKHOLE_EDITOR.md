@@ -62,6 +62,40 @@ profile checks, four session checks, 21 UIO1 checks, all-target Clippy and Linux
 release builds. Final documentation/evidence checks reuse those results; no
 additional live test is required by this stopping point.
 
+## Post-test service recovery and requested follow-up
+
+After the operator reported switching to Gaming Mode and returning to Desktop,
+the manager continued to block new instances. Live records showed four exited
+environment keepers, each with confirmed process cleanup. A later Serum 2 launch
+exposed its native binding and lease before checking the dead keeper. That check
+failed before the Windows supervisor was spawned, leaving a reservation and
+transport without a retirement receipt and latching the global admission block.
+Why the keepers exited remains unknown; Gaming Mode is an operator-reported
+possible trigger, not an established cause.
+
+The previous tested Blackhole session independently had confirmed process and
+transport cleanup. The bounded audio recorder was also inactive with no unit
+cgroup at this follow-up; its audio result was not analyzed. These later facts
+do not rewrite the original finalization-time SSH limitation.
+
+With Bitwig and Wine absent and the bridge cgroup containing only its daemon,
+the custodian stopped the service, held its service/canonical/registry locks,
+verified the exact failed-launch owner and transport identity, and quarantined
+that one lease and its six temporary transport files while preserving them
+privately. No successful plug-in lifecycle receipt was fabricated. Restart used
+normal reconciliation for the four already-confirmed keeper records. The first
+capacity read preceded readiness; the subsequent read verified an active
+service, no cleanup block, zero owners/leases, and six available global slots.
+No plug-in, installation, runtime, registry or project was changed or tested.
+See the [recovery receipt](../evidence/blackhole-editor/abandoned-launch-recovery.sanitized.json).
+
+The launch-order/recovery defect still needs a code fix. The operator also
+requested a future panic control: clearly warn that audio will be interrupted,
+stop the bridge's owned instances, verify cleanup, retain failure details, and
+restart the service and manager. Clearing a warning alone is insufficient;
+reopening DAW projects or plug-ins is separate from restarting the bridge. That
+control is deferred, not implemented by this manual recovery.
+
 ## Working standalone reference
 
 The [candidate editor receipt](../evidence/blackhole-editor/direct-composition-editor.sanitized.json)

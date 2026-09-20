@@ -53,6 +53,8 @@ final SSH timeouts prevented retrieving the Deck's separate managed receipt or
 confirming the bounded recorder's retirement. The working plugin was left in
 place, and no clean retirement of that Bitwig instance is claimed.
 
+Follow-up: [`abandoned-launch-recovery.sanitized.json`](abandoned-launch-recovery.sanitized.json) records the later Serum failed-launch block, confirmed prior Blackhole retirement, manual service recovery, and deferred panic-control request.
+
 ## Method and limits
 
 Luna 5.6 Max alone opened the exact Eventide x64 VST3 from Bitwig's File Kind →
