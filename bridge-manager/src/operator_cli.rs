@@ -489,11 +489,7 @@ fn snapshot_for_operation(
             ui::Action::CaptureArm {
                 class_id: p.class_id.clone(),
             },
-            if !p.publication_valid || p.qualification.is_some() {
-                Some("An exact ordinary publication is required")
-            } else {
-                None
-            },
+            capture_disabled_reason(p.publication_valid, p.qualification),
         ));
         products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
     }
@@ -632,11 +628,14 @@ fn snapshot_for_operation(
             .ok_or("incident_identity")?
             .to_owned();
         let status = optional(&path.join("status.json"))?;
-        let share = optional(&path.join("share.json"))?;
+        let mut share = optional(&path.join("share.json"))?;
+        let share_available = !share.is_null();
+        let request = optional(&path.join("request.json"))?;
+        project_incident_product(&mut share, &request)?;
         incidents.push(ui::Incident {
             id: id.clone(),
             state: text(&status, "state"),
-            export: if share.is_null() {
+            export: if !share_available {
                 None
             } else {
                 Some(action(
@@ -684,6 +683,47 @@ fn snapshot_for_operation(
             .as_object()
             .map(|v| Value::Object(v.clone())),
     })
+}
+
+fn project_incident_product(summary: &mut Value, request: &Value) -> Result<()> {
+    if request.is_null() {
+        return Ok(());
+    }
+    let name = request["registration"]["metadata"]["name"]
+        .as_str()
+        .ok_or("incident_product_name")?;
+    let class_id = request["registration"]["metadata"]["class_id"]
+        .as_str()
+        .ok_or("incident_product_class")?;
+    require(
+        !name.is_empty()
+            && name.len() <= 256
+            && !name.chars().any(char::is_control)
+            && valid_hex(class_id, 32),
+        "incident_product_identity",
+    )?;
+    if summary.is_null() {
+        *summary = json!({});
+    }
+    let object = summary.as_object_mut().ok_or("incident_summary_shape")?;
+    object.insert("product_name".into(), Value::String(name.into()));
+    object.insert("class_id".into(), Value::String(class_id.into()));
+    Ok(())
+}
+
+fn capture_disabled_reason(
+    publication_valid: bool,
+    qualification: Option<publication::Qualification>,
+) -> Option<&'static str> {
+    if !publication_valid {
+        Some("An exact current publication is required")
+    } else if qualification.is_some_and(|kind| {
+        kind != publication::Qualification::ManagedExperimental
+    }) {
+        Some("Detailed capture is unavailable for this publication type")
+    } else {
+        None
+    }
 }
 fn project_onboarding_failure(
     m: &Manager,
@@ -2334,6 +2374,30 @@ mod tests {
             "recent":true,"cleanup_confirmed":true,"transport_retired":true,
             "observed_at":1,
         })]);
+    }
+    #[test]
+    fn managed_experimental_capture_is_offered_without_weakening_other_admission() {
+        use publication::Qualification::*;
+        assert_eq!(capture_disabled_reason(true,None),None);
+        assert_eq!(capture_disabled_reason(true,Some(ManagedExperimental)),None);
+        assert_eq!(capture_disabled_reason(false,Some(ManagedExperimental)),
+            Some("An exact current publication is required"));
+        assert_eq!(capture_disabled_reason(true,Some(Uir1Input)),
+            Some("Detailed capture is unavailable for this publication type"));
+    }
+    #[test]
+    fn incident_projection_adds_only_bounded_product_identity() {
+        let mut summary=json!({"schema":1,"outcome":"failed"});
+        let request=json!({"registration":{"metadata":{
+            "name":"Blackhole Immersive","class_id":"01".repeat(16)}}});
+        project_incident_product(&mut summary,&request).unwrap();
+        assert_eq!(summary["product_name"],"Blackhole Immersive");
+        assert_eq!(summary["class_id"],"01".repeat(16));
+        assert!(summary.get("registration").is_none());
+        let mut bad=Value::Null;
+        let request=json!({"registration":{"metadata":{
+            "name":"bad\nname","class_id":"01".repeat(16)}}});
+        assert!(project_incident_product(&mut bad,&request).is_err());
     }
     #[test]
     fn stale_foreign_candidate_busy_and_unknown_requests_cannot_dispatch() {

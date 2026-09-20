@@ -1,3 +1,42 @@
+# Offline manager clarity and physical-test preparation
+
+Base: approved catalog-reliability candidate
+`f164048f81045c76711e8ce1886a9dcd6f30dee7`, tree
+`2855d972cfbc9c9939627a15b3fd1fae96296723`.
+
+The approved candidate remains frozen for its first Deck installation and
+physical validation. This separate source slice does not alter that package or
+add another runtime gate.
+
+Primary claim: the existing schema-7 manager snapshot presents publication,
+current instance state, retained prior failure, cleanup state, available
+actions and sanitized-report access as distinct facts on narrow handheld
+layouts. Managed-experimental capture is offered when the already-implemented
+exact admission permits it. Existing unavailable facts remain unavailable.
+
+In scope:
+
+- presentation-only improvements to the existing production library and
+  incident views;
+- focused operator-action projection for the already-supported exact
+  managed-experimental capture admission;
+- representative images from the existing `library_preview` only;
+- correction of stale crash-capture instructions and synchronization of their
+  existing PDF;
+- a concise installation/rollback handoff for the frozen approved candidate;
+- exact existing observation commands for the next operator-controlled Deck
+  session.
+
+Nonclaims: this slice does not repair touchscreen delivery, change the Windows
+message pump, add recovery or reset authority, alter keeper/session ownership,
+change audio routing, install anything, operate the Deck, launch Bitwig or a
+vendor product, or supersede the pending physical result. The manager UI branch
+must not be substituted into the first package built from the approved
+candidate.
+
+Everything below records the completed source basis inherited from the frozen
+candidate. It is historical context, not authority to reopen its protocol.
+
 # Catalog reliability: Blackhole and Kontakt owned graphical sessions
 
 Correction basis: stacked merge `18cc2c11b35c6c3c04d88c4703c8a6d88996249a`,

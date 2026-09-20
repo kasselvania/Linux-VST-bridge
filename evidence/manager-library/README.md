@@ -87,3 +87,35 @@ Kontakt 8 and Serum 2 are disabled with `An exact ordinary publication is requir
 and Serum 2 FX offers no capture action. Capture was off with no active retention.
 This verifies current action availability, not a new captured vendor failure.
 No capture was armed, no plug-in was launched and no GUI was operated.
+
+## Offline manager-clarity preview
+
+2026-09-20; base `f164048f81045c76711e8ce1886a9dcd6f30dee7`, tree
+`2855d972cfbc9c9939627a15b3fd1fae96296723`. The existing production-widget
+preview was rendered again at 960 and 560 logical pixels with synthetic records.
+It now keeps publication, current instance state, a previous failure, cleanup,
+available actions and management actions visibly separate. The synthetic
+Blackhole card also demonstrates that a prior Windows-host failure and confirmed
+cleanup do not imply a current failed instance.
+
+- [Manager clarity, wide](library-status-wide.png)
+- [Manager clarity, handheld width](library-status-narrow.png)
+
+Both images were produced by the existing `library_preview`; its buttons remain
+inert and it has no manager client. They were visually inspected for wrapping,
+clipping and status hierarchy. No installed inventory was read, no capture was
+armed, and no vendor application or Deck session was used.
+
+The editable crash-capture guide and its existing three-page PDF were updated
+together. All three PDF pages were rendered with Poppler and visually inspected;
+the resulting PDF is 10,300 bytes with SHA-256
+`0686d293d674f2b9d13cf981167c227152aba73a7b79f374b1a1f7aa11ca5b5d`.
+
+```sh
+cargo run --manifest-path manager-ui/Cargo.toml --locked \
+  --example library_preview -- \
+  evidence/manager-library/library-status-wide.png 960 "" --diagnostics
+cargo run --manifest-path manager-ui/Cargo.toml --locked \
+  --example library_preview -- \
+  evidence/manager-library/library-status-narrow.png 560 "" --diagnostics
+```

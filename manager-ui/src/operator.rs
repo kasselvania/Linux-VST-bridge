@@ -456,8 +456,12 @@ impl eframe::App for Operator {
                     Self::buttons(ui,&o.actions,busy,controls_pending,&mut chosen);
                     egui::CollapsingHeader::new("Installation and scan details").id_salt((&o.installer,&o.environment)).show(ui,|ui|Self::value(ui,&o.details));
                 });}
-                ui.separator();egui::CollapsingHeader::new("Recent incidents").show(ui,|ui|{
-                    for incident in s.recent_incidents.iter().rev(){egui::CollapsingHeader::new(format!("{} · {}",incident.state,incident.id)).show(ui,|ui|{
+                ui.separator();egui::CollapsingHeader::new("Recent incidents and sanitized reports").default_open(!s.recent_incidents.is_empty()).show(ui,|ui|{
+                    ui.small("Basic instance failure status is shown on the product card. Detailed capture is optional and appears here only when it was armed for that exact instance.");
+                    if s.recent_incidents.is_empty() { ui.label("No detailed incident reports retained."); }
+                    for (index,incident) in s.recent_incidents.iter().rev().enumerate(){
+                        let product=incident.summary["product_name"].as_str().unwrap_or("Product unavailable");
+                        egui::CollapsingHeader::new(format!("{} · {} · {}",product,incident.state,incident.id)).default_open(index==0).show(ui,|ui|{
                         for line in incident_lines(&incident.summary){ui.label(line);}
                         if let Some(a)=&incident.export{Self::buttons(ui,std::slice::from_ref(a),busy,controls_pending,&mut chosen);}
                         egui::CollapsingHeader::new("Sanitized technical report").id_salt(&incident.id).show(ui,|ui|Self::value(ui,&incident.summary));

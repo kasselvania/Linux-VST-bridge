@@ -129,7 +129,7 @@ impl Library {
             products.len(),
             snapshot.products.len()
         ));
-        ui.small("Published plug-ins are registered for Bitwig. Rescan in Bitwig if a plug-in is missing from its browser.");
+        ui.small("Published means registered for Bitwig. It does not prove that an instance is active, responsive or producing audio.");
         if products.is_empty() {
             ui.add_space(16.0);
             ui.strong(if snapshot.products.is_empty() {
@@ -153,16 +153,17 @@ impl Library {
                     .inner_margin(14.0)
                     .show(ui, |ui| {
                         ui.set_min_width((ui.available_width() - 1.0).max(0.0));
-                        ui.horizontal_wrapped(|ui| {
-                            ui.label(egui::RichText::new(&p.name).size(19.0).strong());
-                            let (label, category) = status(p);
-                            let color = if category == "attention" {
-                                warning_color(ui)
-                            } else {
-                                ui.visuals().text_color()
-                            };
-                            ui.label(egui::RichText::new(label).color(color));
-                        });
+                        ui.label(egui::RichText::new(&p.name).size(19.0).strong());
+                        let (label, category) = status(p);
+                        let color = if category == "attention" {
+                            warning_color(ui)
+                        } else {
+                            ui.visuals().text_color()
+                        };
+                        ui.label(
+                            egui::RichText::new(format!("Publication: {label}"))
+                                .color(color),
+                        );
                         ui.label(format!(
                             "{} · {}",
                             role(p),
@@ -173,9 +174,14 @@ impl Library {
                             }
                         ));
                         let instances=instance_state(&snapshot.active_sessions,&p.class_id);
-                        if instances.active>0 {
-                            ui.small(format!("{} active instance(s) of this plug-in class",instances.active));
+                        let (current, current_warning)=current_instance(&snapshot.system,&instances);
+                        if current_warning {
+                            ui.colored_label(warning_color(ui),current);
+                        } else {
+                            ui.label(current);
                         }
+                        let current_failures=instances.editor_failed+instances.host_failed+instances.transport_failed;
+                        if current_failures>0 { ui.strong("Current instance failure"); }
                         if instances.editor_failed>0 {
                             ui.colored_label(warning_color(ui),format!("{} instance(s): vendor editor/controller failed; the instance is unavailable",instances.editor_failed));
                         }
@@ -185,17 +191,19 @@ impl Library {
                         if instances.transport_failed>0 {
                             ui.colored_label(warning_color(ui),format!("{} instance(s): bridge transport failed; the instance is unavailable",instances.transport_failed));
                         }
+                        let recent_failures=instances.recent_editor_failed+instances.recent_host_failed+instances.recent_transport_failed;
+                        if recent_failures>0 { ui.add_space(4.0); ui.strong("Previous recorded failure"); }
                         if instances.recent_editor_failed>0 {
-                            ui.colored_label(warning_color(ui),"Most recent instance: vendor editor/controller failed.");
+                            ui.colored_label(warning_color(ui),"Vendor editor/controller failed.");
                         }
                         if instances.recent_host_failed>0 {
-                            ui.colored_label(warning_color(ui),"Most recent instance: Windows host exited unexpectedly.");
+                            ui.colored_label(warning_color(ui),"Windows host exited unexpectedly.");
                         }
                         if instances.recent_transport_failed>0 {
-                            ui.colored_label(warning_color(ui),"Most recent instance: bridge transport failed.");
+                            ui.colored_label(warning_color(ui),"Bridge transport failed.");
                         }
-                        if instances.recent_editor_failed+instances.recent_host_failed+instances.recent_transport_failed>0 {
-                            ui.small(if instances.recent_cleanup_unconfirmed>0 {"Cleanup remains unconfirmed."} else {"Cleanup confirmed."});
+                        if recent_failures>0 {
+                            ui.small(if instances.recent_cleanup_unconfirmed>0 {"Previous cleanup: not confirmed."} else {"Previous cleanup: confirmed."});
                         }
                         if let Some(reason) = problem(p) {
                             ui.colored_label(warning_color(ui), reason);
@@ -206,6 +214,11 @@ impl Library {
                             .filter(|a| primary_action(&a.action))
                             .cloned()
                             .collect();
+                        let related = related_actions(p, snapshot);
+                        if !primary.is_empty() || !related.is_empty() {
+                            ui.add_space(6.0);
+                            ui.strong("Available actions");
+                        }
                         action_buttons(
                             ui,
                             &primary,
@@ -213,7 +226,6 @@ impl Library {
                             pending,
                             chosen,
                         );
-                        let related = related_actions(p, snapshot);
                         action_buttons(
                             ui,
                             &related,
@@ -230,6 +242,7 @@ impl Library {
                                     .filter(|a| !primary_action(&a.action))
                                     .cloned()
                                     .collect();
+                                if !management.is_empty() { ui.strong("Management actions"); }
                                 action_buttons(
                                     ui,
                                     &management,
@@ -375,6 +388,31 @@ fn instance_state(sessions:&[serde_json::Value],class_id:&str)->InstanceState {
     result
 }
 
+fn current_instance(system: &crate::model::System, state: &InstanceState) -> (String, bool) {
+    if !system.capacity_available() {
+        return (
+            "Current instance status: unavailable because service capacity could not be read"
+                .into(),
+            true,
+        );
+    }
+    let failures = state.editor_failed + state.host_failed + state.transport_failed;
+    if failures > 0 {
+        return (
+            format!("Current instance status: {failures} failed instance(s) reported"),
+            true,
+        );
+    }
+    if state.active > 0 {
+        (
+            format!("Current instance status: {} active instance(s)", state.active),
+            false,
+        )
+    } else {
+        ("Current instance status: no active instance reported".into(), false)
+    }
+}
+
 pub fn action_buttons(
     ui: &mut egui::Ui,
     actions: &[AvailableAction],
@@ -439,7 +477,7 @@ mod tests {
         let mut snapshot = snapshot();
         snapshot.products[0].disposition = "future_state".into();
         let mut library = Library::default();
-        assert_eq!(library.products(&snapshot).len(), 3);
+        assert_eq!(library.products(&snapshot).len(), 4);
         assert_eq!(library.products(&snapshot)[0].vendor, "Arturia");
         library.search = "  INSTRUMENT   8.13 native ".into();
         assert_eq!(library.products(&snapshot)[0].name, "Kontakt 8");
@@ -510,5 +548,21 @@ mod tests {
             editor_failed:1,..Default::default()});
         assert_eq!(instance_state(&sessions,"kontakt"),InstanceState{
             active:1,host_failed:1,recent_transport_failed:1,..Default::default()});
+    }
+
+    #[test]
+    fn publication_current_instance_and_previous_failure_remain_distinct() {
+        let mut system=snapshot().system;
+        let state=InstanceState {active:1,recent_host_failed:1,..Default::default()};
+        assert_eq!(current_instance(&system,&state),
+            ("Current instance status: 1 active instance(s)".into(),false));
+        system.service="unavailable".into();
+        assert_eq!(current_instance(&system,&state),
+            ("Current instance status: unavailable because service capacity could not be read".into(),true));
+        system.service="active".into();
+        let failed=InstanceState {host_failed:1,..Default::default()};
+        assert_eq!(current_instance(&system,&failed),
+            ("Current instance status: 1 failed instance(s) reported".into(),true));
+        assert_eq!(state.recent_host_failed,1); // Prior failure does not replace current active state.
     }
 }
