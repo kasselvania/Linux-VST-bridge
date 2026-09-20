@@ -852,21 +852,26 @@ def session_preflight(spec):
 
 def prelaunch_owned_failure(spec,peer,error):
     """Retire an exposed native transport when Windows ownership never began."""
-    directory,_=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
-    retired=peer is None
-    if peer is not None:
-        try:
+    sid=spec['session'];report=pathlib.Path(spec['report']);released=peer is None
+    directories_retired=False;retirement_error=None
+    try:
+        session_directories(spec)
+        if peer is not None:
             peer.setblocking(False)
-            try:peer.sendall(b'F')
-            except (BlockingIOError,OSError):pass
+            peer.sendall(b'F')
             end=time.monotonic()+10
             while time.monotonic()<end:
                 try:
-                    if peer.recv(1)==b'':retired=True;break
+                    if peer.recv(1)==b'':released=True;break
                     raise RuntimeError('unexpected native owner bytes')
                 except BlockingIOError:time.sleep(.02)
-                except OSError:retired=True;break
-        except OSError:retired=True
+            if not released:raise TimeoutError('native owner release deadline')
+        retire_directories(spec);directories_retired=True
+        if peer is not None:
+            peer.settimeout(5);peer.sendall(b'R')
+    except Exception as exc:
+        retirement_error=type(exc).__name__+': '+str(exc)[:256]
+    retired=directories_retired and (peer is None or retirement_error is None)
     outcome={'vendor_retirement':None,'transport_storage':spec.get('transport'),
       'fault_status':None,'fault_reporting_error':None,'ownership_schema':1,
       'session':sid,'records':[],'exit_before_cleanup':None,'raw_exit':None,
@@ -874,11 +879,7 @@ def prelaunch_owned_failure(spec,peer,error):
       'cleanup_confirmed':True,'gated':False,
       'discarded_diagnostic_bytes':{'vendor':0,'stderr':0},'vendor_stdout':'','stderr':'',
       'transport_retired':retired}
-    if retired:
-        try:retire_directories(spec)
-        except (OSError,RuntimeError) as exc:
-            outcome['transport_retired']=False
-            outcome['retirement_error']=type(exc).__name__+': '+str(exc)[:256]
+    if retirement_error is not None:outcome['retirement_error']=retirement_error
     atomic(report,outcome)
     receipt={k:outcome.get(k,False) for k in ('session','cleanup_confirmed','transport_retired')}
     receipt['reporting_error']=None
@@ -887,25 +888,26 @@ def prelaunch_owned_failure(spec,peer,error):
 
 def run(spec,peer=None):
     session_preflight(spec)
-    interrupted=[False]
+    stop_requested=[False]
     def before_owner_stop(*_):
-        interrupted[0]=True
-        raise InterruptedError('supervisor interrupted after readiness')
+        stop_requested[0]=True
     signal.signal(signal.SIGTERM,before_owner_stop);signal.signal(signal.SIGINT,before_owner_stop)
-    print('LVO0 '+spec['session']+' ready',flush=True)
-    try:return run_owned(spec,peer)
+    try:
+        print('LVO0 '+spec['session']+' ready',flush=True)
+        if stop_requested[0]:raise InterruptedError('supervisor interrupted after readiness')
+        return run_owned(spec,peer,stop_requested)
     except Exception as error:
         # Ordinary setup errors after LVO0 are all owned by the same finalizer.
         # Do not let a missing LVO1 poison an
         # exposed lease merely because the Windows root was never created.
         return prelaunch_owned_failure(spec,peer,error)
 
-def run_owned(spec,peer=None):
+def run_owned(spec,peer,stop_requested):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
     cmd,binding=command(spec);env=environment(reg,spec.get('graphical_session'))
     managed_home(spec,env)
-    transport_environment(spec,env);delivery_trace(spec,env);stop=False
+    transport_environment(spec,env);delivery_trace(spec,env)
     capture=None;capture_error=None
     if spec.get('crash_capture'):
         try:
@@ -922,9 +924,9 @@ def run_owned(spec,peer=None):
             if method!='finish':capture.active=False
             return None
     def stopped(*_):
-        nonlocal stop
-        stop=True
+        stop_requested[0]=True
     signal.signal(signal.SIGTERM,stopped);signal.signal(signal.SIGINT,stopped)
+    if stop_requested[0]:raise InterruptedError('supervisor interrupted after readiness')
     disconnected=None
     def native_released():
         nonlocal disconnected
@@ -938,7 +940,7 @@ def run_owned(spec,peer=None):
             except OSError:disconnected=time.monotonic()
         return disconnected is not None
     def native_stopped():
-        return stop or (native_released() and time.monotonic()-disconnected>=2)
+        return stop_requested[0] or (native_released() and time.monotonic()-disconnected>=2)
     if peer is not None:
         if not spec.get('binding_sent'):
             reply=(sid+'\n'+str(directory)).encode();peer.settimeout(5);peer.sendall(struct.pack('<H',len(reply))+reply)
@@ -954,6 +956,7 @@ def run_owned(spec,peer=None):
         env.pop('LVB_VENDOR_RETIREMENT',None) # companion/inspection ownership is distinct
     elif env.get('LVB_VENDOR_RETIREMENT'):
         RetirementStatus.create(directory,sid);retirement=RetirementStatus(directory,sid)
+    if stop_requested[0]:raise InterruptedError('supervisor interrupted after readiness')
     root=subprocess.Popen(cmd,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
     records=[];owned=set();pending=bytearray();vendor=bytearray();stderr=bytearray();dropped={'vendor':0,'stderr':0};protocol_bytes=0;gated=False;call=None;started=time.monotonic();failure=None;clean=False;code=None
     sel=selectors.DefaultSelector()
@@ -1092,7 +1095,9 @@ def run_owned(spec,peer=None):
                 outcome['retirement_error']=type(e).__name__+': '+str(e)[:256]
             if outcome['transport_retired'] and peer is not None:
                 try:peer.settimeout(5);peer.sendall(b'R')
-                except OSError:pass
+                except OSError as e:
+                    outcome['transport_retired']=False
+                    outcome['retirement_error']=type(e).__name__+': '+str(e)[:256]
         try:atomic(report,outcome)
         except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]
     if retirement_ready is not None and clean and outcome.get('transport_retired') and not failure:

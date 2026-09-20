@@ -10,7 +10,11 @@ the keeper is shared only by the exact allowlisted graphical context. Keeper
 warmup and a graphical-session replacement occur behind an unowned retryable
 refusal. A concrete supervisor must publish its exact preflight-ready receipt
 before any DSP lease, transport, or native binding is exposed, and its outer
-finalizer owns all later prelaunch failures. A small sanitized terminal summary
+finalizer owns readiness publication and all later prelaunch failures. That
+finalizer publishes failure, observes the native half-close, retires the exact
+session directories, and returns the required native retirement acknowledgment;
+an interrupted or missing acknowledgment remains cleanup-blocking. A small
+sanitized terminal summary
 survives successful owner cleanup so a fast failure does not disappear from the
 manager merely because its lease retired. These are deterministic source
 results. The original physical touch and product-audio checks have not run and

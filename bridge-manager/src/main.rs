@@ -1590,6 +1590,44 @@ mod tests {
         assert!(!job.directory.exists());
         assert!(!blocked.load(Ordering::Acquire));
     }
+    #[cfg(target_os="linux")]
+    #[test]
+    fn stop_at_real_supervisor_readiness_completes_native_and_manager_retirement() {
+        let f=test_fixture::Fixture::new();
+        let (job,path)=spec(&f.m,f.r.clone().into(),false,false,false).unwrap();
+        let bin=f.outer.join("fixture-bin");private_dir(&bin).unwrap();
+        let systemctl=bin.join("systemctl");
+        fs::write(&systemctl,b"#!/bin/sh\nprintf 'DISPLAY=:fixture\\n'\n").unwrap();
+        fs::set_permissions(&systemctl,fs::Permissions::from_mode(0o500)).unwrap();
+        atomic_json(&job.lease,&job.report).unwrap();
+        let blocked=Arc::new(AtomicBool::new(false));
+        let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
+        let (mut native,supervisor)=UnixStream::pair().unwrap();
+        native.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        let stdin=unsafe{Stdio::from_raw_fd(supervisor.into_raw_fd())};
+        let script=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("runtime/session.py");
+        let mut child=Command::new("/usr/bin/python3").arg(script).arg(&path)
+            .env("PATH",format!("{}:/usr/bin:/bin",bin.display()))
+            .stdin(stdin).stdout(Stdio::piped()).stderr(Stdio::inherit()).spawn().unwrap();
+        supervisor_ready(&mut child,&job.session,Duration::from_secs(2)).unwrap();
+        pending.expose();
+        assert_eq!(unsafe{libc::kill(child.id() as i32,libc::SIGTERM)},0);
+        let mut byte=[0;1];native.read_exact(&mut byte).unwrap();assert_eq!(byte,b"F");
+        assert!(job.directory.exists());
+        native.shutdown(std::net::Shutdown::Write).unwrap();
+        native.read_exact(&mut byte).unwrap();assert_eq!(byte,b"R");
+        assert!(!job.directory.exists());
+        let class=job.registration.metadata.class_id.clone();
+        finish_supervised_delivery(SupervisorDelivery{manager:&f.m,class_id:&class,
+            report:&job.report,session:&job.session,transport:None},Ok(()),&mut child,
+            &mut pending).unwrap();
+        let report:serde_json::Value=read_json(&job.report).unwrap();
+        assert_eq!(report["cleanup_confirmed"],true);
+        assert_eq!(report["transport_retired"],true);
+        assert!(job.report.with_extension("ownership.json").exists());
+        assert!(!job.lease.exists());
+        assert!(!blocked.load(Ordering::Acquire));
+    }
     #[test]
     fn only_exact_positive_retirement_releases_one_exposed_owner() {
         let f = test_fixture::Fixture::new();

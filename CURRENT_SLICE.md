@@ -52,9 +52,14 @@ The production crossings are explicit:
 - spawning the Python supervisor is not ownership. The manager waits for an
   exact `LVO0 <session> ready` receipt after immutable and graphical preflight,
   before exposing admission, transport, or a native binding;
-- every later prelaunch failure belongs to an outer finalizer that retires the
-  native peer and reports cleanup, while an early keeper refusal publishes an
-  exact empty-cohort cleanup result;
+- readiness publication and every later prelaunch action are inside one guarded
+  owner scope. A stop observed at the readiness boundary enters that finalizer;
+  it cannot escape between `LVO0` and ownership;
+- every later prelaunch failure completes the native protocol in order: publish
+  failure, observe the native half-close, retire the exact directories, and
+  return the exact retirement acknowledgment. Missing acknowledgment keeps the
+  transport unconfirmed and the admission cleanup-blocking. An early keeper
+  refusal publishes an exact empty-cohort cleanup result;
 - a bounded sanitized terminal summary survives confirmed lease retirement so
   the manager can show the most recent editor, host, or transport failure even
   when optional detailed capture was disabled. Failure-summary persistence is

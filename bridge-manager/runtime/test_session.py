@@ -1119,6 +1119,18 @@ class SupervisorOwnershipBoundaryTests(unittest.TestCase):
           'inspect':False,'binding_sent':True,'onboarding_home':False,
           'shared_runtime':False,'keeper':False,'vendor_access':False},durable
 
+    def native_finish(self,native,durable,observed):
+        try:
+            native.settimeout(5)
+            observed['failure']=native.recv(1)
+            observed['exists_before_release']=durable.exists()
+            native.shutdown(socket.SHUT_WR)
+            observed['ack']=native.recv(1)
+            observed['exists_after_ack']=durable.exists()
+        except Exception as error:
+            observed['error']=repr(error)
+        finally:native.close()
+
     def test_changed_graphical_generation_never_crosses_readiness(self):
         with tempfile.TemporaryDirectory() as tmp:
             spec,durable=self.fixture(pathlib.Path(tmp))
@@ -1130,19 +1142,91 @@ class SupervisorOwnershipBoundaryTests(unittest.TestCase):
             self.assertEqual(output.getvalue(),'')
             self.assertTrue(durable.exists()) # Rust still owns this unexposed directory.
 
-    def test_native_disconnect_before_control_is_owned_and_retires(self):
+    def test_prelaunch_failure_completes_native_half_close_protocol(self):
         with tempfile.TemporaryDirectory() as tmp:
-            spec,durable=self.fixture(pathlib.Path(tmp));owner,native=socket.socketpair();native.close()
-            output=io.StringIO()
+            spec,durable=self.fixture(pathlib.Path(tmp));owner,native=socket.socketpair()
+            (durable/'ap1.control').write_bytes(b'fixture')
+            observed={};worker=threading.Thread(target=self.native_finish,args=(native,durable,observed))
+            output=io.StringIO();worker.start()
             with patch.object(session,'environment',return_value=os.environ.copy()),\
-                 patch.object(session,'command',return_value=(['/bin/false'],b'binding')),\
+                 patch.object(session,'command',return_value=(['/missing/windows-root'],b'binding')),\
+                 patch.object(session.subprocess,'Popen',side_effect=FileNotFoundError('fixture root absent')),\
                  contextlib.redirect_stdout(output):
                 result=session.run(spec,owner)
-            owner.close()
+            worker.join(timeout=5);owner.close()
+            self.assertFalse(worker.is_alive());self.assertNotIn('error',observed)
             self.assertEqual(output.getvalue(),'LVO0 '+spec['session']+' ready\n')
+            self.assertEqual((observed['failure'],observed['ack']),(b'F',b'R'))
+            self.assertTrue(observed['exists_before_release'])
+            self.assertFalse(observed['exists_after_ack'])
             self.assertTrue(result['cleanup_confirmed'] and result['transport_retired'])
-            self.assertIn('native setup disconnected',result['error'])
+            self.assertIn('FileNotFoundError',result['error'])
             self.assertFalse(durable.exists())
+
+    def test_signal_at_readiness_boundary_enters_owner_finalizer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,durable=self.fixture(pathlib.Path(tmp));owner,native=socket.socketpair()
+            observed={};worker=threading.Thread(target=self.native_finish,args=(native,durable,observed))
+            output=io.StringIO();handlers={};real_print=print
+            def install_handler(kind,handler):
+                previous=handlers.get(kind);handlers[kind]=handler;return previous
+            def inject_after_readiness(*args,**kwargs):
+                real_print(*args,**kwargs)
+                if args and args[0]=='LVO0 '+spec['session']+' ready':handlers[signal.SIGTERM]()
+            worker.start()
+            with patch.object(session,'environment',return_value=os.environ.copy()),\
+                 patch.object(session,'command',return_value=(['/must-not-launch'],b'binding')),\
+                 patch.object(session.signal,'signal',side_effect=install_handler),\
+                 patch.object(session.subprocess,'Popen') as launch,\
+                 patch('builtins.print',side_effect=inject_after_readiness),\
+                 contextlib.redirect_stdout(output):
+                result=session.run(spec,owner)
+            worker.join(timeout=5);owner.close()
+            self.assertFalse(worker.is_alive());self.assertNotIn('error',observed)
+            self.assertEqual(output.getvalue(),'LVO0 '+spec['session']+' ready\n')
+            self.assertEqual((observed['failure'],observed['ack']),(b'F',b'R'))
+            self.assertTrue(observed['exists_before_release'])
+            self.assertFalse(observed['exists_after_ack'])
+            self.assertTrue(result['cleanup_confirmed'] and result['transport_retired'])
+            self.assertIn('InterruptedError',result['error']);self.assertFalse(durable.exists())
+            self.assertEqual(result,json.loads(pathlib.Path(spec['report']).read_text()))
+            launch.assert_not_called()
+
+    def test_failed_retirement_ack_never_publishes_positive_transport_retirement(self):
+        class RefuseRetirementAck:
+            def __init__(self,peer):self.peer=peer
+            def __getattr__(self,name):return getattr(self.peer,name)
+            def sendall(self,data):
+                if data==b'R':raise BrokenPipeError('fixture retirement acknowledgment loss')
+                return self.peer.sendall(data)
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,durable=self.fixture(pathlib.Path(tmp));owner,native=socket.socketpair()
+            (durable/'ap1.control').write_bytes(b'fixture')
+            observed={};keep_open=threading.Event()
+            def release_without_accepting_ack():
+                try:
+                    native.settimeout(5);observed['failure']=native.recv(1)
+                    native.shutdown(socket.SHUT_WR);keep_open.wait(5)
+                except Exception as error:observed['error']=repr(error)
+                finally:native.close()
+            worker=threading.Thread(target=release_without_accepting_ack);worker.start()
+            output=io.StringIO()
+            try:
+                with patch.object(session,'environment',return_value=os.environ.copy()),\
+                     patch.object(session,'command',return_value=(['/missing/windows-root'],b'binding')),\
+                     patch.object(session.subprocess,'Popen',side_effect=FileNotFoundError('fixture root absent')),\
+                     contextlib.redirect_stdout(output):
+                    result=session.run(spec,RefuseRetirementAck(owner))
+            finally:
+                keep_open.set();worker.join(timeout=5);owner.close()
+            self.assertFalse(worker.is_alive());self.assertNotIn('error',observed)
+            self.assertEqual(observed['failure'],b'F')
+            self.assertTrue(result['cleanup_confirmed']);self.assertFalse(result['transport_retired'])
+            self.assertIn('fixture retirement acknowledgment loss',result['retirement_error'])
+            self.assertFalse(result['cleanup_confirmed'] and result['transport_retired'])
+            self.assertEqual(output.getvalue(),'LVO0 '+spec['session']+' ready\n')
+            self.assertFalse(durable.exists())
+            self.assertEqual(result,json.loads(pathlib.Path(spec['report']).read_text()))
 
     def test_windows_root_launch_failure_after_readiness_is_truthful_and_clean(self):
         with tempfile.TemporaryDirectory() as tmp:
