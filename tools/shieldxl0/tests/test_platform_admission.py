@@ -38,6 +38,47 @@ class PlatformAdmissionTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("prohibited software 'wine' is present", result.stderr)
 
+    def run_boot_check(self, content):
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as stream:
+            stream.write(content)
+            config = stream.name
+        try:
+            return subprocess.run(
+                [
+                    "/bin/bash",
+                    "-c",
+                    'source "$1"; refuse_boot_conflicts "$2"',
+                    "test-platform-admission",
+                    str(LIB),
+                    config,
+                ],
+                capture_output=True,
+                text=True,
+            )
+        finally:
+            pathlib.Path(config).unlink()
+
+    def test_pinned_image_default_overlays_are_admitted_by_section(self):
+        result = self.run_boot_check(
+            "dtoverlay=vc4-kms-v3d\n"
+            "[cm5]\n"
+            "dtoverlay=dwc2,dr_mode=host\n"
+            "[pi5]\n"
+            "dtoverlay=nospi10\n"
+            "[all]\n"
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_default_overlay_in_wrong_section_is_refused(self):
+        result = self.run_boot_check("[all]\ndtoverlay=dwc2,dr_mode=host\n")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unadmitted existing device-tree overlay", result.stderr)
+
+    def test_unknown_overlay_is_refused(self):
+        result = self.run_boot_check("[pi5]\ndtoverlay=unexpected\n")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unadmitted existing device-tree overlay", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

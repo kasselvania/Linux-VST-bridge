@@ -83,13 +83,24 @@ boot_config_path() {
 }
 
 refuse_boot_conflicts() {
-  local config=$1
+  local config=$1 line overlay section=all
   if grep -Eiq '^[[:space:]]*(kernel=|dtoverlay=(monome-snd-4270|norns-buttons-encoders|ssd1322-spi|midi-uart0)|include[[:space:]]+shieldxl0\.conf[^[:space:]]+|(arm|core|gpu|v3d|isp|hevc)_freq(_min)?=|over_voltage(_min|_delta)?=|force_turbo=)' "$config"; then
     die "unexpected conflicting boot configuration in $config"
   fi
-  while IFS= read -r overlay; do
-    [[ $overlay == vc4-kms-v3d ]] || die "unadmitted existing device-tree overlay in $config: $overlay"
-  done < <(sed -nE 's/^[[:space:]]*dtoverlay=([^,[:space:]]+).*/\1/p' "$config")
+  while IFS= read -r line || [[ -n $line ]]; do
+    line=${line%%#*}
+    [[ $line =~ ^[[:space:]]*$ ]] && continue
+    if [[ $line =~ ^[[:space:]]*\[([^]]+)\][[:space:]]*$ ]]; then
+      section=${BASH_REMATCH[1]}
+      continue
+    fi
+    [[ $line =~ ^[[:space:]]*dtoverlay=([^[:space:]]+)[[:space:]]*$ ]] || continue
+    overlay=${BASH_REMATCH[1]}
+    case "$section:$overlay" in
+      all:vc4-kms-v3d | cm5:dwc2,dr_mode=host | pi5:nospi10) ;;
+      *) die "unadmitted existing device-tree overlay in $config: [$section] $overlay" ;;
+    esac
+  done <"$config"
 }
 
 install_exact() {
