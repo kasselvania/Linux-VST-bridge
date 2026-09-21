@@ -17,10 +17,13 @@ This corrective continuation binds graphical resources, not just environment
 strings. The authenticated peer values remain the selection authority. A
 private host-visible Xauthority file is admitted only when its complete bytes
 match the peer-namespace file exactly. A DBus or Wayland endpoint is forwarded
-only when the host-visible path identifies the same socket. A Flatpak-private
-bus is never silently widened to the user's unrestricted host bus. Missing,
-ambiguous, replaced, public or wrong-kind resources refuse before keeper
-readiness and before any native binding is exposed.
+only when the host-visible path identifies the same socket. When an optional
+endpoint is absent or has no exact host alias, the child receives an absolute,
+session-bound, verified-absent endpoint rather than an omitted variable that
+could trigger host Wayland discovery or D-Bus autolaunch. A Flatpak-private bus
+is never silently widened to the user's unrestricted host bus. Missing,
+ambiguous, replaced, public or wrong-kind supplied resources refuse before
+keeper readiness and before any native binding is exposed.
 
 The installed attempt also retained the old product-specific proxy binaries.
 The 65-second typed, unowned `ServiceBusy` retry in this branch therefore did

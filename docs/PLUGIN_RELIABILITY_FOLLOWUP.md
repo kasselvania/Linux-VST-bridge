@@ -10,11 +10,14 @@ repair boundary, not evidence about Blackhole rendering, touch, or audio.
 
 The corrected supervisor resolves the peer-namespace Xauthority only to one
 private host-visible file with identical complete bytes. DBus and Wayland are
-forwarded only when the peer and host paths identify the same socket. It does
-not substitute the ambient systemd environment or grant the host session bus
-for a Flatpak-private proxy. Keeper failures retain exact exit status and
-non-disclosing output byte counts/digests rather than discarding all process
-evidence or retaining raw potentially sensitive text.
+forwarded only when the peer and host paths identify the same socket. An absent
+or unmappable optional endpoint becomes an explicit absolute, session-bound,
+verified-absent endpoint; omission cannot fall through to the host's
+`wayland-0` or D-Bus discovery/autolaunch. It does not substitute the ambient
+systemd environment or grant the host session bus for a Flatpak-private proxy.
+Keeper failures retain exact exit status and non-disclosing output byte
+counts/digests rather than discarding all process evidence or retaining raw
+potentially sensitive text.
 
 The attempt also proved that installing a manager/supervisor update does not
 replace already published product proxies. Blackhole and Kontakt must each be

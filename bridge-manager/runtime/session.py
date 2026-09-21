@@ -83,7 +83,18 @@ def host_socket(proc,value,candidate,label):
     if host!=source:return None
     return str(candidate)
 
-def graphical_environment(graphical,proc_root=pathlib.Path('/proc'),runtime_root=None):
+def denied_graphical_endpoint(denial,name):
+    if (not isinstance(denial,tuple) or len(denial)!=2
+        or not isinstance(denial[0],str) or len(denial[0])!=32
+        or any(c not in '0123456789abcdef' for c in denial[0])):
+        raise RuntimeError('graphical denial binding invalid')
+    directory=pathlib.Path(denial[1]);private_directory(directory)
+    if directory.name!=denial[0]:raise RuntimeError('graphical denial binding differs')
+    endpoint=directory/('.linux-vst-bridge-denied-'+name)
+    if os.path.lexists(endpoint):raise RuntimeError('graphical denial endpoint collision')
+    return str(endpoint)
+
+def graphical_environment(graphical,proc_root=pathlib.Path('/proc'),runtime_root=None,denial=None):
     fields={'schema','peer_pid','peer_start_ticks','display','wayland_display','xauthority','dbus_session_bus_address'}
     if (not isinstance(graphical,dict) or not set(graphical).issubset(fields)
         or set(graphical)-{'wayland_display','xauthority','dbus_session_bus_address'}!={'schema','peer_pid','peer_start_ticks','display'}
@@ -115,7 +126,7 @@ def graphical_environment(graphical,proc_root=pathlib.Path('/proc'),runtime_root
                 if not value.startswith(prefix) or ',' in value:
                     raise RuntimeError('DBus address unsupported')
                 endpoint=host_socket(proc,value[len(prefix):],runtime_root/'bus','DBus endpoint')
-                if endpoint is not None:result[target]=prefix+endpoint
+                result[target]=prefix+(endpoint if endpoint is not None else denied_graphical_endpoint(denial,'dbus'))
             elif source=='wayland_display':
                 wayland=pathlib.PurePosixPath(value)
                 if wayland.is_absolute():endpoint=value
@@ -123,12 +134,16 @@ def graphical_environment(graphical,proc_root=pathlib.Path('/proc'),runtime_root
                     endpoint=f'/run/user/{os.getuid()}/{value}'
                 else:raise RuntimeError('Wayland display invalid')
                 alias=host_socket(proc,endpoint,runtime_root/wayland.name,'Wayland endpoint')
-                if alias is not None:result[target]=alias
+                result[target]=alias if alias is not None else denied_graphical_endpoint(denial,'wayland')
             else:result[target]=value
         elif target in observed:raise RuntimeError('graphical peer environment changed')
+    if 'WAYLAND_DISPLAY' not in result:
+        result['WAYLAND_DISPLAY']=denied_graphical_endpoint(denial,'wayland')
+    if 'DBUS_SESSION_BUS_ADDRESS' not in result:
+        result['DBUS_SESSION_BUS_ADDRESS']='unix:path='+denied_graphical_endpoint(denial,'dbus')
     return result
 
-def environment(reg,graphical=None):
+def environment(reg,graphical=None,graphical_denial=None):
     root=pathlib.Path(reg['environment']['root']);user=pwd.getpwuid(os.getuid())
     env={'HOME':user.pw_dir,'USER':user.pw_name,'LOGNAME':user.pw_name,'PATH':'/usr/bin:/bin','LANG':'C.UTF-8',
          'XDG_RUNTIME_DIR':f'/run/user/{os.getuid()}','STEAM_COMPAT_DATA_PATH':str(root/'compatdata'),
@@ -136,7 +151,7 @@ def environment(reg,graphical=None):
          'STEAM_ZENITY':'','PRESSURE_VESSEL_VARIABLE_DIR':str(root/'runtime-var')}
     for key,folder in [('XDG_CACHE_HOME','host-cache'),('XDG_CONFIG_HOME','host-config'),('XDG_DATA_HOME','host-data'),('TMPDIR','host-tmp')]:env[key]=str(root/folder)
     if graphical is not None:
-        env.update(graphical_environment(graphical))
+        env.update(graphical_environment(graphical,denial=graphical_denial))
     else:
         for line in subprocess.check_output(['systemctl','--user','show-environment'],text=True,timeout=5).splitlines():
             key,_,value=line.partition('=')
@@ -920,7 +935,7 @@ def session_preflight(spec):
     """
     os.umask(0o077);reg=spec['registration'];session_directories(spec)
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
-    command(spec);env=environment(reg,spec.get('graphical_session'))
+    command(spec);env=environment(reg,spec.get('graphical_session'),(spec['session'],spec['directory']))
     managed_home(spec,env);transport_environment(spec,env);delivery_trace(spec,env)
 
 def prelaunch_owned_failure(spec,peer,error):
@@ -978,7 +993,7 @@ def run(spec,peer=None):
 def run_owned(spec,peer,stop_requested):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
-    cmd,binding=command(spec);env=environment(reg,spec.get('graphical_session'))
+    cmd,binding=command(spec);env=environment(reg,spec.get('graphical_session'),(spec['session'],spec['directory']))
     managed_home(spec,env)
     transport_environment(spec,env);delivery_trace(spec,env)
     capture=None;capture_error=None
@@ -1221,7 +1236,7 @@ def keep(spec):
     try:
         verify(reg['host'])
         cmd=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',windows(reg['host']['path'],pathlib.Path(reg['environment']['root'])/'compatdata/pfx'),'--environment-owner',spec['session'],'--scanner-sha256',reg['host']['sha256']]
-        env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}},spec.get('graphical_session'));managed_home(spec,env);transport_environment(spec,env)
+        env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}},spec.get('graphical_session'),(spec['session'],spec['directory']));managed_home(spec,env);transport_environment(spec,env)
         root=subprocess.Popen(cmd,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
         for pipe,label in ((root.stdout,'stdout'),(root.stderr,'stderr')):
             os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,label)
