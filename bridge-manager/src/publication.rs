@@ -38,6 +38,7 @@ pub enum Qualification {
     Uir1Input,
     If1Failure,
     Sv1Instrument,
+    Frg1Ubuntu,
     ManagedExperimental,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -388,6 +389,14 @@ impl Manager {
         }
         if registration.key() == crate::managed_candidate::candidate()?.class.class_id {
             return crate::managed_candidate::served(self, registration, installed, source);
+        }
+        if registration.key() == crate::frg1::candidate()?.class.class_id
+            && retained
+                .map(|reference| self.load_revision(&registration.key(), reference))
+                .transpose()?
+                .is_some_and(|revision| revision.qualification == Some(Qualification::Frg1Ubuntu))
+        {
+            return crate::frg1::served(self, registration);
         }
         let matching: Vec<_> = current_profiles
                 .iter()
@@ -910,6 +919,8 @@ impl Manager {
                 crate::pigments::check_publication(self, profile, &registration)?;
             } else if purpose == Qualification::Sv1Instrument {
                 crate::managed_candidate::check_publication(self, profile, &registration)?;
+            } else if purpose == Qualification::Frg1Ubuntu {
+                crate::frg1::check_publication(self, profile, census, &registration)?;
             } else {
                 self.verify_qualification_parent_for(&db, profile, &registration, purpose)?;
             }

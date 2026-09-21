@@ -12,6 +12,7 @@ pub mod operator_model;
 pub mod installer_policy;
 pub mod operator_lock;
 pub mod inventory;
+pub mod frg1;
 pub mod profiles;
 pub mod pigments;
 pub mod publication;

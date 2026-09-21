@@ -26,15 +26,24 @@ no commercial plug-in, Bitwig, Ubuntu-host or Steam Deck operation.
 1. Revision 10 remains immutable ordinary FRAGMENTS authority.
 2. Revision 11 remains `review_candidate`, absent from `installed_profiles()` and
    refused for ordinary activation.
-3. `frg1_candidate()` exposes revision 11 for qualification only.
+3. `frg1_candidate()` exposes revision 11 for qualification only; the sealed
+   `qualify-frg1` route is its sole staging, inspection and publication owner.
 4. The exact module, runner closure, Windows host/source manifest, descriptor, native
    proxy, retained-report replay and native-build identities remain unchanged.
 5. The canonical manager retains the accepted environment projection and
    `EnvironmentRescan` ownership, readiness, retirement and inventory boundaries.
-6. Qualification still requires adoption of a current exact
-   `ArturiaPersistentV1` revision-2 environment, one fresh canonical rescan, and
-   selection under `SelectionPurpose::Qualification` before publication.
-7. Cross-generation module, runner, host, descriptor and proxy combinations refuse.
+6. `qualify-frg1 adopt ENVIRONMENT_ID` retains a separate immutable custody record,
+   verifies exact `ArturiaPersistentV1` revision 2, the GE-Proton closure, module and
+   unchanged Ubuntu-lab owner marker, and requires no fabricated local predecessor.
+7. A post-adoption canonical `EnvironmentRescan` under the integrated default scanner
+   must produce current inventory before `qualify-frg1 publish` performs a separate
+   fresh inspection with the staged revision-11 supplemental host.
+8. `qualify-frg1 stage EXACT_PRODUCT_PACKAGE` admits only the exact host, source
+   manifest, native proxy and closed qualification manifest compiled for revision 11.
+9. Successful qualification selection publishes one lab-local no-parent revision
+   marked `frg1_ubuntu`; ordinary activation remains refused.
+10. Cross-generation module, runner policy, host, source manifest, descriptor and
+    native proxy combinations refuse.
 
 ## Integration validation
 
@@ -53,8 +62,9 @@ no commercial plug-in, Bitwig, Ubuntu-host or Steam Deck operation.
 Only after this integrated source is independently reviewed and merged may the Ubuntu
 work chain lock and install it. Ubuntu must preserve the original prefix custody,
 create a separate product-owned adoption record, verify the exact environment, run
-canonical `EnvironmentRescan`, obtain fresh revision-11 qualification selection, and
-only then publish the lab-only candidate and begin the Bitwig qualification ladder.
+canonical `EnvironmentRescan`, stage the exact supplemental qualification package,
+obtain fresh revision-11 qualification selection through `qualify-frg1 publish`, and
+only then begin the Bitwig qualification ladder.
 
 ## Non-goals and nonclaims
 

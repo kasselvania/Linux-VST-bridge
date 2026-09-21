@@ -204,10 +204,25 @@ the result as exact `ArturiaPersistentV1` revision 2 with the locked Ubuntu runn
 Attempt 005 remains candidate-preparation evidence over a private operation snapshot;
 it is not the publication census. The integrated canonical manager must next run
 `EnvironmentRescan` against the adopted current environment. Only a fresh inventory
-that selects revision 11 under `SelectionPurpose::Qualification` may prepare and
-publish the revision-addressed qualification candidate in the lab-only path. The
-Bitwig editor/audio/parameter/save-reopen/retirement ladder begins only after that
-publication gate passes.
+created after the immutable product-owned adoption receipt may open the sealed FRG1
+route. `qualify-frg1 stage` admits only the exact revision-11 supplemental host, source
+manifest, native proxy and closed artifact manifest. `qualify-frg1 publish` never
+accepts an operator profile: it consumes `profiles::frg1_candidate()`, performs a new
+candidate-host inspection after the inventory, selects under
+`SelectionPurpose::Qualification`, and creates one lab-local publication with no
+fabricated revision-10 parent. The publication remains engineering qualification,
+not ordinary activation. The Bitwig editor/audio/parameter/save-reopen/retirement
+ladder begins only after that publication gate passes.
+
+The exact operator order after integration review and merge is:
+
+1. create the canonical environment record without changing the retained Ubuntu-lab
+   owner marker or vendor prefix;
+2. run `qualify-frg1 adopt ENVIRONMENT_ID`;
+3. run the canonical `EnvironmentRescan` action for that adopted environment;
+4. run `qualify-frg1 stage EXACT_PRODUCT_PACKAGE`;
+5. run `qualify-frg1 publish`;
+6. verify the no-parent `frg1_ubuntu` revision, then begin the bounded Bitwig ladder.
 
 ## Nonclaims
 

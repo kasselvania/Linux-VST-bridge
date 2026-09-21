@@ -389,6 +389,15 @@ fn managed_environment_bindings(
             bindings.push(binding);
         }
     }
+    if let Some(binding) = linux_vst_bridge::frg1::adopted_environment(m)? {
+        if let Some(existing) = bindings.iter()
+            .find(|candidate| candidate.environment.id == binding.environment.id) {
+            require(existing == &binding,"operator_managed_environment_binding_conflict")?;
+        } else {
+            require(bindings.len() < 16,"operator_environment_bound")?;
+            bindings.push(binding);
+        }
+    }
     Ok(bindings)
 }
 fn managed_rescan_binding_from(
@@ -408,7 +417,9 @@ fn managed_rescan_binding_from(
         .filter(|entry| entry.registration.environment.id == environment)
         .collect();
     if owners.is_empty() {
-        return Ok(None);
+        return Ok(linux_vst_bridge::frg1::adopted_environment(m)?
+            .filter(|binding| binding.environment == *env)
+            .map(|binding| binding.environment));
     }
     require(
         owners
@@ -1991,7 +2002,9 @@ pub(super) fn rescan(m: &Manager, environment: &str) -> Result<Value> {
             &env,
             &sw.host,
             &sw.source_sha256,
-        )?,
+        )? || linux_vst_bridge::frg1::adopted_environment(m)?
+            .is_some_and(|binding| binding.environment == env)
+            && linux_vst_bridge::frg1::inventory_refresh_required(m,&env)?,
         "managed_inventory_current",
     )?;
     rescan_environment_locked(m, env, sw, None)

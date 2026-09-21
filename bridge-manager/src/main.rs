@@ -172,6 +172,7 @@ fn inspection_purpose(greeting: &[u8]) -> Option<Option<publication::Qualificati
         b"LVQ3\n" => Some(Ap18Pigments),
         b"LVQ4\n" => Some(Uir1Input),
         b"LVQ5\n" => Some(If1Failure),
+        b"LVQ6\n" => Some(Frg1Ubuntu),
         _ => return None,
     })
 }
@@ -180,10 +181,11 @@ fn exact_inspection_greetings_share_admission_and_dispatch() {
     use publication::Qualification::*;
     assert_eq!(inspection_purpose(b"LVI1\n"), Some(None));
     for (bytes, purpose) in [(b"LVQ1\n", Ap15Editor), (b"LVQ2\n", Ap17Capacity),
-        (b"LVQ3\n", Ap18Pigments), (b"LVQ4\n", Uir1Input), (b"LVQ5\n", If1Failure)] {
+        (b"LVQ3\n", Ap18Pigments), (b"LVQ4\n", Uir1Input), (b"LVQ5\n", If1Failure),
+        (b"LVQ6\n", Frg1Ubuntu)] {
         assert_eq!(inspection_purpose(bytes), Some(Some(purpose)));
     }
-    for invalid in [b"LVQ6\n".as_slice(), b"LVQ5", b"lvq5\n", b"LVQ5\nextra"] {
+    for invalid in [b"LVQ7\n".as_slice(), b"LVQ6", b"lvq6\n", b"LVQ6\nextra"] {
         assert_eq!(inspection_purpose(invalid), None);
     }
 }
@@ -1219,6 +1221,15 @@ fn qualification_binding(
     request: InspectionRequest,
     purpose: publication::Qualification,
 ) -> Result<HostBinding> {
+    if purpose == publication::Qualification::Frg1Ubuntu {
+        let requested = inspection_binding_for(m, request, false)?;
+        let exact = frg1::binding(m)?;
+        require(requested.metadata.class_id == exact.metadata.class_id
+            && requested.environment == exact.environment && requested.module == exact.module
+            && requested.compatibility == exact.compatibility,
+            "qualification_exact_candidate_required")?;
+        return Ok(exact.into());
+    }
     if purpose == publication::Qualification::Ap18Pigments {
         let requested = inspection_binding_for(m, request, false)?;
         let r = pigments::binding(m)?;
@@ -1331,6 +1342,7 @@ fn main() -> Result<()> {
   Some("qualify-failure")=>managed_cli::run_failure_qualification(&m,&args[1..]),
   Some("qualify-pigments")=>managed_cli::run_pigments_qualification(&m,&args[1..]),
   Some("qualify-capacity")=>managed_cli::run_capacity_qualification(&m,&args[1..]),
+  Some("qualify-frg1")=>managed_cli::run_frg1_qualification(&m,&args[1..]),
   Some("environment-create") if args.len()==2=>environment_create(&m,Path::new(&args[1])),
   Some("environment-import") if args.len()==2=>environment_import(&m,Path::new(&args[1])),
   Some("native-access-runner") if args.len()==2=>native_access_runner::update(&m,Path::new(&args[1])),

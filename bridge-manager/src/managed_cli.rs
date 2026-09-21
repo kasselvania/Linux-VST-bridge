@@ -135,7 +135,7 @@ pub(super) fn modules(environment: &Environment) -> Result<Vec<Artifact>> {
     result.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(result)
 }
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum InspectionRoute {
     Current,
     Ap15Editor,
@@ -143,6 +143,7 @@ enum InspectionRoute {
     Ap18Pigments,
     Uir1Input,
     If1Failure,
+    Frg1Ubuntu,
 }
 fn inspect_through_owner(
     m: &Manager,
@@ -161,6 +162,7 @@ fn inspect_through_owner(
         InspectionRoute::Ap18Pigments => b"LVQ3\n",
         InspectionRoute::Uir1Input => b"LVQ4\n",
         InspectionRoute::If1Failure => b"LVQ5\n",
+        InspectionRoute::Frg1Ubuntu => b"LVQ6\n",
     })?;
     peer.write_all(&(bytes.len() as u32).to_le_bytes())?;
     peer.write_all(&bytes)?;
@@ -240,12 +242,13 @@ fn plans(
                 .root
                 .join("censuses/current")
                 .join(format!("{class}.json"));
-            let saved = read_json::<Census>(&cache).ok().filter(|c| {
-                c.module == module
-                    && c.environment == environment
-                    && c.verify_current(&m.root, &host.host, &host.source_manifest.sha256, now().unwrap_or(0))
-                        .is_ok()
-            });
+            let saved = if route == InspectionRoute::Frg1Ubuntu { None } else {
+                read_json::<Census>(&cache).ok().filter(|c| {
+                    c.module == module && c.environment == environment
+                        && c.verify_current(&m.root,&host.host,&host.source_manifest.sha256,
+                            now().unwrap_or(0)).is_ok()
+                })
+            };
             let census = if let Some(saved) = saved {
                 saved
             } else {
@@ -386,19 +389,30 @@ fn execute_qualification_for(
     purpose: publication::Qualification,
 ) -> Result<serde_json::Value> {
     match args.first().map(String::as_str) {
+        Some("adopt") if args.len() == 2 && purpose == publication::Qualification::Frg1Ubuntu => {
+            linux_vst_bridge::frg1::adopt(m, &args[1])?;
+            Ok(serde_json::json!({"schema":1,"frg1_environment_adopted":true,
+                "activation_permitted":false}))
+        }
         Some("stage") if args.len() == 2 => {
             qualification::stage_for(m, Path::new(&args[1]), purpose)?;
             status(m)
         }
         Some("restore") if args.len() == 1 => {
-            m.reconcile()?;
+            if purpose == publication::Qualification::Frg1Ubuntu {
+                linux_vst_bridge::frg1::restore(m)?;
+            } else { m.reconcile()?; }
             status(m)
         }
         Some("publish") if args.len() == 1 => {
             if purpose == publication::Qualification::Sv1Instrument { crate::managed_candidate::publish(m)?; return status(m); }
             let candidates = qualification::installed_for(m, purpose)?;
             let mut sw = software(m)?;
-            let mut c = catalogue(m, &sw)?;
+            let mut c = if purpose == publication::Qualification::Frg1Ubuntu {
+                Catalogue {schema:2,natives:Vec::new(),
+                    environments:vec![linux_vst_bridge::frg1::qualification_environment(m,&sw)?],
+                    hosts:Vec::new()}
+            } else { catalogue(m, &sw)? };
             c.natives = candidates.iter().map(|c| c.native.clone()).collect();
             let mut planned = Vec::new();
             for candidate in &candidates {
@@ -418,6 +432,7 @@ fn execute_qualification_for(
                         publication::Qualification::Ap18Pigments => InspectionRoute::Ap18Pigments,
                         publication::Qualification::Uir1Input => InspectionRoute::Uir1Input,
                         publication::Qualification::If1Failure => InspectionRoute::If1Failure,
+                        publication::Qualification::Frg1Ubuntu => InspectionRoute::Frg1Ubuntu,
                         publication::Qualification::Sv1Instrument | publication::Qualification::ManagedExperimental => return Err("candidate_uses_retained_inspection".into()),
                     },
                 )?);
@@ -426,7 +441,9 @@ fn execute_qualification_for(
                 let _lock = m.lock("registry.lock")?;
                 m.require_inactive(None)?;
                 for p in &planned {
-                    m.check_qualification_parent_for(&p.profile, &p.registration, purpose)?;
+                    if purpose == publication::Qualification::Frg1Ubuntu {
+                        linux_vst_bridge::frg1::check_binding(m,&p.profile,&p.registration)?;
+                    } else { m.check_qualification_parent_for(&p.profile, &p.registration, purpose)?; }
                 }
             }
             for p in &planned {
@@ -434,7 +451,9 @@ fn execute_qualification_for(
             }
             status(m)
         }
-        _ => Err("Usage: qualify-editor stage EXACT_PRODUCT_PACKAGE | publish | restore".into()),
+        _ => Err(if purpose == publication::Qualification::Frg1Ubuntu {
+            "Usage: qualify-frg1 adopt ENVIRONMENT_ID | stage EXACT_PRODUCT_PACKAGE | publish | restore".into()
+        } else { "Usage: qualify-editor stage EXACT_PRODUCT_PACKAGE | publish | restore".into() }),
     }
 }
 pub(super) fn run_qualification(m: &Manager, args: &[String]) -> Result<()> {
@@ -492,6 +511,11 @@ pub(super) fn run_failure_qualification(m: &Manager, args: &[String]) -> Result<
 pub(super) fn run_installer_qualification(m: &Manager, args: &[String]) -> Result<()> {
     operator_cli::require_engineering_inactive(m)?;
     render(execute_qualification_for(m,args,publication::Qualification::Sv1Instrument))
+}
+
+pub(super) fn run_frg1_qualification(m: &Manager, args: &[String]) -> Result<()> {
+    operator_cli::require_engineering_inactive(m)?;
+    render(execute_qualification_for(m,args,publication::Qualification::Frg1Ubuntu))
 }
 
 #[cfg(test)]
