@@ -13,10 +13,12 @@ import hashlib
 import json
 import os
 import pathlib
+import selectors
 import secrets
 import shutil
 import signal
 import stat
+import struct
 import subprocess
 import sys
 import time
@@ -29,12 +31,98 @@ OWNER_FILE = ".ua1-owner.json"
 INSTALL_RECEIPT = ".ua1-install.json"
 STDOUT_LIMIT = 1_048_576
 STDERR_LIMIT = 4_194_304
-READY_TIMEOUT = 90.0
+X11_STDOUT_LIMIT = 65_536
+X11_STDERR_LIMIT = 262_144
+READY_TIMEOUT = 180.0
 EXECUTION_TIMEOUT = 180.0
+XWAYLAND_PATH = pathlib.Path("/usr/bin/Xwayland")
+XWAYLAND_BYTE_LENGTH = 2_410_256
+XWAYLAND_SHA256 = "700d3cba7f946c3ff3100ee36f15012c1c027bb67f29e84def1a1b67bb8f3587"
+WAYLAND_SOCKET_NAME = "wayland-0"
 
 
 class CensusError(RuntimeError):
     pass
+
+
+class PrivateX11:
+    def __init__(
+        self,
+        process: subprocess.Popen[bytes],
+        drain: "BoundedDrain",
+        display_number: int,
+        socket: pathlib.Path,
+        authority: pathlib.Path,
+    ) -> None:
+        self.process = process
+        self.drain = drain
+        self.display_number = display_number
+        self.socket = socket
+        self.authority = authority
+
+
+class BoundedDrain:
+    """Continuously drain both child pipes without allowing unbounded custody."""
+
+    def __init__(
+        self,
+        child: subprocess.Popen[bytes],
+        *,
+        stdout_limit: int,
+        stderr_limit: int,
+        label: str,
+    ) -> None:
+        if child.stdout is None or child.stderr is None:
+            raise CensusError(f"{label} pipes unavailable")
+        self.child = child
+        self.label = label
+        self.selector = selectors.DefaultSelector()
+        self.buffers = {"stdout": bytearray(), "stderr": bytearray()}
+        self.limits = {"stdout": stdout_limit, "stderr": stderr_limit}
+        self.exhausted: set[str] = set()
+        self.closed = False
+        for name, stream in (("stdout", child.stdout), ("stderr", child.stderr)):
+            os.set_blocking(stream.fileno(), False)
+            self.selector.register(stream, selectors.EVENT_READ, name)
+
+    def pump(self, timeout: float, *, enforce_capacity: bool = True) -> None:
+        for key, _ in self.selector.select(timeout):
+            name = str(key.data)
+            while True:
+                try:
+                    chunk = os.read(key.fileobj.fileno(), 65_536)
+                except BlockingIOError:
+                    break
+                if not chunk:
+                    self.selector.unregister(key.fileobj)
+                    break
+                remaining = self.limits[name] - len(self.buffers[name])
+                if remaining > 0:
+                    self.buffers[name].extend(chunk[:remaining])
+                if len(chunk) > remaining:
+                    self.exhausted.add(name)
+                    break
+        if enforce_capacity and self.exhausted:
+            names = ",".join(sorted(self.exhausted))
+            raise CensusError(f"{self.label} stream capacity exhausted: {names}")
+
+    def finish(self, timeout: float = 5.0) -> None:
+        if self.closed:
+            return
+        deadline = time.monotonic() + timeout
+        while self.selector.get_map():
+            self.pump(0.05, enforce_capacity=False)
+            if time.monotonic() >= deadline:
+                raise CensusError(f"{self.label} pipe retirement timeout")
+        self.selector.close()
+        if self.child.stdout is not None:
+            self.child.stdout.close()
+        if self.child.stderr is not None:
+            self.child.stderr.close()
+        self.closed = True
+
+    def output(self) -> tuple[bytes, bytes]:
+        return bytes(self.buffers["stdout"]), bytes(self.buffers["stderr"])
 
 
 def canonical_json(value: Any) -> bytes:
@@ -75,6 +163,110 @@ def exact_file(path: pathlib.Path, byte_length: int, sha256: str) -> None:
     require(path.is_file() and not path.is_symlink(), f"missing regular input: {path.name}")
     require(path.stat().st_size == byte_length, f"input size changed: {path.name}")
     require(sha256_file(path) == sha256, f"input digest changed: {path.name}")
+
+
+def xauthority_record(display_number: int, cookie: bytes) -> bytes:
+    require(0 <= display_number <= 65535, "private X11 display number invalid")
+    require(len(cookie) == 16, "private X11 cookie invalid")
+
+    def field(value: bytes) -> bytes:
+        return struct.pack(">H", len(value)) + value
+
+    # FamilyWild keeps the record independent of a host name while the exact
+    # display number and operation-random cookie remain closed.
+    return (
+        struct.pack(">H", 65535)
+        + field(b"")
+        + field(str(display_number).encode("ascii"))
+        + field(b"MIT-MAGIC-COOKIE-1")
+        + field(cookie)
+    )
+
+
+def start_private_x11(root: pathlib.Path) -> PrivateX11:
+    exact_file(XWAYLAND_PATH, XWAYLAND_BYTE_LENGTH, XWAYLAND_SHA256)
+    uid = os.getuid()
+    runtime_root = pathlib.Path(f"/run/user/{uid}")
+    wayland_socket = runtime_root / WAYLAND_SOCKET_NAME
+    info = wayland_socket.lstat()
+    require(stat.S_ISSOCK(info.st_mode), "exact Wayland session socket unavailable")
+    require(info.st_uid == uid, "Wayland session socket owner changed")
+    require(runtime_root.is_dir() and runtime_root.stat().st_uid == uid, "runtime root owner changed")
+
+    home = root / "state/home"
+    home.mkdir(parents=True, mode=0o700)
+    x11_root = root / "x11"
+    x11_root.mkdir(parents=True, mode=0o700)
+    authority = x11_root / "Xauthority"
+    authority.write_bytes(b"")
+    authority.chmod(0o600)
+    candidates = list(range(120, 220))
+    secrets.SystemRandom().shuffle(candidates)
+    last_failure = "no private display candidate"
+    for display_number in candidates:
+        socket = pathlib.Path(f"/tmp/.X11-unix/X{display_number}")
+        lock_path = pathlib.Path(f"/tmp/.X{display_number}-lock")
+        if socket.exists() or lock_path.exists() or socket.is_symlink() or lock_path.is_symlink():
+            continue
+        authority.write_bytes(xauthority_record(display_number, secrets.token_bytes(16)))
+        authority.chmod(0o600)
+        environment = {
+            "HOME": str(root / "state/home"),
+            "XDG_RUNTIME_DIR": str(runtime_root),
+            "WAYLAND_DISPLAY": WAYLAND_SOCKET_NAME,
+            "LANG": "C.UTF-8",
+            "LC_ALL": "C.UTF-8",
+        }
+        process = subprocess.Popen(
+            [
+                str(XWAYLAND_PATH),
+                f":{display_number}",
+                "-rootless",
+                "-noreset",
+                "-nolisten",
+                "tcp",
+                "-auth",
+                str(authority),
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=environment,
+            start_new_session=True,
+        )
+        drain = BoundedDrain(
+            process,
+            stdout_limit=X11_STDOUT_LIMIT,
+            stderr_limit=X11_STDERR_LIMIT,
+            label="private Xwayland",
+        )
+        deadline = time.monotonic() + 10.0
+        try:
+            while True:
+                drain.pump(0.05)
+                if socket.exists():
+                    socket_info = socket.lstat()
+                    require(stat.S_ISSOCK(socket_info.st_mode), "private X11 endpoint is not a socket")
+                    require(socket_info.st_uid == uid, "private X11 socket owner changed")
+                    return PrivateX11(process, drain, display_number, socket, authority)
+                if process.poll() is not None:
+                    drain.finish()
+                    output, error = drain.output()
+                    last_failure = (
+                        "private Xwayland exited before socket publication; "
+                        f"stdout_sha256={sha256_bytes(output)}; stderr_sha256={sha256_bytes(error)}"
+                    )
+                    break
+                if time.monotonic() >= deadline:
+                    last_failure = "private Xwayland socket publication timeout"
+                    break
+        except Exception:
+            terminate(process)
+            drain.finish()
+            raise
+        terminate(process)
+        drain.finish()
+    raise CensusError(last_failure)
 
 
 def within(path: pathlib.Path, root: pathlib.Path) -> bool:
@@ -200,7 +392,14 @@ def add_optional_ro_bind(argv: list[str], path: str) -> None:
         argv.extend(["--ro-bind", path, path])
 
 
-def sandbox_argv(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path, lock: dict[str, Any], session: str) -> tuple[list[str], pathlib.Path, pathlib.Path]:
+def sandbox_argv(
+    root: pathlib.Path,
+    runner: pathlib.Path,
+    runtime: pathlib.Path,
+    lock: dict[str, Any],
+    session: str,
+    x11: PrivateX11,
+) -> tuple[list[str], pathlib.Path, pathlib.Path]:
     state = root / "state"
     windows = state / "prefix/pfx/drive_c/bridge/sessions" / session
     windows.mkdir(parents=True, mode=0o700)
@@ -233,7 +432,9 @@ def sandbox_argv(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path
         "--dir", "/var", "--dir", "/var/lib", "--dir", "/var/lib/dbus", "--ro-bind", str(config / "machine-id"), "/var/lib/dbus/machine-id",
         "--dir", "/home", "--dir", "/home/frg1", "--bind", str(home), "/home/frg1",
         "--dir", "/opt", "--dir", "/opt/frg1", "--ro-bind", str(runner), "/opt/frg1/runner", "--bind", str(state), "/opt/frg1/state",
-        "--dir", "/run", "--dir", "/run/user", "--dir", internal_run, "--tmpfs", "/tmp",
+        "--dir", "/run", "--dir", "/run/user", "--dir", internal_run,
+        "--dir", "/run/frg1", "--ro-bind", str(x11.authority), "/run/frg1/Xauthority", "--tmpfs", "/tmp",
+        "--dir", "/tmp/.X11-unix", "--ro-bind", str(x11.socket), f"/tmp/.X11-unix/X{x11.display_number}",
     ]
     for system_path in ("/etc/fonts", "/etc/ssl/certs", "/etc/ca-certificates", "/etc/ld.so.cache", "/etc/localtime"):
         add_optional_ro_bind(argv, system_path)
@@ -251,6 +452,8 @@ def sandbox_argv(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path
         "XDG_RUNTIME_DIR": internal_run,
         "LANG": "C.UTF-8",
         "LC_ALL": "C.UTF-8",
+        "DISPLAY": f":{x11.display_number}",
+        "XAUTHORITY": "/run/frg1/Xauthority",
         "LD_LIBRARY_PATH": "/usr/lib32:/usr/lib/i386-linux-gnu",
         "TMPDIR": "/tmp",
         "STEAM_COMPAT_DATA_PATH": "/opt/frg1/state/prefix",
@@ -319,6 +522,54 @@ def terminate(child: subprocess.Popen[bytes]) -> None:
         child.wait(timeout=5)
 
 
+def pump_graphical_environment(x11: PrivateX11) -> None:
+    x11.drain.pump(0.0)
+    require(x11.process.poll() is None, "private Xwayland exited during scanner operation")
+
+
+def wait_for_readiness(
+    child: subprocess.Popen[bytes],
+    drain: BoundedDrain,
+    ready: pathlib.Path,
+    timeout: float,
+    x11: PrivateX11 | None = None,
+) -> None:
+    deadline = time.monotonic() + timeout
+    while True:
+        drain.pump(0.05)
+        if x11 is not None:
+            pump_graphical_environment(x11)
+        if ready.exists():
+            return
+        if child.poll() is not None:
+            drain.finish()
+            raise CensusError(f"scanner exited before readiness: {child.returncode}")
+        if time.monotonic() >= deadline:
+            raise CensusError("scanner readiness timeout")
+
+
+def wait_for_completion(
+    child: subprocess.Popen[bytes],
+    drain: BoundedDrain,
+    timeout: float,
+    x11: PrivateX11 | None = None,
+) -> None:
+    deadline = time.monotonic() + timeout
+    while child.poll() is None:
+        drain.pump(0.05)
+        if x11 is not None:
+            pump_graphical_environment(x11)
+        if time.monotonic() >= deadline:
+            raise CensusError("scanner execution timeout")
+    drain.finish()
+
+
+def retire_drained_process(child: subprocess.Popen[bytes], drain: BoundedDrain) -> tuple[bytes, bytes]:
+    terminate(child)
+    drain.finish()
+    return drain.output()
+
+
 def retain_private_streams(root: pathlib.Path, output: bytes, error: bytes) -> dict[str, Any]:
     require(len(output) <= STDOUT_LIMIT, "scanner stdout exceeded bound")
     require(len(error) <= STDERR_LIMIT, "scanner stderr exceeded bound")
@@ -327,6 +578,16 @@ def retain_private_streams(root: pathlib.Path, output: bytes, error: bytes) -> d
         path.write_bytes(value)
         path.chmod(0o600)
     return {"stdout_sha256": sha256_bytes(output), "stderr_sha256": sha256_bytes(error)}
+
+
+def retain_private_x11_streams(root: pathlib.Path, output: bytes, error: bytes) -> dict[str, Any]:
+    require(len(output) <= X11_STDOUT_LIMIT, "private Xwayland stdout exceeded bound")
+    require(len(error) <= X11_STDERR_LIMIT, "private Xwayland stderr exceeded bound")
+    for name, value in (("raw.x11.stdout", output), ("raw.x11.stderr", error)):
+        path = root / name
+        path.write_bytes(value)
+        path.chmod(0o600)
+    return {"x11_stdout_sha256": sha256_bytes(output), "x11_stderr_sha256": sha256_bytes(error)}
 
 
 def parse_records(output: bytes) -> list[dict[str, Any]]:
@@ -349,22 +610,31 @@ def one(records: list[dict[str, Any]], state: str) -> dict[str, Any]:
 
 def execute(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path, lock: dict[str, Any]) -> dict[str, Any]:
     session = secrets.token_hex(16)
-    argv, ready, gate = sandbox_argv(root, runner, runtime, lock, session)
-    child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+    x11: PrivateX11 | None = None
+    child: subprocess.Popen[bytes] | None = None
+    drain: BoundedDrain | None = None
     output = b""
     error = b""
-    captured = False
+    x11_output = b""
+    x11_error = b""
     phase = "readiness"
     try:
-        deadline = time.monotonic() + READY_TIMEOUT
-        while not ready.exists():
-            if child.poll() is not None:
-                output, error = child.communicate(timeout=5)
-                captured = True
-                raise CensusError(f"scanner exited before readiness: {child.returncode}; stderr_sha256={sha256_bytes(error)}; stdout_sha256={sha256_bytes(output)}")
-            if time.monotonic() >= deadline:
-                raise CensusError("scanner readiness timeout")
-            time.sleep(0.05)
+        x11 = start_private_x11(root)
+        argv, ready, gate = sandbox_argv(root, runner, runtime, lock, session, x11)
+        child = subprocess.Popen(
+            argv,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
+        )
+        drain = BoundedDrain(
+            child,
+            stdout_limit=STDOUT_LIMIT,
+            stderr_limit=STDERR_LIMIT,
+            label="scanner",
+        )
+        wait_for_readiness(child, drain, ready, READY_TIMEOUT, x11)
         handshake = ready.read_bytes()
         require(handshake == expected_handshake(lock, session), "scanner readiness binding changed")
         phase = "execution"
@@ -372,29 +642,42 @@ def execute(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path, loc
             handle.write(handshake)
             handle.flush()
             os.fsync(handle.fileno())
-        output, error = child.communicate(timeout=EXECUTION_TIMEOUT)
-        captured = True
+        wait_for_completion(child, drain, EXECUTION_TIMEOUT, x11)
+        output, error = drain.output()
+        x11_output, x11_error = retire_drained_process(x11.process, x11.drain)
     except Exception as failure:
-        terminate(child)
-        if not captured:
-            output, error = child.communicate(timeout=5)
+        if child is not None:
+            if drain is not None:
+                output, error = retire_drained_process(child, drain)
+            else:
+                terminate(child)
+        if x11 is not None:
+            x11_output, x11_error = retire_drained_process(x11.process, x11.drain)
         digests = retain_private_streams(root, output, error)
+        x11_digests = retain_private_x11_streams(root, x11_output, x11_error)
         failure_record = {
             "schema": "linux-vst-bridge-frg1-private-failure/v1",
             "classification": "FRG1_FACTORY_CENSUS_FAILED",
             "phase": phase,
             "reason": str(failure),
-            "exit_code": child.returncode,
+            "exit_code": None if child is None else child.returncode,
+            "scanner_stream_capacity_exhausted": [] if drain is None else sorted(drain.exhausted),
+            "x11_stream_capacity_exhausted": [] if x11 is None else sorted(x11.drain.exhausted),
             **digests,
+            **x11_digests,
         }
         private_failure = root / "failure.json"
         private_failure.write_bytes(canonical_json(failure_record) + b"\n")
         private_failure.chmod(0o600)
         raise
     finally:
-        if child.poll() is None:
+        if child is not None and child.poll() is None:
             terminate(child)
+        if x11 is not None and x11.process.poll() is None:
+            terminate(x11.process)
+    require(child is not None and drain is not None and x11 is not None, "scanner launch state incomplete")
     digests = retain_private_streams(root, output, error)
+    x11_digests = retain_private_x11_streams(root, x11_output, x11_error)
     records = parse_records(output)
     closed = one(records, "ap8_inspection_closed")
     completed = one(records, "scanner_completed")
@@ -414,13 +697,23 @@ def execute(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path, loc
         "gated": True,
         "network_shared": False,
         "real_home_visible": False,
-        "cleanup_confirmed": child.returncode is not None,
+        "graphical_environment": {
+            "kind": "operation_owned_xwayland",
+            "binary_sha256": XWAYLAND_SHA256,
+            "binary_byte_length": XWAYLAND_BYTE_LENGTH,
+            "wayland_socket": WAYLAND_SOCKET_NAME,
+            "real_x11_session_shared": False,
+        },
+        "readiness_timeout_seconds": int(READY_TIMEOUT),
+        "execution_timeout_seconds": int(EXECUTION_TIMEOUT),
+        "cleanup_confirmed": child.returncode is not None and x11.process.returncode is not None,
         "transport_retired": child.returncode is not None,
         "exit_code": child.returncode,
         "error": None if child.returncode == 0 else "scanner_nonzero_exit",
         "inspection_exit_code": closed.get("exit_code"),
         "inspection_complete": completed.get("inspection_complete"),
         **digests,
+        **x11_digests,
         "records": records,
     }
     (root / "report.json").write_bytes(canonical_json(result) + b"\n")

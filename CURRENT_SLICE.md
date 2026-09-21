@@ -55,12 +55,38 @@ authority. Its class metadata is a lead only and is not authority for this fixtu
 - the tech-lead product handoff requiring a new exact factory census and coherent
   profile before any Ubuntu publication or Bitwig scan
 
+## Attempt 002 fixed continuation
+
+The tech lead accepted attempt 001 as a bounded pre-handshake launch-readiness
+failure and authorized exactly one attempt 002. Before that execution, the census
+harness must:
+
+- provide one operation-owned private X11 server without inheriting the ordinary
+  X11 desktop;
+- allow 180 seconds for cold readiness and retain the 180-second post-gate bound;
+- continuously drain stdout and stderr from process submission, stopping on the
+  existing fixed capacity bounds;
+- keep the exact module, runner, runtime overlay, Windows host, source manifest,
+  mode, component case and input lock unchanged.
+
+The host has no installed Xvfb. The accepted equivalent is a dedicated Xwayland
+instance with its own random Xauthority cookie. It connects only to the exact active
+`wayland-0` compositor socket. The untrusted scanner sees only that operation-owned
+X11 socket and read-only authority file; it does not see the host Wayland socket,
+ordinary X11 display, real home or network.
+
+One focused synthetic process test may pressure both pipes before publishing a
+readiness marker. No diagnostic-only product run or broader proof campaign precedes
+attempt 002. If attempt 002 fails, execution stops without attempt 003. If its exact
+census succeeds, the original profile/proxy/coherence acceptance sequence continues.
+
 ## In scope
 
 - `CURRENT_SLICE.md`
 - one bounded FRG1 slice/result document
 - an additive non-secret FRG1 input lock
 - exact factory-census supervision and sanitized evidence for this fixture
+- the fixed attempt-002 private-X11, timeout and bounded-drain correction
 - compatibility-profile schema support needed to bind aggregate runner/runtime
   closure without changing old profile fingerprints
 - one additive review-candidate profile and immutable history entry

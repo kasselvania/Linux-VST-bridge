@@ -43,8 +43,23 @@ is authorized from this result.
 The attempt exposed one supervisor evidence defect: its readiness-timeout path
 terminated the process but did not retain the bounded stdout/stderr streams. The
 source repair retains those streams privately and emits a sanitized failure record;
-it does not authorize another product execution. Any retry requires independent
-review of this retained first failure.
+it did not itself authorize another product execution.
+
+## Attempt 002 authorization
+
+The tech lead accepted attempt 001 and authorized one real attempt 002 after a
+narrow launch-harness correction. The corrected harness uses one digest-bound,
+operation-owned Xwayland instance with a private authority cookie, increases only
+the cold readiness deadline to 180 seconds, preserves the 180-second execution
+deadline, and continuously drains both scanner streams within their existing fixed
+capacity bounds. A synthetic process test writes beyond ordinary pipe capacity
+before publishing readiness.
+
+Attempt 002 must use a new scratch root, prefix and session with every locked product
+identity unchanged. It does not use the retained ASC prefix and performs no ASC,
+Bitwig, Ubuntu publication, deployment or Steam Deck operation. A failed attempt 002
+stops FRG1 without attempt 003. A successful census may continue only through the
+original class-specific proxy and coherent review-candidate acceptance sequence.
 
 ## Nonclaims
 

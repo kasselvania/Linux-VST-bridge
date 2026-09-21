@@ -4,6 +4,8 @@ import importlib.util
 import json
 import pathlib
 import stat
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -24,6 +26,7 @@ class CensusTests(unittest.TestCase):
         self.assertFalse(lock["qualification_scope"]["ordinary_activation_authority"])
         self.assertEqual(lock["runner"]["installed_tree"]["entries"], 8900)
         self.assertEqual(lock["runner"]["runtime"]["installed_tree"]["entries"], 638)
+        self.assertEqual(census.READY_TIMEOUT, 180.0)
 
     def test_changed_lock_is_refused(self) -> None:
         value = json.loads((ROOT / "compatibility/frg1/input.lock.json").read_text())
@@ -65,6 +68,35 @@ class CensusTests(unittest.TestCase):
             self.assertEqual(stat.S_IMODE((root / "raw.stderr").stat().st_mode), 0o600)
             with self.assertRaisesRegex(census.CensusError, "stdout exceeded"):
                 census.retain_private_streams(root, b"x" * (census.STDOUT_LIMIT + 1), b"")
+
+    def test_streams_are_drained_before_synthetic_readiness(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            ready = pathlib.Path(directory) / "synthetic.ready"
+            payload_size = 256 * 1024
+            program = (
+                "import os,pathlib,sys;"
+                f"os.write(1,b'o'*{payload_size});"
+                f"os.write(2,b'e'*{payload_size});"
+                "pathlib.Path(sys.argv[1]).write_bytes(b'ready')"
+            )
+            child = subprocess.Popen(
+                [sys.executable, "-c", program, str(ready)],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=True,
+            )
+            drain = census.BoundedDrain(
+                child,
+                stdout_limit=payload_size,
+                stderr_limit=payload_size,
+                label="synthetic",
+            )
+            census.wait_for_readiness(child, drain, ready, 5.0)
+            census.wait_for_completion(child, drain, 5.0)
+            output, error = drain.output()
+            self.assertEqual(output, b"o" * payload_size)
+            self.assertEqual(error, b"e" * payload_size)
 
     def test_handshake_binds_every_execution_input(self) -> None:
         lock = census.load_lock(ROOT / "compatibility/frg1/input.lock.json")
