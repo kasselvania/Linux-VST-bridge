@@ -1100,6 +1100,31 @@ unsafe fn control(id: u64, op: u32, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
         thread::sleep(Duration::from_micros(50));
     }
 }
+
+fn started_ack(epoch: u64) -> Option<u64> {
+    (epoch != 0 && epoch <= (u64::MAX >> 8))
+        .then(|| (epoch << 8) | u64::from(START + 1))
+}
+
+pub(crate) fn wait_started(id: u64) -> io::Result<()> {
+    let shared = INSTANCES
+        .lease(id)
+        .ok_or_else(|| invalid("start acknowledgement handle"))?
+        .shared
+        .clone();
+    let epoch = shared.wanted.load(Ordering::Acquire);
+    let expected = started_ack(epoch).ok_or_else(|| invalid("start acknowledgement epoch"))?;
+    let deadline = Instant::now() + Duration::from_secs(20);
+    loop {
+        if shared.ack.load(Ordering::Acquire) == expected {
+            return Ok(());
+        }
+        if shared.fault.load(Ordering::Acquire) != 0 || Instant::now() >= deadline {
+            return Err(invalid("start acknowledgement missing"));
+        }
+        thread::sleep(Duration::from_micros(50));
+    }
+}
 #[no_mangle]
 pub unsafe extern "C" fn ap9_setup(
     id: u64,
@@ -3082,6 +3107,13 @@ mod tests {
         cb.process(&s, r, &mut out).unwrap();
         assert_eq!(out, [[0.125; CAP]; 2]);
         assert_eq!(cb.epoch, 2);
+    }
+    #[test]
+    fn start_acknowledgement_is_exactly_epoch_bound() {
+        assert_eq!(started_ack(1), Some(0x10b));
+        assert_eq!(started_ack(2), Some(0x20b));
+        assert_eq!(started_ack(0), None);
+        assert_eq!(started_ack((u64::MAX >> 8) + 1), None);
     }
     #[test]
     fn descriptor_overflow_and_wrong_position_fail() {

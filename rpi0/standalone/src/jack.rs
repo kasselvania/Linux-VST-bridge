@@ -1,12 +1,13 @@
 use crate::{
-    audio::ParameterUpdate, midi::Parser, protocol::supported_jack_block, spsc::Queue,
-    MAX_JACK_FRAMES, MAX_MIDI_EVENTS, SAMPLE_RATE,
+    audio::ParameterUpdate, callback_gate::CallbackGate, midi::Parser,
+    protocol::supported_jack_block, spsc::Queue, MAX_JACK_FRAMES, MAX_MIDI_EVENTS, SAMPLE_RATE,
 };
 use ap2_backend::rpi0::{Context, Delivery, Event, Instance};
 use std::{
     ffi::{c_char, c_int, c_void, CStr, CString},
     io, ptr, slice,
-    sync::atomic::{AtomicBool, AtomicU64, Ordering},
+    sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
 };
 
 type JackNFrames = u32;
@@ -72,6 +73,7 @@ pub struct Metrics {
     pub gaps: AtomicU64,
     pub delivered_frames: AtomicU64,
     pub priming_frames: AtomicU64,
+    pub paused_frames: AtomicU64,
     pub callback_ns_max: AtomicU64,
     pub unsupported_midi: AtomicU64,
     pub malformed_midi: AtomicU64,
@@ -96,6 +98,7 @@ impl Control {
                 gaps: AtomicU64::new(0),
                 delivered_frames: AtomicU64::new(0),
                 priming_frames: AtomicU64::new(0),
+                paused_frames: AtomicU64::new(0),
                 callback_ns_max: AtomicU64::new(0),
                 unsupported_midi: AtomicU64::new(0),
                 malformed_midi: AtomicU64::new(0),
@@ -120,7 +123,7 @@ struct Rt {
     parser: Parser,
     events: [Event; MAX_MIDI_EVENTS],
     zero: [f32; MAX_JACK_FRAMES],
-    active: AtomicBool,
+    gate: CallbackGate,
 }
 
 pub struct Client {
@@ -176,7 +179,7 @@ impl Client {
             parser: Parser::default(),
             events: [Event::default(); MAX_MIDI_EVENTS],
             zero: [0.; MAX_JACK_FRAMES],
-            active: AtomicBool::new(false),
+            gate: CallbackGate::new(),
         });
         let code =
             unsafe { jack_set_process_callback(client, process, (&mut *rt as *mut Rt).cast()) };
@@ -194,12 +197,12 @@ impl Client {
     }
 
     pub fn activate(&mut self) -> io::Result<()> {
-        self.rt.active.store(true, Ordering::Release);
+        self.rt.gate.resume();
         let code = unsafe { jack_activate(self.client) };
         if code == 0 {
             Ok(())
         } else {
-            self.rt.active.store(false, Ordering::Release);
+            let _ = self.rt.gate.pause(Duration::from_millis(10));
             Err(invalid("JACK activation"))
         }
     }
@@ -221,8 +224,16 @@ impl Client {
         self.buffer_size
     }
 
+    pub fn pause_processing(&mut self) -> io::Result<()> {
+        self.rt.gate.pause(Duration::from_secs(1))
+    }
+
+    pub fn resume_processing(&mut self) {
+        self.rt.gate.resume();
+    }
+
     pub fn deactivate(&mut self) -> io::Result<()> {
-        self.rt.active.store(false, Ordering::Release);
+        self.rt.gate.pause(Duration::from_secs(1))?;
         let code = unsafe { jack_deactivate(self.client) };
         if code == 0 {
             Ok(())
@@ -251,13 +262,21 @@ unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_in
         slice::from_raw_parts_mut(jack_port_get_buffer(rt.left, frames).cast::<f32>(), count);
     let right =
         slice::from_raw_parts_mut(jack_port_get_buffer(rt.right, frames).cast::<f32>(), count);
-    if !rt.active.load(Ordering::Acquire) || count > MAX_JACK_FRAMES || !supported_jack_block(count)
-    {
+    if count > MAX_JACK_FRAMES || !supported_jack_block(count) {
         left.fill(0.);
         right.fill(0.);
         metrics.unsupported_blocks.fetch_add(1, Ordering::Relaxed);
         return 0;
     }
+    let Some(_lease) = rt.gate.enter() else {
+        left.fill(0.);
+        right.fill(0.);
+        rt.position = rt.position.saturating_add(frames as u64);
+        metrics
+            .paused_frames
+            .fetch_add(frames as u64, Ordering::Relaxed);
+        return 0;
+    };
     let before = monotonic_ns();
     let mut event_count = 0usize;
     while let Some(update) = control.parameters.pop() {

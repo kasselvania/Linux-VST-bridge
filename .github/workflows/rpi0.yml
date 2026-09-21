@@ -35,6 +35,37 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "${{ runner.temp }}/rpi0-windows/rpi0/bin/Release/rpi0-windows-probe.exe" --self-test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Manifest current Windows candidate
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: |
+          $paths = @(
+            "${{ runner.temp }}/rpi0-windows/rpi0/bin/Release/rpi0-windows-probe.exe",
+            "${{ runner.temp }}/rpi0-windows/rpi0/bin/Release/LVB ARM Appliance Synth.vst3",
+            "${{ runner.temp }}/rpi0-windows/wf0/bin/Release/wf0-factory-probe.exe"
+          )
+          $lines = @(
+            "schema=linux-vst-bridge-rpi0-windows-artifacts/v1",
+            "head=$(git rev-parse HEAD)",
+            "tree=$(git rev-parse 'HEAD^{tree}')"
+          )
+          foreach ($path in $paths) {
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "missing artifact: $path" }
+            $lines += "sha256=$((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLower()) file=$([IO.Path]::GetFileName($path))"
+          }
+          $lines | Set-Content -LiteralPath "${{ runner.temp }}/rpi0-windows/rpi0-windows-artifacts.manifest" -Encoding ascii
+      - name: Retain current Windows candidate
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rpi0-windows-candidate-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/rpi0-windows/rpi0/bin/Release/rpi0-windows-probe.exe
+            ${{ runner.temp }}/rpi0-windows/rpi0/bin/Release/LVB ARM Appliance Synth.vst3
+            ${{ runner.temp }}/rpi0-windows/wf0/bin/Release/wf0-factory-probe.exe
+            ${{ runner.temp }}/rpi0-windows/rpi0-windows-artifacts.manifest
+          if-no-files-found: error
+          retention-days: 7
   frozen-windows-artifacts:
     if: github.event_name == 'workflow_dispatch'
     runs-on: windows-2022

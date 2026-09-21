@@ -33,6 +33,23 @@ pub struct Identity {
     pub module: [u8; 32],
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ProcessingTraits {
+    pub total_frames: u32,
+    pub tail_frames: u32,
+    pub vendor_frames: u32,
+}
+
+impl ProcessingTraits {
+    fn from_raw(raw: [u32; 3]) -> Self {
+        Self {
+            total_frames: raw[0],
+            tail_frames: raw[1],
+            vendor_frames: raw[2],
+        }
+    }
+}
+
 pub struct Instance {
     handle: u64,
     closed: bool,
@@ -104,7 +121,12 @@ impl Instance {
         self.handle
     }
 
-    pub fn setup(&self, maximum: u32, rate: f64, buses: &[u8]) -> io::Result<[u32; 3]> {
+    pub fn setup(
+        &self,
+        maximum: u32,
+        rate: f64,
+        buses: &[u8],
+    ) -> io::Result<ProcessingTraits> {
         let mut traits = [0; 3];
         let code = unsafe {
             queued::ap10_setup(
@@ -119,7 +141,7 @@ impl Instance {
             )
         };
         result(code, "setup")?;
-        Ok(traits)
+        Ok(ProcessingTraits::from_raw(traits))
     }
 
     pub fn activate(&self, maximum: u32) -> io::Result<()> {
@@ -130,7 +152,8 @@ impl Instance {
     }
 
     pub fn start(&self) -> io::Result<()> {
-        result(unsafe { queued::ap3_transition(self.handle, 10) }, "start")
+        result(unsafe { queued::ap3_transition(self.handle, 10) }, "start")?;
+        queued::wait_started(self.handle)
     }
 
     pub fn stop(&self) -> io::Result<()> {
@@ -311,5 +334,17 @@ mod tests {
             )
             .is_err());
         }
+    }
+
+    #[test]
+    fn processing_traits_do_not_swap_vendor_total_and_tail() {
+        assert_eq!(
+            ProcessingTraits::from_raw([2048, u32::MAX, 0]),
+            ProcessingTraits {
+                total_frames: 2048,
+                tail_frames: u32::MAX,
+                vendor_frames: 0,
+            }
+        );
     }
 }

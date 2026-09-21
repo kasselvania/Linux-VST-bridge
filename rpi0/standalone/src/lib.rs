@@ -1,5 +1,6 @@
 //! Deterministic, DAW-free ARM appliance edge for RPI0.
 pub mod audio;
+pub mod callback_gate;
 pub mod config;
 #[cfg(all(target_os = "linux", feature = "jack-runtime"))]
 pub mod jack;

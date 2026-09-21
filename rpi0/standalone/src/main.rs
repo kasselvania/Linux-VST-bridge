@@ -129,8 +129,10 @@ mod appliance {
         let ports = jack.ports();
         println!(
             "RPI0_READY midi={} left={} right={} jack_frames={} bridge_frames={} vendor_frames={} total_frames={}",
-            ports[0], ports[1], ports[2], jack.buffer_size(), config.bridge_frames, traits[0], traits[1]
+            ports[0], ports[1], ports[2], jack.buffer_size(), config.bridge_frames,
+            traits.vendor_frames, traits.total_frames
         );
+        println!("RPI0_LATENCY tail_frames={}", traits.tail_frames);
         println!(
             "Commands: open | close | save /absolute/path | restore /absolute/path | status | quit"
         );
@@ -141,21 +143,23 @@ mod appliance {
         drop(jack);
         let metrics = &control.metrics;
         println!(
-            "RPI0_CALLBACK callbacks={} failures={} deadline_misses={} callback_ns_max={} missing_frames={} expired_frames={} gaps={} delivered_frames={} priming_frames={} unsupported_midi={} malformed_midi={} overflow_midi={}",
+            "RPI0_CALLBACK callbacks={} failures={} deadline_misses={} callback_ns_max={} missing_frames={} expired_frames={} gaps={} delivered_frames={} priming_frames={} paused_frames={} unsupported_midi={} malformed_midi={} overflow_midi={}",
             metrics.callbacks.load(Ordering::Acquire), metrics.process_failures.load(Ordering::Acquire),
             metrics.deadline_misses.load(Ordering::Acquire), metrics.callback_ns_max.load(Ordering::Acquire),
             metrics.missing_frames.load(Ordering::Acquire), metrics.expired_frames.load(Ordering::Acquire),
             metrics.gaps.load(Ordering::Acquire), metrics.delivered_frames.load(Ordering::Acquire),
-            metrics.priming_frames.load(Ordering::Acquire), metrics.unsupported_midi.load(Ordering::Acquire),
+            metrics.priming_frames.load(Ordering::Acquire), metrics.paused_frames.load(Ordering::Acquire),
+            metrics.unsupported_midi.load(Ordering::Acquire),
             metrics.malformed_midi.load(Ordering::Acquire), metrics.overflow_midi.load(Ordering::Acquire)
         );
         let callback_summary = format!(
-            "{{\"event\":\"rpi0_callback_summary\",\"callbacks\":{},\"process_failures\":{},\"deadline_misses\":{},\"callback_ns_max\":{},\"missing_frames\":{},\"expired_frames\":{},\"gaps\":{},\"delivered_frames\":{},\"priming_frames\":{},\"unsupported_midi\":{},\"malformed_midi\":{},\"overflow_midi\":{},\"jack_frames\":{},\"bridge_frames\":{}}}\n",
+            "{{\"event\":\"rpi0_callback_summary\",\"callbacks\":{},\"process_failures\":{},\"deadline_misses\":{},\"callback_ns_max\":{},\"missing_frames\":{},\"expired_frames\":{},\"gaps\":{},\"delivered_frames\":{},\"priming_frames\":{},\"paused_frames\":{},\"unsupported_midi\":{},\"malformed_midi\":{},\"overflow_midi\":{},\"jack_frames\":{},\"bridge_frames\":{}}}\n",
             metrics.callbacks.load(Ordering::Acquire), metrics.process_failures.load(Ordering::Acquire),
             metrics.deadline_misses.load(Ordering::Acquire), metrics.callback_ns_max.load(Ordering::Acquire),
             metrics.missing_frames.load(Ordering::Acquire), metrics.expired_frames.load(Ordering::Acquire),
             metrics.gaps.load(Ordering::Acquire), metrics.delivered_frames.load(Ordering::Acquire),
-            metrics.priming_frames.load(Ordering::Acquire), metrics.unsupported_midi.load(Ordering::Acquire),
+            metrics.priming_frames.load(Ordering::Acquire), metrics.paused_frames.load(Ordering::Acquire),
+            metrics.unsupported_midi.load(Ordering::Acquire),
             metrics.malformed_midi.load(Ordering::Acquire), metrics.overflow_midi.load(Ordering::Acquire),
             jack_frames, config.bridge_frames
         );
@@ -272,13 +276,13 @@ mod appliance {
                         let path = absolute_state_path(path)?;
                         let state = fs::read(path)?;
                         let mut output = vec![0; STATE_CAPACITY];
-                        jack.deactivate()?;
+                        jack.pause_processing()?;
                         instance.stop()?;
                         instance.deactivate()?;
                         let count = instance.restore_state(&state, &mut output)?;
                         instance.activate(256)?;
                         instance.start()?;
-                        jack.activate()?;
+                        jack.resume_processing();
                         println!("RPI0_STATE_RESTORED bytes={count}");
                     } else if !line.is_empty() {
                         return Err(invalid("unknown command"));
