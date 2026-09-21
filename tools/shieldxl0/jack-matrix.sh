@@ -63,7 +63,7 @@ loopback_channel() {
   as_user jack_connect jack_delay:out "system:playback_$channel"
   as_user jack_connect "system:capture_$channel" jack_delay:in
   wait "$runner" || true
-  grep -Fq 'total roundtrip latency:' "$log"
+  python3 "$SCRIPT_DIR/jack_iodelay_result.py" "$log" >/dev/null
 }
 
 for period in 128 256 512 1024; do
@@ -125,3 +125,20 @@ destination.write_text(json.dumps({
 }, indent=2, sort_keys=True) + "\n")
 PY
 cat "$output/results.json"
+
+python3 - "$output/results.json" <<'PY'
+import json, pathlib, sys
+
+results = json.loads(pathlib.Path(sys.argv[1]).read_text())
+failures = []
+for row in results["configurations"]:
+    period = row["period_frames"]
+    if row["measured_rate"] != results["rate_hz"]:
+        failures.append(f"{period}: measured_rate={row['measured_rate']}")
+    for key in ("left_loopback", "right_loopback", "server_restart"):
+        if row[key] != "pass":
+            failures.append(f"{period}: {key}={row[key]}")
+if failures:
+    print("JACK matrix acceptance failed: " + "; ".join(failures), file=sys.stderr)
+    raise SystemExit(1)
+PY
