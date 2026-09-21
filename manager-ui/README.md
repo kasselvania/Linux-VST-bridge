@@ -17,7 +17,9 @@ submission/recovery behavior.
 User instructions: [Crash capture guide (PDF)](../output/pdf/Plug-in-Crash-Capture-Guide.pdf)
 and [editable text](../docs/user/plug-in-crash-capture.md). The guide covers manual
 arming, a fresh processing instance, reproduction, sanitized export and comparing
-an attempted fix, including the current ordinary-publication requirement.
+an attempted fix. It distinguishes the currently installed ordinary-publication
+limitation, the approved candidate's basic terminal reporting and backend
+managed-experimental admission, and this separate manager presentation update.
 
 ```sh
 cargo test --manifest-path manager-ui/Cargo.toml --locked

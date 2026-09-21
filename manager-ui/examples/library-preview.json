@@ -27,7 +27,16 @@
       "module_sha256": "fixture-kontakt",
       "limitations": [],
       "history": [],
-      "actions": [],
+      "actions": [
+        {
+          "label": "Arm crash capture for next launch",
+          "action": {
+            "kind": "capture_arm",
+            "class_id": "fixture-kontakt"
+          },
+          "disabled_reason": null
+        }
+      ],
       "details": {}
     },
     {
@@ -51,14 +60,14 @@
             "kind": "capture_arm",
             "class_id": "fixture-fragments"
           },
-          "disabled_reason": null
+          "disabled_reason": "Close the active bridged instance before changing this product's diagnostic state"
         }
       ],
       "details": {}
     },
     {
       "class_id": "fixture-serumfx",
-      "name": "Serum 2 FX",
+      "name": "Serum 2 FX — long installed product name used to verify narrow handheld wrapping",
       "vendor": "Xfer Records",
       "role": "effect",
       "version": "2 (example)",
@@ -74,6 +83,32 @@
       "details": {
         "inspection_hint": "The installed module changed. Rescan this installation before preparing it again."
       }
+    },
+    {
+      "class_id": "fixture-blackhole",
+      "name": "Blackhole Immersive",
+      "vendor": "Blackhole Audio",
+      "role": "effect",
+      "version": "1.4.4",
+      "disposition": "experimental",
+      "active_revision": null,
+      "recommended_revision": null,
+      "environment": "fixture-blackhole",
+      "runner": "fixture-runner",
+      "module_sha256": "fixture-blackhole",
+      "limitations": [],
+      "history": [],
+      "actions": [
+        {
+          "label": "Arm crash capture for next launch",
+          "action": {
+            "kind": "capture_arm",
+            "class_id": "fixture-blackhole"
+          },
+          "disabled_reason": null
+        }
+      ],
+      "details": {}
     }
   ],
   "environments": [
@@ -173,12 +208,50 @@
       ]
     }
   ],
-  "active_sessions": [],
+  "active_sessions": [
+    {
+      "class_id": "fixture-kontakt",
+      "state": "active",
+      "terminal": null
+    },
+    {
+      "class_id": "fixture-blackhole",
+      "state": "failed",
+      "terminal": "windows_host_exited",
+      "recent": true,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "observed_at": 1
+    }
+  ],
   "capture": {
     "armed": false,
     "active_retention": 0
   },
-  "recent_incidents": [],
+  "recent_incidents": [
+    {
+      "id": "00112233445566778899aabbccddeeff",
+      "state": "finalized",
+      "summary": {
+        "product_name": "Blackhole Immersive",
+        "class_id": "fixture-blackhole",
+        "outcome": "windows_host_exited",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "outer_exit": 0,
+        "windows_self_exit_codes": [],
+        "exceptions": []
+      },
+      "export": {
+        "label": "Export sanitized report",
+        "action": {
+          "kind": "incident_export",
+          "incident": "00112233445566778899aabbccddeeff"
+        },
+        "disabled_reason": null
+      }
+    }
+  ],
   "actions": [
     {
       "label": "Disarm crash capture",

@@ -1,8 +1,19 @@
 # Capture a plug-in failure
 
-Steam Deck + Bitwig | Linux Audio Compatibility Manager | 19 September 2026
+Steam Deck + Bitwig | Linux Audio Compatibility Manager | 20 September 2026
 
 Crash capture is **manual and one-shot**. Arm it before launching a fresh instance of the plug-in. It cannot recover detailed diagnostics from an earlier crash or attach to an already running instance.
+
+## Availability by installed bridge generation
+
+The manager currently installed on the Deck predates the approved catalog-reliability candidate. It can require an ordinary publication before it offers detailed capture for a plug-in.
+
+Approved source `f164048f81045c76711e8ce1886a9dcd6f30dee7` adds two separate capabilities:
+
+- basic editor, Windows-host and transport failure status survives cleanup without detailed capture; and
+- the backend can admit a fresh exact managed-experimental publication to detailed capture.
+
+The separate manager-clarity candidate makes that managed-experimental arm action available in the graphical manager. Until that frontend and manager update is reviewed and installed together, the button can still show the older ordinary-publication limitation. Do not change a working publication merely to enable capture. Basic failure status and optional detailed capture are different features.
 
 ## 1. Prepare one small test
 
@@ -85,7 +96,7 @@ If project recall is part of the reported problem, also save, close and reopen t
 
 ## If capture is unavailable
 
-**Disabled arm button:** capture currently requires a verified, normally published profile. Experimental or newly installed products can be unavailable. **An exact ordinary publication is required** means a feature limitation, not a missed step. Keep your notes and request capture support for that plug-in. Do not switch working profiles just to enable the button.
+**Disabled arm button:** read the exact reason shown beneath the action. The currently installed manager can still require a verified ordinary publication. A manager including the separate clarity candidate also offers capture for an exact current managed-experimental publication. Newly installed, stale, changed or otherwise unsupported publications remain unavailable. Keep your notes and do not switch a working publication merely to enable the button.
 
 **Status still armed:** end the intended instance normally, then create a fresh one. Check that you chose the correct plug-in, including instrument versus FX variants.
 
