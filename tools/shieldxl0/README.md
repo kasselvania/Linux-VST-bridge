@@ -58,7 +58,10 @@ Run these from an exact checkout of the experiment branch on the fresh Pi image.
 
 The split is deliberate: full provisioning will not proceed until an 8 GB Pi 5 running
 the exact 16 KiB-page kernel is admitted and the physical codec
-acknowledges exactly address `0x48` through one SMBus Quick presence transaction. It also
+acknowledges exactly address `0x48` through one SMBus Quick presence transaction. The
+probe takes an exclusive GPIO17 lease, drives the codec's active-low reset high, waits
+10 ms, performs the single transaction, and releases the line so the codec returns to
+reset until the full kernel driver owns it. It also
 refuses the wrong architecture, wrong board, wrong image, wrong kernel, wrong page size,
 prohibited RPI0 software, explicit overclock configuration, unexpected boot
 configuration, package-version drift, or a foreign replacement file.
