@@ -4,14 +4,17 @@
 
 - deterministic implementation: **PASSED**
 - Box64/Wine physical Pi preflight: **PASSED ON THE 4 KiB KERNEL**
-- physical MIDI/audio/editor acceptance: **NOT RUN**
-- overall RPI0: **PENDING PHYSICAL VALIDATION**
+- physical MIDI/audio/editor acceptance: **PASSED**
+- overall RPI0: **FUNCTIONAL ARCHITECTURE PASSED; PERFORMANCE UNQUALIFIED**
 
-The deterministic implementation remains passed at the preserved executable
-source and tree below. Physical execution subsequently passed the bounded
-Box64/Wine/Windows-host preflight on a Raspberry Pi 5 using the distribution's
-4 KiB kernel. It did not run the physical MIDI/audio/editor sequence, so overall
-RPI0 remains pending rather than passed.
+The original deterministic implementation remains preserved below. Physical execution
+found a concrete state-restore defect, so the branch was reopened only for that defect.
+The repaired candidate then passed deterministic qualification, translated preflight,
+the complete physical MIDI/audio/editor/state/cleanup/restart sequence, and the required
+256-frame JACK graph. A later USB bus-power event set historical undervoltage/throttle
+bits, and memory high-water telemetry was unavailable. Those facts do not erase the
+functional pass, but they prohibit performance, low-latency, polyphony, or sustained-
+stability claims.
 
 ## Exact custody
 
@@ -22,6 +25,10 @@ RPI0 remains pending rather than passed.
 - base tree: `11a9fefbbe8b184c52058f4b4610da3a5e3b06e4`
 - executable-source head: `53fb9f2a334e2f5fbc3d3c1cf4469148fef30b45`
 - executable-source tree: `fb4a662eba4ac1f8c733a41d63e5c98419832139`
+- repaired physical-candidate source head:
+  `791088bb31fcd75212b2df4ac2c7a6efb95182ba`
+- repaired physical-candidate source tree:
+  `10f102fe04ce52a5a9436481331007146b85ebba`
 - evidence head/tree: the later evidence-only draft PR head reported in the
   PR body
 
@@ -41,10 +48,10 @@ probe, the source-owned Windows host opened and closed, and the translated cohor
 retired exactly. FEX was not attempted because Box64 passed the bounded preflight
 after selecting the installed 4 KiB kernel.
 
-## Intended first physical fixture
+## Physical fixture
 
-The first physical fixture is Raspberry Pi 5 with 8 GB RAM plus ShieldXL
-CS4270/JACK hardware. It begins without active cooling and without overclock.
+The first physical fixture was Raspberry Pi 5 with 8 GB RAM plus ShieldXL
+CS4270/JACK hardware, without active cooling or overclock.
 The ShieldXL integration contract is supplied. Integration exposed a kernel
 contract collision: Wine under Box64 fails on the contract's 16 KiB kernel, while
 the original CS4270 module was not built for the required 4 KiB kernel. SHIELDXL0
@@ -120,6 +127,14 @@ AP8 Windows host regression run
 also passed on the same source head. Hosted compilation and native Windows
 execution are deterministic qualification, not Pi or translation evidence.
 
+Physical execution later identified a concrete JACK/state/editor defect. Repaired-source
+run [`35639347278`](https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35639347278)
+passed the current Windows fixture/editor tests (11), native AArch64 build/tests (13),
+unchanged x86-64 Rust plane, and the frozen original Windows-artifact job. On the Pi,
+the exact repaired AArch64 source also passed 13 tests and a JACK release build. The
+original `53fb9f2` source and artifacts remain retained; the accepted repaired physical
+candidate is `791088b` / tree `10f102f`.
+
 Local implementation-host observations:
 
 - Rust standalone unit tests: 9 passed, 0 failed.
@@ -187,51 +202,99 @@ available and are not inferred. Temperature was observed at 53.2 degrees C, thro
 was `0x0`, and sampled clocks were 1.5 to 1.7 GHz during the diagnostic. Retained detail
 is in `source-synth-2048-diagnostic.json`.
 
-The source-synth architecture diagnostic passed, but the complete physical acceptance
-sequence is still pending. No USB MIDI controller was enumerated, the SSH session had
-no X11/Wayland display, and the actual JACK graph used 512-frame periods. Synthetic MIDI
-and direct JACK capture do not substitute for physical MIDI, an audible ShieldXL route,
-or real mouse interaction.
+That diagnostic preceded the physical campaign and remains retained as such. The later
+accepted sequence used physical MIDI, audible ShieldXL output, real mouse interaction,
+and an accepted 256-frame JACK graph.
 
-## Pending physical resumption sequence
+## Physical acceptance result
 
-Continue this same frozen executable source with:
+Physical execution first exercised the preserved `53fb9f2` source. Note input, pitch,
+sustain, all-notes-off, audible stereo output, real editor interaction, editor close and
+reopen, and clean restart worked. State restore exposed a concrete defect: JACK was
+deactivated, the three external routes disappeared, 12,288 frames were missing and
+expired with seven gaps, and the already-open editor did not redraw. This was an
+implementation defect, not a fixture failure.
 
-1. connect and identify one physical USB MIDI controller;
-2. set the accepted 128- or 256-frame JACK graph and start the source-owned synth at
-   2048 bridge frames;
-3. prove physical MIDI and audible ShieldXL stereo audio;
-4. exercise the real editor and state change/restore;
-5. cleanly stop and complete a second fresh accepted session.
+The bounded repair produced candidate `791088b` / tree `10f102f`. It pauses callback
+admission without deactivating JACK, waits for exact backend epoch acknowledgement,
+corrects setup reporting, and invalidates the live Win32 editor after state changes. The
+candidate's deterministic workflow and Pi-native build/tests passed before deployment.
+Its exact plugin SHA-256 is `a7718bfb...0675`; its exact AArch64 standalone SHA-256 is
+`e4e34d19...7c1f`.
 
-There is still no physical MIDI-controller identity, accepted audible ShieldXL route,
-mouse/editor result, changed-parameter state restore, full CPU/memory distribution, or
-complete physical-session restart receipt. The diagnostic gap and deadline counts above
-must not be relabeled as the missing physical campaign.
+On the final strict session (`94ba4b80261680a5ca36a7cf3c8d49ae`):
 
-Temperature, throttling status, and observed clock state must be recorded
-throughout. A functionally successful but thermally throttled run may establish
-basic compatibility; it cannot establish accepted performance, latency,
-polyphony, or sustained stability.
+- JACK ran at 48 kHz, 256 frames, three periods; bridge presentation delay was 2,048
+  frames (42.667 ms);
+- the Monolit USB controller produced physical note-ons `90 30 3a` (pitch 48, velocity
+  58) and `90 32 5d` (pitch 50, velocity 93), plus note-offs; sustain hold/release and
+  all-notes-off passed;
+- ShieldXL carried audible stereo output, and the retained returned-audio audit recorded
+  274,482 nonzero samples across 30 of 32 windows, maximum RMS 0.025526 and peak
+  0.043937;
+- the real Win32 editor was visible over the bounded X11/VNC path; physical mouse gain
+  changes affected audio, close left DSP running, and a fresh editor generation reopened
+  on the same DSP instance;
+- a 680-byte state was saved, changed, and restored; the already-open editor visibly
+  returned to the saved value, audio returned at that value, and all MIDI/stereo JACK
+  routes remained connected;
+- 86,859 callbacks delivered 22,230,528 frames with zero process failures, deadline
+  misses, missing frames, expired frames, or gaps. The callback maximum was 34.740
+  microseconds; restore pause was explicitly counted as 1,280 frames;
+- the Windows `process()` distribution covered 76,174 requests: mean 19.343 us, p50 at
+  most 20 us, p95 at most 22 us, p99 at most 24 us, maximum 2.078 ms. Admission through
+  publication was mean 221 us, p99 at most 352 us, maximum 2.350 ms. The correlated
+  non-plugin residual was mean 201.657 us, p99 at most 320 us, maximum 609.450 us;
+- editor/module/mapping cleanup passed, and the exact cohort, unit, cgroup, session
+  directory, mappings, and processes were absent after stop.
+
+The required fresh restart (`e674a1e98fc49f168f36929a0a07beaa`) again produced audible
+physical-MIDI audio and stopped cleanly: 10,609 callbacks, zero failures/deadlines/
+missing/expired/gaps, 37.796 us callback maximum, and exact cleanup. ShieldXL was then
+returned to its normal 512-frame JACK setting with Auto-Mute off.
+
+The bridge-delay descent also ran at the hardware contract's normal 512-frame JACK
+period. The 2,048-, 1,024-, and 512-frame bridge settings all had zero missing/expired
+frames, gaps, deadline misses, or process failures. Their configured bridge-only delays
+were 42.667, 21.333, and 10.667 ms. The operator perceived lower delay at the smaller
+settings, but that is subjective and is not an end-to-end or worst-case latency claim.
+
+Native host point samples were approximately 4.0% of one core and 162,332 KiB RSS; the
+Windows host point sample was 8.1% and 108,568 KiB RSS. The final translated cohort
+contained nine processes. Cgroup memory high-water telemetry was unavailable and is not
+inferred. The accepted session sampled 52.7 degrees C and 1.6 GHz; the campaign maximum
+was 53.8 degrees C.
+
+The firmware register began at `0x0`. A Monolit button woke its USB-bus-powered display,
+coincident with a power jump; the register thereafter read `0x50000` (historical
+undervoltage and throttling) while all current bits remained clear. Because the
+historical bits are sticky, the campaign retains the operator correlation but does not
+claim proof of causation or erase the event. Functional architecture passes; performance,
+latency, polyphony, and sustained stability remain unqualified.
 
 ## Preserved gaps and nonclaims
 
-- Box64/Wine and the source-owned synth passed a 4 KiB translated diagnostic, but not
-  a physical MIDI/audible/editor acceptance session.
 - The 16 KiB Box64/Wine fault and incomplete Wine runtime staging remain preserved.
   The former missing 4 KiB ShieldXL module is a resolved, retained blocker.
-- No accepted 128/256-frame physical graph, physical MIDI, editor display, complete CPU
-  distribution, or memory peak has been observed for RPI0.
-- No 2048/1024/512 physical delay campaign has run.
+- The `0x50000` historical power/throttle register and unavailable memory high-water
+  prevent accepted performance, latency, polyphony, or sustained-stability claims.
+- Point CPU/RSS samples and bounded timing distributions are not full resource
+  distributions or worst-case guarantees.
 - No DAW, Pigments, commercial plug-in, vendor installer, or authorization
   system was used.
 - There is no universal ARM, Snapdragon, production hardware, or low-latency
   claim.
 
-Physical execution identified concrete packaging and kernel-integration defects.
-The kernel integration defect is now closed in SHIELDXL0; the packaging defect remains.
-The frozen executable source remains preserved and should not be reopened unless the
-remaining physical execution identifies a concrete defect.
+Physical execution identified concrete packaging, kernel-integration, and state-restore
+defects. The kernel and state-restore defects are closed on the exact retained fixture;
+the package staging defect remains. Detailed sanitized evidence is in
+`physical-acceptance.json` and the retained native JSONL files.
 
-Because overall RPI0 remains pending physical validation, there is no RPI1
-Pigments recommendation.
+## RPI1 recommendation
+
+Proceed only as a private, user-owned follow-on: exact Pigments installation -> the
+same repaired ARM64 standalone host -> the same pinned Box64/Wine lane -> physical MIDI
+-> ShieldXL stereo audio -> the real mouse-operable Pigments editor -> preset/state
+restore -> clean close and restart. Keep paid binaries, content, presets, account data,
+credentials, activation state, and licensing payloads private and uncommitted. RPI1 must
+not inherit a performance or low-latency claim from RPI0.

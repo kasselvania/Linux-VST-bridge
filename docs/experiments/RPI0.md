@@ -36,14 +36,15 @@ RPI0 has separate deterministic and physical gates:
 
 - deterministic implementation: **PASSED**;
 - Box64/Wine physical Pi preflight: **PASSED ON THE 4 KiB KERNEL**;
-- physical MIDI/audio/editor acceptance: **NOT RUN**;
-- overall RPI0: **PENDING PHYSICAL VALIDATION**.
+- physical MIDI/audio/editor acceptance: **PASSED**;
+- overall RPI0: **FUNCTIONAL ARCHITECTURE PASSED; PERFORMANCE UNQUALIFIED**.
 
-An unavailable Pi does not convert a passed deterministic implementation into an
-implementation failure. Preserve executable source
+The initially qualified deterministic source remains preserved at
 `53fb9f2a334e2f5fbc3d3c1cf4469148fef30b45`, tree
-`fb4a662eba4ac1f8c733a41d63e5c98419832139`. Do not reopen implementation
-work unless physical execution identifies a concrete defect.
+`fb4a662eba4ac1f8c733a41d63e5c98419832139`. Physical execution identified a
+concrete JACK/state/editor defect, authorizing the bounded repaired candidate at
+`791088bb31fcd75212b2df4ac2c7a6efb95182ba`, tree
+`10f102fe04ce52a5a9436481331007146b85ebba`. Both identities remain retained.
 
 The SHIELDXL0 hardware integration contract is now supplied. Physical preflight
 identified a concrete kernel integration blocker before the MIDI/audio/editor
@@ -79,10 +80,8 @@ Serum, iLok, or any account/license flow.
 
 RPI0 uses one pinned x86-64-on-ARM translation lane. Box64/Wine passed the bounded
 physical Pi preflight on the installed 4 KiB kernel and remains selected for the
-remaining RPI0 attempt. This does not establish ShieldXL audio integration or the
-complete physical acceptance sequence. Preserve the exact Box64 and Wine identities
-chosen by deterministic implementation and record the exact runtime artifacts actually
-tested.
+accepted RPI0 run. Preserve the exact Box64 and Wine identities chosen by deterministic
+implementation and the exact runtime artifacts actually tested.
 
 A short deterministic preflight may reject Box64 in favor of FEX, but the slice must
 not become a comparative emulator benchmark. Select one lane and continue. Any
@@ -133,6 +132,45 @@ historical throttling bit was observed, and the CPU was observed at 2.4 GHz unde
 These are provisioning observations only, not performance qualification. The retained
 receipts are under `evidence/rpi0-standalone-arm64-appliance/`.
 
+## Physical acceptance result — 2026-09-21
+
+The preserved source reached the physical MIDI/audio/editor/state sequence and exposed
+one concrete defect: state restore deactivated JACK, dropped the external MIDI/stereo
+routes, produced missing/expired audio and gaps, and did not redraw the already-open
+editor. The bounded repair at source `791088b` / tree `10f102f` keeps JACK active during
+an explicitly counted callback pause, waits for exact backend epoch acknowledgement,
+and invalidates the live Win32 editor after state change. Hosted deterministic run
+[`35639347278`](https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35639347278)
+and Pi-native build/tests passed before the repaired candidate was used.
+
+The final accepted run used the required 48 kHz / 256-frame JACK graph and 2,048 bridge
+frames. Physical Monolit MIDI produced pitch 48 at velocity 58 and pitch 50 at velocity
+93, plus note-offs; sustain hold/release and all-notes-off passed. ShieldXL produced
+audible and measured nonzero stereo output. The real Win32 editor was visible and
+mouse-operable, gain changed audio, editor close left DSP running, and a fresh editor
+generation reopened on the same DSP instance. A 680-byte state save/change/restore
+visibly updated the already-open editor, preserved all JACK routes, and returned audio
+at the restored value.
+
+The session ran 86,859 callbacks and delivered 22,230,528 frames with zero process
+failures, deadline misses, missing frames, expired frames, or gaps. Callback maximum was
+34.740 microseconds. Exact unit/cgroup/session/mapping/editor/process cleanup passed. A
+second fresh 256/2,048 session again produced audible physical-MIDI audio, ran 10,609
+callbacks with all failure/gap counters zero, and cleaned up exactly.
+
+The 2,048/1,024/512 bridge-delay descent also completed without missing/expired frames,
+gaps, deadline misses, or process failures on the ShieldXL contract's normal 512-frame
+JACK graph. Operator-perceived delay improved, but this is not an objective latency
+guarantee.
+
+The firmware register began at `0x0`. Waking the USB-bus-powered Monolit display was
+operator-observed coincident with a power jump, after which the sticky register read
+`0x50000` (historical undervoltage and throttling) while current bits remained clear.
+Memory high-water telemetry was unavailable. RPI0 therefore establishes the complete
+functional architecture, but not accepted performance, latency, polyphony, or sustained
+stability. Exact results and nonclaims are in `RPI0_RESULT.md` and
+`evidence/rpi0-standalone-arm64-appliance/physical-acceptance.json`.
+
 ## Smallest complete test
 
 Build one original source-owned x86-64 Windows VST3 instrument fixture with:
@@ -166,9 +204,9 @@ Build one native AArch64 standalone host which:
 Manual JACK/PipeWire routing is acceptable for the first proof. Do not add a DAW,
 plugin scanner, publication catalogue, vendor manager, or general desktop shell.
 
-## Physical resumption and acceptance sequence
+## Physical acceptance sequence
 
-After SHIELDXL0 supplies the hardware contract, resume this same branch in this
+The complete sequence was executed on the repaired candidate and exact fixture in this
 order:
 
 1. Start the native AArch64 standalone host.
@@ -224,8 +262,8 @@ converter latency in bridge-only measurements.
 Pigments is the intended first partner-style demonstration, but it is not part of
 RPI0 acceptance.
 
-After RPI0 passes, a separate RPI1 slice may consume a user-owned, private exact
-Pigments installation and authorization state, then attempt:
+The functional RPI0 gate passed. The recommended separate RPI1 slice may consume a
+user-owned, private exact Pigments installation and authorization state, then attempt:
 
 ```text
 physical MIDI controller
@@ -238,7 +276,8 @@ physical MIDI controller
 ```
 
 No paid plug-in bytes, credentials, license payloads, presets, or content may be
-committed or redistributed.
+committed or redistributed. RPI1 must not inherit a performance, low-latency,
+polyphony, sustained-stability, or general-ARM claim from RPI0.
 
 ## Hard boundaries
 

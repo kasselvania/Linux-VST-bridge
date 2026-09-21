@@ -1,0 +1,172 @@
+{
+  "schema": "linux-vst-bridge-rpi0-physical-acceptance/v1",
+  "observed_at_utc": "2026-09-21",
+  "status": "RPI0_FUNCTIONAL_ARCHITECTURE_PASSED_PERFORMANCE_UNQUALIFIED",
+  "custody": {
+    "preserved_original_source_head": "53fb9f2a334e2f5fbc3d3c1cf4469148fef30b45",
+    "preserved_original_source_tree": "fb4a662eba4ac1f8c733a41d63e5c98419832139",
+    "physical_defect_repair_source_head": "791088bb31fcd75212b2df4ac2c7a6efb95182ba",
+    "physical_defect_repair_source_tree": "10f102fe04ce52a5a9436481331007146b85ebba",
+    "source_manifest_sha256": "17182c24546a6ba8163645a6f7883a47d7471666d8f6a5f86c1ab5f7de6fa20e",
+    "arm_standalone_sha256": "e4e34d1973ff5edb5f9b166a282b8d04132abd6a8d1757958caa4f5234937c1f",
+    "windows_plugin_sha256": "a7718bfb91185b88473ec77f80681496c1f0cfaf8b99105961c980b4c9a50675",
+    "windows_host_sha256": "6f00cf377458037e4ae64c2425578b7c408a0a5ed6f027a0249e0d979f55fc2c",
+    "deterministic_run": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35639347278",
+    "deterministic_result": "pass"
+  },
+  "fixture": {
+    "board": "Raspberry Pi 5 Model B Rev 1.1",
+    "revision": "d04171",
+    "ram_bytes": 8341209088,
+    "os": "Raspberry Pi OS Trixie 2026-09-15 / Debian 13.7",
+    "kernel": "6.18.50+rpt-rpi-v8",
+    "page_size_bytes": 4096,
+    "storage": "microSD / ext4",
+    "cooling": "none; board and ShieldXL open",
+    "overclock": false,
+    "display": "TigerVNC X11 :1 over an SSH-local tunnel",
+    "audio": "ShieldXL CS4270 through JACK2 1.9.22 at 48000 Hz, stereo S16_LE",
+    "midi": "Monolit USB 16c0:0490 on the accepted stable ALSA identity"
+  },
+  "translation": {
+    "box64_commit": "2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a",
+    "box64_sha256": "79cdd30e5480f5dfb8cd717af99d0e5a89eb55b31701de6fde7896a6a0e79ab6",
+    "wine_commit": "db11d0fe6a169c457e23d007e20404643d067aa8",
+    "wine_version": "11.0",
+    "wine_sha256": "1a34236df8794f6aa8fe623cfa44d7de30f145c7e7c9cd236620e6b92a3f6194",
+    "candidate_preflight_session": "d9d7bdb1cfe64b52c70497841e38f27c",
+    "candidate_preflight": "pass_exact_cohort_retired_and_session_removed",
+    "preserved_failure": "a config pointing at the package-copied Wine launcher failed to find adjacent ntdll.so; the passing config used the same hashed installed Wine runtime"
+  },
+  "midi": {
+    "final_jack_capture_port": "system:midi_capture_2",
+    "accepted_channel_zero_based": 0,
+    "distinct_physical_note_ons": [
+      {"bytes_hex": "90 30 3a", "pitch": 48, "velocity": 58},
+      {"bytes_hex": "90 32 5d", "pitch": 50, "velocity": 93}
+    ],
+    "note_offs": "pass",
+    "sustain_cc64_hold_and_release": "pass_operator_observed",
+    "all_notes_off_cc123": "pass_operator_observed",
+    "unsupported_messages": "counted_without_guessing"
+  },
+  "strict_acceptance_session": {
+    "session": "94ba4b80261680a5ca36a7cf3c8d49ae",
+    "jack_period_frames": 256,
+    "bridge_frames": 2048,
+    "bridge_milliseconds": 42.6666666667,
+    "midi_route": "Monolit JACK capture -> lvb-arm-standalone:midi_in",
+    "audio_route": [
+      "lvb-arm-standalone:audio_out_l -> system:playback_1",
+      "lvb-arm-standalone:audio_out_r -> system:playback_2"
+    ],
+    "operator_audio": "pass_distinct_pitch_velocity_volume_and_quality",
+    "returned_audio_audit": {
+      "retained_windows": 32,
+      "samples": 301440,
+      "nonzero_samples": 274482,
+      "nonzero_windows": 30,
+      "maximum_rms": 0.025525778495395633,
+      "maximum_peak": 0.04393700882792473
+    },
+    "editor": {
+      "real_win32_editor_visible": true,
+      "physical_mouse_gain_response": "pass",
+      "close_while_dsp_continued": "pass",
+      "fresh_generation_reopen_same_dsp": "pass",
+      "windows_summary": {"opens": 2, "closes": 2, "gestures": 3, "values": 229, "host_updates": 598, "failure": 0}
+    },
+    "state": {
+      "bytes": 680,
+      "save_change_restore": "pass",
+      "open_editor_visibly_updated": "pass",
+      "midi_and_stereo_jack_routes_preserved": "pass",
+      "audio_returned_at_restored_value": "pass"
+    },
+    "callback": {
+      "callbacks": 86859,
+      "process_failures": 0,
+      "deadline_misses": 0,
+      "maximum_ns": 34740,
+      "missing_frames": 0,
+      "expired_frames": 0,
+      "contiguous_gaps": 0,
+      "delivered_frames": 22230528,
+      "priming_frames": 4096,
+      "paused_frames": 1280,
+      "unsupported_midi": 855,
+      "malformed_midi": 0,
+      "overflow_midi": 0
+    },
+    "timing_ns": {
+      "windows_process": {"requests": 76174, "mean": 19343, "p50_upper": 20000, "p95_upper": 22000, "p99_upper": 24000, "maximum": 2077600},
+      "admission_to_publication": {"requests": 76174, "mean": 221000, "p50_upper": 224000, "p95_upper": 320000, "p99_upper": 352000, "maximum": 2349718},
+      "correlated_non_plugin": {"requests": 76174, "mean": 201657, "p50_upper": 208000, "p95_upper": 320000, "p99_upper": 320000, "maximum": 609450},
+      "negative_correlated_residuals": 0
+    },
+    "resources": {
+      "translated_cohort_processes": 9,
+      "translated_cohort_cpu_usage_usec": 41651619,
+      "native_host_point_cpu_percent": 4.0,
+      "native_host_point_rss_kib": 162332,
+      "windows_host_point_cpu_percent": 8.1,
+      "windows_host_point_rss_kib": 108568,
+      "memory_high_water": "unavailable_not_inferred"
+    },
+    "cleanup": "pass_unit_cgroup_session_mappings_editor_and_processes_absent"
+  },
+  "strict_restart_session": {
+    "session": "e674a1e98fc49f168f36929a0a07beaa",
+    "jack_period_frames": 256,
+    "bridge_frames": 2048,
+    "operator_audio": "pass",
+    "returned_audio_samples": 300544,
+    "returned_audio_nonzero_samples": 132092,
+    "callbacks": 10609,
+    "process_failures": 0,
+    "deadline_misses": 0,
+    "callback_maximum_ns": 37796,
+    "missing_frames": 0,
+    "expired_frames": 0,
+    "contiguous_gaps": 0,
+    "cleanup": "pass"
+  },
+  "delay_descent": [
+    {"jack_period_frames": 512, "bridge_frames": 2048, "bridge_milliseconds": 42.6666666667, "callbacks": 636055, "callback_maximum_ns": 45092, "missing_frames": 0, "expired_frames": 0, "gaps": 0, "operator_audio": "pass"},
+    {"jack_period_frames": 512, "bridge_frames": 1024, "bridge_milliseconds": 21.3333333333, "callbacks": 12546, "callback_maximum_ns": 53685, "missing_frames": 0, "expired_frames": 0, "gaps": 0, "operator_audio": "pass_lower_subjective_delay"},
+    {"jack_period_frames": 512, "bridge_frames": 512, "bridge_milliseconds": 10.6666666667, "callbacks": 9600, "callback_maximum_ns": 51462, "missing_frames": 0, "expired_frames": 0, "gaps": 0, "operator_audio": "pass_lower_subjective_delay"}
+  ],
+  "thermal_and_power": {
+    "accepted_session_observed_temperature_c": 52.7,
+    "campaign_observed_temperature_maximum_c": 53.8,
+    "accepted_session_observed_clock_hz": 1600020224,
+    "firmware_register_initial": "0x0",
+    "firmware_register_after_monolit_display_wake": "0x50000",
+    "current_bits_after_event": "clear",
+    "operator_observation": "the USB-bus-powered Monolit display woke when its first button was pressed, coincident with the power jump",
+    "classification": "functional_pass; performance_latency_polyphony_and_sustained_stability_unqualified"
+  },
+  "preserved_physical_defect": {
+    "original_source_observation": "state restore deactivated JACK, removed external routes, produced 12288 missing and expired frames with 7 gaps, and the already-open editor did not redraw",
+    "repair": "bounded callback pause without JACK deactivation, exact backend epoch acknowledgement, corrected setup labels, and live Win32 editor invalidation",
+    "repair_result": "pass_on_repaired_source_with_routes_audio_and_open_editor_preserved"
+  },
+  "retained_files": {
+    "final_256_2048_native": {"path": "final-256-2048-native.jsonl", "sha256": "afda15ee3b09faa863dfa47c7c6cea5873edeae4948093e8152f08979636f085"},
+    "final_256_restart_2048_native": {"path": "final-256-restart-2048-native.jsonl", "sha256": "1ee48b304217877b5c8c6e6e4423dd4dc7533c08084b3ab7fb4a7d0ad89ae2a5"},
+    "state_repair_2048_native": {"path": "state-repair-2048-native.jsonl", "sha256": "9b4149e29c1fe4521cdbc57378989a51071582dbbf7662bf28f574c852ae7e87"},
+    "state_repair_restart_2048_native": {"path": "state-repair-restart-2048-native.jsonl", "sha256": "1f5bf8fc9029fc334161af948afe065b5c666fd5faf1db232ce28f26b72627e6"},
+    "state_repair_1024_native": {"path": "state-repair-1024-native.jsonl", "sha256": "56b7aa1902b3015e1b96951c8ee062f811d0aa72ad9ae82ee7c4d4e1a394c0f5"},
+    "state_repair_512_native": {"path": "state-repair-512-native.jsonl", "sha256": "875e94304eb0503c330dd27d71768bdfc79a087eb4e70581ab511d2c57925301"},
+    "sanitized_windows_logs": "not_committed_raw_because_systemd_command_lines_contain_the_local_username_and_paths",
+    "final_256_2048_windows_raw_sha256": "589e3759df0845e9dc8cf358e3de77b7418d595d04cf4a18816ffcead5fdc2ce",
+    "final_256_restart_2048_windows_raw_sha256": "e108a5d76ab747f69058915961be246c83da3eb65f371681bdcf91a32e13a9ff"
+  },
+  "nonclaims": [
+    "No DAW or commercial plug-in was used.",
+    "Operator-perceived latency is not an objective latency guarantee.",
+    "Bridge frame milliseconds exclude JACK, USB, audio-interface, amplifier, and converter latency.",
+    "The 0x50000 historical power/throttle bits and unavailable memory high-water telemetry prevent accepted performance, polyphony, latency, or sustained-stability claims.",
+    "This Raspberry Pi result does not establish universal ARM, Snapdragon, or production hardware support."
+  ]
+}
