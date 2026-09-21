@@ -109,16 +109,17 @@ establishes whether the module was loaded or `GetPluginFactory` was reached.
 
 Cleanup found zero FRG1-environment processes, no remaining private X11 socket, no
 crash artifact and zero publication payloads. The source module remained exact and
-the Ubuntu-lab manager remained active. Per the fixed decision tree, there is no
-attempt 003, class-specific proxy or coherent profile on this branch.
+the Ubuntu-lab manager remained active. Under the then-current decision tree, attempt
+002 ended that diagnostic sequence. The later operator-directed recalibration below
+opened a different successor-verification continuation rather than relabeling it.
 
 ## Recalibrated continuation
 
 The operator corrected FRG1's premise after attempt 002: the product goal is to
 transfer working Linux knowledge across Linux environments, not repeatedly rediscover
 the same commercial product from a blank state. This supersedes the attempt-002
-retry ceiling for the new successor-verification continuation while leaving both
-failed attempts unchanged.
+retry ceiling for the new successor-verification continuation while leaving the
+earlier failed attempts unchanged.
 
 The prior private-X11 namespace omitted `/dev/dri` and the exact GPU sysfs projection
 already proven in the Ubuntu Bitwig/ASC boundary. That is a launch-environment
@@ -169,18 +170,35 @@ initialized and inspected. The result authorizes the class-specific descriptor a
 `review_candidate` build. It does not authorize Ubuntu publication or Bitwig use from
 this unmerged product branch.
 
-If the differential census succeeds, FRG1 generates one exact successor proxy and
-nonactivating candidate. After review and merge, a new Ubuntu-lab branch may adopt
-the retained prefix under its original owner record, publish to a new lab-only
-revision path and repeat the predecessor's Bitwig baseline on Ubuntu.
+## Candidate build
+
+The exact census generated one 128,535-byte descriptor, SHA-256
+`a1fd81c9f91c0371b633e9b4c7597e020c60b97da0494e9ce11becb5c68eb9f5`.
+The Ubuntu product builder consumed exact source commit `3f3ae623…`, the pinned VST3
+SDK, and that read-only descriptor with networking disabled. It produced one stripped
+x86-64 Linux proxy, 2,048,608 bytes, SHA-256
+`8b57354720545acc51789e0545ce921b2d60c481da62c57a1dba0bac73b1e600`.
+
+The revision-11 candidate binds the GE-Proton archive and installed tree, Ubuntu
+runtime identity and tree, their exact retained receipts, the Proton and Wine entry
+files, and a source-owned direct-Proton entry adapter. The adapter accepts only the
+product's fixed `--verb=run -- .../proton` shape and replaces no runner or Windows
+binary. Cross-generation runner closure, host, module, descriptor and native-proxy
+combinations refuse in the focused profile tests.
+
+Revision 10 remains byte-identical historical authority. Revision 11 is deliberately
+absent from the ordinary installed-profile set and cannot activate. After review and
+merge, a new Ubuntu-lab branch may adopt the retained prefix under its original owner
+record, publish to a new lab-only revision path and repeat the predecessor's Bitwig
+baseline on Ubuntu.
 
 ## Nonclaims
 
-The two retained failed attempts do not establish factory discovery, class identity, controller association,
-DAW discovery, editor, audio, parameters, automation, state, restart, retirement,
-ordinary publication, Ubuntu compatibility or Steam Deck compatibility for this
-module. The exact admitted inputs remain useful custody facts, not a coherent
-compatibility profile.
+The successful census establishes the exact successor factory, class, component,
+controller, buses, parameter roster, precision and interface metadata. It does not
+establish DAW discovery, editor presentation, audio, automation, save/reopen state,
+restart, retirement, ordinary publication, broad Ubuntu compatibility or any new
+Steam Deck result.
 
 ## Evidence
 
@@ -189,3 +207,4 @@ compatibility profile.
 - `evidence/frg1/attempt-003/result.json`
 - `evidence/frg1/attempt-004/result.json`
 - `evidence/frg1/attempt-005/result.json`
+- `evidence/frg1/candidate.json`

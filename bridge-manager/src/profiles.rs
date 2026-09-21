@@ -283,6 +283,14 @@ pub fn installed_profiles() -> Result<Vec<Profile>> {
     Ok(result)
 }
 
+/// FRG1 Ubuntu successor candidate. It is deliberately absent from the ordinary
+/// installed-profile set until the separate Ubuntu qualification accepts it.
+pub fn frg1_candidate() -> Result<Profile> {
+    Profile::parse(include_bytes!(
+        "../../compatibility/frg1/arturia-efx-fragments.json"
+    ))
+}
+
 /// Immutable AP18 ordinary profile and UIR1 rollback parent.
 pub fn pigments_eleven() -> Result<Profile> {
     Profile::parse(include_bytes!("../../compatibility/ap18/revision-11/arturia-pigments.json"))
@@ -343,6 +351,205 @@ pub fn external_ids(class_id: &str) -> Result<[String; 2]> {
         bytes[8] = (bytes[8] & 0x3f) | 0x80;
         hex(&bytes)
     }))
+}
+
+#[cfg(test)]
+mod frg1_tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn environment(profile: &Profile) -> Environment {
+        let requirement = &profile.requirements.runner;
+        let proton = PathBuf::from("/runner/proton");
+        let entry_point = PathBuf::from("/runner/direct-proton-entrypoint");
+        let mut files = vec![
+            Artifact {
+                path: proton.clone(),
+                sha256: requirement.proton_sha256.clone(),
+            },
+            Artifact {
+                path: entry_point.clone(),
+                sha256: requirement.entry_point_sha256.clone(),
+            },
+        ];
+        for (index, sha256) in requirement
+            .file_sha256
+            .iter()
+            .filter(|sha256| {
+                *sha256 != &requirement.proton_sha256 && *sha256 != &requirement.entry_point_sha256
+            })
+            .enumerate()
+        {
+            files.push(Artifact {
+                path: PathBuf::from(format!("/runner/closure-{index}")),
+                sha256: sha256.clone(),
+            });
+        }
+        Environment {
+            id: "frg1-test".into(),
+            root: PathBuf::from("/environment"),
+            runner: Runner {
+                id: requirement.id.clone(),
+                version: requirement.version.clone(),
+                proton,
+                entry_point,
+                files,
+            },
+            revision: profile.requirements.environment_revision,
+        }
+    }
+
+    #[test]
+    fn successor_is_nonactivating_and_preserves_history() {
+        let candidate = frg1_candidate().unwrap();
+        let predecessor = ap17_profiles()
+            .unwrap()
+            .into_iter()
+            .find(|profile| profile.id == "arturia-efx-fragments")
+            .unwrap();
+        assert_eq!(candidate.revision, 11);
+        assert_eq!(candidate.claim, Claim::ReviewCandidate);
+        assert!(candidate
+            .claim
+            .require(SelectionPurpose::Qualification)
+            .is_ok());
+        assert!(candidate
+            .claim
+            .require(SelectionPurpose::Activation)
+            .is_err());
+        assert_eq!(predecessor.revision, 10);
+        assert_eq!(candidate.class.class_id, predecessor.class.class_id);
+        assert_ne!(candidate.module_sha256, predecessor.module_sha256);
+        assert_ne!(
+            candidate.requirements.runner,
+            predecessor.requirements.runner
+        );
+        assert_ne!(
+            candidate.requirements.host_sha256,
+            predecessor.requirements.host_sha256
+        );
+        assert_ne!(
+            candidate.requirements.native_sha256,
+            predecessor.requirements.native_sha256
+        );
+        assert_ne!(
+            candidate.requirements.descriptor_sha256,
+            predecessor.requirements.descriptor_sha256
+        );
+    }
+
+    #[test]
+    fn successor_runner_requires_the_complete_exact_closure() {
+        let candidate = frg1_candidate().unwrap();
+        let exact = environment(&candidate);
+        assert!(candidate
+            .verify_environment(&exact, &candidate.requirements.environment_family)
+            .is_ok());
+        for index in 0..exact.runner.files.len() {
+            let mut missing = exact.clone();
+            missing.runner.files.remove(index);
+            assert!(candidate
+                .verify_environment(&missing, &candidate.requirements.environment_family)
+                .is_err());
+        }
+        let mut predecessor_runner = exact;
+        predecessor_runner.runner.id = "proton-11.0-deck-predecessor".into();
+        assert!(candidate
+            .verify_environment(
+                &predecessor_runner,
+                &candidate.requirements.environment_family
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn successor_refuses_every_predecessor_generation_binding() {
+        let candidate = frg1_candidate().unwrap();
+        let predecessor = ap17_profiles()
+            .unwrap()
+            .into_iter()
+            .find(|profile| profile.id == candidate.id)
+            .unwrap();
+        let (_fixture, _fixture_profile, mut census, mut native) =
+            crate::test_fixture::prepared();
+        census.environment = crate::catalogue::EnvironmentBinding {
+            family: candidate.requirements.environment_family.clone(),
+            environment: environment(&candidate),
+        };
+        census.module.sha256 = candidate.module_sha256.clone();
+        census.host.sha256 = candidate.requirements.host_sha256.clone();
+        census.host_source_sha256 = candidate.requirements.host_source_sha256.clone();
+        census.factory_vendor = candidate.factory_vendor.clone();
+        census.classes = vec![candidate.class.class_id.clone()];
+        census.selected = candidate.class.clone();
+        assert!(crate::observation::select_for(
+            std::slice::from_ref(&candidate),
+            &census,
+            SelectionPurpose::Qualification,
+        )
+        .is_ok());
+
+        for mismatch in [
+            (predecessor.module_sha256.clone(), None, None),
+            (
+                candidate.module_sha256.clone(),
+                Some(predecessor.requirements.host_sha256.clone()),
+                None,
+            ),
+            (
+                candidate.module_sha256.clone(),
+                None,
+                Some(predecessor.requirements.host_source_sha256.clone()),
+            ),
+        ] {
+            let mut wrong = census.clone();
+            wrong.module.sha256 = mismatch.0;
+            if let Some(host) = mismatch.1 {
+                wrong.host.sha256 = host;
+            }
+            if let Some(source) = mismatch.2 {
+                wrong.host_source_sha256 = source;
+            }
+            assert!(crate::observation::select_for(
+                std::slice::from_ref(&candidate),
+                &wrong,
+                SelectionPurpose::Qualification,
+            )
+            .is_err());
+        }
+
+        let mut predecessor_environment = census.clone();
+        predecessor_environment.environment.environment = environment(&predecessor);
+        assert!(crate::observation::select_for(
+            std::slice::from_ref(&candidate),
+            &predecessor_environment,
+            SelectionPurpose::Qualification,
+        )
+        .is_err());
+
+        native.class = candidate.class.clone();
+        native.module_sha256 = candidate.module_sha256.clone();
+        native.artifact.sha256 = candidate.requirements.native_sha256.clone();
+        native.source_commit = candidate.requirements.native_source_commit.clone();
+        native.descriptor_sha256 = candidate.requirements.descriptor_sha256.clone();
+        native.external_ids = external_ids(&candidate.class.class_id).unwrap();
+        assert!(native.matches(&candidate).is_ok());
+        for (native_sha256, descriptor_sha256) in [
+            (
+                predecessor.requirements.native_sha256.clone(),
+                candidate.requirements.descriptor_sha256.clone(),
+            ),
+            (
+                candidate.requirements.native_sha256.clone(),
+                predecessor.requirements.descriptor_sha256.clone(),
+            ),
+        ] {
+            let mut wrong = native.clone();
+            wrong.artifact.sha256 = native_sha256;
+            wrong.descriptor_sha256 = descriptor_sha256;
+            assert!(wrong.matches(&candidate).is_err());
+        }
+    }
 }
 
 #[cfg(test)]

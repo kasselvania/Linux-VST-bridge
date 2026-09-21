@@ -131,6 +131,44 @@ class CensusTests(unittest.TestCase):
         self.assertEqual(bootstrap, ["bwrap", "--clearenv", "--", "/opt/frg1/runner/proton", "getcompatpath", "/"])
         self.assertEqual(census.PREFIX_INITIALIZATION_TIMEOUT, 120.0)
 
+    def test_direct_proton_entrypoint_is_closed_and_forwards_exact_arguments(self) -> None:
+        entrypoint = ROOT / "tools/frg1/direct-proton-entrypoint.sh"
+        with tempfile.TemporaryDirectory() as directory:
+            proton = pathlib.Path(directory) / "proton"
+            proton.write_text("#!/bin/sh\nprintf '%s\\n' \"$@\"\n", encoding="utf-8")
+            proton.chmod(0o700)
+            result = subprocess.run(
+                [str(entrypoint), "--verb=run", "--", str(proton), "runinprefix", "C:\\host.exe"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.stdout.splitlines(), ["runinprefix", "C:\\host.exe"])
+            refused = subprocess.run(
+                [str(entrypoint), "--verb=inspect", "--", str(proton)],
+                check=False,
+                capture_output=True,
+            )
+            self.assertEqual(refused.returncode, 64)
+
+    def test_review_candidate_closes_census_runner_host_descriptor_and_native(self) -> None:
+        profile_path = ROOT / "compatibility/frg1/arturia-efx-fragments.json"
+        candidate_path = ROOT / "evidence/frg1/candidate.json"
+        entrypoint = ROOT / "tools/frg1/direct-proton-entrypoint.sh"
+        profile = json.loads(profile_path.read_text())
+        candidate = json.loads(candidate_path.read_text())
+        self.assertEqual(profile["claim"], "review_candidate")
+        self.assertEqual(profile["revision"], 11)
+        self.assertEqual(profile["module_sha256"], candidate["fixture"]["module_sha256"])
+        self.assertEqual(profile["requirements"]["host_sha256"], candidate["windows_host"]["artifact_sha256"])
+        self.assertEqual(profile["requirements"]["host_source_sha256"], candidate["windows_host"]["source_manifest_sha256"])
+        self.assertEqual(profile["requirements"]["native_sha256"], candidate["native_proxy"]["sha256"])
+        self.assertEqual(profile["requirements"]["descriptor_sha256"], candidate["descriptor"]["sha256"])
+        self.assertEqual(census.sha256_file(profile_path), candidate["profile"]["file_sha256"])
+        self.assertEqual(census.sha256_file(entrypoint), profile["requirements"]["runner"]["entry_point_sha256"])
+        for receipt in ("runner_receipt", "runtime_receipt"):
+            self.assertIn(candidate["runner"][receipt]["sha256"], profile["requirements"]["runner"]["file_sha256"])
+
     def test_retained_prefix_custody_is_exact_and_snapshotted_without_source_mutation(self) -> None:
         lock = json.loads((ROOT / "compatibility/frg1/input.lock.json").read_text())
         module_bytes = b"successor-module"

@@ -110,9 +110,22 @@ This is factory/class and descriptor authority for the exact successor. It is no
 Ubuntu editor, audio, state or Bitwig qualification. Those remain after the exact
 native proxy/profile is reviewed and merged.
 
-Those failures remain immutable evidence. They do not erase the predecessor profile
-or prove that FRAGMENTS was loaded. The recalibrated successor-verification run is a
-new, explicitly authorized continuation, not a relabeling of any failed attempt.
+## Review candidate
+
+The census generated descriptor SHA-256
+`a1fd81c9f91c0371b633e9b4c7597e020c60b97da0494e9ce11becb5c68eb9f5`.
+An offline Ubuntu build from exact source commit
+`3f3ae6235a85a8d5e311b6275b2d7555a088eb92` produced the x86-64 native
+proxy SHA-256 `8b57354720545acc51789e0545ce921b2d60c481da62c57a1dba0bac73b1e600`.
+Revision 11 binds those identities to the exact module, GE-Proton installation and
+Ubuntu runtime receipts, direct-Proton entry adapter, Windows host/source manifest,
+factory census and historical predecessor. Its claim remains `review_candidate`, so
+ordinary activation is refused.
+
+The earlier failures remain immutable evidence. They do not independently establish
+that FRAGMENTS was loaded; attempt 005 supplies that later authority. The recalibrated
+successor-verification run is a new, explicitly authorized continuation, not a
+relabeling of any failed attempt.
 
 ## In scope
 

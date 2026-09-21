@@ -1,0 +1,84 @@
+{
+  "build": {
+    "builder_image_id": "sha256:5748f7e992b796d8d46a550180d62553efe59094fa1e6412f9df215cb568974d",
+    "cargo": "1.95.0 (f2d3ce0bd 2026-03-21)",
+    "cmake": "4.2.3",
+    "completed_at": "2026-09-21T21:28:37Z",
+    "compiler": "g++ 15.2.0-16ubuntu1",
+    "network_shared": false,
+    "ninja": "1.13.2",
+    "rust_backend_sha256": "b735a8beb34ed1c0df6703a65a85e15152d57ef8c63dfb88a53cefed03f4042f",
+    "rustc": "1.95.0 (59807616e 2026-04-14)",
+    "source_archive_sha256": "729bc1195a17861e597432be1a5e85a27da3b3308c82b4dc842372ff64dc7228",
+    "source_commit": "3f3ae6235a85a8d5e311b6275b2d7555a088eb92",
+    "source_content_manifest_sha256": "5e5b245755b1ebf92d78913ca98d86b7c054d3f038f124d0f71a58bce17937a4",
+    "source_tree": "9dc5196c805cebb87835be37e6b85e86392f6e52",
+    "vst3_sdk_commit": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96"
+  },
+  "census": {
+    "input_lock_canonical_sha256": "1d5bf8d7a6d339b3380e178d5cb2ef328393b59ec78535b419f08ccca33f6c08",
+    "input_lock_file_sha256": "ec858a1404b92f7d1d88e4f9aaef032e6020cf7a16c996cfa447ce3ad9cb1360",
+    "private_report_sha256": "71c82f12953ab62eeaf0a986554743317f73862dc6543de3e467e9db16c43d35",
+    "sanitized_result_sha256": "048d929a735eaa5310ae1f369e04e46536f25f2fac416c9dd5629fdc1c5c62c4",
+    "structured_record_count": 170
+  },
+  "descriptor": {
+    "byte_length": 128535,
+    "class_id": "41727475415649536772616E50726F63",
+    "parameter_count": 2415,
+    "sha256": "a1fd81c9f91c0371b633e9b4c7597e020c60b97da0494e9ce11becb5c68eb9f5"
+  },
+  "disposition": "review_candidate_not_activatable",
+  "fixture": {
+    "embedded_version": "1.3.1.6566",
+    "module_byte_length": 26453504,
+    "module_sha256": "5846dfe91396596715f01a85d51c5ca21a808ef7dad1bfb44b02ab444345e1a5",
+    "name": "Efx FRAGMENTS"
+  },
+  "native_proxy": {
+    "architecture": "x86_64-linux",
+    "byte_length": 2048608,
+    "elf_build_id": "cedfbb28fbc7910a436f5b43f3e5b9ad526506fe",
+    "sha256": "8b57354720545acc51789e0545ce921b2d60c481da62c57a1dba0bac73b1e600"
+  },
+  "profile": {
+    "claim": "review_candidate",
+    "file_sha256": "41d7c83cee1ddb72aebcdf71ac262faadcc43c71454baaac49a1f3d49df02a5f",
+    "id": "arturia-efx-fragments",
+    "revision": 11
+  },
+  "qualification_scope": {
+    "statement": "This candidate binds exact Ubuntu-successor preparation inputs. It does not activate publication or qualify Ubuntu, Bitwig, editor, audio, state, or the Steam Deck."
+  },
+  "runner": {
+    "archive_sha256": "c5448b76a230384e2d7bc6beb5ccb97bafb7e2c3b6c527cb03a1a546bbcb00a0",
+    "direct_entry": {
+      "byte_length": 178,
+      "sha256": "520891ce91ffd15bdc67ed9d6fbbd6471734a29b71f4e0bb8d432dbd98cb89e9"
+    },
+    "installed_tree": {
+      "entries": 8900,
+      "sha256": "eb8ba17cd534d465cdb1a6bb957b4a1972762f3a967d8e1d49781714c0b76ffa"
+    },
+    "proton_sha256": "c0fe398829c78c82b26d39c20fbeb6b28d1e46941723962d794d7e5f67d402be",
+    "runner_receipt": {
+      "byte_length": 444,
+      "sha256": "67644e72bd5f4d567a087c6f531e857be1747c17c33c75dbcd08465337123cc7"
+    },
+    "runtime_identity_sha256": "898b365b97877c7ec3236dbe810fa0210fdca439749df43c2cb36b2d1c06979b",
+    "runtime_receipt": {
+      "byte_length": 2599,
+      "sha256": "3d3f4b8727497922d5eab3c8e2d7073c6c809b116f0e2a81a603d9e542c91eeb"
+    },
+    "runtime_tree": {
+      "entries": 638,
+      "sha256": "fc434dd9bd4e4aaec1a17812e15ac00a95db73ad002878f3ff7f01f6cbecb1ed"
+    },
+    "wine_sha256": "7b0ca4538f365d8a225afdfe5f872715bb5f7c1908dbdcb522c9519cac7c8714"
+  },
+  "schema": "linux-vst-bridge-frg1-review-candidate/v1",
+  "windows_host": {
+    "artifact_sha256": "348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be",
+    "source_manifest_sha256": "ad7f860633f871fbe0d76cb3c546e8f7f33e8291ac46844fbd088806ba53814c"
+  }
+}
