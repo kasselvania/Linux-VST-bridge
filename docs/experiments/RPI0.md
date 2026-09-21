@@ -48,8 +48,10 @@ work unless physical execution identifies a concrete defect.
 The SHIELDXL0 hardware integration contract is now supplied. Physical preflight
 identified a concrete kernel integration blocker before the MIDI/audio/editor
 sequence: Box64/Wine requires the installed 4 KiB `rpt-rpi-v8` kernel, while the
-qualified ShieldXL CS4270 module is currently built only for the 16 KiB
-`rpt-rpi-2712` kernel. Do not bypass either contract silently.
+original ShieldXL CS4270 module was built only for the 16 KiB `rpt-rpi-2712`
+kernel. SHIELDXL0 has now explicitly admitted, built, loaded, and reboot-qualified
+the same pinned codec source for the exact 4 KiB kernel. The historical blocker
+remains retained evidence rather than being erased.
 
 ## Controlled fixture
 
@@ -120,11 +122,11 @@ Two concrete defects remain preserved:
    therefore failed because the copied launcher could not find its adjacent Wine runtime
    tree. The physical preflight used a distinct retained config pointing at the same
    hashed Wine ELF in its exact installed runtime tree; no executable was rebuilt.
-2. The SHIELDXL0 CS4270 module exists only for `rpt-rpi-2712`. Under the required 4 KiB
-   `rpt-rpi-v8` kernel, controls enumerate but ALSA reports only HDMI devices and the
-   sound node remains deferred with `asoc-simple-card: parse error`. Extending the
-   SHIELDXL0 kernel-module contract to this exact 4 KiB kernel is required before RPI0
-   may continue to physical MIDI, stereo audio, editor, or state acceptance.
+2. The first 4 KiB boot had no matching SHIELDXL0 CS4270 module, so ALSA reported only
+   HDMI devices and the sound node remained deferred with `asoc-simple-card: parse
+   error`. SHIELDXL0 subsequently extended its fail-closed contract for the exact
+   `rpt-rpi-v8` kernel. Module build/load, codec binding, ALSA/JACK enumeration, and
+   reboot identity now pass; physical MIDI/audio/editor acceptance remains separate.
 
 During provisioning the highest observed temperature was 80.7 degrees C. No current or
 historical throttling bit was observed, and the CPU was observed at 2.4 GHz under load.

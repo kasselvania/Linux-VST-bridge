@@ -47,7 +47,9 @@ The first physical fixture is Raspberry Pi 5 with 8 GB RAM plus ShieldXL
 CS4270/JACK hardware. It begins without active cooling and without overclock.
 The ShieldXL integration contract is supplied. Integration exposed a kernel
 contract collision: Wine under Box64 fails on the contract's 16 KiB kernel, while
-the contract's CS4270 module is not built for the 4 KiB kernel required by Wine.
+the original CS4270 module was not built for the required 4 KiB kernel. SHIELDXL0
+has now extended its exact contract: the pinned module builds, loads, binds, and
+survives reboot on `6.18.50+rpt-rpi-v8`, and the SHIELDXL ALSA/JACK identities return.
 Raspberry Pi 4 Model B with 4 GB or 8 GB and Compute Module 5 with at least
 8 GB remain accepted targets, but they are not this first fixture.
 
@@ -162,27 +164,50 @@ Provisioning reached an observed high of 80.7 degrees C. The firmware throttle
 register remained `0x0`, and 2.4 GHz was observed under load. Those values are
 provisioning observations, not performance or sustained-thermal qualification.
 
+## 2048-frame translated source-synth diagnostic
+
+After the SHIELDXL0 extension, the frozen executable source started the source-owned
+Windows instrument at 2048 bridge frames on the live 4 KiB/SHIELDXL JACK graph. No
+RPI0 executable was rebuilt. One no-MIDI session saved and restored 680 bytes of state,
+ran 12,552 callbacks with zero process failures, deadline misses, missing/expired
+frames, or gaps, and retired its exact unit/session cleanly.
+
+A second explicitly non-acceptance diagnostic injected one synthetic sequencer note and
+captured the standalone host's two JACK output ports. The capture contained 240,000
+stereo frames at 48 kHz, 194,996 nonzero samples, normalized peak 0.0472412, and equal
+left/right RMS 0.0172765. That session ran 9,936 callbacks with zero process failures,
+deadline misses, missing/expired frames, gaps, malformed/unsupported MIDI, or unpublished
+requests, then retired cleanly. Windows `process()` p99 was at most 24 microseconds;
+admission-to-publication p99 was at most 512 microseconds. These figures are diagnostic
+distributions, not worst-case or bridge-only physical-latency guarantees.
+
+The translated cohort had nine processes and a point-in-time aggregate RSS of 611,964
+KiB. A memory high-water mark and full native/translated CPU distributions were not
+available and are not inferred. Temperature was observed at 53.2 degrees C, throttling
+was `0x0`, and sampled clocks were 1.5 to 1.7 GHz during the diagnostic. Retained detail
+is in `source-synth-2048-diagnostic.json`.
+
+The source-synth architecture diagnostic passed, but the complete physical acceptance
+sequence is still pending. No USB MIDI controller was enumerated, the SSH session had
+no X11/Wayland display, and the actual JACK graph used 512-frame periods. Synthetic MIDI
+and direct JACK capture do not substitute for physical MIDI, an audible ShieldXL route,
+or real mouse interaction.
+
 ## Pending physical resumption sequence
 
-Steps 1 through 4 of the physical resumption sequence passed. The full acceptance
-sequence stopped before starting the source-owned synth because the ShieldXL
-audio card is unavailable under the 4 KiB kernel. The overlay and controls load,
-but `snd-soc-cs4270.ko` exists only for `rpt-rpi-2712`; ALSA therefore reports
-only HDMI devices and the sound node remains deferred with
-`asoc-simple-card: parse error`.
+Continue this same frozen executable source with:
 
-Resume this same branch only after SHIELDXL0 authority admits and qualifies its
-pinned CS4270 source for the exact `rpt-rpi-v8` kernel. Then continue with:
+1. connect and identify one physical USB MIDI controller;
+2. set the accepted 128- or 256-frame JACK graph and start the source-owned synth at
+   2048 bridge frames;
+3. prove physical MIDI and audible ShieldXL stereo audio;
+4. exercise the real editor and state change/restore;
+5. cleanly stop and complete a second fresh accepted session.
 
-1. source-owned synth at 2048 bridge frames;
-2. physical MIDI and ShieldXL audio;
-3. editor and state acceptance;
-4. clean stop and second-session restart.
-
-There is still no MIDI-controller identity for RPI0, accepted ShieldXL audio
-route, audible output, mouse acceptance, state acceptance, service distribution,
-gap count, deadline count, CPU/memory distribution, or complete physical-session
-restart receipt.
+There is still no physical MIDI-controller identity, accepted audible ShieldXL route,
+mouse/editor result, changed-parameter state restore, full CPU/memory distribution, or
+complete physical-session restart receipt. The diagnostic gap and deadline counts above
+must not be relabeled as the missing physical campaign.
 
 Temperature, throttling status, and observed clock state must be recorded
 throughout. A functionally successful but thermally throttled run may establish
@@ -191,12 +216,12 @@ polyphony, or sustained stability.
 
 ## Preserved gaps and nonclaims
 
-- Box64/Wine passed only the bounded headless Pi preflight on the 4 KiB kernel;
-  it has not processed a physical RPI0 audio session.
-- The 16 KiB Box64/Wine fault, incomplete Wine runtime staging, and missing
-  4 KiB ShieldXL codec module remain preserved failures.
-- No accepted ShieldXL JACK graph, physical MIDI, editor display, audio CPU use,
-  or memory peak has been observed for RPI0.
+- Box64/Wine and the source-owned synth passed a 4 KiB translated diagnostic, but not
+  a physical MIDI/audible/editor acceptance session.
+- The 16 KiB Box64/Wine fault and incomplete Wine runtime staging remain preserved.
+  The former missing 4 KiB ShieldXL module is a resolved, retained blocker.
+- No accepted 128/256-frame physical graph, physical MIDI, editor display, complete CPU
+  distribution, or memory peak has been observed for RPI0.
 - No 2048/1024/512 physical delay campaign has run.
 - No DAW, Pigments, commercial plug-in, vendor installer, or authorization
   system was used.
@@ -204,8 +229,9 @@ polyphony, or sustained stability.
   claim.
 
 Physical execution identified concrete packaging and kernel-integration defects.
-The frozen executable source remains preserved; resume the same branch only after
-the SHIELDXL0 4 KiB kernel-module contract is explicitly extended.
+The kernel integration defect is now closed in SHIELDXL0; the packaging defect remains.
+The frozen executable source remains preserved and should not be reopened unless the
+remaining physical execution identifies a concrete defect.
 
 Because overall RPI0 remains pending physical validation, there is no RPI1
 Pigments recommendation.
