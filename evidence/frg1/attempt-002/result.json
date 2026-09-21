@@ -1,0 +1,126 @@
+{
+  "authority": {
+    "input_lock_sha256": "9c1c93820bfff45d06ade73c7ffebbd9014b9f8e38b85e3aebeea20827d2de43",
+    "product_base_commit": "c38b5c9deb8bd32f5a509258c30f31b3e795fe59",
+    "product_base_tree": "6d661a80a707157f30d3f4815e04a72b1cb38586",
+    "supervisor_commit": "2882097201b0781e38f529d8cfff4b168475ce8a",
+    "supervisor_source_sha256": "292147ff59ab4e6cefe7a1b7c3b12a71088541594c078ac135195044ae18391f",
+    "supervisor_tree": "ae50a120ac01352f53afd88a44749d69efc75fd3"
+  },
+  "classification": "FRG1_FACTORY_CENSUS_POST_GATE_EMPTY_OUTPUT",
+  "cleanup": {
+    "crash_artifact_count": 0,
+    "frg1_environment_process_count": 0,
+    "manager_service_state": "active",
+    "operation_owned_x11_socket_remaining": false,
+    "owned_process_count": 0,
+    "publication_payload_count": 0
+  },
+  "created_at": "2026-09-21T20:13:31Z",
+  "execution": {
+    "attempt_ordinal": 2,
+    "execution_timeout_seconds": 180,
+    "factory_record_count": 0,
+    "gate": {
+      "byte_length": 500,
+      "present": true,
+      "sha256": "cddf2483aab4d8a10339fdca750c8ee8e0d64e2f128738982c25ea4159dc28f4"
+    },
+    "prefix_entry_count": 2081,
+    "readiness": {
+      "byte_length": 500,
+      "exact_binding_verified": true,
+      "present": true,
+      "sha256": "cddf2483aab4d8a10339fdca750c8ee8e0d64e2f128738982c25ea4159dc28f4"
+    },
+    "readiness_timeout_seconds": 180,
+    "result_phase": "post_gate_record_parse",
+    "retry_performed": false,
+    "scanner_child_exit_status": {
+      "available": false,
+      "reason": "The supervisor retained the completed child streams, then raised while parsing zero records outside its private failure-receipt block. The child exit status was not persisted and is not reconstructed."
+    },
+    "scanner_process_submitted": true,
+    "structured_record_count": 0,
+    "supervisor_exit_code": 1
+  },
+  "fixture": {
+    "embedded_version": "1.3.1.6566",
+    "module_byte_length": 26453504,
+    "module_sha256": "5846dfe91396596715f01a85d51c5ca21a808ef7dad1bfb44b02ab444345e1a5",
+    "name": "Efx FRAGMENTS"
+  },
+  "graphical_environment": {
+    "authenticated_client_preflight": "passed",
+    "binary_byte_length": 2410256,
+    "binary_sha256": "700d3cba7f946c3ff3100ee36f15012c1c027bb67f29e84def1a1b67bb8f3587",
+    "kind": "operation_owned_xwayland",
+    "package_identity": "xwayland 2:24.1.10-1",
+    "real_x11_session_shared": false,
+    "wayland_socket": "wayland-0"
+  },
+  "observations": {
+    "factory_or_class_authority_obtained": false,
+    "get_plugin_factory_reached": "unconfirmed",
+    "module_loading_reached": "unconfirmed",
+    "scanner_stderr": [
+      "The fresh GE-Proton11-7 prefix upgrade began.",
+      "The runner reported fsync active.",
+      "Mesa could not retrieve device information.",
+      "GLX could not create a DRI3 screen.",
+      "The i915 driver did not load."
+    ],
+    "scanner_stdout_was_empty": true,
+    "statement": "The exact host passed readiness and consumed the exact gate, then exited without one structured census record. The retained facts do not establish whether the module was loaded and do not identify the graphics messages as the cause."
+  },
+  "prelaunch_refusals": [
+    {
+      "classification": "closed_roster_refusal",
+      "product_process_started": false,
+      "reason": "The harness-only import generated one Python cache file in the staged root. It was verified and removed before a new validation."
+    },
+    {
+      "classification": "synthetic_home_collision_refusal",
+      "product_process_started": false,
+      "reason": "The private graphical helper and scanner builder initially selected the same synthetic home path. No runner or Windows process started; the helper state was separated and a new scratch root was used."
+    }
+  ],
+  "retention": {
+    "failure_json_present": false,
+    "private_streams_ignored_path": "evidence/private/frg1/attempt-002/",
+    "raw_stderr": {
+      "byte_length": 480,
+      "sha256": "2e91e9135ef45e84983c5f2751a09ec8f705875600a5f04ddf6a48a1c984edd3"
+    },
+    "raw_stdout": {
+      "byte_length": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "raw_x11_stderr": {
+      "byte_length": 426,
+      "sha256": "ce9a7ea04ca5c931bb65b13568fb613775428f6b1d5b772a4a0c7df68885d61f"
+    },
+    "raw_x11_stdout": {
+      "byte_length": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "scanner_stream_capacity_exhausted": false,
+    "x11_stream_capacity_exhausted": false
+  },
+  "schema": "linux-vst-bridge-frg1-attempt-result/v1",
+  "scope": {
+    "asc_launched": false,
+    "bitwig_launched": false,
+    "network_shared": false,
+    "ordinary_home_visible": false,
+    "retained_asc_prefix_used": false,
+    "steam_deck_contacted": false,
+    "ubuntu_deployment_changed": false,
+    "ubuntu_publication_performed": false
+  },
+  "source_module_after_attempt": {
+    "byte_length": 26453504,
+    "sha256": "5846dfe91396596715f01a85d51c5ca21a808ef7dad1bfb44b02ab444345e1a5",
+    "unchanged": true
+  }
+}

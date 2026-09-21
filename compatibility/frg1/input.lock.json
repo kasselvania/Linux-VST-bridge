@@ -1,0 +1,164 @@
+{
+  "created_at": "2026-09-21T18:40:00Z",
+  "fixture": {
+    "embedded_version": "1.3.1.6566",
+    "library_version": "1.3.1",
+    "module": {
+      "architecture": "x86_64-windows",
+      "byte_length": 26453504,
+      "format": "VST3 PE32+ DLL",
+      "sha256": "5846dfe91396596715f01a85d51c5ca21a808ef7dad1bfb44b02ab444345e1a5"
+    },
+    "name": "Efx FRAGMENTS"
+  },
+  "historical_profile": {
+    "capabilities": {
+      "accessibility": "disabled_for_vendor_process",
+      "editor": "detached_direct_vendor_lifecycle",
+      "performance": "frames512_recommended256_unqualified",
+      "precision": "float32_only",
+      "state": "concurrent_read_only_capture_v12"
+    },
+    "class": {
+      "class_id": "41727475415649536772616E50726F63",
+      "metadata_tier": "factory_3_unicode",
+      "name": "Efx FRAGMENTS",
+      "subcategories": "Fx|Tools",
+      "vendor": "Arturia",
+      "version": "1.0.0.2925"
+    },
+    "disposition": "immutable_history_not_authority_for_new_fixture",
+    "embedded_version": "1.0.0.2925",
+    "factory_vendor": "Arturia",
+    "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+    "parameter_count": 2348,
+    "profile_file_sha256": "bb07dd980c89861dfb5da96a094e3603f57e4231b1d240d34f6ed9bd5c3ced3b",
+    "revision": 10
+  },
+  "successor_verification": {
+    "expected_class": {
+      "class_id": "41727475415649536772616E50726F63",
+      "metadata_tier": "factory_3_unicode",
+      "name": "Efx FRAGMENTS",
+      "subcategories": "Fx|Tools",
+      "vendor": "Arturia",
+      "version": "1.3.1.6566"
+    },
+    "expected_factory_vendor": "Arturia",
+    "inheritance_posture": "predecessor_profile_is_candidate_baseline_changed_fields_require_observation",
+    "parameter_posture": "observe_and_compare_to_predecessor",
+    "required_class_continuity": true,
+    "role": "effect"
+  },
+  "product_basis": {
+    "commit": "c38b5c9deb8bd32f5a509258c30f31b3e795fe59",
+    "repository": "https://github.com/kasselvania/Linux-VST-bridge",
+    "tree": "6d661a80a707157f30d3f4815e04a72b1cb38586"
+  },
+  "qualification_scope": {
+    "ordinary_activation_authority": false,
+    "platform": "product-owned profile preparation",
+    "statement": "This lock admits exact product-profile inputs only and does not qualify Ubuntu or the Steam Deck."
+  },
+  "runner": {
+    "archive": {
+      "byte_length": 563784602,
+      "identity": "GE-Proton11-7-x86_64.tar.gz",
+      "sha256": "c5448b76a230384e2d7bc6beb5ccb97bafb7e2c3b6c527cb03a1a546bbcb00a0"
+    },
+    "architecture": "x86_64",
+    "entry_points": [
+      {
+        "byte_length": 135594,
+        "mode": "0755",
+        "path": "proton",
+        "sha256": "c0fe398829c78c82b26d39c20fbeb6b28d1e46941723962d794d7e5f67d402be"
+      },
+      {
+        "byte_length": 16872,
+        "mode": "0755",
+        "path": "files/bin/wine",
+        "sha256": "7b0ca4538f365d8a225afdfe5f872715bb5f7c1908dbdcb522c9519cac7c8714"
+      }
+    ],
+    "environment_policy": {
+      "inherited_environment": "cleared_fixed_allowlist",
+      "uiautomationcore": "disabled"
+    },
+    "installed_tree": {
+      "entries": 8900,
+      "sha256": "eb8ba17cd534d465cdb1a6bb957b4a1972762f3a967d8e1d49781714c0b76ffa"
+    },
+    "release_commit": "c191f35dcebbeccfacd3b4c6f6eea026e588c1c2",
+    "release_identity": "GE-Proton11-7",
+    "runtime": {
+      "identity_sha256": "898b365b97877c7ec3236dbe810fa0210fdca439749df43c2cb36b2d1c06979b",
+      "installed_tree": {
+        "entries": 638,
+        "sha256": "fc434dd9bd4e4aaec1a17812e15ac00a95db73ad002878f3ff7f01f6cbecb1ed"
+      },
+      "source_class": "signed Ubuntu 26.04 package repository"
+    },
+    "version": "11-7"
+  },
+  "retained_ubuntu_environment": {
+    "custody": {
+      "owner_file_sha256": "6626531f7466ccff1be37f93305ebf807e0f0965cd2d4241b175bdd60ef9da31",
+      "owner_identity": "8fdea6abe1be5a42cf7db1f61006d24c84109e3ad6acdf9421f01c7797bc9af5",
+      "pfx_mode": "0775",
+      "prefix_home_relative": ".local/share/linux-vst-bridge-ubuntu-lab/ua1/prefixes/asc-2.12.0.3157-ge-proton11-7-c5448b76a230384e-attempt-004",
+      "source_lock_byte_length": 15877,
+      "source_lock_home_relative": ".cache/linux-vst-bridge-ubuntu-lab/ua1-work-chain/inputs/ua1.lock.json",
+      "source_lock_sha256": "2f7772e9779fb4a44ccbef14ad8026f22ecca45b2ca45428c675328c897d73ee"
+    },
+    "execution": {
+      "component_case": "class:41727475415649536772616E50726F63",
+      "launcher_verb": "runinprefix",
+      "network_shared": false,
+      "prefix_initialization": {
+        "argument": "/",
+        "posture": "product_setup_prefix_on_private_snapshot",
+        "timeout_seconds": 120,
+        "verb": "getcompatpath"
+      },
+      "snapshot_policy": "private_operation_copy_original_unchanged",
+      "synthetic_home": "/home/ua1",
+      "windows_module_path": "C:\\Program Files\\Common Files\\VST3\\Efx FRAGMENTS.vst3"
+    },
+    "module_prefix_relative": "pfx/drive_c/Program Files/Common Files/VST3/Efx FRAGMENTS.vst3",
+    "top_level_roster": [
+      ".ua1-owner.json",
+      "config_info",
+      "pfx",
+      "pfx.lock",
+      "tracked_files",
+      "version"
+    ]
+  },
+  "schema": "linux-vst-bridge-frg1-input-lock/v1",
+  "ubuntu_custody": {
+    "commit": "3c29e253866c2dec8f478580eafcf245b4a20a7f",
+    "repository": "https://github.com/kasselvania/Linux-VST-bridge-ubuntu-lab",
+    "tree": "4011a0a0d3d18b61982521f4920dde9ef425a1aa"
+  },
+  "windows_host": {
+    "architecture": "x86_64-windows",
+    "artifact": {
+      "byte_length": 934912,
+      "identity": "wf0-factory-probe.exe",
+      "sha256": "348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be"
+    },
+    "build": {
+      "artifact_id": 10651845835,
+      "run_id": 35624452041,
+      "sdk_commit": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "source_commit": "a86f03e8a5d5302d9872f995a0a5ba376a0ab6d5",
+      "source_tree": "11a9fefbbe8b184c52058f4b4610da3a5e3b06e4",
+      "toolchain": "Visual Studio 17 2022 v143; Windows SDK 10.0.19041.0; windows-2022"
+    },
+    "source_manifest": {
+      "byte_length": 6790,
+      "sha256": "ad7f860633f871fbe0d76cb3c546e8f7f33e8291ac46844fbd088806ba53814c"
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "id": "arturia-efx-fragments",
+  "revision": 11,
+  "claim": "review_candidate",
+  "module_sha256": "5846dfe91396596715f01a85d51c5ca21a808ef7dad1bfb44b02ab444345e1a5",
+  "factory_vendor": "Arturia",
+  "class": {
+    "class_id": "41727475415649536772616E50726F63",
+    "name": "Efx FRAGMENTS",
+    "vendor": "Arturia",
+    "version": "1.3.1.6566",
+    "subcategories": "Fx|Tools",
+    "metadata_tier": "factory_3_unicode"
+  },
+  "role": "effect",
+  "requirements": {
+    "runner": {
+      "id": "ge-proton11-7-ubuntu2604-frg1",
+      "version": "GE-Proton11-7 c191f35dcebbeccfacd3b4c6f6eea026e588c1c2; Ubuntu runtime 898b365b97877c7ec3236dbe810fa0210fdca439749df43c2cb36b2d1c06979b; direct-entry v1",
+      "proton_sha256": "c0fe398829c78c82b26d39c20fbeb6b28d1e46941723962d794d7e5f67d402be",
+      "entry_point_sha256": "520891ce91ffd15bdc67ed9d6fbbd6471734a29b71f4e0bb8d432dbd98cb89e9",
+      "file_sha256": [
+        "3d3f4b8727497922d5eab3c8e2d7073c6c809b116f0e2a81a603d9e542c91eeb",
+        "520891ce91ffd15bdc67ed9d6fbbd6471734a29b71f4e0bb8d432dbd98cb89e9",
+        "67644e72bd5f4d567a087c6f531e857be1747c17c33c75dbcd08465337123cc7",
+        "7b0ca4538f365d8a225afdfe5f872715bb5f7c1908dbdcb522c9519cac7c8714",
+        "c0fe398829c78c82b26d39c20fbeb6b28d1e46941723962d794d7e5f67d402be"
+      ]
+    },
+    "environment_family": "arturia_persistent_v1",
+    "environment_revision": 2,
+    "host_sha256": "348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be",
+    "host_source_sha256": "ad7f860633f871fbe0d76cb3c546e8f7f33e8291ac46844fbd088806ba53814c",
+    "native_sha256": "8b57354720545acc51789e0545ce921b2d60c481da62c57a1dba0bac73b1e600",
+    "native_source_commit": "3f3ae6235a85a8d5e311b6275b2d7555a088eb92",
+    "descriptor_sha256": "a1fd81c9f91c0371b633e9b4c7597e020c60b97da0494e9ce11becb5c68eb9f5"
+  },
+  "capabilities": {
+    "accessibility": "disabled_for_vendor_process",
+    "editor": "detached_direct_vendor_lifecycle",
+    "state": "concurrent_read_only_capture_v12",
+    "precision": "float32_only",
+    "performance": "frames512_recommended256_unqualified"
+  },
+  "limitations": [
+    "short_delivery_gaps",
+    "unqualified256",
+    "windows_accessibility_unavailable",
+    "detached_focus_refusal",
+    "exact_operator_artifact_only",
+    "fragments_advanced_redraw"
+  ],
+  "evidence": [
+    "docs/FRG1.md",
+    "evidence/frg1/attempt-005/result.json",
+    "evidence/frg1/candidate.json"
+  ]
+}
