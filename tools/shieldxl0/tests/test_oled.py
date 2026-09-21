@@ -2,6 +2,7 @@ import importlib.util
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 MODULE_PATH = Path(__file__).parents[1] / "oled_service.py"
@@ -13,6 +14,26 @@ SPEC.loader.exec_module(oled)
 
 
 class OledTest(unittest.TestCase):
+    class FakeChip:
+        opened = []
+
+        def __init__(self, path):
+            self.path = path
+            self.opened.append(path)
+
+        def get_info(self):
+            return type("Info", (), {"label": "pinctrl-rp1"})()
+
+        def close(self):
+            pass
+
+    class FakeGpiod:
+        Chip = None
+
+    def setUp(self):
+        self.FakeChip.opened = []
+        self.FakeGpiod.Chip = self.FakeChip
+
     def test_wire_shape_and_nibble_duplication(self):
         frame = oled.Frame()
         frame.set_pixel(0, 0, 0xA)
@@ -40,6 +61,28 @@ class OledTest(unittest.TestCase):
     def test_invalid_gray_is_rejected(self):
         with self.assertRaises(ValueError):
             oled.render_request(oled.Frame(), {"op": "fill", "gray": 16})
+
+    def test_gpiochip_compatibility_symlink_is_deduplicated(self):
+        aliases = {
+            "/dev/gpiochip0": "/dev/gpiochip0",
+            "/dev/gpiochip4": "/dev/gpiochip0",
+        }
+        with (
+            mock.patch.object(oled.glob, "glob", return_value=list(aliases)),
+            mock.patch.object(oled.os.path, "realpath", side_effect=aliases.__getitem__),
+        ):
+            selected = oled.Ssd1322._find_gpiochip(self.FakeGpiod)
+        self.assertEqual(selected, "/dev/gpiochip0")
+        self.assertEqual(self.FakeChip.opened, ["/dev/gpiochip0"])
+
+    def test_distinct_admitted_gpiochips_are_refused(self):
+        candidates = ["/dev/gpiochip0", "/dev/gpiochip1"]
+        with (
+            mock.patch.object(oled.glob, "glob", return_value=candidates),
+            mock.patch.object(oled.os.path, "realpath", side_effect=lambda path: path),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "expected one admitted Pi GPIO chip"):
+                oled.Ssd1322._find_gpiochip(self.FakeGpiod)
 
 
 if __name__ == "__main__":

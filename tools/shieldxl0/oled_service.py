@@ -103,14 +103,19 @@ class Ssd1322:
     @staticmethod
     def _find_gpiochip(gpiod_module) -> str:
         admitted = []
+        inspected = set()
         for candidate in sorted(glob.glob("/dev/gpiochip*")):
-            chip = gpiod_module.Chip(candidate)
+            resolved = os.path.realpath(candidate)
+            if resolved in inspected:
+                continue
+            inspected.add(resolved)
+            chip = gpiod_module.Chip(resolved)
             try:
                 label = chip.get_info().label
             finally:
                 chip.close()
             if label in ("pinctrl-bcm2711", "pinctrl-rp1"):
-                admitted.append(candidate)
+                admitted.append(resolved)
         if len(admitted) != 1:
             raise RuntimeError(f"expected one admitted Pi GPIO chip, observed {admitted}")
         return admitted[0]
