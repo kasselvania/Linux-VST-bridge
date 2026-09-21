@@ -29,6 +29,9 @@ class CensusTests(unittest.TestCase):
         self.assertEqual(lock["historical_profile"]["class"]["class_id"], "41727475415649536772616E50726F63")
         self.assertEqual(lock["historical_profile"]["parameter_count"], 2348)
         self.assertTrue(lock["successor_verification"]["required_class_continuity"])
+        self.assertEqual(lock["retained_ubuntu_environment"]["execution"]["launcher_verb"], "runinprefix")
+        self.assertEqual(lock["retained_ubuntu_environment"]["execution"]["synthetic_home"], "/home/ua1")
+        self.assertFalse(lock["retained_ubuntu_environment"]["execution"]["network_shared"])
         self.assertEqual(census.READY_TIMEOUT, 180.0)
 
     def test_predecessor_profile_bytes_are_the_locked_starting_point(self) -> None:
@@ -117,7 +120,56 @@ class CensusTests(unittest.TestCase):
         self.assertIn(lock["windows_host"]["artifact"]["sha256"], handshake)
         self.assertIn(lock["windows_host"]["source_manifest"]["sha256"], handshake)
         self.assertIn(census.LOCK_SHA256, handshake)
-        self.assertIn("component_case=first-audio", handshake)
+        self.assertIn("component_case=class:41727475415649536772616E50726F63", handshake)
+
+    def test_retained_prefix_custody_is_exact_and_snapshotted_without_source_mutation(self) -> None:
+        lock = json.loads((ROOT / "compatibility/frg1/input.lock.json").read_text())
+        module_bytes = b"successor-module"
+        lock["fixture"]["module"]["byte_length"] = len(module_bytes)
+        lock["fixture"]["module"]["sha256"] = hashlib.sha256(module_bytes).hexdigest()
+        with tempfile.TemporaryDirectory() as directory:
+            home = pathlib.Path(directory)
+            custody = lock["retained_ubuntu_environment"]["custody"]
+            prefix = home / custody["prefix_home_relative"]
+            module = prefix / lock["retained_ubuntu_environment"]["module_prefix_relative"]
+            module.parent.mkdir(parents=True)
+            module.write_bytes(module_bytes)
+            owner = {
+                "identity": custody["owner_identity"],
+                "kind": "asc-prefix",
+                "owner": "kasselvania/Linux-VST-bridge-ubuntu-lab",
+                "schema": "linux-vst-bridge-ubuntu-lab-ua1-owner/v1",
+                "slice": "UA1",
+            }
+            owner_bytes = census.canonical_json(owner) + b"\n"
+            (prefix / census.OWNER_FILE).write_bytes(owner_bytes)
+            custody["owner_file_sha256"] = hashlib.sha256(owner_bytes).hexdigest()
+            for name in ("config_info", "pfx.lock", "tracked_files", "version"):
+                (prefix / name).write_bytes(b"")
+            source_lock = home / custody["source_lock_home_relative"]
+            source_lock.parent.mkdir(parents=True)
+            source_lock.write_bytes(b"locked-custody\n")
+            custody["source_lock_byte_length"] = source_lock.stat().st_size
+            custody["source_lock_sha256"] = census.sha256_file(source_lock)
+            resolved_prefix = prefix.resolve()
+            admitted = census.validate_retained_prefix(resolved_prefix, source_lock.resolve(), lock, home=home)
+            state = home.resolve() / "operation-state"
+            snapshot, receipt = census.snapshot_retained_prefix(resolved_prefix, state, lock)
+            self.assertEqual(admitted["owner_identity"], custody["owner_identity"])
+            self.assertEqual(census.sha256_file(module), lock["fixture"]["module"]["sha256"])
+            self.assertEqual(census.sha256_file(snapshot / lock["retained_ubuntu_environment"]["module_prefix_relative"]), lock["fixture"]["module"]["sha256"])
+            self.assertTrue(receipt["source_unchanged_after_snapshot"])
+
+    def test_retained_prefix_custody_rejects_an_alias_or_foreign_path(self) -> None:
+        lock = json.loads((ROOT / "compatibility/frg1/input.lock.json").read_text())
+        with tempfile.TemporaryDirectory() as directory:
+            home = pathlib.Path(directory)
+            foreign = home / "foreign-prefix"
+            foreign.mkdir()
+            source_lock = home / "foreign-lock"
+            source_lock.write_bytes(b"")
+            with self.assertRaisesRegex(census.CensusError, "retained prefix path changed"):
+                census.validate_retained_prefix(foreign, source_lock, lock, home=home)
 
     def test_successor_delta_requires_predecessor_class_continuity(self) -> None:
         lock = census.load_lock(ROOT / "compatibility/frg1/input.lock.json")
@@ -139,6 +191,8 @@ class CensusTests(unittest.TestCase):
         source = MODULE_PATH.read_text(encoding="utf-8")
         self.assertIn('"--dev-bind", "/dev/dri", "/dev/dri"', source)
         self.assertIn("argv.extend(exact_gpu_sysfs_argv())", source)
+        self.assertIn('retained_execution["launcher_verb"]', source)
+        self.assertNotIn('"/opt/frg1/runner/proton", "run",', source)
 
     def test_attempt_one_is_failure_not_profile_authority(self) -> None:
         result = json.loads((ROOT / "evidence/frg1/attempt-001/result.json").read_text())
@@ -158,6 +212,16 @@ class CensusTests(unittest.TestCase):
         self.assertFalse(result["execution"]["retry_performed"])
         self.assertFalse(result["observations"]["factory_or_class_authority_obtained"])
         self.assertEqual(result["cleanup"]["frg1_environment_process_count"], 0)
+        self.assertFalse(result["scope"]["steam_deck_contacted"])
+        self.assertFalse(result["scope"]["ubuntu_publication_performed"])
+
+    def test_attempt_three_is_retained_as_a_blank_prefix_mismatch(self) -> None:
+        result = json.loads((ROOT / "evidence/frg1/attempt-003/result.json").read_text())
+        self.assertEqual(result["classification"], "FRG1_FACTORY_CENSUS_POST_GATE_HOST_EXIT_90")
+        self.assertEqual(result["execution"]["scanner_child_exit_status"], 90)
+        self.assertEqual(result["execution"]["structured_record_count"], 0)
+        self.assertFalse(result["scope"]["retained_asc_prefix_used"])
+        self.assertFalse(result["observations"]["factory_or_class_authority_obtained"])
         self.assertFalse(result["scope"]["steam_deck_contacted"])
         self.assertFalse(result["scope"]["ubuntu_publication_performed"])
 

@@ -126,6 +126,22 @@ mismatch, not FRAGMENTS incompatibility evidence. The successor verifier now exp
 the exact DRM roster and records the complete child exit on readiness, execution or
 record-parse failure. Its output is compared directly to the locked predecessor.
 
+The first recalibrated invocation, retained as attempt 003, corrected that graphics
+projection. The host again passed the exact readiness/gate exchange, the previous
+Mesa/DRI/i915 messages disappeared, and the host returned generic inspection exit
+`90` with no structured record. It still used a blank prefix and therefore repeated
+one premise that the operator had rejected: it did not bring forward the persistent
+Arturia environment on which the predecessor and Ubuntu installation actually rely.
+No factory, class or incompatibility claim is derived from that result.
+
+The continuation now locks the retained Ubuntu prefix's original UA1 owner identity
+and UA1 input-lock digest. It never mounts or changes that source during execution.
+It creates a private operation snapshot, preserves the synthetic `/home/ua1` identity,
+uses `proton runinprefix`, selects the predecessor class explicitly, and inspects the
+already-installed exact module in its vendor environment. This is the product-owned
+successor test corresponding to the established Linux baseline; it is not another
+installation, activation or blank-prefix discovery attempt.
+
 If the differential census succeeds, FRG1 generates one exact successor proxy and
 nonactivating candidate. After review and merge, a new Ubuntu-lab branch may adopt
 the retained prefix under its original owner record, publish to a new lab-only
@@ -143,3 +159,4 @@ compatibility profile.
 
 - `evidence/frg1/attempt-001/result.json`
 - `evidence/frg1/attempt-002/result.json`
+- `evidence/frg1/attempt-003/result.json`

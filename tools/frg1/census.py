@@ -3,7 +3,8 @@
 
 The commercial module remains an ignored private input.  This program accepts only
 the tracked FRG1 lock, the exact admitted host, and the exact UA1 runner receipts.
-It runs in a fresh networkless Bubblewrap namespace and emits a bounded report.
+It runs from a private snapshot of the retained Ubuntu vendor environment in a
+networkless Bubblewrap namespace and emits a bounded report.
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ from typing import Any, Iterable
 
 
 SCHEMA = "linux-vst-bridge-frg1-input-lock/v1"
-LOCK_SHA256 = "1deb6b2117ebb1f222192dfcc0ba0bc2dc1146506fa2cf535e385b02ce769925"
+LOCK_SHA256 = "4a843e543cb8e337d89b0d5b38d8438aa121801bc340e3ad544c59b94b74ffea"
 OWNER_FILE = ".ua1-owner.json"
 INSTALL_RECEIPT = ".ua1-install.json"
 STDOUT_LIMIT = 1_048_576
@@ -324,7 +325,118 @@ def load_lock(path: pathlib.Path) -> dict[str, Any]:
     require(predecessor["parameter_count"] == 2348, "predecessor parameter count changed")
     require(expected["expected_class"]["class_id"] == predecessor["class"]["class_id"], "successor class continuity changed")
     require(expected["required_class_continuity"] is True, "successor class continuity disabled")
+    retained = value["retained_ubuntu_environment"]
+    require(retained["custody"]["owner_identity"] == "8fdea6abe1be5a42cf7db1f61006d24c84109e3ad6acdf9421f01c7797bc9af5", "retained prefix owner changed")
+    require(retained["custody"]["source_lock_sha256"] == "2f7772e9779fb4a44ccbef14ad8026f22ecca45b2ca45428c675328c897d73ee", "retained prefix source lock changed")
+    require(retained["execution"]["launcher_verb"] == "runinprefix", "retained prefix launch verb changed")
+    require(retained["execution"]["component_case"] == "class:" + predecessor["class"]["class_id"], "retained prefix class selection changed")
+    require(retained["execution"]["network_shared"] is False, "retained prefix network policy changed")
     return value
+
+
+def _home_relative(home: pathlib.Path, relative: str) -> pathlib.Path:
+    value = pathlib.PurePosixPath(relative)
+    require(not value.is_absolute() and ".." not in value.parts, "retained custody path is not home-relative")
+    return home / value
+
+
+def _validate_prefix_tree(root: pathlib.Path, lock: dict[str, Any]) -> dict[str, Any]:
+    exact_directory(root)
+    retained = lock["retained_ubuntu_environment"]
+    require(set(item.name for item in root.iterdir()) == set(retained["top_level_roster"]), "retained prefix top-level roster changed")
+    owner_path = root / OWNER_FILE
+    owner = read_json(owner_path)
+    expected_owner = {
+        "identity": retained["custody"]["owner_identity"],
+        "kind": "asc-prefix",
+        "owner": "kasselvania/Linux-VST-bridge-ubuntu-lab",
+        "schema": "linux-vst-bridge-ubuntu-lab-ua1-owner/v1",
+        "slice": "UA1",
+    }
+    require(owner == expected_owner, "retained prefix owner receipt changed")
+    require(sha256_file(owner_path) == retained["custody"]["owner_file_sha256"], "retained prefix owner bytes changed")
+    pfx = exact_directory(root / "pfx")
+    module = root / retained["module_prefix_relative"]
+    exact_file(module, lock["fixture"]["module"]["byte_length"], lock["fixture"]["module"]["sha256"])
+    return {
+        "owner_identity": owner["identity"],
+        "owner_file_sha256": retained["custody"]["owner_file_sha256"],
+        "module_sha256": lock["fixture"]["module"]["sha256"],
+        "pfx_mode": f"{stat.S_IMODE(pfx.stat().st_mode):04o}",
+    }
+
+
+def validate_retained_prefix(
+    root: pathlib.Path,
+    source_lock: pathlib.Path,
+    lock: dict[str, Any],
+    *,
+    home: pathlib.Path | None = None,
+) -> dict[str, Any]:
+    retained = lock["retained_ubuntu_environment"]
+    custody = retained["custody"]
+    actual_home = pathlib.Path.home().resolve(strict=True) if home is None else home.resolve(strict=True)
+    require(root == _home_relative(actual_home, custody["prefix_home_relative"]), "retained prefix path changed")
+    require(source_lock == _home_relative(actual_home, custody["source_lock_home_relative"]), "retained prefix source-lock path changed")
+    exact_file(source_lock, custody["source_lock_byte_length"], custody["source_lock_sha256"])
+    result = _validate_prefix_tree(root, lock)
+    result["source_lock_sha256"] = custody["source_lock_sha256"]
+    result["source_marker_preserved"] = True
+    return result
+
+
+def fsync_directory(path: pathlib.Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def copy_prefix_tree(source: pathlib.Path, stage: pathlib.Path) -> None:
+    linux_cp = pathlib.Path("/usr/bin/cp")
+    if linux_cp.is_file():
+        copied = subprocess.run(
+            [str(linux_cp), "-a", "--reflink=auto", "--", str(source) + "/.", str(stage)],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        require(copied.returncode == 0, "retained prefix snapshot failed")
+        return
+    # Local non-Linux validation has no GNU reflink flag. Physical FRG1 execution
+    # is Ubuntu-only and takes the exact branch above.
+    shutil.copytree(source, stage, symlinks=True, dirs_exist_ok=True, copy_function=shutil.copy2)
+
+
+def snapshot_retained_prefix(source: pathlib.Path, state: pathlib.Path, lock: dict[str, Any]) -> tuple[pathlib.Path, dict[str, Any]]:
+    require(not state.exists() and not state.is_symlink(), "private snapshot state already exists")
+    state.mkdir(mode=0o700)
+    stage = state / ".prefix-stage"
+    destination = state / "prefix"
+    stage.mkdir(mode=0o700)
+    source_before = _validate_prefix_tree(source, lock)
+    try:
+        copy_prefix_tree(source, stage)
+        snapshot = _validate_prefix_tree(stage, lock)
+        require(snapshot == source_before, "retained prefix snapshot identity changed")
+        require(not destination.exists() and not destination.is_symlink(), "private snapshot destination collision")
+        stage.rename(destination)
+        fsync_directory(state)
+        source_after = _validate_prefix_tree(source, lock)
+        require(source_after == source_before, "retained prefix source changed during snapshot")
+        return destination, {
+            **source_before,
+            "snapshot_policy": lock["retained_ubuntu_environment"]["execution"]["snapshot_policy"],
+            "source_unchanged_after_snapshot": True,
+        }
+    except Exception:
+        if stage.exists() and not stage.is_symlink():
+            shutil.rmtree(stage)
+        if state.exists() and not any(state.iterdir()):
+            state.rmdir()
+        raise
 
 
 def exact_gpu_sysfs_argv(
@@ -456,12 +568,12 @@ def sandbox_argv(
     x11: PrivateX11,
 ) -> tuple[list[str], pathlib.Path, pathlib.Path]:
     state = root / "state"
+    exact_directory(state / "prefix")
     windows = state / "prefix/pfx/drive_c/bridge/sessions" / session
     windows.mkdir(parents=True, mode=0o700)
-    for source, name in ((root / "module.vst3", "module.vst3"), (root / "wf0-factory-probe.exe", "wf0-factory-probe.exe")):
-        target = windows / name
-        shutil.copyfile(source, target)
-        target.chmod(0o500 if name.endswith(".exe") else 0o400)
+    target = windows / "wf0-factory-probe.exe"
+    shutil.copyfile(root / "wf0-factory-probe.exe", target)
+    target.chmod(0o500)
     home = state / "home"
     runtime_state = state / "runtime"
     empty_client = state / "empty-client"
@@ -469,8 +581,8 @@ def sandbox_argv(
     for directory in (home, runtime_state, empty_client, config):
         directory.mkdir(parents=True, mode=0o700)
     uid, gid = os.getuid(), os.getgid()
-    (config / "passwd").write_text(f"frg1:x:{uid}:{gid}:FRG1:/home/frg1:/usr/sbin/nologin\n", encoding="utf-8")
-    (config / "group").write_text(f"frg1:x:{gid}:\n", encoding="utf-8")
+    (config / "passwd").write_text(f"ua1:x:{uid}:{gid}:Ubuntu Lab:/home/ua1:/usr/sbin/nologin\n", encoding="utf-8")
+    (config / "group").write_text(f"ua1:x:{gid}:\n", encoding="utf-8")
     (config / "machine-id").write_text(LOCK_SHA256[:32] + "\n", encoding="ascii")
     ready = windows / f"{session}.ready"
     gate = windows / f"{session}.gate"
@@ -486,7 +598,7 @@ def sandbox_argv(
         "--dev-bind", "/dev/dri", "/dev/dri",
         "--dir", "/etc", "--ro-bind", str(config / "passwd"), "/etc/passwd", "--ro-bind", str(config / "group"), "/etc/group", "--ro-bind", str(config / "machine-id"), "/etc/machine-id",
         "--dir", "/var", "--dir", "/var/lib", "--dir", "/var/lib/dbus", "--ro-bind", str(config / "machine-id"), "/var/lib/dbus/machine-id",
-        "--dir", "/home", "--dir", "/home/frg1", "--bind", str(home), "/home/frg1",
+        "--dir", "/home", "--dir", "/home/ua1", "--bind", str(home), "/home/ua1",
         "--dir", "/opt", "--dir", "/opt/frg1", "--ro-bind", str(runner), "/opt/frg1/runner", "--bind", str(state), "/opt/frg1/state",
         "--dir", "/run", "--dir", "/run/user", "--dir", internal_run,
         "--dir", "/run/frg1", "--ro-bind", str(x11.authority), "/run/frg1/Xauthority", "--tmpfs", "/tmp",
@@ -505,12 +617,12 @@ def sandbox_argv(
     argv.extend(exact_gpu_sysfs_argv())
     environment = {
         "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-        "HOME": "/home/frg1",
-        "USER": "frg1",
-        "LOGNAME": "frg1",
-        "XDG_DATA_HOME": "/home/frg1/.local/share",
-        "XDG_CONFIG_HOME": "/home/frg1/.config",
-        "XDG_CACHE_HOME": "/home/frg1/.cache",
+        "HOME": "/home/ua1",
+        "USER": "ua1",
+        "LOGNAME": "ua1",
+        "XDG_DATA_HOME": "/home/ua1/.local/share",
+        "XDG_CONFIG_HOME": "/home/ua1/.config",
+        "XDG_CACHE_HOME": "/home/ua1/.cache",
         "XDG_RUNTIME_DIR": internal_run,
         "LANG": "C.UTF-8",
         "LC_ALL": "C.UTF-8",
@@ -534,12 +646,13 @@ def sandbox_argv(
     for key, value in environment.items():
         argv.extend(["--setenv", key, value])
     windows_root = f"C:\\bridge\\sessions\\{session}"
+    retained_execution = lock["retained_ubuntu_environment"]["execution"]
     command = [
-        "/opt/frg1/runner/proton", "run", windows_root + "\\wf0-factory-probe.exe",
+        "/opt/frg1/runner/proton", retained_execution["launcher_verb"], windows_root + "\\wf0-factory-probe.exe",
         "--session", session,
         "--scanner-sha256", host_sha,
         "--implementation-source-manifest-sha256", source_sha,
-        "--module", windows_root + "\\module.vst3",
+        "--module", retained_execution["windows_module_path"],
         "--module-sha256", module_sha,
         "--bundle-manifest-sha256", LOCK_SHA256,
         "--ready", windows_root + f"\\{session}.ready",
@@ -547,9 +660,9 @@ def sandbox_argv(
         "--max-classes", "256",
         "--stdout-cap", str(STDOUT_LIMIT),
         "--mode", "ap8-module-inspection",
-        "--component-case", "first-audio",
+        "--component-case", retained_execution["component_case"],
     ]
-    argv.extend(["--chdir", "/home/frg1", "--", *command])
+    argv.extend(["--chdir", retained_execution["synthetic_home"], "--", *command])
     return argv, ready, gate
 
 
@@ -562,7 +675,7 @@ def expected_handshake(lock: dict[str, Any], session: str) -> bytes:
         f"bundle_manifest_sha256={LOCK_SHA256}\n"
         f"implementation_source_manifest_sha256={lock['windows_host']['source_manifest']['sha256']}\n"
         "mode=ap8-module-inspection\n"
-        "component_case=first-audio\n"
+        f"component_case={lock['retained_ubuntu_environment']['execution']['component_case']}\n"
         "run_ordinal=1\n"
     ).encode()
 
@@ -715,7 +828,13 @@ def validate_successor_delta(records: list[dict[str, Any]], lock: dict[str, Any]
     }
 
 
-def execute(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path, lock: dict[str, Any]) -> dict[str, Any]:
+def execute(
+    root: pathlib.Path,
+    runner: pathlib.Path,
+    runtime: pathlib.Path,
+    prefix_source: pathlib.Path,
+    lock: dict[str, Any],
+) -> dict[str, Any]:
     session = secrets.token_hex(16)
     x11: PrivateX11 | None = None
     child: subprocess.Popen[bytes] | None = None
@@ -726,8 +845,11 @@ def execute(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path, loc
     x11_error = b""
     records: list[dict[str, Any]] = []
     successor_delta: dict[str, Any] = {}
-    phase = "readiness"
+    custody: dict[str, Any] = {}
+    phase = "prefix_snapshot"
     try:
+        _, custody = snapshot_retained_prefix(prefix_source, root / "state", lock)
+        phase = "readiness"
         x11 = start_private_x11(root)
         argv, ready, gate = sandbox_argv(root, runner, runtime, lock, session, x11)
         child = subprocess.Popen(
@@ -760,6 +882,16 @@ def execute(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path, loc
         one(records, "ap12_class")
         one(records, "ap8_controller_association")
         successor_delta = validate_successor_delta(records, lock)
+        source_after = _validate_prefix_tree(prefix_source, lock)
+        require(
+            source_after
+            == {
+                key: custody[key]
+                for key in ("owner_identity", "owner_file_sha256", "module_sha256", "pfx_mode")
+            },
+            "retained prefix source changed during execution",
+        )
+        custody["source_unchanged_after_execution"] = True
     except Exception as failure:
         if child is not None:
             if drain is not None:
@@ -768,6 +900,16 @@ def execute(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path, loc
                 terminate(child)
         if x11 is not None:
             x11_output, x11_error = retire_drained_process(x11.process, x11.drain)
+        retained_source_unchanged = False
+        try:
+            source_now = _validate_prefix_tree(prefix_source, lock)
+            baseline = custody or source_now
+            retained_source_unchanged = source_now == {
+                key: baseline[key]
+                for key in ("owner_identity", "owner_file_sha256", "module_sha256", "pfx_mode")
+            }
+        except Exception:
+            retained_source_unchanged = False
         digests = retain_private_streams(root, output, error)
         x11_digests = retain_private_x11_streams(root, x11_output, x11_error)
         failure_record = {
@@ -778,6 +920,7 @@ def execute(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path, loc
             "exit_code": None if child is None else child.returncode,
             "scanner_stream_capacity_exhausted": [] if drain is None else sorted(drain.exhausted),
             "x11_stream_capacity_exhausted": [] if x11 is None else sorted(x11.drain.exhausted),
+            "retained_prefix_source_unchanged": retained_source_unchanged,
             **digests,
             **x11_digests,
         }
@@ -807,6 +950,11 @@ def execute(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path, loc
             "runtime_identity_sha256": lock["runner"]["runtime"]["identity_sha256"],
             "runtime_tree": lock["runner"]["runtime"]["installed_tree"],
             "environment_policy": lock["runner"]["environment_policy"],
+        },
+        "retained_ubuntu_environment": {
+            **custody,
+            "launcher_verb": lock["retained_ubuntu_environment"]["execution"]["launcher_verb"],
+            "component_case": lock["retained_ubuntu_environment"]["execution"]["component_case"],
         },
         "gated": True,
         "network_shared": False,
@@ -846,19 +994,28 @@ def main() -> int:
     parser.add_argument("--root", type=pathlib.Path, required=True)
     parser.add_argument("--runner", type=pathlib.Path, required=True)
     parser.add_argument("--runtime", type=pathlib.Path, required=True)
+    parser.add_argument("--prefix-source", type=pathlib.Path, required=True)
+    parser.add_argument("--custody-lock", type=pathlib.Path, required=True)
     parser.add_argument("--lock", type=pathlib.Path, required=True)
     args = parser.parse_args()
     lock = load_lock(args.lock.resolve(strict=True))
     root = args.root.resolve(strict=True)
     runner = args.runner.resolve(strict=True)
     runtime = args.runtime.resolve(strict=True)
+    prefix_source = args.prefix_source.resolve(strict=True)
+    custody_lock = args.custody_lock.resolve(strict=True)
     validate_scratch(root, lock)
     validate_owned_runner(runner, lock)
     validate_owned_runtime(runtime, lock)
+    custody = validate_retained_prefix(prefix_source, custody_lock, lock)
     if args.action == "validate":
-        print(json.dumps({"classification": "FRG1_INPUTS_VALIDATED", "input_lock_sha256": LOCK_SHA256}, sort_keys=True))
+        print(json.dumps({
+            "classification": "FRG1_INPUTS_VALIDATED",
+            "input_lock_sha256": LOCK_SHA256,
+            "retained_prefix": custody,
+        }, sort_keys=True))
         return 0
-    print(json.dumps(execute(root, runner, runtime, lock), sort_keys=True))
+    print(json.dumps(execute(root, runner, runtime, prefix_source, lock), sort_keys=True))
     return 0
 
 

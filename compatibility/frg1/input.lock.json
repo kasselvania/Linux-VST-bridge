@@ -101,6 +101,33 @@
     },
     "version": "11-7"
   },
+  "retained_ubuntu_environment": {
+    "custody": {
+      "owner_file_sha256": "6626531f7466ccff1be37f93305ebf807e0f0965cd2d4241b175bdd60ef9da31",
+      "owner_identity": "8fdea6abe1be5a42cf7db1f61006d24c84109e3ad6acdf9421f01c7797bc9af5",
+      "prefix_home_relative": ".local/share/linux-vst-bridge-ubuntu-lab/ua1/prefixes/asc-2.12.0.3157-ge-proton11-7-c5448b76a230384e-attempt-004",
+      "source_lock_byte_length": 15877,
+      "source_lock_home_relative": ".cache/linux-vst-bridge-ubuntu-lab/ua1-work-chain/inputs/ua1.lock.json",
+      "source_lock_sha256": "2f7772e9779fb4a44ccbef14ad8026f22ecca45b2ca45428c675328c897d73ee"
+    },
+    "execution": {
+      "component_case": "class:41727475415649536772616E50726F63",
+      "launcher_verb": "runinprefix",
+      "network_shared": false,
+      "snapshot_policy": "private_operation_copy_original_unchanged",
+      "synthetic_home": "/home/ua1",
+      "windows_module_path": "C:\\Program Files\\Common Files\\VST3\\Efx FRAGMENTS.vst3"
+    },
+    "module_prefix_relative": "pfx/drive_c/Program Files/Common Files/VST3/Efx FRAGMENTS.vst3",
+    "top_level_roster": [
+      ".ua1-owner.json",
+      "config_info",
+      "pfx",
+      "pfx.lock",
+      "tracked_files",
+      "version"
+    ]
+  },
   "schema": "linux-vst-bridge-frg1-input-lock/v1",
   "ubuntu_custody": {
     "commit": "3c29e253866c2dec8f478580eafcf245b4a20a7f",

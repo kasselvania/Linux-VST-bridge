@@ -54,20 +54,23 @@ back to the historical bytes.
 
 ## Execution sequence
 
-1. Run the exact successor verification in a new disposable prefix under the
-   Ubuntu masked-home boundary, using the already proven graphical/GPU projection.
-2. Compare the observed class/factory/controller/bus/parameter facts to the locked
+1. Verify the retained Ubuntu prefix's original UA1 owner marker and input lock,
+   then create a private operation snapshot without changing the source prefix.
+2. Run the exact successor verification from that snapshot with the product's
+   established `runinprefix` verb, predecessor class ID, synthetic `/home/ua1`,
+   and the already proven graphical/GPU projection.
+3. Compare the observed class/factory/controller/bus/parameter facts to the locked
    predecessor baseline.
-3. Generate and build one exact successor descriptor/native proxy from the observed
+4. Generate and build one exact successor descriptor/native proxy from the observed
    successor records while retaining predecessor capabilities as unqualified
    candidate expectations.
-4. Bind module, runner closure, Windows host/source manifest, census, descriptor,
+5. Bind module, runner closure, Windows host/source manifest, census, descriptor,
    native proxy and predecessor relationship into one `review_candidate` profile.
-5. Prove old/new module, runner, host, descriptor and proxy cross-combinations refuse.
-6. Return the draft product PR for review; do not deploy from an unmerged product PR.
-7. After merge, update the Ubuntu-lab product lock and adopt the retained prefix
+6. Prove old/new module, runner, host, descriptor and proxy cross-combinations refuse.
+7. Return the draft product PR for review; do not deploy from an unmerged product PR.
+8. After merge, update the Ubuntu-lab product lock and adopt the retained prefix
    without rewriting its owner marker. Publish to a new revision-addressed lab path.
-8. Repeat the proven baseline in Bitwig on Ubuntu: scan, first load, editor, nonzero
+9. Repeat the proven baseline in Bitwig on Ubuntu: scan, first load, editor, nonzero
    audio, parameter change/readback, save/close/reopen, retirement and second launch.
 
 ## Retained failed executions
@@ -78,15 +81,23 @@ then produced no structured output. Its namespace projected a private X11 socket
 not the DRM device/sysfs closure already used successfully by Ubuntu Bitwig and ASC.
 It also failed to retain the child exit code after record parsing failed.
 
+Attempt 003 corrected the GPU projection and retained the exact exit. The host passed
+readiness and gate, returned generic inspection exit `90`, and emitted no structured
+record. The graphics errors from attempt 002 disappeared. It still used a blank
+prefix, so it did not reproduce the persistent Arturia environment that underpins the
+working predecessor and the retained Ubuntu installation. It is retained as a
+launch-harness result, not treated as successor incompatibility evidence.
+
 Those failures remain immutable evidence. They do not erase the predecessor profile
 or prove that FRAGMENTS was loaded. The recalibrated successor-verification run is a
-new, explicitly authorized continuation, not a relabeling of either failed attempt.
+new, explicitly authorized continuation, not a relabeling of any failed attempt.
 
 ## In scope
 
 - `CURRENT_SLICE.md`, `docs/FRG1.md` and bounded FRG1 evidence;
 - the additive non-secret FRG1 input lock;
 - predecessor-to-successor differential verification;
+- exact retained-prefix custody and private-snapshot verification;
 - exact graphical/GPU sandbox projection and complete failure receipt;
 - one class-specific successor proxy/descriptor and `review_candidate` profile;
 - coherence and cross-generation refusal tests;
@@ -98,7 +109,8 @@ new, explicitly authorized continuation, not a relabeling of either failed attem
 - no Ubuntu publication or Bitwig plug-in execution before the product candidate is
   reviewed and merged;
 - no ASC launch, download, activation, repair or installation;
-- no copied prefix, activation state or mutable Deck state;
+- no copied Steam Deck prefix, activation state or mutable Deck state;
+- no mutation of the retained Ubuntu prefix; only one private operation snapshot;
 - no claim that the predecessor profile automatically qualifies the successor;
 - no claim that factory continuity alone proves editor, audio or state on Ubuntu;
 - no Ableton Live, Max, Max for Live, Native Access, NTKDaemon or Pigments work.
