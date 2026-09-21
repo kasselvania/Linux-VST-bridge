@@ -4,7 +4,10 @@
 
 - RPI0 functional architecture: **PASSED; PERFORMANCE UNQUALIFIED**
 - Steam Deck ASC/Pigments transfer baseline: **RESOLVED**
-- exact Proton-on-Box64 Pi preflight: **NOT RUN**
+- exact runtime transfer: **PASSED**
+- Proton-on-Box64 core Pi process checks:
+  **FUNCTIONAL; SETUP FAULTS PRESERVED**
+- account-free UI Automation normal/override checks: **NOT RUN**
 - private ASC installation and sign-in: **NOT RUN**
 - private Pigments installation and standalone qualification: **NOT RUN**
 - overall RPI1: **PENDING PHYSICAL EXECUTION**
@@ -132,6 +135,40 @@ requested or inspected. The exact runner must therefore come from the user's
 entitled retained Steam Deck installation. This is an acquisition boundary, not
 a Proton, Box64 or Pi execution failure. See
 `evidence/rpi1/runner-acquisition.json`.
+
+### Runtime transfer and Pi preflight checkpoint
+
+The user's retained Deck installation supplied only the exact Proton 11.0 and
+Steam Linux Runtime 4 directories. The transfer excluded app manifests, Steam
+userdata, compatdata, Arturia software and all account or authorization state.
+Complete path/type/mode/content/symlink/hard-link closure digests matched first
+in private staging and then on the Pi:
+
+- Proton: `b2fa64a44abe0db6b1aae35c6a402c0e4a4f9603a208c6dcf4b936bc1dd4f9fb`;
+- SLR4: `0ca1ee5a23ec82489fb1305ffcd2eed62723bc126c37838934fc037d5e10fca3`.
+
+SLR4 contains its native AArch64 pressure-vessel implementation, but its
+emulator interface invokes the configured emulator with explicit x86-64
+dynamic-loader vectors and invokes the top-level Proton Python script through
+that same boundary. Direct Box64 failed both shapes. The experiment-owned
+`rpi1/box64-emulator-adapter.c` now performs only those two reviewed
+translations and refuses malformed or unknown loader vectors. It does not
+replace SLR4, Proton, Wine or the bridge.
+
+With that adapter, the exact Pi completed the x86-64 Linux probe, fresh Proton
+prefix initialization, the source-owned Windows self-test, and the
+source-owned Windows VST host start/natural-close lifecycle. Every launch used
+an exact systemd user unit; the final host PID/start identity was observed in
+its cgroup and zero private descendants remained after retirement.
+
+This is not a clean preflight pass. SLR4 still runs an i386 setup probe that the
+selected 64-bit-only Box64 does not support, its static x86-64 `ldconfig`
+helper exits by signal 11 before pressure-vessel selects its declared
+`LD_LIBRARY_PATH` fallback, and several optional native wrappers are absent
+from the Pi image. The successful markers do not erase those faults. The
+account-free UI Automation normal/override pair also remains unrun, so ASC is
+still stopped. Exact attempts, hashes, thermal observations and nonclaims are
+retained in `evidence/rpi1/runtime-transfer-preflight.json`.
 
 Before executing ASC or commercial plug-in bytes:
 

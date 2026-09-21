@@ -43,7 +43,7 @@ def validate(root: Path, manifest_path: Path) -> dict[str, Any]:
     )
     require(
         baseline.get("status")
-        == "TRANSFER_BASELINE_RESOLVED_PHYSICAL_EXECUTION_NOT_RUN",
+        == "TRANSFER_BASELINE_RESOLVED_PI_PREFLIGHT_PARTIAL_WITH_FAULTS",
         "transfer status",
     )
 

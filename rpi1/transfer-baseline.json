@@ -1,6 +1,6 @@
 {
   "schema": "linux-vst-bridge-rpi1-transfer-baseline/v1",
-  "status": "TRANSFER_BASELINE_RESOLVED_PHYSICAL_EXECUTION_NOT_RUN",
+  "status": "TRANSFER_BASELINE_RESOLVED_PI_PREFLIGHT_PARTIAL_WITH_FAULTS",
   "starting_source": {
     "branch": "experiment/rpi1-pigments-arm64-appliance",
     "head": "4a88802914d33633adb1b8b8c76507f0883e63d3",
@@ -38,6 +38,10 @@
     {
       "path": "evidence/rpi1/runner-acquisition.json",
       "sha256": "5ef12dac004322ad6ab5f207069f3464fcc3d1b517753673ded2e31a0b527119"
+    },
+    {
+      "path": "evidence/rpi1/runtime-transfer-preflight.json",
+      "sha256": "2ff64bc273cdb0c60d9e412304292bf5aba9d1f70f7598cbdb82c2b6687d59d3"
     }
   ],
   "pigments": {
@@ -85,11 +89,14 @@
   },
   "gates": {
     "transfer_baseline": "PASSED",
-    "proton_on_box64_preflight": "NOT_RUN",
+    "exact_runtime_transfer": "PASSED",
+    "source_owned_process_checks": "PASSED_WITH_PRESERVED_SETUP_FAULTS",
+    "account_free_uia": "NOT_RUN",
+    "proton_on_box64_preflight": "PARTIAL_FUNCTIONAL_WITH_PRESERVED_SETUP_FAULTS",
     "asc_installation": "NOT_RUN",
     "pigments_installation": "NOT_RUN",
     "standalone_physical_acceptance": "NOT_RUN",
-    "overall": "PENDING_PHYSICAL_EXECUTION"
+    "overall": "PENDING_ASC_AND_PIGMENTS_EXECUTION"
   },
   "private_payload_exclusions": [
     "Proton runtime bytes",

@@ -19,6 +19,11 @@ payloads.
 
 Physical execution is governed by `docs/experiments/RPI1.md`.
 
+The retained Pi transfer/preflight result is in
+`evidence/rpi1/runtime-transfer-preflight.json`. Its core process checks are
+functional, but its SLR setup faults and unrun UI Automation pair keep the
+Proton-on-Box64 gate partial and keep ASC stopped.
+
 `box64-emulator-adapter.c` is the narrow AArch64 executable required by the
 Steam Runtime emulator-manifest interface. It preserves ordinary ELF targets,
 translates the runtime's explicit `ld-linux-x86-64.so.2 --library-path ...`
