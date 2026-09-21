@@ -1,0 +1,56 @@
+{
+  "attempt": "001",
+  "classification": "FRG1_FACTORY_CENSUS_READINESS_TIMEOUT",
+  "cleanup": {
+    "owned_process_count": 0,
+    "transport_retired": true
+  },
+  "disposable_prefix": {
+    "entry_count": 2079,
+    "gate_count": 0,
+    "ready_count": 0
+  },
+  "execution": {
+    "factory_process_result": null,
+    "network_shared": false,
+    "real_home_visible": false,
+    "readiness_timeout_seconds": 90,
+    "retry_performed": false,
+    "sandbox": "fresh masked-home Bubblewrap namespace and new prefix"
+  },
+  "input_lock_sha256": "9c1c93820bfff45d06ade73c7ffebbd9014b9f8e38b85e3aebeea20827d2de43",
+  "inputs": {
+    "module_sha256": "5846dfe91396596715f01a85d51c5ca21a808ef7dad1bfb44b02ab444345e1a5",
+    "runner_archive_sha256": "c5448b76a230384e2d7bc6beb5ccb97bafb7e2c3b6c527cb03a1a546bbcb00a0",
+    "runner_tree_sha256": "eb8ba17cd534d465cdb1a6bb957b4a1972762f3a967d8e1d49781714c0b76ffa",
+    "runtime_identity_sha256": "898b365b97877c7ec3236dbe810fa0210fdca439749df43c2cb36b2d1c06979b",
+    "runtime_tree_sha256": "fc434dd9bd4e4aaec1a17812e15ac00a95db73ad002878f3ff7f01f6cbecb1ed",
+    "scanner_sha256": "348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be",
+    "source_manifest_sha256": "ad7f860633f871fbe0d76cb3c546e8f7f33e8291ac46844fbd088806ba53814c"
+  },
+  "original_ubuntu_custody": {
+    "manager_service": "active",
+    "module_byte_length": 26453504,
+    "module_sha256": "5846dfe91396596715f01a85d51c5ca21a808ef7dad1bfb44b02ab444345e1a5",
+    "publication_payload_count": 0,
+    "state_changed": false
+  },
+  "product_source": {
+    "base_commit": "c38b5c9deb8bd32f5a509258c30f31b3e795fe59",
+    "base_tree": "6d661a80a707157f30d3f4815e04a72b1cb38586",
+    "census_supervisor_sha256": "72155144a026a462f332108d6c463a2cf6def0dc31a364544b5eda7b480afb30"
+  },
+  "recorded_at": "2026-09-21T19:01:11Z",
+  "retention": {
+    "raw_stderr_retained": false,
+    "raw_stdout_retained": false,
+    "reason": "Attempt-001 supervisor did not persist pipe contents on its readiness-timeout path; this evidence defect is repaired in source before any separately reviewed retry."
+  },
+  "schema": "linux-vst-bridge-frg1-attempt-result/v1",
+  "scope": {
+    "asc_launched": false,
+    "bitwig_launched": false,
+    "steam_deck_contacted": false,
+    "ubuntu_deployment_changed": false
+  }
+}

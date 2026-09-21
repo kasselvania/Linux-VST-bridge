@@ -319,6 +319,16 @@ def terminate(child: subprocess.Popen[bytes]) -> None:
         child.wait(timeout=5)
 
 
+def retain_private_streams(root: pathlib.Path, output: bytes, error: bytes) -> dict[str, Any]:
+    require(len(output) <= STDOUT_LIMIT, "scanner stdout exceeded bound")
+    require(len(error) <= STDERR_LIMIT, "scanner stderr exceeded bound")
+    for name, value in (("raw.stdout", output), ("raw.stderr", error)):
+        path = root / name
+        path.write_bytes(value)
+        path.chmod(0o600)
+    return {"stdout_sha256": sha256_bytes(output), "stderr_sha256": sha256_bytes(error)}
+
+
 def parse_records(output: bytes) -> list[dict[str, Any]]:
     require(len(output) <= STDOUT_LIMIT, "scanner stdout exceeded bound")
     records: list[dict[str, Any]] = []
@@ -341,33 +351,50 @@ def execute(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path, loc
     session = secrets.token_hex(16)
     argv, ready, gate = sandbox_argv(root, runner, runtime, lock, session)
     child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+    output = b""
+    error = b""
+    captured = False
+    phase = "readiness"
     try:
         deadline = time.monotonic() + READY_TIMEOUT
         while not ready.exists():
             if child.poll() is not None:
                 output, error = child.communicate(timeout=5)
+                captured = True
                 raise CensusError(f"scanner exited before readiness: {child.returncode}; stderr_sha256={sha256_bytes(error)}; stdout_sha256={sha256_bytes(output)}")
             if time.monotonic() >= deadline:
                 raise CensusError("scanner readiness timeout")
             time.sleep(0.05)
         handshake = ready.read_bytes()
         require(handshake == expected_handshake(lock, session), "scanner readiness binding changed")
+        phase = "execution"
         with gate.open("xb") as handle:
             handle.write(handshake)
             handle.flush()
             os.fsync(handle.fileno())
         output, error = child.communicate(timeout=EXECUTION_TIMEOUT)
-    except Exception:
+        captured = True
+    except Exception as failure:
         terminate(child)
+        if not captured:
+            output, error = child.communicate(timeout=5)
+        digests = retain_private_streams(root, output, error)
+        failure_record = {
+            "schema": "linux-vst-bridge-frg1-private-failure/v1",
+            "classification": "FRG1_FACTORY_CENSUS_FAILED",
+            "phase": phase,
+            "reason": str(failure),
+            "exit_code": child.returncode,
+            **digests,
+        }
+        private_failure = root / "failure.json"
+        private_failure.write_bytes(canonical_json(failure_record) + b"\n")
+        private_failure.chmod(0o600)
         raise
     finally:
         if child.poll() is None:
             terminate(child)
-    require(len(error) <= STDERR_LIMIT, "scanner stderr exceeded bound")
-    (root / "raw.stdout").write_bytes(output)
-    (root / "raw.stderr").write_bytes(error)
-    (root / "raw.stdout").chmod(0o600)
-    (root / "raw.stderr").chmod(0o600)
+    digests = retain_private_streams(root, output, error)
     records = parse_records(output)
     closed = one(records, "ap8_inspection_closed")
     completed = one(records, "scanner_completed")
@@ -393,8 +420,7 @@ def execute(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path, loc
         "error": None if child.returncode == 0 else "scanner_nonzero_exit",
         "inspection_exit_code": closed.get("exit_code"),
         "inspection_complete": completed.get("inspection_complete"),
-        "stdout_sha256": sha256_bytes(output),
-        "stderr_sha256": sha256_bytes(error),
+        **digests,
         "records": records,
     }
     (root / "report.json").write_bytes(canonical_json(result) + b"\n")
