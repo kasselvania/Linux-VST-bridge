@@ -35,6 +35,59 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "${{ runner.temp }}/rpi0-windows/rpi0/bin/Release/rpi0-windows-probe.exe" --self-test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  frozen-windows-artifacts:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 53fb9f2a334e2f5fbc3d3c1cf4469148fef30b45
+          persist-credentials: false
+      - name: Verify frozen executable source
+        shell: pwsh
+        run: |
+          if ((git rev-parse HEAD) -ne "53fb9f2a334e2f5fbc3d3c1cf4469148fef30b45") { exit 1 }
+          if ((git rev-parse 'HEAD^{tree}') -ne "fb4a662eba4ac1f8c733a41d63e5c98419832139") { exit 1 }
+      - name: Acquire pinned official VST3 SDK
+        run: python tools/wf0-factory-census/build.py acquire --sdk-root "${{ runner.temp }}/rpi0-sdk"
+      - name: Build and test frozen Windows artifacts
+        shell: pwsh
+        run: |
+          cmake -S . -B "${{ runner.temp }}/rpi0-windows" -G "Visual Studio 17 2022" -A x64 -T v143 "-DCMAKE_SYSTEM_VERSION=10.0.19041.0" -DWF0_BUILD_ONLY=ON "-DWF0_VST3_SDK_ROOT:PATH=${{ runner.temp }}/rpi0-sdk"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build "${{ runner.temp }}/rpi0-windows" --config Release --target wf0-factory-probe rpi0-arm-appliance-synth rpi0-windows-tests rpi0-windows-probe --parallel 4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "${{ runner.temp }}/rpi0-windows/rpi0/bin/Release/rpi0-windows-tests.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "${{ runner.temp }}/rpi0-windows/rpi0/bin/Release/rpi0-windows-probe.exe" --self-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $paths = @(
+            "${{ runner.temp }}/rpi0-windows/rpi0/bin/Release/rpi0-windows-probe.exe",
+            "${{ runner.temp }}/rpi0-windows/rpi0/bin/Release/LVB ARM Appliance Synth.vst3",
+            "${{ runner.temp }}/rpi0-windows/wf0/bin/Release/wf0-factory-probe.exe"
+          )
+          $lines = @(
+            "schema=linux-vst-bridge-rpi0-windows-artifacts/v1",
+            "head=53fb9f2a334e2f5fbc3d3c1cf4469148fef30b45",
+            "tree=fb4a662eba4ac1f8c733a41d63e5c98419832139"
+          )
+          foreach ($path in $paths) {
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "missing artifact: $path" }
+            $lines += "sha256=$((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLower()) file=$([IO.Path]::GetFileName($path))"
+          }
+          $lines | Set-Content -LiteralPath "${{ runner.temp }}/rpi0-windows/rpi0-windows-artifacts.manifest" -Encoding ascii
+      - name: Retain frozen physical artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rpi0-windows-53fb9f2a334e2f5fbc3d3c1cf4469148fef30b45
+          path: |
+            ${{ runner.temp }}/rpi0-windows/rpi0/bin/Release/rpi0-windows-probe.exe
+            ${{ runner.temp }}/rpi0-windows/rpi0/bin/Release/LVB ARM Appliance Synth.vst3
+            ${{ runner.temp }}/rpi0-windows/wf0/bin/Release/wf0-factory-probe.exe
+            ${{ runner.temp }}/rpi0-windows/rpi0-windows-artifacts.manifest
+          if-no-files-found: error
+          retention-days: 7
   linux-aarch64:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
