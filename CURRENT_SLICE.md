@@ -25,14 +25,29 @@ is never silently widened to the user's unrestricted host bus. Missing,
 ambiguous, replaced, public or wrong-kind supplied resources refuse before
 keeper readiness and before any native binding is exposed.
 
-The installed attempt also retained the old product-specific proxy binaries.
-The 65-second typed, unowned `ServiceBusy` retry in this branch therefore did
-not execute physically. The next offline package must include the exact current
-preparation kit. Before either product is retried, Blackhole and Kontakt each
-require a newly prepared immutable proxy candidate from that kit and an exact
-inactive experimental replacement; their prior publications remain rollback
-authority. Installing manager files alone must not be described as deploying
-the changed native retry behavior.
+Physical installation update (2026-09-21): the reviewed `6fea0f4` package was
+installed as immutable generation
+`49758648eacc262dbd4c27856c7625c5c3705665324efca3c41670ac44225354`.
+Its manifest and installation receipt were verified, and the restarted service
+was active and idle with no keeper, DSP, maintenance, transaction, stale
+transport, capture, or cleanup owner. No product was launched. Fresh Blackhole
+and Kontakt candidates could not lawfully be prepared because both retained
+product selections were stale against the newly installed scanner source while
+the manager removed every onboarding action after an environment became
+managed.
+
+The focused continuation keeps installation and publication closed and admits
+only an exact inventory refresh for that state. A managed onboarding record is
+scan authority only when every registry owner binds its complete retained
+environment. A missing or stale inventory then offers one scan action after the
+installer operation is positively retired; current or quarantined inventory
+does not. Execution revalidates the same facts before suspension. It never
+replays the installer, starts a new installation attempt, alters publication,
+or treats a path or environment identifier alone as authority. After review and
+installation of this correction, Blackhole and Kontakt still require freshly
+prepared immutable proxy candidates and exact inactive experimental
+replacement before either physical launch. Their prior publications remain
+rollback authority.
 
 Correction basis: stacked merge `18cc2c11b35c6c3c04d88c4703c8a6d88996249a`,
 tree `9311091011ec69caa4799f2e12fa972e3ac74781`. That merge entered the

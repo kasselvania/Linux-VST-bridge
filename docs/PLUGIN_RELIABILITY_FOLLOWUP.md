@@ -19,12 +19,20 @@ Keeper failures retain exact exit status and non-disclosing output byte
 counts/digests rather than discarding all process evidence or retaining raw
 potentially sensitive text.
 
-The attempt also proved that installing a manager/supervisor update does not
-replace already published product proxies. Blackhole and Kontakt must each be
-prepared from the exact current preparation kit and installed as new immutable
-experimental publication revisions before their next physical checks. The old
-publications remain rollback authority. The touch comparison below resumes
-only after that source/package boundary is reviewed and installed.
+The reviewed package was subsequently installed as immutable generation
+`49758648eacc262dbd4c27856c7625c5c3705665324efca3c41670ac44225354`.
+The service returned active and idle, and no product was launched. Candidate
+preparation then stopped because Blackhole and Kontakt both retained inventory
+from an older scanner source, while managed onboarding environments exposed no
+lawful refresh action. The focused source repair exposes only an exact rescan
+when the complete managed environment still matches its retained onboarding
+authority, the installer is retired, and inventory is absent or stale. It does
+not replay an installer, reopen initial installation, or alter a publication.
+After that correction is reviewed and installed, Blackhole and Kontakt must
+each be prepared from the exact current preparation kit and installed as new
+immutable experimental publication revisions before their next physical
+checks. The old publications remain rollback authority. The touch comparison
+below resumes only after that boundary is reviewed and installed.
 
 Source candidate update (2026-09-20): the shared Blackhole/Kontakt reliability
 slice now admits the exact current managed-experimental publication to optional

@@ -1259,7 +1259,7 @@ fn execute_with_receipt_policy(
         }
         ui::Action::InstallerScan { onboarding: id } => {
             let _environment = m.lock("operator-environment.lock")?;
-            let r = onboarding::load(m, id)?;
+            let r = onboarding::load_scan_request(m, id)?;
             require(
                 onboarding::retired(&onboarding::result(m, &r)?),
                 "installer_retirement_required",
