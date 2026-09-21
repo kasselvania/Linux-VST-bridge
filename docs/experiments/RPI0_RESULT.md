@@ -3,15 +3,15 @@
 ## Disposition
 
 - deterministic implementation: **PASSED**
-- Box64/Wine physical Pi preflight: **NOT RUN**
+- Box64/Wine physical Pi preflight: **PASSED ON THE 4 KiB KERNEL**
 - physical MIDI/audio/editor acceptance: **NOT RUN**
 - overall RPI0: **PENDING PHYSICAL VALIDATION**
 
-The Pi-ready deterministic implementation passed at the preserved executable
-source and tree below. The implementation environment was an Apple ARM64 host,
-not a Raspberry Pi, so the physical gates were not run. That absence is not an
-implementation failure. No physical result is inferred from compilation or
-simulation.
+The deterministic implementation remains passed at the preserved executable
+source and tree below. Physical execution subsequently passed the bounded
+Box64/Wine/Windows-host preflight on a Raspberry Pi 5 using the distribution's
+4 KiB kernel. It did not run the physical MIDI/audio/editor sequence, so overall
+RPI0 remains pending rather than passed.
 
 ## Exact custody
 
@@ -29,24 +29,25 @@ The pre-existing working checkout contained unrelated untracked `handoffs/`
 material. It was left untouched. Work was performed in an isolated worktree at
 the exact required branch head.
 
-## Provisionally selected lane
+## Selected translation lane
 
-The provisionally selected lane is Box64 0.4.4 commit
+The selected lane is Box64 0.4.4 commit
 `2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a`, with a source-built x86-64 Wine
 11.0 commit `db11d0fe6a169c457e23d007e20404643d067aa8`.
 `rpi0/translation-lane.toml` fixes the build posture, x86-64 libraries, wrapped
-ARM libraries, environment, and exact Box64 configuration. These pins were
-verified against their upstream repositories; they were not built or executed
-on a Pi in this result. Box64/Wine selection remains provisional until its four
-physical preflight checks pass. FEX was not attempted because Box64 did not
-produce a concrete physical-preflight failure.
+ARM libraries, environment, and exact Box64 configuration. The pinned artifacts
+were built and executed on the Pi. Box64 ran the Linux probe, Wine ran the Windows
+probe, the source-owned Windows host opened and closed, and the translated cohort
+retired exactly. FEX was not attempted because Box64 passed the bounded preflight
+after selecting the installed 4 KiB kernel.
 
 ## Intended first physical fixture
 
 The first physical fixture is Raspberry Pi 5 with 8 GB RAM plus ShieldXL
 CS4270/JACK hardware. It begins without active cooling and without overclock.
-The ShieldXL integration contract has not yet been supplied; the branch
-therefore waits at the SHIELDXL0 authority gate before physical preflight.
+The ShieldXL integration contract is supplied. Integration exposed a kernel
+contract collision: Wine under Box64 fails on the contract's 16 KiB kernel, while
+the contract's CS4270 module is not built for the 4 KiB kernel required by Wine.
 Raspberry Pi 4 Model B with 4 GB or 8 GB and Compute Module 5 with at least
 8 GB remain accepted targets, but they are not this first fixture.
 
@@ -130,24 +131,58 @@ Local implementation-host observations:
 The hosted x86-64 Linux probe build and all cross-compilation remain distinct
 from actual Box64 execution. None is a physical ARM claim.
 
+## Physical preflight observation
+
+The observed fixture was Raspberry Pi 5 Model B revision 1.1 with 8 GB RAM,
+Debian 13.7 trixie, firmware `ab8a9dde`, microSD/ext4 storage, no active
+cooling, and no overclock.
+
+On `6.18.50+rpt-rpi-2712` with 16 KiB pages:
+
+- the x86-64 Linux probe passed through Box64;
+- the exact Wine binary reported `wine-11.0`;
+- the Windows probe exited 139 in `ntdll.so/signal_init_process` while accessing
+  `0x7ffe1000`;
+- the translated process cohort was absent after the failure.
+
+The same distribution image already supplied `6.18.50+rpt-rpi-v8` with 4 KiB
+pages. After a reversible boot selection, the same Box64/Wine and Windows
+artifacts passed. The repository-owned full preflight passed in sessions
+`94a328565d43c78bb7aea52a46ffae8d` and
+`9933b83197accc4cb027ee3ade072db2`. Each pass established the source-owned
+Windows host's exact unit, cgroup, PID/start/executable identity, natural close,
+unit retirement, session cleanup, and restart after the first clean result.
+
+The generated appliance config initially failed because `rpi0/package.py`
+copied only Wine's launcher ELF without its adjacent runtime tree. The successful
+physical preflight used a separately retained config pointing to the same hashed
+ELF at its installed runtime path. No executable was rebuilt or substituted.
+
+Provisioning reached an observed high of 80.7 degrees C. The firmware throttle
+register remained `0x0`, and 2.4 GHz was observed under load. Those values are
+provisioning observations, not performance or sustained-thermal qualification.
+
 ## Pending physical resumption sequence
 
-The physical sequence was not started.
-Consequently there is no MIDI-controller identity, audio route, audible output,
-mouse acceptance, state acceptance, service distribution, gap count, deadline
-count, CPU/memory/thermal observation, throttling result, cleanup receipt, or
-second-session restart receipt.
+Steps 1 through 4 of the physical resumption sequence passed. The full acceptance
+sequence stopped before starting the source-owned synth because the ShieldXL
+audio card is unavailable under the 4 KiB kernel. The overlay and controls load,
+but `snd-soc-cs4270.ko` exists only for `rpt-rpi-2712`; ALSA therefore reports
+only HDMI devices and the sound node remains deferred with
+`asoc-simple-card: parse error`.
 
-After SHIELDXL0 supplies the hardware contract, resume this same branch with:
+Resume this same branch only after SHIELDXL0 authority admits and qualifies its
+pinned CS4270 source for the exact `rpt-rpi-v8` kernel. Then continue with:
 
-1. native AArch64 standalone startup;
-2. Box64 x86-64 Linux probe;
-3. Wine Windows probe;
-4. exact translated-host cleanup;
-5. source-owned synth at 2048 bridge frames;
-6. physical MIDI and ShieldXL audio;
-7. editor and state acceptance;
-8. clean stop and second-session restart.
+1. source-owned synth at 2048 bridge frames;
+2. physical MIDI and ShieldXL audio;
+3. editor and state acceptance;
+4. clean stop and second-session restart.
+
+There is still no MIDI-controller identity for RPI0, accepted ShieldXL audio
+route, audible output, mouse acceptance, state acceptance, service distribution,
+gap count, deadline count, CPU/memory distribution, or complete physical-session
+restart receipt.
 
 Temperature, throttling status, and observed clock state must be recorded
 throughout. A functionally successful but thermally throttled run may establish
@@ -156,20 +191,21 @@ polyphony, or sustained stability.
 
 ## Preserved gaps and nonclaims
 
-- The provisionally selected Box64/Wine lane has not run any of its four physical Pi
-  preflight checks.
-- No Pi hardware, OS image, kernel, firmware, page size, storage, cooling,
-  temperature, governor, clock, JACK/PipeWire graph, editor display, CPU use, or
-  memory peak has been observed.
+- Box64/Wine passed only the bounded headless Pi preflight on the 4 KiB kernel;
+  it has not processed a physical RPI0 audio session.
+- The 16 KiB Box64/Wine fault, incomplete Wine runtime staging, and missing
+  4 KiB ShieldXL codec module remain preserved failures.
+- No accepted ShieldXL JACK graph, physical MIDI, editor display, audio CPU use,
+  or memory peak has been observed for RPI0.
 - No 2048/1024/512 physical delay campaign has run.
 - No DAW, Pigments, commercial plug-in, vendor installer, or authorization
   system was used.
 - There is no universal ARM, Snapdragon, production hardware, or low-latency
   claim.
 
-The deterministic implementation is closed unless physical execution identifies
-a concrete defect. Resume the same branch only after the SHIELDXL0 hardware
-integration contract is supplied.
+Physical execution identified concrete packaging and kernel-integration defects.
+The frozen executable source remains preserved; resume the same branch only after
+the SHIELDXL0 4 KiB kernel-module contract is explicitly extended.
 
 Because overall RPI0 remains pending physical validation, there is no RPI1
 Pigments recommendation.
