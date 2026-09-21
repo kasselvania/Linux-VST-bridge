@@ -12,26 +12,41 @@ require_root
 require_platform
 [[ -c $device && $device == /dev/snd/midiC*D* ]] || die "not an ALSA raw MIDI device: $device"
 
-properties=$(udevadm info --query=property --name "$device")
-property() {
-  local name=$1
-  printf '%s\n' "$properties" | sed -n "s/^$name=//p" | head -n 1
+resolve_usb_identity() {
+  local candidate=$1 syspath parent
+  USB_VENDOR=
+  USB_PRODUCT=
+  USB_SERIAL=
+  USB_MODEL=
+  syspath=$(udevadm info --query=path --name "$candidate")
+  [[ $syspath == /devices/* ]] || return 1
+  parent=/sys$syspath
+  while [[ $parent == /sys/* && $parent != /sys ]]; do
+    if [[ -r $parent/idVendor && -r $parent/idProduct ]]; then
+      USB_VENDOR=$(tr -d '[:space:]' <"$parent/idVendor")
+      USB_PRODUCT=$(tr -d '[:space:]' <"$parent/idProduct")
+      [[ -r $parent/serial ]] && USB_SERIAL=$(tr -d '\n' <"$parent/serial")
+      [[ -r $parent/product ]] && USB_MODEL=$(tr -d '\n' <"$parent/product")
+      [[ $USB_VENDOR =~ ^[0-9A-Fa-f]{4}$ && $USB_PRODUCT =~ ^[0-9A-Fa-f]{4}$ ]] || return 1
+      return 0
+    fi
+    parent=${parent%/*}
+  done
+  return 1
 }
-bus=$(property ID_BUS)
-vendor=$(property ID_VENDOR_ID)
-product=$(property ID_MODEL_ID)
-serial=$(property ID_SERIAL_SHORT)
-model=$(property ID_MODEL)
-[[ $bus == usb && $vendor =~ ^[0-9A-Fa-f]{4}$ && $product =~ ^[0-9A-Fa-f]{4}$ ]] ||
-  die 'device lacks an exact USB VID/PID identity'
+
+resolve_usb_identity "$device" || die 'device lacks an exact USB VID/PID identity in its parent chain'
+vendor=$USB_VENDOR
+product=$USB_PRODUCT
+serial=$USB_SERIAL
+model=$USB_MODEL
 
 matches=0
 for candidate in /dev/snd/midiC*D*; do
   [[ -e $candidate ]] || continue
-  candidate_properties=$(udevadm info --query=property --name "$candidate")
-  candidate_vendor=$(printf '%s\n' "$candidate_properties" | sed -n 's/^ID_VENDOR_ID=//p' | head -n 1)
-  candidate_product=$(printf '%s\n' "$candidate_properties" | sed -n 's/^ID_MODEL_ID=//p' | head -n 1)
-  [[ $candidate_vendor == "$vendor" && $candidate_product == "$product" ]] && matches=$((matches + 1))
+  if resolve_usb_identity "$candidate"; then
+    [[ $USB_VENDOR == "$vendor" && $USB_PRODUCT == "$product" ]] && matches=$((matches + 1))
+  fi
 done
 [[ $matches -eq 1 ]] || die "USB VID:PID $vendor:$product is ambiguous across $matches raw MIDI devices"
 

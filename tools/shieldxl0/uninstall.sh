@@ -76,7 +76,10 @@ for kernel in "$SHIELDXL0_KERNEL_16K" "$SHIELDXL0_KERNEL_RPI0_4K"; do
   [[ ! -d /lib/modules/$kernel ]] || depmod "$kernel"
 done
 rm -f "$SHIELDXL0_STATE_DIR/cs4270-module.sha256"
-for program in controls.py oled_service.py oled_client.py audio_probe.py audio-test.sh mixer-state.sh observed-run.sh thermal-observe.sh; do
+for program in \
+  lib.sh controls.py oled_service.py oled_client.py audio_probe.py audio-test.sh \
+  mixer-state.sh observed-run.sh thermal-observe.sh midi-test.sh \
+  jack-matrix.sh jack_iodelay_result.py admit-usb-midi.sh; do
   destination="/usr/local/libexec/shieldxl0/$program"
   if [[ -e $destination ]]; then
     [[ ! -L $destination && -f $destination ]] || die "unexpected installed program path type: $destination"

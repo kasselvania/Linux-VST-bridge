@@ -80,6 +80,33 @@ class ContractTest(unittest.TestCase):
         matrix = (ROOT / "jack-matrix.sh").read_text()
         for command in ("jack_lsp", "jack_connect", "jack_iodelay", "jack_samplerate"):
             self.assertIn(command, matrix)
+        self.assertIn("stdbuf -oL -eL jack_iodelay", matrix)
+
+        service = (ROOT / "systemd" / "shieldxl-jack@.service").read_text()
+        self.assertIn(
+            "ExecStartPre=/usr/local/libexec/shieldxl0/mixer-state.sh apply",
+            service,
+        )
+
+    def test_physical_campaign_helpers_are_installed_and_owned(self):
+        provisioning = (ROOT / "provision.sh").read_text()
+        uninstall = (ROOT / "uninstall.sh").read_text()
+        for helper in (
+            "lib.sh",
+            "observed-run.sh",
+            "midi-test.sh",
+            "jack-matrix.sh",
+            "jack_iodelay_result.py",
+            "admit-usb-midi.sh",
+        ):
+            self.assertIn(helper, provisioning)
+            self.assertIn(helper, uninstall)
+
+    def test_usb_midi_identity_is_resolved_from_the_usb_parent(self):
+        admission = (ROOT / "admit-usb-midi.sh").read_text()
+        self.assertIn('udevadm info --query=path --name "$candidate"', admission)
+        self.assertIn('[[ -r $parent/idVendor && -r $parent/idProduct ]]', admission)
+        self.assertNotIn("ID_VENDOR_ID", admission)
 
     def test_wrong_board_refusal_is_retained_without_claiming_acceptance(self):
         evidence = json.loads((REPO / "evidence/shieldxl0/fixture-admission-failure.json").read_text())

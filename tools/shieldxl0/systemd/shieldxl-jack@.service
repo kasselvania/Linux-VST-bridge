@@ -12,6 +12,7 @@ EnvironmentFile=/etc/shieldxl0/jack.env
 Environment=JACK_NO_AUDIO_RESERVATION=1
 LimitRTPRIO=90
 LimitMEMLOCK=infinity
+ExecStartPre=/usr/local/libexec/shieldxl0/mixer-state.sh apply
 ExecStart=/usr/bin/jackd -R -P 70 -d alsa -d hw:SHIELDXL -r ${SHIELDXL_SAMPLE_RATE} -p ${SHIELDXL_PERIOD_FRAMES} -n ${SHIELDXL_PERIODS} -S -X seq
 Restart=on-failure
 RestartSec=2s

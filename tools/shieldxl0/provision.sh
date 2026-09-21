@@ -137,12 +137,18 @@ install_exact "$SCRIPT_DIR/config/99-shieldxl0-alsa.conf" /etc/alsa/conf.d/99-sh
 install_exact "$SCRIPT_DIR/config/shieldxl0-modules.conf" /etc/modules-load.d/shieldxl0.conf 0644
 install_exact "$SCRIPT_DIR/config/jack.env" "$SHIELDXL0_CONFIG_DIR/jack.env" 0644
 install_exact "$SCRIPT_DIR/config/99-shieldxl0-limits.conf" /etc/security/limits.d/99-shieldxl0.conf 0644
-install_exact "$SCRIPT_DIR/systemd/shieldxl-jack@.service" /etc/systemd/system/shieldxl-jack@.service 0644
+install_exact "$SCRIPT_DIR/systemd/shieldxl-jack@.service" /etc/systemd/system/shieldxl-jack@.service 0644 \
+  c66ba05686a64eaaf942a6946d6007084ccb355af7464af4e683941d853690ed
 install_exact "$SCRIPT_DIR/systemd/shieldxl-oled@.service" /etc/systemd/system/shieldxl-oled@.service 0644
-for program in controls.py oled_service.py oled_client.py audio_probe.py audio-test.sh mixer-state.sh observed-run.sh thermal-observe.sh; do
+for program in \
+  lib.sh controls.py oled_service.py oled_client.py audio_probe.py audio-test.sh \
+  mixer-state.sh observed-run.sh thermal-observe.sh midi-test.sh \
+  jack-matrix.sh jack_iodelay_result.py admit-usb-midi.sh; do
   admitted_predecessor=
   if [[ $program == mixer-state.sh ]]; then
     admitted_predecessor=6e1e5e3fa0b3ab9fa7bb631bca40bcdb97b0b9da38aaaf715c9142af00b24fc3
+  elif [[ $program == jack-matrix.sh ]]; then
+    admitted_predecessor=b183fda112dc5121c96187c4c372ee1b2d1519d4829b853d8a810e1591cda7bf
   fi
   install_exact "$SCRIPT_DIR/$program" "/usr/local/libexec/shieldxl0/$program" 0755 "$admitted_predecessor"
 done

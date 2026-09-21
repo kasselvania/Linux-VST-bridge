@@ -47,7 +47,9 @@ as_user() {
 
 loopback_channel() {
   local period=$1 channel=$2 log=$3 runner ready=no
-  as_user timeout --signal=INT 8s jack_iodelay >"$log" 2>&1 &
+  # jack_iodelay writes through stdio; force line buffering so the bounded
+  # SIGINT shutdown cannot discard a valid final measurement in a file buffer.
+  as_user timeout --signal=INT 8s stdbuf -oL -eL jack_iodelay >"$log" 2>&1 &
   runner=$!
   for _attempt in $(seq 1 30); do
     if as_user jack_lsp 2>/dev/null | grep -Fqx 'jack_delay:out'; then
