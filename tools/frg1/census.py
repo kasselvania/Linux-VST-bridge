@@ -27,7 +27,7 @@ from typing import Any, Iterable
 
 
 SCHEMA = "linux-vst-bridge-frg1-input-lock/v1"
-LOCK_SHA256 = "4a843e543cb8e337d89b0d5b38d8438aa121801bc340e3ad544c59b94b74ffea"
+LOCK_SHA256 = "17cd4b147a1423329d00b6e11d3712030f8bf6392683e521f7e1c840dcf583fc"
 OWNER_FILE = ".ua1-owner.json"
 INSTALL_RECEIPT = ".ua1-install.json"
 STDOUT_LIMIT = 1_048_576
@@ -356,13 +356,15 @@ def _validate_prefix_tree(root: pathlib.Path, lock: dict[str, Any]) -> dict[str,
     require(owner == expected_owner, "retained prefix owner receipt changed")
     require(sha256_file(owner_path) == retained["custody"]["owner_file_sha256"], "retained prefix owner bytes changed")
     pfx = exact_directory(root / "pfx")
+    pfx_mode = f"{stat.S_IMODE(pfx.stat().st_mode):04o}"
+    require(pfx_mode == retained["custody"]["pfx_mode"], "retained prefix pfx mode changed")
     module = root / retained["module_prefix_relative"]
     exact_file(module, lock["fixture"]["module"]["byte_length"], lock["fixture"]["module"]["sha256"])
     return {
         "owner_identity": owner["identity"],
         "owner_file_sha256": retained["custody"]["owner_file_sha256"],
         "module_sha256": lock["fixture"]["module"]["sha256"],
-        "pfx_mode": f"{stat.S_IMODE(pfx.stat().st_mode):04o}",
+        "pfx_mode": pfx_mode,
     }
 
 

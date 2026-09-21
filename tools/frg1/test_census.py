@@ -32,6 +32,7 @@ class CensusTests(unittest.TestCase):
         self.assertEqual(lock["retained_ubuntu_environment"]["execution"]["launcher_verb"], "runinprefix")
         self.assertEqual(lock["retained_ubuntu_environment"]["execution"]["synthetic_home"], "/home/ua1")
         self.assertFalse(lock["retained_ubuntu_environment"]["execution"]["network_shared"])
+        self.assertEqual(lock["retained_ubuntu_environment"]["custody"]["pfx_mode"], "0775")
         self.assertEqual(census.READY_TIMEOUT, 180.0)
 
     def test_predecessor_profile_bytes_are_the_locked_starting_point(self) -> None:
@@ -133,6 +134,7 @@ class CensusTests(unittest.TestCase):
             prefix = home / custody["prefix_home_relative"]
             module = prefix / lock["retained_ubuntu_environment"]["module_prefix_relative"]
             module.parent.mkdir(parents=True)
+            (prefix / "pfx").chmod(0o775)
             module.write_bytes(module_bytes)
             owner = {
                 "identity": custody["owner_identity"],
