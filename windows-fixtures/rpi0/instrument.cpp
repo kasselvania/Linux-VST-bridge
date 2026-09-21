@@ -10,6 +10,7 @@
 #include "pluginterfaces/vst/vstspeaker.h"
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cstring>
 #include <windows.h>
 #include <windowsx.h>
@@ -60,12 +61,12 @@ class Editor final:public CPluginView {
 };
 
 class Controller final:public EditControllerEx1 {
-  double gain_=.5;HWND editor_window_=nullptr;
+  double gain_=.5;HWND editor_window_=nullptr;std::uint64_t editor_invalidations_=0;
  public:
   static FUnknown* create(void*){return static_cast<IEditController*>(new Controller);}
   tresult PLUGIN_API initialize(FUnknown*host)override{auto r=EditControllerEx1::initialize(host);if(r!=kResultOk)return r;parameters.addParameter(STR16("Gain"),nullptr,0,.5,ParameterInfo::kCanAutomate,gain_parameter);for(uint32 i=0;i<16;++i){parameters.addParameter(STR16("Sustain"),nullptr,1,0,ParameterInfo::kIsHidden,sustain_parameter_base+i);parameters.addParameter(STR16("All notes off"),nullptr,1,0,ParameterInfo::kIsHidden,all_notes_off_parameter_base+i);}return kResultOk;}
   ParamValue PLUGIN_API getParamNormalized(ParamID id)override{return id==gain_parameter?gain_:EditControllerEx1::getParamNormalized(id);}
-  tresult PLUGIN_API setParamNormalized(ParamID id,ParamValue value)override{const bool changed=id==gain_parameter&&std::isfinite(value)&&value>=0&&value<=1;if(changed)gain_=value;auto result=EditControllerEx1::setParamNormalized(id,value);if(changed&&editor_window_)InvalidateRect(editor_window_,nullptr,FALSE);return result;}
+  tresult PLUGIN_API setParamNormalized(ParamID id,ParamValue value)override{const bool changed=id==gain_parameter&&std::isfinite(value)&&value>=0&&value<=1;if(changed)gain_=value;auto result=EditControllerEx1::setParamNormalized(id,value);if(changed&&editor_window_){++editor_invalidations_;InvalidateRect(editor_window_,nullptr,FALSE);}return result;}
   tresult PLUGIN_API setComponentState(IBStream*stream)override{return read_state(stream);}
   tresult PLUGIN_API setState(IBStream*stream)override{return read_state(stream);}
   tresult PLUGIN_API getState(IBStream*stream)override{State state{state_magic,state_version,gain_};int32 written=0;return stream&&stream->write(&state,sizeof(state),&written)==kResultOk&&written==sizeof(state)?kResultOk:kResultFalse;}
@@ -73,6 +74,7 @@ class Controller final:public EditControllerEx1 {
   void edit(double value,bool begin,bool end){value=std::clamp(value,0.,1.);gain_=value;EditControllerEx1::setParamNormalized(gain_parameter,value);if(componentHandler){if(begin)componentHandler->beginEdit(gain_parameter);componentHandler->performEdit(gain_parameter,value);if(end)componentHandler->endEdit(gain_parameter);}}
   void editor_window(HWND window){editor_window_=window;}
   void editor_removed(HWND window){if(editor_window_==window)editor_window_=nullptr;}
+  std::uint64_t editor_invalidation_count()const{return editor_invalidations_;}
  private:tresult read_state(IBStream*stream){State state{};int32 read=0;if(!stream||stream->read(&state,sizeof(state),&read)!=kResultOk||read!=sizeof(state)||state.magic!=state_magic||state.version!=state_version||!std::isfinite(state.gain)||state.gain<0||state.gain>1)return kResultFalse;gain_=state.gain;return setParamNormalized(gain_parameter,gain_);}
 };
 
