@@ -1,4 +1,4 @@
-# FRG1 — Efx FRAGMENTS 1.3.1.6566 coherent product profile
+# FRG1 — transfer the proven FRAGMENTS baseline to Ubuntu
 
 Exact base:
 
@@ -10,138 +10,102 @@ Exact base:
 
 ## Primary claim
 
-The product owns one closed `review_candidate` compatibility profile for the exact
-Efx FRAGMENTS 1.3.1.6566 module. The profile joins, as one indivisible identity:
+The existing Steam Deck Efx FRAGMENTS `1.0.0.2925` profile is the explicit
+predecessor baseline for bringing the bridge to Ubuntu. FRG1 does not rediscover
+FRAGMENTS as an unknown plug-in. It verifies the changed module and platform
+boundaries, generates an exact successor candidate, and preserves every proven
+predecessor fact that the successor checks do not contradict.
 
-- the exact module;
-- the exact GE-Proton11-7 archive, installed-tree identity, runtime package closure,
-  entry points and process environment policy;
-- the exact reviewed Windows host and its source manifest;
-- a factory census performed against that exact module;
-- independently observed class and controller metadata from that census;
-- a newly generated class-specific native proxy, descriptor and source/build identity;
-- closed compatibility settings and explicit unqualified behavior.
+The product result remains a nonactivating `review_candidate`. After review and
+merge, the Ubuntu-lab chain may consume that exact merged revision and perform the
+same publication, Bitwig, editor, audio, parameter, state, retirement and second-
+launch ladder that established the predecessor baseline.
 
-No caller-supplied class, proxy, host, runner substitution or cross-generation
-combination may satisfy the profile.
+## Proven predecessor
 
-## Exact fixture
+The immutable revision-10 Deck profile establishes for the exact predecessor:
 
-- product: Efx FRAGMENTS
-- library version: 1.3.1
-- embedded version: 1.3.1.6566
-- format: x86-64 Windows VST3
-- module byte length: `26453504`
-- module SHA-256:
-  `5846dfe91396596715f01a85d51c5ca21a808ef7dad1bfb44b02ab444345e1a5`
-- runner: GE-Proton11-7, release commit
-  `c191f35dcebbeccfacd3b4c6f6eea026e588c1c2`
-- Windows host SHA-256:
-  `348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be`
-- Windows host source-manifest SHA-256:
-  `ad7f860633f871fbe0d76cb3c546e8f7f33e8291ac46844fbd088806ba53814c`
+- Efx FRAGMENTS `1.0.0.2925`;
+- module SHA-256 `d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26`;
+- class `41727475415649536772616E50726F63`, Arturia, `Fx|Tools`;
+- effect role, 2,348 parameters and float32 processing;
+- a generated class-specific native proxy;
+- Bitwig load, editor, audio, parameter/automation, state save/reopen and retirement;
+- known accessibility, editor-lifecycle, latency, performance and redraw limits.
 
-The old Efx FRAGMENTS 1.0.0.2925 revision-10 profile remains immutable ordinary
-authority. Its class metadata is a lead only and is not authority for this fixture.
+These facts are prior evidence and candidate inputs. They do not automatically
+qualify different module bytes, a different runner, Ubuntu or another machine.
 
-## Basis
+## Changed Ubuntu successor boundaries
 
-- `AGENTS.md`, Core product invariants, Compatibility-profile rules, Evidence
-  requirements, Security and privacy, Review standard
-- `GOVERNANCE.md`, authority and review boundaries
-- `docs/ARCHITECTURE.md`, manager/profile/native-proxy ownership
-- the accepted, merged Ubuntu UA1 custody result for the exact module, runner and
-  Windows host
-- the tech-lead product handoff requiring a new exact factory census and coherent
-  profile before any Ubuntu publication or Bitwig scan
+- Efx FRAGMENTS `1.3.1.6566`;
+- module size `26453504`, SHA-256
+  `5846dfe91396596715f01a85d51c5ca21a808ef7dad1bfb44b02ab444345e1a5`;
+- GE-Proton11-7 and its exact Ubuntu runtime closure;
+- the admitted Windows host/source-manifest pair;
+- Ubuntu 26.04 graphics, display, audio and filesystem isolation;
+- a newly generated native proxy whose identity binds the successor module.
 
-## Attempt 002 fixed continuation
+The differential verifier requires the predecessor class identity, product name,
+vendor, role and subcategories to remain continuous. It observes and records the
+successor version, parameter roster, controller association, buses and precision.
+Any changed or missing required invariant refuses the candidate instead of falling
+back to the historical bytes.
 
-The tech lead accepted attempt 001 as a bounded pre-handshake launch-readiness
-failure and authorized exactly one attempt 002. Before that execution, the census
-harness must:
+## Execution sequence
 
-- provide one operation-owned private X11 server without inheriting the ordinary
-  X11 desktop;
-- allow 180 seconds for cold readiness and retain the 180-second post-gate bound;
-- continuously drain stdout and stderr from process submission, stopping on the
-  existing fixed capacity bounds;
-- keep the exact module, runner, runtime overlay, Windows host, source manifest,
-  mode, component case and input lock unchanged.
+1. Run the exact successor verification in a new disposable prefix under the
+   Ubuntu masked-home boundary, using the already proven graphical/GPU projection.
+2. Compare the observed class/factory/controller/bus/parameter facts to the locked
+   predecessor baseline.
+3. Generate and build one exact successor descriptor/native proxy from the observed
+   successor records while retaining predecessor capabilities as unqualified
+   candidate expectations.
+4. Bind module, runner closure, Windows host/source manifest, census, descriptor,
+   native proxy and predecessor relationship into one `review_candidate` profile.
+5. Prove old/new module, runner, host, descriptor and proxy cross-combinations refuse.
+6. Return the draft product PR for review; do not deploy from an unmerged product PR.
+7. After merge, update the Ubuntu-lab product lock and adopt the retained prefix
+   without rewriting its owner marker. Publish to a new revision-addressed lab path.
+8. Repeat the proven baseline in Bitwig on Ubuntu: scan, first load, editor, nonzero
+   audio, parameter change/readback, save/close/reopen, retirement and second launch.
 
-The host has no installed Xvfb. The accepted equivalent is a dedicated Xwayland
-instance with its own random Xauthority cookie. It connects only to the exact active
-`wayland-0` compositor socket. The untrusted scanner sees only that operation-owned
-X11 socket and read-only authority file; it does not see the host Wayland socket,
-ordinary X11 display, real home or network.
+## Retained failed executions
 
-One focused synthetic process test may pressure both pipes before publishing a
-readiness marker. No diagnostic-only product run or broader proof campaign precedes
-attempt 002. If attempt 002 fails, execution stops without attempt 003. If its exact
-census succeeds, the original profile/proxy/coherence acceptance sequence continues.
+Attempt 001 timed out before the Windows readiness receipt during cold-prefix
+initialization. Attempt 002 reached and verified readiness, wrote the exact gate,
+then produced no structured output. Its namespace projected a private X11 socket but
+not the DRM device/sysfs closure already used successfully by Ubuntu Bitwig and ASC.
+It also failed to retain the child exit code after record parsing failed.
 
-Attempt 002 passed the exact readiness/gate boundary, then the scanner exited with
-empty stdout and no structured census record. Its bounded stderr contained fresh
-prefix/fsync observations followed by Mesa device, DRI3 and i915 loading errors. The
-exact cause and whether module loading began remain unconfirmed. The Windows child
-exit status was not persisted because the parse refusal occurred outside the private
-failure-receipt block. FRG1 is stopped at
-`FRG1_FACTORY_CENSUS_POST_GATE_EMPTY_OUTPUT`; attempt 003 is not authorized.
+Those failures remain immutable evidence. They do not erase the predecessor profile
+or prove that FRAGMENTS was loaded. The recalibrated successor-verification run is a
+new, explicitly authorized continuation, not a relabeling of either failed attempt.
 
 ## In scope
 
-- `CURRENT_SLICE.md`
-- one bounded FRG1 slice/result document
-- an additive non-secret FRG1 input lock
-- exact factory-census supervision and sanitized evidence for this fixture
-- the fixed attempt-002 private-X11, timeout and bounded-drain correction
-- compatibility-profile schema support needed to bind aggregate runner/runtime
-  closure without changing old profile fingerprints
-- one additive review-candidate profile and immutable history entry
-- one class-specific native proxy and descriptor identity generated by existing
-  product-owned tooling
-- deterministic coherence and cross-generation refusal tests
-- applicable manager, preparation, catalogue, profile and native-proxy tests
-- strict lint/static validation and applicable hosted product lanes
+- `CURRENT_SLICE.md`, `docs/FRG1.md` and bounded FRG1 evidence;
+- the additive non-secret FRG1 input lock;
+- predecessor-to-successor differential verification;
+- exact graphical/GPU sandbox projection and complete failure receipt;
+- one class-specific successor proxy/descriptor and `review_candidate` profile;
+- coherence and cross-generation refusal tests;
+- relevant manager, preparation, catalogue, native-proxy and static checks.
 
 ## Non-goals and nonclaims
 
-- no Ubuntu deployment, publication, Bitwig scan or plug-in execution
-- no Steam Deck contact, deployment or qualification
-- no ASC launch, login, activation, repair, download or installation
-- no Ableton Live, Max, Max for Live, Native Access, NTKDaemon or Pigments work
-- no Arturia installer, module, resources, prefix, account or activation data in Git
-- no claim that factory discovery proves DAW load, editor, audio, parameters,
-  automation, state, restart, retirement or ordinary compatibility
-- no replacement or reinterpretation of the historical 1.0.0.2925 profile
-- no ordinary activation authority in this slice
+- no Steam Deck contact, mutation or new Deck qualification;
+- no Ubuntu publication or Bitwig plug-in execution before the product candidate is
+  reviewed and merged;
+- no ASC launch, download, activation, repair or installation;
+- no copied prefix, activation state or mutable Deck state;
+- no claim that the predecessor profile automatically qualifies the successor;
+- no claim that factory continuity alone proves editor, audio or state on Ubuntu;
+- no Ableton Live, Max, Max for Live, Native Access, NTKDaemon or Pigments work.
 
-## Acceptance
+## Completion gate
 
-1. The factory census opens only the exact module/host/source/runner closure and
-   independently reports its factory and class metadata.
-2. The selected class and controller association are derived from the census, not
-   copied from the historical profile.
-3. The native proxy is generated for that exact class and module by the existing
-   product-owned descriptor/build route.
-4. The candidate profile binds every exact identity listed in the primary claim and
-   remains `review_candidate`.
-5. Missing or changed module, runner, runtime, host, source manifest, census, class,
-   controller, descriptor, native image or source identity is refused.
-6. Cross-generation combinations with the 1.0.0.2925 fixture are refused.
-7. Historical profile bytes and fingerprints remain unchanged.
-8. No proprietary binary or secret is tracked.
-9. The implementation PR performs no Ubuntu or Steam Deck deployment.
-10. One draft, unmerged product PR is returned for independent tech-lead review.
-
-## Evidence and cleanup
-
-Retain only bounded, sanitized product evidence under `evidence/frg1/`: exact public
-identities, factory/class census, proxy/descriptor manifests, test receipts and
-nonclaims. Raw module bytes, runner bytes, prefixes and raw vendor logs remain in
-ignored private custody and are removed from disposable execution roots after
-sanitization. A failed census is retained separately and never promoted.
-
-The accepted Ubuntu installation, prefix, runner, FRAGMENTS files, Bitwig state,
-manager generation and empty publication root remain unchanged. The Steam Deck is
-never contacted.
+FRG1 ends with one draft, unmerged product PR containing an exact successor
+`review_candidate` or a truthful retained differential failure. Ubuntu publication
+and the Bitwig baseline belong to the subsequent Ubuntu-lab continuation from the
+exact merged product revision.

@@ -26,7 +26,7 @@ from typing import Any, Iterable
 
 
 SCHEMA = "linux-vst-bridge-frg1-input-lock/v1"
-LOCK_SHA256 = "9c1c93820bfff45d06ade73c7ffebbd9014b9f8e38b85e3aebeea20827d2de43"
+LOCK_SHA256 = "1deb6b2117ebb1f222192dfcc0ba0bc2dc1146506fa2cf535e385b02ce769925"
 OWNER_FILE = ".ua1-owner.json"
 INSTALL_RECEIPT = ".ua1-install.json"
 STDOUT_LIMIT = 1_048_576
@@ -317,7 +317,62 @@ def load_lock(path: pathlib.Path) -> dict[str, Any]:
     require(value["windows_host"]["artifact"]["sha256"] == "348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be", "host lock changed")
     require(value["windows_host"]["source_manifest"]["sha256"] == "ad7f860633f871fbe0d76cb3c546e8f7f33e8291ac46844fbd088806ba53814c", "host source lock changed")
     require(value["runner"]["archive"]["sha256"] == "c5448b76a230384e2d7bc6beb5ccb97bafb7e2c3b6c527cb03a1a546bbcb00a0", "runner lock changed")
+    predecessor = value["historical_profile"]
+    expected = value["successor_verification"]
+    require(predecessor["profile_file_sha256"] == "bb07dd980c89861dfb5da96a094e3603f57e4231b1d240d34f6ed9bd5c3ced3b", "predecessor profile changed")
+    require(predecessor["class"]["class_id"] == "41727475415649536772616E50726F63", "predecessor class changed")
+    require(predecessor["parameter_count"] == 2348, "predecessor parameter count changed")
+    require(expected["expected_class"]["class_id"] == predecessor["class"]["class_id"], "successor class continuity changed")
+    require(expected["required_class_continuity"] is True, "successor class continuity disabled")
     return value
+
+
+def exact_gpu_sysfs_argv(
+    dri_root: pathlib.Path = pathlib.Path("/dev/dri"),
+    sys_char_root: pathlib.Path = pathlib.Path("/sys/dev/char"),
+    sys_devices_root: pathlib.Path = pathlib.Path("/sys/devices"),
+) -> list[str]:
+    devices = sorted(dri_root.glob("card[0-9]*")) + sorted(dri_root.glob("renderD[0-9]*"))
+    require(
+        bool(devices)
+        and any(path.name.startswith("card") for path in devices)
+        and any(path.name.startswith("renderD") for path in devices),
+        "exact DRM card/render device roster is unavailable",
+    )
+    links: dict[str, str] = {}
+    gpu_roots: set[pathlib.Path] = set()
+    for device in devices:
+        info = device.stat()
+        char_name = f"{os.major(info.st_rdev)}:{os.minor(info.st_rdev)}"
+        link = sys_char_root / char_name
+        require(link.is_symlink(), "DRM sysfs character-device link is absent")
+        target = os.readlink(link)
+        resolved = link.resolve(strict=True)
+        require(within(resolved, sys_devices_root), "DRM sysfs link leaves the devices boundary")
+        gpu_root = (resolved / "device").resolve(strict=True)
+        require(within(gpu_root, sys_devices_root) and gpu_root.is_dir(), "DRM device sysfs root differs")
+        links[char_name] = target
+        gpu_roots.add(gpu_root)
+    require(len(gpu_roots) == 1, "DRM devices do not share one exact GPU sysfs root")
+    gpu_root = next(iter(gpu_roots))
+    gpu_destination = pathlib.Path("/sys/devices") / gpu_root.relative_to(sys_devices_root.resolve(strict=True))
+    parents: list[pathlib.Path] = []
+    current = gpu_destination.parent
+    while current != pathlib.Path("/sys"):
+        parents.append(current)
+        current = current.parent
+    argv = ["--dir", "/sys", "--dir", "/sys/dev", "--dir", "/sys/dev/char"]
+    for parent in reversed(parents):
+        argv.extend(["--dir", str(parent)])
+    argv.extend(["--ro-bind", str(gpu_root), str(gpu_destination)])
+    for char_name, target in sorted(links.items()):
+        argv.extend(["--symlink", target, f"/sys/dev/char/{char_name}"])
+    cpu_online = sys_devices_root / "system/cpu/online"
+    require(cpu_online.is_file() and not cpu_online.is_symlink(), "exact CPU-online sysfs file is unavailable")
+    for directory in ("/sys/devices/system", "/sys/devices/system/cpu"):
+        argv.extend(["--dir", directory])
+    argv.extend(["--ro-bind", str(cpu_online), "/sys/devices/system/cpu/online"])
+    return argv
 
 
 def validate_owned_runner(root: pathlib.Path, lock: dict[str, Any]) -> None:
@@ -428,6 +483,7 @@ def sandbox_argv(
         "--tmpfs", "/", "--dir", "/usr", "--overlay-src", "/usr", "--overlay-src", str(runtime / "usr"), "--ro-overlay", "/usr",
         "--symlink", "usr/bin", "/bin", "--symlink", "usr/sbin", "/sbin", "--symlink", "usr/lib", "/lib", "--symlink", "usr/lib64", "/lib64",
         "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/dev/shm", "--chmod", "1777", "/dev/shm",
+        "--dev-bind", "/dev/dri", "/dev/dri",
         "--dir", "/etc", "--ro-bind", str(config / "passwd"), "/etc/passwd", "--ro-bind", str(config / "group"), "/etc/group", "--ro-bind", str(config / "machine-id"), "/etc/machine-id",
         "--dir", "/var", "--dir", "/var/lib", "--dir", "/var/lib/dbus", "--ro-bind", str(config / "machine-id"), "/var/lib/dbus/machine-id",
         "--dir", "/home", "--dir", "/home/frg1", "--bind", str(home), "/home/frg1",
@@ -436,11 +492,17 @@ def sandbox_argv(
         "--dir", "/run/frg1", "--ro-bind", str(x11.authority), "/run/frg1/Xauthority", "--tmpfs", "/tmp",
         "--dir", "/tmp/.X11-unix", "--ro-bind", str(x11.socket), f"/tmp/.X11-unix/X{x11.display_number}",
     ]
-    for system_path in ("/etc/fonts", "/etc/ssl/certs", "/etc/ca-certificates", "/etc/ld.so.cache", "/etc/localtime"):
+    for system_path in (
+        "/etc/fonts",
+        "/etc/ssl/certs",
+        "/etc/ca-certificates",
+        "/etc/ld.so.cache",
+        "/etc/localtime",
+        "/etc/vulkan",
+        "/etc/OpenCL",
+    ):
         add_optional_ro_bind(argv, system_path)
-    cpu_online = pathlib.Path("/sys/devices/system/cpu/online")
-    if cpu_online.is_file() and not cpu_online.is_symlink():
-        argv.extend(["--dir", "/sys", "--dir", "/sys/devices", "--dir", "/sys/devices/system", "--dir", "/sys/devices/system/cpu", "--ro-bind", str(cpu_online), str(cpu_online)])
+    argv.extend(exact_gpu_sysfs_argv())
     environment = {
         "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
         "HOME": "/home/frg1",
@@ -608,6 +670,51 @@ def one(records: list[dict[str, Any]], state: str) -> dict[str, Any]:
     return found[0]
 
 
+def validate_successor_delta(records: list[dict[str, Any]], lock: dict[str, Any]) -> dict[str, Any]:
+    predecessor = lock["historical_profile"]
+    policy = lock["successor_verification"]
+    observed_class = one(records, "ap12_class")
+    expected_class = policy["expected_class"]
+    for key in ("class_id", "name", "vendor", "version", "subcategories", "metadata_tier"):
+        require(observed_class.get(key) == expected_class[key], f"successor {key} differs from expected migration")
+    require(
+        ("Fx" in observed_class["subcategories"].split("|"))
+        and ("Instrument" not in observed_class["subcategories"].split("|")),
+        "successor role differs from predecessor effect",
+    )
+    parameter_count = one(records, "ap8_parameter_count").get("count")
+    require(isinstance(parameter_count, int) and 0 <= parameter_count <= 8192, "successor parameter count invalid")
+    capabilities = one(records, "ap12_capabilities")
+    require(capabilities.get("float32_result") == 0, "successor lost predecessor float32 baseline")
+    controller = one(records, "ap8_controller_association")
+    require(isinstance(controller.get("combined"), bool), "successor controller association invalid")
+    if controller["combined"] is False:
+        require(
+            isinstance(controller.get("class_id"), str)
+            and len(controller["class_id"]) == 32
+            and all(character in "0123456789ABCDEF" for character in controller["class_id"]),
+            "successor controller class identity invalid",
+        )
+    return {
+        "predecessor_profile_sha256": predecessor["profile_file_sha256"],
+        "predecessor_revision": predecessor["revision"],
+        "predecessor_module_sha256": predecessor["module_sha256"],
+        "successor_module_sha256": lock["fixture"]["module"]["sha256"],
+        "class_continuity": True,
+        "class_id": observed_class["class_id"],
+        "predecessor_version": predecessor["class"]["version"],
+        "successor_version": observed_class["version"],
+        "predecessor_parameter_count": predecessor["parameter_count"],
+        "successor_parameter_count": parameter_count,
+        "parameter_count_changed": parameter_count != predecessor["parameter_count"],
+        "controller_association": {
+            "combined": controller["combined"],
+            "class_id": controller.get("class_id"),
+        },
+        "candidate_capabilities_inherited_not_yet_qualified": predecessor["capabilities"],
+    }
+
+
 def execute(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path, lock: dict[str, Any]) -> dict[str, Any]:
     session = secrets.token_hex(16)
     x11: PrivateX11 | None = None
@@ -617,6 +724,8 @@ def execute(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path, loc
     error = b""
     x11_output = b""
     x11_error = b""
+    records: list[dict[str, Any]] = []
+    successor_delta: dict[str, Any] = {}
     phase = "readiness"
     try:
         x11 = start_private_x11(root)
@@ -645,6 +754,12 @@ def execute(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path, loc
         wait_for_completion(child, drain, EXECUTION_TIMEOUT, x11)
         output, error = drain.output()
         x11_output, x11_error = retire_drained_process(x11.process, x11.drain)
+        phase = "record_parse"
+        records = parse_records(output)
+        one(records, "ap8_factory")
+        one(records, "ap12_class")
+        one(records, "ap8_controller_association")
+        successor_delta = validate_successor_delta(records, lock)
     except Exception as failure:
         if child is not None:
             if drain is not None:
@@ -678,7 +793,6 @@ def execute(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path, loc
     require(child is not None and drain is not None and x11 is not None, "scanner launch state incomplete")
     digests = retain_private_streams(root, output, error)
     x11_digests = retain_private_x11_streams(root, x11_output, x11_error)
-    records = parse_records(output)
     closed = one(records, "ap8_inspection_closed")
     completed = one(records, "scanner_completed")
     result = {
@@ -703,7 +817,10 @@ def execute(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path, loc
             "binary_byte_length": XWAYLAND_BYTE_LENGTH,
             "wayland_socket": WAYLAND_SOCKET_NAME,
             "real_x11_session_shared": False,
+            "drm_devices_projected": True,
+            "gpu_sysfs_projection": "exact_single_gpu_roster",
         },
+        "successor_delta": successor_delta,
         "readiness_timeout_seconds": int(READY_TIMEOUT),
         "execution_timeout_seconds": int(EXECUTION_TIMEOUT),
         "cleanup_confirmed": child.returncode is not None and x11.process.returncode is not None,
@@ -720,9 +837,6 @@ def execute(root: pathlib.Path, runner: pathlib.Path, runtime: pathlib.Path, loc
     (root / "report.json").chmod(0o600)
     require(child.returncode == 0, "scanner returned nonzero")
     require(closed.get("exit_code") == 0 and completed.get("inspection_complete") is True, "inspection incomplete")
-    one(records, "ap8_factory")
-    one(records, "ap12_class")
-    one(records, "ap8_controller_association")
     return result
 
 

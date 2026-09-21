@@ -26,7 +26,19 @@ class CensusTests(unittest.TestCase):
         self.assertFalse(lock["qualification_scope"]["ordinary_activation_authority"])
         self.assertEqual(lock["runner"]["installed_tree"]["entries"], 8900)
         self.assertEqual(lock["runner"]["runtime"]["installed_tree"]["entries"], 638)
+        self.assertEqual(lock["historical_profile"]["class"]["class_id"], "41727475415649536772616E50726F63")
+        self.assertEqual(lock["historical_profile"]["parameter_count"], 2348)
+        self.assertTrue(lock["successor_verification"]["required_class_continuity"])
         self.assertEqual(census.READY_TIMEOUT, 180.0)
+
+    def test_predecessor_profile_bytes_are_the_locked_starting_point(self) -> None:
+        lock = census.load_lock(ROOT / "compatibility/frg1/input.lock.json")
+        profile = ROOT / "compatibility/arturia-efx-fragments.json"
+        self.assertEqual(census.sha256_file(profile), lock["historical_profile"]["profile_file_sha256"])
+        value = json.loads(profile.read_text(encoding="utf-8"))
+        self.assertEqual(value["module_sha256"], lock["historical_profile"]["module_sha256"])
+        self.assertEqual(value["class"], lock["historical_profile"]["class"])
+        self.assertEqual(value["capabilities"], lock["historical_profile"]["capabilities"])
 
     def test_changed_lock_is_refused(self) -> None:
         value = json.loads((ROOT / "compatibility/frg1/input.lock.json").read_text())
@@ -106,6 +118,27 @@ class CensusTests(unittest.TestCase):
         self.assertIn(lock["windows_host"]["source_manifest"]["sha256"], handshake)
         self.assertIn(census.LOCK_SHA256, handshake)
         self.assertIn("component_case=first-audio", handshake)
+
+    def test_successor_delta_requires_predecessor_class_continuity(self) -> None:
+        lock = census.load_lock(ROOT / "compatibility/frg1/input.lock.json")
+        expected = lock["successor_verification"]["expected_class"]
+        records = [
+            {"state": "ap12_class", **expected},
+            {"state": "ap8_parameter_count", "count": 2400},
+            {"state": "ap12_capabilities", "float32_result": 0, "float64_result": -1},
+            {"state": "ap8_controller_association", "combined": False, "class_id": "00112233445566778899AABBCCDDEEFF"},
+        ]
+        delta = census.validate_successor_delta(records, lock)
+        self.assertTrue(delta["class_continuity"])
+        self.assertTrue(delta["parameter_count_changed"])
+        records[0] = {**records[0], "class_id": "00" * 16}
+        with self.assertRaisesRegex(census.CensusError, "successor class_id differs"):
+            census.validate_successor_delta(records, lock)
+
+    def test_scanner_namespace_projects_the_gpu_instead_of_repeating_headless_attempt(self) -> None:
+        source = MODULE_PATH.read_text(encoding="utf-8")
+        self.assertIn('"--dev-bind", "/dev/dri", "/dev/dri"', source)
+        self.assertIn("argv.extend(exact_gpu_sysfs_argv())", source)
 
     def test_attempt_one_is_failure_not_profile_authority(self) -> None:
         result = json.loads((ROOT / "evidence/frg1/attempt-001/result.json").read_text())

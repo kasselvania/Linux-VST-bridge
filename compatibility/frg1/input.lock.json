@@ -12,10 +12,43 @@
     "name": "Efx FRAGMENTS"
   },
   "historical_profile": {
+    "capabilities": {
+      "accessibility": "disabled_for_vendor_process",
+      "editor": "detached_direct_vendor_lifecycle",
+      "performance": "frames512_recommended256_unqualified",
+      "precision": "float32_only",
+      "state": "concurrent_read_only_capture_v12"
+    },
+    "class": {
+      "class_id": "41727475415649536772616E50726F63",
+      "metadata_tier": "factory_3_unicode",
+      "name": "Efx FRAGMENTS",
+      "subcategories": "Fx|Tools",
+      "vendor": "Arturia",
+      "version": "1.0.0.2925"
+    },
     "disposition": "immutable_history_not_authority_for_new_fixture",
     "embedded_version": "1.0.0.2925",
+    "factory_vendor": "Arturia",
     "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+    "parameter_count": 2348,
+    "profile_file_sha256": "bb07dd980c89861dfb5da96a094e3603f57e4231b1d240d34f6ed9bd5c3ced3b",
     "revision": 10
+  },
+  "successor_verification": {
+    "expected_class": {
+      "class_id": "41727475415649536772616E50726F63",
+      "metadata_tier": "factory_3_unicode",
+      "name": "Efx FRAGMENTS",
+      "subcategories": "Fx|Tools",
+      "vendor": "Arturia",
+      "version": "1.3.1.6566"
+    },
+    "expected_factory_vendor": "Arturia",
+    "inheritance_posture": "predecessor_profile_is_candidate_baseline_changed_fields_require_observation",
+    "parameter_posture": "observe_and_compare_to_predecessor",
+    "required_class_continuity": true,
+    "role": "effect"
   },
   "product_basis": {
     "commit": "c38b5c9deb8bd32f5a509258c30f31b3e795fe59",

@@ -1,8 +1,27 @@
-# FRG1 — Efx FRAGMENTS 1.3.1.6566 coherent product profile
+# FRG1 — transfer the proven FRAGMENTS baseline to Ubuntu
 
 FRG1 is the canonical-product handoff selected by the accepted Ubuntu UA1 result.
-It does not deploy to Ubuntu and never contacts the Steam Deck. Its authority is the
-exact input lock at `compatibility/frg1/input.lock.json`.
+It does not treat Efx FRAGMENTS as an unknown plug-in. The immutable Steam Deck
+revision-10 profile for `1.0.0.2925` is the explicit predecessor baseline; the exact
+Ubuntu-installed `1.3.1.6566` module is its proposed successor. FRG1 verifies the
+changed module, runner, host and platform boundaries before generating a new exact
+candidate. It does not deploy to Ubuntu and never contacts the Steam Deck. Its
+authority is the exact input lock at `compatibility/frg1/input.lock.json`.
+
+## Cross-Linux migration posture
+
+The predecessor already establishes the class ID, Arturia identity, effect role,
+factory metadata, 2,348-parameter shape, float32 processing, class-specific proxy,
+Bitwig load, editor, audio, automation, save/reopen and retirement for the exact Deck
+fixture. Those results remain real prior knowledge. They are inherited as candidate
+expectations, not silently promoted as proof for new bytes or Ubuntu.
+
+The successor verifier therefore requires class, name, vendor, role and subcategory
+continuity and observes the successor version, controller association, buses,
+parameter roster and precision. A changed invariant is a bounded migration result,
+not a reason to fall back to the old bytes. A matching census permits generation of
+the new exact proxy and `review_candidate`; it does not yet establish Ubuntu editor,
+audio or state behavior.
 
 ## Attempt 001 disposition
 
@@ -93,9 +112,28 @@ crash artifact and zero publication payloads. The source module remained exact a
 the Ubuntu-lab manager remained active. Per the fixed decision tree, there is no
 attempt 003, class-specific proxy or coherent profile on this branch.
 
+## Recalibrated continuation
+
+The operator corrected FRG1's premise after attempt 002: the product goal is to
+transfer working Linux knowledge across Linux environments, not repeatedly rediscover
+the same commercial product from a blank state. This supersedes the attempt-002
+retry ceiling for the new successor-verification continuation while leaving both
+failed attempts unchanged.
+
+The prior private-X11 namespace omitted `/dev/dri` and the exact GPU sysfs projection
+already proven in the Ubuntu Bitwig/ASC boundary. That is a launch-environment
+mismatch, not FRAGMENTS incompatibility evidence. The successor verifier now exposes
+the exact DRM roster and records the complete child exit on readiness, execution or
+record-parse failure. Its output is compared directly to the locked predecessor.
+
+If the differential census succeeds, FRG1 generates one exact successor proxy and
+nonactivating candidate. After review and merge, a new Ubuntu-lab branch may adopt
+the retained prefix under its original owner record, publish to a new lab-only
+revision path and repeat the predecessor's Bitwig baseline on Ubuntu.
+
 ## Nonclaims
 
-FRG1 does not establish factory discovery, class identity, controller association,
+The two retained failed attempts do not establish factory discovery, class identity, controller association,
 DAW discovery, editor, audio, parameters, automation, state, restart, retirement,
 ordinary publication, Ubuntu compatibility or Steam Deck compatibility for this
 module. The exact admitted inputs remain useful custody facts, not a coherent
