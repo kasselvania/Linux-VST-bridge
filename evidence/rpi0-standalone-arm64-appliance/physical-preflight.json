@@ -1,0 +1,76 @@
+{
+  "schema": "linux-vst-bridge-rpi0-physical-preflight/v1",
+  "observed_at": "2026-09-21",
+  "deterministic_implementation": "PASSED",
+  "box64_wine_physical_pi_preflight": "PASSED_ON_4K_KERNEL",
+  "physical_midi_audio_editor_acceptance": "NOT_RUN",
+  "overall_rpi0": "PENDING_PHYSICAL_VALIDATION",
+  "executable_source_head": "53fb9f2a334e2f5fbc3d3c1cf4469148fef30b45",
+  "executable_source_tree": "fb4a662eba4ac1f8c733a41d63e5c98419832139",
+  "fixture": {
+    "board": "Raspberry Pi 5 Model B Rev 1.1",
+    "ram_gb": 8,
+    "os": "Debian 13.7 trixie",
+    "firmware": "ab8a9dde",
+    "storage": "microSD ext4",
+    "cooling": "none",
+    "overclock": false,
+    "audio_hardware": "ShieldXL CS4270"
+  },
+  "translation": {
+    "box64_commit": "2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a",
+    "box64_binary_sha256": "79cdd30e5480f5dfb8cd717af99d0e5a89eb55b31701de6fde7896a6a0e79ab6",
+    "box64_rc_sha256": "f8bafe4d624660c547b3a858a34a2f854e01d71f29d865f78b99f9761c5331bc",
+    "wine_commit": "db11d0fe6a169c457e23d007e20404643d067aa8",
+    "wine_elf_sha256": "1a34236df8794f6aa8fe623cfa44d7de30f145c7e7c9cd236620e6b92a3f6194",
+    "windows_probe_sha256": "86161880adb171519bfa1b263ea136c6f40dd595097891fb5436d256cf727866",
+    "windows_host_sha256": "6f00cf377458037e4ae64c2425578b7c408a0a5ed6f027a0249e0d979f55fc2c",
+    "instrument_sha256": "e8c75fe1a0067208d785d9b3dbcc965002cd4a4825969e5cbdfd9f06e8a0abed",
+    "linux_probe_sha256": "55110ce159eece157281af043fc9a2d5f4e697631fe89186fa64e955d03e8265"
+  },
+  "page_size_results": {
+    "16384": {
+      "kernel": "6.18.50+rpt-rpi-2712",
+      "x86_64_linux_probe": "PASSED",
+      "wine_version": "wine-11.0",
+      "windows_probe": "FAILED_EXIT_139",
+      "fault": "SIGSEGV in ntdll.so/signal_init_process accessing 0x7ffe1000",
+      "exact_cleanup": "PASSED"
+    },
+    "4096": {
+      "kernel": "6.18.50+rpt-rpi-v8",
+      "windows_probe": "PASSED",
+      "full_preflight": "PASSED_TWICE",
+      "sessions": [
+        "94a328565d43c78bb7aea52a46ffae8d",
+        "9933b83197accc4cb027ee3ade072db2"
+      ],
+      "exact_cleanup": "PASSED",
+      "restart_after_cleanup": "PASSED"
+    }
+  },
+  "preserved_failures": [
+    "The package-generated Wine launcher copy could not locate its adjacent runtime tree; the successful preflight used the same hashed ELF at its installed runtime path.",
+    "ShieldXL audio is unavailable on rpt-rpi-v8 because snd-soc-cs4270.ko is installed only for rpt-rpi-2712.",
+    "Wine emitted a non-fatal c0000135 warning for syswow64/rundll32.exe from the intentionally 64-bit-only build."
+  ],
+  "shieldxl_4k_blocker": {
+    "controls": "ENUMERATED",
+    "alsa": "HDMI_ONLY",
+    "kernel_log": "asoc-simple-card: parse error",
+    "installed_module": "/lib/modules/6.18.50+rpt-rpi-2712/updates/shieldxl0/snd-soc-cs4270.ko",
+    "installed_module_vermagic": "6.18.50+rpt-rpi-2712 SMP preempt mod_unload modversions aarch64",
+    "required_next_authority": "Extend SHIELDXL0 to build and qualify the pinned CS4270 source for exact rpt-rpi-v8 before physical audio acceptance."
+  },
+  "thermal": {
+    "highest_observed_c": 80.7,
+    "throttled_register": "0x0 throughout observed provisioning and preflight",
+    "observed_loaded_clock_hz": 2400000000,
+    "claim": "provisioning observation only; no performance qualification"
+  },
+  "receipts": {
+    "failure_16k": "box64-wine-16k-failure.txt",
+    "pass_4k": "rpi0-4k-preflight-result.txt",
+    "second_full_preflight": "full-preflight-4k-session2.log"
+  }
+}

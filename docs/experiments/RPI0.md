@@ -35,7 +35,7 @@ without a separate decision.
 RPI0 has separate deterministic and physical gates:
 
 - deterministic implementation: **PASSED**;
-- Box64/Wine physical Pi preflight: **NOT RUN**;
+- Box64/Wine physical Pi preflight: **PASSED ON THE 4 KiB KERNEL**;
 - physical MIDI/audio/editor acceptance: **NOT RUN**;
 - overall RPI0: **PENDING PHYSICAL VALIDATION**.
 
@@ -45,16 +45,18 @@ implementation failure. Preserve executable source
 `fb4a662eba4ac1f8c733a41d63e5c98419832139`. Do not reopen implementation
 work unless physical execution identifies a concrete defect.
 
-Resume this same branch at physical preflight and the acceptance sequence only
-after the SHIELDXL0 hardware integration contract is supplied. Do not infer the
-ShieldXL connection, control, or audio contract before that authority exists.
+The SHIELDXL0 hardware integration contract is now supplied. Physical preflight
+identified a concrete kernel integration blocker before the MIDI/audio/editor
+sequence: Box64/Wine requires the installed 4 KiB `rpt-rpi-v8` kernel, while the
+qualified ShieldXL CS4270 module is currently built only for the 16 KiB
+`rpt-rpi-2712` kernel. Do not bypass either contract silently.
 
 ## Controlled fixture
 
 The exact first physical RPI0 fixture is:
 
 - Raspberry Pi 5 with 8 GB RAM;
-- ShieldXL CS4270/JACK hardware governed by the pending SHIELDXL0 contract;
+- ShieldXL CS4270/JACK hardware governed by the SHIELDXL0 contract;
 - AArch64 Linux;
 - no active cooling initially;
 - no overclock;
@@ -65,19 +67,20 @@ The exact first physical RPI0 fixture is:
 
 Raspberry Pi 4 Model B with 4 GB or 8 GB RAM and Compute Module 5 with at least
 8 GB remain accepted RPI0 targets, but they are not the first physical fixture.
-Do not infer ShieldXL device enumeration, JACK ports, sample format, clocking,
-channel mapping, mixer state, startup, or cleanup behavior before SHIELDXL0
-supplies that contract.
+Use the exact ShieldXL device enumeration, JACK ports, sample format, clocking,
+channel mapping, mixer state, startup, and cleanup behavior supplied by SHIELDXL0.
 
 The first result does not require Bitwig, another DAW, Native Access, ASC, Pigments,
 Serum, iLok, or any account/license flow.
 
 ## Translation lane
 
-RPI0 uses one pinned x86-64-on-ARM translation lane. Box64/Wine is provisionally
-selected pending the physical Pi preflight. The implementation agent must preserve
-the exact Box64 and Wine identities chosen by deterministic implementation and record
-the exact runtime artifacts actually tested.
+RPI0 uses one pinned x86-64-on-ARM translation lane. Box64/Wine passed the bounded
+physical Pi preflight on the installed 4 KiB kernel and remains selected for the
+remaining RPI0 attempt. This does not establish ShieldXL audio integration or the
+complete physical acceptance sequence. Preserve the exact Box64 and Wine identities
+chosen by deterministic implementation and record the exact runtime artifacts actually
+tested.
 
 A short deterministic preflight may reject Box64 in favor of FEX, but the slice must
 not become a comparative emulator benchmark. Select one lane and continue. Any
@@ -85,6 +88,48 @@ fallback must be named, pinned, and kept separate from product claims.
 
 Do not silently replace the project's Windows compatibility layer with an unrelated
 native reimplementation.
+
+## Physical preflight result — 2026-09-21
+
+The first physical preflight used Raspberry Pi 5 Model B revision 1.1 with 8 GB RAM,
+Raspberry Pi OS/Debian 13.7, firmware `ab8a9dde`, no active cooling, and no overclock.
+The selected translation identities were:
+
+- Box64 0.4.4 commit `2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a`;
+- Wine 11.0 commit `db11d0fe6a169c457e23d007e20404643d067aa8`;
+- source-owned Windows probe SHA-256
+  `86161880adb171519bfa1b263ea136c6f40dd595097891fb5436d256cf727866`.
+
+The x86-64 Linux probe passed through Box64 on the original 16 KiB
+`6.18.50+rpt-rpi-2712` kernel. Wine reported its exact version, but starting the
+Windows probe failed with exit 139 in `ntdll.so/signal_init_process` while accessing
+`0x7ffe1000`. The exact translated process cohort was absent after failure. This is a
+preserved 16 KiB-page translation failure, not a deterministic implementation failure.
+
+The same card already contained the distribution's 4 KiB
+`6.18.50+rpt-rpi-v8` kernel. After one reversible boot selection, the frozen Windows
+probe passed through the same Box64/Wine artifacts. The repository-owned full preflight
+then passed twice, including the source-owned Windows host start, exact cgroup/process
+identity, natural close, unit retirement, and session-directory cleanup. The two exact
+sessions were `94a328565d43c78bb7aea52a46ffae8d` and
+`9933b83197accc4cb027ee3ade072db2`.
+
+Two concrete defects remain preserved:
+
+1. `rpi0/package.py` copies only the Wine launcher ELF. The generated appliance config
+   therefore failed because the copied launcher could not find its adjacent Wine runtime
+   tree. The physical preflight used a distinct retained config pointing at the same
+   hashed Wine ELF in its exact installed runtime tree; no executable was rebuilt.
+2. The SHIELDXL0 CS4270 module exists only for `rpt-rpi-2712`. Under the required 4 KiB
+   `rpt-rpi-v8` kernel, controls enumerate but ALSA reports only HDMI devices and the
+   sound node remains deferred with `asoc-simple-card: parse error`. Extending the
+   SHIELDXL0 kernel-module contract to this exact 4 KiB kernel is required before RPI0
+   may continue to physical MIDI, stereo audio, editor, or state acceptance.
+
+During provisioning the highest observed temperature was 80.7 degrees C. No current or
+historical throttling bit was observed, and the CPU was observed at 2.4 GHz under load.
+These are provisioning observations only, not performance qualification. The retained
+receipts are under `evidence/rpi0-standalone-arm64-appliance/`.
 
 ## Smallest complete test
 
