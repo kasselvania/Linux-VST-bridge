@@ -27,7 +27,7 @@ from typing import Any, Iterable
 
 
 SCHEMA = "linux-vst-bridge-frg1-input-lock/v1"
-LOCK_SHA256 = "17cd4b147a1423329d00b6e11d3712030f8bf6392683e521f7e1c840dcf583fc"
+LOCK_SHA256 = "1d5bf8d7a6d339b3380e178d5cb2ef328393b59ec78535b419f08ccca33f6c08"
 OWNER_FILE = ".ua1-owner.json"
 INSTALL_RECEIPT = ".ua1-install.json"
 STDOUT_LIMIT = 1_048_576
@@ -36,6 +36,7 @@ X11_STDOUT_LIMIT = 65_536
 X11_STDERR_LIMIT = 262_144
 READY_TIMEOUT = 180.0
 EXECUTION_TIMEOUT = 180.0
+PREFIX_INITIALIZATION_TIMEOUT = 120.0
 XWAYLAND_PATH = pathlib.Path("/usr/bin/Xwayland")
 XWAYLAND_BYTE_LENGTH = 2_410_256
 XWAYLAND_SHA256 = "700d3cba7f946c3ff3100ee36f15012c1c027bb67f29e84def1a1b67bb8f3587"
@@ -329,6 +330,16 @@ def load_lock(path: pathlib.Path) -> dict[str, Any]:
     require(retained["custody"]["owner_identity"] == "8fdea6abe1be5a42cf7db1f61006d24c84109e3ad6acdf9421f01c7797bc9af5", "retained prefix owner changed")
     require(retained["custody"]["source_lock_sha256"] == "2f7772e9779fb4a44ccbef14ad8026f22ecca45b2ca45428c675328c897d73ee", "retained prefix source lock changed")
     require(retained["execution"]["launcher_verb"] == "runinprefix", "retained prefix launch verb changed")
+    require(
+        retained["execution"]["prefix_initialization"]
+        == {
+            "argument": "/",
+            "posture": "product_setup_prefix_on_private_snapshot",
+            "timeout_seconds": int(PREFIX_INITIALIZATION_TIMEOUT),
+            "verb": "getcompatpath",
+        },
+        "retained prefix initialization changed",
+    )
     require(retained["execution"]["component_case"] == "class:" + predecessor["class"]["class_id"], "retained prefix class selection changed")
     require(retained["execution"]["network_shared"] is False, "retained prefix network policy changed")
     return value
@@ -682,6 +693,20 @@ def expected_handshake(lock: dict[str, Any], session: str) -> bytes:
     ).encode()
 
 
+def prefix_initialization_argv(scanner_argv: list[str], lock: dict[str, Any]) -> list[str]:
+    try:
+        command_boundary = len(scanner_argv) - 1 - scanner_argv[::-1].index("--")
+    except ValueError as failure:
+        raise CensusError("scanner sandbox command boundary is absent") from failure
+    initialization = lock["retained_ubuntu_environment"]["execution"]["prefix_initialization"]
+    return [
+        *scanner_argv[: command_boundary + 1],
+        "/opt/frg1/runner/proton",
+        initialization["verb"],
+        initialization["argument"],
+    ]
+
+
 def terminate(child: subprocess.Popen[bytes]) -> None:
     if child.poll() is not None:
         return
@@ -755,6 +780,19 @@ def retain_private_streams(root: pathlib.Path, output: bytes, error: bytes) -> d
         path.write_bytes(value)
         path.chmod(0o600)
     return {"stdout_sha256": sha256_bytes(output), "stderr_sha256": sha256_bytes(error)}
+
+
+def retain_private_bootstrap_streams(root: pathlib.Path, output: bytes, error: bytes) -> dict[str, Any]:
+    require(len(output) <= STDOUT_LIMIT, "prefix initialization stdout exceeded bound")
+    require(len(error) <= STDERR_LIMIT, "prefix initialization stderr exceeded bound")
+    for name, value in (("raw.bootstrap.stdout", output), ("raw.bootstrap.stderr", error)):
+        path = root / name
+        path.write_bytes(value)
+        path.chmod(0o600)
+    return {
+        "bootstrap_stdout_sha256": sha256_bytes(output),
+        "bootstrap_stderr_sha256": sha256_bytes(error),
+    }
 
 
 def retain_private_x11_streams(root: pathlib.Path, output: bytes, error: bytes) -> dict[str, Any]:
@@ -839,8 +877,12 @@ def execute(
 ) -> dict[str, Any]:
     session = secrets.token_hex(16)
     x11: PrivateX11 | None = None
+    bootstrap_child: subprocess.Popen[bytes] | None = None
+    bootstrap_drain: BoundedDrain | None = None
     child: subprocess.Popen[bytes] | None = None
     drain: BoundedDrain | None = None
+    bootstrap_output = b""
+    bootstrap_error = b""
     output = b""
     error = b""
     x11_output = b""
@@ -851,9 +893,33 @@ def execute(
     phase = "prefix_snapshot"
     try:
         _, custody = snapshot_retained_prefix(prefix_source, root / "state", lock)
-        phase = "readiness"
         x11 = start_private_x11(root)
         argv, ready, gate = sandbox_argv(root, runner, runtime, lock, session, x11)
+        phase = "prefix_initialization"
+        bootstrap_child = subprocess.Popen(
+            prefix_initialization_argv(argv, lock),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
+        )
+        bootstrap_drain = BoundedDrain(
+            bootstrap_child,
+            stdout_limit=STDOUT_LIMIT,
+            stderr_limit=STDERR_LIMIT,
+            label="prefix initialization",
+        )
+        wait_for_completion(
+            bootstrap_child,
+            bootstrap_drain,
+            PREFIX_INITIALIZATION_TIMEOUT,
+            x11,
+        )
+        bootstrap_output, bootstrap_error = bootstrap_drain.output()
+        require(bootstrap_child.returncode == 0, "retained prefix initialization failed")
+        require((root / "state/prefix/pfx/system.reg").is_file(), "retained prefix initialization receipt missing")
+        _validate_prefix_tree(root / "state/prefix", lock)
+        phase = "readiness"
         child = subprocess.Popen(
             argv,
             stdin=subprocess.DEVNULL,
@@ -895,6 +961,11 @@ def execute(
         )
         custody["source_unchanged_after_execution"] = True
     except Exception as failure:
+        if bootstrap_child is not None:
+            if bootstrap_drain is not None:
+                bootstrap_output, bootstrap_error = retire_drained_process(bootstrap_child, bootstrap_drain)
+            else:
+                terminate(bootstrap_child)
         if child is not None:
             if drain is not None:
                 output, error = retire_drained_process(child, drain)
@@ -913,17 +984,21 @@ def execute(
         except Exception:
             retained_source_unchanged = False
         digests = retain_private_streams(root, output, error)
+        bootstrap_digests = retain_private_bootstrap_streams(root, bootstrap_output, bootstrap_error)
         x11_digests = retain_private_x11_streams(root, x11_output, x11_error)
         failure_record = {
             "schema": "linux-vst-bridge-frg1-private-failure/v1",
             "classification": "FRG1_FACTORY_CENSUS_FAILED",
             "phase": phase,
             "reason": str(failure),
-            "exit_code": None if child is None else child.returncode,
+            "exit_code": child.returncode if child is not None else None,
+            "bootstrap_exit_code": bootstrap_child.returncode if bootstrap_child is not None else None,
+            "bootstrap_stream_capacity_exhausted": [] if bootstrap_drain is None else sorted(bootstrap_drain.exhausted),
             "scanner_stream_capacity_exhausted": [] if drain is None else sorted(drain.exhausted),
             "x11_stream_capacity_exhausted": [] if x11 is None else sorted(x11.drain.exhausted),
             "retained_prefix_source_unchanged": retained_source_unchanged,
             **digests,
+            **bootstrap_digests,
             **x11_digests,
         }
         private_failure = root / "failure.json"
@@ -931,12 +1006,22 @@ def execute(
         private_failure.chmod(0o600)
         raise
     finally:
+        if bootstrap_child is not None and bootstrap_child.poll() is None:
+            terminate(bootstrap_child)
         if child is not None and child.poll() is None:
             terminate(child)
         if x11 is not None and x11.process.poll() is None:
             terminate(x11.process)
-    require(child is not None and drain is not None and x11 is not None, "scanner launch state incomplete")
+    require(
+        bootstrap_child is not None
+        and bootstrap_drain is not None
+        and child is not None
+        and drain is not None
+        and x11 is not None,
+        "scanner launch state incomplete",
+    )
     digests = retain_private_streams(root, output, error)
+    bootstrap_digests = retain_private_bootstrap_streams(root, bootstrap_output, bootstrap_error)
     x11_digests = retain_private_x11_streams(root, x11_output, x11_error)
     closed = one(records, "ap8_inspection_closed")
     completed = one(records, "scanner_completed")
@@ -955,6 +1040,12 @@ def execute(
         },
         "retained_ubuntu_environment": {
             **custody,
+            "prefix_initialization": {
+                "exit_code": bootstrap_child.returncode,
+                "timeout_seconds": int(PREFIX_INITIALIZATION_TIMEOUT),
+                "verb": lock["retained_ubuntu_environment"]["execution"]["prefix_initialization"]["verb"],
+                **bootstrap_digests,
+            },
             "launcher_verb": lock["retained_ubuntu_environment"]["execution"]["launcher_verb"],
             "component_case": lock["retained_ubuntu_environment"]["execution"]["component_case"],
         },
@@ -971,9 +1062,10 @@ def execute(
             "gpu_sysfs_projection": "exact_single_gpu_roster",
         },
         "successor_delta": successor_delta,
+        "prefix_initialization_timeout_seconds": int(PREFIX_INITIALIZATION_TIMEOUT),
         "readiness_timeout_seconds": int(READY_TIMEOUT),
         "execution_timeout_seconds": int(EXECUTION_TIMEOUT),
-        "cleanup_confirmed": child.returncode is not None and x11.process.returncode is not None,
+        "cleanup_confirmed": bootstrap_child.returncode is not None and child.returncode is not None and x11.process.returncode is not None,
         "transport_retired": child.returncode is not None,
         "exit_code": child.returncode,
         "error": None if child.returncode == 0 else "scanner_nonzero_exit",

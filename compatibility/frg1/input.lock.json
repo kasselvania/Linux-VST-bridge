@@ -115,6 +115,12 @@
       "component_case": "class:41727475415649536772616E50726F63",
       "launcher_verb": "runinprefix",
       "network_shared": false,
+      "prefix_initialization": {
+        "argument": "/",
+        "posture": "product_setup_prefix_on_private_snapshot",
+        "timeout_seconds": 120,
+        "verb": "getcompatpath"
+      },
       "snapshot_policy": "private_operation_copy_original_unchanged",
       "synthetic_home": "/home/ua1",
       "windows_module_path": "C:\\Program Files\\Common Files\\VST3\\Efx FRAGMENTS.vst3"

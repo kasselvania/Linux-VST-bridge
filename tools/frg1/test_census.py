@@ -30,6 +30,7 @@ class CensusTests(unittest.TestCase):
         self.assertEqual(lock["historical_profile"]["parameter_count"], 2348)
         self.assertTrue(lock["successor_verification"]["required_class_continuity"])
         self.assertEqual(lock["retained_ubuntu_environment"]["execution"]["launcher_verb"], "runinprefix")
+        self.assertEqual(lock["retained_ubuntu_environment"]["execution"]["prefix_initialization"]["verb"], "getcompatpath")
         self.assertEqual(lock["retained_ubuntu_environment"]["execution"]["synthetic_home"], "/home/ua1")
         self.assertFalse(lock["retained_ubuntu_environment"]["execution"]["network_shared"])
         self.assertEqual(lock["retained_ubuntu_environment"]["custody"]["pfx_mode"], "0775")
@@ -122,6 +123,13 @@ class CensusTests(unittest.TestCase):
         self.assertIn(lock["windows_host"]["source_manifest"]["sha256"], handshake)
         self.assertIn(census.LOCK_SHA256, handshake)
         self.assertIn("component_case=class:41727475415649536772616E50726F63", handshake)
+
+    def test_retained_prefix_is_initialized_before_runinprefix(self) -> None:
+        lock = census.load_lock(ROOT / "compatibility/frg1/input.lock.json")
+        scanner = ["bwrap", "--clearenv", "--", "/opt/frg1/runner/proton", "runinprefix", "host.exe"]
+        bootstrap = census.prefix_initialization_argv(scanner, lock)
+        self.assertEqual(bootstrap, ["bwrap", "--clearenv", "--", "/opt/frg1/runner/proton", "getcompatpath", "/"])
+        self.assertEqual(census.PREFIX_INITIALIZATION_TIMEOUT, 120.0)
 
     def test_retained_prefix_custody_is_exact_and_snapshotted_without_source_mutation(self) -> None:
         lock = json.loads((ROOT / "compatibility/frg1/input.lock.json").read_text())
@@ -226,6 +234,15 @@ class CensusTests(unittest.TestCase):
         self.assertFalse(result["observations"]["factory_or_class_authority_obtained"])
         self.assertFalse(result["scope"]["steam_deck_contacted"])
         self.assertFalse(result["scope"]["ubuntu_publication_performed"])
+
+    def test_attempt_four_identifies_missing_product_prefix_initialization(self) -> None:
+        result = json.loads((ROOT / "evidence/frg1/attempt-004/result.json").read_text())
+        self.assertEqual(result["classification"], "FRG1_RETAINED_PREFIX_RUNINPREFIX_INITIALIZATION_MISSING")
+        self.assertEqual(result["execution"]["scanner_child_exit_status"], 53)
+        self.assertTrue(result["retained_ubuntu_environment"]["source_unchanged_after_failure"])
+        self.assertTrue(result["scope"]["retained_asc_prefix_snapshot_used"])
+        self.assertFalse(result["observations"]["module_loading_reached"])
+        self.assertFalse(result["scope"]["steam_deck_contacted"])
 
 
 if __name__ == "__main__":

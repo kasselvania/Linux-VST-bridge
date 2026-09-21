@@ -56,9 +56,10 @@ back to the historical bytes.
 
 1. Verify the retained Ubuntu prefix's original UA1 owner marker and input lock,
    then create a private operation snapshot without changing the source prefix.
-2. Run the exact successor verification from that snapshot with the product's
-   established `runinprefix` verb, predecessor class ID, synthetic `/home/ua1`,
-   and the already proven graphical/GPU projection.
+2. Initialize that snapshot through the product's bounded `getcompatpath` setup
+   step, then run the exact successor verification with `runinprefix`, the
+   predecessor class ID, synthetic `/home/ua1`, and the already proven
+   graphical/GPU projection.
 3. Compare the observed class/factory/controller/bus/parameter facts to the locked
    predecessor baseline.
 4. Generate and build one exact successor descriptor/native proxy from the observed
@@ -87,6 +88,12 @@ record. The graphics errors from attempt 002 disappeared. It still used a blank
 prefix, so it did not reproduce the persistent Arturia environment that underpins the
 working predecessor and the retained Ubuntu installation. It is retained as a
 launch-harness result, not treated as successor incompatibility evidence.
+
+Attempt 004 used the exact retained-prefix snapshot and `runinprefix`, but omitted
+the product's preceding `getcompatpath` initialization step. Wine exited before host
+readiness with status `c0000135` because it could not load `kernel32.dll`. The product
+runtime explicitly treats `runinprefix` as a post-initialization verb. The corrected
+continuation now performs that bounded setup step on the private snapshot first.
 
 Those failures remain immutable evidence. They do not erase the predecessor profile
 or prove that FRAGMENTS was loaded. The recalibrated successor-verification run is a

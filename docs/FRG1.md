@@ -142,6 +142,15 @@ already-installed exact module in its vendor environment. This is the product-ow
 successor test corresponding to the established Linux baseline; it is not another
 installation, activation or blank-prefix discovery attempt.
 
+Attempt 004 proved one more exact transfer boundary. The retained prefix copied and
+validated successfully, but direct `runinprefix` exited before host readiness with
+Wine status `c0000135` because `kernel32.dll` could not load. The established product
+runtime documents why: `runinprefix` deliberately skips Proton `setup_prefix`; it is
+used only after a bounded `getcompatpath /` initialization step. The next invocation
+adds that exact setup step on the private snapshot, verifies its exit and `system.reg`
+receipt, and only then launches the scanner with `runinprefix`. The original retained
+prefix remains unmounted and unchanged.
+
 If the differential census succeeds, FRG1 generates one exact successor proxy and
 nonactivating candidate. After review and merge, a new Ubuntu-lab branch may adopt
 the retained prefix under its original owner record, publish to a new lab-only
@@ -160,3 +169,4 @@ compatibility profile.
 - `evidence/frg1/attempt-001/result.json`
 - `evidence/frg1/attempt-002/result.json`
 - `evidence/frg1/attempt-003/result.json`
+- `evidence/frg1/attempt-004/result.json`

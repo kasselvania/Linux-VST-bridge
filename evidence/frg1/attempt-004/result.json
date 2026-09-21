@@ -1,0 +1,87 @@
+{
+  "authority": {
+    "input_lock_sha256": "17cd4b147a1423329d00b6e11d3712030f8bf6392683e521f7e1c840dcf583fc",
+    "product_head_commit": "e165013c138769b0dddad8ef01d40e149d514f97",
+    "product_head_tree": "0b6ed585a676a8fb101b80f0c43f0f8c00ba923e",
+    "supervisor_source_sha256": "75e571ad714a86eed5e6e3f2c1a30c3645399c9c7bdb424c135bfbde91fc08d4"
+  },
+  "classification": "FRG1_RETAINED_PREFIX_RUNINPREFIX_INITIALIZATION_MISSING",
+  "cleanup": {
+    "frg1_environment_process_count": 0,
+    "manager_service_state": "active",
+    "owned_process_count": 0,
+    "publication_payload_count": 0
+  },
+  "created_at": "2026-09-21T21:12:18Z",
+  "execution": {
+    "attempt_ordinal": 4,
+    "gate_present": false,
+    "phase": "readiness",
+    "readiness_present": false,
+    "retained_prefix_snapshot_entry_count": 7095,
+    "retry_performed": false,
+    "scanner_child_exit_status": 53,
+    "scanner_process_submitted": true,
+    "structured_record_count": 0,
+    "wall_time_seconds": 9.3
+  },
+  "fixture": {
+    "embedded_version": "1.3.1.6566",
+    "module_byte_length": 26453504,
+    "module_sha256": "5846dfe91396596715f01a85d51c5ca21a808ef7dad1bfb44b02ab444345e1a5",
+    "name": "Efx FRAGMENTS"
+  },
+  "observations": {
+    "factory_or_class_authority_obtained": false,
+    "get_plugin_factory_reached": false,
+    "module_loading_reached": false,
+    "scanner_stderr": [
+      "ProtonFixes skipped fix execution for the neutral application identity.",
+      "The runner reported fsync active.",
+      "Wine could not load kernel32.dll and returned status c0000135."
+    ],
+    "statement": "The exact retained Ubuntu prefix was copied to a private operation snapshot and remained untouched at its source. Direct runinprefix skipped Proton setup_prefix and failed in the Windows loader before the host could publish readiness. The product's established environment path initializes a prefix first through getcompatpath, then uses runinprefix; attempt 004 performed only the second step."
+  },
+  "retained_ubuntu_environment": {
+    "launcher_verb": "runinprefix",
+    "module_sha256": "5846dfe91396596715f01a85d51c5ca21a808ef7dad1bfb44b02ab444345e1a5",
+    "owner_file_sha256": "6626531f7466ccff1be37f93305ebf807e0f0965cd2d4241b175bdd60ef9da31",
+    "owner_identity": "8fdea6abe1be5a42cf7db1f61006d24c84109e3ad6acdf9421f01c7797bc9af5",
+    "pfx_mode": "0775",
+    "snapshot_policy": "private_operation_copy_original_unchanged",
+    "source_lock_sha256": "2f7772e9779fb4a44ccbef14ad8026f22ecca45b2ca45428c675328c897d73ee",
+    "source_unchanged_after_failure": true
+  },
+  "retention": {
+    "failure_json_sha256": "574dc62643e57531f73494b50ceac1415d525ae12e6a225be0a37bf6f6c705bb",
+    "private_streams_ignored_path": "evidence/private/frg1/attempt-004/",
+    "raw_stderr": {
+      "byte_length": 238,
+      "sha256": "f08903cae917864b9b046cdd6166ba62f7fcfdedd34263412dee0b2b3b015f72"
+    },
+    "raw_stdout": {
+      "byte_length": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "raw_x11_stderr": {
+      "byte_length": 426,
+      "sha256": "ce9a7ea04ca5c931bb65b13568fb613775428f6b1d5b772a4a0c7df68885d61f"
+    },
+    "raw_x11_stdout": {
+      "byte_length": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "schema": "linux-vst-bridge-frg1-attempt-result/v1",
+  "scope": {
+    "asc_launched": false,
+    "bitwig_launched": false,
+    "network_shared": false,
+    "ordinary_home_visible": false,
+    "retained_asc_prefix_source_mounted": false,
+    "retained_asc_prefix_snapshot_used": true,
+    "steam_deck_contacted": false,
+    "ubuntu_deployment_changed": false,
+    "ubuntu_publication_performed": false
+  }
+}
