@@ -8,7 +8,7 @@ runtime, installer or plug-in bytes:
 
 ```sh
 python3 rpi1/validate_transfer.py
-python3 -m unittest rpi1/test_validate_transfer.py
+python3 -m unittest rpi1.test_validate_transfer rpi1.test_box64_emulator_adapter
 ```
 
 The validator checks the exact revision-18 Pigments profile, Deck Proton runner
@@ -18,3 +18,10 @@ read or validate private account, authorization, preset, content or binary
 payloads.
 
 Physical execution is governed by `docs/experiments/RPI1.md`.
+
+`box64-emulator-adapter.c` is the narrow AArch64 executable required by the
+Steam Runtime emulator-manifest interface. It preserves ordinary ELF targets,
+translates the runtime's explicit `ld-linux-x86-64.so.2 --library-path ...`
+vector into Box64's library-path environment, and recognizes only the exact
+Proton Python shebang. Unknown loader options and malformed vectors refuse.
+The adapter does not replace Proton, Wine, pressure-vessel or the bridge.

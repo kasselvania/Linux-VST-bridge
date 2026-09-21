@@ -122,6 +122,17 @@ state throughout RPI1.
 
 ## Phase A — exact runner transfer and account-free preflight
 
+### Runner acquisition checkpoint
+
+Valve's signed macOS SteamCMD was pinned, inspected and run with anonymous
+login against the exact recorded Proton app/depot/manifest. Public connection
+and anonymous login passed, but Steam refused the depot with missing-license /
+no-subscription. No Proton bytes were downloaded and no credentials were
+requested or inspected. The exact runner must therefore come from the user's
+entitled retained Steam Deck installation. This is an acquisition boundary, not
+a Proton, Box64 or Pi execution failure. See
+`evidence/rpi1/runner-acquisition.json`.
+
 Before executing ASC or commercial plug-in bytes:
 
 1. Verify the complete exact Proton runner closure against the revision-18

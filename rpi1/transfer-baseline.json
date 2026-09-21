@@ -34,6 +34,10 @@
     {
       "path": "evidence/rpi0-standalone-arm64-appliance/physical-acceptance.json",
       "sha256": "fdeb1d403ea4b2c29a9e599ab617d84337b75c265dd6a42a3b9fb27f406ab6f8"
+    },
+    {
+      "path": "evidence/rpi1/runner-acquisition.json",
+      "sha256": "5ef12dac004322ad6ab5f207069f3464fcc3d1b517753673ded2e31a0b527119"
     }
   ],
   "pigments": {
