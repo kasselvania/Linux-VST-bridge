@@ -39,7 +39,7 @@ struct Stats {
   bool retained_test = false, processing = false, forbid_release = false, refuse_frame = false;
   std::vector<int> retirement;
   bool refuse = false, refuse_attach = false, refuse_size = false, lost_parent = false,
-       close_during_attach = false;
+       close_during_attach = false, size_after_attach = false;
 };
 struct View final : CPluginView, IPlugViewContentScaleSupport {
   Stats &stats;
@@ -73,7 +73,7 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
     if(!frame&&stats.refuse_frame)return kResultFalse;
     if (!frame && stats.retained_test) { check(!stats.processing, "no frame detach during processing"); stats.retirement.push_back(1); }
     auto r = CPluginView::setFrame(frame);
-    if (frame) {
+    if (frame && !stats.refuse_size && !stats.size_after_attach) {
       ViewRect same{};
       check(getSize(&same) == kResultOk &&
                 frame->resizeView(this, &same) == kResultOk,
@@ -115,7 +115,7 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
     return CPluginView::onSize(r);
   }
   tresult PLUGIN_API getSize(ViewRect *r) override {
-    return stats.refuse_size ? kResultFalse : CPluginView::getSize(r);
+    return stats.refuse_size || (stats.size_after_attach && !systemWindow) ? kResultFalse : CPluginView::getSize(r);
   }
   tresult PLUGIN_API onFocus(TBool) override {
     ++stats.focus;
@@ -142,6 +142,17 @@ struct Controller final : EditController {
   IComponentHandler *retainedHandler() { componentHandler->addRef(); return componentHandler; }
   Stats stats;
   bool echo = true, no_view = false, invalid_readback=false;
+  bool dirty_string_tail=false;
+  tresult PLUGIN_API getParameterInfo(int32 index,ParameterInfo& info) override {
+    auto result=EditController::getParameterInfo(index,info);
+    if(result==kResultOk&&dirty_string_tail) {
+      // Legal short strings with unspecified trailing bytes, as observed in
+      // Kontakt's first controller parameter. Neither tail may be forwarded.
+      std::fill(std::begin(info.title)+5,std::end(info.title),char16(0x1234));
+      std::fill(std::begin(info.units)+1,std::end(info.units),char16(0x5678));
+    }
+    return result;
+  }
   ParamValue PLUGIN_API getParamNormalized(ParamID id) override {
     return invalid_readback?-1:EditController::getParamNormalized(id);
   }
@@ -473,6 +484,12 @@ void lifecycle_faults() {
       ++native.native_view;
     }
     c->stats.refuse_attach=c->stats.refuse_size=false;
+    c->stats.size_after_attach=true;
+    native.command(AP11::Open);session.service(true);native.drain();
+    check(session.is_open() && session.view().opens==1,
+          "platform size unavailable before attach remains a usable view");
+    native.close();session.service(true);native.drain();++native.native_view;
+    c->stats.size_after_attach=false;
     // Close while opening cancels only that native lifetime, even when the
     // next generation is already in the same command batch.
     const auto created=c->stats.created;
@@ -669,6 +686,7 @@ int main(int argc,char** argv) {
   check(c->getParamNormalized(42) == .4 && session.suppressed_echoes == 3 &&
             native.drain().empty(),
         "reverse controller update without gesture echo");
+  c->dirty_string_tail=true;
   check(handler.restartComponent(kParamValuesChanged | kParamTitlesChanged) ==
             kResultOk,
         "preset invalidation accepted");
@@ -678,6 +696,11 @@ int main(int argc,char** argv) {
             refresh[1].kind == AP11::Parameter && refresh[1].id == 42 &&
             refresh[1].value == .4 && refresh[2].kind == AP11::RefreshEnd,
         "SDK metadata and value refresh");
+  check(channel.failure()==0 && refresh[1].title[0]=='G' && refresh[1].title[3]=='n' &&
+        std::all_of(std::begin(refresh[1].title)+4,std::end(refresh[1].title),[](auto c){return c==0;}) &&
+        std::all_of(std::begin(refresh[1].units),std::end(refresh[1].units),[](auto c){return c==0;}),
+        "terminated SDK strings ignore and sanitize unused buffer tails");
+  c->dirty_string_tail=false;
   c->invalid_readback=true;
   check(handler.restartComponent(kParamValuesChanged)==kResultOk,"genuine invalidation accepted");
   session.service(true);auto unavailable=native.drain();

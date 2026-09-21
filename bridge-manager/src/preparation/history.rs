@@ -355,12 +355,13 @@ pub fn exact_inspection(m: &Manager, s: &Selection, id: &str) -> Result<Inspecti
         "inspection_superseded_refresh_required",
     )?;
     require(
-        inspect_record_with(
+        inspect_record_with_layout(
             s.clone(),
             i.report.clone(),
             i.origin.clone(),
             i.host.clone(),
             i.source_manifest.clone(),
+            i.audio_layout.clone(),
         )? == i,
         "inspection_changed",
     )?;
@@ -485,6 +486,7 @@ pub fn view(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result
                 host_sha256: i.host.sha256,
                 source_sha256: i.source_manifest.sha256,
                 origin: i.origin,
+                audio_layout: i.audio_layout,
                 recommended: rec,
                 candidate_bound: bound,
                 disposition: if rec {
@@ -516,7 +518,7 @@ pub fn view(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result
         }
         .into(),
         preliminary: preliminary(i.as_ref())?,
-        controller: i.map(|i| i.controller),
+        controller: i.as_ref().map(|i| i.controller.clone()),
         candidate: selected.map(|h| h.id.clone()),
         preparation: if history.is_empty() {
             "not_prepared"
@@ -537,6 +539,7 @@ pub fn view(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result
         operation: None,
         inspections: all,
         recommended_inspection: recommended,
+        recommended_audio_layout: i.as_ref().and_then(|i| i.audio_layout.clone()),
         current_revision: reference,
         current_profile_revision: active,
         publication_facts: publication_facts(m, &s.class.id)?,

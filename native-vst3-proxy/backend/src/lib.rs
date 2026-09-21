@@ -9,6 +9,7 @@ mod instances;
 mod mailbox;
 mod observer;
 mod input_observation;
+mod output_pool;
 mod performance;
 mod preview;
 mod process_results;
@@ -142,7 +143,7 @@ impl Session {
         } else {
             None
         };
-        let prepared = Prepared::create(path, id)?;
+        let prepared = Prepared::with_channels(path, id, if minor >= 13 { MULTI_CHANNELS } else { 2 })?;
         let (mapping, socket) =
             prepared.accept_while(minor, || preview::check_owner(&mut owner))?;
         let mut s = Self {
@@ -166,7 +167,7 @@ impl Session {
             minor,
             epoch: 0,
             position: 0,
-            witness: if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12) {
+            witness: if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13) {
                 observer::Observer::commercial().ok()
             } else if matches!(minor, 4 | 6)
                 && (owner.is_some() || std::env::var("LVB_AP4_COMPARE").as_deref() == Ok("1"))
@@ -250,6 +251,10 @@ impl Session {
         )?;
         performance::validate_wire(&bytes)?;
         self.sample_rate = f64::from_le_bytes(bytes[8..16].try_into().unwrap()) as u32;
+        if self.minor >= 13 {
+            let channels = performance::output_channels(&bytes)?;
+            self.mapping.as_mut().ok_or_else(|| invalid("mapping absent"))?.output_channels = channels;
+        }
         let mailbox_version = 3 * u64::from(self.mailbox.is_some());
         put(&mut bytes[16..20], mailbox_version);
         let reply = self.exchange(20, bytes)?;
@@ -344,11 +349,11 @@ impl Session {
         context: context::Context,
     ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
         need(
-            matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12) || events.is_empty(),
+            matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13) || events.is_empty(),
             "events require negotiated protocol",
         )?;
         need(
-            !matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12) || gain.is_nan(),
+            !matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13) || gain.is_nan(),
             "commercial legacy gain refused",
         )?;
         need(
@@ -399,8 +404,8 @@ impl Session {
                 .ok_or_else(|| invalid("mapping absent"))?;
             for (ch, plane) in snapshot.iter().enumerate() {
                 map.write_plane(INPUT, ch, plane)?;
-                map.write_plane(OUTPUT, ch, &poison)?;
             }
+            for ch in 0..map.output_channels { map.write_plane(OUTPUT, ch, &poison)?; }
             barrier();
             let mut request = if self.minor >= 4 {
                 let mut payload = vec![0; 32];
@@ -437,7 +442,7 @@ impl Session {
                     .payload
                     .extend_from_slice(&self.position.to_le_bytes());
             }
-            if matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12) {
+            if matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13) {
                 request
                     .payload
                     .extend_from_slice(&events::encode(events, n)?);
@@ -517,7 +522,7 @@ impl Session {
             let flags = self.state.done(&reply)?;
             barrier();
             let output = [map.plane(OUTPUT, 0)?, map.plane(OUTPUT, 1)?];
-            need(flags & !3 == 0, "output flags")?;
+            need(map.output_channels == 64 || flags >> map.output_channels == 0, "output flags")?;
             for ch in 0..2 {
                 need(map.plane(INPUT, ch)? == snapshot[ch], "input changed")?;
                 need(
@@ -532,6 +537,16 @@ impl Session {
                         sample.is_finite() && ((flags & (1 << ch)) == 0 || sample == 0.0),
                         "invalid output claim",
                     )?;
+                }
+            }
+            for ch in 2..map.output_channels {
+                let plane = map.plane(OUTPUT, ch)?;
+                need(plane[0] == GUARD && plane[CAP+1] == GUARD
+                    && plane[n+1..CAP+1].iter().all(|&x| x == POISON), "extra output bounds")?;
+                for i in 0..n {
+                    let sample = f32::from_bits(plane[i+1]);
+                    need(sample.is_finite() && (flags & (1u64 << ch) == 0 || sample == 0.), "extra output claim")?;
+                    map.extra[ch-2][i] = sample;
                 }
             }
             self.trace.validated = Some(std::time::Instant::now());

@@ -1,5 +1,76 @@
 # NAO1 — Native Access owned-session launch and cleanup
 
+## Focused repair amendment: initialized Proton command-session topology
+
+The second physical owned-session request at merged source
+`c38b5c9deb8bd32f5a509258c30f31b3e795fe59` retained the full qualified-recovery
+authority but failed before readiness and before Native Access launch. Operation
+`ca95619b7609089e3a9b3a439780785d` made its one initial query and one bounded
+re-observation; both returned `dependency_qualified_registration_absent` with Win32
+error 1060.
+
+Read-only physical inspection established a narrower cause:
+
+- the operation selected the intended environment and unchanged physical prefix;
+- the selected control set contained the exact fixed `NTKDaemonService` registration;
+- the admitted installer and daemon files still matched;
+- direct exact pinned-Proton registry and SCM probes saw the service as `STOPPED`;
+- the production adapter, when submitted through the manager's bare launcher service
+  and nested `proton runinprefix`, consistently saw error 1060;
+- Proton's ordinary `run` path is not admissible here because this pinned runner routes
+  it through built-in `steam.exe`; the first disposable generated candidate retained
+  that assertion failure and was stopped without any commercial launch.
+
+No real daemon or Native Access process was started by those probes. The result proves a
+manager launcher-topology defect, not missing vendor installation authority.
+
+The operation-private runtime must therefore use this closed topology:
+
+```text
+verify exact runtime entry point, Proton, launcher interface, launch client, and Wine
+→ wrap one exact Proton `runinprefix` root in the verified launcher interface
+→ start one source-owned Windows anchor as that root's Windows process
+→ validate and retain its exact operation/nonce-bound hold-file generation
+→ require the exact operation/nonce anchor frame
+→ bind the one private command-service name emitted by that exact Proton root
+→ submit every SCM helper and Native Access adapter through that exact service
+  using exact Proton `runinprefix`
+→ keep root, helpers, daemon, and application in the renderer-owned cgroup
+→ remove the exact hold only after dependency retirement, before final cohort cleanup
+```
+
+The manager must not start a bare `srt-launcher-service` and then use its client to
+start `proton runinprefix` without a retained Windows root. The verified launcher
+interface owns the retained root and its command service; inserted commands use the
+verified Proton script so Proton reconstructs its exact Wine environment while the
+root keeps the one Wine/SCM universe alive. Bare Wine is not an admissible shortcut. A
+dead or ambiguous root must refuse rather than fall back to a new runtime.
+
+Forwarded stdin is not anchor-lifetime authority: this Proton path exposes it as a
+character stream that can reach EOF while the Linux owner remains alive. The adapter
+retains the exact initial hold-file object and refuses aliasing or replacement; owner
+removal is the only ordinary close signal.
+
+The command-service name is an operation-private transport identity, not public result
+data or caller input. Startup refuses missing or duplicate exact tool identities,
+missing or ambiguous command-service observations, a wrong operation/nonce anchor, a
+dead root, or any changed tool before dispatch. The only forwarded command remains the
+source-owned exact Windows adapter with its owner-built private request. Existing
+exact-generation, listener, cgroup, privacy, one-stop, and cleanup rules remain
+unchanged.
+
+Qualification must not rely only on a service created by the runtime under test. One
+disposable source-owned service is established and queried through a separate exact
+full-Proton reference entry; after that entry retires, a cold product runtime must find
+the stopped registration without reinstalling it before readiness and application
+launch may pass.
+
+This amendment performs no real service-registration mutation, vendor-installer replay,
+artifact or preparation synthesis, daemon transition, or real application launch. A generated
+artifact-absent qualified-recovery application campaign must cross the production
+Proton-session runtime and prove readiness-before-launch, truthful close, and one fresh
+reopen before another physical attempt is authorized.
+
 ## Focused repair amendment: qualified-recovery readiness handoff
 
 The first physical owned-session request at merged source

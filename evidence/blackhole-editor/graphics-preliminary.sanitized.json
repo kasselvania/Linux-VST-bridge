@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "source_commit": "fcef9abbccf20a5fb23bd80d0fb97a0e8174bc63",
+  "kind": "graphics_diagnostic_preflight_refusal",
+  "plugin_launched": false,
+  "diagnostic_output_directory_created": false,
+  "cause": "launcher incorrectly required accessibility_probe_permitted=false while the current exact profile returns true",
+  "current_admission_profile_fingerprint": "ff2872b44d9b02f0af378efb104de406440e6c1d08beea0c7131e5f5f0edae94",
+  "renderer_result": null
+}

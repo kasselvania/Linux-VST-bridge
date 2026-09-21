@@ -1,0 +1,66 @@
+{
+  "fixture": "Kontakt 8 Player 8.13.1",
+  "method": "Read-only OLE streams; column-major Component decoding at each candidate width; string references checked against the package string pool. No package row values retained.",
+  "packages": [
+    {
+      "role": "original",
+      "sha256": "0f1caaac78c5ae718d849c3a2f5b9c7f1161b4326edf3f21dd7af2f01d95c929",
+      "bytes": 4104192,
+      "string_pool_entries": 57162,
+      "component_stream_bytes": 200940,
+      "component_stream_sha256": "60f54363aa5cfed601e9b79706f7105c39d8c3e999bd8c87979bd323a6325844",
+      "interpretations": [
+        {
+          "string_reference_bytes": 2,
+          "row_bytes": 12,
+          "row_count": 16745,
+          "extent_remainder": 0,
+          "out_of_range_string_references": 0,
+          "nonzero_references_without_string": 0,
+          "primary_keys_with_nonempty_strings": 16745,
+          "unique_primary_key_ids": 16745
+        },
+        {
+          "string_reference_bytes": 3,
+          "row_bytes": 17,
+          "row_count": 11820,
+          "extent_remainder": 0,
+          "out_of_range_string_references": 59002,
+          "nonzero_references_without_string": 59002,
+          "primary_keys_with_nonempty_strings": 22,
+          "unique_primary_key_ids": 11820
+        }
+      ]
+    },
+    {
+      "role": "rewritten",
+      "sha256": "2af9d1c80dc42dd000859487a69d17599b3294abc61c888884686f50a027d139",
+      "bytes": 4222976,
+      "string_pool_entries": 85744,
+      "component_stream_bytes": 200940,
+      "component_stream_sha256": "1e07092f597c6c0db0d295b90d5b8f9fcabe00b55b192a2d5a8cb9a2e772740a",
+      "interpretations": [
+        {
+          "string_reference_bytes": 2,
+          "row_bytes": 12,
+          "row_count": 16745,
+          "extent_remainder": 0,
+          "out_of_range_string_references": 0,
+          "nonzero_references_without_string": 0,
+          "primary_keys_with_nonempty_strings": 16745,
+          "unique_primary_key_ids": 16745
+        },
+        {
+          "string_reference_bytes": 3,
+          "row_bytes": 17,
+          "row_count": 11820,
+          "extent_remainder": 0,
+          "out_of_range_string_references": 58976,
+          "nonzero_references_without_string": 59002,
+          "primary_keys_with_nonempty_strings": 22,
+          "unique_primary_key_ids": 11820
+        }
+      ]
+    }
+  ]
+}

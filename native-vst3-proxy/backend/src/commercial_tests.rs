@@ -435,3 +435,40 @@ fn asynchronous_capture_correlates_failures_without_fabricating_a_completed_save
         remote.join().unwrap();drop(session);std::fs::remove_dir_all(dir).unwrap();
     }
 }
+
+#[test]
+fn protocol_13_transports_every_output_plane_and_rejects_last_plane_overrun() {
+    for corrupt in [false,true] {
+        let path=std::env::temp_dir().join(format!("multi-output-{:x}",u128::from_le_bytes(mapping::random().unwrap())));
+        let mut mapping=Mapping::with_channels(&path,64).unwrap();mapping.output_channels=64;
+        let file=std::fs::OpenOptions::new().read(true).write(true).open(&path).unwrap();
+        let listener=std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let socket=TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (mut peer,_)=listener.accept().unwrap();
+        let remote=thread::spawn(move||{
+            let f=receive_version(&mut peer,5,13).unwrap();assert_eq!(f.kind,PROCESS);
+            for ch in 0..64 {
+                let samples:Vec<_>=(0..17).flat_map(|i|(ch as f32+i as f32/32.).to_le_bytes()).collect();
+                file.write_all_at(&samples,(OUTPUT+ch*STRIDE+4) as u64).unwrap();
+            }
+            if corrupt {file.write_all_at(&0u32.to_le_bytes(),(OUTPUT+63*STRIDE+STRIDE-4) as u64).unwrap();}
+            let mut payload=vec![0;72];put(&mut payload[..4],17);put(&mut payload[4..8],OUTPUT as u64);
+            payload[16..32].copy_from_slice(&f.payload[32..48]);
+            send_version(&mut peer,&Frame{kind:DONE,session:f.session,sequence:f.sequence,payload},5,13).unwrap();
+        });
+        let mut session=Session{gui:None,gui_revision:0,mapping:Some(mapping),mailbox:None,mailbox_enabled:false,
+            capture:None,fault_status:None,notices:(0,0),returned:Default::default(),socket,
+            state:ClientState{session:[19;16],next:1,slot:Slot::Writable},phase:11,max:CAP,minor:13,
+            epoch:1,position:0,witness:None,identity:None,trace:Default::default(),sample_rate:48000,armed:false,owner:None};
+        let zero=[0.;17];let result=session.process_events(17,f64::NAN,3,[&zero,&zero],&[],Default::default());
+        remote.join().unwrap();
+        if corrupt {assert!(result.is_err());} else {
+            let (main,flags)=result.unwrap();assert_eq!(flags,0);
+            for ch in 0..64 {for i in 0..17 {
+                let value=if ch<2 {f32::from_bits(main[ch][i+1])} else {session.mapping.as_ref().unwrap().extra[ch-2][i]};
+                assert_eq!(value,ch as f32+i as f32/32.);
+            }}
+        }
+        drop(session);std::fs::remove_file(path).unwrap();
+    }
+}

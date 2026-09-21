@@ -1,0 +1,77 @@
+{
+  "schema": "vst.nao1-proton-launcher-topology-validation/v1",
+  "recorded_at": "2026-09-18T22:35:58Z",
+  "base": "c38b5c9deb8bd32f5a509258c30f31b3e795fe59",
+  "source": "e4a6bfa471308cf50917d361f02c8fe4d594ff18",
+  "tree": "65a88be6f260efbd6d2125ee5d38ac2854b027d4",
+  "package_seal": "0f3d2d6e22f8263c3f4b082d1e9c6eb2f8ce304624acfd7e2866875d97d057e7",
+  "package_tar_sha256": "ac66217028a056aa255a2bb2ed8cf241e288ef3761423c753607731a909b739b",
+  "proof_sha256": "a9e59b50a089784c5258f1a207e608e7f609c4d96afc240879bdf5ea2a529483",
+  "local_validation": {
+    "focused_runtime_topology_and_hold": {"passed": 12, "result": "pass"},
+    "full_runtime": {"ran": 274, "skipped": 44, "result": "pass"},
+    "nad1_nad2": {"passed": 24, "result": "pass"},
+    "naui1": {"passed": 47, "result": "pass"},
+    "naui2": {"passed": 3, "result": "pass"},
+    "manager_library": {"passed": 146, "result": "pass"},
+    "manager_binary": {"passed": 86, "result": "pass"},
+    "manager_report": {"passed": 5, "result": "pass"},
+    "frontend": {"passed": 32, "result": "pass"},
+    "strict_manager_clippy": "pass",
+    "strict_frontend_clippy": "pass",
+    "python_compilation": "pass",
+    "production_windows_adapter_cross_compile": "pass",
+    "source_owned_windows_fixtures_cross_compile": "pass"
+  },
+  "generated_qualification": {
+    "platform": "maintainer Steam Deck",
+    "sessions": 16,
+    "expected_completed": 10,
+    "expected_failed": 5,
+    "expected_cancelled": 1,
+    "qualified_recovery_origin_sessions": 16,
+    "cold_interoperability": {
+      "reference_runtime": "separate exact Proton runinprefix invocation",
+      "reference_registration_state": "SERVICE_STOPPED",
+      "production_first_query_state": "SERVICE_STOPPED",
+      "production_install_count": 0,
+      "readiness": true,
+      "application_fixture_launched_after_readiness": true,
+      "stop_request_count": 1,
+      "cleanup_confirmed": true,
+      "second_fresh_session": "pass"
+    },
+    "hold_deletion": "pass",
+    "hold_replacement_refusal": "pass",
+    "hold_alias_refusal": "pass",
+    "preservation": "pass",
+    "real_dependency_mutations": 0,
+    "commercial_launch": false
+  },
+  "hosted_source_validation": {
+    "AP8": {
+      "head": "e4a6bfa471308cf50917d361f02c8fe4d594ff18",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35401525901",
+      "result": "pass"
+    },
+    "AP12": {
+      "head": "e4a6bfa471308cf50917d361f02c8fe4d594ff18",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35401525613",
+      "result": "pass"
+    },
+    "PX2": {
+      "head": "e4a6bfa471308cf50917d361f02c8fe4d594ff18",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/35401525789",
+      "result": "pass"
+    }
+  },
+  "boundaries": {
+    "candidate_installed": false,
+    "real_native_access_launched": false,
+    "real_ntkdaemon_started_or_stopped": false,
+    "installer_or_updater_replayed": false,
+    "daw_or_plugin_launched": false,
+    "production_operation": false,
+    "reliable_graceful_ntkdaemon_shutdown_qualified": false
+  }
+}

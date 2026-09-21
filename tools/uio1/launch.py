@@ -19,6 +19,14 @@ import time
 HERE=pathlib.Path(__file__).resolve().parent
 FILES={'uio1-observer.exe','uio1-hook.dll','uio1-accessibility.exe','uio1-tests.exe'}
 
+def admission_command(class_id,uir1=False,if1=False,managed_observation=False):
+    if sum(map(bool,(uir1,if1,managed_observation)))>1:
+        raise RuntimeError('conflicting exact diagnostic purpose')
+    if if1:return ['admit-if1']
+    if uir1:return ['admit-uir1']
+    if managed_observation:return ['admit-managed-observation',class_id]
+    return ['admit',class_id]
+
 def digest(path):
     with open(path,'rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
 
@@ -47,10 +55,9 @@ def verified_package(source, manifest_path=None):
     return manifest
 
 class Context:
-    def __init__(self,admission_binary,class_id,package,uir1=False,if1=False,manifest_path=None):
+    def __init__(self,admission_binary,class_id,package,uir1=False,if1=False,manifest_path=None,managed_observation=False):
         os.umask(0o077)
-        if uir1 and if1:raise RuntimeError('conflicting exact diagnostic purpose')
-        command=['admit-if1'] if if1 else (['admit-uir1'] if uir1 else ['admit',class_id])
+        command=admission_command(class_id,uir1,if1,managed_observation)
         self.admission=json.loads(subprocess.check_output([str(admission_binary),*command],timeout=20))
         if self.admission['registration']['metadata']['class_id']!=class_id:raise RuntimeError('admission class mismatch')
         if self.admission['schema']!=1:raise RuntimeError('admission schema')

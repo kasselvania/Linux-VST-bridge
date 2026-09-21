@@ -109,6 +109,63 @@ fn generic_selection_controller_and_exact_reuse() {
     );
 }
 #[test]
+fn stereo_layout_is_bidirectionally_bound_to_inspection_and_candidate() {
+    let (_f, c) = fixture();
+    assert!(serde_json::to_value(&c.inspection).unwrap()["audio_layout"].is_null());
+    assert!(inspect_record_with_layout(
+        c.selection.clone(),
+        c.inspection.report.clone(),
+        c.inspection.origin.clone(),
+        c.host.clone(),
+        c.source_manifest.clone(),
+        Some(AudioLayoutPolicy::StereoMainPair),
+    )
+    .is_err());
+
+    let mut raw: Value = read_json(&c.inspection.report.path).unwrap();
+    let records = raw["records"].as_array_mut().unwrap();
+    records.push(json!({"state":"ap18_audio_layout","policy":"stereo_main_pair","input_count":1,"output_count":1,"result":0,"verified":true}));
+    records.push(json!({"state":"ap8_bus","media":0,"direction":0,"index":0,"channels":2,"type":0,"flags":1,"arrangement":3,"name":"Input"}));
+    records.push(json!({"state":"ap8_bus","media":0,"direction":1,"index":0,"channels":2,"type":0,"flags":1,"arrangement":3,"name":"Output"}));
+    let path = c.inspection.report.path.with_file_name("stereo-inspection.json");
+    atomic_json(&path, &raw).unwrap();
+    let report = Artifact {
+        sha256: digest(&path).unwrap(),
+        path,
+    };
+    assert!(inspect_record_with(
+        c.selection.clone(),
+        report.clone(),
+        c.inspection.origin.clone(),
+        c.host.clone(),
+        c.source_manifest.clone(),
+    )
+    .is_err());
+    let inspection = inspect_record_with_layout(
+        c.selection.clone(),
+        report,
+        c.inspection.origin.clone(),
+        c.host.clone(),
+        c.source_manifest.clone(),
+        Some(AudioLayoutPolicy::StereoMainPair),
+    )
+    .unwrap();
+    assert_ne!(inspection.id().unwrap(), c.inspection.id().unwrap());
+    let candidate = prepared(
+        c.selection.clone(),
+        inspection,
+        c.native.clone(),
+        c.host.clone(),
+        c.source_manifest.clone(),
+        c.recipe_sha256.clone(),
+    )
+    .unwrap();
+    assert_eq!(
+        candidate.profile.capabilities.compatibility().audio_layout,
+        Some(AudioLayoutPolicy::StereoMainPair)
+    );
+}
+#[test]
 fn stale_inventory_inspection_and_scanner_refused() {
     let (f, c) = fixture();
     let s = &c.selection;
@@ -159,6 +216,69 @@ fn experimental_enable_disable_preserves_installation_and_history() {
     );
     enable(&f.m, &c, false).unwrap();
     assert_eq!(publication_state(&f.m, &c).unwrap(), "experimental");
+}
+#[test]
+fn managed_observation_requires_exact_current_retained_publication() {
+    let (f, c) = fixture();
+    enable(&f.m, &c, false).unwrap();
+    let admitted =
+        crate::ui_observation::admit_managed_observation(&f.m, &c.selection.class.id).unwrap();
+    assert_eq!(
+        admitted.profile_fingerprint,
+        c.profile.fingerprint().unwrap()
+    );
+    assert_eq!(admitted.registration.module, c.selection.module);
+    assert_eq!(admitted.registration.host, c.host);
+    assert_eq!(
+        admitted.registration.host_source_sha256,
+        c.source_manifest.sha256
+    );
+    assert_eq!(admitted.maximum_seconds, 30);
+    assert!(crate::ui_observation::admit(&f.m, &c.selection.class.id).is_err());
+
+    fs::write(&c.inspection.report.path, b"changed retained inspection").unwrap();
+    assert!(crate::ui_observation::admit_managed_observation(&f.m, &c.selection.class.id).is_err());
+
+    for changed in 0..4 {
+        let (f, c) = fixture();
+        enable(&f.m, &c, false).unwrap();
+        let path = match changed {
+            0 => &c.selection.module.path,
+            1 => &c.native.artifact.path,
+            2 => &c.host.path,
+            _ => &c.source_manifest.path,
+        };
+        fs::write(path, b"changed retained artifact").unwrap();
+        assert!(crate::ui_observation::admit_managed_observation(&f.m, &c.selection.class.id).is_err());
+    }
+
+    let (f, c) = fixture();
+    enable(&f.m, &c, false).unwrap();
+    fs::remove_file(f.m.link(&c.selection.class.id)).unwrap();
+    assert!(crate::ui_observation::admit_managed_observation(&f.m, &c.selection.class.id).is_err());
+    assert!(crate::ui_observation::admit_managed_observation(&f.m, &"ff".repeat(16)).is_err());
+}
+
+#[test]
+fn managed_experimental_publication_can_arm_one_exact_crash_capture() {
+    let (f, c) = fixture();
+    enable(&f.m, &c, false).unwrap();
+    atomic_json(
+        &f.m.root.join("software.json"),
+        &json!({"fixture":true,"product":"managed-experimental"}),
+    )
+    .unwrap();
+
+    crate::crash_capture::arm(&f.m, Some(&c.selection.class.id)).unwrap();
+    let registration = f.m.registry().unwrap().classes[&c.selection.class.id]
+        .registration
+        .clone();
+    let capture = crate::crash_capture::claim(&f.m, &registration, &"ab".repeat(16))
+        .unwrap()
+        .unwrap();
+    let request: serde_json::Value = read_json(&capture.directory.join("request.json")).unwrap();
+    assert_eq!(request["session"], "abababababababababababababababab");
+    assert_eq!(request["registration"]["metadata"]["class_id"], registration.key());
 }
 #[test]
 fn explicit_review_needs_complete_attributed_results() {

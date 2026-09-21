@@ -1,0 +1,715 @@
+{
+  "schema": 1,
+  "profile_fingerprint": "ff2872b44d9b02f0af378efb104de406440e6c1d08beea0c7131e5f5f0edae94",
+  "admission": "current_retained_managed_experimental",
+  "maximum_seconds": 30,
+  "input_injection": false,
+  "activation_request": false,
+  "resize_request": false,
+  "desktop_capture": false,
+  "capture_available": true,
+  "completed": true,
+  "renderer_modules": {
+    "windows": [],
+    "linux": [
+      "d2d1.dll",
+      "d3d11.dll",
+      "dxgi.dll",
+      "gdi32.dll",
+      "libGL.so",
+      "libGLX.so",
+      "libvulkan.so",
+      "opengl32.dll",
+      "uiautomationcore.dll",
+      "wined3d.dll",
+      "winex11.drv"
+    ],
+    "windows_census_complete": false
+  },
+  "record_metrics": {
+    "records": 11,
+    "wm_paint_records": 0,
+    "wm_paint_by_source": [],
+    "heartbeat_records": 11,
+    "maximum_heartbeat_ms": 4.8035,
+    "interpretation": "message counts are observations only; zero WM_PAINT can mean a retained surface or no invalid region, and heartbeat continuity does not establish WM_PAINT delivery"
+  },
+  "helper_cleanup": {
+    "exit": 0,
+    "kept": 529,
+    "overflow": 0,
+    "stderr_bytes": 529,
+    "cleanup": {
+      "owned_descendants_zero": true,
+      "process_group_empty": true
+    }
+  },
+  "cleanup_errors": [],
+  "failure": null,
+  "frequency": 10000000,
+  "observer_status": {
+    "committed": 11,
+    "dropped": 0,
+    "ready": 1,
+    "closed": 1,
+    "hook_calls": 315,
+    "hook_ticks": 13079,
+    "max_hook_ticks": 1759,
+    "filtered": 304,
+    "heartbeat_errors": 0,
+    "scope_errors": 0,
+    "unhook_errors": 0,
+    "detached": 1
+  },
+  "frames": [
+    {
+      "label": "first",
+      "capture": {
+        "interval_ns": [
+          759651921071266,
+          759651927791147
+        ],
+        "width": 874,
+        "height": 552,
+        "stride": 3496,
+        "capture_backend": "direct_drawable",
+        "image_masks": [
+          16711680,
+          65280,
+          255
+        ],
+        "effective_masks": [
+          16711680,
+          65280,
+          255
+        ]
+      },
+      "metrics": {
+        "sha256": "c50ed2d07666922857da04488dfc3054782a97d05f8297fff0dba6b60511795f",
+        "perceptual_hash": "ffffffffffffffff",
+        "changed_sample_percent": 0.0,
+        "changed_sample_bounds": null,
+        "spatial_step": 8,
+        "region_hashes": [],
+        "sampled_pixels": 7590,
+        "rgb_min": [
+          255,
+          255,
+          255
+        ],
+        "rgb_max": [
+          255,
+          255,
+          255
+        ],
+        "rgb_mean": [
+          255.0,
+          255.0,
+          255.0
+        ],
+        "near_white_percent": 100.0,
+        "near_black_percent": 0.0,
+        "distinct_sampled_rgb": 1
+      },
+      "win32": {
+        "root": {
+          "visible": 1,
+          "enabled": 1,
+          "minimized": 0,
+          "dpi": 96,
+          "style": 349110272,
+          "exstyle": 256,
+          "rect": [
+            0,
+            5,
+            882,
+            584
+          ],
+          "client": [
+            4,
+            28,
+            878,
+            580
+          ]
+        },
+        "child_count": 1,
+        "visible_child_count": 1,
+        "zero_client_children": 0,
+        "child_interpretation": "count and geometry only; zero child HWNDs does not imply failed drawing into the supplied parent",
+        "children": [
+          {
+            "visible": true,
+            "enabled": true,
+            "minimized": false,
+            "dpi": 96,
+            "style": 1442840576,
+            "exstyle": 0,
+            "rect": [
+              4,
+              28,
+              878,
+              580
+            ],
+            "client": [
+              4,
+              28,
+              878,
+              580
+            ],
+            "client_extent": [
+              874,
+              552
+            ]
+          }
+        ]
+      },
+      "post_capture_win32": {
+        "root": {
+          "visible": 1,
+          "enabled": 1,
+          "minimized": 0,
+          "dpi": 96,
+          "style": 349110272,
+          "exstyle": 256,
+          "rect": [
+            0,
+            5,
+            882,
+            584
+          ],
+          "client": [
+            4,
+            28,
+            878,
+            580
+          ]
+        },
+        "child_count": 1,
+        "visible_child_count": 1,
+        "zero_client_children": 0,
+        "child_interpretation": "count and geometry only; zero child HWNDs does not imply failed drawing into the supplied parent",
+        "children": [
+          {
+            "visible": true,
+            "enabled": true,
+            "minimized": false,
+            "dpi": 96,
+            "style": 1442840576,
+            "exstyle": 0,
+            "rect": [
+              4,
+              28,
+              878,
+              580
+            ],
+            "client": [
+              4,
+              28,
+              878,
+              580
+            ],
+            "client_extent": [
+              874,
+              552
+            ]
+          }
+        ]
+      },
+      "local_viewable": true,
+      "local_rect": [
+        4,
+        28,
+        878,
+        580
+      ],
+      "before": {
+        "native": {
+          "publication": 35003,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 11670,
+          "position": 2983680,
+          "stage": 2,
+          "detail": 0,
+          "ticks": 759651875012703,
+          "frequency": 1000000000,
+          "admitted_frames": 2987008,
+          "missing_frames": 2048,
+          "gaps": 4,
+          "expired_frames": 2048,
+          "delivered_frames": 2983936,
+          "priming_frames": 1024,
+          "current": true
+        },
+        "delivery": {
+          "publication": 70013,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 11670,
+          "position": 2983680,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 7596385861247,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 53291,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 7596385842602,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 100,
+          "open_stage": 100,
+          "exception_code": 0
+        }
+      },
+      "after": {
+        "native": {
+          "publication": 35040,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 11682,
+          "position": 2986752,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 759651939887161,
+          "frequency": 1000000000,
+          "admitted_frames": 2990080,
+          "missing_frames": 2048,
+          "gaps": 4,
+          "expired_frames": 2048,
+          "delivered_frames": 2987008,
+          "priming_frames": 1024,
+          "current": true
+        },
+        "delivery": {
+          "publication": 70089,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 11682,
+          "position": 2986752,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 7596386509734,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 53355,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 7596386570232,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 100,
+          "open_stage": 100,
+          "exception_code": 0
+        }
+      },
+      "private_frame_sha256": "856d4b468dd8809b2cea16931115107459b26fc7ae15c8da2b52ec73b4e3ca2f"
+    },
+    {
+      "label": "second",
+      "capture": {
+        "interval_ns": [
+          759653989555666,
+          759653992642388
+        ],
+        "width": 874,
+        "height": 552,
+        "stride": 3496,
+        "capture_backend": "direct_drawable",
+        "image_masks": [
+          16711680,
+          65280,
+          255
+        ],
+        "effective_masks": [
+          16711680,
+          65280,
+          255
+        ]
+      },
+      "metrics": {
+        "sha256": "c50ed2d07666922857da04488dfc3054782a97d05f8297fff0dba6b60511795f",
+        "perceptual_hash": "ffffffffffffffff",
+        "changed_sample_percent": 0.0,
+        "changed_sample_bounds": null,
+        "spatial_step": 8,
+        "region_hashes": [],
+        "sampled_pixels": 7590,
+        "rgb_min": [
+          255,
+          255,
+          255
+        ],
+        "rgb_max": [
+          255,
+          255,
+          255
+        ],
+        "rgb_mean": [
+          255.0,
+          255.0,
+          255.0
+        ],
+        "near_white_percent": 100.0,
+        "near_black_percent": 0.0,
+        "distinct_sampled_rgb": 1
+      },
+      "win32": {
+        "root": {
+          "visible": 1,
+          "enabled": 1,
+          "minimized": 0,
+          "dpi": 96,
+          "style": 349110272,
+          "exstyle": 256,
+          "rect": [
+            0,
+            5,
+            882,
+            584
+          ],
+          "client": [
+            4,
+            28,
+            878,
+            580
+          ]
+        },
+        "child_count": 1,
+        "visible_child_count": 1,
+        "zero_client_children": 0,
+        "child_interpretation": "count and geometry only; zero child HWNDs does not imply failed drawing into the supplied parent",
+        "children": [
+          {
+            "visible": true,
+            "enabled": true,
+            "minimized": false,
+            "dpi": 96,
+            "style": 1442840576,
+            "exstyle": 0,
+            "rect": [
+              4,
+              28,
+              878,
+              580
+            ],
+            "client": [
+              4,
+              28,
+              878,
+              580
+            ],
+            "client_extent": [
+              874,
+              552
+            ]
+          }
+        ]
+      },
+      "post_capture_win32": {
+        "root": {
+          "visible": 1,
+          "enabled": 1,
+          "minimized": 0,
+          "dpi": 96,
+          "style": 349110272,
+          "exstyle": 256,
+          "rect": [
+            0,
+            5,
+            882,
+            584
+          ],
+          "client": [
+            4,
+            28,
+            878,
+            580
+          ]
+        },
+        "child_count": 1,
+        "visible_child_count": 1,
+        "zero_client_children": 0,
+        "child_interpretation": "count and geometry only; zero child HWNDs does not imply failed drawing into the supplied parent",
+        "children": [
+          {
+            "visible": true,
+            "enabled": true,
+            "minimized": false,
+            "dpi": 96,
+            "style": 1442840576,
+            "exstyle": 0,
+            "rect": [
+              4,
+              28,
+              878,
+              580
+            ],
+            "client": [
+              4,
+              28,
+              878,
+              580
+            ],
+            "client_extent": [
+              874,
+              552
+            ]
+          }
+        ]
+      },
+      "local_viewable": true,
+      "local_rect": [
+        4,
+        28,
+        878,
+        580
+      ],
+      "before": {
+        "native": {
+          "publication": 36174,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 12060,
+          "position": 3083520,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 759653956543789,
+          "frequency": 1000000000,
+          "admitted_frames": 3086848,
+          "missing_frames": 2048,
+          "gaps": 4,
+          "expired_frames": 2048,
+          "delivered_frames": 3083776,
+          "priming_frames": 1024,
+          "current": true
+        },
+        "delivery": {
+          "publication": 72357,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 12060,
+          "position": 3083520,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 7596406675503,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 55131,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 7596406736198,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 100,
+          "open_stage": 100,
+          "exception_code": 0
+        }
+      },
+      "after": {
+        "native": {
+          "publication": 36210,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 12072,
+          "position": 3086592,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 759654020075490,
+          "frequency": 1000000000,
+          "admitted_frames": 3089920,
+          "missing_frames": 2048,
+          "gaps": 4,
+          "expired_frames": 2048,
+          "delivered_frames": 3086848,
+          "priming_frames": 1024,
+          "current": true
+        },
+        "delivery": {
+          "publication": 72429,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 12072,
+          "position": 3086592,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 7596407311467,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 55183,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 7596407340270,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 100,
+          "open_stage": 100,
+          "exception_code": 0
+        }
+      },
+      "private_frame_sha256": "856d4b468dd8809b2cea16931115107459b26fc7ae15c8da2b52ec73b4e3ca2f"
+    }
+  ],
+  "before": {
+    "native": {
+      "publication": 32280,
+      "generation": 1,
+      "epoch": 2,
+      "request_sequence": 10762,
+      "position": 2751232,
+      "stage": 3,
+      "detail": 0,
+      "ticks": 759647033183628,
+      "frequency": 1000000000,
+      "admitted_frames": 2754560,
+      "missing_frames": 2048,
+      "gaps": 4,
+      "expired_frames": 2048,
+      "delivered_frames": 2751488,
+      "priming_frames": 1024,
+      "current": true
+    },
+    "delivery": {
+      "publication": 64569,
+      "generation": 1,
+      "epoch": 2,
+      "request_sequence": 10762,
+      "position": 2751232,
+      "stage": 1,
+      "detail": 0,
+      "ticks": 7596337443540,
+      "frequency": 10000000,
+      "current": true
+    },
+    "owner": {
+      "publication": 49003,
+      "generation": 1,
+      "epoch": 0,
+      "request_sequence": 0,
+      "position": 0,
+      "stage": 0,
+      "detail": 0,
+      "ticks": 7596337534795,
+      "frequency": 10000000,
+      "current": true
+    },
+    "editor": {
+      "available": true,
+      "independently_sampled": true,
+      "closed": 0,
+      "failure": 0,
+      "open": 1,
+      "view_stage": 100,
+      "open_stage": 100,
+      "exception_code": 0
+    }
+  },
+  "after": {
+    "native": {
+      "publication": 36282,
+      "generation": 1,
+      "epoch": 2,
+      "request_sequence": 12096,
+      "position": 3092736,
+      "stage": 3,
+      "detail": 0,
+      "ticks": 759654148097686,
+      "frequency": 1000000000,
+      "admitted_frames": 3096064,
+      "missing_frames": 2048,
+      "gaps": 4,
+      "expired_frames": 2048,
+      "delivered_frames": 3092992,
+      "priming_frames": 1024,
+      "current": true
+    },
+    "delivery": {
+      "publication": 72573,
+      "generation": 1,
+      "epoch": 2,
+      "request_sequence": 12096,
+      "position": 3092736,
+      "stage": 1,
+      "detail": 0,
+      "ticks": 7596408591550,
+      "frequency": 10000000,
+      "current": true
+    },
+    "owner": {
+      "publication": 55299,
+      "generation": 1,
+      "epoch": 0,
+      "request_sequence": 0,
+      "position": 0,
+      "stage": 0,
+      "detail": 0,
+      "ticks": 7596408662733,
+      "frequency": 10000000,
+      "current": true
+    },
+    "editor": {
+      "available": true,
+      "independently_sampled": true,
+      "closed": 0,
+      "failure": 0,
+      "open": 1,
+      "view_stage": 100,
+      "open_stage": 100,
+      "exception_code": 0
+    }
+  },
+  "private_report_sha256": "1fb9efb214121c65b0652a92313dd7a5572a441ff5e31f0589d6f8baa2b72d5f"
+}

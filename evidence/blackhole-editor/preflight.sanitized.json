@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "software": {
+    "manager": "3a332a2d73f79ed813286290caab82e02b566fc12e89984b2655c8d1a7edd2c3",
+    "supervisor": "544c5f67045315f6f1735703d2de095dc4697d58c5ff3fb4e8b372f54453fd2c",
+    "ownership": "cc81d05876043ccf96c1540c556a790e62f57f4a6e72aabbd820a5d133311add"
+  },
+  "native_sha256": "71f8e50cffcd8613d15ab534cc75a7eb0730053cf90cb09adaef00f7055e4bdd",
+  "saved_project_sha256": "d5272caec2806034f36c7837c1f84b0f0f5da8533b6da1cd48ccb2485a2dc33c",
+  "protected_file_count": 4,
+  "capacity": {
+    "dsp": 0,
+    "maintenance": 0,
+    "keepers": 4,
+    "cleanup_unconfirmed": false
+  },
+  "prefix_identity_recorded_privately": true
+}

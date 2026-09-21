@@ -1,0 +1,12 @@
+{
+  "native_access_version": "3.26.0",
+  "kontakt_version": "8.13.1",
+  "install_method": "Native Access Install button",
+  "fresh_launch_installed_tab": true,
+  "kontakt_button": "Open",
+  "factory_selection_version": "1.4.2",
+  "factory_selection_status": "Installed",
+  "native_access_initial_refresh_required": true,
+  "reopen_session_state": "completed",
+  "reopen_cleanup_confirmed": true
+}

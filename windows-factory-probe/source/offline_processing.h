@@ -47,6 +47,9 @@ public:
     virtual void after_process() {}
     virtual void ready() = 0;
     virtual bool next(ExternalBlock&, float* left, float* right) = 0;
+    virtual void done_outputs(const Steinberg::Vst::AudioBusBuffers* buses,int count,uint64_t ns,const ap10_results_t* results) {
+        (void)count;done(buses[0].channelBuffers32[0],buses[0].channelBuffers32[1],buses[0].silenceFlags,ns,results);
+    }
     virtual void done(const float* left, const float* right, uint64_t silence, uint64_t process_ns = 0, const ap10_results_t* results = nullptr) = 0;
 };
 struct OfflineResult { bool success; bool quiescent; bool retirement_ready = false; };

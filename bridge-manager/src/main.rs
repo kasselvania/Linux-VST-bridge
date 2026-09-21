@@ -2,9 +2,10 @@ use linux_vst_bridge::*;
 mod managed_cli;
 #[cfg(test)]
 mod test_fixture;
-mod transport_storage;
 mod vendor_cli;
 mod renderer_cli;
+mod native_access_runner;
+mod experimental_runner;
 mod vendor_product_cli;
 mod operator_cli;
 mod installer_import;
@@ -16,13 +17,13 @@ use sha2::Digest;
 use std::{
     fs,
     io::{Read, Write},
-    os::fd::{AsFd, FromRawFd, IntoRawFd},
+    os::fd::{AsFd, AsRawFd, FromRawFd, IntoRawFd},
     os::unix::{
         fs::{OpenOptionsExt, PermissionsExt},
         net::{UnixListener, UnixStream},
     },
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
+    process::{Child, Command, ExitStatus, Stdio},
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex,
@@ -30,6 +31,21 @@ use std::{
     time::{Duration, Instant},
 };
 use catalogue::Software;
+
+struct KeeperOwner {
+    environment: String,
+    graphical_session: Option<transport_storage::GraphicalSession>,
+    child: Child,
+    report: PathBuf,
+    lease: PathBuf,
+    retiring: bool,
+    started: Instant,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum KeeperAvailability { Starting, Ready }
+
+type Keepers = Mutex<Vec<KeeperOwner>>;
 #[derive(Serialize, Deserialize)]
 struct SessionSpec {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -53,6 +69,8 @@ struct SessionSpec {
     shared_runtime: bool,
     #[serde(default)]
     transport: Option<transport_storage::MemoryTransport>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    graphical_session: Option<transport_storage::GraphicalSession>,
 }
 // Unexposed admission owns only a reservation. Once the native binding is
 // exposed, only positive supervisor retirement can release that ownership.
@@ -536,6 +554,7 @@ fn spec(
         shared_inspection: false,
         shared_runtime: false,
         transport: None,
+        graphical_session: None,
     };
     let path = directory.join("owner.json");
     atomic_json(&path, &s)?;
@@ -601,48 +620,94 @@ fn reconcile_leases(m: &Manager) -> Result<bool> {
     }
     Ok(unconfirmed)
 }
-fn ensure_keeper(
-    m: &Manager,
-    s: &Software,
-    r: &HostBinding,
-    keepers: &Mutex<Vec<(String, Child)>>,
-) -> Result<()> {
-    let mut active = keepers
-        .lock()
-        .map_err(|_| "environment ownership lock poisoned")?;
-    if let Some((_, child)) = active.iter_mut().find(|(id, _)| *id == r.environment.id) {
-        return require(
-            child.try_wait()?.is_none(),
-            "environment owner exited; restart service after closing devices",
-        );
+fn retired_keeper(owner: &KeeperOwner, status: ExitStatus) -> Result<()> {
+    let report: serde_json::Value = read_json(&owner.report)?;
+    require(report["ready"] == false && report["cleanup_confirmed"] == true,
+        "environment owner exited without confirmed cleanup")?;
+    require(status.success(), "environment owner exited unsuccessfully")?;
+    if owner.lease.exists() { fs::remove_file(&owner.lease)?; }
+    Ok(())
+}
+
+fn observe_keeper(environment: &str, active: &mut Vec<KeeperOwner>)
+    -> Result<Option<KeeperAvailability>> {
+    let Some(index)=active.iter().position(|owner|owner.environment==environment) else {
+        return Ok(None);
+    };
+    if let Some(status)=active[index].child.try_wait()? {
+        retired_keeper(&active[index],status)?;
+        active.remove(index);
+        return Ok(None);
     }
-    // Shared environment infrastructure belongs to installed product software,
-    // independently of the exact per-class host retained by a rollback.
-    let mut keeper_binding = r.clone();
-    keeper_binding.host = s.host.clone();
-    keeper_binding.host_source_sha256 = s.source_sha256.clone();
-    let (mut job, path) = spec(m, keeper_binding, true, false, true)?;
-    job.shared_runtime = true;
-    atomic_json(&path, &job)?;
-    let child = spawn(s, &path, None)?;
-    // Retain ownership even when readiness or its report fails.
-    active.push((r.environment.id.clone(), child));
-    let child = &mut active.last_mut().unwrap().1;
-    let deadline = Instant::now() + Duration::from_secs(60);
-    while !job.report.exists() {
-        require(child.try_wait()?.is_none(), "environment startup failed")?;
-        if Instant::now() >= deadline {
-            // The supervisor owns descendants; never SIGKILL it and abandon them.
-            unsafe {
-                libc::kill(child.id() as i32, libc::SIGTERM);
-            }
-            return Err("environment startup deadline".into());
+    if active[index].retiring || !active[index].report.exists() {
+        return Ok(Some(KeeperAvailability::Starting));
+    }
+    let status:serde_json::Value=read_json(&active[index].report)?;
+    require(status["environment"]==environment,"environment readiness binding differs")?;
+    if status["ready"]==true { Ok(Some(KeeperAvailability::Ready)) }
+    else { Err("environment owner published a non-ready live result".into()) }
+}
+
+fn retire_mismatched_graphical_keeper(m:&Manager,environment:&str,
+    requested:Option<&transport_storage::GraphicalSession>,active:&mut [KeeperOwner])
+    -> Result<bool> {
+    let Some(requested)=requested else {return Ok(false)};
+    let Some(owner)=active.iter_mut().find(|owner|owner.environment==environment) else {
+        return Ok(false);
+    };
+    if owner.graphical_session.as_ref().is_some_and(|bound|bound.same_display_context(requested))
+        || owner.child.try_wait()?.is_some() {return Ok(false)}
+    if owner.retiring {return Ok(true)}
+    // Each DAW request retains its authenticated peer generation, while the
+    // keeper belongs to the exact display context shared by those requests.
+    m.require_inactive(None)?;
+    require(unsafe{libc::kill(owner.child.id() as i32,libc::SIGTERM)}==0,
+        "graphical keeper retirement request")?;
+    owner.retiring=true;
+    Ok(true)
+}
+
+fn stage_keeper(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keepers,
+    graphical_session:Option<&transport_storage::GraphicalSession>)
+    -> Result<KeeperAvailability> {
+    let mut active=keepers.lock().map_err(|_|"environment ownership lock poisoned")?;
+    if let Some(owner)=active.iter_mut().find(|owner|owner.environment==r.environment.id) {
+        if !owner.retiring && !owner.report.exists()
+            && owner.started.elapsed()>=Duration::from_secs(60)
+            && owner.child.try_wait()?.is_none() {
+            require(unsafe{libc::kill(owner.child.id() as i32,libc::SIGTERM)}==0,
+                "environment startup retirement request")?;
+            owner.retiring=true;
+            return Ok(KeeperAvailability::Starting);
         }
+    }
+    if retire_mismatched_graphical_keeper(m,&r.environment.id,graphical_session,&mut active)? {
+        return Ok(KeeperAvailability::Starting);
+    }
+    if let Some(status)=observe_keeper(&r.environment.id,&mut active)? {return Ok(status)}
+    let mut keeper_binding=r.clone();
+    keeper_binding.host=s.host.clone();
+    keeper_binding.host_source_sha256=s.source_sha256.clone();
+    let (mut job,path)=spec(m,keeper_binding,true,false,true)?;
+    job.shared_runtime=true;
+    job.graphical_session=graphical_session.cloned();
+    atomic_json(&path,&job)?;
+    let child=spawn(s,&path,None)?;
+    // The keeper is retained before any retryable refusal. No native binding,
+    // transport, or DSP lease has been exposed at this point.
+    active.push(KeeperOwner{environment:r.environment.id.clone(),
+        graphical_session:graphical_session.cloned(),child,report:job.report,lease:job.lease,
+        retiring:false,started:Instant::now()});
+    Ok(KeeperAvailability::Starting)
+}
+
+fn ensure_keeper(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keepers)->Result<()> {
+    let deadline=Instant::now()+Duration::from_secs(60);
+    loop {
+        if stage_keeper(m,s,r,keepers,None)?==KeeperAvailability::Ready {return Ok(())}
+        if Instant::now()>=deadline {return Err("environment startup deadline".into())}
         std::thread::sleep(Duration::from_millis(20));
     }
-    let status: serde_json::Value = read_json(&job.report)?;
-    require(status["ready"] == true, "environment not ready")?;
-    Ok(())
 }
 // Worker admission and DSP ownership are separate. Full musical capacity still
 // leaves bounded classifier capacity for truthful refusals and status.
@@ -660,6 +725,102 @@ fn startup_reply(peer: &mut UnixStream, bytes: &[u8]) -> Result<()> {
     peer.write_all(&(bytes.len() as u16).to_le_bytes())?;
     peer.write_all(bytes)?;
     Ok(())
+}
+fn supervisor_ready(child: &mut Child, session: &str, timeout: Duration) -> Result<()> {
+    let fd = child
+        .stdout
+        .as_ref()
+        .ok_or("supervisor readiness output absent")?
+        .as_raw_fd();
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    require(flags >= 0, "supervisor readiness output flags")?;
+    require(
+        unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } == 0,
+        "supervisor readiness output nonblocking",
+    )?;
+    let expected = format!("LVO0 {session} ready\n").into_bytes();
+    let mut received = Vec::with_capacity(expected.len());
+    let deadline = Instant::now() + timeout;
+    while received.len() < expected.len() {
+        if let Some(status) = child.try_wait()? {
+            return Err(format!("supervisor exited before readiness: {status}").into());
+        }
+        let now = Instant::now();
+        require(now < deadline, "supervisor readiness deadline")?;
+        let remaining = deadline.saturating_duration_since(now);
+        let mut descriptor = libc::pollfd {
+            fd,
+            events: libc::POLLIN | libc::POLLHUP | libc::POLLERR,
+            revents: 0,
+        };
+        let millis = remaining.as_millis().min(i32::MAX as u128) as i32;
+        let result = unsafe { libc::poll(&mut descriptor, 1, millis.max(1)) };
+        require(result >= 0, "supervisor readiness poll")?;
+        if result == 0 {
+            continue;
+        }
+        let mut bytes = [0u8; 128];
+        match child
+            .stdout
+            .as_mut()
+            .ok_or("supervisor readiness output absent")?
+            .read(&mut bytes[..(expected.len() - received.len()).min(128)])
+        {
+            Ok(0) => return Err("supervisor readiness output closed".into()),
+            Ok(count) => received.extend_from_slice(&bytes[..count]),
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => continue,
+            Err(error) => return Err(error.into()),
+        }
+        require(
+            expected.starts_with(&received),
+            "supervisor readiness receipt differs",
+        )?;
+    }
+    require(received == expected, "supervisor readiness receipt differs")
+}
+
+fn retire_unready_supervisor(child: &mut Child, owner: &Path) -> Result<()> {
+    if child.try_wait()?.is_none() {
+        child.kill()?;
+    }
+    child.wait()?;
+    if owner.try_exists()? {
+        fs::remove_file(owner)?;
+    }
+    let directory = owner.parent().ok_or("session owner parent absent")?;
+    if directory.try_exists()? {
+        fs::remove_dir(directory)?;
+    }
+    Ok(())
+}
+struct SupervisorDelivery<'a> {
+    manager: &'a Manager,
+    class_id: &'a str,
+    report: &'a Path,
+    session: &'a str,
+    transport: Option<&'a Path>,
+}
+fn finish_supervised_delivery(context:SupervisorDelivery<'_>,delivery:Result<()>,
+    child:&mut Child,admission:&mut PendingAdmission)->Result<()> {
+    // Delivery failure does not abandon the exact process generation that was
+    // already retained before exposure. Let its bounded socket-loss path
+    // finish, publish cleanup, and retire this lease before returning the
+    // delivery error to the service worker.
+    let retirement=(||->Result<()>{
+        let status=child.wait()?;
+        let mut disposition=String::new();
+        if let Some(stdout)=child.stdout.take(){stdout.take(128).read_to_string(&mut disposition)?;}
+        // A sanitized terminal summary is user-facing incident evidence, not
+        // physical-cleanup authority. Preserve its error for the caller, but
+        // never leave an already retired exact owner exposed merely because
+        // that additional projection could not be written.
+        let terminal=capacity::retain_terminal_summary(context.manager,context.session,
+            context.class_id,context.report);
+        admission.complete(context.session,status.success(),&disposition,context.transport)?;
+        terminal
+    })();
+    delivery?;
+    retirement
 }
 fn capacity_reply(m: &Manager) -> Result<serde_json::Value> {
     let mut peer = UnixStream::connect(m.root.join("runtime/owner.sock"))?;
@@ -779,6 +940,11 @@ fn serve(m: Manager) -> Result<()> {
                     let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
                     job.shared_inspection=true;atomic_json(&path,&job)?;
                     let mut child=spawn(&s,&path,None)?;
+                    if let Err(readiness)=supervisor_ready(&mut child,&job.session,
+                        Duration::from_secs(4)) {
+                        retire_unready_supervisor(&mut child,&path)?;
+                        return Err(readiness);
+                    }
                     pending.expose();
                     drop(_admission);
                     let status=child.wait()?;
@@ -801,6 +967,11 @@ fn serve(m: Manager) -> Result<()> {
                     job.vendor_access=true;atomic_json(&path,&job)?;
                     let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
                     let mut child=spawn(&s,&path,None)?;
+                    if let Err(readiness)=supervisor_ready(&mut child,&job.session,
+                        Duration::from_secs(4)) {
+                        retire_unready_supervisor(&mut child,&path)?;
+                        return Err(readiness);
+                    }
                     pending.expose();
                     drop(_admission);
                     let _=peer.write_all(format!("Vendor access {}: editor only; no DAW audio or project recall. Close its window to finish.\n",job.session).as_bytes());
@@ -830,19 +1001,25 @@ fn serve(m: Manager) -> Result<()> {
                     // creating or exposing a session. A Flatpak's /dev/shm is
                     // not assumed to be the host's shared memory mount.
                     transport_storage::visible_to_peer(&peer, &transport_storage::root())?;
+                    let graphical_session=transport_storage::graphical_session(&peer)?;
+                    if stage_keeper(&m,&s,&r,&keepers,Some(&graphical_session))?
+                        != KeeperAvailability::Ready {
+                        return Err(capacity::Refusal::ServiceBusy.into());
+                    }
                     let (mut job, path) = spec(&m, r.clone(), false, false, false)?;
                     let storage = transport_storage::PendingTransport::new(&job.session)?;
                     job.directory = storage.directory.clone();
                     job.transport = Some(storage.identity.clone());
                     job.shared_runtime = true;
+                    job.graphical_session=Some(graphical_session.clone());
                     job.crash_capture = crash_capture::claim(&m,&full_registration,&job.session)
                         .unwrap_or_else(|e| { eprintln!("CA1 capture unavailable: {e}"); None });
                     atomic_json(&path, &job)?;
                     let admission = PendingAdmission::new(job.lease.clone(),blocked.clone());
                     atomic_json(&job.lease, &job.report)?;
-                    Ok((r, performance, job, path, admission, storage))
+                    Ok((r,performance,job,path,admission,storage,graphical_session))
                 })();
-                let (r,performance,job,path,mut admission,mut storage)=match prepared {
+                let (r,performance,job,path,mut admission,mut storage,graphical_session)=match prepared {
                     Ok(value)=>value,
                     Err(e)=>{
                         if version3 {
@@ -853,6 +1030,18 @@ fn serve(m: Manager) -> Result<()> {
                         return Err(e);
                     }
                 };
+                // Recheck the exact keeper generation after all fallible
+                // preparation and immediately before exposing transport or a
+                // binding. Clean retirement is retried; uncertain retirement
+                // remains a hard refusal.
+                if stage_keeper(&m,&s,&r,&keepers,Some(&graphical_session))?
+                    != KeeperAvailability::Ready {
+                    if version3 {
+                        startup_reply(&mut peer,&ap1_native_client::admission::refused(
+                            request,capacity::Refusal::ServiceBusy))?;
+                    }
+                    return Err(capacity::Refusal::ServiceBusy.into());
+                }
                 // Deliver the private binding inside the native greeting deadline.
                 // Cold Wine startup then uses the existing bounded transport accept.
                 let reply = if version3 {
@@ -868,15 +1057,38 @@ fn serve(m: Manager) -> Result<()> {
                 };
                 require(reply.len() <= 1024, "session binding size")?;
                 peer.set_write_timeout(Some(Duration::from_secs(5)))?;
+                // Retain a concrete supervisor generation before telling the
+                // DAW that an accepted binding exists. Process creation alone
+                // is not ownership: the exact supervisor must first validate
+                // its immutable inputs and graphical peer and install its
+                // outer finalizer.
+                let mut child=spawn(&s,&path,Some(peer.try_clone()?))?;
+                if let Err(readiness) = supervisor_ready(
+                    &mut child,
+                    &job.session,
+                    Duration::from_secs(4),
+                ) {
+                    let cleanup = retire_unready_supervisor(&mut child, &path);
+                    if version3 {
+                        let _ = startup_reply(
+                            &mut peer,
+                            &ap1_native_client::admission::refused(
+                                request,
+                                capacity::Refusal::BindingInvalid,
+                            ),
+                        );
+                    }
+                    cleanup?;
+                    return Err(readiness);
+                }
                 admission.expose();
                 storage.expose();
-                startup_reply(&mut peer,&reply)?;
-                ensure_keeper(&m, &s, &r, &keepers)?;
-                let mut child = spawn(&s, &path, Some(peer))?;
-                let status = child.wait()?;
-                let mut disposition=String::new();
-                if let Some(stdout)=child.stdout.take(){stdout.take(128).read_to_string(&mut disposition)?;}
-                admission.complete(&job.session,status.success(),&disposition,Some(&job.directory))?;
+                let delivery=startup_reply(&mut peer,&reply);
+                drop(peer);
+                finish_supervised_delivery(SupervisorDelivery{manager:&m,
+                    class_id:&r.metadata.class_id,report:&job.report,
+                    session:&job.session,transport:Some(&job.directory)},delivery,
+                    &mut child,&mut admission)?;
                 Ok(())
             })();
             if let Err(e) = outcome {
@@ -1121,6 +1333,8 @@ fn main() -> Result<()> {
   Some("qualify-capacity")=>managed_cli::run_capacity_qualification(&m,&args[1..]),
   Some("environment-create") if args.len()==2=>environment_create(&m,Path::new(&args[1])),
   Some("environment-import") if args.len()==2=>environment_import(&m,Path::new(&args[1])),
+  Some("native-access-runner") if args.len()==2=>native_access_runner::update(&m,Path::new(&args[1])),
+  Some("experimental-runner") if args.len()==2=>experimental_runner::update(&m,Path::new(&args[1])),
   Some("install") if args.len()==4=>install(&m,&args[1],Path::new(&args[2]),&args[3]),
   Some("register") if args.len()==2=>m.register(read_json(Path::new(&args[1]))?),
   Some("unpublish") if args.len()==2=>m.unpublish(&args[1]),
@@ -1168,6 +1382,77 @@ fn status(m: &Manager) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    fn fixture_keeper(f:&test_fixture::Fixture,command:&str)->(KeeperOwner,PathBuf,PathBuf) {
+        let report=f.outer.join(format!("keeper-{}.json",random_id().unwrap()));
+        let lease=f.outer.join(format!("keeper-{}.lease",random_id().unwrap()));
+        fs::write(&lease,b"keeper").unwrap();
+        let child=Command::new("/bin/sh").args(["-c",command]).spawn().unwrap();
+        (KeeperOwner{environment:f.r.environment.id.clone(),graphical_session:None,child,
+            report:report.clone(),lease:lease.clone(),retiring:false,started:Instant::now()},
+            report,lease)
+    }
+    fn graphical(display:&str,generation:u64)->transport_storage::GraphicalSession {
+        transport_storage::GraphicalSession{schema:1,peer_pid:77,peer_start_ticks:generation,
+            display:display.into(),wayland_display:Some("wayland-session".into()),
+            xauthority:None,dbus_session_bus_address:None}
+    }
+    #[test]
+    fn keeper_is_retired_before_reuse_on_a_different_graphical_session() {
+        let f=test_fixture::Fixture::new();
+        let (mut owner,_,_)=fixture_keeper(&f,"sleep 5");
+        owner.graphical_session=Some(graphical(":1",1));
+        let mut active=vec![owner];
+        // A different requester in the same display context shares the keeper.
+        assert!(!retire_mismatched_graphical_keeper(&f.m,&f.r.environment.id,
+            Some(&graphical(":1",2)),&mut active).unwrap());
+        assert!(retire_mismatched_graphical_keeper(&f.m,&f.r.environment.id,
+            Some(&graphical(":2",2)),&mut active).unwrap());
+        assert!(active[0].child.wait().unwrap().code().is_none());
+    }
+    #[test]
+    fn graphical_transition_never_retires_a_keeper_while_dsp_ownership_exists() {
+        let f=test_fixture::Fixture::new();
+        let (job,_)=spec(&f.m,f.r.clone().into(),false,false,false).unwrap();
+        atomic_json(&job.lease,&job.report).unwrap();
+        let (mut owner,_,_)=fixture_keeper(&f,"sleep 5");
+        owner.graphical_session=Some(graphical(":1",1));
+        let mut active=vec![owner];
+        assert!(retire_mismatched_graphical_keeper(&f.m,&f.r.environment.id,
+            Some(&graphical(":2",2)),&mut active).is_err());
+        assert!(active[0].child.try_wait().unwrap().is_none());
+        active[0].child.kill().unwrap();active[0].child.wait().unwrap();
+        fs::remove_file(job.lease).unwrap();
+    }
+    #[test]
+    fn keeper_generation_is_ready_only_while_live_and_exactly_bound() {
+        let f=test_fixture::Fixture::new();
+        let (owner,report,lease)=fixture_keeper(&f,"sleep 0.2");
+        let mut active=vec![owner];
+        assert_eq!(observe_keeper(&f.r.environment.id,&mut active).unwrap(),
+            Some(KeeperAvailability::Starting));
+        atomic_json(&report,&serde_json::json!({"ready":true,
+            "environment":f.r.environment.id})).unwrap();
+        assert_eq!(observe_keeper(&f.r.environment.id,&mut active).unwrap(),
+            Some(KeeperAvailability::Ready));
+        std::thread::sleep(Duration::from_millis(250));
+        atomic_json(&report,&serde_json::json!({"ready":false,
+            "cleanup_confirmed":true})).unwrap();
+        assert_eq!(observe_keeper(&f.r.environment.id,&mut active).unwrap(),None);
+        assert!(active.is_empty()&&!lease.exists());
+    }
+    #[test]
+    fn keeper_wrong_binding_or_unconfirmed_exit_never_becomes_ready() {
+        let f=test_fixture::Fixture::new();
+        let (owner,report,_)=fixture_keeper(&f,"sleep 0.2");
+        let mut active=vec![owner];
+        atomic_json(&report,&serde_json::json!({"ready":true,"environment":"wrong"})).unwrap();
+        assert!(observe_keeper(&f.r.environment.id,&mut active).is_err());
+        std::thread::sleep(Duration::from_millis(250));
+        atomic_json(&report,&serde_json::json!({"ready":false,
+            "cleanup_confirmed":false})).unwrap();
+        assert!(observe_keeper(&f.r.environment.id,&mut active).is_err());
+        assert_eq!(active.len(),1);
+    }
     #[test]
     fn missing_candidate_onboarding_cannot_fall_back_to_operator_home() {
         let f=super::test_fixture::Fixture::new();
@@ -1202,6 +1487,145 @@ mod tests {
             .unwrap();
         drop(pending);
         assert!(!lease.exists());
+        assert!(!blocked.load(Ordering::Acquire));
+    }
+    #[test]
+    fn failed_binding_delivery_still_retires_the_retained_supervisor_owner() {
+        let f=test_fixture::Fixture::new();
+        let session="aa".repeat(16);
+        let lease=f.outer.join("delivery-lease.json");
+        let report=f.m.root.join("runtime/results/delivery.json");
+        private_dir(report.parent().unwrap()).unwrap();
+        atomic_json(&report,&serde_json::json!({"session":session,"error":null,
+            "gated":true,"cleanup_confirmed":true,"transport_retired":true,
+            "fault_status":null})).unwrap();
+        fs::write(&lease,b"owner").unwrap();
+        let blocked=Arc::new(AtomicBool::new(false));
+        let mut pending=PendingAdmission::new(lease.clone(),blocked.clone());
+        pending.expose();
+        let command=format!("printf 'LVO1 {session} retired\\n'");
+        let mut child=Command::new("/bin/sh").args(["-c",&command])
+            .stdout(Stdio::piped()).spawn().unwrap();
+        let class="01".repeat(16);
+        assert_eq!(finish_supervised_delivery(SupervisorDelivery{manager:&f.m,class_id:&class,
+            report:&report,session:&session,transport:None},Err("delivery failed".into()),
+            &mut child,&mut pending)
+            .unwrap_err().to_string(),"delivery failed");
+        assert!(!lease.exists());
+        assert!(!blocked.load(Ordering::Acquire));
+    }
+    #[test]
+    fn terminal_projection_failure_cannot_abandon_a_retired_owner() {
+        let f=test_fixture::Fixture::new();
+        let session="ac".repeat(16);
+        let class="01".repeat(16);
+        let lease=f.outer.join("projection-lease.json");
+        let report=f.m.root.join("runtime/results/projection.json");
+        private_dir(report.parent().unwrap()).unwrap();
+        atomic_json(&report,&serde_json::json!({
+            "session":session,"error":"Windows host exited",
+            "gated":true,"cleanup_confirmed":true,"transport_retired":true,
+            "fault_status":{"before_containment":{"terminal_instance":{
+                "schema":1,"session":session,"failure_class":1,
+                "producer":2,"status_domain":3
+            }}}
+        })).unwrap();
+        private_dir(&f.m.root.join("runtime")).unwrap();
+        fs::write(f.m.root.join("runtime/terminal-summaries"),b"not a directory").unwrap();
+        fs::write(&lease,b"owner").unwrap();
+        let blocked=Arc::new(AtomicBool::new(false));
+        let mut pending=PendingAdmission::new(lease.clone(),blocked.clone());
+        pending.expose();
+        let command=format!("printf 'LVO1 {session} retired\\n'");
+        let mut child=Command::new("/bin/sh").args(["-c",&command])
+            .stdout(Stdio::piped()).spawn().unwrap();
+        assert!(finish_supervised_delivery(SupervisorDelivery{manager:&f.m,class_id:&class,
+            report:&report,session:&session,transport:None},Ok(()),&mut child,
+            &mut pending).is_err());
+        assert!(!lease.exists());
+        assert!(!blocked.load(Ordering::Acquire));
+    }
+    #[test]
+    fn exact_supervisor_readiness_precedes_exposure() {
+        let session="ab".repeat(16);
+        let command=format!("printf 'LVO0 {session} ready\\n'; sleep 5");
+        let mut child=Command::new("/bin/sh").args(["-c",&command])
+            .stdout(Stdio::piped()).spawn().unwrap();
+        supervisor_ready(&mut child,&session,Duration::from_secs(1)).unwrap();
+        child.kill().unwrap();child.wait().unwrap();
+
+        let mut wrong=Command::new("/bin/sh").args(["-c","printf 'LVO0 wrong ready\\n'"])
+            .stdout(Stdio::piped()).spawn().unwrap();
+        assert!(supervisor_ready(&mut wrong,&session,Duration::from_secs(1)).is_err());
+        wrong.wait().unwrap();
+
+        let f=test_fixture::Fixture::new();
+        let lease=f.outer.join("unready-lease.json");fs::write(&lease,b"unexposed").unwrap();
+        let blocked=Arc::new(AtomicBool::new(false));
+        drop(PendingAdmission::new(lease.clone(),blocked.clone()));
+        assert!(!lease.exists()&&!blocked.load(Ordering::Acquire));
+    }
+    #[test]
+    fn real_supervisor_preflight_refuses_before_exposure() {
+        let f=test_fixture::Fixture::new();
+        let (mut job,path)=spec(&f.m,f.r.clone().into(),false,false,false).unwrap();
+        job.graphical_session=Some(transport_storage::GraphicalSession{
+            schema:1,peer_pid:std::process::id() as i32,peer_start_ticks:1,
+            display:":fixture".into(),wayland_display:None,xauthority:None,
+            dbus_session_bus_address:None,
+        });
+        atomic_json(&path,&job).unwrap();
+        atomic_json(&job.lease,&job.report).unwrap();
+        let blocked=Arc::new(AtomicBool::new(false));
+        let pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
+        let (_native,supervisor)=UnixStream::pair().unwrap();
+        let stdin=unsafe{Stdio::from_raw_fd(supervisor.into_raw_fd())};
+        let script=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("runtime/session.py");
+        let mut child=Command::new("/usr/bin/python3").arg(script).arg(&path)
+            .stdin(stdin).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().unwrap();
+        assert!(supervisor_ready(&mut child,&job.session,Duration::from_secs(2)).is_err());
+        retire_unready_supervisor(&mut child,&path).unwrap();
+        drop(pending);
+        assert!(!job.lease.exists());
+        assert!(!job.directory.exists());
+        assert!(!blocked.load(Ordering::Acquire));
+    }
+    #[cfg(target_os="linux")]
+    #[test]
+    fn stop_at_real_supervisor_readiness_completes_native_and_manager_retirement() {
+        let f=test_fixture::Fixture::new();
+        let (job,path)=spec(&f.m,f.r.clone().into(),false,false,false).unwrap();
+        let bin=f.outer.join("fixture-bin");private_dir(&bin).unwrap();
+        let systemctl=bin.join("systemctl");
+        fs::write(&systemctl,b"#!/bin/sh\nprintf 'DISPLAY=:fixture\\n'\n").unwrap();
+        fs::set_permissions(&systemctl,fs::Permissions::from_mode(0o500)).unwrap();
+        atomic_json(&job.lease,&job.report).unwrap();
+        let blocked=Arc::new(AtomicBool::new(false));
+        let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
+        let (mut native,supervisor)=UnixStream::pair().unwrap();
+        native.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        let stdin=unsafe{Stdio::from_raw_fd(supervisor.into_raw_fd())};
+        let script=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("runtime/session.py");
+        let mut child=Command::new("/usr/bin/python3").arg(script).arg(&path)
+            .env("PATH",format!("{}:/usr/bin:/bin",bin.display()))
+            .stdin(stdin).stdout(Stdio::piped()).stderr(Stdio::inherit()).spawn().unwrap();
+        supervisor_ready(&mut child,&job.session,Duration::from_secs(2)).unwrap();
+        pending.expose();
+        assert_eq!(unsafe{libc::kill(child.id() as i32,libc::SIGTERM)},0);
+        let mut byte=[0;1];native.read_exact(&mut byte).unwrap();assert_eq!(byte,[b'F']);
+        assert!(job.directory.exists());
+        native.shutdown(std::net::Shutdown::Write).unwrap();
+        native.read_exact(&mut byte).unwrap();assert_eq!(byte,[b'R']);
+        assert!(!job.directory.exists());
+        let class=job.registration.metadata.class_id.clone();
+        finish_supervised_delivery(SupervisorDelivery{manager:&f.m,class_id:&class,
+            report:&job.report,session:&job.session,transport:None},Ok(()),&mut child,
+            &mut pending).unwrap();
+        let report:serde_json::Value=read_json(&job.report).unwrap();
+        assert_eq!(report["cleanup_confirmed"],true);
+        assert_eq!(report["transport_retired"],true);
+        assert!(job.report.with_extension("ownership.json").exists());
+        assert!(!job.lease.exists());
         assert!(!blocked.load(Ordering::Acquire));
     }
     #[test]

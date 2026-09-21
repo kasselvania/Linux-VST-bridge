@@ -28,7 +28,11 @@ constexpr uint32 sentinel = 0x7fc12345;
 struct Block {
     std::array<std::array<float, capacity + 2>, 2> input{}, output{}, input_before{};
     std::array<float*, 2> in{}, out{};
-    AudioBusBuffers input_bus{}, output_bus{};
+    std::array<std::array<float,capacity+2>,62> extra_output{};
+    std::array<float*,64> output_channels{};
+    AudioBusBuffers input_bus{};
+    std::array<AudioBusBuffers,AP18Buses::max_audio_outputs> all_outputs{};
+    std::array<float*,2> inactive_output_channels{};
     std::array<AudioBusBuffers,8> all_inputs{};
     std::array<float,capacity+2> silent_input{};
     std::array<float*,2> silent_channels{silent_input.data()+1,silent_input.data()+1};
@@ -67,7 +71,8 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     // All buffers and SDK parameter queues are allocated/populated on the owner
     // thread before activation. Each process call receives a separate block.
     for (int b=0;b<3;++b) {
-        auto& block=blocks[b];block.silent_input.front()=block.silent_input.back()=std::bit_cast<float>(guard); block.gain=b==0?0.5:0.25;
+        auto& block=blocks[b];
+        for(size_t ch=0;ch<64;++ch)block.output_channels[ch]=ch<2?block.output[ch].data()+1:block.extra_output[ch-2].data()+1;block.silent_input.front()=block.silent_input.back()=std::bit_cast<float>(guard); block.gain=b==0?0.5:0.25;
         block.returned.buses=uint32_t(layout.counts[3]);
         size_t event_out=0;for(size_t i=0;i<layout.size;++i)if(layout.buses[i].info.mediaType==kEvent&&layout.buses[i].info.direction==kOutput){block.returned.channels[event_out]=layout.buses[i].effective_channels;block.returned.bus_active[event_out++]=layout.buses[i].active?1:0;}
         for (int ch=0;ch<2;++ch) {
@@ -85,15 +90,15 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         auto* bypass=block.parameters.addParameterData(2,parameter_index);
         if (!gain || !bypass || gain->addPoint(0,block.gain,point_index)!=kResultOk ||
             bypass->addPoint(0,0.,point_index)!=kResultOk) return {false,true};
-        block.input_bus.numChannels=block.output_bus.numChannels=2;
+        block.input_bus.numChannels=block.all_outputs[0].numChannels=2;
         block.input_bus.channelBuffers32=block.in.data();
-        block.output_bus.channelBuffers32=block.out.data();
+        block.all_outputs[0].channelBuffers32=block.out.data();
         block.input_bus.silenceFlags=b==2?3:0;
-        block.output_bus.silenceFlags=0;
+        layout.map_outputs(block.all_outputs,block.output_channels.data(),block.inactive_output_channels.data());
         block.data.processMode=sustained?kRealtime:kOffline;block.data.symbolicSampleSize=kSample32;
-        block.data.numSamples=frames;block.data.numInputs=inputs;block.data.numOutputs=1;
+        block.data.numSamples=frames;block.data.numInputs=inputs;block.data.numOutputs=layout.counts[1];
         layout.map_inputs(block.all_inputs,block.in.data(),block.silent_channels.data(),block.input_bus.silenceFlags);
-        block.data.inputs=inputs?block.all_inputs.data():nullptr;block.data.outputs=&block.output_bus;
+        block.data.inputs=inputs?block.all_inputs.data():nullptr;block.data.outputs=&block.all_outputs[0];
         block.data.inputParameterChanges=&block.parameters;
     }
     bool ok=true, active=false, stopped=true, joined=false, worker_exception=false;
@@ -169,18 +174,19 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                             block.input[ch].front()=block.input[ch].back()=std::bit_cast<float>(guard);
                             block.output[ch].front()=block.output[ch].back()=std::bit_cast<float>(guard);
                         }
+                        for(auto& plane:block.extra_output){plane.fill(std::bit_cast<float>(sentinel));plane.front()=plane.back()=std::bit_cast<float>(guard);}
                         auto& request=block.request;
                         if (!external->next(request,block.in[0],block.in[1])) break;
                         if(request.frames>static_cast<int>(maximum)) throw std::runtime_error("negotiated maximum exceeded");
                         block.input_before=block.input;
                         block.gain=request.gain;block.data.numSamples=request.frames;
                         block.input_bus.silenceFlags=request.silence;
-                        layout.map_inputs(block.all_inputs,block.in.data(),block.silent_channels.data(),request.silence);block.output_bus.silenceFlags=0;
+                        layout.map_inputs(block.all_inputs,block.in.data(),block.silent_channels.data(),request.silence);layout.map_outputs(block.all_outputs,block.output_channels.data(),block.inactive_output_channels.data());
                         block.parameters.clearQueue();int32 parameter=0,point=0;
                         if(request.gain_present)block.parameters.addParameterData(0,parameter)->addPoint(0,request.gain,point);
                         if(!stateful)block.parameters.addParameterData(2,parameter)->addPoint(0,0.,point);
-                        block.data.numInputs=request.frames?inputs:0;block.data.numOutputs=request.frames?1:0;
-                        block.data.inputs=request.frames&&inputs?block.all_inputs.data():nullptr;block.data.outputs=request.frames?&block.output_bus:nullptr;
+                        block.data.numInputs=request.frames?inputs:0;block.data.numOutputs=request.frames?layout.counts[1]:0;
+                        block.data.inputs=request.frames&&inputs?block.all_inputs.data():nullptr;block.data.outputs=request.frames?&block.all_outputs[0]:nullptr;
                     }
                     if(commercial){
                         block.commercial_parameters.load(block.request.events.data(),block.request.event_count,block.notes);
@@ -223,9 +229,15 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                                 if(std::bit_cast<uint32>(block.output[ch][i])!=sentinel)
                                     throw std::runtime_error("AP1 unused private output modified");
                         }
+                        for(const auto& plane:block.extra_output){
+                            if(std::bit_cast<uint32>(plane.front())!=guard||std::bit_cast<uint32>(plane.back())!=guard)
+                                throw std::runtime_error("extra private output guard");
+                            for(int i=block.data.numSamples+1;i<=capacity;++i)if(std::bit_cast<uint32>(plane[i])!=sentinel)
+                                throw std::runtime_error("extra private output extent");
+                        }
                         if(!sustained)events.lifecycle("ap1_private_buffers_valid",",\"block\":"+std::to_string(b));
                     }
-                    if(external) external->done(block.out[0],block.out[1],block.output_bus.silenceFlags,uint64_t(process_ns),&block.returned.values);
+                    if(external) external->done_outputs(block.all_outputs.data(),layout.counts[1],uint64_t(process_ns),&block.returned.values);
                 }
             } catch (...) {primary_error=std::current_exception();worker_exception=true;ok=false;}
             // Attempt bounded teardown through the same supervisor even after
@@ -310,7 +322,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
             ",\"process_result\":"+std::to_string(block.result)+
             ",\"worker_thread\":"+(block.worker_thread?"true":"false")+
             ",\"input_silence_flags\":"+std::to_string(block.input_bus.silenceFlags)+
-            ",\"output_silence_flags\":"+std::to_string(block.output_bus.silenceFlags)+
+            ",\"output_silence_flags\":"+std::to_string(block.all_outputs[0].silenceFlags)+
             ",\"input_bits\":["+bits(block.input[0])+","+bits(block.input[1])+"]"+
             ",\"output_bits\":["+bits(block.output[0])+","+bits(block.output[1])+"]");
     }

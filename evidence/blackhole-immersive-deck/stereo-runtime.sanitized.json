@@ -1,0 +1,826 @@
+{
+  "schema": 1,
+  "kind": "blackhole_stereo_runtime_and_daw_check",
+  "build": {
+    "schema": "linux-vst-bridge-blackhole-stereo-host-source/v1",
+    "head_commit": "443277fc90e27fdebb50ed97696c93a6f1c863ef",
+    "build_commit": "0cdb1391ed34f359090ea703e25059ca70a0b58f",
+    "tree": "9eeb3a985093503f816fce1c86f27471f9414967",
+    "ci_run": 35466904843,
+    "artifact_id": 10591228236,
+    "artifact_zip_sha256": "85fff9f7e05dc1a232095e4be0b71c36b0912ee3a3622ae0f9bba18bebf76bfa",
+    "host_sha256": "5fa0907b045df5ccb993a135fccffe932b365182bec7fa16c1a48a126b1869c2",
+    "sdk_commit": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "sdk_lock": "cmake/WF0DependencyLock.cmake",
+    "toolchain": {
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "toolset": "v143",
+      "windows_sdk": "10.0.19041.0"
+    },
+    "source_manifest_sha256": "9d8123c68ff47474a4c16030a2ed4bd4e8874e70f405ef2ca56c2cb7e82e7f35"
+  },
+  "delivery": {
+    "schema": 1,
+    "kind": "stereo_main_pair_delivery",
+    "source_commit": "443277fc90e27fdebb50ed97696c93a6f1c863ef",
+    "files": {
+      "linux-vst-bridge": "3a332a2d73f79ed813286290caab82e02b566fc12e89984b2655c8d1a7edd2c3",
+      "linux-audio-compatibility-manager": "674025a473f9ddd2ba95b033c373c36281ffb3691f0c96305882b9de721b961d",
+      "session.py": "544c5f67045315f6f1735703d2de095dc4697d58c5ff3fb4e8b372f54453fd2c",
+      "preparation-kit.zip": "fefe2047e5ef535f5d14174c286fd3ef9d67a95b85070eab49695f27babcd610"
+    },
+    "runtime_host_sha256": "5fa0907b045df5ccb993a135fccffe932b365182bec7fa16c1a48a126b1869c2",
+    "runtime_source_sha256": "9d8123c68ff47474a4c16030a2ed4bd4e8874e70f405ef2ca56c2cb7e82e7f35",
+    "unchanged_runtime_artifacts": {
+      "host": true,
+      "source_manifest": true,
+      "ownership": true,
+      "installer_launch": true
+    },
+    "default_inventory_scanner_preserved": true,
+    "protected_files_and_proxies": 62,
+    "protected_files_and_proxies_unchanged": true,
+    "prefix_identity_preserved": true,
+    "software_rollback_retained": true,
+    "license_or_prefix_mutation_performed": false,
+    "system": {
+      "service": "active",
+      "keepers": 0,
+      "dsp": 0,
+      "maintenance": 0,
+      "ceiling": 6,
+      "pending_transactions": 0,
+      "stale_transports": 0,
+      "cleanup_unconfirmed": false
+    }
+  },
+  "kit_packaging": {
+    "source_commit": "443277fc90e27fdebb50ed97696c93a6f1c863ef",
+    "prior_kit_sha256": "763c2185af91a97b79c25b6dfabb17dfe34e6a9429163436bfd67ea7b2b687c4",
+    "files": {
+      "linux-vst-bridge": "3a332a2d73f79ed813286290caab82e02b566fc12e89984b2655c8d1a7edd2c3",
+      "linux-audio-compatibility-manager": "674025a473f9ddd2ba95b033c373c36281ffb3691f0c96305882b9de721b961d",
+      "session.py": "544c5f67045315f6f1735703d2de095dc4697d58c5ff3fb4e8b372f54453fd2c",
+      "preparation-kit.zip": "fefe2047e5ef535f5d14174c286fd3ef9d67a95b85070eab49695f27babcd610"
+    },
+    "runtime_host_sha256": "5fa0907b045df5ccb993a135fccffe932b365182bec7fa16c1a48a126b1869c2",
+    "runtime_source_sha256": "9d8123c68ff47474a4c16030a2ed4bd4e8874e70f405ef2ca56c2cb7e82e7f35",
+    "kit_unchanged_entries": 73,
+    "native_backend_sha256": "6f680adb216ac214485999fd0e7b2913975a0921015d40e8cf2020c8fdec3148"
+  },
+  "fixture": {
+    "created": "Blackhole Stereo Source.dawproject",
+    "sha256": "9f243c01259af1329a29a0b1c0ad06a5bd5176863550d38eda78eaa29ce95fd8",
+    "audio_sha256": "f488942faf5582b60ca8c77e41a7d9dc1db8c8c7d7d4448840246cb82eb382e9",
+    "project_schema_validated": true,
+    "metadata_schema_validated": true,
+    "audio_tracks": 1,
+    "duration_seconds": 12,
+    "devices": 0
+  },
+  "dry_comparison": {
+    "schema": 1,
+    "dry_input_alignment_frames": 1883648,
+    "input_frames": 576000,
+    "max_error_pcm16": 0,
+    "rms_error_pcm16": 0.0,
+    "post_input_4_to_12_seconds_peak_pcm16": 0,
+    "exact_samples": true,
+    "input_energy_pcm16": [
+      39029006436,
+      21954683084
+    ],
+    "dry_energy_pcm16": [
+      39029006436,
+      21954683084
+    ]
+  },
+  "preliminary_attempts": [
+    {
+      "stage": "dry_playback",
+      "result": "engine_inactive_no_audio",
+      "subsequent_change": "Luna activated Bitwig audio engine through visible control"
+    },
+    {
+      "stage": "delivery",
+      "result": "staging executable permission error before setup launched",
+      "subsequent_change": "set executable mode on digest-verified staging binaries; retry succeeded"
+    },
+    {
+      "stage": "record_audio_observation",
+      "result": "operator_action_not_available because note exceeded the 512-byte bound",
+      "subsequent_change": "shortened note within supported limit; ordinary operator request completed",
+      "refused_operation": "67c77c73e3bbd85da9a22d284ff6797a"
+    }
+  ],
+  "inspection": {
+    "inspection_id": "abe7c693ac86d4130e2bf96dbcc83aef71d469bbb3fc6cc72f347c49463c7b16",
+    "host_sha256": "5fa0907b045df5ccb993a135fccffe932b365182bec7fa16c1a48a126b1869c2",
+    "audio_layout": "stereo_main_pair",
+    "records": [
+      {
+        "event": "lifecycle",
+        "sequence": 53,
+        "state": "ap18_audio_layout",
+        "policy": "stereo_main_pair",
+        "input_count": 1,
+        "output_count": 1,
+        "result": 0,
+        "verified": true
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 73,
+        "state": "ap8_bus",
+        "media": 0,
+        "direction": 0,
+        "index": 0,
+        "channels": 2,
+        "type": 0,
+        "flags": 1,
+        "arrangement": 3,
+        "name": "Input"
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 77,
+        "state": "ap8_bus",
+        "media": 0,
+        "direction": 1,
+        "index": 0,
+        "channels": 2,
+        "type": 0,
+        "flags": 1,
+        "arrangement": 3,
+        "name": "Output"
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 93,
+        "state": "ap8_inspected",
+        "controller_separate": true,
+        "state_bytes": 7917,
+        "latency_samples": 0,
+        "float32_result": 0,
+        "float64_result": 1,
+        "tail_samples": 220500
+      }
+    ],
+    "cleanup_confirmed": true,
+    "error": null
+  },
+  "publication": {
+    "publication": "Published",
+    "managed_revision": {
+      "id": "0332c95f49d207729d84820080190b6b",
+      "sha256": "196e037b977790a240f8c2b06b98082c1ade3c45bc15e93cc2340cc7510ecb00"
+    },
+    "compatibility": {
+      "audio_layout": "stereo_main_pair",
+      "disable_windows_accessibility": false
+    },
+    "native_sha256": "71f8e50cffcd8613d15ab534cc75a7eb0730053cf90cb09adaef00f7055e4bdd",
+    "host_sha256": "5fa0907b045df5ccb993a135fccffe932b365182bec7fa16c1a48a126b1869c2",
+    "native_file_verified": true
+  },
+  "candidate_id": "d7933fdaedb30958669caacb801934399adac3819e22c03c7aada805ca8e7d02",
+  "wet_fixture": {
+    "schema": 1,
+    "file_name": "LVB-BH-Wet.dawproject",
+    "sha256": "075974f7e229741f110e8e141f035138aa8f375e97841931c0f24c109759cc9a",
+    "native_processor_uuid": "bd150fc2-a260-511a-beda-185d9dcb276e",
+    "source_candidate": "d7933fdaedb30958669caacb801934399adac3819e22c03c7aada805ca8e7d02",
+    "state_supplied": false,
+    "device_count": 1,
+    "generated_xml_schema_validated": true
+  },
+  "bitwig_discovery": {
+    "schema": 1,
+    "native_class_id": "BD150FC2A260511ABEDA185D9DCB276E",
+    "native_id_in_bitwig_index": true,
+    "blackhole_name_in_bitwig_index": true,
+    "device_id_index_sha256": "3e8a586fae2611883ec8cbd42f024710a7ebc1add4ded686d68046061e6827c6",
+    "metadata_index_sha256": "7f17f4bb2e3811468488d7d203c9012065619556958be2379c4d1c1e82039881",
+    "audio_or_editor_acceptance": false
+  },
+  "gui_fixture_attempts": [
+    {
+      "stage": "device_search",
+      "observed": "corrupted text; correction did not clear field; no device inserted"
+    },
+    {
+      "stage": "preconfigured_dawproject_import",
+      "observed": "project and waveform opened; engine active; no device in chain and no Blackhole DSP owner"
+    },
+    {
+      "stage": "mouse_only_browser",
+      "observed": "Audio FX device insertion browser; blank search; Plug-ins location count 8; Any Creator 0; empty result pane"
+    },
+    {
+      "stage": "correct_file_kind_selection",
+      "observed": "File Kind > Plug-ins exposed the Eventide vendor and exact Blackhole device; insertion and DSP ownership confirmed",
+      "prior_error_owner": "test commander used the wrong Creator and Location filters"
+    }
+  ],
+  "daw_test": {
+    "schema": 1,
+    "kind": "blackhole_editor_hang_before_audio",
+    "session": "f2ab0e6daf4d67ae0f92f9394f283dbd",
+    "observed_by": "Luna 5.6 Max via Moonlight",
+    "presentation": "blank white window, then Not Responding; normal editor close unsuccessful",
+    "playback_started": false,
+    "wet_capture": {
+      "schema": 1,
+      "kind": "bitwig_stereo_output_capture",
+      "recorder_exit": 1,
+      "only_explicit_bitwig_links": true,
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 4320000,
+      "sha256": "fb7bcf1da65b88b7ca0d4ec0865db996afeeea48d7c714fa2cd1bac29cfce447",
+      "channel_peak": [
+        0.0,
+        0.0
+      ],
+      "playback_started": false
+    },
+    "retirement_requested_by_test_custodian": true,
+    "retirement_method": "SIGTERM to exact verified supervisor using pidfd; existing owner cleanup handler",
+    "windows_report": {
+      "error": null,
+      "raw_exit": -15,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "discarded_diagnostic_bytes": {
+        "vendor": 0,
+        "stderr": 0
+      }
+    },
+    "windows_records": [
+      {
+        "event": "lifecycle",
+        "sequence": 53,
+        "state": "ap18_audio_layout",
+        "policy": "stereo_main_pair",
+        "input_count": 1,
+        "output_count": 1,
+        "result": 0,
+        "verified": true
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 73,
+        "state": "ap8_bus",
+        "media": 0,
+        "direction": 0,
+        "index": 0,
+        "channels": 2,
+        "type": 0,
+        "flags": 1,
+        "arrangement": 3,
+        "name": "Input"
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 77,
+        "state": "ap8_bus",
+        "media": 0,
+        "direction": 1,
+        "index": 0,
+        "channels": 2,
+        "type": 0,
+        "flags": 1,
+        "arrangement": 3,
+        "name": "Output"
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 101,
+        "state": "ap9_processing_setup",
+        "sample_rate": 48000.0,
+        "maximum": 256,
+        "precision": "float32",
+        "vendor_float64": false,
+        "latency_samples": 0,
+        "tail_samples": 240000
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 107,
+        "state": "ap9_processing_setup",
+        "sample_rate": 48000.0,
+        "maximum": 256,
+        "precision": "float32",
+        "vendor_float64": false,
+        "latency_samples": 0,
+        "tail_samples": 240000
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 109,
+        "state": "ap9_processing_setup",
+        "sample_rate": 48000.0,
+        "maximum": 256,
+        "precision": "float32",
+        "vendor_float64": false,
+        "latency_samples": 0,
+        "tail_samples": 240000
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 121,
+        "state": "ap3_processing_summary",
+        "processed_blocks": 8,
+        "intervals": 1,
+        "process_mode": "kRealtime"
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 126,
+        "state": "ap9_processing_setup",
+        "sample_rate": 48000.0,
+        "maximum": 256,
+        "precision": "float32",
+        "vendor_float64": false,
+        "latency_samples": 8,
+        "tail_samples": 240000
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 128,
+        "state": "ap9_processing_setup",
+        "sample_rate": 48000.0,
+        "maximum": 256,
+        "precision": "float32",
+        "vendor_float64": false,
+        "latency_samples": 8,
+        "tail_samples": 240000
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 132,
+        "state": "ap3_processing_summary",
+        "processed_blocks": 0,
+        "intervals": 0,
+        "process_mode": "kRealtime"
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 137,
+        "state": "ap9_processing_setup",
+        "sample_rate": 48000.0,
+        "maximum": 256,
+        "precision": "float32",
+        "vendor_float64": false,
+        "latency_samples": 8,
+        "tail_samples": 240000
+      }
+    ],
+    "native_setup": [
+      {
+        "event": "ap9_setup",
+        "host_maximum": 512,
+        "transport_maximum": 256,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 0,
+        "total_frames": 512,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 512,
+        "transport_maximum": 256,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 0,
+        "total_frames": 512,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 512,
+        "transport_maximum": 256,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 0,
+        "total_frames": 512,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 512,
+        "transport_maximum": 256,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 8,
+        "total_frames": 520,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 512,
+        "transport_maximum": 256,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 8,
+        "total_frames": 520,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 512,
+        "transport_maximum": 256,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 8,
+        "total_frames": 520,
+        "vendor_precision_bits": 1
+      }
+    ],
+    "native_event_counts": {
+      "ap11_editor_status": 2,
+      "ap4_native_error": 1,
+      "ap4_native_state": 2,
+      "ap5_worker_fault": 1,
+      "ap7_fault_progress": 1,
+      "ap7_gap_request": 8,
+      "ap7_observation": 1,
+      "ap9_setup": 6,
+      "if2_terminal_notification": 1
+    },
+    "protected_files_except_expected_registry_update": 61,
+    "protected_files_unchanged": true,
+    "capacity_after_owned_cleanup": {
+      "dsp": 0,
+      "maintenance": 0,
+      "keepers": 4,
+      "cleanup_unconfirmed": false
+    },
+    "audio_outcome": "not tested; GUI failure prevented playback",
+    "state_recall_outcome": "not tested; state-save refusal observed after forced host retirement",
+    "post_termination_gui_cleanup": {
+      "observed_by": "Luna 5.6 Max via Moonlight",
+      "failed_device_removed": true,
+      "named_plugin_state_save_warning": "proceed confirmed only to remove the terminated unsaved test device",
+      "audio_track_and_clip_preserved": true,
+      "transport_stopped": true,
+      "project_saved_after_test": false,
+      "original_saved_baseline_sha256": "d5272caec2806034f36c7837c1f84b0f0f5da8533b6da1cd48ccb2485a2dc33c",
+      "saved_dry_baseline_unchanged_after_device_removal": true
+    },
+    "before_containment_snapshot": {
+      "available": true,
+      "schema": 2,
+      "owner": {
+        "publication": 107534,
+        "stage": 22,
+        "detail": 0,
+        "ticks": 7562723876626,
+        "frequency": 10000000
+      },
+      "delivery": {
+        "publication": 428763,
+        "stage": 1,
+        "ticks": 7565302103008,
+        "frequency": 10000000
+      },
+      "owner_older_than_delivery_seconds": 257.8226382,
+      "editor": {
+        "available": true,
+        "independently_sampled": true,
+        "closed": 0,
+        "failure": 0,
+        "open": 1,
+        "view_stage": 212,
+        "open_stage": 100,
+        "exception_code": 0
+      },
+      "native": {
+        "admitted_frames": 18293760,
+        "missing_frames": 0,
+        "gaps": 0,
+        "expired_frames": 0,
+        "delivered_frames": 18292736,
+        "priming_frames": 1024
+      },
+      "limits": "Single pre-containment snapshot; no heartbeat series. Counters describe idle processing without nonzero test playback, not audio acceptance.",
+      "source_mapping": {
+        "owner_stage_22": "EditorSession::service",
+        "view_stage_212": "immediately before IPlugView::removed() in VendorView::close",
+        "claim": "normal close blocked inside removed() on owner/UI thread; does not explain preceding white surface"
+      }
+    }
+  },
+  "manager_observations": [
+    {
+      "area": "daw_load",
+      "status": "passed",
+      "note": "Bitwig 6.1 inserted exact Eventide Blackhole Immersive x64 VST3 via File Kind > Plug-ins. Native class BD150FC2A260511ABEDA185D9DCB276E and one exact Blackhole DSP session were verified. Stereo policy applied; this does not establish audio or editor usability.",
+      "operation": "01d6581ddad6a7a7ef5b73a2cc6fd375",
+      "result": {
+        "candidate": "d7933fdaedb30958669caacb801934399adac3819e22c03c7aada805ca8e7d02",
+        "observation": "operator_observation",
+        "publication_changed": false
+      }
+    },
+    {
+      "area": "editor",
+      "status": "failed",
+      "note": "Luna observed a blank Blackhole editor that remained white and became Not Responding during normal close attempts. Playback had not started. Exact test supervisor was stopped; child cleanup and transport retirement confirmed. Root cause remains unresolved.",
+      "operation": "00821a338465c5816350df4713642511",
+      "result": {
+        "candidate": "d7933fdaedb30958669caacb801934399adac3819e22c03c7aada805ca8e7d02",
+        "observation": "operator_observation",
+        "publication_changed": false
+      }
+    },
+    {
+      "area": "audio",
+      "status": "not_tested",
+      "note": "The dry audio fixture matched its source sample for sample. The attempted wet capture contains silence because the unresponsive editor prevented playback from starting; no wet processing or audio-failure conclusion is made.",
+      "operation": "9fd530be54f4f3795a45296a304d13b2",
+      "result": {
+        "candidate": "d7933fdaedb30958669caacb801934399adac3819e22c03c7aada805ca8e7d02",
+        "observation": "operator_observation",
+        "publication_changed": false
+      }
+    },
+    {
+      "area": "audio",
+      "status": "passed",
+      "note": "Bitwig 6.1 real stereo playback with blank editor left open: 48 kHz output on both channels and late reverb after source silence; 5-8 s tail RMS 0.005001/0.004547. Captured only Bitwig out1/out2. Narrow effect processing passed; editor still failed; audio quality, timing and recall untested. Exact test host cleanup and transport retirement confirmed.",
+      "operation": "f3270db14e9d2154a8ec0db66342e485",
+      "result": {
+        "candidate": "d7933fdaedb30958669caacb801934399adac3819e22c03c7aada805ca8e7d02",
+        "observation": "operator_observation",
+        "publication_changed": false
+      }
+    }
+  ],
+  "outcome": {
+    "stereo_inspection": "passed",
+    "experimental_publication": "passed",
+    "daw_load": "passed",
+    "dry_fixture_output": "sample_exact",
+    "editor": "failed_blank_then_not_responding",
+    "wet_audio": "observed_stereo_effect_signal_and_late_reverb_tail",
+    "saved_project_recall": "not_tested",
+    "owned_cleanup": "passed",
+    "ordinary_acceptance": false,
+    "full_immersive_routing": "not_implemented",
+    "audio_quality": "not_qualified",
+    "timing_stress": "not_tested"
+  },
+  "editor_preclose_reproduction": {
+    "schema": 1,
+    "session": "262c7f7f4de8edc13562ee18e720f028",
+    "kind": "blackhole_editor_before_close_two_reads",
+    "samples": [
+      {
+        "available": true,
+        "schema": 2,
+        "sample_monotonic_ns": 757492730233430,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "native": {
+          "publication": 30930,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 10312,
+          "position": 2635520,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 757492726460849,
+          "frequency": 1000000000,
+          "admitted_frames": 2639360,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 2638336,
+          "priming_frames": 1024,
+          "current": true
+        },
+        "delivery": {
+          "publication": 61869,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 10312,
+          "position": 2635520,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 7574794702557,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 47203,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 7574794730435,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 100,
+          "open_stage": 100,
+          "exception_code": 0,
+          "heartbeat": 11793
+        },
+        "result_status": {
+          "available": true,
+          "schema": 1,
+          "rejection": null
+        },
+        "terminal_instance": null,
+        "mailbox_flags": {
+          "request": 0,
+          "reply": 0,
+          "independently_sampled": true
+        }
+      },
+      {
+        "available": true,
+        "schema": 2,
+        "sample_monotonic_ns": 757494730589238,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "native": {
+          "publication": 32054,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 10687,
+          "position": 2731520,
+          "stage": 2,
+          "detail": 0,
+          "ticks": 757494730098840,
+          "frequency": 1000000000,
+          "admitted_frames": 2735616,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 2734592,
+          "priming_frames": 1024,
+          "current": true
+        },
+        "delivery": {
+          "publication": 64115,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 10687,
+          "position": 2731520,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 7574814740444,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 48963,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 7574814733723,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 100,
+          "open_stage": 100,
+          "exception_code": 0,
+          "heartbeat": 12233
+        },
+        "result_status": {
+          "available": true,
+          "schema": 1,
+          "rejection": null
+        },
+        "terminal_instance": null,
+        "mailbox_flags": {
+          "request": 0,
+          "reply": 0,
+          "independently_sampled": true
+        }
+      }
+    ],
+    "host_sha256": "5fa0907b045df5ccb993a135fccffe932b365182bec7fa16c1a48a126b1869c2",
+    "supervisor_sha256": "544c5f67045315f6f1735703d2de095dc4697d58c5ff3fb4e8b372f54453fd2c",
+    "visual_observation": "Luna: editor remained blank white after five seconds, no error/dialog; left open and untouched during snapshot sampling",
+    "interpretation": "Owner publication and editor heartbeat advanced while white; no host owner/message-pump stall observed before close. Prior removed() hang is a distinct close-path observation."
+  },
+  "wet_playback_with_editor_left_open": {
+    "capture": {
+      "schema": 1,
+      "kind": "bitwig_stereo_output_capture",
+      "recorder_exit": 1,
+      "only_explicit_bitwig_links": true,
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 2880000,
+      "sha256": "b7f993176ec669f560d860aeb55e4af734c3e20b280ad04e1fefbf5cf2263882"
+    },
+    "analysis": {
+      "schema": 1,
+      "frames": 2880000,
+      "sample_rate": 48000,
+      "channels": 2,
+      "first_signal_frame_threshold_pcm16_32": 1950188,
+      "last_signal_frame_threshold_pcm16_32": 2634789,
+      "signal_span_seconds": 14.262520833333333,
+      "overall": [
+        {
+          "peak": 0.062286376953125,
+          "rms": 0.00432481661065587,
+          "energy": 53.86763150151819,
+          "nonzero_samples": 906703
+        },
+        {
+          "peak": 0.057830810546875,
+          "rms": 0.003695062248203713,
+          "energy": 39.322036852128804,
+          "nonzero_samples": 904889
+        }
+      ],
+      "late_tail_window_relative_first_signal_seconds": [
+        5,
+        8
+      ],
+      "late_tail": [
+        {
+          "peak": 0.024322509765625,
+          "rms": 0.005001289044015338,
+          "energy": 3.6018564626574516,
+          "nonzero_samples": 143568
+        },
+        {
+          "peak": 0.01971435546875,
+          "rms": 0.004546908007448613,
+          "energy": 2.977109629660845,
+          "nonzero_samples": 143626
+        }
+      ],
+      "wav_sha256": "b7f993176ec669f560d860aeb55e4af734c3e20b280ad04e1fefbf5cf2263882",
+      "input_final_pulse_ends_3_5_seconds_after_first_pulse_starts": true,
+      "scope": "measured effect signal and late tail, not audio quality or timing qualification"
+    },
+    "cleanup": {
+      "schema": 1,
+      "session": "262c7f7f4de8edc13562ee18e720f028",
+      "method": "SIGTERM to exact digest-verified test supervisor via pidfd; existing child cleanup handler",
+      "error": null,
+      "raw_exit": -15,
+      "cleanup_confirmed": true,
+      "transport_retired": true
+    },
+    "session": "262c7f7f4de8edc13562ee18e720f028",
+    "gui_observation": {
+      "executor": "Luna 5.6 Max via Moonlight",
+      "started_from": "1.1.1.00",
+      "stopped_at": "13.2.1.52",
+      "transport_advanced": true,
+      "track_and_master_meters_moved": true,
+      "editor_closed_during_playback": false,
+      "parameter_changes": false
+    }
+  },
+  "final_state": {
+    "saved_dry_baseline_unchanged": true,
+    "capacity": {
+      "dsp": 0,
+      "maintenance": 0,
+      "keepers": 4,
+      "cleanup_unconfirmed": false
+    },
+    "gui_cleanup": {
+      "failed_blackhole_device_removed": true,
+      "audio_track_and_clip_preserved": true,
+      "transport_stopped": true,
+      "project_saved_after_test": false,
+      "named_plugin_warning_accepted_only_for_removal": true
+    }
+  }
+}

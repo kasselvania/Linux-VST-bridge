@@ -1,0 +1,47 @@
+{
+  "fixture": "Kontakt 8 Player 8.13.1 / Steam Deck Galileo / Proton 11.0-2c",
+  "operation": "ordinary vendor setup /s in fresh disposable prefix",
+  "result": {
+    "wrapper_exit": 100,
+    "elapsed_seconds": 232.22
+  },
+  "payload": [
+    {
+      "name": "Kontakt 8.exe",
+      "bytes": 178397680,
+      "sha256": "965b47d7d15125c862c541a0f1c30bb1e8fab222e6815a5d0acdf77a42dcf60c",
+      "retained_stage_matches": 1,
+      "retained_stage_candidates": 1
+    },
+    {
+      "name": "Kontakt 8.vst3",
+      "bytes": 178699760,
+      "sha256": "b4a3d79b194adfc307e5741059c05bdbd7d8e3cbfed4ca7a8e8e8cf755d06563",
+      "retained_stage_matches": 1,
+      "retained_stage_candidates": 1
+    }
+  ],
+  "vendor_registration": {
+    "DisplayName": true,
+    "DisplayVersion": true,
+    "InstallLocation": true,
+    "UninstallString": true,
+    "version_8_13_1_0": true
+  },
+  "msi_errors_in_log": 0,
+  "support_files": 8138,
+  "application_files": 6,
+  "msi_modules": {
+    "i386": "d9d9b3c0ec6361b7c89c6d9f68854e5c5af84e643104594f7af5a3e49ba59b8a",
+    "x86_64": "96551956a18a4d14660ae9fda8b63acf6085281657f5c95dbd079db37ece161b"
+  },
+  "module_scope": "i386 includes ambiguous-width patch; x86_64 retains prior two upstream backports only",
+  "limitations": [
+    "Linux launcher exit was 100; full Windows setup exit and its vendor meaning not established",
+    "Native Access recognition not exercised",
+    "standalone launch, VST3 enumeration, authorization and audio not exercised",
+    "managed NI prefix not migrated"
+  ],
+  "disposable_processes_remaining": 0,
+  "managed_registry_unchanged": true
+}

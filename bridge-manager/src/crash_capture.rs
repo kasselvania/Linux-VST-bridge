@@ -43,7 +43,24 @@ pub fn incidents(m: &Manager) -> Result<Vec<PathBuf>> {
 pub fn arm(m: &Manager, class: Option<&str>) -> Result<()> {
     // Admission independently verifies exact physical publication and artifacts.
     let admission = match class {
-        Some(class) => ui_observation::admit(m, class)?,
+        Some(class) => {
+            // Managed experimental publications have a deliberately separate
+            // read-only observation authority. Select from the retained
+            // revision kind, then let that exact admission re-read and verify
+            // the complete current binding before capture is armed.
+            let db = m.registry()?;
+            let entry = db.classes.get(class).ok_or("capture publication absent")?;
+            let reference = entry
+                .managed_revision
+                .as_ref()
+                .ok_or("capture publication absent")?;
+            let revision = m.load_revision(class, reference)?;
+            if revision.qualification == Some(publication::Qualification::ManagedExperimental) {
+                ui_observation::admit_managed_observation(m, class)?
+            } else {
+                ui_observation::admit(m, class)?
+            }
+        }
         None => ui_observation::admit_if1(m)?,
     };
     arm_admitted(m, admission)

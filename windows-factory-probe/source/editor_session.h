@@ -2,6 +2,7 @@
 #include "fault_status.h"
 #include "vendor_view.h"
 #include "vendor_handler.h"
+#include "linux_vst_bridge/wf0_probe/events.h"
 #include <chrono>
 #include <vector>
 #include <cstdlib>
@@ -38,6 +39,11 @@ class EditorSession : public VendorEditSink {
       lifecycle_ < AP11::ClosedByVendor;
   }
   FaultStatus* fault_=nullptr;
+  EventWriter* events_=nullptr;
+  void controller_failure(const char* operation, uint32_t id, int32_t result) {
+    if(events_) events_->lifecycle("ap11_controller_refusal", ",\"operation\":\""+std::string(operation)+
+      "\",\"parameter_id\":"+std::to_string(id)+",\"sdk_result\":"+std::to_string(result));
+  }
   Clock::time_point serviced_{};
   uint64_t floor_ = 0, close_cutoff_ = 0, refresh_revision_ = 0;
   uint32_t refresh_flags_ = 0, pending_refresh_ = 0;
@@ -107,10 +113,10 @@ class EditorSession : public VendorEditSink {
                          channel_.available() > 64;
          ++n, ++refresh_cursor_) {
       Steinberg::Vst::ParameterInfo info{};
-      if (controller_.getParameterCount() != int(parameters_.size()) ||
-          controller_.getParameterInfo(int(refresh_cursor_), info) !=
-              Steinberg::kResultOk ||
-          !parameter(info.id)) {
+      const auto count=controller_.getParameterCount();
+      const auto metadata=controller_.getParameterInfo(int(refresh_cursor_), info);
+      if (count != int(parameters_.size()) || metadata != Steinberg::kResultOk || !parameter(info.id)) {
+        controller_failure(count != int(parameters_.size()) ? "refresh_count" : metadata != Steinberg::kResultOk ? "refresh_metadata" : "refresh_identity",info.id,metadata);
         channel_.fail(AP11::Controller);
         return;
       }
@@ -121,15 +127,23 @@ class EditorSession : public VendorEditSink {
       m.value = controller_.getParamNormalized(info.id);
       m.flags = info.flags;
       m.steps = info.stepCount;
-      std::memcpy(m.title, info.title, sizeof(m.title));
-      std::memcpy(m.units, info.units, sizeof(m.units));
+      // SDK strings end at their first NUL; bytes after it are unspecified.
+      // Copy only the live string into the zero-initialized wire message, so
+      // neither trailing vendor bytes nor false termination failures escape.
+      auto copy_string=[](auto& target,const auto& source) {
+        const auto end=std::find(std::begin(source),std::end(source),0);
+        if(end==std::end(source))return false;
+        std::copy(std::begin(source),end,std::begin(target));
+        return true;
+      };
+      if (!copy_string(m.title,info.title) || !copy_string(m.units,info.units)) {
+        controller_failure("refresh_string_termination",info.id,Steinberg::kResultFalse);
+        channel_.fail(AP11::Controller);
+        return;
+      }
       if (!std::isfinite(m.value) || m.value < 0 || m.value > 1) {
         m.result=1; // explicitly unavailable readback; zero bytes carry no value
         m.value=0;
-      }
-      if (m.title[127] || m.units[127]) {
-        channel_.fail(AP11::Controller);
-        return;
       }
       if (!channel_.send(m))
         return;
@@ -202,6 +216,7 @@ public:
     return instance_handler_ ? instance_handler_->restartComponent(flags) : restart(flags);
   }
   void fault_status(FaultStatus* f) { fault_=f; }
+  void diagnostics(EventWriter& events) { events_=&events; }
   void name(const std::wstring &name) { name_ = name; }
   bool host_value(uint32_t id, double value, uint64_t revision) {
     if (owner_ != std::this_thread::get_id())
@@ -222,8 +237,10 @@ public:
       return false;
     }
     host_update_ = false;
-    if (r != Steinberg::kResultOk)
+    if (r != Steinberg::kResultOk) {
+      controller_failure("setParamNormalized",id,r);
       return false;
+    }
     p->accepted = revision;
     ++host_updates;
     return true;
@@ -521,6 +538,7 @@ public:
     try {
       refresh();
     } catch (...) {
+      controller_failure("refresh_exception",0,Steinberg::kResultFalse);
       channel_.fail(AP11::Controller);
       close();
     }

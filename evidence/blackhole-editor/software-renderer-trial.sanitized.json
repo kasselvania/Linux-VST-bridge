@@ -1,0 +1,102 @@
+{
+  "schema": 1,
+  "kind": "blackhole_renderer_preference_hypothesis",
+  "base_commit": "d1b46f2ec1f42d093d56d9aa330df101e50080e8",
+  "collector_source": "6bb1480fd96072a46704d73001c63443ffbd66e5",
+  "module_sha256": "b8a33c57b04eded38d0ca717bb5e3721330439f4931c401ea70e5246b516e90b",
+  "preference": {
+    "kind": "reversible_graphics_preference_hypothesis",
+    "original": "0|0",
+    "candidate": "1|0",
+    "original_sha256": "50f914703dd34fdeff907a590d05c6d1519171142ad186275dec5d62e586dabd",
+    "trial_sha256": "03c1da3d54f28aab9e4928618930d981926b8533be89322df50202fe8ea6badf",
+    "changed_attributes": [
+      "GRMd"
+    ],
+    "byte_length": 140,
+    "metadata_mode_preserved": true,
+    "mapping_verified_before_test": false
+  },
+  "observation": {
+    "completed": true,
+    "frames": [
+      {
+        "label": "first",
+        "width": 874,
+        "height": 552,
+        "total_pixels": 482448,
+        "white_pixels": 482448,
+        "all_white": true,
+        "raw_sha256": "c50ed2d07666922857da04488dfc3054782a97d05f8297fff0dba6b60511795f"
+      },
+      {
+        "label": "second",
+        "width": 874,
+        "height": 552,
+        "total_pixels": 482448,
+        "white_pixels": 482448,
+        "all_white": true,
+        "raw_sha256": "c50ed2d07666922857da04488dfc3054782a97d05f8297fff0dba6b60511795f"
+      }
+    ],
+    "input_injection": false,
+    "helper_cleanup": {
+      "exit": 0,
+      "overflow": 0,
+      "owned_descendants_zero": true,
+      "process_group_empty": true
+    },
+    "preference_hypothesis": "1|0",
+    "usable_renderer_observed": false
+  },
+  "restoration": {
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "raw_exit": -15,
+    "error": null,
+    "original_preference_restored": true,
+    "preference_observed_before_restore": "1|0",
+    "restored_sha256": "50f914703dd34fdeff907a590d05c6d1519171142ad186275dec5d62e586dabd",
+    "restored_mode_matches": true,
+    "dsp": 0,
+    "maintenance": 0,
+    "keepers": 4,
+    "cleanup_unconfirmed": false
+  },
+  "baseline_selector_attempt": {
+    "foreground_editor_white": true,
+    "one_context_click": true,
+    "menu_observed": false,
+    "accessibility_helper_exit": 3,
+    "accessibility_records": 0,
+    "accessibility_result": "ElementFromHandle or RawViewWalker failure; exact HRESULT unavailable",
+    "accessibility_helper_cleanup_confirmed": true
+  },
+  "scope": {
+    "gui_executor": "Luna 5.6 Max",
+    "final_gui_observation": "Failed device removed; source track preserved, empty device chain, transport stopped; no save or playback",
+    "preservation_rechecked_after_gui_cleanup": true,
+    "audio_playback": false,
+    "project_saved": false,
+    "normal_close_reopen_tested": false,
+    "renderer_selection_mapping_verified": false,
+    "process_memory_read_executed": false,
+    "process_memory_read_approval": "rejected; insufficient process binding and invasive read risk; no retry or security changes"
+  },
+  "harness_correction": {
+    "initial_status_read": "refused durable symlink directory via O_NOFOLLOW",
+    "corrected_status_read": "used supervisor-declared runtime directory; no symlink changes"
+  },
+  "preservation": {
+    "protected_files_checked": 4,
+    "all_protected_files_unchanged": true,
+    "prefix_identity_unchanged": true,
+    "capacity": {
+      "dsp": 0,
+      "maintenance": 0,
+      "keepers": 4,
+      "cleanup_unconfirmed": false
+    }
+  },
+  "interpretation": "GRMd=1|0 produced unchanged all-white local pixels. This does not establish that software rendering was selected or that every software fallback fails. Original preference restored; no renderer repair installed."
+}

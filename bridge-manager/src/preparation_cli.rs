@@ -49,18 +49,42 @@ pub fn project(
         } else {
             Some("Historical selection: current inventory/scanner must be refreshed before preparation or publication")
         };
+        let current_layout = v.recommended_audio_layout.clone();
         p.actions.push(offer(
-            if v.recommended_inspection.is_some() {
-                "Refresh preliminary inspection"
-            } else {
-                "Check compatibility"
+            match (&v.recommended_inspection, &current_layout) {
+                (Some(_), Some(profiles::AudioLayoutPolicy::StereoMainPair)) => {
+                    "Refresh stereo inspection"
+                }
+                (Some(_), None) => "Refresh preliminary inspection",
+                (None, _) => "Check compatibility",
             }
             .into(),
             ui::Action::PluginReinspect {
                 selection: v.selection.clone(),
+                audio_layout: current_layout.clone(),
             },
             busy.or(stale),
         ));
+        if s.class.role == "effect" {
+            let (label, audio_layout) = if current_layout
+                == Some(profiles::AudioLayoutPolicy::StereoMainPair)
+            {
+                ("Check default-layout compatibility", None)
+            } else {
+                (
+                    "Check stereo compatibility",
+                    Some(profiles::AudioLayoutPolicy::StereoMainPair),
+                )
+            };
+            p.actions.push(offer(
+                label.into(),
+                ui::Action::PluginReinspect {
+                    selection: v.selection.clone(),
+                    audio_layout,
+                },
+                busy.or(stale),
+            ));
+        }
         if let Some(inspection) = &v.recommended_inspection {
             let kit = prep::build::recipe_available(m);
             let controller = matches!(
@@ -324,31 +348,46 @@ fn selected_inspection_spec(m: &Manager, binding: HostBinding) -> Result<(Sessio
     require(valid_hex(&binding.metadata.class_id, 32), "inspection_class_selection")?;
     spec(m, binding, true, false, false)
 }
-pub fn inspect(m: &Manager, s: &prep::Selection, sw: &Software) -> Result<prep::Inspection> {
+pub(super) fn admitted_inspection_spec(
+    m: &Manager,
+    binding: HostBinding,
+    admission: impl FnOnce() -> Result<Lock>,
+) -> Result<(SessionSpec, PathBuf)> {
+    let guard = admission()?;
+    guard.require_registry(m)?;
+    m.require_inactive(None)?;
+    selected_inspection_spec(m, binding)
+}
+pub fn inspect(
+    m: &Manager,
+    s: &prep::Selection,
+    sw: &Software,
+    audio_layout: Option<profiles::AudioLayoutPolicy>,
+    admission: impl FnOnce() -> Result<Lock>,
+) -> Result<prep::Inspection> {
     prep::verify_selection(m, s, &sw.host, &sw.source_sha256)?;
     let runtime = prep::build::stage_runtime(m)?;
     let stamp = observation::ModuleStamp::read(&s.module.path)?;
-    let (job, path) = {
-        let _guard = m.lock("registry.lock")?;
-        m.require_inactive(None)?;
-        selected_inspection_spec(
-            m,
-            HostBinding {
-                metadata: ClassSelection {
-                    class_id: s.class.id.clone(),
-                },
-                environment: s.environment.clone(),
-                module: s.module.clone(),
-                host: runtime.host.clone(),
-                host_source_sha256: runtime.source_manifest.sha256.clone(),
-                compatibility: Compatibility::default(),
+    let (job, path) = admitted_inspection_spec(
+        m,
+        HostBinding {
+            metadata: ClassSelection {
+                class_id: s.class.id.clone(),
             },
-        )?
-    };
-    let mut pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
+            environment: s.environment.clone(),
+            module: s.module.clone(),
+            host: runtime.host.clone(),
+            host_source_sha256: runtime.source_manifest.sha256.clone(),
+            compatibility: Compatibility {
+                audio_layout: audio_layout.clone(),
+                ..Compatibility::default()
+            },
+        },
+        admission,
+    )?;
+    let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
     let child = spawn(sw, &path, None)?;
-    pending.expose();
-    vendor_product_cli::finish_scan(child, &job, pending)?;
+    vendor_product_cli::finish_scan(child, &job, &path, pending)?;
     require(
         observation::ModuleStamp::read(&s.module.path)? == stamp,
         "inspection_module_changed",
@@ -357,22 +396,35 @@ pub fn inspect(m: &Manager, s: &prep::Selection, sw: &Software) -> Result<prep::
         sha256: digest(&job.report)?,
         path: job.report,
     };
-    let i = prep::inspect_record_with(
+    let i = prep::inspect_record_with_layout(
         s.clone(),
         report,
         prep::Origin::ManagedPreparation,
         runtime.host,
         runtime.source_manifest,
+        audio_layout,
     )?;
     prep::retain_inspection(m, &i)?;
     Ok(i)
 }
-pub fn execute(m: &Manager, a: &ui::Action, operation: &str) -> Result<Value> {
+pub fn execute(
+    m: &Manager,
+    a: &ui::Action,
+    operation: &str,
+    inspection_admission: impl FnOnce() -> Result<Lock>,
+) -> Result<Value> {
     let sw = software(m)?;
     match a {
-        ui::Action::PluginInspect { selection } | ui::Action::PluginReinspect { selection } => {
+        ui::Action::PluginInspect {
+            selection,
+            audio_layout,
+        }
+        | ui::Action::PluginReinspect {
+            selection,
+            audio_layout,
+        } => {
             let s = prep::select(m, selection, &sw.host, &sw.source_sha256)?;
-            let i = inspect(m, &s, &sw)?;
+            let i = inspect(m, &s, &sw, audio_layout.clone(), inspection_admission)?;
             Ok(
                 json!({"selection":selection,"inspection":"complete","controller":i.controller,"guarantee":false,"publication_changed":false}),
             )
@@ -517,11 +569,14 @@ pub fn failure(action: &ui::Action) -> Option<Value> {
 mod tests {
     use super::*;
     fn projection_fixture() -> (test_fixture::Fixture, prep::Candidate) {
+        projection_fixture_with_role(false)
+    }
+    fn projection_fixture_with_role(effect: bool) -> (test_fixture::Fixture, prep::Candidate) {
         use observation::ModuleStamp;
         use prep::*;
         use profiles::Family;
         use test_fixture::{inspection_report, prepared_accessibility};
-        let (mut f, _, mut census, native) = prepared_accessibility(false);
+        let (mut f, _, mut census, mut native) = prepared_accessibility(false);
         f.m.unpublish(&f.r.key()).unwrap();
         atomic_json(&f.m.root.join("registry.json"), &Registry::default()).unwrap();
         let old = f.r.environment.root.clone();
@@ -540,6 +595,10 @@ mod tests {
         census.environment.family = Family::ManagedInstallerV1;
         census.module = f.r.module.clone();
         census.module_stamp = ModuleStamp::read(&census.module.path).unwrap();
+        if effect {
+            census.selected.subcategories = "Fx".into();
+            native.class.subcategories = "Fx".into();
+        }
         let mut raw = inspection_report(&census);
         // Complete non-audio factory class; the production inventory validates all rows.
         let class = raw["records"][1]["classes"][0].clone();
@@ -588,6 +647,36 @@ mod tests {
         };
         let c = prepared(s, i, native, f.r.host.clone(), manifest, "aa".repeat(32)).unwrap();
         (f, c)
+    }
+    #[test]
+    fn effect_offers_explicit_stereo_inspection_without_changing_default_action_shape() {
+        let (f, c) = projection_fixture_with_role(true);
+        let mut products = vec![projection_product(&c)];
+        project(&f.m, &projection_software(&c), &mut products, None).unwrap();
+        let inspections: Vec<_> = products[0]
+            .actions
+            .iter()
+            .filter(|action| matches!(action.action, ui::Action::PluginReinspect { .. }))
+            .collect();
+        assert_eq!(inspections.len(), 2);
+        assert!(inspections.iter().any(|action| {
+            action.label == "Check stereo compatibility"
+                && matches!(
+                    action.action,
+                    ui::Action::PluginReinspect {
+                        audio_layout: Some(profiles::AudioLayoutPolicy::StereoMainPair),
+                        ..
+                    }
+                )
+        }));
+        let default = inspections
+            .iter()
+            .find(|action| action.label == "Check compatibility")
+            .unwrap();
+        assert!(serde_json::to_value(&default.action)
+            .unwrap()
+            .get("audio_layout")
+            .is_none());
     }
     #[test]
     fn selected_inspection_preserves_exact_class_in_supervisor_job() {

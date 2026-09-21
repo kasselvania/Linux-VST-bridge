@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "kind": "compatibility_inspection_lock_wait_installation",
+  "prior_host_sha256": "9a7894cd08db1e32f1d1cde853269a561fd69c49b3171aa3b9c01c9b07e86325",
+  "host_sha256": "9a7894cd08db1e32f1d1cde853269a561fd69c49b3171aa3b9c01c9b07e86325",
+  "manager_sha256": "7a7d85b250ef081e12e2056a8744344ba3f2e277851c938d380301b5a7a7130c",
+  "source_manifest_sha256": "bfa50f708483a07361718f61a8f8ac071de158067a1eae421aef11f96e9fc28a",
+  "runtime_artifacts_preserved": {
+    "operator_frontend": true,
+    "supervisor": true,
+    "ownership": true,
+    "installer_launch": true,
+    "preparation_kit": true
+  },
+  "prior_kit_sha256": "763c2185af91a97b79c25b6dfabb17dfe34e6a9429163436bfd67ea7b2b687c4",
+  "kit_sha256": "763c2185af91a97b79c25b6dfabb17dfe34e6a9429163436bfd67ea7b2b687c4",
+  "protected_files_and_proxies": 59,
+  "protected_files_and_proxies_unchanged": true,
+  "software_rollback_retained": true,
+  "license_or_prefix_mutation_performed": false,
+  "system": {
+    "service": "active",
+    "keepers": 0,
+    "dsp": 0,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  }
+}

@@ -19,7 +19,8 @@ def generate(records,class_id,module_sha256,profile=None):
     for media in (0,1):
         for direction in (0,1):
             group=[r for r in buses if r['media']==media and r['direction']==direction]
-            if len(group)>8 or [r['index'] for r in group]!=list(range(len(group))):
+            bound=32 if (media,direction)==(0,1) else 8
+            if len(group)>bound or [r['index'] for r in group]!=list(range(len(group))):
                 raise ValueError('bus count/index bound')
     for r in buses:
         if r['media'] not in (0,1) or r['direction'] not in (0,1) or r['type'] not in (0,1):
@@ -31,9 +32,11 @@ def generate(records,class_id,module_sha256,profile=None):
     for direction in (0,1):
         group=[r for r in buses if r['media']==0 and r['direction']==direction]
         mains=[r for r in group if r['type']==0]
-        if len(mains)>(1 if group else 0) or (direction and len(mains)!=1) or (mains and mains[0]['index']!=0):
-            raise ValueError('one index-zero main audio bus required')
-        if direction and len(group)!=1:raise ValueError('one audio output supported')
+        if direction:
+            if not group or group[0]['type']!=0:
+                raise ValueError('index-zero main audio output required')
+        elif len(mains)>1 or (mains and mains[0]['index']!=0):
+            raise ValueError('one index-zero main audio input supported')
     notes=[r for r in buses if r['media']==1 and r['direction']==0]
     if len(notes)>1 or (notes and notes[0]['index']!=0):raise ValueError('one event input supported')
     metadata=next(r for r in records if r.get('state') in ('ap8_inspected','ap12_capabilities'))

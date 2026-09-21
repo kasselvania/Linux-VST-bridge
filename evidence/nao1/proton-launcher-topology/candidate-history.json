@@ -1,0 +1,51 @@
+{
+  "schema": "vst.nao1-proton-launcher-topology-candidate-history/v1",
+  "base": "c38b5c9deb8bd32f5a509258c30f31b3e795fe59",
+  "candidates": [
+    {
+      "source": "a6c31a6",
+      "disposition": "retained_generated_failure",
+      "observation": "ordinary Proton run entered the Steam Windows shim and asserted before the source-owned application path"
+    },
+    {
+      "source": "794c733",
+      "disposition": "retained_generated_failure",
+      "observation": "the attempted runtime did not publish the required private command endpoint"
+    },
+    {
+      "source": "554c17f",
+      "disposition": "retained_generated_failure",
+      "observation": "bare Wine selected the wrong prefix and service database"
+    },
+    {
+      "source": "034c116",
+      "disposition": "retained_generated_failure",
+      "observation": "the exact adapter request completed but the forwarded-input command context retired with exit 255"
+    },
+    {
+      "source": "52b28c7",
+      "disposition": "retained_generated_failure",
+      "observation": "private launcher diagnostics confirmed early forwarded-input retirement"
+    },
+    {
+      "source": "dec2183",
+      "disposition": "superseded_generated_success",
+      "observation": "an exact hold preserved the command context through the 15-session campaign"
+    },
+    {
+      "source": "3aa7ae2",
+      "disposition": "superseded_generated_success",
+      "observation": "the independent cold interoperability case passed"
+    },
+    {
+      "source": "6db58db",
+      "disposition": "retained_generated_candidate",
+      "observation": "the Deck campaign passed but native Windows validation exposed a hold-deletion link-count distinction"
+    },
+    {
+      "source": "e4a6bfa471308cf50917d361f02c8fe4d594ff18",
+      "disposition": "qualified_executable_source",
+      "observation": "the 16-session campaign and exact-source hosted checks passed"
+    }
+  ]
+}

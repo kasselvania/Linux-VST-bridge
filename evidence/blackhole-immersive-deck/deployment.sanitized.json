@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "kind": "blackhole_scan_reporting_deployment",
+  "source_commit": "fea71b4cc005b9fa6b3247af6daa3585138a9b7c",
+  "manager_sha256": "31e8c569cf783af84f5f55315e8a42088e52af4657bd1235025d93ea8364c7d0",
+  "frontend_sha256": "026b6f5072e6b6a732321acc55e6468011e414c35a18e59bb3db454ec9b8abb6",
+  "system": {
+    "service": "active",
+    "keepers": 0,
+    "dsp": 0,
+    "maintenance": 0,
+    "ceiling": 6,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "runtime_artifacts_preserved": {
+    "supervisor": true,
+    "ownership": true,
+    "host": true,
+    "source_manifest": true,
+    "installer_launch": true,
+    "preparation_kit": true
+  },
+  "protected_record_count": 43,
+  "native_proxy_count_preserved": 9,
+  "original_scan_and_report_unchanged": true,
+  "retained_error_visible_in_projection": true,
+  "exact_module_retry_available": true,
+  "retry_executed": false,
+  "gui_operated": false,
+  "underlying_load_failure_resolved": false
+}
