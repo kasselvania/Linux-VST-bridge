@@ -55,6 +55,20 @@ class ContractTest(unittest.TestCase):
         self.assertEqual(packages["make"], "4.4.1-2")
         self.assertEqual(packages["binutils"], "2.44-3")
 
+    def test_jack_matrix_tools_are_exactly_pinned_for_provisioning(self):
+        manifest = json.loads((ROOT / "pinned-inputs.json").read_text())
+        package = manifest["packages_added_by_provisioning"]["jack-example-tools"]
+        self.assertEqual(package["version"], "4-4")
+        self.assertEqual(
+            package["sha256"],
+            "81ea08ad2768cf75dd45ee678f1e9d5580e82642f17867303777b7d727043212",
+        )
+        provisioning = (ROOT / "provision.sh").read_text()
+        self.assertIn("[jack-example-tools]='4-4'", provisioning)
+        matrix = (ROOT / "jack-matrix.sh").read_text()
+        for command in ("jack_lsp", "jack_connect", "jack_iodelay", "jack_samplerate"):
+            self.assertIn(command, matrix)
+
     def test_wrong_board_refusal_is_retained_without_claiming_acceptance(self):
         evidence = json.loads((REPO / "evidence/shieldxl0/fixture-admission-failure.json").read_text())
         self.assertEqual(evidence["result"], "refused_wrong_board")

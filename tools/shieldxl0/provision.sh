@@ -70,20 +70,22 @@ declare -A packages=(
   [evtest]='1:1.35-1+b1'
   [i2c-tools]='4.4-2'
   [jackd2]='1.9.22~dfsg-4'
+  [jack-example-tools]='4-4'
 )
 declare -A package_hashes=(
   [evtest]='7fee662f317a35b27325b7beaf7c3e82ddabf508b5ab49e39ee83a34343338c4'
   [i2c-tools]='3123635e7da9c00d96daa24be09fda90c2f8e571702e4b515a910ee27b43d062'
   [jackd2]='9dfd3a8d4edfcb9f63be1c522eae2d187151ba1a77e650630ac990edb5318e2e'
+  [jack-example-tools]='81ea08ad2768cf75dd45ee678f1e9d5580e82642f17867303777b7d727043212'
 )
-for package in evtest i2c-tools jackd2; do
+for package in evtest i2c-tools jackd2 jack-example-tools; do
   candidate=$(package_candidate "$package")
   [[ $candidate == "${packages[$package]}" ]] ||
     die "package candidate drift for $package: expected ${packages[$package]}, observed $candidate"
 done
 printf 'jackd2 jackd/tweak_rt_limits boolean false\n' | debconf-set-selections
 declare -a download_specs=()
-for package in evtest i2c-tools jackd2; do
+for package in evtest i2c-tools jackd2 jack-example-tools; do
   installed_version=$(dpkg-query -W -f='${Version}' "$package" 2>/dev/null || true)
   [[ $installed_version == "${packages[$package]}" ]] || download_specs+=("$package=${packages[$package]}")
 done
@@ -104,7 +106,8 @@ for package_spec in "${download_specs[@]}"; do
     die "downloaded artifact hash differs for $package=${packages[$package]}"
 done
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-  "evtest=${packages[evtest]}" "i2c-tools=${packages[i2c-tools]}" "jackd2=${packages[jackd2]}"
+  "evtest=${packages[evtest]}" "i2c-tools=${packages[i2c-tools]}" \
+  "jackd2=${packages[jackd2]}" "jack-example-tools=${packages[jack-example-tools]}"
 
 build_dir=$(mktemp -d /var/tmp/shieldxl0-provision.XXXXXX)
 "$SCRIPT_DIR/build-dtbo.sh" "$build_dir/shieldxl0.dtbo" >"$build_dir/dtbo-hashes.txt"

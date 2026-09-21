@@ -128,6 +128,10 @@
     "jackd2": {
       "version": "1.9.22~dfsg-4",
       "sha256": "9dfd3a8d4edfcb9f63be1c522eae2d187151ba1a77e650630ac990edb5318e2e"
+    },
+    "jack-example-tools": {
+      "version": "4-4",
+      "sha256": "81ea08ad2768cf75dd45ee678f1e9d5580e82642f17867303777b7d727043212"
     }
   }
 }
