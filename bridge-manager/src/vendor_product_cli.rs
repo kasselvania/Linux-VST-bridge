@@ -63,7 +63,22 @@ fn product(c: &Census) -> Result<()> {
     )
 }
 
-pub(super) fn finish_scan(mut child: Child, job: &SessionSpec, mut pending: PendingAdmission) -> Result<()> {
+pub(super) fn finish_scan(
+    mut child: Child,
+    job: &SessionSpec,
+    owner: &Path,
+    mut pending: PendingAdmission,
+) -> Result<()> {
+    // Inspection uses the same supervisor as DSP/editor sessions. Its first
+    // stdout record is therefore the preflight-ready ownership boundary, not
+    // the terminal retirement receipt. Consume readiness before exposing the
+    // lease so the later exact LVO1 comparison cannot mistake LVO0+LVO1 for a
+    // malformed retirement.
+    if let Err(readiness) = supervisor_ready(&mut child, &job.session, Duration::from_secs(4)) {
+        retire_unready_supervisor(&mut child, owner)?;
+        return Err(readiness);
+    }
+    pending.expose();
     let status = child.wait()?;
     let mut receipt = String::new();
     if let Some(stdout) = child.stdout.take() {
@@ -131,10 +146,9 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
         compatibility: Compatibility::default(),
     };
     let (job, path) = spec(m, r, true, true, false)?;
-    let mut pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
+    let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
     let child = spawn(&sw, &path, None)?;
-    pending.expose();
-    finish_scan(child, &job, pending)?;
+    finish_scan(child, &job, &path, pending)?;
     module.verify()?;
     require(
         ModuleStamp::read(&module.path)? == stamp,
@@ -170,15 +184,15 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
 mod tests {
     use super::*;
     #[test]
-    fn completed_scan_consumes_exact_receipt_and_releases_its_lease() {
+    fn completed_scan_consumes_readiness_then_exact_retirement() {
         let f = test_fixture::Fixture::new();
-        let (job, _) = spec(&f.m, f.r.clone().into(), true, true, false).unwrap();
+        let (job, path) = spec(&f.m, f.r.clone().into(), true, true, false).unwrap();
         atomic_json(&job.lease, &job.report).unwrap();
         let owner = || {
             Command::new("/bin/sh")
                 .args([
                     "-c",
-                    "printf 'LVO1 %s retired\\n' \"$1\"",
+                    "printf 'LVO0 %s ready\\nLVO1 %s retired\\n' \"$1\" \"$1\"",
                     "scan-owner",
                     &job.session,
                 ])
@@ -187,17 +201,35 @@ mod tests {
                 .unwrap()
         };
         // Receipt alone cannot hide a still-present transport/session directory.
-        let mut pending =
-            PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
-        pending.expose();
-        assert!(finish_scan(owner(), &job, pending).is_err());
+        let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
+        assert!(finish_scan(owner(), &job, &path, pending).is_err());
         assert!(job.lease.exists());
         fs::remove_dir_all(&job.directory).unwrap();
-        let mut pending =
-            PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
-        pending.expose();
-        finish_scan(owner(), &job, pending).unwrap();
+        let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
+        finish_scan(owner(), &job, &path, pending).unwrap();
         assert!(!job.lease.exists());
+    }
+    #[test]
+    fn terminal_receipt_without_readiness_never_exposes_scan_ownership() {
+        let f = test_fixture::Fixture::new();
+        let (job, path) = spec(&f.m, f.r.clone().into(), true, true, false).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        let blocked = Arc::new(AtomicBool::new(false));
+        let pending = PendingAdmission::new(job.lease.clone(), blocked.clone());
+        let child = Command::new("/bin/sh")
+            .args([
+                "-c",
+                "printf 'LVO1 %s retired\\n' \"$1\"",
+                "scan-owner",
+                &job.session,
+            ])
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        assert!(finish_scan(child, &job, &path, pending).is_err());
+        assert!(!job.lease.exists());
+        assert!(!job.directory.exists());
+        assert!(!blocked.load(Ordering::Acquire));
     }
     #[test]
     fn nomination_is_bounded_and_not_sdk_authority() {

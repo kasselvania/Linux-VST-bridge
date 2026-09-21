@@ -385,10 +385,9 @@ pub fn inspect(
         },
         admission,
     )?;
-    let mut pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
+    let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
     let child = spawn(sw, &path, None)?;
-    pending.expose();
-    vendor_product_cli::finish_scan(child, &job, pending)?;
+    vendor_product_cli::finish_scan(child, &job, &path, pending)?;
     require(
         observation::ModuleStamp::read(&s.module.path)? == stamp,
         "inspection_module_changed",

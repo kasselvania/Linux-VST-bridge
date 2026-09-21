@@ -77,6 +77,22 @@ candidate preparation, publication, Bitwig session, or product launch occurred.
 See
 `evidence/catalog-reliability/managed-refresh-physical-topology.sanitized.json`.
 
+Physical scanner-handshake update (2026-09-21): after installation of exact
+`f3a201c`, the new projection gate passed for both Blackhole and Kontakt. The
+first uncontended Blackhole `EnvironmentRescan` launched the real Windows
+scanner and the scanner reached `scanner_completed`. Its retained rich result
+and independent ownership receipt both reported confirmed process cleanup and
+transport retirement. The Rust parent nevertheless refused retirement because
+the inspection path had not consumed the supervisor's `LVO0` readiness record;
+it compared the combined `LVO0` plus `LVO1` stdout to a terminal `LVO1` string.
+The repair now makes scan completion own the same bounded readiness crossing as
+other supervisor launches: consume exact `LVO0`, expose the lease, then require
+exact `LVO1` and absent session transport. Failure before readiness remains
+unexposed and is retired by the existing unready-supervisor path. No Kontakt
+scan, candidate preparation, publication, Bitwig session or product launch
+occurred. See
+`evidence/catalog-reliability/blackhole-rescan-readiness-mismatch.sanitized.json`.
+
 Correction basis: stacked merge `18cc2c11b35c6c3c04d88c4703c8a6d88996249a`,
 tree `9311091011ec69caa4799f2e12fa972e3ac74781`. That merge entered the
 still-unmerged Blackhole branch before review of PR #134 was complete. It was

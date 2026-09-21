@@ -2127,13 +2127,12 @@ fn rescan_environment_locked(
             true,
             false,
         )?;
-        let mut pending =
+        let pending =
             PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
         #[cfg(test)]
         SCAN_SPAWN_COUNT.with(|count| count.set(count.get() + 1));
         let child = spawn(&sw, &path, None)?;
-        pending.expose();
-        vendor_product_cli::finish_scan(child, &job, pending)?;
+        vendor_product_cli::finish_scan(child, &job, &path, pending)?;
         module.verify()?;
         require(
             observation::ModuleStamp::read(&module.path)? == stamp,
