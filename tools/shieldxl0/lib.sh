@@ -63,10 +63,17 @@ require_platform() {
   [[ $ram_kib =~ ^[0-9]+$ && $ram_kib -ge $SHIELDXL0_RAM_KIB_MIN && $ram_kib -le $SHIELDXL0_RAM_KIB_MAX ]] ||
     die "wrong RAM fixture: expected Pi 5 8 GB, observed MemTotal ${ram_kib:-unknown} KiB"
   [[ -n $(read_revision) ]] || die 'Pi board revision is unavailable'
+  refuse_prohibited_runtimes
+}
+
+refuse_prohibited_runtimes() {
+  local prohibited
   for prohibited in box64 FEXInterpreter wine wine64 proton; do
-    command -v "$prohibited" >/dev/null 2>&1 &&
+    if command -v "$prohibited" >/dev/null 2>&1; then
       die "prohibited software '$prohibited' is present; refuse possible non-fresh or RPI0 fixture"
+    fi
   done
+  return 0
 }
 
 boot_config_path() {
