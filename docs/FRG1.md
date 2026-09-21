@@ -163,6 +163,13 @@ one stereo main input, one stereo sidechain input, one stereo main output, one
 and 2,415 parameters. Module exit, library unload, scanner completion, private X11
 retirement and operation-process cleanup all passed.
 
+The repaired successor validator replayed this retained private report without a new
+physical execution. It separately confirmed the factory vendor as `Arturia`, required
+float32 result `0`, and required the integer float64 result to remain nonzero (`1` in
+attempt 005). The deterministic receipt binds the unchanged private-report digest,
+input lock, attempt result and repaired validator source. The historical attempt-005
+source identity, descriptor and native proxy remain unchanged.
+
 The parameter count is a real successor delta from the predecessor's 2,348. No
 historical parameter roster was substituted. The original Ubuntu prefix owner marker,
 module and UA1 custody lock remained unchanged; only the private snapshot was
@@ -188,9 +195,19 @@ combinations refuse in the focused profile tests.
 
 Revision 10 remains byte-identical historical authority. Revision 11 is deliberately
 absent from the ordinary installed-profile set and cannot activate. After review and
-merge, a new Ubuntu-lab branch may adopt the retained prefix under its original owner
-record, publish to a new lab-only revision path and repeat the predecessor's Bitwig
-baseline on Ubuntu.
+integration with the separately reviewed canonical manager/scanner/session line, a
+new Ubuntu-lab branch may lock the exact integrated commit and tree. It must install
+that canonical generation, adopt the retained prefix through a separate product-owned
+environment record without rewriting the original Ubuntu-lab owner marker, and verify
+the result as exact `ArturiaPersistentV1` revision 2 with the locked Ubuntu runner.
+
+Attempt 005 remains candidate-preparation evidence over a private operation snapshot;
+it is not the publication census. The integrated canonical manager must next run
+`EnvironmentRescan` against the adopted current environment. Only a fresh inventory
+that selects revision 11 under `SelectionPurpose::Qualification` may prepare and
+publish the revision-addressed qualification candidate in the lab-only path. The
+Bitwig editor/audio/parameter/save-reopen/retirement ladder begins only after that
+publication gate passes.
 
 ## Nonclaims
 
@@ -207,4 +224,5 @@ Steam Deck result.
 - `evidence/frg1/attempt-003/result.json`
 - `evidence/frg1/attempt-004/result.json`
 - `evidence/frg1/attempt-005/result.json`
+- `evidence/frg1/attempt-005/validator-replay.json`
 - `evidence/frg1/candidate.json`

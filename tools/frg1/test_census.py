@@ -166,6 +166,10 @@ class CensusTests(unittest.TestCase):
         self.assertEqual(profile["requirements"]["descriptor_sha256"], candidate["descriptor"]["sha256"])
         self.assertEqual(census.sha256_file(profile_path), candidate["profile"]["file_sha256"])
         self.assertEqual(census.sha256_file(entrypoint), profile["requirements"]["runner"]["entry_point_sha256"])
+        self.assertEqual(
+            candidate["census"]["validator_replay_sha256"],
+            census.sha256_file(ROOT / "evidence/frg1/attempt-005/validator-replay.json"),
+        )
         for receipt in ("runner_receipt", "runtime_receipt"):
             self.assertIn(candidate["runner"][receipt]["sha256"], profile["requirements"]["runner"]["file_sha256"])
 
@@ -223,6 +227,7 @@ class CensusTests(unittest.TestCase):
         lock = census.load_lock(ROOT / "compatibility/frg1/input.lock.json")
         expected = lock["successor_verification"]["expected_class"]
         records = [
+            {"state": "ap8_factory", "factory": {"vendor_hex": "Arturia".encode().hex()}},
             {"state": "ap12_class", **expected},
             {"state": "ap8_parameter_count", "count": 2400},
             {"state": "ap12_capabilities", "float32_result": 0, "float64_result": -1},
@@ -231,8 +236,34 @@ class CensusTests(unittest.TestCase):
         delta = census.validate_successor_delta(records, lock)
         self.assertTrue(delta["class_continuity"])
         self.assertTrue(delta["parameter_count_changed"])
-        records[0] = {**records[0], "class_id": "00" * 16}
+        records[1] = {**records[1], "class_id": "00" * 16}
         with self.assertRaisesRegex(census.CensusError, "successor class_id differs"):
+            census.validate_successor_delta(records, lock)
+
+    def test_successor_delta_refuses_changed_factory_vendor(self) -> None:
+        lock = census.load_lock(ROOT / "compatibility/frg1/input.lock.json")
+        expected = lock["successor_verification"]["expected_class"]
+        records = [
+            {"state": "ap8_factory", "factory": {"vendor_hex": "Other".encode().hex()}},
+            {"state": "ap12_class", **expected},
+            {"state": "ap8_parameter_count", "count": 2415},
+            {"state": "ap12_capabilities", "float32_result": 0, "float64_result": 1},
+            {"state": "ap8_controller_association", "combined": True},
+        ]
+        with self.assertRaisesRegex(census.CensusError, "successor factory vendor differs"):
+            census.validate_successor_delta(records, lock)
+
+    def test_successor_delta_refuses_float64_support(self) -> None:
+        lock = census.load_lock(ROOT / "compatibility/frg1/input.lock.json")
+        expected = lock["successor_verification"]["expected_class"]
+        records = [
+            {"state": "ap8_factory", "factory": {"vendor_hex": "Arturia".encode().hex()}},
+            {"state": "ap12_class", **expected},
+            {"state": "ap8_parameter_count", "count": 2415},
+            {"state": "ap12_capabilities", "float32_result": 0, "float64_result": 0},
+            {"state": "ap8_controller_association", "combined": True},
+        ]
+        with self.assertRaisesRegex(census.CensusError, "successor gained unsupported float64 capability"):
             census.validate_successor_delta(records, lock)
 
     def test_scanner_namespace_projects_the_gpu_instead_of_repeating_headless_attempt(self) -> None:
@@ -293,6 +324,30 @@ class CensusTests(unittest.TestCase):
         self.assertTrue(result["retained_ubuntu_environment"]["source_unchanged_after_execution"])
         self.assertFalse(result["scope"]["steam_deck_contacted"])
         self.assertFalse(result["scope"]["ubuntu_publication_performed"])
+
+    def test_attempt_five_validator_replay_closes_factory_and_precision(self) -> None:
+        replay = json.loads((ROOT / "evidence/frg1/attempt-005/validator-replay.json").read_text())
+        attempt = json.loads((ROOT / "evidence/frg1/attempt-005/result.json").read_text())
+        self.assertEqual(replay["disposition"], "FRG1_SUCCESSOR_VALIDATOR_REPLAY_PASSED")
+        self.assertEqual(replay["basis"]["input_lock_canonical_sha256"], census.LOCK_SHA256)
+        self.assertEqual(
+            replay["basis"]["input_lock_file_sha256"],
+            census.sha256_file(ROOT / "compatibility/frg1/input.lock.json"),
+        )
+        self.assertEqual(replay["basis"]["validator_source_sha256"], census.sha256_file(MODULE_PATH))
+        self.assertEqual(
+            replay["basis"]["attempt_result_sha256"],
+            census.sha256_file(ROOT / "evidence/frg1/attempt-005/result.json"),
+        )
+        self.assertEqual(
+            replay["basis"]["private_report_sha256"],
+            attempt["retention"]["private_report_sha256"],
+        )
+        self.assertEqual(replay["result"]["factory_vendor"], attempt["factory"]["vendor"])
+        self.assertEqual(replay["result"]["float32_result"], attempt["inspection"]["float32_result"])
+        self.assertEqual(replay["result"]["float64_result"], attempt["inspection"]["float64_result"])
+        self.assertFalse(replay["scope"]["physical_execution_performed"])
+        self.assertFalse(replay["scope"]["attempt_005_historical_identity_rewritten"])
 
 
 if __name__ == "__main__":

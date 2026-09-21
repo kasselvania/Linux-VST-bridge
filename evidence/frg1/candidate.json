@@ -20,7 +20,8 @@
     "input_lock_file_sha256": "ec858a1404b92f7d1d88e4f9aaef032e6020cf7a16c996cfa447ce3ad9cb1360",
     "private_report_sha256": "71c82f12953ab62eeaf0a986554743317f73862dc6543de3e467e9db16c43d35",
     "sanitized_result_sha256": "048d929a735eaa5310ae1f369e04e46536f25f2fac416c9dd5629fdc1c5c62c4",
-    "structured_record_count": 170
+    "structured_record_count": 170,
+    "validator_replay_sha256": "fe2f96b87b7208cbbc99249b90a2d7ef00410191c867b14fd178f0da6a7edf9d"
   },
   "descriptor": {
     "byte_length": 128535,

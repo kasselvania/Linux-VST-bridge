@@ -823,9 +823,28 @@ def one(records: list[dict[str, Any]], state: str) -> dict[str, Any]:
     return found[0]
 
 
+def decode_ascii_field(record: dict[str, Any], key: str) -> str:
+    encoded = record.get(key)
+    require(
+        isinstance(encoded, str)
+        and len(encoded) <= 1024
+        and len(encoded) % 2 == 0
+        and all(character in "0123456789abcdefABCDEF" for character in encoded),
+        f"invalid {key}",
+    )
+    try:
+        return bytes.fromhex(encoded).decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise CensusError(f"invalid {key}") from error
+
+
 def validate_successor_delta(records: list[dict[str, Any]], lock: dict[str, Any]) -> dict[str, Any]:
     predecessor = lock["historical_profile"]
     policy = lock["successor_verification"]
+    factory = one(records, "ap8_factory").get("factory")
+    require(isinstance(factory, dict), "successor factory record invalid")
+    factory_vendor = decode_ascii_field(factory, "vendor_hex")
+    require(factory_vendor == policy["expected_factory_vendor"], "successor factory vendor differs")
     observed_class = one(records, "ap12_class")
     expected_class = policy["expected_class"]
     for key in ("class_id", "name", "vendor", "version", "subcategories", "metadata_tier"):
@@ -838,7 +857,10 @@ def validate_successor_delta(records: list[dict[str, Any]], lock: dict[str, Any]
     parameter_count = one(records, "ap8_parameter_count").get("count")
     require(isinstance(parameter_count, int) and 0 <= parameter_count <= 8192, "successor parameter count invalid")
     capabilities = one(records, "ap12_capabilities")
-    require(capabilities.get("float32_result") == 0, "successor lost predecessor float32 baseline")
+    float32_result = capabilities.get("float32_result")
+    float64_result = capabilities.get("float64_result")
+    require(type(float32_result) is int and float32_result == 0, "successor lost predecessor float32 baseline")
+    require(type(float64_result) is int and float64_result != 0, "successor gained unsupported float64 capability")
     controller = one(records, "ap8_controller_association")
     require(isinstance(controller.get("combined"), bool), "successor controller association invalid")
     if controller["combined"] is False:
@@ -853,6 +875,7 @@ def validate_successor_delta(records: list[dict[str, Any]], lock: dict[str, Any]
         "predecessor_revision": predecessor["revision"],
         "predecessor_module_sha256": predecessor["module_sha256"],
         "successor_module_sha256": lock["fixture"]["module"]["sha256"],
+        "factory_vendor": factory_vendor,
         "class_continuity": True,
         "class_id": observed_class["class_id"],
         "predecessor_version": predecessor["class"]["version"],
@@ -860,6 +883,8 @@ def validate_successor_delta(records: list[dict[str, Any]], lock: dict[str, Any]
         "predecessor_parameter_count": predecessor["parameter_count"],
         "successor_parameter_count": parameter_count,
         "parameter_count_changed": parameter_count != predecessor["parameter_count"],
+        "float32_result": float32_result,
+        "float64_result": float64_result,
         "controller_association": {
             "combined": controller["combined"],
             "class_id": controller.get("class_id"),

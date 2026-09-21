@@ -20,6 +20,8 @@ on:
       - '.github/workflows/ap12-manager.yml'
       - 'tools/ap8_descriptor.py'
       - 'tools/test_ap10_descriptor.py'
+      - 'tools/frg1/**'
+      - 'evidence/frg1/**'
       - 'tools/uio1/**'
       - 'tools/uir1/**'
       - 'tools/uio2/**'
@@ -50,6 +52,7 @@ jobs:
       - run: cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings
       - run: python3 -m unittest discover -s bridge-manager/runtime -v
       - run: python3 tools/test_ap10_descriptor.py
+      - run: python3 tools/frg1/test_census.py
       - run: python3 -m unittest discover -s tools/mf3 -v
       - run: python3 -m unittest discover -s tools/lc2 -v
       - run: python3 -m unittest discover -s tools/is3 -v

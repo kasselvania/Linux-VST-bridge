@@ -69,10 +69,20 @@ back to the historical bytes.
    native proxy and predecessor relationship into one `review_candidate` profile.
 6. Prove old/new module, runner, host, descriptor and proxy cross-combinations refuse.
 7. Return the draft product PR for review; do not deploy from an unmerged product PR.
-8. After merge, update the Ubuntu-lab product lock and adopt the retained prefix
-   without rewriting its owner marker. Publish to a new revision-addressed lab path.
-9. Repeat the proven baseline in Bitwig on Ubuntu: scan, first load, editor, nonzero
-   audio, parameter change/readback, save/close/reopen, retirement and second launch.
+8. After this candidate and the required canonical manager/scanner/session corrections
+   are independently reviewed and integrated, lock that exact merged commit and tree
+   as the Ubuntu installation source.
+9. Install that canonical generation, then adopt the retained prefix under a separate
+   product-owned environment record without rewriting its Ubuntu-lab owner marker or
+   original custody history.
+10. Verify the adopted environment as exact `ArturiaPersistentV1` revision 2 with the
+    locked Ubuntu runner closure.
+11. Run the canonical manager `EnvironmentRescan`; require its fresh inventory to
+    select revision 11 under `SelectionPurpose::Qualification`.
+12. Only then prepare and publish the revision-addressed qualification candidate in
+    the lab-only path.
+13. Repeat the proven baseline in Bitwig on Ubuntu: scan, first load, editor, nonzero
+    audio, parameter change/readback, save/close/reopen, retirement and second launch.
 
 ## Retained failed executions
 
@@ -121,6 +131,15 @@ Revision 11 binds those identities to the exact module, GE-Proton installation a
 Ubuntu runtime receipts, direct-Proton entry adapter, Windows host/source manifest,
 factory census and historical predecessor. Its claim remains `review_candidate`, so
 ordinary activation is refused.
+
+The corrected preparation validator replayed the retained private-report digest and
+confirmed exact factory vendor `Arturia`, float32 result `0`, and nonzero float64
+result `1`. The replay did not modify attempt 005 or rebuild the descriptor or proxy.
+
+The retained attempt-005 snapshot census is candidate-preparation evidence, not a
+publication census. Ubuntu publication requires a later reviewed integrated product
+generation, a product-owned adoption record, exact environment verification, and a
+fresh canonical `EnvironmentRescan` selecting revision 11 for qualification.
 
 The earlier failures remain immutable evidence. They do not independently establish
 that FRAGMENTS was loaded; attempt 005 supplies that later authority. The recalibrated
