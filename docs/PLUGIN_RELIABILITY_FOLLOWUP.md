@@ -40,6 +40,18 @@ experimental publication revisions before their next physical checks. The old
 publications remain rollback authority. The touch comparison below resumes only
 after that boundary is reviewed and installed.
 
+The approved managed-refresh build was then installed, but exact readback
+stopped the procedure before either refresh. Blackhole and Kontakt were managed
+by retained installation history plus current registry ownership, while the
+installed catalogue contained only ordinary-profile environments. The manager
+therefore displayed the instruction to use the managed refresh without
+displaying either environment or its refresh action. The correction now derives
+one exact managed roster from catalogue bindings plus registry-owned retained
+managed-installation bindings and uses it for both projection and final scan
+authorization. Conflicting identities refuse. The regression uses this physical
+topology instead of manufacturing a catalogue entry. No scanner or product was
+launched during discovery or repair.
+
 Source candidate update (2026-09-20): the shared Blackhole/Kontakt reliability
 slice now admits the exact current managed-experimental publication to optional
 detailed capture and projects existing IF1 editor/host/transport terminal

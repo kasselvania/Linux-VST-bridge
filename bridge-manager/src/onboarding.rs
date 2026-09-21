@@ -963,7 +963,7 @@ mod tests {
         fs::write(&installer_path, installer_bytes).unwrap();
         let i = installer_import::import(&f.m, file(&installer_path).unwrap()).unwrap();
         let catalogue_path = f.m.root.join("software/catalogue.json");
-        let mut catalogue = Catalogue {
+        let catalogue = Catalogue {
             schema: 3,
             natives: vec![native],
             hosts: vec![],
@@ -979,7 +979,7 @@ mod tests {
             sha256: digest(&source_path).unwrap(),
             path: source_path,
         };
-        let mut sw = Software {
+        let sw = Software {
             installer_launch: None,
             preparation_kit: None,
             operator_frontend: None,
@@ -1008,13 +1008,10 @@ mod tests {
         let id = created["onboarding"].as_str().unwrap();
         let op = "cd".repeat(16);
         let record = reserve(&f.m, id, &op).unwrap();
-        catalogue.environments[0].environment = record.environment.clone();
-        atomic_json(&catalogue_path, &catalogue).unwrap();
-        sw.native_catalogue = Some(Artifact {
-            sha256: digest(&catalogue_path).unwrap(),
-            path: catalogue_path,
-        });
-        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        assert!(catalogue
+            .environments
+            .iter()
+            .all(|binding| binding.environment.id != id));
         atomic_json(
             &directory(&f.m, id)
                 .unwrap()

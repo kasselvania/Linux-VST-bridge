@@ -1,0 +1,42 @@
+{
+  "schema": "linux-vst-bridge-managed-refresh-physical-topology/v1",
+  "observed_at_utc": "2026-09-21",
+  "source": {
+    "pull_request": 135,
+    "commit": "fdc37045d78f6ac41c9b436d245593e1b7f7c59f",
+    "tree": "12d96637ae5a57aff2ab669b78964a8eaf164926"
+  },
+  "installation": {
+    "package_manifest_sha256": "e7df9bb3b6b7ef8ff11cb30654ab97013808a26b3ae06f6c088d43a58fae1a4f",
+    "installed_generation": "7d3db463c18a8afadbdc364ee94c2a6d2f5cf82ef2b7c095fd07d7a9b18af6e6",
+    "installation_receipt_sha256": "71750d587928f9ee6bd7aa5645e7c4edcf0f4fd205ce6458fc7a7e2e760bc2a9",
+    "rollback_generation": "49758648eacc262dbd4c27856c7625c5c3705665324efca3c41670ac44225354",
+    "service_active": true,
+    "service_idle": true
+  },
+  "observed_topology": {
+    "installed_catalogue_environment_count": 1,
+    "installed_catalogue_environment_family": "ArturiaPersistentV1",
+    "blackhole_environment": "8b064373d533b72230cb4009952eaab4",
+    "kontakt_environment": "627d2cba97edbecf113c22504eb4c81b",
+    "blackhole_registry_owner_present": true,
+    "kontakt_registry_owner_present": true,
+    "blackhole_retained_onboarding_present": true,
+    "kontakt_retained_onboarding_present": true,
+    "blackhole_onboarding_state": "needs_attention",
+    "kontakt_onboarding_state": "needs_attention",
+    "blackhole_environment_card_present": false,
+    "kontakt_environment_card_present": false,
+    "blackhole_refresh_action_present": false,
+    "kontakt_refresh_action_present": false,
+    "finding": "The reviewed fixture inserted the managed environment into the installed catalogue. The physical managed experimental environments are instead jointly authenticated by retained onboarding history and current exact registry ownership, so the catalogue-only projection omitted their sole refresh operation."
+  },
+  "operations": {
+    "inventory_scan_submitted": false,
+    "candidate_prepared": false,
+    "publication_changed": false,
+    "bitwig_launched": false,
+    "plugin_launched": false
+  },
+  "disposition": "SOURCE_REPAIR_REQUIRED_BEFORE_MANAGED_REFRESH"
+}

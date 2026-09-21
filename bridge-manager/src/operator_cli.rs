@@ -358,14 +358,46 @@ fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
     result.sort_by_key(|r| r.revision);
     Ok(result)
 }
-fn managed_rescan_binding(
+fn managed_environment_bindings(
     m: &Manager,
     catalogue: &linux_vst_bridge::catalogue::Catalogue,
     registry: &Registry,
+) -> Result<Vec<linux_vst_bridge::catalogue::EnvironmentBinding>> {
+    let mut bindings = catalogue.environments.clone();
+    for retained in onboarding::history_records(m)? {
+        if !registry
+            .classes
+            .values()
+            .any(|entry| entry.registration.environment.id == retained.environment.id)
+        {
+            continue;
+        }
+        let binding = linux_vst_bridge::catalogue::EnvironmentBinding {
+            family: linux_vst_bridge::profiles::Family::ManagedInstallerV1,
+            environment: retained.environment,
+        };
+        if let Some(existing) = bindings
+            .iter()
+            .find(|candidate| candidate.environment.id == binding.environment.id)
+        {
+            require(
+                existing == &binding,
+                "operator_managed_environment_binding_conflict",
+            )?;
+        } else {
+            require(bindings.len() < 16, "operator_environment_bound")?;
+            bindings.push(binding);
+        }
+    }
+    Ok(bindings)
+}
+fn managed_rescan_binding_from(
+    m: &Manager,
+    bindings: &[linux_vst_bridge::catalogue::EnvironmentBinding],
+    registry: &Registry,
     environment: &str,
 ) -> Result<Option<Environment>> {
-    let env = &catalogue
-        .environments
+    let env = &bindings
         .iter()
         .find(|candidate| candidate.environment.id == environment)
         .ok_or("operator_environment_absent")?
@@ -396,6 +428,19 @@ fn managed_rescan_binding(
     }
     Ok(Some(env.clone()))
 }
+fn managed_rescan_binding(
+    m: &Manager,
+    catalogue: &linux_vst_bridge::catalogue::Catalogue,
+    registry: &Registry,
+    environment: &str,
+) -> Result<Option<Environment>> {
+    managed_rescan_binding_from(
+        m,
+        &managed_environment_bindings(m, catalogue, registry)?,
+        registry,
+        environment,
+    )
+}
 pub(super) fn environment_projection(
     m: &Manager,
     sw: &Software,
@@ -403,8 +448,8 @@ pub(super) fn environment_projection(
     registry: &Registry,
     busy: Option<&str>,
 ) -> Result<Vec<ui::Environment>> {
-    catalogue
-        .environments
+    let bindings = managed_environment_bindings(m, catalogue, registry)?;
+    bindings
         .iter()
         .map(|entry| {
             let scan = optional(
@@ -412,8 +457,12 @@ pub(super) fn environment_projection(
                     .join("inventory")
                     .join(format!("{}.json", entry.environment.id)),
             )?;
-            let actions = if let Some(environment) =
-                managed_rescan_binding(m, catalogue, registry, &entry.environment.id)?
+            let actions = if let Some(environment) = managed_rescan_binding_from(
+                m,
+                &bindings,
+                registry,
+                &entry.environment.id,
+            )?
             {
                 if onboarding::inventory_refresh_required(
                     m,

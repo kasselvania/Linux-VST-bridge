@@ -55,6 +55,28 @@ Kontakt still require freshly prepared immutable proxy candidates and exact
 inactive experimental replacement before either physical launch. Their prior
 publications remain rollback authority.
 
+Physical managed-inventory update (2026-09-21): the approved `fdc37045`
+package was installed as immutable generation
+`7d3db463c18a8afadbdc364ee94c2a6d2f5cf82ef2b7c095fd07d7a9b18af6e6`.
+The service returned active and idle and the prior `6fea0f4` generation remains
+present for rollback. Before any scan or product launch, exact readback exposed
+a production-topology gap: Blackhole and Kontakt retained managed onboarding
+history and exact registry owners, but neither environment was in the installed
+ordinary-profile catalogue. Their onboarding cards therefore said to use the
+managed-environment refresh while no corresponding environment card or action
+existed. Only Arturia's ordinary catalogue environment was projected.
+
+The focused correction derives the managed environment roster from the union of
+the verified installed catalogue and retained managed-installation environments
+that have a current exact registry owner. A retained environment is admitted
+only as `ManagedInstallerV1`; duplicate IDs must bind the complete same family
+and environment. The same derived roster governs both presentation and the
+final registry-locked rescan owner. The production-shaped regression no longer
+inserts its managed fixture into the catalogue by hand. No inventory scan,
+candidate preparation, publication, Bitwig session, or product launch occurred.
+See
+`evidence/catalog-reliability/managed-refresh-physical-topology.sanitized.json`.
+
 Correction basis: stacked merge `18cc2c11b35c6c3c04d88c4703c8a6d88996249a`,
 tree `9311091011ec69caa4799f2e12fa972e3ac74781`. That merge entered the
 still-unmerged Blackhole branch before review of PR #134 was complete. It was
