@@ -426,6 +426,7 @@ mod frg1_tests {
             .claim
             .require(SelectionPurpose::Activation)
             .is_err());
+        assert!(!installed_profiles().unwrap().contains(&candidate));
         assert_eq!(predecessor.revision, 10);
         assert_eq!(candidate.class.class_id, predecessor.class.class_id);
         assert_ne!(candidate.module_sha256, predecessor.module_sha256);

@@ -1,0 +1,31 @@
+{
+  "conflict_resolution": {
+    "current_slice": "replaced_with_fci1_integration_authority",
+    "profiles": "frg1_candidate_preserved_with_explicit_none_for_new_optional_runner_policy"
+  },
+  "frg1": {
+    "head_commit": "78f1e390b7690fdd41fb89ff783b1d6f156d0243",
+    "head_tree": "549cd2a6ea743608614ce0feb8ef696d1f8ece02",
+    "merge_commit": "55a7aae032787d3e0501863b21348e17c73f854a",
+    "preserved_nonconflicting_paths": 14,
+    "pull_request": 137
+  },
+  "integration_merge": {
+    "commit": "ef2787e353e39d1f82e6adde52f6137cae8392cc",
+    "parents": [
+      "55a7aae032787d3e0501863b21348e17c73f854a",
+      "c576787dcb7338c460d7fcdd2f8a5cf54aeadc79"
+    ],
+    "tree": "ab4532e4383aaed720c91161970b76eaf7d187a3"
+  },
+  "lead_platform": {
+    "head_commit": "c576787dcb7338c460d7fcdd2f8a5cf54aeadc79",
+    "head_tree": "7010697eb24fd726e25a8f1bd2141f0fc597406c",
+    "preserved_nonconflicting_paths": 155
+  },
+  "qualification_scope": {
+    "physical_execution_authorized": false,
+    "statement": "This record binds exact source-integration inputs only. It does not authorize Ubuntu or Steam Deck deployment, publication, Bitwig, ASC, or plug-in execution."
+  },
+  "schema": "linux-vst-bridge-fci1-integration-inputs/v1"
+}

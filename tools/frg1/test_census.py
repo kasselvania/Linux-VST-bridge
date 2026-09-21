@@ -349,6 +349,23 @@ class CensusTests(unittest.TestCase):
         self.assertFalse(replay["scope"]["physical_execution_performed"])
         self.assertFalse(replay["scope"]["attempt_005_historical_identity_rewritten"])
 
+    def test_integration_inputs_bind_both_exact_product_lines_without_execution(self) -> None:
+        record = json.loads((ROOT / "evidence/frg1/integration-inputs.json").read_text())
+        self.assertEqual(record["schema"], "linux-vst-bridge-fci1-integration-inputs/v1")
+        self.assertEqual(record["frg1"]["head_commit"], "78f1e390b7690fdd41fb89ff783b1d6f156d0243")
+        self.assertEqual(
+            record["lead_platform"]["head_commit"],
+            "c576787dcb7338c460d7fcdd2f8a5cf54aeadc79",
+        )
+        self.assertEqual(
+            record["integration_merge"]["parents"],
+            [
+                "55a7aae032787d3e0501863b21348e17c73f854a",
+                "c576787dcb7338c460d7fcdd2f8a5cf54aeadc79",
+            ],
+        )
+        self.assertFalse(record["qualification_scope"]["physical_execution_authorized"])
+
 
 if __name__ == "__main__":
     unittest.main()
