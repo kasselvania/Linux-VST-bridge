@@ -12,7 +12,7 @@ The accepted base is the official **Raspberry Pi OS Lite (64-bit), Trixie,
 SHA-256 cdf4f3bfac35ae947b46e4e767f935453810549779ac3290e05a6754aee627e5
 ```
 
-`pinned-inputs.json` records the image, kernel, firmware, exact added packages, source
+`pinned-inputs.json` records the image, exact kernel profiles, firmware, exact added packages, source
 commits, inspected-file hashes, and adapted-overlay hashes. `verify-image.sh` verifies a
 download before it is written to a **fresh** SD card. Never point an imaging tool or any
 script here at the retained working norns card.
@@ -22,14 +22,12 @@ not the selected hardware claim.
 
 ## Why one external kernel module exists
 
-The exact official Pi 5 `rpi-2712` kernel package was inspected before implementation.
-It uses 16 KiB pages and ships RP1 DesignWare I2S, simple-card, rotary-encoder, GPIO-key,
-and spidev drivers but has
+The exact official Pi 5 `rpi-2712` 16 KiB kernel and RPI0 `rpi-v8` 4 KiB integration
+kernel were inspected. Both ship RP1 DesignWare I2S and simple-card support but have
 `CONFIG_SND_SOC_CS4270` disabled. `kernel-driver-admission.json` preserves that concrete
-deficiency. `build-cs4270-module.sh` builds the unmodified upstream Linux v6.18 codec
-driver against the exact distribution headers; it refuses drift in the image's pinned
-compiler, binutils, make, build-essential, or kernel-header packages and does not replace
-the kernel image.
+deficiency. `build-cs4270-module.sh` builds the same unmodified upstream Linux v6.18
+codec driver against the exact headers for the running admitted profile; it refuses
+crossed kernel/page-size pairs or package drift and does not replace the kernel image.
 
 The overlay is Pi-5-specific. It targets RP1 GPIO/I2C/SPI and the RP1
 `i2s_clk_consumer` DAI because the CS4270 owns bit and frame clocks. Static application
@@ -57,14 +55,18 @@ Run these from an exact checkout of the experiment branch on the fresh Pi image.
 5. Reboot again, then run `./verify-platform.sh PRIVATE_OUTPUT_DIRECTORY`.
 
 The split is deliberate: full provisioning will not proceed until an 8 GB Pi 5 running
-the exact 16 KiB-page kernel is admitted and the physical codec
+one exact admitted kernel/page-size profile is admitted and the physical codec
 acknowledges exactly address `0x48` through one SMBus Quick presence transaction. The
 probe takes an exclusive GPIO17 lease, drives the codec's active-low reset high, waits
 10 ms, performs the single transaction, and releases the line so the codec returns to
 reset until the full kernel driver owns it. It also
-refuses the wrong architecture, wrong board, wrong image, wrong kernel, wrong page size,
-prohibited RPI0 software, explicit overclock configuration, unexpected boot
+refuses the wrong architecture, wrong board, wrong image, wrong kernel/page-size pair,
+prohibited RPI0 software in the isolated 16 KiB profile, explicit overclock configuration, unexpected boot
 configuration, package-version drift, or a foreign replacement file.
+
+The `rpi0-4k-integration` profile admits only `6.18.50+rpt-rpi-v8` with 4,096-byte pages
+and the exact `[all]` selector `kernel=kernel8.img`. Box64/Wine may already exist there
+because RPI0 owns them; these scripts still do not install, launch, or clean that cohort.
 
 The scripts modify only:
 

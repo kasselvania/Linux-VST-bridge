@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "observed_at_utc": "2026-09-21T05:51:38Z",
+  "status": "platform_enumeration_and_reboot_passed_physical_audio_pending",
+  "fixture": {
+    "model": "Raspberry Pi 5 Model B Rev 1.1",
+    "revision": "d04171",
+    "mem_total_kib": 8145712,
+    "cooling": "none",
+    "overclock": false,
+    "shieldxl_passive_airflow": "obstructed"
+  },
+  "kernel": {
+    "profile": "rpi0-4k-integration",
+    "release": "6.18.50+rpt-rpi-v8",
+    "package": "linux-image-6.18.50+rpt-rpi-v8",
+    "package_version": "1:6.18.50-1+rpt1",
+    "package_sha256": "8d44827fea22875e0f801252bdbc0f541c03144e970caafa3115bf485ff3c4bd",
+    "headers_package": "linux-headers-6.18.50+rpt-rpi-v8",
+    "headers_version": "1:6.18.50-1+rpt1",
+    "headers_sha256": "73f6bdca094e4780c38bcff022ac2fab0a754217df697c258273cd9d8019fa8d",
+    "page_size_bytes": 4096,
+    "boot_selector": "kernel=kernel8.img"
+  },
+  "cs4270_module": {
+    "source": "unmodified upstream Linux v6.18 sound/soc/codecs/cs4270.c",
+    "source_sha256": "ec028f382ec93a795d5c6abaf40acb47e9c0ff5eccc0a1de934d581b49bc0029",
+    "module_sha256": "63414ef8251cd211f69898a0adc7fd06a5475879aa363669563629f7fbefac88",
+    "vermagic": "6.18.50+rpt-rpi-v8 SMP preempt mod_unload modversions aarch64",
+    "load_result": "pass",
+    "i2c_binding": "1-0048/cs4270",
+    "reboot_autoload_result": "pass"
+  },
+  "platform": {
+    "alsa_card_id": "SHIELDXL",
+    "playback_enumeration": "pass",
+    "capture_enumeration": "pass",
+    "jack_service": "shieldxl-jack@shieldxl.service",
+    "jack_service_after_reboot": "active",
+    "jack_ports": [
+      "system:capture_1",
+      "system:capture_2",
+      "system:playback_1",
+      "system:playback_2",
+      "system:midi_capture_1",
+      "system:midi_playback_1"
+    ],
+    "control_aliases": "all three encoder and all three button aliases present",
+    "oled_spi_alias": "/dev/shieldxl-oled-spi present",
+    "direct_pcm_probe": "not independently exercised because the active JACK service owned both PCM directions",
+    "physical_tone_on_4k": "not_run",
+    "physical_loopback_on_4k": "not_run",
+    "oled_visual_acceptance": "pending_operator"
+  },
+  "runs": [
+    {
+      "label": "cs4270-4k-build",
+      "result": "pass",
+      "temperature_before_c": 53.2,
+      "temperature_maximum_c": 55.4,
+      "temperature_after_c": 55.4,
+      "clock_minimum_hz": 1500000000,
+      "clock_maximum_hz": 2400000000,
+      "throttling_flags": ["0x0"]
+    },
+    {
+      "label": "cs4270-4k-provision",
+      "result": "fail_closed",
+      "reason": "installed mixer-state.sh matched exact historical predecessor SHA-256 6e1e5e3fa0b3ab9fa7bb631bca40bcdb97b0b9da38aaaf715c9142af00b24fc3 rather than the current source; no foreign file was overwritten",
+      "temperature_before_c": 54.9,
+      "temperature_maximum_c": 58.2,
+      "temperature_after_c": 57.1,
+      "clock_minimum_hz": 2400000000,
+      "clock_maximum_hz": 2400000000,
+      "throttling_flags": ["0x0"]
+    },
+    {
+      "label": "cs4270-4k-provision-retry",
+      "result": "pass_after_exact_predecessor_admission",
+      "temperature_before_c": 54.3,
+      "temperature_maximum_c": 58.2,
+      "temperature_after_c": 56.5,
+      "clock_minimum_hz": 1500000000,
+      "clock_maximum_hz": 2400000000,
+      "throttling_flags": ["0x0"]
+    },
+    {
+      "label": "shieldxl0-4k-platform-verify",
+      "result": "13_of_13_enumeration_checks_passed",
+      "temperature_before_c": 52.7,
+      "temperature_maximum_c": 53.2,
+      "temperature_after_c": 52.1,
+      "clock_minimum_hz": 1500000000,
+      "clock_maximum_hz": 1600000000,
+      "throttling_flags": ["0x0"]
+    },
+    {
+      "label": "post-reboot-readback",
+      "result": "pass",
+      "temperature_c": 53.8,
+      "clock_hz": 1500000000,
+      "throttling": "0x0"
+    }
+  ],
+  "preserved_failures": [
+    "The first provisioning attempt refused the exact historical mixer-state.sh predecessor until that hash was explicitly admitted for one bounded upgrade.",
+    "Direct ALSA hardware-parameter opening was busy while JACK owned the device and is not represented as a separate open/close pass.",
+    "No physical tone, loopback, USB MIDI, or visual OLED acceptance was performed in this 4 KiB extension run."
+  ],
+  "nonclaims": [
+    "This is not complete SHIELDXL0 acceptance.",
+    "This does not establish RPI0 physical MIDI, audible output, editor, latency, or sustained-performance acceptance."
+  ]
+}

@@ -115,17 +115,23 @@ build_dir=$(mktemp -d /var/tmp/shieldxl0-provision.XXXXXX)
   die 'locally rebuilt DTBO differs from the retained binary'
 overlay_destination=$boot_dir/overlays/shieldxl0.dtbo
 module_destination=/lib/modules/$SHIELDXL0_KERNEL/updates/shieldxl0/snd-soc-cs4270.ko
+module_hash_record="$SHIELDXL0_STATE_DIR/cs4270-module.$SHIELDXL0_KERNEL.sha256"
+legacy_module_hash_record="$SHIELDXL0_STATE_DIR/cs4270-module.sha256"
 install_exact "$SCRIPT_DIR/overlays/shieldxl0.dtbo" "$overlay_destination" 0644
 mkdir -p "$SHIELDXL0_STATE_DIR"
 if [[ -f $module_destination ]]; then
-  [[ -f $SHIELDXL0_STATE_DIR/cs4270-module.sha256 ]] || die "foreign codec module exists: $module_destination"
-  [[ $(sha256_file "$module_destination") == $(cat "$SHIELDXL0_STATE_DIR/cs4270-module.sha256") ]] ||
+  ownership_record=$module_hash_record
+  if [[ ! -f $ownership_record && $SHIELDXL0_KERNEL == "$SHIELDXL0_KERNEL_16K" && -f $legacy_module_hash_record ]]; then
+    ownership_record=$legacy_module_hash_record
+  fi
+  [[ -f $ownership_record ]] || die "foreign codec module exists: $module_destination"
+  [[ $(sha256_file "$module_destination") == $(cat "$ownership_record") ]] ||
     die "installed codec module differs from its ownership record: $module_destination"
 else
   "$SCRIPT_DIR/build-cs4270-module.sh" "$build_dir/snd-soc-cs4270.ko" >"$build_dir/module-hash.txt"
   install -D -m 0644 "$build_dir/snd-soc-cs4270.ko" "$module_destination"
-  sha256_file "$module_destination" >"$SHIELDXL0_STATE_DIR/cs4270-module.sha256"
 fi
+sha256_file "$module_destination" >"$module_hash_record"
 install_exact "$SCRIPT_DIR/config/99-shieldxl0.rules" /etc/udev/rules.d/99-shieldxl0.rules 0644
 install_exact "$SCRIPT_DIR/config/99-shieldxl0-alsa.conf" /etc/alsa/conf.d/99-shieldxl0.conf 0644
 install_exact "$SCRIPT_DIR/config/shieldxl0-modules.conf" /etc/modules-load.d/shieldxl0.conf 0644
@@ -134,7 +140,11 @@ install_exact "$SCRIPT_DIR/config/99-shieldxl0-limits.conf" /etc/security/limits
 install_exact "$SCRIPT_DIR/systemd/shieldxl-jack@.service" /etc/systemd/system/shieldxl-jack@.service 0644
 install_exact "$SCRIPT_DIR/systemd/shieldxl-oled@.service" /etc/systemd/system/shieldxl-oled@.service 0644
 for program in controls.py oled_service.py oled_client.py audio_probe.py audio-test.sh mixer-state.sh observed-run.sh thermal-observe.sh; do
-  install_exact "$SCRIPT_DIR/$program" "/usr/local/libexec/shieldxl0/$program" 0755
+  admitted_predecessor=
+  if [[ $program == mixer-state.sh ]]; then
+    admitted_predecessor=6e1e5e3fa0b3ab9fa7bb631bca40bcdb97b0b9da38aaaf715c9142af00b24fc3
+  fi
+  install_exact "$SCRIPT_DIR/$program" "/usr/local/libexec/shieldxl0/$program" 0755 "$admitted_predecessor"
 done
 
 for group in audio input spi gpio; do
@@ -156,17 +166,24 @@ provisioning_commit=unknown
 if git -C "$SCRIPT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   provisioning_commit=$(git -C "$SCRIPT_DIR" rev-parse HEAD)
 fi
-module_sha256=$(cat "$SHIELDXL0_STATE_DIR/cs4270-module.sha256")
-python3 - "$SHIELDXL0_STATE_DIR/state.json" "$target_user" "$provisioning_commit" "$module_sha256" <<'PY'
+module_sha256=$(cat "$module_hash_record")
+python3 - "$SHIELDXL0_STATE_DIR/state.json" "$target_user" "$provisioning_commit" "$module_sha256" \
+  "$SHIELDXL0_PLATFORM_PROFILE" "$SHIELDXL0_KERNEL" "$SHIELDXL0_PAGE_SIZE" <<'PY'
 import json, pathlib, sys
-destination, user, commit, module_sha256 = sys.argv[1:]
-pathlib.Path(destination).write_text(json.dumps({
-    "schema_version": 1,
+destination, user, commit, module_sha256, profile, kernel, page_size = sys.argv[1:]
+path = pathlib.Path(destination)
+state = json.loads(path.read_text()) if path.exists() else {}
+state.update({
+    "schema_version": 2,
     "target_user": user,
     "provisioning_commit": commit,
+    "platform_profile": profile,
+    "kernel_release": kernel,
+    "page_size_bytes": int(page_size),
     "cs4270_module_sha256": module_sha256,
     "reboot_required": True,
-}, indent=2, sort_keys=True) + "\n")
+})
+path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n")
 PY
 
 note 'full platform stage installed; JACK and OLED services remain disabled for ordered ALSA verification'

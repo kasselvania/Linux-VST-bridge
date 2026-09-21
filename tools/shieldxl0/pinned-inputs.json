@@ -36,6 +36,30 @@
       "CONFIG_SND_SOC_CS4270": "not set"
     }
   },
+  "rpi0_integration_kernel": {
+    "profile": "rpi0-4k-integration",
+    "release": "6.18.50+rpt-rpi-v8",
+    "package": "linux-image-6.18.50+rpt-rpi-v8",
+    "package_version": "1:6.18.50-1+rpt1",
+    "package_url": "https://archive.raspberrypi.com/debian/pool/main/l/linux/linux-image-6.18.50+rpt-rpi-v8_6.18.50-1+rpt1_arm64.deb",
+    "package_sha256": "8d44827fea22875e0f801252bdbc0f541c03144e970caafa3115bf485ff3c4bd",
+    "headers_package": "linux-headers-6.18.50+rpt-rpi-v8",
+    "headers_package_version": "1:6.18.50-1+rpt1",
+    "headers_package_sha256": "73f6bdca094e4780c38bcff022ac2fab0a754217df697c258273cd9d8019fa8d",
+    "page_size_bytes": 4096,
+    "boot_selector": "kernel=kernel8.img",
+    "base_dtb": {
+      "path": "usr/lib/modules/6.18.50+rpt-rpi-v8/dtb/broadcom/bcm2712-rpi-5-b.dtb",
+      "sha256": "a5165cb562035f479ea9f5a81cedf7b6596ea32a0598608c4dc3b77ada909c60"
+    },
+    "config_sha256": "545260efb824b8999548ce483bce856bb60e72718ced820fbd951c025689c746",
+    "config_admission": {
+      "CONFIG_ARM64_4K_PAGES": "y",
+      "CONFIG_SND_DESIGNWARE_I2S": "m",
+      "CONFIG_SND_SIMPLE_CARD": "m",
+      "CONFIG_SND_SOC_CS4270": "not set"
+    }
+  },
   "firmware": {
     "package": "raspi-firmware",
     "version": "1:1.20260907-1",
@@ -108,8 +132,10 @@
     "gpiod": "2.2.1-2+deb13u1",
     "kmod": "34.2-2",
     "linux-headers-6.18.50+rpt-rpi-2712": "1:6.18.50-1+rpt1",
+    "linux-headers-6.18.50+rpt-rpi-v8": "1:6.18.50-1+rpt1",
     "linux-headers-rpi-2712": "1:6.18.50-1+rpt1",
     "linux-image-6.18.50+rpt-rpi-2712": "1:6.18.50-1+rpt1",
+    "linux-image-6.18.50+rpt-rpi-v8": "1:6.18.50-1+rpt1",
     "make": "4.4.1-2",
     "python3": "3.13.5-1",
     "python3-libgpiod": "2.2.1-2+deb13u1",

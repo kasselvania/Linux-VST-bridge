@@ -11,6 +11,81 @@ LIB = ROOT / "lib.sh"
 
 
 class PlatformAdmissionTest(unittest.TestCase):
+    def run_install_exact(self, installed_content, predecessor_hash=""):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            source = root / "source"
+            destination = root / "destination"
+            source.write_text("current\n")
+            destination.write_text(installed_content)
+            result = subprocess.run(
+                [
+                    "/bin/bash",
+                    "-c",
+                    'source "$1"; install_exact "$2" "$3" 0644 "$4"',
+                    "test-platform-admission",
+                    str(LIB),
+                    str(source),
+                    str(destination),
+                    predecessor_hash,
+                ],
+                capture_output=True,
+                text=True,
+            )
+            observed = destination.read_text()
+        return result, observed
+
+    def test_exact_admitted_predecessor_can_be_upgraded(self):
+        import hashlib
+
+        predecessor = "predecessor\n"
+        predecessor_hash = hashlib.sha256(predecessor.encode()).hexdigest()
+        result, observed = self.run_install_exact(predecessor, predecessor_hash)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(observed, "current\n")
+
+    def test_unrecognized_predecessor_is_refused(self):
+        result, observed = self.run_install_exact("foreign\n", "0" * 64)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(observed, "foreign\n")
+        self.assertIn("foreign replacement file exists", result.stderr)
+
+    def run_profile_check(self, kernel, page_size):
+        return subprocess.run(
+            [
+                "/bin/bash",
+                "-c",
+                'source "$1"; select_platform_contract "$2" "$3"; printf "%s\\t%s\\t%s\\t%s\\n" "$SHIELDXL0_PLATFORM_PROFILE" "$SHIELDXL0_KERNEL" "$SHIELDXL0_PAGE_SIZE" "$SHIELDXL0_HEADERS_PACKAGE"',
+                "test-platform-admission",
+                str(LIB),
+                kernel,
+                str(page_size),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+    def test_exact_16k_platform_profile_is_admitted(self):
+        result = self.run_profile_check("6.18.50+rpt-rpi-2712", 16384)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.stdout,
+            "shieldxl0-16k\t6.18.50+rpt-rpi-2712\t16384\tlinux-headers-6.18.50+rpt-rpi-2712\n",
+        )
+
+    def test_exact_rpi0_4k_platform_profile_is_admitted(self):
+        result = self.run_profile_check("6.18.50+rpt-rpi-v8", 4096)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.stdout,
+            "rpi0-4k-integration\t6.18.50+rpt-rpi-v8\t4096\tlinux-headers-6.18.50+rpt-rpi-v8\n",
+        )
+
+    def test_crossed_kernel_page_size_pair_is_refused(self):
+        result = self.run_profile_check("6.18.50+rpt-rpi-v8", 16384)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unsupported kernel/page-size pair", result.stderr)
+
     def run_refusal_check(self, path):
         return subprocess.run(
             [
@@ -38,7 +113,7 @@ class PlatformAdmissionTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("prohibited software 'wine' is present", result.stderr)
 
-    def run_boot_check(self, content):
+    def run_boot_check(self, content, profile="shieldxl0-16k"):
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as stream:
             stream.write(content)
             config = stream.name
@@ -47,10 +122,11 @@ class PlatformAdmissionTest(unittest.TestCase):
                 [
                     "/bin/bash",
                     "-c",
-                    'source "$1"; refuse_boot_conflicts "$2"',
+                    'source "$1"; SHIELDXL0_PLATFORM_PROFILE="$3"; refuse_boot_conflicts "$2"',
                     "test-platform-admission",
                     str(LIB),
                     config,
+                    profile,
                 ],
                 capture_output=True,
                 text=True,
@@ -78,6 +154,19 @@ class PlatformAdmissionTest(unittest.TestCase):
         result = self.run_boot_check("[pi5]\ndtoverlay=unexpected\n")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("unadmitted existing device-tree overlay", result.stderr)
+
+    def test_exact_rpi0_kernel_selector_is_admitted_only_in_4k_profile(self):
+        content = "[all]\nkernel=kernel8.img\n"
+        result = self.run_boot_check(content, "rpi0-4k-integration")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        refused = self.run_boot_check(content, "shieldxl0-16k")
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("unadmitted kernel selector", refused.stderr)
+
+    def test_other_kernel_selector_is_refused_in_4k_profile(self):
+        result = self.run_boot_check("[all]\nkernel=foreign.img\n", "rpi0-4k-integration")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unadmitted kernel selector", result.stderr)
 
     def test_i2c_character_device_is_loaded_after_adapter_admission(self):
         with tempfile.TemporaryDirectory() as directory:

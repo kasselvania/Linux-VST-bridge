@@ -1,12 +1,18 @@
 # RPI0 hardware integration handoff
 
-RPI0 must first read `hardware-contract.json` and refuse integration unless
-`acceptance_status` is `accepted`. It must consume the recorded identities rather than
-rescanning and selecting a similarly named device.
+RPI0 must first read `hardware-contract.json`. A complete SHIELDXL0 claim still requires
+`acceptance_status` to be `accepted`, but the operator may explicitly defer OLED and
+authorize bounded RPI0 audio/MIDI integration while that overall status remains pending.
+In that case RPI0 must require the exact recorded kernel, CS4270 module, ALSA/JACK audio,
+and MIDI results individually and must not promote the bounded handoff into a complete
+SHIELDXL0 pass. It must consume recorded identities rather than selecting a similarly
+named device.
 
-The selected fixture is Raspberry Pi 5 with 8 GB RAM on the pinned `rpi-2712` kernel,
-which uses 16 KiB pages. RPI0 must treat that page size and the contract's exact kernel
-identity as part of its integration input rather than assuming the former Pi 4 shape.
+The selected RPI0 fixture is Raspberry Pi 5 with 8 GB RAM on the pinned
+`6.18.50+rpt-rpi-v8` integration kernel, which uses 4 KiB pages. The original
+`6.18.50+rpt-rpi-2712` / 16 KiB hardware profile remains retained, but it is not the
+translated-runtime profile. RPI0 must treat the 4 KiB page size and exact kernel identity
+as part of its integration input.
 
 The intended interfaces, pending physical confirmation, are:
 

@@ -1,10 +1,16 @@
 # SHIELDXL0 evidence status
 
-Status: **pending physical fixture**.
+Status: **4 KiB RPI0 platform enumeration and reboot passed; complete physical acceptance pending**.
 
-The retained source/package admission and deterministic tooling are ready. No Raspberry
-Pi hardware result is claimed yet. In particular, nulls and empty result arrays in
-`hardware-contract.json` are deliberate stop markers, not implicit passes.
+The retained source/package admission and deterministic tooling are ready. The exact
+Pi 5 8 GB fixture has now built, loaded, bound, and rebooted the pinned CS4270 module on
+the RPI0 4 KiB integration kernel, with the SHIELDXL ALSA card and JACK ports present.
+See `rpi0-4k-integration.json`. Nulls and empty result arrays in
+`hardware-contract.json` remain deliberate stop markers, not implicit passes.
+
+This is not complete hardware acceptance. The 4 KiB run did not perform a physical
+tone, physical loopback, USB MIDI event campaign, complete JACK period/XRUN matrix, or
+visual OLED confirmation.
 
 ## Retained pre-hardware result
 

@@ -3,13 +3,18 @@
 set -Eeuo pipefail
 
 SHIELDXL0_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-SHIELDXL0_KERNEL=6.18.50+rpt-rpi-2712
+SHIELDXL0_KERNEL_16K=6.18.50+rpt-rpi-2712
+SHIELDXL0_KERNEL_RPI0_4K=6.18.50+rpt-rpi-v8
+SHIELDXL0_KERNEL_PACKAGE_VERSION=1:6.18.50-1+rpt1
 SHIELDXL0_MODEL='Raspberry Pi 5 Model B'
-SHIELDXL0_PAGE_SIZE=16384
 SHIELDXL0_RAM_KIB_MIN=7500000
 SHIELDXL0_RAM_KIB_MAX=8500000
 SHIELDXL0_STATE_DIR=/var/lib/shieldxl0
 SHIELDXL0_CONFIG_DIR=/etc/shieldxl0
+SHIELDXL0_KERNEL=
+SHIELDXL0_PAGE_SIZE=
+SHIELDXL0_HEADERS_PACKAGE=
+SHIELDXL0_PLATFORM_PROFILE=
 
 die() {
   printf 'SHIELDXL0: %s\n' "$*" >&2
@@ -40,6 +45,27 @@ read_revision() {
   awk -F: '/^Revision[[:space:]]*:/ {gsub(/[[:space:]]/, "", $2); print $2; exit}' /proc/cpuinfo
 }
 
+select_platform_contract() {
+  local release=$1 page_size=$2
+  case "$release:$page_size" in
+    "$SHIELDXL0_KERNEL_16K:16384")
+      SHIELDXL0_KERNEL=$SHIELDXL0_KERNEL_16K
+      SHIELDXL0_PAGE_SIZE=16384
+      SHIELDXL0_HEADERS_PACKAGE=linux-headers-$SHIELDXL0_KERNEL_16K
+      SHIELDXL0_PLATFORM_PROFILE=shieldxl0-16k
+      ;;
+    "$SHIELDXL0_KERNEL_RPI0_4K:4096")
+      SHIELDXL0_KERNEL=$SHIELDXL0_KERNEL_RPI0_4K
+      SHIELDXL0_PAGE_SIZE=4096
+      SHIELDXL0_HEADERS_PACKAGE=linux-headers-$SHIELDXL0_KERNEL_RPI0_4K
+      SHIELDXL0_PLATFORM_PROFILE=rpi0-4k-integration
+      ;;
+    *)
+      die "unsupported kernel/page-size pair: observed $release / $page_size bytes"
+      ;;
+  esac
+}
+
 require_platform() {
   local model architecture release codename page_size ram_kib
   [[ -r /proc/device-tree/model ]] || die 'device-tree model is unavailable; this is not an admitted Pi fixture'
@@ -48,7 +74,8 @@ require_platform() {
   architecture=$(dpkg --print-architecture)
   [[ $architecture == arm64 ]] || die "wrong architecture: expected arm64, observed '$architecture'"
   release=$(uname -r)
-  [[ $release == "$SHIELDXL0_KERNEL" ]] || die "unsupported kernel: expected $SHIELDXL0_KERNEL, observed $release"
+  page_size=$(getconf PAGESIZE)
+  select_platform_contract "$release" "$page_size"
   # shellcheck disable=SC1091
   source /etc/os-release
   codename=${VERSION_CODENAME:-}
@@ -56,14 +83,13 @@ require_platform() {
     die "unsupported OS: expected Raspberry Pi OS Trixie, observed ${ID:-unknown}/${codename:-unknown}"
   grep -Fqx 'Raspberry Pi reference 2026-09-15' /etc/rpi-issue ||
     die 'image identity differs from the pinned 2026-09-15 Raspberry Pi OS image'
-  page_size=$(getconf PAGESIZE)
-  [[ $page_size == "$SHIELDXL0_PAGE_SIZE" ]] ||
-    die "unsupported page size: expected $SHIELDXL0_PAGE_SIZE, observed $page_size"
   ram_kib=$(awk '/^MemTotal:/ {print $2; exit}' /proc/meminfo)
   [[ $ram_kib =~ ^[0-9]+$ && $ram_kib -ge $SHIELDXL0_RAM_KIB_MIN && $ram_kib -le $SHIELDXL0_RAM_KIB_MAX ]] ||
     die "wrong RAM fixture: expected Pi 5 8 GB, observed MemTotal ${ram_kib:-unknown} KiB"
   [[ -n $(read_revision) ]] || die 'Pi board revision is unavailable'
-  refuse_prohibited_runtimes
+  if [[ $SHIELDXL0_PLATFORM_PROFILE == shieldxl0-16k ]]; then
+    refuse_prohibited_runtimes
+  fi
 }
 
 refuse_prohibited_runtimes() {
@@ -94,8 +120,8 @@ boot_config_path() {
 }
 
 refuse_boot_conflicts() {
-  local config=$1 line overlay section=all
-  if grep -Eiq '^[[:space:]]*(kernel=|dtoverlay=(monome-snd-4270|norns-buttons-encoders|ssd1322-spi|midi-uart0)|include[[:space:]]+shieldxl0\.conf[^[:space:]]+|(arm|core|gpu|v3d|isp|hevc)_freq(_min)?=|over_voltage(_min|_delta)?=|force_turbo=)' "$config"; then
+  local config=$1 line overlay kernel_image section=all
+  if grep -Eiq '^[[:space:]]*(dtoverlay=(monome-snd-4270|norns-buttons-encoders|ssd1322-spi|midi-uart0)|include[[:space:]]+shieldxl0\.conf[^[:space:]]+|(arm|core|gpu|v3d|isp|hevc)_freq(_min)?=|over_voltage(_min|_delta)?=|force_turbo=)' "$config"; then
     die "unexpected conflicting boot configuration in $config"
   fi
   while IFS= read -r line || [[ -n $line ]]; do
@@ -104,6 +130,13 @@ refuse_boot_conflicts() {
     if [[ $line =~ ^[[:space:]]*\[([^]]+)\][[:space:]]*$ ]]; then
       section=${BASH_REMATCH[1]}
       continue
+    fi
+    if [[ $line =~ ^[[:space:]]*kernel=([^[:space:]]+)[[:space:]]*$ ]]; then
+      kernel_image=${BASH_REMATCH[1]}
+      if [[ $SHIELDXL0_PLATFORM_PROFILE == rpi0-4k-integration && $section == all && $kernel_image == kernel8.img ]]; then
+        continue
+      fi
+      die "unadmitted kernel selector in $config: [$section] $kernel_image"
     fi
     [[ $line =~ ^[[:space:]]*dtoverlay=([^[:space:]]+)[[:space:]]*$ ]] || continue
     overlay=${BASH_REMATCH[1]}
@@ -115,12 +148,21 @@ refuse_boot_conflicts() {
 }
 
 install_exact() {
-  local source=$1 destination=$2 mode=$3
+  local source=$1 destination=$2 mode=$3 admitted_predecessor_sha256=${4:-}
+  local source_hash destination_hash
   if [[ -e $destination || -L $destination ]]; then
-    [[ ! -L $destination && -f $destination && $(sha256_file "$source") == $(sha256_file "$destination") ]] ||
-      die "foreign replacement file exists: $destination"
-    chmod "$mode" "$destination"
-    return
+    [[ ! -L $destination && -f $destination ]] || die "foreign replacement file exists: $destination"
+    source_hash=$(sha256_file "$source")
+    destination_hash=$(sha256_file "$destination")
+    if [[ $source_hash == "$destination_hash" ]]; then
+      chmod "$mode" "$destination"
+      return
+    fi
+    if [[ -n $admitted_predecessor_sha256 && $destination_hash == "$admitted_predecessor_sha256" ]]; then
+      install -m "$mode" "$source" "$destination"
+      return
+    fi
+    die "foreign replacement file exists: $destination"
   fi
   install -D -m "$mode" "$source" "$destination"
 }

@@ -58,16 +58,24 @@ if [[ -f /etc/udev/rules.d/98-shieldxl0-usb-midi.rules ]]; then
   rm /etc/udev/rules.d/98-shieldxl0-usb-midi.rules
 fi
 rm -f "$SHIELDXL0_CONFIG_DIR/usb-midi.json"
-module_path="/lib/modules/$SHIELDXL0_KERNEL/updates/shieldxl0/snd-soc-cs4270.ko"
-[[ ! -e $module_path || ( ! -L $module_path && -f $module_path ) ]] || die "unexpected module path type: $module_path"
-if [[ -f $module_path ]]; then
-  [[ -f $SHIELDXL0_STATE_DIR/cs4270-module.sha256 ]] || die 'CS4270 module has no ownership hash'
-  expected_module_hash=$(cat "$SHIELDXL0_STATE_DIR/cs4270-module.sha256")
-  [[ $(sha256_file "$module_path") == "$expected_module_hash" ]] || die 'refusing to remove modified CS4270 module'
-fi
-rm -f "$module_path"
+for kernel in "$SHIELDXL0_KERNEL_16K" "$SHIELDXL0_KERNEL_RPI0_4K"; do
+  module_path="/lib/modules/$kernel/updates/shieldxl0/snd-soc-cs4270.ko"
+  module_hash_record="$SHIELDXL0_STATE_DIR/cs4270-module.$kernel.sha256"
+  if [[ ! -f $module_hash_record && $kernel == "$SHIELDXL0_KERNEL_16K" ]]; then
+    module_hash_record="$SHIELDXL0_STATE_DIR/cs4270-module.sha256"
+  fi
+  [[ ! -e $module_path || ( ! -L $module_path && -f $module_path ) ]] || die "unexpected module path type: $module_path"
+  if [[ -f $module_path ]]; then
+    [[ -f $module_hash_record ]] || die "CS4270 module has no ownership hash: $module_path"
+    expected_module_hash=$(cat "$module_hash_record")
+    [[ $(sha256_file "$module_path") == "$expected_module_hash" ]] || die "refusing to remove modified CS4270 module: $module_path"
+    rm -f "$module_path"
+  fi
+  rm -f "$SHIELDXL0_STATE_DIR/cs4270-module.$kernel.sha256"
+  rmdir "/lib/modules/$kernel/updates/shieldxl0" 2>/dev/null || true
+  [[ ! -d /lib/modules/$kernel ]] || depmod "$kernel"
+done
 rm -f "$SHIELDXL0_STATE_DIR/cs4270-module.sha256"
-rmdir "/lib/modules/$SHIELDXL0_KERNEL/updates/shieldxl0" 2>/dev/null || true
 for program in controls.py oled_service.py oled_client.py audio_probe.py audio-test.sh mixer-state.sh observed-run.sh thermal-observe.sh; do
   destination="/usr/local/libexec/shieldxl0/$program"
   if [[ -e $destination ]]; then
@@ -79,7 +87,6 @@ for program in controls.py oled_service.py oled_client.py audio_probe.py audio-t
 done
 rmdir /usr/local/libexec/shieldxl0 2>/dev/null || true
 rmdir "$SHIELDXL0_CONFIG_DIR" 2>/dev/null || true
-depmod "$SHIELDXL0_KERNEL"
 udevadm control --reload-rules
 systemctl daemon-reload
 

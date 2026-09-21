@@ -5,26 +5,26 @@
   "pi": {
     "required_model": "Raspberry Pi 5 Model B",
     "required_ram_bytes": 8589934592,
-    "model": null,
-    "revision": null,
-    "ram_bytes": null
+    "model": "Raspberry Pi 5 Model B Rev 1.1",
+    "revision": "d04171",
+    "ram_bytes": 8341209088
   },
   "os": {
     "image": "2026-09-15-raspios-trixie-arm64-lite.img.xz",
     "release": "Raspberry Pi OS Trixie 2026-09-15",
     "image_sha256": "cdf4f3bfac35ae947b46e4e767f935453810549779ac3290e05a6754aee627e5",
-    "architecture": null,
-    "page_size": null,
+    "architecture": "arm64",
+    "page_size": 4096,
     "repositories": null,
     "package_manifest": null
   },
   "kernel": {
-    "release": null,
-    "package": "linux-image-6.18.50+rpt-rpi-2712",
+    "release": "6.18.50+rpt-rpi-v8",
+    "package": "linux-image-6.18.50+rpt-rpi-v8",
     "package_version": "1:6.18.50-1+rpt1",
     "firmware_package": "raspi-firmware",
     "firmware_version": "1:1.20260907-1",
-    "cs4270_module_sha256": null
+    "cs4270_module_sha256": "63414ef8251cd211f69898a0adc7fd06a5475879aa363669563629f7fbefac88"
   },
   "prior_art": [
     {"repository": "https://github.com/okyeron/shieldXL", "commit": "eace215e99e8e0c3cb06dcd029ff14964da433c2"},
@@ -40,9 +40,9 @@
     }
   ],
   "audio": {
-    "alsa_card_id": null,
-    "playback_pcm": null,
-    "capture_pcm": null,
+    "alsa_card_id": "SHIELDXL",
+    "playback_pcm": "shieldxl",
+    "capture_pcm": "shieldxl",
     "sample_rate_hz": 48000,
     "accepted_formats": [],
     "mixer_state_sha256": null,
@@ -51,16 +51,20 @@
     "capture": null,
     "physical_loopback": null,
     "repeated_open_close": null,
-    "reboot_identity_preserved": null
+    "reboot_identity_preserved": true
   },
   "audio_server": {
     "implementation": "JACK2",
     "version": "1.9.22~dfsg-4",
-    "ordinary_user": null,
-    "ports": {"capture": [], "playback": [], "midi": []},
-    "configurations": [],
-    "recommended_period_frames": null,
-    "clean_restart": null
+    "ordinary_user": "shieldxl",
+    "ports": {
+      "capture": ["system:capture_1", "system:capture_2"],
+      "playback": ["system:playback_1", "system:playback_2"],
+      "midi": ["system:midi_capture_1", "system:midi_playback_1"]
+    },
+    "configurations": [{"sample_rate_hz": 48000, "period_frames": 512, "periods": 3, "enumeration_only": true}],
+    "recommended_period_frames": 512,
+    "clean_restart": true
   },
   "midi": {
     "usb": {"identity": null, "alsa_port": null, "jack_port": null, "events": null, "disconnect_reconnect": null},
@@ -85,15 +89,15 @@
   },
   "thermal": {
     "initial_cooling_fixture": "none; board open and unenclosed",
-    "shieldxl_passive_airflow_obstruction": null,
-    "physical_runs": [],
-    "bounded_run_max_c": null,
-    "throttling_flags_before": null,
-    "throttling_flags_after": null,
-    "no_throttling": null,
+    "shieldxl_passive_airflow_obstruction": true,
+    "physical_runs": ["rpi0-4k-integration.json"],
+    "bounded_run_max_c": 58.2,
+    "throttling_flags_before": "0x0",
+    "throttling_flags_after": "0x0",
+    "no_throttling": true,
     "cpu_governor": null,
-    "observed_clock_range_hz": null,
-    "sustained_performance_classification": null
+    "observed_clock_range_hz": [1500000000, 2400000000],
+    "sustained_performance_classification": "bounded_runs_no_throttling_observed; sustained qualification pending"
   },
   "provisioning": {
     "commit": "a3fed20a6dcc9f4572fb68725e62d10e2af2bd4c",
@@ -102,10 +106,10 @@
     "physical_verification_completed": false
   },
   "known_limitations": [
-    "Physical Raspberry Pi 5 8 GB and ShieldXL verification has not run.",
+    "The exact Raspberry Pi 5 8 GB / 4 KiB kernel platform enumerated and survived reboot, but complete physical acceptance has not run on this profile.",
     "The first powered candidate was refused because it identified as Raspberry Pi 3 Model B Plus Rev 1.3, revision a020d3; it remains outside the accepted Pi 5 fixture.",
     "The initial Pi 5 fixture has no active cooler; every physical run must retain temperature, throttling, CPU frequency, duration, and ShieldXL airflow-obstruction observations.",
-    "Exact Pi revision, RAM, ALSA/JACK identities, XRUNs, controls, USB MIDI, OLED, and thermal results remain unobserved.",
+    "Physical 4 KiB tone/loopback, USB MIDI events, complete JACK period matrix/XRUN result, and OLED visual confirmation remain pending.",
     "ShieldXL TRS/UART MIDI is deliberately deferred; USB MIDI is the required first path."
   ]
 }

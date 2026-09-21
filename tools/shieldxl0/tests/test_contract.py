@@ -14,7 +14,12 @@ class ContractTest(unittest.TestCase):
         self.assertEqual(contract["acceptance_status"], "pending_physical_fixture")
         self.assertEqual(contract["pi"]["required_model"], "Raspberry Pi 5 Model B")
         self.assertEqual(contract["pi"]["required_ram_bytes"], 8 * 1024**3)
-        self.assertIsNone(contract["pi"]["revision"])
+        self.assertEqual(contract["pi"]["model"], "Raspberry Pi 5 Model B Rev 1.1")
+        self.assertEqual(contract["pi"]["revision"], "d04171")
+        self.assertEqual(contract["os"]["page_size"], 4096)
+        self.assertEqual(contract["kernel"]["release"], "6.18.50+rpt-rpi-v8")
+        self.assertEqual(contract["audio"]["alsa_card_id"], "SHIELDXL")
+        self.assertTrue(contract["audio"]["reboot_identity_preserved"])
         self.assertIsNone(contract["audio"]["physical_loopback"])
         self.assertFalse(contract["provisioning"]["physical_verification_completed"])
 
@@ -35,6 +40,12 @@ class ContractTest(unittest.TestCase):
         self.assertEqual(evidence["config_results"]["CONFIG_SND_DESIGNWARE_I2S"], "m")
         self.assertEqual(evidence["config_results"]["CONFIG_SND_SOC_CS4270"], "not set")
         self.assertFalse(evidence["decision"]["custom_kernel_image"])
+        integration = evidence["rpi0_integration_kernel"]
+        self.assertEqual(integration["name"], "linux-image-6.18.50+rpt-rpi-v8")
+        self.assertEqual(integration["page_size_bytes"], 4096)
+        self.assertEqual(integration["config_results"]["CONFIG_ARM64_4K_PAGES"], "y")
+        self.assertEqual(integration["config_results"]["CONFIG_SND_SOC_CS4270"], "not set")
+        self.assertEqual(integration["boot_selector"], "kernel=kernel8.img")
 
     def test_pi5_overlay_uses_rp1_clock_consumer_and_static_application_passes(self):
         source = (ROOT / "overlays/shieldxl0-overlay.dts").read_text()
@@ -50,6 +61,7 @@ class ContractTest(unittest.TestCase):
         manifest = json.loads((ROOT / "pinned-inputs.json").read_text())
         packages = manifest["image_packages_used_without_addition"]
         self.assertEqual(packages["linux-headers-6.18.50+rpt-rpi-2712"], "1:6.18.50-1+rpt1")
+        self.assertEqual(packages["linux-headers-6.18.50+rpt-rpi-v8"], "1:6.18.50-1+rpt1")
         self.assertEqual(packages["build-essential"], "12.12")
         self.assertEqual(packages["gcc"], "4:14.2.0-1")
         self.assertEqual(packages["make"], "4.4.1-2")

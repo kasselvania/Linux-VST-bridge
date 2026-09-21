@@ -160,6 +160,27 @@ the current kernel already provides:
 Build or patch a kernel only when a concrete missing driver or incompatible interface is
 shown. Preserve the exact failure that required it.
 
+### Exact kernel profiles
+
+SHIELDXL0 admits two and only two distribution-kernel/page-size pairs from the same
+pinned Raspberry Pi OS image and package version:
+
+- `shieldxl0-16k`: `6.18.50+rpt-rpi-2712`, 16,384-byte pages. This remains the isolated
+  hardware-bring-up profile and refuses Box64, Wine, Proton, and FEX binaries.
+- `rpi0-4k-integration`: `6.18.50+rpt-rpi-v8`, 4,096-byte pages. This is the exact RPI0
+  integration profile after the retained 16 KiB Box64/Wine failure. It may coexist with
+  the separately owned RPI0 runtime but SHIELDXL0 neither installs nor runs that runtime.
+
+Both profiles use package version `1:6.18.50-1+rpt1`, the same Pi 5 base DTB digest,
+and the same unmodified pinned upstream Linux v6.18 CS4270 source. The codec module must
+be built against the exact matching headers and installed only below the corresponding
+`/lib/modules/<release>` tree. Crossed kernel/page-size pairs refuse.
+
+The 4 KiB integration profile admits exactly `kernel=kernel8.img` in the `[all]` boot
+section. Any other explicit kernel selector refuses. This is a bounded integration
+selector, not permission to replace the distribution kernel or weaken the ordinary
+16 KiB hardware profile.
+
 ## Reproducible provisioning
 
 Add an experiment-owned directory such as:
