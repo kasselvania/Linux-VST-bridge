@@ -193,10 +193,10 @@ def start_private_x11(root: pathlib.Path) -> PrivateX11:
     require(info.st_uid == uid, "Wayland session socket owner changed")
     require(runtime_root.is_dir() and runtime_root.stat().st_uid == uid, "runtime root owner changed")
 
-    home = root / "state/home"
-    home.mkdir(parents=True, mode=0o700)
     x11_root = root / "x11"
     x11_root.mkdir(parents=True, mode=0o700)
+    home = x11_root / "home"
+    home.mkdir(mode=0o700)
     authority = x11_root / "Xauthority"
     authority.write_bytes(b"")
     authority.chmod(0o600)
@@ -211,7 +211,7 @@ def start_private_x11(root: pathlib.Path) -> PrivateX11:
         authority.write_bytes(xauthority_record(display_number, secrets.token_bytes(16)))
         authority.chmod(0o600)
         environment = {
-            "HOME": str(root / "state/home"),
+            "HOME": str(home),
             "XDG_RUNTIME_DIR": str(runtime_root),
             "WAYLAND_DISPLAY": WAYLAND_SOCKET_NAME,
             "LANG": "C.UTF-8",
