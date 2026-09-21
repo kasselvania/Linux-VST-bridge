@@ -20,7 +20,8 @@ The physically accepted interfaces are:
   the audio callback and consume bounded JSON Lines events;
 - OLED: send one JSON object per connection to `/run/shieldxl0/oled.sock`; supported
   operations are `clear`, `fill`, `text`, and `status`, with a hard 4096-byte request
-  bound and a maximum 20 Hz update rate.
+  bound, a maximum 20 Hz update rate, and a 60-second idle blank. The next valid request
+  redraws the display; OLED blanking remains independent of JACK and audio.
 
 The control reader emits zero-based indices:
 

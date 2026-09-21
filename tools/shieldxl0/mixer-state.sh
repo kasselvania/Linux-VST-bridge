@@ -13,7 +13,9 @@ case "$action" in
     amixer -c SHIELDXL cset name='Zero Cross Switch' on
     amixer -c SHIELDXL cset name='De-emphasis filter' off
     amixer -c SHIELDXL cset name='Popguard Switch' on
-    amixer -c SHIELDXL cset name='Auto-Mute Switch' on
+    # The pinned CS4270 driver disables Auto-Mute because the hardware state can
+    # fail to release after silence. Keep it off across every JACK restart.
+    amixer -c SHIELDXL cset name='Auto-Mute Switch' off
     ;;
   show)
     amixer -c SHIELDXL scontents

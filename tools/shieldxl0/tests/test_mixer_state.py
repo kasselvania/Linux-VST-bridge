@@ -40,7 +40,7 @@ class MixerStateTest(unittest.TestCase):
                     "-c SHIELDXL cset name=Zero Cross Switch on",
                     "-c SHIELDXL cset name=De-emphasis filter off",
                     "-c SHIELDXL cset name=Popguard Switch on",
-                    "-c SHIELDXL cset name=Auto-Mute Switch on",
+                    "-c SHIELDXL cset name=Auto-Mute Switch off",
                 ],
             )
 

@@ -91,7 +91,8 @@ It never replaces the complete boot config and never reboots automatically.
   monotonic timestamps and is not an audio-callback component.
 - OLED: `/run/shieldxl0/oled.sock`, 128x64 logical 4-bit grayscale, rotated 180 degrees,
   maximum 20 updates/second. The service accepts bounded `clear`, `fill`, `text`, and
-  `status` JSON operations.
+  `status` JSON operations. It blanks the panel after 60 seconds without a valid request;
+  the next valid request redraws and wakes the visible surface.
 - USB MIDI: ALSA sequencer first, then JACK ALSA-sequencer MIDI. The exact controller and
   port identities are recorded only after the physical controller is observed.
 

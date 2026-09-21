@@ -88,6 +88,15 @@ class OledTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             oled.render_request(oled.Frame(), {"op": "fill", "gray": 16})
 
+    def test_idle_blank_is_bounded_and_only_occurs_once(self):
+        self.assertFalse(oled.idle_blank_due(10.0, 69.999, 60, False))
+        self.assertTrue(oled.idle_blank_due(10.0, 70.0, 60, False))
+        self.assertFalse(oled.idle_blank_due(10.0, 100.0, 60, True))
+        self.assertEqual(oled.idle_timeout("60"), 60)
+        for value in ("4", "3601", "not-a-number"):
+            with self.assertRaises(oled.argparse.ArgumentTypeError):
+                oled.idle_timeout(value)
+
     def test_command_parameters_are_transmitted_as_data(self):
         display = object.__new__(oled.Ssd1322)
         display.gpiod = self.FakeCommandGpiod

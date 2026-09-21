@@ -19,6 +19,7 @@ WIDTH = 128
 HEIGHT = 64
 MAX_REQUEST = 4096
 MAX_HZ = 20
+DEFAULT_IDLE_TIMEOUT = 60
 
 # Five columns encoded as seven low-to-high row bits. The status surface needs
 # uppercase ASCII, digits, and a small punctuation set; unsupported glyphs are '?'.
@@ -204,8 +205,23 @@ def render_request(frame: Frame, request: dict) -> None:
         raise ValueError("unsupported operation")
 
 
-def serve(display: Ssd1322, socket_path: Path) -> None:
+def idle_blank_due(last_activity: float, now: float, timeout: int, blanked: bool) -> bool:
+    return not blanked and now - last_activity >= timeout
+
+
+def idle_timeout(value: str) -> int:
+    try:
+        seconds = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("idle timeout must be an integer") from error
+    if not 5 <= seconds <= 3600:
+        raise argparse.ArgumentTypeError("idle timeout must be in 5..3600 seconds")
+    return seconds
+
+
+def serve(display: Ssd1322, socket_path: Path, timeout: int) -> None:
     frame = Frame()
+    blank = Frame()
     frame.text(0, 0, "SHIELDXL0 READY")
     display.display(frame)
     socket_path.parent.mkdir(mode=0o750, parents=True, exist_ok=True)
@@ -218,6 +234,8 @@ def serve(display: Ssd1322, socket_path: Path) -> None:
     server.settimeout(0.5)
     stopping = False
     last_update = 0.0
+    last_activity = time.monotonic()
+    blanked = False
 
     def stop(_signum, _frame):
         nonlocal stopping
@@ -230,6 +248,11 @@ def serve(display: Ssd1322, socket_path: Path) -> None:
             try:
                 connection, _ = server.accept()
             except TimeoutError:
+                now = time.monotonic()
+                if idle_blank_due(last_activity, now, timeout, blanked):
+                    display.display(blank)
+                    last_update = time.monotonic()
+                    blanked = True
                 continue
             with connection:
                 connection.settimeout(1.0)
@@ -246,6 +269,8 @@ def serve(display: Ssd1322, socket_path: Path) -> None:
                         time.sleep(delay)
                     display.display(frame)
                     last_update = time.monotonic()
+                    last_activity = last_update
+                    blanked = False
                     reply = {"ok": True, "width": WIDTH, "height": HEIGHT}
                 except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
                     reply = {"ok": False, "error": str(error)}
@@ -261,13 +286,16 @@ def main() -> int:
     parser.add_argument("--socket", type=Path, default=Path("/run/shieldxl0/oled.sock"))
     parser.add_argument("--spi", type=Path, default=Path("/dev/shieldxl-oled-spi"))
     parser.add_argument("--rotate", type=int, choices=(0, 180), default=180)
+    parser.add_argument(
+        "--idle-timeout", type=idle_timeout, default=DEFAULT_IDLE_TIMEOUT
+    )
     args = parser.parse_args()
     if not args.spi.exists():
         print(f"missing stable OLED SPI alias: {args.spi}", file=sys.stderr)
         return 1
     try:
         display = Ssd1322(args.spi, args.rotate)
-        serve(display, args.socket)
+        serve(display, args.socket, args.idle_timeout)
     except Exception as error:
         print(f"OLED service failed: {error}", file=sys.stderr)
         return 1
