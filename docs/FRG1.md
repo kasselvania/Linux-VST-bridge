@@ -151,6 +151,24 @@ adds that exact setup step on the private snapshot, verifies its exit and `syste
 receipt, and only then launches the scanner with `runinprefix`. The original retained
 prefix remains unmounted and unchanged.
 
+## Attempt 005 disposition
+
+Attempt 005 completed the exact initialized-snapshot path. The Windows host published
+and consumed its bound handshake, loaded the exact `1.3.1.6566` module, obtained the
+Arturia factory, and independently confirmed the predecessor class ID, name, vendor,
+effect role and `Fx|Tools` subcategories. It observed a combined component/controller,
+one stereo main input, one stereo sidechain input, one stereo main output, one
+16-channel event input, float32 support, no float64 support, 176 samples of latency,
+and 2,415 parameters. Module exit, library unload, scanner completion, private X11
+retirement and operation-process cleanup all passed.
+
+The parameter count is a real successor delta from the predecessor's 2,348. No
+historical parameter roster was substituted. The original Ubuntu prefix owner marker,
+module and UA1 custody lock remained unchanged; only the private snapshot was
+initialized and inspected. The result authorizes the class-specific descriptor and
+`review_candidate` build. It does not authorize Ubuntu publication or Bitwig use from
+this unmerged product branch.
+
 If the differential census succeeds, FRG1 generates one exact successor proxy and
 nonactivating candidate. After review and merge, a new Ubuntu-lab branch may adopt
 the retained prefix under its original owner record, publish to a new lab-only
@@ -170,3 +188,4 @@ compatibility profile.
 - `evidence/frg1/attempt-002/result.json`
 - `evidence/frg1/attempt-003/result.json`
 - `evidence/frg1/attempt-004/result.json`
+- `evidence/frg1/attempt-005/result.json`

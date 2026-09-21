@@ -244,6 +244,18 @@ class CensusTests(unittest.TestCase):
         self.assertFalse(result["observations"]["module_loading_reached"])
         self.assertFalse(result["scope"]["steam_deck_contacted"])
 
+    def test_attempt_five_establishes_the_exact_successor_census(self) -> None:
+        result = json.loads((ROOT / "evidence/frg1/attempt-005/result.json").read_text())
+        self.assertEqual(result["classification"], "FRG1_SUCCESSOR_FACTORY_CENSUS_CONFIRMED")
+        self.assertEqual(result["inspection"]["class"]["class_id"], "41727475415649536772616E50726F63")
+        self.assertEqual(result["inspection"]["class"]["version"], "1.3.1.6566")
+        self.assertEqual(result["inspection"]["parameter_count"], 2415)
+        self.assertTrue(result["predecessor_delta"]["class_continuity"])
+        self.assertTrue(result["execution"]["cleanup_confirmed"])
+        self.assertTrue(result["retained_ubuntu_environment"]["source_unchanged_after_execution"])
+        self.assertFalse(result["scope"]["steam_deck_contacted"])
+        self.assertFalse(result["scope"]["ubuntu_publication_performed"])
+
 
 if __name__ == "__main__":
     unittest.main()

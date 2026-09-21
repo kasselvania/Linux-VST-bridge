@@ -95,6 +95,21 @@ readiness with status `c0000135` because it could not load `kernel32.dll`. The p
 runtime explicitly treats `runinprefix` as a post-initialization verb. The corrected
 continuation now performs that bounded setup step on the private snapshot first.
 
+## Successful differential census
+
+Attempt 005 followed the complete transferred-environment path and passed. The exact
+successor module loaded from the initialized private snapshot, returned the Arturia
+factory and the predecessor class `41727475415649536772616E50726F63`, initialized as
+a combined component/controller, exposed the same effect role and stereo-main plus
+stereo-sidechain bus shape, and unloaded cleanly. The exact successor version is
+`1.3.1.6566`; its parameter roster contains 2,415 entries rather than the
+predecessor's 2,348. Float32 remains supported, float64 remains unsupported, and the
+reported latency is 176 samples.
+
+This is factory/class and descriptor authority for the exact successor. It is not
+Ubuntu editor, audio, state or Bitwig qualification. Those remain after the exact
+native proxy/profile is reviewed and merged.
+
 Those failures remain immutable evidence. They do not erase the predecessor profile
 or prove that FRAGMENTS was loaded. The recalibrated successor-verification run is a
 new, explicitly authorized continuation, not a relabeling of any failed attempt.
