@@ -1,89 +1,113 @@
-# NAO1 — Qualified-recovery readiness handoff repair
+# FRG1 — Efx FRAGMENTS 1.3.1.6566 coherent product profile
 
-Focused repair basis:
+Exact base:
 
-- merged NAO1 source: `a544645792aa1428d0388191e4fee45e7801b921`
-- merged tree: `d438c67d68f2f64ff94cd7110aaff390c05e9e04`
-- installed immutable generation: `c4380746a60f85d711c9bd39fc9e5e48bafc501a18eddff7a49d4d68b0cdc3c0`
-- retained failed physical operation: `d3762548dc0597464d52ef2b63a77b5a`
-- retained disposition: `REAL_NATIVE_ACCESS_SESSION_ADMISSION_FAILED_DEPENDENCY_PREPARE_REQUIRED`
+- repository: `kasselvania/Linux-VST-bridge`
+- commit: `c38b5c9deb8bd32f5a509258c30f31b3e795fe59`
+- tree: `6d661a80a707157f30d3f4815e04a72b1cb38586`
+- Ubuntu-lab custody merge: `3c29e253866c2dec8f478580eafcf245b4a20a7f`
+- Ubuntu-lab custody tree: `4011a0a0d3d18b61982521f4920dde9ef425a1aa`
 
-The first physical NAO1 attempt admitted the exact
-`qualified_recovered_installation` origin and reverified the installer and daemon
-images. Its only SCM query then reported exact error 1060 (`service does not exist`).
-No start/readiness loop or application launch followed. The retained record cannot
-distinguish a transient private-runtime SCM initialization observation from persistent
-missing registration.
+## Primary claim
 
-This repair carries the complete validated session authority into `Nad1Owner` instead
-of reducing it to the daemon image. An initial exact 1060 observation for either closed
-session origin receives exactly one delayed query in the same operation-owned runtime.
-Exact registration is not process-generation ownership or retirement authority. After
-that delayed query reports exact registration, the owner revalidates the physical
-prefix and runs one fresh bounded process census. `RUNNING` or `START_PENDING` may
-continue only with one exact same-prefix generation already owned by this renderer
-cohort. `STOPPED` may continue only with no candidate, through this operation's one
-owned start. Unavailable, ambiguous, foreign, deleted-prefix, or same-prefix unowned
-candidates refuse before application launch and leave stop authority absent. Another
-SCM absence or an unavailable observation also refuses. The repair performs no
-registration mutation, installer replay, artifact/preparation synthesis, or second
-physical operation. A persistently absent real registration remains a separately
-reviewed product/design decision.
+The product owns one closed `review_candidate` compatibility profile for the exact
+Efx FRAGMENTS 1.3.1.6566 module. The profile joins, as one indivisible identity:
 
-The original NAO1 authority follows and remains in force.
+- the exact module;
+- the exact GE-Proton11-7 archive, installed-tree identity, runtime package closure,
+  entry points and process environment policy;
+- the exact reviewed Windows host and its source manifest;
+- a factory census performed against that exact module;
+- independently observed class and controller metadata from that census;
+- a newly generated class-specific native proxy, descriptor and source/build identity;
+- closed compatibility settings and explicit unqualified behavior.
 
-# NAO1 — Native Access owned session
+No caller-supplied class, proxy, host, runner substitution or cross-generation
+combination may satisfy the profile.
 
-Active basis:
+## Exact fixture
 
-- merged NAD2: `a86f03e8a5d5302d9872f995a0a5ba376a0ab6d5`
-- merged tree: `11a9fefbbe8b184c52058f4b4610da3a5e3b06e4`
-- qualified NAD2 executable source: `81bbf198e8bbe7df337312f2529c84b318c1ed64`
-- installed Native Access identity: exact 3.26.0 application retained by NAUI2
-- installed dependency: exact NTKDaemon 1.32.0 payload and `NTKDaemonService`
+- product: Efx FRAGMENTS
+- library version: 1.3.1
+- embedded version: 1.3.1.6566
+- format: x86-64 Windows VST3
+- module byte length: `26453504`
+- module SHA-256:
+  `5846dfe91396596715f01a85d51c5ca21a808ef7dad1bfb44b02ab444345e1a5`
+- runner: GE-Proton11-7, release commit
+  `c191f35dcebbeccfacd3b4c6f6eea026e588c1c2`
+- Windows host SHA-256:
+  `348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be`
+- Windows host source-manifest SHA-256:
+  `ad7f860633f871fbe0d76cb3c546e8f7f33e8291ac46844fbd088806ba53814c`
 
-NAD1 and NAD2 established exact dependency identity, fresh same-prefix process and
-listener readiness, one-stop ownership, truthful stop-response characterization,
-bounded process cleanup, renderer/browser-return ownership, and a prior rendered
-signed-in Native Access session.
+The old Efx FRAGMENTS 1.0.0.2925 revision-10 profile remains immutable ordinary
+authority. Its class metadata is a lead only and is not authority for this fixture.
 
-The remaining product blocker is the historical preparation gate. Native Access launch
-currently requires a prior dependency operation that both proved readiness and achieved
-graceful SCM retirement. The real daemon proved ready but remained `RUNNING` after the
-single submitted stop request, so no preparation receipt was created even though exact
-owned cleanup restored the bridge and keepers.
+## Basis
 
-Selected next slice: **NAO1 — Native Access owned session**.
+- `AGENTS.md`, Core product invariants, Compatibility-profile rules, Evidence
+  requirements, Security and privacy, Review standard
+- `GOVERNANCE.md`, authority and review boundaries
+- `docs/ARCHITECTURE.md`, manager/profile/native-proxy ownership
+- the accepted, merged Ubuntu UA1 custody result for the exact module, runner and
+  Windows host
+- the tech-lead product handoff requiring a new exact factory census and coherent
+  profile before any Ubuntu publication or Bitwig scan
 
-Authoritative slice document: `docs/NAO1.md`.
+## In scope
 
-NAO1 makes the Native Access application operation own its exact NTKDaemon dependency
-for the same session. Launch must use one of two mutually exclusive exact installation
-origins: the retained installation-artifact record, or the fixed qualified-recovery
-record while that artifact pointer remains absent. Both origins require the current
-application, software, installer, daemon, environment, and prefix identities plus fresh
-per-session readiness; launch must not depend on a historical graceful-retirement
-receipt.
+- `CURRENT_SLICE.md`
+- one bounded FRG1 slice/result document
+- an additive non-secret FRG1 input lock
+- exact factory-census supervision and sanitized evidence for this fixture
+- compatibility-profile schema support needed to bind aggregate runner/runtime
+  closure without changing old profile fingerprints
+- one additive review-candidate profile and immutable history entry
+- one class-specific native proxy and descriptor identity generated by existing
+  product-owned tooling
+- deterministic coherence and cross-generation refusal tests
+- applicable manager, preparation, catalogue, profile and native-proxy tests
+- strict lint/static validation and applicable hosted product lanes
 
-At session close, the manager still attempts one graceful SCM stop. If graceful
-retirement is not confirmed, exact-owned process cleanup may complete the Native Access
-session only when all owned processes and listeners are absent and all identity,
-privacy, preservation, and bridge-recovery checks pass. The result must continue to
-report `service_retirement_confirmed=false` and `forced_cleanup_used=true`; it must not
-create a dependency-preparation receipt or claim graceful shutdown.
+## Non-goals and nonclaims
 
-This is an exact Native Access 3.26.0 / NTKDaemon 1.32.0 compatibility policy, not a
-general Windows-service framework.
+- no Ubuntu deployment, publication, Bitwig scan or plug-in execution
+- no Steam Deck contact, deployment or qualification
+- no ASC launch, login, activation, repair, download or installation
+- no Ableton Live, Max, Max for Live, Native Access, NTKDaemon or Pigments work
+- no Arturia installer, module, resources, prefix, account or activation data in Git
+- no claim that factory discovery proves DAW load, editor, audio, parameters,
+  automation, state, restart, retirement or ordinary compatibility
+- no replacement or reinterpretation of the historical 1.0.0.2925 profile
+- no ordinary activation authority in this slice
 
-During the implementation PR:
+## Acceptance
 
-- do not install the candidate;
-- do not launch Native Access or transition the real daemon;
-- do not change the selected `--disable-gpu` renderer policy;
-- do not weaken exact process, listener, prefix, application, or software identity;
-- do not change Arturia, VST, audio, editor, product-publication, or capacity behavior;
-- do not rewrite prior evidence.
+1. The factory census opens only the exact module/host/source/runner closure and
+   independently reports its factory and class metadata.
+2. The selected class and controller association are derived from the census, not
+   copied from the historical profile.
+3. The native proxy is generated for that exact class and module by the existing
+   product-owned descriptor/build route.
+4. The candidate profile binds every exact identity listed in the primary claim and
+   remains `review_candidate`.
+5. Missing or changed module, runner, runtime, host, source manifest, census, class,
+   controller, descriptor, native image or source identity is refused.
+6. Cross-generation combinations with the 1.0.0.2925 fixture are refused.
+7. Historical profile bytes and fingerprints remain unchanged.
+8. No proprietary binary or secret is tracked.
+9. The implementation PR performs no Ubuntu or Steam Deck deployment.
+10. One draft, unmerged product PR is returned for independent tech-lead review.
 
-Return one draft PR, uninstalled and unmerged, for independent tech-lead review. After
-that source is accepted, the next action is one installation and one real Native Access
-session—not another daemon-diagnostics slice.
+## Evidence and cleanup
+
+Retain only bounded, sanitized product evidence under `evidence/frg1/`: exact public
+identities, factory/class census, proxy/descriptor manifests, test receipts and
+nonclaims. Raw module bytes, runner bytes, prefixes and raw vendor logs remain in
+ignored private custody and are removed from disposable execution roots after
+sanitization. A failed census is retained separately and never promoted.
+
+The accepted Ubuntu installation, prefix, runner, FRAGMENTS files, Bitwig state,
+manager generation and empty publication root remain unchanged. The Steam Deck is
+never contacted.
