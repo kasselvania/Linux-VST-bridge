@@ -21,7 +21,7 @@ pub fn directory(m: &Manager, id: &str) -> Result<PathBuf> {
     require(valid_hex(id, 32), "onboarding_identity")?;
     Ok(m.root.join("onboarding").join(id))
 }
-fn load_bound(m: &Manager, id: &str) -> Result<(Record, bool)> {
+fn load_record(m: &Manager, id: &str) -> Result<Record> {
     let r: Record = read_json(&directory(m, id)?.join("record.json"))?;
     require(
         r.schema == 1
@@ -36,18 +36,6 @@ fn load_bound(m: &Manager, id: &str) -> Result<(Record, bool)> {
                 .as_ref()
                 .is_none_or(|s| valid_hex(s, 32)),
         "onboarding_binding",
-    )?;
-    let registry = m.registry()?;
-    let managed: Vec<_> = registry
-        .classes
-        .values()
-        .filter(|e| e.registration.environment.id == id)
-        .collect();
-    require(
-        managed
-            .iter()
-            .all(|e| e.registration.environment == r.environment),
-        "onboarding_managed_environment_mismatch",
     )?;
     if let Some(previous) = &r.previous_attempt {
         require(
@@ -65,6 +53,22 @@ fn load_bound(m: &Manager, id: &str) -> Result<(Record, bool)> {
     }
     installer_import::load(m, &r.installer)?;
     r.environment.runner.verify()?;
+    Ok(r)
+}
+fn load_bound(m: &Manager, id: &str) -> Result<(Record, bool)> {
+    let r = load_record(m, id)?;
+    let registry = m.registry()?;
+    let managed: Vec<_> = registry
+        .classes
+        .values()
+        .filter(|e| e.registration.environment.id == id)
+        .collect();
+    require(
+        managed
+            .iter()
+            .all(|e| e.registration.environment == r.environment),
+        "onboarding_managed_environment_mismatch",
+    )?;
     Ok((r, !managed.is_empty()))
 }
 pub fn load(m: &Manager, id: &str) -> Result<Record> {
@@ -72,18 +76,13 @@ pub fn load(m: &Manager, id: &str) -> Result<Record> {
     require(!managed, "onboarding_environment_qualified")?;
     Ok(r)
 }
-/// Read the exact retained installation authority for inventory refresh only.
-/// A managed environment is admitted only when every registry owner binds the
-/// complete immutable environment record retained by onboarding.
-pub fn load_for_scan(m: &Manager, id: &str) -> Result<(Record, bool)> {
-    load_bound(m, id)
-}
-pub fn load_scan_request(m: &Manager, id: &str) -> Result<Record> {
-    let (r, managed) = load_for_scan(m, id)?;
-    if managed {
-        require(scan_required(m, &r)?, "managed_inventory_current")?;
+/// Optional retained installation support for a managed-environment rescan.
+/// Registry and catalogue authority are checked by the final scan owner.
+pub fn retained_environment(m: &Manager, id: &str) -> Result<Option<Record>> {
+    if !valid_hex(id, 32) || !directory(m, id)?.join("record.json").try_exists()? {
+        return Ok(None);
     }
-    Ok(r)
+    Ok(Some(load_record(m, id)?))
 }
 pub fn records(m: &Manager) -> Result<Vec<Record>> {
     let p = m.root.join("onboarding");
@@ -686,18 +685,12 @@ fn projection_with_live(
             }
             if managed {
                 actions.clear();
-                if retired(&v) && scan_required(m, r)? {
-                    let (_, exact_managed) = load_for_scan(m, &r.id)?;
-                    require(exact_managed, "onboarding_scan_managed_binding")?;
+                let sw = software(m)?;
+                if retired(&v)
+                    && inventory_refresh_required(m, &r.environment, &sw.host, &sw.source_sha256)?
+                {
                     state = "needs_attention".into();
-                    human = "Installation retained; refresh exact current inventory before preparing or replacing a managed publication";
-                    actions.push(ui::AvailableAction {
-                        label: "Refresh installed products".into(),
-                        action: ui::Action::InstallerScan {
-                            onboarding: r.id.clone(),
-                        },
-                        disabled_reason: busy.map(Into::into),
-                    });
+                    human = "Installation retained; use the exact managed-environment refresh below before preparing or replacing a publication";
                 } else {
                     human = "Installation retained; manage the exact discovered products below. Initial installation is closed";
                 }
@@ -710,14 +703,18 @@ fn projection_with_live(
 
 /// A managed installation may be rescanned only when its retained inventory is
 /// absent or stale against the exact installed environment and scanner source.
-pub fn scan_required(m: &Manager, r: &Record) -> Result<bool> {
-    let path = m.root.join("inventory").join(format!("{}.json", r.id));
+pub fn inventory_refresh_required(
+    m: &Manager,
+    environment: &Environment,
+    host: &Artifact,
+    source: &str,
+) -> Result<bool> {
+    let path = m.root.join("inventory").join(format!("{}.json", environment.id));
     if !path.try_exists()? {
         return Ok(true);
     }
     let scan: inventory::Scan = read_json(&path)?;
-    let sw = software(m)?;
-    Ok(scan_state(&scan, &r.environment, &sw.host, &sw.source_sha256) == "needs_attention")
+    Ok(scan_state(&scan, environment, host, source) == "needs_attention")
 }
 
 fn scan_state(
@@ -966,26 +963,23 @@ mod tests {
         fs::write(&installer_path, installer_bytes).unwrap();
         let i = installer_import::import(&f.m, file(&installer_path).unwrap()).unwrap();
         let catalogue_path = f.m.root.join("software/catalogue.json");
-        atomic_json(
-            &catalogue_path,
-            &Catalogue {
-                schema: 3,
-                natives: vec![native],
-                hosts: vec![],
-                environments: vec![EnvironmentBinding {
-                    family: profiles::Family::ArturiaPersistentV1,
-                    environment: f.r.environment.clone(),
-                }],
-            },
-        )
-        .unwrap();
+        let mut catalogue = Catalogue {
+            schema: 3,
+            natives: vec![native],
+            hosts: vec![],
+            environments: vec![EnvironmentBinding {
+                family: profiles::Family::ArturiaPersistentV1,
+                environment: f.r.environment.clone(),
+            }],
+        };
+        atomic_json(&catalogue_path, &catalogue).unwrap();
         let source_path = f.m.root.join("software/host-source-manifest.json");
         fs::write(&source_path, b"current scanner source").unwrap();
         let source = Artifact {
             sha256: digest(&source_path).unwrap(),
             path: source_path,
         };
-        let sw = Software {
+        let mut sw = Software {
             installer_launch: None,
             preparation_kit: None,
             operator_frontend: None,
@@ -997,7 +991,7 @@ mod tests {
             source_sha256: source.sha256.clone(),
             native_catalogue: Some(Artifact {
                 sha256: digest(&catalogue_path).unwrap(),
-                path: catalogue_path,
+                path: catalogue_path.clone(),
             }),
         };
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
@@ -1014,6 +1008,13 @@ mod tests {
         let id = created["onboarding"].as_str().unwrap();
         let op = "cd".repeat(16);
         let record = reserve(&f.m, id, &op).unwrap();
+        catalogue.environments[0].environment = record.environment.clone();
+        atomic_json(&catalogue_path, &catalogue).unwrap();
+        sw.native_catalogue = Some(Artifact {
+            sha256: digest(&catalogue_path).unwrap(),
+            path: catalogue_path,
+        });
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         atomic_json(
             &directory(&f.m, id)
                 .unwrap()
@@ -1062,59 +1063,160 @@ mod tests {
             .environment
             .revision += 1;
         atomic_json(&registry_path, &db).unwrap();
-        assert!(load_for_scan(&f.m, id)
+        assert!(crate::operator_cli::environment_projection(
+            &f.m,
+            &sw,
+            &catalogue,
+            &db,
+            None
+        )
             .unwrap_err()
             .to_string()
-            .contains("onboarding_managed_environment_mismatch"));
+            .contains("operator_managed_environment_mismatch"));
         fs::write(&registry_path, &registry_bytes).unwrap();
+        let db = f.m.registry().unwrap();
 
         assert!(load(&f.m, id).is_err());
-        let (scan_owner, managed) = load_for_scan(&f.m, id).unwrap();
-        assert!(managed);
+        let scan_owner = retained_environment(&f.m, id).unwrap().unwrap();
         assert_eq!(
             serde_json::to_vec(&scan_owner).unwrap(),
             serde_json::to_vec(&record).unwrap()
         );
-        assert!(scan_required(&f.m, &scan_owner).unwrap());
-        assert_eq!(
-            serde_json::to_vec(&load_scan_request(&f.m, id).unwrap()).unwrap(),
-            serde_json::to_vec(&record).unwrap()
-        );
-        let row = projection_with_live(&f.m, None, |_| Ok(false))
-            .unwrap()
-            .into_iter()
+        assert!(inventory_refresh_required(
+            &f.m,
+            &scan_owner.environment,
+            &sw.host,
+            &sw.source_sha256
+        )
+        .unwrap());
+        let onboarding = projection_with_live(&f.m, None, |_| Ok(false)).unwrap();
+        let row = onboarding
+            .iter()
             .find(|row| row.environment.as_deref() == Some(id))
             .unwrap();
         assert_eq!(row.state, "needs_attention");
-        assert_eq!(row.actions.len(), 1);
+        assert!(row.actions.is_empty());
+        let environments = crate::operator_cli::environment_projection(
+            &f.m,
+            &sw,
+            &catalogue,
+            &db,
+            None,
+        )
+        .unwrap();
+        let snapshot = ui::Snapshot {
+            schema: 7,
+            state_token: "fixture".into(),
+            system: ui::System {
+                service: "active".into(),
+                keepers: 0,
+                dsp: 0,
+                maintenance: 0,
+                ceiling: 6,
+                pending_transactions: 0,
+                stale_transports: 0,
+                cleanup_unconfirmed: false,
+            },
+            onboarding,
+            environments,
+            vendor_applications: vec![],
+            products: vec![],
+            active_sessions: vec![],
+            capture: Value::Null,
+            recent_incidents: vec![],
+            actions: vec![],
+            operation: None,
+        };
+        let refresh: Vec<_> = crate::operator_cli::available(&snapshot)
+            .into_iter()
+            .filter(|available| {
+                matches!(
+                    available.action,
+                    ui::Action::InstallerScan { .. } | ui::Action::EnvironmentRescan { .. }
+                )
+            })
+            .collect();
+        assert_eq!(refresh.len(), 1);
         assert_eq!(
-            row.actions[0].action,
-            ui::Action::InstallerScan {
-                onboarding: id.into()
+            refresh[0].action,
+            ui::Action::EnvironmentRescan {
+                environment: id.into()
             }
         );
-        assert!(row.actions[0].disabled_reason.is_none());
-        let busy = projection_with_live(&f.m, Some("active DSP"), |_| Ok(false))
-            .unwrap()
-            .into_iter()
-            .find(|row| row.environment.as_deref() == Some(id))
-            .unwrap();
-        assert_eq!(busy.actions.len(), 1);
-        assert_eq!(busy.actions[0].disabled_reason.as_deref(), Some("active DSP"));
+        assert!(refresh[0].disabled_reason.is_none());
+        assert!(crate::operator_cli::available(&snapshot).into_iter().all(|available| {
+            !matches!(
+                available.action,
+                ui::Action::InstallerStart { .. }
+                    | ui::Action::InstallerStartWithPolicy { .. }
+                    | ui::Action::InstallerNewAttempt { .. }
+                    | ui::Action::PluginPrepare { .. }
+                    | ui::Action::ExperimentalEnable { .. }
+                    | ui::Action::ExperimentalReplace { .. }
+            )
+        }));
+        let busy_onboarding = projection_with_live(&f.m, Some("active DSP"), |_| Ok(false)).unwrap();
+        let busy_environments = crate::operator_cli::environment_projection(
+            &f.m,
+            &sw,
+            &catalogue,
+            &db,
+            Some("active DSP"),
+        )
+        .unwrap();
+        assert!(busy_onboarding.iter().flat_map(|row| &row.actions).all(|available| {
+            !matches!(
+                available.action,
+                ui::Action::InstallerScan { .. } | ui::Action::EnvironmentRescan { .. }
+            )
+        }));
+        let busy_refresh: Vec<_> = busy_environments
+            .iter()
+            .flat_map(|row| &row.actions)
+            .filter(|available| matches!(available.action, ui::Action::EnvironmentRescan { .. }))
+            .collect();
+        assert_eq!(busy_refresh.len(), 1);
+        assert_eq!(busy_refresh[0].disabled_reason.as_deref(), Some("active DSP"));
 
-        scan.host_source_sha256 = sw.source_sha256;
+        scan.host_source_sha256 = sw.source_sha256.clone();
         atomic_json(&inventory.join(format!("{id}.json")), &scan).unwrap();
-        assert!(!scan_required(&f.m, &scan_owner).unwrap());
-        assert!(load_scan_request(&f.m, id)
+        assert!(!inventory_refresh_required(
+            &f.m,
+            &scan_owner.environment,
+            &sw.host,
+            &sw.source_sha256
+        )
+        .unwrap());
+        assert!(crate::operator_cli::rescan(&f.m, id)
             .unwrap_err()
             .to_string()
             .contains("managed_inventory_current"));
+        assert!(crate::operator_cli::execute_idle_test_action(
+            &f.m,
+            &ui::Action::InstallerScan {
+                onboarding: id.into()
+            }
+        )
+            .unwrap_err()
+            .to_string()
+            .contains("onboarding_environment_qualified"));
         let row = projection_with_live(&f.m, None, |_| Ok(false))
             .unwrap()
             .into_iter()
             .find(|row| row.environment.as_deref() == Some(id))
             .unwrap();
         assert!(row.actions.is_empty());
+        assert!(crate::operator_cli::environment_projection(
+            &f.m,
+            &sw,
+            &catalogue,
+            &db,
+            None
+        )
+        .unwrap()
+        .iter()
+        .flat_map(|row| &row.actions)
+        .all(|available| !matches!(available.action, ui::Action::EnvironmentRescan { .. })));
         assert_eq!(fs::read(record_path).unwrap(), record_bytes);
         assert_eq!(fs::read(registry_path).unwrap(), registry_bytes);
     }

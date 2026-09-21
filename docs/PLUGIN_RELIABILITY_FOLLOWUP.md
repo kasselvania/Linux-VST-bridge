@@ -24,15 +24,21 @@ The reviewed package was subsequently installed as immutable generation
 The service returned active and idle, and no product was launched. Candidate
 preparation then stopped because Blackhole and Kontakt both retained inventory
 from an older scanner source, while managed onboarding environments exposed no
-lawful refresh action. The focused source repair exposes only an exact rescan
-when the complete managed environment still matches its retained onboarding
-authority, the installer is retired, and inventory is absent or stale. It does
-not replay an installer, reopen initial installation, or alter a publication.
-After that correction is reviewed and installed, Blackhole and Kontakt must
-each be prepared from the exact current preparation kit and installed as new
-immutable experimental publication revisions before their next physical
-checks. The old publications remain rollback authority. The touch comparison
-below resumes only after that boundary is reviewed and installed.
+lawful refresh action. The focused source repair retains `EnvironmentRescan` as
+the sole managed-inventory operation. A stale or missing managed inventory
+exposes that exact action once across the complete manager snapshot; the
+onboarding card adds no second `InstallerScan`, and current inventory closes the
+one-shot action. Scanner execution revalidates the current catalogue, complete
+registry environment, optional retained onboarding support, installer
+retirement, staleness and inactivity while holding the final `registry.lock`.
+Authority drift therefore refuses before a scanner is spawned and service
+restoration remains owned by the requesting operation. The repair does not
+replay an installer, reopen initial installation, or alter a publication. After
+that correction is reviewed and installed, Blackhole and Kontakt must each be
+prepared from the exact current preparation kit and installed as new immutable
+experimental publication revisions before their next physical checks. The old
+publications remain rollback authority. The touch comparison below resumes only
+after that boundary is reviewed and installed.
 
 Source candidate update (2026-09-20): the shared Blackhole/Kontakt reliability
 slice now admits the exact current managed-experimental publication to optional

@@ -36,18 +36,24 @@ product selections were stale against the newly installed scanner source while
 the manager removed every onboarding action after an environment became
 managed.
 
-The focused continuation keeps installation and publication closed and admits
-only an exact inventory refresh for that state. A managed onboarding record is
-scan authority only when every registry owner binds its complete retained
-environment. A missing or stale inventory then offers one scan action after the
-installer operation is positively retired; current or quarantined inventory
-does not. Execution revalidates the same facts before suspension. It never
-replays the installer, starts a new installation attempt, alters publication,
-or treats a path or environment identifier alone as authority. After review and
-installation of this correction, Blackhole and Kontakt still require freshly
-prepared immutable proxy candidates and exact inactive experimental
-replacement before either physical launch. Their prior publications remain
-rollback authority.
+The focused continuation keeps installation and publication closed and retains
+`EnvironmentRescan` as the sole managed-inventory operation. A missing or stale
+inventory exposes exactly one action for an environment owned by the current
+catalogue and registry; the managed onboarding card points to that operation
+without adding `InstallerScan`. Current inventory exposes no one-shot refresh,
+and current quarantined modules retain only their existing exact retry route.
+`InstallerScan` remains an initial-installation action and refuses a managed
+onboarding record. After suspension, the scanner owner reacquires
+`registry.lock` and revalidates current verified software and catalogue, every
+registry owner for the complete environment, optional retained onboarding
+support and positive installer retirement, inventory staleness and global
+inactivity inside that final mutation guard before enumerating or spawning a
+scanner. It never replays the installer, starts a new installation attempt,
+alters publication, or treats a path or environment identifier alone as
+authority. After review and installation of this correction, Blackhole and
+Kontakt still require freshly prepared immutable proxy candidates and exact
+inactive experimental replacement before either physical launch. Their prior
+publications remain rollback authority.
 
 Correction basis: stacked merge `18cc2c11b35c6c3c04d88c4703c8a6d88996249a`,
 tree `9311091011ec69caa4799f2e12fa972e3ac74781`. That merge entered the

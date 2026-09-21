@@ -5,6 +5,10 @@ use serde_json::{json, Value};
 const ASC: &str = "arturia-software-center";
 const SERVICE: &str = "linux-vst-bridge.service";
 const VENDOR: &str = "linux-vst-bridge-vendor-arturia-software-center.service";
+#[cfg(test)]
+thread_local! {
+    static SCAN_SPAWN_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
 fn text(v: &Value, key: &str) -> String {
     v[key].as_str().unwrap_or("unknown").into()
 }
@@ -354,6 +358,96 @@ fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
     result.sort_by_key(|r| r.revision);
     Ok(result)
 }
+fn managed_rescan_binding(
+    m: &Manager,
+    catalogue: &linux_vst_bridge::catalogue::Catalogue,
+    registry: &Registry,
+    environment: &str,
+) -> Result<Option<Environment>> {
+    let env = &catalogue
+        .environments
+        .iter()
+        .find(|candidate| candidate.environment.id == environment)
+        .ok_or("operator_environment_absent")?
+        .environment;
+    let owners: Vec<_> = registry
+        .classes
+        .values()
+        .filter(|entry| entry.registration.environment.id == environment)
+        .collect();
+    if owners.is_empty() {
+        return Ok(None);
+    }
+    require(
+        owners
+            .iter()
+            .all(|entry| entry.registration.environment == *env),
+        "operator_managed_environment_mismatch",
+    )?;
+    if let Some(retained) = onboarding::retained_environment(m, environment)? {
+        require(
+            retained.environment == *env,
+            "operator_onboarding_environment_mismatch",
+        )?;
+        require(
+            onboarding::retired(&onboarding::result(m, &retained)?),
+            "installer_retirement_required",
+        )?;
+    }
+    Ok(Some(env.clone()))
+}
+pub(super) fn environment_projection(
+    m: &Manager,
+    sw: &Software,
+    catalogue: &linux_vst_bridge::catalogue::Catalogue,
+    registry: &Registry,
+    busy: Option<&str>,
+) -> Result<Vec<ui::Environment>> {
+    catalogue
+        .environments
+        .iter()
+        .map(|entry| {
+            let scan = optional(
+                &m.root
+                    .join("inventory")
+                    .join(format!("{}.json", entry.environment.id)),
+            )?;
+            let actions = if let Some(environment) =
+                managed_rescan_binding(m, catalogue, registry, &entry.environment.id)?
+            {
+                if onboarding::inventory_refresh_required(
+                    m,
+                    &environment,
+                    &sw.host,
+                    &sw.source_sha256,
+                )? {
+                    vec![action(
+                        "Refresh installed products",
+                        ui::Action::EnvironmentRescan {
+                            environment: environment.id,
+                        },
+                        busy,
+                    )]
+                } else {
+                    vec![]
+                }
+            } else {
+                vec![]
+            };
+            Ok(ui::Environment {
+                id: entry.environment.id.clone(),
+                family: format!("{:?}", entry.family),
+                runner: entry.environment.runner.id.clone(),
+                revision: entry.environment.revision,
+                authorization: "Managed by the vendor and user; account state is not inspected"
+                    .into(),
+                last_scan: json!({"id":scan["id"],"completed_at":scan["completed_at"],
+                    "module_count":scan["modules"].as_array().map(Vec::len),"changes":scan["changes"]}),
+                actions,
+            })
+        })
+        .collect()
+}
 const OPERATOR_WAIT: Duration = Duration::from_secs(10);
 #[cfg(test)]
 fn canonical_lock(m: &Manager) -> Result<Lock> {
@@ -368,6 +462,21 @@ fn canonical_lock(m: &Manager) -> Result<Lock> {
 fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
     snapshot_for_operation(m, None, OPERATOR_WAIT, &mut vec![], &|| {
         live_capacity(m).ok()
+    })
+}
+#[cfg(test)]
+pub(super) fn snapshot_idle_test(m: &Manager) -> Result<ui::Snapshot> {
+    snapshot_for_operation(m, None, OPERATOR_WAIT, &mut vec![], &|| {
+        serde_json::from_value(json!({
+            "schema": 1,
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 0,
+            "cleanup_unconfirmed": false,
+            "owners": [],
+            "limits": {"global_dsp": 6}
+        }))
+        .ok()
     })
 }
 fn acquire_readback(
@@ -498,7 +607,7 @@ fn snapshot_for_operation(
         products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
     }
     let catalogue = sw.catalogue(m)?;
-    let environments=catalogue.environments.iter().map(|e| -> Result<ui::Environment> { let scan=optional(&m.root.join("inventory").join(format!("{}.json",e.environment.id)))?; Ok(ui::Environment {id:e.environment.id.clone(),family:format!("{:?}",e.family),runner:e.environment.runner.id.clone(),revision:e.environment.revision,authorization:"Managed by the vendor and user; account state is not inspected".into(),last_scan:json!({"id":scan["id"],"completed_at":scan["completed_at"],"module_count":scan["modules"].as_array().map(Vec::len),"changes":scan["changes"]}),actions:vec![action("Rescan installed products",ui::Action::EnvironmentRescan{environment:e.environment.id.clone()},busy)]}) }).collect::<Result<Vec<_>>>()?;
+    let environments = environment_projection(m, &sw, &catalogue, &db, busy)?;
     let inventory_environments: Vec<Environment> = catalogue
         .environments
         .iter()
@@ -723,7 +832,7 @@ fn project_onboarding_failure(
     }
     Ok(())
 }
-fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
+pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
     snapshot
         .actions
         .iter()
@@ -1023,6 +1132,21 @@ fn execute_with_receipt_capacity(
 ) -> Result<Value> {
     execute_with_receipt_policy(m, a, operation, capacity_read, OPERATOR_WAIT, &mut vec![])
 }
+#[cfg(test)]
+pub(super) fn execute_idle_test_action(m: &Manager, a: &ui::Action) -> Result<Value> {
+    execute_with_receipt_capacity(m, a, None, &|| {
+        serde_json::from_value(json!({
+            "schema": 1,
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 0,
+            "cleanup_unconfirmed": false,
+            "owners": [],
+            "limits": {"global_dsp": 6}
+        }))
+        .ok()
+    })
+}
 // Metadata-only stamp of durable control-plane preconditions. No installer or
 // runner artifacts are traversed here; absence and exact filenames are included.
 fn creation_control_stamp(m: &Manager) -> Result<Vec<(PathBuf, onboarding::FileIdentity)>> {
@@ -1259,7 +1383,7 @@ fn execute_with_receipt_policy(
         }
         ui::Action::InstallerScan { onboarding: id } => {
             let _environment = m.lock("operator-environment.lock")?;
-            let r = onboarding::load_scan_request(m, id)?;
+            let r = onboarding::load(m, id)?;
             require(
                 onboarding::retired(&onboarding::result(m, &r)?),
                 "installer_retirement_required",
@@ -1804,20 +1928,24 @@ fn restore_service(m: &Manager, saved: &ResumeRecord) -> Result<()> {
     }
     Ok(())
 }
-fn rescan(m: &Manager, environment: &str) -> Result<Value> {
+pub(super) fn rescan(m: &Manager, environment: &str) -> Result<Value> {
     let _lock = m.lock("registry.lock")?;
     m.require_inactive(None)?;
     let sw = software(m)?;
     let c = sw.catalogue(m)?;
-    let env = c
-        .environments
-        .iter()
-        .find(|e| e.environment.id == environment)
-        .ok_or("operator_environment_absent")?
-        .environment
-        .clone();
-    drop(_lock);
-    rescan_environment(m, env)
+    let db = m.registry()?;
+    let env = managed_rescan_binding(m, &c, &db, environment)?
+        .ok_or("operator_environment_unmanaged")?;
+    require(
+        onboarding::inventory_refresh_required(
+            m,
+            &env,
+            &sw.host,
+            &sw.source_sha256,
+        )?,
+        "managed_inventory_current",
+    )?;
+    rescan_environment_locked(m, env, sw, None)
 }
 #[derive(Clone, Debug)]
 struct QuarantinedRetry {
@@ -1901,6 +2029,14 @@ fn rescan_environment_with_retry(m: &Manager, env: Environment,
     let _lock = m.lock("registry.lock")?;
     m.require_inactive(None)?;
     let sw = software(m)?;
+    rescan_environment_locked(m, env, sw, retry)
+}
+fn rescan_environment_locked(
+    m: &Manager,
+    env: Environment,
+    sw: Software,
+    retry: Option<QuarantinedRetry>,
+) -> Result<Value> {
     let environment = env.id.clone();
     let modules = managed_cli::modules(&env)?;
     require(modules.len() <= 64, "operator_scan_module_bound")?;
@@ -1944,6 +2080,8 @@ fn rescan_environment_with_retry(m: &Manager, env: Environment,
         )?;
         let mut pending =
             PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
+        #[cfg(test)]
+        SCAN_SPAWN_COUNT.with(|count| count.set(count.get() + 1));
         let child = spawn(&sw, &path, None)?;
         pending.expose();
         vendor_product_cli::finish_scan(child, &job, pending)?;
@@ -3314,6 +3452,101 @@ mod tests {
         }
         assert_eq!(restores.get(), 1);
         assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    #[test]
+    fn managed_rescan_revalidates_authority_under_final_registry_custody() {
+        let (f, owner) = onboarding_worker_fixture();
+        let sw = software(&f.m).unwrap();
+        let environment = f.r.environment.id.clone();
+        let stale_snapshot = snapshot_idle_test(&f.m).unwrap();
+        let refresh: Vec<_> = available(&stale_snapshot)
+            .into_iter()
+            .filter(|available| matches!(available.action, ui::Action::EnvironmentRescan { .. }))
+            .collect();
+        assert_eq!(refresh.len(), 1);
+        assert_eq!(
+            refresh[0].action,
+            ui::Action::EnvironmentRescan {
+                environment: environment.clone()
+            }
+        );
+
+        let inventory = f.m.root.join("inventory");
+        private_dir(&inventory).unwrap();
+        let current = inventory.join(format!("{environment}.json"));
+        let history = inventory.join("history");
+        atomic_json(&current, &inventory::Scan {
+            schema: 1,
+            id: "ef".repeat(16),
+            environment: f.r.environment.clone(),
+            host: sw.host.clone(),
+            host_source_sha256: sw.source_sha256.clone(),
+            completed_at: 1,
+            changes: Default::default(),
+            modules: vec![],
+        }).unwrap();
+        assert!(available(&snapshot_idle_test(&f.m).unwrap())
+            .into_iter()
+            .all(|available| !matches!(
+                available.action,
+                ui::Action::InstallerScan { .. } | ui::Action::EnvironmentRescan { .. }
+            )));
+        fs::remove_file(&current).unwrap();
+        assert!(!history.exists());
+        let publications = test_fixture::snapshot(&f.m.publications);
+
+        let stops = std::cell::Cell::new(0);
+        let mut waits = vec![];
+        suspend_with(
+            &f.m,
+            &owner,
+            None,
+            Duration::from_secs(2),
+            &mut waits,
+            (
+                || true,
+                || {
+                    stops.set(stops.get() + 1);
+                    Ok(())
+                },
+            ),
+        )
+        .unwrap();
+        assert_eq!(stops.get(), 1);
+
+        // This is the competing exact registry update after initial action
+        // validation and suspension, but before the scan owns registry.lock.
+        let registry_path = f.m.root.join("registry.json");
+        let mut changed = f.m.registry().unwrap();
+        changed
+            .classes
+            .values_mut()
+            .find(|entry| entry.registration.environment.id == environment)
+            .unwrap()
+            .registration
+            .environment
+            .revision += 1;
+        atomic_json(&registry_path, &changed).unwrap();
+        let changed_registry = fs::read(&registry_path).unwrap();
+
+        SCAN_SPAWN_COUNT.with(|count| count.set(0));
+        let error = rescan(&f.m, &environment).unwrap_err().to_string();
+        assert_eq!(error, "operator_managed_environment_mismatch");
+        assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get), 0);
+
+        let restores = std::cell::Cell::new(0);
+        resume_owned_with(&f.m, &owner, |saved| {
+            assert!(saved.resume);
+            restores.set(restores.get() + 1);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(restores.get(), 1);
+        assert!(!f.m.root.join("operator/resume.json").exists());
+        assert_eq!(fs::read(&registry_path).unwrap(), changed_registry);
+        assert_eq!(test_fixture::snapshot(&f.m.publications), publications);
+        assert!(!current.exists());
+        assert!(!history.exists());
     }
     #[test]
     fn native_access_restoration_requires_idle_bridge_two_keepers_and_no_resume_owner() {
