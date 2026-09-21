@@ -64,6 +64,20 @@
     "active_enter_timestamp_local": "2026-09-21T16:37:41+01:00",
     "socket": "/run/shieldxl0/oled.sock"
   },
+  "screen_health_followup": {
+    "observed_at_utc": "2026-09-21T18:37:38Z",
+    "source_commit": "127d0c54df65f7c09c3fa3e492e02d9e851e776a",
+    "service_sha256": "bf1b557f145ed9c07dece0966c021b7b1f05319cc72e59854c8a2446445dcb7f",
+    "deterministic_tests": "44_passed",
+    "configured_idle_blank_seconds": 60,
+    "blank_after_idle": "pass_operator_observed_completely_dark",
+    "valid_request_wake": "pass_operator_observed_OLED_WAKE_PASS",
+    "service_state": "active",
+    "service_main_pid": 64253,
+    "temperature_c": 47.2,
+    "throttling_flags": "0x0",
+    "observed_arm_clock_hz": 1500016128
+  },
   "thermal": {
     "campaign_start_utc": "2026-09-21T15:31:20Z",
     "campaign_end_utc": "2026-09-21T15:38:21Z",

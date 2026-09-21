@@ -39,7 +39,14 @@
       "result": "pass"
     },
     "playback_capture_reopen_cycles": 20,
-    "reopen_result": "pass"
+    "reopen_result": "pass",
+    "post_reset_auto_mute_followup": {
+      "preserved_failure": "after an accidental hardware reset, the codec Auto-Mute control was on and ShieldXL analog playback remained inaudible after silence",
+      "bounded_repair": "setting Auto-Mute Switch off restored the already-running RPI0 synth audio without rebuilding the RPI0 executable",
+      "startup_policy": "Auto-Mute Switch off",
+      "deployed_helper_sha256": "4019c737c39448b25e5da4e422d5389dae8dae446fb5b7d3a03609131c1e5826",
+      "live_readback": "off"
+    }
   },
   "jack": {
     "implementation": "JACK2",

@@ -55,6 +55,9 @@
     "capture": "pass_stereo_physical_source",
     "physical_loopback": "pass_both_channels",
     "repeated_open_close": "pass_20_playback_capture_cycles",
+    "auto_mute_startup_policy": "off",
+    "auto_mute_preserved_failure": "after a hardware reset, Auto-Mute remained engaged after silence and muted analog playback; forcing it off restored the existing RPI0 session",
+    "mixer_helper_sha256": "4019c737c39448b25e5da4e422d5389dae8dae446fb5b7d3a03609131c1e5826",
     "physical_receipt": "audio-jack-physical.json",
     "reboot_identity_preserved": true
   },
@@ -113,11 +116,14 @@
     "logical_format": "4-bit grayscale",
     "wire_format": "one duplicated-nibble byte per logical pixel",
     "maximum_update_hz": 20,
+    "idle_blank_seconds": 60,
+    "idle_blank": "pass_operator_observed_completely_dark",
+    "valid_request_wake": "pass_operator_observed_OLED_WAKE_PASS",
     "clear_fill_text_numeric": "pass_operator_observed",
     "clean_restart": true,
     "physical_receipt": "oled-physical.json",
-    "service_source_commit": "6b6954b5ca7efec6a95b010854bce4eba8d2648e",
-    "service_sha256": "77cd5f5523016c8450d973b2c8a1bf143066cea9ac66e360b4ef1e74cb5b72bc",
+    "service_source_commit": "127d0c54df65f7c09c3fa3e492e02d9e851e776a",
+    "service_sha256": "bf1b557f145ed9c07dece0966c021b7b1f05319cc72e59854c8a2446445dcb7f",
     "audio_independent_failure": true
   },
   "thermal": {
@@ -140,7 +146,7 @@
     "sustained_performance_classification": "thermally_unqualified_for_sustained_performance; bounded functional runs had no throttling"
   },
   "provisioning": {
-    "commit": "9bf6e12a592e938f5a6093ca36740cc86bb73135",
+    "commit": "127d0c54df65f7c09c3fa3e492e02d9e851e776a",
     "paths": ["tools/shieldxl0", "evidence/shieldxl0"],
     "rollback": "tools/shieldxl0/uninstall.sh",
     "physical_verification_completed": true
@@ -150,6 +156,7 @@
     "The accepted Pi 5 fixture has no active cooler. Bounded functional runs passed without throttling, but sustained performance, low-latency, and polyphony remain thermally unqualified.",
     "JACK physical stereo loopback passed at 128, 256, 512, and 1024 frames; the bounded 128-frame run logged two XRUNs and the 256-frame run logged one, while 512 and 1024 logged zero.",
     "All available physical MIDI controllers emitted fixed velocity. USB MIDI note/control transport passed, but RPI0 still lacks its required two-distinct-velocities physical observation.",
-    "ShieldXL TRS/UART MIDI is deliberately deferred; USB MIDI is the required first path."
+    "ShieldXL TRS/UART MIDI is deliberately deferred; USB MIDI is the required first path.",
+    "The pinned CS4270 Auto-Mute control remained engaged after silence following a hardware reset and muted analog playback; the accepted startup policy forces Auto-Mute off."
   ]
 }
