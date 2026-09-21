@@ -83,14 +83,17 @@
     "logical_format": "4-bit grayscale",
     "wire_format": "one duplicated-nibble byte per logical pixel",
     "maximum_update_hz": 20,
-    "clear_fill_text_numeric": null,
-    "clean_restart": null,
+    "clear_fill_text_numeric": "pass_operator_observed",
+    "clean_restart": true,
+    "physical_receipt": "oled-physical.json",
+    "service_source_commit": "6b6954b5ca7efec6a95b010854bce4eba8d2648e",
+    "service_sha256": "77cd5f5523016c8450d973b2c8a1bf143066cea9ac66e360b4ef1e74cb5b72bc",
     "audio_independent_failure": true
   },
   "thermal": {
     "initial_cooling_fixture": "none; board open and unenclosed",
     "shieldxl_passive_airflow_obstruction": true,
-    "physical_runs": ["rpi0-4k-integration.json"],
+    "physical_runs": ["rpi0-4k-integration.json", "oled-physical.json"],
     "bounded_run_max_c": 58.2,
     "throttling_flags_before": "0x0",
     "throttling_flags_after": "0x0",
@@ -109,7 +112,7 @@
     "The exact Raspberry Pi 5 8 GB / 4 KiB kernel platform enumerated and survived reboot, but complete physical acceptance has not run on this profile.",
     "The first powered candidate was refused because it identified as Raspberry Pi 3 Model B Plus Rev 1.3, revision a020d3; it remains outside the accepted Pi 5 fixture.",
     "The initial Pi 5 fixture has no active cooler; every physical run must retain temperature, throttling, CPU frequency, duration, and ShieldXL airflow-obstruction observations.",
-    "Physical 4 KiB tone/loopback, USB MIDI events, complete JACK period matrix/XRUN result, and OLED visual confirmation remain pending.",
+    "Physical 4 KiB tone/loopback, USB MIDI events, and the complete JACK period matrix/XRUN result remain pending; OLED visual acceptance passed in oled-physical.json.",
     "ShieldXL TRS/UART MIDI is deliberately deferred; USB MIDI is the required first path."
   ]
 }

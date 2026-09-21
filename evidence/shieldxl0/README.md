@@ -1,6 +1,7 @@
 # SHIELDXL0 evidence status
 
-Status: **4 KiB RPI0 platform enumeration and reboot passed; complete physical acceptance pending**.
+Status: **4 KiB platform enumeration, reboot, and OLED physical acceptance passed;
+complete physical acceptance pending**.
 
 The retained source/package admission and deterministic tooling are ready. The exact
 Pi 5 8 GB fixture has now built, loaded, bound, and rebooted the pinned CS4270 module on
@@ -8,9 +9,16 @@ the RPI0 4 KiB integration kernel, with the SHIELDXL ALSA card and JACK ports pr
 See `rpi0-4k-integration.json`. Nulls and empty result arrays in
 `hardware-contract.json` remain deliberate stop markers, not implicit passes.
 
-This is not complete hardware acceptance. The 4 KiB run did not perform a physical
-tone, physical loopback, USB MIDI event campaign, complete JACK period/XRUN matrix, or
-visual OLED confirmation.
+The OLED now has a separate physical receipt in `oled-physical.json`. After correcting
+the SSD1322 D/C signaling for command parameters, the operator confirmed readable and
+correctly oriented status text, a live text update, uniform grayscale fill, complete
+clear, and return of `SHIELDXL0 READY` after a clean service restart. The bounded OLED
+campaign observed 44.4-46.1 C and no throttling.
+
+This is not complete hardware acceptance. Physical 4 KiB tone/loopback, the USB MIDI
+event campaign, and the complete JACK period/XRUN matrix remain pending. JACK was
+already inactive throughout the OLED-specific campaign, so that receipt does not claim
+concurrent audio operation or boot-time OLED failure injection.
 
 ## Retained pre-hardware result
 
