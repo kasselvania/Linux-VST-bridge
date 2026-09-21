@@ -1,0 +1,10 @@
+# Stable Fates control identities. Never expose eventN in the integration contract.
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="fates0-encoder-1", SYMLINK+="input/fates-encoder-1", GROUP="input", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="fates0-encoder-2", SYMLINK+="input/fates-encoder-2", GROUP="input", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="fates0-encoder-3", SYMLINK+="input/fates-encoder-3", GROUP="input", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="Fates Button 1", SYMLINK+="input/fates-button-1", GROUP="input", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="Fates Button 2", SYMLINK+="input/fates-button-2", GROUP="input", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="Fates Button 3", SYMLINK+="input/fates-button-3", GROUP="input", MODE="0660", TAG+="uaccess"
+
+# The overlay admits only SPI0 CS0 and disables CS1. GPIO17/4 are owned by the OLED service.
+SUBSYSTEM=="spidev", KERNEL=="spidev0.0", SYMLINK+="fates-oled-spi", GROUP="spi", MODE="0660", TAG+="uaccess"

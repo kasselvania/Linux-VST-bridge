@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "captured_at_utc": "2026-09-20T00:00:00Z",
+  "os_image": {
+    "name": "Raspberry Pi OS Lite (64-bit), Debian Trixie",
+    "release": "2026-09-15",
+    "architecture": "arm64",
+    "filename": "2026-09-15-raspios-trixie-arm64-lite.img.xz",
+    "url": "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2026-09-15/2026-09-15-raspios-trixie-arm64-lite.img.xz",
+    "sha256": "cdf4f3bfac35ae947b46e4e767f935453810549779ac3290e05a6754aee627e5",
+    "signature_url": "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2026-09-15/2026-09-15-raspios-trixie-arm64-lite.img.xz.sig"
+  },
+  "kernel": {
+    "release": "6.18.50+rpt-rpi-2712",
+    "package": "linux-image-6.18.50+rpt-rpi-2712",
+    "package_version": "1:6.18.50-1+rpt1",
+    "package_sha256": "41a73543781af93f591adddcbf1e2fcc478450784ba2a27be2f07af84ce2bbb6",
+    "page_size_bytes": 16384,
+    "base_dtb_sha256": "a5165cb562035f479ea9f5a81cedf7b6596ea32a0598608c4dc3b77ada909c60",
+    "config_admission": {
+      "CONFIG_ARM64_16K_PAGES": "y",
+      "CONFIG_SND_DESIGNWARE_I2S": "m",
+      "CONFIG_SND_BCM2708_SOC_RPI_PROTO": "m",
+      "CONFIG_SND_SOC_WM8731": "m",
+      "CONFIG_SND_SOC_WM8731_I2C": "m",
+      "CONFIG_INPUT_GPIO_ROTARY_ENCODER": "m",
+      "CONFIG_KEYBOARD_GPIO": "m",
+      "CONFIG_SPI_SPIDEV": "m"
+    }
+  },
+  "firmware": {
+    "package": "raspi-firmware",
+    "version": "1:1.20260907-1",
+    "eeprom_package": "rpi-eeprom",
+    "eeprom_package_version": "28.31-1"
+  },
+  "fates_prior_art": {
+    "repository": "https://github.com/okyeron/fates",
+    "commit": "f7f4cf69a8886f77be943c564b69f925b95d2e88",
+    "board_revision": "v1.8.1",
+    "license_status": "no repository-wide license declaration found; inspect-only prior art",
+    "source_copied": false,
+    "inspected_files": {
+      "README.md": "ca9358ac28ff42f5230192f35cd1eaac6dc9b9fe36fa7f1527c27e40552d9d5d",
+      "hardware/BOM.md": "c580277d8d48c9636838eaf1a480e192a74024a61af6b3f161c2a976daeb7623",
+      "hardware/Build.md": "6208f76f194ba57601136549954822bd570c73ebff5da0e555a16cd903c7d2b1",
+      "overlays/README.md": "8701713728c22b20ebe733f7b779ae8b82011d86fec41b75e1bfb84d8a54b114",
+      "overlays/fates1.7-buttons-encoders-overlay.dts": "bb22ed1e8154336139604122ddb4661faf1e8650efa508b279412dabbce7600c",
+      "overlays/fates1.8-ssd1322-overlay.dts": "da97babb625b179f49baa52604fcd4de0d82ccc4314407fb91c8f851d8b01cd9",
+      "install/norns/files/config.txt": "2947cabe16f95b8c278ab7a387831af633cfab723d9047ac9a7851b1caf69496",
+      "install/norns/files/asound-rpiproto.conf": "d6e4dbd7eecf135ab78a1dc9ba0085d7dc89b604c05d4dacc083b766daad054f",
+      "install/norns/files/rc.local": "2bb0c33db75a29a46369f1ec0d24c60ef241bd6b6481860e90c15f9b8c19e192",
+      "install/norns/files/ttymidi.service": "31d64252c3bfd52ec66ea1f105f4bb3400fe83cc277593f3daee22f1582aed6d"
+    }
+  },
+  "monome_oled_prior_art": {
+    "repository": "https://github.com/monome/linux",
+    "commit": "458e2253667a09bd01f1d50cc2b4063c14c491ec",
+    "license": "GPL-2.0-only for the retained kernel driver path",
+    "adapted_file": "drivers/staging/fbtft/fb_ssd1322.c",
+    "adapted_file_sha256": "b26582cd845bec03ee8f11bf8a697210e92103342ae33511cb91322b41382cb7",
+    "inspected_overlay": "arch/arm/boot/dts/overlays/ssd1322-spi-overlay.dts",
+    "inspected_overlay_sha256": "54ca5ff3168d50019ad24d2244f4925360ae2e324c423c61440191b1b8fcc30d"
+  },
+  "distribution_audio_path": {
+    "overlay": "proto-codec.dtbo",
+    "overlay_sha256": "1ec997e22f82880c2540cec822da3d96cebc0a1aebd8626481000ff8d140a754",
+    "wm8731_module_sha256": "e81380d581abbf32064e1cfd3cb5d1f53fe0d164c5a0bf0c76ac36a453bfbce8",
+    "wm8731_i2c_module_sha256": "dbb1ec08cfb6307fef28faddcfc75836871166a8d60eec99908610e5813dd76b",
+    "rpi_proto_module_sha256": "f963071f87c3132b9ab2866e99f05bb048c7af75fc32817cf11c45fc95d1ca8f",
+    "codec": "WM8731",
+    "i2c_address": "0x1a",
+    "system_clock_hz": 12288000,
+    "driver_supported_rates_hz": [8000, 32000, 48000, 96000],
+    "accepted_rate_hz_pending_physical": 48000
+  },
+  "original_overlay": {
+    "source": "overlays/fates0-overlay.dts",
+    "source_sha256": "e6124a1d7d498fb039da5360b5a68ef0fabb7fe7327992aa515246bb4a503d1e",
+    "binary": "overlays/fates0.dtbo",
+    "binary_sha256": "2d15bc90b7f8eb30301ae1fc08bf7558557d604dec7c6aa34ab730240a425420",
+    "compiler": "DTC 1.7.2",
+    "command": "dtc -@ -H epapr -I dts -O dtb -o fates0.dtbo fates0-overlay.dts"
+  },
+  "pi5_rp1_targets": {
+    "rp1_gpio": "/axi/pcie@1000120000/rp1/gpio@d0000",
+    "rp1_spi0": "/axi/pcie@1000120000/rp1/spi@50000",
+    "spidev0": "/axi/pcie@1000120000/rp1/spi@50000/spidev@0",
+    "spidev1": "/axi/pcie@1000120000/rp1/spi@50000/spidev@1"
+  },
+  "image_packages_used_without_addition": {
+    "alsa-utils": "1.2.14-1+rpt1",
+    "device-tree-compiler": "1.7.2-2+b1",
+    "gpiod": "2.2.1-2+deb13u1",
+    "kmod": "34.2-2",
+    "python3": "3.13.5-1",
+    "python3-libgpiod": "2.2.1-2+deb13u1",
+    "python3-smbus2": "0.4.3-1",
+    "python3-spidev": "3.6-1+b6"
+  },
+  "packages_added_by_provisioning": {
+    "evtest": {"version": "1:1.35-1+b1", "sha256": "7fee662f317a35b27325b7beaf7c3e82ddabf508b5ab49e39ee83a34343338c4"},
+    "i2c-tools": {"version": "4.4-2", "sha256": "3123635e7da9c00d96daa24be09fda90c2f8e571702e4b515a910ee27b43d062"},
+    "jackd2": {"version": "1.9.22~dfsg-4", "sha256": "9dfd3a8d4edfcb9f63be1c522eae2d187151ba1a77e650630ac990edb5318e2e"},
+    "jack-example-tools": {"version": "4-4", "sha256": "81ea08ad2768cf75dd45ee678f1e9d5580e82642f17867303777b7d727043212"}
+  }
+}

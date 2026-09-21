@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "inspected_kernel": "6.18.50+rpt-rpi-2712",
+  "package_version": "1:6.18.50-1+rpt1",
+  "codec": "WM8731",
+  "machine_driver": "snd-soc-rpi-proto",
+  "official_overlay": "proto-codec.dtbo",
+  "required_configs": {
+    "CONFIG_SND_BCM2708_SOC_RPI_PROTO": "m",
+    "CONFIG_SND_SOC_WM8731": "m",
+    "CONFIG_SND_SOC_WM8731_I2C": "m"
+  },
+  "decision": {
+    "distribution_kernel_retained": true,
+    "external_codec_module_required": false,
+    "custom_kernel_image": false
+  },
+  "evidence_class": "offline_package_inspection",
+  "physical_probe_completed": false
+}

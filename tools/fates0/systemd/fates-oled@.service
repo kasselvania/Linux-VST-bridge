@@ -1,0 +1,17 @@
+[Unit]
+Description=Fates bounded OLED status service for %i
+After=systemd-udevd.service
+
+[Service]
+Type=simple
+User=%i
+SupplementaryGroups=spi gpio
+RuntimeDirectory=fates0
+RuntimeDirectoryMode=0750
+ExecStart=/usr/local/libexec/fates0/oled_service.py --socket /run/fates0/oled.sock --spi /dev/fates-oled-spi --rotate 180
+Restart=on-failure
+RestartSec=2s
+TimeoutStopSec=5s
+
+[Install]
+WantedBy=multi-user.target

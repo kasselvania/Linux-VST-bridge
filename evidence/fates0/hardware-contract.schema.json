@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kasselvania.example/schemas/fates0-hardware-contract-v1.json",
+  "type": "object",
+  "required": ["schema_version", "acceptance_status", "fixture", "platform", "prior_art", "overlays", "audio", "jack", "midi", "controls", "oled", "thermal_runs", "provisioning", "known_limitations"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "acceptance_status": {"enum": ["pending_physical_fixture", "accepted", "failed"]},
+    "fixture": {"type": "object", "required": ["pi_model", "fates_revision", "power_input", "fates_usb_c_disconnected"]},
+    "platform": {"type": "object", "required": ["image", "image_sha256", "architecture", "page_size_bytes", "kernel"]},
+    "prior_art": {"type": "object", "required": ["fates_commit", "monome_linux_commit"]},
+    "overlays": {"type": "object", "required": ["official_audio", "fates0"]},
+    "audio": {"type": "object", "required": ["codec", "i2c_address", "overlay", "sample_rate_hz", "physical_loopback"]},
+    "jack": {"type": "object", "required": ["server", "ports", "configurations", "xruns"]},
+    "midi": {"type": "object"},
+    "controls": {"type": "object", "required": ["encoders", "buttons", "typed_reader"]},
+    "oled": {"type": "object", "required": ["controller", "geometry", "interface", "maximum_update_hz"]},
+    "thermal_runs": {"type": "array"},
+    "provisioning": {"type": "object"},
+    "known_limitations": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}

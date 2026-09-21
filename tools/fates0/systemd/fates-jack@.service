@@ -1,0 +1,20 @@
+[Unit]
+Description=Fates JACK2 audio server for %i
+After=sound.target
+ConditionPathExists=/dev/snd
+
+[Service]
+Type=simple
+User=%i
+SupplementaryGroups=audio
+EnvironmentFile=/etc/fates0/jack.env
+Environment=JACK_NO_AUDIO_RESERVATION=1
+LimitRTPRIO=90
+LimitMEMLOCK=infinity
+ExecStart=/usr/bin/jackd -R -P 70 -d alsa -d hw:sndrpiproto -r ${FATES_SAMPLE_RATE} -p ${FATES_PERIOD_FRAMES} -n ${FATES_PERIODS} -S -X seq
+Restart=on-failure
+RestartSec=2s
+TimeoutStopSec=10s
+
+[Install]
+WantedBy=multi-user.target

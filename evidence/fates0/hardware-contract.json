@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "acceptance_status": "pending_physical_fixture",
+  "fixture": {
+    "pi_model": "Raspberry Pi 5 Model B",
+    "pi_revision": null,
+    "required_ram_bytes": 8589934592,
+    "observed_ram_bytes": null,
+    "fates_revision": "v1.8.1",
+    "fates_revision_evidence": "operator_reported",
+    "power_input": "pi",
+    "fates_usb_c_disconnected": true,
+    "cooling": "none_initially",
+    "airflow_obstruction": null
+  },
+  "platform": {
+    "image": "2026-09-15-raspios-trixie-arm64-lite.img.xz",
+    "image_sha256": "cdf4f3bfac35ae947b46e4e767f935453810549779ac3290e05a6754aee627e5",
+    "architecture": "arm64",
+    "page_size_bytes": 16384,
+    "kernel": "6.18.50+rpt-rpi-2712",
+    "kernel_package": "linux-image-6.18.50+rpt-rpi-2712 1:6.18.50-1+rpt1",
+    "firmware": "raspi-firmware 1:1.20260907-1",
+    "boot_eeprom": null,
+    "enabled_repositories": null
+  },
+  "prior_art": {
+    "fates_repository": "https://github.com/okyeron/fates",
+    "fates_commit": "f7f4cf69a8886f77be943c564b69f925b95d2e88",
+    "fates_source_adapted": false,
+    "monome_linux_repository": "https://github.com/monome/linux",
+    "monome_linux_commit": "458e2253667a09bd01f1d50cc2b4063c14c491ec",
+    "oled_driver_adaptation_license": "GPL-2.0-only"
+  },
+  "overlays": {
+    "official_audio": {
+      "name": "proto-codec.dtbo",
+      "sha256": "1ec997e22f82880c2540cec822da3d96cebc0a1aebd8626481000ff8d140a754"
+    },
+    "fates0": {
+      "source": "tools/fates0/overlays/fates0-overlay.dts",
+      "source_sha256": "e6124a1d7d498fb039da5360b5a68ef0fabb7fe7327992aa515246bb4a503d1e",
+      "binary": "tools/fates0/overlays/fates0.dtbo",
+      "binary_sha256": "2d15bc90b7f8eb30301ae1fc08bf7558557d604dec7c6aa34ab730240a425420",
+      "compiler": "DTC 1.7.2",
+      "static_pi5_application": "pass",
+      "physical_boot": null
+    }
+  },
+  "audio": {
+    "codec": "WM8731",
+    "i2c_address": "0x1a",
+    "overlay": "proto-codec",
+    "expected_alsa_card": "sndrpiproto",
+    "observed_alsa_card": null,
+    "playback_pcm": null,
+    "capture_pcm": null,
+    "sample_rate_hz": 48000,
+    "accepted_formats": [],
+    "line_playback": null,
+    "line_capture": null,
+    "headphone_output": null,
+    "physical_loopback": null,
+    "repeated_open_close": null
+  },
+  "jack": {
+    "server": "JACK2",
+    "version": "1.9.22~dfsg-4",
+    "ports": [],
+    "configurations": [],
+    "accepted_period_frames": null,
+    "xruns": null,
+    "restart": null,
+    "ordinary_user": null
+  },
+  "midi": {
+    "usb_identity": null,
+    "alsa_port": null,
+    "jack_port": null,
+    "events": null,
+    "disconnect_reconnect": null,
+    "uart_header": "not_accepted_as_physical_midi"
+  },
+  "controls": {
+    "encoders": [],
+    "buttons": [],
+    "optional_encoder_4": "disabled_pending_fixture_confirmation",
+    "typed_reader": "/usr/local/libexec/fates0/controls.py"
+  },
+  "oled": {
+    "controller": "SSD1322",
+    "geometry": "128x64",
+    "orientation_degrees": 180,
+    "interface": "/run/fates0/oled.sock",
+    "maximum_update_hz": 20,
+    "physical_result": null
+  },
+  "thermal_runs": [],
+  "provisioning": {
+    "branch": "codex/fates0-pi5-hardware-bringup",
+    "commit": null,
+    "physical_verification_completed": false,
+    "package_manifest": null,
+    "pinned_inputs": "tools/fates0/pinned-inputs.json",
+    "provisioner": "tools/fates0/provision.sh",
+    "rollback": "tools/fates0/uninstall.sh"
+  },
+  "known_limitations": [
+    "No Pi 5 physical boot or hardware result has been recorded.",
+    "Fates revision is operator-reported pending retained physical evidence.",
+    "UART header is not an accepted physical MIDI interface.",
+    "Optional encoder 4 is disabled until its population is confirmed.",
+    "Fates prior-art repository has no discovered repository-wide license declaration."
+  ]
+}

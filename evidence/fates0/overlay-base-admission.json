@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "base_dtb": "bcm2712-rpi-5-b.dtb",
+  "base_dtb_sha256": "a5165cb562035f479ea9f5a81cedf7b6596ea32a0598608c4dc3b77ada909c60",
+  "official_audio_overlay": "proto-codec.dtbo",
+  "official_audio_overlay_sha256": "1ec997e22f82880c2540cec822da3d96cebc0a1aebd8626481000ff8d140a754",
+  "fates0_overlay_sha256": "2d15bc90b7f8eb30301ae1fc08bf7558557d604dec7c6aa34ab730240a425420",
+  "combined_output_sha256": "b0a89e0c247fa7a143b2db8a1121099d4666fa9da67d8102d4f5c1ad6443d765",
+  "command": "fdtoverlay -i bcm2712-rpi-5-b.dtb -o combined.dtb proto-codec.dtbo fates0.dtbo",
+  "result": "pass",
+  "confirmed_nodes": [
+    "wm8731@1a",
+    "fates0-encoder-1",
+    "fates0-encoder-2",
+    "fates0-encoder-3",
+    "fates0-encoder-4 disabled",
+    "Fates Button 1",
+    "Fates Button 2",
+    "Fates Button 3",
+    "RP1 spidev0 enabled at 16000000 Hz",
+    "RP1 spidev1 disabled"
+  ],
+  "evidence_class": "static_device_tree_application",
+  "physical_boot_completed": false
+}

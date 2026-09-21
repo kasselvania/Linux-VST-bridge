@@ -1,0 +1,147 @@
+/*
+ * Original FATES0 overlay for Raspberry Pi 5 / BCM2712 and RP1.
+ *
+ * Public Fates v1.8.1 hardware facts establish the GPIO assignments. No source from
+ * the unlicensed Fates repository is copied or adapted. Audio is deliberately absent:
+ * the distribution's official proto-codec overlay owns WM8731/I2S/I2C audio.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2712";
+
+	fragment@0 {
+		target = <&rp1_gpio>;
+		__overlay__ {
+			fates0_encoder_1_pins: fates0-encoder-1-pins {
+				brcm,pins = <5 6>;
+				brcm,function = <0>;
+				brcm,pull = <2>;
+			};
+			fates0_encoder_2_pins: fates0-encoder-2-pins {
+				brcm,pins = <13 12>;
+				brcm,function = <0>;
+				brcm,pull = <2>;
+			};
+			fates0_encoder_3_pins: fates0-encoder-3-pins {
+				brcm,pins = <27 22>;
+				brcm,function = <0>;
+				brcm,pull = <2>;
+			};
+			fates0_encoder_4_pins: fates0-encoder-4-pins {
+				brcm,pins = <26 16>;
+				brcm,function = <0>;
+				brcm,pull = <2>;
+			};
+			fates0_button_1_pin: fates0-button-1-pin {
+				brcm,pins = <24>;
+				brcm,function = <0>;
+				brcm,pull = <2>;
+			};
+			fates0_button_2_pin: fates0-button-2-pin {
+				brcm,pins = <25>;
+				brcm,function = <0>;
+				brcm,pull = <2>;
+			};
+			fates0_button_3_pin: fates0-button-3-pin {
+				brcm,pins = <23>;
+				brcm,function = <0>;
+				brcm,pull = <2>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target-path = "/";
+		__overlay__ {
+			fates0-encoder-1 {
+				compatible = "rotary-encoder";
+				pinctrl-names = "default";
+				pinctrl-0 = <&fates0_encoder_1_pins>;
+				gpios = <&rp1_gpio 5 1>, <&rp1_gpio 6 1>;
+				linux,axis = <0>;
+				rotary-encoder,relative-axis;
+				rotary-encoder,steps-per-period = <2>;
+			};
+
+			fates0-encoder-2 {
+				compatible = "rotary-encoder";
+				pinctrl-names = "default";
+				pinctrl-0 = <&fates0_encoder_2_pins>;
+				gpios = <&rp1_gpio 13 1>, <&rp1_gpio 12 1>;
+				linux,axis = <0>;
+				rotary-encoder,relative-axis;
+				rotary-encoder,steps-per-period = <2>;
+			};
+
+			fates0-encoder-3 {
+				compatible = "rotary-encoder";
+				pinctrl-names = "default";
+				pinctrl-0 = <&fates0_encoder_3_pins>;
+				gpios = <&rp1_gpio 27 1>, <&rp1_gpio 22 1>;
+				linux,axis = <0>;
+				rotary-encoder,relative-axis;
+				rotary-encoder,steps-per-period = <2>;
+			};
+
+			fates0_encoder_4: fates0-encoder-4 {
+				compatible = "rotary-encoder";
+				pinctrl-names = "default";
+				pinctrl-0 = <&fates0_encoder_4_pins>;
+				gpios = <&rp1_gpio 26 1>, <&rp1_gpio 16 1>;
+				linux,axis = <0>;
+				rotary-encoder,relative-axis;
+				rotary-encoder,steps-per-period = <2>;
+				status = "disabled";
+			};
+
+			fates0-button-1 {
+				compatible = "gpio-keys";
+				label = "Fates Button 1";
+				pinctrl-names = "default";
+				pinctrl-0 = <&fates0_button_1_pin>;
+				button { label = "Fates Button 1"; linux,code = <256>; gpios = <&rp1_gpio 24 1>; debounce-interval = <5>; };
+			};
+
+			fates0-button-2 {
+				compatible = "gpio-keys";
+				label = "Fates Button 2";
+				pinctrl-names = "default";
+				pinctrl-0 = <&fates0_button_2_pin>;
+				button { label = "Fates Button 2"; linux,code = <257>; gpios = <&rp1_gpio 25 1>; debounce-interval = <5>; };
+			};
+
+			fates0-button-3 {
+				compatible = "gpio-keys";
+				label = "Fates Button 3";
+				pinctrl-names = "default";
+				pinctrl-0 = <&fates0_button_3_pin>;
+				button { label = "Fates Button 3"; linux,code = <258>; gpios = <&rp1_gpio 23 1>; debounce-interval = <5>; };
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&rp1_spi0>;
+		__overlay__ { status = "okay"; };
+	};
+
+	fragment@3 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "okay";
+			spi-max-frequency = <16000000>;
+		};
+	};
+
+	fragment@4 {
+		target = <&spidev1>;
+		__overlay__ { status = "disabled"; };
+	};
+
+	__overrides__ {
+		encoder4 = <&fates0_encoder_4>,"status";
+	};
+};
