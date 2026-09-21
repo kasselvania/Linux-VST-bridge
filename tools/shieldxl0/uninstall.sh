@@ -37,6 +37,7 @@ declare -A owned=(
   ["$boot_dir/overlays/shieldxl0.dtbo"]="$SCRIPT_DIR/overlays/shieldxl0.dtbo"
   [/etc/udev/rules.d/99-shieldxl0.rules]="$SCRIPT_DIR/config/99-shieldxl0.rules"
   [/etc/alsa/conf.d/99-shieldxl0.conf]="$SCRIPT_DIR/config/99-shieldxl0-alsa.conf"
+  [/etc/modules-load.d/shieldxl0.conf]="$SCRIPT_DIR/config/shieldxl0-modules.conf"
   [/etc/security/limits.d/99-shieldxl0.conf]="$SCRIPT_DIR/config/99-shieldxl0-limits.conf"
   [/etc/systemd/system/shieldxl-jack@.service]="$SCRIPT_DIR/systemd/shieldxl-jack@.service"
   [/etc/systemd/system/shieldxl-oled@.service]="$SCRIPT_DIR/systemd/shieldxl-oled@.service"

@@ -48,7 +48,7 @@ stage_hash=$(sha256_file "$stage_source")
 platform_hash=$(sha256_file "$platform_source")
 [[ $fragment_hash == "$stage_hash" || $fragment_hash == "$platform_hash" ]] ||
   die 'managed boot fragment has foreign content'
-[[ -e /dev/i2c-1 ]] || die 'I2C bus 1 is absent after the required reboot'
+ensure_i2c_character_device 1
 mkdir -p "$SHIELDXL0_STATE_DIR/evidence"
 i2c_admission=$(mktemp "$SHIELDXL0_STATE_DIR/evidence/.i2c-address-admission.XXXXXX")
 build_dir=
@@ -125,6 +125,7 @@ else
 fi
 install_exact "$SCRIPT_DIR/config/99-shieldxl0.rules" /etc/udev/rules.d/99-shieldxl0.rules 0644
 install_exact "$SCRIPT_DIR/config/99-shieldxl0-alsa.conf" /etc/alsa/conf.d/99-shieldxl0.conf 0644
+install_exact "$SCRIPT_DIR/config/shieldxl0-modules.conf" /etc/modules-load.d/shieldxl0.conf 0644
 install_exact "$SCRIPT_DIR/config/jack.env" "$SHIELDXL0_CONFIG_DIR/jack.env" 0644
 install_exact "$SCRIPT_DIR/config/99-shieldxl0-limits.conf" /etc/security/limits.d/99-shieldxl0.conf 0644
 install_exact "$SCRIPT_DIR/systemd/shieldxl-jack@.service" /etc/systemd/system/shieldxl-jack@.service 0644

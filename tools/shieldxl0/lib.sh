@@ -76,6 +76,17 @@ refuse_prohibited_runtimes() {
   return 0
 }
 
+ensure_i2c_character_device() {
+  local bus=${1:-1}
+  local adapter_path=${2:-/sys/bus/i2c/devices/i2c-$bus}
+  local device_path=${3:-/dev/i2c-$bus}
+  [[ -e $adapter_path ]] || die "I2C adapter $bus is absent after the required reboot"
+  if [[ ! -e $device_path ]]; then
+    modprobe i2c-dev || die 'failed to load the bounded i2c-dev userspace interface'
+  fi
+  [[ -e $device_path ]] || die "I2C character device is absent after loading i2c-dev: $device_path"
+}
+
 boot_config_path() {
   [[ -f /boot/firmware/config.txt && ! -L /boot/firmware/config.txt ]] ||
     die 'pinned image boot config is missing or redirected: /boot/firmware/config.txt'

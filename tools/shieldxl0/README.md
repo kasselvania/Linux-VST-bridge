@@ -68,8 +68,9 @@ The scripts modify only:
 - one `include shieldxl0.conf` line in the discovered Pi boot config;
 - the owned `shieldxl0.conf` fragment and `overlays/shieldxl0.dtbo`;
 - one external codec module below `/lib/modules/<exact-kernel>/updates/shieldxl0`;
-- named udev, ALSA, limits, systemd, `/etc/shieldxl0`, and `/usr/local/libexec/shieldxl0`
-  files;
+- one owned modules-load file for the standard `i2c-dev` userspace interface;
+- named udev, ALSA, limits, systemd, `/etc/shieldxl0`, and
+  `/usr/local/libexec/shieldxl0` files;
 - membership of the selected ordinary user in `audio`, `input`, `spi`, and `gpio`.
 
 It never replaces the complete boot config and never reboots automatically.
