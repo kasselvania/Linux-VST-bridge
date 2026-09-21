@@ -116,6 +116,18 @@ class CensusTests(unittest.TestCase):
         self.assertFalse(result["scope"]["steam_deck_contacted"])
         self.assertFalse(result["scope"]["ubuntu_deployment_changed"])
 
+    def test_attempt_two_is_post_gate_failure_not_profile_authority(self) -> None:
+        result = json.loads((ROOT / "evidence/frg1/attempt-002/result.json").read_text())
+        self.assertEqual(result["classification"], "FRG1_FACTORY_CENSUS_POST_GATE_EMPTY_OUTPUT")
+        self.assertTrue(result["execution"]["readiness"]["exact_binding_verified"])
+        self.assertTrue(result["execution"]["gate"]["present"])
+        self.assertEqual(result["execution"]["structured_record_count"], 0)
+        self.assertFalse(result["execution"]["retry_performed"])
+        self.assertFalse(result["observations"]["factory_or_class_authority_obtained"])
+        self.assertEqual(result["cleanup"]["frg1_environment_process_count"], 0)
+        self.assertFalse(result["scope"]["steam_deck_contacted"])
+        self.assertFalse(result["scope"]["ubuntu_publication_performed"])
+
 
 if __name__ == "__main__":
     unittest.main()

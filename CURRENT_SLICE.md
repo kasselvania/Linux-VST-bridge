@@ -80,6 +80,14 @@ readiness marker. No diagnostic-only product run or broader proof campaign prece
 attempt 002. If attempt 002 fails, execution stops without attempt 003. If its exact
 census succeeds, the original profile/proxy/coherence acceptance sequence continues.
 
+Attempt 002 passed the exact readiness/gate boundary, then the scanner exited with
+empty stdout and no structured census record. Its bounded stderr contained fresh
+prefix/fsync observations followed by Mesa device, DRI3 and i915 loading errors. The
+exact cause and whether module loading began remain unconfirmed. The Windows child
+exit status was not persisted because the parse refusal occurred outside the private
+failure-receipt block. FRG1 is stopped at
+`FRG1_FACTORY_CENSUS_POST_GATE_EMPTY_OUTPUT`; attempt 003 is not authorized.
+
 ## In scope
 
 - `CURRENT_SLICE.md`

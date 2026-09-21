@@ -61,6 +61,38 @@ Bitwig, Ubuntu publication, deployment or Steam Deck operation. A failed attempt
 stops FRG1 without attempt 003. A successful census may continue only through the
 original class-specific proxy and coherent review-candidate acceptance sequence.
 
+## Attempt 002 disposition
+
+The focused pipe-pressure test passed, and a separate harness-only preflight proved
+that the digest-bound private Xwayland accepted an authenticated client and retired.
+Two pre-launch refusals were corrected before the real attempt: a generated Python
+cache violated the closed staged roster, and the graphical helper initially selected
+the scanner's synthetic home. Neither refusal started Proton, Wine or the Windows
+host. The real attempt used a new scratch root, prefix and session.
+
+Attempt 002 passed the exact 500-byte readiness handshake, verified its bytes, and
+published one byte-identical gate. The scanner then exited with zero stdout bytes and
+therefore zero structured census records. Its 480-byte bounded stderr recorded that
+the fresh prefix upgrade began and fsync was active, followed by Mesa device, DRI3
+screen and i915 driver-loading errors. Those messages are observations, not an
+established cause.
+
+The supervisor stopped at:
+
+```text
+FRG1_FACTORY_CENSUS_POST_GATE_EMPTY_OUTPUT
+```
+
+Because record parsing failed after the child streams had been retained but outside
+the private failure-receipt block, the exact Windows child exit status was not
+persisted. It is explicitly unavailable and is not reconstructed. No evidence
+establishes whether the module was loaded or `GetPluginFactory` was reached.
+
+Cleanup found zero FRG1-environment processes, no remaining private X11 socket, no
+crash artifact and zero publication payloads. The source module remained exact and
+the Ubuntu-lab manager remained active. Per the fixed decision tree, there is no
+attempt 003, class-specific proxy or coherent profile on this branch.
+
 ## Nonclaims
 
 FRG1 does not establish factory discovery, class identity, controller association,
@@ -72,3 +104,4 @@ compatibility profile.
 ## Evidence
 
 - `evidence/frg1/attempt-001/result.json`
+- `evidence/frg1/attempt-002/result.json`
