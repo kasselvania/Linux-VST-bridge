@@ -18,6 +18,10 @@ python3 -m json.tool "$REPO_DIR/evidence/shieldxl0/hardware-contract.schema.json
 python3 -m json.tool "$REPO_DIR/evidence/shieldxl0/kernel-driver-admission.json" >/dev/null
 python3 -m json.tool "$REPO_DIR/evidence/shieldxl0/overlay-base-admission.json" >/dev/null
 python3 -m json.tool "$REPO_DIR/evidence/shieldxl0/fixture-admission-failure.json" >/dev/null
+python3 -m json.tool "$REPO_DIR/evidence/shieldxl0/platform-physical.json" >/dev/null
+python3 -m json.tool "$REPO_DIR/evidence/shieldxl0/audio-jack-physical.json" >/dev/null
+python3 -m json.tool "$REPO_DIR/evidence/shieldxl0/controls-physical.json" >/dev/null
+python3 -m json.tool "$REPO_DIR/evidence/shieldxl0/midi-physical.json" >/dev/null
 
 python3 - "$SCRIPT_DIR" "$REPO_DIR/evidence/shieldxl0/hardware-contract.json" <<'PY'
 import hashlib, json, pathlib, sys
@@ -29,9 +33,10 @@ for key, path_key in (("source_sha256", "source"), ("binary_sha256", "binary")):
     path = root / overlay[path_key]
     observed = hashlib.sha256(path.read_bytes()).hexdigest()
     assert observed == overlay[key], (path, observed, overlay[key])
-assert contract["acceptance_status"] == "pending_physical_fixture"
-assert contract["audio"]["physical_loopback"] is None
-assert contract["provisioning"]["physical_verification_completed"] is False
+assert contract["acceptance_status"] == "accepted"
+assert contract["audio"]["physical_loopback"] == "pass_both_channels"
+assert contract["provisioning"]["physical_verification_completed"] is True
+assert "thermally_unqualified" in contract["thermal"]["sustained_performance_classification"]
 PY
 
 if rg -n -g '*.sh' -g '*.py' -g '!test.sh' \

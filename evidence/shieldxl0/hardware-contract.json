@@ -1,7 +1,7 @@
 {
   "$schema": "hardware-contract.schema.json",
   "schema_version": 1,
-  "acceptance_status": "pending_physical_fixture",
+  "acceptance_status": "accepted",
   "pi": {
     "required_model": "Raspberry Pi 5 Model B",
     "required_ram_bytes": 8589934592,
@@ -15,8 +15,12 @@
     "image_sha256": "cdf4f3bfac35ae947b46e4e767f935453810549779ac3290e05a6754aee627e5",
     "architecture": "arm64",
     "page_size": 4096,
-    "repositories": null,
-    "package_manifest": null
+    "repositories": [
+      "http://archive.raspberrypi.com/debian/ trixie main",
+      "http://deb.debian.org/debian/ trixie trixie-updates main contrib non-free non-free-firmware",
+      "http://deb.debian.org/debian-security/ trixie-security main contrib non-free non-free-firmware"
+    ],
+    "package_manifest": "762-row fixture manifest sha256:5c3ea637d6bbd96bbae7b2bb8cdbdf7166183440297deb8e7103182b441154d4"
   },
   "kernel": {
     "release": "6.18.50+rpt-rpi-v8",
@@ -44,13 +48,14 @@
     "playback_pcm": "shieldxl",
     "capture_pcm": "shieldxl",
     "sample_rate_hz": 48000,
-    "accepted_formats": [],
-    "mixer_state_sha256": null,
-    "silent_playback": null,
-    "tone_audible": null,
-    "capture": null,
-    "physical_loopback": null,
-    "repeated_open_close": null,
+    "accepted_formats": ["stereo S16_LE at 48000 Hz"],
+    "mixer_state_sha256": "2877f82b32ff4c83e486de0b7e17f35bc6a28bce3b292a5ae63bb0da107454cf",
+    "silent_playback": "pass",
+    "tone_audible": "pass_operator_observed_after_external_route_correction",
+    "capture": "pass_stereo_physical_source",
+    "physical_loopback": "pass_both_channels",
+    "repeated_open_close": "pass_20_playback_capture_cycles",
+    "physical_receipt": "audio-jack-physical.json",
     "reboot_identity_preserved": true
   },
   "audio_server": {
@@ -60,21 +65,46 @@
     "ports": {
       "capture": ["system:capture_1", "system:capture_2"],
       "playback": ["system:playback_1", "system:playback_2"],
-      "midi": ["system:midi_capture_1", "system:midi_playback_1"]
+      "midi_system_numbers": "dynamic across USB hotplug",
+      "midi_input_alias": "Monolit:midi/playback_1"
     },
-    "configurations": [{"sample_rate_hz": 48000, "period_frames": 512, "periods": 3, "enumeration_only": true}],
+    "configurations": [
+      {"sample_rate_hz": 48000, "period_frames": 128, "periods": 3, "physical_stereo_loopback": "pass", "xruns": 2},
+      {"sample_rate_hz": 48000, "period_frames": 256, "periods": 3, "physical_stereo_loopback": "pass", "xruns": 1},
+      {"sample_rate_hz": 48000, "period_frames": 512, "periods": 3, "physical_stereo_loopback": "pass", "xruns": 0},
+      {"sample_rate_hz": 48000, "period_frames": 1024, "periods": 3, "physical_stereo_loopback": "pass", "xruns": 0}
+    ],
     "recommended_period_frames": 512,
-    "clean_restart": true
+    "clean_restart": true,
+    "mixer_restored_before_start": true,
+    "physical_receipt": "audio-jack-physical.json"
   },
   "midi": {
-    "usb": {"identity": null, "alsa_port": null, "jack_port": null, "events": null, "disconnect_reconnect": null},
+    "usb": {
+      "identity": "Monolit USB 16c0:0490 with serial-present identity",
+      "stable_raw_alias": "/dev/snd/shieldxl-usb-midi",
+      "alsa_port": "Monolit:Monolit MIDI 1",
+      "jack_port": "Monolit:midi/playback_1",
+      "events": "note-on, note-off, velocity 64, CC64 full range, CC123 including exact zero",
+      "disconnect_reconnect": "pass; numeric JACK system port changed while stable alias returned",
+      "physical_receipt": "midi-physical.json"
+    },
     "trs_uart": {"status": "not_implemented_first_pass", "type_switch": null, "input": null, "output": null}
   },
   "controls": {
     "reader": "/usr/local/libexec/shieldxl0/controls.py",
     "event_format": "JSON Lines: encoder{index,delta,monotonic_ns} or button{index,pressed,monotonic_ns}",
-    "encoders": [],
-    "buttons": []
+    "encoders": [
+      {"index": 0, "alias": "/dev/input/shieldxl-encoder-1", "bidirectional": "pass"},
+      {"index": 1, "alias": "/dev/input/shieldxl-encoder-2", "bidirectional": "pass"},
+      {"index": 2, "alias": "/dev/input/shieldxl-encoder-3", "bidirectional": "pass"}
+    ],
+    "buttons": [
+      {"index": 0, "alias": "/dev/input/shieldxl-button-1", "press_release": "pass"},
+      {"index": 1, "alias": "/dev/input/shieldxl-button-2", "press_release": "pass"},
+      {"index": 2, "alias": "/dev/input/shieldxl-button-3", "press_release": "pass"}
+    ],
+    "physical_receipt": "controls-physical.json"
   },
   "oled": {
     "interface": "/run/shieldxl0/oled.sock",
@@ -93,26 +123,33 @@
   "thermal": {
     "initial_cooling_fixture": "none; board open and unenclosed",
     "shieldxl_passive_airflow_obstruction": true,
-    "physical_runs": ["rpi0-4k-integration.json", "oled-physical.json"],
+    "physical_runs": [
+      "rpi0-4k-integration.json",
+      "platform-physical.json",
+      "audio-jack-physical.json",
+      "controls-physical.json",
+      "oled-physical.json",
+      "midi-physical.json"
+    ],
     "bounded_run_max_c": 58.2,
     "throttling_flags_before": "0x0",
     "throttling_flags_after": "0x0",
     "no_throttling": true,
-    "cpu_governor": null,
+    "cpu_governor": "ondemand",
     "observed_clock_range_hz": [1500000000, 2400000000],
-    "sustained_performance_classification": "bounded_runs_no_throttling_observed; sustained qualification pending"
+    "sustained_performance_classification": "thermally_unqualified_for_sustained_performance; bounded functional runs had no throttling"
   },
   "provisioning": {
-    "commit": "a3fed20a6dcc9f4572fb68725e62d10e2af2bd4c",
+    "commit": "9bf6e12a592e938f5a6093ca36740cc86bb73135",
     "paths": ["tools/shieldxl0", "evidence/shieldxl0"],
     "rollback": "tools/shieldxl0/uninstall.sh",
-    "physical_verification_completed": false
+    "physical_verification_completed": true
   },
   "known_limitations": [
-    "The exact Raspberry Pi 5 8 GB / 4 KiB kernel platform enumerated and survived reboot, but complete physical acceptance has not run on this profile.",
     "The first powered candidate was refused because it identified as Raspberry Pi 3 Model B Plus Rev 1.3, revision a020d3; it remains outside the accepted Pi 5 fixture.",
-    "The initial Pi 5 fixture has no active cooler; every physical run must retain temperature, throttling, CPU frequency, duration, and ShieldXL airflow-obstruction observations.",
-    "Physical 4 KiB tone/loopback, USB MIDI events, and the complete JACK period matrix/XRUN result remain pending; OLED visual acceptance passed in oled-physical.json.",
+    "The accepted Pi 5 fixture has no active cooler. Bounded functional runs passed without throttling, but sustained performance, low-latency, and polyphony remain thermally unqualified.",
+    "JACK physical stereo loopback passed at 128, 256, 512, and 1024 frames; the bounded 128-frame run logged two XRUNs and the 256-frame run logged one, while 512 and 1024 logged zero.",
+    "All available physical MIDI controllers emitted fixed velocity. USB MIDI note/control transport passed, but RPI0 still lacks its required two-distinct-velocities physical observation.",
     "ShieldXL TRS/UART MIDI is deliberately deferred; USB MIDI is the required first path."
   ]
 }

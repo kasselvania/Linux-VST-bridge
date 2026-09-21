@@ -9,9 +9,9 @@ REPO = ROOT.parents[1]
 
 
 class ContractTest(unittest.TestCase):
-    def test_pending_contract_does_not_claim_physical_acceptance(self):
+    def test_accepted_contract_names_exact_physical_receipts_and_limits(self):
         contract = json.loads((REPO / "evidence/shieldxl0/hardware-contract.json").read_text())
-        self.assertEqual(contract["acceptance_status"], "pending_physical_fixture")
+        self.assertEqual(contract["acceptance_status"], "accepted")
         self.assertEqual(contract["pi"]["required_model"], "Raspberry Pi 5 Model B")
         self.assertEqual(contract["pi"]["required_ram_bytes"], 8 * 1024**3)
         self.assertEqual(contract["pi"]["model"], "Raspberry Pi 5 Model B Rev 1.1")
@@ -20,8 +20,18 @@ class ContractTest(unittest.TestCase):
         self.assertEqual(contract["kernel"]["release"], "6.18.50+rpt-rpi-v8")
         self.assertEqual(contract["audio"]["alsa_card_id"], "SHIELDXL")
         self.assertTrue(contract["audio"]["reboot_identity_preserved"])
-        self.assertIsNone(contract["audio"]["physical_loopback"])
-        self.assertFalse(contract["provisioning"]["physical_verification_completed"])
+        self.assertEqual(contract["audio"]["physical_loopback"], "pass_both_channels")
+        self.assertTrue(contract["provisioning"]["physical_verification_completed"])
+        self.assertEqual(contract["midi"]["usb"]["jack_port"], "Monolit:midi/playback_1")
+        self.assertIn("thermally_unqualified", contract["thermal"]["sustained_performance_classification"])
+        self.assertTrue(any("distinct" in item for item in contract["known_limitations"]))
+
+        audio = json.loads((REPO / "evidence/shieldxl0/audio-jack-physical.json").read_text())
+        self.assertEqual(audio["status"], "physical_audio_and_jack_acceptance_passed")
+        self.assertEqual([row["xruns"] for row in audio["jack"]["matrix"]], [2, 1, 0, 0])
+        midi = json.loads((REPO / "evidence/shieldxl0/midi-physical.json").read_text())
+        self.assertEqual(midi["hotplug"]["result"], "pass")
+        self.assertEqual(midi["event_campaign"]["note_velocity_values"], [64])
 
     def test_retained_overlay_hashes_match_manifest(self):
         manifest = json.loads((ROOT / "pinned-inputs.json").read_text())

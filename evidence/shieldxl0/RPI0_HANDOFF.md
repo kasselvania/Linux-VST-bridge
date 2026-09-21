@@ -1,12 +1,9 @@
 # RPI0 hardware integration handoff
 
-RPI0 must first read `hardware-contract.json`. A complete SHIELDXL0 claim still requires
-`acceptance_status` to be `accepted`, but the operator may explicitly defer OLED and
-authorize bounded RPI0 audio/MIDI integration while that overall status remains pending.
-In that case RPI0 must require the exact recorded kernel, CS4270 module, ALSA/JACK audio,
-and MIDI results individually and must not promote the bounded handoff into a complete
-SHIELDXL0 pass. It must consume recorded identities rather than selecting a similarly
-named device.
+RPI0 must first read `hardware-contract.json`. SHIELDXL0 is accepted for bounded RPI0
+integration on the exact fixture, with sustained uncooled performance explicitly
+thermally unqualified. RPI0 must consume recorded identities rather than selecting a
+similarly named device.
 
 The selected RPI0 fixture is Raspberry Pi 5 with 8 GB RAM on the pinned
 `6.18.50+rpt-rpi-v8` integration kernel, which uses 4 KiB pages. The original
@@ -14,7 +11,7 @@ The selected RPI0 fixture is Raspberry Pi 5 with 8 GB RAM on the pinned
 translated-runtime profile. RPI0 must treat the 4 KiB page size and exact kernel identity
 as part of its integration input.
 
-The intended interfaces, pending physical confirmation, are:
+The physically accepted interfaces are:
 
 - audio: JACK2 at 48 kHz, S16_LE, with the exact capture/playback ports recorded in the
   contract; the backing stable ALSA alias is `shieldxl` / `hw:SHIELDXL`;
@@ -39,3 +36,9 @@ provides the stable interface.
 RPI0 must also consume the retained thermal classification. A functionally accepted
 hardware contract may still mark sustained performance `thermally_unqualified` when the
 open, unenclosed, no-active-cooler fixture throttles.
+
+The accepted Monolit controller proved note-on/off, sustain CC64, all-notes-off CC123,
+hot-unplug, stable-identity reconnect, and a post-reconnect note. It emits a fixed
+velocity, as did the two other available controllers. RPI0 must not claim its complete
+physical MIDI sequence until one physical controller establishes two distinct note-on
+velocities.
