@@ -1,5 +1,28 @@
 # Plug-in reliability and audio I/O follow-up
 
+Physical correction update (2026-09-21): the first approved Desktop Mode
+Blackhole launch stopped before the planned touch comparison. Bitwig reported
+that it could not load the plug-in. The exact keeper exited before readiness;
+no DSP owner or Windows plug-in host was created. The requesting Flatpak's
+authenticated Xauthority and DBus paths existed only in its mount namespace,
+but the host-side Proton launch received those raw paths. This is now a source
+repair boundary, not evidence about Blackhole rendering, touch, or audio.
+
+The corrected supervisor resolves the peer-namespace Xauthority only to one
+private host-visible file with identical complete bytes. DBus and Wayland are
+forwarded only when the peer and host paths identify the same socket. It does
+not substitute the ambient systemd environment or grant the host session bus
+for a Flatpak-private proxy. Keeper failures retain exact exit status and
+non-disclosing output byte counts/digests rather than discarding all process
+evidence or retaining raw potentially sensitive text.
+
+The attempt also proved that installing a manager/supervisor update does not
+replace already published product proxies. Blackhole and Kontakt must each be
+prepared from the exact current preparation kit and installed as new immutable
+experimental publication revisions before their next physical checks. The old
+publications remain rollback authority. The touch comparison below resumes
+only after that source/package boundary is reviewed and installed.
+
 Source candidate update (2026-09-20): the shared Blackhole/Kontakt reliability
 slice now admits the exact current managed-experimental publication to optional
 detailed capture and projects existing IF1 editor/host/transport terminal

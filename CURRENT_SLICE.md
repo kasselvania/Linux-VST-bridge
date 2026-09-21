@@ -1,5 +1,36 @@
 # Catalog reliability: Blackhole and Kontakt owned graphical sessions
 
+Physical correction basis (2026-09-21): the first exact installed `f164048f`
+Desktop Mode attempt did not load Blackhole. Bitwig reported `could not load
+plugin`; no DSP owner or Windows plug-in host was created. The manager created
+one keeper, but that keeper exited before readiness and cleaned its empty
+cohort. The authenticated Flatpak peer supplied `DISPLAY=:0`,
+`XAUTHORITY=/run/flatpak/Xauthority`, and a session bus at
+`/run/flatpak/bus`. The supervisor passed those namespace-private paths
+unchanged to a host-side Proton launch even though neither path existed in the
+host namespace. The retained keeper result did not preserve its discarded
+output, so the exact internal process error remains unavailable and is not
+inferred. The sanitized physical result is retained in
+`evidence/catalog-reliability/blackhole-first-flatpak-graphical-failure.sanitized.json`.
+
+This corrective continuation binds graphical resources, not just environment
+strings. The authenticated peer values remain the selection authority. A
+private host-visible Xauthority file is admitted only when its complete bytes
+match the peer-namespace file exactly. A DBus or Wayland endpoint is forwarded
+only when the host-visible path identifies the same socket. A Flatpak-private
+bus is never silently widened to the user's unrestricted host bus. Missing,
+ambiguous, replaced, public or wrong-kind resources refuse before keeper
+readiness and before any native binding is exposed.
+
+The installed attempt also retained the old product-specific proxy binaries.
+The 65-second typed, unowned `ServiceBusy` retry in this branch therefore did
+not execute physically. The next offline package must include the exact current
+preparation kit. Before either product is retried, Blackhole and Kontakt each
+require a newly prepared immutable proxy candidate from that kit and an exact
+inactive experimental replacement; their prior publications remain rollback
+authority. Installing manager files alone must not be described as deploying
+the changed native retry behavior.
+
 Correction basis: stacked merge `18cc2c11b35c6c3c04d88c4703c8a6d88996249a`,
 tree `9311091011ec69caa4799f2e12fa972e3ac74781`. That merge entered the
 still-unmerged Blackhole branch before review of PR #134 was complete. It was

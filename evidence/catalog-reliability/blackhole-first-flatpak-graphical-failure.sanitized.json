@@ -1,0 +1,48 @@
+{
+  "schema": "linux-vst-bridge-catalog-reliability-physical-failure/v1",
+  "observed_at_utc": "2026-09-21T15:49:21Z",
+  "installed_software_generation": "7b4106e0099976fd906cf20368b69f2f34caf578b934118933cb88b1ff3b1d73",
+  "source": {
+    "pull_request": 135,
+    "commit": "f164048f81045c76711e8ce1886a9dcd6f30dee7",
+    "tree": "2855d972cfbc9c9939627a15b3fd1fae96296723"
+  },
+  "operation": {
+    "product": "Blackhole Immersive 1.4.4",
+    "graphical_session": "Desktop Mode display :0",
+    "operator_result": "Bitwig reported could not load plugin",
+    "retry_performed": false,
+    "bitwig_closed_normally_after_observation": true
+  },
+  "observations": {
+    "manager_service_active": true,
+    "manager_service_restarts": 0,
+    "typed_service_busy_responses_observed": true,
+    "native_peer_broken_pipe_observed": true,
+    "dsp_owner_created": false,
+    "windows_plugin_host_launched": false,
+    "keeper_created": true,
+    "keeper_ready": false,
+    "keeper_error": "shared environment owner exited",
+    "keeper_cleanup_confirmed": true,
+    "keeper_process_remaining": false,
+    "cleanup_unconfirmed": false,
+    "stale_confirmed-clean_keeper_lease_present_before_service_reconciliation": true
+  },
+  "graphical_boundary": {
+    "authenticated_display": ":0",
+    "peer_xauthority": "/run/flatpak/Xauthority",
+    "peer_dbus": "/run/flatpak/bus",
+    "host_xauthority_path_present": false,
+    "host_dbus_path_present": false,
+    "host_session_xauthority_present": true,
+    "host_session_dbus_present": true,
+    "finding": "The authenticated Flatpak peer values were copied into the host-side Proton environment without proving or translating their mount-namespace reachability. The shared environment owner exited before readiness. The retained result does not include the discarded owner stdout/stderr, so the process's first internal error is unavailable and is not inferred."
+  },
+  "private_record_sha256": {
+    "owner": "62a224384a6cc0c4e8a25cc5f0ac3c4fdc6b040eec621d4cafacfe45be9371c0",
+    "result": "3c200157a77641bf01a052fdb427fee1656cd1fa73ceae8d7fa2e1ad571b2fd6",
+    "lease": "9d28892d0800e78de298b775782e2803eb729c0e6dfddd41d680a7ef8977a296"
+  },
+  "disposition": "SOURCE_REPAIR_REQUIRED_BEFORE_RETRY"
+}

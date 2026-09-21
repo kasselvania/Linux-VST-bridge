@@ -21,19 +21,126 @@ import session
 
 
 class GraphicalSessionTests(unittest.TestCase):
+    def graphical_fixture(self,root):
+        proc=root/'proc';peer=proc/'41';peer.mkdir(parents=True)
+        fields=['S']+['0']*18+['9001']+['0']*4
+        (peer/'stat').write_text('41 (bitwig-studio) '+' '.join(fields))
+        runtime=peer/'root/run/user'/str(os.getuid());runtime.mkdir(parents=True)
+        host_runtime=root/'host-runtime';host_runtime.mkdir(mode=0o700)
+        flatpak=peer/'root/run/flatpak';flatpak.mkdir(parents=True)
+        authority=flatpak/'Xauthority';authority.write_bytes(b'private-cookie-fixture')
+        authority.chmod(0o600)
+        host_authority=host_runtime/'xauth_fixture';host_authority.write_bytes(authority.read_bytes())
+        host_authority.chmod(0o600)
+        bus=socket.socket(socket.AF_UNIX);bus.bind(str(flatpak/'bus'));bus.listen(1)
+        wayland=socket.socket(socket.AF_UNIX);wayland.bind(str(runtime/'wayland-1'));wayland.listen(1)
+        (peer/'environ').write_bytes(
+          b'DISPLAY=:7\0WAYLAND_DISPLAY=wayland-1\0XAUTHORITY=/run/flatpak/Xauthority\0'
+          b'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/flatpak/bus\0HOME=/private\0')
+        bound={'schema':1,'peer_pid':41,'peer_start_ticks':9001,'display':':7',
+          'wayland_display':'wayland-1','xauthority':'/run/flatpak/Xauthority',
+          'dbus_session_bus_address':'unix:path=/run/flatpak/bus'}
+        return proc,peer,host_runtime,bound,bus,wayland
+
     def test_exact_peer_generation_and_allowlisted_environment_are_revalidated(self):
         with tempfile.TemporaryDirectory() as tmp:
             proc=pathlib.Path(tmp);peer=proc/'41';peer.mkdir()
             fields=['S']+['0']*18+['9001']+['0']*4
             (peer/'stat').write_text('41 (bitwig-studio) '+' '.join(fields))
-            (peer/'environ').write_bytes(b'DISPLAY=:7\0WAYLAND_DISPLAY=gamescope-1\0HOME=/private\0')
-            bound={'schema':1,'peer_pid':41,'peer_start_ticks':9001,'display':':7','wayland_display':'gamescope-1'}
+            (peer/'environ').write_bytes(b'DISPLAY=:7\0HOME=/private\0')
+            bound={'schema':1,'peer_pid':41,'peer_start_ticks':9001,'display':':7'}
             self.assertEqual(session.graphical_environment(bound,proc),
-                             {'DISPLAY':':7','WAYLAND_DISPLAY':'gamescope-1'})
+                             {'DISPLAY':':7'})
             with self.assertRaisesRegex(RuntimeError,'generation changed'):
                 session.graphical_environment(dict(bound,peer_start_ticks=9002),proc)
             with self.assertRaisesRegex(RuntimeError,'environment changed'):
                 session.graphical_environment(dict(bound,display=':8'),proc)
+
+    def test_flatpak_private_graphical_endpoints_are_projected_through_exact_peer(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            proc,peer,host_runtime,bound,bus,wayland=self.graphical_fixture(pathlib.Path(tmp))
+            try:
+                result=session.graphical_environment(bound,proc,host_runtime)
+                self.assertEqual(result['DISPLAY'],':7')
+                self.assertEqual(result['XAUTHORITY'],str(host_runtime/'xauth_fixture'))
+                self.assertNotIn('DBUS_SESSION_BUS_ADDRESS',result)
+                self.assertNotIn('WAYLAND_DISPLAY',result)
+                self.assertEqual(pathlib.Path(result['XAUTHORITY']).read_bytes(),b'private-cookie-fixture')
+            finally:
+                bus.close();wayland.close()
+
+    def test_graphical_projection_refuses_changed_or_wrong_endpoint_kinds(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            proc,peer,host_runtime,bound,bus,wayland=self.graphical_fixture(pathlib.Path(tmp))
+            try:
+                (peer/'root/run/flatpak/Xauthority').chmod(0o644)
+                with self.assertRaisesRegex(RuntimeError,'Xauthority is not private'):
+                    session.graphical_environment(bound,proc,host_runtime)
+                (peer/'root/run/flatpak/Xauthority').chmod(0o600)
+                bus.close();(peer/'root/run/flatpak/bus').unlink()
+                (peer/'root/run/flatpak/bus').write_text('not a socket')
+                with self.assertRaisesRegex(RuntimeError,'DBus endpoint is not a socket'):
+                    session.graphical_environment(bound,proc,host_runtime)
+            finally:
+                wayland.close()
+
+    def test_graphical_projection_refuses_relative_authority_and_unsupported_bus(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            proc,peer,host_runtime,bound,bus,wayland=self.graphical_fixture(pathlib.Path(tmp))
+            try:
+                (peer/'environ').write_bytes(b'DISPLAY=:7\0XAUTHORITY=relative\0')
+                reduced={k:v for k,v in bound.items()
+                  if k not in ('wayland_display','dbus_session_bus_address')}
+                reduced['xauthority']='relative'
+                with self.assertRaisesRegex(RuntimeError,'Xauthority path invalid'):
+                    session.graphical_environment(reduced,proc,host_runtime)
+                (peer/'environ').write_bytes(b'DISPLAY=:7\0DBUS_SESSION_BUS_ADDRESS=unix:abstract=foreign\0')
+                reduced.pop('xauthority');reduced['dbus_session_bus_address']='unix:abstract=foreign'
+                with self.assertRaisesRegex(RuntimeError,'DBus address unsupported'):
+                    session.graphical_environment(reduced,proc,host_runtime)
+            finally:
+                bus.close();wayland.close()
+
+    def test_graphical_projection_refuses_changed_or_ambiguous_host_authority(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            proc,peer,host_runtime,bound,bus,wayland=self.graphical_fixture(pathlib.Path(tmp))
+            try:
+                (host_runtime/'xauth_fixture').write_bytes(b'changed')
+                with self.assertRaisesRegex(RuntimeError,'exact alias unavailable'):
+                    session.graphical_environment(bound,proc,host_runtime)
+                content=(peer/'root/run/flatpak/Xauthority').read_bytes()
+                for name in ('xauth_a','xauth_b'):
+                    path=host_runtime/name;path.write_bytes(content);path.chmod(0o600)
+                with self.assertRaisesRegex(RuntimeError,'exact alias unavailable'):
+                    session.graphical_environment(bound,proc,host_runtime)
+            finally:
+                bus.close();wayland.close()
+
+
+@unittest.skipUnless(sys.platform.startswith('linux'),'Linux peer namespace projection')
+class GraphicalNamespaceIntegrationTests(unittest.TestCase):
+    def test_real_peer_proc_root_is_the_child_graphical_authority(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            root=pathlib.Path(tmp);authority=root/'Xauthority';authority.write_bytes(b'fixture')
+            authority.chmod(0o600);bus=socket.socket(socket.AF_UNIX);bus.bind(str(root/'bus'));bus.listen(1)
+            child=subprocess.Popen(['/bin/sleep','30'],env={**os.environ,'DISPLAY':':9',
+              'XAUTHORITY':str(authority),'DBUS_SESSION_BUS_ADDRESS':'unix:path='+str(root/'bus')})
+            try:
+                raw=pathlib.Path(f'/proc/{child.pid}/stat').read_text();parts=raw.rsplit(') ',1)
+                start=int(parts[1].split()[19])
+                bound={'schema':1,'peer_pid':child.pid,'peer_start_ticks':start,'display':':9',
+                  'xauthority':str(authority),'dbus_session_bus_address':'unix:path='+str(root/'bus')}
+                result=session.graphical_environment(bound,runtime_root=root)
+                projected=pathlib.Path(f'/proc/{child.pid}/root')/authority.relative_to('/')
+                self.assertEqual(result['XAUTHORITY'],str(authority))
+                self.assertEqual(result['DBUS_SESSION_BUS_ADDRESS'],
+                  'unix:path='+str(root/'bus'))
+                self.assertEqual(pathlib.Path(result['XAUTHORITY']).read_bytes(),b'fixture')
+                client=socket.socket(socket.AF_UNIX)
+                try:client.connect(result['DBUS_SESSION_BUS_ADDRESS'].removeprefix('unix:path='))
+                finally:client.close()
+            finally:
+                child.terminate();child.wait(timeout=5);bus.close()
 
 
 class ManagedHomeTests(unittest.TestCase):
@@ -1101,8 +1208,7 @@ class TerminalInstanceTests(unittest.TestCase):
             self.assertEqual(first['last_completed_position'],512)
             t.close()
             with self.assertRaisesRegex(RuntimeError,'session/version'):session.TerminalStatus(root,'32'*16)
-@unittest.skipUnless(sys.platform.startswith('linux'),'Linux supervisor ownership boundary')
-class SupervisorOwnershipBoundaryTests(unittest.TestCase):
+class SupervisorFixture:
     def fixture(self,root):
         sid='3a'*16
         durable=root/'compatdata/pfx/drive_c/bridge/sessions'/sid
@@ -1118,6 +1224,34 @@ class SupervisorOwnershipBoundaryTests(unittest.TestCase):
           'session':sid,'directory':str(durable),'report':str(root/'result.json'),
           'inspect':False,'binding_sent':True,'onboarding_home':False,
           'shared_runtime':False,'keeper':False,'vendor_access':False},durable
+
+
+class KeeperDiagnosticsTests(SupervisorFixture,unittest.TestCase):
+    def test_keeper_retains_exit_and_non_disclosing_diagnostic_identity(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            root=pathlib.Path(tmp);spec,_=self.fixture(root)
+            launcher=root/'keeper-fixture.py'
+            launcher.write_text('#!/usr/bin/env python3\nimport sys\nprint("private-stdout")\nprint("private-stderr",file=sys.stderr)\nraise SystemExit(86)\n')
+            launcher.chmod(0o700)
+            spec['keeper']=True;spec['inspect']=True
+            spec['registration']['environment']['runner']['entry_point']=str(launcher)
+            with patch.object(session,'environment',return_value=os.environ.copy()):
+                result=session.keep(spec)
+            report=json.loads(pathlib.Path(spec['report']).read_text())
+            if sys.platform.startswith('linux'):
+                self.assertTrue(result['cleanup_confirmed'] and report['cleanup_confirmed'])
+            self.assertFalse(report['ready'])
+            self.assertEqual(report['raw_exit'],86)
+            self.assertGreater(report['diagnostic_bytes']['stdout'],0)
+            self.assertGreater(report['diagnostic_bytes']['stderr'],0)
+            self.assertRegex(report['diagnostic_sha256']['stdout'],r'^[0-9a-f]{64}$')
+            self.assertRegex(report['diagnostic_sha256']['stderr'],r'^[0-9a-f]{64}$')
+            self.assertNotIn('private-stdout',json.dumps(report))
+            self.assertNotIn('private-stderr',json.dumps(report))
+
+
+@unittest.skipUnless(sys.platform.startswith('linux'),'Linux supervisor ownership boundary')
+class SupervisorOwnershipBoundaryTests(SupervisorFixture,unittest.TestCase):
 
     def native_finish(self,native,durable,observed):
         try:

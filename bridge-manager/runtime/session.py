@@ -27,7 +27,63 @@ def windows(path,prefix):
     try:return 'C:\\'+str(path.relative_to(prefix/'drive_c')).replace('/','\\')
     except ValueError:return 'Z:'+str(path).replace('/','\\')
 
-def graphical_environment(graphical,proc_root=pathlib.Path('/proc')):
+def peer_absolute(proc,value,label):
+    path=pathlib.PurePosixPath(value)
+    if not path.is_absolute() or '..' in path.parts:
+        raise RuntimeError(label+' path invalid')
+    return proc/'root'/path.relative_to('/')
+
+def private_file_bytes(path,label):
+    before=path.lstat()
+    if (not stat.S_ISREG(before.st_mode) or before.st_uid!=os.getuid()
+        or before.st_mode & 0o077 or before.st_size>1024*1024):
+        raise RuntimeError(label+' is not private')
+    descriptor=os.open(path,os.O_RDONLY|os.O_NOFOLLOW)
+    try:
+        opened=os.fstat(descriptor)
+        if (opened.st_dev,opened.st_ino)!=(before.st_dev,before.st_ino):
+            raise RuntimeError(label+' changed')
+        with os.fdopen(descriptor,'rb',closefd=False) as source:data=source.read(1024*1024+1)
+        if len(data)!=before.st_size:raise RuntimeError(label+' changed')
+    finally:os.close(descriptor)
+    return data
+
+def socket_identity(path,label):
+    metadata=path.stat(follow_symlinks=False)
+    if not stat.S_ISSOCK(metadata.st_mode) or metadata.st_uid!=os.getuid():
+        raise RuntimeError(label+' is not a socket')
+    return metadata.st_dev,metadata.st_ino
+
+def private_runtime_root(runtime_root):
+    root=runtime_root.lstat()
+    if not stat.S_ISDIR(root.st_mode) or root.st_uid!=os.getuid() or root.st_mode & 0o077:
+        raise RuntimeError('host graphical runtime is not private')
+
+def host_xauthority(proc,value,runtime_root):
+    source=private_file_bytes(peer_absolute(proc,value,'Xauthority'),'Xauthority')
+    private_runtime_root(runtime_root)
+    try:candidates=list(runtime_root.iterdir())
+    except FileNotFoundError:raise RuntimeError('host Xauthority directory unavailable')
+    if len(candidates)>256:raise RuntimeError('host Xauthority search bound')
+    matches=[]
+    for candidate in candidates:
+        if candidate.name!='Xauthority' and not candidate.name.startswith(('xauth_','xauth-','.mutter-Xwaylandauth.')):continue
+        try:data=private_file_bytes(candidate,'host Xauthority')
+        except (FileNotFoundError,PermissionError,RuntimeError):continue
+        if len(data)==len(source) and hashlib.sha256(data).digest()==hashlib.sha256(source).digest() and data==source:
+            matches.append(candidate)
+    if len(matches)!=1:raise RuntimeError('host Xauthority exact alias unavailable')
+    return str(matches[0])
+
+def host_socket(proc,value,candidate,label):
+    source=socket_identity(peer_absolute(proc,value,label),label)
+    private_runtime_root(candidate.parent)
+    try:host=socket_identity(candidate,'host '+label)
+    except FileNotFoundError:return None
+    if host!=source:return None
+    return str(candidate)
+
+def graphical_environment(graphical,proc_root=pathlib.Path('/proc'),runtime_root=None):
     fields={'schema','peer_pid','peer_start_ticks','display','wayland_display','xauthority','dbus_session_bus_address'}
     if (not isinstance(graphical,dict) or not set(graphical).issubset(fields)
         or set(graphical)-{'wayland_display','xauthority','dbus_session_bus_address'}!={'schema','peer_pid','peer_start_ticks','display'}
@@ -45,13 +101,30 @@ def graphical_environment(graphical,proc_root=pathlib.Path('/proc')):
         if key in ('DISPLAY','WAYLAND_DISPLAY','XAUTHORITY','DBUS_SESSION_BUS_ADDRESS'):
             if key in observed:raise RuntimeError('graphical peer environment ambiguous')
             observed[key]=value
+    runtime_root=pathlib.Path(f'/run/user/{os.getuid()}') if runtime_root is None else pathlib.Path(runtime_root)
     result={}
     for source,target in [('display','DISPLAY'),('wayland_display','WAYLAND_DISPLAY'),('xauthority','XAUTHORITY'),('dbus_session_bus_address','DBUS_SESSION_BUS_ADDRESS')]:
         value=graphical.get(source)
         if value is not None:
             if not isinstance(value,str) or not value or len(value)>4096 or '\n' in value or '\r' in value:raise RuntimeError('graphical peer value invalid')
             if observed.get(target)!=value:raise RuntimeError('graphical peer environment changed')
-            result[target]=value
+            if source=='xauthority':
+                result[target]=host_xauthority(proc,value,runtime_root)
+            elif source=='dbus_session_bus_address':
+                prefix='unix:path='
+                if not value.startswith(prefix) or ',' in value:
+                    raise RuntimeError('DBus address unsupported')
+                endpoint=host_socket(proc,value[len(prefix):],runtime_root/'bus','DBus endpoint')
+                if endpoint is not None:result[target]=prefix+endpoint
+            elif source=='wayland_display':
+                wayland=pathlib.PurePosixPath(value)
+                if wayland.is_absolute():endpoint=value
+                elif len(wayland.parts)==1 and wayland.name not in ('.','..'):
+                    endpoint=f'/run/user/{os.getuid()}/{value}'
+                else:raise RuntimeError('Wayland display invalid')
+                alias=host_socket(proc,endpoint,runtime_root/wayland.name,'Wayland endpoint')
+                if alias is not None:result[target]=alias
+            else:result[target]=value
         elif target in observed:raise RuntimeError('graphical peer environment changed')
     return result
 
@@ -1138,20 +1211,24 @@ def keep(spec):
         stop=True
     signal.signal(signal.SIGTERM,stopped);signal.signal(signal.SIGINT,stopped)
     directory=pathlib.Path(spec['directory']);root=None;sel=selectors.DefaultSelector()
-    owned=set();text=bytearray();ready=False;started=time.monotonic();error=None;clean=False
+    owned=set();diagnostic_hash={name:hashlib.sha256() for name in ('stdout','stderr')}
+    diagnostic_bytes={'stdout':0,'stderr':0};ready=False;started=time.monotonic();error=None;clean=False
+    def drain(timeout):
+        for key,_ in sel.select(timeout):
+            data=os.read(key.fileobj.fileno(),4096)
+            if not data:sel.unregister(key.fileobj);continue
+            diagnostic_hash[key.data].update(data);diagnostic_bytes[key.data]+=len(data)
     try:
         verify(reg['host'])
         cmd=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',windows(reg['host']['path'],pathlib.Path(reg['environment']['root'])/'compatdata/pfx'),'--environment-owner',spec['session'],'--scanner-sha256',reg['host']['sha256']]
         env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}},spec.get('graphical_session'));managed_home(spec,env);transport_environment(spec,env)
         root=subprocess.Popen(cmd,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
-        for pipe in (root.stdout,root.stderr):os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ)
+        for pipe,label in ((root.stdout,'stdout'),(root.stderr,'stderr')):
+            os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,label)
         tracker=ProcessTracker(root.pid)
         while not stop:
             owned.update(tracker.update())
-            for key,_ in sel.select(.05):
-                data=os.read(key.fileobj.fileno(),4096)
-                if not data:sel.unregister(key.fileobj)
-                elif key.fileobj==root.stdout:text.extend(data[:max(0,65536-len(text))])
+            drain(.05)
             if not ready and (directory/'environment.ready').exists():
                 if (directory/'environment.ready').read_bytes()!=(spec['session']+'\n').encode():raise RuntimeError('environment readiness binding differs')
                 atomic(report,{'ready':True,'environment':reg['environment']['id']});ready=True
@@ -1173,10 +1250,17 @@ def keep(spec):
             except subprocess.TimeoutExpired:pass
             try:clean=all(cleanup_process(root,sorted(owned)).values())
             except Exception as exc:error=(error+'; ' if error else '')+str(exc)
+            for _ in range(20):
+                if not sel.get_map():break
+                drain(0)
+            root.poll()
             root.stdout.close();root.stderr.close()
         sel.close()
         atomic(report,{'ready':False,'cleanup_confirmed':clean,'error':error,
-          'raw_exit':None if root is None else root.returncode})
+          'raw_exit':None if root is None else root.returncode,
+          'diagnostic_bytes':diagnostic_bytes,
+          'diagnostic_sha256':{name:(digest.hexdigest() if diagnostic_bytes[name] else None)
+            for name,digest in diagnostic_hash.items()}})
     return {'cleanup_confirmed':clean}
 
 def install(spec):
