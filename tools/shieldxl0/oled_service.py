@@ -132,9 +132,14 @@ class Ssd1322:
         self._line(6, True)
         time.sleep(0.010)
 
-    def command(self, *values: int) -> None:
+    def command(self, opcode: int, *parameters: int) -> None:
+        # Four-wire SSD1322 uses D/C=0 only for the opcode; command parameters
+        # are data bytes and must be clocked with D/C=1.
         self._line(5, False)
-        self.spi.xfer2(list(values))
+        self.spi.xfer2([opcode])
+        if parameters:
+            self._line(5, True)
+            self.spi.xfer2(list(parameters))
 
     def data(self, payload: bytes) -> None:
         self._line(5, True)

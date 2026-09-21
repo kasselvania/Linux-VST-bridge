@@ -14,6 +14,30 @@ SPEC.loader.exec_module(oled)
 
 
 class OledTest(unittest.TestCase):
+    class FakeLines:
+        def __init__(self):
+            self.values = []
+
+        def set_value(self, offset, value):
+            self.values.append((offset, value))
+
+    class FakeSpi:
+        def __init__(self):
+            self.transfers = []
+
+        def xfer2(self, values):
+            self.transfers.append(values)
+
+    class FakeLineValue:
+        ACTIVE = "active"
+        INACTIVE = "inactive"
+
+    class FakeLine:
+        Value = None
+
+    class FakeCommandGpiod:
+        line = None
+
     class FakeChip:
         opened = []
 
@@ -33,6 +57,8 @@ class OledTest(unittest.TestCase):
     def setUp(self):
         self.FakeChip.opened = []
         self.FakeGpiod.Chip = self.FakeChip
+        self.FakeLine.Value = self.FakeLineValue
+        self.FakeCommandGpiod.line = self.FakeLine
 
     def test_wire_shape_and_nibble_duplication(self):
         frame = oled.Frame()
@@ -61,6 +87,20 @@ class OledTest(unittest.TestCase):
     def test_invalid_gray_is_rejected(self):
         with self.assertRaises(ValueError):
             oled.render_request(oled.Frame(), {"op": "fill", "gray": 16})
+
+    def test_command_parameters_are_transmitted_as_data(self):
+        display = object.__new__(oled.Ssd1322)
+        display.gpiod = self.FakeCommandGpiod
+        display.lines = self.FakeLines()
+        display.spi = self.FakeSpi()
+
+        display.command(0x15, 0x1C, 0x5B)
+
+        self.assertEqual(
+            display.lines.values,
+            [(5, self.FakeLineValue.INACTIVE), (5, self.FakeLineValue.ACTIVE)],
+        )
+        self.assertEqual(display.spi.transfers, [[0x15], [0x1C, 0x5B]])
 
     def test_gpiochip_compatibility_symlink_is_deduplicated(self):
         aliases = {
