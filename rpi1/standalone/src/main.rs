@@ -337,6 +337,9 @@ mod appliance {
                 Err(error) if error.kind() == io::ErrorKind::NotFound && Instant::now() < end => {
                     thread::sleep(Duration::from_millis(20))
                 }
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                    return Err(invalid("Windows readiness deadline"))
+                }
                 Err(error) => return Err(error),
             }
         }
@@ -350,6 +353,9 @@ mod appliance {
                 Ok(_) => return Err(invalid("bounded file extent differs")),
                 Err(error) if error.kind() == io::ErrorKind::NotFound && Instant::now() < end => {
                     thread::sleep(Duration::from_millis(20))
+                }
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                    return Err(invalid("Windows architecture handshake deadline"))
                 }
                 Err(error) => return Err(error),
             }
