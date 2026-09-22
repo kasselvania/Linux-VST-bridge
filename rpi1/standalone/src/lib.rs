@@ -4,6 +4,8 @@ pub mod contract;
 #[cfg(unix)]
 pub mod retirement;
 #[cfg(unix)]
+pub mod startup;
+#[cfg(unix)]
 pub mod supervisor;
 
 const _: () = assert!(cfg!(target_endian = "little"));

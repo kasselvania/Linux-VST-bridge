@@ -13,6 +13,7 @@ ap2-backend = { path = "../../native-vst3-proxy/backend", features = ["rpi0"] }
 lvb-arm-standalone = { path = "../../rpi0/standalone" }
 sha2 = "=0.10.9"
 libc = "=0.2.189"
+serde_json = "=1.0.150"
 
 [profile.release]
 panic = "abort"

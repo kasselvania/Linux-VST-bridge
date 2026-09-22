@@ -89,6 +89,20 @@ mod appliance {
             .join()
             .map_err(|_| invalid("backend open thread panicked"))??;
 
+        // The mapping/host handshake precedes commercial module inspection.
+        // Keep that startup work out of the ordinary Configure reply budget.
+        let initialization = Instant::now();
+        println!("RPI1_INITIALIZATION_WAIT timeout_seconds=120");
+        lvb_arm_pigments_standalone::startup::await_initialization(
+            &cohort,
+            &session_hex,
+            Duration::from_secs(120),
+        )?;
+        println!(
+            "RPI1_INITIALIZED wait_ms={}",
+            initialization.elapsed().as_millis()
+        );
+
         let control = Control::new();
         let mut jack = Client::open(
             &config.jack_client,

@@ -80,6 +80,22 @@ impl Cohort {
         &self.identity
     }
 
+    /// Bounded local liveness check during initialization; no systemctl child
+    /// can stretch the startup observation deadline.
+    pub(crate) fn verify_startup_leader(&self) -> io::Result<()> {
+        require(
+            process_start(self.identity.main_pid)? == self.identity.main_start_ticks,
+            "RPI1 startup cohort leader changed",
+        )?;
+        let members = fs::read_to_string(self.identity.cgroup.join("cgroup.procs"))?;
+        require(
+            members
+                .lines()
+                .any(|line| line.parse::<u32>().ok() == Some(self.identity.main_pid)),
+            "RPI1 startup cohort leader exited",
+        )
+    }
+
     pub fn verify(&self) -> io::Result<Vec<ProcessIdentity>> {
         let current = inspect(&self.identity.unit)?;
         if current.main_pid != self.identity.main_pid
