@@ -21,7 +21,11 @@ pub fn pigments_bus_contract() -> [u8; 132] {
     write(0, [0, 0, 0, 2, 1, 1], 3); // auxiliary Sidechain input
     write(1, [0, 1, 0, 2, 0, 1], 3); // main Stereo Out
     write(2, [1, 0, 0, 16, 0, 1], 0); // Midi In
-    write(3, [1, 1, 0, 0, 0, 1], 0); // raw zero-channel Midi Out
+    // Pigments reports zero raw channels here. The pinned
+    // `reported_zero_event_channels_unspecified` policy translates that
+    // sentinel to the 16 effective VST event channels on both sides of the
+    // cross-process contract.
+    write(3, [1, 1, 0, 16, 0, 1], 0); // effective Midi Out
     bytes
 }
 
@@ -164,7 +168,7 @@ mod tests {
         assert_eq!(row(0), (vec![0, 0, 0, 2, 1, 1], 3));
         assert_eq!(row(1), (vec![0, 1, 0, 2, 0, 1], 3));
         assert_eq!(row(2), (vec![1, 0, 0, 16, 0, 1], 0));
-        assert_eq!(row(3), (vec![1, 1, 0, 0, 0, 1], 0));
+        assert_eq!(row(3), (vec![1, 1, 0, 16, 0, 1], 0));
     }
 
     #[test]
