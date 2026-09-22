@@ -23,9 +23,11 @@
   **MEASURED AND HEARD; NORMAL RETIREMENT PASSED**
 - final MacBook-supply comparison after reboot: **STARTUP CONFIGURE TIMEOUT;
   NO AUDIO STARTED; NO RECORDED UNDERVOLTAGE**
+- subsequent initialization-wait repair: **MEASURED STEREO AND CLEAN
+  RETIREMENT PASSED; NO RECORDED UNDERVOLTAGE; LISTENING CONFIRMATION PENDING**
 - sustained power margin and performance: **UNQUALIFIED; NEW TRANSIENT
   UNDERVOLTAGE AND STARTUP GAPS PRESERVED**
-- overall RPI1: **PENDING; COLD-START READINESS REPAIR AND LATER GATES REMAIN**
+- overall RPI1: **PENDING; REPEATED COLD START AND LATER GATES REMAIN**
 
 RPI1 is not a greenfield Wine experiment. It transfers the accepted Steam Deck
 Arturia/Pigments runtime contract onto the accepted RPI0 hardware path and tests
@@ -72,6 +74,14 @@ ordinary control-response budget. No recorded undervoltage or restart occurred
 during this attempt. See [`RPI1_POWER_COMPARISON.md`](RPI1_POWER_COMPARISON.md)
 and `evidence/rpi1/power-comparison-startup-timeout.json`. No retry was made;
 the next repair is bounded startup readiness, before the later appliance gates.
+
+That subsequently authorized repair now waits for the exact host's completed
+initial inspection before sending Configure. One fresh-process session passed
+measured stereo and normal retirement on the same MacBook supply without any
+recorded undervoltage or throttle flags. This attempt did not include another
+machine reboot; repeat cold-start reliability remains open. See
+[`RPI1_STARTUP_READINESS.md`](RPI1_STARTUP_READINESS.md) and
+`evidence/rpi1/startup-readiness-audio.json`.
 
 ## Exact starting custody
 
