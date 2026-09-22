@@ -31,6 +31,14 @@ The exact accepted ASC 2.12.0.3157 installer admission and private Pi transfer
 are retained in `evidence/rpi1/asc-installer-admission.json`. Admission did not
 execute the installer.
 
+Those are historical checkpoints. The subsequent Pi Pigments census passed on
+2026-09-22 UTC using the existing bounded supervisor. The earlier exit 82 came
+from malformed shell-expanded Windows readiness/gate paths; both regular-file
+and pipe stdout reach readiness with correct arguments. See
+`docs/experiments/RPI1_CENSUS_RESULT.md` and
+`evidence/rpi1/pigments-census-diagnosis.json` for the exact comparison, successful
+census, cleanup, preserved faults and next standalone-host boundary.
+
 `box64-emulator-adapter.c` is the narrow AArch64 executable required by the
 Steam Runtime emulator-manifest interface. It preserves ordinary ELF targets,
 translates the runtime's explicit `ld-linux-x86-64.so.2 --library-path ...`

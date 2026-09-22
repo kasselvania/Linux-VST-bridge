@@ -11,8 +11,12 @@
 - Proton-on-Box64 Phase A preflight:
   **PASSED WITH PRESERVED SETUP FAULTS**
 - exact ASC 2.12.0.3157 installer admission: **PASSED; NOT EXECUTED**
-- private ASC installation and sign-in: **NOT RUN**
-- private Pigments installation and standalone qualification: **NOT RUN**
+- private ASC installation and sign-in: **PASSED IN PRIOR OPERATOR HANDOFF;
+  NOT REPEATED IN THE CENSUS DIAGNOSIS**
+- private Pigments installation: **EXACT MODULE REVALIDATED ON PI**
+- Pigments factory/class, bus, parameter and state-capture census:
+  **PASSED ON PI; LAUNCH-PATH DEFECT DIAGNOSED**
+- private Pigments standalone qualification: **NOT RUN**
 - overall RPI1: **PENDING PHYSICAL EXECUTION**
 
 RPI1 is not a greenfield Wine experiment. It transfers the accepted Steam Deck
@@ -24,6 +28,11 @@ drift evidence, not selected as the RPI1 baseline.
 This experiment is isolated from the ordinary repository slice in
 `CURRENT_SLICE.md`. Do not edit that file, install this experiment into an
 ordinary product environment, or merge this experiment automatically.
+
+The current census diagnosis and next implementation boundary are recorded in
+[`RPI1_CENSUS_RESULT.md`](RPI1_CENSUS_RESULT.md) and
+`evidence/rpi1/pigments-census-diagnosis.json`. Earlier transfer/admission records
+remain historical observations; their original `NOT_RUN` fields are not rewritten.
 
 ## Exact starting custody
 

@@ -1,0 +1,428 @@
+{
+  "schema": "linux-vst-bridge-rpi1-pigments-census-diagnosis/v1",
+  "claim": "Exact Pi Pigments census passed; malformed shell-expanded readiness paths reproduce exit 82 before module load.",
+  "source": {
+    "branch": "experiment/rpi1-pigments-arm64-appliance",
+    "head": "9bf4fa8d58a7eb543452c7a3dcdf75871e944819",
+    "tree": "42dfd36d7cb17575e5820b82f2827f7c5a7ac2ca",
+    "supervisor_sha256": {
+      "session.py": "236122126d87dbd9612132a95557631caa87a5fde28203697dfdecc3e18da4a1",
+      "ownership.py": "cc81d05876043ccf96c1540c556a790e62f57f4a6e72aabbd820a5d133311add"
+    },
+    "private_diagnostic_scripts_sha256": {
+      "run.py": "57a1359064fce4eef132e9221d7725ac3eb7a9b3b5c27457933544ba92bf5bff",
+      "probe_stdio.py": "14beae1847e13e19d187e9e1f8cad2d587631e9a4d733f89a47b0697b19ed28d",
+      "probe_bad_paths.py": "205b61b50ce8e99872d64b3fb30325f85583e5b8326d7fec465c443e00dfd954"
+    }
+  },
+  "diagnosis": {
+    "original_shell_ready_token": "\"C:\\bridge\\sessions\\$session\\$session.ready\"",
+    "actual_ready_argument": "C:\\bridge\\sessions$session$session.ready",
+    "actual_gate_argument": "C:\\bridge\\sessions$session$session.gate",
+    "failure_boundary": "parse_args rejects handshake path mismatch; top-level exception handler returns 82 before scanner_started and before module loading",
+    "file_stdout_hypothesis": "rejected as necessary cause: identical correct argv reaches readiness with regular-file and pipe stdout",
+    "solution": "Reuse bridge-manager/runtime/session.py command(spec) and run(spec); pass an argv array, with bounded pipes, exact readiness binding, deadlines and positive cleanup. Preserve the Pi-local PYTHONHOME=/usr setting."
+  },
+  "launch": {
+    "supervisor": "Unchanged session.py and ownership.py copied from exact source above; private adapter supplies only the selected Pi environment and exact registration.",
+    "entry_verb": "run",
+    "pythonhome": "/usr",
+    "accessibility_override": "uiautomationcore=",
+    "graphical_session": "existing authenticated local X11 fixture; unchanged policy",
+    "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+    "host_source_manifest_sha256": "286a64ede118e267c44db54ebca32f03c7b8d8c6388a156618a92aaea8e68fce",
+    "overall_runtime_seconds_bound": 300,
+    "supervisor_startup_seconds_bound": 180,
+    "supervisor_call_seconds_bound": 30,
+    "tasks_max": 1024,
+    "memory_max_bytes": 4294967296,
+    "gate": "Released exactly once, by the existing supervisor after exact byte binding and host/module revalidation."
+  },
+  "observed": {
+    "utc": "2026-09-22T04:13:24Z",
+    "fixture": {
+      "model": "Raspberry Pi 5 Model B Rev 1.1",
+      "kernel": "6.18.50+rpt-rpi-v8",
+      "architecture": "aarch64",
+      "page_size": 4096,
+      "temperature": "temp=48.8'C",
+      "throttling": "throttled=0x0"
+    },
+    "pins": {
+      "runtime/Proton 11.0/proton": {
+        "sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+        "size": 93135
+      },
+      "runtime/SteamLinuxRuntime_4/_v2-entry-point": {
+        "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+        "size": 8989
+      },
+      "emulator/adapter": {
+        "sha256": "99e1dc907c53fba755c1839922654753c09435fa3c474ded00f8dc2d499b7828",
+        "size": 71400
+      },
+      "emulator/bin/box64": {
+        "sha256": "79cdd30e5480f5dfb8cd717af99d0e5a89eb55b31701de6fde7896a6a0e79ab6",
+        "size": 75389776
+      },
+      "compatdata/pfx/drive_c/bridge/bin/ap18-census-host-d778.exe": {
+        "sha256": "d778f238f02f1d034ba906db0b2fbabc5a84afaa234aa2769ed1c3764c12307a",
+        "size": 893952
+      },
+      "compatdata/pfx/drive_c/Program Files/Common Files/VST3/Pigments.vst3": {
+        "sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+        "size": 31007360
+      }
+    },
+    "census": {
+      "session": "720095f84c09219c49e707f552cb4835",
+      "gated": true,
+      "raw_exit": -15,
+      "exit_before_cleanup": null,
+      "error": null,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "discarded_diagnostic_bytes": {
+        "vendor": 0,
+        "stderr": 0
+      },
+      "private_report_sha256": "ed5b6b2814cc10c4b92b976d058d0a8af77c2134c2c37a133c43be8e4f1ace1b",
+      "record_count": 230,
+      "classes": [
+        {
+          "class_id": "41727475415649534B61743150726F63",
+          "name": "Pigments",
+          "version": "7.0.1.6772",
+          "category": "Audio Module Class",
+          "tier": "IPluginFactory3.PClassInfoW"
+        },
+        {
+          "class_id": "4AFD4B6A35D7C240A5C31414FB7D15E6",
+          "name": "Pigments",
+          "version": "7.0.1.6772",
+          "category": "Plugin Compatibility Class",
+          "tier": "IPluginFactory3.PClassInfoW"
+        }
+      ],
+      "facts": [
+        {
+          "event": "lifecycle",
+          "sequence": 1,
+          "state": "scanner_started",
+          "session": "720095f84c09219c49e707f552cb4835"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 2,
+          "state": "readiness_announced",
+          "session": "720095f84c09219c49e707f552cb4835",
+          "scanner_sha256": "d778f238f02f1d034ba906db0b2fbabc5a84afaa234aa2769ed1c3764c12307a",
+          "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+          "bundle_manifest_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+          "implementation_source_manifest_sha256": "286a64ede118e267c44db54ebca32f03c7b8d8c6388a156618a92aaea8e68fce",
+          "mode": "ap8-module-inspection",
+          "component_case": "class:41727475415649534B61743150726F63",
+          "run_ordinal": 1
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 54,
+          "state": "ap8_bus",
+          "media": 0,
+          "direction": 0,
+          "index": 0,
+          "channels": 2,
+          "type": 1,
+          "flags": 1,
+          "arrangement": 3,
+          "name": "Sidechain"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 58,
+          "state": "ap8_bus",
+          "media": 0,
+          "direction": 1,
+          "index": 0,
+          "channels": 2,
+          "type": 0,
+          "flags": 1,
+          "arrangement": 3,
+          "name": "Stereo Out"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 61,
+          "state": "ap8_bus",
+          "media": 1,
+          "direction": 0,
+          "index": 0,
+          "channels": 16,
+          "type": 0,
+          "flags": 1,
+          "arrangement": 0,
+          "name": "Midi In"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 64,
+          "state": "ap8_bus",
+          "media": 1,
+          "direction": 1,
+          "index": 0,
+          "channels": 0,
+          "type": 0,
+          "flags": 1,
+          "arrangement": 0,
+          "name": "Midi Out"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 65,
+          "state": "ap8_parameter_count",
+          "count": 4446
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 207,
+          "state": "ap12_capabilities",
+          "latency_samples": 44,
+          "float32_result": 0,
+          "float64_result": 1,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 211,
+          "state": "ap12_persistence",
+          "capture_available": true,
+          "sdk_result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 212,
+          "state": "ap8_inspected",
+          "controller_separate": false,
+          "state_bytes": 155038,
+          "latency_samples": 44,
+          "float32_result": 0,
+          "float64_result": 1,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 217,
+          "state": "ap8_inspection_closed",
+          "exit_code": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 226,
+          "state": "module_exit_succeeded"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 229,
+          "state": "module_unloaded"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 230,
+          "state": "scanner_completed",
+          "inspection_complete": true
+        }
+      ]
+    },
+    "stdio_comparison": [
+      {
+        "mode": "file",
+        "session": "71ac930c9f16713b661cb73a17cfaf93",
+        "ready": true,
+        "gated": false,
+        "exit_before_cleanup": null,
+        "raw_exit": -15,
+        "error": null,
+        "duration_seconds": 7.436,
+        "cleanup": {
+          "owned_descendants_zero": true,
+          "process_group_empty": true
+        },
+        "stdout_bytes": 689,
+        "stderr_bytes": 4673,
+        "records": [
+          {
+            "event": "lifecycle",
+            "sequence": 1,
+            "state": "scanner_started",
+            "session": "71ac930c9f16713b661cb73a17cfaf93"
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 2,
+            "state": "readiness_announced",
+            "session": "71ac930c9f16713b661cb73a17cfaf93",
+            "scanner_sha256": "d778f238f02f1d034ba906db0b2fbabc5a84afaa234aa2769ed1c3764c12307a",
+            "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+            "bundle_manifest_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+            "implementation_source_manifest_sha256": "286a64ede118e267c44db54ebca32f03c7b8d8c6388a156618a92aaea8e68fce",
+            "mode": "ap8-module-inspection",
+            "component_case": "class:41727475415649534B61743150726F63",
+            "run_ordinal": 1
+          }
+        ],
+        "stderr_sha256": "2a6b13931f257963405e7e2de691cc4968573f6ebebed40842e01b661a33b71e"
+      },
+      {
+        "mode": "pipe",
+        "session": "2b1412c1a9d97dbac6a08229cc018ebd",
+        "ready": true,
+        "gated": false,
+        "exit_before_cleanup": null,
+        "raw_exit": -15,
+        "error": null,
+        "duration_seconds": 6.945,
+        "cleanup": {
+          "owned_descendants_zero": true,
+          "process_group_empty": true
+        },
+        "stdout_bytes": 689,
+        "stderr_bytes": 4673,
+        "records": [
+          {
+            "event": "lifecycle",
+            "sequence": 1,
+            "state": "scanner_started",
+            "session": "2b1412c1a9d97dbac6a08229cc018ebd"
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 2,
+            "state": "readiness_announced",
+            "session": "2b1412c1a9d97dbac6a08229cc018ebd",
+            "scanner_sha256": "d778f238f02f1d034ba906db0b2fbabc5a84afaa234aa2769ed1c3764c12307a",
+            "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+            "bundle_manifest_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+            "implementation_source_manifest_sha256": "286a64ede118e267c44db54ebca32f03c7b8d8c6388a156618a92aaea8e68fce",
+            "mode": "ap8-module-inspection",
+            "component_case": "class:41727475415649534B61743150726F63",
+            "run_ordinal": 1
+          }
+        ],
+        "stderr_sha256": "0fb0bdade31096b96b7cbb6809982fde1450bdea901763974616927e72656aa9"
+      }
+    ],
+    "malformed_paths": [
+      {
+        "mode": "malformed_paths",
+        "session": "56bad5ee572ac24fa8ea97bb481017bf",
+        "ready": false,
+        "gated": false,
+        "exit_before_cleanup": 82,
+        "raw_exit": 82,
+        "error": null,
+        "duration_seconds": 4.808,
+        "cleanup": {
+          "owned_descendants_zero": true,
+          "process_group_empty": true
+        },
+        "stdout_bytes": 0,
+        "stderr_bytes": 2880,
+        "records": [],
+        "stderr_sha256": "34626c74b0fa52fba43d9661578f9252daaf600609840c6193078ddd1335111e"
+      }
+    ],
+    "prior_python_errno22_observed": true,
+    "remaining_runtime_warnings": {
+      "i386_setup_probe_failed": true,
+      "ldconfig_signal11": true,
+      "ld_library_path_fallback": true,
+      "native_libraries_reported_missing": [
+        "libGLX_nvidia.so.0",
+        "libSDL2-2.0.so.0",
+        "libXss.so.1",
+        "libavahi-client.so.3",
+        "libavahi-common.so.3",
+        "libcups.so.2",
+        "libdecor-0.so.0",
+        "libgcrypt.so.20",
+        "libgmp.so.10",
+        "libgnutls.so.30",
+        "libgssapi_krb5.so.2",
+        "libhogweed.so.6",
+        "libkrb5.so.3",
+        "libnettle.so.8",
+        "libp11-kit.so.0",
+        "libpulse.so.0",
+        "libtasn1.so.6",
+        "libusb-1.0.so.0",
+        "libwayland-cursor.so.0",
+        "libwayland-egl.so.1",
+        "libxkbcommon.so.0"
+      ]
+    },
+    "final_units": {
+      "lvb-rpi1-bounded-census-20260922.service": {
+        "Result": "exit-code",
+        "ExecMainStatus": "1",
+        "ControlGroup": "",
+        "ActiveState": "failed",
+        "SubState": "failed"
+      },
+      "lvb-rpi1-bounded-census2-20260922.service": {
+        "Result": "success",
+        "ExecMainStatus": "0",
+        "ControlGroup": "",
+        "ActiveState": "inactive",
+        "SubState": "dead"
+      },
+      "lvb-rpi1-stdio-20260922.service": {
+        "Result": "success",
+        "ExecMainStatus": "0",
+        "ControlGroup": "",
+        "ActiveState": "inactive",
+        "SubState": "dead"
+      },
+      "lvb-rpi1-bad-paths-20260922.service": {
+        "Result": "success",
+        "ExecMainStatus": "0",
+        "ControlGroup": "",
+        "ActiveState": "inactive",
+        "SubState": "dead"
+      }
+    },
+    "final_private_process_count": 0,
+    "final_census_session_directory_absent": true
+  },
+  "interpretation": {
+    "census": "PASSED_EXACT_PI_FIXTURE",
+    "module_load_count": 1,
+    "startup_only_comparisons": 3,
+    "outer_exit_minus15": "The supervisor observed scanner_completed and successful module unload, then performed its existing cohort cleanup. This is the outer launcher status, not a fabricated Windows host failure or natural launcher exit.",
+    "initial_adapter_nonexecution": "First private adapter incorrectly applied transport-root mode requirements to the pre-existing 0755 environment root and refused before launching Windows. Adapter check corrected to verify directory ownership/alias. No Pi permissions changed.",
+    "aggregate_output_collision": "Negative probe reused the comparison aggregate filename; the original separately retained stdio-owner.stdout and bad-paths-owner.stdout preserve both exact result sets and supplied this export.",
+    "thermal": "Spot samples 47.7-50.5 C with throttled=0x0; no continuous peak or load qualification claimed.",
+    "hardware_power_failure": "Earlier installer-time power loss, undervoltage and filesystem orphan cleanup remain preserved from the operator-provided handoff; not rediagnosed or erased by this census.",
+    "blackhole_review": "PR 135 concerns a separate Deck pre-Wine mount-source failure. No denial sockets, policy changes, Deck installation, Blackhole or Kontakt launch were required or performed."
+  },
+  "nonclaims": [
+    "ARM standalone Pigments binding",
+    "physical MIDI or stereo audio",
+    "timing, latency or sustained performance",
+    "editor lifecycle",
+    "state restore, project recall or second musical session",
+    "general ARM compatibility",
+    "overall RPI1 completion"
+  ],
+  "next_step": "Adapt the RPI0 standalone launch and fixture binding to the exact Proton/SLR/Box64 Pi environment and observed Pigments class/buses/compatibility policies; then run the selected 2048-frame, 48 kHz physical sequence.",
+  "validation": {
+    "transfer_validator": "PASSED",
+    "shell_expansion_reproduction": "PASSED",
+    "existing_supervisor_structured_ready_and_gate_arguments": "PASSED",
+    "evidence_consistency_and_privacy_assertions": "PASSED",
+    "git_diff_check": "PASSED",
+    "existing_rpi1_unit_tests": {
+      "passed": 9,
+      "failed": 0
+    }
+  }
+}
