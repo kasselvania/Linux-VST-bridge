@@ -147,6 +147,31 @@ def validate(root: Path, manifest_path: Path) -> dict[str, Any]:
         "RPI1 preflight gates",
     )
 
+    installer = read_json(root / "evidence/rpi1/asc-installer-admission.json")
+    require(
+        installer["schema"] == "linux-vst-bridge-rpi1-asc-installer-admission/v1",
+        "RPI1 ASC installer schema",
+    )
+    require(
+        installer["candidate"]["sha256"] == asc["known_installer_sha256"]
+        and installer["accepted_deck_baseline"]["identity_match"] is True
+        and installer["accepted_deck_baseline"]["fixture_version_change"] is False,
+        "RPI1 ASC installer identity",
+    )
+    require(
+        installer["pi_private_stage"]["sha256"]
+        == installer["candidate"]["sha256"]
+        and installer["pi_private_stage"]["transfer_match"] is True
+        and installer["pi_private_stage"]["executed"] is False,
+        "RPI1 ASC installer transfer",
+    )
+    require(
+        installer["gates"]["installer_admission"] == "PASSED_NOT_EXECUTED"
+        and baseline["gates"]["asc_installer_admission"]
+        == "PASSED_NOT_EXECUTED",
+        "RPI1 ASC installer admission",
+    )
+
     rpi0 = read_json(
         root / "evidence/rpi0-standalone-arm64-appliance/physical-acceptance.json"
     )

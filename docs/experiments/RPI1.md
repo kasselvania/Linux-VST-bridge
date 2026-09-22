@@ -10,6 +10,7 @@
 - account-free UI Automation normal/override checks: **PASSED**
 - Proton-on-Box64 Phase A preflight:
   **PASSED WITH PRESERVED SETUP FAULTS**
+- exact ASC 2.12.0.3157 installer admission: **PASSED; NOT EXECUTED**
 - private ASC installation and sign-in: **NOT RUN**
 - private Pigments installation and standalone qualification: **NOT RUN**
 - overall RPI1: **PENDING PHYSICAL EXECUTION**
@@ -204,6 +205,13 @@ Do not proceed to ASC merely because `wine --version` works.
 Use the official user-supplied Windows ASC installer. The known accepted Deck
 installer identity is retained for comparison, but RPI1 may use a newer exact
 official version only after recording that explicit fixture change.
+
+The user supplied `Arturia_Software_Center__2_12_0_3157.exe`. Its size and
+SHA-256 exactly match the accepted Deck installer, so no fixture-version change
+occurred. The same bytes were verified after SSH transfer into the Pi's private
+RPI1 installer staging directory and left mode `0400`. No installer or Arturia
+process was launched during admission. See
+`evidence/rpi1/asc-installer-admission.json`.
 
 Required sequence:
 

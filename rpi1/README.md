@@ -27,6 +27,10 @@ The subsequent normal/override comparison is retained in
 `evidence/rpi1/account-free-uia-preflight.json`. It passed and completes Phase
 A with the setup faults preserved; ASC and Pigments remain unrun.
 
+The exact accepted ASC 2.12.0.3157 installer admission and private Pi transfer
+are retained in `evidence/rpi1/asc-installer-admission.json`. Admission did not
+execute the installer.
+
 `box64-emulator-adapter.c` is the narrow AArch64 executable required by the
 Steam Runtime emulator-manifest interface. It preserves ordinary ELF targets,
 translates the runtime's explicit `ld-linux-x86-64.so.2 --library-path ...`

@@ -46,6 +46,10 @@
     {
       "path": "evidence/rpi1/account-free-uia-preflight.json",
       "sha256": "575eb2c68308b6239209197121eecf363b022fa49516c000eef8cc9e12ba88ef"
+    },
+    {
+      "path": "evidence/rpi1/asc-installer-admission.json",
+      "sha256": "88064d8cc90011196287106da4390fc42ceabaa785d66b9357a283ec4abe14e1"
     }
   ],
   "pigments": {
@@ -97,6 +101,7 @@
     "source_owned_process_checks": "PASSED_WITH_PRESERVED_SETUP_FAULTS",
     "account_free_uia": "PASSED",
     "proton_on_box64_preflight": "PASSED_WITH_PRESERVED_SETUP_FAULTS",
+    "asc_installer_admission": "PASSED_NOT_EXECUTED",
     "asc_installation": "NOT_RUN",
     "pigments_installation": "NOT_RUN",
     "standalone_physical_acceptance": "NOT_RUN",

@@ -1,0 +1,56 @@
+{
+  "schema": "linux-vst-bridge-rpi1-asc-installer-admission/v1",
+  "completed_at_utc": "2026-09-22T00:12:54Z",
+  "execution_source": {
+    "branch": "experiment/rpi1-pigments-arm64-appliance",
+    "head": "d961731e47b8bb664a6f45328b1b850fea0f1a78",
+    "tree": "177577682c0d3e759f3a9fdbc493662bfa23a73f"
+  },
+  "candidate": {
+    "filename": "Arturia_Software_Center__2_12_0_3157.exe",
+    "declared_version": "2.12.0.3157",
+    "bytes": 32989928,
+    "sha256": "e92baaaa94f4635fb33b6cbad4f6397d619d07c9e0997e6460a8d64544f1bfb8",
+    "format": "PE32 Windows GUI executable, Intel 80386",
+    "acquisition": "user-selected download from the official Arturia source",
+    "executed_during_admission": false
+  },
+  "accepted_deck_baseline": {
+    "version": "2.12.0.3157",
+    "installer_sha256": "e92baaaa94f4635fb33b6cbad4f6397d619d07c9e0997e6460a8d64544f1bfb8",
+    "identity_match": true,
+    "fixture_version_change": false
+  },
+  "pi_private_stage": {
+    "relative_destination": "rpi1-private/installers/Arturia_Software_Center__2_12_0_3157.exe",
+    "bytes": 32989928,
+    "sha256": "e92baaaa94f4635fb33b6cbad4f6397d619d07c9e0997e6460a8d64544f1bfb8",
+    "mode": "0400",
+    "transfer_match": true,
+    "executed": false
+  },
+  "post_stage_state": {
+    "rpi1_user_units": 0,
+    "private_runtime_processes": 0,
+    "temperature_c": 48.8,
+    "throttled_register": "0x50000",
+    "current_fault_bits": false,
+    "sticky_historical_fault_bits": true
+  },
+  "gates": {
+    "candidate_identity": "PASSED",
+    "pi_transfer": "PASSED",
+    "installer_admission": "PASSED_NOT_EXECUTED",
+    "asc_installation": "NOT_RUN",
+    "asc_launch": "NOT_RUN",
+    "asc_login": "NOT_RUN",
+    "pigments": "NOT_RUN",
+    "overall_rpi1": "PENDING"
+  },
+  "nonclaims": [
+    "new Authenticode validation beyond the previously accepted exact installer identity",
+    "ASC installer execution or completion",
+    "ASC application launch, sign-in or account behavior",
+    "Pigments installation, authorization or execution"
+  ]
+}
