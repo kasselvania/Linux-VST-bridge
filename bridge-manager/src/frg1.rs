@@ -810,6 +810,10 @@ mod tests {
         let owner_before = digest(&owner).unwrap();
         adopt(manager, &prepared.census.environment.environment.id).unwrap();
         assert_eq!(digest(&owner).unwrap(), owner_before);
+        let adopted = adopted_environment(manager).unwrap().unwrap();
+        assert_eq!(adopted.family, Family::ArturiaPersistentV1);
+        assert_eq!(adopted.environment, prepared.census.environment.environment);
+        assert!(inventory_refresh_required(manager, &adopted.environment).unwrap());
         assert!(qualification_environment(manager, &prepared.software).is_err());
         let scan = retain_inventory(&prepared);
         assert!(!inventory_refresh_required(manager, &scan.environment).unwrap());
