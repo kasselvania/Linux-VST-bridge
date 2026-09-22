@@ -1,84 +1,140 @@
-# FCI1 — integrate the FRAGMENTS Ubuntu candidate with the canonical manager line
+# CPI1 — promote the physically verified Deck runtime into canonical main
 
 Exact integration inputs:
 
-- merged canonical base: commit `55a7aae032787d3e0501863b21348e17c73f854a`,
-  tree `549cd2a6ea743608614ce0feb8ef696d1f8ece02`;
-- accepted FRG1 head: commit `78f1e390b7690fdd41fb89ff783b1d6f156d0243`,
-  tree `549cd2a6ea743608614ce0feb8ef696d1f8ece02`, merged as PR #137;
-- accepted lead-platform head: commit
-  `c576787dcb7338c460d7fcdd2f8a5cf54aeadc79`, tree
-  `7010697eb24fd726e25a8f1bd2141f0fc597406c`.
+- canonical main: commit `5469e0e8b9655527aca1a9f93d7051f6b7f61b5a`,
+  tree `313a65c8d4d93716a8420659e255abd1130cfaca`;
+- physically verified Deck runtime: commit
+  `47885fa4a7ead9b62cc3d506aeffc4e7aede9665`, tree
+  `332afd778e984f868ee93d346da0f4376ce89020`;
+- exact merge base: commit `c576787dcb7338c460d7fcdd2f8a5cf54aeadc79`,
+  tree `7010697eb24fd726e25a8f1bd2141f0fc597406c`;
+- Blackhole private physical-result digest:
+  `21dbc44663b003a5b6c17d8c6c51c5ab66bba127b917799826dd74fdff518248`.
+
+The integration must be a real two-parent merge. Neither input may be squashed,
+replayed, or replaced by a hand-authored approximation.
 
 ## Primary claim
 
-One reviewable canonical source generation contains both the non-activating Efx
-FRAGMENTS `1.3.1.6566` revision-11 candidate and the accepted manager, scanner,
-session, graphical-resource, inventory, preparation and retirement corrections needed
-by the later Ubuntu qualification ladder.
+One canonical source generation contains both:
 
-This slice proves source integration, candidate accessibility, exact tests and build
-provenance only. It does not install or deploy the integrated generation and performs
-no commercial plug-in, Bitwig, Ubuntu-host or Steam Deck operation.
+1. the merged FRG1 revision-11 adoption, staging, sealed qualification,
+   nonactivating publication and restoration capability; and
+2. the physically verified Deck manager/session/runtime corrections that admitted
+   the current Blackhole candidate from Bitwig, displayed its Windows editor,
+   accepted mouse and physical touchscreen interaction, and retired its Windows
+   host, DSP transport and lease cleanly.
+
+This is source convergence. It does not repeat the successful Blackhole physical
+gate and performs no Ubuntu or Steam Deck deployment.
 
 ## Required integrated behavior
 
-1. Revision 10 remains immutable ordinary FRAGMENTS authority.
-2. Revision 11 remains `review_candidate`, absent from `installed_profiles()` and
-   refused for ordinary activation.
-3. `frg1_candidate()` exposes revision 11 for qualification only; the sealed
-   `qualify-frg1` route is its sole staging, inspection and publication owner.
-4. The exact module, runner closure, Windows host/source manifest, descriptor, native
-   proxy, retained-report replay and native-build identities remain unchanged.
-5. The canonical manager retains the accepted environment projection and
-   `EnvironmentRescan` ownership, readiness, retirement and inventory boundaries.
-6. `qualify-frg1 adopt ENVIRONMENT_ID` retains a separate immutable custody record,
-   verifies exact `ArturiaPersistentV1` revision 2, the GE-Proton closure, module and
-   unchanged Ubuntu-lab owner marker, and requires no fabricated local predecessor.
-7. A post-adoption canonical `EnvironmentRescan` under the integrated default scanner
-   must produce current inventory before `qualify-frg1 publish` performs a separate
-   fresh inspection with the staged revision-11 supplemental host.
-8. `qualify-frg1 stage EXACT_PRODUCT_PACKAGE` admits only the exact host, source
-   manifest, native proxy and closed qualification manifest compiled for revision 11.
-9. Successful qualification selection publishes one lab-local no-parent revision
-   marked `frg1_ubuntu`; ordinary activation remains refused.
-10. Cross-generation module, runner policy, host, source manifest, descriptor and
-    native proxy combinations refuse.
+### Canonical FRG1 capability
+
+- Revision 10 remains immutable ordinary FRAGMENTS authority.
+- Revision 11 remains a `review_candidate`, absent from ordinary installed
+  profiles and refused for ordinary activation.
+- `frg1_candidate()` and the sealed `qualify-frg1` route retain their exact
+  adoption, staging, inspection, no-parent publication and restore behavior.
+- `LVQ6` continues to select the exact `Frg1Ubuntu` qualification purpose.
+- The exact FRG1 package, profile, candidate, replay and evidence inputs remain
+  present and unchanged except where the two-parent integration itself requires
+  an explicitly reviewed reference update.
+
+### Physically verified Deck runtime
+
+- Managed-environment projection and the single `EnvironmentRescan` authority
+  remain exact.
+- Scanner readiness is consumed before retirement and cannot be confused with the
+  terminal receipt.
+- Keepers retain the closed `Starting`, `Retiring`, `Ready`, and `Failed` states,
+  stable failed generations, the 60/62/65-second startup envelope, bounded private
+  diagnostics, and attributable admission incidents.
+- The manager authenticates the requesting DAW generation and graphical context.
+- Xauthority retains exact private byte-identity matching.
+- Wayland and D-Bus retain exact socket-alias matching with materialized private,
+  non-listening denial sockets when no authenticated alias is available.
+- Graphical denial sockets remain common to keeper and DSP launches and retain
+  replacement detection using device, inode, ctime, ownership, permissions and
+  socket type.
+- A complete readiness record already buffered before supervisor exit remains
+  consumable without weakening exact receipt matching.
+- Session, transport, lease, Windows-host and retained terminal-result ownership
+  remain unchanged from the physically verified Deck source.
+
+## Physical evidence retained by this slice
+
+The sanitized repository record may state only the accepted bounded result:
+
+- exact source head/tree and installed generation;
+- exact Blackhole candidate, publication and session identities;
+- one successful Bitwig load and visible editor;
+- ordinary mouse drag and release passed;
+- one physical touchscreen drag followed normally;
+- Windows host, DSP transport and lease retired cleanly;
+- zero observed callback rejections and underrun counters;
+- the private result digest above;
+- explicit nonclaims for audio, fidelity, automation, save/reopen, multiple
+  instances, touch release-tail timing, Kontakt, Gaming Mode and Ubuntu.
+
+No private paths, account material, proprietary binaries or vendor state enter the
+repository.
 
 ## Integration validation
 
-- both exact input commits are ancestors of the candidate;
-- merge conflicts are resolved by the current architecture rather than by dropping
-  either authority;
-- manager and frontend tests and strict linting pass;
-- FRG1 validation and replay-receipt tests pass;
-- applicable runtime, scanner, preparation, inventory and proof-policy suites pass;
-- exact build artifacts are attributable to the integrated source and their hashes
-  are retained without committing build outputs;
-- hosted manager, frontend, FRG1 and proof-policy lanes pass at the exact PR head.
+- both exact input commits are parents or ancestors of the integration commit;
+- the merge has both source lines in its ancestry and no squashed substitute;
+- conflict resolution retains both the FRG1 dispatch/command path and the Deck
+  keeper/admission path in `bridge-manager/src/main.rs`;
+- `bridge-manager/runtime/session.py` and
+  `bridge-manager/src/transport_storage.rs` remain materially identical to the
+  physically verified Deck versions;
+- manager library and binary tests pass;
+- the complete Python runtime suite passes;
+- FRG1 focused tests and replay checks pass;
+- strict manager and operator-frontend Clippy pass;
+- operator-frontend tests pass;
+- PX2 proof-policy checks pass;
+- revision 11 remains absent from ordinary installed profiles;
+- focused graphical-denial, keeper, buffered-readiness and FRG1 regressions pass;
+- diff whitespace and formatting checks pass.
 
-## Ubuntu continuation gate
+AP8 and native-host lanes are not rerun solely because histories were merged. They
+become required only if conflict resolution changes Windows-host or native-proxy
+source. Their source trees must otherwise remain unchanged.
 
-Only after this integrated source is independently reviewed and merged may the Ubuntu
-work chain lock and install it. Ubuntu must preserve the original prefix custody,
-create a separate product-owned adoption record, verify the exact environment, run
-canonical `EnvironmentRescan`, stage the exact supplemental qualification package,
-obtain fresh revision-11 qualification selection through `qualify-frg1 publish`, and
-only then begin the Bitwig qualification ladder.
+## Ubuntu continuation boundary
+
+Ubuntu consumes the merged canonical product through its separate platform-adapter
+repository. Ubuntu-specific Bubblewrap construction, synthetic HOME, unit names,
+typed systemd broker, filesystem projection, packaging, rollback and physical
+evidence do not enter this repository in CPI1.
+
+The canonical product continues to own resource-authentication, admission,
+inventory, scanner, preparation, publication, runtime and retirement semantics.
+The Ubuntu adapter may project the exact runtime root, peer PID visibility,
+graphical/GPU/audio resources, runner and retained prefix required by those
+contracts; it may not reimplement them.
 
 ## Non-goals and nonclaims
 
-- no new FRAGMENTS factory census;
-- no descriptor, native proxy or Windows-host rebuild unless source integration proves
-  an actual identity conflict;
-- no Ubuntu or Steam Deck deployment;
-- no prefix mutation, ASC operation or vendor authorization;
-- no Bitwig launch, publication, editor, audio, parameter or state claim;
-- no ordinary revision-11 activation;
-- no Ableton Live, Max, Max for Live, Native Access, NTKDaemon or Pigments work.
+- no new Blackhole, Kontakt or FRAGMENTS launch;
+- no Steam Deck or Ubuntu installation;
+- no direct audio, fidelity, automation, state, project recall or multi-instance
+  claim;
+- no Kontakt or Gaming Mode claim;
+- no Ubuntu compatibility claim;
+- no runner, Windows host, native proxy, candidate or publication rebuild;
+- no Ubuntu deployment scripts, paths, service names or qualification evidence
+  added to the canonical runtime;
+- no broad platform-adapter framework.
 
 ## Completion gate
 
-FCI1 ends at one draft, unmerged canonical-product integration PR with an exact head,
-tree, test receipt and build-provenance receipt. Physical Ubuntu work remains blocked
-until independent review and merge of that exact integration.
+CPI1 ends at one reviewable, unmerged PR targeting `main`, with a two-parent merge,
+the sanitized Blackhole result, exact head/tree, passing applicable validation and
+no source change after the reviewed candidate. After merge, `main` becomes the sole
+product-development line and PR #135 is closed as integrated/superseded rather than
+abandoned.

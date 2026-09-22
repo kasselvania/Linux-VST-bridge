@@ -189,7 +189,7 @@ mod tests {
         let (job, path) = spec(&f.m, f.r.clone().into(), true, true, false).unwrap();
         atomic_json(&job.lease, &job.report).unwrap();
         let owner = || {
-            Command::new("/bin/sh")
+            let mut child = Command::new("/bin/sh")
                 .args([
                     "-c",
                     "printf 'LVO0 %s ready\\nLVO1 %s retired\\n' \"$1\" \"$1\"",
@@ -198,7 +198,14 @@ mod tests {
                 ])
                 .stdout(Stdio::piped())
                 .spawn()
-                .unwrap()
+                .unwrap();
+            // Prove that readiness already buffered by a fast, exited owner
+            // remains consumable. Process exit must not outrank the exact
+            // lifecycle record written before it.
+            while child.try_wait().unwrap().is_none() {
+                std::thread::yield_now();
+            }
+            child
         };
         // Receipt alone cannot hide a still-present transport/session directory.
         let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));

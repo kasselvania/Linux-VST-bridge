@@ -1,5 +1,25 @@
 # Plug-in reliability and audio I/O follow-up
 
+Physical correction update (2026-09-21): the next approved Blackhole attempt
+failed quickly and cleanly before Wine started. Its retained private stderr
+shows pressure-vessel asking Bubblewrap to project the explicit D-Bus denial
+pathname, then Bubblewrap refusing because that intentionally nonexistent
+mount source was absent. The repaired keeper classification produced two
+bounded busy replies, one terminal `keeper_failed`, no replacement storm and
+confirmed cleanup. Bitwig's `setupProcessing` failure was downstream of missing
+bridge admission, not evidence about Blackhole audio or editor behavior.
+
+The shared graphical projection now selects fixed product-owned dead AF_UNIX
+sockets under the verified private tmpfs runtime root whenever no exact
+authenticated Wayland or D-Bus alias exists. The socket paths exist so
+pressure-vessel can materialize them, but no process listens, so clients cannot
+connect and neither default discovery nor D-Bus autolaunch is available. The
+service creates or verifies the objects; every graphical supervisor revalidates
+their type, ownership, privacy, identity and dead state immediately before
+launch. The same contract covers keeper and DSP/editor launch. Exact aliases
+and Xauthority rules are unchanged. This remains a source correction pending
+one reviewed, installed Blackhole retry; it is not a plug-in success claim.
+
 Physical correction update (2026-09-21): the first approved Desktop Mode
 Blackhole launch stopped before the planned touch comparison. Bitwig reported
 that it could not load the plug-in. The exact keeper exited before readiness;
@@ -10,14 +30,16 @@ repair boundary, not evidence about Blackhole rendering, touch, or audio.
 
 The corrected supervisor resolves the peer-namespace Xauthority only to one
 private host-visible file with identical complete bytes. DBus and Wayland are
-forwarded only when the peer and host paths identify the same socket. An absent
-or unmappable optional endpoint becomes an explicit absolute, session-bound,
-verified-absent endpoint; omission cannot fall through to the host's
-`wayland-0` or D-Bus discovery/autolaunch. It does not substitute the ambient
-systemd environment or grant the host session bus for a Flatpak-private proxy.
-Keeper failures retain exact exit status and non-disclosing output byte
-counts/digests rather than discarding all process evidence or retaining raw
-potentially sensitive text.
+forwarded only when the peer and host paths identify the same socket. The
+intermediate correction used an explicit absolute, verified-absent endpoint so
+omission could not fall through to host `wayland-0` or D-Bus autolaunch. The
+later physical result above established that pressure-vessel could not project
+that absent mount source, so the current correction replaces it with the dead
+product-owned sockets. Neither version substitutes the ambient systemd
+environment or grants the host session bus for a Flatpak-private proxy. Keeper
+failures retain exact exit status and non-disclosing output byte counts/digests
+rather than discarding all process evidence or retaining raw potentially
+sensitive text.
 
 The reviewed package was subsequently installed as immutable generation
 `49758648eacc262dbd4c27856c7625c5c3705665324efca3c41670ac44225354`.
