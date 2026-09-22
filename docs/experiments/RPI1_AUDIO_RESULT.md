@@ -1,5 +1,10 @@
 # RPI1 deterministic audio — 2026-09-22
 
+This is the preserved failed attempt. The subsequently authorized source repair
+and successful repeat are recorded separately in
+[`RPI1_CC123_REPAIR.md`](RPI1_CC123_REPAIR.md); the original observations below
+and `pigments-deterministic-audio.json` remain unchanged.
+
 ## Observed result
 
 **Exact Pigments generated measured and audible stereo audio. The complete gate
