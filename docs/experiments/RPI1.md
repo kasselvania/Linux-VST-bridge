@@ -7,7 +7,9 @@
 - exact runtime transfer: **PASSED**
 - Proton-on-Box64 core Pi process checks:
   **FUNCTIONAL; SETUP FAULTS PRESERVED**
-- account-free UI Automation normal/override checks: **NOT RUN**
+- account-free UI Automation normal/override checks: **PASSED**
+- Proton-on-Box64 Phase A preflight:
+  **PASSED WITH PRESERVED SETUP FAULTS**
 - private ASC installation and sign-in: **NOT RUN**
 - private Pigments installation and standalone qualification: **NOT RUN**
 - overall RPI1: **PENDING PHYSICAL EXECUTION**
@@ -161,14 +163,23 @@ source-owned Windows VST host start/natural-close lifecycle. Every launch used
 an exact systemd user unit; the final host PID/start identity was observed in
 its cgroup and zero private descendants remained after retirement.
 
-This is not a clean preflight pass. SLR4 still runs an i386 setup probe that the
+This is not a clean preflight. SLR4 still runs an i386 setup probe that the
 selected 64-bit-only Box64 does not support, its static x86-64 `ldconfig`
 helper exits by signal 11 before pressure-vessel selects its declared
 `LD_LIBRARY_PATH` fallback, and several optional native wrappers are absent
-from the Pi image. The successful markers do not erase those faults. The
-account-free UI Automation normal/override pair also remains unrun, so ASC is
-still stopped. Exact attempts, hashes, thermal observations and nonclaims are
-retained in `evidence/rpi1/runtime-transfer-preflight.json`.
+from the Pi image. The successful markers do not erase those faults. Exact
+attempts, hashes, thermal observations and nonclaims are retained in
+`evidence/rpi1/runtime-transfer-preflight.json`.
+
+The exact source-owned UI Automation fixture then ran through the same
+SLR4/Proton/Box64 path in two bounded systemd user units. Normal execution
+caught the intended access violation and returned the fixture's expected exit
+42. The otherwise-identical process with operation-local
+`WINEDLLOVERRIDES=uiautomationcore=` returned the expected exit 0. Both units
+retired with zero private processes. This passes the account-free comparison
+and completes Phase A with the preceding setup faults still preserved; it does
+not prove ASC behavior or repair the runtime. Exact fixture, log and cleanup
+facts are retained in `evidence/rpi1/account-free-uia-preflight.json`.
 
 Before executing ASC or commercial plug-in bytes:
 

@@ -43,7 +43,7 @@ def validate(root: Path, manifest_path: Path) -> dict[str, Any]:
     )
     require(
         baseline.get("status")
-        == "TRANSFER_BASELINE_RESOLVED_PI_PREFLIGHT_PARTIAL_WITH_FAULTS",
+        == "TRANSFER_BASELINE_RESOLVED_PI_PREFLIGHT_PASSED_WITH_PRESERVED_FAULTS",
         "transfer status",
     )
 
@@ -108,6 +108,43 @@ def validate(root: Path, manifest_path: Path) -> dict[str, Any]:
         ["WINEDLLOVERRIDES"]
         == asc["process_local_environment"]["WINEDLLOVERRIDES"],
         "ASC accessibility policy",
+    )
+
+    uia = read_json(root / "evidence/rpi1/account-free-uia-preflight.json")
+    require(
+        uia["schema"] == "linux-vst-bridge-rpi1-account-free-uia-preflight/v1",
+        "RPI1 UIA schema",
+    )
+    package = read_json(root / "tools/uio2/package.json")
+    require(
+        uia["source_owned_windows_fixture"]["executable_sha256"]
+        == package["files"]["uio2-uia-disconnect.exe"],
+        "RPI1 UIA fixture",
+    )
+    require(
+        uia["comparison"]["baseline"]["expected_exit"]
+        == uia["comparison"]["baseline"]["observed_exit"]
+        == 42,
+        "RPI1 UIA baseline",
+    )
+    require(
+        uia["comparison"]["operation_local_override"]["WINEDLLOVERRIDES"]
+        == asc["process_local_environment"]["WINEDLLOVERRIDES"]
+        and uia["comparison"]["operation_local_override"]["expected_exit"]
+        == uia["comparison"]["operation_local_override"]["observed_exit"]
+        == 0,
+        "RPI1 UIA override",
+    )
+    require(
+        uia["ownership_and_cleanup"]["result"] == "PASSED"
+        and uia["gates"]["account_free_uia_normal_and_override"] == "PASSED",
+        "RPI1 UIA cleanup",
+    )
+    require(
+        baseline["gates"]["account_free_uia"] == "PASSED"
+        and baseline["gates"]["proton_on_box64_preflight"]
+        == "PASSED_WITH_PRESERVED_SETUP_FAULTS",
+        "RPI1 preflight gates",
     )
 
     rpi0 = read_json(

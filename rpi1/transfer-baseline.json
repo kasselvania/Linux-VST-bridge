@@ -1,6 +1,6 @@
 {
   "schema": "linux-vst-bridge-rpi1-transfer-baseline/v1",
-  "status": "TRANSFER_BASELINE_RESOLVED_PI_PREFLIGHT_PARTIAL_WITH_FAULTS",
+  "status": "TRANSFER_BASELINE_RESOLVED_PI_PREFLIGHT_PASSED_WITH_PRESERVED_FAULTS",
   "starting_source": {
     "branch": "experiment/rpi1-pigments-arm64-appliance",
     "head": "4a88802914d33633adb1b8b8c76507f0883e63d3",
@@ -42,6 +42,10 @@
     {
       "path": "evidence/rpi1/runtime-transfer-preflight.json",
       "sha256": "2ff64bc273cdb0c60d9e412304292bf5aba9d1f70f7598cbdb82c2b6687d59d3"
+    },
+    {
+      "path": "evidence/rpi1/account-free-uia-preflight.json",
+      "sha256": "575eb2c68308b6239209197121eecf363b022fa49516c000eef8cc9e12ba88ef"
     }
   ],
   "pigments": {
@@ -91,8 +95,8 @@
     "transfer_baseline": "PASSED",
     "exact_runtime_transfer": "PASSED",
     "source_owned_process_checks": "PASSED_WITH_PRESERVED_SETUP_FAULTS",
-    "account_free_uia": "NOT_RUN",
-    "proton_on_box64_preflight": "PARTIAL_FUNCTIONAL_WITH_PRESERVED_SETUP_FAULTS",
+    "account_free_uia": "PASSED",
+    "proton_on_box64_preflight": "PASSED_WITH_PRESERVED_SETUP_FAULTS",
     "asc_installation": "NOT_RUN",
     "pigments_installation": "NOT_RUN",
     "standalone_physical_acceptance": "NOT_RUN",

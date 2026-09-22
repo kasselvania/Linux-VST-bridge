@@ -1,0 +1,107 @@
+{
+  "schema": "linux-vst-bridge-rpi1-account-free-uia-preflight/v1",
+  "completed_at_utc": "2026-09-22T00:01:31Z",
+  "execution_source": {
+    "branch": "experiment/rpi1-pigments-arm64-appliance",
+    "head": "dcfd5c20766f1f1d5f0a41548e96be35172d6841",
+    "tree": "fb045440f2a5ee3e7166ee5ac81697a20ca88965"
+  },
+  "fixture": {
+    "board": "Raspberry Pi 5 Model B Rev 1.1",
+    "ram_gb": 8,
+    "os": "Raspberry Pi OS Trixie / Debian 13.7",
+    "architecture": "aarch64",
+    "kernel": "6.18.50+rpt-rpi-v8",
+    "cooling": "no active cooling",
+    "overclock": false
+  },
+  "source_owned_windows_fixture": {
+    "source": "tools/ap18-tests/uia_disconnect.cpp",
+    "workflow_run": 34780980257,
+    "workflow_head": "ed2fadc45f057d1a2f109bc3ab96a1d35566d762",
+    "build_commit": "e9db948cc3394262ce25943a6dfadd5087792a46",
+    "artifact_id": 10325531093,
+    "artifact_name": "ap8-windows-host-e9db948cc3394262ce25943a6dfadd5087792a46",
+    "archive_sha256": "9f362d6319c2a69497d8600ddb71d6a0e246ccb1ae66b3570b073cc24c4bd121",
+    "executable": "uio2-uia-disconnect.exe",
+    "executable_sha256": "29dfffb4dbb4657fd96fccce60ea956d62ca10962e58c7da6b373041d289f944",
+    "executable_bytes": 97792,
+    "executable_format": "PE32+ x86-64 Windows console",
+    "pi_transfer_sha256_matched": true,
+    "commercial_or_account_data_used": false
+  },
+  "runtime": {
+    "identity": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+    "box64_commit": "2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a",
+    "box64_sha256": "79cdd30e5480f5dfb8cd717af99d0e5a89eb55b31701de6fde7896a6a0e79ab6",
+    "uiautomationcore_x86_64_sha256": "33a195f56bd5a84ace582ef480db2e272f21856df6437843eda406af295c6049",
+    "prefix": "fresh Pi-specific RPI1 prefix established during the preceding preflight"
+  },
+  "comparison": {
+    "baseline": {
+      "unit": "lvb-rpi1-uia-baseline.service",
+      "WINEDLLOVERRIDES": "unset",
+      "expected_exit": 42,
+      "observed_exit": 42,
+      "meaning": "the disposable fixture caught the expected access violation from UiaDisconnectProvider(nullptr)",
+      "stdout_bytes": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_bytes": 3054,
+      "stderr_sha256": "369933537c97c3eebb746368bf28c8d1b517be691735ed974c39d80ec0605dc5"
+    },
+    "operation_local_override": {
+      "unit": "lvb-rpi1-uia-override.service",
+      "WINEDLLOVERRIDES": "uiautomationcore=",
+      "expected_exit": 0,
+      "observed_exit": 0,
+      "meaning": "the process-local override made UIAutomationCore unavailable and the faulting call was not executed",
+      "stdout_bytes": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_bytes": 3054,
+      "stderr_sha256": "4585cb8b94d6a940bbd7032f47b1cb0ff426092062a956a00e4209206ad96c2f"
+    },
+    "result": "PASSED"
+  },
+  "ownership_and_cleanup": {
+    "systemd_runtime_max_seconds": 60,
+    "systemd_memory_max_bytes": 2147483648,
+    "systemd_tasks_max": 512,
+    "baseline_pre_units": 0,
+    "baseline_post_units": 0,
+    "baseline_pre_private_processes": 0,
+    "baseline_post_private_processes": 0,
+    "override_pre_units": 0,
+    "override_post_units": 0,
+    "override_pre_private_processes": 0,
+    "override_post_private_processes": 0,
+    "broad_process_cleanup_used": false,
+    "result": "PASSED"
+  },
+  "preserved_setup_faults": [
+    "SLR4 attempted an i386 helper that the selected 64-bit-only Box64 build cannot execute",
+    "the x86-64 static ldconfig helper exited by signal 11 before pressure-vessel used its LD_LIBRARY_PATH fallback",
+    "the same absent optional native wrappers reported by the preceding process preflight remained visible",
+    "the expected fixture exits do not repair or erase these setup faults"
+  ],
+  "thermal_observation": {
+    "final_temperature_c": 49.9,
+    "final_arm_clock_hz": 1500022656,
+    "throttled_register": "0x50000",
+    "current_fault_bits": false,
+    "sticky_historical_fault_bits": true
+  },
+  "gates": {
+    "account_free_uia_normal_and_override": "PASSED",
+    "proton_on_box64_preflight": "PASSED_WITH_PRESERVED_SETUP_FAULTS",
+    "asc": "READY_NOT_RUN",
+    "pigments": "NOT_RUN",
+    "overall_rpi1": "PENDING"
+  },
+  "nonclaims": [
+    "ASC installation, launch or sign-in",
+    "Pigments installation, authorization or execution",
+    "clean fault-free Proton-on-Box64 operation",
+    "Windows accessibility support when the process-local override is active",
+    "audio, MIDI, editor, state, latency, polyphony or sustained thermal acceptance"
+  ]
+}
