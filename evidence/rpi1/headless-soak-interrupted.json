@@ -1,0 +1,1015 @@
+{
+  "date": "2026-09-22",
+  "verdict": "incomplete; stopped for operator-reported brief buzz, not a passed ten-minute soak",
+  "executed_source_head": "8eb89230410a1b42531bfb0fc252cddb166b1d5d",
+  "executed_source_tree": "ff138a43d6d9be9c517e8aa0209cf268690fa6c9",
+  "repository_head_at_attempt": "dc83017f48f1a777bff429eddd0253c5d8f69210",
+  "native_sha256": "2689b5a0af961d8637007c6be7a1af58ce55458b26ebb16662c2455007202553",
+  "qualification_sha256": "30894189d587f4bf40c1d817672fe73d028aa18c5392846652bd8ed8f6d71986",
+  "source_change": "none; existing binaries reused",
+  "scope": {
+    "sessions": 1,
+    "power": "same MacBook supply",
+    "editor": "never opened",
+    "usb_midi": "disconnected",
+    "jack_rate": 48000,
+    "jack_period_frames": 512,
+    "bridge_delay_frames": 2048,
+    "vendor_processing_quantum_frames": 256,
+    "remote": "direct SSH from Mac"
+  },
+  "planned": {
+    "processing_seconds": 600,
+    "note_sequences": 60,
+    "note_on_seconds": 0.5,
+    "note_off_seconds": 2,
+    "cc123_seconds": 2.5,
+    "meter_window_seconds": 5,
+    "cadence_seconds": 10
+  },
+  "observed": {
+    "operator_report": "audio buzz briefly, during a note",
+    "normal_full_note_windows": 26,
+    "shutdown_truncated_note_window": 27,
+    "vendor_blocks_completed": 49120,
+    "vendor_frames_completed": 12574720,
+    "vendor_frames_duration_seconds": 261.97333333333336,
+    "midi_accepted_final_live": 79,
+    "midi_sent_by_fixture_total": 81,
+    "metering_limit": "Five-second note windows only; intervening quiet gaps were not externally metered. No waveform recording was retained.",
+    "interruption": "Native was asked to quit normally during note 27 after the operator report. The fixture remained alive to finish its five-second window, so its smaller nonzero count and sent/accepted difference are not admitted as spontaneous audio failures. The harness exited 1 when it subsequently detected the deliberately retired native owner."
+  },
+  "audio_interpretation": {
+    "full_windows_equal": "Both channels of the first 26 windows have identical counts, peak and RMS. This is not a samplewise comparison and does not rule out the reported buzz.",
+    "gap_attribution": "All 2560 missing/expired frames occurred at startup positions 0 through 2559, before first-note returned audio at position 57600. No subsequent gap was recorded.",
+    "cause": "unresolved; bridge waveforms, JACK/codec output and downstream analog/listening route are not distinguished by existing aggregate meters",
+    "next_audio_step": "Deferred by operator. A future bounded waveform capture can distinguish digital samples from downstream listening-path artifacts.",
+    "disposition": "Operator suspects their audio interface and explicitly deferred further audio diagnosis in favor of getting TRS/UART MIDI working; no cause established."
+  },
+  "note_windows": [
+    {
+      "index": 1,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=1 elapsed_seconds=6.142 RPI1_AUDIO midi_accepted=3 output_nonzero_l=72928 output_nonzero_r=72928 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=1058 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 2,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=2 elapsed_seconds=16.087 RPI1_AUDIO midi_accepted=6 output_nonzero_l=145856 output_nonzero_r=145856 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=2924 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 3,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=3 elapsed_seconds=26.095 RPI1_AUDIO midi_accepted=9 output_nonzero_l=218784 output_nonzero_r=218784 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=4800 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 4,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=4 elapsed_seconds=36.108 RPI1_AUDIO midi_accepted=12 output_nonzero_l=291712 output_nonzero_r=291712 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=6677 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 5,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=5 elapsed_seconds=46.108 RPI1_AUDIO midi_accepted=15 output_nonzero_l=364640 output_nonzero_r=364640 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=8552 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 6,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=6 elapsed_seconds=56.111 RPI1_AUDIO midi_accepted=18 output_nonzero_l=437568 output_nonzero_r=437568 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=10428 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 7,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=7 elapsed_seconds=65.889 RPI1_AUDIO midi_accepted=21 output_nonzero_l=510496 output_nonzero_r=510496 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=12260 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 8,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=8 elapsed_seconds=76.111 RPI1_AUDIO midi_accepted=24 output_nonzero_l=583424 output_nonzero_r=583424 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=14177 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 9,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=9 elapsed_seconds=86.112 RPI1_AUDIO midi_accepted=27 output_nonzero_l=656352 output_nonzero_r=656352 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=16052 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 10,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=10 elapsed_seconds=96.109 RPI1_AUDIO midi_accepted=30 output_nonzero_l=729280 output_nonzero_r=729280 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=17926 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 11,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=11 elapsed_seconds=106.111 RPI1_AUDIO midi_accepted=33 output_nonzero_l=802208 output_nonzero_r=802208 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=19802 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 12,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=12 elapsed_seconds=116.111 RPI1_AUDIO midi_accepted=36 output_nonzero_l=875136 output_nonzero_r=875136 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=21676 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 13,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=13 elapsed_seconds=126.115 RPI1_AUDIO midi_accepted=39 output_nonzero_l=948064 output_nonzero_r=948064 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=23552 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 14,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=14 elapsed_seconds=136.111 RPI1_AUDIO midi_accepted=42 output_nonzero_l=1020992 output_nonzero_r=1020992 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=25426 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 15,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=15 elapsed_seconds=146.112 RPI1_AUDIO midi_accepted=45 output_nonzero_l=1093920 output_nonzero_r=1093920 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=27302 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 16,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=16 elapsed_seconds=156.111 RPI1_AUDIO midi_accepted=48 output_nonzero_l=1166848 output_nonzero_r=1166848 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=29176 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 17,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=17 elapsed_seconds=166.11 RPI1_AUDIO midi_accepted=51 output_nonzero_l=1239776 output_nonzero_r=1239776 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=31051 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 18,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=18 elapsed_seconds=176.115 RPI1_AUDIO midi_accepted=54 output_nonzero_l=1312704 output_nonzero_r=1312704 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=32926 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 19,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=19 elapsed_seconds=186.114 RPI1_AUDIO midi_accepted=57 output_nonzero_l=1385632 output_nonzero_r=1385632 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=34802 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 20,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=20 elapsed_seconds=196.112 RPI1_AUDIO midi_accepted=60 output_nonzero_l=1458560 output_nonzero_r=1458560 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=36676 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 21,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=21 elapsed_seconds=206.114 RPI1_AUDIO midi_accepted=63 output_nonzero_l=1531488 output_nonzero_r=1531488 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=38552 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 22,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=22 elapsed_seconds=216.111 RPI1_AUDIO midi_accepted=66 output_nonzero_l=1604416 output_nonzero_r=1604416 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=40426 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 23,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=23 elapsed_seconds=226.113 RPI1_AUDIO midi_accepted=69 output_nonzero_l=1677344 output_nonzero_r=1677344 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=42302 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 24,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=24 elapsed_seconds=236.133 RPI1_AUDIO midi_accepted=72 output_nonzero_l=1750272 output_nonzero_r=1750272 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=44176 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 25,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=25 elapsed_seconds=246.112 RPI1_AUDIO midi_accepted=75 output_nonzero_l=1823200 output_nonzero_r=1823200 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=46052 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 26,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 72928,
+          "nonzero_windows": 144,
+          "peak": 0.19765145,
+          "rms": 0.07607915652899921,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=26 elapsed_seconds=256.115 RPI1_AUDIO midi_accepted=78 output_nonzero_l=1896128 output_nonzero_r=1896128 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=47926 request_high=15 result_high=16 fault=0"
+    },
+    {
+      "index": 27,
+      "channels": [
+        {
+          "channel": 0,
+          "samples": 240000,
+          "nonzero_samples": 35855,
+          "nonzero_windows": 71,
+          "peak": 0.19765145,
+          "rms": 0.05363763791994614,
+          "nonfinite": 0
+        },
+        {
+          "channel": 1,
+          "samples": 240000,
+          "nonzero_samples": 35855,
+          "nonzero_windows": 71,
+          "peak": 0.19765145,
+          "rms": 0.05363763791994614,
+          "nonfinite": 0
+        }
+      ],
+      "fixture_result": "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "progress": "RPI1_SOAK_PROGRESS notes_completed=27 elapsed_seconds=266.088 RPI1_AUDIO midi_accepted=79 output_nonzero_l=1932495 output_nonzero_r=1932495 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=49120 request_high=15 result_high=16 fault=0"
+    }
+  ],
+  "native_final_records": [
+    "RPI1_INITIALIZED wait_ms=5555",
+    "RPI1_CALLBACK callbacks=24560 failures=0 deadline_misses=0 callback_ns_max=69963 missing_frames=2560 expired_frames=2560 gaps=1 delivered_frames=12570112 priming_frames=2048 paused_frames=0 unsupported_midi=0 malformed_midi=0 overflow_midi=0",
+    "RPI1_TRANSPORT fault=0 processed=49120 request_high=15 result_high=16 position=12574720 epoch=1",
+    "RPI1_RETIREMENT milestones=127 epoch=1 sequence=49121 position=12574720 generation=1",
+    "RPI1_CLEAN_SHUTDOWN session=7b198dd86ea53cb03b49f8536ada4162"
+  ],
+  "native_callback_summary": {
+    "event": "rpi1_callback_summary",
+    "callbacks": 24560,
+    "process_failures": 0,
+    "deadline_misses": 0,
+    "callback_ns_max": 69963,
+    "missing_frames": 2560,
+    "expired_frames": 2560,
+    "gaps": 1,
+    "delivered_frames": 12570112,
+    "priming_frames": 2048,
+    "paused_frames": 0,
+    "unsupported_midi": 0,
+    "malformed_midi": 0,
+    "overflow_midi": 0,
+    "jack_frames": 512,
+    "bridge_frames": 2048
+  },
+  "startup_gap_records": [
+    {
+      "event": "ap7_gap_request",
+      "epoch": 1,
+      "gap_position": 0,
+      "gap_frames": 256,
+      "request_position": 0,
+      "request_frames": 256,
+      "sequence": 1,
+      "output_published": true,
+      "queue_us": 104,
+      "prepare_us": 59,
+      "send_us": 1,
+      "reply_us": 80657,
+      "validation_us": 15,
+      "publication_us": 5,
+      "publication_after_gap_us": 38202,
+      "admission_to_gap_us": 42642
+    },
+    {
+      "event": "ap7_gap_request",
+      "epoch": 1,
+      "gap_position": 256,
+      "gap_frames": 256,
+      "request_position": 256,
+      "request_frames": 256,
+      "sequence": 2,
+      "output_published": true,
+      "queue_us": 80848,
+      "prepare_us": 3,
+      "send_us": 0,
+      "reply_us": 4348,
+      "validation_us": 11,
+      "publication_us": 10,
+      "publication_after_gap_us": 42581,
+      "admission_to_gap_us": 42641
+    },
+    {
+      "event": "ap7_gap_request",
+      "epoch": 1,
+      "gap_position": 512,
+      "gap_frames": 256,
+      "request_position": 512,
+      "request_frames": 256,
+      "sequence": 3,
+      "output_published": true,
+      "queue_us": 74600,
+      "prepare_us": 4,
+      "send_us": 0,
+      "reply_us": 771,
+      "validation_us": 6,
+      "publication_us": 5,
+      "publication_after_gap_us": 32715,
+      "admission_to_gap_us": 42673
+    },
+    {
+      "event": "ap7_gap_request",
+      "epoch": 1,
+      "gap_position": 768,
+      "gap_frames": 256,
+      "request_position": 768,
+      "request_frames": 256,
+      "sequence": 4,
+      "output_published": true,
+      "queue_us": 75393,
+      "prepare_us": 3,
+      "send_us": 0,
+      "reply_us": 689,
+      "validation_us": 5,
+      "publication_us": 4,
+      "publication_after_gap_us": 33423,
+      "admission_to_gap_us": 42672
+    },
+    {
+      "event": "ap7_gap_request",
+      "epoch": 1,
+      "gap_position": 1024,
+      "gap_frames": 256,
+      "request_position": 1024,
+      "request_frames": 256,
+      "sequence": 5,
+      "output_published": true,
+      "queue_us": 65437,
+      "prepare_us": 4,
+      "send_us": 0,
+      "reply_us": 497,
+      "validation_us": 4,
+      "publication_us": 3,
+      "publication_after_gap_us": 23255,
+      "admission_to_gap_us": 42694
+    },
+    {
+      "event": "ap7_gap_request",
+      "epoch": 1,
+      "gap_position": 1280,
+      "gap_frames": 256,
+      "request_position": 1280,
+      "request_frames": 256,
+      "sequence": 6,
+      "output_published": true,
+      "queue_us": 65951,
+      "prepare_us": 4,
+      "send_us": 0,
+      "reply_us": 839,
+      "validation_us": 4,
+      "publication_us": 4,
+      "publication_after_gap_us": 24111,
+      "admission_to_gap_us": 42693
+    },
+    {
+      "event": "ap7_gap_request",
+      "epoch": 1,
+      "gap_position": 1536,
+      "gap_frames": 256,
+      "request_position": 1536,
+      "request_frames": 256,
+      "sequence": 7,
+      "output_published": true,
+      "queue_us": 56131,
+      "prepare_us": 3,
+      "send_us": 0,
+      "reply_us": 557,
+      "validation_us": 4,
+      "publication_us": 3,
+      "publication_after_gap_us": 14034,
+      "admission_to_gap_us": 42666
+    },
+    {
+      "event": "ap7_gap_request",
+      "epoch": 1,
+      "gap_position": 1792,
+      "gap_frames": 256,
+      "request_position": 1792,
+      "request_frames": 256,
+      "sequence": 8,
+      "output_published": true,
+      "queue_us": 56701,
+      "prepare_us": 3,
+      "send_us": 0,
+      "reply_us": 523,
+      "validation_us": 3,
+      "publication_us": 3,
+      "publication_after_gap_us": 14571,
+      "admission_to_gap_us": 42664
+    },
+    {
+      "event": "ap7_gap_request",
+      "epoch": 1,
+      "gap_position": 2048,
+      "gap_frames": 256,
+      "request_position": 2048,
+      "request_frames": 256,
+      "sequence": 9,
+      "output_published": true,
+      "queue_us": 46591,
+      "prepare_us": 2,
+      "send_us": 0,
+      "reply_us": 649,
+      "validation_us": 4,
+      "publication_us": 5,
+      "publication_after_gap_us": 4551,
+      "admission_to_gap_us": 42702
+    },
+    {
+      "event": "ap7_gap_request",
+      "epoch": 1,
+      "gap_position": 2304,
+      "gap_frames": 256,
+      "request_position": 2304,
+      "request_frames": 256,
+      "sequence": 10,
+      "output_published": true,
+      "queue_us": 47255,
+      "prepare_us": 3,
+      "send_us": 0,
+      "reply_us": 538,
+      "validation_us": 4,
+      "publication_us": 4,
+      "publication_after_gap_us": 5105,
+      "admission_to_gap_us": 42701
+    }
+  ],
+  "windows_retirement_records": [
+    {
+      "event": "lifecycle",
+      "sequence": 227,
+      "state": "ap0_thread_joined",
+      "joined": true,
+      "processing_stopped": true,
+      "worker_exception": false
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 229,
+      "state": "ap3_processing_summary",
+      "processed_blocks": 49120,
+      "intervals": 1,
+      "process_mode": "kRealtime"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 233,
+      "state": "ap1_endpoint_closed",
+      "mapping_unmapped": true,
+      "instance_count": 1
+    }
+  ],
+  "health": {
+    "active_samples": 281,
+    "active_monotonic_range": [
+      1627.577,
+      1907.577
+    ],
+    "maximum_temperature_c": 59.5,
+    "voltage_range_v": [
+      4.78112,
+      5.02902
+    ],
+    "throttle_samples": [
+      "throttled=0x0"
+    ],
+    "minimum_mem_available_kib": 5575136,
+    "memory_peak_bytes": {
+      "outer": 56233984,
+      "windows": 2095116288
+    },
+    "observed_kernel_undervoltage_events": 0,
+    "restart_during_run": false,
+    "limit": "One-Hz samples; not proof of supply margin or absence of subsecond voltage excursions",
+    "remote_ping": {
+      "transmitted": 433,
+      "received": 432,
+      "packet_loss_percent": 0.2
+    }
+  },
+  "cleanup": {
+    "native_outer_exit": 0,
+    "native_outer_result": "success",
+    "native_retirement_milestones": 127,
+    "native_and_translated_processes_absent": true,
+    "successful_transport_removed": true,
+    "command_fifo_removed": true,
+    "experiment_jack_ports_and_routes_removed": true,
+    "prior_inactive_unit_restored": true,
+    "health_recorder_stopped": true,
+    "remote_journal_and_ping_stopped": true,
+    "runtime_watchdog_usec_readback": 60000000
+  },
+  "uart_midi": {
+    "status": "not implemented or physically qualified",
+    "existing_hardware_record": "SHIELDXL0 trs_uart explicitly not_implemented_first_pass",
+    "live_uart": "Only ttyAMA10 exposed; serial0 aliases it and a console getty owns it. GPIO14 and GPIO15 report no UART function. No ttymidi service, raw MIDI device or external ALSA input is present.",
+    "requested_route": "ShieldXL physical TRS MIDI input; operator named Monolit, Chord ATK or OMX-27 as source",
+    "next_step": "Separate Pi 5 UART input bring-up, then source-owned MIDI observation before routing to Pigments. No boot configuration or controller connection changed in this run."
+  },
+  "nonclaims": [
+    "ten-minute soak acceptance",
+    "artifact-free audio",
+    "root cause of buzz",
+    "resolution of historical whole-machine failure",
+    "UART/TRS MIDI operation",
+    "editor or physical controller qualification",
+    "overall RPI1 acceptance"
+  ]
+}
