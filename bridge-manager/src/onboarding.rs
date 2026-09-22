@@ -128,6 +128,11 @@ pub fn runner_key(r: &Runner) -> Result<String> {
 }
 pub fn runners(m: &Manager) -> Result<Vec<(String, Runner)>> {
     let sw = software(m)?;
+    if sw.native_catalogue.is_none() {
+        require(crate::frg1::catalogue_free_registry(m, &m.registry()?)?,
+            "native_catalogue_absent_run_product_setup")?;
+        return Ok(vec![]);
+    }
     let c = sw.catalogue(m)?;
     let mut list = vec![];
     for e in c.environments {
@@ -1063,7 +1068,7 @@ mod tests {
         assert!(crate::operator_cli::environment_projection(
             &f.m,
             &sw,
-            &catalogue,
+            Some(&catalogue),
             &db,
             None
         )
@@ -1096,7 +1101,7 @@ mod tests {
         let environments = crate::operator_cli::environment_projection(
             &f.m,
             &sw,
-            &catalogue,
+            Some(&catalogue),
             &db,
             None,
         )
@@ -1156,7 +1161,7 @@ mod tests {
         let busy_environments = crate::operator_cli::environment_projection(
             &f.m,
             &sw,
-            &catalogue,
+            Some(&catalogue),
             &db,
             Some("active DSP"),
         )
@@ -1206,7 +1211,7 @@ mod tests {
         assert!(crate::operator_cli::environment_projection(
             &f.m,
             &sw,
-            &catalogue,
+            Some(&catalogue),
             &db,
             None
         )

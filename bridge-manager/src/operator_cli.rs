@@ -360,10 +360,10 @@ fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
 }
 fn managed_environment_bindings(
     m: &Manager,
-    catalogue: &linux_vst_bridge::catalogue::Catalogue,
+    catalogue: Option<&linux_vst_bridge::catalogue::Catalogue>,
     registry: &Registry,
 ) -> Result<Vec<linux_vst_bridge::catalogue::EnvironmentBinding>> {
-    let mut bindings = catalogue.environments.clone();
+    let mut bindings = catalogue.map_or_else(Vec::new, |c| c.environments.clone());
     for retained in onboarding::history_records(m)? {
         if !registry
             .classes
@@ -441,7 +441,7 @@ fn managed_rescan_binding_from(
 }
 fn managed_rescan_binding(
     m: &Manager,
-    catalogue: &linux_vst_bridge::catalogue::Catalogue,
+    catalogue: Option<&linux_vst_bridge::catalogue::Catalogue>,
     registry: &Registry,
     environment: &str,
 ) -> Result<Option<Environment>> {
@@ -455,11 +455,12 @@ fn managed_rescan_binding(
 pub(super) fn environment_projection(
     m: &Manager,
     sw: &Software,
-    catalogue: &linux_vst_bridge::catalogue::Catalogue,
+    catalogue: Option<&linux_vst_bridge::catalogue::Catalogue>,
     registry: &Registry,
     busy: Option<&str>,
 ) -> Result<Vec<ui::Environment>> {
     let bindings = managed_environment_bindings(m, catalogue, registry)?;
+    let adopted = linux_vst_bridge::frg1::adopted_environment(m)?;
     bindings
         .iter()
         .map(|entry| {
@@ -476,11 +477,9 @@ pub(super) fn environment_projection(
             )?
             {
                 if onboarding::inventory_refresh_required(
-                    m,
-                    &environment,
-                    &sw.host,
-                    &sw.source_sha256,
-                )? {
+                    m, &environment, &sw.host, &sw.source_sha256,
+                )? || (adopted.as_ref().is_some_and(|binding| binding.environment == environment)
+                    && linux_vst_bridge::frg1::inventory_refresh_required(m, &environment)?) {
                     vec![action(
                         "Refresh installed products",
                         ui::Action::EnvironmentRescan {
@@ -507,6 +506,20 @@ pub(super) fn environment_projection(
             })
         })
         .collect()
+}
+// A fresh product install has no native catalogue until a managed native
+// publication exists. An empty registry can bootstrap the first inventory;
+// afterward only the exact sealed FRG1 publication/restoration remains valid
+// without an ordinary catalogue.
+fn operator_catalogue(m: &Manager, sw: &Software, registry: &Registry)
+    -> Result<Option<linux_vst_bridge::catalogue::Catalogue>> {
+    if sw.native_catalogue.is_none() {
+        require(linux_vst_bridge::frg1::catalogue_free_registry(m, registry)?,
+            "native_catalogue_absent_run_product_setup")?;
+        Ok(None)
+    } else {
+        Ok(Some(sw.catalogue(m)?))
+    }
 }
 const OPERATOR_WAIT: Duration = Duration::from_secs(10);
 #[cfg(test)]
@@ -666,12 +679,13 @@ fn snapshot_for_operation(
         ));
         products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
     }
-    let catalogue = sw.catalogue(m)?;
-    let environments = environment_projection(m, &sw, &catalogue, &db, busy)?;
-    let inventory_environments: Vec<Environment> = catalogue
-        .environments
-        .iter()
-        .map(|e| e.environment.clone())
+    let catalogue = operator_catalogue(m, &sw, &db)?;
+    let environments = environment_projection(m, &sw, catalogue.as_ref(), &db, busy)?;
+    let inventory_environments: Vec<Environment> = managed_environment_bindings(
+        m, catalogue.as_ref(), &db,
+    )?
+        .into_iter()
+        .map(|e| e.environment)
         .chain(
             onboarding::history_records(m)?
                 .into_iter()
@@ -1992,9 +2006,9 @@ pub(super) fn rescan(m: &Manager, environment: &str) -> Result<Value> {
     let _lock = m.lock("registry.lock")?;
     m.require_inactive(None)?;
     let sw = software(m)?;
-    let c = sw.catalogue(m)?;
     let db = m.registry()?;
-    let env = managed_rescan_binding(m, &c, &db, environment)?
+    let c = operator_catalogue(m, &sw, &db)?;
+    let env = managed_rescan_binding(m, c.as_ref(), &db, environment)?
         .ok_or("operator_environment_unmanaged")?;
     require(
         onboarding::inventory_refresh_required(
@@ -2384,6 +2398,33 @@ pub(super) fn product_receipt(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn empty_registry_bootstraps_without_inventing_a_native_catalogue() {
+        let f = test_fixture::Fixture::new();
+        let source = f.r.host.path.with_file_name("host-source-manifest.json");
+        fs::write(&source, b"fixture source").unwrap();
+        let sw = Software {
+            installer_launch: None,
+            preparation_kit: None,
+            operator_frontend: None,
+            manager: f.r.host.clone(),
+            supervisor: f.r.host.clone(),
+            ownership: f.r.host.clone(),
+            host: f.r.host.clone(),
+            source_manifest: Artifact { path: source.clone(), sha256: digest(&source).unwrap() },
+            source_sha256: digest(&source).unwrap(),
+            native_catalogue: None,
+        };
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let empty = f.m.registry().unwrap();
+        assert!(operator_catalogue(&f.m, &sw, &empty).unwrap().is_none());
+        let snapshot = snapshot_idle_test(&f.m).unwrap();
+        assert!(snapshot.environments.is_empty());
+        assert!(snapshot.products.is_empty());
+        assert!(managed_rescan_binding(&f.m, None, &empty, &f.r.environment.id).is_err());
+        let (occupied, _, _, _) = test_fixture::prepared();
+        assert!(operator_catalogue(&f.m, &sw, &occupied.m.registry().unwrap()).is_err());
+    }
     fn quarantined_scan(f: &test_fixture::Fixture) -> inventory::Scan {
         inventory::Scan {schema:1,id:"aa".repeat(16),environment:f.r.environment.clone(),
             host:f.r.host.clone(),host_source_sha256:f.r.host_source_sha256.clone(),
