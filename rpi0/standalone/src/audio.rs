@@ -137,6 +137,24 @@ mod tests {
     static AUDIT: Audit = Audit;
 
     #[test]
+    fn full_channel_note_off_expansion_allocates_nothing() {
+        let mut parser = Parser::default();
+        let mut output = [Event::default(); 128];
+        let policy = crate::midi::ControllerPolicy::TrackedNoteOffs;
+        for pitch in 0..128 {
+            parser
+                .parse_into(policy, 0, &[0x90, pitch, 96], 512, &mut output)
+                .unwrap();
+        }
+        ALLOCATIONS.store(0, Ordering::Relaxed);
+        TRACK.with(|track| track.set(true));
+        let count = parser.parse_into(policy, 17, &[0xb0, 123, 0], 512, &mut output);
+        TRACK.with(|track| track.set(false));
+        assert_eq!(ALLOCATIONS.load(Ordering::Relaxed), 0);
+        assert_eq!(count, Ok(128));
+    }
+
+    #[test]
     fn output_observation_distinguishes_silence_signed_audio_and_nonfinite_without_allocation() {
         ALLOCATIONS.store(0, Ordering::Relaxed);
         TRACK.with(|track| track.set(true));

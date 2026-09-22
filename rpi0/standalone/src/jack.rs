@@ -1,7 +1,7 @@
 use crate::{
     audio::{OutputObservation, ParameterUpdate},
     callback_gate::CallbackGate,
-    midi::Parser,
+    midi::{ControllerPolicy, Parser},
     protocol::supported_jack_block,
     spsc::Queue,
     MAX_JACK_FRAMES, MAX_MIDI_EVENTS, SAMPLE_RATE,
@@ -140,6 +140,7 @@ struct Rt {
     right: *mut JackPort,
     position: u64,
     parser: Parser,
+    controller_policy: ControllerPolicy,
     events: [Event; MAX_MIDI_EVENTS],
     zero: [f32; MAX_JACK_FRAMES],
     gate: CallbackGate,
@@ -154,7 +155,12 @@ pub struct Client {
 unsafe impl Send for Client {}
 
 impl Client {
-    pub fn open(name: &str, instance: &Instance, control: &Control) -> io::Result<Self> {
+    pub fn open(
+        name: &str,
+        instance: &Instance,
+        control: &Control,
+        controller_policy: ControllerPolicy,
+    ) -> io::Result<Self> {
         let name = CString::new(name).map_err(|_| invalid("JACK name"))?;
         let mut status = 0;
         let client = unsafe { jack_client_open(name.as_ptr(), JACK_NULL_OPTION, &mut status) };
@@ -196,6 +202,7 @@ impl Client {
             right,
             position: 0,
             parser: Parser::default(),
+            controller_policy,
             events: [Event::default(); MAX_MIDI_EVENTS],
             zero: [0.; MAX_JACK_FRAMES],
             gate: CallbackGate::new(),
@@ -350,9 +357,14 @@ unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_in
             break;
         }
         let bytes = slice::from_raw_parts(raw.buffer, raw.size);
-        if let Ok(event) = rt.parser.parse(raw.time, bytes, frames) {
-            rt.events[event_count] = event;
-            event_count += 1;
+        if let Ok(written) = rt.parser.parse_into(
+            rt.controller_policy,
+            raw.time,
+            bytes,
+            frames,
+            &mut rt.events[event_count..],
+        ) {
+            event_count += written;
         }
     }
     metrics.accepted_midi.fetch_add(

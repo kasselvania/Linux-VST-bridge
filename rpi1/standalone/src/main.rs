@@ -90,7 +90,12 @@ mod appliance {
             .map_err(|_| invalid("backend open thread panicked"))??;
 
         let control = Control::new();
-        let mut jack = Client::open(&config.jack_client, &instance, &control)?;
+        let mut jack = Client::open(
+            &config.jack_client,
+            &instance,
+            &control,
+            lvb_arm_standalone::midi::ControllerPolicy::TrackedNoteOffs,
+        )?;
         let buses = pigments_bus_contract();
         let traits = instance.setup(jack.buffer_size(), 48_000.0, &buses)?;
         instance.activate(256)?;
@@ -103,6 +108,7 @@ mod appliance {
             traits.vendor_frames, traits.total_frames
         );
         println!("RPI1_LATENCY tail_frames={}", traits.tail_frames);
+        println!("RPI1_MIDI cc123=tracked_note_offs cc64=unsupported duplicate_note_on=refused");
         println!(
             "Commands: open | close | save /absolute/path | restore /absolute/path | status | quit"
         );
