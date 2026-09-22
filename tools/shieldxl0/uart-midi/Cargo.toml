@@ -1,0 +1,11 @@
+[package]
+name = "shieldxl-uart-midi"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+alsa = "=0.12.1"
+libc = "=0.2.189"
+
+[workspace]

@@ -1,0 +1,30 @@
+[Unit]
+Description=ShieldXL Pi 5 TRS MIDI input for %i
+BindsTo=dev-ttyAMA0.device
+After=sound.target systemd-modules-load.service dev-ttyAMA0.device
+ConditionPathExists=/dev/ttyAMA0
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+SupplementaryGroups=audio dialout
+ExecStart=/usr/local/libexec/shieldxl0/shieldxl-uart-midi
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX
+DevicePolicy=closed
+DeviceAllow=/dev/ttyAMA0 rw
+DeviceAllow=/dev/snd/seq rw
+MemoryMax=32M
+TasksMax=4
+TimeoutStopSec=3s
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

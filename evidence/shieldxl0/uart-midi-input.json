@@ -1,0 +1,96 @@
+{
+  "date": "2026-09-22",
+  "base_head": "32c8d2af4d83c9bccdbc6c5f0364a02de071399e",
+  "base_tree": "e73f3cfde3e38265d031a89b54872ef063d2f58c",
+  "status": "physical_input_passed_omx27_notes_and_audible_tone; boot_verification_pending",
+  "source_sha256": {
+    "Cargo.toml": "6fa2170edb6fa37f0f3244f84b2f587650428044577873a6c1c3cfce1e0d2fee",
+    "Cargo.lock": "24b4c14b4861d7caed183f9002e75c1007b60c7128872139e926c59bc1281f98",
+    "src/lib.rs": "b17ae9cc759b52e26fbaf7f797dbc89d913fbe057b6da6697516199fe844c18c",
+    "src/main.rs": "c6d6f552f4437b36369e081781f32b2f9f155ebb05c2de86aeb5d2978cebf5ce"
+  },
+  "binary_sha256": "9218d1758a98506d10cf3c85ccd6bb2595320f7c3dd709242b7f3ec7c15f2e4c",
+  "hardware": {
+    "pi": "Raspberry Pi 5",
+    "uart": "ttyAMA0",
+    "device_tree_node": "/axi/pcie@1000120000/rp1/serial@30000",
+    "gpio_rx": 15,
+    "gpio_tx": 14,
+    "overlay": "uart0-pi5 loaded live",
+    "baud": 31250,
+    "framing": "8N1",
+    "rate_readback": true,
+    "alsa_source": "ShieldXL UART:TRS In",
+    "jack_alias": "ShieldXL-UART:midi/playback_1",
+    "controller": "OMX-27; operator-reported Type B connection to ShieldXL TRS MIDI IN, externally powered"
+  },
+  "validation": {
+    "arm_unit_tests": 2,
+    "arm_strict_clippy": "pass",
+    "arm_release_build": "pass",
+    "existing_shieldxl_tests": 44,
+    "service_ready": true,
+    "initial_generation_stop_restart": "pass; exit 0",
+    "physical_notes": true,
+    "physical_cc": false,
+    "boot_persistence": "Pi 5 UART include, snd_seq module-load entry and enabled service installed; no reboot performed",
+    "systemd_unit_verify": "pass; final unit binds to ttyAMA0 device and follows module loading"
+  },
+  "limits": [
+    "input only; no physical MIDI OUT",
+    "SysEx discarded in bounded fragments",
+    "CC not yet physically demonstrated in successful configuration",
+    "Monolit and Chord ATK not qualified",
+    "no reboot persistence verification",
+    "Pigments/Proton/Box64 remain stopped",
+    "audio buzz unresolved and deferred by operator"
+  ],
+  "audible_fixture": {
+    "source": "tools/shieldxl0/midi_tone.rs",
+    "source_sha256": "09a38339fc4337114934da6371b5612b1a80bf3ad6ca63de6203848ca6f062e6",
+    "build": "native ARM release with warnings denied passed",
+    "duration_seconds": 1800,
+    "feedback": "three startup beeps; held note tone; 200ms CC beep; OLED live message count",
+    "route": [
+      "ShieldXL-UART:midi/playback_1 -> shieldxl-midi-tone:in",
+      "shieldxl-midi-tone:left -> system:playback_1",
+      "shieldxl-midi-tone:right -> system:playback_2"
+    ],
+    "status": "active after physical success; 30-minute run limit; live OLED message counter",
+    "claim_limit": "Startup/output feedback is not proof of physical UART input",
+    "startup_beeps": "operator did not hear initial beeps; bounded repeating reference started and subsequently stopped after MIDI input/audio confirmation",
+    "retained_status_examples": [
+      "MIDI_TONE_STATUS messages=423 note_on=212 cc=0 errors=0",
+      "MIDI_TONE_STATUS messages=428 note_on=214 cc=0 errors=0",
+      "MIDI_TONE_STATUS messages=429 note_on=215 cc=0 errors=0",
+      "MIDI_TONE_STATUS messages=434 note_on=217 cc=0 errors=0",
+      "MIDI_TONE_STATUS messages=439 note_on=220 cc=0 errors=0",
+      "MIDI_TONE_STATUS messages=446 note_on=223 cc=0 errors=0",
+      "MIDI_TONE_STATUS messages=450 note_on=225 cc=0 errors=0",
+      "MIDI_TONE_STATUS messages=452 note_on=226 cc=0 errors=0"
+    ],
+    "binary_sha256": "d88432bd2e1bdb4a88237967221dabc68e4750dd98a9f63c2922a1f29aeeb376"
+  },
+  "physical_result": {
+    "operator_confirmation": "I have midi sound. We have a type B connection. So, now I know.",
+    "operator_controller_confirmation": "OMX-27",
+    "followup_audio_confirmation": "I hear the test tones now. All good",
+    "uart_bytes": 429,
+    "uart_events": 142,
+    "tone_midi_messages": 142,
+    "tone_note_on": 71,
+    "tone_cc": 0,
+    "tone_errors": 0,
+    "automatic_reference": "The automatic reference was stopped once physical MIDI activity was observed; only the MIDI tone fixture remained connected to playback.",
+    "interpretation": "UART byte decoding, ALSA delivery, JACK MIDI routing and audible tone were observed together. Type B describes the successful operator setup, not a universal polarity claim. Monolit and Chord ATK are not qualified.",
+    "serial_limit": "Plug/jack changes produced serial break indications. No error-free electrical-link or sustained timing claim.",
+    "counts_scope": "First confirmed input checkpoint; continued operator playing subsequently increased the counters."
+  },
+  "installation": {
+    "boot_include": "/boot/firmware/shieldxl-uart-midi.conf",
+    "boot_config_backup": "config.txt.pre-uart-midi-20260922",
+    "module_entry": "/etc/modules-load.d/shieldxl-uart-midi.conf",
+    "service_enabled": true,
+    "restart_required_to_verify_persistence": true
+  }
+}
