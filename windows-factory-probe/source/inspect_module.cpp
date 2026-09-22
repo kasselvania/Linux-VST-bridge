@@ -10,9 +10,11 @@
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "pluginterfaces/vst/ivstmessage.h"
+#include "pluginterfaces/vst/ivstunits.h"
 #include "../../vst-state/stream.h"
 #include <windows.h>
 #include <atomic>
+#include <algorithm>
 #include <cstring>
 #include <cmath>
 #include <stdexcept>
@@ -147,12 +149,51 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         }else{
         int n=controller->getParameterCount();if(n<0||n>8192)throw std::runtime_error("parameter count bound");
         events.lifecycle("ap8_parameter_count",",\"count\":"+std::to_string(n));
+        // The program-change flag alone cannot establish which vendor presets
+        // are selectable. Keep this read-only observation on the existing
+        // supervised census path; never manufacture a preset from a parameter
+        // title or a private content filename.
+        if(!external && access_directory.empty()){
+            FUnknownPtr<IUnitInfo> unit_info(controller);
+            events.lifecycle("ap8_program_interface",",\"supported\":"+std::string(unit_info?"true":"false"));
+            if(unit_info){
+            const auto unit_count=unit_info->getUnitCount();
+            const auto list_count=unit_info->getProgramListCount();
+            if(unit_count<0||unit_count>128||list_count<0||list_count>64)
+                throw std::runtime_error("program structure count bound");
+            events.lifecycle("ap8_program_structure",",\"unit_count\":"+std::to_string(unit_count)+",\"list_count\":"+std::to_string(list_count));
+            for(int i=0;i<unit_count;++i){
+                UnitInfo unit{};
+                ok(unit_info->getUnitInfo(i,unit),"getUnitInfo");
+                events.lifecycle("ap8_program_unit",",\"index\":"+std::to_string(i)+",\"id\":"+std::to_string(unit.id)+",\"parent_id\":"+std::to_string(unit.parentUnitId)+",\"program_list_id\":"+std::to_string(unit.programListId)+",\"name\":"+text16(unit.name));
+            }
+            for(int i=0;i<list_count;++i){
+                ProgramListInfo list{};
+                ok(unit_info->getProgramListInfo(i,list),"getProgramListInfo");
+                if(list.programCount<0||list.programCount>8192)
+                    throw std::runtime_error("program list size bound");
+                const int prefix_count=std::min(list.programCount,4);
+                std::string prefix;
+                for(int index=0;index<prefix_count;++index){
+                    String128 program{};
+                    const auto result=unit_info->getProgramName(list.id,index,program);
+                    if(index)prefix+=',';
+                    prefix+="{\"result\":"+std::to_string(result);
+                    if(result==kResultOk)prefix+=",\"name\":"+text16(program);
+                    prefix+='}';
+                }
+                events.lifecycle("ap8_program_list",",\"index\":"+std::to_string(i)+",\"id\":"+std::to_string(list.id)+",\"name\":"+text16(list.name)+",\"program_count\":"+std::to_string(list.programCount)+",\"prefix\":["+prefix+"]");
+            }
+            }
+        }
         step("enumerateParameters");std::string parameters;
         // Compact bounded chunks keep a large real parameter list within the
         // existing diagnostic byte/event caps. Column order is explicit.
         for(int i=0;i<n;++i){ParameterInfo p{};
             if(controller->getParameterInfo(i,p)!=kResultOk)throw std::runtime_error("getParameterInfo index "+std::to_string(i));
             auto value=controller->getParamNormalized(p.id);
+            if(!external && access_directory.empty() && (p.flags&ParameterInfo::kIsProgramChange))
+                events.lifecycle("ap8_program_change_parameter",",\"id\":"+std::to_string(p.id)+",\"unit_id\":"+std::to_string(p.unitId)+",\"steps\":"+std::to_string(p.stepCount)+",\"flags\":"+std::to_string(p.flags)+",\"value\":"+(std::isfinite(value)&&value>=0&&value<=1?std::to_string(value):"null"));
             if(!parameters.empty())parameters+=',';
             parameters+='['+std::to_string(p.id)+','+text16(p.title)+','+text16(p.units)+','+std::to_string(p.stepCount)+','+std::to_string(p.flags)+','+(std::isfinite(p.defaultNormalizedValue)?std::to_string(p.defaultNormalizedValue):"null")+','+(std::isfinite(value)&&value>=0&&value<=1?std::to_string(value):"null")+']';
             if(i%32==31||i+1==n){events.lifecycle("ap8_parameters",",\"columns\":[\"id\",\"title\",\"units\",\"steps\",\"flags\",\"default\",\"value\"],\"parameters\":["+parameters+"]");parameters.clear();}
