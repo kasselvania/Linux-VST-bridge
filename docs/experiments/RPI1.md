@@ -103,6 +103,15 @@ with zero xruns or terminal faults and clean retirement. See
 correction for that symptom, not a voice ceiling or resolution of the earlier
 whole-unit failure. The initial readback timeout is preserved separately.
 
+The exact 1/2/4/6/8-note ladder was then run at master 0.5, repeated at 0.5,
+and run at the operator-selected 0.45. The 45% pass had peak 0.386334, zero xruns
+and no added transport gap beyond startup; the operator heard both follow-up
+passes clean and selected 45% for future sessions. The initial 50% tail artifact
+and an additional transport gap in the 50% repeat remain retained. See
+[`RPI1_POLYPHONY_LEVELS.md`](RPI1_POLYPHONY_LEVELS.md). A private selected-level
+record and saved state preserve the choice; automatic boot application remains
+outside this result.
+
 ## Exact starting custody
 
 - branch: `experiment/rpi1-pigments-arm64-appliance`

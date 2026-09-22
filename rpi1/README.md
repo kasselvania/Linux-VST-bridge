@@ -88,3 +88,13 @@ mode 0600. Output is stereo interleaved little-endian float32 at 48 kHz, retaini
 samples above full scale. A complete polyphony capture is 30 seconds / 11,520,000
 bytes. Keep recordings private; publish aggregate evidence. Neither captured
 nonzero samples nor a successful fixture exit establishes artifact-free audio.
+
+## Current physical playing level
+
+The operator selected Master Volume ID 0 at normalized `0.45` after the exact
+1/2/4/6/8-note comparison. Pigments returns the float32-rounded
+`0.44999998807907104`. Apply and verify that value before routing MIDI/audio in
+the next supervised session. The selected state and playing-preference record
+remain private on the Pi. This is a retained physical setup choice, not automatic
+boot configuration or qualification of every preset. See
+[`RPI1_POLYPHONY_LEVELS.md`](../docs/experiments/RPI1_POLYPHONY_LEVELS.md).

@@ -1,0 +1,850 @@
+{
+  "date": "2026-09-22",
+  "claim": "Exact bounded 1/2/4/6/8-note ladder completed at master 0.5, repeated at 0.5, and completed at requested master 0.45. Operator selected 45 percent after hearing both follow-up passes clean. First-run tail distortion, repeat transport gap and readback precision failure remain preserved.",
+  "repository_head_at_attempt": "4493c7337cf932e076762b098f850b4a1028a51e",
+  "executed_source_head": "1173e816bdea7f334347e411ddb15b438f81467b",
+  "executed_source_tree": "d97e60f8ab04fc0e1604fd975a465f365db4bc4c",
+  "native_sha256": "81a44a8eed7191b08655496dfe0b49c0c919208e9f7a600658bc37887a2006c7",
+  "qualification_sha256": "a3fb302d8f648742a853d85cd4d6f3b8b0d46ecc70259d56272137553b19e861",
+  "scope": {
+    "editor": "closed",
+    "midi_source": "exact existing qualification JACK client; physical UART input not connected to Pigments",
+    "jack_rate": 48000,
+    "jack_period_frames": 512,
+    "jack_periods": 3,
+    "bridge_delay_frames": 2048,
+    "vendor_quantum_frames": 256,
+    "held_note_counts": [
+      1,
+      2,
+      4,
+      6,
+      8
+    ],
+    "note_pitches": [
+      48,
+      52,
+      55,
+      59,
+      62,
+      65,
+      69,
+      72
+    ],
+    "midi_channel": 1,
+    "velocity": 96,
+    "window_seconds": 6,
+    "note_on_offset_seconds": 0.5,
+    "note_off_offset_seconds": 3.5,
+    "cc123_offset_seconds": 4,
+    "sequence_seconds": 30,
+    "messages_per_sequence": 47,
+    "captures": "Three private interleaved stereo f32le recordings, each 1440000 frames / 11520000 bytes; copied and hash-verified on Mac",
+    "unchanged": "Plug-in, Proton, Box64, Windows host, bus contract, audio buffers and source binaries"
+  },
+  "initial_50_percent": {
+    "master_readbacks": [
+      {
+        "normalized": 0.6730807423591614,
+        "revision": 1
+      },
+      {
+        "normalized": 0.5,
+        "revision": 4
+      }
+    ],
+    "audio": {
+      "midi_accepted": 47,
+      "output_nonzero_l": 724640,
+      "output_nonzero_r": 724640,
+      "output_peak_l": 0.5239572,
+      "output_peak_r": 0.5239572,
+      "output_nonfinite": 0,
+      "xruns": 0,
+      "process_failures": 0,
+      "bridge_processed": 9328,
+      "request_high": 16,
+      "result_high": 17,
+      "fault": 0
+    },
+    "callback": {
+      "event": "rpi1_callback_summary",
+      "callbacks": 4665,
+      "process_failures": 0,
+      "deadline_misses": 0,
+      "callback_ns_max": 76611,
+      "missing_frames": 2560,
+      "expired_frames": 2560,
+      "gaps": 1,
+      "delivered_frames": 2383360,
+      "priming_frames": 2048,
+      "paused_frames": 512,
+      "unsupported_midi": 0,
+      "malformed_midi": 0,
+      "overflow_midi": 0,
+      "jack_frames": 512,
+      "bridge_frames": 2048
+    },
+    "transport": {
+      "fault": 0,
+      "processed": 9328,
+      "request_high": 16,
+      "result_high": 17,
+      "position": 2387968,
+      "epoch": 1
+    },
+    "retirement": {
+      "milestones": 127,
+      "epoch": 1,
+      "sequence": 9330,
+      "position": 2387968,
+      "generation": 1
+    },
+    "fixture_result": {
+      "mode": "polyphony",
+      "completed": true,
+      "midi_sent": 47,
+      "midi_errors": 0,
+      "xruns": 0,
+      "bad_blocks": 0,
+      "stereo_nonzero": true
+    },
+    "fixture_meter": [
+      {
+        "channel": 0,
+        "samples": 1440000,
+        "nonzero_samples": 724640,
+        "nonzero_windows": 1423,
+        "peak": 0.5239572,
+        "rms": 0.07762585528268152,
+        "nonfinite": 0
+      },
+      {
+        "channel": 1,
+        "samples": 1440000,
+        "nonzero_samples": 724640,
+        "nonzero_windows": 1423,
+        "peak": 0.5239572,
+        "rms": 0.07762585528268152,
+        "nonfinite": 0
+      }
+    ],
+    "capture": {
+      "format": "interleaved f32le",
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 1440000,
+      "bytes": 11520000,
+      "sha256": "0f119e800bacc152f3d71ac7f98b0a96b1a2b058fa4c063c3691b55ee6b41a61",
+      "windows": [
+        {
+          "held_notes": 1,
+          "capture_seconds": [
+            0,
+            6
+          ],
+          "channels": [
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.07668308168649673,
+              "rms": 0.0378246484184422,
+              "at_or_above_full_scale_samples": 0
+            },
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.07668308168649673,
+              "rms": 0.0378246484184422,
+              "at_or_above_full_scale_samples": 0
+            }
+          ]
+        },
+        {
+          "held_notes": 2,
+          "capture_seconds": [
+            6,
+            12
+          ],
+          "channels": [
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.15227700769901276,
+              "rms": 0.05352515645843538,
+              "at_or_above_full_scale_samples": 0
+            },
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.15227700769901276,
+              "rms": 0.05352515645843538,
+              "at_or_above_full_scale_samples": 0
+            }
+          ]
+        },
+        {
+          "held_notes": 4,
+          "capture_seconds": [
+            12,
+            18
+          ],
+          "channels": [
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.30142953991889954,
+              "rms": 0.07570337561429914,
+              "at_or_above_full_scale_samples": 0
+            },
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.30142953991889954,
+              "rms": 0.07570337561429914,
+              "at_or_above_full_scale_samples": 0
+            }
+          ]
+        },
+        {
+          "held_notes": 6,
+          "capture_seconds": [
+            18,
+            24
+          ],
+          "channels": [
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.42168527841567993,
+              "rms": 0.09278525811819147,
+              "at_or_above_full_scale_samples": 0
+            },
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.42168527841567993,
+              "rms": 0.09278525811819147,
+              "at_or_above_full_scale_samples": 0
+            }
+          ]
+        },
+        {
+          "held_notes": 8,
+          "capture_seconds": [
+            24,
+            30
+          ],
+          "channels": [
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.5239571928977966,
+              "rms": 0.10720594869920158,
+              "at_or_above_full_scale_samples": 0
+            },
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.5239571928977966,
+              "rms": 0.10720594869920158,
+              "at_or_above_full_scale_samples": 0
+            }
+          ]
+        }
+      ],
+      "limits": "Six-second windows include initial silence, held note and release. No claim that amplitude statistics alone establish artifact-free audio."
+    },
+    "health": {
+      "samples": 73,
+      "voltage_range_v": [
+        4.84142,
+        5.05448
+      ],
+      "maximum_temperature_c": 61.7,
+      "throttle_counts": {
+        "throttled=0x0": 73
+      }
+    },
+    "operator_observation": "All five chords sounded good. I heard slight distortion or overload on the last note set, but not at first, just at the end of the notes.",
+    "disposition": "Sequence and clean retirement completed; audible tail artifact reported despite sub-full-scale returned samples. Not an artifact-free audio pass."
+  },
+  "repeat_50_percent": {
+    "master_readbacks": [
+      {
+        "normalized": 0.6730807423591614,
+        "revision": 1
+      },
+      {
+        "normalized": 0.5,
+        "revision": 4
+      },
+      {
+        "normalized": 0.44999998807907104,
+        "revision": 6
+      },
+      {
+        "normalized": 0.44999998807907104,
+        "revision": 8
+      },
+      {
+        "normalized": 0.44999998807907104,
+        "revision": 9
+      },
+      {
+        "normalized": 0.44999998807907104,
+        "revision": 10
+      },
+      {
+        "normalized": 0.44999998807907104,
+        "revision": 11
+      },
+      {
+        "normalized": 0.44999998807907104,
+        "revision": 12
+      },
+      {
+        "normalized": 0.44999998807907104,
+        "revision": 13
+      },
+      {
+        "normalized": 0.44999998807907104,
+        "revision": 14
+      },
+      {
+        "normalized": 0.44999998807907104,
+        "revision": 15
+      },
+      {
+        "normalized": 0.44999998807907104,
+        "revision": 16
+      },
+      {
+        "normalized": 0.44999998807907104,
+        "revision": 17
+      },
+      {
+        "normalized": 0.44999998807907104,
+        "revision": 18
+      },
+      {
+        "normalized": 0.44999998807907104,
+        "revision": 19
+      },
+      {
+        "normalized": 0.44999998807907104,
+        "revision": 20
+      }
+    ],
+    "audio": {
+      "midi_accepted": 47,
+      "output_nonzero_l": 710063,
+      "output_nonzero_r": 710063,
+      "output_peak_l": 0.5239572,
+      "output_peak_r": 0.5239572,
+      "output_nonfinite": 0,
+      "xruns": 0,
+      "process_failures": 0,
+      "bridge_processed": 11242,
+      "request_high": 65,
+      "result_high": 16,
+      "fault": 0
+    },
+    "callback": {
+      "event": "rpi1_callback_summary",
+      "callbacks": 5684,
+      "process_failures": 0,
+      "deadline_misses": 0,
+      "callback_ns_max": 58425,
+      "missing_frames": 21504,
+      "expired_frames": 21504,
+      "gaps": 2,
+      "delivered_frames": 2852352,
+      "priming_frames": 4096,
+      "paused_frames": 32256,
+      "unsupported_midi": 0,
+      "malformed_midi": 0,
+      "overflow_midi": 0,
+      "jack_frames": 512,
+      "bridge_frames": 2048
+    },
+    "transport": {
+      "fault": 0,
+      "processed": 11242,
+      "request_high": 65,
+      "result_high": 16,
+      "position": 727040,
+      "epoch": 2
+    },
+    "retirement": {
+      "milestones": 127,
+      "epoch": 2,
+      "sequence": 11245,
+      "position": 727040,
+      "generation": 1
+    },
+    "fixture_result": {
+      "mode": "polyphony",
+      "completed": true,
+      "midi_sent": 47,
+      "midi_errors": 0,
+      "xruns": 0,
+      "bad_blocks": 0,
+      "stereo_nonzero": true
+    },
+    "fixture_meter": [
+      {
+        "channel": 0,
+        "samples": 1440000,
+        "nonzero_samples": 710063,
+        "nonzero_windows": 1391,
+        "peak": 0.5239572,
+        "rms": 0.07727274194602946,
+        "nonfinite": 0
+      },
+      {
+        "channel": 1,
+        "samples": 1440000,
+        "nonzero_samples": 710063,
+        "nonzero_windows": 1391,
+        "peak": 0.5239572,
+        "rms": 0.07727274194602946,
+        "nonfinite": 0
+      }
+    ],
+    "capture": {
+      "format": "interleaved f32le",
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 1440000,
+      "bytes": 11520000,
+      "sha256": "96d330de77380c0f51ec38087e30793530c85b63b15343befe6b0d34d384f15a",
+      "windows": [
+        {
+          "held_notes": 1,
+          "capture_seconds": [
+            0,
+            6
+          ],
+          "channels": [
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.07668308168649673,
+              "rms": 0.0378246484184422,
+              "at_or_above_full_scale_samples": 0
+            },
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.07668308168649673,
+              "rms": 0.0378246484184422,
+              "at_or_above_full_scale_samples": 0
+            }
+          ]
+        },
+        {
+          "held_notes": 2,
+          "capture_seconds": [
+            6,
+            12
+          ],
+          "channels": [
+            {
+              "samples": 288000,
+              "nonzero_samples": 130351,
+              "peak": 0.15227700769901276,
+              "rms": 0.05090637063619082,
+              "at_or_above_full_scale_samples": 0
+            },
+            {
+              "samples": 288000,
+              "nonzero_samples": 130351,
+              "peak": 0.15227700769901276,
+              "rms": 0.05090637063619082,
+              "at_or_above_full_scale_samples": 0
+            }
+          ]
+        },
+        {
+          "held_notes": 4,
+          "capture_seconds": [
+            12,
+            18
+          ],
+          "channels": [
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.30142953991889954,
+              "rms": 0.07570337561429914,
+              "at_or_above_full_scale_samples": 0
+            },
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.30142953991889954,
+              "rms": 0.07570337561429914,
+              "at_or_above_full_scale_samples": 0
+            }
+          ]
+        },
+        {
+          "held_notes": 6,
+          "capture_seconds": [
+            18,
+            24
+          ],
+          "channels": [
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.42168527841567993,
+              "rms": 0.09278525811819147,
+              "at_or_above_full_scale_samples": 0
+            },
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.42168527841567993,
+              "rms": 0.09278525811819147,
+              "at_or_above_full_scale_samples": 0
+            }
+          ]
+        },
+        {
+          "held_notes": 8,
+          "capture_seconds": [
+            24,
+            30
+          ],
+          "channels": [
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.5239571928977966,
+              "rms": 0.10720594869920158,
+              "at_or_above_full_scale_samples": 0
+            },
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.5239571928977966,
+              "rms": 0.10720594869920158,
+              "at_or_above_full_scale_samples": 0
+            }
+          ]
+        }
+      ],
+      "limits": "Six-second windows include initial silence, held note and release. No claim that amplitude statistics alone establish artifact-free audio."
+    },
+    "health": {
+      "samples": 79,
+      "voltage_range_v": [
+        4.84142,
+        5.05448
+      ],
+      "maximum_temperature_c": 61.7,
+      "throttle_counts": {
+        "throttled=0x0": 79
+      }
+    },
+    "extra_gap": {
+      "startup_missing_frames": 2560,
+      "additional_missing_frames": 18944,
+      "additional_missing_seconds": 0.39466666666666667,
+      "gap_groups_total": 2,
+      "first_late_request": {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 1097216,
+        "gap_frames": 256,
+        "request_position": 1097216,
+        "request_frames": 256,
+        "sequence": 4288,
+        "output_published": true,
+        "queue_us": 39,
+        "prepare_us": 6,
+        "send_us": 341474,
+        "reply_us": 2138,
+        "validation_us": 7,
+        "publication_us": 6,
+        "publication_after_gap_us": 301027,
+        "admission_to_gap_us": 42644
+      },
+      "retained_gap_request_records": 32,
+      "capture_observation": "Two-note window contains 130351 nonzero samples per channel versus 144928 in other windows and the clean comparator; the observed interruption is separate from the first run eight-note tail report.",
+      "interpretation": "The bounded trace records a 341474 us send phase and 2138 us reply phase for the first late request. These wall times include scheduling; they do not identify CPU, Wine or the plug-in as the cause."
+    },
+    "preparation_failure": {
+      "planned_following_level": 0.45,
+      "actual_controller_readback": 0.44999998807907104,
+      "harness_tolerance": 1e-08,
+      "outcome": "Overstrict floating-point readback check timed out after the 50 percent repeat and state restore. No 45 percent notes were sent in this session. Native and translated retirement completed normally.",
+      "correction": "Private harness accepts either the exact requested f64 value or its exact f32-rounded representation. No product source change or additional 50 percent sequence."
+    },
+    "operator_observation": "They both sounded perfect. I am more than happy to leave it at 45%",
+    "disposition": "Operator heard clean audio; objective additional transport gap retained. The two observations are not collapsed into a gap-free claim."
+  },
+  "final_45_percent": {
+    "master_readbacks": [
+      {
+        "normalized": 0.6730807423591614,
+        "revision": 1
+      },
+      {
+        "normalized": 0.44999998807907104,
+        "revision": 4
+      }
+    ],
+    "audio": {
+      "midi_accepted": 47,
+      "output_nonzero_l": 724640,
+      "output_nonzero_r": 724640,
+      "output_peak_l": 0.3863336,
+      "output_peak_r": 0.3863336,
+      "output_nonfinite": 0,
+      "xruns": 0,
+      "process_failures": 0,
+      "bridge_processed": 9040,
+      "request_high": 16,
+      "result_high": 17,
+      "fault": 0
+    },
+    "callback": {
+      "event": "rpi1_callback_summary",
+      "callbacks": 4520,
+      "process_failures": 0,
+      "deadline_misses": 0,
+      "callback_ns_max": 56926,
+      "missing_frames": 2560,
+      "expired_frames": 2560,
+      "gaps": 1,
+      "delivered_frames": 2309632,
+      "priming_frames": 2048,
+      "paused_frames": 0,
+      "unsupported_midi": 0,
+      "malformed_midi": 0,
+      "overflow_midi": 0,
+      "jack_frames": 512,
+      "bridge_frames": 2048
+    },
+    "transport": {
+      "fault": 0,
+      "processed": 9040,
+      "request_high": 16,
+      "result_high": 17,
+      "position": 2314240,
+      "epoch": 1
+    },
+    "retirement": {
+      "milestones": 127,
+      "epoch": 1,
+      "sequence": 9042,
+      "position": 2314240,
+      "generation": 1
+    },
+    "fixture_result": {
+      "mode": "polyphony",
+      "completed": true,
+      "midi_sent": 47,
+      "midi_errors": 0,
+      "xruns": 0,
+      "bad_blocks": 0,
+      "stereo_nonzero": true
+    },
+    "fixture_meter": [
+      {
+        "channel": 0,
+        "samples": 1440000,
+        "nonzero_samples": 724640,
+        "nonzero_windows": 1423,
+        "peak": 0.3863336,
+        "rms": 0.05723650146314442,
+        "nonfinite": 0
+      },
+      {
+        "channel": 1,
+        "samples": 1440000,
+        "nonzero_samples": 724640,
+        "nonzero_windows": 1423,
+        "peak": 0.3863336,
+        "rms": 0.05723650146314442,
+        "nonfinite": 0
+      }
+    ],
+    "capture": {
+      "format": "interleaved f32le",
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 1440000,
+      "bytes": 11520000,
+      "sha256": "bfaf1a5da333fd9710b920c23d94a4fd2971cc01537abb1800e94b845ccf578d",
+      "windows": [
+        {
+          "held_notes": 1,
+          "capture_seconds": [
+            0,
+            6
+          ],
+          "channels": [
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.056541357189416885,
+              "rms": 0.027889554799542318,
+              "at_or_above_full_scale_samples": 0
+            },
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.056541357189416885,
+              "rms": 0.027889554799542318,
+              "at_or_above_full_scale_samples": 0
+            }
+          ]
+        },
+        {
+          "held_notes": 2,
+          "capture_seconds": [
+            6,
+            12
+          ],
+          "channels": [
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.11227964609861374,
+              "rms": 0.03946613773285504,
+              "at_or_above_full_scale_samples": 0
+            },
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.11227964609861374,
+              "rms": 0.03946613773285504,
+              "at_or_above_full_scale_samples": 0
+            }
+          ]
+        },
+        {
+          "held_notes": 4,
+          "capture_seconds": [
+            12,
+            18
+          ],
+          "channels": [
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.22225548326969147,
+              "rms": 0.05581898393934188,
+              "at_or_above_full_scale_samples": 0
+            },
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.22225548326969147,
+              "rms": 0.05581898393934188,
+              "at_or_above_full_scale_samples": 0
+            }
+          ]
+        },
+        {
+          "held_notes": 6,
+          "capture_seconds": [
+            18,
+            24
+          ],
+          "channels": [
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.31092461943626404,
+              "rms": 0.06841410690065253,
+              "at_or_above_full_scale_samples": 0
+            },
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.31092461943626404,
+              "rms": 0.06841410690065253,
+              "at_or_above_full_scale_samples": 0
+            }
+          ]
+        },
+        {
+          "held_notes": 8,
+          "capture_seconds": [
+            24,
+            30
+          ],
+          "channels": [
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.3863336145877838,
+              "rms": 0.0790470316533137,
+              "at_or_above_full_scale_samples": 0
+            },
+            {
+              "samples": 288000,
+              "nonzero_samples": 144928,
+              "peak": 0.3863336145877838,
+              "rms": 0.0790470316533137,
+              "at_or_above_full_scale_samples": 0
+            }
+          ]
+        }
+      ],
+      "limits": "Six-second windows include initial silence, held note and release. No claim that amplitude statistics alone establish artifact-free audio."
+    },
+    "health": {
+      "samples": 68,
+      "voltage_range_v": [
+        4.8709,
+        5.07056
+      ],
+      "maximum_temperature_c": 65.0,
+      "throttle_counts": {
+        "throttled=0x0": 68
+      }
+    },
+    "operator_observation": "They both sounded perfect. I am more than happy to leave it at 45%",
+    "disposition": "Requested 45 percent sequence completed with measured stereo, operator-confirmed clean audio, no additional gap beyond startup, and normal retirement."
+  },
+  "operator_level_choice": "50% to 45% (five percentage points); normalized control position, not a linear amplitude percent or measured dB setting",
+  "chosen_setting": {
+    "requested_normalized": 0.45,
+    "verified_readback": 0.44999998807907104,
+    "parameter_id": 0,
+    "title": "Master Volume",
+    "private_saved_state_bytes": 381326,
+    "private_preference_record_written": true,
+    "next_supervised_launch_requirement": "Apply and verify master 0.45 before MIDI/audio routing; private preference record points to the saved state.",
+    "automatic_startup_changed": false,
+    "saved_state_reopen_verified": false
+  },
+  "cleanup": {
+    "all_native_exits": 0,
+    "all_native_and_windows_retirement_milestones": 127,
+    "native_translated_and_fixture_processes_absent": true,
+    "all_exact_session_transports_removed": true,
+    "all_command_fifos_removed": true,
+    "pigments_and_fixture_jack_ports_removed": true,
+    "prior_outer_unit_restored": true,
+    "runtime_watchdog_usec": 60000000,
+    "observers_stopped": true
+  },
+  "nonclaims": [
+    "first 50 percent run sounded entirely clean",
+    "50 percent repeat had no transport gap",
+    "clipping stage or transient gap root cause isolated",
+    "all presets or a maximum polyphony ceiling qualified",
+    "long soak passed",
+    "whole-machine power failure resolved",
+    "45 percent automatic boot configuration installed",
+    "saved reduced state reopened successfully",
+    "overall RPI1 qualification"
+  ]
+}
