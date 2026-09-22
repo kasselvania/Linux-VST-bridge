@@ -1,5 +1,38 @@
 # Catalog reliability: Blackhole and Kontakt owned graphical sessions
 
+Graphical-denial correction basis (2026-09-21): the first exact installed
+`5a709c2` Blackhole load again stopped before a DSP session or Windows plug-in
+host, but the repaired failed-generation path preserved the decisive private
+stderr. The service returned two short `admission_service_busy` replies and one
+terminal `admission_binding_invalid`; the one graphical keeper reported
+`keeper_failed`, raw exit 1 and confirmed cleanup. Bitwig reported that it
+could not load the plug-in and its native sandbox exited normally after
+`setupProcessing` received `kResultFalse`.
+
+The first failing consumer was pressure-vessel's Bubblewrap namespace
+construction. The short explicit D-Bus denial pathname was intentionally
+absent, so Bubblewrap refused it as a missing mount source before Wine could
+start. The prior 196-byte denial path remains a real source defect, but the
+later retained stderr supersedes path length alone as the first established
+failure after that correction. The sanitized physical record is
+`evidence/catalog-reliability/blackhole-pressure-vessel-dead-denial-failure.sanitized.json`.
+
+The product runtime now owns two fixed private AF_UNIX socket inodes beneath its
+verified tmpfs root. Their listener descriptors are closed immediately, so the
+paths exist for pressure-vessel to project but refuse client connections. Rust
+creates or verifies them when the service initializes. Python requires the
+expected socket type, owner, permissions, bounded path, stable device/inode and
+an immediate refused connection before selecting either endpoint. Exact
+authenticated Wayland and D-Bus aliases still win; only an absent or unmappable
+endpoint uses the corresponding dead socket. Keeper, ordinary DSP/editor
+preflight and the actual Windows-host launch share this one environment
+contract. No per-session transport file is introduced.
+
+This correction leaves the keeper state machine, 60/62/65-second admission
+envelope, inventories, inspections, candidates and publications unchanged. It
+does not claim that Blackhole now loads; the next physical gate remains one
+Blackhole load after review, packaging and installation of this source.
+
 Runtime-admission correction basis (2026-09-21): the first exact installed
 `c576787` Blackhole load did not reach a DSP session or Windows plug-in host.
 The native proxy received 75 retryable `admission_service_busy` refusals over
@@ -13,10 +46,12 @@ failure, not established registry-lock contention or a Blackhole host crash.
 The production topology exposed a concrete defect hidden by the short test
 paths. A graphical keeper placed its verified-absent Wayland and D-Bus denial
 sockets beneath the durable Wine-prefix session directory. The exact Deck path
-was 196 bytes, beyond Linux `sockaddr_un.sun_path`. Keepers now place those
-session-bound denial names beneath the already verified private tmpfs transport
-root, enforce a conservative encoded-path bound, and retain the exact X11 and
-Xauthority mapping. One owner deadline is serialized into the keeper spec: the
+was 196 bytes, beyond Linux `sockaddr_un.sun_path`. The intermediate repair
+moved session-bound denial names beneath the already verified private tmpfs
+transport root and enforced a conservative encoded-path bound; the later
+physical result above established that absent paths still could not cross
+pressure-vessel. The exact X11 and Xauthority mapping remained intact. One
+owner deadline is serialized into the keeper spec: the
 Python owner decides at 60 seconds, the Rust registry observes and retires only
 after a two-second finalization margin, and the unchanged native retry ceiling
 ends at 65 seconds. These are layered parts of one deadline rather than three
@@ -59,8 +94,8 @@ private host-visible Xauthority file is admitted only when its complete bytes
 match the peer-namespace file exactly. A DBus or Wayland endpoint is forwarded
 only when the host-visible path identifies the same socket. When an optional
 endpoint is absent or has no exact host alias, the child receives an absolute,
-session-bound, verified-absent endpoint rather than an omitted variable that
-could trigger host Wayland discovery or D-Bus autolaunch. A Flatpak-private bus
+product-owned dead socket rather than an omitted variable that could trigger
+host Wayland discovery or D-Bus autolaunch. A Flatpak-private bus
 is never silently widened to the user's unrestricted host bus. Missing,
 ambiguous, replaced, public or wrong-kind supplied resources refuse before
 keeper readiness and before any native binding is exposed.

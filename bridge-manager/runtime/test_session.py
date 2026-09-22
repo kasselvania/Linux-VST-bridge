@@ -19,6 +19,14 @@ from unittest.mock import patch
 import ownership
 import session
 
+def graphical_denial_fixture(root):
+    denial=root/'product-runtime';denial.mkdir(mode=0o700)
+    marker=denial/'storage-v1';marker.write_bytes(b'linux-vst-bridge volatile transport v1\n');marker.chmod(0o600)
+    for name in session.GRAPHICAL_DENIAL_NAMES.values():
+        endpoint=socket.socket(socket.AF_UNIX);endpoint.bind(str(denial/name));endpoint.close()
+        (denial/name).chmod(0o600)
+    return denial
+
 
 class GraphicalSessionTests(unittest.TestCase):
     def graphical_fixture(self,root):
@@ -29,7 +37,7 @@ class GraphicalSessionTests(unittest.TestCase):
         (peer/'stat').write_text('41 (bitwig-studio) '+' '.join(fields))
         runtime=peer/'root/run/user'/str(os.getuid());runtime.mkdir(parents=True)
         host_runtime=root/'host-runtime';host_runtime.mkdir(mode=0o700)
-        denial=root/sid;denial.mkdir(mode=0o700)
+        denial=graphical_denial_fixture(root)
         flatpak=peer/'root/run/flatpak';flatpak.mkdir(parents=True)
         authority=flatpak/'Xauthority';authority.write_bytes(b'private-cookie-fixture')
         authority.chmod(0o600)
@@ -43,7 +51,7 @@ class GraphicalSessionTests(unittest.TestCase):
         bound={'schema':1,'peer_pid':41,'peer_start_ticks':9001,'display':':7',
           'wayland_display':'wayland-1','xauthority':'/run/flatpak/Xauthority',
           'dbus_session_bus_address':'unix:path=/run/flatpak/bus'}
-        return proc,peer,host_runtime,bound,bus,wayland,(sid,denial)
+        return proc,peer,host_runtime,bound,bus,wayland,denial
 
     def test_exact_peer_generation_and_allowlisted_environment_are_revalidated(self):
         with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
@@ -52,14 +60,15 @@ class GraphicalSessionTests(unittest.TestCase):
             (peer/'stat').write_text('41 (bitwig-studio) '+' '.join(fields))
             (peer/'environ').write_bytes(b'DISPLAY=:7\0HOME=/private\0')
             bound={'schema':1,'peer_pid':41,'peer_start_ticks':9001,'display':':7'}
-            sid='0123456789abcdef0123456789abcdef';denial=proc/sid;denial.mkdir(mode=0o700)
-            self.assertEqual(session.graphical_environment(bound,proc,denial=(sid,denial)),
-              {'DISPLAY':':7','WAYLAND_DISPLAY':str(denial/'.linux-vst-bridge-denied-wayland'),
-               'DBUS_SESSION_BUS_ADDRESS':'unix:path='+str(denial/'.linux-vst-bridge-denied-dbus')})
-            with self.assertRaisesRegex(RuntimeError,'generation changed'):
-                session.graphical_environment(dict(bound,peer_start_ticks=9002),proc,denial=(sid,denial))
-            with self.assertRaisesRegex(RuntimeError,'environment changed'):
-                session.graphical_environment(dict(bound,display=':8'),proc,denial=(sid,denial))
+            denial=graphical_denial_fixture(proc)
+            with patch.object(session,'validate_runtime',return_value=denial):
+                self.assertEqual(session.graphical_environment(bound,proc),
+                  {'DISPLAY':':7','WAYLAND_DISPLAY':str(denial/'.lvb-denied-wayland'),
+                   'DBUS_SESSION_BUS_ADDRESS':'unix:path='+str(denial/'.lvb-denied-dbus')})
+                with self.assertRaisesRegex(RuntimeError,'generation changed'):
+                    session.graphical_environment(dict(bound,peer_start_ticks=9002),proc)
+                with self.assertRaisesRegex(RuntimeError,'environment changed'):
+                    session.graphical_environment(dict(bound,display=':8'),proc)
 
     def test_unmappable_private_endpoints_are_explicitly_denied_without_host_fallback(self):
         with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
@@ -67,20 +76,21 @@ class GraphicalSessionTests(unittest.TestCase):
             host_bus=socket.socket(socket.AF_UNIX);host_bus.bind(str(host_runtime/'bus'));host_bus.listen(1)
             default_wayland=socket.socket(socket.AF_UNIX);default_wayland.bind(str(host_runtime/'wayland-0'));default_wayland.listen(1)
             try:
-                result=session.graphical_environment(bound,proc,host_runtime,denial)
+                with patch.object(session,'validate_runtime',return_value=denial):
+                    result=session.graphical_environment(bound,proc,host_runtime)
                 self.assertEqual(result['DISPLAY'],':7')
                 self.assertEqual(result['XAUTHORITY'],str(host_runtime/'xauth_fixture'))
                 self.assertEqual(pathlib.Path(result['XAUTHORITY']).read_bytes(),b'private-cookie-fixture')
                 denied_wayland=pathlib.Path(result['WAYLAND_DISPLAY'])
                 denied_bus=pathlib.Path(result['DBUS_SESSION_BUS_ADDRESS'].removeprefix('unix:path='))
                 self.assertTrue(denied_wayland.is_absolute());self.assertTrue(denied_bus.is_absolute())
-                self.assertEqual(denied_wayland.parent,pathlib.Path(denial[1]))
-                self.assertEqual(denied_bus.parent,pathlib.Path(denial[1]))
-                self.assertFalse(os.path.lexists(denied_wayland));self.assertFalse(os.path.lexists(denied_bus))
+                self.assertEqual(denied_wayland.parent,denial)
+                self.assertEqual(denied_bus.parent,denial)
+                self.assertTrue(denied_wayland.is_socket());self.assertTrue(denied_bus.is_socket())
                 self.assertTrue((host_runtime/'wayland-0').exists());self.assertTrue((host_runtime/'bus').exists())
                 for endpoint in (denied_wayland,denied_bus):
                     client=socket.socket(socket.AF_UNIX)
-                    with self.assertRaises(FileNotFoundError):client.connect(str(endpoint))
+                    with self.assertRaises(ConnectionRefusedError):client.connect(str(endpoint))
                     client.close()
             finally:
                 bus.close();wayland.close();host_bus.close();default_wayland.close()
@@ -91,45 +101,88 @@ class GraphicalSessionTests(unittest.TestCase):
             try:
                 os.link(peer/'root/run/flatpak/bus',host_runtime/'bus')
                 os.link(peer/'root/run/user'/str(os.getuid())/'wayland-1',host_runtime/'wayland-1')
-                result=session.graphical_environment(bound,proc,host_runtime,denial)
+                with patch.object(session,'validate_runtime',return_value=denial):
+                    result=session.graphical_environment(bound,proc,host_runtime)
                 self.assertEqual(result['DBUS_SESSION_BUS_ADDRESS'],'unix:path='+str(host_runtime/'bus'))
                 self.assertEqual(result['WAYLAND_DISPLAY'],str(host_runtime/'wayland-1'))
             finally:
                 bus.close();wayland.close()
 
-    def test_denial_endpoint_collision_refuses_before_launch(self):
+    def test_denial_endpoint_refuses_wrong_type_public_alias_and_listener(self):
         with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
             proc,peer,host_runtime,bound,bus,wayland,denial=self.graphical_fixture(pathlib.Path(tmp))
             try:
-                (pathlib.Path(denial[1])/'.linux-vst-bridge-denied-wayland').write_text('collision')
-                with self.assertRaisesRegex(RuntimeError,'denial endpoint collision'):
-                    session.graphical_environment(bound,proc,host_runtime,denial)
+                endpoint=denial/'.lvb-denied-wayland'
+                endpoint.unlink();endpoint.write_text('wrong type')
+                with patch.object(session,'validate_runtime',return_value=denial),\
+                     self.assertRaisesRegex(RuntimeError,'ownership/type'):
+                    session.graphical_environment(bound,proc,host_runtime)
+                endpoint.unlink();dead=socket.socket(socket.AF_UNIX);dead.bind(str(endpoint));dead.close();endpoint.chmod(0o666)
+                with patch.object(session,'validate_runtime',return_value=denial),\
+                     self.assertRaisesRegex(RuntimeError,'ownership/type'):
+                    session.graphical_environment(bound,proc,host_runtime)
+                endpoint.unlink();endpoint.symlink_to(denial/'.lvb-denied-dbus')
+                with patch.object(session,'validate_runtime',return_value=denial),\
+                     self.assertRaisesRegex(RuntimeError,'ownership/type'):
+                    session.graphical_environment(bound,proc,host_runtime)
+                endpoint.unlink();listener=socket.socket(socket.AF_UNIX);listener.bind(str(endpoint));listener.listen(1);endpoint.chmod(0o600)
+                with patch.object(session,'validate_runtime',return_value=denial),\
+                     self.assertRaisesRegex(RuntimeError,'is listening'):
+                    session.graphical_environment(bound,proc,host_runtime)
+                listener.close()
             finally:
                 bus.close();wayland.close()
 
-    def test_keeper_denial_uses_short_session_bound_runtime_path(self):
+    def test_keeper_and_dsp_use_materialized_product_denials_at_process_launch(self):
         with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
             root=pathlib.Path(tmp).resolve()
-            proc,peer,host_runtime,bound,bus,wayland,_=self.graphical_fixture(root)
+            proc,peer,host_runtime,bound,bus,wayland,denial=self.graphical_fixture(root)
             sid='34'*16
             durable=root/('managed-'+'d'*80)/'compatdata/pfx/drive_c/bridge/sessions'/sid
             durable.mkdir(parents=True,mode=0o700)
             self.assertGreater(len(os.fsencode(durable/'.linux-vst-bridge-denied-wayland')),107)
-            spec={'session':sid,'directory':str(durable)}
             try:
-                with patch.object(session,'validate_runtime',return_value=host_runtime),\
-                     patch.object(session,'transport_root',return_value=host_runtime):
-                    denial=session.keeper_graphical_denial(spec)
-                    result=session.graphical_environment(bound,proc,host_runtime,denial)
+                with patch.object(session,'validate_runtime',return_value=denial):
+                    keeper=session.graphical_environment(bound,proc,host_runtime)
+                    dsp=session.graphical_environment(bound,proc,host_runtime)
+                self.assertEqual(keeper,dsp)
+                result=keeper
                 for endpoint in (pathlib.Path(result['WAYLAND_DISPLAY']),
                     pathlib.Path(result['DBUS_SESSION_BUS_ADDRESS'].removeprefix('unix:path='))):
-                    self.assertEqual(endpoint.parent,host_runtime)
-                    self.assertIn(sid,endpoint.name)
+                    self.assertEqual(endpoint.parent,denial)
                     self.assertLessEqual(len(os.fsencode(endpoint)),100)
-                    self.assertFalse(os.path.lexists(endpoint))
+                    self.assertTrue(endpoint.is_socket())
                     client=socket.socket(socket.AF_UNIX)
-                    with self.assertRaises(FileNotFoundError):client.connect(str(endpoint))
+                    with self.assertRaises(ConnectionRefusedError):client.connect(str(endpoint))
                     client.close()
+                fake="""import os,pathlib,socket,stat
+paths=[pathlib.Path(os.environ['WAYLAND_DISPLAY']),pathlib.Path(os.environ['DBUS_SESSION_BUS_ADDRESS'].removeprefix('unix:path='))]
+for path in paths:
+ assert path.exists() and stat.S_ISSOCK(path.lstat().st_mode)
+ client=socket.socket(socket.AF_UNIX)
+ try:client.connect(str(path));raise AssertionError('denial connected')
+ except ConnectionRefusedError:pass
+ finally:client.close()
+"""
+                subprocess.run([sys.executable,'-c',fake],env={**os.environ,**result},check=True)
+            finally:
+                bus.close();wayland.close()
+
+    def test_replaced_denial_socket_refuses(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            proc,peer,host_runtime,bound,bus,wayland,denial=self.graphical_fixture(pathlib.Path(tmp))
+            endpoint=denial/'.lvb-denied-wayland';real_socket=socket.socket
+            class ReplacingSocket:
+                def settimeout(self,_):pass
+                def connect(self,path):
+                    pathlib.Path(path).unlink();replacement=real_socket(socket.AF_UNIX);replacement.bind(path);replacement.close()
+                    raise ConnectionRefusedError()
+                def close(self):pass
+            try:
+                with patch.object(session,'validate_runtime',return_value=denial),\
+                     patch.object(session.socket,'socket',return_value=ReplacingSocket()),\
+                     self.assertRaisesRegex(RuntimeError,'replaced'):
+                    session.graphical_environment(bound,proc,host_runtime)
             finally:
                 bus.close();wayland.close()
 
@@ -138,15 +191,17 @@ class GraphicalSessionTests(unittest.TestCase):
             proc,peer,host_runtime,bound,bus,wayland,denial=self.graphical_fixture(pathlib.Path(tmp))
             try:
                 (peer/'root/run/flatpak/Xauthority').chmod(0o644)
-                with self.assertRaisesRegex(RuntimeError,'Xauthority is not private'):
-                    session.graphical_environment(bound,proc,host_runtime,denial)
+                with patch.object(session,'validate_runtime',return_value=denial),\
+                     self.assertRaisesRegex(RuntimeError,'Xauthority is not private'):
+                    session.graphical_environment(bound,proc,host_runtime)
                 (peer/'root/run/flatpak/Xauthority').chmod(0o600)
                 bus.close();(peer/'root/run/flatpak/bus').unlink()
                 (peer/'root/run/flatpak/bus').write_text('not a socket')
-                with self.assertRaisesRegex(RuntimeError,'DBus endpoint is not a socket'):
-                    session.graphical_environment(bound,proc,host_runtime,denial)
+                with patch.object(session,'validate_runtime',return_value=denial),\
+                     self.assertRaisesRegex(RuntimeError,'DBus endpoint is not a socket'):
+                    session.graphical_environment(bound,proc,host_runtime)
             finally:
-                wayland.close()
+                bus.close();wayland.close()
 
     def test_graphical_projection_refuses_relative_authority_and_unsupported_bus(self):
         with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
@@ -157,11 +212,11 @@ class GraphicalSessionTests(unittest.TestCase):
                   if k not in ('wayland_display','dbus_session_bus_address')}
                 reduced['xauthority']='relative'
                 with self.assertRaisesRegex(RuntimeError,'Xauthority path invalid'):
-                    session.graphical_environment(reduced,proc,host_runtime,denial)
+                    session.graphical_environment(reduced,proc,host_runtime)
                 (peer/'environ').write_bytes(b'DISPLAY=:7\0DBUS_SESSION_BUS_ADDRESS=unix:abstract=foreign\0')
                 reduced.pop('xauthority');reduced['dbus_session_bus_address']='unix:abstract=foreign'
                 with self.assertRaisesRegex(RuntimeError,'DBus address unsupported'):
-                    session.graphical_environment(reduced,proc,host_runtime,denial)
+                    session.graphical_environment(reduced,proc,host_runtime)
             finally:
                 bus.close();wayland.close()
 
@@ -170,13 +225,15 @@ class GraphicalSessionTests(unittest.TestCase):
             proc,peer,host_runtime,bound,bus,wayland,denial=self.graphical_fixture(pathlib.Path(tmp))
             try:
                 (host_runtime/'xauth_fixture').write_bytes(b'changed')
-                with self.assertRaisesRegex(RuntimeError,'exact alias unavailable'):
-                    session.graphical_environment(bound,proc,host_runtime,denial)
+                with patch.object(session,'validate_runtime',return_value=denial),\
+                     self.assertRaisesRegex(RuntimeError,'exact alias unavailable'):
+                    session.graphical_environment(bound,proc,host_runtime)
                 content=(peer/'root/run/flatpak/Xauthority').read_bytes()
                 for name in ('xauth_a','xauth_b'):
                     path=host_runtime/name;path.write_bytes(content);path.chmod(0o600)
-                with self.assertRaisesRegex(RuntimeError,'exact alias unavailable'):
-                    session.graphical_environment(bound,proc,host_runtime,denial)
+                with patch.object(session,'validate_runtime',return_value=denial),\
+                     self.assertRaisesRegex(RuntimeError,'exact alias unavailable'):
+                    session.graphical_environment(bound,proc,host_runtime)
             finally:
                 bus.close();wayland.close()
 
@@ -187,7 +244,7 @@ class GraphicalNamespaceIntegrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
             root=pathlib.Path(tmp).resolve();authority=root/'Xauthority';authority.write_bytes(b'fixture')
             authority.chmod(0o600);bus=socket.socket(socket.AF_UNIX);bus.bind(str(root/'bus'));bus.listen(1)
-            sid='0123456789abcdef0123456789abcdef';denial=root/sid;denial.mkdir(mode=0o700)
+            denial=graphical_denial_fixture(root)
             child=subprocess.Popen(['/bin/sleep','30'],env={**os.environ,'DISPLAY':':9',
               'XAUTHORITY':str(authority),'DBUS_SESSION_BUS_ADDRESS':'unix:path='+str(root/'bus')})
             try:
@@ -195,14 +252,15 @@ class GraphicalNamespaceIntegrationTests(unittest.TestCase):
                 start=int(parts[1].split()[19])
                 bound={'schema':1,'peer_pid':child.pid,'peer_start_ticks':start,'display':':9',
                   'xauthority':str(authority),'dbus_session_bus_address':'unix:path='+str(root/'bus')}
-                result=session.graphical_environment(bound,runtime_root=root,denial=(sid,denial))
+                with patch.object(session,'validate_runtime',return_value=denial):
+                    result=session.graphical_environment(bound,runtime_root=root)
                 projected=pathlib.Path(f'/proc/{child.pid}/root')/authority.relative_to('/')
                 self.assertEqual(result['XAUTHORITY'],str(authority))
                 self.assertEqual(result['DBUS_SESSION_BUS_ADDRESS'],
                   'unix:path='+str(root/'bus'))
                 denied_wayland=pathlib.Path(result['WAYLAND_DISPLAY'])
                 self.assertEqual(denied_wayland.parent,denial)
-                self.assertFalse(os.path.lexists(denied_wayland))
+                self.assertTrue(denied_wayland.is_socket())
                 self.assertEqual(pathlib.Path(result['XAUTHORITY']).read_bytes(),b'fixture')
                 client=socket.socket(socket.AF_UNIX)
                 try:client.connect(result['DBUS_SESSION_BUS_ADDRESS'].removeprefix('unix:path='))

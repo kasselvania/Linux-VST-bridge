@@ -5,11 +5,15 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs,
     io::{Read, Write},
-    os::unix::fs::{MetadataExt, OpenOptionsExt},
+    os::unix::{
+        fs::{FileTypeExt, MetadataExt, OpenOptionsExt, PermissionsExt},
+        net::{UnixListener, UnixStream},
+    },
     path::{Path, PathBuf},
 };
 
 const MARKER: &[u8] = b"linux-vst-bridge volatile transport v1\n";
+const GRAPHICAL_DENIAL_SOCKETS: [&str; 2] = [".lvb-denied-dbus", ".lvb-denied-wayland"];
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct MemoryTransport {
@@ -200,9 +204,46 @@ fn initialize_at(path: &Path) -> Result<()> {
     )?;
     let mut bytes = [0u8; MARKER.len()];
     f.read_exact(&mut bytes)?;
-    require(bytes == MARKER, "transport_root_foreign")
+    require(bytes == MARKER, "transport_root_foreign")?;
+    for name in GRAPHICAL_DENIAL_SOCKETS {
+        initialize_graphical_denial(path, name)?;
+    }
+    Ok(())
 }
 use std::os::unix::fs::DirBuilderExt;
+
+fn initialize_graphical_denial(root: &Path, name: &str) -> Result<()> {
+    let path = root.join(name);
+    match fs::symlink_metadata(&path) {
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            let listener = UnixListener::bind(&path)?;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o600))?;
+            drop(listener); // retain the socket inode without a listening owner
+        }
+        Err(error) => return Err(error.into()),
+    }
+    let before = fs::symlink_metadata(&path)?;
+    require(
+        before.file_type().is_socket()
+            && before.uid() == unsafe { libc::getuid() }
+            && before.mode() & 0o077 == 0,
+        "graphical_denial_ownership",
+    )?;
+    match UnixStream::connect(&path) {
+        Ok(stream) => {
+            drop(stream);
+            return Err("graphical_denial_listening".into());
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::ConnectionRefused => {}
+        Err(error) => return Err(error.into()),
+    }
+    let after = fs::symlink_metadata(&path)?;
+    require(
+        after.file_type().is_socket() && (before.dev(), before.ino()) == (after.dev(), after.ino()),
+        "graphical_denial_replaced",
+    )
+}
 
 pub fn create(session: &str) -> Result<(PathBuf, MemoryTransport)> {
     create_at(&root(), session)
@@ -366,6 +407,16 @@ mod tests {
     fn memory_storage_is_private_exact_and_never_adopts_foreign_sessions() {
         let r = PathBuf::from("/dev/shm").join(format!("ap16-storage-{}", random_id().unwrap()));
         initialize_at(&r).unwrap();
+        for name in GRAPHICAL_DENIAL_SOCKETS {
+            let denial = r.join(name);
+            let metadata = fs::symlink_metadata(&denial).unwrap();
+            assert!(metadata.file_type().is_socket());
+            assert_eq!(metadata.mode() & 0o077, 0);
+            assert_eq!(
+                UnixStream::connect(&denial).unwrap_err().kind(),
+                std::io::ErrorKind::ConnectionRefused
+            );
+        }
         let sid = "ab".repeat(16);
         let (p, id) = create_at(&r, &sid).unwrap();
         assert_eq!(id.schema, 1);
@@ -381,6 +432,32 @@ mod tests {
         assert!(create_at(&r, &"cd".repeat(16)).is_err());
         assert!(p.exists());
         fs::remove_dir_all(r).unwrap();
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn graphical_denials_refuse_foreign_listeners_types_permissions_and_aliases() {
+        for case in ["listening", "regular", "public", "symlink"] {
+            let r = PathBuf::from("/dev/shm")
+                .join(format!("graphical-denial-{case}-{}", random_id().unwrap()));
+            initialize_at(&r).unwrap();
+            let path = r.join(GRAPHICAL_DENIAL_SOCKETS[0]);
+            fs::remove_file(&path).unwrap();
+            let mut listener = None;
+            match case {
+                "listening" => listener = Some(UnixListener::bind(&path).unwrap()),
+                "regular" => fs::write(&path, b"foreign").unwrap(),
+                "public" => {
+                    let socket = UnixListener::bind(&path).unwrap();
+                    fs::set_permissions(&path, fs::Permissions::from_mode(0o666)).unwrap();
+                    drop(socket);
+                }
+                "symlink" => std::os::unix::fs::symlink(r.join("storage-v1"), &path).unwrap(),
+                _ => unreachable!(),
+            }
+            assert!(initialize_at(&r).is_err(), "accepted {case} denial object");
+            drop(listener);
+            fs::remove_dir_all(r).unwrap();
+        }
     }
     #[cfg(target_os = "linux")]
     #[test]

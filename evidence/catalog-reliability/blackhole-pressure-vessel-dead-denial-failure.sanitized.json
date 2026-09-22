@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "fixture": "Steam Deck Desktop Mode, Bitwig empty project, one Blackhole load",
+  "installed_source": {
+    "head": "5a709c2fce92289ceb195d64f8dc25d2c7b144e7",
+    "tree": "8b595521c83cfe0833e62d5311cb38ac1b7807c3",
+    "generation": "896c5ed0743773a19e57ef196308defe8b84a1cd6c9106ce54ed9c10524e1023"
+  },
+  "publication": {
+    "revision": "103c94edceb97c1b376d1eb757523aea",
+    "candidate": "80e06590b7dc3f4e15d2903237541bdb466c012c8dfb647f6d0843daefb68b7d",
+    "configuration": "stereo"
+  },
+  "operator_observation": {
+    "bitwig_message": "Couldn't load plugin",
+    "bitwig_final_view": "default empty project",
+    "single_load_only": true,
+    "bitwig_closed_after_failure": true
+  },
+  "retained_service_observation": {
+    "admission_sequence": [
+      "admission_service_busy",
+      "admission_service_busy",
+      "admission_binding_invalid"
+    ],
+    "incident_source": "keeper_failed",
+    "ready": false,
+    "raw_exit": 1,
+    "error": "shared environment owner exited",
+    "cleanup_confirmed": true,
+    "stderr_bytes": 596,
+    "stderr_sha256": "6b69e1fa4c162460c24df15ca5ede446c9a351f87242f6151d9ee5a9c2a7df90",
+    "dsp_sessions_created": 0,
+    "windows_plugin_hosts_started": 0
+  },
+  "bitwig_observation": {
+    "load_started": "2026-09-21T18:07:56.903-07:00",
+    "load_finished": "2026-09-21T18:08:00.235-07:00",
+    "failure": "Vst3PluginInstance::activate()#setupProcessing returned kResultFalse",
+    "native_plugin_host_exit": 0
+  },
+  "first_failing_boundary": {
+    "component": "pressure-vessel Bubblewrap namespace construction",
+    "sanitized_error": "bwrap: Can't find source path /run/user/<uid>/linux-vst-bridge/.lvb-<session>-d: No such file or directory",
+    "finding": "The explicit D-Bus denial pathname was short enough for AF_UNIX but intentionally absent. pressure-vessel treated that environment-referenced path as a Bubblewrap mount source and refused before Wine started.",
+    "supersedes": "The earlier retained source finding established that the 196-byte durable path was invalid. This later exact stderr establishes absent mount-source materialization as the first observed failure after shortening the path."
+  },
+  "preserved_state": {
+    "inventory_changed": false,
+    "candidate_changed": false,
+    "publication_changed": false,
+    "kontakt_launched": false,
+    "service_restarts": 0,
+    "final_cleanup_confirmed": true,
+    "final_leases": 0,
+    "final_transports": 0,
+    "final_transactions": 0
+  },
+  "claim": "This record selects the pressure-vessel mount-source boundary and demonstrates bounded failed-generation behavior and cleanup. It is not evidence that Blackhole, its Windows host, editor, audio, or touch path ran."
+}

@@ -94,32 +94,28 @@ def host_socket(proc,value,candidate,label):
     if host!=source:return None
     return str(candidate)
 
-def denied_graphical_endpoint(denial,name):
-    if (not isinstance(denial,tuple) or len(denial)!=2
-        or not isinstance(denial[0],str) or len(denial[0])!=32
-        or any(c not in '0123456789abcdef' for c in denial[0])):
-        raise RuntimeError('graphical denial binding invalid')
-    directory=pathlib.Path(denial[1]);private_directory(directory)
-    if directory.name==denial[0]:
-        endpoint=directory/('.linux-vst-bridge-denied-'+name)
-    else:
-        # A keeper has no volatile per-instance transport directory. Bind its
-        # denial socket name to the session while keeping it beneath the short
-        # private tmpfs transport root; durable Wine-prefix paths can exceed
-        # sockaddr_un.sun_path before any Windows process starts.
-        if directory!=transport_root():raise RuntimeError('graphical denial binding differs')
-        endpoint=directory/('.lvb-'+denial[0]+'-'+{'dbus':'d','wayland':'w'}[name])
+GRAPHICAL_DENIAL_NAMES={'dbus':'.lvb-denied-dbus','wayland':'.lvb-denied-wayland'}
+def denied_graphical_endpoint(name):
+    if name not in GRAPHICAL_DENIAL_NAMES:raise RuntimeError('graphical denial binding invalid')
+    directory=validate_runtime();endpoint=directory/GRAPHICAL_DENIAL_NAMES[name]
     if len(os.fsencode(endpoint))>100:raise RuntimeError('graphical denial endpoint extent')
-    if os.path.lexists(endpoint):raise RuntimeError('graphical denial endpoint collision')
+    before=endpoint.lstat()
+    if (not stat.S_ISSOCK(before.st_mode) or before.st_uid!=os.getuid()
+        or before.st_mode&0o077):raise RuntimeError('graphical denial ownership/type')
+    client=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM);client.settimeout(.1)
+    try:
+        client.connect(str(endpoint))
+    except ConnectionRefusedError:pass
+    except OSError as error:raise RuntimeError('graphical denial unavailable') from error
+    else:raise RuntimeError('graphical denial is listening')
+    finally:client.close()
+    after=endpoint.lstat()
+    if (not stat.S_ISSOCK(after.st_mode)
+        or (before.st_dev,before.st_ino)!=(after.st_dev,after.st_ino)):
+        raise RuntimeError('graphical denial replaced')
     return str(endpoint)
 
-def keeper_graphical_denial(spec):
-    sid=spec.get('session')
-    if not isinstance(sid,str) or len(sid)!=32 or any(c not in '0123456789abcdef' for c in sid):
-        raise RuntimeError('graphical denial binding invalid')
-    return sid,validate_runtime()
-
-def graphical_environment(graphical,proc_root=pathlib.Path('/proc'),runtime_root=None,denial=None):
+def graphical_environment(graphical,proc_root=pathlib.Path('/proc'),runtime_root=None):
     fields={'schema','peer_pid','peer_start_ticks','display','wayland_display','xauthority','dbus_session_bus_address'}
     if (not isinstance(graphical,dict) or not set(graphical).issubset(fields)
         or set(graphical)-{'wayland_display','xauthority','dbus_session_bus_address'}!={'schema','peer_pid','peer_start_ticks','display'}
@@ -151,7 +147,7 @@ def graphical_environment(graphical,proc_root=pathlib.Path('/proc'),runtime_root
                 if not value.startswith(prefix) or ',' in value:
                     raise RuntimeError('DBus address unsupported')
                 endpoint=host_socket(proc,value[len(prefix):],runtime_root/'bus','DBus endpoint')
-                result[target]=prefix+(endpoint if endpoint is not None else denied_graphical_endpoint(denial,'dbus'))
+                result[target]=prefix+(endpoint if endpoint is not None else denied_graphical_endpoint('dbus'))
             elif source=='wayland_display':
                 wayland=pathlib.PurePosixPath(value)
                 if wayland.is_absolute():endpoint=value
@@ -159,16 +155,16 @@ def graphical_environment(graphical,proc_root=pathlib.Path('/proc'),runtime_root
                     endpoint=f'/run/user/{os.getuid()}/{value}'
                 else:raise RuntimeError('Wayland display invalid')
                 alias=host_socket(proc,endpoint,runtime_root/wayland.name,'Wayland endpoint')
-                result[target]=alias if alias is not None else denied_graphical_endpoint(denial,'wayland')
+                result[target]=alias if alias is not None else denied_graphical_endpoint('wayland')
             else:result[target]=value
         elif target in observed:raise RuntimeError('graphical peer environment changed')
     if 'WAYLAND_DISPLAY' not in result:
-        result['WAYLAND_DISPLAY']=denied_graphical_endpoint(denial,'wayland')
+        result['WAYLAND_DISPLAY']=denied_graphical_endpoint('wayland')
     if 'DBUS_SESSION_BUS_ADDRESS' not in result:
-        result['DBUS_SESSION_BUS_ADDRESS']='unix:path='+denied_graphical_endpoint(denial,'dbus')
+        result['DBUS_SESSION_BUS_ADDRESS']='unix:path='+denied_graphical_endpoint('dbus')
     return result
 
-def environment(reg,graphical=None,graphical_denial=None):
+def environment(reg,graphical=None):
     root=pathlib.Path(reg['environment']['root']);user=pwd.getpwuid(os.getuid())
     env={'HOME':user.pw_dir,'USER':user.pw_name,'LOGNAME':user.pw_name,'PATH':'/usr/bin:/bin','LANG':'C.UTF-8',
          'XDG_RUNTIME_DIR':f'/run/user/{os.getuid()}','STEAM_COMPAT_DATA_PATH':str(root/'compatdata'),
@@ -176,7 +172,7 @@ def environment(reg,graphical=None,graphical_denial=None):
          'STEAM_ZENITY':'','PRESSURE_VESSEL_VARIABLE_DIR':str(root/'runtime-var')}
     for key,folder in [('XDG_CACHE_HOME','host-cache'),('XDG_CONFIG_HOME','host-config'),('XDG_DATA_HOME','host-data'),('TMPDIR','host-tmp')]:env[key]=str(root/folder)
     if graphical is not None:
-        env.update(graphical_environment(graphical,denial=graphical_denial))
+        env.update(graphical_environment(graphical))
     else:
         for line in subprocess.check_output(['systemctl','--user','show-environment'],text=True,timeout=5).splitlines():
             key,_,value=line.partition('=')
@@ -955,12 +951,13 @@ class IncidentCapture:
 def session_preflight(spec):
     """Validate everything needed before Rust may expose a native binding.
 
-    This performs no Windows launch and creates no transport files. The outer
-    owner below is installed before the readiness receipt is published.
+    This performs no Windows launch and creates no per-session transport files.
+    It verifies the product-runtime dead graphical sockets before the outer
+    owner publishes readiness.
     """
     os.umask(0o077);reg=spec['registration'];session_directories(spec)
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
-    command(spec);env=environment(reg,spec.get('graphical_session'),(spec['session'],spec['directory']))
+    command(spec);env=environment(reg,spec.get('graphical_session'))
     managed_home(spec,env);transport_environment(spec,env);delivery_trace(spec,env)
 
 def prelaunch_owned_failure(spec,peer,error):
@@ -1018,7 +1015,7 @@ def run(spec,peer=None):
 def run_owned(spec,peer,stop_requested):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
-    cmd,binding=command(spec);env=environment(reg,spec.get('graphical_session'),(spec['session'],spec['directory']))
+    cmd,binding=command(spec);env=environment(reg,spec.get('graphical_session'))
     managed_home(spec,env)
     transport_environment(spec,env);delivery_trace(spec,env)
     capture=None;capture_error=None
@@ -1268,8 +1265,7 @@ def keep(spec):
         if type(startup_seconds) is not int or startup_seconds!=60:
             raise RuntimeError('keeper startup deadline binding')
         graphical=spec.get('graphical_session')
-        denial=keeper_graphical_denial(spec) if graphical is not None else None
-        env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}},graphical,denial);managed_home(spec,env);transport_environment(spec,env)
+        env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}},graphical);managed_home(spec,env);transport_environment(spec,env)
         root=subprocess.Popen(cmd,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
         for pipe,label in ((root.stdout,'stdout'),(root.stderr,'stderr')):
             os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,label)
