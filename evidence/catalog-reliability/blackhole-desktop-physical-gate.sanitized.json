@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "claim": "blackhole_desktop_physical_gate_passed",
+  "fixture": {
+    "host_class": "Steam Deck",
+    "session": "Desktop Mode",
+    "daw": "Bitwig Studio",
+    "product": "Blackhole Immersive",
+    "class_id": "5653544248496D626C61636B686F6C65"
+  },
+  "source": {
+    "head": "47885fa4a7ead9b62cc3d506aeffc4e7aede9665",
+    "tree": "332afd778e984f868ee93d346da0f4376ce89020",
+    "installed_generation": "b443d410ee63f0b6dd6032d8c8e445b8a2b1b485380f2509ce9cc1fc72be84c4"
+  },
+  "binding": {
+    "candidate": "80e06590b7dc3f4e15d2903237541bdb466c012c8dfb647f6d0843daefb68b7d",
+    "publication_id": "103c94edceb97c1b376d1eb757523aea",
+    "publication_sha256": "6f43c6456aa1b8b2ba9ea0fa2556e98308361ce6aadab7a48e3acca57d88aec6",
+    "session": "d0f1a425ca35b51f01c8f074f7010f36"
+  },
+  "observed": {
+    "single_operator_requested_load": true,
+    "plugin_loaded": true,
+    "editor_appeared": true,
+    "authenticated_graphical_keeper_ready": true,
+    "dsp_owner_active": true,
+    "windows_plugin_host_running": true,
+    "mouse_drag_followed": true,
+    "mouse_stopped_on_release": true,
+    "physical_touchscreen_drag_followed": true,
+    "physical_touchscreen_release_tail_measured": false,
+    "editor_closed_cleanly": true,
+    "windows_plugin_host_retired": true,
+    "dsp_owner_retired": true,
+    "volatile_transport_retired": true,
+    "lease_retired": true,
+    "cleanup_confirmed": true,
+    "cleanup_unconfirmed": false,
+    "graphical_keeper_retained": true,
+    "callback_rejections": 0,
+    "underrun_frames": 0,
+    "underrun_gaps": 0,
+    "underrun_callbacks": 0
+  },
+  "private_evidence": {
+    "result_sha256": "21dbc44663b003a5b6c17d8c6c51c5ab66bba127b917799826dd74fdff518248",
+    "repository_contains_private_result": false
+  },
+  "nonclaims": [
+    "audible signal processing",
+    "audio fidelity",
+    "automation recording or playback",
+    "parameter save or reopen",
+    "project-state restoration",
+    "multiple simultaneous Blackhole instances",
+    "exact touchscreen release-tail timing",
+    "Kontakt compatibility",
+    "Gaming Mode compatibility",
+    "Ubuntu compatibility"
+  ]
+}
