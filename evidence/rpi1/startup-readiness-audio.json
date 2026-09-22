@@ -1,6 +1,6 @@
 {
   "date": "2026-09-22",
-  "claim": "One repaired startup session completed deterministic stereo measurement and clean retirement on the already-connected MacBook supply",
+  "claim": "One repaired startup session completed measured and audible deterministic stereo and clean retirement on the already-connected MacBook supply",
   "executed_head": "8eb89230410a1b42531bfb0fc252cddb166b1d5d",
   "executed_tree": "ff138a43d6d9be9c517e8aa0209cf268690fa6c9",
   "native_sha256": "2689b5a0af961d8637007c6be7a1af58ce55458b26ebb16662c2455007202553",
@@ -48,7 +48,7 @@
     "remote_connection": "direct SSH from Mac over Wi-Fi"
   },
   "audio": {
-    "operator_confirmation": "pending",
+    "operator_confirmation": "Yup! I heard it!",
     "midi_sent": 3,
     "midi_accepted": 3,
     "midi_errors": 0,

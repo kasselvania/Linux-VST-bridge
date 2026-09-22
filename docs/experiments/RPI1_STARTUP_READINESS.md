@@ -1,8 +1,8 @@
 # RPI1 initialization readiness repair — 2026-09-22
 
-**The repaired standalone passed one measured stereo-audio and clean-retirement
-session on the already-connected MacBook supply. Listening confirmation is
-pending.** The earlier audible CC123-repair pass and later startup-timeout failure
+**The repaired standalone passed one measured and audible stereo-audio and clean-retirement
+session on the already-connected MacBook supply. The operator confirmed:
+"Yup! I heard it!"** The earlier audible CC123-repair pass and later startup-timeout failure
 are preserved separately. No further physical gate was started.
 
 ## Source and scope
