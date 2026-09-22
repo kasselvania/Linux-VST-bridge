@@ -41,5 +41,19 @@
     "physical input not yet accepted",
     "Pigments/Proton/Box64 remain stopped",
     "audio buzz unresolved and deferred by operator"
-  ]
+  ],
+  "audible_fixture": {
+    "source": "tools/shieldxl0/midi_tone.rs",
+    "source_sha256": "09a38339fc4337114934da6371b5612b1a80bf3ad6ca63de6203848ca6f062e6",
+    "build": "native ARM release with warnings denied passed",
+    "duration_seconds": 1800,
+    "feedback": "three startup beeps; held note tone; 200ms CC beep; OLED live message count",
+    "route": [
+      "ShieldXL-UART:midi/playback_1 -> shieldxl-midi-tone:in",
+      "shieldxl-midi-tone:left -> system:playback_1",
+      "shieldxl-midi-tone:right -> system:playback_2"
+    ],
+    "status": "running; initial received MIDI count 0; operator hearing confirmation pending",
+    "claim_limit": "Startup/output feedback is not proof of physical UART input"
+  }
 }

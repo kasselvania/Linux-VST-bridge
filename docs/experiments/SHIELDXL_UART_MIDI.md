@@ -47,6 +47,15 @@ asked to move a slider. At the initial check the final service had received
 zero bytes; no note/CC delivery is claimed from a visible software port.
 Boot configuration and service enablement have not yet been changed.
 
+The operator found timed silent observations inefficient and requested immediate
+audible feedback. A separate native JACK fixture now gives three startup beeps,
+held tones for notes and short beeps for CC changes, remaining on for 30 minutes.
+The existing OLED displays `MIDI ON RX:<count>` live. This permits controller/jack
+swaps without repeated listening-window coordination. It uses the same ShieldXL
+playback ports and does not launch Pigments. The ARM build passed with warnings
+denied; actual UART delivery remains unproved while the counter is zero. Startup
+beeps are not MIDI-input proof.
+
 The first observer attempted to reuse an ALSA client number after restart and
 attached to the wrong client. It was stopped without an input-pass claim. The
 replacement resolved the exact `ShieldXL UART` name and current service PID

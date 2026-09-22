@@ -63,6 +63,25 @@ then use `aseqdump` on that observed address. Verify the corresponding JACK
 alias with `jack_lsp -A`; observe actual messages with `jack_midi_dump` before
 connecting to an instrument. Keep the controller externally powered.
 
+### Audible wiring test
+
+For hands-on diagnosis, use `tools/shieldxl0/midi_tone.rs` on the existing JACK
+server. Build natively with `rustc --edition=2021 -O -D warnings midi_tone.rs -o
+midi-tone`, and pass the exact current JACK source resolved from the UART alias.
+Run it in a user service named `shieldxl-midi-tone.service`. It connects only that
+MIDI source and `system:playback_1/2`, plays three startup beeps, then stays on for
+30 minutes. Notes make a held monophonic tone; CC changes retrigger a 200 ms beep.
+Clock/active-sensing traffic is silent. Oscillator data is preallocated, the
+callback does no allocation/I/O, and the output has a short gain ramp.
+
+The companion `midi_tone_display.py` shows `MIDI ON RX:<count>` through the existing
+OLED service and changes to `MIDI TEST OFF` when that exact tone session ends.
+The operator can swap controllers/cables/jacks without coordinating individual
+listening windows. Stop the named tone/display services to end the test early.
+This fixture is for audible wiring feedback only: it is not Pigments, a general
+synth, a MIDI timing validator or a proof of clean audio. Startup beeps establish
+only the output route; physical MIDI requires received messages afterward.
+
 Boot persistence is a separate installation step: add `dtoverlay=uart0-pi5`
 under `[pi5]` in a narrowly owned boot include, and enable this service for the
 appliance user. Do not claim reboot verification until it actually happens.
