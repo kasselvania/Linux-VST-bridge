@@ -4,6 +4,7 @@ use eframe::egui;
 mod model;
 mod client;
 mod operator;
+mod library;
 struct DesktopFixture { count: u32, text: String }
 impl eframe::App for DesktopFixture {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
@@ -28,7 +29,7 @@ fn main() -> eframe::Result {
         std::process::exit(64);
     }
     let options=eframe::NativeOptions { renderer: eframe::Renderer::Glow,
-        viewport:egui::ViewportBuilder::default().with_inner_size([760.0,500.0]).with_min_inner_size([560.0,360.0]), ..Default::default() };
+        viewport:egui::ViewportBuilder::default().with_inner_size([960.0,720.0]).with_min_inner_size([560.0,360.0]), ..Default::default() };
     eframe::run_native("Linux Audio Compatibility Manager",options,Box::new(|cc| {
         let mut style=(*cc.egui_ctx.global_style()).clone();style.spacing.interact_size.y=42.0;style.spacing.item_spacing=egui::vec2(12.0,12.0);cc.egui_ctx.set_global_style(style);
         if fixture {Ok(Box::new(DesktopFixture{count:0,text:String::new()}))}

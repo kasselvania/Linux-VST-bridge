@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "observed_at": "2026-09-21",
+  "source": {
+    "commit": "f3a201ccb5d3a8e17996d3b67f43e7f5c935b22b",
+    "tree": "adabc97b4e5559061705bdc62ed10750d659e5b2",
+    "installed_generation": "18952d2b29b0cae66013ce05a00f0c1a5d9c4b23ce7b5c3360bdfac77dca2b77"
+  },
+  "operation": "ea5a2168f8128ae25607840f9ffe37c0",
+  "session": "c1c96fc7e3f3376d0d60208ce76ebd36",
+  "environment": "8b064373d533b72230cb4009952eaab4",
+  "action": "environment_rescan",
+  "manager_result": {
+    "state": "refused",
+    "reason": "instance owner did not confirm cleanup; new admissions blocked"
+  },
+  "scanner_result": {
+    "scanner_completed": true,
+    "record_count": 117,
+    "raw_exit": -15,
+    "error": null,
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "reporting_error": null
+  },
+  "diagnosis": {
+    "first_stdout_record": "LVO0 readiness",
+    "terminal_stdout_record": "LVO1 retirement",
+    "rust_scan_reader_consumed_readiness_separately": false,
+    "terminal_comparison_input": "LVO0 plus LVO1",
+    "retirement_refusal_cause": "combined supervisor records did not equal the exact terminal LVO1 receipt"
+  },
+  "preservation": {
+    "inventory_replaced": false,
+    "kontakt_scan_started": false,
+    "candidate_prepared": false,
+    "publication_changed": false,
+    "bitwig_started": false,
+    "plugin_started": false
+  },
+  "private_record_sha256": {
+    "operator_request": "466dfc0ddacf78894271bcfdab1e14f9d6da7b6925f556057a886860b143447e",
+    "operator_result": "36e17b895cfb9f1504933be29a0976491aca327d079c4ee525e4b8eef8c30bd0",
+    "scanner_result": "694cd39abdb23b6ba595e824dc1a31356fa7a714fcf43d8fe13db19e2f601be6",
+    "ownership_receipt": "1512c4ab74bdbf94acdbbfb5516b5dcabc71d03e0f5a2df89d56c2d37da59d07"
+  }
+}

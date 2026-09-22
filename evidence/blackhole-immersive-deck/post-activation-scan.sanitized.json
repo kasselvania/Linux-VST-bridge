@@ -1,0 +1,350 @@
+{
+  "schema": 1,
+  "kind": "blackhole_single_post_activation_scan",
+  "gui_executor": "Luna 5.6 Max via Moonlight",
+  "retry_count": 1,
+  "product": "Blackhole Immersive",
+  "version": "1.4.4",
+  "module_sha256": "b8a33c57b04eded38d0ca717bb5e3721330439f4931c401ea70e5246b516e90b",
+  "prior_scan": "558f40e21da952fa440e3d76b4a2c99d",
+  "scan": "6c6ad8764ff14d862c8a452000a19c3c",
+  "report_sha256": "21a0d0c952b9167780f01ff7ca375fe103e343d1a484144155babc7f7f5679dc",
+  "report_digest_matches_inventory": true,
+  "original_report_retained": true,
+  "original_report_sha256": "008599461dc57ed632eb9d2730568dace11c6d09697fafdc3d28c4c872fb35f4",
+  "host_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+  "host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+  "classes": [
+    {
+      "id": "5653544248496D626C61636B686F6C65",
+      "name": "Blackhole Immersive",
+      "vendor": "Eventide",
+      "version": "1.4.4",
+      "category": "Audio Module Class",
+      "subcategories": "Fx|Reverb",
+      "role": "effect"
+    },
+    {
+      "id": "5653454248496D626C61636B686F6C65",
+      "name": "Blackhole Immersive",
+      "vendor": "Eventide",
+      "version": "1.4.4",
+      "category": "Component Controller Class",
+      "subcategories": "Fx|Reverb",
+      "role": "other"
+    },
+    {
+      "id": "ABCDEF01C0DEF00D546964654248496D",
+      "name": "Blackhole Immersive",
+      "vendor": "Eventide",
+      "version": "1.4.4",
+      "category": "Plugin Compatibility Class",
+      "subcategories": "",
+      "role": "other"
+    }
+  ],
+  "inspection_error": "Windows SDK host failed: 90",
+  "quarantine_reason": null,
+  "structured_records": [
+    {
+      "event": "lifecycle",
+      "state": "scanner_started"
+    },
+    {
+      "event": "lifecycle",
+      "state": "readiness_announced"
+    },
+    {
+      "event": "lifecycle",
+      "state": "supervisor_gate_accepted"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap11_ui_apartment"
+    },
+    {
+      "event": "lifecycle",
+      "state": "module_open_started"
+    },
+    {
+      "event": "call_started",
+      "operation": "load_library"
+    },
+    {
+      "event": "call_completed",
+      "operation": "load_library"
+    },
+    {
+      "event": "lifecycle",
+      "state": "module_opened"
+    },
+    {
+      "event": "call_started",
+      "operation": "init_dll"
+    },
+    {
+      "event": "call_completed",
+      "operation": "init_dll"
+    },
+    {
+      "event": "lifecycle",
+      "state": "module_entry_succeeded"
+    },
+    {
+      "event": "lifecycle",
+      "state": "factory_export_found"
+    },
+    {
+      "event": "lifecycle",
+      "state": "factory_get_started"
+    },
+    {
+      "event": "call_started",
+      "operation": "get_plugin_factory"
+    },
+    {
+      "event": "call_completed",
+      "operation": "get_plugin_factory"
+    },
+    {
+      "event": "lifecycle",
+      "state": "factory_obtained"
+    },
+    {
+      "event": "call_started",
+      "operation": "get_factory_info"
+    },
+    {
+      "event": "call_completed",
+      "operation": "get_factory_info"
+    },
+    {
+      "event": "lifecycle",
+      "state": "factory_info_obtained"
+    },
+    {
+      "event": "call_started",
+      "operation": "query_factory_2"
+    },
+    {
+      "event": "call_completed",
+      "operation": "query_factory_2"
+    },
+    {
+      "event": "call_started",
+      "operation": "query_factory_3"
+    },
+    {
+      "event": "call_completed",
+      "operation": "query_factory_3"
+    },
+    {
+      "event": "lifecycle",
+      "state": "factory_interface_versions_recorded"
+    },
+    {
+      "event": "call_started",
+      "operation": "count_classes"
+    },
+    {
+      "event": "call_completed",
+      "operation": "count_classes"
+    },
+    {
+      "event": "lifecycle",
+      "state": "class_count_obtained"
+    },
+    {
+      "event": "lifecycle",
+      "state": "class_enumeration_in_progress"
+    },
+    {
+      "event": "call_started",
+      "operation": "get_class_info_unicode"
+    },
+    {
+      "event": "call_completed",
+      "operation": "get_class_info_unicode"
+    },
+    {
+      "event": "call_started",
+      "operation": "get_class_info_unicode"
+    },
+    {
+      "event": "call_completed",
+      "operation": "get_class_info_unicode"
+    },
+    {
+      "event": "call_started",
+      "operation": "get_class_info_unicode"
+    },
+    {
+      "event": "call_completed",
+      "operation": "get_class_info_unicode"
+    },
+    {
+      "event": "lifecycle",
+      "state": "class_enumeration_complete"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_factory"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "setHostContext"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "setHostContext",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "getClassInfo",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "getClassInfo",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "getClassInfo",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap11_class"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "getFactoryInfo",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "getClassInfoUnicode",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap12_class"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "createComponent"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "createComponent",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "initializeComponent"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "initializeComponent",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "queryAudioProcessor"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "queryAudioProcessor",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_failure",
+      "reason": "controller query tuple"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "terminateComponent"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "terminateComponent",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_inspection_closed",
+      "exit_code": 90
+    },
+    {
+      "event": "call_started",
+      "operation": "release_factory_3"
+    },
+    {
+      "event": "call_completed",
+      "operation": "release_factory_3"
+    },
+    {
+      "event": "call_started",
+      "operation": "release_factory_2"
+    },
+    {
+      "event": "call_completed",
+      "operation": "release_factory_2"
+    },
+    {
+      "event": "call_started",
+      "operation": "release_factory_base"
+    },
+    {
+      "event": "call_completed",
+      "operation": "release_factory_base"
+    },
+    {
+      "event": "call_started",
+      "operation": "exit_dll"
+    }
+  ],
+  "cleanup_confirmed": true,
+  "transport_retired": true,
+  "raw_launcher_exit": -15,
+  "operation_state": "completed",
+  "system": {
+    "service": "active",
+    "keepers": 3,
+    "dsp": 0,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "temporary_credential_handoff_file_absent": true,
+  "gui_observation": {
+    "status": "Installed - not published",
+    "vendor": "Eventide",
+    "role": "Effect",
+    "error": "Windows SDK Host failed: 90",
+    "action": "Check compatibility",
+    "unexpected_dialog": false
+  },
+  "publication_performed": false,
+  "audio_qualification_performed": false,
+  "controller_query_result_and_pointer_recorded": false
+}

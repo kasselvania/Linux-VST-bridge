@@ -57,6 +57,7 @@ impl Fixture {
                     proton: proton.path.clone(),
                     entry_point: entry.path.clone(),
                     files: vec![proton, entry],
+                    policy: None,
                 },
             },
             module: artifact(
@@ -121,6 +122,7 @@ pub(crate) fn prepared_accessibility(disabled: bool) -> (Fixture, Profile, Censu
                 proton_sha256: f.r.environment.runner.files[0].sha256.clone(),
                 entry_point_sha256: f.r.environment.runner.files[1].sha256.clone(),
                 file_sha256: hashes,
+                policy: f.r.environment.runner.policy.clone(),
             },
             environment_family: Family::ArturiaPersistentV1,
             environment_revision: 1,
@@ -134,6 +136,7 @@ pub(crate) fn prepared_accessibility(disabled: bool) -> (Fixture, Profile, Censu
             editor_lifetime: None,
             vendor_retirement: None,
             event_output: None,
+            audio_layout: None,
             accessibility: if disabled { Accessibility::DisabledForVendorProcess } else { Accessibility::WindowsDefault },
             editor: Editor::DetachedOwnerThreadWithNativePanel,
             state: State::ConcurrentReadOnlyCaptureV12,

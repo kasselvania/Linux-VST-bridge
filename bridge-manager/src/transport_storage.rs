@@ -1,6 +1,6 @@
 //! Session transport belongs to volatile memory, not the environment's journaled
 //! filesystem. This owner runs during service/admission only, never in a DAW.
-use linux_vst_bridge::*;
+use crate::*;
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
@@ -17,6 +17,80 @@ pub struct MemoryTransport {
     pub device: u64,
     pub inode: u64,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct GraphicalSession {
+    pub schema: u32,
+    pub peer_pid: i32,
+    pub peer_start_ticks: u64,
+    pub display: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wayland_display: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub xauthority: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dbus_session_bus_address: Option<String>,
+}
+
+impl GraphicalSession {
+    pub fn same_display_context(&self, other: &Self) -> bool {
+        self.display == other.display
+            && self.wayland_display == other.wayland_display
+            && self.xauthority == other.xauthority
+            && self.dbus_session_bus_address == other.dbus_session_bus_address
+    }
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn parse_graphical_environment(
+    peer_pid: i32,
+    peer_start_ticks: u64,
+    bytes: &[u8],
+) -> Result<GraphicalSession> {
+    require(
+        peer_pid > 0 && peer_start_ticks > 0,
+        "graphical_peer_generation",
+    )?;
+    require(
+        bytes.len() <= 1024 * 1024,
+        "graphical_peer_environment_extent",
+    )?;
+    let mut selected = std::collections::BTreeMap::new();
+    for item in bytes
+        .split(|byte| *byte == 0)
+        .filter(|item| !item.is_empty())
+    {
+        let text = std::str::from_utf8(item)?;
+        let Some((key, value)) = text.split_once('=') else {
+            continue;
+        };
+        if matches!(
+            key,
+            "DISPLAY" | "WAYLAND_DISPLAY" | "XAUTHORITY" | "DBUS_SESSION_BUS_ADDRESS"
+        ) {
+            require(
+                !value.is_empty()
+                    && value.len() <= 4096
+                    && !value.bytes().any(|byte| byte == b'\n' || byte == b'\r')
+                    && selected.insert(key, value.to_owned()).is_none(),
+                "graphical_peer_environment",
+            )?;
+        }
+    }
+    let display = selected
+        .remove("DISPLAY")
+        .ok_or("graphical_peer_display_absent")?;
+    Ok(GraphicalSession {
+        schema: 1,
+        peer_pid,
+        peer_start_ticks,
+        display,
+        wayland_display: selected.remove("WAYLAND_DISPLAY"),
+        xauthority: selected.remove("XAUTHORITY"),
+        dbus_session_bus_address: selected.remove("DBUS_SESSION_BUS_ADDRESS"),
+    })
+}
 pub fn root() -> PathBuf {
     PathBuf::from(format!("/run/user/{}/linux-vst-bridge", unsafe {
         libc::getuid()
@@ -30,6 +104,49 @@ fn private(path: &Path) -> Result<fs::Metadata> {
     )?;
     require(path.canonicalize()? == path, "transport_directory_alias")?;
     Ok(m)
+}
+
+fn exact_session_directory(
+    root: &Path,
+    session: &str,
+    identity: &MemoryTransport,
+    require_memory: bool,
+) -> Result<PathBuf> {
+    require(
+        session.len() == 32
+            && session
+                .bytes()
+                .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+            && identity.schema == 1
+            && identity.device != 0
+            && identity.inode != 0,
+        "transport_session_identity",
+    )?;
+    let path = root.join(session);
+    let metadata = private(&path)?;
+    require(
+        (metadata.dev(), metadata.ino()) == (identity.device, identity.inode),
+        "transport_directory_replaced",
+    )?;
+    if require_memory {
+        memory_filesystem(&path)?;
+    }
+    Ok(path)
+}
+
+/// Resolve only the session directory retained by the exact admission record.
+/// Callers must still open individual files with O_NOFOLLOW.
+pub fn session_directory(session: &str, identity: &MemoryTransport) -> Result<PathBuf> {
+    exact_session_directory(&root(), session, identity, true)
+}
+
+#[cfg(test)]
+pub(crate) fn fixture_session_directory(
+    root: &Path,
+    session: &str,
+    identity: &MemoryTransport,
+) -> Result<PathBuf> {
+    exact_session_directory(root, session, identity, false)
 }
 #[cfg(target_os = "linux")]
 fn memory_filesystem(path: &Path) -> Result<()> {
@@ -115,7 +232,7 @@ fn create_at(root: &Path, session: &str) -> Result<(PathBuf, MemoryTransport)> {
 /// SO_PEERCRED identifies the actual connecting DAW process in this manager's
 /// PID namespace. Refuse a hidden/mismatched mount before returning its binding.
 #[cfg(target_os = "linux")]
-pub fn visible_to_peer(peer: &std::os::unix::net::UnixStream, directory: &Path) -> Result<()> {
+fn peer_credentials(peer: &std::os::unix::net::UnixStream) -> Result<libc::ucred> {
     use std::os::fd::AsRawFd;
     let mut cred = std::mem::MaybeUninit::<libc::ucred>::uninit();
     let mut length = std::mem::size_of::<libc::ucred>() as libc::socklen_t;
@@ -137,12 +254,34 @@ pub fn visible_to_peer(peer: &std::os::unix::net::UnixStream, directory: &Path) 
         cred.uid == unsafe { libc::getuid() } && cred.pid > 0,
         "transport_peer_owner",
     )?;
+    Ok(cred)
+}
+#[cfg(target_os = "linux")]
+pub fn visible_to_peer(peer: &std::os::unix::net::UnixStream, directory: &Path) -> Result<()> {
+    let cred = peer_credentials(peer)?;
     let visible =
         PathBuf::from(format!("/proc/{}/root", cred.pid)).join(directory.strip_prefix("/")?);
     same_directory(directory, &visible)
 }
+#[cfg(target_os = "linux")]
+pub fn graphical_session(peer: &std::os::unix::net::UnixStream) -> Result<GraphicalSession> {
+    let cred = peer_credentials(peer)?;
+    let stat = fs::read_to_string(format!("/proc/{}/stat", cred.pid))?;
+    let (_, fields) = stat.rsplit_once(") ").ok_or("graphical_peer_stat")?;
+    let start = fields
+        .split_ascii_whitespace()
+        .nth(19)
+        .ok_or("graphical_peer_stat")?
+        .parse()?;
+    let environment = fs::read(format!("/proc/{}/environ", cred.pid))?;
+    parse_graphical_environment(cred.pid, start, &environment)
+}
 #[cfg(not(target_os = "linux"))]
 pub fn visible_to_peer(_peer: &std::os::unix::net::UnixStream, _directory: &Path) -> Result<()> {
+    Err("transport_requires_linux_tmpfs".into())
+}
+#[cfg(not(target_os = "linux"))]
+pub fn graphical_session(_peer: &std::os::unix::net::UnixStream) -> Result<GraphicalSession> {
     Err("transport_requires_linux_tmpfs".into())
 }
 #[cfg(any(target_os = "linux", test))]
@@ -194,6 +333,22 @@ impl Drop for PendingTransport {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn graphical_context_uses_only_the_authenticated_peer_allowlist() {
+        let context = parse_graphical_environment(
+            41,
+            9001,
+            b"DISPLAY=:7\0WAYLAND_DISPLAY=gamescope-1\0XAUTHORITY=/run/user/1000/xauth\0DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus\0HOME=/secret\0TOKEN=private\0",
+        )
+        .unwrap();
+        assert_eq!(context.display, ":7");
+        assert_eq!(context.wayland_display.as_deref(), Some("gamescope-1"));
+        assert_eq!(context.peer_pid, 41);
+        assert_eq!(context.peer_start_ticks, 9001);
+        let value = serde_json::to_value(context).unwrap();
+        assert!(value.get("HOME").is_none() && value.get("TOKEN").is_none());
+        assert!(parse_graphical_environment(41, 9001, b"WAYLAND_DISPLAY=x\0").is_err());
+    }
     #[test]
     fn hidden_mount_is_not_a_shared_transport() {
         let a = std::env::temp_dir()

@@ -13,12 +13,148 @@ pub enum Kind {
     VendorAccess,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum InstanceTerminal {
+    WindowsHostExited,
+    EditorControllerFailed,
+    TransportFailed,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Owner {
     pub session: String,
     pub class_id: String,
     pub kind: Kind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal: Option<InstanceTerminal>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct TerminalSummary {
+    pub schema: u32,
+    pub session: String,
+    pub class_id: String,
+    pub terminal: InstanceTerminal,
+    pub producer: u64,
+    pub status_domain: u64,
+    pub cleanup_confirmed: bool,
+    pub transport_retired: bool,
+    pub observed_at: u64,
+}
+
+fn summary_directory(m: &Manager) -> PathBuf {
+    m.root.join("runtime/terminal-summaries")
+}
+
+pub fn retain_terminal_summary(
+    m: &Manager,
+    session: &str,
+    class_id: &str,
+    report: &Path,
+) -> Result<()> {
+    require(
+        valid_hex(session, 32)
+            && valid_hex(class_id, 32)
+            && class_id == class_id.to_uppercase()
+            && report.parent() == Some(m.root.join("runtime/results").as_path()),
+        "terminal_summary_binding",
+    )?;
+    let result: serde_json::Value = read_json(report)?;
+    require(
+        result["session"].as_str() == Some(session),
+        "terminal_summary_binding",
+    )?;
+    let directory = summary_directory(m);
+    private_dir(&directory)?;
+    let path = directory.join(format!("{class_id}.json"));
+    let terminal = &result["fault_status"]["before_containment"]["terminal_instance"];
+    if terminal.is_object() {
+        require(
+            terminal["session"].as_str() == Some(session),
+            "terminal_summary_binding",
+        )?;
+        let terminal_class = match terminal["failure_class"].as_u64() {
+            Some(1) => InstanceTerminal::WindowsHostExited,
+            Some(2) => InstanceTerminal::EditorControllerFailed,
+            Some(3) => InstanceTerminal::TransportFailed,
+            _ => return Err("terminal_summary_class".into()),
+        };
+        let producer = terminal["producer"]
+            .as_u64()
+            .ok_or("terminal_summary_producer")?;
+        let status_domain = terminal["status_domain"]
+            .as_u64()
+            .ok_or("terminal_summary_status_domain")?;
+        require(
+            (1..=3).contains(&producer) && (1..=5).contains(&status_domain),
+            "terminal_summary_status",
+        )?;
+        let summary = TerminalSummary {
+            schema: 1,
+            session: session.into(),
+            class_id: class_id.into(),
+            terminal: terminal_class,
+            producer,
+            status_domain,
+            cleanup_confirmed: result["cleanup_confirmed"]
+                .as_bool()
+                .ok_or("terminal_summary_cleanup")?,
+            transport_retired: result["transport_retired"]
+                .as_bool()
+                .ok_or("terminal_summary_transport")?,
+            observed_at: observation::now()?,
+        };
+        atomic_json(&path, &summary)?;
+    } else if result["error"].is_null()
+        && result["gated"] == true
+        && result["cleanup_confirmed"] == true
+        && result["transport_retired"] == true
+    {
+        // A later fully started and cleanly retired instance is the modest
+        // replacement policy. Merely opening the manager never erases the
+        // most recent failure.
+        match fs::remove_file(path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Ok(())
+}
+
+pub fn terminal_summaries(m: &Manager) -> Result<Vec<TerminalSummary>> {
+    let directory = summary_directory(m);
+    if !directory.try_exists()? {
+        return Ok(Vec::new());
+    }
+    private_dir(&directory)?;
+    let entries = fs::read_dir(&directory)?
+        .take(129)
+        .map(|entry| entry.map(|entry| entry.path()))
+        .collect::<std::io::Result<Vec<_>>>()?;
+    require(entries.len() <= 128, "terminal_summary_capacity")?;
+    let mut result = Vec::with_capacity(entries.len());
+    for path in entries {
+        let summary: TerminalSummary = read_json(&path)?;
+        require(
+            summary.schema == 1
+                && valid_hex(&summary.session, 32)
+                && valid_hex(&summary.class_id, 32)
+                && summary.class_id == summary.class_id.to_uppercase()
+                && (1..=3).contains(&summary.producer)
+                && (1..=5).contains(&summary.status_domain)
+                && summary.observed_at != 0
+                && path.file_name().and_then(|name| name.to_str())
+                    == Some(format!("{}.json", summary.class_id).as_str()),
+            "terminal_summary_binding",
+        )?;
+        result.push(summary);
+    }
+    result.sort_by_key(|summary| summary.observed_at);
+    Ok(result)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -279,6 +415,99 @@ impl Limits {
     }
 }
 
+fn session_identity(session: &str) -> Result<[u8; 16]> {
+    require(valid_hex(session, 32), "terminal_session_identity")?;
+    let mut result = [0u8; 16];
+    for (index, byte) in result.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&session[index * 2..index * 2 + 2], 16)?;
+    }
+    Ok(result)
+}
+
+fn terminal_status_from(
+    durable: &Path,
+    source_directory: &Path,
+    session: &str,
+) -> Result<Option<InstanceTerminal>> {
+    use std::os::unix::fs::FileExt;
+    let target = durable.join("if1.terminal");
+    let target_metadata = match fs::symlink_metadata(&target) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.into()),
+    };
+    require(
+        target_metadata.file_type().is_symlink()
+            && target_metadata.uid() == unsafe { libc::getuid() },
+        "terminal_status_view",
+    )?;
+    let source = source_directory.join("if1.terminal");
+    require(fs::read_link(&target)? == source, "terminal_status_view")?;
+    let file = file(&source)?;
+    let opened = file.metadata()?;
+    let visible = fs::metadata(&target)?;
+    require(
+        (opened.dev(), opened.ino()) == (visible.dev(), visible.ino()),
+        "terminal_status_source_replaced",
+    )?;
+    require(file.metadata()?.len() == 2048, "terminal_status_extent")?;
+    let mut header = [0u8; 32];
+    file.read_exact_at(&mut header, 0)?;
+    let identity = session_identity(session)?;
+    require(&header[..4] == b"LVIF"
+        && u32::from_le_bytes(header[4..8].try_into().unwrap()) == 1
+        && u32::from_le_bytes(header[8..12].try_into().unwrap()) == 2048
+        && header[16..32] == identity, "terminal_status_binding")?;
+    for _ in 0..3 {
+        let mut before = [0u8; 8];
+        file.read_exact_at(&mut before, 64)?;
+        let generation = u64::from_le_bytes(before);
+        if generation == 0 { return Ok(None); }
+        require((1..=3).contains(&generation), "terminal_status_generation")?;
+        let offset = 128 + (generation - 1) * 256;
+        let mut raw = [0u8; 192];
+        file.read_exact_at(&mut raw, offset)?;
+        let mut after = [0u8; 8];
+        file.read_exact_at(&mut after, 64)?;
+        if before != after { continue; }
+        let words: [u64; 24] = std::array::from_fn(|index| {
+            u64::from_le_bytes(raw[index * 8..index * 8 + 8].try_into().unwrap())
+        });
+        require(words[0] == 1
+            && words[1].to_le_bytes() == identity[..8]
+            && words[2].to_le_bytes() == identity[8..]
+            && words[3] != 0
+            && words[18] == generation
+            && (1..=5).contains(&words[19])
+            && words[20..].iter().all(|value| *value == 0), "terminal_status_record")?;
+        return Ok(Some(match words[14] {
+            1 => InstanceTerminal::WindowsHostExited,
+            2 => InstanceTerminal::EditorControllerFailed,
+            3 => InstanceTerminal::TransportFailed,
+            _ => return Err("terminal_status_class".into()),
+        }));
+    }
+    Err("terminal_status_unstable".into())
+}
+
+fn terminal_status(
+    durable: &Path,
+    session: &str,
+    transport: Option<&transport_storage::MemoryTransport>,
+) -> Result<Option<InstanceTerminal>> {
+    let target = durable.join("if1.terminal");
+    if fs::symlink_metadata(&target).is_err_and(|error| {
+        error.kind() == std::io::ErrorKind::NotFound
+    }) {
+        // Older immutable native builds did not create IF1. Absence remains
+        // compatible; a present mapping must use the exact volatile owner.
+        return Ok(None);
+    }
+    let identity = transport.ok_or("terminal_status_transport_absent")?;
+    let source = transport_storage::session_directory(session, identity)?;
+    terminal_status_from(durable, &source, session)
+}
+
 /// Caller holds registry.lock. Bound both collections before opening owner
 /// documents. Malformed, missing or duplicate ownership never counts as free.
 pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
@@ -322,10 +551,10 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
                 .join("owner.json");
             if p.try_exists()? {
                 require(found.is_none(), "duplicate_lease_identity")?;
-                found = Some(read_json::<serde_json::Value>(&p)?);
+                found = Some((read_json::<serde_json::Value>(&p)?, p));
             }
         }
-        let o = found.ok_or("active_lease_unresolved")?;
+        let (o, owner_path) = found.ok_or("active_lease_unresolved")?;
         require(
             o["session"].as_str() == Some(sid) && o["report"].as_str() == report.to_str(),
             "lease_identity",
@@ -376,10 +605,21 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
                 Kind::Dsp
             }
         };
+        let transport = match o.get("transport") {
+            Some(value) if !value.is_null() => {
+                Some(serde_json::from_value::<transport_storage::MemoryTransport>(value.clone())?)
+            }
+            _ => None,
+        };
         result.push(Owner {
             session: sid.into(),
             class_id: class.to_uppercase(),
             kind,
+            terminal: if kind == Kind::Dsp {
+                terminal_status(owner_path.parent().unwrap(), sid, transport.as_ref())?
+            } else {
+                None
+            },
         });
     }
     result.sort_by(|a, b| a.session.cmp(&b.session));
@@ -591,6 +831,29 @@ mod tests {
     fn reason(r: Result<Lock>) -> String {
         r.err().unwrap().to_string()
     }
+    fn terminal_bytes(session: &str, class: u64) -> Vec<u8> {
+        let mut bytes = vec![0u8; 2048];
+        bytes[..4].copy_from_slice(b"LVIF");
+        bytes[4..8].copy_from_slice(&1u32.to_le_bytes());
+        bytes[8..12].copy_from_slice(&2048u32.to_le_bytes());
+        let identity = session_identity(session).unwrap();
+        bytes[16..32].copy_from_slice(&identity);
+        bytes[64..72].copy_from_slice(&2u64.to_le_bytes());
+        let at = 128 + 256;
+        let mut words = [0u64; 24];
+        words[0] = 1;
+        words[1] = u64::from_le_bytes(identity[..8].try_into().unwrap());
+        words[2] = u64::from_le_bytes(identity[8..].try_into().unwrap());
+        words[3] = 7;
+        words[14] = class;
+        words[15] = 1;
+        words[18] = 2;
+        words[19] = 3;
+        for (index, value) in words.into_iter().enumerate() {
+            bytes[at + index * 8..at + index * 8 + 8].copy_from_slice(&value.to_le_bytes());
+        }
+        bytes
+    }
     #[test]
     fn global_class_maintenance_and_keeper_are_distinct() {
         let f = Fixture::new();
@@ -624,6 +887,85 @@ mod tests {
             reason(reserve(&f.m, &policy, Some(b), true)),
             Refusal::CleanupUnconfirmed.code()
         );
+    }
+    #[test]
+    fn production_transport_view_projects_terminal_failure_without_following_the_symlink() {
+        let f = Fixture::new();
+        let class = &limits().classes[0].class_id;
+        let lease = lease(&f, class, Kind::Dsp);
+        let session = lease.file_stem().unwrap().to_str().unwrap();
+        let durable = f.r.environment.root.join("compatdata/pfx/drive_c/bridge/sessions").join(session);
+        let root = f.outer.join("volatile");
+        private_dir(&root).unwrap();
+        let source = root.join(session);
+        private_dir(&source).unwrap();
+        let metadata = fs::symlink_metadata(&source).unwrap();
+        let identity = transport_storage::MemoryTransport {
+            schema: 1,
+            device: metadata.dev(),
+            inode: metadata.ino(),
+        };
+        let exact = transport_storage::fixture_session_directory(&root, session, &identity).unwrap();
+        fs::write(exact.join("if1.terminal"), terminal_bytes(session, 2)).unwrap();
+        symlink(exact.join("if1.terminal"), durable.join("if1.terminal")).unwrap();
+        assert_eq!(
+            terminal_status_from(&durable, &exact, session).unwrap(),
+            Some(InstanceTerminal::EditorControllerFailed)
+        );
+
+        fs::remove_file(durable.join("if1.terminal")).unwrap();
+        symlink(f.outer.join("wrong/if1.terminal"), durable.join("if1.terminal")).unwrap();
+        assert!(terminal_status_from(&durable, &exact, session).is_err());
+        fs::remove_file(durable.join("if1.terminal")).unwrap();
+        symlink(exact.join("if1.terminal"), durable.join("if1.terminal")).unwrap();
+
+        let replaced = transport_storage::MemoryTransport { inode: identity.inode + 1, ..identity };
+        assert!(transport_storage::fixture_session_directory(&root, session, &replaced).is_err());
+        fs::remove_file(exact.join("if1.terminal")).unwrap();
+        let foreign=f.outer.join("foreign-if1");
+        fs::write(&foreign,terminal_bytes(session,2)).unwrap();
+        symlink(&foreign,exact.join("if1.terminal")).unwrap();
+        assert!(terminal_status_from(&durable,&exact,session).is_err());
+        fs::remove_file(exact.join("if1.terminal")).unwrap();
+        fs::write(exact.join("if1.terminal"), b"malformed").unwrap();
+        assert!(terminal_status_from(&durable, &exact, session).is_err());
+        assert!(terminal_status(&durable,session,None).is_err());
+        fs::remove_file(durable.join("if1.terminal")).unwrap();
+        assert_eq!(terminal_status_from(&durable, &exact, session).unwrap(), None);
+    }
+    #[test]
+    fn terminal_failure_survives_confirmed_owner_retirement_without_capture() {
+        let f = Fixture::new();
+        let class = limits().classes[0].class_id.clone();
+        let lease = lease(&f, &class, Kind::Dsp);
+        let session = lease.file_stem().unwrap().to_str().unwrap().to_owned();
+        let report:PathBuf = read_json(&lease).unwrap();
+        atomic_json(&report,&serde_json::json!({
+            "session":session,"error":"Windows host exited without successful close",
+            "gated":true,"cleanup_confirmed":true,"transport_retired":true,
+            "fault_status":{"before_containment":{"terminal_instance":{
+                "schema":1,"session":session,"failure_class":1,
+                "producer":2,"status_domain":3
+            }}}
+        })).unwrap();
+        retain_terminal_summary(&f.m,&session,&class,&report).unwrap();
+        fs::remove_file(&lease).unwrap();
+        let owner=f.r.environment.root.join("compatdata/pfx/drive_c/bridge/sessions")
+            .join(&session);
+        fs::remove_dir_all(owner).unwrap();
+        assert!(owners(&f.m).unwrap().is_empty());
+        let retained=terminal_summaries(&f.m).unwrap();
+        assert_eq!(retained.len(),1);
+        assert_eq!(retained[0].terminal,InstanceTerminal::WindowsHostExited);
+        assert!(retained[0].cleanup_confirmed&&retained[0].transport_retired);
+
+        atomic_json(&report,&serde_json::json!({
+            "session":session,"error":null,"gated":true,
+            "cleanup_confirmed":true,"transport_retired":true,
+            "fault_status":null
+        })).unwrap();
+        retain_terminal_summary(&f.m,&session,&class,&report).unwrap();
+        assert!(terminal_summaries(&f.m).unwrap().is_empty());
     }
     #[test]
     fn durable_ownership_survives_service_reconstruction_and_exact_release() {

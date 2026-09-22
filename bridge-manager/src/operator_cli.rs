@@ -5,6 +5,10 @@ use serde_json::{json, Value};
 const ASC: &str = "arturia-software-center";
 const SERVICE: &str = "linux-vst-bridge.service";
 const VENDOR: &str = "linux-vst-bridge-vendor-arturia-software-center.service";
+#[cfg(test)]
+thread_local! {
+    static SCAN_SPAWN_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
 fn text(v: &Value, key: &str) -> String {
     v[key].as_str().unwrap_or("unknown").into()
 }
@@ -53,7 +57,9 @@ fn optional(path: &Path) -> Result<Value> {
 }
 fn token(m: &Manager) -> Result<String> {
     Ok(hex(&sha2::Sha256::digest(serde_json::to_vec(
-        &json!({"software":optional(&m.root.join("software.json"))?,"registry":m.registry()?,"preparation":optional(&m.root.join("preparation/revision.json"))?}),
+        &json!({"software":optional(&m.root.join("software.json"))?,"registry":m.registry()?,
+            "preparation":optional(&m.root.join("preparation/revision.json"))?,
+            "terminal_summaries":capacity::terminal_summaries(m)?}),
     )?)))
 }
 fn action(label: &str, action: ui::Action, reason: Option<&str>) -> ui::AvailableAction {
@@ -62,6 +68,62 @@ fn action(label: &str, action: ui::Action, reason: Option<&str>) -> ui::Availabl
         action,
         disabled_reason: reason.map(Into::into),
     }
+}
+fn session_projection(
+    capacity: Option<&CapacityReadback>,
+    summaries: Vec<capacity::TerminalSummary>,
+) -> Vec<Value> {
+    let mut rows:Vec<_> = capacity
+        .into_iter().flat_map(|status|status.owners.iter())
+        .filter(|owner| owner.kind == capacity::Kind::Dsp)
+        .map(|owner| json!({
+            "class_id":owner.class_id,
+            "state":if capacity.is_some_and(|status|status.cleanup_unconfirmed){
+                "cleanup_unconfirmed"
+            }else if owner.terminal.is_some(){
+                "failed"
+            }else{
+                "active"
+            },
+            "terminal":owner.terminal,
+            "recent":false,
+        }))
+        .collect();
+    rows.extend(summaries.into_iter().map(|summary|json!({
+        "class_id":summary.class_id,
+        "state":"failed",
+        "terminal":summary.terminal,
+        "recent":true,
+        "cleanup_confirmed":summary.cleanup_confirmed,
+        "transport_retired":summary.transport_retired,
+        "observed_at":summary.observed_at,
+    })));
+    rows
+}
+fn quarantined_product(scan: &inventory::Scan, module_index: usize,
+    module: inventory::Module, stale: Option<&str>, busy: Option<&str>)
+    -> Result<ui::Product> {
+    let reason=module.quarantine_reason.as_deref()
+        .ok_or("operator_quarantine_reason_absent")?;
+    let inspection_error=module.inspection_error.clone();
+    let mut limitations:Vec<String>=stale.into_iter().map(str::to_owned).collect();
+    if let Some(error)=&inspection_error { limitations.push(format!("Scanner reported: {error}")); }
+    limitations.push(reason.into());
+    let actions=vec![action("Retry this exact module scan",
+        ui::Action::QuarantinedModuleRetry {environment:scan.environment.id.clone(),
+            scan:scan.id.clone(),module_index,module_sha256:module.artifact.sha256.clone(),
+            report_sha256:module.report.sha256.clone()},busy.or(stale))];
+    Ok(ui::Product {class_id:String::new(),name:module.artifact.path.file_name()
+        .unwrap_or_default().to_string_lossy().into_owned(),vendor:"Unresolved factory".into(),
+        role:"unknown".into(),version:String::new(),
+        disposition:if stale.is_some(){"needs_attention"}else{"quarantined"}.into(),
+        active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),
+        runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256,
+        limitations,history:vec![],actions,
+        details:json!({"scan":scan.id,"scanner_host_sha256":scan.host.sha256,
+            "scanner_source_sha256":scan.host_source_sha256,"current":stale.is_none(),
+            "inspection_error":inspection_error,"quarantine_reason":reason,
+            "report_sha256":module.report.sha256,"activation_permitted":false})})
 }
 fn app_directory(m: &Manager) -> PathBuf {
     m.root.join("vendor-applications").join(ASC)
@@ -296,6 +358,156 @@ fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
     result.sort_by_key(|r| r.revision);
     Ok(result)
 }
+fn managed_environment_bindings(
+    m: &Manager,
+    catalogue: &linux_vst_bridge::catalogue::Catalogue,
+    registry: &Registry,
+) -> Result<Vec<linux_vst_bridge::catalogue::EnvironmentBinding>> {
+    let mut bindings = catalogue.environments.clone();
+    for retained in onboarding::history_records(m)? {
+        if !registry
+            .classes
+            .values()
+            .any(|entry| entry.registration.environment.id == retained.environment.id)
+        {
+            continue;
+        }
+        let binding = linux_vst_bridge::catalogue::EnvironmentBinding {
+            family: linux_vst_bridge::profiles::Family::ManagedInstallerV1,
+            environment: retained.environment,
+        };
+        if let Some(existing) = bindings
+            .iter()
+            .find(|candidate| candidate.environment.id == binding.environment.id)
+        {
+            require(
+                existing == &binding,
+                "operator_managed_environment_binding_conflict",
+            )?;
+        } else {
+            require(bindings.len() < 16, "operator_environment_bound")?;
+            bindings.push(binding);
+        }
+    }
+    if let Some(binding) = linux_vst_bridge::frg1::adopted_environment(m)? {
+        if let Some(existing) = bindings.iter()
+            .find(|candidate| candidate.environment.id == binding.environment.id) {
+            require(existing == &binding,"operator_managed_environment_binding_conflict")?;
+        } else {
+            require(bindings.len() < 16,"operator_environment_bound")?;
+            bindings.push(binding);
+        }
+    }
+    Ok(bindings)
+}
+fn managed_rescan_binding_from(
+    m: &Manager,
+    bindings: &[linux_vst_bridge::catalogue::EnvironmentBinding],
+    registry: &Registry,
+    environment: &str,
+) -> Result<Option<Environment>> {
+    let env = &bindings
+        .iter()
+        .find(|candidate| candidate.environment.id == environment)
+        .ok_or("operator_environment_absent")?
+        .environment;
+    let owners: Vec<_> = registry
+        .classes
+        .values()
+        .filter(|entry| entry.registration.environment.id == environment)
+        .collect();
+    if owners.is_empty() {
+        return Ok(linux_vst_bridge::frg1::adopted_environment(m)?
+            .filter(|binding| binding.environment == *env)
+            .map(|binding| binding.environment));
+    }
+    require(
+        owners
+            .iter()
+            .all(|entry| entry.registration.environment == *env),
+        "operator_managed_environment_mismatch",
+    )?;
+    if let Some(retained) = onboarding::retained_environment(m, environment)? {
+        require(
+            retained.environment == *env,
+            "operator_onboarding_environment_mismatch",
+        )?;
+        require(
+            onboarding::retired(&onboarding::result(m, &retained)?),
+            "installer_retirement_required",
+        )?;
+    }
+    Ok(Some(env.clone()))
+}
+fn managed_rescan_binding(
+    m: &Manager,
+    catalogue: &linux_vst_bridge::catalogue::Catalogue,
+    registry: &Registry,
+    environment: &str,
+) -> Result<Option<Environment>> {
+    managed_rescan_binding_from(
+        m,
+        &managed_environment_bindings(m, catalogue, registry)?,
+        registry,
+        environment,
+    )
+}
+pub(super) fn environment_projection(
+    m: &Manager,
+    sw: &Software,
+    catalogue: &linux_vst_bridge::catalogue::Catalogue,
+    registry: &Registry,
+    busy: Option<&str>,
+) -> Result<Vec<ui::Environment>> {
+    let bindings = managed_environment_bindings(m, catalogue, registry)?;
+    bindings
+        .iter()
+        .map(|entry| {
+            let scan = optional(
+                &m.root
+                    .join("inventory")
+                    .join(format!("{}.json", entry.environment.id)),
+            )?;
+            let actions = if let Some(environment) = managed_rescan_binding_from(
+                m,
+                &bindings,
+                registry,
+                &entry.environment.id,
+            )?
+            {
+                if onboarding::inventory_refresh_required(
+                    m,
+                    &environment,
+                    &sw.host,
+                    &sw.source_sha256,
+                )? {
+                    vec![action(
+                        "Refresh installed products",
+                        ui::Action::EnvironmentRescan {
+                            environment: environment.id,
+                        },
+                        busy,
+                    )]
+                } else {
+                    vec![]
+                }
+            } else {
+                vec![]
+            };
+            Ok(ui::Environment {
+                id: entry.environment.id.clone(),
+                family: format!("{:?}", entry.family),
+                runner: entry.environment.runner.id.clone(),
+                revision: entry.environment.revision,
+                authorization: "Managed by the vendor and user; account state is not inspected"
+                    .into(),
+                last_scan: json!({"id":scan["id"],"completed_at":scan["completed_at"],
+                    "module_count":scan["modules"].as_array().map(Vec::len),"changes":scan["changes"]}),
+                actions,
+            })
+        })
+        .collect()
+}
 const OPERATOR_WAIT: Duration = Duration::from_secs(10);
 #[cfg(test)]
 fn canonical_lock(m: &Manager) -> Result<Lock> {
@@ -310,6 +522,21 @@ fn canonical_lock(m: &Manager) -> Result<Lock> {
 fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
     snapshot_for_operation(m, None, OPERATOR_WAIT, &mut vec![], &|| {
         live_capacity(m).ok()
+    })
+}
+#[cfg(test)]
+pub(super) fn snapshot_idle_test(m: &Manager) -> Result<ui::Snapshot> {
+    snapshot_for_operation(m, None, OPERATOR_WAIT, &mut vec![], &|| {
+        serde_json::from_value(json!({
+            "schema": 1,
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 0,
+            "cleanup_unconfirmed": false,
+            "owners": [],
+            "limits": {"global_dsp": 6}
+        }))
+        .ok()
     })
 }
 fn acquire_readback(
@@ -440,7 +667,7 @@ fn snapshot_for_operation(
         products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
     }
     let catalogue = sw.catalogue(m)?;
-    let environments=catalogue.environments.iter().map(|e| -> Result<ui::Environment> { let scan=optional(&m.root.join("inventory").join(format!("{}.json",e.environment.id)))?; Ok(ui::Environment {id:e.environment.id.clone(),family:format!("{:?}",e.family),runner:e.environment.runner.id.clone(),revision:e.environment.revision,authorization:"Managed by the vendor and user; account state is not inspected".into(),last_scan:json!({"id":scan["id"],"completed_at":scan["completed_at"],"module_count":scan["modules"].as_array().map(Vec::len),"changes":scan["changes"]}),actions:vec![action("Rescan installed products",ui::Action::EnvironmentRescan{environment:e.environment.id.clone()},busy)]}) }).collect::<Result<Vec<_>>>()?;
+    let environments = environment_projection(m, &sw, &catalogue, &db, busy)?;
     let inventory_environments: Vec<Environment> = catalogue
         .environments
         .iter()
@@ -459,7 +686,7 @@ fn snapshot_for_operation(
                 scan.schema == 1 && scan.environment.id == env.id,
                 "inventory_environment_binding",
             )?;
-            for module in scan.modules {
+            for (module_index, module) in scan.modules.iter().cloned().enumerate() {
                 let stale = inventory::stale_reason(
                     &module,
                     &scan.environment,
@@ -469,30 +696,8 @@ fn snapshot_for_operation(
                     &sw.host,
                     &sw.source_sha256,
                 );
-                if let Some(reason) = &module.quarantine_reason {
-                    products.push(ui::Product {
-                        class_id: String::new(),
-                        name: module
-                            .artifact
-                            .path
-                            .file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy()
-                            .into_owned(),
-                        vendor: "Unresolved factory".into(),
-                        role: "unknown".into(),
-                        version: String::new(),
-                        disposition: if stale.is_some(){"needs_attention"}else{"quarantined"}.into(),
-                        active_revision: None,
-                        recommended_revision: None,
-                        environment: scan.environment.id.clone(),
-                        runner: scan.environment.runner.id.clone(),
-                        module_sha256: module.artifact.sha256.clone(),
-                        limitations: stale.into_iter().map(str::to_owned).chain(std::iter::once(reason.clone())).collect(),
-                        history: vec![],
-                        actions: vec![],
-                        details: json!({"scan":scan.id,"scanner_host_sha256":scan.host.sha256,"scanner_source_sha256":scan.host_source_sha256,"current":stale.is_none(),"activation_permitted":false}),
-                    });
+                if module.quarantine_reason.is_some() {
+                    products.push(quarantined_product(&scan,module_index,module,stale,busy)?);
                     continue;
                 }
                 let current = stale.is_none();
@@ -529,7 +734,7 @@ fn snapshot_for_operation(
             busy
         };
         vendor_applications.push(ui::VendorApplication {
-            details: json!({}),
+            details: json!({"environment":a.environment.id}),
             id: ASC.into(),
             name: "Arturia Software Center".into(),
             version: a.observed_installer_version,
@@ -624,6 +829,7 @@ fn snapshot_for_operation(
         "operator_state_changed_refresh",
     )?;
     drop(recheck);
+    let active_sessions=session_projection(cap.as_ref(),capacity::terminal_summaries(m)?);
     Ok(ui::Snapshot {
         onboarding,
         schema: 7,
@@ -632,11 +838,7 @@ fn snapshot_for_operation(
         environments,
         vendor_applications,
         products,
-        active_sessions: cap
-            .as_ref().into_iter().flat_map(|c|c.owners.iter())
-            .filter(|o| o.kind == capacity::Kind::Dsp)
-            .map(|o| json!({"class_id":o.class_id,"state":if cap.as_ref().is_some_and(|c|c.cleanup_unconfirmed){"cleanup_unconfirmed"}else{"active"}}))
-            .collect(),
+        active_sessions,
         capture: capture_state(m)?,
         recent_incidents: incidents,
         actions: vec![
@@ -690,7 +892,7 @@ fn project_onboarding_failure(
     }
     Ok(())
 }
-fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
+pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
     snapshot
         .actions
         .iter()
@@ -990,6 +1192,21 @@ fn execute_with_receipt_capacity(
 ) -> Result<Value> {
     execute_with_receipt_policy(m, a, operation, capacity_read, OPERATOR_WAIT, &mut vec![])
 }
+#[cfg(test)]
+pub(super) fn execute_idle_test_action(m: &Manager, a: &ui::Action) -> Result<Value> {
+    execute_with_receipt_capacity(m, a, None, &|| {
+        serde_json::from_value(json!({
+            "schema": 1,
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 0,
+            "cleanup_unconfirmed": false,
+            "owners": [],
+            "limits": {"global_dsp": 6}
+        }))
+        .ok()
+    })
+}
 // Metadata-only stamp of durable control-plane preconditions. No installer or
 // runner artifacts are traversed here; absence and exact filenames are included.
 fn creation_control_stamp(m: &Manager) -> Result<Vec<(PathBuf, onboarding::FileIdentity)>> {
@@ -1133,13 +1350,29 @@ fn execute_with_receipt_policy(
             let _environment = m.lock("operator-environment.lock")?;
             suspend(m, owner, None, timeout, waits)?;
             drop(projection.take());
-            let result = preparation_cli::execute(m, a, owner);
+            let result = preparation_cli::execute(m, a, owner, || {
+                acquire_readback(
+                    m,
+                    ui::OperatorLock::Registry,
+                    Some(owner),
+                    timeout,
+                    waits,
+                )
+            });
             let cleanup = resume_owned(m, owner);
             let value = result?;
             cleanup?;
             return Ok(value);
         }
-        return preparation_cli::execute(m, a, owner);
+        return preparation_cli::execute(m, a, owner, || {
+            acquire_readback(
+                m,
+                ui::OperatorLock::Registry,
+                Some(owner),
+                timeout,
+                waits,
+            )
+        });
     }
     match a {
         ui::Action::PluginReinspect { .. }
@@ -1444,6 +1677,18 @@ fn execute_with_receipt_policy(
             cleanup?;
             Ok(value)
         }
+        ui::Action::QuarantinedModuleRetry { environment, scan, module_index,
+            module_sha256, report_sha256 } => {
+            let _environment = m.lock("operator-environment.lock")?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            suspend(m, owner, None, timeout, waits)?;
+            let result = retry_quarantined_module(m, environment, scan, *module_index,
+                module_sha256, report_sha256);
+            let cleanup = resume_owned(m, owner);
+            let value = result?;
+            cleanup?;
+            Ok(value)
+        }
     }
 }
 #[derive(Debug, Serialize, Deserialize)]
@@ -1692,6 +1937,7 @@ fn resume_interrupted(m: &Manager) -> Result<()> {
                 | ui::Action::RendererOpen { .. }
                 | ui::Action::VendorApplicationOpen { .. }
                 | ui::Action::EnvironmentRescan { .. }
+                | ui::Action::QuarantinedModuleRetry { .. }
                 | ui::Action::PluginReinspect { .. }
                 | ui::Action::PluginInspect { .. }
                 | ui::Action::PluginPrepare { .. }
@@ -1742,25 +1988,117 @@ fn restore_service(m: &Manager, saved: &ResumeRecord) -> Result<()> {
     }
     Ok(())
 }
-fn rescan(m: &Manager, environment: &str) -> Result<Value> {
+pub(super) fn rescan(m: &Manager, environment: &str) -> Result<Value> {
     let _lock = m.lock("registry.lock")?;
     m.require_inactive(None)?;
     let sw = software(m)?;
     let c = sw.catalogue(m)?;
-    let env = c
-        .environments
-        .iter()
-        .find(|e| e.environment.id == environment)
-        .ok_or("operator_environment_absent")?
-        .environment
-        .clone();
-    drop(_lock);
-    rescan_environment(m, env)
+    let db = m.registry()?;
+    let env = managed_rescan_binding(m, &c, &db, environment)?
+        .ok_or("operator_environment_unmanaged")?;
+    require(
+        onboarding::inventory_refresh_required(
+            m,
+            &env,
+            &sw.host,
+            &sw.source_sha256,
+        )? || linux_vst_bridge::frg1::adopted_environment(m)?
+            .is_some_and(|binding| binding.environment == env)
+            && linux_vst_bridge::frg1::inventory_refresh_required(m,&env)?,
+        "managed_inventory_current",
+    )?;
+    rescan_environment_locked(m, env, sw, None)
 }
-fn rescan_environment(m: &Manager, env: Environment) -> Result<Value> {
+#[derive(Clone, Debug)]
+struct QuarantinedRetry {
+    scan: String,
+    module_index: usize,
+    module_sha256: String,
+    report_sha256: String,
+}
+fn retry_environment(m: &Manager, catalogue: &linux_vst_bridge::catalogue::Catalogue, environment: &str)
+    -> Result<Environment> {
+    let mut found:Option<Environment>=None;
+    for candidate in catalogue.environments.iter().map(|e|e.environment.clone())
+        .chain(onboarding::history_records(m)?.into_iter().map(|r|r.environment)) {
+        if candidate.id != environment { continue; }
+        if let Some(current)=&found {
+            require(current==&candidate,"operator_environment_identity_ambiguous")?;
+        } else { found=Some(candidate); }
+    }
+    found.ok_or_else(||"operator_environment_absent".into())
+}
+fn retry_quarantined_module(m: &Manager, environment: &str, scan: &str,
+    module_index: usize, module_sha256: &str, report_sha256: &str) -> Result<Value> {
     let _lock = m.lock("registry.lock")?;
     m.require_inactive(None)?;
     let sw = software(m)?;
+    let c = sw.catalogue(m)?;
+    let env=retry_environment(m,&c,environment)?;
+    drop(_lock);
+    rescan_environment_with_retry(m, env, Some(QuarantinedRetry {
+        scan: scan.into(), module_index, module_sha256: module_sha256.into(),
+        report_sha256: report_sha256.into(),
+    }))
+}
+fn rescan_environment(m: &Manager, env: Environment) -> Result<Value> {
+    rescan_environment_with_retry(m, env, None)
+}
+fn reusable_quarantine<'a>(prior: Option<&'a inventory::Scan>, env: &Environment,
+    host: &Artifact, host_source_sha256: &str, module: &Artifact)
+    -> Option<&'a inventory::Module> {
+    prior.filter(|s| s.environment == *env && s.host == *host
+        && s.host_source_sha256 == host_source_sha256)
+        .and_then(|s| s.modules.iter().find(|p|
+            p.artifact == *module && p.quarantine_reason.is_some()))
+}
+fn reusable_scan_module<'a>(prior: Option<&'a inventory::Scan>, env: &Environment,
+    host: &Artifact, host_source_sha256: &str, module: &Artifact,
+    retry_target: Option<&Artifact>) -> Result<Option<&'a inventory::Module>> {
+    if let Some(target)=retry_target {
+        if module==target { return Ok(None); }
+        return Ok(Some(prior.and_then(|scan|scan.modules.iter()
+            .find(|old|old.artifact==*module))
+            .ok_or("operator_quarantine_retry_inventory_changed")?));
+    }
+    Ok(reusable_quarantine(prior,env,host,host_source_sha256,module))
+}
+fn exact_retry_target<'a>(prior: Option<&'a inventory::Scan>, env: &Environment,
+    host: &Artifact, host_source_sha256: &str, modules: &[Artifact],
+    retry: &QuarantinedRetry) -> Result<&'a inventory::Module> {
+    require(valid_hex(&retry.scan,32) && valid_hex(&retry.module_sha256,64)
+        && valid_hex(&retry.report_sha256,64),"operator_quarantine_retry_identity")?;
+    let prior=prior.ok_or("operator_quarantine_retry_scan_absent")?;
+    require(prior.schema==1 && prior.id==retry.scan && prior.environment==*env
+        && prior.host.sha256==host.sha256
+        && prior.host_source_sha256==host_source_sha256,
+        "operator_quarantine_retry_scan_changed")?;
+    require(prior.host.verify().is_ok() && host.verify().is_ok(),
+        "operator_quarantine_retry_scan_changed")?;
+    require(prior.modules.len()==modules.len() && prior.modules.iter().zip(modules)
+        .all(|(old,current)|old.artifact==*current),
+        "operator_quarantine_retry_inventory_changed")?;
+    let selected=prior.modules.get(retry.module_index)
+        .ok_or("operator_quarantine_retry_module_absent")?;
+    require(selected.artifact.sha256==retry.module_sha256
+        && selected.report.sha256==retry.report_sha256
+        && selected.quarantine_reason.is_some(),"operator_quarantine_retry_module_changed")?;
+    selected.report.verify()?;
+    Ok(selected)
+}
+fn rescan_environment_with_retry(m: &Manager, env: Environment,
+    retry: Option<QuarantinedRetry>) -> Result<Value> {
+    let _lock = m.lock("registry.lock")?;
+    m.require_inactive(None)?;
+    let sw = software(m)?;
+    rescan_environment_locked(m, env, sw, retry)
+}
+fn rescan_environment_locked(
+    m: &Manager,
+    env: Environment,
+    sw: Software,
+    retry: Option<QuarantinedRetry>,
+) -> Result<Value> {
     let environment = env.id.clone();
     let modules = managed_cli::modules(&env)?;
     require(modules.len() <= 64, "operator_scan_module_bound")?;
@@ -1770,22 +2108,14 @@ fn rescan_environment(m: &Manager, env: Environment) -> Result<Value> {
     } else {
         None
     };
+    let retry_target=retry.as_ref().map(|retry|exact_retry_target(prior.as_ref(),&env,
+        &sw.host,&sw.source_sha256,&modules,retry).map(|module|module.artifact.clone()))
+        .transpose()?;
     let start = Instant::now();
     let mut found = Vec::new();
     for module in modules {
-        if let Some(old) = prior
-            .as_ref()
-            .filter(|s| {
-                s.environment == env
-                    && s.host == sw.host
-                    && s.host_source_sha256 == sw.source_sha256
-            })
-            .and_then(|s| {
-                s.modules
-                    .iter()
-                    .find(|p| p.artifact == module && p.quarantine_reason.is_some())
-            })
-        {
+        if let Some(old)=reusable_scan_module(prior.as_ref(),&env,&sw.host,
+            &sw.source_sha256,&module,retry_target.as_ref())? {
             found.push(old.clone());
             continue;
         }
@@ -1810,11 +2140,12 @@ fn rescan_environment(m: &Manager, env: Environment) -> Result<Value> {
             true,
             false,
         )?;
-        let mut pending =
+        let pending =
             PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
+        #[cfg(test)]
+        SCAN_SPAWN_COUNT.with(|count| count.set(count.get() + 1));
         let child = spawn(&sw, &path, None)?;
-        pending.expose();
-        vendor_product_cli::finish_scan(child, &job, pending)?;
+        vendor_product_cli::finish_scan(child, &job, &path, pending)?;
         module.verify()?;
         require(
             observation::ModuleStamp::read(&module.path)? == stamp,
@@ -1855,7 +2186,10 @@ fn rescan_environment(m: &Manager, env: Environment) -> Result<Value> {
         &scan,
     )?;
     atomic_json(&dir.join(format!("{environment}.json")), &scan)?;
-    Ok(json!({"scan":scan.id,"modules":scan.modules.len(),"activation_permitted":false}))
+    Ok(json!({"scan":scan.id,"modules":scan.modules.len(),"activation_permitted":false,
+        "retry":retry.map(|retry|json!({"prior_scan":retry.scan,
+            "module_index":retry.module_index,"module_sha256":retry.module_sha256,
+            "prior_report_sha256":retry.report_sha256}))}))
 }
 fn worker(m: &Manager, id: &str) -> Result<()> {
     worker_with_capacity(m, id, OPERATOR_WAIT, &|| live_capacity(m).ok())
@@ -2050,6 +2384,116 @@ pub(super) fn product_receipt(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn quarantined_scan(f: &test_fixture::Fixture) -> inventory::Scan {
+        inventory::Scan {schema:1,id:"aa".repeat(16),environment:f.r.environment.clone(),
+            host:f.r.host.clone(),host_source_sha256:f.r.host_source_sha256.clone(),
+            completed_at:1,changes:inventory::Changes::default(),modules:vec![inventory::Module {
+                artifact:f.r.module.clone(),classes:vec![],report:f.r.host.clone(),
+                inspection_error:Some("TimeoutError: Windows call deadline: load_library".into()),
+                quarantine_reason:Some("inventory_factory_absent_or_duplicate".into()),
+            }]}
+    }
+    #[test]
+    fn quarantine_projection_retains_scanner_cause_and_exact_retry_identity() {
+        let f=test_fixture::Fixture::new();
+        let scan=quarantined_scan(&f);
+        let product=quarantined_product(&scan,0,scan.modules[0].clone(),None,None).unwrap();
+        assert_eq!(product.limitations[0],
+            "Scanner reported: TimeoutError: Windows call deadline: load_library");
+        assert_eq!(product.limitations[1],"inventory_factory_absent_or_duplicate");
+        assert_eq!(product.details["inspection_error"],
+            "TimeoutError: Windows call deadline: load_library");
+        assert_eq!(product.actions.len(),1);
+        assert_eq!(product.actions[0].action,ui::Action::QuarantinedModuleRetry {
+            environment:scan.environment.id.clone(),scan:scan.id.clone(),module_index:0,
+            module_sha256:scan.modules[0].artifact.sha256.clone(),
+            report_sha256:scan.modules[0].report.sha256.clone(),
+        });
+    }
+    #[test]
+    fn ordinary_rescan_reuses_quarantine_but_exact_retry_rescans_only_target() {
+        let f=test_fixture::Fixture::new();
+        let mut scan=quarantined_scan(&f);
+        let other_path=f.outer.join("other.vst3");
+        fs::write(&other_path,b"other module").unwrap();
+        scan.modules.push(inventory::Module {artifact:Artifact {
+            sha256:digest(&other_path).unwrap(),path:other_path},classes:vec![],
+            report:f.r.host.clone(),inspection_error:None,quarantine_reason:None});
+        let modules=scan.modules.iter().map(|module|module.artifact.clone()).collect::<Vec<_>>();
+        assert!(reusable_scan_module(Some(&scan),&scan.environment,&scan.host,
+            &scan.host_source_sha256,&modules[0],None).unwrap().is_some());
+        let retry=QuarantinedRetry {scan:scan.id.clone(),module_index:0,
+            module_sha256:modules[0].sha256.clone(),
+            report_sha256:scan.modules[0].report.sha256.clone()};
+        let target=exact_retry_target(Some(&scan),&scan.environment,&scan.host,
+            &scan.host_source_sha256,&modules,&retry).unwrap().artifact.clone();
+        assert!(reusable_scan_module(Some(&scan),&scan.environment,&scan.host,
+            &scan.host_source_sha256,&modules[0],Some(&target)).unwrap().is_none());
+        assert_eq!(reusable_scan_module(Some(&scan),&scan.environment,&scan.host,
+            &scan.host_source_sha256,&modules[1],Some(&target)).unwrap()
+            .unwrap().artifact,modules[1]);
+        let mut changed=retry;
+        changed.report_sha256="ff".repeat(32);
+        assert!(exact_retry_target(Some(&scan),&scan.environment,&scan.host,
+            &scan.host_source_sha256,&modules,&changed).is_err());
+    }
+    #[test]
+    fn exact_retry_accepts_verified_scanner_relocation_but_rejects_changed_identity() {
+        let f=test_fixture::Fixture::new();
+        let scan=quarantined_scan(&f);
+        let modules=scan.modules.iter().map(|module|module.artifact.clone()).collect::<Vec<_>>();
+        let retry=QuarantinedRetry {scan:scan.id.clone(),module_index:0,
+            module_sha256:modules[0].sha256.clone(),
+            report_sha256:scan.modules[0].report.sha256.clone()};
+        let generation=f.outer.join("immutable-generation");
+        private_dir(&generation).unwrap();
+        let relocated_path=generation.join("host.exe");
+        fs::copy(&scan.host.path,&relocated_path).unwrap();
+        let relocated=Artifact {path:relocated_path.clone(),sha256:scan.host.sha256.clone()};
+        assert!(exact_retry_target(Some(&scan),&scan.environment,&relocated,
+            &scan.host_source_sha256,&modules,&retry).is_ok());
+
+        fs::write(&relocated_path,b"changed scanner bytes").unwrap();
+        let changed=Artifact {sha256:digest(&relocated_path).unwrap(),path:relocated_path};
+        assert!(exact_retry_target(Some(&scan),&scan.environment,&changed,
+            &scan.host_source_sha256,&modules,&retry).is_err());
+        assert!(exact_retry_target(Some(&scan),&scan.environment,&scan.host,
+            &"ff".repeat(32),&modules,&retry).is_err());
+    }
+    #[test]
+    fn retry_route_resolves_unregistered_onboarding_environment_without_promoting_it() {
+        use linux_vst_bridge::catalogue::{Catalogue,EnvironmentBinding};
+        let (f,p,_,native)=test_fixture::prepared();
+        let catalogue=Catalogue {schema:3,natives:vec![native],environments:vec![
+            EnvironmentBinding {family:p.requirements.environment_family,
+                environment:f.r.environment.clone()}],hosts:vec![]};
+        let catalogue_path=f.m.root.join("software/catalogue.json");
+        atomic_json(&catalogue_path,&catalogue).unwrap();
+        let a=f.r.host.clone();
+        let sw=Software {installer_launch:None,preparation_kit:None,manager:a.clone(),
+            operator_frontend:None,supervisor:a.clone(),ownership:a.clone(),host:a,
+            source_manifest:Artifact {path:f.r.host.path.with_file_name("host-source-manifest.json"),
+                sha256:f.r.host_source_sha256.clone()},source_sha256:f.r.host_source_sha256.clone(),
+            native_catalogue:Some(Artifact {sha256:digest(&catalogue_path).unwrap(),
+                path:catalogue_path})};
+        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
+        let mut environment=f.r.environment.clone();
+        environment.id="11".repeat(16);
+        environment.root=f.m.root.join("environments").join(&environment.id);
+        private_dir(&environment.root).unwrap();
+        atomic_json(&environment.root.join("environment.json"),&environment).unwrap();
+        let directory=onboarding::directory(&f.m,&environment.id).unwrap();
+        private_dir(&directory).unwrap();
+        atomic_json(&directory.join("record.json"),&onboarding::Record {schema:1,
+            id:environment.id.clone(),installer:"ab".repeat(32),environment:environment.clone(),
+            created_at:1,creation_operation:"cd".repeat(16),
+            installation_operation:None,published:false,previous_attempt:None}).unwrap();
+        let error=retry_quarantined_module(&f.m,&environment.id,&"ef".repeat(16),0,
+            &f.r.module.sha256,&f.r.host.sha256).unwrap_err().to_string();
+        assert_eq!(error,"operator_quarantine_retry_scan_absent");
+        assert!(!f.m.registry().unwrap().classes.values()
+            .any(|entry|entry.registration.environment.id==environment.id));
+    }
     fn view(token: &str, action: ui::AvailableAction) -> ui::Snapshot {
         ui::Snapshot {
             onboarding: vec![],
@@ -2074,6 +2518,21 @@ mod tests {
             actions: vec![action],
             operation: None,
         }
+    }
+    #[test]
+    fn retired_terminal_summary_remains_in_manager_projection() {
+        let class="01".repeat(16);
+        let rows=session_projection(None,vec![capacity::TerminalSummary{
+            schema:1,session:"ab".repeat(16),class_id:class.clone(),
+            terminal:capacity::InstanceTerminal::WindowsHostExited,
+            producer:3,status_domain:4,cleanup_confirmed:true,
+            transport_retired:true,observed_at:1,
+        }]);
+        assert_eq!(rows,vec![json!({
+            "class_id":class,"state":"failed","terminal":"windows_host_exited",
+            "recent":true,"cleanup_confirmed":true,"transport_retired":true,
+            "observed_at":1,
+        })]);
     }
     #[test]
     fn stale_foreign_candidate_busy_and_unknown_requests_cannot_dispatch() {
@@ -2181,6 +2640,13 @@ mod tests {
             ui::Action::TransactionReconcile {},
             ui::Action::EnvironmentRescan {
                 environment: f.r.environment.id.clone(),
+            },
+            ui::Action::QuarantinedModuleRetry {
+                environment: f.r.environment.id.clone(),
+                scan: "ab".repeat(16),
+                module_index: 0,
+                module_sha256: "cd".repeat(32),
+                report_sha256: "ef".repeat(32),
             },
             ui::Action::VendorApplicationOpen {
                 application: ASC.into(),
@@ -2990,6 +3456,34 @@ mod tests {
         Some(serde_json::from_value(capacity_json(false, 0, 0)["capacity"].clone()).unwrap())
     }
     #[test]
+    fn preparation_inspection_admission_waits_for_polling_registry() {
+        let f = test_fixture::Fixture::new();
+        let owner = "ab".repeat(16);
+        let mut waits = vec![];
+        let (job, _) = contended_registry(&f.m, || {
+            preparation_cli::admitted_inspection_spec(&f.m, f.r.clone().into(), || {
+                acquire_readback(
+                    &f.m,
+                    ui::OperatorLock::Registry,
+                    Some(&owner),
+                    Duration::from_secs(2),
+                    &mut waits,
+                )
+            })
+        })
+        .unwrap();
+        assert!(job.inspect && !job.first_audio);
+        assert_eq!(waits.len(), 1);
+        assert_eq!(waits[0].name, ui::OperatorLock::Registry);
+        assert_eq!(waits[0].purpose, ui::LockPurpose::OperatorValidationReadback);
+        assert_eq!(waits[0].operation.as_deref(), Some(owner.as_str()));
+        assert!(waits[0].attempts > 1 && waits[0].outcome == ui::LockOutcome::Acquired);
+        assert!(matches!(
+            f.m.try_lock("registry.lock").unwrap(),
+            linux_vst_bridge::operator_lock::LockAttempt::Acquired(_)
+        ));
+    }
+    #[test]
     fn renderer_preflight_and_suspension_wait_for_polling_then_restore_once() {
         let (f, _) = onboarding_worker_fixture();
         let action = ui::Action::RendererOpen {
@@ -3019,6 +3513,101 @@ mod tests {
         }
         assert_eq!(restores.get(), 1);
         assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    #[test]
+    fn managed_rescan_revalidates_authority_under_final_registry_custody() {
+        let (f, owner) = onboarding_worker_fixture();
+        let sw = software(&f.m).unwrap();
+        let environment = f.r.environment.id.clone();
+        let stale_snapshot = snapshot_idle_test(&f.m).unwrap();
+        let refresh: Vec<_> = available(&stale_snapshot)
+            .into_iter()
+            .filter(|available| matches!(available.action, ui::Action::EnvironmentRescan { .. }))
+            .collect();
+        assert_eq!(refresh.len(), 1);
+        assert_eq!(
+            refresh[0].action,
+            ui::Action::EnvironmentRescan {
+                environment: environment.clone()
+            }
+        );
+
+        let inventory = f.m.root.join("inventory");
+        private_dir(&inventory).unwrap();
+        let current = inventory.join(format!("{environment}.json"));
+        let history = inventory.join("history");
+        atomic_json(&current, &inventory::Scan {
+            schema: 1,
+            id: "ef".repeat(16),
+            environment: f.r.environment.clone(),
+            host: sw.host.clone(),
+            host_source_sha256: sw.source_sha256.clone(),
+            completed_at: 1,
+            changes: Default::default(),
+            modules: vec![],
+        }).unwrap();
+        assert!(available(&snapshot_idle_test(&f.m).unwrap())
+            .into_iter()
+            .all(|available| !matches!(
+                available.action,
+                ui::Action::InstallerScan { .. } | ui::Action::EnvironmentRescan { .. }
+            )));
+        fs::remove_file(&current).unwrap();
+        assert!(!history.exists());
+        let publications = test_fixture::snapshot(&f.m.publications);
+
+        let stops = std::cell::Cell::new(0);
+        let mut waits = vec![];
+        suspend_with(
+            &f.m,
+            &owner,
+            None,
+            Duration::from_secs(2),
+            &mut waits,
+            (
+                || true,
+                || {
+                    stops.set(stops.get() + 1);
+                    Ok(())
+                },
+            ),
+        )
+        .unwrap();
+        assert_eq!(stops.get(), 1);
+
+        // This is the competing exact registry update after initial action
+        // validation and suspension, but before the scan owns registry.lock.
+        let registry_path = f.m.root.join("registry.json");
+        let mut changed = f.m.registry().unwrap();
+        changed
+            .classes
+            .values_mut()
+            .find(|entry| entry.registration.environment.id == environment)
+            .unwrap()
+            .registration
+            .environment
+            .revision += 1;
+        atomic_json(&registry_path, &changed).unwrap();
+        let changed_registry = fs::read(&registry_path).unwrap();
+
+        SCAN_SPAWN_COUNT.with(|count| count.set(0));
+        let error = rescan(&f.m, &environment).unwrap_err().to_string();
+        assert_eq!(error, "operator_managed_environment_mismatch");
+        assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get), 0);
+
+        let restores = std::cell::Cell::new(0);
+        resume_owned_with(&f.m, &owner, |saved| {
+            assert!(saved.resume);
+            restores.set(restores.get() + 1);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(restores.get(), 1);
+        assert!(!f.m.root.join("operator/resume.json").exists());
+        assert_eq!(fs::read(&registry_path).unwrap(), changed_registry);
+        assert_eq!(test_fixture::snapshot(&f.m.publications), publications);
+        assert!(!current.exists());
+        assert!(!history.exists());
     }
     #[test]
     fn native_access_restoration_requires_idle_bridge_two_keepers_and_no_resume_owner() {

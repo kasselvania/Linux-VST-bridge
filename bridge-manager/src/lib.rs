@@ -2,6 +2,7 @@
 pub mod preparation;
 pub mod acceptance;
 pub mod capacity;
+pub mod transport_storage;
 pub mod catalogue;
 pub mod crash_capture;
 #[cfg(test)]
@@ -11,6 +12,7 @@ pub mod operator_model;
 pub mod installer_policy;
 pub mod operator_lock;
 pub mod inventory;
+pub mod frg1;
 pub mod profiles;
 pub mod pigments;
 pub mod publication;
@@ -131,12 +133,20 @@ impl Artifact {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+pub enum RunnerPolicy {
+    #[serde(rename = "dcomp_wine_builtins_reference_v1")]
+    DcompWineBuiltinsReferenceV1,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct Runner {
     pub id: String,
     pub version: String,
     pub proton: PathBuf,
     pub entry_point: PathBuf,
     pub files: Vec<Artifact>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy: Option<RunnerPolicy>,
 }
 impl Runner {
     pub fn verify(&self) -> Result<()> {
@@ -212,6 +222,8 @@ pub struct Compatibility {
     pub editor_lifetime: Option<profiles::EditorLifetime>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_output: Option<profiles::EventOutputPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_layout: Option<profiles::AudioLayoutPolicy>,
     pub disable_windows_accessibility: bool,
 }
 /// Installed performance preference, independently versioned from vendor state

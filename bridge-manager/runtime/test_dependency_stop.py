@@ -113,9 +113,10 @@ class StopReporting(unittest.TestCase):
    owner.service_generation=(123,456)
    frame=self.characterized()
    class Runtime:
-    ready=True;closed=False;SERVICE_SHA=s.Nad1Runtime.SERVICE_SHA
+    ready=True;closed=False
     def argv(self,*_):return [sys.executable,'-c',f'import os;os.write(2,b"LOGIN_SECRET");os.write(1,{frame!r});raise SystemExit(149)']
     def drain(self):pass
+    def value(self):return {'topology':'fixture','ready':self.ready,'retirement_requested':self.closed,'tool_sha256':{}}
    owner.runtime=Runtime()
    with patch.object(s,'environment',return_value={}):
     with self.assertRaisesRegex(ValueError,'dependency_command_nonzero'):owner.command('stop')
@@ -141,9 +142,10 @@ class StopReporting(unittest.TestCase):
     generation='0 0' if mutation=='inactive' else '124 456' if mutation=='generation' else '123 456'
     frames=self.frame(confirmed=1,initial_state=1,final_state=1,process_wait=0,endpoint_mask=0,control_sent=0,control_started_ms=0,control_elapsed_ms=0)+witness.encode()+f'NAD1_RETIRE_V1 {op} {token} 1 {generation} 0\nNAD1_SCM_V1 {op} {token} exact 0 1 0 0 none 0 0 0\n'.encode()
     class Runtime:
-     ready=True;closed=False;SERVICE_SHA=s.Nad1Runtime.SERVICE_SHA
+     ready=True;closed=False
      def argv(self,*_):return [sys.executable,'-c',f'import os;os.write(1,{frames!r})']
      def drain(self):pass
+     def value(self):return {'topology':'fixture','ready':self.ready,'retirement_requested':self.closed,'tool_sha256':{}}
     owner.runtime=Runtime()
     with patch.object(s,'environment',return_value={}):
      if mutation in ('none','inactive'):

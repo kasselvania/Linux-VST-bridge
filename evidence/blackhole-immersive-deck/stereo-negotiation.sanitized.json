@@ -1,0 +1,666 @@
+{
+  "schema": 1,
+  "kind": "blackhole_stereo_negotiation",
+  "host_sha256": "ea9bc72e358a387e269782c7d1a9ae056232312145936c0c29bffc97ab9ca81e",
+  "host_source_sha256": "ef18e3f67591aa478937a5919b5cd2640c6a5cd3e6573a35aa4bfb8ece6607f0",
+  "module_sha256": "b8a33c57b04eded38d0ca717bb5e3721330439f4931c401ea70e5246b516e90b",
+  "elapsed_seconds": 7.812,
+  "error": null,
+  "records": [
+    {
+      "event": "lifecycle",
+      "state": "scanner_started"
+    },
+    {
+      "event": "lifecycle",
+      "state": "readiness_announced"
+    },
+    {
+      "event": "lifecycle",
+      "state": "supervisor_gate_accepted"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap11_ui_apartment"
+    },
+    {
+      "event": "lifecycle",
+      "state": "module_open_started"
+    },
+    {
+      "event": "call_started",
+      "operation": "load_library"
+    },
+    {
+      "event": "call_completed",
+      "operation": "load_library"
+    },
+    {
+      "event": "lifecycle",
+      "state": "module_opened"
+    },
+    {
+      "event": "call_started",
+      "operation": "init_dll"
+    },
+    {
+      "event": "call_completed",
+      "operation": "init_dll"
+    },
+    {
+      "event": "lifecycle",
+      "state": "module_entry_succeeded"
+    },
+    {
+      "event": "lifecycle",
+      "state": "factory_export_found"
+    },
+    {
+      "event": "lifecycle",
+      "state": "factory_get_started"
+    },
+    {
+      "event": "call_started",
+      "operation": "get_plugin_factory"
+    },
+    {
+      "event": "call_completed",
+      "operation": "get_plugin_factory"
+    },
+    {
+      "event": "lifecycle",
+      "state": "factory_obtained"
+    },
+    {
+      "event": "call_started",
+      "operation": "get_factory_info"
+    },
+    {
+      "event": "call_completed",
+      "operation": "get_factory_info"
+    },
+    {
+      "event": "lifecycle",
+      "state": "factory_info_obtained"
+    },
+    {
+      "event": "call_started",
+      "operation": "query_factory_2"
+    },
+    {
+      "event": "call_completed",
+      "operation": "query_factory_2"
+    },
+    {
+      "event": "call_started",
+      "operation": "query_factory_3"
+    },
+    {
+      "event": "call_completed",
+      "operation": "query_factory_3"
+    },
+    {
+      "event": "lifecycle",
+      "state": "factory_interface_versions_recorded"
+    },
+    {
+      "event": "call_started",
+      "operation": "count_classes"
+    },
+    {
+      "event": "call_completed",
+      "operation": "count_classes"
+    },
+    {
+      "event": "lifecycle",
+      "state": "class_count_obtained"
+    },
+    {
+      "event": "lifecycle",
+      "state": "class_enumeration_in_progress"
+    },
+    {
+      "event": "call_started",
+      "operation": "get_class_info_unicode"
+    },
+    {
+      "event": "call_completed",
+      "operation": "get_class_info_unicode"
+    },
+    {
+      "event": "call_started",
+      "operation": "get_class_info_unicode"
+    },
+    {
+      "event": "call_completed",
+      "operation": "get_class_info_unicode"
+    },
+    {
+      "event": "call_started",
+      "operation": "get_class_info_unicode"
+    },
+    {
+      "event": "call_completed",
+      "operation": "get_class_info_unicode"
+    },
+    {
+      "event": "lifecycle",
+      "state": "class_enumeration_complete"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_factory"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "setHostContext"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "setHostContext",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "getClassInfo",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "getClassInfo",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "getClassInfo",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap11_class",
+      "class_id": "5653544248496D626C61636B686F6C65",
+      "name": "Blackhole Immersive"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "getFactoryInfo",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "getClassInfoUnicode",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap12_class",
+      "class_id": "5653544248496D626C61636B686F6C65",
+      "name": "Blackhole Immersive"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "createComponent"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "createComponent",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "initializeComponent"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "initializeComponent",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "queryAudioProcessor"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "queryAudioProcessor",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "queryEditController"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "queryEditController",
+      "result": 1
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_controller_query",
+      "result": 1,
+      "pointer_present": false
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "getControllerClassId"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "getControllerClassId",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_controller_association",
+      "combined": false,
+      "class_id": "5653454248496D626C61636B686F6C65"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "createController"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "createController",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "initializeController"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "initializeController",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "setComponentHandler"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "setComponentHandler",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "connectComponent"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "connectComponent",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "connectController"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "connectController",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "getBusCount"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "getBusInfo",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "getBusArrangement",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_bus",
+      "media": 0,
+      "direction": 0,
+      "index": 0,
+      "channels": 16,
+      "type": 0,
+      "flags": 1,
+      "arrangement": 1729382256960788031,
+      "name": "Input"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "getBusCount"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "getBusInfo",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "getBusArrangement",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_bus",
+      "media": 0,
+      "direction": 1,
+      "index": 0,
+      "channels": 16,
+      "type": 0,
+      "flags": 1,
+      "arrangement": 1729382256960788031,
+      "name": "Output"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "getBusCount"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "getBusCount"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap18_stereo_bus_snapshot",
+      "stage": "before",
+      "input_count": 1,
+      "output_count": 1,
+      "buses": [
+        {
+          "direction": 0,
+          "index": 0,
+          "info_result": 0,
+          "arrangement_result": 0,
+          "arrangement": 1729382256960788031,
+          "media": 0,
+          "channels": 16,
+          "type": 0,
+          "flags": 1,
+          "name": "Input"
+        },
+        {
+          "direction": 1,
+          "index": 0,
+          "info_result": 0,
+          "arrangement_result": 0,
+          "arrangement": 1729382256960788031,
+          "media": 0,
+          "channels": 16,
+          "type": 0,
+          "flags": 1,
+          "name": "Output"
+        }
+      ]
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "stereoSetBusArrangements"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap18_stereo_bus_snapshot",
+      "stage": "after",
+      "input_count": 1,
+      "output_count": 1,
+      "buses": [
+        {
+          "direction": 0,
+          "index": 0,
+          "info_result": 0,
+          "arrangement_result": 0,
+          "arrangement": 3,
+          "media": 0,
+          "channels": 2,
+          "type": 0,
+          "flags": 1,
+          "name": "Input"
+        },
+        {
+          "direction": 1,
+          "index": 0,
+          "info_result": 0,
+          "arrangement_result": 0,
+          "arrangement": 3,
+          "media": 0,
+          "channels": 2,
+          "type": 0,
+          "flags": 1,
+          "name": "Output"
+        }
+      ]
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap18_stereo_request",
+      "result": 0,
+      "input_count": 1,
+      "output_count": 1,
+      "input_arrangement": 3,
+      "output_arrangement": 3,
+      "readback_stereo": true,
+      "accepted": true,
+      "layout_changed": true
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "stereoRestoreBusArrangements"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap18_stereo_bus_snapshot",
+      "stage": "restored",
+      "input_count": 1,
+      "output_count": 1,
+      "buses": [
+        {
+          "direction": 0,
+          "index": 0,
+          "info_result": 0,
+          "arrangement_result": 0,
+          "arrangement": 1729382256960788031,
+          "media": 0,
+          "channels": 16,
+          "type": 0,
+          "flags": 1,
+          "name": "Input"
+        },
+        {
+          "direction": 1,
+          "index": 0,
+          "info_result": 0,
+          "arrangement_result": 0,
+          "arrangement": 1729382256960788031,
+          "media": 0,
+          "channels": 16,
+          "type": 0,
+          "flags": 1,
+          "name": "Output"
+        }
+      ]
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap18_stereo_restore",
+      "result": 0,
+      "attempted": true,
+      "verified": true
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "disconnectController"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "disconnectController",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "disconnectComponent"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "disconnectComponent",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "clearComponentHandler"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "clearComponentHandler",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "terminateController"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "terminateController",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_call",
+      "operation": "terminateComponent"
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_result",
+      "operation": "terminateComponent",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "state": "ap8_inspection_closed",
+      "exit_code": 0
+    },
+    {
+      "event": "call_started",
+      "operation": "release_factory_3"
+    },
+    {
+      "event": "call_completed",
+      "operation": "release_factory_3"
+    },
+    {
+      "event": "call_started",
+      "operation": "release_factory_2"
+    },
+    {
+      "event": "call_completed",
+      "operation": "release_factory_2"
+    },
+    {
+      "event": "call_started",
+      "operation": "release_factory_base"
+    },
+    {
+      "event": "call_completed",
+      "operation": "release_factory_base"
+    },
+    {
+      "event": "call_started",
+      "operation": "exit_dll"
+    },
+    {
+      "event": "call_completed",
+      "operation": "exit_dll"
+    },
+    {
+      "event": "lifecycle",
+      "state": "module_exit_succeeded"
+    },
+    {
+      "event": "call_started",
+      "operation": "free_library"
+    },
+    {
+      "event": "call_completed",
+      "operation": "free_library"
+    },
+    {
+      "event": "lifecycle",
+      "state": "module_unloaded"
+    },
+    {
+      "event": "lifecycle",
+      "state": "scanner_completed"
+    }
+  ],
+  "cleanup_confirmed": true,
+  "transport_retired": true,
+  "raw_launcher_exit": -15,
+  "canonical_and_proxy_file_count": 55,
+  "canonical_and_proxy_files_preserved": true,
+  "prefix_identity_preserved": true,
+  "installed_software_changed": false,
+  "publication_performed": false,
+  "audio_qualification_performed": false,
+  "build": {
+    "schema": "linux-vst-bridge-blackhole-stereo-host-source/v1",
+    "head_commit": "b984c779b198af8ffaa4e16b01fe4db62a8986db",
+    "build_commit": "cc78a76f2fd98c46d825870a34e3a6bd6b69d01b",
+    "tree": "0f9117ef11720ec75e3662e1986057f5ce99a887",
+    "ci_run": 35465789210,
+    "artifact_id": 10590834027,
+    "artifact_zip_sha256": "bfd0a9853fe45f4a75287034d42a0bb5d356d91f9846983f01fab86cfe9caaa2",
+    "host_sha256": "ea9bc72e358a387e269782c7d1a9ae056232312145936c0c29bffc97ab9ca81e",
+    "sdk_commit": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "sdk_lock": "cmake/WF0DependencyLock.cmake",
+    "toolchain": {
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "toolset": "v143",
+      "windows_sdk": "10.0.19041.0"
+    },
+    "source_manifest_sha256": "ef18e3f67591aa478937a5919b5cd2640c6a5cd3e6573a35aa4bfb8ece6607f0"
+  }
+}

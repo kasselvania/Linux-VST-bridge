@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "kind": "post_test_abandoned_serum_launch_recovery",
+  "trigger": {
+    "operator_report": "Desktop manager remained blocked after closing and reopening its window; operator had switched to Gaming Mode",
+    "gaming_mode_causation": "unverified",
+    "observed_environment_keepers_exited": 4,
+    "keeper_reports_cleanup_confirmed": true,
+    "later_failed_launch_product": "Serum 2",
+    "service_error": "environment owner exited; restart service after closing devices",
+    "code_boundary": "Native binding and lease exposed before ensure_keeper; keeper failure occurs before Windows session supervisor spawn",
+    "failed_launch_report_and_retirement_receipt": "absent",
+    "service_cleanup_block": true
+  },
+  "scope_separation": {
+    "previous_tested_blackhole_cleanup_confirmed": true,
+    "previous_tested_blackhole_transport_retired": true,
+    "bounded_audio_recorder_unit": "inactive, not found, no cgroup at follow-up",
+    "audio_capture_result_analyzed": false
+  },
+  "recovery": {
+    "bitwig_and_wine_processes_absent": true,
+    "service_cgroup_only_daemon_before_stop": true,
+    "service_stopped_before_quarantine": true,
+    "service_canonical_registry_locks_held": true,
+    "exact_session_owner_and_transport_identity_checked": true,
+    "abandoned_lease_and_six_transport_files_preserved_privately": true,
+    "successful_plugin_lifecycle_receipt_fabricated": false,
+    "action": "Quarantine the one abandoned Serum launch lease and transport; restart bridge and let normal reconciliation retire the four confirmed keeper records",
+    "installation_runtime_registry_project_changes": false,
+    "first_capacity_read": "nonzero immediately after service start",
+    "subsequent_capacity_read": "successful"
+  },
+  "after": {
+    "service": "active",
+    "cleanup_unconfirmed": false,
+    "dsp": 0,
+    "keepers": 0,
+    "maintenance": 0,
+    "leases": 0,
+    "available_global_dsp": 6
+  },
+  "remaining_work": [
+    "Correct launch ordering and recovery for keeper loss before Windows supervisor start",
+    "Investigate why keepers exited; desktop-to-Gaming-Mode transition is a hypothesis",
+    "User requested future panic control to stop bridge instances, verify cleanup, and restart service and manager"
+  ],
+  "nonclaims": [
+    "No new plugin launch or audio test",
+    "Manual service recovery is not a shipped automatic recovery fix",
+    "Future panic control is not implemented"
+  ]
+}

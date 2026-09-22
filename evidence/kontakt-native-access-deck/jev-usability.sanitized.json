@@ -1,0 +1,67 @@
+{
+  "claim": "Bounded Jev control and process survival; Kontakt editor task incomplete",
+  "jev_model": "jev-latest",
+  "baseline_harness_commit": "f658435f55b295236a7041f509a7e1b4367af495",
+  "codex_gui_actions": 0,
+  "attempts": [
+    {
+      "attempt": 1,
+      "decisions": 2,
+      "seconds": 8.1,
+      "outcome": "low confidence",
+      "history": [
+        "clicked 'W Kontakt 8'"
+      ],
+      "streamed_text": false,
+      "mean_model_seconds": 0.305
+    },
+    {
+      "attempt": 2,
+      "decisions": 2,
+      "seconds": 8.4,
+      "outcome": "stalled",
+      "history": [
+        "action refused: selected control changed; observe again",
+        "action refused: selected control changed; observe again"
+      ],
+      "streamed_text": false,
+      "mean_model_seconds": 0.222
+    },
+    {
+      "attempt": 3,
+      "decisions": 3,
+      "seconds": 13.7,
+      "outcome": "low confidence",
+      "history": [
+        "clicked 'KONTAKT 8'",
+        "clicked 'DEVICE'"
+      ],
+      "streamed_text": true,
+      "mean_model_seconds": 0.341
+    }
+  ],
+  "total_decisions": 7,
+  "recorded_frame_check": [
+    {
+      "text": "KONTAKT 8",
+      "confidence": 0.5,
+      "pixels_identical": false,
+      "label_revalidated": true
+    },
+    {
+      "text": "KONTAKT 8",
+      "confidence": 0.5,
+      "pixels_identical": false,
+      "label_revalidated": true
+    }
+  ],
+  "remote_process_check": {
+    "same_bitwig_application": true,
+    "same_audio_engine": true,
+    "same_plugin_host": true,
+    "before_epoch": 1789826169.9485428,
+    "after_epoch": 1789826734.651058,
+    "new_windows_terminal_report": false,
+    "limitation": "No Kontakt editor interaction or new audio verification completed."
+  }
+}

@@ -43,7 +43,16 @@ class ReportingTests(unittest.TestCase):
             self.observer.feed(bytes([byte]))
         self.assertEqual(self.stage['installer_result']['installer_exit'], 100)
         self.assertEqual(self.observer.failure(), 'dependency_installer_nonzero')
-        self.assertNotIn('123', json.dumps(self.stage))
+        def fields(value):
+            if isinstance(value, dict):
+                return set(value).union(*(fields(item) for item in value.values()))
+            if isinstance(value, list):
+                return set().union(*(fields(item) for item in value))
+            return set()
+        private = {'frame', 'pid', 'start_ticks', 'linux_pid', 'windows_pid',
+                   'windows_creation_time', 'adapter_windows_pid',
+                   'adapter_windows_creation_time'}
+        self.assertTrue(private.isdisjoint(fields(self.stage)))
         self.assertNotIn(self.owner.token, json.dumps(self.stage))
 
     def test_exit_without_root_or_changed_identity_refuses(self):

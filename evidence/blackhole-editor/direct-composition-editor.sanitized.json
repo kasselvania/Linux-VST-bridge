@@ -1,0 +1,112 @@
+{
+  "schema": 1,
+  "kind": "blackhole_direct_composition_standalone_editor_reference",
+  "fixture": {
+    "product": "Blackhole Immersive",
+    "version": "1.4.4",
+    "module_sha256": "b8a33c57b04eded38d0ca717bb5e3721330439f4931c401ea70e5246b516e90b",
+    "windows_host_sha256": "5fa0907b045df5ccb993a135fccffe932b365182bec7fa16c1a48a126b1869c2",
+    "mode": "unpublished_candidate_vendor_access_no_daw_audio",
+    "candidate_runner": "proton-11.0-2c-dcomp-c27f058-reference",
+    "candidate_tree_sha256": "5fde7d74c099818ea79cce78f329421425baecde5ed12da2ee427d7f4a0de1db",
+    "candidate_manifest_sha256": "31a5a36e9d37dfc86972270ac6ec5630f9bb1aa1fd1e38a965869f7b3515f997",
+    "launcher_sha256": "5ad05a741907933ad4551edcad992067a4c5ab8abdaa45270b9015e825a6713f",
+    "input_operator": "Luna 5.6 Max via Moonlight",
+    "parent_input_injection": false
+  },
+  "corrected_live_transition": {
+    "normal_initialization_exit": 0,
+    "policy": "PROTON_DLL_COPY=*",
+    "candidate_tree_unchanged": true,
+    "exact_candidate_graphics_files": 10,
+    "prefix_identity_preserved": true,
+    "canonical_protected_files_unchanged": true,
+    "windows_profile_convention_preserved": true,
+    "prefix_scoped_server_exits": [1, 0],
+    "cleanup_basis": "successful prefix-specific wineserver wait and subsequently retired exact systemd unit"
+  },
+  "local_surface": {
+    "width": 874,
+    "height": 552,
+    "stride": 3496,
+    "capture_backend": "direct_drawable",
+    "owned_process_and_window_revalidated": true,
+    "foreground_and_x11_occlusion_checks_passed": true,
+    "before_sha256": "7873aeb8a4e5ff77f26d804144d91b05f7fe43f92341acb7341a295adc39934f",
+    "after_bypass_on_sha256": "883627b1d712501b74ef05532ace1f80a0628a32978c33226ae48036d9226161",
+    "reopened_bypass_off_sha256": "7873aeb8a4e5ff77f26d804144d91b05f7fe43f92341acb7341a295adc39934f",
+    "before_distinct_sampled_rgb": 162,
+    "before_near_white_sample_percent": 0.0,
+    "exact_changed_rgb_pixels_after_bypass": 1830,
+    "changed_bounds": [14, 527, 849, 546],
+    "semantic_observation": "Recognizable Eventide Blackhole controls, readable parameter values, equalizer graph and Bypass; Bypass changed to red and returned to its original dark state",
+    "vendor_authorization_or_error_dialog_observed": false,
+    "private_images_remain_on_fixture": true
+  },
+  "mapped_graphics_sha256": {
+    "dcomp.dll": "b35ebb711230e427907be6095eb418c7345d20929c39ae99466fa5a123e032a3",
+    "d3d11.dll": "2b3a1f2c4ad36f5c55519ce54c39fe6cbdce8a1c76af296e34ac2c52ba398559",
+    "wined3d.dll": "138e9d256754791f6c5d1ff51aa60ff7590bb0ab943bb3fd4b188921555540d3",
+    "dxgi.dll": "b3a9316695ef04e00a460957f479b015d62ad96de5fd32b110f5dd825264515f",
+    "d2d1.dll": "902afffb3a6cb5e4de660f2f7da9f19341c7b05e42f2213beac5933140454f6b",
+    "winex11.drv": "8d45ec3da94fae94275f90d5b1777b8f39962de3728eb82a7464ba912302441f"
+  },
+  "composition_observations": {
+    "composition_backing_window_created": true,
+    "composition_target_created_for_host_window": true,
+    "visual_content_and_root_connected": true,
+    "device_commit_observed": true,
+    "d3d11_swapchain_present1_entries_in_retained_control_run": 4,
+    "scope": "bounded truncated API trace; entry records do not independently establish returned HRESULTs"
+  },
+  "runs": [
+    {
+      "purpose": "initial foreground discovery",
+      "editor_rendering_seen_by_luna": true,
+      "failure": "candidate_deadline",
+      "normal_close_credited": false,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "retained_trace_bytes": 16777216,
+      "discarded_trace_bytes": 16529722
+    },
+    {
+      "purpose": "local capture, reversible control response and ordinary close",
+      "normal_close_credited": true,
+      "vendor_access_closed": true,
+      "module_exit_succeeded": true,
+      "module_unloaded": true,
+      "scanner_completed": true,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "failure": null,
+      "retained_trace_bytes": 16777216,
+      "discarded_trace_bytes": 13850942
+    },
+    {
+      "purpose": "reopen after ordinary close and close again",
+      "local_frame_matches_original": true,
+      "normal_close_credited": true,
+      "vendor_access_closed": true,
+      "module_exit_succeeded": true,
+      "module_unloaded": true,
+      "scanner_completed": true,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "failure": null,
+      "retained_trace_bytes": 16777216,
+      "discarded_trace_bytes": 4901716
+    }
+  ],
+  "outer_process_retirement": {
+    "raw_supervisor_child_exit_each_run": -15,
+    "interpretation": "Retained outer launcher termination is separate from the SDK completion records; the supervisor cleans remaining owned processes after scanner_completed. Only the two operator-closed runs receive ordinary editor-close credit."
+  },
+  "nonclaims": [
+    "Standalone vendor access has no DAW audio instance",
+    "Close and reopen while the same processing instance remains active is not yet tested",
+    "Candidate Bitwig stereo processing, project state recall and timing are not established",
+    "The reference runtime is not a maintained or universally qualified product runtime",
+    "The approximate WaitForVBlank implementation does not establish display-synchronized timing"
+  ]
+}

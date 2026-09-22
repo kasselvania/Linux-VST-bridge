@@ -1,7 +1,9 @@
 import array
+import json
 import pathlib
 import struct
 import sys
+import tempfile
 import unittest
 sys.path.insert(0,str(pathlib.Path(__file__).parent))
 from x11 import normalized,summaries,X11
@@ -79,6 +81,137 @@ class Tests(unittest.TestCase):
         self.assertEqual(meta['region_hashes'],b['region_hashes']);self.assertNotEqual(meta['sha256'],b['sha256'])
         c,_=summaries(a.tobytes(),16,16,64,new);self.assertEqual(c['changed_sample_percent'],0)
         with self.assertRaises(ValueError):summaries(b'',16,16,64)
+    def test_renderer_metrics_distinguish_local_white_and_zero_child_geometry(self):
+        from renderer_observe import frame_metrics,graph_metrics,record_metrics
+        from types import SimpleNamespace
+        white=(bytes((255,255,255,0))*64)
+        metrics=frame_metrics(dict(width=8,height=8,stride=32),white)
+        self.assertEqual(metrics['near_white_percent'],100)
+        self.assertEqual(metrics['distinct_sampled_rgb'],1)
+        editor=SimpleNamespace(hwnd=10)
+        graph={'windows':[
+            dict(hwnd=10,root=10,visible=1,enabled=1,minimized=0,dpi=96,style=1,exstyle=2,rect=[0,0,100,100],client=[0,0,100,100]),
+            dict(hwnd=11,root=10,visible=1,enabled=1,minimized=0,dpi=96,style=3,exstyle=4,rect=[0,0,0,0],client=[0,0,0,0]) ]}
+        gm=graph_metrics(graph,editor);self.assertEqual(gm['child_count'],1);self.assertEqual(gm['zero_client_children'],1)
+        rm=record_metrics([dict(source=4,message=0,result=100),dict(source=1,message=15,result=0)],1000)
+        self.assertEqual(rm['heartbeat_records'],1);self.assertEqual(rm['wm_paint_records'],1)
+        self.assertIn('does not establish',rm['interpretation'])
+    def test_renderer_module_names_are_bounded_and_normalized(self):
+        from capture import renderer
+        from unittest.mock import patch
+        rows='\n'.join(['/usr/lib/wine/x86_64-unix/winex11.drv.so','/usr/lib/winewayland.drv.so (deleted)','/usr/lib/libGL.so.1.7.0',
+            '/usr/lib/libEGL.so.1','/private/account/vendor-secret.dll'])
+        with patch('capture.pathlib.Path') as path:
+            path.return_value.read_text.return_value=rows
+            self.assertEqual(renderer(123),['libEGL.so','libGL.so','winewayland.drv','winex11.drv'])
+
+    def test_graphics_trace_admission_and_private_capacity_are_closed(self):
+        import renderer_graphics as g
+        registration={'metadata':{'class_id':g.CLASS},'environment':{'id':g.ENVIRONMENT},
+            'module':{'sha256':g.MODULE},'host':{'sha256':g.HOST},'host_source_sha256':g.SOURCE}
+        admission={'schema':1,'profile_fingerprint':g.PROFILE,'registration':registration,
+            'accessibility_probe_permitted':True,'maximum_seconds':30,'maximum_records':16384}
+        self.assertIs(g.validate_admission(admission),registration)
+        for path,value in [('profile_fingerprint','0'*64),('maximum_seconds',31)]:
+            changed=json.loads(json.dumps(admission));changed[path]=value
+            with self.assertRaisesRegex(RuntimeError,'admission'):g.validate_admission(changed)
+        changed=json.loads(json.dumps(admission));changed['registration']['host']['sha256']='0'*64
+        with self.assertRaisesRegex(RuntimeError,'admission changed'):g.validate_admission(changed)
+        with tempfile.TemporaryDirectory() as d:
+            capture=g.Capture(pathlib.Path(d)/'trace',5);capture.attach(7)
+            capture.consume(8,b'foreign');capture.consume(7,b'abcdefg');capture.close()
+            self.assertEqual((pathlib.Path(d)/'trace').read_bytes(),b'abcde')
+            self.assertEqual((capture.retained,capture.discarded),(5,2))
+    def test_graphics_candidate_binds_complete_tree_and_exact_runner(self):
+        import renderer_graphics as g
+        with tempfile.TemporaryDirectory() as directory:
+            base=pathlib.Path(directory).resolve();root=base/'candidate';root.mkdir(mode=0o700)
+            entry=base/'entry';entry.write_bytes(b'entry')
+            prior=base/'prior-proton';prior.write_bytes(b'proton')
+            proton=root/'proton';proton.write_bytes(b'proton')
+            graphics={}
+            for name in sorted(g.GRAPHICS):
+                path=root/'files/lib/wine'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(name.encode())
+                graphics[name]=g.artifact(path)
+            original={'id':'installed','version':'11','proton':str(prior),'entry_point':str(entry),
+                'files':[g.artifact(prior),g.artifact(entry)]}
+            runner={'id':g.CANDIDATE_ID,'version':g.CANDIDATE_VERSION,'proton':str(proton),
+                'entry_point':str(entry),'files':[g.artifact(entry),g.artifact(proton),*graphics.values()]}
+            value={'schema':1,'kind':'blackhole_dcomp_reference_runner',
+                'source':{'proton_distribution_source_commit':g.PROTON_SOURCE,'wine_commit':g.WINE_SOURCE,
+                    'wine_tree':g.WINE_TREE,'wine_configure':['--enable-archs=i386,x86_64'],
+                    'wine_inf_sha256':''},
+                'build_recipe':{},
+                'base_runner_sha256':g.canonical_digest(original),'root':str(root),
+                'tree':g.tree_identity(root),'runner':runner,'graphics':graphics,'dll_overrides':g.DLL_POLICY}
+            wine_inf=root/'files/share/wine/wine.inf';wine_inf.parent.mkdir(parents=True,exist_ok=True);wine_inf.write_bytes(b'policy')
+            recipe=base/'recipe.json';recipe.write_bytes(b'{}')
+            value['tree']=g.tree_identity(root);value['source']['wine_inf_sha256']=g.digest(wine_inf)
+            value['build_recipe']=g.artifact(recipe)
+            manifest=base/'candidate.json';manifest.write_text(json.dumps(value))
+            registration={'environment':{'runner':original}}
+            selected,sha,observed=g.candidate_registration(manifest,registration)
+            self.assertEqual(selected['environment']['runner'],runner)
+            self.assertEqual(sha,g.digest(manifest))
+            self.assertEqual(registration['environment']['runner'],original)
+            (root/'proton').write_bytes(b'changed')
+            with self.assertRaisesRegex(RuntimeError,'tree changed'):g.candidate_registration(manifest,registration)
+            (root/'proton').write_bytes(b'proton')
+            outside=base/'outside';outside.write_bytes(b'outside');(root/'escape').symlink_to(outside)
+            with self.assertRaisesRegex(RuntimeError,'link escapes'):g.tree_identity(root)
+    def test_graphics_candidate_override_is_process_local_and_nonconflicting(self):
+        import renderer_graphics as g
+        before={'WINEDLLOVERRIDES':'uiautomationcore=','OTHER':'kept'}
+        selected=g.graphics_environment(before)
+        self.assertEqual(selected['WINEDLLOVERRIDES'],'uiautomationcore=;'+g.DLL_POLICY)
+        self.assertEqual(selected['PROTON_USE_WINED3D'],'1')
+        self.assertEqual(selected['PROTON_DISABLE_NVAPI'],'1')
+        self.assertEqual(selected['PROTON_DLL_COPY'],'*')
+        self.assertEqual(selected['OTHER'],'kept');self.assertEqual(before['WINEDLLOVERRIDES'],'uiautomationcore=')
+        with self.assertRaisesRegex(RuntimeError,'override conflict'):
+            g.graphics_environment({'WINEDLLOVERRIDES':'other=n;dxgi,d3d11=n'})
+    def test_graphics_candidate_requires_exact_prefix_links(self):
+        import renderer_graphics as g
+        with tempfile.TemporaryDirectory() as directory:
+            base=pathlib.Path(directory).resolve();root=base/'candidate';envroot=base/'environment'
+            graphics={}
+            for name in sorted(g.GRAPHICS):
+                source=root/'files/lib/wine'/name;source.parent.mkdir(parents=True,exist_ok=True)
+                source.write_bytes(name.encode());graphics[name]=g.artifact(source)
+            for windows,arch in (('system32','x86_64-windows'),('syswow64','i386-windows')):
+                target=envroot/'compatdata/pfx/drive_c/windows'/windows;target.mkdir(parents=True)
+                for name in ('d2d1','d3d11','dcomp','dxgi','wined3d'):
+                    (target/f'{name}.dll').symlink_to(root/'files/lib/wine'/arch/f'{name}.dll')
+            registration={'environment':{'root':str(envroot)}};candidate={'root':str(root),'graphics':graphics}
+            g.prefix_graphics(registration,candidate)
+            for path in (envroot/'compatdata/pfx/drive_c/windows/system32/d3d11.dll',
+                    envroot/'compatdata/pfx/drive_c/windows/system32/dxgi.dll',
+                    envroot/'compatdata/pfx/drive_c/windows/syswow64/d3d11.dll',
+                    envroot/'compatdata/pfx/drive_c/windows/syswow64/dxgi.dll'):
+                value=path.resolve(strict=True).read_bytes();path.unlink();path.write_bytes(value)
+            g.prefix_graphics(registration,candidate)
+            link=envroot/'compatdata/pfx/drive_c/windows/system32/dcomp.dll';link.unlink();link.write_bytes(b'changed')
+            with self.assertRaisesRegex(RuntimeError,'prefix graphics changed'):
+                g.prefix_graphics(registration,candidate)
+    def test_graphics_trace_capacity_accepts_only_resolved_keepers(self):
+        import renderer_graphics as g
+        with tempfile.TemporaryDirectory() as directory:
+            root=pathlib.Path(directory);sid='1'*32
+            (root/'runtime/leases').mkdir(parents=True);(root/'runtime/results').mkdir()
+            sessions=root/'environments/e/compatdata/pfx/drive_c/bridge/sessions'
+            (sessions/sid).mkdir(parents=True)
+            report=root/'runtime/results'/f'environment-{sid}.json'
+            (root/'runtime/leases'/f'{sid}.json').write_text(json.dumps(str(report)))
+            owner={'session':sid,'report':str(report),'keeper':True}
+            (sessions/sid/'owner.json').write_text(json.dumps(owner))
+            self.assertEqual(g.existing_owners(root),[owner])
+            with self.assertRaisesRegex(RuntimeError,'candidate environment owner active'):
+                g.existing_owners(root,sessions)
+            owner['keeper']=False;(sessions/sid/'owner.json').write_text(json.dumps(owner))
+            with self.assertRaisesRegex(RuntimeError,'non-keeper'):g.existing_owners(root)
+            owner['keeper']=True;owner['report']=str(report.with_name('wrong.json'))
+            (sessions/sid/'owner.json').write_text(json.dumps(owner))
+            with self.assertRaisesRegex(RuntimeError,'owner lease changed'):g.existing_owners(root)
     def test_server_receipt_is_exact_target_not_global_input(self):
         b=struct.pack('<BBHIIIIhhhhHBB',4,1,2,15,20,99,0,100,200,3,4,256,1,0)
         r=pointer_packet(b,99);self.assertEqual(r['client'],[3,4]);self.assertEqual(r['state'],256)
@@ -120,6 +253,14 @@ class Tests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'unknown diagnostic'):c.helper('unreviewed.exe',[],pathlib.Path('/tmp/unused'),1)
         c.admission={'accessibility_probe_permitted':False}
         with self.assertRaisesRegex(RuntimeError,'prohibits'):c.helper('uio1-accessibility.exe',[],pathlib.Path('/tmp/unused'),1)
+    def test_managed_observation_is_a_distinct_non_conflicting_admission(self):
+        from launch import admission_command
+        self.assertEqual(admission_command('ab'*16,managed_observation=True),
+            ['admit-managed-observation','ab'*16])
+        self.assertEqual(admission_command('ab'*16),['admit','ab'*16])
+        for flags in ((True,True,False),(True,False,True),(False,True,True)):
+            with self.assertRaisesRegex(RuntimeError,'conflicting'):
+                admission_command('ab'*16,*flags)
     def test_replaced_or_aliased_helper_bytes_refused(self):
         from launch import sealed_bytes
         import tempfile,hashlib

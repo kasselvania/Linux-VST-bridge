@@ -1,5 +1,7 @@
 """Installed supervision tests. Real child processes; no vendor qualification."""
 import hashlib
+import contextlib
+import io
 import json
 import os
 import pathlib
@@ -16,6 +18,171 @@ from unittest.mock import patch
 
 import ownership
 import session
+
+
+class GraphicalSessionTests(unittest.TestCase):
+    def graphical_fixture(self,root):
+        root=root.resolve()
+        sid='0123456789abcdef0123456789abcdef'
+        proc=root/'proc';peer=proc/'41';peer.mkdir(parents=True)
+        fields=['S']+['0']*18+['9001']+['0']*4
+        (peer/'stat').write_text('41 (bitwig-studio) '+' '.join(fields))
+        runtime=peer/'root/run/user'/str(os.getuid());runtime.mkdir(parents=True)
+        host_runtime=root/'host-runtime';host_runtime.mkdir(mode=0o700)
+        denial=root/sid;denial.mkdir(mode=0o700)
+        flatpak=peer/'root/run/flatpak';flatpak.mkdir(parents=True)
+        authority=flatpak/'Xauthority';authority.write_bytes(b'private-cookie-fixture')
+        authority.chmod(0o600)
+        host_authority=host_runtime/'xauth_fixture';host_authority.write_bytes(authority.read_bytes())
+        host_authority.chmod(0o600)
+        bus=socket.socket(socket.AF_UNIX);bus.bind(str(flatpak/'bus'));bus.listen(1)
+        wayland=socket.socket(socket.AF_UNIX);wayland.bind(str(runtime/'wayland-1'));wayland.listen(1)
+        (peer/'environ').write_bytes(
+          b'DISPLAY=:7\0WAYLAND_DISPLAY=wayland-1\0XAUTHORITY=/run/flatpak/Xauthority\0'
+          b'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/flatpak/bus\0HOME=/private\0')
+        bound={'schema':1,'peer_pid':41,'peer_start_ticks':9001,'display':':7',
+          'wayland_display':'wayland-1','xauthority':'/run/flatpak/Xauthority',
+          'dbus_session_bus_address':'unix:path=/run/flatpak/bus'}
+        return proc,peer,host_runtime,bound,bus,wayland,(sid,denial)
+
+    def test_exact_peer_generation_and_allowlisted_environment_are_revalidated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            proc=pathlib.Path(tmp).resolve();peer=proc/'41';peer.mkdir()
+            fields=['S']+['0']*18+['9001']+['0']*4
+            (peer/'stat').write_text('41 (bitwig-studio) '+' '.join(fields))
+            (peer/'environ').write_bytes(b'DISPLAY=:7\0HOME=/private\0')
+            bound={'schema':1,'peer_pid':41,'peer_start_ticks':9001,'display':':7'}
+            sid='0123456789abcdef0123456789abcdef';denial=proc/sid;denial.mkdir(mode=0o700)
+            self.assertEqual(session.graphical_environment(bound,proc,denial=(sid,denial)),
+              {'DISPLAY':':7','WAYLAND_DISPLAY':str(denial/'.linux-vst-bridge-denied-wayland'),
+               'DBUS_SESSION_BUS_ADDRESS':'unix:path='+str(denial/'.linux-vst-bridge-denied-dbus')})
+            with self.assertRaisesRegex(RuntimeError,'generation changed'):
+                session.graphical_environment(dict(bound,peer_start_ticks=9002),proc,denial=(sid,denial))
+            with self.assertRaisesRegex(RuntimeError,'environment changed'):
+                session.graphical_environment(dict(bound,display=':8'),proc,denial=(sid,denial))
+
+    def test_unmappable_private_endpoints_are_explicitly_denied_without_host_fallback(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            proc,peer,host_runtime,bound,bus,wayland,denial=self.graphical_fixture(pathlib.Path(tmp))
+            host_bus=socket.socket(socket.AF_UNIX);host_bus.bind(str(host_runtime/'bus'));host_bus.listen(1)
+            default_wayland=socket.socket(socket.AF_UNIX);default_wayland.bind(str(host_runtime/'wayland-0'));default_wayland.listen(1)
+            try:
+                result=session.graphical_environment(bound,proc,host_runtime,denial)
+                self.assertEqual(result['DISPLAY'],':7')
+                self.assertEqual(result['XAUTHORITY'],str(host_runtime/'xauth_fixture'))
+                self.assertEqual(pathlib.Path(result['XAUTHORITY']).read_bytes(),b'private-cookie-fixture')
+                denied_wayland=pathlib.Path(result['WAYLAND_DISPLAY'])
+                denied_bus=pathlib.Path(result['DBUS_SESSION_BUS_ADDRESS'].removeprefix('unix:path='))
+                self.assertTrue(denied_wayland.is_absolute());self.assertTrue(denied_bus.is_absolute())
+                self.assertEqual(denied_wayland.parent,pathlib.Path(denial[1]))
+                self.assertEqual(denied_bus.parent,pathlib.Path(denial[1]))
+                self.assertFalse(os.path.lexists(denied_wayland));self.assertFalse(os.path.lexists(denied_bus))
+                self.assertTrue((host_runtime/'wayland-0').exists());self.assertTrue((host_runtime/'bus').exists())
+                for endpoint in (denied_wayland,denied_bus):
+                    client=socket.socket(socket.AF_UNIX)
+                    with self.assertRaises(FileNotFoundError):client.connect(str(endpoint))
+                    client.close()
+            finally:
+                bus.close();wayland.close();host_bus.close();default_wayland.close()
+
+    def test_device_inode_matched_graphical_endpoints_are_forwarded_unchanged(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            proc,peer,host_runtime,bound,bus,wayland,denial=self.graphical_fixture(pathlib.Path(tmp))
+            try:
+                os.link(peer/'root/run/flatpak/bus',host_runtime/'bus')
+                os.link(peer/'root/run/user'/str(os.getuid())/'wayland-1',host_runtime/'wayland-1')
+                result=session.graphical_environment(bound,proc,host_runtime,denial)
+                self.assertEqual(result['DBUS_SESSION_BUS_ADDRESS'],'unix:path='+str(host_runtime/'bus'))
+                self.assertEqual(result['WAYLAND_DISPLAY'],str(host_runtime/'wayland-1'))
+            finally:
+                bus.close();wayland.close()
+
+    def test_denial_endpoint_collision_refuses_before_launch(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            proc,peer,host_runtime,bound,bus,wayland,denial=self.graphical_fixture(pathlib.Path(tmp))
+            try:
+                (pathlib.Path(denial[1])/'.linux-vst-bridge-denied-wayland').write_text('collision')
+                with self.assertRaisesRegex(RuntimeError,'denial endpoint collision'):
+                    session.graphical_environment(bound,proc,host_runtime,denial)
+            finally:
+                bus.close();wayland.close()
+
+    def test_graphical_projection_refuses_changed_or_wrong_endpoint_kinds(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            proc,peer,host_runtime,bound,bus,wayland,denial=self.graphical_fixture(pathlib.Path(tmp))
+            try:
+                (peer/'root/run/flatpak/Xauthority').chmod(0o644)
+                with self.assertRaisesRegex(RuntimeError,'Xauthority is not private'):
+                    session.graphical_environment(bound,proc,host_runtime,denial)
+                (peer/'root/run/flatpak/Xauthority').chmod(0o600)
+                bus.close();(peer/'root/run/flatpak/bus').unlink()
+                (peer/'root/run/flatpak/bus').write_text('not a socket')
+                with self.assertRaisesRegex(RuntimeError,'DBus endpoint is not a socket'):
+                    session.graphical_environment(bound,proc,host_runtime,denial)
+            finally:
+                wayland.close()
+
+    def test_graphical_projection_refuses_relative_authority_and_unsupported_bus(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            proc,peer,host_runtime,bound,bus,wayland,denial=self.graphical_fixture(pathlib.Path(tmp))
+            try:
+                (peer/'environ').write_bytes(b'DISPLAY=:7\0XAUTHORITY=relative\0')
+                reduced={k:v for k,v in bound.items()
+                  if k not in ('wayland_display','dbus_session_bus_address')}
+                reduced['xauthority']='relative'
+                with self.assertRaisesRegex(RuntimeError,'Xauthority path invalid'):
+                    session.graphical_environment(reduced,proc,host_runtime,denial)
+                (peer/'environ').write_bytes(b'DISPLAY=:7\0DBUS_SESSION_BUS_ADDRESS=unix:abstract=foreign\0')
+                reduced.pop('xauthority');reduced['dbus_session_bus_address']='unix:abstract=foreign'
+                with self.assertRaisesRegex(RuntimeError,'DBus address unsupported'):
+                    session.graphical_environment(reduced,proc,host_runtime,denial)
+            finally:
+                bus.close();wayland.close()
+
+    def test_graphical_projection_refuses_changed_or_ambiguous_host_authority(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            proc,peer,host_runtime,bound,bus,wayland,denial=self.graphical_fixture(pathlib.Path(tmp))
+            try:
+                (host_runtime/'xauth_fixture').write_bytes(b'changed')
+                with self.assertRaisesRegex(RuntimeError,'exact alias unavailable'):
+                    session.graphical_environment(bound,proc,host_runtime,denial)
+                content=(peer/'root/run/flatpak/Xauthority').read_bytes()
+                for name in ('xauth_a','xauth_b'):
+                    path=host_runtime/name;path.write_bytes(content);path.chmod(0o600)
+                with self.assertRaisesRegex(RuntimeError,'exact alias unavailable'):
+                    session.graphical_environment(bound,proc,host_runtime,denial)
+            finally:
+                bus.close();wayland.close()
+
+
+@unittest.skipUnless(sys.platform.startswith('linux'),'Linux peer namespace projection')
+class GraphicalNamespaceIntegrationTests(unittest.TestCase):
+    def test_real_peer_proc_root_is_the_child_graphical_authority(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            root=pathlib.Path(tmp).resolve();authority=root/'Xauthority';authority.write_bytes(b'fixture')
+            authority.chmod(0o600);bus=socket.socket(socket.AF_UNIX);bus.bind(str(root/'bus'));bus.listen(1)
+            sid='0123456789abcdef0123456789abcdef';denial=root/sid;denial.mkdir(mode=0o700)
+            child=subprocess.Popen(['/bin/sleep','30'],env={**os.environ,'DISPLAY':':9',
+              'XAUTHORITY':str(authority),'DBUS_SESSION_BUS_ADDRESS':'unix:path='+str(root/'bus')})
+            try:
+                raw=pathlib.Path(f'/proc/{child.pid}/stat').read_text();parts=raw.rsplit(') ',1)
+                start=int(parts[1].split()[19])
+                bound={'schema':1,'peer_pid':child.pid,'peer_start_ticks':start,'display':':9',
+                  'xauthority':str(authority),'dbus_session_bus_address':'unix:path='+str(root/'bus')}
+                result=session.graphical_environment(bound,runtime_root=root,denial=(sid,denial))
+                projected=pathlib.Path(f'/proc/{child.pid}/root')/authority.relative_to('/')
+                self.assertEqual(result['XAUTHORITY'],str(authority))
+                self.assertEqual(result['DBUS_SESSION_BUS_ADDRESS'],
+                  'unix:path='+str(root/'bus'))
+                denied_wayland=pathlib.Path(result['WAYLAND_DISPLAY'])
+                self.assertEqual(denied_wayland.parent,denial)
+                self.assertFalse(os.path.lexists(denied_wayland))
+                self.assertEqual(pathlib.Path(result['XAUTHORITY']).read_bytes(),b'fixture')
+                client=socket.socket(socket.AF_UNIX)
+                try:client.connect(result['DBUS_SESSION_BUS_ADDRESS'].removeprefix('unix:path='))
+                finally:client.close()
+            finally:
+                child.terminate();child.wait(timeout=5);bus.close()
 
 
 class ManagedHomeTests(unittest.TestCase):
@@ -56,6 +223,12 @@ class BusCensusCommandTests(unittest.TestCase):
             self.assertNotIn('LVB_EVENT_OUTPUT_POLICY',session.environment(reg))
             reg['compatibility']['event_output']='reported_zero_event_channels_unspecified'
             self.assertEqual(session.environment(reg)['LVB_EVENT_OUTPUT_POLICY'],reg['compatibility']['event_output'])
+            self.assertNotIn('LVB_AUDIO_LAYOUT_POLICY',session.environment(reg))
+            reg['compatibility']['audio_layout']='stereo_main_pair'
+            self.assertEqual(session.environment(reg)['LVB_AUDIO_LAYOUT_POLICY'],'stereo_main_pair')
+            reg['compatibility']['audio_layout']='surround_guess'
+            with self.assertRaisesRegex(RuntimeError,'unsupported audio layout policy'):session.environment(reg)
+            del reg['compatibility']['audio_layout']
             self.assertNotIn('LVB_EDITOR_LIFETIME',session.environment(reg))
             reg['compatibility']['editor_lifetime']='retain_editor_view_until_instance_retirement'
             self.assertEqual(session.environment(reg)['LVB_EDITOR_LIFETIME'],reg['compatibility']['editor_lifetime'])
@@ -70,6 +243,26 @@ class BusCensusCommandTests(unittest.TestCase):
             del reg['compatibility']['editor_lifetime']
             reg['compatibility']['event_output']='all_zero_buses'
             with self.assertRaisesRegex(RuntimeError,'unsupported event output policy'):session.environment(reg)
+
+    def test_reference_runner_policy_is_explicit_and_closed(self):
+        reg={'environment':{'root':'/fixture','runner':{}},
+             'compatibility':{'disable_windows_accessibility':False}}
+        with patch.object(session.subprocess,'check_output',return_value='DISPLAY=:0\n'):
+            default=session.environment(reg)
+            for key in ('PROTON_USE_WINED3D','PROTON_DISABLE_NVAPI','PROTON_DLL_COPY'):
+                self.assertNotIn(key,default)
+            reg['environment']['runner']['policy']='dcomp_wine_builtins_reference_v1'
+            selected=session.environment(reg)
+            self.assertEqual(selected['WINEDLLOVERRIDES'],'d2d1,d3d11,dxgi,dcomp=b')
+            self.assertEqual(selected['PROTON_USE_WINED3D'],'1')
+            self.assertEqual(selected['PROTON_DISABLE_NVAPI'],'1')
+            self.assertEqual(selected['PROTON_DLL_COPY'],'*')
+            reg['compatibility']['disable_windows_accessibility']=True
+            self.assertEqual(session.environment(reg)['WINEDLLOVERRIDES'],
+                             'd2d1,d3d11,dxgi,dcomp=b;uiautomationcore=')
+            reg['environment']['runner']['policy']='unknown'
+            with self.assertRaisesRegex(RuntimeError,'unsupported runner policy'):
+                session.environment(reg)
 
     def test_exact_inspection_selection_reaches_command_and_handshake(self):
         # Source-owned distinct instrument/effect IDs; no vendor naming dispatch.
@@ -1057,3 +1250,179 @@ class TerminalInstanceTests(unittest.TestCase):
             self.assertEqual(first['last_completed_position'],512)
             t.close()
             with self.assertRaisesRegex(RuntimeError,'session/version'):session.TerminalStatus(root,'32'*16)
+class SupervisorFixture:
+    def fixture(self,root):
+        sid='3a'*16
+        durable=root/'compatdata/pfx/drive_c/bridge/sessions'/sid
+        durable.mkdir(parents=True,mode=0o700)
+        host=root/'host';module=root/'module'
+        host.write_bytes(b'host');module.write_bytes(b'module')
+        artifact=lambda path:{'path':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
+        return {'registration':{'host':artifact(host),'module':artifact(module),
+          'metadata':{'class_id':'01'*16},'host_source_sha256':'02'*32,
+          'environment':{'root':str(root),'runner':{'files':[],
+            'entry_point':'/fixture/entry','proton':'/fixture/proton'}},
+          'compatibility':{'disable_windows_accessibility':False}},
+          'session':sid,'directory':str(durable),'report':str(root/'result.json'),
+          'inspect':False,'binding_sent':True,'onboarding_home':False,
+          'shared_runtime':False,'keeper':False,'vendor_access':False},durable
+
+
+class KeeperDiagnosticsTests(SupervisorFixture,unittest.TestCase):
+    def test_keeper_retains_exit_and_non_disclosing_diagnostic_identity(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            root=pathlib.Path(tmp);spec,_=self.fixture(root)
+            launcher=root/'keeper-fixture.py'
+            launcher.write_text('#!/usr/bin/env python3\nimport sys\nprint("private-stdout")\nprint("private-stderr",file=sys.stderr)\nraise SystemExit(86)\n')
+            launcher.chmod(0o700)
+            spec['keeper']=True;spec['inspect']=True
+            spec['registration']['environment']['runner']['entry_point']=str(launcher)
+            with patch.object(session,'environment',return_value=os.environ.copy()):
+                result=session.keep(spec)
+            report=json.loads(pathlib.Path(spec['report']).read_text())
+            if sys.platform.startswith('linux'):
+                self.assertTrue(result['cleanup_confirmed'] and report['cleanup_confirmed'])
+            self.assertFalse(report['ready'])
+            self.assertEqual(report['raw_exit'],86)
+            self.assertGreater(report['diagnostic_bytes']['stdout'],0)
+            self.assertGreater(report['diagnostic_bytes']['stderr'],0)
+            self.assertRegex(report['diagnostic_sha256']['stdout'],r'^[0-9a-f]{64}$')
+            self.assertRegex(report['diagnostic_sha256']['stderr'],r'^[0-9a-f]{64}$')
+            self.assertNotIn('private-stdout',json.dumps(report))
+            self.assertNotIn('private-stderr',json.dumps(report))
+
+
+@unittest.skipUnless(sys.platform.startswith('linux'),'Linux supervisor ownership boundary')
+class SupervisorOwnershipBoundaryTests(SupervisorFixture,unittest.TestCase):
+
+    def native_finish(self,native,durable,observed):
+        try:
+            native.settimeout(5)
+            observed['failure']=native.recv(1)
+            observed['exists_before_release']=durable.exists()
+            native.shutdown(socket.SHUT_WR)
+            observed['ack']=native.recv(1)
+            observed['exists_after_ack']=durable.exists()
+        except Exception as error:
+            observed['error']=repr(error)
+        finally:native.close()
+
+    def test_changed_graphical_generation_never_crosses_readiness(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,durable=self.fixture(pathlib.Path(tmp))
+            spec['graphical_session']={'schema':1,'peer_pid':os.getpid(),
+              'peer_start_ticks':1,'display':':1'}
+            output=io.StringIO()
+            with contextlib.redirect_stdout(output),self.assertRaisesRegex(RuntimeError,'generation changed'):
+                session.run(spec)
+            self.assertEqual(output.getvalue(),'')
+            self.assertTrue(durable.exists()) # Rust still owns this unexposed directory.
+
+    def test_prelaunch_failure_completes_native_half_close_protocol(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,durable=self.fixture(pathlib.Path(tmp));owner,native=socket.socketpair()
+            (durable/'ap1.control').write_bytes(b'fixture')
+            observed={};worker=threading.Thread(target=self.native_finish,args=(native,durable,observed))
+            output=io.StringIO();worker.start()
+            with patch.object(session,'environment',return_value=os.environ.copy()),\
+                 patch.object(session,'command',return_value=(['/missing/windows-root'],b'binding')),\
+                 patch.object(session.subprocess,'Popen',side_effect=FileNotFoundError('fixture root absent')),\
+                 contextlib.redirect_stdout(output):
+                result=session.run(spec,owner)
+            worker.join(timeout=5);owner.close()
+            self.assertFalse(worker.is_alive());self.assertNotIn('error',observed)
+            self.assertEqual(output.getvalue(),'LVO0 '+spec['session']+' ready\n')
+            self.assertEqual((observed['failure'],observed['ack']),(b'F',b'R'))
+            self.assertTrue(observed['exists_before_release'])
+            self.assertFalse(observed['exists_after_ack'])
+            self.assertTrue(result['cleanup_confirmed'] and result['transport_retired'])
+            self.assertIn('FileNotFoundError',result['error'])
+            self.assertFalse(durable.exists())
+
+    def test_signal_at_readiness_boundary_enters_owner_finalizer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,durable=self.fixture(pathlib.Path(tmp));owner,native=socket.socketpair()
+            observed={};worker=threading.Thread(target=self.native_finish,args=(native,durable,observed))
+            output=io.StringIO();handlers={};real_print=print
+            def install_handler(kind,handler):
+                previous=handlers.get(kind);handlers[kind]=handler;return previous
+            def inject_after_readiness(*args,**kwargs):
+                real_print(*args,**kwargs)
+                if args and args[0]=='LVO0 '+spec['session']+' ready':handlers[signal.SIGTERM]()
+            worker.start()
+            with patch.object(session,'environment',return_value=os.environ.copy()),\
+                 patch.object(session,'command',return_value=(['/must-not-launch'],b'binding')),\
+                 patch.object(session.signal,'signal',side_effect=install_handler),\
+                 patch.object(session.subprocess,'Popen') as launch,\
+                 patch('builtins.print',side_effect=inject_after_readiness),\
+                 contextlib.redirect_stdout(output):
+                result=session.run(spec,owner)
+            worker.join(timeout=5);owner.close()
+            self.assertFalse(worker.is_alive());self.assertNotIn('error',observed)
+            self.assertEqual(output.getvalue(),'LVO0 '+spec['session']+' ready\n')
+            self.assertEqual((observed['failure'],observed['ack']),(b'F',b'R'))
+            self.assertTrue(observed['exists_before_release'])
+            self.assertFalse(observed['exists_after_ack'])
+            self.assertTrue(result['cleanup_confirmed'] and result['transport_retired'])
+            self.assertIn('InterruptedError',result['error']);self.assertFalse(durable.exists())
+            self.assertEqual(result,json.loads(pathlib.Path(spec['report']).read_text()))
+            launch.assert_not_called()
+
+    def test_failed_retirement_ack_never_publishes_positive_transport_retirement(self):
+        class RefuseRetirementAck:
+            def __init__(self,peer):self.peer=peer
+            def __getattr__(self,name):return getattr(self.peer,name)
+            def sendall(self,data):
+                if data==b'R':raise BrokenPipeError('fixture retirement acknowledgment loss')
+                return self.peer.sendall(data)
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,durable=self.fixture(pathlib.Path(tmp));owner,native=socket.socketpair()
+            (durable/'ap1.control').write_bytes(b'fixture')
+            observed={};keep_open=threading.Event()
+            def release_without_accepting_ack():
+                try:
+                    native.settimeout(5);observed['failure']=native.recv(1)
+                    native.shutdown(socket.SHUT_WR);keep_open.wait(5)
+                except Exception as error:observed['error']=repr(error)
+                finally:native.close()
+            worker=threading.Thread(target=release_without_accepting_ack);worker.start()
+            output=io.StringIO()
+            try:
+                with patch.object(session,'environment',return_value=os.environ.copy()),\
+                     patch.object(session,'command',return_value=(['/missing/windows-root'],b'binding')),\
+                     patch.object(session.subprocess,'Popen',side_effect=FileNotFoundError('fixture root absent')),\
+                     contextlib.redirect_stdout(output):
+                    result=session.run(spec,RefuseRetirementAck(owner))
+            finally:
+                keep_open.set();worker.join(timeout=5);owner.close()
+            self.assertFalse(worker.is_alive());self.assertNotIn('error',observed)
+            self.assertEqual(observed['failure'],b'F')
+            self.assertTrue(result['cleanup_confirmed']);self.assertFalse(result['transport_retired'])
+            self.assertIn('fixture retirement acknowledgment loss',result['retirement_error'])
+            self.assertFalse(result['cleanup_confirmed'] and result['transport_retired'])
+            self.assertEqual(output.getvalue(),'LVO0 '+spec['session']+' ready\n')
+            self.assertFalse(durable.exists())
+            self.assertEqual(result,json.loads(pathlib.Path(spec['report']).read_text()))
+
+    def test_windows_root_launch_failure_after_readiness_is_truthful_and_clean(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,durable=self.fixture(pathlib.Path(tmp));output=io.StringIO()
+            with patch.object(session,'environment',return_value=os.environ.copy()),\
+                 patch.object(session,'command',return_value=(['/missing/windows-root'],b'binding')),\
+                 patch.object(session.subprocess,'Popen',side_effect=FileNotFoundError('fixture root absent')),\
+                 contextlib.redirect_stdout(output):
+                result=session.run(spec)
+            self.assertEqual(output.getvalue(),'LVO0 '+spec['session']+' ready\n')
+            self.assertTrue(result['cleanup_confirmed'] and result['transport_retired'])
+            self.assertIn('FileNotFoundError',result['error'])
+            self.assertFalse(durable.exists())
+
+    def test_keeper_graphical_preflight_failure_publishes_empty_cleanup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,durable=self.fixture(pathlib.Path(tmp));spec['keeper']=True;spec['inspect']=True
+            spec['graphical_session']={'schema':1,'peer_pid':os.getpid(),
+              'peer_start_ticks':1,'display':':1'}
+            result=session.keep(spec)
+            report=json.loads(pathlib.Path(spec['report']).read_text())
+            self.assertTrue(result['cleanup_confirmed'] and report['cleanup_confirmed'])
+            self.assertFalse(report['ready']);self.assertIn('generation changed',report['error'])
