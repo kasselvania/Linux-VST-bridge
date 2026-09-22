@@ -111,6 +111,9 @@ mod appliance {
         let jack_frames = jack.buffer_size();
         let deactivate = jack.deactivate();
         drop(jack);
+        if let Err(error) = print_audio_metrics(&instance, &control) {
+            eprintln!("RPI1_AUDIO_UNAVAILABLE {error}");
+        }
         let metrics = &control.metrics;
         println!(
             "RPI1_CALLBACK callbacks={} failures={} deadline_misses={} callback_ns_max={} missing_frames={} expired_frames={} gaps={} delivered_frames={} priming_frames={} paused_frames={} unsupported_midi={} malformed_midi={} overflow_midi={}",
@@ -190,6 +193,24 @@ mod appliance {
         Ok(())
     }
 
+    fn print_audio_metrics(instance: &Instance, control: &Control) -> io::Result<()> {
+        let metrics = &control.metrics;
+        let stats = instance.stats()?;
+        println!(
+            "RPI1_AUDIO midi_accepted={} output_nonzero_l={} output_nonzero_r={} output_peak_l={} output_peak_r={} output_nonfinite={} xruns={} process_failures={} bridge_processed={} request_high={} result_high={} fault={}",
+            metrics.accepted_midi.load(Ordering::Acquire),
+            metrics.output_nonzero[0].load(Ordering::Acquire),
+            metrics.output_nonzero[1].load(Ordering::Acquire),
+            f32::from_bits(metrics.output_peak_bits[0].load(Ordering::Acquire) as u32),
+            f32::from_bits(metrics.output_peak_bits[1].load(Ordering::Acquire) as u32),
+            metrics.output_nonfinite.load(Ordering::Acquire),
+            metrics.xruns.load(Ordering::Acquire),
+            metrics.process_failures.load(Ordering::Acquire),
+            stats.processed, stats.request_high, stats.result_high, stats.fault
+        );
+        Ok(())
+    }
+
     fn command_loop(
         instance: &Instance,
         control: &Control,
@@ -221,6 +242,9 @@ mod appliance {
                         return Ok(());
                     }
                     if line == "status" {
+                        if let Err(error) = print_audio_metrics(instance, control) {
+                            eprintln!("RPI1_AUDIO_UNAVAILABLE {error}");
+                        }
                         let processes = cohort.verify()?;
                         let memory_peak =
                             fs::read_to_string(cohort.identity().cgroup.join("memory.peak"))

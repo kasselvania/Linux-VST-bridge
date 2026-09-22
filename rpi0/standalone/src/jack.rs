@@ -1,6 +1,10 @@
 use crate::{
-    audio::ParameterUpdate, callback_gate::CallbackGate, midi::Parser,
-    protocol::supported_jack_block, spsc::Queue, MAX_JACK_FRAMES, MAX_MIDI_EVENTS, SAMPLE_RATE,
+    audio::{OutputObservation, ParameterUpdate},
+    callback_gate::CallbackGate,
+    midi::Parser,
+    protocol::supported_jack_block,
+    spsc::Queue,
+    MAX_JACK_FRAMES, MAX_MIDI_EVENTS, SAMPLE_RATE,
 };
 use ap2_backend::rpi0::{Context, Delivery, Event, Instance};
 use std::{
@@ -45,6 +49,11 @@ unsafe extern "C" {
         callback: unsafe extern "C" fn(JackNFrames, *mut c_void) -> c_int,
         argument: *mut c_void,
     ) -> c_int;
+    fn jack_set_xrun_callback(
+        client: *mut JackClient,
+        callback: unsafe extern "C" fn(*mut c_void) -> c_int,
+        argument: *mut c_void,
+    ) -> c_int;
     fn jack_port_register(
         client: *mut JackClient,
         name: *const c_char,
@@ -65,6 +74,11 @@ unsafe extern "C" {
 #[derive(Default)]
 pub struct Metrics {
     pub callbacks: AtomicU64,
+    pub accepted_midi: AtomicU64,
+    pub output_nonzero: [AtomicU64; 2],
+    pub output_peak_bits: [AtomicU64; 2],
+    pub output_nonfinite: AtomicU64,
+    pub xruns: AtomicU64,
     pub process_failures: AtomicU64,
     pub unsupported_blocks: AtomicU64,
     pub deadline_misses: AtomicU64,
@@ -90,6 +104,11 @@ impl Control {
             parameters: Queue::new(),
             metrics: Metrics {
                 callbacks: AtomicU64::new(0),
+                accepted_midi: AtomicU64::new(0),
+                output_nonzero: [AtomicU64::new(0), AtomicU64::new(0)],
+                output_peak_bits: [AtomicU64::new(0), AtomicU64::new(0)],
+                output_nonfinite: AtomicU64::new(0),
+                xruns: AtomicU64::new(0),
                 process_failures: AtomicU64::new(0),
                 unsupported_blocks: AtomicU64::new(0),
                 deadline_misses: AtomicU64::new(0),
@@ -183,7 +202,15 @@ impl Client {
         });
         let code =
             unsafe { jack_set_process_callback(client, process, (&mut *rt as *mut Rt).cast()) };
-        if code != 0 {
+        if code != 0
+            || unsafe {
+                jack_set_xrun_callback(
+                    client,
+                    xrun,
+                    (control as *const Control as *mut Control).cast(),
+                )
+            } != 0
+        {
             unsafe {
                 jack_client_close(client);
             }
@@ -250,6 +277,14 @@ impl Drop for Client {
             let _ = jack_client_close(self.client);
         }
     }
+}
+
+unsafe extern "C" fn xrun(argument: *mut c_void) -> c_int {
+    (*argument.cast::<Control>())
+        .metrics
+        .xruns
+        .fetch_add(1, Ordering::Relaxed);
+    0
 }
 
 unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_int {
@@ -320,6 +355,10 @@ unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_in
             event_count += 1;
         }
     }
+    metrics.accepted_midi.fetch_add(
+        rt.parser.counters.accepted - prior.accepted,
+        Ordering::Relaxed,
+    );
     metrics.unsupported_midi.fetch_add(
         rt.parser.counters.unsupported - prior.unsupported,
         Ordering::Relaxed,
@@ -367,6 +406,16 @@ unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_in
         left.fill(0.);
         right.fill(0.);
         metrics.process_failures.fetch_add(1, Ordering::Relaxed);
+    }
+    for (channel, samples) in [&*left, &*right].into_iter().enumerate() {
+        let observed = OutputObservation::measure(samples);
+        metrics.output_nonzero[channel].fetch_add(observed.nonzero, Ordering::Relaxed);
+        // Absolute finite f32 bit patterns preserve nonnegative magnitude ordering.
+        metrics.output_peak_bits[channel]
+            .fetch_max(u64::from(observed.peak.to_bits()), Ordering::Relaxed);
+        metrics
+            .output_nonfinite
+            .fetch_add(observed.nonfinite, Ordering::Relaxed);
     }
     metrics
         .missing_frames

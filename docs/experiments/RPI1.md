@@ -16,8 +16,11 @@
 - private Pigments installation: **EXACT MODULE REVALIDATED ON PI**
 - Pigments factory/class, bus, parameter and state-capture census:
   **PASSED ON PI; LAUNCH-PATH DEFECT DIAGNOSED**
-- private Pigments standalone qualification: **NOT RUN**
-- overall RPI1: **PENDING PHYSICAL EXECUTION**
+- prior private Pigments standalone: **SUSTAINED PROCESSING REPORTED;
+  AUDIO AND COMPLETE RETIREMENT UNPROVED**
+- source-owned ShieldXL stereo tone: **MEASURED AND HEARD**
+- deterministic editor-closed Pigments audio gate: **PREPARED; NOT RUN**
+- overall RPI1: **PENDING; BOOT UNDERVOLTAGE OBSERVED BEFORE PIGMENTS**
 
 RPI1 is not a greenfield Wine experiment. It transfers the accepted Steam Deck
 Arturia/Pigments runtime contract onto the accepted RPI0 hardware path and tests
@@ -33,6 +36,12 @@ The current census diagnosis and next implementation boundary are recorded in
 [`RPI1_CENSUS_RESULT.md`](RPI1_CENSUS_RESULT.md) and
 `evidence/rpi1/pigments-census-diagnosis.json`. Earlier transfer/admission records
 remain historical observations; their original `NOT_RUN` fields are not rewritten.
+
+The September 22 audio preflight, narrow observation additions, power findings,
+and exact next boundary are recorded in
+[`RPI1_AUDIO_PREFLIGHT.md`](RPI1_AUDIO_PREFLIGHT.md) and
+`evidence/rpi1/audio-preflight-power.json`. The later operator power swap is an
+operator-triggered restart, not a newly reproduced spontaneous crash.
 
 ## Exact starting custody
 
