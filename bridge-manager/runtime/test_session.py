@@ -175,7 +175,7 @@ for path in paths:
             class ReplacingSocket:
                 def settimeout(self,_):pass
                 def connect(self,path):
-                    pathlib.Path(path).unlink();replacement=real_socket(socket.AF_UNIX);replacement.bind(path);replacement.close()
+                    pathlib.Path(path).unlink();replacement=real_socket(socket.AF_UNIX);replacement.bind(path);replacement.close();pathlib.Path(path).chmod(0o600)
                     raise ConnectionRefusedError()
                 def close(self):pass
             try:

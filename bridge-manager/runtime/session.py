@@ -110,8 +110,9 @@ def denied_graphical_endpoint(name):
     else:raise RuntimeError('graphical denial is listening')
     finally:client.close()
     after=endpoint.lstat()
-    if (not stat.S_ISSOCK(after.st_mode)
-        or (before.st_dev,before.st_ino)!=(after.st_dev,after.st_ino)):
+    if (not stat.S_ISSOCK(after.st_mode) or after.st_uid!=os.getuid()
+        or after.st_mode&0o077
+        or (before.st_dev,before.st_ino,before.st_ctime_ns)!=(after.st_dev,after.st_ino,after.st_ctime_ns)):
         raise RuntimeError('graphical denial replaced')
     return str(endpoint)
 

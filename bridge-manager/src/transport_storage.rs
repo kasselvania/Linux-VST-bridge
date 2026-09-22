@@ -240,7 +240,15 @@ fn initialize_graphical_denial(root: &Path, name: &str) -> Result<()> {
     }
     let after = fs::symlink_metadata(&path)?;
     require(
-        after.file_type().is_socket() && (before.dev(), before.ino()) == (after.dev(), after.ino()),
+        after.file_type().is_socket()
+            && after.uid() == unsafe { libc::getuid() }
+            && after.mode() & 0o077 == 0
+            && (
+                before.dev(),
+                before.ino(),
+                before.ctime(),
+                before.ctime_nsec(),
+            ) == (after.dev(), after.ino(), after.ctime(), after.ctime_nsec()),
         "graphical_denial_replaced",
     )
 }
