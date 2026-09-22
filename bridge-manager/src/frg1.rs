@@ -1,6 +1,6 @@
-//! Sealed Ubuntu FRG1 qualification. The compiled revision-11 candidate is the
-//! only policy authority; operator inputs identify an exact environment and an
-//! artifact package, never a profile or registration.
+//! Sealed Ubuntu FRG1 qualification. Revision 12 corrects the native proxy's
+//! registered build mode; revision 11 remains only an exact retired parent.
+//! Operator inputs identify an environment and artifact package, never policy.
 use crate::{
     catalogue::{EnvironmentBinding, Software},
     inventory,
@@ -50,6 +50,7 @@ compile_error!("cpi2-test-contract is only permitted in non-release test builds"
 #[derive(Clone)]
 struct TestContract {
     profile: Profile,
+    predecessor: Option<Profile>,
     owner_sha256: String,
     module_relative: String,
 }
@@ -71,7 +72,7 @@ pub fn install_test_contract(profile: Profile, owner_sha256: String,
     module_relative: String) -> TestContractGuard {
     TEST_CONTRACT.with(|slot| {
         assert!(slot.borrow().is_none());
-        *slot.borrow_mut() = Some(TestContract {profile, owner_sha256, module_relative});
+        *slot.borrow_mut() = Some(TestContract {profile, predecessor: None, owner_sha256, module_relative});
     });
     TestContractGuard
 }
@@ -84,13 +85,28 @@ pub fn candidate() -> Result<Profile> {
     let profile = crate::profiles::frg1_candidate()?;
     require(
         profile.id == "arturia-efx-fragments"
-            && profile.revision == 11
+            && profile.revision == 12
             && profile.claim == Claim::ReviewCandidate
             && profile.requirements.environment_family == Family::ArturiaPersistentV1
             && profile.requirements.environment_revision == 2,
         "frg1_candidate_contract",
     )?;
+    let mut predecessor_shape = profile.clone();
+    let predecessor = crate::profiles::frg1_predecessor()?;
+    predecessor_shape.revision = predecessor.revision;
+    predecessor_shape.requirements.native_sha256 = predecessor.requirements.native_sha256.clone();
+    require(predecessor_shape.evidence.pop().as_deref() == Some("evidence/frg1/registered-proxy-repair.json"),
+        "frg1_successor_evidence")?;
+    require(predecessor.revision == 11 && predecessor_shape == predecessor, "frg1_successor_contract")?;
     Ok(profile)
+}
+
+fn predecessor() -> Result<Profile> {
+    #[cfg(any(test, feature = "cpi2-test-contract"))]
+    if let Some(profile) = TEST_CONTRACT.with(|slot| slot.borrow().as_ref().and_then(|c| c.predecessor.clone())) {
+        return Ok(profile);
+    }
+    crate::profiles::frg1_predecessor()
 }
 
 fn owner_sha256() -> String {
@@ -122,7 +138,7 @@ fn package_manifest(profile: &Profile) -> Result<PackageManifest> {
         descriptor_sha256: profile.requirements.descriptor_sha256.clone(),
     };
     let sealed: PackageManifest = serde_json::from_slice(include_bytes!(
-        "../../compatibility/frg1/qualification-package.json"
+        "../../compatibility/frg1/revision-12/qualification-package.json"
     ))?;
     if profile == &crate::profiles::frg1_candidate()? {
         require(sealed == expected, "frg1_package_manifest")?;
@@ -210,12 +226,56 @@ fn prior_inventory(m: &Manager, environment: &Environment) -> Result<Option<Stri
     }
 }
 
+// The old proxy was built without `registered`. It may be retained as history
+// only after its physical publication has been removed. It is never served by
+// the successor manager or silently substituted for the corrected proxy.
+fn retired_predecessor(m: &Manager, entry: &Entry) -> Result<bool> {
+    if candidate()?.revision != 12 {
+        return Ok(false);
+    }
+    let old = predecessor()?;
+    let record = adoption(m)?;
+    let reference = entry.managed_revision.as_ref().ok_or("frg1_predecessor_identity")?;
+    let revision = m.load_revision(&old.class.class_id, reference)?;
+    require(
+        record.profile_fingerprint == old.fingerprint()?
+            && entry.publication == Publication::Removed
+            && revision.profile == old
+            && revision.profile_sha256 == old.fingerprint()?
+            && revision.qualification == Some(Qualification::Frg1Ubuntu)
+            && revision.parent.is_none()
+            && entry.registration == revision.registration
+            && revision.registration.metadata == old.class
+            && revision.registration.module == record.module
+            && revision.registration.environment == record.environment
+            && revision.registration.host.sha256 == old.requirements.host_sha256
+            && revision.registration.host_source_sha256 == old.requirements.host_source_sha256
+            && revision.registration.native.sha256 == old.requirements.native_sha256
+            && physical(&m.link(&old.class.class_id))?.is_none(),
+        "frg1_predecessor_not_retired",
+    )?;
+    revision.registration.verify(&m.root)?;
+    Ok(true)
+}
+
+pub(crate) fn permits_retired_predecessor(m: &Manager, entry: &Entry, prior: &Revision) -> Result<bool> {
+    Ok(retired_predecessor(m, entry)? && prior.profile == predecessor()?
+        && prior.qualification == Some(Qualification::Frg1Ubuntu)
+        && prior.parent.is_none())
+}
+
 fn verify_adoption(m: &Manager, adoption: &Adoption) -> Result<()> {
     let profile = candidate()?;
     let (environment, module, owner_marker) = exact_environment(m, &adoption.environment.id)?;
+    let historical_fingerprint = if profile.revision == 12 {
+        Some(predecessor()?.fingerprint()?)
+    } else {
+        None
+    };
     require(
         adoption.schema == 1
-            && adoption.profile_fingerprint == profile.fingerprint()?
+            && (adoption.profile_fingerprint == profile.fingerprint()?
+                || historical_fingerprint.as_ref() == Some(&adoption.profile_fingerprint))
             && adoption.family == Family::ArturiaPersistentV1
             && adoption.environment == environment
             && adoption.module == module
@@ -242,8 +302,13 @@ pub fn adopt(m: &Manager, environment_id: &str) -> Result<()> {
     let _lock = m.lock("registry.lock")?;
     m.require_inactive(None)?;
     let profile = candidate()?;
+    let registry = m.registry()?;
+    let predecessor_ready = registry.classes.get(&profile.class.class_id)
+        .map(|entry| retired_predecessor(m, entry))
+        .transpose()?
+        .unwrap_or(true);
     require(
-        !m.registry()?.classes.contains_key(&profile.class.class_id)
+        predecessor_ready
             && !m.publication_pending(&profile.class.class_id)?
             && physical(&m.link(&profile.class.class_id))?.is_none(),
         "frg1_local_predecessor_present",
@@ -255,6 +320,7 @@ pub fn adopt(m: &Manager, environment_id: &str) -> Result<()> {
             "frg1_adoption_conflict",
         );
     }
+    require(!registry.classes.contains_key(&profile.class.class_id), "frg1_adoption_absent_with_predecessor")?;
     let (environment, module, owner_marker) = exact_environment(m, environment_id)?;
     let record = Adoption {
         schema: 1,
@@ -297,13 +363,22 @@ pub fn catalogue_free_registry(m: &Manager, registry: &Registry) -> Result<bool>
     let entry = &registry.classes[&profile.class.class_id];
     let reference = entry.managed_revision.as_ref().ok_or("frg1_revision_absent")?;
     let revision = m.load_revision(&profile.class.class_id, reference)?;
+    if revision.profile == predecessor()? {
+        return retired_predecessor(m, entry);
+    }
     let mut expected = binding(m)?;
     expected.native.path = revision.registration.native.path.clone();
+    let parent_is_exact = if profile.revision == 12 {
+        let parent = revision.parent.as_ref().ok_or("frg1_predecessor_absent")?;
+        m.load_revision(&profile.class.class_id, parent)?.profile == predecessor()?
+    } else {
+        revision.parent.is_none()
+    };
     require(
         revision.profile == profile
             && revision.registration == entry.registration
             && revision.registration == expected
-            && revision.parent.is_none()
+            && parent_is_exact
             && revision.qualification == Some(Qualification::Frg1Ubuntu)
             && !m.publication_pending(&profile.class.class_id)?,
         "frg1_catalogue_free_identity",
@@ -443,8 +518,13 @@ pub fn stage(m: &Manager, package: &Path) -> Result<()> {
     }
     let _lock = m.lock("registry.lock")?;
     m.require_inactive(None)?;
+    let db = m.registry()?;
+    let predecessor_ready = db.classes.get(&profile.class.class_id)
+        .map(|entry| retired_predecessor(m, entry))
+        .transpose()?
+        .unwrap_or(true);
     require(
-        !m.registry()?.classes.contains_key(&profile.class.class_id)
+        predecessor_ready
             && !m.publication_pending(&profile.class.class_id)?
             && physical(&m.link(&profile.class.class_id))?.is_none(),
         "frg1_local_predecessor_present",
@@ -554,20 +634,31 @@ pub(crate) fn check_publication(
         census,
         SelectionPurpose::Qualification,
     )?;
-    require(
-        !m.registry()?.classes.contains_key(&profile.class.class_id)
-            && physical(&m.link(&profile.class.class_id))?.is_none(),
-        "frg1_local_predecessor_present",
-    )
+    let db = m.registry()?;
+    let predecessor_ready = db.classes.get(&profile.class.class_id)
+        .map(|entry| retired_predecessor(m, entry))
+        .transpose()?
+        .unwrap_or(true);
+    require(predecessor_ready && physical(&m.link(&profile.class.class_id))?.is_none(),
+        "frg1_local_predecessor_present")
 }
 
 pub(crate) fn retained(m: &Manager, revision: &Revision, exact: &InstalledCandidate) -> Result<()> {
     let mut expected = binding(m)?;
     expected.native.path = revision.registration.native.path.clone();
+    let parent_is_exact = if candidate()?.revision == 12 {
+        let reference = revision.parent.as_ref().ok_or("frg1_predecessor_absent")?;
+        let prior = m.load_revision(&revision.class_id, reference)?;
+        prior.profile == predecessor()?
+            && prior.qualification == Some(Qualification::Frg1Ubuntu)
+            && prior.parent.is_none()
+    } else {
+        revision.parent.is_none()
+    };
     require(
         revision.profile == exact.profile
             && revision.registration == expected
-            && revision.parent.is_none()
+            && parent_is_exact
             && revision.qualification == Some(Qualification::Frg1Ubuntu),
         "qualification_exact_candidate_required",
     )?;
@@ -620,10 +711,16 @@ pub fn restore(m: &Manager) -> Result<()> {
                 .as_ref()
                 .ok_or("candidate_identity")?,
         )?;
+        let parent_is_exact = if profile.revision == 12 {
+            let reference = revision.parent.as_ref().ok_or("frg1_predecessor_absent")?;
+            m.load_revision(&profile.class.class_id, reference)?.profile == predecessor()?
+        } else {
+            revision.parent.is_none()
+        };
         require(
             revision.profile == profile
                 && revision.qualification == Some(Qualification::Frg1Ubuntu)
-                && revision.parent.is_none(),
+                && parent_is_exact,
             "candidate_identity",
         )?;
         if entry.publication == Publication::Removed {
@@ -651,8 +748,9 @@ mod tests {
     }
 
     #[test]
-    fn compiled_package_manifest_is_the_exact_revision_eleven_roster() {
+    fn compiled_package_manifest_is_the_exact_revision_twelve_roster() {
         let profile = crate::profiles::frg1_candidate().unwrap();
+        assert_eq!(profile.revision, 12);
         let manifest = package_manifest(&profile).unwrap();
         assert_eq!(manifest.profile_fingerprint, profile.fingerprint().unwrap());
         assert_eq!(manifest.descriptor_sha256, profile.requirements.descriptor_sha256);
@@ -710,6 +808,7 @@ mod tests {
         TEST_CONTRACT.with(|slot| {
             *slot.borrow_mut() = Some(TestContract {
                 profile: profile.clone(),
+                predecessor: None,
                 owner_sha256: digest(&owner).unwrap(),
                 module_relative: relative,
             })
@@ -967,5 +1066,72 @@ mod tests {
             Publication::Removed
         );
         assert!(!manager.link(&prepared.profile.class.class_id).exists());
+    }
+
+    #[test]
+    fn registered_successor_requires_retired_exact_predecessor_and_preserves_history() {
+        let prepared = fixture();
+        let manager = &prepared.fixture.m;
+        let class = &prepared.profile.class.class_id;
+        adopt(manager, &prepared.census.environment.environment.id).unwrap();
+        let scan = retain_inventory(&prepared);
+        stage(manager, &prepared.package).unwrap();
+        let first = manager
+            .qualify_for(&exact_census(&prepared, &scan), None, Qualification::Frg1Ubuntu)
+            .unwrap();
+        let first_revision = manager.load_revision(class, &first).unwrap();
+        assert!(first_revision.parent.is_none());
+
+        let old = prepared.profile.clone();
+        let mut successor = old.clone();
+        successor.revision = 12;
+        let native = prepared.package.join(format!("{class}.so"));
+        fs::write(&native, b"source-owned registered native fixture").unwrap();
+        successor.requirements.native_sha256 = digest(&native).unwrap();
+        TEST_CONTRACT.with(|slot| {
+            let mut contract = slot.borrow_mut();
+            let contract = contract.as_mut().unwrap();
+            contract.predecessor = Some(old.clone());
+            contract.profile = successor.clone();
+        });
+        atomic_json(
+            &prepared.package.join("qualification.json"),
+            &package_manifest(&successor).unwrap(),
+        ).unwrap();
+
+        assert!(catalogue_free_registry(manager, &manager.registry().unwrap()).is_err());
+        assert!(stage(manager, &prepared.package).is_err());
+        assert_eq!(manager.registry().unwrap().classes[class].publication, Publication::Published);
+        // The previous product owns this normal restore; the successor then
+        // admits only the exact removed revision as historical parent.
+        TEST_CONTRACT.with(|slot| slot.borrow_mut().as_mut().unwrap().profile = old.clone());
+        restore(manager).unwrap();
+        TEST_CONTRACT.with(|slot| slot.borrow_mut().as_mut().unwrap().profile = successor.clone());
+        assert!(catalogue_free_registry(manager, &manager.registry().unwrap()).unwrap());
+        let mut foreign = manager.registry().unwrap();
+        foreign.classes.get_mut(class).unwrap().registration.native.sha256 = "aa".repeat(32);
+        assert!(catalogue_free_registry(manager, &foreign).is_err());
+        let adoption_path = adoption_path(manager);
+        let exact_adoption: Adoption = read_json(&adoption_path).unwrap();
+        let mut wrong_adoption = exact_adoption.clone();
+        wrong_adoption.profile_fingerprint = successor.fingerprint().unwrap();
+        atomic_json(&adoption_path, &wrong_adoption).unwrap();
+        assert!(stage(manager, &prepared.package).is_err());
+        wrong_adoption.profile_fingerprint = "bb".repeat(32);
+        atomic_json(&adoption_path, &wrong_adoption).unwrap();
+        assert!(stage(manager, &prepared.package).is_err());
+        atomic_json(&adoption_path, &exact_adoption).unwrap();
+        adopt(manager, &prepared.census.environment.environment.id).unwrap();
+        stage(manager, &prepared.package).unwrap();
+        let second = manager
+            .qualify_for(&exact_census(&prepared, &scan), None, Qualification::Frg1Ubuntu)
+            .unwrap();
+        let second_revision = manager.load_revision(class, &second).unwrap();
+        assert_eq!(second_revision.profile, successor);
+        assert_eq!(second_revision.parent, Some(first.clone()));
+        assert_eq!(manager.load_revision(class, &first).unwrap(), first_revision);
+        assert!(catalogue_free_registry(manager, &manager.registry().unwrap()).unwrap());
+        restore(manager).unwrap();
+        assert_eq!(manager.registry().unwrap().classes[class].publication, Publication::Removed);
     }
 }

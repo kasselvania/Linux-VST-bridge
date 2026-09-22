@@ -173,6 +173,28 @@ class CensusTests(unittest.TestCase):
         for receipt in ("runner_receipt", "runtime_receipt"):
             self.assertIn(candidate["runner"][receipt]["sha256"], profile["requirements"]["runner"]["file_sha256"])
 
+    def test_registered_successor_changes_only_revision_and_native_identity(self) -> None:
+        historical = json.loads((ROOT / "compatibility/frg1/arturia-efx-fragments.json").read_text())
+        successor = json.loads((ROOT / "compatibility/frg1/revision-12/arturia-efx-fragments.json").read_text())
+        manifest = json.loads((ROOT / "compatibility/frg1/revision-12/qualification-package.json").read_text())
+        receipt = json.loads((ROOT / "evidence/frg1/registered-proxy-repair.json").read_text())
+        normalized = json.loads(json.dumps(successor))
+        normalized["revision"] = historical["revision"]
+        normalized["requirements"]["native_sha256"] = historical["requirements"]["native_sha256"]
+        self.assertEqual(normalized["evidence"].pop(), "evidence/frg1/registered-proxy-repair.json")
+        self.assertEqual(normalized, historical)
+        self.assertEqual(successor["revision"], 12)
+        self.assertEqual(receipt["historical_native_sha256"], historical["requirements"]["native_sha256"])
+        self.assertEqual(receipt["native_proxy"]["sha256"], successor["requirements"]["native_sha256"])
+        self.assertEqual(receipt["descriptor_sha256"], successor["requirements"]["descriptor_sha256"])
+        self.assertIn("registered", receipt["build"]["cargo_flags"])
+        self.assertFalse(receipt["build"]["network_shared"])
+        self.assertTrue(receipt["native_proxy"]["managed_runtime_path_present"])
+        self.assertTrue(receipt["native_proxy"]["legacy_ap9_performance_path_absent"])
+        fingerprint = hashlib.sha256(json.dumps(successor, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+        self.assertEqual(manifest["profile_fingerprint"], fingerprint)
+        self.assertEqual(manifest["native_sha256"], receipt["native_proxy"]["sha256"])
+
     def test_retained_prefix_custody_is_exact_and_snapshotted_without_source_mutation(self) -> None:
         lock = json.loads((ROOT / "compatibility/frg1/input.lock.json").read_text())
         module_bytes = b"successor-module"

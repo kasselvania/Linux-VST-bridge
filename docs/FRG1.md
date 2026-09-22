@@ -232,6 +232,34 @@ establish DAW discovery, editor presentation, audio, automation, save/reopen sta
 restart, retirement, ordinary publication, broad Ubuntu compatibility or any new
 Steam Deck result.
 
+## Registered-proxy correction after the first Ubuntu Bitwig load
+
+The Ubuntu revision-11 inventory and publication succeeded, but Bitwig's first
+FRAGMENTS load failed in native `setupProcessing` before a DSP lease existed.
+The pinned revision-11 proxy was built without the backend's `registered`
+feature. Its ELF contains the legacy `AP9-Performance/serum` discovery path,
+whereas the managed Ubuntu service owns
+`.local/share/linux-vst-bridge/managed/runtime/owner.sock`. The observed
+`AP2 backend: NotFound` and failed activation match that build-mode error.
+This is not a Wine scanner, Arturia module, or graphical-editor result.
+
+Revision 12 pins a newly built x86-64 Linux proxy from the same exact source,
+descriptor and VST3 SDK, but with `--features registered`. The build used the
+Ubuntu container with networking disabled; 69 registered-backend tests passed,
+one Windows-dependent test was ignored. The new ELF contains the managed path,
+does not contain the legacy AP9 path, and has SHA-256
+`f29e4cf0d3157308a78097b25f10a05264277291203c77a62db6cc1a2cfa4c1a`.
+The binary remains private build output, not a committed plug-in binary.
+
+Revision 11 remains immutable failed publication history. Before installing
+the successor manager, the existing product must normally restore that exact
+revision and confirm the physical link is absent. The successor accepts only
+that exact removed revision as parent; it retains the original adoption,
+healthy inventory, prior revision and failed Bitwig record. A live or altered
+predecessor refuses. The corrected revision is still a review candidate, not
+an activation or physical pass. Bitwig load, editor, audio, state and restart
+must be repeated on revision 12 after product review and deployment.
+
 ## Evidence
 
 - `evidence/frg1/attempt-001/result.json`
@@ -241,3 +269,4 @@ Steam Deck result.
 - `evidence/frg1/attempt-005/result.json`
 - `evidence/frg1/attempt-005/validator-replay.json`
 - `evidence/frg1/candidate.json`
+- `evidence/frg1/registered-proxy-repair.json`
