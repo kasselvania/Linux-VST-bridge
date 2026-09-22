@@ -41,20 +41,43 @@ struct Adoption {
     adopted_at: u64,
 }
 
-#[cfg(test)]
+// Binary tests compile this library as a dependency, so cfg(test) alone cannot
+// supply the source-owned FRG1 contract. Never ship the opt-in fixture.
+#[cfg(all(feature = "cpi2-test-contract", not(debug_assertions)))]
+compile_error!("cpi2-test-contract is only permitted in non-release test builds");
+
+#[cfg(any(test, feature = "cpi2-test-contract"))]
 #[derive(Clone)]
 struct TestContract {
     profile: Profile,
     owner_sha256: String,
     module_relative: String,
 }
-#[cfg(test)]
+#[cfg(any(test, feature = "cpi2-test-contract"))]
 thread_local! {
     static TEST_CONTRACT: std::cell::RefCell<Option<TestContract>> = const { std::cell::RefCell::new(None) };
 }
 
+#[cfg(feature = "cpi2-test-contract")]
+pub struct TestContractGuard;
+#[cfg(feature = "cpi2-test-contract")]
+impl Drop for TestContractGuard {
+    fn drop(&mut self) {
+        TEST_CONTRACT.with(|slot| *slot.borrow_mut() = None);
+    }
+}
+#[cfg(feature = "cpi2-test-contract")]
+pub fn install_test_contract(profile: Profile, owner_sha256: String,
+    module_relative: String) -> TestContractGuard {
+    TEST_CONTRACT.with(|slot| {
+        assert!(slot.borrow().is_none());
+        *slot.borrow_mut() = Some(TestContract {profile, owner_sha256, module_relative});
+    });
+    TestContractGuard
+}
+
 pub fn candidate() -> Result<Profile> {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "cpi2-test-contract"))]
     if let Some(contract) = TEST_CONTRACT.with(|slot| slot.borrow().clone()) {
         return Ok(contract.profile);
     }
@@ -71,7 +94,7 @@ pub fn candidate() -> Result<Profile> {
 }
 
 fn owner_sha256() -> String {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "cpi2-test-contract"))]
     if let Some(contract) = TEST_CONTRACT.with(|slot| slot.borrow().clone()) {
         return contract.owner_sha256;
     }
@@ -79,7 +102,7 @@ fn owner_sha256() -> String {
 }
 
 fn module_relative() -> String {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "cpi2-test-contract"))]
     if let Some(contract) = TEST_CONTRACT.with(|slot| slot.borrow().clone()) {
         return contract.module_relative;
     }

@@ -2030,27 +2030,16 @@ struct QuarantinedRetry {
     module_sha256: String,
     report_sha256: String,
 }
-fn retry_environment(m: &Manager, catalogue: &linux_vst_bridge::catalogue::Catalogue, environment: &str)
-    -> Result<Environment> {
-    let mut found:Option<Environment>=None;
-    for candidate in catalogue.environments.iter().map(|e|e.environment.clone())
-        .chain(onboarding::history_records(m)?.into_iter().map(|r|r.environment)) {
-        if candidate.id != environment { continue; }
-        if let Some(current)=&found {
-            require(current==&candidate,"operator_environment_identity_ambiguous")?;
-        } else { found=Some(candidate); }
-    }
-    found.ok_or_else(||"operator_environment_absent".into())
-}
 fn retry_quarantined_module(m: &Manager, environment: &str, scan: &str,
     module_index: usize, module_sha256: &str, report_sha256: &str) -> Result<Value> {
     let _lock = m.lock("registry.lock")?;
     m.require_inactive(None)?;
     let sw = software(m)?;
-    let c = sw.catalogue(m)?;
-    let env=retry_environment(m,&c,environment)?;
-    drop(_lock);
-    rescan_environment_with_retry(m, env, Some(QuarantinedRetry {
+    let db = m.registry()?;
+    let catalogue = operator_catalogue(m, &sw, &db)?;
+    let env = managed_rescan_binding(m, catalogue.as_ref(), &db, environment)?
+        .ok_or("operator_environment_unmanaged")?;
+    rescan_environment_locked(m, env, sw, Some(QuarantinedRetry {
         scan: scan.into(), module_index, module_sha256: module_sha256.into(),
         report_sha256: report_sha256.into(),
     }))
@@ -2398,6 +2387,8 @@ pub(super) fn product_receipt(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "cpi2-test-contract")]
+    use linux_vst_bridge::{catalogue::EnvironmentBinding, observation::Census, profiles::{Accessibility, Claim, Editor, Family, Limitation, Role}};
     #[test]
     fn empty_registry_bootstraps_without_inventing_a_native_catalogue() {
         let f = test_fixture::Fixture::new();
@@ -2502,7 +2493,7 @@ mod tests {
             &"ff".repeat(32),&modules,&retry).is_err());
     }
     #[test]
-    fn retry_route_resolves_unregistered_onboarding_environment_without_promoting_it() {
+    fn retry_route_refuses_unmanaged_onboarding_environment_without_promoting_it() {
         use linux_vst_bridge::catalogue::{Catalogue,EnvironmentBinding};
         let (f,p,_,native)=test_fixture::prepared();
         let catalogue=Catalogue {schema:3,natives:vec![native],environments:vec![
@@ -2531,7 +2522,7 @@ mod tests {
             installation_operation:None,published:false,previous_attempt:None}).unwrap();
         let error=retry_quarantined_module(&f.m,&environment.id,&"ef".repeat(16),0,
             &f.r.module.sha256,&f.r.host.sha256).unwrap_err().to_string();
-        assert_eq!(error,"operator_quarantine_retry_scan_absent");
+        assert_eq!(error,"operator_environment_absent");
         assert!(!f.m.registry().unwrap().classes.values()
             .any(|entry|entry.registration.environment.id==environment.id));
     }
@@ -2558,6 +2549,225 @@ mod tests {
             recent_incidents: vec![],
             actions: vec![action],
             operation: None,
+        }
+    }
+    #[cfg(feature = "cpi2-test-contract")]
+    struct CatalogueFreeRetryFixture {
+        fixture: test_fixture::Fixture,
+        census: Census,
+        software: Software,
+        prior: inventory::Scan,
+        _contract: frg1::TestContractGuard,
+    }
+    #[cfg(feature = "cpi2-test-contract")]
+    fn catalogue_free_retry_fixture() -> CatalogueFreeRetryFixture {
+        let (fixture, mut profile, mut census, native) = test_fixture::prepared();
+        let m = &fixture.m;
+        m.unpublish(&profile.class.class_id).unwrap();
+        atomic_json(&m.root.join("registry.json"), &Registry::default()).unwrap();
+        profile.id = "frg1.test.fragments".into();
+        profile.revision = 11;
+        profile.claim = Claim::ReviewCandidate;
+        profile.role = Role::Effect;
+        profile.class.name = "Efx FRAGMENTS".into();
+        profile.class.vendor = "Arturia".into();
+        profile.class.version = "1.3.1.6566".into();
+        profile.class.subcategories = "Fx|Tools".into();
+        profile.factory_vendor = "Arturia".into();
+        profile.requirements.environment_family = Family::ArturiaPersistentV1;
+        profile.requirements.environment_revision = 2;
+        profile.requirements.native_sha256 = native.artifact.sha256.clone();
+        profile.requirements.native_source_commit = native.source_commit.clone();
+        profile.requirements.descriptor_sha256 = native.descriptor_sha256.clone();
+        profile.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
+        profile.capabilities.accessibility = Accessibility::DisabledForVendorProcess;
+        profile.limitations = vec![Limitation::ShortDeliveryGaps, Limitation::ExactOperatorArtifactOnly];
+        let mut env = fixture.r.environment.clone();
+        env.revision = 2;
+        atomic_json(&env.root.join("environment.json"), &env).unwrap();
+        let owner = env.root.join("compatdata/.ua1-owner.json");
+        fs::write(&owner, b"exact retained ubuntu owner").unwrap();
+        let relative = fixture.r.module.path.strip_prefix(env.root.join("compatdata"))
+            .unwrap().to_str().unwrap().to_string();
+        let contract = frg1::install_test_contract(profile.clone(), digest(&owner).unwrap(), relative);
+        census.environment = EnvironmentBinding { family: Family::ArturiaPersistentV1,
+            environment: env.clone() };
+        census.selected = profile.class.clone();
+        census.factory_vendor = profile.factory_vendor.clone();
+        census.classes = vec![profile.class.class_id.clone()];
+        let mut healthy = test_fixture::inspection_report(&census);
+        let factory = healthy["records"].as_array_mut().unwrap().iter_mut()
+            .find(|record| record["state"] == "ap8_factory").unwrap();
+        factory["class_count"] = json!(1);
+        factory["classes"].as_array_mut().unwrap().truncate(1);
+        atomic_json(&census.report.path, &healthy).unwrap();
+        census.report.sha256 = digest(&census.report.path).unwrap();
+        let source_manifest = Artifact { path: fixture.r.host.path.with_file_name("host-source-manifest.json"),
+            sha256: fixture.r.host_source_sha256.clone() };
+        let software = Software { installer_launch: None, preparation_kit: None,
+            operator_frontend: None, manager: fixture.r.host.clone(),
+            supervisor: fixture.r.host.clone(), ownership: fixture.r.host.clone(),
+            host: fixture.r.host.clone(), source_manifest,
+            source_sha256: fixture.r.host_source_sha256.clone(), native_catalogue: None };
+        atomic_json(&m.root.join("software.json"), &software).unwrap();
+        frg1::adopt(m, &env.id).unwrap();
+        let prior_report = fixture.outer.join("failed-scan-report.json");
+        fs::write(&prior_report, b"{\"error\":\"first scan failed\",\"records\":[]}").unwrap();
+        let other_path = census.module.path.with_file_name("z-other.vst3");
+        fs::write(&other_path, b"other fixture module").unwrap();
+        let other_artifact = Artifact { sha256: digest(&other_path).unwrap(), path: other_path };
+        let mut other_healthy = healthy;
+        other_healthy["records"][0]["module_sha256"] = json!(other_artifact.sha256);
+        let other_report_path = fixture.outer.join("other-healthy-report.json");
+        atomic_json(&other_report_path, &other_healthy).unwrap();
+        let other_report = Artifact { sha256: digest(&other_report_path).unwrap(),
+            path: other_report_path };
+        let scan = inventory::Scan {
+            schema: 1,
+            id: "ab".repeat(16),
+            environment: env,
+            host: software.host.clone(),
+            host_source_sha256: software.source_sha256.clone(),
+            completed_at: 1,
+            changes: inventory::Changes::default(),
+            modules: vec![
+                inventory::Module {
+                    artifact: census.module.clone(),
+                    classes: vec![],
+                    report: Artifact {sha256:digest(&prior_report).unwrap(),path:prior_report},
+                    inspection_error: Some("Windows host exited without successful close".into()),
+                    quarantine_reason: Some("inventory_factory_absent_or_duplicate".into()),
+                },
+                inventory::Module {
+                    artifact: other_artifact,
+                    classes: inventory::classes(&other_healthy).unwrap(),
+                    report: other_report,
+                    inspection_error: None,
+                    quarantine_reason: None,
+                },
+            ],
+        };
+        assert_eq!(managed_cli::modules(&scan.environment).unwrap().iter()
+            .map(|module| &module.path).collect::<Vec<_>>(),
+            scan.modules.iter().map(|module| &module.artifact.path).collect::<Vec<_>>());
+        let inventory_root = m.root.join("inventory");
+        private_dir(&inventory_root).unwrap();
+        private_dir(&inventory_root.join("history")).unwrap();
+        atomic_json(&inventory_root.join("history").join(format!("{}.json",scan.id)),&scan).unwrap();
+        atomic_json(&inventory_root.join(format!("{}.json",scan.environment.id)),&scan).unwrap();
+        CatalogueFreeRetryFixture { fixture, census, software, prior: scan, _contract: contract }
+    }
+    #[cfg(feature = "cpi2-test-contract")]
+    #[test]
+    fn catalogue_free_frg1_retry_worker_replaces_only_exact_quarantine() {
+        let prepared = catalogue_free_retry_fixture();
+        let prior = &prepared.prior;
+        let m = &prepared.fixture.m;
+        let mut sw = prepared.software.clone();
+        assert!(sw.native_catalogue.is_none());
+        assert!(m.registry().unwrap().classes.is_empty());
+
+        // Only the external scanner process is deterministic test machinery;
+        // request projection, worker validation, authority and inventory mutation
+        // remain the production path.
+        let launches = prepared.fixture.outer.join("scanner-launches");
+        let script = m.root.join("software/test-supervisor.py");
+        let source = serde_json::to_string(&prepared.census.report.path).unwrap();
+        let count = serde_json::to_string(&launches).unwrap();
+        fs::write(&script, format!("import json,pathlib,shutil,sys\njob=json.load(open(sys.argv[1]))\nwith open({source},'rb') as source,open(job['report'],'wb') as target: target.write(source.read())\nwith open({count},'a') as output: output.write('1\\n')\nprint('LVO0 '+job['session']+' ready',flush=True)\nshutil.rmtree(job['directory'])\nprint('LVO1 '+job['session']+' retired',flush=True)\n")).unwrap();
+        sw.supervisor = Artifact {sha256:digest(&script).unwrap(),path:script};
+        atomic_json(&m.root.join("software.json"),&sw).unwrap();
+
+        let snapshot = snapshot_idle_test(m).unwrap();
+        assert!(available(&snapshot).into_iter().all(|item|
+            !matches!(item.action,ui::Action::EnvironmentRescan { .. })));
+        let offered:Vec<_> = available(&snapshot).into_iter().filter(|item|
+            matches!(item.action,ui::Action::QuarantinedModuleRetry { .. })).collect();
+        assert_eq!(offered.len(),1);
+        assert!(offered[0].disabled_reason.is_none());
+        let action = offered[0].action.clone();
+        assert_eq!(action,ui::Action::QuarantinedModuleRetry {
+            environment:prior.environment.id.clone(),scan:prior.id.clone(),module_index:0,
+            module_sha256:prior.modules[0].artifact.sha256.clone(),
+            report_sha256:prior.modules[0].report.sha256.clone(),
+        });
+        let request = ui::Request {schema:7,state_token:snapshot.state_token,action};
+        let operation = launch_queued(m,&request,|_|Ok(true)).unwrap().operation.unwrap();
+        SCAN_SPAWN_COUNT.with(|count| count.set(0));
+        worker_with_capacity(m,&operation,OPERATOR_WAIT,&||capacity_fixture(m)).unwrap();
+        assert_eq!(worker_receipt(m,&operation)["state"],"completed");
+        assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get),1);
+        assert_eq!(fs::read_to_string(&launches).unwrap(),"1\n");
+        let result = worker_receipt(m,&operation)["result"].clone();
+        assert_eq!(result["retry"]["prior_scan"],prior.id);
+        assert_eq!(result["retry"]["prior_report_sha256"],prior.modules[0].report.sha256);
+        let inventory_root = m.root.join("inventory");
+        let current:inventory::Scan = read_json(&inventory_root.join(format!("{}.json",prior.environment.id))).unwrap();
+        assert_ne!(current.id,prior.id);
+        assert_eq!(current.modules.len(),2);
+        assert!(current.modules[0].quarantine_reason.is_none(), "{:?}", current.modules[0]);
+        assert!(current.modules[0].inspection_error.is_none());
+        assert!(!current.modules[0].classes.is_empty());
+        assert_eq!(serde_json::to_value(&current.modules[1]).unwrap(),
+            serde_json::to_value(&prior.modules[1]).unwrap());
+        let retained:inventory::Scan = read_json(&inventory_root.join("history").join(format!("{}.json",prior.id))).unwrap();
+        assert_eq!(serde_json::to_value(&retained).unwrap(),
+            serde_json::to_value(prior).unwrap());
+        assert!(available(&snapshot_idle_test(m).unwrap()).into_iter().all(|item|
+            !matches!(item.action,ui::Action::QuarantinedModuleRetry { .. })));
+    }
+    #[cfg(feature = "cpi2-test-contract")]
+    #[test]
+    fn catalogue_free_frg1_retry_refuses_stale_or_unmanaged_inputs_without_scanning() {
+        for case in ["adoption_absent", "adoption_changed", "environment", "scan",
+            "module_index", "module_digest", "report_digest", "host", "source_manifest",
+            "foreign_registry"] {
+            let prepared = catalogue_free_retry_fixture();
+            let m = &prepared.fixture.m;
+            let prior = &prepared.prior;
+            let mut environment = prior.environment.id.clone();
+            let mut scan = prior.id.clone();
+            let mut module_index = 0;
+            let mut module_digest = prior.modules[0].artifact.sha256.clone();
+            let mut report_digest = prior.modules[0].report.sha256.clone();
+            match case {
+                "adoption_absent" => {
+                    fs::remove_file(m.root.join("qualifications/frg1/adoption.json")).unwrap();
+                }
+                "adoption_changed" => {
+                    let path = m.root.join("qualifications/frg1/adoption.json");
+                    let mut value: Value = read_json(&path).unwrap();
+                    value["profile_fingerprint"] = json!("00".repeat(32));
+                    atomic_json(&path, &value).unwrap();
+                }
+                "environment" => environment = "22".repeat(16),
+                "scan" => scan = "cd".repeat(16),
+                "module_index" => module_index = 1,
+                "module_digest" => module_digest = "ef".repeat(32),
+                "report_digest" => report_digest = "ef".repeat(32),
+                "host" | "source_manifest" => {
+                    let path = m.root.join("inventory").join(format!("{}.json", environment));
+                    let mut changed: inventory::Scan = read_json(&path).unwrap();
+                    if case == "host" { changed.host.sha256 = "ef".repeat(32); }
+                    else { changed.host_source_sha256 = "ef".repeat(32); }
+                    atomic_json(&path, &changed).unwrap();
+                }
+                "foreign_registry" => {
+                    let (foreign, _, _, _) = test_fixture::prepared();
+                    atomic_json(&m.root.join("registry.json"), &foreign.m.registry().unwrap()).unwrap();
+                }
+                _ => unreachable!(),
+            }
+            let current = m.root.join("inventory").join(format!("{}.json", prior.environment.id));
+            let history = m.root.join("inventory/history").join(format!("{}.json", prior.id));
+            let before_current = fs::read(&current).unwrap();
+            let before_history = fs::read(&history).unwrap();
+            SCAN_SPAWN_COUNT.with(|count| count.set(0));
+            assert!(retry_quarantined_module(m, &environment, &scan, module_index,
+                &module_digest, &report_digest).is_err(), "{case}");
+            assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get), 0, "{case}");
+            assert_eq!(fs::read(&current).unwrap(), before_current, "{case}");
+            assert_eq!(fs::read(&history).unwrap(), before_history, "{case}");
         }
     }
     #[test]
