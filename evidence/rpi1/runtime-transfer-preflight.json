@@ -1,0 +1,179 @@
+{
+  "schema": "linux-vst-bridge-rpi1-runtime-transfer-preflight/v1",
+  "observed_at_utc": "2026-09-21",
+  "execution_source": {
+    "branch": "experiment/rpi1-pigments-arm64-appliance",
+    "head": "504efef4abc7c7fa17ae38ce100af71d0efc7e82",
+    "tree": "c6edb38343b1dd2b5d96f32cfee2552f77f1ef54",
+    "adapter_source_sha256": "b34804a07d999e7503f8d53921523173459d6b0a20b34f8e207593c660538ad4",
+    "adapter_aarch64_sha256": "99e1dc907c53fba755c1839922654753c09435fa3c474ded00f8dc2d499b7828"
+  },
+  "fixture": {
+    "board": "Raspberry Pi 5 Model B Rev 1.1",
+    "ram_gb": 8,
+    "os": "Raspberry Pi OS Trixie / Debian 13.7",
+    "architecture": "aarch64",
+    "kernel": "6.18.50+rpt-rpi-v8",
+    "page_size": 4096,
+    "cooling": "no active cooling",
+    "overclock": false
+  },
+  "deck_source": {
+    "classification": "user-owned retained Steam Deck installation",
+    "proton": {
+      "app_id": 4628710,
+      "build_id": "25118279",
+      "depot_id": 4628711,
+      "manifest_id": "2978628887517351791",
+      "directory": "Proton 11.0"
+    },
+    "steam_linux_runtime": {
+      "app_id": 4183110,
+      "build_id": "24599767",
+      "depot_id": 4183111,
+      "manifest_id": "78117001432799844",
+      "directory": "SteamLinuxRuntime_4"
+    },
+    "excluded": [
+      "Steam app manifests and account identifiers",
+      "Steam userdata and credentials",
+      "compatdata and machine-bound prefixes",
+      "Arturia software, content, credentials and authorization payloads"
+    ]
+  },
+  "runtime_closure": {
+    "verification": "sorted path, type, mode, size, content, symlink target and hard-link topology digest",
+    "proton": {
+      "entries": 8262,
+      "closure_sha256": "b2fa64a44abe0db6b1aae35c6a402c0e4a4f9603a208c6dcf4b936bc1dd4f9fb",
+      "proton_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+      "pi_kib": 1427628
+    },
+    "steam_linux_runtime": {
+      "entries": 16809,
+      "closure_sha256": "0ca1ee5a23ec82489fb1305ffcd2eed62723bc126c37838934fc037d5e10fca3",
+      "entry_point_sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+      "pi_kib": 680404
+    },
+    "deck_to_private_staging": "exact match",
+    "private_staging_to_pi": "exact match",
+    "runtime_bytes_committed": false
+  },
+  "translation": {
+    "box64_commit": "2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a",
+    "box64_sha256": "79cdd30e5480f5dfb8cd717af99d0e5a89eb55b31701de6fde7896a6a0e79ab6",
+    "box64_version": "0.4.4",
+    "emulator_manifest_sha256": "9a30bd4f6cd6ec7e888a90af81f26aa9c3967abc9410e3535dea7a804f18e7c1",
+    "graphics_provider_manifest_sha256": "a076eea9d36c398b94b9a9b1f093d31811659a731169a42bf9ad6bae54bf871d",
+    "graphics_provider": "hard-link derivative of the exact SLR4 provider tree with relative lib64 and usr compatibility links; the exact runtime closure was not modified",
+    "adapter_contract": [
+      "ordinary ELF targets remain direct Box64 targets",
+      "the observed ld-linux-x86-64.so.2 --library-path vector becomes BOX64_LD_LIBRARY_PATH plus the real helper",
+      "only the exact Proton Python filename and shebang select x86-64 Python",
+      "unknown loader options and malformed vectors refuse"
+    ]
+  },
+  "preserved_attempts": [
+    {
+      "name": "full_container_without_provider_layout",
+      "result": "failed",
+      "outer_exit": 1,
+      "cause": "graphics provider lacked lib64/ld-linux-x86-64.so.2"
+    },
+    {
+      "name": "direct_box64_loader_vector",
+      "result": "failed",
+      "outer_exit": 1,
+      "cause": "Box64 treated ld-linux-x86-64.so.2 as the emulated program and glibc asserted in rtld_setup_main_map"
+    },
+    {
+      "name": "adapter_x86_64_linux_probe",
+      "result": "functional_with_preserved_setup_faults",
+      "outer_exit": 0,
+      "stdout_identity": "x86_64"
+    },
+    {
+      "name": "proton_prefix_initialization",
+      "command_contract": "exact SLR4 entry point -> exact Proton getcompatpath /",
+      "result": "functional_with_preserved_setup_faults",
+      "outer_exit": 0,
+      "system_reg": "present"
+    },
+    {
+      "name": "proton_builtin_windows_probe",
+      "result": "functional_with_preserved_setup_faults",
+      "outer_exit": 0,
+      "marker": "RPI1_WINDOWS_OK"
+    },
+    {
+      "name": "source_owned_windows_probe",
+      "sha256": "86161880adb171519bfa1b263ea136c6f40dd595097891fb5436d256cf727866",
+      "result": "functional_with_preserved_setup_faults",
+      "outer_exit": 0,
+      "marker": "RPI0_X86_64_WINDOWS_PREFLIGHT_PASS 5250493057494e36"
+    },
+    {
+      "name": "source_owned_vst_host_lifecycle",
+      "sha256": "6f00cf377458037e4ae64c2425578b7c408a0a5ed6f027a0249e0d979f55fc2c",
+      "result": "passed",
+      "control_group": "lvb-rpi1-source-host.service",
+      "observed_start_ticks": "2755411",
+      "observed_cmdline_sha256": "2be5e3ff156bce5bcb8e6a75ebd1fb3c7e93d0accfae05a2e91ca75be165f8eb",
+      "natural_retirement": true,
+      "remaining_private_processes": 0
+    }
+  ],
+  "preserved_faults": [
+    "SLR4 probes an i386 helper but the selected RPI0 Box64 build is deliberately 64-bit-only",
+    "the x86-64 static ldconfig helper exits by signal 11 under Box64 and pressure-vessel retains its LD_LIBRARY_PATH fallback",
+    "optional native wrappers absent from the Pi image remain reported for SDL2, Xss, PulseAudio, Wayland, xkbcommon, libdecor, libusb and non-applicable NVIDIA GLX",
+    "prefix initialization reported one absent optional AMD DLL copy destination",
+    "successful command exit and markers do not erase these setup faults"
+  ],
+  "deterministic_tests": {
+    "transfer_baseline": 3,
+    "box64_emulator_adapter": 6,
+    "total": 9,
+    "result": "passed"
+  },
+  "thermal_observations": {
+    "temperature_c": {
+      "minimum_observed": 48.8,
+      "maximum_observed": 52.1,
+      "final_observed": 49.4
+    },
+    "observed_clock_khz": [1500000, 1600000, 1900000],
+    "throttled_register": "0x50000",
+    "current_fault_bits": false,
+    "sticky_historical_fault_bits": true,
+    "interpretation": "the pre-existing sticky undervoltage/throttling history remains; these probes do not establish accepted performance"
+  },
+  "operational_cleanup": {
+    "remaining_rpi1_user_units": 0,
+    "remaining_private_runtime_processes": 0,
+    "temporary_transfer_key": "removed from the Pi and independently refused after removal",
+    "local_temporary_private_key": "removed"
+  },
+  "gates": {
+    "exact_runtime_transfer": "PASSED",
+    "x86_64_linux_probe": "FUNCTIONAL_WITH_PRESERVED_SETUP_FAULTS",
+    "proton_prefix_initialization": "FUNCTIONAL_WITH_PRESERVED_SETUP_FAULTS",
+    "source_owned_windows_probe": "FUNCTIONAL_WITH_PRESERVED_SETUP_FAULTS",
+    "source_owned_host_lifecycle": "PASSED",
+    "exact_cleanup": "PASSED",
+    "account_free_uia_normal_and_override": "NOT_RUN",
+    "proton_on_box64_preflight": "PARTIAL_FUNCTIONAL_WITH_PRESERVED_SETUP_FAULTS",
+    "asc": "NOT_RUN",
+    "pigments": "NOT_RUN",
+    "physical_audio_midi_editor_state": "NOT_RUN",
+    "overall_rpi1": "PENDING"
+  },
+  "nonclaims": [
+    "ASC installation or sign-in",
+    "Pigments installation, authorization or execution",
+    "account-free UI Automation normal/override acceptance",
+    "clean fault-free Proton-on-Box64 operation",
+    "audio, MIDI, editor or state acceptance",
+    "latency, polyphony, thermal stability or production readiness"
+  ]
+}

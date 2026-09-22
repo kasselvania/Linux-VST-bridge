@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'rpi0/**'
+      - 'rpi1/standalone/**'
+      - 'rpi1/prepare_standalone.py'
       - 'windows-fixtures/rpi0/**'
       - 'native-vst3-proxy/backend/**'
       - 'native-audio-client/**'
@@ -131,6 +133,8 @@ jobs:
       - name: Build and test native AArch64 appliance
         run: |
           cargo test --manifest-path rpi0/standalone/Cargo.toml --locked
+          cargo test --manifest-path rpi1/standalone/Cargo.toml --locked
+          cargo build --release --manifest-path rpi1/standalone/Cargo.toml --features jack-runtime --locked
           cmake -S . -B "${{ runner.temp }}/rpi0-arm" -DRPI0_ARM_BUILD_ONLY=ON
           cmake --build "${{ runner.temp }}/rpi0-arm" --parallel 2
           "${{ runner.temp }}/rpi0-arm/rpi0-layout-assertions"
@@ -149,3 +153,4 @@ jobs:
         run: |
           cargo test --manifest-path native-audio-client/Cargo.toml --locked
           cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked
+          cargo test --manifest-path rpi1/standalone/Cargo.toml --locked

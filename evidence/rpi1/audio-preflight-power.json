@@ -1,0 +1,166 @@
+{
+  "date": "2026-09-22",
+  "claim": "ShieldXL stereo tone heard and measured; deterministic Pigments gate prepared but not run",
+  "base_head": "6abbcb75bdcd3263412b27ab2320d1b25782dbd7",
+  "base_tree": "47a6307a0c7432780ce400d01270639e0bc047c8",
+  "source_sha256": {
+    "rpi0/standalone/src/audio.rs": "e1b663a84427547fd955f936debe674c76c9a73ec2bbcee5ededa3176d080fd2",
+    "rpi0/standalone/src/jack.rs": "df1a9601474768f24cc2b274ffa0cd13af19c085938577efc1650d2f2ae4d36e",
+    "rpi1/standalone/src/main.rs": "b27398152422828b5b2c743acd7fda1bc88374b2874e8cc6ecd8885a68262841",
+    "rpi1/qualification.rs": "4b8e5561bc90bf5183a30c53a8fb37be7ede4259a8cde9986d49d0ebd26b038a",
+    "rpi1/qualification_jack.rs": "1b656b894c1da3671fdfd306a19b766285c90f3a3b635158d88c4a4a1cd0c158",
+    "rpi1/health.py": "7472164efbe05bf9517916c31c023a78897f3c20640e909a66ecc4cefa09921f"
+  },
+  "source_transfer_verified": true,
+  "binary_sha256": {
+    "native_arm": "0531f8bef318dfcb2d50bdace0e9e1a650c3c23e4097ea418a77db2dc554d427",
+    "tone_fixture_before_rustfmt": "ff0f68b586fe06ad535bcd94f73e31c79b56f1a47d53437a5fb8949daacbdbfa",
+    "fixture_after_rustfmt": "30894189d587f4bf40c1d817672fe73d028aa18c5392846652bd8ed8f6d71986"
+  },
+  "fixture": {
+    "machine": "Raspberry Pi 5 Model B Rev 1.1",
+    "kernel": "6.18.50+rpt-rpi-v8",
+    "audio": "ShieldXL / CS4270",
+    "jack_version": "1.9.22",
+    "sample_rate": 48000,
+    "period_frames": 512,
+    "periods": 3,
+    "bridge_frames_unchanged": 2048,
+    "usb_midi": "unplugged; only root hubs observed",
+    "network": "Wi-Fi SSH; wired connection unavailable and user accepted Wi-Fi"
+  },
+  "journal": {
+    "prior_state": "vendor drop-in forced Storage=volatile",
+    "new_state": "Storage=persistent; SystemMaxUse=64M",
+    "controlled_reboot_marker_readback": true,
+    "override": "/etc/systemd/journald.conf.d/90-rpi1-persistent.conf"
+  },
+  "telemetry": {
+    "kernel_prior_state": "memory cgroup disabled; PSI default disabled",
+    "boot_options_added": [
+      "cgroup_enable=memory",
+      "cgroup_memory=1",
+      "psi=1"
+    ],
+    "original_boot_options_backed_up_privately": true,
+    "pressure_and_user_unit_memory_readback": true,
+    "health_cadence_hz": 1,
+    "health_duration_limit_seconds": 900,
+    "journal_remote_copy": true,
+    "ping_remote_copy": true,
+    "local_samples_after_accounting": 315,
+    "last_local_sample_monotonic": 348.717,
+    "last_remote_sample_monotonic": 357.717,
+    "maximum_sampled_temperature_c": 51.8,
+    "minimum_sampled_voltage_v": 4.88698,
+    "maximum_sampled_voltage_v": 4.99284,
+    "minimum_mem_available_kib": 7605628,
+    "limitations": [
+      "one-Hz samples do not capture every voltage transient",
+      "Wi-Fi loss does not prove machine failure",
+      "Pigments cohort memory counters not physically exercised because Gate 2 was not started"
+    ]
+  },
+  "tone": {
+    "status": "PASS",
+    "operator": "Yes, I heard it",
+    "records": [
+      "RPI1_QUALIFICATION_GRAPH mode=tone rate=48000 period=512 routes=[[\"lvb-rpi1-qualification:tone_l\", \"lvb-rpi1-qualification:meter_l\"], [\"lvb-rpi1-qualification:tone_l\", \"system:playback_1\"], [\"lvb-rpi1-qualification:tone_r\", \"lvb-rpi1-qualification:meter_r\"], [\"lvb-rpi1-qualification:tone_r\", \"system:playback_2\"]]",
+      "RPI1_QUALIFICATION_AUDIO channel=0 samples=144000 nonzero_samples=95998 nonzero_windows=188 peak=0.05 rms=0.02877094075182383 nonfinite=0",
+      "RPI1_QUALIFICATION_AUDIO channel=1 samples=144000 nonzero_samples=95998 nonzero_windows=188 peak=0.05 rms=0.028770967763911953 nonfinite=0",
+      "RPI1_QUALIFICATION_RESULT mode=tone completed=true midi_sent=0 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+      "RPI1_QUALIFICATION_RETIRED"
+    ],
+    "clean_port_retirement": true,
+    "unit_result": "success",
+    "exit_status": 0,
+    "duration_seconds": 3.159,
+    "signal_duration_seconds": 2,
+    "build_note": "Physical tone used the pre-rustfmt fixture; final fixture was formatting-only rebuilt, with both binary digests retained."
+  },
+  "power": {
+    "original_port": "operator-specified USB-C 3",
+    "original_detected_max_current_ma": 3000,
+    "original_fixed_profiles": [
+      [
+        5000,
+        3000
+      ],
+      [
+        9000,
+        3000
+      ],
+      [
+        12000,
+        2500
+      ],
+      [
+        15000,
+        2000
+      ],
+      [
+        20000,
+        1500
+      ]
+    ],
+    "original_boot_undervoltage_seconds": [
+      6.240015,
+      8.256016
+    ],
+    "original_boot_throttled": "0x50000",
+    "replacement": "operator supplied 30W 5V/9V/15V device; 5V current unspecified",
+    "replacement_detected_max_current_ma": 3000,
+    "replacement_recorded_pd_profiles": [],
+    "replacement_usb_high_current_enabled": false,
+    "replacement_boot_undervoltage_intervals_seconds": [
+      [
+        8.608015,
+        10.624012
+      ],
+      [
+        14.656035,
+        16.672019
+      ]
+    ],
+    "replacement_boot_throttled": "0x50000",
+    "restart_classification": "operator confirmed changing power; not a spontaneous crash",
+    "cause_claim": "voltage events observed before Pigments; supply/cable/input path remains suspect; earlier whole-machine failure cause unproved"
+  },
+  "watchdog": {
+    "preexisting_runtime_seconds": 60,
+    "preexisting_reboot_seconds": 120,
+    "persistent_disable_attempt": "automatic approval review rejected; not executed",
+    "user_approved_temporary_runtime_disable": true,
+    "temporary_readback": "RuntimeWatchdogUSec=0; hardware inactive",
+    "final_readback": "operator power swap restored RuntimeWatchdogUSec=1min; hardware active",
+    "persistent_watchdog_changes": false
+  },
+  "pigments_gate_2": {
+    "status": "NOT_RUN",
+    "reason": "new boot undervoltage on both power arrangements; known 5V/5A comparison unavailable",
+    "native_binary_built": true,
+    "single_session_launcher_prepared_privately": true,
+    "editor_opened": false,
+    "vendor_or_runner_changes": false,
+    "installation_or_activation_changes": false
+  },
+  "validation": {
+    "fixture_tests": 3,
+    "shared_standalone_tests": 12,
+    "pigments_standalone_tests_local": 7,
+    "pigments_standalone_tests_arm_with_jack": 7,
+    "arm_release_build": true,
+    "fixture_arm_compile_warnings_denied": true,
+    "strict_local_clippy": "blocked by preexisting CallbackGate new_without_default lint; both crates pass with only that lint allowed",
+    "arm_clippy": "unavailable; cargo-clippy component absent"
+  },
+  "final_state": {
+    "pigments_started": false,
+    "rpi1_units_active": false,
+    "qualification_ports_remaining": false,
+    "box64_or_wineserver_observed": false,
+    "journal_persistence_retained": true,
+    "kernel_telemetry_retained": true,
+    "original_watchdog_restored": true
+  }
+}

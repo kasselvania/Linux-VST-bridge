@@ -1,0 +1,410 @@
+{
+  "date": "2026-09-22",
+  "claim": "One editor-closed same-state save/restore preserved playback routes, measured and audible stereo, resumed transport and clean retirement",
+  "executed_source_head": "8eb89230410a1b42531bfb0fc252cddb166b1d5d",
+  "executed_source_tree": "ff138a43d6d9be9c517e8aa0209cf268690fa6c9",
+  "repository_head_at_attempt": "dc83017f48f1a777bff429eddd0253c5d8f69210",
+  "native_sha256": "2689b5a0af961d8637007c6be7a1af58ce55458b26ebb16662c2455007202553",
+  "qualification_sha256": "30894189d587f4bf40c1d817672fe73d028aa18c5392846652bd8ed8f6d71986",
+  "source_change": "none; exact binaries from the startup repair reused",
+  "scope": {
+    "sessions": 1,
+    "power": "same MacBook supply",
+    "editor": "never opened",
+    "usb_midi": "disconnected",
+    "jack_rate": 48000,
+    "jack_period_frames": 512,
+    "bridge_delay_frames": 2048,
+    "vendor_processing_quantum_frames": 256,
+    "remote": "direct SSH from Mac"
+  },
+  "state": {
+    "saved_envelope_bytes": 381326,
+    "restored_envelope_bytes": 381326,
+    "host_opaque_bytes": 381222,
+    "storage": "private mode 0600 file on Pi; no state payload exported or committed",
+    "operation": "save while running; existing bounded pause/stop/deactivate/restore/reactivate/start/resume path",
+    "initialization_wait_ms": 5449,
+    "epoch_before": 1,
+    "epoch_after": 2,
+    "semantic_limit": "Restored the same state; no editor parameter change or changed-state rollback tested"
+  },
+  "audio": {
+    "operator_confirmation": "Yes, I heard both",
+    "before_left": {
+      "samples": 240000,
+      "nonzero_samples": 72928,
+      "nonzero_windows": 144,
+      "peak": 0.19765145,
+      "rms": 0.07607915652899921,
+      "nonfinite": 0
+    },
+    "before_right": {
+      "samples": 240000,
+      "nonzero_samples": 72928,
+      "nonzero_windows": 144,
+      "peak": 0.19765145,
+      "rms": 0.07607915652899921,
+      "nonfinite": 0
+    },
+    "after_left": {
+      "samples": 240000,
+      "nonzero_samples": 72928,
+      "nonzero_windows": 144,
+      "peak": 0.19765145,
+      "rms": 0.07607915652899921,
+      "nonfinite": 0
+    },
+    "after_right": {
+      "samples": 240000,
+      "nonzero_samples": 72928,
+      "nonzero_windows": 144,
+      "peak": 0.19765145,
+      "rms": 0.07607915652899921,
+      "nonfinite": 0
+    },
+    "summary_statistics_equal": true,
+    "samplewise_equality_claimed": false,
+    "total_midi_sent": 6,
+    "total_midi_accepted": 6,
+    "xruns": 0,
+    "fixture_runs": 2,
+    "fixture_exit_statuses": [
+      0,
+      0
+    ]
+  },
+  "routes": {
+    "preserved_across_restore": [
+      [
+        "lvb-arm-pigments:audio_out_l",
+        "system:playback_1"
+      ],
+      [
+        "lvb-arm-pigments:audio_out_r",
+        "system:playback_2"
+      ]
+    ],
+    "native_midi_and_audio_ports_preserved": true,
+    "meter_custody": "The same bounded fixture ran once before and once after restoration; its MIDI/meter ports retired between measurements. Only the playback connections were held through restoration."
+  },
+  "native_records": [
+    "RPI1_INITIALIZATION_WAIT timeout_seconds=120",
+    "RPI1_INITIALIZED wait_ms=5449",
+    "RPI1_READY midi=lvb-arm-pigments:midi_in left=lvb-arm-pigments:audio_out_l right=lvb-arm-pigments:audio_out_r jack_frames=512 bridge_frames=2048 vendor_frames=48 total_frames=2096",
+    "RPI1_STATE_SAVED bytes=381326",
+    "RPI1_STATE_RESTORED bytes=381326",
+    "RPI1_AUDIO midi_accepted=0 output_nonzero_l=0 output_nonzero_r=0 output_peak_l=0 output_peak_r=0 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=89 request_high=16 result_high=15 fault=0",
+    "RPI1_AUDIO midi_accepted=1 output_nonzero_l=17455 output_nonzero_r=17455 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=278 request_high=16 result_high=15 fault=0",
+    "RPI1_AUDIO midi_accepted=1 output_nonzero_l=65583 output_nonzero_r=65583 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=468 request_high=16 result_high=15 fault=0",
+    "RPI1_AUDIO midi_accepted=3 output_nonzero_l=72928 output_nonzero_r=72928 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=658 request_high=16 result_high=15 fault=0",
+    "RPI1_AUDIO midi_accepted=3 output_nonzero_l=72928 output_nonzero_r=72928 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=848 request_high=16 result_high=15 fault=0",
+    "RPI1_AUDIO midi_accepted=3 output_nonzero_l=72928 output_nonzero_r=72928 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=1038 request_high=16 result_high=15 fault=0",
+    "RPI1_AUDIO midi_accepted=3 output_nonzero_l=72928 output_nonzero_r=72928 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=1336 request_high=16 result_high=15 fault=0",
+    "RPI1_AUDIO midi_accepted=3 output_nonzero_l=72928 output_nonzero_r=72928 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=1338 request_high=16 result_high=15 fault=0",
+    "RPI1_AUDIO midi_accepted=4 output_nonzero_l=88815 output_nonzero_r=88815 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=1528 request_high=16 result_high=15 fault=0",
+    "RPI1_AUDIO midi_accepted=4 output_nonzero_l=137455 output_nonzero_r=137455 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=1718 request_high=16 result_high=15 fault=0",
+    "RPI1_AUDIO midi_accepted=6 output_nonzero_l=145856 output_nonzero_r=145856 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=1908 request_high=16 result_high=15 fault=0",
+    "RPI1_AUDIO midi_accepted=6 output_nonzero_l=145856 output_nonzero_r=145856 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=2098 request_high=16 result_high=15 fault=0",
+    "RPI1_AUDIO midi_accepted=6 output_nonzero_l=145856 output_nonzero_r=145856 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=2288 request_high=16 result_high=15 fault=0",
+    "RPI1_AUDIO midi_accepted=6 output_nonzero_l=145856 output_nonzero_r=145856 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=2486 request_high=16 result_high=15 fault=0",
+    "RPI1_AUDIO midi_accepted=6 output_nonzero_l=145856 output_nonzero_r=145856 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=2488 request_high=16 result_high=15 fault=0",
+    "RPI1_CALLBACK callbacks=1304 failures=0 deadline_misses=0 callback_ns_max=68500 missing_frames=2560 expired_frames=2560 gaps=1 delivered_frames=630272 priming_frames=4096 paused_frames=30720 unsupported_midi=0 malformed_midi=0 overflow_midi=0",
+    "RPI1_TRANSPORT fault=0 processed=2488 request_high=16 result_high=15 position=298496 epoch=2",
+    "RPI1_RETIREMENT milestones=127 epoch=2 sequence=2491 position=298496 generation=1",
+    "RPI1_CLEAN_SHUTDOWN session=450f26f78ed67786a840b87235a09231"
+  ],
+  "windows_lifecycle_records": [
+    {
+      "event": "lifecycle",
+      "sequence": 225,
+      "state": "ap4_state_started",
+      "operation": "opaque",
+      "owner_thread": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 226,
+      "state": "ap12_readback",
+      "unavailable_count": 0,
+      "first_unavailable_id": 0,
+      "first_unavailable_bits": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 227,
+      "state": "ap10_controller_sync",
+      "applied": 0,
+      "state_request_sequence": 1237
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 228,
+      "state": "ap4_state_result",
+      "operation": "opaque",
+      "result": 0,
+      "bytes": 381222
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 229,
+      "state": "ap0_call_started",
+      "operation": "set_processing_false",
+      "owner_thread": false
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 230,
+      "state": "ap0_call_completed",
+      "operation": "set_processing_false",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 231,
+      "state": "ap0_thread_joined",
+      "joined": true,
+      "processing_stopped": true,
+      "worker_exception": false
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 232,
+      "state": "ap2_lifecycle_ack",
+      "kind": 13,
+      "next_sequence": 1324
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 233,
+      "state": "ap3_processing_summary",
+      "processed_blocks": 1322,
+      "intervals": 1,
+      "process_mode": "kRealtime"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 234,
+      "state": "ap0_call_started",
+      "operation": "set_active_false",
+      "owner_thread": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 235,
+      "state": "ap0_call_completed",
+      "operation": "set_active_false",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 236,
+      "state": "ap2_lifecycle_ack",
+      "kind": 15,
+      "next_sequence": 1324
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 237,
+      "state": "ap4_state_started",
+      "operation": "opaque",
+      "owner_thread": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 238,
+      "state": "ap12_readback",
+      "unavailable_count": 0,
+      "first_unavailable_id": 0,
+      "first_unavailable_bits": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 239,
+      "state": "ap10_controller_sync",
+      "applied": 0,
+      "state_request_sequence": 1324
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 240,
+      "state": "ap4_state_result",
+      "operation": "opaque",
+      "result": 0,
+      "bytes": 381222
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 241,
+      "state": "ap0_call_started",
+      "operation": "set_active_true",
+      "owner_thread": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 242,
+      "state": "ap0_call_completed",
+      "operation": "set_active_true",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 243,
+      "state": "ap2_lifecycle_ack",
+      "kind": 9,
+      "next_sequence": 1325
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 244,
+      "state": "ap0_processing_thread_started",
+      "distinct_from_owner": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 245,
+      "state": "ap0_call_started",
+      "operation": "set_processing_true",
+      "owner_thread": false
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 246,
+      "state": "ap0_call_completed",
+      "operation": "set_processing_true",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 247,
+      "state": "ap2_lifecycle_ack",
+      "kind": 11,
+      "next_sequence": 1325
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 248,
+      "state": "ap0_call_started",
+      "operation": "set_processing_false",
+      "owner_thread": false
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 249,
+      "state": "ap0_call_completed",
+      "operation": "set_processing_false",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 250,
+      "state": "ap0_thread_joined",
+      "joined": true,
+      "processing_stopped": true,
+      "worker_exception": false
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 251,
+      "state": "ap2_lifecycle_ack",
+      "kind": 13,
+      "next_sequence": 2491
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 252,
+      "state": "ap3_processing_summary",
+      "processed_blocks": 1166,
+      "intervals": 1,
+      "process_mode": "kRealtime"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 253,
+      "state": "ap0_call_started",
+      "operation": "set_active_false",
+      "owner_thread": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 254,
+      "state": "ap0_call_completed",
+      "operation": "set_active_false",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 255,
+      "state": "ap2_lifecycle_ack",
+      "kind": 15,
+      "next_sequence": 2491
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 256,
+      "state": "ap1_endpoint_closed",
+      "mapping_unmapped": true,
+      "instance_count": 1
+    }
+  ],
+  "transport": {
+    "completed_vendor_blocks": 2488,
+    "completed_vendor_frames_total": 636928,
+    "final_epoch_position_frames": 298496,
+    "terminal_fault": 0,
+    "callback": {
+      "event": "rpi1_callback_summary",
+      "callbacks": 1304,
+      "process_failures": 0,
+      "deadline_misses": 0,
+      "callback_ns_max": 68500,
+      "missing_frames": 2560,
+      "expired_frames": 2560,
+      "gaps": 1,
+      "delivered_frames": 630272,
+      "priming_frames": 4096,
+      "paused_frames": 30720,
+      "unsupported_midi": 0,
+      "malformed_midi": 0,
+      "overflow_midi": 0,
+      "jack_frames": 512,
+      "bridge_frames": 2048
+    },
+    "interpretation": "Position is the current epoch frontier, not total processed frames. Startup gaps remain; restore pause is intentional and separately counted."
+  },
+  "health": {
+    "active_samples": 31,
+    "active_monotonic_range": [
+      1455.265,
+      1485.265
+    ],
+    "maximum_temperature_c": 57.3,
+    "voltage_range_v": [
+      4.77844,
+      5.01696
+    ],
+    "throttle_samples": [
+      "throttled=0x0"
+    ],
+    "kernel_undervoltage_events": 0,
+    "minimum_mem_available_kib": 5578276,
+    "outer_memory_peak_bytes": 59351040,
+    "windows_memory_peak_bytes": 2019328000,
+    "restart_during_run": false
+  },
+  "cleanup": {
+    "normal_retirement": "passed; milestones=127; epoch=2; sequence=2491; position=298496",
+    "outer_exit": 0,
+    "outer_result": "success",
+    "worker_exception": false,
+    "mapping_unmapped": true,
+    "native_translated_processes_stopped": true,
+    "successful_transport_removed": true,
+    "jack_routes_and_ports_removed": true,
+    "command_fifo_removed": true,
+    "private_state_retained": true,
+    "health_and_remote_journal_recorders_stopped": true,
+    "watchdog": "60-second runtime watchdog restored and read back after the interrupted headless gate"
+  },
+  "next_gate": "Headless soak was attempted separately and stopped after an operator-reported brief buzz; see headless-soak-interrupted.json"
+}

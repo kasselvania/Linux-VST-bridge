@@ -1,0 +1,118 @@
+{
+  "schema": "linux-vst-bridge-rpi1-transfer-baseline/v1",
+  "status": "TRANSFER_BASELINE_RESOLVED_PI_PREFLIGHT_PASSED_WITH_PRESERVED_FAULTS",
+  "starting_source": {
+    "branch": "experiment/rpi1-pigments-arm64-appliance",
+    "head": "4a88802914d33633adb1b8b8c76507f0883e63d3",
+    "tree": "d1f7ebc4e0fd4d6e3e2ca342f6e72103dd043325",
+    "rpi0_executable_head": "791088bb31fcd75212b2df4ac2c7a6efb95182ba",
+    "rpi0_executable_tree": "10f102fe04ce52a5a9436481331007146b85ebba",
+    "ap18_ancestor": "3fa410fe95b790b9174417f803c56a32b2b3d2d2",
+    "ordinary_pigments_ancestor": "b1f1aed7b7f8857da9f6860252f11a44996a28bf"
+  },
+  "repository_records": [
+    {
+      "path": "compatibility/arturia-pigments.json",
+      "sha256": "e101ff6ea79b4a23863ee13f2a66b4fab833b31b3ed8cf3c715044a4672f46ec"
+    },
+    {
+      "path": "evidence/ap18/asc-installation.json",
+      "sha256": "842011b2860739e48c135bd950ac7265947b21e04838ae1e540e6740efca12ac"
+    },
+    {
+      "path": "evidence/ap18/post-login/uia-attribution.json",
+      "sha256": "159d7c9c35cba449002462de88d5e1111c459e434ab9e39e670cd5308f2ed03b"
+    },
+    {
+      "path": "evidence/ap18/pigments/installed.json",
+      "sha256": "bbd6393e80524171245ade3a63b18454bee7a6705bf0904dda351ed10868788a"
+    },
+    {
+      "path": "evidence/ap18/acceptance/ordinary-smoke.json",
+      "sha256": "9e371623ca84fb2787310597bcaeef917d067a03c3a6e9e0df1c46e9ed13792f"
+    },
+    {
+      "path": "evidence/rpi0-standalone-arm64-appliance/physical-acceptance.json",
+      "sha256": "fdeb1d403ea4b2c29a9e599ab617d84337b75c265dd6a42a3b9fb27f406ab6f8"
+    },
+    {
+      "path": "evidence/rpi1/runner-acquisition.json",
+      "sha256": "5ef12dac004322ad6ab5f207069f3464fcc3d1b517753673ded2e31a0b527119"
+    },
+    {
+      "path": "evidence/rpi1/runtime-transfer-preflight.json",
+      "sha256": "2ff64bc273cdb0c60d9e412304292bf5aba9d1f70f7598cbdb82c2b6687d59d3"
+    },
+    {
+      "path": "evidence/rpi1/account-free-uia-preflight.json",
+      "sha256": "575eb2c68308b6239209197121eecf363b022fa49516c000eef8cc9e12ba88ef"
+    },
+    {
+      "path": "evidence/rpi1/asc-installer-admission.json",
+      "sha256": "88064d8cc90011196287106da4390fc42ceabaa785d66b9357a283ec4abe14e1"
+    }
+  ],
+  "pigments": {
+    "profile_id": "arturia-pigments",
+    "profile_revision": 18,
+    "claim": "verified_exact_fixture",
+    "class_id": "41727475415649534B61743150726F63",
+    "version": "7.0.1.6772",
+    "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+    "environment_family": "arturia_persistent_v1",
+    "environment_revision": 1,
+    "capabilities": {
+      "vendor_retirement": "process_scoped_vendor_retirement",
+      "editor_lifetime": "retain_editor_view_until_instance_retirement",
+      "event_output": "reported_zero_event_channels_unspecified",
+      "accessibility": "disabled_for_vendor_process",
+      "editor": "detached_direct_vendor_lifecycle",
+      "state": "concurrent_read_only_capture_v12",
+      "precision": "float32_only",
+      "performance": "frames512_recommended256_unqualified"
+    }
+  },
+  "deck_runner": {
+    "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+    "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+    "proton_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+    "entry_point_sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+  },
+  "pi_translation": {
+    "box64_commit": "2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a",
+    "box64_sha256": "79cdd30e5480f5dfb8cd717af99d0e5a89eb55b31701de6fde7896a6a0e79ab6",
+    "rpi0_wine_control_commit": "db11d0fe6a169c457e23d007e20404643d067aa8",
+    "rpi0_wine_control_sha256": "1a34236df8794f6aa8fe623cfa44d7de30f145c7e7c9cd236620e6b92a3f6194"
+  },
+  "asc": {
+    "known_version": "2.12.0.3157",
+    "known_installer_sha256": "e92baaaa94f4635fb33b6cbad4f6397d619d07c9e0997e6460a8d64544f1bfb8",
+    "known_main_sha256": "188afb698a0d7838bf491d208f56e9614846e56a60c90919d1018857ca3e7e25",
+    "known_agent_sha256": "d0851a06448ac7babda20411387a816fd412069af6139e1a1d286b51822de37e",
+    "known_updater_sha256": "4362427643337b3ee881307870359066401da35bb35d02cd55dbfd3a643243bb",
+    "process_local_environment": {
+      "WINEDLLOVERRIDES": "uiautomationcore="
+    },
+    "credentials_and_authorization": "operator_owned_private"
+  },
+  "gates": {
+    "transfer_baseline": "PASSED",
+    "exact_runtime_transfer": "PASSED",
+    "source_owned_process_checks": "PASSED_WITH_PRESERVED_SETUP_FAULTS",
+    "account_free_uia": "PASSED",
+    "proton_on_box64_preflight": "PASSED_WITH_PRESERVED_SETUP_FAULTS",
+    "asc_installer_admission": "PASSED_NOT_EXECUTED",
+    "asc_installation": "NOT_RUN",
+    "pigments_installation": "NOT_RUN",
+    "standalone_physical_acceptance": "NOT_RUN",
+    "overall": "PENDING_ASC_AND_PIGMENTS_EXECUTION"
+  },
+  "private_payload_exclusions": [
+    "Proton runtime bytes",
+    "ASC installer and installed executable bytes",
+    "Pigments binaries, presets, samples and content",
+    "account identifiers, credentials, cookies and tokens",
+    "activation and licensing payloads",
+    "opaque plug-in state"
+  ]
+}

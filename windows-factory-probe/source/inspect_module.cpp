@@ -9,10 +9,13 @@
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
+#include "pluginterfaces/vst/ivstmidicontrollers.h"
 #include "pluginterfaces/vst/ivstmessage.h"
+#include "pluginterfaces/vst/ivstunits.h"
 #include "../../vst-state/stream.h"
 #include <windows.h>
 #include <atomic>
+#include <algorithm>
 #include <cstring>
 #include <cmath>
 #include <stdexcept>
@@ -147,12 +150,62 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         }else{
         int n=controller->getParameterCount();if(n<0||n>8192)throw std::runtime_error("parameter count bound");
         events.lifecycle("ap8_parameter_count",",\"count\":"+std::to_string(n));
+        // The program-change flag alone cannot establish which vendor presets
+        // are selectable. Keep this read-only observation on the existing
+        // supervised census path; never manufacture a preset from a parameter
+        // title or a private content filename.
+        if(!external && access_directory.empty()){
+            // A MIDI assignment is the format-defined route for host input to
+            // a controller action. Read only the candidate navigation CCs;
+            // program-list slots and read-only parameter names are not proof
+            // that the factory browser can be advanced by the host.
+            FUnknownPtr<IMidiMapping> midi_mapping(controller);
+            events.lifecycle("ap8_midi_mapping_interface",",\"supported\":"+std::string(midi_mapping?"true":"false"));
+            if(midi_mapping){
+                for(const int cc_number : {28,29}){
+                    ParamID assigned=0;
+                    const auto result=midi_mapping->getMidiControllerAssignment(0,0,static_cast<CtrlNumber>(cc_number),assigned);
+                    events.lifecycle("ap8_midi_mapping",",\"bus\":0,\"channel\":0,\"cc\":"+std::to_string(cc_number)+",\"result\":"+std::to_string(result)+(result==kResultTrue?",\"param_id\":"+std::to_string(assigned):std::string{}));
+                }
+            }
+            FUnknownPtr<IUnitInfo> unit_info(controller);
+            events.lifecycle("ap8_program_interface",",\"supported\":"+std::string(unit_info?"true":"false"));
+            if(unit_info){
+            const auto unit_count=unit_info->getUnitCount();
+            const auto list_count=unit_info->getProgramListCount();
+            const int unit_limit=unit_count<0?0:std::min<int>(unit_count,32);
+            const int list_limit=list_count<0?0:std::min<int>(list_count,16);
+            events.lifecycle("ap8_program_structure",",\"unit_count\":"+std::to_string(unit_count)+",\"list_count\":"+std::to_string(list_count)+",\"units_queried\":"+std::to_string(unit_limit)+",\"lists_queried\":"+std::to_string(list_limit));
+            for(int i=0;i<unit_limit;++i){
+                UnitInfo unit{};
+                ok(unit_info->getUnitInfo(i,unit),"getUnitInfo");
+                events.lifecycle("ap8_program_unit",",\"index\":"+std::to_string(i)+",\"id\":"+std::to_string(unit.id)+",\"parent_id\":"+std::to_string(unit.parentUnitId)+",\"program_list_id\":"+std::to_string(unit.programListId)+",\"name\":"+text16(unit.name));
+            }
+            for(int i=0;i<list_limit;++i){
+                ProgramListInfo list{};
+                ok(unit_info->getProgramListInfo(i,list),"getProgramListInfo");
+                const int prefix_count=list.programCount<0?0:std::min<int>(list.programCount,4);
+                std::string prefix;
+                for(int index=0;index<prefix_count;++index){
+                    String128 program{};
+                    const auto result=unit_info->getProgramName(list.id,index,program);
+                    if(index)prefix+=',';
+                    prefix+="{\"result\":"+std::to_string(result);
+                    if(result==kResultOk)prefix+=",\"name\":"+text16(program);
+                    prefix+='}';
+                }
+                events.lifecycle("ap8_program_list",",\"index\":"+std::to_string(i)+",\"id\":"+std::to_string(list.id)+",\"name\":"+text16(list.name)+",\"program_count\":"+std::to_string(list.programCount)+",\"prefix\":["+prefix+"]");
+            }
+            }
+        }
         step("enumerateParameters");std::string parameters;
         // Compact bounded chunks keep a large real parameter list within the
         // existing diagnostic byte/event caps. Column order is explicit.
         for(int i=0;i<n;++i){ParameterInfo p{};
             if(controller->getParameterInfo(i,p)!=kResultOk)throw std::runtime_error("getParameterInfo index "+std::to_string(i));
             auto value=controller->getParamNormalized(p.id);
+            if(!external && access_directory.empty() && (p.flags&ParameterInfo::kIsProgramChange))
+                events.lifecycle("ap8_program_change_parameter",",\"id\":"+std::to_string(p.id)+",\"unit_id\":"+std::to_string(p.unitId)+",\"steps\":"+std::to_string(p.stepCount)+",\"flags\":"+std::to_string(p.flags)+",\"value\":"+(std::isfinite(value)&&value>=0&&value<=1?std::to_string(value):"null"));
             if(!parameters.empty())parameters+=',';
             parameters+='['+std::to_string(p.id)+','+text16(p.title)+','+text16(p.units)+','+std::to_string(p.stepCount)+','+std::to_string(p.flags)+','+(std::isfinite(p.defaultNormalizedValue)?std::to_string(p.defaultNormalizedValue):"null")+','+(std::isfinite(value)&&value>=0&&value<=1?std::to_string(value):"null")+']';
             if(i%32==31||i+1==n){events.lifecycle("ap8_parameters",",\"columns\":[\"id\",\"title\",\"units\",\"steps\",\"flags\",\"default\",\"value\"],\"parameters\":["+parameters+"]");parameters.clear();}

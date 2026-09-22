@@ -1,0 +1,384 @@
+{
+  "date": "2026-09-22",
+  "claim": "One repaired startup session completed measured and audible deterministic stereo and clean retirement on the already-connected MacBook supply",
+  "executed_head": "8eb89230410a1b42531bfb0fc252cddb166b1d5d",
+  "executed_tree": "ff138a43d6d9be9c517e8aa0209cf268690fa6c9",
+  "native_sha256": "2689b5a0af961d8637007c6be7a1af58ce55458b26ebb16662c2455007202553",
+  "qualification_sha256": "30894189d587f4bf40c1d817672fe73d028aa18c5392846652bd8ed8f6d71986",
+  "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+  "windows_host_sha256": "64d629e84a0fdf8833e97b9393cd41b9a5a214f82fe418d1792281622f0007f2",
+  "source_transfer": "All 51 supplied source files matched local hashes before ARM build",
+  "repair": {
+    "boundary": "Observe the pinned Windows host inspection-complete record for this exact live cohort/session before sending Configure",
+    "initialization_seconds_limit": 120,
+    "ordinary_configure_reply_seconds_unchanged": 10,
+    "journal_total_byte_limit": 2097152,
+    "journal_line_byte_limit": 65536,
+    "pipe": "nonblocking; bounded reads; exact leader PID/start-time/cgroup liveness checked while waiting; observer killed and reaped on return",
+    "receipt": "Matching ap9-commercial session; successful initial-state capture; ap8_inspected with float32 and bounded state extent. Configure response remains setup authority.",
+    "changes": "RPI1 pre-activation supervisor only; pinned serde_json 1.0.150 added; no Windows host, backend protocol, runner, bus or callback change"
+  },
+  "validation": {
+    "local_rpi1_tests": 12,
+    "arm_jack_rpi1_tests": 12,
+    "arm_release_build": "passed",
+    "local_all_target_clippy": "passed with only pre-existing clippy::new_without_default allowed",
+    "focused_cases": [
+      "Fragmented exact-session receipt; mapping readiness alone insufficient",
+      "Malformed/wrong-session/failure/missing state records refused",
+      "Line and total byte bounds",
+      "Delayed 10.1-second initialization accepted within independent startup budget",
+      "Missing receipt times out; exited cohort refused",
+      "Journal observer child killed and reaped"
+    ],
+    "physical_limit": "This fresh process initialized in 5739 ms without another reboot. The greater-than-10-second regression is tested with a source-owned offline stream, not re-induced in the physical session."
+  },
+  "scope": {
+    "pigments_sessions": 1,
+    "power": "same already-connected MacBook Pro supply; exact model and 5 V rating not inferred",
+    "reboot_for_this_attempt": false,
+    "usb_midi": "disconnected",
+    "editor": "never opened",
+    "state_round_trip": "not run",
+    "jack_rate": 48000,
+    "jack_period_frames": 512,
+    "bridge_delay_frames": 2048,
+    "vendor_processing_quantum_frames": 256,
+    "reported_vendor_latency_frames": 48,
+    "remote_connection": "direct SSH from Mac over Wi-Fi"
+  },
+  "audio": {
+    "operator_confirmation": "Yup! I heard it!",
+    "midi_sent": 3,
+    "midi_accepted": 3,
+    "midi_errors": 0,
+    "left": {
+      "samples": 240000,
+      "nonzero_samples": 72928,
+      "nonzero_windows": 144,
+      "peak": 0.19765145,
+      "rms": 0.07607915652899921,
+      "nonfinite_samples": 0
+    },
+    "right": {
+      "samples": 240000,
+      "nonzero_samples": 72928,
+      "nonzero_windows": 144,
+      "peak": 0.19765145,
+      "rms": 0.07607915652899921,
+      "nonfinite_samples": 0
+    },
+    "xruns": 0,
+    "fixture_exit_status": 0,
+    "cc123_limit": "Note-off precedes CC123; active-note expansion not separately physically exercised"
+  },
+  "native_records": [
+    "RPI1_INITIALIZATION_WAIT timeout_seconds=120",
+    "RPI1_INITIALIZED wait_ms=5739",
+    "RPI1_READY midi=lvb-arm-pigments:midi_in left=lvb-arm-pigments:audio_out_l right=lvb-arm-pigments:audio_out_r jack_frames=512 bridge_frames=2048 vendor_frames=48 total_frames=2096",
+    "RPI1_LATENCY tail_frames=0",
+    "RPI1_MIDI cc123=tracked_note_offs cc64=unsupported duplicate_note_on=refused",
+    "RPI1_AUDIO midi_accepted=0 output_nonzero_l=0 output_nonzero_r=0 output_peak_l=0 output_peak_r=0 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=42 request_high=15 result_high=10 fault=0",
+    "RPI1_AUDIO midi_accepted=0 output_nonzero_l=0 output_nonzero_r=0 output_peak_l=0 output_peak_r=0 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=44 request_high=15 result_high=10 fault=0",
+    "RPI1_AUDIO midi_accepted=1 output_nonzero_l=14879 output_nonzero_r=14879 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=230 request_high=15 result_high=10 fault=0",
+    "RPI1_AUDIO midi_accepted=1 output_nonzero_l=62495 output_nonzero_r=62495 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=416 request_high=15 result_high=10 fault=0",
+    "RPI1_AUDIO midi_accepted=3 output_nonzero_l=72928 output_nonzero_r=72928 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=604 request_high=15 result_high=10 fault=0",
+    "RPI1_AUDIO midi_accepted=3 output_nonzero_l=72928 output_nonzero_r=72928 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=792 request_high=15 result_high=10 fault=0",
+    "RPI1_AUDIO midi_accepted=3 output_nonzero_l=72928 output_nonzero_r=72928 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=980 request_high=15 result_high=10 fault=0",
+    "RPI1_AUDIO midi_accepted=3 output_nonzero_l=72928 output_nonzero_r=72928 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=1168 request_high=15 result_high=10 fault=0",
+    "RPI1_AUDIO midi_accepted=3 output_nonzero_l=72928 output_nonzero_r=72928 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=1172 request_high=15 result_high=10 fault=0",
+    "RPI1_CALLBACK callbacks=586 failures=0 deadline_misses=0 callback_ns_max=110519 missing_frames=2560 expired_frames=2560 gaps=1 delivered_frames=295424 priming_frames=2048 paused_frames=0 unsupported_midi=0 malformed_midi=0 overflow_midi=0",
+    "RPI1_TRANSPORT fault=0 processed=1172 request_high=15 result_high=10 position=300032 epoch=1",
+    "RPI1_RETIREMENT milestones=127 epoch=1 sequence=1173 position=300032 generation=1",
+    "RPI1_CLEAN_SHUTDOWN session=cf21bf9aa472f681164e864948e7ad33"
+  ],
+  "fixture_records": [
+    "RPI1_QUALIFICATION_GRAPH mode=pigments rate=48000 period=512 routes=[[\"lvb-rpi1-qualification:midi_out\", \"lvb-arm-pigments:midi_in\"], [\"lvb-arm-pigments:audio_out_l\", \"lvb-rpi1-qualification:meter_l\"], [\"lvb-arm-pigments:audio_out_l\", \"system:playback_1\"], [\"lvb-arm-pigments:audio_out_r\", \"lvb-rpi1-qualification:meter_r\"], [\"lvb-arm-pigments:audio_out_r\", \"system:playback_2\"]]",
+    "RPI1_QUALIFICATION_AUDIO channel=0 samples=240000 nonzero_samples=72928 nonzero_windows=144 peak=0.19765145 rms=0.07607915652899921 nonfinite=0",
+    "RPI1_QUALIFICATION_AUDIO channel=1 samples=240000 nonzero_samples=72928 nonzero_windows=144 peak=0.19765145 rms=0.07607915652899921 nonfinite=0",
+    "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+    "RPI1_QUALIFICATION_RETIRED"
+  ],
+  "windows_lifecycle_records": [
+    {
+      "event": "lifecycle",
+      "sequence": 209,
+      "state": "ap12_capabilities",
+      "latency_samples": 44,
+      "float32_result": 0,
+      "float64_result": 1,
+      "tail_samples": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 210,
+      "state": "ap8_call",
+      "operation": "getComponentState"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 211,
+      "state": "ap12_state_stream",
+      "result": 0,
+      "bytes": 155035,
+      "failed": false,
+      "writes": 1,
+      "largest_write": 155035,
+      "reads": 0,
+      "seeks": 0,
+      "last_seek_offset": 0,
+      "last_seek_mode": 0,
+      "unknown_queries": 0,
+      "last_unknown_iid": "00000000000000000000000000000000"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 212,
+      "state": "ap8_result",
+      "operation": "getComponentState",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 213,
+      "state": "ap12_persistence",
+      "capture_available": true,
+      "sdk_result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 214,
+      "state": "ap8_inspected",
+      "controller_separate": false,
+      "state_bytes": 155035,
+      "latency_samples": 44,
+      "float32_result": 0,
+      "float64_result": 1,
+      "tail_samples": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 215,
+      "state": "ap10_wait_resolution",
+      "samples_per_method": 32,
+      "sleep50_mean_ns": 1068606,
+      "ntdelay50_mean_ns": 104378
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 216,
+      "state": "ap10_delivery_setup",
+      "mailbox_version": 3
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 217,
+      "state": "ap9_processing_setup",
+      "sample_rate": 48000.0,
+      "maximum": 256,
+      "precision": "float32",
+      "vendor_float64": false,
+      "latency_samples": 48,
+      "tail_samples": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 218,
+      "state": "ap0_call_started",
+      "operation": "set_active_true",
+      "owner_thread": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 219,
+      "state": "ap0_call_completed",
+      "operation": "set_active_true",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 220,
+      "state": "ap2_lifecycle_ack",
+      "kind": 9,
+      "next_sequence": 1
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 221,
+      "state": "ap0_processing_thread_started",
+      "distinct_from_owner": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 222,
+      "state": "ap0_call_started",
+      "operation": "set_processing_true",
+      "owner_thread": false
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 223,
+      "state": "ap0_call_completed",
+      "operation": "set_processing_true",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 224,
+      "state": "ap2_lifecycle_ack",
+      "kind": 11,
+      "next_sequence": 1
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 225,
+      "state": "ap0_call_started",
+      "operation": "set_processing_false",
+      "owner_thread": false
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 226,
+      "state": "ap0_call_completed",
+      "operation": "set_processing_false",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 227,
+      "state": "ap0_thread_joined",
+      "joined": true,
+      "processing_stopped": true,
+      "worker_exception": false
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 228,
+      "state": "ap2_lifecycle_ack",
+      "kind": 13,
+      "next_sequence": 1173
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 229,
+      "state": "ap3_processing_summary",
+      "processed_blocks": 1172,
+      "intervals": 1,
+      "process_mode": "kRealtime"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 230,
+      "state": "ap0_call_started",
+      "operation": "set_active_false",
+      "owner_thread": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 231,
+      "state": "ap0_call_completed",
+      "operation": "set_active_false",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 232,
+      "state": "ap2_lifecycle_ack",
+      "kind": 15,
+      "next_sequence": 1173
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 233,
+      "state": "ap1_endpoint_closed",
+      "mapping_unmapped": true,
+      "instance_count": 1
+    }
+  ],
+  "transport": {
+    "initialization_wait_ms": 5739,
+    "terminal_fault": 0,
+    "completed_vendor_blocks": 1172,
+    "completed_vendor_frames": 300032,
+    "callback": {
+      "event": "rpi1_callback_summary",
+      "callbacks": 586,
+      "process_failures": 0,
+      "deadline_misses": 0,
+      "callback_ns_max": 110519,
+      "missing_frames": 2560,
+      "expired_frames": 2560,
+      "gaps": 1,
+      "delivered_frames": 295424,
+      "priming_frames": 2048,
+      "paused_frames": 0,
+      "unsupported_midi": 0,
+      "malformed_midi": 0,
+      "overflow_midi": 0,
+      "jack_frames": 512,
+      "bridge_frames": 2048
+    },
+    "startup_gap_positions_frames": [
+      0,
+      256,
+      512,
+      768,
+      1024,
+      1280,
+      1536,
+      1792,
+      2048,
+      2304
+    ],
+    "interpretation": "2560 missing/expired startup frames remain. No timing or glitch-free claim. Processed counts are blocks; queue high fields are occupancy, not sequence frontiers."
+  },
+  "health": {
+    "active_samples": 23,
+    "active_monotonic_range": [
+      989.729,
+      1011.729
+    ],
+    "maximum_temperature_c": 57.85,
+    "voltage_range_v": [
+      4.78112,
+      5.01428
+    ],
+    "throttle_samples": [
+      "throttled=0x0"
+    ],
+    "kernel_undervoltage_events": 0,
+    "minimum_mem_available_kib": 5554516,
+    "outer_memory_peak_bytes": 56246272,
+    "windows_memory_peak_bytes": 2081824768,
+    "restart_during_run": false,
+    "limitation": "Short run with no firmware/kernel warning; sampled minimum still 4.78112 V. Sustained power margin and cause of previous whole-machine failure remain unproved.",
+    "ping": {
+      "transmitted": 120,
+      "received": 120,
+      "packet_loss_percent": 0
+    }
+  },
+  "cleanup": {
+    "outer_exit_status": 0,
+    "outer_result": "success",
+    "outer_state": "inactive",
+    "normal_retirement": "passed; milestones=127; sequence=1173; position=300032; generation=1",
+    "worker_exception": false,
+    "mapping_unmapped": true,
+    "native_and_translated_processes_stopped": true,
+    "successful_session_transport_removed": true,
+    "experiment_jack_ports_and_routes_removed": true,
+    "command_fifo_removed": true,
+    "health_recorder_stopped": true,
+    "remote_journal_reader_stopped": true,
+    "runtime_watchdog_seconds_restored": 60,
+    "earlier_failed_sessions_preserved": true
+  },
+  "setup_correction": "Health observer first pointed at a file omitted from the source archive and exited before Pigments launch; copied the unchanged observer and verified it active before the single session. No audio launch was repeated.",
+  "nonclaims": [
+    "Repeated machine-cold-start reliability",
+    "Sustained power margin, cause of earlier hang or glitch-free performance",
+    "State round-trip, soak, editor/controller combination or overall RPI1"
+  ],
+  "stop": "One authorized short session completed; no later physical gate started"
+}

@@ -13,6 +13,8 @@ mod performance;
 mod preview;
 mod process_results;
 mod queue;
+#[cfg(feature = "rpi1-observe")]
+pub mod rpi1_phase;
 mod queued;
 mod recovery;
 mod state;

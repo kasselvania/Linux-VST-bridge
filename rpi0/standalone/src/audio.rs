@@ -1,6 +1,29 @@
 use crate::{midi::Parser, spsc::Queue, MAX_MIDI_EVENTS};
 use ap2_backend::rpi0::{Event, PARAMETER};
 
+/// Bounded, allocation-free observation of samples actually returned to JACK.
+#[derive(Default, Debug, PartialEq)]
+pub struct OutputObservation {
+    pub nonzero: u64,
+    pub nonfinite: u64,
+    pub peak: f32,
+}
+
+impl OutputObservation {
+    pub fn measure(samples: &[f32]) -> Self {
+        let mut result = Self::default();
+        for &sample in samples {
+            if !sample.is_finite() {
+                result.nonfinite += 1;
+            } else {
+                result.nonzero += u64::from(sample != 0.0);
+                result.peak = result.peak.max(sample.abs());
+            }
+        }
+        result
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ParameterUpdate {
     pub id: u32,
@@ -112,6 +135,46 @@ mod tests {
     }
     #[global_allocator]
     static AUDIT: Audit = Audit;
+
+    #[test]
+    fn full_channel_note_off_expansion_allocates_nothing() {
+        let mut parser = Parser::default();
+        let mut output = [Event::default(); 128];
+        let policy = crate::midi::ControllerPolicy::TrackedNoteOffs;
+        for pitch in 0..128 {
+            parser
+                .parse_into(policy, 0, &[0x90, pitch, 96], 512, &mut output)
+                .unwrap();
+        }
+        ALLOCATIONS.store(0, Ordering::Relaxed);
+        TRACK.with(|track| track.set(true));
+        let count = parser.parse_into(policy, 17, &[0xb0, 123, 0], 512, &mut output);
+        TRACK.with(|track| track.set(false));
+        assert_eq!(ALLOCATIONS.load(Ordering::Relaxed), 0);
+        assert_eq!(count, Ok(128));
+    }
+
+    #[test]
+    fn output_observation_distinguishes_silence_signed_audio_and_nonfinite_without_allocation() {
+        ALLOCATIONS.store(0, Ordering::Relaxed);
+        TRACK.with(|track| track.set(true));
+        let observed =
+            OutputObservation::measure(&[0.0, -0.0, -0.75, 0.25, f32::NAN, f32::INFINITY]);
+        TRACK.with(|track| track.set(false));
+        assert_eq!(ALLOCATIONS.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            observed,
+            OutputObservation {
+                nonzero: 2,
+                nonfinite: 2,
+                peak: 0.75
+            }
+        );
+        assert_eq!(
+            OutputObservation::measure(&[0.0; 512]),
+            OutputObservation::default()
+        );
+    }
 
     #[test]
     fn callback_event_preparation_is_allocation_free_and_bounded() {

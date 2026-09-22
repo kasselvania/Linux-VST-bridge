@@ -120,7 +120,12 @@ mod appliance {
             .map_err(|_| invalid("backend open thread panicked"))??;
 
         let control = Control::new();
-        let mut jack = Client::open(&config.jack_client, &instance, &control)?;
+        let mut jack = Client::open(
+            &config.jack_client,
+            &instance,
+            &control,
+            lvb_arm_standalone::midi::ControllerPolicy::ReferenceInstrument,
+        )?;
         let buses = instrument_bus_contract();
         let traits = instance.setup(jack.buffer_size(), 48_000.0, &buses)?;
         instance.activate(256)?;

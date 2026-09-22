@@ -1,0 +1,269 @@
+{
+  "date": "2026-09-22",
+  "claim": "One final operator-authorized MacBook-supply comparison stopped before audio readiness on the initial Configure response deadline; Pi stayed responsive with no recorded undervoltage",
+  "executed_source_head": "1db3478292fda7839d051f703992c8ddc0040653",
+  "executed_source_tree": "f7edd886464f5791b86332375661248f8ffc6fd9",
+  "repository_head_at_attempt": "d24c3d881fba818cdc831d8c36acf2a96852f99f",
+  "repository_tree_at_attempt": "578d5e2b40286e959c84b5c6f2e23dc8facfabef",
+  "native_sha256": "49cbbb16bc546ae9bf4b41b53ff9855eb69677d78be50a0af0fe020b2b44e32e",
+  "qualification_sha256": "30894189d587f4bf40c1d817672fe73d028aa18c5392846652bd8ed8f6d71986",
+  "binary_reuse": "Exact native executable from successful repair run; verified before launch; no rebuild or source change",
+  "supply": {
+    "operator_description": "MacBook Pro power supply",
+    "exact_model_and_5v_rating": "not provided or inferred",
+    "swap": "Operator swap following requested normal shutdown; later network reappearance was a fresh boot, not a diagnosed spontaneous restart"
+  },
+  "scope": {
+    "windows_launches": 1,
+    "deterministic_midi_fixture_launches": 0,
+    "midi_sent": 0,
+    "audio_measurement": "not reached",
+    "editor": "closed throughout",
+    "usb_midi": "unplugged",
+    "jack_rate": 48000,
+    "jack_period_frames": 512,
+    "bridge_delay_frames": 2048,
+    "intended_vendor_quantum_frames": 256,
+    "connection": "Direct SSH and recordings from Mac over Wi-Fi"
+  },
+  "preflight": {
+    "temperature_c": 42.8,
+    "voltage_v": 4.99552,
+    "throttled": "0x0",
+    "kernel_undervoltage_events": 0,
+    "jack_ports": "exact system capture/playback ports available without JACK restart",
+    "previous_boot_journal": "present; last entry Journal stopped",
+    "watchdog": "temporarily disabled under prior diagnostic authorization; restored to original 60 seconds afterward"
+  },
+  "observed_failure": {
+    "outer_refusal": "RPI1 refusal: RPI0 setup failed: 2",
+    "outer_exit_status": 1,
+    "outer_result": "exit-code",
+    "standalone_ready": false,
+    "host_handshake_ready": true,
+    "plugin_component_initialization_result": 0,
+    "initial_state_capture_result": 0,
+    "processing_configured": false,
+    "processed_blocks": 0,
+    "native_fault": 3,
+    "worker_operation": 20,
+    "detail": "WouldBlock: Resource temporarily unavailable (os error 11)",
+    "normal_retirement_receipt": false
+  },
+  "native_records": [
+    {
+      "event": "ap5_worker_fault",
+      "generation": 1,
+      "fault": 3,
+      "first_position": 0,
+      "processed": 0,
+      "request_high": 0,
+      "result_high": 0,
+      "detail": "WouldBlock: Resource temporarily unavailable (os error 11)"
+    },
+    {
+      "event": "ap7_fault_progress",
+      "context_ready": true,
+      "epoch": 0,
+      "worker_op": 20,
+      "worker_epoch": 0,
+      "worker_position": 0,
+      "request_published": 0,
+      "request_consumed": 0,
+      "result_published": 0,
+      "result_consumed": 0,
+      "service_us_max_at_report": 0,
+      "observation_skips": 0
+    },
+    {
+      "event": "ap7_observation",
+      "offered_samples": 0,
+      "verified_returned_samples": 0,
+      "unchecked_samples": 0,
+      "dropped_jobs": 0,
+      "dropped_samples": 0,
+      "reader_skips": 0,
+      "unretained_gap_traces": 0,
+      "maximum_error": 0,
+      "before_edit_samples": 0,
+      "edits": 0
+    }
+  ],
+  "timed_windows_lifecycle_records": [
+    {
+      "monotonic_seconds": 131.041281,
+      "event": "lifecycle",
+      "sequence": 2,
+      "state": "readiness_announced",
+      "session": "427b5e32c28a08c8d14412b666d4277f",
+      "scanner_sha256": "64d629e84a0fdf8833e97b9393cd41b9a5a214f82fe418d1792281622f0007f2",
+      "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+      "bundle_manifest_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+      "implementation_source_manifest_sha256": "b96f536c6b1164a5a4e308f1d196c27fb5dcad77e194e84546f13a6b36293ce2",
+      "mode": "ap9-commercial",
+      "component_case": "class:41727475415649534b61743150726f63",
+      "run_ordinal": 1
+    },
+    {
+      "monotonic_seconds": 131.905623,
+      "event": "lifecycle",
+      "sequence": 3,
+      "state": "supervisor_gate_accepted"
+    },
+    {
+      "monotonic_seconds": 133.221075,
+      "event": "lifecycle",
+      "sequence": 5,
+      "state": "ap1_mapping_ready",
+      "mapping_count": 1,
+      "connection_count": 1,
+      "mapping_witness": true
+    },
+    {
+      "monotonic_seconds": 133.223816,
+      "event": "lifecycle",
+      "sequence": 6,
+      "state": "module_open_started"
+    },
+    {
+      "monotonic_seconds": 133.712907,
+      "event": "lifecycle",
+      "sequence": 46,
+      "state": "ap8_call",
+      "operation": "initializeComponent"
+    },
+    {
+      "monotonic_seconds": 143.010976,
+      "event": "lifecycle",
+      "sequence": 47,
+      "state": "ap8_result",
+      "operation": "initializeComponent",
+      "result": 0
+    },
+    {
+      "monotonic_seconds": 143.031992,
+      "event": "lifecycle",
+      "sequence": 68,
+      "state": "ap8_call",
+      "operation": "enumerateParameters"
+    },
+    {
+      "monotonic_seconds": 143.074541,
+      "event": "lifecycle",
+      "sequence": 208,
+      "state": "ap8_result",
+      "operation": "enumerateParameters",
+      "result": 0
+    },
+    {
+      "monotonic_seconds": 143.075835,
+      "event": "lifecycle",
+      "sequence": 209,
+      "state": "ap12_capabilities",
+      "latency_samples": 44,
+      "float32_result": 0,
+      "float64_result": 1,
+      "tail_samples": 0
+    },
+    {
+      "monotonic_seconds": 143.077047,
+      "event": "lifecycle",
+      "sequence": 210,
+      "state": "ap8_call",
+      "operation": "getComponentState"
+    },
+    {
+      "monotonic_seconds": 143.323611,
+      "event": "lifecycle",
+      "sequence": 211,
+      "state": "ap12_state_stream",
+      "result": 0,
+      "bytes": 155035,
+      "failed": false,
+      "writes": 1,
+      "largest_write": 155035,
+      "reads": 0,
+      "seeks": 0,
+      "last_seek_offset": 0,
+      "last_seek_mode": 0,
+      "unknown_queries": 0,
+      "last_unknown_iid": "00000000000000000000000000000000"
+    },
+    {
+      "monotonic_seconds": 143.324869,
+      "event": "lifecycle",
+      "sequence": 212,
+      "state": "ap8_result",
+      "operation": "getComponentState",
+      "result": 0
+    },
+    {
+      "monotonic_seconds": 143.328038,
+      "event": "lifecycle",
+      "sequence": 214,
+      "state": "ap8_inspected",
+      "controller_separate": false,
+      "state_bytes": 155035,
+      "latency_samples": 44,
+      "float32_result": 0,
+      "float64_result": 1,
+      "tail_samples": 0
+    }
+  ],
+  "diagnosis": {
+    "observed": "Configure operation 20 failed waiting for its response; no ap10_delivery_setup or ap9_processing_setup record was published",
+    "source": "Native Session::open_bound returns after mapping handshake for protocol minor >= 4; Instance::setup sends Configure; Session::exchange waits receive_version(..., 10, ...). The Windows owner completes module/component/parameter/state inspection before servicing configuration.",
+    "component_initialization_seconds": 9.298069,
+    "mapping_to_inspection_seconds": 10.106963,
+    "inference": "Fresh-start plug-in initialization consumed the ordinary 10-second Configure reply budget. The recorded WouldBlock, operation, source order and approximately 10.1-second interval identify the startup/deadline boundary. Exact socket send/timeout timestamps are not logged.",
+    "latency_caution": "The 44-frame value was reported before processing setup; no configured 48-kHz latency was obtained. It is not evidence of a rejected bus or latency contract.",
+    "next_source_boundary": "Distinguish bounded plug-in initialization readiness from the ordinary Configure reply deadline; preserve cancellation and failure cleanup. Do not use blind sleeps, extra launches, ambient runner changes or relax audio deadlines."
+  },
+  "health": {
+    "active_samples": 25,
+    "active_monotonic_range": [
+      120.566,
+      144.567
+    ],
+    "maximum_temperature_c": 51.8,
+    "voltage_range_v": [
+      4.83338,
+      5.02098
+    ],
+    "throttle_samples": [
+      "throttled=0x0"
+    ],
+    "new_kernel_undervoltage_events": 0,
+    "minimum_mem_available_kib": 5718424,
+    "outer_memory_peak_bytes": 163352576,
+    "windows_memory_peak_bytes": 2094239744,
+    "ping": {
+      "transmitted": 120,
+      "received": 120,
+      "packet_loss_percent": 0
+    },
+    "responsive_after_failure": true,
+    "restart_during_attempt": false
+  },
+  "cleanup": {
+    "outer_process_stopped": true,
+    "translated_cohort_stopped": true,
+    "box64_wine_native_processes_absent": true,
+    "jack_experiment_ports_and_connections_removed": true,
+    "command_fifo_removed": true,
+    "health_recorder_stopped": true,
+    "remote_journal_reader_stopped": true,
+    "original_runtime_watchdog_seconds": 60,
+    "outer_failed_unit_retained": true,
+    "failed_session_transport_retained_privately": true,
+    "previous_success_evidence_unchanged": true,
+    "normal_product_retirement": "not reached; startup-failure containment only"
+  },
+  "nonclaims": [
+    "Power comparison under sustained processing; no audio was started",
+    "MacBook supply fixed earlier whole-machine failure",
+    "Overall RPI1 or cold-start reliability",
+    "Another physical attempt authorized"
+  ],
+  "stop": "Exactly one final comparison launch; no retry, editor, controller, state test or soak"
+}

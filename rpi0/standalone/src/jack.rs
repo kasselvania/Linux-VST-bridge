@@ -1,6 +1,10 @@
 use crate::{
-    audio::ParameterUpdate, callback_gate::CallbackGate, midi::Parser,
-    protocol::supported_jack_block, spsc::Queue, MAX_JACK_FRAMES, MAX_MIDI_EVENTS, SAMPLE_RATE,
+    audio::{OutputObservation, ParameterUpdate},
+    callback_gate::CallbackGate,
+    midi::{ControllerPolicy, Parser},
+    protocol::supported_jack_block,
+    spsc::Queue,
+    MAX_JACK_FRAMES, MAX_MIDI_EVENTS, SAMPLE_RATE,
 };
 use ap2_backend::rpi0::{Context, Delivery, Event, Instance};
 use std::{
@@ -45,6 +49,11 @@ unsafe extern "C" {
         callback: unsafe extern "C" fn(JackNFrames, *mut c_void) -> c_int,
         argument: *mut c_void,
     ) -> c_int;
+    fn jack_set_xrun_callback(
+        client: *mut JackClient,
+        callback: unsafe extern "C" fn(*mut c_void) -> c_int,
+        argument: *mut c_void,
+    ) -> c_int;
     fn jack_port_register(
         client: *mut JackClient,
         name: *const c_char,
@@ -60,11 +69,21 @@ unsafe extern "C" {
         port_buffer: *mut c_void,
         index: u32,
     ) -> c_int;
+    #[cfg(feature = "rpi1-observe")]
+    fn jack_get_cycle_times(client: *const JackClient, current_frames: *mut JackNFrames,
+        current_usecs: *mut u64, next_usecs: *mut u64, period_usecs: *mut f32) -> c_int;
+    #[cfg(feature = "rpi1-observe")]
+    fn jack_get_time() -> u64;
 }
 
 #[derive(Default)]
 pub struct Metrics {
     pub callbacks: AtomicU64,
+    pub accepted_midi: AtomicU64,
+    pub output_nonzero: [AtomicU64; 2],
+    pub output_peak_bits: [AtomicU64; 2],
+    pub output_nonfinite: AtomicU64,
+    pub xruns: AtomicU64,
     pub process_failures: AtomicU64,
     pub unsupported_blocks: AtomicU64,
     pub deadline_misses: AtomicU64,
@@ -90,6 +109,11 @@ impl Control {
             parameters: Queue::new(),
             metrics: Metrics {
                 callbacks: AtomicU64::new(0),
+                accepted_midi: AtomicU64::new(0),
+                output_nonzero: [AtomicU64::new(0), AtomicU64::new(0)],
+                output_peak_bits: [AtomicU64::new(0), AtomicU64::new(0)],
+                output_nonfinite: AtomicU64::new(0),
+                xruns: AtomicU64::new(0),
                 process_failures: AtomicU64::new(0),
                 unsupported_blocks: AtomicU64::new(0),
                 deadline_misses: AtomicU64::new(0),
@@ -114,6 +138,10 @@ impl Default for Control {
 }
 
 struct Rt {
+    #[cfg(feature = "rpi1-observe")]
+    phase: std::sync::Arc<ap2_backend::rpi1_phase::Ring>,
+    #[cfg(feature = "rpi1-observe")]
+    jack_client: *mut JackClient,
     instance: *const Instance,
     control: *const Control,
     midi: *mut JackPort,
@@ -121,6 +149,7 @@ struct Rt {
     right: *mut JackPort,
     position: u64,
     parser: Parser,
+    controller_policy: ControllerPolicy,
     events: [Event; MAX_MIDI_EVENTS],
     zero: [f32; MAX_JACK_FRAMES],
     gate: CallbackGate,
@@ -135,7 +164,12 @@ pub struct Client {
 unsafe impl Send for Client {}
 
 impl Client {
-    pub fn open(name: &str, instance: &Instance, control: &Control) -> io::Result<Self> {
+    pub fn open(
+        name: &str,
+        instance: &Instance,
+        control: &Control,
+        controller_policy: ControllerPolicy,
+    ) -> io::Result<Self> {
         let name = CString::new(name).map_err(|_| invalid("JACK name"))?;
         let mut status = 0;
         let client = unsafe { jack_client_open(name.as_ptr(), JACK_NULL_OPTION, &mut status) };
@@ -170,6 +204,10 @@ impl Client {
             return Err(invalid("JACK block size outside qualified set"));
         }
         let mut rt = Box::new(Rt {
+            #[cfg(feature = "rpi1-observe")]
+            phase: instance.phase_ring()?,
+            #[cfg(feature = "rpi1-observe")]
+            jack_client: client,
             instance,
             control,
             midi,
@@ -177,13 +215,22 @@ impl Client {
             right,
             position: 0,
             parser: Parser::default(),
+            controller_policy,
             events: [Event::default(); MAX_MIDI_EVENTS],
             zero: [0.; MAX_JACK_FRAMES],
             gate: CallbackGate::new(),
         });
         let code =
             unsafe { jack_set_process_callback(client, process, (&mut *rt as *mut Rt).cast()) };
-        if code != 0 {
+        if code != 0
+            || unsafe {
+                jack_set_xrun_callback(
+                    client,
+                    xrun,
+                    (control as *const Control as *mut Control).cast(),
+                )
+            } != 0
+        {
             unsafe {
                 jack_client_close(client);
             }
@@ -252,11 +299,40 @@ impl Drop for Client {
     }
 }
 
+unsafe extern "C" fn xrun(argument: *mut c_void) -> c_int {
+    (*argument.cast::<Control>())
+        .metrics
+        .xruns
+        .fetch_add(1, Ordering::Relaxed);
+    0
+}
+
 unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_int {
     let rt = &mut *argument.cast::<Rt>();
     let control = &*rt.control;
     let metrics = &control.metrics;
-    metrics.callbacks.fetch_add(1, Ordering::Relaxed);
+    let sequence = metrics.callbacks.fetch_add(1, Ordering::Relaxed) + 1;
+    #[cfg(not(feature = "rpi1-observe"))]
+    let _ = sequence;
+    #[cfg(feature = "rpi1-observe")]
+    {
+        use ap2_backend::rpi1_phase as phase;
+        if rt.phase.producer_tid() == 0 {
+            rt.phase.bind_producer(libc::gettid() as u64);
+        }
+        rt.phase.record(sequence, rt.position, phase::CALLBACK_ENTER, 0, frames as u64, 0);
+        let mut current_frames = 0;
+        let mut current_usecs = 0;
+        let mut next_usecs = 0;
+        let mut period_usecs = 0.;
+        let cycle = jack_get_cycle_times(rt.jack_client, &mut current_frames,
+            &mut current_usecs, &mut next_usecs, &mut period_usecs);
+        let actual_usecs = jack_get_time();
+        rt.phase.record(sequence, rt.position, phase::JACK_CYCLE,
+            u32::from(cycle != 0), current_usecs, actual_usecs);
+        rt.phase.record(sequence, rt.position, phase::JACK_NEXT,
+            current_frames, next_usecs, period_usecs.max(0.) as u64);
+    }
     let count = frames as usize;
     let left =
         slice::from_raw_parts_mut(jack_port_get_buffer(rt.left, frames).cast::<f32>(), count);
@@ -266,6 +342,9 @@ unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_in
         left.fill(0.);
         right.fill(0.);
         metrics.unsupported_blocks.fetch_add(1, Ordering::Relaxed);
+        #[cfg(feature = "rpi1-observe")]
+        rt.phase.record(sequence, rt.position, ap2_backend::rpi1_phase::CALLBACK_EXIT,
+            1, 0, 0);
         return 0;
     }
     let Some(_lease) = rt.gate.enter() else {
@@ -275,6 +354,13 @@ unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_in
         metrics
             .paused_frames
             .fetch_add(frames as u64, Ordering::Relaxed);
+        #[cfg(feature = "rpi1-observe")]
+        {
+            rt.phase.record(sequence, rt.position, ap2_backend::rpi1_phase::CALLBACK_PAUSED,
+                0, frames as u64, 0);
+            rt.phase.record(sequence, rt.position, ap2_backend::rpi1_phase::CALLBACK_EXIT,
+                2, 0, 0);
+        }
         return 0;
     };
     let before = monotonic_ns();
@@ -315,11 +401,20 @@ unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_in
             break;
         }
         let bytes = slice::from_raw_parts(raw.buffer, raw.size);
-        if let Ok(event) = rt.parser.parse(raw.time, bytes, frames) {
-            rt.events[event_count] = event;
-            event_count += 1;
+        if let Ok(written) = rt.parser.parse_into(
+            rt.controller_policy,
+            raw.time,
+            bytes,
+            frames,
+            &mut rt.events[event_count..],
+        ) {
+            event_count += written;
         }
     }
+    metrics.accepted_midi.fetch_add(
+        rt.parser.counters.accepted - prior.accepted,
+        Ordering::Relaxed,
+    );
     metrics.unsupported_midi.fetch_add(
         rt.parser.counters.unsupported - prior.unsupported,
         Ordering::Relaxed,
@@ -368,6 +463,16 @@ unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_in
         right.fill(0.);
         metrics.process_failures.fetch_add(1, Ordering::Relaxed);
     }
+    for (channel, samples) in [&*left, &*right].into_iter().enumerate() {
+        let observed = OutputObservation::measure(samples);
+        metrics.output_nonzero[channel].fetch_add(observed.nonzero, Ordering::Relaxed);
+        // Absolute finite f32 bit patterns preserve nonnegative magnitude ordering.
+        metrics.output_peak_bits[channel]
+            .fetch_max(u64::from(observed.peak.to_bits()), Ordering::Relaxed);
+        metrics
+            .output_nonfinite
+            .fetch_add(observed.nonfinite, Ordering::Relaxed);
+    }
     metrics
         .missing_frames
         .fetch_add(delivery.missing_frames, Ordering::Relaxed);
@@ -382,6 +487,9 @@ unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_in
         .priming_frames
         .fetch_add(delivery.priming_frames, Ordering::Relaxed);
     let elapsed = monotonic_ns().saturating_sub(before);
+    #[cfg(feature = "rpi1-observe")]
+    rt.phase.record(sequence, rt.position, ap2_backend::rpi1_phase::CALLBACK_EXIT,
+        result, elapsed, delivery.missing_frames);
     metrics
         .callback_ns_max
         .fetch_max(elapsed, Ordering::Relaxed);

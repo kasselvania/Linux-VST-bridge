@@ -71,7 +71,7 @@ pub struct Report {
 // One bounded clock bracket outside the callback, repeated at report time.
 // Its width and drift are retained; no Windows/Linux clock equality is assumed.
 #[derive(Clone, Copy)]
-struct ClockSample {
+pub(crate) struct ClockSample {
     instant: Instant,
     before: u64,
     after: u64,
@@ -97,7 +97,7 @@ pub(crate) fn monotonic_ns() -> u64 {
     0
 }
 impl ClockSample {
-    fn sample() -> Self {
+    pub(crate) fn sample() -> Self {
         let before = monotonic_ns();
         let instant = Instant::now();
         Self {
@@ -106,7 +106,7 @@ impl ClockSample {
             after: monotonic_ns(),
         }
     }
-    fn at(self, t: Option<Instant>) -> u64 {
+    pub(crate) fn at(self, t: Option<Instant>) -> u64 {
         let Some(t) = t else {
             return 0;
         };

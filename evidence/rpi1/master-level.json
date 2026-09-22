@@ -1,0 +1,259 @@
+{
+  "date": "2026-09-22",
+  "claim": "Reducing Pigments Master Volume from normalized 0.67308074235916138 to 0.5 was verified; physical MIDI produced stereo below full scale and the operator confirmed no crackles with the same chord and unchanged interface gain; normal retirement passed.",
+  "repository_head_at_attempt": "4003e5853d752af28ba6a8d0647c204eb92eb0d0",
+  "executed_source_head": "1173e816bdea7f334347e411ddb15b438f81467b",
+  "executed_source_tree": "d97e60f8ab04fc0e1604fd975a465f365db4bc4c",
+  "native_sha256": "81a44a8eed7191b08655496dfe0b49c0c919208e9f7a600658bc37887a2006c7",
+  "parameter": {
+    "id": 0,
+    "title": "Master Volume",
+    "units": "dB",
+    "original_normalized": 0.6730807423591614,
+    "reduced_normalized": 0.5,
+    "readback_revision": 4,
+    "normalization_limit": "Normalized parameter positions, not linear amplitude percentages or a claimed dB reduction."
+  },
+  "scope": {
+    "controller": "OMX-27; existing operator-reported Type B ShieldXL UART path",
+    "editor": "closed",
+    "jack_rate": 48000,
+    "jack_period_frames": 512,
+    "jack_periods": 3,
+    "bridge_delay_frames": 2048,
+    "vendor_quantum_frames": 256,
+    "synthetic_notes": false,
+    "exact_voice_count": "not recorded; operator asked to repeat the same chord",
+    "interface_gain": "operator confirmation to question explicitly requiring unchanged gain",
+    "runtime_or_plugin_change": false,
+    "implementation_change": "No source changes. Used existing tested master-capable binary; private diagnostic harness issues bounded read-only refresh queries until exact value is received."
+  },
+  "first_attempt": {
+    "master_readbacks": [
+      {
+        "normalized": 0.6730807423591614,
+        "revision": 1
+      }
+    ],
+    "audio": {
+      "midi_accepted": 0,
+      "output_nonzero_l": 0,
+      "output_nonzero_r": 0,
+      "output_peak_l": 0,
+      "output_peak_r": 0,
+      "output_nonfinite": 0,
+      "xruns": 0,
+      "process_failures": 0,
+      "bridge_processed": 2906,
+      "request_high": 16,
+      "result_high": 17,
+      "fault": 0
+    },
+    "callback": {
+      "event": "rpi1_callback_summary",
+      "callbacks": 1453,
+      "process_failures": 0,
+      "deadline_misses": 0,
+      "callback_ns_max": 74906,
+      "missing_frames": 2560,
+      "expired_frames": 2560,
+      "gaps": 1,
+      "delivered_frames": 739328,
+      "priming_frames": 2048,
+      "paused_frames": 0,
+      "unsupported_midi": 0,
+      "malformed_midi": 0,
+      "overflow_midi": 0,
+      "jack_frames": 512,
+      "bridge_frames": 2048
+    },
+    "transport": {
+      "fault": 0,
+      "processed": 2906,
+      "request_high": 16,
+      "result_high": 17,
+      "position": 743936,
+      "epoch": 1
+    },
+    "retirement": {
+      "milestones": 127,
+      "epoch": 1,
+      "sequence": 2907,
+      "position": 743936,
+      "generation": 1
+    },
+    "clean_shutdown_record_present": true,
+    "windows_retirement": [
+      {
+        "event": "lifecycle",
+        "sequence": 227,
+        "state": "ap0_thread_joined",
+        "joined": true,
+        "processing_stopped": true,
+        "worker_exception": false
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 229,
+        "state": "ap3_processing_summary",
+        "processed_blocks": 2906,
+        "intervals": 1,
+        "process_mode": "kRealtime"
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 233,
+        "state": "ap1_endpoint_closed",
+        "mapping_unmapped": true,
+        "instance_count": 1
+      }
+    ],
+    "health": {
+      "samples": 34,
+      "voltage_range_v": [
+        4.87492,
+        5.0719
+      ],
+      "maximum_temperature_c": 58.95,
+      "throttle_counts": {
+        "throttled=0x0": 34
+      }
+    },
+    "disposition": "Readback deadline expired after one master write; no MIDI or playback routes connected. Native and translated owners retired cleanly. This was a diagnostic confirmation failure, not an audio or power failure.",
+    "cause": "The first parameter snapshot was still streaming after Master Volume was read. EditorSession::request_refresh ORs flags into pending_refresh_ during a stream; an overlapping zero-flag refresh does not schedule a later snapshot."
+  },
+  "successful_attempt": {
+    "master_readbacks": [
+      {
+        "normalized": 0.6730807423591614,
+        "revision": 1
+      },
+      {
+        "normalized": 0.5,
+        "revision": 4
+      }
+    ],
+    "audio": {
+      "midi_accepted": 110,
+      "output_nonzero_l": 564207,
+      "output_nonzero_r": 564207,
+      "output_peak_l": 0.5704991,
+      "output_peak_r": 0.5704991,
+      "output_nonfinite": 0,
+      "xruns": 0,
+      "process_failures": 0,
+      "bridge_processed": 13468,
+      "request_high": 16,
+      "result_high": 17,
+      "fault": 0
+    },
+    "callback": {
+      "event": "rpi1_callback_summary",
+      "callbacks": 6735,
+      "process_failures": 0,
+      "deadline_misses": 0,
+      "callback_ns_max": 50407,
+      "missing_frames": 2560,
+      "expired_frames": 2560,
+      "gaps": 1,
+      "delivered_frames": 3443200,
+      "priming_frames": 2048,
+      "paused_frames": 512,
+      "unsupported_midi": 0,
+      "malformed_midi": 0,
+      "overflow_midi": 0,
+      "jack_frames": 512,
+      "bridge_frames": 2048
+    },
+    "transport": {
+      "fault": 0,
+      "processed": 13468,
+      "request_high": 16,
+      "result_high": 17,
+      "position": 3447808,
+      "epoch": 1
+    },
+    "retirement": {
+      "milestones": 127,
+      "epoch": 1,
+      "sequence": 13470,
+      "position": 3447808,
+      "generation": 1
+    },
+    "clean_shutdown_record_present": true,
+    "windows_retirement": [
+      {
+        "event": "lifecycle",
+        "sequence": 231,
+        "state": "ap0_thread_joined",
+        "joined": true,
+        "processing_stopped": true,
+        "worker_exception": false
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 233,
+        "state": "ap3_processing_summary",
+        "processed_blocks": 13468,
+        "intervals": 1,
+        "process_mode": "kRealtime"
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 237,
+        "state": "ap1_endpoint_closed",
+        "mapping_unmapped": true,
+        "instance_count": 1
+      }
+    ],
+    "health": {
+      "samples": 90,
+      "voltage_range_v": [
+        4.86554,
+        5.0585
+      ],
+      "maximum_temperature_c": 63.9,
+      "throttle_counts": {
+        "throttled=0x0": 90
+      }
+    }
+  },
+  "comparison": {
+    "previous_evidence": "meter-retry.json",
+    "previous_peak": 1.4802243,
+    "reduced_peak": 0.5704991,
+    "operator_question": "With the same chord and unchanged interface gain, does the interface stay below overload, and are the crackles gone?",
+    "operator_answer": "Yup! No crackles. Perfect audio",
+    "interpretation": "Master reduction cleared the reported overload/crackle symptom in this physical comparison. This supports excessive audio level and downstream clipping as the cause of this symptom; it does not identify the exact clipping stage or a maximum voice count. Human-played sessions are not bit-identical MIDI/waveform comparisons."
+  },
+  "saved_state": {
+    "bytes": 381312,
+    "custody": "private Pi-owned state envelope; not published",
+    "captured": "after verified reduced value, before physical MIDI was connected",
+    "restoration_of_this_envelope": "not tested",
+    "automatic_startup_default_changed": false
+  },
+  "cleanup": {
+    "native_and_translated_exit": 0,
+    "result": "success",
+    "retirement_milestones": 127,
+    "processes_absent": true,
+    "both_attempt_session_transports_removed": true,
+    "fifo_removed": true,
+    "pigments_jack_ports_removed": true,
+    "previous_outer_unit_restored": true,
+    "recorders_stopped": true,
+    "runtime_watchdog_usec": 60000000
+  },
+  "known_control_gap": "Overlapping zero-flag refresh loses the pending refresh in existing Windows companion bookkeeping. The diagnostic harness obtains a later fresh readback with read-only polling; product source repair is not claimed and no Windows-host change was made.",
+  "nonclaims": [
+    "all presets or polyphony limits qualified",
+    "exact clipping stage isolated",
+    "linear gain or dB transfer measured",
+    "saved reduced-state restart verified",
+    "zero startup gaps",
+    "sustained soak passed",
+    "historical whole-unit power failure resolved",
+    "overall RPI1 qualification"
+  ]
+}

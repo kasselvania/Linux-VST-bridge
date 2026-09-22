@@ -1,0 +1,30 @@
+{
+  "schema": "linux-vst-bridge-rpi1-runner-acquisition/v1",
+  "observed_at_utc": "2026-09-21",
+  "tool": {
+    "source": "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_osx.tar.gz",
+    "archive_sha256": "8ecc17c8988e5acadcc78e631c48490f76150f2dfaa6cf8d7b4b67b097bd753b",
+    "archive_bytes": 2428561,
+    "executable_architecture": "Mach-O x86_64",
+    "signature_authority": "Developer ID Application: Valve Corporation (MXGJJ98X76)",
+    "updated_client_version": "1788292693"
+  },
+  "request": {
+    "login": "anonymous",
+    "app_id": 4628710,
+    "depot_id": 4628711,
+    "manifest_id": "2978628887517351791",
+    "expected_build_id": "25118279",
+    "expected_runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769"
+  },
+  "result": {
+    "steam_public_connection": "pass",
+    "anonymous_login": "pass",
+    "depot_download": "refused_missing_license_no_subscription",
+    "proton_payload_downloaded": false,
+    "slr_depot_attempted": false,
+    "credentials_requested_or_inspected": false
+  },
+  "classification": "EXACT_RUNNER_ACQUISITION_REQUIRES_USER_ENTITLED_SOURCE",
+  "next_boundary": "Copy only the exact Proton 11.0 and Steam Linux Runtime 4 closures from the user's retained Steam Deck installation, then verify every declared digest before Pi transfer. Do not copy the Deck prefix, account state, tokens, or Arturia activation data."
+}

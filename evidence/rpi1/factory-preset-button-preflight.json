@@ -1,0 +1,59 @@
+{
+  "fixture": "Pi 5 / ShieldXL / Pigments 7.0.1.6772",
+  "claim": "headless factory-preset navigation from ShieldXL buttons 2 and 3",
+  "disposition": "not established",
+  "read_only_program_probe": {
+    "source_commit": "c92126ff7fa2d4841556ef7884e5d305d03c646c",
+    "unit_count": 302,
+    "program_list_count": 16,
+    "reported_programs_per_list": 128,
+    "sampled_program_names": "generic ProgramChange slots",
+    "clean_supervisor_retirement": true
+  },
+  "midi_mapping_probe": {
+    "source_commit": "988ed79870f5e371b61a4c4e5ed557df5302f9b5",
+    "channel": 1,
+    "previous_cc": 28,
+    "previous_helper_parameter_id": 2394,
+    "next_cc": 29,
+    "next_helper_parameter_id": 2395,
+    "factory_action_proven": false
+  },
+  "physical_button_attempt": {
+    "candidate_source_commit": "d5f472f35340aaa3c8557d6c5a38acbe10c68a03",
+    "candidate_source_tree": "bb9b48e80fa76f7da53d53591312e789902f697e",
+    "candidate_binary_sha256": "e212d59463138016f0a4a1a2edb15d215a814f37eb6d0f8637a775f2910fbb39",
+    "editor_opened": false,
+    "physical_next_button_presses": 3,
+    "press_release_pairs_received": 3,
+    "pigments_state_bytes_before_and_after": 381326,
+    "pigments_state_unchanged": true,
+    "operator_heard_preset_change": false,
+    "final_midi_accepted": 67,
+    "final_output_nonzero_per_channel": 483408,
+    "final_output_peak_per_channel": 0.26587746,
+    "xruns": 0,
+    "callback_deadline_misses": 0,
+    "post_startup_transport_gaps": 0,
+    "process_failures": 0,
+    "terminal_transport_fault": 0,
+    "retirement_milestones": 127,
+    "clean_shutdown": true
+  },
+  "vendor_template_check": {
+    "user_preference_temporary_selection": "MiniLab mkII",
+    "next_press_release_pairs_sent": 1,
+    "pigments_state_unchanged": true,
+    "original_user_preference_restored_byte_for_byte": true,
+    "retirement_milestones": 127,
+    "clean_shutdown": true
+  },
+  "final_state": {
+    "ineffective_button_binding_reverted": true,
+    "ordinary_appliance_binary_replaced": false,
+    "pigments_owner_active": false,
+    "jack_active": true,
+    "uart_midi_active": true,
+    "sampled_get_throttled": "0x0"
+  }
+}

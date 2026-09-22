@@ -1,0 +1,43 @@
+# Generated privately on the accepted Pi by rpi1/prepare_standalone.py.
+# Paths and Xauthority identity are fixture-local; do not commit the generated file.
+runtime_id=proton-11.0-2c-25118279-slr4-4.0.20260805.254769
+box64_source_commit=2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a
+box64_path=/absolute/private/environment/emulator/bin/box64
+box64_sha256=79cdd30e5480f5dfb8cd717af99d0e5a89eb55b31701de6fde7896a6a0e79ab6
+emulator_adapter_path=/absolute/private/environment/emulator/adapter
+emulator_adapter_sha256=99e1dc907c53fba755c1839922654753c09435fa3c474ded00f8dc2d499b7828
+emulator_manifest_path=/absolute/private/environment/emulator/emulator.json
+emulator_manifest_sha256=9a30bd4f6cd6ec7e888a90af81f26aa9c3967abc9410e3535dea7a804f18e7c1
+graphics_manifest_path=/absolute/private/environment/emulator/graphics-provider.json
+graphics_manifest_sha256=a076eea9d36c398b94b9a9b1f093d31811659a731169a42bf9ad6bae54bf871d
+slr_entry_path=/absolute/private/environment/runtime/SteamLinuxRuntime_4/_v2-entry-point
+slr_entry_sha256=caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1
+proton_path=/absolute/private/environment/runtime/Proton 11.0/proton
+proton_sha256=787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad
+windows_host_path=/absolute/private/environment/compatdata/pfx/drive_c/bridge/bin/wf0-factory-probe.exe
+windows_host_sha256=HASH
+plugin_path=/absolute/private/environment/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Pigments.vst3
+plugin_sha256=bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07
+environment_root=/absolute/private/environment
+runtime_variable_dir=/absolute/private/environment/runtime-var-pyhome-IDENTITY
+display=:1
+xauthority_path=/absolute/user/.Xauthority
+xauthority_sha256=HASH
+source_manifest_sha256=HASH
+bridge_frames=2048
+jack_client=lvb-arm-pigments
+evidence_directory=/absolute/private/environment/standalone-evidence
+protocol_minor=12
+sample_rate=48000
+pythonhome=/usr
+machine_architecture=aarch64-linux-gnu
+architecture_handshake_policy=required
+accessibility_policy=uiautomationcore=
+event_output_policy=reported_zero_event_channels_unspecified
+editor_lifetime_policy=retain_editor_view_until_instance_retirement
+vendor_retirement_policy=process_scoped_vendor_retirement
+pigments_class_id=41727475415649534B61743150726F63
+pigments_version=7.0.1.6772
+pigments_parameter_count=4446
+pigments_precision=float32_only
+environment_family=arturia_persistent_v1:1
