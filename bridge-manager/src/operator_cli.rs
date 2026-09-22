@@ -508,12 +508,14 @@ pub(super) fn environment_projection(
         .collect()
 }
 // A fresh product install has no native catalogue until a managed native
-// publication exists. Only an empty registry may enter this bootstrap state;
-// FRG1's separately verified adoption can then authorize its first inventory.
+// publication exists. An empty registry can bootstrap the first inventory;
+// afterward only the exact sealed FRG1 publication/restoration remains valid
+// without an ordinary catalogue.
 fn operator_catalogue(m: &Manager, sw: &Software, registry: &Registry)
     -> Result<Option<linux_vst_bridge::catalogue::Catalogue>> {
     if sw.native_catalogue.is_none() {
-        require(registry.classes.is_empty(), "native_catalogue_absent_run_product_setup")?;
+        require(linux_vst_bridge::frg1::catalogue_free_registry(m, registry)?,
+            "native_catalogue_absent_run_product_setup")?;
         Ok(None)
     } else {
         Ok(Some(sw.catalogue(m)?))

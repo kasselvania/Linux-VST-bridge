@@ -129,7 +129,8 @@ pub fn runner_key(r: &Runner) -> Result<String> {
 pub fn runners(m: &Manager) -> Result<Vec<(String, Runner)>> {
     let sw = software(m)?;
     if sw.native_catalogue.is_none() {
-        require(m.registry()?.classes.is_empty(), "native_catalogue_absent_run_product_setup")?;
+        require(crate::frg1::catalogue_free_registry(m, &m.registry()?)?,
+            "native_catalogue_absent_run_product_setup")?;
         return Ok(vec![]);
     }
     let c = sw.catalogue(m)?;

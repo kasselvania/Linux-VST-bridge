@@ -260,6 +260,45 @@ pub fn adopted_environment(m: &Manager) -> Result<Option<EnvironmentBinding>> {
     }))
 }
 
+/// A sealed FRG1-only registry does not create an ordinary native catalogue.
+/// Operator readback may project it only after verifying the exact retained
+/// revision and its current physical publication disposition.
+pub fn catalogue_free_registry(m: &Manager, registry: &Registry) -> Result<bool> {
+    if registry.classes.is_empty() {
+        return Ok(true);
+    }
+    let profile = candidate()?;
+    if registry.classes.len() != 1 || !registry.classes.contains_key(&profile.class.class_id) {
+        return Ok(false);
+    }
+    let entry = &registry.classes[&profile.class.class_id];
+    let reference = entry.managed_revision.as_ref().ok_or("frg1_revision_absent")?;
+    let revision = m.load_revision(&profile.class.class_id, reference)?;
+    let mut expected = binding(m)?;
+    expected.native.path = revision.registration.native.path.clone();
+    require(
+        revision.profile == profile
+            && revision.registration == entry.registration
+            && revision.registration == expected
+            && revision.parent.is_none()
+            && revision.qualification == Some(Qualification::Frg1Ubuntu)
+            && !m.publication_pending(&profile.class.class_id)?,
+        "frg1_catalogue_free_identity",
+    )?;
+    revision.registration.verify(&m.root)?;
+    m.verify_completed_publication(&revision, reference)?;
+    let physical = physical(&m.link(&profile.class.class_id))?;
+    require(
+        match entry.publication {
+            Publication::Published => physical == Some(revision.target),
+            Publication::Removed => physical.is_none(),
+            Publication::Pending => false,
+        },
+        "frg1_catalogue_free_publication",
+    )?;
+    Ok(true)
+}
+
 /// An adoption always requires one new default-host inventory, even when an
 /// older byte-current inventory happened to exist before custody crossed.
 pub fn inventory_refresh_required(m: &Manager, environment: &Environment) -> Result<bool> {
@@ -894,7 +933,12 @@ mod tests {
             .verify_retained_authority(&revision, std::slice::from_ref(&prepared.profile))
             .unwrap();
         served(manager, &revision.registration).unwrap();
+        assert!(catalogue_free_registry(manager, &manager.registry().unwrap()).unwrap());
+        let mut wrong = manager.registry().unwrap();
+        wrong.classes.get_mut(&prepared.profile.class.class_id).unwrap().publication = Publication::Pending;
+        assert!(catalogue_free_registry(manager, &wrong).is_err());
         restore(manager).unwrap();
+        assert!(catalogue_free_registry(manager, &manager.registry().unwrap()).unwrap());
         assert_eq!(
             manager.registry().unwrap().classes[&prepared.profile.class.class_id].publication,
             Publication::Removed
