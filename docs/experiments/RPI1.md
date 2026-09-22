@@ -21,9 +21,11 @@
 - source-owned ShieldXL stereo tone: **MEASURED AND HEARD**
 - deterministic editor-closed Pigments audio after bounded CC123 repair:
   **MEASURED AND HEARD; NORMAL RETIREMENT PASSED**
+- final MacBook-supply comparison after reboot: **STARTUP CONFIGURE TIMEOUT;
+  NO AUDIO STARTED; NO RECORDED UNDERVOLTAGE**
 - sustained power margin and performance: **UNQUALIFIED; NEW TRANSIENT
   UNDERVOLTAGE AND STARTUP GAPS PRESERVED**
-- overall RPI1: **PENDING; STATE, SOAK, EDITOR AND PHYSICAL MIDI GATES REMAIN**
+- overall RPI1: **PENDING; COLD-START READINESS REPAIR AND LATER GATES REMAIN**
 
 RPI1 is not a greenfield Wine experiment. It transfers the accepted Steam Deck
 Arturia/Pigments runtime contract onto the accepted RPI0 hardware path and tests
@@ -61,6 +63,15 @@ See [`RPI1_CC123_REPAIR.md`](RPI1_CC123_REPAIR.md) and
 `evidence/rpi1/pigments-cc123-repair.json`. A new brief kernel undervoltage event
 recovered during this successful run. Startup gaps remain; neither sustained
 power nor performance is qualified. No later physical gate was started.
+
+The operator subsequently requested one final short comparison using a MacBook
+power supply. The same binary, after the requested shutdown and supply swap,
+failed its initial Configure reply deadline before audio readiness. Pigments
+component initialization and initial state capture completed, but consumed the
+ordinary control-response budget. No recorded undervoltage or restart occurred
+during this attempt. See [`RPI1_POWER_COMPARISON.md`](RPI1_POWER_COMPARISON.md)
+and `evidence/rpi1/power-comparison-startup-timeout.json`. No retry was made;
+the next repair is bounded startup readiness, before the later appliance gates.
 
 ## Exact starting custody
 
