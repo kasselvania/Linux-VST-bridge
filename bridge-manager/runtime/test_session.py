@@ -46,7 +46,7 @@ class GraphicalSessionTests(unittest.TestCase):
         return proc,peer,host_runtime,bound,bus,wayland,(sid,denial)
 
     def test_exact_peer_generation_and_allowlisted_environment_are_revalidated(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
             proc=pathlib.Path(tmp).resolve();peer=proc/'41';peer.mkdir()
             fields=['S']+['0']*18+['9001']+['0']*4
             (peer/'stat').write_text('41 (bitwig-studio) '+' '.join(fields))
@@ -104,6 +104,32 @@ class GraphicalSessionTests(unittest.TestCase):
                 (pathlib.Path(denial[1])/'.linux-vst-bridge-denied-wayland').write_text('collision')
                 with self.assertRaisesRegex(RuntimeError,'denial endpoint collision'):
                     session.graphical_environment(bound,proc,host_runtime,denial)
+            finally:
+                bus.close();wayland.close()
+
+    def test_keeper_denial_uses_short_session_bound_runtime_path(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            root=pathlib.Path(tmp).resolve()
+            proc,peer,host_runtime,bound,bus,wayland,_=self.graphical_fixture(root)
+            sid='34'*16
+            durable=root/('managed-'+'d'*80)/'compatdata/pfx/drive_c/bridge/sessions'/sid
+            durable.mkdir(parents=True,mode=0o700)
+            self.assertGreater(len(os.fsencode(durable/'.linux-vst-bridge-denied-wayland')),107)
+            spec={'session':sid,'directory':str(durable)}
+            try:
+                with patch.object(session,'validate_runtime',return_value=host_runtime),\
+                     patch.object(session,'transport_root',return_value=host_runtime):
+                    denial=session.keeper_graphical_denial(spec)
+                    result=session.graphical_environment(bound,proc,host_runtime,denial)
+                for endpoint in (pathlib.Path(result['WAYLAND_DISPLAY']),
+                    pathlib.Path(result['DBUS_SESSION_BUS_ADDRESS'].removeprefix('unix:path='))):
+                    self.assertEqual(endpoint.parent,host_runtime)
+                    self.assertIn(sid,endpoint.name)
+                    self.assertLessEqual(len(os.fsencode(endpoint)),100)
+                    self.assertFalse(os.path.lexists(endpoint))
+                    client=socket.socket(socket.AF_UNIX)
+                    with self.assertRaises(FileNotFoundError):client.connect(str(endpoint))
+                    client.close()
             finally:
                 bus.close();wayland.close()
 
@@ -1269,6 +1295,15 @@ class SupervisorFixture:
 
 
 class KeeperDiagnosticsTests(SupervisorFixture,unittest.TestCase):
+    def test_keeper_refuses_a_conflicting_startup_deadline(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            root=pathlib.Path(tmp);spec,_=self.fixture(root)
+            spec.update(keeper=True,inspect=True,keeper_startup_seconds=180)
+            result=session.keep(spec)
+            report=json.loads(pathlib.Path(spec['report']).read_text())
+            self.assertTrue(result['cleanup_confirmed'])
+            self.assertIn('keeper startup deadline binding',report['error'])
+
     def test_keeper_retains_exit_and_non_disclosing_diagnostic_identity(self):
         with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
             root=pathlib.Path(tmp);spec,_=self.fixture(root)
@@ -1290,6 +1325,12 @@ class KeeperDiagnosticsTests(SupervisorFixture,unittest.TestCase):
             self.assertRegex(report['diagnostic_sha256']['stderr'],r'^[0-9a-f]{64}$')
             self.assertNotIn('private-stdout',json.dumps(report))
             self.assertNotIn('private-stderr',json.dumps(report))
+            self.assertIsNone(report['private_diagnostic_error'])
+            for name,text in [('stdout',b'private-stdout'),('stderr',b'private-stderr')]:
+                retained=pathlib.Path(report['private_diagnostics'][name]['path'])
+                self.assertEqual(retained.read_bytes().strip(),text)
+                self.assertEqual(retained.stat().st_mode&0o077,0)
+                self.assertLessEqual(report['private_diagnostics'][name]['retained_bytes'],65536)
 
 
 @unittest.skipUnless(sys.platform.startswith('linux'),'Linux supervisor ownership boundary')
@@ -1422,7 +1463,7 @@ class SupervisorOwnershipBoundaryTests(SupervisorFixture,unittest.TestCase):
             spec,durable=self.fixture(pathlib.Path(tmp));spec['keeper']=True;spec['inspect']=True
             spec['graphical_session']={'schema':1,'peer_pid':os.getpid(),
               'peer_start_ticks':1,'display':':1'}
-            result=session.keep(spec)
+            with patch.object(session,'validate_runtime',return_value=root):result=session.keep(spec)
             report=json.loads(pathlib.Path(spec['report']).read_text())
             self.assertTrue(result['cleanup_confirmed'] and report['cleanup_confirmed'])
             self.assertFalse(report['ready']);self.assertIn('generation changed',report['error'])

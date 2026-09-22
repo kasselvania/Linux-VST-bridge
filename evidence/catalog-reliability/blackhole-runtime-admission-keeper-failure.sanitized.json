@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "fixture": "Steam Deck Desktop Mode, Bitwig empty project, one Blackhole load",
+  "installed_source": {
+    "head": "c576787dcb7338c460d7fcdd2f8a5cf54aeadc79",
+    "tree": "7010697eb24fd726e25a8f1bd2141f0fc597406c",
+    "generation": "4fdd87de65fb045692925e7c2342b5662d40f72a03c93d03dad53cf1770b5584"
+  },
+  "publication": {
+    "revision": "103c94edceb97c1b376d1eb757523aea",
+    "candidate": "80e06590b7dc3f4e15d2903237541bdb466c012c8dfb647f6d0843daefb68b7d",
+    "configuration": "stereo"
+  },
+  "operator_observation": {
+    "bitwig_message": "Plug-in host is not responding",
+    "bitwig_final_view": "default empty project",
+    "single_load_only": true,
+    "bitwig_closed_after_failure": true
+  },
+  "retained_service_observation": {
+    "admission_service_busy_replies": 75,
+    "reply_interval_approx_seconds": 64,
+    "prewarmed_keeper": {
+      "session": "4eadbb020789fb03666fa87514dc2ebc",
+      "was_ready_before_request": true,
+      "retired_for_authenticated_graphical_context": true,
+      "cleanup_confirmed": true,
+      "raw_exit": -15,
+      "error": null
+    },
+    "authenticated_graphical_keepers": {
+      "created": 35,
+      "ready": 0,
+      "common_error": "shared environment owner exited",
+      "common_raw_exit": 1,
+      "cleanup_confirmed": 35,
+      "stderr_bytes_each": 721,
+      "raw_diagnostics_retained": false
+    },
+    "dsp_sessions_created": 0,
+    "windows_plugin_hosts_started": 0,
+    "worker_ceiling_observed": false,
+    "registry_contention_established": false
+  },
+  "source_traced_finding": {
+    "classification": "keeper_failed",
+    "durable_keeper_denial_endpoint_bytes": 196,
+    "linux_unix_socket_path_limit_including_terminator": 108,
+    "finding": "The graphical keeper used its long durable Wine-prefix session directory for explicit Wayland and D-Bus denial sockets. That pathname cannot be represented by Linux AF_UNIX. Short test paths did not exercise this production topology.",
+    "limit": "The discarded 721-byte stderr was represented only by byte count and digest. The exact inner error text is unavailable and is not reconstructed from the path finding."
+  },
+  "preserved_state": {
+    "inventory_changed": false,
+    "candidate_changed": false,
+    "publication_changed": false,
+    "kontakt_launched": false,
+    "final_cleanup_confirmed": true
+  },
+  "claim": "This record identifies the first runtime-admission failure and its source-level correction boundary. It is not evidence that the corrected bridge loads Blackhole, exposes an editor, processes audio, or handles touch."
+}

@@ -1,5 +1,45 @@
 # Catalog reliability: Blackhole and Kontakt owned graphical sessions
 
+Runtime-admission correction basis (2026-09-21): the first exact installed
+`c576787` Blackhole load did not reach a DSP session or Windows plug-in host.
+The native proxy received 75 retryable `admission_service_busy` refusals over
+approximately 64 seconds. Retained keeper results select the failure boundary:
+the ready service-resumed keeper was intentionally retired for Bitwig's
+authenticated graphical context, after which 35 graphical keepers exited in
+about 1.3--1.7 seconds each with `shared environment owner exited`, raw exit 1,
+and confirmed cleanup. None became ready. This is a pre-admission keeper
+failure, not established registry-lock contention or a Blackhole host crash.
+
+The production topology exposed a concrete defect hidden by the short test
+paths. A graphical keeper placed its verified-absent Wayland and D-Bus denial
+sockets beneath the durable Wine-prefix session directory. The exact Deck path
+was 196 bytes, beyond Linux `sockaddr_un.sun_path`. Keepers now place those
+session-bound denial names beneath the already verified private tmpfs transport
+root, enforce a conservative encoded-path bound, and retain the exact X11 and
+Xauthority mapping. One owner deadline is serialized into the keeper spec: the
+Python owner decides at 60 seconds, the Rust registry observes and retires only
+after a two-second finalization margin, and the unchanged native retry ceiling
+ends at 65 seconds. These are layered parts of one deadline rather than three
+independent startup contracts.
+
+A cleanly contained unexpected keeper exit is retained as a failed generation.
+The same graphical context receives one terminal binding refusal instead of
+creating another keeper on every retry. A different authenticated context may
+replace that already reaped generation once. A bounded private admission
+incident distinguishes `registry_busy`, `worker_ceiling`, `keeper_starting`,
+`keeper_retiring`, and `keeper_failed` without changing the public wire
+protocol or native proxy. Keeper stdout/stderr now retain private 64 KiB tails
+alongside their existing byte counts and full-stream hashes, so a later failure
+does not again discard its first internal diagnostic. The sanitized physical
+record is
+`evidence/catalog-reliability/blackhole-runtime-admission-keeper-failure.sanitized.json`.
+
+This correction changes only manager/supervisor admission and keeper behavior.
+The current inventories, selected inspections, prepared native artifacts,
+candidates, and experimental publications remain unchanged. It does not claim
+that the corrected generation has loaded Blackhole; the next physical gate is
+one Blackhole load after review, packaging, and installation of this source.
+
 Physical correction basis (2026-09-21): the first exact installed `f164048f`
 Desktop Mode attempt did not load Blackhole. Bitwig reported `could not load
 plugin`; no DSP owner or Windows plug-in host was created. The manager created

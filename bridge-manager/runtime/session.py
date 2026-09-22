@@ -13,6 +13,17 @@ def atomic(path,value):
     with temp.open('x') as f: json.dump(value,f);f.flush();os.fsync(f.fileno())
     temp.replace(path)
 
+def atomic_bytes(path,value):
+    temp=path.with_suffix(path.suffix+'.tmp')
+    descriptor=os.open(temp,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+    try:
+        with os.fdopen(descriptor,'wb') as f:f.write(value);f.flush();os.fsync(f.fileno())
+        temp.replace(path)
+    except Exception:
+        try:os.unlink(temp)
+        except FileNotFoundError:pass
+        raise
+
 def verify(artifact):
     p=pathlib.Path(artifact['path']);m=p.lstat()
     if not stat.S_ISREG(m.st_mode) or m.st_uid!=os.getuid():raise RuntimeError('artifact ownership/type differs')
@@ -89,10 +100,24 @@ def denied_graphical_endpoint(denial,name):
         or any(c not in '0123456789abcdef' for c in denial[0])):
         raise RuntimeError('graphical denial binding invalid')
     directory=pathlib.Path(denial[1]);private_directory(directory)
-    if directory.name!=denial[0]:raise RuntimeError('graphical denial binding differs')
-    endpoint=directory/('.linux-vst-bridge-denied-'+name)
+    if directory.name==denial[0]:
+        endpoint=directory/('.linux-vst-bridge-denied-'+name)
+    else:
+        # A keeper has no volatile per-instance transport directory. Bind its
+        # denial socket name to the session while keeping it beneath the short
+        # private tmpfs transport root; durable Wine-prefix paths can exceed
+        # sockaddr_un.sun_path before any Windows process starts.
+        if directory!=transport_root():raise RuntimeError('graphical denial binding differs')
+        endpoint=directory/('.lvb-'+denial[0]+'-'+{'dbus':'d','wayland':'w'}[name])
+    if len(os.fsencode(endpoint))>100:raise RuntimeError('graphical denial endpoint extent')
     if os.path.lexists(endpoint):raise RuntimeError('graphical denial endpoint collision')
     return str(endpoint)
+
+def keeper_graphical_denial(spec):
+    sid=spec.get('session')
+    if not isinstance(sid,str) or len(sid)!=32 or any(c not in '0123456789abcdef' for c in sid):
+        raise RuntimeError('graphical denial binding invalid')
+    return sid,validate_runtime()
 
 def graphical_environment(graphical,proc_root=pathlib.Path('/proc'),runtime_root=None,denial=None):
     fields={'schema','peer_pid','peer_start_ticks','display','wayland_display','xauthority','dbus_session_bus_address'}
@@ -1227,16 +1252,24 @@ def keep(spec):
     signal.signal(signal.SIGTERM,stopped);signal.signal(signal.SIGINT,stopped)
     directory=pathlib.Path(spec['directory']);root=None;sel=selectors.DefaultSelector()
     owned=set();diagnostic_hash={name:hashlib.sha256() for name in ('stdout','stderr')}
+    diagnostic_tail={name:bytearray() for name in ('stdout','stderr')}
     diagnostic_bytes={'stdout':0,'stderr':0};ready=False;started=time.monotonic();error=None;clean=False
     def drain(timeout):
         for key,_ in sel.select(timeout):
             data=os.read(key.fileobj.fileno(),4096)
             if not data:sel.unregister(key.fileobj);continue
             diagnostic_hash[key.data].update(data);diagnostic_bytes[key.data]+=len(data)
+            tail=diagnostic_tail[key.data];tail.extend(data)
+            if len(tail)>65536:del tail[:-65536]
     try:
         verify(reg['host'])
         cmd=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',windows(reg['host']['path'],pathlib.Path(reg['environment']['root'])/'compatdata/pfx'),'--environment-owner',spec['session'],'--scanner-sha256',reg['host']['sha256']]
-        env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}},spec.get('graphical_session'),(spec['session'],spec['directory']));managed_home(spec,env);transport_environment(spec,env)
+        startup_seconds=spec.get('keeper_startup_seconds',60)
+        if type(startup_seconds) is not int or startup_seconds!=60:
+            raise RuntimeError('keeper startup deadline binding')
+        graphical=spec.get('graphical_session')
+        denial=keeper_graphical_denial(spec) if graphical is not None else None
+        env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}},graphical,denial);managed_home(spec,env);transport_environment(spec,env)
         root=subprocess.Popen(cmd,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
         for pipe,label in ((root.stdout,'stdout'),(root.stderr,'stderr')):
             os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,label)
@@ -1248,7 +1281,7 @@ def keep(spec):
                 if (directory/'environment.ready').read_bytes()!=(spec['session']+'\n').encode():raise RuntimeError('environment readiness binding differs')
                 atomic(report,{'ready':True,'environment':reg['environment']['id']});ready=True
             if root.poll() is not None:raise RuntimeError('shared environment owner exited')
-            if not ready and time.monotonic()-started>180:raise TimeoutError('environment startup deadline')
+            if not ready and time.monotonic()-started>startup_seconds:raise TimeoutError('environment startup deadline')
     except Exception as e:error=str(e)
     finally:
         if root is None:
@@ -1271,11 +1304,22 @@ def keep(spec):
             root.poll()
             root.stdout.close();root.stderr.close()
         sel.close()
+        private_diagnostics={};private_diagnostic_error=None
+        for name,data in diagnostic_tail.items():
+            if not data:continue
+            path=report.with_suffix('.'+name+'.log')
+            try:
+                atomic_bytes(path,bytes(data))
+                private_diagnostics[name]={'path':str(path),'retained_bytes':len(data)}
+            except OSError as exc:
+                private_diagnostic_error=type(exc).__name__+': '+str(exc)[:256]
         atomic(report,{'ready':False,'cleanup_confirmed':clean,'error':error,
           'raw_exit':None if root is None else root.returncode,
           'diagnostic_bytes':diagnostic_bytes,
           'diagnostic_sha256':{name:(digest.hexdigest() if diagnostic_bytes[name] else None)
-            for name,digest in diagnostic_hash.items()}})
+            for name,digest in diagnostic_hash.items()},
+          'private_diagnostics':private_diagnostics,
+          'private_diagnostic_error':private_diagnostic_error})
     return {'cleanup_confirmed':clean}
 
 def install(spec):

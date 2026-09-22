@@ -33,17 +33,76 @@ use std::{
 use catalogue::Software;
 
 struct KeeperOwner {
+    session: String,
     environment: String,
     graphical_session: Option<transport_storage::GraphicalSession>,
     child: Child,
     report: PathBuf,
     lease: PathBuf,
     retiring: bool,
+    failed: bool,
+    failure_pending: bool,
     started: Instant,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum KeeperAvailability { Starting, Ready }
+enum KeeperAvailability { Starting, Retiring, Ready, Failed }
+
+const KEEPER_OWNER_STARTUP_SECONDS: u64 = 60;
+const KEEPER_MANAGER_RETIRE_SECONDS: u64 = 62;
+const KEEPER_ADMISSION_SECONDS: u64 = 65;
+
+fn retain_admission_incident(m:&Manager,source:&str,request:Option<[u8;16]>,
+    class_id:Option<&str>,environment:Option<&str>,keeper_session:Option<&str>)->Result<()> {
+    require(matches!(source,"registry_busy"|"worker_ceiling"|"keeper_starting"|
+        "keeper_retiring"|"keeper_failed"),"admission incident class")?;
+    if let Some(class_id)=class_id {require(valid_hex(class_id,32),"admission incident identity")?;}
+    if let Some(keeper_session)=keeper_session {require(valid_hex(keeper_session,32),"admission incident identity")?;}
+    if let Some(environment)=environment {
+        require(!environment.is_empty() && environment.len()<=128
+            && environment.bytes().all(|value|value.is_ascii_alphanumeric() || value==b'-' || value==b'_'),
+            "admission incident identity")?;
+    }
+    let directory=m.root.join("runtime/admission-incidents");
+    private_dir(&directory)?;
+    let key=if let Some(environment)=environment {
+        format!("environment-{}",environment.to_ascii_lowercase())
+    } else if let Some(class_id)=class_id {
+        format!("class-{}",class_id.to_ascii_lowercase())
+    } else {"service".into()};
+    atomic_json(&directory.join(format!("{key}.json")),&serde_json::json!({
+        "schema":1,
+        "observed_at":observation::now()?,
+        "source":source,
+        "request":request.map(|value|hex(&value)),
+        "class_id":class_id,
+        "environment":environment,
+        "keeper_session":keeper_session,
+    }))
+}
+
+fn keeper_incident_source(status:KeeperAvailability)->Option<&'static str> {
+    match status {
+        KeeperAvailability::Starting=>Some("keeper_starting"),
+        KeeperAvailability::Retiring=>Some("keeper_retiring"),
+        KeeperAvailability::Failed=>Some("keeper_failed"),
+        KeeperAvailability::Ready=>None,
+    }
+}
+
+fn keeper_session(keepers:&Keepers,environment:&str)->Result<Option<String>> {
+    let active=keepers.lock().map_err(|_|"environment ownership lock poisoned")?;
+    Ok(active.iter().find(|owner|owner.environment==environment)
+        .map(|owner|owner.session.clone()))
+}
+
+fn retain_keeper_incident(m:&Manager,keepers:&Keepers,status:KeeperAvailability,
+    request:[u8;16],class_id:&str,environment:&str)->Result<()> {
+    let Some(source)=keeper_incident_source(status) else {return Ok(())};
+    let session=keeper_session(keepers,environment)?;
+    retain_admission_incident(m,source,Some(request),Some(class_id),Some(environment),
+        session.as_deref())
+}
 
 type Keepers = Mutex<Vec<KeeperOwner>>;
 #[derive(Serialize, Deserialize)]
@@ -71,6 +130,8 @@ struct SessionSpec {
     transport: Option<transport_storage::MemoryTransport>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     graphical_session: Option<transport_storage::GraphicalSession>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    keeper_startup_seconds: Option<u64>,
 }
 // Unexposed admission owns only a reservation. Once the native binding is
 // exposed, only positive supervisor retirement can release that ownership.
@@ -555,6 +616,7 @@ fn spec(
         shared_runtime: false,
         transport: None,
         graphical_session: None,
+        keeper_startup_seconds: keeper.then_some(KEEPER_OWNER_STARTUP_SECONDS),
     };
     let path = directory.join("owner.json");
     atomic_json(&path, &s)?;
@@ -634,12 +696,24 @@ fn observe_keeper(environment: &str, active: &mut Vec<KeeperOwner>)
     let Some(index)=active.iter().position(|owner|owner.environment==environment) else {
         return Ok(None);
     };
+    if active[index].failed {
+        return Ok(Some(KeeperAvailability::Failed));
+    }
     if let Some(status)=active[index].child.try_wait()? {
         retired_keeper(&active[index],status)?;
-        active.remove(index);
-        return Ok(None);
+        if active[index].retiring && !active[index].failure_pending {
+            active.remove(index);
+            return Ok(None);
+        }
+        // A cleanly contained unexpected keeper exit is a failed generation,
+        // not permission to create another process on every native retry.
+        active[index].failed=true;
+        return Ok(Some(KeeperAvailability::Failed));
     }
-    if active[index].retiring || !active[index].report.exists() {
+    if active[index].retiring {
+        return Ok(Some(KeeperAvailability::Retiring));
+    }
+    if !active[index].report.exists() {
         return Ok(Some(KeeperAvailability::Starting));
     }
     let status:serde_json::Value=read_json(&active[index].report)?;
@@ -673,18 +747,34 @@ fn stage_keeper(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keepers,
     let mut active=keepers.lock().map_err(|_|"environment ownership lock poisoned")?;
     if let Some(owner)=active.iter_mut().find(|owner|owner.environment==r.environment.id) {
         if !owner.retiring && !owner.report.exists()
-            && owner.started.elapsed()>=Duration::from_secs(60)
+            && owner.started.elapsed()>=Duration::from_secs(KEEPER_MANAGER_RETIRE_SECONDS)
             && owner.child.try_wait()?.is_none() {
             require(unsafe{libc::kill(owner.child.id() as i32,libc::SIGTERM)}==0,
                 "environment startup retirement request")?;
             owner.retiring=true;
-            return Ok(KeeperAvailability::Starting);
+            owner.failure_pending=true;
+            return Ok(KeeperAvailability::Retiring);
         }
     }
-    if retire_mismatched_graphical_keeper(m,&r.environment.id,graphical_session,&mut active)? {
-        return Ok(KeeperAvailability::Starting);
+    let mut observed=observe_keeper(&r.environment.id,&mut active)?;
+    if observed==Some(KeeperAvailability::Failed) {
+        let index=active.iter().position(|owner|owner.environment==r.environment.id)
+            .ok_or("failed environment owner absent")?;
+        let same_context=match (active[index].graphical_session.as_ref(),graphical_session) {
+            (Some(bound),Some(requested))=>bound.same_display_context(requested),
+            (None,None)=>true,
+            _=>false,
+        };
+        if same_context {return Ok(KeeperAvailability::Failed)}
+        // A later, different authenticated graphical context may replace one
+        // already reaped and cleanly retired failed generation exactly once.
+        active.remove(index);
+        observed=None;
     }
-    if let Some(status)=observe_keeper(&r.environment.id,&mut active)? {return Ok(status)}
+    if retire_mismatched_graphical_keeper(m,&r.environment.id,graphical_session,&mut active)? {
+        return Ok(KeeperAvailability::Retiring);
+    }
+    if let Some(status)=observed {return Ok(status)}
     let mut keeper_binding=r.clone();
     keeper_binding.host=s.host.clone();
     keeper_binding.host_source_sha256=s.source_sha256.clone();
@@ -695,16 +785,20 @@ fn stage_keeper(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keepers,
     let child=spawn(s,&path,None)?;
     // The keeper is retained before any retryable refusal. No native binding,
     // transport, or DSP lease has been exposed at this point.
-    active.push(KeeperOwner{environment:r.environment.id.clone(),
+    active.push(KeeperOwner{session:job.session.clone(),environment:r.environment.id.clone(),
         graphical_session:graphical_session.cloned(),child,report:job.report,lease:job.lease,
-        retiring:false,started:Instant::now()});
+        retiring:false,failed:false,failure_pending:false,started:Instant::now()});
     Ok(KeeperAvailability::Starting)
 }
 
 fn ensure_keeper(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keepers)->Result<()> {
-    let deadline=Instant::now()+Duration::from_secs(60);
+    let deadline=Instant::now()+Duration::from_secs(KEEPER_ADMISSION_SECONDS);
     loop {
-        if stage_keeper(m,s,r,keepers,None)?==KeeperAvailability::Ready {return Ok(())}
+        match stage_keeper(m,s,r,keepers,None)? {
+            KeeperAvailability::Ready=>return Ok(()),
+            KeeperAvailability::Failed=>return Err("environment keeper failed".into()),
+            KeeperAvailability::Starting|KeeperAvailability::Retiring=>{}
+        }
         if Instant::now()>=deadline {return Err("environment startup deadline".into())}
         std::thread::sleep(Duration::from_millis(20));
     }
@@ -873,6 +967,10 @@ fn serve(m: Manager) -> Result<()> {
         if threads.len() >= limits.service_workers {
             // Classification itself is unavailable. This bounded zero-token
             // refusal cannot convey a session or acknowledge a stale request.
+            if let Err(error)=retain_admission_incident(&manager,"worker_ceiling",None,
+                None,None,None) {
+                eprintln!("admission incident unavailable: {error}");
+            }
             if peer
                 .set_write_timeout(Some(Duration::from_millis(100)))
                 .is_ok()
@@ -989,7 +1087,18 @@ fn serve(m: Manager) -> Result<()> {
                 peer.set_write_timeout(Some(Duration::from_secs(5)))?;
                 let prepared=(|| -> Result<_> {
                     let class=hex(&greeting[5..21]).to_uppercase();
-                    let _reservation=capacity::reserve(&m,&limits,Some(&class),blocked.load(Ordering::Acquire))?;
+                    let _reservation=match capacity::reserve(&m,&limits,Some(&class),blocked.load(Ordering::Acquire)) {
+                        Ok(reservation)=>reservation,
+                        Err(error)=>{
+                            if error.downcast_ref::<capacity::Refusal>()==Some(&capacity::Refusal::ServiceBusy) {
+                                if let Err(incident)=retain_admission_incident(&m,"registry_busy",
+                                    Some(request),Some(&class),None,None) {
+                                    eprintln!("admission incident unavailable: {incident}");
+                                }
+                            }
+                            return Err(error);
+                        }
+                    };
                     let registration = m.resolve(&greeting[5..])?;
                     m.verify_served_host(&registration, &s.host, &s.source_sha256, &profiles::installed_profiles()?)?;
                     let full_registration = registration.clone();
@@ -1002,9 +1111,16 @@ fn serve(m: Manager) -> Result<()> {
                     // not assumed to be the host's shared memory mount.
                     transport_storage::visible_to_peer(&peer, &transport_storage::root())?;
                     let graphical_session=transport_storage::graphical_session(&peer)?;
-                    if stage_keeper(&m,&s,&r,&keepers,Some(&graphical_session))?
-                        != KeeperAvailability::Ready {
-                        return Err(capacity::Refusal::ServiceBusy.into());
+                    let keeper=stage_keeper(&m,&s,&r,&keepers,Some(&graphical_session))?;
+                    if keeper!=KeeperAvailability::Ready {
+                        if let Err(incident)=retain_keeper_incident(&m,&keepers,keeper,request,
+                            &r.metadata.class_id,&r.environment.id) {
+                            eprintln!("admission incident unavailable: {incident}");
+                        }
+                        return Err(match keeper {
+                            KeeperAvailability::Failed=>capacity::Refusal::BindingInvalid,
+                            _=>capacity::Refusal::ServiceBusy,
+                        }.into());
                     }
                     let (mut job, path) = spec(&m, r.clone(), false, false, false)?;
                     let storage = transport_storage::PendingTransport::new(&job.session)?;
@@ -1034,13 +1150,21 @@ fn serve(m: Manager) -> Result<()> {
                 // preparation and immediately before exposing transport or a
                 // binding. Clean retirement is retried; uncertain retirement
                 // remains a hard refusal.
-                if stage_keeper(&m,&s,&r,&keepers,Some(&graphical_session))?
-                    != KeeperAvailability::Ready {
+                let keeper=stage_keeper(&m,&s,&r,&keepers,Some(&graphical_session))?;
+                if keeper!=KeeperAvailability::Ready {
+                    if let Err(incident)=retain_keeper_incident(&m,&keepers,keeper,request,
+                        &r.metadata.class_id,&r.environment.id) {
+                        eprintln!("admission incident unavailable: {incident}");
+                    }
+                    let reason=match keeper {
+                        KeeperAvailability::Failed=>capacity::Refusal::BindingInvalid,
+                        _=>capacity::Refusal::ServiceBusy,
+                    };
                     if version3 {
                         startup_reply(&mut peer,&ap1_native_client::admission::refused(
-                            request,capacity::Refusal::ServiceBusy))?;
+                            request,reason))?;
                     }
-                    return Err(capacity::Refusal::ServiceBusy.into());
+                    return Err(reason.into());
                 }
                 // Deliver the private binding inside the native greeting deadline.
                 // Cold Wine startup then uses the existing bounded transport accept.
@@ -1387,8 +1511,9 @@ mod tests {
         let lease=f.outer.join(format!("keeper-{}.lease",random_id().unwrap()));
         fs::write(&lease,b"keeper").unwrap();
         let child=Command::new("/bin/sh").args(["-c",command]).spawn().unwrap();
-        (KeeperOwner{environment:f.r.environment.id.clone(),graphical_session:None,child,
-            report:report.clone(),lease:lease.clone(),retiring:false,started:Instant::now()},
+        (KeeperOwner{session:random_id().unwrap(),environment:f.r.environment.id.clone(),graphical_session:None,child,
+            report:report.clone(),lease:lease.clone(),retiring:false,failed:false,failure_pending:false,
+            started:Instant::now()},
             report,lease)
     }
     fn graphical(display:&str,generation:u64)->transport_storage::GraphicalSession {
@@ -1437,8 +1562,52 @@ mod tests {
         std::thread::sleep(Duration::from_millis(250));
         atomic_json(&report,&serde_json::json!({"ready":false,
             "cleanup_confirmed":true})).unwrap();
+        assert_eq!(observe_keeper(&f.r.environment.id,&mut active).unwrap(),
+            Some(KeeperAvailability::Failed));
+        assert_eq!(observe_keeper(&f.r.environment.id,&mut active).unwrap(),
+            Some(KeeperAvailability::Failed));
+        assert_eq!(active.len(),1);
+        assert!(!lease.exists());
+    }
+    #[test]
+    fn service_resumed_keeper_retires_before_one_graphical_generation() {
+        let f=test_fixture::Fixture::new();
+        let (owner,report,lease)=fixture_keeper(&f,
+            "exec python3 -c 'import signal,sys,time; signal.signal(signal.SIGTERM,lambda *_:sys.exit(0)); time.sleep(5)'");
+        atomic_json(&report,&serde_json::json!({"ready":true,
+            "environment":f.r.environment.id})).unwrap();
+        let mut active=vec![owner];
+        assert_eq!(observe_keeper(&f.r.environment.id,&mut active).unwrap(),
+            Some(KeeperAvailability::Ready));
+        std::thread::sleep(Duration::from_millis(50));
+        assert!(retire_mismatched_graphical_keeper(&f.m,&f.r.environment.id,
+            Some(&graphical(":1",1)),&mut active).unwrap());
+        assert!(active[0].retiring);
+        let status=active[0].child.wait().unwrap();
+        atomic_json(&report,&serde_json::json!({"ready":false,
+            "cleanup_confirmed":true})).unwrap();
+        // Preserve the already reaped status shape used by observe_keeper.
+        assert!(status.success());
         assert_eq!(observe_keeper(&f.r.environment.id,&mut active).unwrap(),None);
         assert!(active.is_empty()&&!lease.exists());
+    }
+    #[test]
+    fn timed_out_keeper_retirement_becomes_a_stable_failure() {
+        let f=test_fixture::Fixture::new();
+        let (mut owner,report,lease)=fixture_keeper(&f,
+            "exec python3 -c 'import signal,sys,time; signal.signal(signal.SIGTERM,lambda *_:sys.exit(0)); time.sleep(5)'");
+        std::thread::sleep(Duration::from_millis(50));
+        owner.retiring=true;owner.failure_pending=true;
+        unsafe{libc::kill(owner.child.id() as i32,libc::SIGTERM)};
+        assert!(owner.child.wait().unwrap().success());
+        atomic_json(&report,&serde_json::json!({"ready":false,
+            "cleanup_confirmed":true})).unwrap();
+        let mut active=vec![owner];
+        assert_eq!(observe_keeper(&f.r.environment.id,&mut active).unwrap(),
+            Some(KeeperAvailability::Failed));
+        assert_eq!(observe_keeper(&f.r.environment.id,&mut active).unwrap(),
+            Some(KeeperAvailability::Failed));
+        assert_eq!(active.len(),1);assert!(!lease.exists());
     }
     #[test]
     fn keeper_wrong_binding_or_unconfirmed_exit_never_becomes_ready() {
@@ -1452,6 +1621,27 @@ mod tests {
             "cleanup_confirmed":false})).unwrap();
         assert!(observe_keeper(&f.r.environment.id,&mut active).is_err());
         assert_eq!(active.len(),1);
+    }
+    #[test]
+    fn keeper_admission_incident_names_the_private_failure_source() {
+        let f=test_fixture::Fixture::new();
+        let request=[7;16];
+        retain_admission_incident(&f.m,"keeper_failed",Some(request),
+            Some(&f.r.metadata.class_id),Some(&f.r.environment.id),Some(&"ab".repeat(16)))
+            .unwrap();
+        let incident:serde_json::Value=read_json(&f.m.root.join("runtime/admission-incidents")
+            .join(format!("environment-{}.json",f.r.environment.id.to_ascii_lowercase()))).unwrap();
+        assert_eq!(incident["source"],"keeper_failed");
+        assert_eq!(incident["request"],hex(&request));
+        assert_eq!(incident["environment"],f.r.environment.id);
+    }
+    #[test]
+    fn keeper_spec_binds_the_shared_startup_deadline() {
+        let f=test_fixture::Fixture::new();
+        let (job,_)=spec(&f.m,f.r.clone().into(),true,false,true).unwrap();
+        assert_eq!(job.keeper_startup_seconds,Some(KEEPER_OWNER_STARTUP_SECONDS));
+        assert_eq!(KEEPER_MANAGER_RETIRE_SECONDS,KEEPER_OWNER_STARTUP_SECONDS+2);
+        assert_eq!(KEEPER_ADMISSION_SECONDS,KEEPER_MANAGER_RETIRE_SECONDS+3);
     }
     #[test]
     fn missing_candidate_onboarding_cannot_fall_back_to_operator_home() {
