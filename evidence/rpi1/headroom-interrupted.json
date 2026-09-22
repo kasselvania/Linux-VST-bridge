@@ -1,0 +1,157 @@
+{
+  "date": "2026-09-22",
+  "status": "comparison incomplete; whole-unit failure preserved; logs recovered and idle setup restored before separately authorized retry",
+  "source_head": "1173e816bdea7f334347e411ddb15b438f81467b",
+  "source_tree": "d97e60f8ab04fc0e1604fd975a465f365db4bc4c",
+  "native_sha256": "81a44a8eed7191b08655496dfe0b49c0c919208e9f7a600658bc37887a2006c7",
+  "qualification_sha256": "a3fb302d8f648742a853d85cd4d6f3b8b0d46ecc70259d56272137553b19e861",
+  "changed_surface": "RPI1 control-thread Master Volume command and existing bounded JACK fixture recording/chord sequence; no callback engine, Windows-host, Proton, Box64, plug-in, bus or buffer changes",
+  "validation": {
+    "rpi1_tests_local": 14,
+    "rpi1_tests_arm": 14,
+    "qualification_tests_local": 5,
+    "qualification_tests_arm_final": 5,
+    "source_hashes_verified": 54,
+    "clippy_local_and_arm": "passed with pre-existing new_without_default exception",
+    "arm_release_build": "passed",
+    "qualification_arm_release_warnings_denied": "passed"
+  },
+  "preflight": {
+    "same_boot": true,
+    "same_macbook_supply_and_wiring": true,
+    "operator_reports_power_changes": false,
+    "editor": "closed",
+    "physical_midi_route": "unconnected during synthetic sequence",
+    "jack": "48000 Hz / 512 frames / 3 periods; ShieldXL 16-bit hardware playback",
+    "bridge_delay_frames": 2048,
+    "vendor_quantum_frames": 256,
+    "idle_jack_recovery": "After the SSH master expired, JACK process remained alive but clients could not reach its IPC endpoints. Idle JACK service restarted with unchanged configuration. No cause established for endpoint loss.",
+    "watchdog": "temporarily set to 0 under earlier authorization; after operator power cycle the original 60000000 us setting was verified"
+  },
+  "planned": {
+    "A": "original Master Volume normalized 0.67308074235916138",
+    "B": "same saved state, Master Volume normalized 0.5",
+    "notes": [
+      48,
+      52,
+      55,
+      59,
+      62,
+      65,
+      69,
+      72
+    ],
+    "voice_steps": [
+      1,
+      2,
+      4,
+      6,
+      8
+    ],
+    "velocity": 96,
+    "step_seconds": 6,
+    "held_seconds": 3,
+    "messages_per_pass": 47,
+    "capture": "stereo float32, preallocated/prefaulted; disk write only after fixture retirement"
+  },
+  "observed": {
+    "master_readback_original": 0.6730807423591614,
+    "private_state_saved_bytes": 381326,
+    "A": "started; completion not observed",
+    "B": "did not begin in retained record",
+    "master_write": "not reached; physical application of a changed value remains unproved",
+    "last_native_audio": {
+      "midi_accepted": 38,
+      "output_nonzero_l": 617647,
+      "output_nonzero_r": 617647,
+      "output_peak_l": 1.3439976,
+      "output_peak_r": 1.3439976,
+      "output_nonfinite": 0,
+      "xruns": 0,
+      "process_failures": 0,
+      "bridge_processed": 5891,
+      "request_high": 16,
+      "result_high": 15,
+      "fault": 0
+    },
+    "last_native_audio_record": "RPI1_AUDIO midi_accepted=38 output_nonzero_l=617647 output_nonzero_r=617647 output_peak_l=1.3439976 output_peak_r=1.3439976 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=5891 request_high=16 result_high=15 fault=0",
+    "completed_frames_at_last_status": 1508096,
+    "native_or_windows_terminal_fault": "none published in retained remote record",
+    "normal_shutdown_request": "submitted remotely after noticing active voltage flags; no acknowledgement; SSH later exited 255",
+    "clean_retirement": "not established",
+    "complete_waveform": "recovered file is zero bytes; RAM-only capture did not reach normal writeout"
+  },
+  "health": {
+    "samples": 48,
+    "first_monotonic": 5518.607,
+    "last_monotonic": 5565.607,
+    "maximum_temperature_c": 60.6,
+    "voltage_range_v": [
+      4.67392,
+      5.01026
+    ],
+    "throttle_counts": {
+      "throttled=0x50000": 45,
+      "throttled=0x50005": 3
+    },
+    "active_flag_samples": [
+      {
+        "monotonic_seconds": 5528.613,
+        "temperature_millidegrees": "57300",
+        "throttled": "throttled=0x50005",
+        "voltage": "EXT5V_V volt(24)=4.67392000V",
+        "cpu_khz": "2400000"
+      },
+      {
+        "monotonic_seconds": 5559.607,
+        "temperature_millidegrees": "60050",
+        "throttled": "throttled=0x50005",
+        "voltage": "EXT5V_V volt(24)=4.75834000V",
+        "cpu_khz": "2400000"
+      },
+      {
+        "monotonic_seconds": 5565.607,
+        "temperature_millidegrees": "58950",
+        "throttled": "throttled=0x50005",
+        "voltage": "EXT5V_V volt(24)=4.70340000V",
+        "cpu_khz": "2400000"
+      }
+    ],
+    "first_active_sample_phase": "during Pigments initialization, before RPI1_READY and before automatic notes",
+    "later_active_samples_phase": "latest MIDI accepted counts 23 and 38, corresponding to the six- and eight-note holds",
+    "historical_flags_at_first_sample": "0x50000; flags were already historical before the first health record of this launch",
+    "last_mem_available": "5581088 kB",
+    "last_swap_free": "2097148 kB",
+    "limit": "One-Hz asynchronous firmware/voltage/frequency reads; not simultaneous electrical measurement or proof of the initiating reset mechanism"
+  },
+  "operator": {
+    "power_change_reply": "No power changes; it stopped on its own",
+    "display_reply": "No image on the screen.",
+    "classification": "It clearly crashed."
+  },
+  "interpretation": "Observed active undervoltage and throttling preceded lost SSH/ping and operator-reported blank display. Power delivery is implicated, but adapter/cable/connector/board and the initiating whole-unit failure mechanism are not identified. Clipping versus CPU/polyphony remains unresolved because the level comparison did not finish.",
+  "references": [
+    "https://www.raspberrypi.com/documentation/computers/os.html#get_throttled"
+  ],
+  "nonclaims": [
+    "gain comparison completed",
+    "reduced Master Volume physically applied",
+    "audio quality or voice ceiling qualified",
+    "clean retirement",
+    "power fault root cause isolated",
+    "earlier successful UART/Pigments result invalidated"
+  ],
+  "recovery": {
+    "status": "operator power cycle completed; prior-boot kernel and user journals copied privately to the Mac; failed comparison remains incomplete",
+    "persistent_prior_boot_journal": true,
+    "pigments_and_translated_processes": "absent on recovery inspection",
+    "runtime_watchdog_usec": 60000000,
+    "uart_and_jack_services": "active after reboot",
+    "failed_capture_bytes": 0,
+    "private_saved_state_bytes": 381326,
+    "failed_session_directory": "preserved; no successful cleanup claim for interrupted session",
+    "outer_unit": "interrupted definition retained privately, previous inactive definition restored; only verified stale command FIFO removed",
+    "recovery_boot_power": "historical undervoltage/throttle 0x50000; connection maximum current reported 3000 mA; exact adapter/cable cause not established",
+    "subsequent_work": "operator later connected a meter at the Pi and explicitly requested a separate Pigments reload; this does not turn the interrupted headroom comparison into a pass"
+  }
+}

@@ -83,6 +83,18 @@ machine reboot; repeat cold-start reliability remains open. See
 [`RPI1_STARTUP_READINESS.md`](RPI1_STARTUP_READINESS.md) and
 `evidence/rpi1/startup-readiness-audio.json`.
 
+The later physical OMX-27 UART session produced measured and audible stereo,
+with reported crackles at larger chords. A subsequent original/reduced-master
+comparison ended in a whole-unit failure with active voltage/throttle evidence;
+the reduced-level pass was never reached. After recovery, an explicitly requested
+reload with an inline meter accepted 62 physical MIDI events and retired cleanly
+without sampled voltage/throttle flags. The operator observed interface overload,
+matching above-full-scale returned samples. Lower-level comparison remains open.
+See [`RPI1_UART_PIGMENTS.md`](RPI1_UART_PIGMENTS.md),
+[`RPI1_HEADROOM_INTERRUPTED.md`](RPI1_HEADROOM_INTERRUPTED.md) and
+[`RPI1_METER_RETRY.md`](RPI1_METER_RETRY.md). Neither clipping nor the prior
+whole-machine failure has a completed controlled root-cause comparison.
+
 ## Exact starting custody
 
 - branch: `experiment/rpi1-pigments-arm64-appliance`
