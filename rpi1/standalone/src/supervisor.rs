@@ -5,7 +5,7 @@ use std::{
     fs, io,
     os::unix::ffi::OsStrExt,
     path::PathBuf,
-    process::{Command, ExitStatus},
+    process::{Command, ExitStatus, Stdio},
     thread,
     time::{Duration, Instant},
 };
@@ -97,8 +97,22 @@ impl Cohort {
             let pid = line
                 .parse::<u32>()
                 .map_err(|_| invalid("cgroup PID syntax"))?;
-            let start_ticks = process_start(pid)?;
-            let executable = fs::read_link(format!("/proc/{pid}/exe"))?;
+            let start_ticks = match process_start(pid) {
+                Ok(value) => value,
+                Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+                Err(error) => return Err(error),
+            };
+            let executable = match fs::read_link(format!("/proc/{pid}/exe")) {
+                Ok(value) => value,
+                Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+                Err(error) => return Err(error),
+            };
+            match process_start(pid) {
+                Ok(after) if after == start_ticks => {}
+                Ok(_) => return Err(invalid("RPI1 cohort PID was recycled")),
+                Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+                Err(error) => return Err(error),
+            }
             processes.push(ProcessIdentity {
                 pid,
                 start_ticks,
@@ -356,6 +370,8 @@ fn systemctl(arguments: &[&str]) -> io::Result<ExitStatus> {
     Command::new("/usr/bin/systemctl")
         .arg("--user")
         .args(arguments)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .status()
 }
 
