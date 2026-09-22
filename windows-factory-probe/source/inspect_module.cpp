@@ -9,6 +9,7 @@
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
+#include "pluginterfaces/vst/ivstmidicontrollers.h"
 #include "pluginterfaces/vst/ivstmessage.h"
 #include "pluginterfaces/vst/ivstunits.h"
 #include "../../vst-state/stream.h"
@@ -154,6 +155,19 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         // supervised census path; never manufacture a preset from a parameter
         // title or a private content filename.
         if(!external && access_directory.empty()){
+            // A MIDI assignment is the format-defined route for host input to
+            // a controller action. Read only the candidate navigation CCs;
+            // program-list slots and read-only parameter names are not proof
+            // that the factory browser can be advanced by the host.
+            FUnknownPtr<IMidiMapping> midi_mapping(controller);
+            events.lifecycle("ap8_midi_mapping_interface",",\"supported\":"+std::string(midi_mapping?"true":"false"));
+            if(midi_mapping){
+                for(const int cc_number : {28,29}){
+                    ParamID assigned=0;
+                    const auto result=midi_mapping->getMidiControllerAssignment(0,0,static_cast<CtrlNumber>(cc_number),assigned);
+                    events.lifecycle("ap8_midi_mapping",",\"bus\":0,\"channel\":0,\"cc\":"+std::to_string(cc_number)+",\"result\":"+std::to_string(result)+(result==kResultTrue?",\"param_id\":"+std::to_string(assigned):std::string{}));
+                }
+            }
             FUnknownPtr<IUnitInfo> unit_info(controller);
             events.lifecycle("ap8_program_interface",",\"supported\":"+std::string(unit_info?"true":"false"));
             if(unit_info){
