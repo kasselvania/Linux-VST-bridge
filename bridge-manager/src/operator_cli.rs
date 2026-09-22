@@ -101,7 +101,8 @@ fn session_projection(
     rows
 }
 fn quarantined_product(scan: &inventory::Scan, module_index: usize,
-    module: inventory::Module, stale: Option<&str>, busy: Option<&str>)
+    module: inventory::Module, stale: Option<&str>, busy: Option<&str>,
+    retry_disabled: Option<&str>)
     -> Result<ui::Product> {
     let reason=module.quarantine_reason.as_deref()
         .ok_or("operator_quarantine_reason_absent")?;
@@ -112,7 +113,7 @@ fn quarantined_product(scan: &inventory::Scan, module_index: usize,
     let actions=vec![action("Retry this exact module scan",
         ui::Action::QuarantinedModuleRetry {environment:scan.environment.id.clone(),
             scan:scan.id.clone(),module_index,module_sha256:module.artifact.sha256.clone(),
-            report_sha256:module.report.sha256.clone()},busy.or(stale))];
+            report_sha256:module.report.sha256.clone()},busy.or(stale).or(retry_disabled))];
     Ok(ui::Product {class_id:String::new(),name:module.artifact.path.file_name()
         .unwrap_or_default().to_string_lossy().into_owned(),vendor:"Unresolved factory".into(),
         role:"unknown".into(),version:String::new(),
@@ -452,6 +453,7 @@ fn managed_rescan_binding(
         environment,
     )
 }
+#[cfg(test)]
 pub(super) fn environment_projection(
     m: &Manager,
     sw: &Software,
@@ -460,6 +462,15 @@ pub(super) fn environment_projection(
     busy: Option<&str>,
 ) -> Result<Vec<ui::Environment>> {
     let bindings = managed_environment_bindings(m, catalogue, registry)?;
+    environment_projection_from(m, sw, &bindings, registry, busy)
+}
+fn environment_projection_from(
+    m: &Manager,
+    sw: &Software,
+    bindings: &[linux_vst_bridge::catalogue::EnvironmentBinding],
+    registry: &Registry,
+    busy: Option<&str>,
+) -> Result<Vec<ui::Environment>> {
     let adopted = linux_vst_bridge::frg1::adopted_environment(m)?;
     bindings
         .iter()
@@ -471,7 +482,7 @@ pub(super) fn environment_projection(
             )?;
             let actions = if let Some(environment) = managed_rescan_binding_from(
                 m,
-                &bindings,
+                bindings,
                 registry,
                 &entry.environment.id,
             )?
@@ -680,19 +691,32 @@ fn snapshot_for_operation(
         products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
     }
     let catalogue = operator_catalogue(m, &sw, &db)?;
-    let environments = environment_projection(m, &sw, catalogue.as_ref(), &db, busy)?;
-    let inventory_environments: Vec<Environment> = managed_environment_bindings(
-        m, catalogue.as_ref(), &db,
-    )?
-        .into_iter()
-        .map(|e| e.environment)
-        .chain(
-            onboarding::history_records(m)?
-                .into_iter()
-                .map(|r| r.environment),
-        )
-        .collect();
+    let managed_bindings = managed_environment_bindings(m, catalogue.as_ref(), &db)?;
+    let environments = environment_projection_from(m, &sw, &managed_bindings, &db, busy)?;
+    let mut inventory_environments: Vec<Environment> = managed_bindings.iter()
+        .map(|e| e.environment.clone()).collect();
+    for retained in onboarding::history_records(m)? {
+        if let Some(current) = inventory_environments.iter()
+            .find(|environment| environment.id == retained.environment.id) {
+            require(current == &retained.environment,
+                "operator_managed_environment_binding_conflict")?;
+        } else {
+            inventory_environments.push(retained.environment);
+        }
+    }
     for env in &inventory_environments {
+        let retry_disabled = if managed_bindings.iter()
+            .any(|binding| binding.environment.id == env.id) {
+            match managed_rescan_binding_from(m, &managed_bindings, &db, &env.id)? {
+                Some(current) => {
+                    require(current == *env, "operator_managed_environment_binding_conflict")?;
+                    None
+                }
+                None => Some("This environment is not currently managed"),
+            }
+        } else {
+            Some("This environment is not currently managed")
+        };
         let path = m.root.join("inventory").join(format!("{}.json", env.id));
         if path.exists() {
             let scan: inventory::Scan = read_json(&path)?;
@@ -711,7 +735,8 @@ fn snapshot_for_operation(
                     &sw.source_sha256,
                 );
                 if module.quarantine_reason.is_some() {
-                    products.push(quarantined_product(&scan,module_index,module,stale,busy)?);
+                    products.push(quarantined_product(&scan,module_index,module,stale,busy,
+                        retry_disabled)?);
                     continue;
                 }
                 let current = stale.is_none();
@@ -2429,7 +2454,7 @@ mod tests {
     fn quarantine_projection_retains_scanner_cause_and_exact_retry_identity() {
         let f=test_fixture::Fixture::new();
         let scan=quarantined_scan(&f);
-        let product=quarantined_product(&scan,0,scan.modules[0].clone(),None,None).unwrap();
+        let product=quarantined_product(&scan,0,scan.modules[0].clone(),None,None,None).unwrap();
         assert_eq!(product.limitations[0],
             "Scanner reported: TimeoutError: Windows call deadline: load_library");
         assert_eq!(product.limitations[1],"inventory_factory_absent_or_duplicate");
@@ -2514,15 +2539,51 @@ mod tests {
         environment.root=f.m.root.join("environments").join(&environment.id);
         private_dir(&environment.root).unwrap();
         atomic_json(&environment.root.join("environment.json"),&environment).unwrap();
+        let mut bytes=vec![0;1024];
+        bytes[..2].copy_from_slice(b"MZ");
+        bytes[60]=128;
+        bytes[128..132].copy_from_slice(b"PE\0\0");
+        bytes[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        bytes[148]=2;
+        bytes[150]=2;
+        bytes[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+        let source=f.outer.join("onboarding-installer.exe");
+        fs::write(&source,bytes).unwrap();
+        let installer=installer_import::import(&f.m,file(&source).unwrap()).unwrap();
         let directory=onboarding::directory(&f.m,&environment.id).unwrap();
         private_dir(&directory).unwrap();
         atomic_json(&directory.join("record.json"),&onboarding::Record {schema:1,
-            id:environment.id.clone(),installer:"ab".repeat(32),environment:environment.clone(),
+            id:environment.id.clone(),installer:installer.id,environment:environment.clone(),
             created_at:1,creation_operation:"cd".repeat(16),
             installation_operation:None,published:false,previous_attempt:None}).unwrap();
-        let error=retry_quarantined_module(&f.m,&environment.id,&"ef".repeat(16),0,
-            &f.r.module.sha256,&f.r.host.sha256).unwrap_err().to_string();
+        let module_path=environment.root.join(f.r.module.path
+            .strip_prefix(&f.r.environment.root).unwrap());
+        private_dir(module_path.parent().unwrap()).unwrap();
+        fs::copy(&f.r.module.path,&module_path).unwrap();
+        let mut scan=quarantined_scan(&f);
+        scan.id="ef".repeat(16);
+        scan.environment=environment.clone();
+        scan.modules[0].artifact=Artifact {sha256:digest(&module_path).unwrap(),path:module_path};
+        let inventory=f.m.root.join("inventory").join(format!("{}.json",environment.id));
+        private_dir(inventory.parent().unwrap()).unwrap();
+        atomic_json(&inventory,&scan).unwrap();
+        let snapshot=snapshot_idle_test(&f.m).unwrap();
+        let product=snapshot.products.iter().find(|product|
+            product.environment==environment.id && product.disposition=="quarantined").unwrap();
+        assert_eq!(product.actions.len(),1);
+        assert_eq!(product.actions[0].disabled_reason.as_deref(),
+            Some("This environment is not currently managed"));
+        assert!(available(&snapshot).into_iter().all(|action|
+            !matches!(action.action,ui::Action::QuarantinedModuleRetry { .. })
+                || action.disabled_reason.is_some()));
+        let before=fs::read(&inventory).unwrap();
+        SCAN_SPAWN_COUNT.with(|count|count.set(0));
+        let error=retry_quarantined_module(&f.m,&environment.id,&scan.id,0,
+            &scan.modules[0].artifact.sha256,&scan.modules[0].report.sha256)
+            .unwrap_err().to_string();
         assert_eq!(error,"operator_environment_absent");
+        assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get),0);
+        assert_eq!(fs::read(&inventory).unwrap(),before);
         assert!(!f.m.registry().unwrap().classes.values()
             .any(|entry|entry.registration.environment.id==environment.id));
     }
