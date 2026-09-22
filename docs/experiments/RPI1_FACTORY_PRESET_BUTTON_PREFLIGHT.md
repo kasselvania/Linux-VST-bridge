@@ -15,3 +15,11 @@
 ## Current status
 
 The retained census reports sixteen `kIsProgramChange` parameters (IDs 2272–2287, each with 127 steps). Pigments' similarly named `Previous Preset` and `Next Preset` parameters are `kIsReadOnly`; they cannot be written by the host. The retained census omits `unitId` and `IUnitInfo`, so it does not establish what those program-change parameters select. The new observation closes that information gap before any physical button mapping or audio run.
+
+The first hosted candidate built successfully and was run once on the Pi. It
+reported `IUnitInfo` support, then encountered the probe's own strict
+unit/list-count bound before printing either count. The host returned 90; the
+existing supervisor reported confirmed cleanup and retired transport. Pigments
+audio, editor and ShieldXL buttons were not launched. This is a failed probe,
+not a Pigments preset result. The follow-up retains reported counts and samples
+only a bounded prefix of units/lists; it never iterates an untrusted count.

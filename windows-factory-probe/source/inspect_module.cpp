@@ -159,20 +159,18 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             if(unit_info){
             const auto unit_count=unit_info->getUnitCount();
             const auto list_count=unit_info->getProgramListCount();
-            if(unit_count<0||unit_count>128||list_count<0||list_count>64)
-                throw std::runtime_error("program structure count bound");
-            events.lifecycle("ap8_program_structure",",\"unit_count\":"+std::to_string(unit_count)+",\"list_count\":"+std::to_string(list_count));
-            for(int i=0;i<unit_count;++i){
+            const int unit_limit=unit_count<0?0:std::min<int>(unit_count,32);
+            const int list_limit=list_count<0?0:std::min<int>(list_count,16);
+            events.lifecycle("ap8_program_structure",",\"unit_count\":"+std::to_string(unit_count)+",\"list_count\":"+std::to_string(list_count)+",\"units_queried\":"+std::to_string(unit_limit)+",\"lists_queried\":"+std::to_string(list_limit));
+            for(int i=0;i<unit_limit;++i){
                 UnitInfo unit{};
                 ok(unit_info->getUnitInfo(i,unit),"getUnitInfo");
                 events.lifecycle("ap8_program_unit",",\"index\":"+std::to_string(i)+",\"id\":"+std::to_string(unit.id)+",\"parent_id\":"+std::to_string(unit.parentUnitId)+",\"program_list_id\":"+std::to_string(unit.programListId)+",\"name\":"+text16(unit.name));
             }
-            for(int i=0;i<list_count;++i){
+            for(int i=0;i<list_limit;++i){
                 ProgramListInfo list{};
                 ok(unit_info->getProgramListInfo(i,list),"getProgramListInfo");
-                if(list.programCount<0||list.programCount>8192)
-                    throw std::runtime_error("program list size bound");
-                const int prefix_count=std::min(list.programCount,4);
+                const int prefix_count=list.programCount<0?0:std::min<int>(list.programCount,4);
                 std::string prefix;
                 for(int index=0;index<prefix_count;++index){
                     String128 program{};
