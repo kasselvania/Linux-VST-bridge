@@ -1,6 +1,7 @@
 [Unit]
 Description=ShieldXL Pi 5 TRS MIDI input for %i
-After=sound.target
+BindsTo=dev-ttyAMA0.device
+After=sound.target systemd-modules-load.service dev-ttyAMA0.device
 ConditionPathExists=/dev/ttyAMA0
 
 [Service]

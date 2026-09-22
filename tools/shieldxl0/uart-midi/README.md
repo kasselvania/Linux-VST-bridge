@@ -82,11 +82,17 @@ This fixture is for audible wiring feedback only: it is not Pigments, a general
 synth, a MIDI timing validator or a proof of clean audio. Startup beeps establish
 only the output route; physical MIDI requires received messages afterward.
 
-Boot persistence is a separate installation step: add `dtoverlay=uart0-pi5`
-under `[pi5]` in a narrowly owned boot include, and enable this service for the
-appliance user. Do not claim reboot verification until it actually happens.
+Boot persistence uses the provided `boot.conf` as
+`/boot/firmware/shieldxl-uart-midi.conf`, included once from the `[all]` section of
+`config.txt` after backing up that file. Install `modules.conf` as
+`/etc/modules-load.d/shieldxl-uart-midi.conf`, then enable this service for the
+appliance user. The module entry makes the ALSA sequencer available before the
+restricted service starts. These files and enablement were installed on the
+fixture after the OMX-27 physical pass. Do not claim reboot verification until
+it actually happens.
 For rollback, stop/disable only this service, remove its own boot include, and
-remove the live `uart0-pi5` overlay if present and unowned. Keep the existing
+remove its own module-load entry and the live `uart0-pi5` overlay if present and
+unowned. Keep the existing
 ShieldXL audio/control/OLED configuration intact.
 
 ## Source basis

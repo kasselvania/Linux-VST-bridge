@@ -42,10 +42,20 @@ configuration. It neither generates audio nor connects to an instrument.
   generation additionally requires explicit restoration readback before a clean
   retirement record.
 
-Physical MIDI acceptance is pending. The operator connected Monolit and was
-asked to move a slider. At the initial check the final service had received
-zero bytes; no note/CC delivery is claimed from a visible software port.
-Boot configuration and service enablement have not yet been changed.
+The initial Monolit attempt produced zero decoded input. After switching to
+OMX-27 with the operator-reported Type B connection, physical input passed:
+429 UART bytes yielded 142 MIDI events, and the audible JACK fixture counted
+142 messages including 71 note-ons with zero fixture errors. The operator
+confirmed MIDI sound and identified OMX-27 as the working controller. This
+establishes the input-to-ALSA-to-JACK-to-audible-tone path on that setup. Monolit,
+Chord ATK and physical CC delivery remain unqualified. Serial break indications
+during jack swaps are retained; no error-free electrical-link claim is made.
+
+The Pi 5 UART boot include, sequencer module-load entry and service enablement
+were then installed, with the original boot configuration backed up. The final
+unit binds to the UART device and follows module loading; unit verification
+passed. No reboot interrupted the live test, so boot persistence is configured
+but not physically verified.
 
 The operator found timed silent observations inefficient and requested immediate
 audible feedback. A separate native JACK fixture now gives three startup beeps,
@@ -53,8 +63,11 @@ held tones for notes and short beeps for CC changes, remaining on for 30 minutes
 The existing OLED displays `MIDI ON RX:<count>` live. This permits controller/jack
 swaps without repeated listening-window coordination. It uses the same ShieldXL
 playback ports and does not launch Pigments. The ARM build passed with warnings
-denied; actual UART delivery remains unproved while the counter is zero. Startup
-beeps are not MIDI-input proof.
+denied; the subsequent physical input result is recorded above. The operator did not
+hear the initial startup beeps, so a bounded repeating reference was briefly
+started, then stopped once MIDI activity and sound were confirmed. Only the
+MIDI-driven fixture remained connected to playback. Startup/reference tones
+are not MIDI-input proof.
 
 The first observer attempted to reuse an ALSA client number after restart and
 attached to the wrong client. It was stopped without an input-pass claim. The
@@ -64,6 +77,7 @@ identifiers must not be reused across service generations.
 
 Source/build/installation and rollback instructions are in
 [`tools/shieldxl0/uart-midi/README.md`](../../tools/shieldxl0/uart-midi/README.md).
-The historical `hardware-contract.json` remains unchanged until physical input
-has actually been proved. No reboot, physical output direction, MIDI stress,
-Pigments controller mapping or overall appliance pass is claimed.
+The historical `hardware-contract.json` remains the original SHIELDXL0 receipt;
+the new input result is retained separately in `evidence/shieldxl0/uart-midi-input.json`.
+No reboot, physical output direction, MIDI stress, Pigments controller mapping
+or overall appliance pass is claimed.
