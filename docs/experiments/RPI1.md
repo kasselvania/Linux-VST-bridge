@@ -25,6 +25,8 @@
   NO AUDIO STARTED; NO RECORDED UNDERVOLTAGE**
 - subsequent initialization-wait repair: **MEASURED AND AUDIBLE STEREO AND CLEAN
   RETIREMENT PASSED; NO RECORDED UNDERVOLTAGE**
+- operator-selected 45% state in a fresh Pigments process: **RESTORED, VERIFIED,
+  PHYSICALLY PLAYED, AND CLEANLY RETIRED**
 - sustained power margin and performance: **UNQUALIFIED; NEW TRANSIENT
   UNDERVOLTAGE AND STARTUP GAPS PRESERVED**
 - overall RPI1: **PENDING; REPEATED COLD START AND LATER GATES REMAIN**
@@ -111,6 +113,16 @@ and an additional transport gap in the 50% repeat remain retained. See
 [`RPI1_POLYPHONY_LEVELS.md`](RPI1_POLYPHONY_LEVELS.md). A private selected-level
 record and saved state preserve the choice; automatic boot application remains
 outside this result.
+
+The selected state was subsequently restored in a fresh Pigments process.
+Parameter ID 0 read back near normalized 0.45 before the physical OMX-27 UART
+and stereo routes were connected. Physical playing produced nonzero stereo, the
+operator reported good audio, and the process retired cleanly. The first
+diagnostic attempt had an overstrict floating-point readback check and stopped
+before audio routing. See
+[`RPI1_SAVED_STATE_FRESH_LAUNCH.md`](RPI1_SAVED_STATE_FRESH_LAUNCH.md) and
+`evidence/rpi1/saved-state-fresh-launch.json`. Automatic boot startup, sustained
+power margin and later editor/user-experience gates remain open.
 
 ## Exact starting custody
 

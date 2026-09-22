@@ -1,0 +1,81 @@
+{
+  "date": "2026-09-22",
+  "claim": "A fresh Pigments process restored the private operator-selected 45 percent state, verified Master Volume readback, accepted physical ShieldXL UART MIDI, produced audible stereo output, and retired cleanly.",
+  "repository_head_at_execution": "1d4ee3ddd633d5eab7a397f1aa37f82806d4279f",
+  "repository_tree_at_execution": "4be2dbe99ae097458d030b8d342f7ee6f59d1b55",
+  "native_sha256": "81a44a8eed7191b08655496dfe0b49c0c919208e9f7a600658bc37887a2006c7",
+  "scope": {
+    "controller": "OMX-27 through ShieldXL physical UART MIDI input",
+    "editor": "closed",
+    "jack_period_frames": 512,
+    "bridge_delay_frames": 2048,
+    "state_bytes": 381326,
+    "source_changed": false,
+    "automatic_startup_changed": false
+  },
+  "first_attempt": {
+    "state_restore_reported": true,
+    "master_readback_after_restore": 0.45000001788139343,
+    "failure": "Private harness required only the lower binary32 neighbor of 0.45 and rejected the upper neighbor.",
+    "midi_and_playback_connected": false,
+    "midi_accepted": 0,
+    "clean_shutdown": true,
+    "retirement_milestones": 127
+  },
+  "successful_retry": {
+    "master_parameter_id": 0,
+    "master_parameter_title": "Master Volume",
+    "master_initial_readback": 0.6730807423591614,
+    "master_initial_revision": 1,
+    "state_restore_reported": true,
+    "master_restored_readback": 0.45000001788139343,
+    "master_restored_revision": 2,
+    "master_write_issued": false,
+    "midi_route": "system:midi_capture_2 -> lvb-arm-pigments:midi_in",
+    "audio_routes": [
+      "lvb-arm-pigments:audio_out_l -> system:playback_1",
+      "lvb-arm-pigments:audio_out_r -> system:playback_2"
+    ],
+    "midi_accepted": 58,
+    "output_nonzero_l": 468720,
+    "output_nonzero_r": 468720,
+    "output_peak_l": 0.37648812,
+    "output_peak_r": 0.37648812,
+    "output_nonfinite": 0,
+    "xruns": 0,
+    "process_failures": 0,
+    "callback_deadline_misses": 0,
+    "transport_fault": 0,
+    "callback_missing_frames": 2560,
+    "callback_gaps": 1,
+    "gap_interpretation": "One known startup gap; no added post-startup gap.",
+    "transport_processed": 26314,
+    "retirement_milestones": 127,
+    "clean_shutdown": true,
+    "health": {
+      "samples": 161,
+      "throttled_flags": ["throttled=0x0"],
+      "voltage_range_v": [4.86554, 5.0585],
+      "maximum_temperature_c": 61.15
+    },
+    "operator_observation": "It is great. You can close it."
+  },
+  "cleanup": {
+    "native_outer_unit_inactive_success": true,
+    "windows_unit_inactive_success": true,
+    "health_observer_inactive_success": true,
+    "pigments_jack_ports_absent": true,
+    "command_fifo_absent": true,
+    "exact_session_transport_absent": true,
+    "original_outer_unit_restored": true,
+    "runtime_watchdog_usec": 60000000
+  },
+  "nonclaims": [
+    "automatic boot startup installed",
+    "product-facing master set-and-confirm defect repaired",
+    "editor operation after this saved-state reopen",
+    "sustained power reliability or earlier whole-Pi failure resolved",
+    "all presets or polyphony levels qualified",
+    "overall RPI1 qualification"
+  ]
+}
