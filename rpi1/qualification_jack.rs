@@ -1,7 +1,8 @@
-use super::{note_offset, tone, Meter, NOTE_EVENTS, RATE};
+use super::{note_offset, polyphony_events, tone, Capture, Meter, NOTE_EVENTS, RATE};
 use std::{
     ffi::{c_char, c_int, c_void, CStr, CString},
     io::{self, Write},
+    os::unix::fs::OpenOptionsExt,
     ptr, slice,
     sync::atomic::{AtomicBool, AtomicU64, Ordering},
     thread,
@@ -71,7 +72,9 @@ struct Rt {
     inputs: [*mut Port; 2],
     outputs: [*mut Port; 2],
     tones: Vec<[f32; 2]>,
+    notes: Vec<(u64, [u8; 3])>,
     meters: [Meter; 2],
+    capture: Option<Capture>,
     position: u64,
     total: u64,
     midi_sent: u64,
@@ -122,9 +125,16 @@ unsafe extern "C" fn process(frames: u32, arg: *mut c_void) -> c_int {
             count,
         );
         rt.meters[ch].observe(input);
+        if let Some(capture) = &mut rt.capture {
+            if !capture.store_channel(rt.position as usize, ch, input) {
+                rt.bad_blocks += 1;
+                signals.done.store(true, Ordering::Release);
+                return 0;
+            }
+        }
     }
     if !rt.tone_mode {
-        for (time, data) in NOTE_EVENTS {
+        for &(time, data) in &rt.notes {
             if let Some(offset) = note_offset(time, rt.position, frames) {
                 if jack_midi_event_write(midi, offset, data.as_ptr(), data.len()) == 0 {
                     rt.midi_sent += 1;
@@ -165,10 +175,36 @@ fn c(value: &str) -> CString {
 
 pub fn run() -> io::Result<()> {
     let arguments = std::env::args().collect::<Vec<_>>();
-    if arguments.len() != 2 || !matches!(arguments[1].as_str(), "tone" | "pigments") {
-        return Err(fail("usage: qualification tone|pigments"));
+    if !matches!(arguments.len(), 2 | 4)
+        || !matches!(arguments[1].as_str(), "tone" | "pigments" | "polyphony")
+        || (arguments.len() == 4 && arguments[2] != "--capture")
+    {
+        return Err(fail(
+            "usage: qualification tone|pigments|polyphony [--capture NEW_PRIVATE_F32LE_FILE]",
+        ));
     }
     let tone_mode = arguments[1] == "tone";
+    let polyphony = arguments[1] == "polyphony";
+    let total = RATE
+        * if tone_mode {
+            3
+        } else if polyphony {
+            30
+        } else {
+            5
+        };
+    // Refuse an existing destination before any note or tone. Never overwrite recordings.
+    let capture_file = if arguments.len() == 4 {
+        Some(
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(&arguments[3])?,
+        )
+    } else {
+        None
+    };
     let mut status = 0;
     let client = unsafe { jack_client_open(c(NAME).as_ptr(), 3, &mut status) }; // NoStartServer | UseExactName
     if client.is_null() {
@@ -186,9 +222,15 @@ pub fn run() -> io::Result<()> {
         } else {
             Vec::new()
         },
+        notes: if polyphony {
+            polyphony_events()
+        } else {
+            NOTE_EVENTS.to_vec()
+        },
         meters: [Meter::default(), Meter::default()],
+        capture: capture_file.as_ref().map(|_| Capture::new(total as usize)),
         position: 0,
-        total: RATE * if tone_mode { 3 } else { 5 },
+        total,
         midi_sent: 0,
         midi_errors: 0,
         bad_blocks: 0,
@@ -291,7 +333,7 @@ pub fn run() -> io::Result<()> {
     );
     io::stdout().flush()?;
     signals.armed.store(true, Ordering::Release);
-    let deadline = Instant::now() + Duration::from_secs(15);
+    let deadline = Instant::now() + Duration::from_secs(total / RATE + 10);
     while !signals.done.load(Ordering::Acquire) && Instant::now() < deadline {
         thread::sleep(Duration::from_millis(10));
     }
@@ -305,11 +347,26 @@ pub fn run() -> io::Result<()> {
     let good = finished
         && rt.bad_blocks == 0
         && rt.midi_errors == 0
-        && (tone_mode || rt.midi_sent == 3)
+        && (tone_mode || rt.midi_sent == rt.notes.len() as u64)
         && rt.meters.iter().all(|m| m.nonzero > 0 && m.nonfinite == 0);
     println!("RPI1_QUALIFICATION_RESULT mode={} completed={} midi_sent={} midi_errors={} xruns={} bad_blocks={} stereo_nonzero={}",arguments[1],finished,rt.midi_sent,rt.midi_errors,signals.xruns.load(Ordering::Acquire),rt.bad_blocks,good);
     drop(owner);
     println!("RPI1_QUALIFICATION_RETIRED");
+    if let (Some(file), Some(capture)) = (capture_file, rt.capture.as_ref()) {
+        if !finished || rt.bad_blocks != 0 {
+            return Err(fail("incomplete capture; empty destination retained"));
+        }
+        let mut writer = io::BufWriter::new(file);
+        capture.write_interleaved(&mut writer)?;
+        writer.flush()?;
+        writer.get_ref().sync_all()?;
+        println!(
+            "RPI1_QUALIFICATION_CAPTURE format=f32le channels=2 rate={} frames={} bytes={}",
+            RATE,
+            total,
+            total * 8
+        );
+    }
     if good {
         Ok(())
     } else {

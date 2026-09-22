@@ -6,6 +6,65 @@ pub const NOTE_EVENTS: [(u64, [u8; 3]); 3] = [
     (RATE * 5 / 2, [0xb0, 123, 0]),
 ];
 
+pub const VOICE_STEPS: [usize; 5] = [1, 2, 4, 6, 8];
+pub const CHORD_NOTES: [u8; 8] = [48, 52, 55, 59, 62, 65, 69, 72];
+
+/// A fixed channel-1 chord ladder. Each six-second window has three seconds
+/// of held notes followed by note-offs, CC123 and a quiet tail.
+pub fn polyphony_events() -> Vec<(u64, [u8; 3])> {
+    let mut events = Vec::with_capacity(47);
+    for (step, voices) in VOICE_STEPS.into_iter().enumerate() {
+        let start = step as u64 * RATE * 6;
+        for &pitch in &CHORD_NOTES[..voices] {
+            events.push((start + RATE / 2, [0x90, pitch, 96]));
+        }
+        for &pitch in &CHORD_NOTES[..voices] {
+            events.push((start + RATE * 7 / 2, [0x80, pitch, 0]));
+        }
+        events.push((start + RATE * 4, [0xb0, 123, 0]));
+    }
+    events
+}
+
+/// Optional fixture recording, allocated and touched before JACK activation.
+/// The callback only copies into this fixed extent; file I/O happens after retirement.
+pub struct Capture {
+    frames: Vec<[f32; 2]>,
+}
+impl Capture {
+    pub fn new(frames: usize) -> Self {
+        let mut frames = vec![[0.0; 2]; frames];
+        // Force writable backing pages now; a zero-filled allocation alone may
+        // otherwise defer its first physical page writes into the callback.
+        for frame in &mut frames {
+            unsafe {
+                std::ptr::write_volatile(frame, [0.0; 2]);
+            }
+        }
+        Self { frames }
+    }
+    pub fn store_channel(&mut self, start: usize, channel: usize, samples: &[f32]) -> bool {
+        let Some(end) = start.checked_add(samples.len()) else {
+            return false;
+        };
+        if channel >= 2 || end > self.frames.len() {
+            return false;
+        }
+        for (frame, &sample) in self.frames[start..end].iter_mut().zip(samples) {
+            frame[channel] = sample;
+        }
+        true
+    }
+    pub fn write_interleaved(&self, output: &mut impl std::io::Write) -> std::io::Result<()> {
+        for frame in &self.frames {
+            for sample in frame {
+                output.write_all(&sample.to_le_bytes())?;
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Default, Debug)]
 pub struct Meter {
     pub samples: u64,
@@ -76,6 +135,55 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn chord_ladder_preserves_offsets_balances_notes_and_stays_bounded() {
+        let expected = polyphony_events();
+        assert_eq!(expected.len(), 47);
+        for period in [64, 128, 256, 512, 1024] {
+            let mut emitted = Vec::new();
+            for start in (0..RATE * 30).step_by(period) {
+                for &(at, bytes) in &expected {
+                    if let Some(offset) = note_offset(at, start, period as u32) {
+                        emitted.push((start + u64::from(offset), bytes));
+                    }
+                }
+            }
+            assert_eq!(emitted, expected);
+        }
+        let mut held = [false; 128];
+        for &(_, bytes) in &expected {
+            match bytes[0] {
+                0x90 => {
+                    assert!(!held[bytes[1] as usize]);
+                    held[bytes[1] as usize] = true;
+                }
+                0x80 => {
+                    assert!(held[bytes[1] as usize]);
+                    held[bytes[1] as usize] = false;
+                }
+                0xb0 => assert!(held.iter().all(|&v| !v)),
+                _ => panic!("unexpected event"),
+            }
+        }
+        assert!(held.iter().all(|&v| !v));
+    }
+    #[test]
+    fn capture_preserves_stereo_bits_and_refuses_out_of_bounds_writes() {
+        let mut capture = Capture::new(3);
+        assert!(capture.store_channel(0, 0, &[0.25, -0.5]));
+        assert!(capture.store_channel(2, 0, &[-0.0]));
+        assert!(capture.store_channel(0, 1, &[1.0, 0.0, -1.0]));
+        assert!(!capture.store_channel(2, 0, &[8.0, 9.0]));
+        assert!(!capture.store_channel(0, 2, &[8.0]));
+        assert!(!capture.store_channel(usize::MAX, 0, &[8.0]));
+        let mut bytes = Vec::new();
+        capture.write_interleaved(&mut bytes).unwrap();
+        let expected = [0.25_f32, 1.0, -0.5, 0.0, -0.0, -1.0]
+            .into_iter()
+            .flat_map(f32::to_le_bytes)
+            .collect::<Vec<_>>();
+        assert_eq!(bytes, expected);
+    }
     #[test]
     fn silence_nonfinite_and_stereo_statistics_are_distinct() {
         let mut meter = Meter::default();

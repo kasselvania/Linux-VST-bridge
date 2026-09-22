@@ -18,6 +18,7 @@ mod appliance {
     use lvb_arm_pigments_standalone::{
         config::{hex, Config},
         contract::{handshake, host_arguments, pigments_bus_contract, PIGMENTS_CLASS},
+        master,
         retirement::RetirementStatus,
         supervisor::{read_journal, Cohort},
     };
@@ -124,7 +125,7 @@ mod appliance {
         println!("RPI1_LATENCY tail_frames={}", traits.tail_frames);
         println!("RPI1_MIDI cc123=tracked_note_offs cc64=unsupported duplicate_note_on=refused");
         println!(
-            "Commands: open | close | save /absolute/path | restore /absolute/path | status | quit"
+            "Commands: open | close | save /absolute/path | restore /absolute/path | master [normalized] | status | quit"
         );
         let result = command_loop(&instance, &control, &cohort, &mut jack);
 
@@ -278,6 +279,32 @@ mod appliance {
                             memory_peak.trim(),
                             cpu.trim_end_matches(',')
                         );
+                    } else if line == "master" || line.starts_with("master ") {
+                        if let Some(text) = line.strip_prefix("master ") {
+                            let value = master::normalized(text)?;
+                            // Reuse the same bounded audio parameter queue and controller
+                            // companion used by the existing host/editor boundary.
+                            control
+                                .parameters
+                                .push(ParameterUpdate {
+                                    id: master::ID,
+                                    value,
+                                })
+                                .map_err(|_| invalid("parameter queue full"))?;
+                            let mut set = Message {
+                                kind: 3,
+                                id: master::ID,
+                                value,
+                                ..Message::default()
+                            };
+                            instance.gui_command(generation, &mut set)?;
+                            println!("RPI1_MASTER_QUEUED normalized={value:.17}");
+                        }
+                        let mut refresh = Message {
+                            kind: 4,
+                            ..Message::default()
+                        };
+                        instance.gui_command(generation, &mut refresh)?;
                     } else if line == "open" {
                         native_view = native_view
                             .checked_add(1)
@@ -339,6 +366,13 @@ mod appliance {
             instance.gui_take(generation, &mut message)?;
             if message.kind == 0 {
                 break;
+            }
+            if message.kind == 110 && message.id == master::ID {
+                let value = master::readback(&message)?;
+                println!(
+                    "RPI1_MASTER_READBACK normalized={value:.17} revision={}",
+                    message.revision
+                );
             }
             if message.kind == 102 {
                 control

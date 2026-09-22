@@ -64,3 +64,27 @@ translates the runtime's explicit `ld-linux-x86-64.so.2 --library-path ...`
 vector into Box64's library-path environment, and recognizes only the exact
 Proton Python shebang. Unknown loader options and malformed vectors refuse.
 The adapter does not replace Proton, Wine, pressure-vessel or the bridge.
+
+## Bounded headroom comparison
+
+The standalone command `master` requests the existing controller refresh and
+reports only the exact Pigments `Master Volume` / `dB` parameter (ID 0).
+`master NORMALIZED` accepts a finite value from 0 to 1, queues it through the
+existing audio parameter path, updates the controller, and requests readback.
+The normalized value is not a dB value. A queued record alone is not proof of
+applied gain; use controller readback and measured audio. Save the initial
+private state and restore it after a comparison. No editor needs to open.
+
+The existing JACK fixture accepts `polyphony`: five six-second windows with
+1, 2, 4, 6 and 8 simultaneous notes at velocity 96, held for three seconds,
+followed by note-offs and CC123. It emits 47 messages on channel 1. The input
+controller should remain disconnected from the test's JACK MIDI port.
+
+All fixture modes optionally accept `--capture NEW_PRIVATE_F32LE_FILE`.
+The recording buffer is allocated and its writable pages touched before
+activation. The callback only copies into that fixed buffer; file writing
+starts after JACK retirement. The destination must be new and is created with
+mode 0600. Output is stereo interleaved little-endian float32 at 48 kHz, retaining
+samples above full scale. A complete polyphony capture is 30 seconds / 11,520,000
+bytes. Keep recordings private; publish aggregate evidence. Neither captured
+nonzero samples nor a successful fixture exit establishes artifact-free audio.
