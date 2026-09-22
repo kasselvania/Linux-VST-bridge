@@ -20,19 +20,12 @@ mod appliance {
     use super::phase_capture::PhaseCapture;
     use ap2_backend::rpi0::{Identity as BridgeIdentity, Instance, Message, STATE_CAPACITY};
     use lvb_arm_pigments_standalone::{
-        buttons,
         config::{hex, Config},
         contract::{handshake, host_arguments, pigments_bus_contract, PIGMENTS_CLASS},
         master,
         retirement::RetirementStatus,
         supervisor::{read_journal, Cohort},
     };
-
-    // Exact Pigments 7.0.1.6772 IMidiMapping results for channel 1, CC 28/29.
-    // These are writable MIDI CC helper parameters, not the read-only preset
-    // action parameters or VST3 program-list slots.
-    const PREVIOUS_PRESET_CC: u32 = 2394;
-    const NEXT_PRESET_CC: u32 = 2395;
     use lvb_arm_standalone::{
         audio::ParameterUpdate,
         jack::{Client, Control},
@@ -122,11 +115,8 @@ mod appliance {
             &control,
             lvb_arm_standalone::midi::ControllerPolicy::TrackedNoteOffs,
         )?;
-        let phase = PhaseCapture::start(
-            instance.phase_rings()?,
-            &config.evidence_directory,
-            &session_hex,
-        )?;
+        let phase = PhaseCapture::start(instance.phase_rings()?,
+            &config.evidence_directory, &session_hex)?;
         let buses = pigments_bus_contract();
         let traits = instance.setup(jack.buffer_size(), 48_000.0, &buses)?;
         instance.activate(256)?;
@@ -279,7 +269,6 @@ mod appliance {
         let generation = instance.gui_generation()?;
         instance.gui_capabilities(generation, 7)?;
         let (sender, receiver) = mpsc::channel();
-        let _buttons = buttons::Reader::start(sender.clone())?;
         thread::spawn(move || {
             let input = io::stdin();
             for line in input.lock().lines() {
@@ -323,36 +312,6 @@ mod appliance {
                             processes.len(),
                             memory_peak.trim(),
                             cpu.trim_end_matches(',')
-                        );
-                    } else if line == "button-error" {
-                        return Err(invalid("ShieldXL preset button input failed"));
-                    } else if matches!(
-                        line,
-                        "preset-prev 0" | "preset-prev 1" | "preset-next 0" | "preset-next 1"
-                    ) {
-                        let previous = line.starts_with("preset-prev");
-                        let value = if line.ends_with('1') { 1.0 } else { 0.0 };
-                        let id = if previous {
-                            PREVIOUS_PRESET_CC
-                        } else {
-                            NEXT_PRESET_CC
-                        };
-                        control
-                            .parameters
-                            .push(ParameterUpdate { id, value })
-                            .map_err(|_| invalid("preset input queue full"))?;
-                        let mut set = Message {
-                            kind: 3,
-                            id,
-                            value,
-                            ..Message::default()
-                        };
-                        instance.gui_command(generation, &mut set)?;
-                        println!(
-                            "RPI1_PRESET_INPUT direction={} edge={} cc={} helper_id={id}",
-                            if previous { "previous" } else { "next" },
-                            if value == 1.0 { "press" } else { "release" },
-                            if previous { 28 } else { 29 }
                         );
                     } else if line == "master" || line.starts_with("master ") {
                         if let Some(text) = line.strip_prefix("master ") {
@@ -466,11 +425,8 @@ mod appliance {
                 *view_epoch = message.view_epoch;
                 println!(
                     "RPI1_EDITOR native_view={} epoch={} lifecycle={} result={} target_x11=0x{:x}",
-                    message.native_view,
-                    message.view_epoch,
-                    message.lifecycle,
-                    message.result,
-                    message.target_x11
+                    message.native_view, message.view_epoch, message.lifecycle,
+                    message.result, message.target_x11
                 );
                 if message.lifecycle == 3 {
                     let mut focus = Message {
