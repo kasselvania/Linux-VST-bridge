@@ -1460,7 +1460,7 @@ class SupervisorOwnershipBoundaryTests(SupervisorFixture,unittest.TestCase):
 
     def test_keeper_graphical_preflight_failure_publishes_empty_cleanup(self):
         with tempfile.TemporaryDirectory() as tmp:
-            spec,durable=self.fixture(pathlib.Path(tmp));spec['keeper']=True;spec['inspect']=True
+            root=pathlib.Path(tmp).resolve();spec,durable=self.fixture(root);spec['keeper']=True;spec['inspect']=True
             spec['graphical_session']={'schema':1,'peer_pid':os.getpid(),
               'peer_start_ticks':1,'display':':1'}
             with patch.object(session,'validate_runtime',return_value=root):result=session.keep(spec)
