@@ -30,6 +30,15 @@ class TimelineTests(unittest.TestCase):
         self.assertEqual(result["host_reply_ns"]["max_ns"], 470)
         self.assertEqual(result["windows_process_ns"]["max_ns"], 250)
 
+    def test_missing_capture_is_reported_separately_from_audio_gap(self):
+        rows = [phase(100, 1, 0, "callback_enter"),
+                phase(200, 4, 0, "callback_enter"),
+                phase(210, 4, 0, "callback_exit", 0, 0)]
+        result = analyze(rows)
+        self.assertEqual(result["capture_holes"], [
+            {"first_missing": 2, "last_missing": 3, "count": 2}])
+        self.assertEqual(result["longest_consecutive_missing_callbacks"], 0)
+
     def test_only_pi_monotonic_records_are_merged(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "source.jsonl"

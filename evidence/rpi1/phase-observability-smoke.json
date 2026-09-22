@@ -1,0 +1,77 @@
+{
+  "claim": "Installed RPI1 live callback readout and causal phase timeline work in a short editor-closed Pigments session",
+  "source_head": "a38599f82d9f2c3fc8efe2a1f74a730f33818ddd",
+  "source_tree": "49eb39acd29b979badac33137035f10080acaeed",
+  "installed_native_sha256": "4d69b1c8167f93882be222df26750ebe772eb9fbe872b1775e29c2f215e05a80",
+  "rollback_native_sha256": "0531f8bef318dfcb2d50bdace0e9e1a650c3c23e4097ea418a77db2dc554d427",
+  "installation": {
+    "source_transfer": "all 20 changed files checksum-matched the committed source",
+    "build": "native AArch64 offline locked release build passed",
+    "installed_executable_bytes": "matched the release build digest",
+    "rollback": "previous installed executable retained in a private directory"
+  },
+  "preserved_setup_refusal": {
+    "result": "first start refused before JACK/Pigments: X authority SHA-256 differs",
+    "repair": "updated only the private config digest after verifying the current user-owned mode-0600 authority file and existing :1 X11 authentication",
+    "old_config": "backed up privately",
+    "source_or_graphical_policy_changed": false
+  },
+  "headless_session": {
+    "editor_opened": false,
+    "midi_routed_or_tested": false,
+    "audio_routed_or_tested": false,
+    "live_status_callbacks": 1539,
+    "final_callbacks": 3267,
+    "processed_bridge_requests": 6534,
+    "startup_gap_expected_position": 0,
+    "startup_missing_frames": 3072,
+    "post_startup_gap_observed": false,
+    "jack_xruns": 0,
+    "callback_deadline_misses": 0,
+    "process_failures": 0,
+    "terminal_bridge_fault": 0,
+    "retirement_milestones": 127,
+    "clean_shutdown": true
+  },
+  "phase_capture": {
+    "private_file_mode": "0600",
+    "phase_events": 92073,
+    "callback_sequences_retained": 3072,
+    "worker_request_observations_retained": 6138,
+    "gap_events": 1,
+    "fault_events": 0,
+    "spsc_ring_drop_records": 0,
+    "operator_marker_flushed": true,
+    "callback_capture_hole": "sequences 7 through 201, 195 callbacks, due to the bounded control history; not an additional audio gap",
+    "maximum_jack_entry_lateness_ns": 98000,
+    "maximum_request_publication_ns": 11499,
+    "callback_over_one_jack_period": 0,
+    "merged_report_private_file_mode": "0600"
+  },
+  "phase_interval_health": {
+    "samples": 88,
+    "temperature_c_min": 55.1,
+    "temperature_c_max": 60.05,
+    "ext5v_v_min": 4.92048,
+    "ext5v_v_max": 5.0585,
+    "active_firmware_voltage_or_thermal_flags": 0,
+    "maximum_sampled_threads": 107,
+    "maximum_omitted_threads": 0
+  },
+  "final_idle_state": {
+    "native_unit": "inactive",
+    "translated_cohort": "retired",
+    "jack_ports": "removed",
+    "command_fifo": "removed",
+    "health_observer": "retired",
+    "installed_binary": "new candidate retained with verified rollback"
+  },
+  "nonclaims": [
+    "editor phase physically qualified",
+    "X Damage observed on a real editor",
+    "MIDI or audible audio requalified",
+    "longer than approximately 33 seconds of continuous callback history retained at this observed event rate",
+    "prior whole-Pi power event resolved",
+    "active cooling available or tested"
+  ]
+}

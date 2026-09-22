@@ -75,6 +75,9 @@ def analyze(rows):
     elapsed = defaultdict(list)
     gap_run = longest_gap_run = 0
     last_exit = None
+    last_enter = None
+    capture_holes = []
+    callback_sequence_resets = 0
     over_period = over_two = over_100ms = 0
     period_ns = 512 * 1_000_000_000 // 48_000
     for row in rows:
@@ -86,6 +89,13 @@ def analyze(rows):
         stamp = row["monotonic_ns"]
         key = (callback, position)
         if kind == "callback_enter":
+            if last_enter is not None and callback > last_enter + 1:
+                capture_holes.append({"first_missing": last_enter + 1,
+                                      "last_missing": callback - 1,
+                                      "count": callback - last_enter - 1})
+            elif last_enter is not None and callback <= last_enter:
+                callback_sequence_resets += 1
+            last_enter = callback
             enter[callback] = stamp
         elif kind == "callback_exit":
             if callback in enter and stamp >= enter[callback]:
@@ -139,6 +149,9 @@ def analyze(rows):
             "callback_over_two_periods":over_two,
             "callback_over_100ms":over_100ms,
             "longest_consecutive_missing_callbacks":longest_gap_run,
+            "capture_holes":capture_holes[:32],
+            "capture_holes_omitted":max(0, len(capture_holes)-32),
+            "callback_sequence_resets":callback_sequence_resets,
             "phase_events":sum(row.get("event") == "rpi1_phase" for row in rows),
             "phase_drops":{str(producer):max(counts) for producer, counts in
                 ((index, [row.get("count", 0) for row in rows

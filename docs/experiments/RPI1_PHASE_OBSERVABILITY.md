@@ -9,10 +9,10 @@ repository slice.
 
 The next cooled Pi run can produce a bounded Pi-monotonic timeline that separates
 JACK entry, native request publication, bridge-worker pickup, host send/reply,
-result presentation, editor window damage, scheduling, and thermal clocks. This
-is **source preparation**, not a claim that the new native binary or callback
-readout has been installed or physically qualified. Editor testing remains
-paused until compatible active cooling is fitted and observed working.
+result presentation, editor window damage, scheduling, and thermal clocks. The
+installed editor-closed smoke below qualifies the callback readout and phase
+capture only. Editor testing remains paused until compatible active cooling is
+fitted and observed working.
 
 The `rpi1-observe` feature is selected only by the RPI1 standalone build. Its
 two preallocated 65,536-record SPSC rings have separate producers: the JACK
@@ -91,9 +91,54 @@ change does not claim they are absent.
 Cross-target AArch64 Linux source checking and focused Rust/Python tests are
 the source gate. The idle Pi returned Arm/V3D clocks and thread data, with no
 sysfs cooling device; the X Damage extension accepted an observer on the
-existing display and the observer retired. This is an idle hardware smoke
-check, not editor or audio qualification. The source-owned live callback status
-still needs installation and a short headless physical verification.
+existing display and the observer retired.
+
+## Installed editor-closed readout smoke
+
+The exact source commit `a38599f82d9f2c3fc8efe2a1f74a730f33818ddd`
+(tree `49eb39acd29b979badac33137035f10080acaeed`) was transferred to a new
+private Pi source directory. A checksum comparison of every changed file found
+no byte difference. Native offline release build produced an AArch64 executable
+with SHA-256 `4d69b1c8167f93882be222df26750ebe772eb9fbe872b1775e29c2f215e05a80`.
+The prior installed executable, SHA-256
+`0531f8bef318dfcb2d50bdace0e9e1a650c3c23e4097ea418a77db2dc554d427`,
+was copied into a private rollback directory before the candidate replaced it.
+
+The first service start refused before JACK/Pigments because its private
+Xauthority hash no longer matched the current `:1` authority file. The refusal
+was retained. That file was current-user-owned, mode `0600`, and successfully
+authenticated an X11 root query. Only the private configuration's Xauthority
+digest was refreshed, with the previous configuration backed up; no graphical
+policy or runtime source was changed.
+
+The repeat started the exact Pigments host with the editor closed and no MIDI
+or audio routing test. A live `status` read at 1,539 callbacks reported zero
+xruns, deadline misses, process failures and terminal bridge fault. One
+startup missing-result episode began at expected position zero; the final
+callback total was 3,267 with 3,072 missing frames in that startup episode.
+The `mark` command flushed private phase evidence, and ordinary `quit` yielded
+all 127 retirement milestones and `RPI1_CLEAN_SHUTDOWN`. The unit, translated
+cohort, JACK ports, command FIFO and health observer then retired.
+
+The private phase file is mode `0600`, with 92,073 phase records, both producer
+domains, one gap marker, zero fault markers and zero SPSC ring-drop records.
+The first gap caused an early flush. The 65,536-record control history then
+retained the last part of the run; callback sequences 7–201 are absent from
+the captured middle, a **capture hole**, not an additional audio gap. The
+updated timeline reporter exposes such holes explicitly. Under this observed
+event rate, the bound retained about 33 seconds of callback records, so the
+requested 30–60-second window is at its lower end. No physical result is
+claimed for a longer editor session.
+
+During the Pi-monotonic phase interval, 88 health samples recorded 55.1–60.05°C,
+4.92048–5.0585 V, zero active voltage/thermal bits, up to 107 sampled threads
+and no omitted threads. The completed merged report measured 3,072 JACK
+entries with maximum entry lateness 98 µs, 6,144 request publications with
+maximum slot-inspect-to-publish time 11.5 µs, and zero callbacks over one JACK
+period. The phase file and its private merged report remain on the Pi; only
+sanitized results are retained in the repository. These figures are an
+editor-closed idle-processing baseline, not editor responsiveness, clean audio,
+or sustained thermal qualification.
 
 After fitting active cooling, verify cooler state and no active thermal flag
 under a short warm-up. Then run the single attended campaign from the tech-lead
