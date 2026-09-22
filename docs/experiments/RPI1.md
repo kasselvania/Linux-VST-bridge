@@ -32,6 +32,8 @@
   THERMAL LIMITING**
 - RPI1 live observer: **SOURCE PREPARED AND IDLE-PI SMOKE CHECKED; UPDATED
   CALLBACK STATUS NOT INSTALLED OR PHYSICALLY QUALIFIED**
+- RPI1 causal phase observer: **SOURCE PREPARED; IDLE CLOCK/THREAD AND X DAMAGE
+  SMOKE CHECKED; COOLED EDITOR CAMPAIGN NOT RUN**
 - sustained power margin and performance: **UNQUALIFIED; NEW TRANSIENT
   UNDERVOLTAGE AND STARTUP GAPS PRESERVED**
 - overall RPI1: **PENDING; REPEATED COLD START AND LATER GATES REMAIN**
@@ -135,9 +137,11 @@ clean retirement. In the operator-attended retry, the editor responded with
 delay and Pigments audio sounded good, but the callback reported an additional
 194,560 missing frames while the editor was open, and Pi thermal-limit flags
 appeared near the end. That retry did retire cleanly. Physical qualification is
-paused while a read-only Mac observer and live callback readout are reviewed;
-the operator currently has no cooler known to fit the ShieldXL assembly. See
+paused until compatible active cooling is fitted; the operator currently has
+no cooler known to fit the ShieldXL assembly. See
 [`RPI1_EDITOR_OBSERVABILITY.md`](RPI1_EDITOR_OBSERVABILITY.md) and
+[`RPI1_PHASE_OBSERVABILITY.md`](RPI1_PHASE_OBSERVABILITY.md) for the next
+read-only causal measurement slice. See also
 `evidence/rpi1/editor-observability-pause.json`. Neither the prior whole-Pi
 power failure nor the editor visual delay has been attributed from these runs.
 

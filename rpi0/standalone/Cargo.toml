@@ -7,6 +7,7 @@ publish = false
 [features]
 default = []
 jack-runtime = []
+rpi1-observe = ["ap2-backend/rpi1-observe"]
 
 [dependencies]
 ap2-backend = { path = "../../native-vst3-proxy/backend", features = ["rpi0"] }

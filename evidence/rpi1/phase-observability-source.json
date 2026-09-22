@@ -1,0 +1,52 @@
+{
+  "claim": "RPI1 causal phase observability source prepared; physical editor gate pending cooling",
+  "base_head": "6d55d343f2d273cbd3340925bd70b2f135b46c21",
+  "base_tree": "9275dc53a911984279473db1771c52a0ca1ab1a0",
+  "fixture": "Raspberry Pi 5 with ShieldXL, existing X11 :1 display, exact pinned RPI1 Box64 and Proton 11 runtime",
+  "read_only_pi_probe": {
+    "box64_source_commit": "2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a",
+    "box64_binary_sha256": "79cdd30e5480f5dfb8cd717af99d0e5a89eb55b31701de6fde7896a6a0e79ab6",
+    "box64_version": "0.4.4 with Dynarec",
+    "box64_source_and_binary_contain": [
+      "BOX64_ROLLING_LOG",
+      "BOX64_SHOWSEGV",
+      "BOX64_SHOWBT",
+      "BOX64_DYNAREC_PERFMAP"
+    ],
+    "proton_script_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+    "proton_script_contains": ["PROTON_LOG", "PROTON_LOG_DIR"],
+    "idle_temperature_millidegrees": 47950,
+    "idle_throttle_register": "0xe0000 (historical bits; no active bits in this sample)",
+    "idle_arm_clock_hz": 2400033792,
+    "idle_v3d_clock_hz": 0,
+    "cooling_devices_in_sysfs": 0,
+    "cpu_governor": "ondemand",
+    "sampled_threads": 3,
+    "threads_omitted": 0,
+    "x_damage_extension_event_base": 91,
+    "x_damage_observer_result": "attached to existing display and retired without an editor"
+  },
+  "source_validation": {
+    "aarch64_linux_cross_target_check": "passed with jack-runtime",
+    "aarch64_linux_strict_clippy": "passed with jack-runtime",
+    "backend_feature_gated_tests": "73 passed, 1 pre-existing external-fixture test ignored, serial execution",
+    "backend_strict_clippy": "passed with existing missing-safety-doc lint excluded",
+    "rpi1_rust_tests": "14 passed",
+    "rpi1_python_tests": "14 passed",
+    "python_compile_and_diff_check": "passed"
+  },
+  "not_run": [
+    "installation of updated RPI1 native executable",
+    "physical callback status readback with Pigments running",
+    "Pigments editor or audio run with the new phase recorder",
+    "live Box64, Proton, or perf diagnostics",
+    "cooled editor qualification"
+  ],
+  "nonclaims": [
+    "thermal stability",
+    "cause of the prior bridge gap",
+    "exact Windows UI thread identity",
+    "first-ever editor repaint from polling-based window discovery",
+    "whole-Pi power failure resolved"
+  ]
+}

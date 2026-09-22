@@ -13,7 +13,11 @@ fn main() {
 }
 
 #[cfg(all(target_os = "linux", target_arch = "aarch64", feature = "jack-runtime"))]
+mod phase_capture;
+
+#[cfg(all(target_os = "linux", target_arch = "aarch64", feature = "jack-runtime"))]
 mod appliance {
+    use super::phase_capture::PhaseCapture;
     use ap2_backend::rpi0::{Identity as BridgeIdentity, Instance, Message, STATE_CAPACITY};
     use lvb_arm_pigments_standalone::{
         config::{hex, Config},
@@ -111,6 +115,8 @@ mod appliance {
             &control,
             lvb_arm_standalone::midi::ControllerPolicy::TrackedNoteOffs,
         )?;
+        let phase = PhaseCapture::start(instance.phase_rings()?,
+            &config.evidence_directory, &session_hex)?;
         let buses = pigments_bus_contract();
         let traits = instance.setup(jack.buffer_size(), 48_000.0, &buses)?;
         instance.activate(256)?;
@@ -125,9 +131,9 @@ mod appliance {
         println!("RPI1_LATENCY tail_frames={}", traits.tail_frames);
         println!("RPI1_MIDI cc123=tracked_note_offs cc64=unsupported duplicate_note_on=refused");
         println!(
-            "Commands: open | close | save /absolute/path | restore /absolute/path | master [normalized] | status | quit"
+            "Commands: open | close | save /absolute/path | restore /absolute/path | master [normalized] | status | mark | quit"
         );
-        let result = command_loop(&instance, &control, &cohort, &mut jack);
+        let result = command_loop(&instance, &control, &cohort, &mut jack, &phase);
 
         let jack_frames = jack.buffer_size();
         let deactivate = jack.deactivate();
@@ -165,6 +171,7 @@ mod appliance {
         let unit = cohort.identity().unit.clone();
         let retire = cohort.retire();
         drop(retirement);
+        let phase_result = phase.finish();
         let cleanup = if close.is_ok() && retirement_result.is_ok() && retire.is_ok() {
             preserve_evidence(
                 &directory.join("rpi0.performance.jsonl"),
@@ -189,6 +196,7 @@ mod appliance {
             ))
         };
         result?;
+        phase_result?;
         deactivate?;
         stop?;
         off?;
@@ -218,7 +226,7 @@ mod appliance {
         let metrics = &control.metrics;
         let stats = instance.stats()?;
         println!(
-            "RPI1_AUDIO midi_accepted={} output_nonzero_l={} output_nonzero_r={} output_peak_l={} output_peak_r={} output_nonfinite={} xruns={} process_failures={} bridge_processed={} request_high={} result_high={} fault={}",
+            "RPI1_AUDIO midi_accepted={} output_nonzero_l={} output_nonzero_r={} output_peak_l={} output_peak_r={} output_nonfinite={} xruns={} process_failures={} bridge_processed={} request_high={} result_high={} fault={} fault_site={}",
             metrics.accepted_midi.load(Ordering::Acquire),
             metrics.output_nonzero[0].load(Ordering::Acquire),
             metrics.output_nonzero[1].load(Ordering::Acquire),
@@ -227,7 +235,8 @@ mod appliance {
             metrics.output_nonfinite.load(Ordering::Acquire),
             metrics.xruns.load(Ordering::Acquire),
             metrics.process_failures.load(Ordering::Acquire),
-            stats.processed, stats.request_high, stats.result_high, stats.fault
+            stats.processed, stats.request_high, stats.result_high, stats.fault,
+            ap2_backend::rpi1_phase::site_name(instance.fault_site().unwrap_or(0))
         );
         Ok(())
     }
@@ -255,6 +264,7 @@ mod appliance {
         control: &Control,
         cohort: &Cohort,
         jack: &mut Client,
+        phase: &PhaseCapture,
     ) -> io::Result<()> {
         let generation = instance.gui_generation()?;
         instance.gui_capabilities(generation, 7)?;
@@ -273,12 +283,17 @@ mod appliance {
         let mut native_view = 0u64;
         let mut view_epoch = 0u32;
         loop {
-            drain_gui(instance, generation, control, &mut view_epoch)?;
+            drain_gui(instance, generation, control, &mut view_epoch, phase)?;
             match receiver.recv_timeout(Duration::from_millis(5)) {
                 Ok(line) => {
                     let line = line.trim();
                     if line == "quit" {
                         return Ok(());
+                    }
+                    if line == "mark" {
+                        phase.mark("operator_incident")?;
+                        println!("RPI1_OBSERVER_MARKER accepted");
+                        continue;
                     }
                     if line == "status" {
                         if let Err(error) = print_audio_metrics(instance, control) {
@@ -325,6 +340,7 @@ mod appliance {
                         };
                         instance.gui_command(generation, &mut refresh)?;
                     } else if line == "open" {
+                        phase.mark("editor_open_requested")?;
                         native_view = native_view
                             .checked_add(1)
                             .ok_or_else(|| invalid("editor generation exhausted"))?;
@@ -336,6 +352,7 @@ mod appliance {
                         };
                         instance.gui_command(generation, &mut message)?;
                     } else if line == "close" {
+                        phase.mark("editor_close_requested")?;
                         if native_view == 0 {
                             return Err(invalid("no editor generation to close"));
                         }
@@ -379,6 +396,7 @@ mod appliance {
         generation: u64,
         control: &Control,
         view_epoch: &mut u32,
+        phase: &PhaseCapture,
     ) -> io::Result<()> {
         for _ in 0..128 {
             let mut message = Message::default();
@@ -403,10 +421,12 @@ mod appliance {
                     .map_err(|_| invalid("GUI parameter queue full"))?;
             }
             if message.kind == 108 {
+                phase.mark(&format!("editor_lifecycle_{}", message.lifecycle))?;
                 *view_epoch = message.view_epoch;
                 println!(
-                    "RPI1_EDITOR native_view={} epoch={} lifecycle={} result={}",
-                    message.native_view, message.view_epoch, message.lifecycle, message.result
+                    "RPI1_EDITOR native_view={} epoch={} lifecycle={} result={} target_x11=0x{:x}",
+                    message.native_view, message.view_epoch, message.lifecycle,
+                    message.result, message.target_x11
                 );
                 if message.lifecycle == 3 {
                     let mut focus = Message {

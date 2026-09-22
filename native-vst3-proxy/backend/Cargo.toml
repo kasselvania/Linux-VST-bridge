@@ -5,6 +5,7 @@ edition = "2021"
 [features]
 registered = []
 rpi0 = []
+rpi1-observe = ["rpi0"]
 [lib]
 crate-type = ["staticlib", "rlib"]
 [dependencies]

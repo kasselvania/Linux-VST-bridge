@@ -6,7 +6,7 @@ publish = false
 
 [features]
 default = []
-jack-runtime = ["lvb-arm-standalone/jack-runtime"]
+jack-runtime = ["lvb-arm-standalone/jack-runtime", "lvb-arm-standalone/rpi1-observe", "ap2-backend/rpi1-observe"]
 
 [dependencies]
 ap2-backend = { path = "../../native-vst3-proxy/backend", features = ["rpi0"] }

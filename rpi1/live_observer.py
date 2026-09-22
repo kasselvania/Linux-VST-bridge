@@ -43,6 +43,11 @@ def number(value):
         return None
 
 
+def clock_hz(value):
+    match = re.fullmatch(r"frequency\(\d+\)=(\d+)", value or "")
+    return integer(match.group(1)) if match else None
+
+
 class Model:
     def __init__(self):
         self.lock = threading.Lock()
@@ -89,6 +94,11 @@ class Model:
             "windows_cohort_processes": sum(integer(v.get("processes")) or 0 for v in windows),
             "windows_cohort_memory_bytes": sum(integer(v.get("memory.current")) or 0 for v in windows),
             "outer_processes": integer(outer.get("processes")),
+            "arm_clock_hz": clock_hz(raw.get("arm_clock")),
+            "v3d_clock_hz": clock_hz(raw.get("v3d_clock")),
+            "cooling_devices": raw.get("cooling") or [],
+            "sampled_threads": integer(raw.get("thread_count")),
+            "threads_omitted": integer(raw.get("threads_omitted")),
             "mem_available_kb": integer((raw.get("mem_available") or "").split(" ", 1)[0]),
             "pi_monotonic_seconds": number(raw.get("monotonic_seconds")),
         }
@@ -221,7 +231,7 @@ for(const name of ['responsive','delayed','frozen','not visible']){
 }
 async function update(){try{let r=await fetch('/snapshot'),s=await r.json(),h=s.health||{},a=s.audio||{},c=s.callback||{},e=s.editor||{},x=s.screen||{},age=s.age_seconds||{};
  el('fresh').textContent=`Pi sample ${age.health??'—'}s old · audio ${age.audio??'—'}s old`;
- el('pi').innerHTML=line('Temperature',fmt(h.temperature_c,1)+' °C',h.temperature_c>=80?'bad':'')+line('Pi input',fmt(h.voltage_v,3)+' V')+line('Firmware flags',h.throttled_hex||'unavailable',(h.undervoltage_now||h.throttled_now||h.soft_temperature_limit_now)?'bad':'')+line('Active undervoltage',h.undervoltage_now?'YES':'no',h.undervoltage_now?'bad':'')+line('Active thermal limit',h.soft_temperature_limit_now?'YES':'no',h.soft_temperature_limit_now?'bad':'')+line('Translated processes',h.windows_cohort_processes??'unavailable');
+ el('pi').innerHTML=line('Temperature',fmt(h.temperature_c,1)+' °C',h.temperature_c>=80?'bad':'')+line('Pi input',fmt(h.voltage_v,3)+' V')+line('Firmware flags',h.throttled_hex||'unavailable',(h.undervoltage_now||h.throttled_now||h.soft_temperature_limit_now)?'bad':'')+line('Active undervoltage',h.undervoltage_now?'YES':'no',h.undervoltage_now?'bad':'')+line('Active thermal limit',h.soft_temperature_limit_now?'YES':'no',h.soft_temperature_limit_now?'bad':'')+line('Arm clock',h.arm_clock_hz==null?'unavailable':fmt(h.arm_clock_hz/1e9,2)+' GHz')+line('V3D clock',h.v3d_clock_hz==null?'unavailable':fmt(h.v3d_clock_hz/1e6,0)+' MHz')+line('Cooling devices',h.cooling_devices?.length??0)+line('Sampled threads',h.sampled_threads??'unavailable')+line('Translated processes',h.windows_cohort_processes??'unavailable');
  el('audio').innerHTML=line('MIDI accepted',a.midi_accepted??'unavailable')+line('Nonzero stereo samples',(a.output_nonzero_l??'—')+' / '+(a.output_nonzero_r??'—'))+line('Peak L/R',fmt(a.output_peak_l,3)+' / '+fmt(a.output_peak_r,3))+line('XRUNs',a.xruns??'unavailable',a.xruns?'bad':'')+line('Process failures',a.process_failures??'unavailable',a.process_failures?'bad':'');
  el('transport').innerHTML=line('Bridge blocks processed',a.bridge_processed??'unavailable')+line('Missing frames',c.missing_frames??'unavailable')+line('Gap count',c.gaps??'unavailable',c.gaps>1?'bad':'')+line('Callback deadline misses',c.deadline_misses??'unavailable',c.deadline_misses?'bad':'')+line('Terminal fault',a.fault??s.host.final_fault??'unavailable',a.fault?'bad':'')+line('Counter source',c.source||'needs status-enabled binary');
  el('host').innerHTML=line('Process',s.host.state||'unknown')+line('Editor lifecycle',e.meaning||'unobserved')+line('Editor result',e.result??'unavailable')+line('Master readback',fmt(s.host.master_readback,3))+line('Retirement milestones',s.host.retirement_milestones??'unavailable');

@@ -121,6 +121,24 @@ impl Instance {
         self.handle
     }
 
+    #[cfg(feature = "rpi1-observe")]
+    pub fn phase_ring(&self) -> io::Result<std::sync::Arc<crate::rpi1_phase::Ring>> {
+        Ok(self.phase_rings()?.0)
+    }
+
+    #[cfg(feature = "rpi1-observe")]
+    pub fn phase_rings(&self) -> io::Result<(std::sync::Arc<crate::rpi1_phase::Ring>,
+                                           std::sync::Arc<crate::rpi1_phase::Ring>)> {
+        queued::rpi1_phase_rings(self.handle)
+            .ok_or_else(|| io::Error::other("RPI1 phase rings unavailable"))
+    }
+
+    #[cfg(feature = "rpi1-observe")]
+    pub fn fault_site(&self) -> io::Result<u32> {
+        queued::rpi1_fault_site(self.handle)
+            .ok_or_else(|| io::Error::other("RPI1 fault site unavailable"))
+    }
+
     pub fn setup(
         &self,
         maximum: u32,

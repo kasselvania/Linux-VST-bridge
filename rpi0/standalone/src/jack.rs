@@ -69,6 +69,11 @@ unsafe extern "C" {
         port_buffer: *mut c_void,
         index: u32,
     ) -> c_int;
+    #[cfg(feature = "rpi1-observe")]
+    fn jack_get_cycle_times(client: *const JackClient, current_frames: *mut JackNFrames,
+        current_usecs: *mut u64, next_usecs: *mut u64, period_usecs: *mut f32) -> c_int;
+    #[cfg(feature = "rpi1-observe")]
+    fn jack_get_time() -> u64;
 }
 
 #[derive(Default)]
@@ -133,6 +138,10 @@ impl Default for Control {
 }
 
 struct Rt {
+    #[cfg(feature = "rpi1-observe")]
+    phase: std::sync::Arc<ap2_backend::rpi1_phase::Ring>,
+    #[cfg(feature = "rpi1-observe")]
+    jack_client: *mut JackClient,
     instance: *const Instance,
     control: *const Control,
     midi: *mut JackPort,
@@ -195,6 +204,10 @@ impl Client {
             return Err(invalid("JACK block size outside qualified set"));
         }
         let mut rt = Box::new(Rt {
+            #[cfg(feature = "rpi1-observe")]
+            phase: instance.phase_ring()?,
+            #[cfg(feature = "rpi1-observe")]
+            jack_client: client,
             instance,
             control,
             midi,
@@ -298,7 +311,28 @@ unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_in
     let rt = &mut *argument.cast::<Rt>();
     let control = &*rt.control;
     let metrics = &control.metrics;
-    metrics.callbacks.fetch_add(1, Ordering::Relaxed);
+    let sequence = metrics.callbacks.fetch_add(1, Ordering::Relaxed) + 1;
+    #[cfg(not(feature = "rpi1-observe"))]
+    let _ = sequence;
+    #[cfg(feature = "rpi1-observe")]
+    {
+        use ap2_backend::rpi1_phase as phase;
+        if rt.phase.producer_tid() == 0 {
+            rt.phase.bind_producer(libc::gettid() as u64);
+        }
+        rt.phase.record(sequence, rt.position, phase::CALLBACK_ENTER, 0, frames as u64, 0);
+        let mut current_frames = 0;
+        let mut current_usecs = 0;
+        let mut next_usecs = 0;
+        let mut period_usecs = 0.;
+        let cycle = jack_get_cycle_times(rt.jack_client, &mut current_frames,
+            &mut current_usecs, &mut next_usecs, &mut period_usecs);
+        let actual_usecs = jack_get_time();
+        rt.phase.record(sequence, rt.position, phase::JACK_CYCLE,
+            u32::from(cycle != 0), current_usecs, actual_usecs);
+        rt.phase.record(sequence, rt.position, phase::JACK_NEXT,
+            current_frames, next_usecs, period_usecs.max(0.) as u64);
+    }
     let count = frames as usize;
     let left =
         slice::from_raw_parts_mut(jack_port_get_buffer(rt.left, frames).cast::<f32>(), count);
@@ -308,6 +342,9 @@ unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_in
         left.fill(0.);
         right.fill(0.);
         metrics.unsupported_blocks.fetch_add(1, Ordering::Relaxed);
+        #[cfg(feature = "rpi1-observe")]
+        rt.phase.record(sequence, rt.position, ap2_backend::rpi1_phase::CALLBACK_EXIT,
+            1, 0, 0);
         return 0;
     }
     let Some(_lease) = rt.gate.enter() else {
@@ -317,6 +354,13 @@ unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_in
         metrics
             .paused_frames
             .fetch_add(frames as u64, Ordering::Relaxed);
+        #[cfg(feature = "rpi1-observe")]
+        {
+            rt.phase.record(sequence, rt.position, ap2_backend::rpi1_phase::CALLBACK_PAUSED,
+                0, frames as u64, 0);
+            rt.phase.record(sequence, rt.position, ap2_backend::rpi1_phase::CALLBACK_EXIT,
+                2, 0, 0);
+        }
         return 0;
     };
     let before = monotonic_ns();
@@ -443,6 +487,9 @@ unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_in
         .priming_frames
         .fetch_add(delivery.priming_frames, Ordering::Relaxed);
     let elapsed = monotonic_ns().saturating_sub(before);
+    #[cfg(feature = "rpi1-observe")]
+    rt.phase.record(sequence, rt.position, ap2_backend::rpi1_phase::CALLBACK_EXIT,
+        result, elapsed, delivery.missing_frames);
     metrics
         .callback_ns_max
         .fetch_max(elapsed, Ordering::Relaxed);

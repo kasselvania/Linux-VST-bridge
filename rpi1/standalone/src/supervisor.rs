@@ -49,7 +49,10 @@ impl Cohort {
             "--property=SendSIGKILL=yes",
             &format!("--unit={unit}"),
         ]);
-        for (key, value) in environment(config)? {
+        let mut selected_environment = environment(config)?;
+        let diagnostics = std::env::var("LVB_RPI1_DIAGNOSTICS").unwrap_or_default();
+        selected_environment.extend(diagnostic_environment(config, session, &diagnostics)?);
+        for (key, value) in selected_environment {
             command.arg(
                 OsString::from(format!("--setenv={key}="))
                     .into_string()
@@ -278,6 +281,44 @@ pub fn environment(config: &Config) -> io::Result<BTreeMap<String, String>> {
     Ok(values)
 }
 
+/// Optional, bounded per-session diagnostics. The native owner consumes this
+/// selector; it is never forwarded to Proton or interpreted as a shell string.
+/// Exact pinned Box64/Proton support is recorded in RPI1 observability evidence.
+fn diagnostic_environment(config: &Config, session: &str, raw: &str) -> io::Result<BTreeMap<String, String>> {
+    let mut selected = BTreeMap::new();
+    if raw.is_empty() { return Ok(selected); }
+    let mut seen = std::collections::BTreeSet::new();
+    for option in raw.split(',') {
+        if !seen.insert(option) { return Err(invalid("duplicate RPI1 diagnostic option")); }
+        match option {
+            "box64-crash" => {
+                selected.insert("BOX64_ROLLING_LOG".into(), "64".into());
+                selected.insert("BOX64_SHOWSEGV".into(), "1".into());
+                selected.insert("BOX64_SHOWBT".into(), "1".into());
+            }
+            "box64-perfmap" => {
+                selected.insert("BOX64_DYNAREC_PERFMAP".into(), "1".into());
+            }
+            "proton-log" => {
+                let path = config.evidence_directory.join(format!("{session}-proton"));
+                use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
+                fs::DirBuilder::new().mode(0o700).create(&path)?;
+                let metadata = fs::symlink_metadata(&path)?;
+                if !metadata.is_dir() || metadata.file_type().is_symlink()
+                    || metadata.uid() != unsafe { libc::getuid() }
+                    || metadata.permissions().mode() & 0o077 != 0 {
+                    return Err(invalid("private Proton diagnostic directory required"));
+                }
+                selected.insert("PROTON_LOG".into(), "1".into());
+                selected.insert("PROTON_LOG_DIR".into(), path.into_os_string().into_string()
+                    .map_err(|_| invalid("Proton diagnostic path encoding"))?);
+            }
+            _ => return Err(invalid("unknown RPI1 diagnostic option")),
+        }
+    }
+    Ok(selected)
+}
+
 pub fn read_journal(unit: &str) -> io::Result<Vec<u8>> {
     if !unit.starts_with("lvb-rpi1-")
         || !unit.ends_with(".service")
@@ -446,6 +487,18 @@ mod tests {
             values["LVB_VENDOR_RETIREMENT"],
             "process_scoped_vendor_retirement"
         );
+        assert!(diagnostic_environment(&config, "00000000000000000000000000000000", "")
+            .unwrap().is_empty());
+        assert!(diagnostic_environment(&config, "00000000000000000000000000000000",
+            "box64-crash,box64-crash").is_err());
+        assert!(diagnostic_environment(&config, "00000000000000000000000000000000",
+            "full-trace").is_err());
+        let diagnostic = diagnostic_environment(&config,
+            "00000000000000000000000000000000", "box64-crash,box64-perfmap").unwrap();
+        assert_eq!(diagnostic["BOX64_ROLLING_LOG"], "64");
+        assert_eq!(diagnostic["BOX64_SHOWBT"], "1");
+        assert_eq!(diagnostic["BOX64_SHOWSEGV"], "1");
+        assert_eq!(diagnostic["BOX64_DYNAREC_PERFMAP"], "1");
     }
 
     #[test]

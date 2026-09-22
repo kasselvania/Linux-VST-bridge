@@ -27,6 +27,12 @@ const AUDIO: u32 = 3;
 const OVERFLOW: u64 = 2;
 const WORKER: u64 = 3;
 const CORRELATION: u64 = 4;
+#[cfg(feature = "rpi1-observe")]
+macro_rules! phase {
+    ($shared:expr, $callback:expr, $position:expr, $kind:expr, $detail:expr, $value_1:expr, $value_2:expr) => {
+        $shared.phase.record($callback, $position, $kind, $detail, $value_1, $value_2)
+    };
+}
 #[derive(Clone, Copy)]
 pub struct Item {
     pub gui_revision: u64,
@@ -100,6 +106,12 @@ impl From<Item> for Completion {
     }
 }
 struct Shared {
+    #[cfg(feature = "rpi1-observe")]
+    phase: Arc<crate::rpi1_phase::Ring>,
+    #[cfg(feature = "rpi1-observe")]
+    worker_phase: Arc<crate::rpi1_phase::Ring>,
+    #[cfg(feature = "rpi1-observe")]
+    fault_site: AtomicU64,
     terminal: Option<Arc<crate::terminal::Status>>,
     // Set only after a complete, session/generation-bound terminal record.
     // The callback reads one atomic; it never reads the mapped custody record.
@@ -144,6 +156,12 @@ struct Shared {
 impl Shared {
     fn new() -> Self {
         Self {
+            #[cfg(feature = "rpi1-observe")]
+            phase: Arc::new(crate::rpi1_phase::Ring::disabled()),
+            #[cfg(feature = "rpi1-observe")]
+            worker_phase: Arc::new(crate::rpi1_phase::Ring::disabled()),
+            #[cfg(feature = "rpi1-observe")]
+            fault_site: AtomicU64::new(0),
             gui: None,
             terminal: None,
             terminal_latched: AtomicBool::new(false),
@@ -188,11 +206,18 @@ impl Shared {
         Some(record)
     }
     fn fail(&self, code: u64, position: u64) {
+        self.fail_at(code, position, 0);
+    }
+    fn fail_at(&self, code: u64, position: u64, site: u32) {
         if self
             .fault
             .compare_exchange(0, code, Ordering::AcqRel, Ordering::Acquire)
             .is_ok()
         {
+            #[cfg(feature = "rpi1-observe")]
+            self.fault_site.store(site as u64, Ordering::Release);
+            #[cfg(not(feature = "rpi1-observe"))]
+            let _ = site;
             self.first_position.store(position, Ordering::Relaxed);
             self.first_epoch
                 .store(self.wanted.load(Ordering::Acquire), Ordering::Relaxed);
@@ -320,10 +345,21 @@ impl Callback {
         {
             request.gui_revision = s.gui.as_ref().map_or(0, |gui| gui.revision());
         }
+        #[cfg(feature = "rpi1-observe")]
+        phase!(s, self.host_call, self.position,
+            crate::rpi1_phase::REQUEST_SLOT_INSPECT, 0,
+            s.requests.published(), s.requests.consumed());
         if !s.requests.push(request) {
-            s.fail(OVERFLOW, self.position);
+            s.fail_at(OVERFLOW, self.position, 1);
+            #[cfg(feature = "rpi1-observe")]
+            phase!(s, self.host_call, self.position,
+                crate::rpi1_phase::FAULT_COMMITTED, 1, OVERFLOW, s.requests.published());
             return Err(2);
         }
+        #[cfg(feature = "rpi1-observe")]
+        phase!(s, self.host_call, self.position,
+            crate::rpi1_phase::REQUEST_PUBLISHED, 0,
+            s.requests.published(), request.n as u64);
         if !request.gain.is_nan() || request.event_count > 0 {
             s.last_edit.store(s.requests.published(), Ordering::Release);
         }
@@ -336,6 +372,9 @@ impl Callback {
             let Some(item) = s.results.pop() else {
                 break;
             };
+            #[cfg(feature = "rpi1-observe")]
+            phase!(s, self.host_call, self.position,
+                crate::rpi1_phase::REPLY_OBSERVED, 0, item.audio.position, item.audio.n as u64);
             if item.epoch < self.epoch {
                 continue;
             }
@@ -345,7 +384,10 @@ impl Callback {
                 || a.position != self.next_result
                 || a.position.checked_add(a.n as u64).is_none()
             {
-                s.fail(CORRELATION, self.position);
+                s.fail_at(CORRELATION, self.position, 2);
+                #[cfg(feature = "rpi1-observe")]
+                phase!(s, self.host_call, self.position,
+                    crate::rpi1_phase::FAULT_COMMITTED, 2, CORRELATION, a.position);
                 return Err(2);
             }
             self.next_result += a.n as u64;
@@ -353,12 +395,21 @@ impl Callback {
                 .returned
                 .append(&item.returned, a.position, a.n as usize, self.delay)
             {
-                s.fail(OVERFLOW, self.position);
+                s.fail_at(OVERFLOW, self.position, 3);
+                #[cfg(feature = "rpi1-observe")]
+                phase!(s, self.host_call, self.position,
+                    crate::rpi1_phase::FAULT_COMMITTED, 3, OVERFLOW, a.position);
                 return Err(2);
             }
+            #[cfg(feature = "rpi1-observe")]
+            phase!(s, self.host_call, self.position,
+                crate::rpi1_phase::REPLY_COPY_COMPLETE, 0, a.position, a.n as u64);
             if a.n > 0 {
                 if self.audio.len() == DESCRIPTORS {
-                    s.fail(OVERFLOW, self.position);
+                    s.fail_at(OVERFLOW, self.position, 4);
+                    #[cfg(feature = "rpi1-observe")]
+                    phase!(s, self.host_call, self.position,
+                        crate::rpi1_phase::FAULT_COMMITTED, 4, OVERFLOW, a.position);
                     return Err(2);
                 }
                 self.audio.push_back(a);
@@ -404,6 +455,12 @@ impl Callback {
                         }
                         self.delivery.missing_frames += count as u64;
                         self.delivery.gaps += u64::from(!self.in_gap);
+                        #[cfg(feature = "rpi1-observe")]
+                        if !self.in_gap {
+                            phase!(s, self.host_call, self.position,
+                                crate::rpi1_phase::GAP_COMMITTED, 0,
+                                expected, count as u64);
+                        }
                         self.in_gap = true;
                         break;
                     }
@@ -421,7 +478,10 @@ impl Callback {
                 continue;
             }
             if self.current.position + self.offset as u64 != expected {
-                s.fail(CORRELATION, position);
+                s.fail_at(CORRELATION, position, 5);
+                #[cfg(feature = "rpi1-observe")]
+                phase!(s, self.host_call, position,
+                    crate::rpi1_phase::FAULT_COMMITTED, 5, CORRELATION, expected);
                 return Err(2);
             }
             let count = (n - i).min(self.current.n as usize - self.offset);
@@ -472,6 +532,11 @@ impl Drop for Guard<'_> {
     }
 }
 fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBuf>) {
+    #[cfg(all(feature = "rpi1-observe", target_os = "linux"))]
+    {
+        unsafe extern "C" { fn gettid() -> i32; }
+        s.worker_phase.bind_producer(unsafe { gettid() } as u64);
+    }
     let mut input_observation = crate::input_observation::InputObservation::new(crate::observer::delivery_enabled());
     let mut previous_control = [0u64; 4];
     let mut deferred = None;
@@ -569,6 +634,10 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                 thread::sleep(Duration::from_micros(50));
                 continue;
             };
+            #[cfg(feature = "rpi1-observe")]
+            s.worker_phase.record(item.parent[0], item.position,
+                crate::rpi1_phase::WORKER_REQUEST_OBSERVED, item.kind,
+                s.requests.consumed(), item.epoch);
             // Restore/lifecycle keep exclusive control-stream ownership. Only
             // ordered audio can pass an admitted read-only capture.
             if session.capture.is_some() && item.kind != AUDIO {
@@ -582,6 +651,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
             match item.kind {
                 AUDIO => {
                     let started = Instant::now();
+                    #[cfg(feature = "rpi1-observe")]
+                    let clock = crate::observer::ClockSample::sample();
                     if let Some(status) = &mut session.fault_status {
                         status.delivery = std::array::from_fn(|i| s.delivery_totals[i].load(Ordering::Acquire));
                     }
@@ -598,6 +669,19 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         &item.events[..item.event_count as usize],
                         item.context,
                     )?;
+                    #[cfg(feature = "rpi1-observe")]
+                    for (kind, at) in [
+                        (crate::rpi1_phase::WORKER_PROCESS_BEGIN, session.trace.started),
+                        (crate::rpi1_phase::WORKER_PREPARED, session.trace.prepared),
+                        (crate::rpi1_phase::WORKER_SENT, session.trace.sent),
+                        (crate::rpi1_phase::WORKER_REPLIED, session.trace.replied),
+                        (crate::rpi1_phase::WORKER_VALIDATED, session.trace.validated),
+                    ] {
+                        if let Some(at) = at {
+                            s.worker_phase.record(item.parent[0], item.position, kind, 0,
+                                clock.at(Some(at)), session.trace.process_ns.unwrap_or(0));
+                        }
+                    }
                     for (ch, word) in words.iter().enumerate() {
                         for i in 0..n {
                             item.data[ch][i] = f32::from_bits(word[i + 1]);
@@ -619,8 +703,17 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                     let mut completion = Completion::from(item);
                     completion.returned = session.returned;
                     if publish && !s.results.push(completion) {
-                        s.fail(OVERFLOW, item.position);
+                        s.fail_at(OVERFLOW, item.position, 7);
+                        #[cfg(feature = "rpi1-observe")]
+                        s.worker_phase.record(item.parent[0], item.position,
+                            crate::rpi1_phase::FAULT_COMMITTED, 7, OVERFLOW, item.position);
                         return Err(invalid("completed output capacity"));
+                    }
+                    #[cfg(feature = "rpi1-observe")]
+                    if publish {
+                        s.worker_phase.record(item.parent[0], item.position,
+                            crate::rpi1_phase::WORKER_RESULT_PUBLISHED, 0,
+                            s.results.published(), session.trace.process_ns.unwrap_or(0));
                     }
                     session.trace.queued = item.queued;
                     session.trace.parent = item.parent;
@@ -655,6 +748,11 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
         }
     })();
     if let Err(ref error) = run {
+        #[cfg(feature = "rpi1-observe")]
+        s.worker_phase.record(0, session.position,
+            crate::rpi1_phase::FAULT_COMMITTED, 8,
+            match s.fault.load(Ordering::Acquire) { 0 => WORKER, code => code },
+            session.position);
         // Ordinary Close returns Ok. Cancellation during teardown is not a
         // new terminal incident unless the worker already holds a fault.
         if !s.quit.load(Ordering::Acquire) || s.fault.load(Ordering::Acquire) != 0 {
@@ -762,7 +860,7 @@ pub(crate) unsafe fn open(
     minor: u64,
     identity: Option<state::Identity>,
 ) -> u32 {
-    open_with(max, handle, minor, identity, None, || {
+    open_with(max, handle, minor, identity, None, false, || {
         if minor >= 6 {
             crate::preview::discover_performance(identity)
         } else if let Some(identity) = identity {
@@ -781,7 +879,7 @@ pub(crate) unsafe fn open_bound(
     binding: crate::preview::Binding,
 ) -> u32 {
     let report = binding.directory.join("rpi0.performance.jsonl");
-    open_with(max, handle, 12, Some(identity), Some(report), || Ok(binding))
+    open_with(max, handle, 12, Some(identity), Some(report), true, || Ok(binding))
 }
 
 unsafe fn open_with(
@@ -790,6 +888,7 @@ unsafe fn open_with(
     minor: u64,
     identity: Option<state::Identity>,
     report_override: Option<std::path::PathBuf>,
+    rpi1_mode: bool,
     binding: impl FnOnce() -> io::Result<crate::preview::Binding>,
 ) -> u32 {
     if handle.is_null() || !(1..=256).contains(&max) {
@@ -816,6 +915,13 @@ unsafe fn open_with(
             let mut session = Session::open(binding, max as usize, minor)?;
             session.identity = identity;
             let mut shared = Shared::new();
+            #[cfg(feature = "rpi1-observe")]
+            if rpi1_mode {
+                shared.phase = Arc::new(crate::rpi1_phase::Ring::new());
+                shared.worker_phase = Arc::new(crate::rpi1_phase::Ring::new());
+            }
+            #[cfg(not(feature = "rpi1-observe"))]
+            let _ = rpi1_mode;
             shared.gui = session.gui.clone();
             shared.terminal = session.fault_status.as_ref().map(|f| f.terminal.clone());
             shared.identity = identity;
@@ -853,6 +959,18 @@ unsafe fn open_with(
             Err(e) => retain(&io::Error::other(e)),
         }
     }) as u32
+}
+
+#[cfg(feature = "rpi1-observe")]
+pub(crate) fn rpi1_phase_rings(id: u64) -> Option<(Arc<crate::rpi1_phase::Ring>, Arc<crate::rpi1_phase::Ring>)> {
+    let live = INSTANCES.lease(id)?;
+    Some((live.shared.phase.clone(), live.shared.worker_phase.clone()))
+}
+
+#[cfg(feature = "rpi1-observe")]
+pub(crate) fn rpi1_fault_site(id: u64) -> Option<u32> {
+    let live = INSTANCES.lease(id)?;
+    Some(live.shared.fault_site.load(Ordering::Acquire) as u32)
 }
 // RT-safe classification only. Zero means not latched, not proof of health.
 // Registry::lease uses one indexed slot, one fetch_add/fetch_sub, one pointer
@@ -1463,6 +1581,9 @@ unsafe fn process_events(
             item.data[ch][..count]
                 .copy_from_slice(std::slice::from_raw_parts(p.add(offset), count));
         }
+        #[cfg(feature = "rpi1-observe")]
+        phase!(&l.shared, (*l.callback.get()).host_call, (*l.callback.get()).position,
+            crate::rpi1_phase::PAYLOAD_READY, 0, offset as u64, count as u64);
         let mut out = [[0.; CAP]; 2];
         let callback = &mut *l.callback.get();
         match callback.process(&l.shared, item, &mut out) {
@@ -1471,6 +1592,9 @@ unsafe fn process_events(
                 for (ch, p) in [out_left, out_right].into_iter().enumerate() {
                     std::ptr::copy_nonoverlapping(out[ch].as_ptr(), p.add(offset), count);
                 }
+                #[cfg(feature = "rpi1-observe")]
+                phase!(&l.shared, callback.host_call, callback.position,
+                    crate::rpi1_phase::OUTPUT_COPY_COMPLETE, 0, offset as u64, count as u64);
                 let d = callback.delivery;
                 total.missing_frames += d.missing_frames;
                 total.gaps += d.gaps;
