@@ -1,0 +1,45 @@
+{
+  "date": "2026-09-22",
+  "base_head": "32c8d2af4d83c9bccdbc6c5f0364a02de071399e",
+  "base_tree": "e73f3cfde3e38265d031a89b54872ef063d2f58c",
+  "status": "software_port_ready; physical_input_pending",
+  "source_sha256": {
+    "Cargo.toml": "6fa2170edb6fa37f0f3244f84b2f587650428044577873a6c1c3cfce1e0d2fee",
+    "Cargo.lock": "24b4c14b4861d7caed183f9002e75c1007b60c7128872139e926c59bc1281f98",
+    "src/lib.rs": "b17ae9cc759b52e26fbaf7f797dbc89d913fbe057b6da6697516199fe844c18c",
+    "src/main.rs": "c6d6f552f4437b36369e081781f32b2f9f155ebb05c2de86aeb5d2978cebf5ce"
+  },
+  "binary_sha256": "9218d1758a98506d10cf3c85ccd6bb2595320f7c3dd709242b7f3ec7c15f2e4c",
+  "hardware": {
+    "pi": "Raspberry Pi 5",
+    "uart": "ttyAMA0",
+    "device_tree_node": "/axi/pcie@1000120000/rp1/serial@30000",
+    "gpio_rx": 15,
+    "gpio_tx": 14,
+    "overlay": "uart0-pi5 loaded live",
+    "baud": 31250,
+    "framing": "8N1",
+    "rate_readback": true,
+    "alsa_source": "ShieldXL UART:TRS In",
+    "jack_alias": "ShieldXL-UART:midi/playback_1",
+    "controller": "Monolit via TRS; separately powered"
+  },
+  "validation": {
+    "arm_unit_tests": 2,
+    "arm_strict_clippy": "pass",
+    "arm_release_build": "pass",
+    "existing_shieldxl_tests": 44,
+    "service_ready": true,
+    "initial_generation_stop_restart": "pass; exit 0",
+    "physical_notes": false,
+    "physical_cc": false,
+    "boot_persistence": "not configured or tested"
+  },
+  "limits": [
+    "input only; no physical MIDI OUT",
+    "SysEx discarded in bounded fragments",
+    "physical input not yet accepted",
+    "Pigments/Proton/Box64 remain stopped",
+    "audio buzz unresolved and deferred by operator"
+  ]
+}
