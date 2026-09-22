@@ -2,6 +2,9 @@
 name = "linux-vst-bridge"
 version = "0.12.0"
 edition = "2021"
+[features]
+# Opt-in binary-test fixture; release builds refuse it in frg1.rs.
+cpi2-test-contract = []
 [dependencies]
 ap1-native-client = { path = "../native-audio-client" }
 serde = { version = "=1.0.228", features = ["derive"] }
