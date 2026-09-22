@@ -95,6 +95,14 @@ See [`RPI1_UART_PIGMENTS.md`](RPI1_UART_PIGMENTS.md),
 [`RPI1_METER_RETRY.md`](RPI1_METER_RETRY.md). Neither clipping nor the prior
 whole-machine failure has a completed controlled root-cause comparison.
 
+The subsequently authorized master-level comparison verified parameter ID 0 at
+normalized 0.5 instead of 0.67308074235916138. With the same chord and unchanged
+interface gain, the operator reported no crackles; stereo peak was 0.5704991,
+with zero xruns or terminal faults and clean retirement. See
+[`RPI1_MASTER_LEVEL.md`](RPI1_MASTER_LEVEL.md). This establishes the level
+correction for that symptom, not a voice ceiling or resolution of the earlier
+whole-unit failure. The initial readback timeout is preserved separately.
+
 ## Exact starting custody
 
 - branch: `experiment/rpi1-pigments-arm64-appliance`
