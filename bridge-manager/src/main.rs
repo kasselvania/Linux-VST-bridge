@@ -836,9 +836,6 @@ fn supervisor_ready(child: &mut Child, session: &str, timeout: Duration) -> Resu
     let mut received = Vec::with_capacity(expected.len());
     let deadline = Instant::now() + timeout;
     while received.len() < expected.len() {
-        if let Some(status) = child.try_wait()? {
-            return Err(format!("supervisor exited before readiness: {status}").into());
-        }
         let now = Instant::now();
         require(now < deadline, "supervisor readiness deadline")?;
         let remaining = deadline.saturating_duration_since(now);
@@ -860,6 +857,10 @@ fn supervisor_ready(child: &mut Child, session: &str, timeout: Duration) -> Resu
             .ok_or("supervisor readiness output absent")?
             .read(&mut bytes[..(expected.len() - received.len()).min(128)])
         {
+            // Process exit may race the parent, but a complete readiness
+            // record already buffered in the pipe is still authoritative.
+            // Drain the pipe before classifying its closure as pre-readiness
+            // failure; checking try_wait() first discards that valid record.
             Ok(0) => return Err("supervisor readiness output closed".into()),
             Ok(count) => received.extend_from_slice(&bytes[..count]),
             Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => continue,
