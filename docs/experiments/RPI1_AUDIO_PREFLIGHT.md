@@ -1,5 +1,10 @@
 # RPI1 audio preflight — 2026-09-22
 
+This preserves the initial preflight disposition. The operator then authorized
+a short test on the replacement supply already connected, without another
+power-supply purchase or swap. The subsequent result and current next step are
+in [`RPI1_AUDIO_RESULT.md`](RPI1_AUDIO_RESULT.md).
+
 ## Result and remaining boundary
 
 The source-owned stereo tone reached the exact ShieldXL playback ports, measured
@@ -49,8 +54,8 @@ semantics.
 The shared callback observes accepted MIDI and finite nonzero output counts,
 per-channel absolute peaks, nonfinite counts, and JACK xruns. Observation uses
 bounded loops and scalar atomics; it does not allocate, log, or access files.
-RPI1 `status` publishes these beside completed bridge frames and request/result
-frontiers. These are cumulative independently sampled counters, not an atomic
+RPI1 `status` publishes these beside completed processing blocks and request/result
+queue high-water occupancies. These are cumulative independently sampled counters, not an atomic
 cross-process snapshot. Final audio counters also go to stdout/journal before
 the existing retirement sequence; diagnostic read failure does not prevent
 retirement.

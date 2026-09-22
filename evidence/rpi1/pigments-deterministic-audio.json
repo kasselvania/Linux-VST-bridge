@@ -1,0 +1,273 @@
+{
+  "date": "2026-09-22",
+  "claim": "One editor-closed Pigments session produced measured and audible stereo; CC123 mapping then caused a contained host/transport fault",
+  "executed_head": "a7aa62281ba52537de7039c7b84da5267a1deeb1",
+  "executed_tree": "48676d6406a1ea5547d9c422b45b1d5691fe4755",
+  "native_sha256": "0531f8bef318dfcb2d50bdace0e9e1a650c3c23e4097ea418a77db2dc554d427",
+  "qualification_sha256": "30894189d587f4bf40c1d817672fe73d028aa18c5392846652bd8ed8f6d71986",
+  "scope": {
+    "power": "operator-connected replacement 30W adapter; no further swap",
+    "usb_midi": "disconnected",
+    "editor": "never opened",
+    "pigments_sessions": 1,
+    "jack_rate": 48000,
+    "jack_period_frames": 512,
+    "bridge_delay_frames": 2048,
+    "vendor_processing_quantum": 256,
+    "setup_reported_vendor_latency": 48
+  },
+  "tone_retest": {
+    "objective": "same 95998 nonzero samples per channel, 144000 measured samples, peak 0.05, zero xruns",
+    "operator": "Yes, I heard it",
+    "exit_status": 0,
+    "service_seconds": 3.158,
+    "ports_retired": true
+  },
+  "pigments_audio": {
+    "operator": "Yes, I heard the Pigments note",
+    "midi_sent": 3,
+    "midi_accepted": 3,
+    "midi_errors": 0,
+    "left": {
+      "samples": 240000,
+      "nonzero": 72928,
+      "nonzero_windows": 144,
+      "peak": 0.19765145,
+      "rms": 0.07607915652899921
+    },
+    "right": {
+      "samples": 240000,
+      "nonzero": 72928,
+      "nonzero_windows": 144,
+      "peak": 0.19765145,
+      "rms": 0.07607915652899921
+    },
+    "nonfinite_samples": 0,
+    "xruns": 0,
+    "fixture_exit_status": 0
+  },
+  "native_records": [
+    "RPI1_READY midi=lvb-arm-pigments:midi_in left=lvb-arm-pigments:audio_out_l right=lvb-arm-pigments:audio_out_r jack_frames=512 bridge_frames=2048 vendor_frames=48 total_frames=2096",
+    "RPI1_READY midi=lvb-arm-pigments:midi_in left=lvb-arm-pigments:audio_out_l right=lvb-arm-pigments:audio_out_r jack_frames=512 bridge_frames=2048 vendor_frames=48 total_frames=2096",
+    "RPI1_AUDIO midi_accepted=0 output_nonzero_l=0 output_nonzero_r=0 output_peak_l=0 output_peak_r=0 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=128 request_high=15 result_high=11 fault=0",
+    "RPI1_AUDIO midi_accepted=0 output_nonzero_l=0 output_nonzero_r=0 output_peak_l=0 output_peak_r=0 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=130 request_high=15 result_high=11 fault=0",
+    "RPI1_AUDIO midi_accepted=1 output_nonzero_l=14863 output_nonzero_r=14863 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=316 request_high=15 result_high=11 fault=0",
+    "RPI1_AUDIO midi_accepted=1 output_nonzero_l=62479 output_nonzero_r=62479 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=502 request_high=15 result_high=11 fault=0",
+    "RPI1_AUDIO midi_accepted=3 output_nonzero_l=72928 output_nonzero_r=72928 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=32 bridge_processed=624 request_high=15 result_high=11 fault=3",
+    "RPI1_AUDIO midi_accepted=3 output_nonzero_l=72928 output_nonzero_r=72928 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=126 bridge_processed=624 request_high=15 result_high=11 fault=3",
+    "RPI1_AUDIO midi_accepted=3 output_nonzero_l=72928 output_nonzero_r=72928 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=220 bridge_processed=624 request_high=15 result_high=11 fault=3",
+    "RPI1_AUDIO midi_accepted=3 output_nonzero_l=72928 output_nonzero_r=72928 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=314 bridge_processed=624 request_high=15 result_high=11 fault=3",
+    "RPI1_AUDIO midi_accepted=3 output_nonzero_l=72928 output_nonzero_r=72928 output_peak_l=0.19765145 output_peak_r=0.19765145 output_nonfinite=0 xruns=0 process_failures=315 bridge_processed=624 request_high=15 result_high=11 fault=3",
+    "RPI1_CALLBACK callbacks=629 failures=315 deadline_misses=0 callback_ns_max=48927 missing_frames=2048 expired_frames=2048 gaps=1 delivered_frames=156160 priming_frames=2048 paused_frames=512 unsupported_midi=0 malformed_midi=0 overflow_midi=0",
+    "RPI1 refusal: RPI0 stop failed: 2"
+  ],
+  "fixture_records": [
+    "RPI1_QUALIFICATION_GRAPH mode=pigments rate=48000 period=512 routes=[[\"lvb-rpi1-qualification:midi_out\", \"lvb-arm-pigments:midi_in\"], [\"lvb-arm-pigments:audio_out_l\", \"lvb-rpi1-qualification:meter_l\"], [\"lvb-arm-pigments:audio_out_l\", \"system:playback_1\"], [\"lvb-arm-pigments:audio_out_r\", \"lvb-rpi1-qualification:meter_r\"], [\"lvb-arm-pigments:audio_out_r\", \"system:playback_2\"]]",
+    "RPI1_QUALIFICATION_AUDIO channel=0 samples=240000 nonzero_samples=72928 nonzero_windows=144 peak=0.19765145 rms=0.07607915652899921 nonfinite=0",
+    "RPI1_QUALIFICATION_AUDIO channel=1 samples=240000 nonzero_samples=72928 nonzero_windows=144 peak=0.19765145 rms=0.07607915652899921 nonfinite=0",
+    "RPI1_QUALIFICATION_RESULT mode=pigments completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+    "RPI1_QUALIFICATION_RETIRED"
+  ],
+  "windows_lifecycle_records": [
+    {
+      "event": "lifecycle",
+      "sequence": 215,
+      "state": "ap10_wait_resolution",
+      "samples_per_method": 32,
+      "sleep50_mean_ns": 1023156,
+      "ntdelay50_mean_ns": 84300
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 216,
+      "state": "ap10_delivery_setup",
+      "mailbox_version": 3
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 217,
+      "state": "ap9_processing_setup",
+      "sample_rate": 48000.0,
+      "maximum": 256,
+      "precision": "float32",
+      "vendor_float64": false,
+      "latency_samples": 48,
+      "tail_samples": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 218,
+      "state": "ap0_call_started",
+      "operation": "set_active_true",
+      "owner_thread": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 219,
+      "state": "ap0_call_completed",
+      "operation": "set_active_true",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 220,
+      "state": "ap2_lifecycle_ack",
+      "kind": 9,
+      "next_sequence": 1
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 221,
+      "state": "ap0_processing_thread_started",
+      "distinct_from_owner": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 222,
+      "state": "ap0_call_started",
+      "operation": "set_processing_true",
+      "owner_thread": false
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 223,
+      "state": "ap0_call_completed",
+      "operation": "set_processing_true",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 224,
+      "state": "ap2_lifecycle_ack",
+      "kind": 11,
+      "next_sequence": 1
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 225,
+      "state": "ap1_transport_error",
+      "detail": "controller update identity/value"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 226,
+      "state": "ap0_call_started",
+      "operation": "set_processing_false",
+      "owner_thread": false
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 227,
+      "state": "ap0_call_completed",
+      "operation": "set_processing_false",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 228,
+      "state": "ap0_thread_joined",
+      "joined": true,
+      "processing_stopped": true,
+      "worker_exception": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 229,
+      "state": "ap3_processing_summary",
+      "processed_blocks": 624,
+      "intervals": 1,
+      "process_mode": "kRealtime"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 230,
+      "state": "ap3_processing_error",
+      "detail": "controller update identity/value"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 231,
+      "state": "ap0_call_started",
+      "operation": "set_active_false",
+      "owner_thread": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 232,
+      "state": "ap0_call_completed",
+      "operation": "set_active_false",
+      "result": 0
+    }
+  ],
+  "failure": {
+    "transport_fault": 3,
+    "completed_vendor_blocks": 624,
+    "completed_vendor_frames": 159744,
+    "callback_process_failures": 315,
+    "callback_deadline_misses": 0,
+    "callback_max_ns": 48927,
+    "missing_frames": 2048,
+    "expired_frames": 2048,
+    "gaps": 1,
+    "delivered_frames": 156160,
+    "priming_frames": 2048,
+    "outer_exit_status": 1,
+    "normal_retirement": "FAILED; RPI0 stop failed: 2; no RPI1_CLEAN_SHUTDOWN receipt",
+    "windows_detail": "controller update identity/value"
+  },
+  "diagnosis": {
+    "source": "inherited RPI0 Parser maps channel-1 CC123 to PARAMETER kind 2, ID 0x52500200, value 1",
+    "synthetic_parameter_id": 1380975104,
+    "pigments_parameter_count": 4446,
+    "observed_parameter_id_range": [
+      0,
+      4445
+    ],
+    "synthetic_id_present_in_observed_census": false,
+    "static_reproduction": [
+      "kind=2 id=1380975104 value=1",
+      "exact_host_controller_rejects_rpi0_cc123_id=true"
+    ],
+    "host_check": "ControllerUpdates::publish rejects unregistered ID; commercial request path requires success",
+    "causal_limit": "raw failing event ID is not logged by host; deterministic sole parameter event, accepted-event timing, source path and exact-class reproduction identify CC123 as trigger"
+  },
+  "live_counter_semantics": {
+    "bridge_processed": "completed processing blocks, not frames",
+    "request_high": "request queue high-water occupancy, not sequence frontier",
+    "result_high": "result queue high-water occupancy, not sequence frontier"
+  },
+  "health": {
+    "active_samples": 61,
+    "active_monotonic_range": [
+      719.407,
+      779.407
+    ],
+    "maximum_temperature_c": 59.5,
+    "voltage_range_v": [
+      4.80524,
+      4.97542
+    ],
+    "throttle_samples": [
+      "throttled=0x50000"
+    ],
+    "new_kernel_undervoltage_events": 0,
+    "minimum_mem_available_kib": 5535424,
+    "outer_memory_peak_bytes": 164761600,
+    "windows_memory_peak_bytes": 2319323136,
+    "restart_during_run": false,
+    "remote_connection": "remained responsive; Wi-Fi",
+    "limitation": "short session only; historical boot undervoltage remains; earlier hang cause and long-run supply margin unproved"
+  },
+  "cleanup": {
+    "jack_ports_and_connections_removed": true,
+    "command_fifo_removed": true,
+    "outer_process_stopped": true,
+    "translated_cohort_inactive": true,
+    "box64_and_wineserver_absent": true,
+    "health_recorder_stopped": true,
+    "original_runtime_watchdog_seconds": 60,
+    "failed_outer_unit_preserved": true,
+    "session_transport_files": "retained privately because clean retirement did not pass"
+  },
+  "next_boundary": "repair commercial MIDI CC mapping without fixture-specific parameter IDs, then repeat the bounded gate under a new authorization; no second physical attempt in this run"
+}

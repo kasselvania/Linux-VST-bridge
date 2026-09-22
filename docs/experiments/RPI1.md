@@ -19,8 +19,9 @@
 - prior private Pigments standalone: **SUSTAINED PROCESSING REPORTED;
   AUDIO AND COMPLETE RETIREMENT UNPROVED**
 - source-owned ShieldXL stereo tone: **MEASURED AND HEARD**
-- deterministic editor-closed Pigments audio gate: **PREPARED; NOT RUN**
-- overall RPI1: **PENDING; BOOT UNDERVOLTAGE OBSERVED BEFORE PIGMENTS**
+- deterministic editor-closed Pigments audio: **MEASURED AND HEARD;
+  SUBSEQUENT CC123 MAPPING FAULT, NORMAL RETIREMENT FAILED**
+- overall RPI1: **PENDING; COMMERCIAL MIDI MAPPING REPAIR REQUIRED**
 
 RPI1 is not a greenfield Wine experiment. It transfers the accepted Steam Deck
 Arturia/Pigments runtime contract onto the accepted RPI0 hardware path and tests
@@ -42,6 +43,14 @@ and exact next boundary are recorded in
 [`RPI1_AUDIO_PREFLIGHT.md`](RPI1_AUDIO_PREFLIGHT.md) and
 `evidence/rpi1/audio-preflight-power.json`. The later operator power swap is an
 operator-triggered restart, not a newly reproduced spontaneous crash.
+
+The operator subsequently authorized testing the already-connected replacement
+supply. One editor-closed Pigments session produced measured and audible stereo,
+then exposed an inherited reference-fixture CC123 parameter mapping defect.
+See [`RPI1_AUDIO_RESULT.md`](RPI1_AUDIO_RESULT.md) and
+`evidence/rpi1/pigments-deterministic-audio.json`. No new voltage event or machine
+restart occurred during that short session. It does not qualify sustained power
+margin or erase the earlier boot undervoltage observations.
 
 ## Exact starting custody
 
