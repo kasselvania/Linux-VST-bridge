@@ -19,6 +19,25 @@ payloads.
 
 Physical execution is governed by `docs/experiments/RPI1.md`.
 
+## ARM standalone binding
+
+`rpi1/standalone` is the isolated Pigments appliance executable. It reuses the
+accepted RPI0 real-time audio, MIDI, shared-memory, editor and state boundary,
+but owns a separate configuration and supervisor for the demonstrated SLR4 ->
+Proton -> Box64 launch. RPI0 source and its direct-Wine fixture remain unchanged.
+
+On the accepted Pi, generate a private configuration from the already verified
+environment with `rpi1/prepare_standalone.py`, then build natively:
+
+```sh
+cargo build --release --manifest-path rpi1/standalone/Cargo.toml --features jack-runtime
+```
+
+The generated configuration pins the exact entry points, emulator adapter,
+manifests, host, Pigments module and X11 authority. It also preserves the
+demonstrated `PYTHONHOME=/usr` requirement and Pigments compatibility policies.
+It contains fixture-local paths and must not be committed.
+
 The retained Pi transfer/preflight result is in
 `evidence/rpi1/runtime-transfer-preflight.json`. Its core process checks are
 functional, with its SLR setup faults retained.
