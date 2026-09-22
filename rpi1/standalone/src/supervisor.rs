@@ -227,6 +227,7 @@ pub fn environment(config: &Config) -> io::Result<BTreeMap<String, String>> {
             "LVB_EVENT_OUTPUT_POLICY",
             "reported_zero_event_channels_unspecified".to_owned(),
         ),
+        ("LVB_RPI0_ARCHITECTURE", "required".to_owned()),
         (
             "LVB_EDITOR_LIFETIME",
             "retain_editor_view_until_instance_retirement".to_owned(),
@@ -406,6 +407,13 @@ mod tests {
         assert_eq!(vector[3], "/root/Proton 11.0/proton");
         assert_eq!(vector[4], "runinprefix");
         assert_eq!(vector[5], "C:\\host.exe");
+        let values = environment(&config).unwrap();
+        assert_eq!(values["PYTHONHOME"], "/usr");
+        assert_eq!(values["LVB_RPI0_ARCHITECTURE"], "required");
+        assert_eq!(
+            values["LVB_VENDOR_RETIREMENT"],
+            "process_scoped_vendor_retirement"
+        );
     }
 
     #[test]

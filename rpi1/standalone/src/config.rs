@@ -110,7 +110,7 @@ impl Config {
                 )));
             }
         }
-        const KEYS: [&str; 40] = [
+        const KEYS: [&str; 41] = [
             "runtime_id",
             "box64_source_commit",
             "box64_path",
@@ -142,6 +142,7 @@ impl Config {
             "sample_rate",
             "pythonhome",
             "machine_architecture",
+            "architecture_handshake_policy",
             "accessibility_policy",
             "event_output_policy",
             "editor_lifetime_policy",
@@ -169,6 +170,7 @@ impl Config {
             ("sample_rate", "48000"),
             ("pythonhome", "/usr"),
             ("machine_architecture", "aarch64-linux-gnu"),
+            ("architecture_handshake_policy", "required"),
             ("accessibility_policy", "uiautomationcore="),
             (
                 "event_output_policy",

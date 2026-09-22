@@ -110,6 +110,7 @@ def main() -> int:
         "bridge_frames": arguments.bridge_frames, "jack_client": "lvb-arm-pigments",
         "evidence_directory": evidence, "protocol_minor": "12", "sample_rate": "48000",
         "pythonhome": "/usr", "machine_architecture": "aarch64-linux-gnu",
+        "architecture_handshake_policy": "required",
         "accessibility_policy": "uiautomationcore=",
         "event_output_policy": "reported_zero_event_channels_unspecified",
         "editor_lifetime_policy": "retain_editor_view_until_instance_retirement",

@@ -114,6 +114,18 @@ void rpi0_architecture(const std::wstring& directory) {
     atomic_write(windows_path,std::string(reinterpret_cast<const char*>(&local),sizeof(local)));
 }
 
+bool rpi0_architecture_required(const std::string& component_case) {
+    bool required = component_case == kRpi0Class;
+    wchar_t value[16]{};
+    SetLastError(ERROR_SUCCESS);
+    const auto count = GetEnvironmentVariableW(L"LVB_RPI0_ARCHITECTURE", value, 16);
+    const auto error = GetLastError();
+    if (count == 0 && error == ERROR_ENVVAR_NOT_FOUND) return required;
+    if (count != 8 || std::wstring(value, count) != L"required")
+        throw std::runtime_error("RPI0 architecture policy differs");
+    return true;
+}
+
 bool is_lower_hex(const std::string& value, std::size_t size) {
     return value.size() == size &&
            std::all_of(value.begin(), value.end(), [](unsigned char character) {
@@ -319,7 +331,7 @@ int main(int argc, char** argv) {
             wf0::sha256_file(module_path) != args.at("--module-sha256")) return 64;
 
         wf0::EventWriter events(1048576);
-        if (args.at("--component-case") == kRpi0Class)
+        if (rpi0_architecture_required(args.at("--component-case")))
             rpi0_architecture(ready_path.substr(0,ready_path.find_last_of(L"\\/")));
         events.lifecycle("scanner_started", ",\"session\":\"" + args.at("--session") + "\"");
         const std::string binding = handshake(args);
