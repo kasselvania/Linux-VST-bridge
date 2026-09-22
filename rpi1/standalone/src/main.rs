@@ -232,6 +232,24 @@ mod appliance {
         Ok(())
     }
 
+    fn print_live_callback_metrics(control: &Control) {
+        let metrics = &control.metrics;
+        println!(
+            "RPI1_CALLBACK_LIVE callbacks={} failures={} deadline_misses={} callback_ns_max={} missing_frames={} gaps={} delivered_frames={} paused_frames={} unsupported_midi={} malformed_midi={} overflow_midi={}",
+            metrics.callbacks.load(Ordering::Acquire),
+            metrics.process_failures.load(Ordering::Acquire),
+            metrics.deadline_misses.load(Ordering::Acquire),
+            metrics.callback_ns_max.load(Ordering::Acquire),
+            metrics.missing_frames.load(Ordering::Acquire),
+            metrics.gaps.load(Ordering::Acquire),
+            metrics.delivered_frames.load(Ordering::Acquire),
+            metrics.paused_frames.load(Ordering::Acquire),
+            metrics.unsupported_midi.load(Ordering::Acquire),
+            metrics.malformed_midi.load(Ordering::Acquire),
+            metrics.overflow_midi.load(Ordering::Acquire),
+        );
+    }
+
     fn command_loop(
         instance: &Instance,
         control: &Control,
@@ -266,6 +284,7 @@ mod appliance {
                         if let Err(error) = print_audio_metrics(instance, control) {
                             eprintln!("RPI1_AUDIO_UNAVAILABLE {error}");
                         }
+                        print_live_callback_metrics(control);
                         let processes = cohort.verify()?;
                         let memory_peak =
                             fs::read_to_string(cohort.identity().cgroup.join("memory.peak"))

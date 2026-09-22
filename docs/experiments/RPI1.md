@@ -27,6 +27,11 @@
   RETIREMENT PASSED; NO RECORDED UNDERVOLTAGE**
 - operator-selected 45% state in a fresh Pigments process: **RESTORED, VERIFIED,
   PHYSICALLY PLAYED, AND CLEANLY RETIRED**
+- restored-state editor with physical playing: **INCOMPLETE; ONE TERMINAL
+  TRANSPORT FAULT, ONE CLEANLY RETIRED RETRY WITH AN ADDED AUDIO GAP AND
+  THERMAL LIMITING**
+- RPI1 live observer: **SOURCE PREPARED AND IDLE-PI SMOKE CHECKED; UPDATED
+  CALLBACK STATUS NOT INSTALLED OR PHYSICALLY QUALIFIED**
 - sustained power margin and performance: **UNQUALIFIED; NEW TRANSIENT
   UNDERVOLTAGE AND STARTUP GAPS PRESERVED**
 - overall RPI1: **PENDING; REPEATED COLD START AND LATER GATES REMAIN**
@@ -123,6 +128,18 @@ before audio routing. See
 [`RPI1_SAVED_STATE_FRESH_LAUNCH.md`](RPI1_SAVED_STATE_FRESH_LAUNCH.md) and
 `evidence/rpi1/saved-state-fresh-launch.json`. Automatic boot startup, sustained
 power margin and later editor/user-experience gates remain open.
+
+The next editor-with-physical-playing attempt was not accepted as a UX gate.
+The first attempt produced a terminal transport overflow-class fault without a
+clean retirement. In the operator-attended retry, the editor responded with
+delay and Pigments audio sounded good, but the callback reported an additional
+194,560 missing frames while the editor was open, and Pi thermal-limit flags
+appeared near the end. That retry did retire cleanly. Physical qualification is
+paused while a read-only Mac observer and live callback readout are reviewed;
+the operator currently has no cooler known to fit the ShieldXL assembly. See
+[`RPI1_EDITOR_OBSERVABILITY.md`](RPI1_EDITOR_OBSERVABILITY.md) and
+`evidence/rpi1/editor-observability-pause.json`. Neither the prior whole-Pi
+power failure nor the editor visual delay has been attributed from these runs.
 
 ## Exact starting custody
 
