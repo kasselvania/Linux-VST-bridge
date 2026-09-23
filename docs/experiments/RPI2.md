@@ -2,6 +2,14 @@
 
 ## Result
 
+After the operator activated Pigments in ASC under the ARM runtime, the unchanged
+state probe succeeded in a fresh Pigments process. Initial state capture returned
+155,154 bytes in 150 ms before editor attachment; the post-editor call returned
+155,286 bytes in 168 ms. Both had returned `1` with zero bytes before activation.
+This resolves the observed state-capture refusal in the migrated fixture and
+strongly identifies authorization readiness as its cause. Audio, preset changes,
+full save/reopen and sustained performance remain unqualified.
+
 GE-Proton11-7 AArch64 with UMU 1.4.4 now runs the reference Windows VST
 through the existing native bridge on the Pi: architecture handshake,
 MIDI, stereo processing, and clean shutdown passed. The native supervisor
@@ -507,6 +515,45 @@ Its first session had already ended. Activation remains unconfirmed. The access
 repair is recorded in
 [`desktop-access-recovery.json`](../../evidence/rpi2/desktop-access-recovery.json).
 
+## State capture after operator activation
+
+The operator completed activation in ASC session `asc-ge-03`, which used the
+requested longer, 30-minute allowance. After the operator reported "Activated",
+the ASC cohort was stopped and the existing `editor-ge-05` probe was run once
+with `appliance-state-recheck.conf`. The Windows host, Pigments module, probe
+script and configuration were unchanged from `editor-ge-04`; no build was needed.
+
+| State request | Before activation | After activation |
+| --- | --- | --- |
+| Before editor attachment | Result 1, zero bytes, 12,634 ms | Result 0, 155,154 bytes, 150 ms |
+| After editor pumping | Result 1, zero bytes, 41 ms | Result 0, 155,286 bytes, 168 ms |
+
+The second call followed 5,006 ms and 418 completed pump turns. Both successful
+captures used one stream write without stream failure or unknown interface
+queries; the second call retained its owner thread and quiescent stream. The
+initial success precedes editor attachment: this state-capture operation does
+not depend on an attached editor in the activated fixture. The state payloads
+were neither exported nor compared, and no restoration or save/reopen was tested.
+
+The new agent log generation contained zero `machine key changed` messages.
+Its previous generation contained 552; the file shrank on restart, so these are
+separate generations, not a delta over an append-only log. Together with the
+operator's activation and unchanged-probe result, this strongly attributes the
+earlier migrated-environment state refusal to authorization readiness. Normal
+ASC activation may also update preferences; the experiment does not isolate
+every such change or explain unrelated RPI1 failures.
+
+Editor attachment still took 33.29 seconds overall; the state-call improvement
+does not explain the remaining startup time. Temperature ranged from 49.6 to
+56.2°C, with current throttle/power flags clear and a reported 2.3 GiB memory peak.
+The DXGI-factory warning persisted. Editor closure, component termination,
+module unload and scanner completion succeeded, while the runtime wrapper still
+needed bounded cleanup (exit 241). No experiment units remained and the JACK
+graph matched the previous probe. No audio was activated.
+
+The state and timing comparison, identities and cleanup are retained in
+[`pigments-post-activation-state.json`](../../evidence/rpi2/pigments-post-activation-state.json).
+
 ## What ran
 
 The fixture was Raspberry Pi 5, Debian 13.7, kernel
@@ -590,9 +637,8 @@ staged launcher is distinct from the earlier `run-ge.sh` process-only helper;
 the Rust supervisor owns its systemd unit. Use a new evidence destination for
 each subsequent session and hold the private `run.lock` exclusively.
 
-Pigments reached initialization and editor attachment, with state capture refused
-both before and after the measured editor-pumping interval. Vendor authorization,
-demanding-workload audio deadlines, sustained throughput, preset navigation,
+Pigments reached initialization and editor attachment. After operator activation,
+state capture succeeded before and after the measured editor-pumping interval.
+Demanding-workload audio deadlines, sustained throughput, preset navigation,
 state recall, ShieldXL controls, and sustained thermal behavior remain unqualified
-on this runtime. Hangover remains an alternative;
-it was not installed or executed in this step.
+on this runtime. Hangover remains an alternative; it was not installed or executed.
