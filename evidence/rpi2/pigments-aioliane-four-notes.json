@@ -115,6 +115,6 @@
   "fixture_build_seconds": 0.895,
   "fixture_sha256": "eb9b82707531ff887bce880825c6c8f9d70d1c56836620a43b987113d6a6bd3e",
   "validation": "Eight qualification tests passed; Pi fixture built with denied warnings. Plugin and host binaries were unchanged.",
-  "operator_listening_confirmation": "pending",
+  "operator_listening_confirmation": "The operator confirmed that the four-note headless pass sounded exceptionally clean.",
   "limitations": "One fresh-session 12-second four-key hold. CPU is averaged across all four cores over the full trial, including setup/release/retirement. This is not sustained capacity or proof of the earlier browsing-related failure cause. Recordings and vendor state remain private."
 }

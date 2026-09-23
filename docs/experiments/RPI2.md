@@ -934,3 +934,7 @@ restored the graph. The extended fixture passed eight tests and built in
 0.895 seconds. This one short hold does not establish sustained capacity or
 explain the earlier manual failure. See
 `evidence/rpi2/pigments-aioliane-four-notes.json` for measurements and listening status.
+
+The operator subsequently confirmed that this four-note headless Aioliane pass
+sounded exceptionally clean. This closes listening confirmation for that exact
+12-second hold, without extending the claim to other presets or longer runs.
