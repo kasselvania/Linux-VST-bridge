@@ -889,3 +889,37 @@ A longer manual session remains unimplemented; the failed attempt is retained.
 On a later connection, ShieldXL and JACK again accepted clients before Pigments
 was started. This recovery does not establish what caused the preceding DMA
 stall. No driver, overlay or audio-buffer configuration was changed by the agent.
+
+## Aioliane two-note editor comparison
+
+The operator subsequently reported that Aioliane rose from about 21% to 100% on
+Pigments' CPU meter and stopped sounding with two keys held down. Its private
+state was captured. A fresh process compared the same saved state, master
+0.58833080530166626, and C4/G4 at velocity 96 in three 20-second recordings:
+editor never opened, editor open, then editor closed again. Notes were held for
+12 seconds per pass. No external controller was connected to the plugin during
+these automated intervals, and plugin/host binaries were unchanged.
+
+| Condition | Average total Pi CPU | Added missing frames | Temperature during capture |
+| --- | ---: | ---: | ---: |
+| Editor never opened | 16.66% | 512 | 47.95–50.70°C |
+| Editor open | 26.37% | 1,536 | 49.60–52.35°C |
+| Editor closed again | 12.45% | 0 | 49.60–51.80°C |
+
+These CPU figures are averages across all four cores over each trial, including
+setup/release/retirement, not Pigments' meter or a peak audio-thread budget.
+The corresponding Windows-cohort averages were 0.596, 0.839 and 0.546 occupied
+CPU-core equivalents. None of the captures contained exact stereo silence
+between seconds 3 and 14, during the sustained-note portion. Small transport
+gaps therefore do not reproduce the operator's prolonged two-note cutoff.
+The full session peaked at 54°C with no throttle flags and shut down cleanly,
+restoring the audio graph. State restore and editor transitions occurred outside
+the measured note intervals; their cumulative counters remain retained.
+
+The open editor increased measured load in this ordered comparison, and closing
+it reduced load. This does not establish the cause of the earlier degraded
+session. Original manual pitches/velocities were not recorded, and preset/menu
+history was not replayed. The failure remains open. The new two-note fixture
+passed seven tests and built on the Pi in 3.422 seconds. Full sanitized results
+are in `evidence/rpi2/pigments-aioliane-editor-comparison.json`; recordings and
+vendor state remain private.

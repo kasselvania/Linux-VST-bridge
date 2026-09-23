@@ -1,0 +1,344 @@
+{
+  "preset": "Aioliane",
+  "state_source": "Private snapshot captured during the operator-reported failure",
+  "notes": [
+    60,
+    67
+  ],
+  "velocity": 96,
+  "held_seconds": 12,
+  "capture_seconds_per_pass": 20,
+  "sample_rate": 48000,
+  "editor_sequence": [
+    "never opened",
+    "open",
+    "closed again"
+  ],
+  "error": null,
+  "clean_shutdown": true,
+  "session_elapsed_seconds": 133.15366056400012,
+  "session_peak_temperature_c": 54.0,
+  "passes": [
+    {
+      "name": "headless",
+      "before": {
+        "midi_accepted": 0,
+        "output_nonzero_l": 0,
+        "output_nonzero_r": 0,
+        "output_peak_l": 0,
+        "output_peak_r": 0,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 796,
+        "request_high": 3,
+        "result_high": 4,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 488,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 52388,
+        "missing_frames": 0,
+        "gaps": 0,
+        "delivered_frames": 201216,
+        "paused_frames": 46080,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "after": {
+        "midi_accepted": 5,
+        "output_nonzero_l": 968448,
+        "output_nonzero_r": 968448,
+        "output_peak_l": 0.3235194,
+        "output_peak_r": 0.3221185,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 5020,
+        "request_high": 8,
+        "result_high": 5,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 2600,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 53833,
+        "missing_frames": 512,
+        "gaps": 2,
+        "delivered_frames": 1282048,
+        "paused_frames": 46080,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "missing_frames_added": 512,
+      "missing_audio_ms": 10.666666666666666,
+      "gaps_added": 2,
+      "average_total_pi_cpu_percent": 16.6625,
+      "windows_cohort_cpu_core_equivalents": 0.5962440942051647,
+      "hottest_surviving_threads": [
+        {
+          "name": "lvb-audio",
+          "one_core_percent": 38.27
+        },
+        {
+          "name": "ArturiaSoftware",
+          "one_core_percent": 11.74
+        },
+        {
+          "name": "wf0-factory-pro",
+          "one_core_percent": 2.06
+        },
+        {
+          "name": "winedevice.exe",
+          "one_core_percent": 1.52
+        },
+        {
+          "name": "wf0-factory-pro",
+          "one_core_percent": 1.25
+        }
+      ],
+      "temperature_c_min_max": [
+        47.95,
+        50.7
+      ],
+      "arm_clock_hz_min_max": [
+        1600017024,
+        2400033792
+      ],
+      "throttle_flags": [
+        0
+      ],
+      "master_readback": [
+        "RPI1_MASTER_READBACK normalized=0.58833080530166626 revision=1"
+      ],
+      "fixture_exit": 0,
+      "longest_exact_stereo_silence_ms_in_seconds_3_to_14": 0.0,
+      "capture_results": [
+        "RPI1_QUALIFICATION_AUDIO channel=0 samples=960000 nonzero_samples=860928 nonzero_windows=1682 peak=0.3235194 rms=0.06702434910006416 nonfinite=0",
+        "RPI1_QUALIFICATION_AUDIO channel=1 samples=960000 nonzero_samples=860928 nonzero_windows=1682 peak=0.3221185 rms=0.06704105514078768 nonfinite=0",
+        "RPI1_QUALIFICATION_RESULT mode=two-notes completed=true midi_sent=5 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true"
+      ]
+    },
+    {
+      "name": "editor-open",
+      "before": {
+        "midi_accepted": 5,
+        "output_nonzero_l": 1442048,
+        "output_nonzero_r": 1442048,
+        "output_peak_l": 0.3235194,
+        "output_peak_r": 0.3221185,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 7676,
+        "request_high": 12,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 4172,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 73796,
+        "missing_frames": 3072,
+        "gaps": 3,
+        "delivered_frames": 1957376,
+        "paused_frames": 171008,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "after": {
+        "midi_accepted": 10,
+        "output_nonzero_l": 2365952,
+        "output_nonzero_r": 2365952,
+        "output_peak_l": 0.3235194,
+        "output_peak_r": 0.3221185,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 11730,
+        "request_high": 12,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 6199,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 90129,
+        "missing_frames": 4608,
+        "gaps": 5,
+        "delivered_frames": 2993664,
+        "paused_frames": 171008,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "missing_frames_added": 1536,
+      "missing_audio_ms": 32.0,
+      "gaps_added": 2,
+      "average_total_pi_cpu_percent": 26.365000000000002,
+      "windows_cohort_cpu_core_equivalents": 0.8388334450587909,
+      "hottest_surviving_threads": [
+        {
+          "name": "lvb-audio",
+          "one_core_percent": 49.33
+        },
+        {
+          "name": "wf0-factory-pro",
+          "one_core_percent": 19.29
+        },
+        {
+          "name": "wf0-factory-pro",
+          "one_core_percent": 4.16
+        },
+        {
+          "name": "winedevice.exe",
+          "one_core_percent": 2.15
+        },
+        {
+          "name": "wineserver",
+          "one_core_percent": 1.59
+        }
+      ],
+      "temperature_c_min_max": [
+        49.6,
+        52.35
+      ],
+      "arm_clock_hz_min_max": [
+        1700021120,
+        2400037120
+      ],
+      "throttle_flags": [
+        0
+      ],
+      "master_readback": [
+        "RPI1_MASTER_READBACK normalized=0.58833080530166626 revision=2"
+      ],
+      "fixture_exit": 0,
+      "longest_exact_stereo_silence_ms_in_seconds_3_to_14": 0.0,
+      "capture_results": [
+        "RPI1_QUALIFICATION_AUDIO channel=0 samples=960000 nonzero_samples=859904 nonzero_windows=1680 peak=0.26523477 rms=0.06690227062797517 nonfinite=0",
+        "RPI1_QUALIFICATION_AUDIO channel=1 samples=960000 nonzero_samples=859904 nonzero_windows=1680 peak=0.27432984 rms=0.0668881500571694 nonfinite=0",
+        "RPI1_QUALIFICATION_RESULT mode=two-notes completed=true midi_sent=5 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true"
+      ]
+    },
+    {
+      "name": "editor-closed-again",
+      "before": {
+        "midi_accepted": 10,
+        "output_nonzero_l": 2380288,
+        "output_nonzero_r": 2380288,
+        "output_peak_l": 0.3235194,
+        "output_peak_r": 0.3221185,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 12567,
+        "request_high": 12,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 6828,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 90129,
+        "missing_frames": 4608,
+        "gaps": 5,
+        "delivered_frames": 3206144,
+        "paused_frames": 278528,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "after": {
+        "midi_accepted": 15,
+        "output_nonzero_l": 3300591,
+        "output_nonzero_r": 3300591,
+        "output_peak_l": 0.3235194,
+        "output_peak_r": 0.3221185,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 16600,
+        "request_high": 12,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 8844,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 90129,
+        "missing_frames": 4608,
+        "gaps": 5,
+        "delivered_frames": 4238336,
+        "paused_frames": 278528,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "missing_frames_added": 0,
+      "missing_audio_ms": 0.0,
+      "gaps_added": 0,
+      "average_total_pi_cpu_percent": 12.4525,
+      "windows_cohort_cpu_core_equivalents": 0.5457250141150188,
+      "hottest_surviving_threads": [
+        {
+          "name": "lvb-audio",
+          "one_core_percent": 40.94
+        },
+        {
+          "name": "wf0-factory-pro",
+          "one_core_percent": 4.08
+        },
+        {
+          "name": "winedevice.exe",
+          "one_core_percent": 1.64
+        },
+        {
+          "name": "wineserver",
+          "one_core_percent": 1.46
+        },
+        {
+          "name": "wf0-factory-pro",
+          "one_core_percent": 1.03
+        }
+      ],
+      "temperature_c_min_max": [
+        49.6,
+        51.8
+      ],
+      "arm_clock_hz_min_max": [
+        1700014464,
+        2400037120
+      ],
+      "throttle_flags": [
+        0
+      ],
+      "master_readback": [
+        "RPI1_MASTER_READBACK normalized=0.58833080530166626 revision=3"
+      ],
+      "fixture_exit": 0,
+      "longest_exact_stereo_silence_ms_in_seconds_3_to_14": 0.0,
+      "capture_results": [
+        "RPI1_QUALIFICATION_AUDIO channel=0 samples=960000 nonzero_samples=861423 nonzero_windows=1683 peak=0.28716204 rms=0.06692467422191244 nonfinite=0",
+        "RPI1_QUALIFICATION_AUDIO channel=1 samples=960000 nonzero_samples=861423 nonzero_windows=1683 peak=0.2779462 rms=0.06695817011758376 nonfinite=0",
+        "RPI1_QUALIFICATION_RESULT mode=two-notes completed=true midi_sent=5 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true"
+      ]
+    }
+  ],
+  "fixture_build_seconds": 3.422,
+  "fixture_sha256": "6238c45d8b10895606db0cecd89b9ed38e23dac8d65ae3d58bb495d0ded87d24",
+  "source_verification": "Seven qualification tests passed; native fixture compiled with denied warnings. Plugin and native/Windows host binaries unchanged.",
+  "interpretation": "The editor-open pass had higher average CPU load and more missing frames; closing the editor reduced load. The severe operator-reported two-held-key failure was not reproduced in these fresh-session captures. Heat did not produce observed throttle flags.",
+  "limitations": [
+    "One ordered closed-open-closed sequence, not exhaustive preset/UI-state qualification.",
+    "Notes and velocity were fixed for this comparison; the original operator pitches and velocities were not recorded.",
+    "CPU percentages are trial averages including attack/release, setup and recording retirement; they do not establish instantaneous per-thread headroom.",
+    "Thread percentages use one fully occupied CPU core as 100 percent and include only threads present at both snapshots.",
+    "Opening/closing the editor and restoring state occurred outside the measured note intervals. Their additional gaps/paused frames remain in before/after cumulative counters.",
+    "Audio and proprietary state remain private; user listening confirmation is pending."
+  ]
+}

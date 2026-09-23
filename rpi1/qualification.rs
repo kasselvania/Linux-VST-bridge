@@ -9,6 +9,18 @@ pub const NOTE_EVENTS: [(u64, [u8; 3]); 3] = [
 pub const VOICE_STEPS: [usize; 5] = [1, 2, 4, 6, 8];
 pub const CHORD_NOTES: [u8; 8] = [48, 52, 55, 59, 62, 65, 69, 72];
 
+/// Identical two-key stimulus for editor/headless comparison: C4/G4 at velocity
+/// 96, held from second 2 through second 14 of a 20-second capture.
+pub fn two_note_events() -> Vec<(u64, [u8; 3])> {
+    vec![
+        (RATE * 2, [0x90, 60, 96]),
+        (RATE * 2, [0x90, 67, 96]),
+        (RATE * 14, [0x80, 60, 0]),
+        (RATE * 14, [0x80, 67, 0]),
+        (RATE * 18, [0xb0, 123, 0]),
+    ]
+}
+
 /// A fixed channel-1 chord ladder. Each six-second window has three seconds
 /// of held notes followed by note-offs, CC123 and a quiet tail.
 pub fn polyphony_events() -> Vec<(u64, [u8; 3])> {
@@ -152,6 +164,34 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn two_notes_are_balanced_and_keep_offsets_across_periods() {
+        let events = two_note_events();
+        let mut held = [false; 128];
+        for &(at, bytes) in &events {
+            assert!(at < RATE * 20);
+            match bytes[0] {
+                0x90 => { assert!(!held[bytes[1] as usize]); held[bytes[1] as usize] = true; }
+                0x80 => { assert!(held[bytes[1] as usize]); held[bytes[1] as usize] = false; }
+                0xb0 => assert!(held.iter().all(|&v| !v)),
+                _ => panic!("unexpected event"),
+            }
+            assert!(held.iter().filter(|&&v| v).count() <= 2);
+        }
+        assert!(held.iter().all(|&v| !v));
+        assert_eq!(events[2].0 - events[0].0, RATE * 12);
+        for period in [127, 512] {
+            let mut emitted = Vec::new();
+            for start in (0..RATE * 20).step_by(period) {
+                for &(at, bytes) in &events {
+                    if let Some(offset) = note_offset(at, start, period as u32) {
+                        emitted.push((start + u64::from(offset), bytes));
+                    }
+                }
+            }
+            assert_eq!(emitted, events);
+        }
+    }
     #[test]
     fn two_minute_stress_has_eight_keys_and_no_unreleased_notes() {
         let events = stress_events();
