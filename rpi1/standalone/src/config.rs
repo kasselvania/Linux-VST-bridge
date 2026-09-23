@@ -57,17 +57,31 @@ impl PinnedFile {
 use std::os::unix::fs::MetadataExt;
 
 #[derive(Clone, Debug)]
-pub struct Config {
+pub struct Box64Runner {
     pub box64: PinnedFile,
     pub adapter: PinnedFile,
     pub emulator_manifest: PinnedFile,
     pub graphics_manifest: PinnedFile,
     pub slr_entry: PinnedFile,
     pub proton: PinnedFile,
+    pub runtime_variable_dir: PathBuf,
+}
+
+#[derive(Clone, Debug)]
+pub enum Runner {
+    Box64(Box64Runner),
+    Native {
+        launcher: PinnedFile,
+        leader: PinnedFile,
+    },
+}
+
+#[derive(Clone, Debug)]
+pub struct Config {
+    pub runner: Runner,
     pub windows_host: PinnedFile,
     pub plugin: PinnedFile,
     pub environment_root: PathBuf,
-    pub runtime_variable_dir: PathBuf,
     pub display: String,
     pub xauthority: PinnedFile,
     pub source_manifest_sha256: [u8; 32],
@@ -109,6 +123,9 @@ impl Config {
                     line_number + 1
                 )));
             }
+        }
+        if values.get("runner").map(String::as_str) == Some("native") {
+            return Self::load_native(&values);
         }
         const KEYS: [&str; 41] = [
             "runtime_id",
@@ -229,16 +246,18 @@ impl Config {
         let evidence_directory =
             exact_directory(&values["evidence_directory"], "evidence directory")?;
         let config = Self {
-            box64: pinned("box64_path", "box64_sha256")?,
-            adapter: pinned("emulator_adapter_path", "emulator_adapter_sha256")?,
-            emulator_manifest: pinned("emulator_manifest_path", "emulator_manifest_sha256")?,
-            graphics_manifest: pinned("graphics_manifest_path", "graphics_manifest_sha256")?,
-            slr_entry: pinned("slr_entry_path", "slr_entry_sha256")?,
-            proton: pinned("proton_path", "proton_sha256")?,
+            runner: Runner::Box64(Box64Runner {
+                box64: pinned("box64_path", "box64_sha256")?,
+                adapter: pinned("emulator_adapter_path", "emulator_adapter_sha256")?,
+                emulator_manifest: pinned("emulator_manifest_path", "emulator_manifest_sha256")?,
+                graphics_manifest: pinned("graphics_manifest_path", "graphics_manifest_sha256")?,
+                slr_entry: pinned("slr_entry_path", "slr_entry_sha256")?,
+                proton: pinned("proton_path", "proton_sha256")?,
+                runtime_variable_dir,
+            }),
             windows_host: pinned("windows_host_path", "windows_host_sha256")?,
             plugin: pinned("plugin_path", "plugin_sha256")?,
             environment_root,
-            runtime_variable_dir,
             display: values["display"].clone(),
             xauthority: pinned("xauthority_path", "xauthority_sha256")?,
             source_manifest_sha256: hex32(&values["source_manifest_sha256"])?,
@@ -251,36 +270,154 @@ impl Config {
         Ok(config)
     }
 
+    fn load_native(values: &BTreeMap<String, String>) -> io::Result<Self> {
+        const KEYS: &[&str] = &[
+            "runner",
+            "runtime_id",
+            "launcher_path",
+            "launcher_sha256",
+            "leader_path",
+            "leader_sha256",
+            "windows_host_path",
+            "windows_host_sha256",
+            "plugin_path",
+            "plugin_sha256",
+            "environment_root",
+            "display",
+            "xauthority_path",
+            "xauthority_sha256",
+            "source_manifest_sha256",
+            "bridge_frames",
+            "jack_client",
+            "evidence_directory",
+            "protocol_minor",
+            "sample_rate",
+            "event_output_policy",
+            "editor_lifetime_policy",
+            "vendor_retirement_policy",
+            "architecture_handshake_policy",
+            "pigments_class_id",
+            "pigments_version",
+            "pigments_parameter_count",
+            "pigments_precision",
+            "environment_family",
+            "accessibility_policy",
+        ];
+        if values.len() != KEYS.len() || KEYS.iter().any(|k| !values.contains_key(*k)) {
+            return Err(invalid("native configuration key set differs"));
+        }
+        for (key, expected) in [
+            ("runner", "native"),
+            (
+                "runtime_id",
+                "ge-proton11-7-aarch64-umu1.4.4-slr4.0.20260914.260627",
+            ),
+            ("plugin_sha256", PIGMENTS_SHA256),
+            ("protocol_minor", "12"),
+            ("sample_rate", "48000"),
+            ("jack_client", "lvb-arm-pigments"),
+            ("architecture_handshake_policy", "required"),
+            ("accessibility_policy", "uiautomationcore="),
+            (
+                "event_output_policy",
+                "reported_zero_event_channels_unspecified",
+            ),
+            (
+                "editor_lifetime_policy",
+                "retain_editor_view_until_instance_retirement",
+            ),
+            (
+                "vendor_retirement_policy",
+                "process_scoped_vendor_retirement",
+            ),
+            ("pigments_class_id", "41727475415649534B61743150726F63"),
+            ("pigments_version", "7.0.1.6772"),
+            ("pigments_parameter_count", "4446"),
+            ("pigments_precision", "float32_only"),
+            ("environment_family", "arturia_persistent_v1:1"),
+        ] {
+            if values[key] != expected {
+                return Err(invalid(format!("{key} pin differs")));
+            }
+        }
+        let file = |key: &str| -> io::Result<PinnedFile> {
+            Ok(PinnedFile {
+                path: PathBuf::from(&values[&format!("{key}_path")]),
+                sha256: hex32(&values[&format!("{key}_sha256")])?,
+            })
+        };
+        let bridge_frames = values["bridge_frames"]
+            .parse::<u32>()
+            .map_err(|_| invalid("bridge frames syntax"))?;
+        if !matches!(bridge_frames, 512 | 1024 | 2048) {
+            return Err(invalid("bridge frames"));
+        }
+        let display = values["display"].clone();
+        if display.is_empty() || display.bytes().any(|b| b.is_ascii_control()) {
+            return Err(invalid("display identity"));
+        }
+        let result = Self {
+            runner: Runner::Native {
+                launcher: file("launcher")?,
+                leader: file("leader")?,
+            },
+            windows_host: file("windows_host")?,
+            plugin: file("plugin")?,
+            environment_root: exact_directory(&values["environment_root"], "environment root")?,
+            display,
+            xauthority: file("xauthority")?,
+            source_manifest_sha256: hex32(&values["source_manifest_sha256"])?,
+            bridge_frames,
+            jack_client: values["jack_client"].clone(),
+            evidence_directory: exact_directory(
+                &values["evidence_directory"],
+                "evidence directory",
+            )?,
+        };
+        result.verify_files()?;
+        result.verify_layout()?;
+        Ok(result)
+    }
+
     pub fn prefix(&self) -> PathBuf {
         self.environment_root.join("compatdata/pfx")
     }
 
     pub fn verify_files(&self) -> io::Result<()> {
-        self.box64.verify("Box64")?;
-        self.adapter.verify("Box64 emulator adapter")?;
-        self.emulator_manifest.verify("emulator manifest")?;
-        self.graphics_manifest
-            .verify("graphics provider manifest")?;
-        self.slr_entry.verify("SLR4 entry point")?;
-        self.proton.verify("Proton")?;
+        match &self.runner {
+            Runner::Box64(r) => {
+                r.box64.verify("Box64")?;
+                r.adapter.verify("Box64 emulator adapter")?;
+                r.emulator_manifest.verify("emulator manifest")?;
+                r.graphics_manifest.verify("graphics provider manifest")?;
+                r.slr_entry.verify("SLR4 entry point")?;
+                r.proton.verify("Proton")?;
+            }
+            Runner::Native { launcher, leader } => {
+                launcher.verify("native launcher")?;
+                leader.verify("native leader")?;
+            }
+        }
         self.windows_host.verify("Windows VST3 host")?;
         self.plugin.verify("Pigments module")?;
         self.xauthority.verify("X authority")
     }
 
     fn verify_layout(&self) -> io::Result<()> {
-        for (file, label) in [
-            (&self.box64, "Box64"),
-            (&self.adapter, "adapter"),
-            (&self.emulator_manifest, "emulator manifest"),
-            (&self.graphics_manifest, "graphics manifest"),
-            (&self.slr_entry, "SLR4 entry"),
-            (&self.proton, "Proton"),
-            (&self.windows_host, "Windows host"),
-            (&self.plugin, "Pigments"),
-        ] {
-            if !file.path.starts_with(&self.environment_root) {
-                return Err(invalid(format!("{label} is outside selected environment")));
+        if let Runner::Box64(r) = &self.runner {
+            for file in [
+                &r.box64,
+                &r.adapter,
+                &r.emulator_manifest,
+                &r.graphics_manifest,
+                &r.slr_entry,
+                &r.proton,
+            ] {
+                if !file.path.starts_with(&self.environment_root) {
+                    return Err(invalid(
+                        "Box64 runtime artifact outside selected environment",
+                    ));
+                }
             }
         }
         let drive_c = self.prefix().join("drive_c");

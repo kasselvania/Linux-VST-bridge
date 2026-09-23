@@ -14,6 +14,12 @@ inside this light synth, but did not reduce total runtime CPU use or establish
 better deadline behavior. The changed topology is real; a general performance
 win is not established.
 
+The subsequent real Pigments attempt stopped before audio/editor startup:
+Pigments initialized and exposed its 4,446 parameters, but `IComponent::getState`
+returned `1` without writing any bytes. No preset selection or playback was
+reached. This is a concrete state/initialization failure, not DSP or thermal
+evidence. Details and the preserved failure are below.
+
 The preceding account-free process launch proof needed no source build. Its host
 published its environment readiness token, pumped its Windows message loop,
 accepted its stop file, and exited successfully. All 14 processes sampled
@@ -200,6 +206,79 @@ CPU samples, thread deltas, audio summaries and cleanup are retained in
 The one-time Box64 prefix preparation took 21.24 seconds and retained the
 runtime's startup warnings; it was excluded from comparison CPU timing.
 
+## Pigments: first ARM-runtime attempt
+
+The operator selected the already-installed Pigments as the real workload.
+The requested sequence was to launch it on ARM Wine/FEX, open its own editor,
+select a different preset, and play it. The existing default-patch and button
+results did not establish that changing presets was reliable.
+
+The Pi executable is **our standalone VST3 host**. Pigments remains a VST3
+inside the Windows host, rather than the vendor's standalone application.
+Earlier DAW-hosted VST operation is a different host context. Runner topology
+and standalone-host lifecycle/controller/message-loop behavior are separate
+variables; neither can be declared the cause from this one attempt.
+
+The Pigments-specific standalone now selects either its existing Box64/Proton
+runner or a pinned native launcher/leader. Its class, complete bus contract,
+MIDI policy, initialization wait, editor lifetime, state operations and
+process-scoped retirement policy stay intact. Runtime configuration is distinct
+for each runner. The native branch rejects Box64 diagnostic selectors and
+waits for the pinned leader executable before accepting launch identity.
+Startup failure stops the owned unit. Its cohort has a 300-second lifetime,
+3 GiB memory limit and 512-task limit.
+
+A private copy of the installed environment was made on the same Pi before
+launch; copying took 303.58 seconds. GE-Proton migrated that copy. The original
+installation and selected-state file were retained; the original selected
+state still matches its recorded digest. Copying authorization files does not
+prove that vendor authorization accepts a changed runtime/machine identity.
+No authorization repair, new activation or license manipulation was attempted.
+
+[`launch-pigments.sh`](../../rpi2/launch-pigments.sh) reuses the pinned ARM
+runtime and launches the current installed Windows host,
+`wf0-factory-probe-rpi1-e232.exe` (SHA256 `64d629e84a0fdf8833e97b9393cd41b9a5a214f82fe418d1792281622f0007f2`).
+This is the host selected by the current private Pigments configuration, not
+the older host used in the reference-synth comparison. Pigments is unchanged
+at 7.0.1.6772, SHA256
+`bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07`.
+No Windows host or plugin was rebuilt. The native release build took 35.67
+seconds; a final leader-readiness adjustment rebuilt in 10.61 seconds. All
+14 library tests passed on macOS, including both runner launch/environment
+paths; the resulting ARM executable ran on the Pi.
+
+`pigments-ge-01` lasted 92.96 seconds, including first migration/startup:
+
+- Native and Windows architecture handshakes matched.
+- Module loading, component creation/initialization, audio-processor query,
+  combined controller association and component-handler installation succeeded.
+- The existing four buses and 4,446 parameters were reported.
+- `getComponentState` returned SDK result `1`; its stream received zero writes,
+  zero bytes and no unsupported interface queries or stream failure.
+- The Windows host reported `capture_available=false`. The native startup
+  observer correctly refused with `initial component state unavailable`.
+- Temperatures ranged from 50.15 to 57.3°C, with current throttle/power bits
+  clear. This did not exercise audio DSP.
+- The owner exited with failure and retired the runtime cohort. No experiment
+  units remained; the original JACK graph returned. Session files and logs
+  remain private for failure analysis. This was failure cleanup, not successful
+  plugin lifecycle retirement.
+
+[`pigments_session.py`](../../rpi2/pigments_session.py) retains this single
+session and its temperature/power samples. Sanitized configuration, exact
+source/binary identities and lifecycle records are in
+[`pigments-native-initial-state-failure.json`](../../evidence/rpi2/pigments-native-initial-state-failure.json).
+
+The first failure was preserved rather than skipped to manufacture an audio
+result. The next discriminating observation is Pigments' vendor editor:
+an activation/content prompt and an initialization/host-semantics failure need
+different responses. The existing `ap12-vendor-access` mode can open that
+editor without claiming working state or DSP. Editor observation has not been
+completed in this attempt. The operator has ruled out Screen Sharing through
+computer control. Editor inspection, preset
+selection and playback remain unperformed; do not infer them from successful
+module initialization.
+
 ## What ran
 
 The fixture was Raspberry Pi 5, Debian 13.7, kernel
@@ -283,7 +362,8 @@ staged launcher is distinct from the earlier `run-ge.sh` process-only helper;
 the Rust supervisor owns its systemd unit. Use a new evidence destination for
 each subsequent session and hold the private `run.lock` exclusively.
 
-Pigments, vendor authorization, demanding-workload audio deadlines, sustained throughput,
-preset navigation, state recall, ShieldXL controls, and sustained thermal
-behavior remain untested on this runtime. Hangover remains an alternative;
+Pigments reached the initial-state failure described above. Vendor authorization,
+demanding-workload audio deadlines, sustained throughput, preset navigation,
+state recall, ShieldXL controls, and sustained thermal behavior remain unqualified
+on this runtime. Hangover remains an alternative;
 it was not installed or executed in this step.
