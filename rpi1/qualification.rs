@@ -26,6 +26,23 @@ pub fn polyphony_events() -> Vec<(u64, [u8; 3])> {
     events
 }
 
+/// Two minutes of repeated eight-key chords. Releases may overlap the next
+/// chord; only the final CC123 clears remaining notes. Allocate before activation.
+pub fn stress_events() -> Vec<(u64, [u8; 3])> {
+    let mut events = Vec::with_capacity(481);
+    for cycle in 0..30 {
+        let start = cycle * RATE * 4;
+        for pitch in CHORD_NOTES {
+            events.push((start + RATE / 4, [0x90, pitch, 96]));
+        }
+        for pitch in CHORD_NOTES {
+            events.push((start + RATE * 7 / 2, [0x80, pitch, 0]));
+        }
+    }
+    events.push((RATE * 120 - RATE / 4, [0xb0, 123, 0]));
+    events
+}
+
 /// Optional fixture recording, allocated and touched before JACK activation.
 /// The callback only copies into this fixed extent; file I/O happens after retirement.
 pub struct Capture {
@@ -135,6 +152,43 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn two_minute_stress_has_eight_keys_and_no_unreleased_notes() {
+        let events = stress_events();
+        assert_eq!(events.len(), 481);
+        assert!(events.windows(2).all(|pair| pair[0].0 <= pair[1].0));
+        assert!(events.iter().all(|(at, _)| *at < RATE * 120));
+        let mut held = [false; 128];
+        let mut peaks = 0;
+        for &(_, bytes) in &events {
+            match bytes[0] {
+                0x90 => {
+                    assert!(!held[bytes[1] as usize]);
+                    held[bytes[1] as usize] = true;
+                    if held.iter().filter(|&&v| v).count() == 8 { peaks += 1; }
+                }
+                0x80 => {
+                    assert!(held[bytes[1] as usize]);
+                    held[bytes[1] as usize] = false;
+                }
+                0xb0 => assert!(held.iter().all(|&v| !v)),
+                _ => panic!("unexpected stress event"),
+            }
+        }
+        assert_eq!(peaks, 30);
+        assert!(held.iter().all(|&v| !v));
+        for period in [127, 512] {
+            let mut emitted = Vec::new();
+            for start in (0..RATE * 120).step_by(period) {
+                for &(at, bytes) in &events {
+                    if let Some(offset) = note_offset(at, start, period as u32) {
+                        emitted.push((start + u64::from(offset), bytes));
+                    }
+                }
+            }
+            assert_eq!(emitted, events);
+        }
+    }
     #[test]
     fn chord_ladder_preserves_offsets_balances_notes_and_stays_bounded() {
         let expected = polyphony_events();

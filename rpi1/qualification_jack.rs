@@ -1,4 +1,4 @@
-use super::{note_offset, polyphony_events, tone, Capture, Meter, NOTE_EVENTS, RATE};
+use super::{note_offset, polyphony_events, stress_events, tone, Capture, Meter, NOTE_EVENTS, RATE};
 use std::{
     ffi::{c_char, c_int, c_void, CStr, CString},
     io::{self, Write},
@@ -198,22 +198,25 @@ pub fn run() -> io::Result<()> {
         return Err(fail("invalid JACK bridge client name"));
     }
     if !matches!(arguments.len(), 2 | 4)
-        || !matches!(arguments[1].as_str(), "tone" | "effect" | "input" | "notes" | "pigments" | "polyphony")
+        || !matches!(arguments[1].as_str(), "tone" | "effect" | "input" | "notes" | "pigments" | "polyphony" | "stress")
         || (arguments.len() == 4 && arguments[2] != "--capture")
     {
         return Err(fail(
-            "usage: qualification tone|effect|input|notes|pigments|polyphony [--capture NEW_PRIVATE_F32LE_FILE]",
+            "usage: qualification tone|effect|input|notes|pigments|polyphony|stress [--capture NEW_PRIVATE_F32LE_FILE]",
         ));
     }
     let effect_mode = arguments[1] == "effect";
     let physical_mode = arguments[1] == "input";
     let tone_mode = arguments[1] == "tone" || effect_mode;
     let polyphony = arguments[1] == "polyphony";
+    let stress = arguments[1] == "stress";
     let total = RATE
         * if effect_mode {
             5
         } else if tone_mode {
             3
+        } else if stress {
+            120
         } else if polyphony {
             30
         } else {
@@ -252,7 +255,9 @@ pub fn run() -> io::Result<()> {
         } else {
             Vec::new()
         },
-        notes: if physical_mode { Vec::new() } else if polyphony {
+        notes: if physical_mode { Vec::new() } else if stress {
+            stress_events()
+        } else if polyphony {
             polyphony_events()
         } else {
             NOTE_EVENTS.to_vec()

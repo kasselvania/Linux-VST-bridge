@@ -848,3 +848,39 @@ application. Digital input/output comparison, one setting restored across a
 process restart, and user-confirmed physical stereo processing are recorded in
 [the Arturia expansion result](RPI2_ARTURIA_EXPANSION.md). The existing Pigments
 executable and its earlier observations remain separate.
+
+## Clear Skies stress and manual USB MIDI setup
+
+The operator selected Clear Skies (reported Poly 8) and lowered its master to
+0.36433076858520508. A fresh headless process restored that state without changing
+the volume. A 30-second chord ladder was followed by a 120-second generator of
+repeated eight-key chords, using the unchanged Pigments and bridge binaries on
+the fan-cooled, battery-powered Pi. The generator's six local tests passed and
+its separate native build took 4.662 seconds.
+
+**The operator heard fuzz and stopped the demo. Sound quality is unresolved.**
+The final observer status request timed out; the last complete stress snapshot
+was at 108.134 seconds and showed no added gaps relative to its startup baseline.
+The generator completed its recording, which does not prove uninterrupted host
+processing. Peak sampled temperature was 49.05°C with no throttle flags. Neither
+these counters nor sample peaks below full scale explain the audible fuzz.
+Sanitized observations are in
+`evidence/rpi2/pigments-clear-skies-stress.json`; audio and vendor state stay private.
+No 16-note demo was prepared or run.
+
+For subsequent hands-on work, USB enumerated the controller as `omx-27` and its
+JACK MIDI capture port was connected to Pigments. The editor opened, MIDI events
+were accepted, and both playback connections were explicitly recreated. The
+operator reported no sound; audible operation was not confirmed before a power
+cycle. On the next boot, the ShieldXL card enumerated but JACK reported repeated
+ALSA polling timeouts and could not accept clients. Its service restart required
+local administrator authentication. This is a separate unresolved audio-service
+failure, not evidence that MIDI routing or vendor authorization failed.
+
+The session helper now accepts an explicit `--session-seconds` for manual work,
+retaining the 280-second default. A longer session updates only the exact newly
+owned Windows cohort's time limit as well as its native supervisor's limit;
+thermal, power, memory, ownership and cleanup checks remain in place. This avoids
+using the short demo lifetime as an unexplained editor shutdown during manual
+testing. The new helper passed syntax validation; live extended-session validation
+awaits recovery of the audio service.
