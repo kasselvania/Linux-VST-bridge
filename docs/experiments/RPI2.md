@@ -8,6 +8,12 @@ MIDI, stereo processing, and clean shutdown passed. The native supervisor
 release build took 17.18 seconds; the existing Windows host and VST binaries
 were reused.
 
+A subsequent matched Box64/Proton versus ARM Wine/FEX comparison completed
+four 30-second runs with identical captured audio. FEX reduced mean time
+inside this light synth, but did not reduce total runtime CPU use or establish
+better deadline behavior. The changed topology is real; a general performance
+win is not established.
+
 The preceding account-free process launch proof needed no source build. Its host
 published its environment readiness token, pumped its Windows message loop,
 accepted its stop file, and exited successfully. All 14 processes sampled
@@ -82,6 +88,117 @@ processing was 11.174 microseconds and mean admission-to-publication was
 reference workload, not a complete trace or a comparison with RPI1. No DSP
 or transport algorithm was changed. Pigments performance and behavior remain
 separate questions.
+
+Reading the implementation establishes why that timing population is partial:
+`Session::process` arms observations on the first note-on or nonzero input
+(also unconditionally for protocol minor 6). The initial silent interval
+was not timed. Audio-window retention is a separate limit.
+
+## Matched runtime comparison
+
+The comparison reused the exact native bridge, Windows host and reference
+VST binaries. It needed no build. Each run sent the existing 47-message,
+30-second sequence of 1, 2, 4, 6 and 8 voices, with note-offs and quiet tails.
+The order was Box64, GE, GE, Box64. JACK remained at 48 kHz / 512 frames,
+Windows blocks at 256 frames, and the bridge reserve at 2,048 frames.
+
+The Box64 lane used RPI1's pinned Box64 0.4.4 and Proton 11.0-2c build
+25118279 with Steam Linux Runtime 4.0.20260805.254769. It used a newly
+prepared account-free prefix; the licensed Pigments prefix was untouched.
+The GE lane used the staged ARM environment described below. This compares
+the complete selected stacks, including their different Wine/runtime versions.
+It cannot isolate the translation engines' contribution.
+
+| Measurement | Box64 / Proton | ARM Wine / FEX |
+| --- | ---: | ---: |
+| Runtime cohort CPU, percent of one core | 10.21% | 10.69% |
+| Native bridge CPU, percent of one core | 4.42% | 4.46% |
+| Mean Windows process call | 19.47 µs | 15.65 µs |
+| Mean admission-to-publication | 298.71 µs | 292.19 µs |
+| Admission-to-publication p95 upper bound, each run | 448 µs | 448 µs |
+| Maximum admission-to-publication observed | 1.84 ms | 4.05 ms |
+| JACK xruns / bridge missing frames | 0 / 0 | 0 / 0 |
+
+Means are the equal-weight average of two runs. CPU covers about 31 seconds
+per run, excluding startup, and is measured separately for the native bridge
+and hosted runtime cgroups. JACK, the MIDI/capture fixture, and sampling are
+outside those CPU totals. Timing covers 5,713–5,731 requests per run from
+first note-on onward. Quantiles are histogram upper bounds, not exact ranks.
+Admission-to-publication measures internal block turnaround, not physical
+key-to-speaker latency; the 42.67 ms bridge reserve remains unchanged.
+
+All four complete stereo recordings were byte-identical: 1,440,000 frames
+each, finite samples, matching channels, increasing held-note RMS across
+the five voice steps, and a silent final second in every step. All 47 MIDI
+messages were sent per run without errors. Every run closed cleanly and
+removed its session. No matching experiment units remained and the original
+JACK graph returned.
+
+Sampled temperatures were 51.25–56.75°C, with current throttle/power flags
+clear. Historical flags remained `0xe0000`. The unchanged `ondemand` governor
+reported 1.6 or 2.4 GHz in one-second samples. Starting temperatures differed;
+four short runs do not establish relative thermal efficiency or sustained
+headroom. Neither stack reached a capacity limit here.
+
+### What the implementation explains
+
+The new measurements expose a large fixed cost outside this small synth:
+
+- The native queue worker requests a 50 µs sleep when no work is queued
+  (`native-vst3-proxy/backend/src/queued.rs`).
+- The Windows delivery worker polls the shared mailbox with
+  `NtDelayExecution` requesting 50 µs (`delivery_mailbox.h`). Existing startup
+  measurements put the actual interval around 104–107 µs on both stacks.
+- The owner services control/UI work between requested 50 µs sleeps
+  (`offline_processing.cpp`). The existing calibration measured that sleep
+  mechanism at about 1.06 ms.
+
+During capture, the busiest Windows host thread accumulated roughly
+9,570–9,941 scheduling slices per second, while the bridge issued only
+187.5 process blocks per second. GE identifies that thread as `lvb-audio`;
+Box64 retains the process name. Its measured CPU time was 2.30–2.32 seconds
+on GE and 1.97–1.98 seconds on Box64 over each roughly 31-second window.
+The two referenced Windows source files are unchanged from the reused
+binary's source commit `791088bb31fcd75212b2df4ac2c7a6efb95182ba`.
+
+Timer polling is therefore a concrete candidate for shared overhead. These
+observations do not attribute every CPU cycle to waiting, nor explain
+Pigments' failures: no CPU stack profile was collected. The current worker
+also does protocol, buffer and validation work outside the plugin call.
+Faster DSP alone leaves these costs in place. The GE run's 4.05 ms outlier
+also prevents a claim that the new topology eliminated spikes.
+
+The next transport change worth evaluating is notification-driven waiting
+with bounded failure behavior, keeping all waits outside the JACK callback
+and preserving Windows owner/message-loop service. Use this exact workload
+to measure whether it lowers CPU without worsening timing. A demanding
+plugin comparison is still needed to establish useful compute headroom.
+Saving volume, restoring state, and mapping ShieldXL keys to preset changes
+remain separate host/control questions; neither runtime comparison exercised
+or repaired them.
+
+### Reusing this comparison
+
+[`comparison_runner.py`](../../rpi2/comparison_runner.py), copied privately as
+`compare-ge.py` and `compare-box64.py`, keeps the same pinned native Python
+leader on both lanes. Consequently both configurations say `runner=native`:
+that field selects supervision, not the guest instruction set. The Box64
+child still uses the translated x86 Linux runtime. Only its `--prepare` mode
+creates the separate reference environment. Entry/adapter hashes pin the
+existing packages; no runner is rebuilt or updated.
+
+[`compare_bridge.py`](../../rpi2/compare_bridge.py) runs one named session
+against those staged paths, under the existing supervisor and an exclusive
+private lock. It checks for inactive RPI1 audio, starts below 56°C, refuses
+current throttle/power flags or a sampled temperature of 75°C, and retains
+failure logs. Reuse with a new label; directories are never overwritten.
+These are fixture scripts, not a product runner API.
+
+Exact configurations, script hashes, full sanitized runtime logs, timing,
+CPU samples, thread deltas, audio summaries and cleanup are retained in
+[`runtime-comparison.json`](../../evidence/rpi2/runtime-comparison.json).
+The one-time Box64 prefix preparation took 21.24 seconds and retained the
+runtime's startup warnings; it was excluded from comparison CPU timing.
 
 ## What ran
 
@@ -167,6 +284,6 @@ the Rust supervisor owns its systemd unit. Use a new evidence destination for
 each subsequent session and hold the private `run.lock` exclusively.
 
 Pigments, vendor authorization, demanding-workload audio deadlines, sustained throughput,
-preset navigation, state recall, ShieldXL controls, and comparative thermal
+preset navigation, state recall, ShieldXL controls, and sustained thermal
 behavior remain untested on this runtime. Hangover remains an alternative;
 it was not installed or executed in this step.
