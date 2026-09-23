@@ -28,6 +28,13 @@ still returned `1` with zero bytes after 5.007 seconds and 401 message-pump turn
 Rendered appearance and responsiveness remain unobserved. The earlier attempts,
 including two launch-adapter mistakes, are preserved below.
 
+A read-only follow-up found a vendor machine-identity error in the migrated
+environment: ASC reports `Can't read file <REDACTED_PATH>: machine key changed.`
+It appears 39 times across three retained ARM-environment agent logs and zero
+times in the three original-environment agent logs. This is a concrete migration
+fault to resolve before interpreting state refusal as a host defect; its causal
+relationship to that refusal remains unproved.
+
 The preceding account-free process launch proof needed no source build. Its host
 published its environment readiness token, pumped its Windows message loop,
 accepted its stop file, and exited successfully. All 14 processes sampled
@@ -409,6 +416,47 @@ status in this environment, rather than another unchanged state request.
 Build identity, both call records, pump count, temperature samples and cleanup
 are retained in
 [`pigments-post-editor-state.json`](../../evidence/rpi2/pigments-post-editor-state.json).
+
+## Vendor readiness: machine-key error after migration
+
+The follow-up inspected existing ASC diagnostic logs and resource metadata;
+it performed no launch, build, GUI access or activation action. The three
+native-environment agent logs contain 21, 15 and 3 instances of
+`Can't read file <REDACTED_PATH>: machine key changed.` The original environment's
+three retained agent logs contain none. These are different retained log windows,
+not matched trials or a failure-rate comparison. The latest native log was
+updated during the post-editor state experiment.
+
+The referenced file exists in both environments, is a regular file of the same
+size, and has mode `0600` with the current Unix user as owner. Its contents were
+not read. Thus the apparent read failure includes an explicit machine-key reason;
+it is not evidence that the file was omitted from the copy. The investigation
+does not identify how the vendor derives that key or which migration change
+caused the difference.
+
+[Arturia documents that demo mode disables save and load](https://support.arturia.com/hc/en-us/articles/5671785160732-Demo-versions-What-should-I-know).
+That makes the machine-identity error a plausible explanation for refused state
+capture, but current Pigments demo mode and causality have not been established.
+No fresh ASC GUI status is available: all three GUI logs match those in the
+original environment. The driver warnings and licence-server `ret:2` also occur
+in original agent logs; neither is classified as a new ARM failure, and the
+meaning of that return code remains unknown.
+
+The selected content inventories also match by relative filename and size:
+8,359 files across Pigments resources/binaries, samples, presets, and shared
+images/binaries. This checks copy completeness within those six subtrees; it
+does not prove byte identity or successful Windows-side resource loading. The
+new Windows-profile alias resolves to the existing copied profile.
+
+The next useful operation is the vendor's normal activation check in this
+environment, followed by the already-built state probe if activation succeeds.
+No licensing or machine-identity files should be edited to force that result.
+This finding concerns the migrated environment; it does not explain RPI1's
+earlier audio, preset, control or thermal failures. No experiment units were
+active at the end, and the original audio service remained inactive.
+
+The sanitized comparison, scope and limitations are retained in
+[`pigments-vendor-readiness.json`](../../evidence/rpi2/pigments-vendor-readiness.json).
 
 ## What ran
 

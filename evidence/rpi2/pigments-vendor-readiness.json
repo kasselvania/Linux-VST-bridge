@@ -1,0 +1,240 @@
+{
+  "observed_at_utc": "2026-09-23T03:17:39.039396+00:00",
+  "source_base_commit": "d092d374a4e40c003f8275b28fde853d34ffef7c",
+  "scope": "Read-only comparison of existing ASC diagnostic logs, file metadata and selected resource inventories; no process launch or activation action.",
+  "runtime": "GE-Proton11-7-aarch64 / UMU 1.4.4 / steamrt4-arm64",
+  "plugin_version": "7.0.1.6772",
+  "agent_logs": [
+    {
+      "environment": "original",
+      "log": "ASC_Agent_0.log",
+      "mtime_utc": "2026-09-22T23:27:46.944917+00:00",
+      "bytes": 847,
+      "read_error_count": 0,
+      "unique_read_errors": [],
+      "warnings_present": {
+        "driver_install_path": true,
+        "driver_inf": true,
+        "driver_dll": true,
+        "licence_server_ret_2": true
+      }
+    },
+    {
+      "environment": "original",
+      "log": "ASC_Agent_1.log",
+      "mtime_utc": "2026-09-22T23:34:26.569517+00:00",
+      "bytes": 847,
+      "read_error_count": 0,
+      "unique_read_errors": [],
+      "warnings_present": {
+        "driver_install_path": true,
+        "driver_inf": true,
+        "driver_dll": true,
+        "licence_server_ret_2": true
+      }
+    },
+    {
+      "environment": "original",
+      "log": "ASC_Agent_2.log",
+      "mtime_utc": "2026-09-22T23:27:03.801327+00:00",
+      "bytes": 579,
+      "read_error_count": 0,
+      "unique_read_errors": [],
+      "warnings_present": {
+        "driver_install_path": true,
+        "driver_inf": true,
+        "driver_dll": false,
+        "licence_server_ret_2": false
+      }
+    },
+    {
+      "environment": "native_arm",
+      "log": "ASC_Agent_0.log",
+      "mtime_utc": "2026-09-23T02:32:25.530920+00:00",
+      "bytes": 3850,
+      "read_error_count": 21,
+      "unique_read_errors": [
+        {
+          "diagnostic": "Can't read file <REDACTED_PATH>: machine key changed.",
+          "target_scope": "C:/ProgramData/ArturiaSC/<redacted>",
+          "target_metadata": {
+            "original": {
+              "exists": true,
+              "regular_file": true,
+              "bytes": 270,
+              "mode": "0o600",
+              "owned_by_current_user": true
+            },
+            "native_arm": {
+              "exists": true,
+              "regular_file": true,
+              "bytes": 270,
+              "mode": "0o600",
+              "owned_by_current_user": true
+            }
+          }
+        }
+      ],
+      "warnings_present": {
+        "driver_install_path": true,
+        "driver_inf": true,
+        "driver_dll": true,
+        "licence_server_ret_2": true
+      }
+    },
+    {
+      "environment": "native_arm",
+      "log": "ASC_Agent_1.log",
+      "mtime_utc": "2026-09-23T02:46:37.227630+00:00",
+      "bytes": 2992,
+      "read_error_count": 15,
+      "unique_read_errors": [
+        {
+          "diagnostic": "Can't read file <REDACTED_PATH>: machine key changed.",
+          "target_scope": "C:/ProgramData/ArturiaSC/<redacted>",
+          "target_metadata": {
+            "original": {
+              "exists": true,
+              "regular_file": true,
+              "bytes": 270,
+              "mode": "0o600",
+              "owned_by_current_user": true
+            },
+            "native_arm": {
+              "exists": true,
+              "regular_file": true,
+              "bytes": 270,
+              "mode": "0o600",
+              "owned_by_current_user": true
+            }
+          }
+        }
+      ],
+      "warnings_present": {
+        "driver_install_path": true,
+        "driver_inf": true,
+        "driver_dll": true,
+        "licence_server_ret_2": true
+      }
+    },
+    {
+      "environment": "native_arm",
+      "log": "ASC_Agent_2.log",
+      "mtime_utc": "2026-09-23T02:02:10.411425+00:00",
+      "bytes": 1276,
+      "read_error_count": 3,
+      "unique_read_errors": [
+        {
+          "diagnostic": "Can't read file <REDACTED_PATH>: machine key changed.",
+          "target_scope": "C:/ProgramData/ArturiaSC/<redacted>",
+          "target_metadata": {
+            "original": {
+              "exists": true,
+              "regular_file": true,
+              "bytes": 270,
+              "mode": "0o600",
+              "owned_by_current_user": true
+            },
+            "native_arm": {
+              "exists": true,
+              "regular_file": true,
+              "bytes": 270,
+              "mode": "0o600",
+              "owned_by_current_user": true
+            }
+          }
+        }
+      ],
+      "warnings_present": {
+        "driver_install_path": true,
+        "driver_inf": true,
+        "driver_dll": true,
+        "licence_server_ret_2": true
+      }
+    }
+  ],
+  "resource_inventories": [
+    {
+      "subtree": "C:/ProgramData/Arturia/Pigments/resources",
+      "relative_names_and_sizes_equal": true,
+      "original_file_count": 1777,
+      "native_arm_file_count": 1777,
+      "original_bytes": 275551668,
+      "native_arm_bytes": 275551668
+    },
+    {
+      "subtree": "C:/ProgramData/Arturia/Pigments/x64",
+      "relative_names_and_sizes_equal": true,
+      "original_file_count": 2,
+      "native_arm_file_count": 2,
+      "original_bytes": 62014720,
+      "native_arm_bytes": 62014720
+    },
+    {
+      "subtree": "C:/ProgramData/Arturia/Samples/Pigments",
+      "relative_names_and_sizes_equal": true,
+      "original_file_count": 1738,
+      "native_arm_file_count": 1738,
+      "original_bytes": 1417183916,
+      "native_arm_bytes": 1417183916
+    },
+    {
+      "subtree": "C:/ProgramData/Arturia/Presets/Pigments",
+      "relative_names_and_sizes_equal": true,
+      "original_file_count": 1921,
+      "native_arm_file_count": 1921,
+      "original_bytes": 177806788,
+      "native_arm_bytes": 177806788
+    },
+    {
+      "subtree": "C:/ProgramData/Arturia/Shared/images",
+      "relative_names_and_sizes_equal": true,
+      "original_file_count": 2658,
+      "native_arm_file_count": 2658,
+      "original_bytes": 99980712,
+      "native_arm_bytes": 99980712
+    },
+    {
+      "subtree": "C:/ProgramData/Arturia/Shared/x64",
+      "relative_names_and_sizes_equal": true,
+      "original_file_count": 263,
+      "native_arm_file_count": 263,
+      "original_bytes": 715671761,
+      "native_arm_bytes": 715671761
+    }
+  ],
+  "resource_comparison_limit": "Relative names and sizes only; no resource payload comparison or plugin-open/readability test.",
+  "gui_logs_unchanged_from_original": true,
+  "native_profile_alias_resolves_to_copied_existing_profile": true,
+  "active_rpi2_units": [],
+  "original_audio_service_status": "inactive",
+  "handling": {
+    "raw_vendor_logs_exported": false,
+    "referenced_file_contents_read": false,
+    "activation_data_modified": false,
+    "registry_modified": false,
+    "new_plugin_launches": 0,
+    "builds": 0,
+    "gui_access": false
+  },
+  "interpretation": [
+    "The ASC agent reports 'machine key changed.' only in the inspected native-ARM environment logs (21, 15 and 3 occurrences), versus zero in the three retained original logs. These are retained log windows, not matched trials or a failure-rate measurement.",
+    "The referenced file exists in both environments and is owned by the current Unix user with mode 0600. Its contents were not inspected. This is not a simple missing-file finding; Windows-side access and machine-key derivation were not investigated.",
+    "The runtime/prefix migration now has a concrete vendor machine-identity error. It does not isolate FEX, Wine, container paths, or another individual change as its cause.",
+    "Arturia documents that demo mode disables saving and loading. The machine-identity error is therefore a plausible lead for the observed getState refusal, but neither current Pigments demo mode nor the causal link has been established.",
+    "The selected 8359 resource files have matching relative names and sizes; this does not prove identical payloads or successful resource loading.",
+    "Driver warnings and licence-server ret:2 also occur in original logs. The meaning of ret:2 was not established and it is not classified as a network failure.",
+    "The GUI logs are unchanged from the original environment and provide no fresh activation verdict for native ARM.",
+    "Next discriminating action: inspect and, if required, complete the vendor's normal activation flow in the migrated environment, then repeat the existing state probe without another code change. Preserve the original environment and do not alter machine-identity or licensing files."
+  ],
+  "sources": [
+    {
+      "url": "https://support.arturia.com/hc/en-us/articles/5671785160732-Demo-versions-What-should-I-know",
+      "supports": "Arturia demo-mode save/load restrictions; does not establish the tested instance's mode."
+    },
+    {
+      "url": "https://support.arturia.com/hc/en-us/articles/8098911607196-Arturia-Software-Center-ASC-Machine-registration-failed-Synchronization-issues",
+      "supports": "Vendor documentation treats mismatching registered machine information as a registration/synchronization issue; it does not define this agent log message."
+    }
+  ]
+}
