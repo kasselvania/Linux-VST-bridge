@@ -5,7 +5,10 @@ environment=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 runtime=$(CDPATH= cd -- "$environment/.." && pwd)
 test "${WINEPREFIX:?supervisor selects the copied prefix}" = "$environment/compatdata/pfx"
 test "$#" -gt 0
-case "$1" in 'C:\bridge\bin\wf0-factory-probe-rpi1-e232.exe') ;; *) exit 64;; esac
+case "$1" in
+  'C:\bridge\bin\wf0-factory-probe-rpi1-e232.exe'|'C:\bridge\bin\wf0-factory-probe-rpi2-state-recheck.exe') ;;
+  *) exit 64;;
+esac
 
 cd "$runtime"
 sha256sum --check --status <<'HASHES'

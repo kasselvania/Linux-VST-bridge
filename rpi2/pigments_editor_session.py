@@ -25,7 +25,10 @@ def main():
     if subprocess.run(["systemctl", "--user", "is-active", "--quiet",
                        "lvb-rpi1-audio-gate.service"]).returncode == 0:
         raise RuntimeError("original Pigments is active")
-    config = dict(line.split("=", 1) for line in (root / "appliance.conf").read_text().splitlines())
+    config_name = sys.argv[2] if len(sys.argv) == 3 else "appliance.conf"
+    if len(sys.argv) > 3 or config_name not in ("appliance.conf", "appliance-state-recheck.conf"):
+        raise ValueError("invalid configuration selection")
+    config = dict(line.split("=", 1) for line in (root / config_name).read_text().splitlines())
     for key in ("launcher", "leader", "windows_host", "plugin", "xauthority"):
         if hashlib.sha256(Path(config[key + "_path"]).read_bytes()).hexdigest() != config[key + "_sha256"]:
             raise RuntimeError(key + " changed")
@@ -50,6 +53,8 @@ def main():
            "LVB_EVENT_OUTPUT_POLICY": config["event_output_policy"],
            "LVB_EDITOR_LIFETIME": config["editor_lifetime_policy"],
            "LVB_VENDOR_RETIREMENT": config["vendor_retirement_policy"]}
+    if config_name == "appliance-state-recheck.conf":
+        env["LVB_VENDOR_ACCESS_STATE_RECHECK"] = "after-editor-pump"
     unit = "lvb-rpi2-" + label + ".service"
     command = ["systemd-run", "--user", "--wait", "--collect", "--pipe", "--service-type=exec",
                "--unit=" + unit, "--property=KillMode=control-group", "--property=TimeoutStopSec=15",
@@ -62,8 +67,11 @@ def main():
                 "module", "module-sha256", "bundle-manifest-sha256", "ready", "gate",
                 "max-classes", "stdout-cap", "mode", "component-case"):
         command += ["--" + key, arguments[key]]
-    report = {"session": sid, "label": label, "samples": [], "gate_sent": False, "editor_open_record": False}
-    started, opened, stop_sent = time.monotonic(), None, None
+    report = {"session": sid, "label": label, "samples": [], "gate_sent": False, "editor_open_record": False,
+              "configuration": config_name, "windows_host_sha256": config["windows_host_sha256"],
+              "source_manifest_sha256": config["source_manifest_sha256"],
+              "post_editor_state_requested": config_name == "appliance-state-recheck.conf"}
+    started, opened, rechecked, stop_sent = time.monotonic(), None, None, None
     log_path = run / "windows.log"
     with log_path.open("x") as output:
         process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT)
@@ -85,9 +93,15 @@ def main():
                     opened = elapsed
                     report["editor_open_record"], report["editor_open_seconds"] = True, elapsed
                     print("EDITOR_ATTACHED " + str(round(elapsed, 2)), flush=True)
+                if rechecked is None and '"state":"ap12_post_editor_state"' in text:
+                    rechecked = elapsed
+                    report["post_editor_state_record_seconds"] = elapsed
+                    print("STATE_RECHECK_RECORDED " + str(round(elapsed, 2)), flush=True)
                 reason = ("thermal/power bound" if temp >= 75 or flags & 15 else
                           "host failure" if '"state":"ap8_failure"' in text else
-                          "editor observation complete" if opened is not None and elapsed - opened >= 15 else
+                          "state recheck complete" if rechecked is not None and elapsed - rechecked >= 2 else
+                          "state recheck observation deadline" if report["post_editor_state_requested"] and opened is not None and elapsed - opened >= 60 else
+                          "editor observation complete" if not report["post_editor_state_requested"] and opened is not None and elapsed - opened >= 15 else
                           "session time bound" if elapsed >= 240 else None)
                 if reason and stop_sent is None:
                     report["stop_reason"] = reason

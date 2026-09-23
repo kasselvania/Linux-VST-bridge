@@ -23,9 +23,10 @@ evidence. Details and the preserved failure are below.
 The approved follow-up reached Pigments' editor through the existing vendor-access
 host mode: editor-open, editor-close, component termination and module-unload
 records were obtained. This separates the initial state refusal from the ability
-to attach its editor. Rendered appearance, responsiveness and state capture after
-editor initialization remain unobserved. All three attempts, including two launch
-adapter mistakes, are preserved below.
+to attach its editor. A subsequent single-call probe found that state capture
+still returned `1` with zero bytes after 5.007 seconds and 401 message-pump turns.
+Rendered appearance and responsiveness remain unobserved. The earlier attempts,
+including two launch-adapter mistakes, are preserved below.
 
 The preceding account-free process launch proof needed no source build. Its host
 published its environment readiness token, pumped its Windows message loop,
@@ -353,6 +354,62 @@ activation, password or credential change was made. All three runs, sanitized
 host records, warnings and exact limitations are retained in
 [`pigments-editor-open.json`](../../evidence/rpi2/pigments-editor-open.json).
 
+## State capture after editor attachment
+
+The operator then authorized the single post-editor state request. One focused
+Windows-host build and one Pigments launch completed this operation. The
+existing AP8 workflow gained an optional `host_only` dispatch selection with
+a five-minute job timeout. It builds `wf0-factory-probe` and its source manifest;
+the full workflow remains the default. The selected job passed in 99 seconds,
+including setup and upload. No broader test matrix was run in that job.
+
+The source change is confined to the existing inspection/access implementation.
+`LVB_VENDOR_ACCESS_STATE_RECHECK=after-editor-pump` opts into one extra
+`IComponent::getState` call after at least five seconds of successful pump
+turns. The call stays on the existing controller thread. It records timing,
+result and stream counters, without restoring state, changing parameters,
+synchronizing a controller a second time or exporting the state payload.
+Ordinary access sessions do not opt in.
+
+The new host was staged beside the previous host in the same copied Pigments
+environment. A separate configuration selects it, retaining the previous
+host, launcher and configuration. Pigments and the runtime were unchanged.
+The source difference from the prior host also includes preset-census code
+which is guarded out of this editor-access mode.
+
+`editor-ge-04` produced:
+
+| Request | Result | Bytes / writes | Call duration |
+| --- | --- | --- | --- |
+| Before editor creation | `1` | `0 / 0` | 12,634 ms |
+| After editor attachment and pumping | `1` | `0 / 0` | 41 ms |
+
+The second call began 5,007 ms after editor opening, after 401 completed pump
+turns. The owner-thread match was true; the stream remained quiescent, reported
+no failure and received no unknown-interface queries. The host reported editor
+closure, successful component termination, module unload and scanner completion.
+The runtime wrapper subsequently required the existing bounded cleanup, as in
+the preceding editor-only run. No experiment units remained, the JACK graph
+returned unchanged, and both the previous host digest and original selected-state
+digest still matched.
+
+This rules out missing editor attachment/pumping as a sufficient explanation
+for this particular refusal during the observed interval. It does not prove
+that all vendor initialization has completed, or distinguish authorization,
+content readiness, runtime behavior or other host-lifecycle requirements.
+The 12.634-second initial call is a concrete startup delay inside `getState`;
+wall-clock timing alone does not identify CPU work versus waiting.
+
+`Failed to create DXGI factory.` remained in the log. Neither its rendering
+impact nor a vendor activation/content verdict was observed. No audio processing,
+GUI input, Screen Sharing, credential changes or state restoration occurred.
+The next useful observation is the vendor's own activation/content/readiness
+status in this environment, rather than another unchanged state request.
+
+Build identity, both call records, pump count, temperature samples and cleanup
+are retained in
+[`pigments-post-editor-state.json`](../../evidence/rpi2/pigments-post-editor-state.json).
+
 ## What ran
 
 The fixture was Raspberry Pi 5, Debian 13.7, kernel
@@ -436,8 +493,8 @@ staged launcher is distinct from the earlier `run-ge.sh` process-only helper;
 the Rust supervisor owns its systemd unit. Use a new evidence destination for
 each subsequent session and hold the private `run.lock` exclusively.
 
-Pigments reached initialization and editor attachment, with initial state capture
-refused and post-editor state capture unmeasured. Vendor authorization,
+Pigments reached initialization and editor attachment, with state capture refused
+both before and after the measured editor-pumping interval. Vendor authorization,
 demanding-workload audio deadlines, sustained throughput, preset navigation,
 state recall, ShieldXL controls, and sustained thermal behavior remain unqualified
 on this runtime. Hangover remains an alternative;
