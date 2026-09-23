@@ -1,57 +1,28 @@
-# CPI2 — catalogue-free exact quarantine retry
+# FRG1 registered native proxy correction
 
-Base: canonical `main` commit `9f72fb27e5f1399e1533d678824d5bde81c77ade`,
-tree `6c890fe843fab990fe8b921262185e0cde953ed8`.
+Base: canonical main merge commit `407a37679cbe9ccc3bed86d1b33c9ed49728c7da`, tree `ce3aa3679cb0512a49a52e17b35e9445578cbebd`.
 
 ## Primary claim
 
-An exact `QuarantinedModuleRetry` offered for a current quarantined inventory in
-the sealed, adopted, prepublication FRG1 state can execute without an ordinary
-native catalogue. It uses the same managed-environment authority as ordinary
-`EnvironmentRescan`, retains one final `registry.lock` through scan and inventory
-replacement, and preserves all prior scan/module/report identity checks.
+The first Ubuntu Bitwig load failed because the revision-11 native proxy was built without the Rust backend's `registered` feature. An exact revision-12 successor pins a registered x86-64 Linux proxy and can be published only after the unchanged revision-11 publication is normally restored. The prior adoption, inventory and immutable revision remain intact.
 
-## Scope and basis
+## Basis and scope
 
-- `docs/ARCHITECTURE.md` sections 5.3 (Environment manager) and 5.6 (Scanner service);
-- existing FRG1 adoption and catalogue-free registry rules;
-- manager operator action projection, worker dispatch, exact retry, inventory mutation;
-- source-owned deterministic manager tests.
+- `docs/ARCHITECTURE.md` revisioned publication and managed runtime boundaries.
+- `docs/FRG1.md` exact module/host/runner/descriptor authority.
+- Ubuntu-lab PR #5 first Bitwig activation failure and retained failed-publication evidence.
+- Canonical FRG1 profile/package identity and manager transition; source-owned transition tests.
+- Pinned native source commit `3f3ae6235a85a8d5e311b6275b2d7555a088eb92`, descriptor SHA `a1fd81c9f91c0371b633e9b4c7597e020c60b97da0494e9ce11becb5c68eb9f5`, and VST3 SDK commit `3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96`.
 
-Only the canonical product manager and test fixture may change. The Ubuntu
-adapter PR #5, installed generation, runner alias, vendor prefix, scanner,
-Windows host, native proxy, and commercial module are outside this slice.
+The Windows host, scanner, runner, module, native DSP protocol, Ubuntu namespace topology, and vendor prefix do not change.
 
 ## Acceptance
 
-- With no native catalogue, exact adoption, valid empty prepublication registry,
-  and one current quarantined inventory, the snapshot offers no ordinary refresh
-  and exactly one enabled identity-bound retry.
-- The real operator-worker route performs exactly one selected-module scanner
-  launch, preserves unrelated module records, replaces current inventory,
-  retains the failed inventory in history, and removes the retry action after a
-  healthy report.
-- Missing or changed adoption; foreign environment, scan, module, report, host,
-  or source identity; and a foreign populated catalogue-free registry refuse
-  before scanner launch and without inventory mutation.
-- Manager library and binary tests, strict manager Clippy, AP12 manager and
-  frontend, and PX2 pass. Test stubs prove control-path behavior only, not a
-  successful Wine load or Ubuntu physical qualification.
+- The new ELF is x86-64 Linux, stripped, and SHA-256 `f29e4cf0d3157308a78097b25f10a05264277291203c77a62db6cc1a2cfa4c1a`; its build enables `registered`, contains the managed runtime path and excludes the legacy AP9 performance path.
+- Revision 11 stays byte-identical history. Revision 12 changes only revision and native proxy digest, and binds one exact package manifest.
+- A live or foreign predecessor refuses. A normally removed exact revision 11 permits revision-12 staging and publication with an immutable parent, retained adoption and inventory, and normal successor restore.
+- Manager library/binary and focused backend tests pass; `git diff --check` passes. Static checks prove source/artifact contract only. No corrected-proxy Bitwig, editor, audio, state, or restart pass is claimed.
 
-## Stop and handoff
+## Physical continuation
 
-Open one canonical product PR against `main` and leave it unmerged for review.
-Do not deploy or retry on Ubuntu until this product PR is independently reviewed
-and merged. Ubuntu PR #5 remains draft and unmerged at
-`f22c30908400ab9ab59a87bd4c9e60f7cc84c4d7`.
-
-## Current status
-
-The source-owned binary fixture passed the exact retry and ten refusal cases.
-Default manager library tests passed 160/160; default binary tests passed
-112/112; the opt-in binary fixture suite passed 114/114. Manager and frontend
-strict Clippy passed; frontend tests passed 37/37; PX2 policy tests passed
-122/122. The AP12 runtime suite passed 294 tests with 51 Linux-only skips on
-macOS. A concurrent, unchanged native backend test run had one instance-capacity
-failure; the affected test passed alone and the serial backend suite passed
-73 tests with one ignored. None of these runs executes Wine or qualifies Ubuntu.
+Keep Ubuntu PR #5 and the current manager/publication intact until this product PR is reviewed and merged. After merge, restore revision 11 through the currently installed product, verify clean retirement, update Ubuntu's exact product/artifact locks, install one new immutable generation, and stage/publish revision 12. Continue the Bitwig ladder once. Preserve the first new failure. Do not contact the Steam Deck, run ASC, rescan, replace the healthy inventory, modify vendor custody, or claim physical success from deterministic proof.

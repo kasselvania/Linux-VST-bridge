@@ -295,6 +295,14 @@ pub fn installed_profiles() -> Result<Vec<Profile>> {
 /// installed-profile set until the separate Ubuntu qualification accepts it.
 pub fn frg1_candidate() -> Result<Profile> {
     Profile::parse(include_bytes!(
+        "../../compatibility/frg1/revision-12/arturia-efx-fragments.json"
+    ))
+}
+
+/// The failed revision-11 publication is retained only as an exact rollback
+/// parent for the registered-proxy correction, never as current policy.
+pub fn frg1_predecessor() -> Result<Profile> {
+    Profile::parse(include_bytes!(
         "../../compatibility/frg1/arturia-efx-fragments.json"
     ))
 }
@@ -411,12 +419,19 @@ mod frg1_tests {
     #[test]
     fn successor_is_nonactivating_and_preserves_history() {
         let candidate = frg1_candidate().unwrap();
+        let historical = frg1_predecessor().unwrap();
         let predecessor = ap17_profiles()
             .unwrap()
             .into_iter()
             .find(|profile| profile.id == "arturia-efx-fragments")
             .unwrap();
-        assert_eq!(candidate.revision, 11);
+        assert_eq!(candidate.revision, 12);
+        assert_eq!(historical.revision, 11);
+        let mut normalized = candidate.clone();
+        normalized.revision = historical.revision;
+        normalized.requirements.native_sha256 = historical.requirements.native_sha256.clone();
+        assert_eq!(normalized.evidence.pop().as_deref(), Some("evidence/frg1/registered-proxy-repair.json"));
+        assert_eq!(normalized, historical);
         assert_eq!(candidate.claim, Claim::ReviewCandidate);
         assert!(candidate
             .claim

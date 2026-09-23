@@ -1,0 +1,34 @@
+{
+  "schema": "linux-vst-bridge-frg1-registered-proxy-repair/v1",
+  "prior_ubuntu_result": "Bitwig discovered revision 11 but first FRAGMENTS load failed in setupProcessing with AP2 backend NotFound; no DSP admission occurred",
+  "cause": "revision-11 native proxy was built without the registered backend feature and searched AP9-Performance/serum instead of the managed runtime owner socket",
+  "historical_native_sha256": "8b57354720545acc51789e0545ce921b2d60c481da62c57a1dba0bac73b1e600",
+  "source_commit": "3f3ae6235a85a8d5e311b6275b2d7555a088eb92",
+  "source_tree": "9dc5196c805cebb87835be37e6b85e86392f6e52",
+  "descriptor_sha256": "a1fd81c9f91c0371b633e9b4c7597e020c60b97da0494e9ce11becb5c68eb9f5",
+  "vst3_sdk_commit": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+  "build": {
+    "builder_image_id": "sha256:c4c193d7c7e0857e2149d007751a767b79a197909ee09e4aa708f90256027f9a",
+    "rustc": "1.95.0 (59807616e 2026-04-14)",
+    "cargo": "1.95.0 (f2d3ce0bd 2026-03-21)",
+    "cmake": "4.2.3",
+    "compiler": "g++ 15.2.0-16ubuntu1",
+    "ninja": "1.13.2",
+    "network_shared": false,
+    "source_and_descriptor_read_only": true,
+    "cargo_flags": ["--release", "--locked", "--offline", "--features", "registered"],
+    "cmake_target": "CommercialInstrumentBridge"
+  },
+  "native_proxy": {
+    "architecture": "x86_64-linux",
+    "byte_length": 2040416,
+    "sha256": "f29e4cf0d3157308a78097b25f10a05264277291203c77a62db6cc1a2cfa4c1a",
+    "elf_build_id": "fb8f0547c96aa4e718e1ae3266e8c5445a4b7e4e",
+    "dynamic_dependency_roster_unchanged_from_revision_11": true,
+    "managed_runtime_path_present": true,
+    "legacy_ap9_performance_path_absent": true
+  },
+  "registered_backend_tests": {"passed": 69, "failed": 0, "ignored": 1},
+  "qualification": "build_and_deterministic_only; no corrected-proxy Bitwig load, editor, audio, state or restart result",
+  "custody": "Neither the old published proxy nor the retained vendor prefix, module, runner, installation or inventory was changed"
+}

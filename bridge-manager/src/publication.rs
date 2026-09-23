@@ -908,7 +908,9 @@ impl Manager {
                         && crate::acceptance::pigments::accepted_predecessor(self, profile, &prior)?)
                     || (qualification == Some(Qualification::Ap18Pigments)
                         && prior.qualification == qualification && crate::pigments::replacement_prior(&prior.profile, profile)?
-                        && db.classes[&key].publication == Publication::Removed),
+                        && db.classes[&key].publication == Publication::Removed)
+                    || (qualification == Some(Qualification::Frg1Ubuntu)
+                        && crate::frg1::permits_retired_predecessor(self, &db.classes[&key], &prior)?),
                 "qualification_active_restore_first",
             )?;
         }
