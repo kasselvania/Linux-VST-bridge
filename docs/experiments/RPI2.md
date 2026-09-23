@@ -744,8 +744,9 @@ not add an installation or audio result for either new product.
 ## Reassembly and PiSugar power baseline
 
 On September 23 the operator confirmed a passive aluminium CPU heatsink,
-reconnected ShieldXL, and a PiSugar 3 Plus supplying the Pi with its charger
-connected. After a fresh boot, idle readings were 46.1–48.5°C, all four cores
+reconnected ShieldXL, and a PiSugar 3 Plus. The last reported supply condition
+was charger-connected; that condition was not independently verified during
+the first idle readings. After a fresh boot, idle readings were 46.1–48.5°C, all four cores
 were online, and the throttle register remained `0x0` (including historical
 bits for this boot). Two PMIC input-voltage readings were 5.04108 and 5.04242 V.
 PiSugar monitoring software was absent; battery charge, total power, battery-only
@@ -760,3 +761,34 @@ its mixer setup because the card was unavailable. SSH subsequently became
 unreachable during read-only checks. This is an unresolved hardware/bus bring-up
 failure; neither PiSugar causation nor a spontaneous power loss is established.
 No plug-in ran and no driver, power policy or boot configuration was changed.
+
+After the operator resolved connection issues and rebooted, ShieldXL and JACK
+were available again without an agent-side driver or boot configuration change.
+Idle temperature was 31.8°C, input voltage 5.04376 V, and throttle flags `0x0`.
+The first launch (`pigments-power-01`) refused the changed X-authority fingerprint
+before loading Pigments. The current, user-owned desktop session file was verified
+and only its pinned fingerprint in the private appliance configuration refreshed;
+the previous configuration was retained privately. No binary was rebuilt.
+
+The retry (`pigments-power-02`) restored the previously saved 365,534-byte
+Altered Alter Boy state, set master to 0.45 (readback 0.44999998807907104), and
+captured five seconds of finite, nonzero stereo audio with the editor unopened.
+Three MIDI events were delivered with no errors. Before/after counters remained
+at one gap / 3,584 missing frames, so the note-fixture interval added no gaps;
+the pre-existing startup gap remains. JACK xruns, process failures and callback
+deadline misses stayed at zero. The observer's 27 samples ranged from
+35.85–41.35°C and 5.01562–5.05046 V, with throttle flags always `0x0`.
+
+**The operator subsequently confirmed this successful test was strictly battery
+powered, with the charger disconnected.** Supply-mode provenance is the operator's
+physical observation; voltage and throttle readings alone do not distinguish
+battery from charger power. The disconnect time was not logged. This establishes
+one short real-plug-in battery-powered run, not battery endurance, a measured
+power budget, sustained capacity, or charger switchover behavior.
+
+The session reached readiness after 40.16 seconds and exited cleanly after
+62.30 seconds, following an intentional quit after the capture. The Pi remained
+reachable, its audio server remained running, and no experiment units or session
+directories remained. Private `power-note.json`, `run.json`, `note.log` and the
+audio capture retain the underlying observations. The earlier boot's I²C fault
+has not been causally explained by this successful retry.
