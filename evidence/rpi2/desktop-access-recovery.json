@@ -27,7 +27,8 @@
     "rfb_input_sent_by_probe": false,
     "desktop_process_identity_unchanged": true,
     "mac_screen_sharing_client_open_requested": true,
-    "operator_visible_desktop_confirmed": false
+    "operator_visible_desktop_confirmed": true,
+    "operator_confirmation": "Yes, the desktop is visible"
   },
   "asc_relaunch": {
     "label": "asc-ge-02",

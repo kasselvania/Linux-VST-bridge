@@ -499,7 +499,7 @@ An authentication-only RFB handshake through the restored tunnel succeeded;
 it requested no framebuffer and sent no input. The desktop server retained its
 process identity. The ordinary Mac Screen Sharing client was opened for the
 operator, with the password on their clipboard and a Keychain-backed copy
-shortcut retained locally. Operator-visible desktop confirmation remains pending.
+shortcut retained locally. The operator confirmed: "Yes, the desktop is visible."
 
 ASC was relaunched as `asc-ge-02` at 03:49:48 UTC on September 23 with the same
 runtime, copied environment, verified launcher/guard and five-minute limit.
