@@ -237,6 +237,71 @@ the audio session, so switchover during processing was not tested. Different
 initial conditions do not establish a thermal advantage of battery power.
 Sanitized results are in `evidence/rpi2/fragments-battery.json`.
 
+## Reusable ShieldXL control surface
+
+The optional `surface` object in the pinned plugin binding maps physical controls
+to selected VST3 parameters. The operator selected:
+
+| ShieldXL control | Fragments action |
+| --- | --- |
+| Button 1 | Save the current plugin state |
+| Button 2 | Toggle Freeze (parameter 8) |
+| Encoder 2 | Grain Mix (parameter 1) |
+| Encoder 3 | Density (parameter 23) |
+
+Encoder 1 and button 3 are unassigned. Encoder steps are 0.01 of the normalized
+parameter range. The display's Density percentage is normalized knob position,
+not a claim about grain frequency in Hz or Density's selected synchronization
+mode. The same mapping model can select different parameter IDs and step sizes
+for another plugin; its exact module/class and parameter metadata still require
+their own binding.
+
+The native Rust control loop reads ShieldXL's stable evdev aliases and claims
+them exclusively while the session runs. It coalesces changes while waiting for
+controller readback, ignores button repeats/releases for toggle and save actions,
+and displays confirmed values rather than optimistic knob targets. A pending
+change has an asterisk. Missing confirmation disables further physical changes
+and shows a control timeout; display-service failure does not stop audio.
+
+JACK's callback is unchanged. Device reads, state filesystem work and model
+updates occur outside it. A separate display worker receives a bounded stream
+at no more than five updates per second. The small fixture-service patch
+`rpi2/shieldxl-oled-lines.patch` adds six bounded ASCII text lines to the existing
+OLED service. The operator installed it with local administrator authentication;
+no credentials or computer-control interaction were used.
+
+Button 1 saves only after outstanding control changes are confirmed. State
+payloads remain private, with an atomic current pointer in a directory scoped to
+the exact module hash and class. A surface-enabled fresh process restores that
+slot before opening the physical controls. The display reports SAVED only after
+the filesystem write succeeds. A missing slot means first use; corrupt state is
+refused, not silently replaced. This is an appliance state slot, not a DAW project
+or vendor preset-browser implementation.
+
+The setup work exposed a refresh-request bug: the native caller sent a zero
+change mask, so the existing Windows host could lose an overlapping refresh when
+it ORed that mask into its pending request. The native caller now requests
+`kParamValuesChanged` and issues a refresh after explicit state restore. The
+existing Windows host is unchanged. The mask follows the
+[official VST3 interface definition](https://github.com/steinbergmedia/vst3_pluginterfaces/blob/master/vst/ivsteditcontroller.h).
+
+The implementation is installed, but hands-on acceptance is **pending**. The
+final setup run restored and reported all three selected parameters, then routed
+physical stereo audio for 210.72 seconds with the surface enabled. It observed
+no knob or button events before its timed stop, so it did not exercise button
+save or saved-slot restart recall. No physical display confirmation was received.
+Two bridge gaps totaling 1,792 missing frames occurred before any physical control
+input; JACK xruns, callback deadline misses and process failures stayed zero.
+Audio-interval temperature was 42.45–46.3°C with no throttle flags. The gap cause
+is unestablished. The host closed cleanly and restored the JACK graph.
+
+Twenty-three library tests passed, including parameter-confirmation, button-edge,
+save-ordering and private-state corruption checks. Four focused panel tests also
+passed after adding the overlapping-readback regression. Native builds took
+20.84 and 16.82 seconds. The OLED fixture accepted a valid six-line frame in its
+renderer test and refused oversized/non-ASCII requests. Setup failures and the
+pending physical checks are recorded in `evidence/rpi2/shieldxl-control-surface.json`.
+
 ## Remaining work
 
 Analog Lab Pro is staged but has not been installed, activated or tested.

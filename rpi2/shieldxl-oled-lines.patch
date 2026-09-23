@@ -1,0 +1,20 @@
+--- oled_service.py
++++ oled_service.py
+@@ -187,6 +187,16 @@
+ def render_request(frame: Frame, request: dict) -> None:
+     operation = request.get("op")
+-    if operation == "clear":
++    if operation == "lines":
++        lines = request.get("lines")
++        if not isinstance(lines, list) or len(lines) > 6:
++            raise ValueError("lines must be a list of at most six strings")
++        if any(not isinstance(line, str) or len(line) > 21 or
++               any(ord(c) < 32 or ord(c) > 126 for c in line) for line in lines):
++            raise ValueError("each line must contain at most 21 printable ASCII characters")
++        frame.clear()
++        for row, line in enumerate(lines):
++            frame.text(0, row * 10, line)
++    elif operation == "clear":
+         frame.clear()
+     elif operation == "fill":
+         frame.clear(int(request.get("gray", 15)))

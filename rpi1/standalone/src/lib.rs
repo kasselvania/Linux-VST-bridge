@@ -12,3 +12,9 @@ pub mod supervisor;
 
 const _: () = assert!(cfg!(target_endian = "little"));
 const _: () = assert!(cfg!(target_pointer_width = "64"));
+
+pub mod panel;
+#[cfg(target_os = "linux")]
+pub mod panel_linux;
+#[cfg(unix)]
+pub mod panel_state;

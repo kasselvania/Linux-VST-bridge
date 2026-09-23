@@ -20,6 +20,7 @@ pub struct Binding {
     pub zero_event_channels_unspecified: bool,
     pub legacy_master: bool,
     pub controls: Vec<Control>,
+    pub surface: Option<crate::panel::Surface>,
 }
 
 impl Binding {
@@ -32,6 +33,7 @@ impl Binding {
             zero_event_channels_unspecified: true,
             legacy_master: true,
             controls: Vec::new(),
+            surface: None,
         }
     }
 
@@ -63,7 +65,7 @@ impl Binding {
             "controls",
             "zero_event_channels_unspecified",
         ];
-        if object.len() != keys.len()
+        if object.len() != keys.len() + usize::from(object.contains_key("surface"))
             || keys.iter().any(|k| !object.contains_key(*k))
             || value["schema"] != "lvb-arm-plugin-binding/v1"
             || hex32(
@@ -194,6 +196,10 @@ impl Binding {
                 units: units.into(),
             });
         }
+        let surface = value
+            .get("surface")
+            .map(|v| crate::panel::Surface::parse(v, &controls))
+            .transpose()?;
         Ok(Self {
             class,
             buses,
@@ -202,6 +208,7 @@ impl Binding {
             zero_event_channels_unspecified,
             legacy_master: false,
             controls,
+            surface,
         })
     }
 

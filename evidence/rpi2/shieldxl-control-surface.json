@@ -1,0 +1,140 @@
+{
+  "observed_date": "2026-09-23",
+  "source_base_commit": "bc5b4a69b29ce0d5d0b1584eca4e4e7ffea4d72c",
+  "scope": "Reusable ShieldXL physical-control implementation; hands-on acceptance still pending",
+  "fixture": "Pi 5 / ShieldXL / passive aluminium heatsink / PiSugar 3 Plus external USB-C reconnected by operator",
+  "plugin": "Windows Efx FRAGMENTS 1.3.1.6566 under GE-Proton11-7 AArch64 and ARM Wine/FEX",
+  "mapping": {
+    "button_1": "save",
+    "button_2": "Freeze parameter 8",
+    "encoder_2": "Grain Mix parameter 1",
+    "encoder_3": "Density parameter 23",
+    "encoder_1": "unassigned",
+    "button_3": "unassigned"
+  },
+  "validation": {
+    "library_tests_passed": 23,
+    "subsequent_panel_regression_tests_passed": 4,
+    "oled_valid_frame_and_invalid_request_checks": "passed",
+    "native_first_build_seconds": 20.84,
+    "native_refresh_fix_build_seconds": 16.82,
+    "windows_host_rebuilt": false,
+    "physical_knobs_buttons_passed": false,
+    "physical_display_confirmed": false,
+    "physical_save_restart_confirmed": false
+  },
+  "setup_notes": [
+    "First launch preceded config creation after administrator installation was blocked; exited before plugin launch.",
+    "Second run restored state but the setup reader waited for a duplicate snapshot; no audio route was connected.",
+    "Third run exposed absent automatic post-restore refresh; no audio route was connected.",
+    "Native refresh calls now use VST3 kParamValuesChanged, preserving a pending request during an existing snapshot, and explicit restore requests refreshed values.",
+    "Final run completed restored readback and physical audio routing; no physical control events were observed before the timed stop."
+  ],
+  "result": {
+    "host_sha256": "9d0a611d7175b05e398f484d9217fb29b7004f3e0eaac76acd6ad00a541bd1da",
+    "binding_sha256": "1153b7171fe62c115dfd4fe84ba9d98d32a59c536ea7ff1d98bd62f1fee9f96d",
+    "oled_service_sha256": "04753cd60248691ae6bc8aff35f76f480301e1eaab6fd03e2f735917d7c43d1a",
+    "oled_previous_sha256": "bf1b557f145ed9c07dece0966c021b7b1f05319cc72e59854c8a2446445dcb7f",
+    "initial_readback": [
+      "RPI1_PARAMETER_READBACK id=1 normalized=1.00000000000000000 revision=2",
+      "RPI1_PARAMETER_READBACK id=8 normalized=0.00000000000000000 revision=2",
+      "RPI1_PARAMETER_READBACK id=23 normalized=0.52842634916305542 revision=2"
+    ],
+    "elapsed_audio_seconds": 210.72,
+    "audio_interval_thermal": {
+      "sample_count": 209,
+      "temperature_min_c": 42.45,
+      "temperature_max_c": 46.3,
+      "throttled_values": [
+        0
+      ]
+    },
+    "before": {
+      "output_nonfinite": 0,
+      "xruns": 0,
+      "process_failures": 0,
+      "failures": 0,
+      "deadline_misses": 0,
+      "callback_ns_max": 40592,
+      "missing_frames": 0,
+      "gaps": 0,
+      "delivered_frames": 8192,
+      "paused_frames": 110080,
+      "memory_peak": 447930368
+    },
+    "after": {
+      "output_nonfinite": 0,
+      "xruns": 0,
+      "process_failures": 0,
+      "failures": 0,
+      "deadline_misses": 0,
+      "callback_ns_max": 76684,
+      "missing_frames": 1792,
+      "gaps": 2,
+      "delivered_frames": 10137344,
+      "paused_frames": 110080,
+      "memory_peak": 447930368
+    },
+    "physical_event_count": 0,
+    "physical_save_count": 0,
+    "session": {
+      "exit_code": 0,
+      "ready_seconds": 26.15667330999986,
+      "elapsed_seconds": 247.64126234200012,
+      "clean_shutdown": true,
+      "thermal": {
+        "sample_count": 245,
+        "temperature_min_c": 41.35,
+        "temperature_max_c": 47.4,
+        "throttled_values": [
+          0
+        ]
+      }
+    },
+    "remaining_session_directories": 0,
+    "remaining_experiments": 0,
+    "jack_graph_restored": true,
+    "setup_attempts": [
+      {
+        "label": "fragments-panel-01",
+        "ready": false,
+        "exit_code": 1,
+        "clean_shutdown": false,
+        "elapsed_seconds": 1.002678620999177
+      },
+      {
+        "label": "fragments-panel-02",
+        "ready": true,
+        "exit_code": 0,
+        "clean_shutdown": true,
+        "elapsed_seconds": 73.60354144699977
+      },
+      {
+        "label": "fragments-panel-03",
+        "ready": true,
+        "exit_code": 0,
+        "clean_shutdown": true,
+        "elapsed_seconds": 45.14083212700007
+      }
+    ],
+    "counter_deltas": {
+      "xruns": 0,
+      "process_failures": 0,
+      "output_nonfinite": 0,
+      "missing_frames": 1792,
+      "gaps": 2,
+      "deadline_misses": 0,
+      "failures": 0,
+      "paused_frames": 0
+    }
+  },
+  "next_acceptance": "Operator turns encoders 2 and 3, toggles button 2, confirms OLED and audible changes, presses button 1 to save, then verifies values and sound after a fresh process.",
+  "nonclaims": [
+    "No physical-control or visual acceptance without operator confirmation.",
+    "Two bridge gaps were observed before any physical control events. This does not establish their cause.",
+    "Private state-slot storage passed a synthetic filesystem test; actual plugin button-save and automatic restart recall remain unverified.",
+    "Displayed continuous values are normalized positions, not vendor-formatted engineering units.",
+    "Battery percentage, charging state and power consumption are not implemented in this display."
+  ],
+  "privacy": "No audio, state payloads, licensing material, credentials, or proprietary binaries exported."
+}

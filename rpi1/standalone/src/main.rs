@@ -23,6 +23,9 @@ mod appliance {
         config::{hex, Config},
         contract::{handshake, host_arguments},
         master,
+        panel::{Action as PanelAction, Model as PanelModel},
+        panel_linux::Hardware as PanelHardware,
+        panel_state,
         retirement::RetirementStatus,
         supervisor::{read_journal, Cohort},
     };
@@ -141,14 +144,7 @@ mod appliance {
         println!(
             "Commands: open | close | save /absolute/path | restore /absolute/path | master [normalized] | parameter id [normalized] | status | mark | quit"
         );
-        let result = command_loop(
-            &instance,
-            &control,
-            &cohort,
-            &mut jack,
-            &phase,
-            &config.binding,
-        );
+        let result = command_loop(&instance, &control, &cohort, &mut jack, &phase, &config);
 
         let jack_frames = jack.buffer_size();
         let deactivate = jack.deactivate();
@@ -280,10 +276,41 @@ mod appliance {
         cohort: &Cohort,
         jack: &mut Client,
         phase: &PhaseCapture,
-        binding: &lvb_arm_pigments_standalone::binding::Binding,
+        config: &Config,
     ) -> io::Result<()> {
+        let binding = &config.binding;
+        let state_directory = config.environment_root.join(format!(
+            "panel-state-{}-{}",
+            hex(&config.plugin.sha256),
+            hex(&binding.class)
+        ));
+        let mut restored = false;
+        if binding.surface.is_some() {
+            if let Some(state) = panel_state::load(&state_directory, STATE_CAPACITY)? {
+                restore_payload(instance, jack, &state)?;
+                restored = true;
+                println!("RPI2_PANEL_RESTORED bytes={}", state.len());
+            }
+        }
+        let mut panel = binding
+            .surface
+            .clone()
+            .map(|surface| {
+                Ok::<_, io::Error>((
+                    PanelModel::new(surface, &binding.controls),
+                    PanelHardware::open()?,
+                ))
+            })
+            .transpose()?;
         let generation = instance.gui_generation()?;
         instance.gui_capabilities(generation, 7)?;
+        if let Some((model, _)) = &mut panel {
+            request_parameter_snapshot(instance, generation)?;
+            if restored {
+                model.status = "RESTORED".into();
+            }
+            println!("RPI2_PANEL_READY controls=shieldxl state_slot=private");
+        }
         let (sender, receiver) = mpsc::channel();
         thread::spawn(move || {
             let input = io::stdin();
@@ -306,7 +333,51 @@ mod appliance {
                 &mut view_epoch,
                 phase,
                 binding,
+                &mut panel,
             )?;
+            if let Some((model, hardware)) = &mut panel {
+                if !model.faulted {
+                    if let Err(error) = hardware.poll(model) {
+                        model.faulted = true;
+                        model.status = "INPUT ERROR".into();
+                        eprintln!("RPI2_PANEL_INPUT_ERROR {error}");
+                    }
+                }
+                for action in model.actions(Instant::now()) {
+                    match action {
+                        PanelAction::Set(id, value) => {
+                            if let Err(error) =
+                                set_parameter(instance, generation, control, id, value)
+                            {
+                                model.faulted = true;
+                                model.status = "CONTROL ERROR".into();
+                                eprintln!("RPI2_PANEL_CONTROL_ERROR {error}");
+                            } else {
+                                println!("RPI2_PANEL_SET id={id} normalized={value:.17}");
+                            }
+                        }
+                        PanelAction::Save => {
+                            let result = (|| {
+                                let mut state = vec![0; STATE_CAPACITY];
+                                let count = instance.capture_state(&mut state)?;
+                                panel_state::save(&state_directory, &state[..count])?;
+                                Ok::<_, io::Error>(count)
+                            })();
+                            match result {
+                                Ok(count) => {
+                                    model.status = "SAVED".into();
+                                    println!("RPI2_PANEL_SAVED bytes={count}");
+                                }
+                                Err(error) => {
+                                    model.status = "SAVE FAILED".into();
+                                    eprintln!("RPI2_PANEL_SAVE_ERROR {error}");
+                                }
+                            }
+                        }
+                    }
+                }
+                hardware.update_display(model);
+            }
             match receiver.recv_timeout(Duration::from_millis(5)) {
                 Ok(line) => {
                     let line = line.trim();
@@ -347,25 +418,11 @@ mod appliance {
                         binding.control(id)?;
                         if let Some(text) = words.get(1) {
                             let value = master::normalized(text)?;
-                            control
-                                .parameters
-                                .push(ParameterUpdate { id, value })
-                                .map_err(|_| invalid("parameter queue full"))?;
-                            let mut set = Message {
-                                kind: 3,
-                                id,
-                                value,
-                                ..Message::default()
-                            };
-                            instance.gui_command(generation, &mut set)?;
+                            set_parameter(instance, generation, control, id, value)?;
                             println!("RPI1_PARAMETER_QUEUED id={id} normalized={value:.17}");
+                        } else {
+                            request_parameter_snapshot(instance, generation)?;
                         }
-                        let mut refresh = Message {
-                            kind: 4,
-                            id,
-                            ..Message::default()
-                        };
-                        instance.gui_command(generation, &mut refresh)?;
                     } else if line == "master" || line.starts_with("master ") {
                         if !binding.legacy_master {
                             return Err(invalid("master command requires the Pigments binding"));
@@ -428,14 +485,8 @@ mod appliance {
                     } else if let Some(path) = line.strip_prefix("restore ") {
                         let path = absolute_state_path(path)?;
                         let state = fs::read(path)?;
-                        let mut output = vec![0; STATE_CAPACITY];
-                        jack.pause_processing()?;
-                        instance.stop()?;
-                        instance.deactivate()?;
-                        let count = instance.restore_state(&state, &mut output)?;
-                        instance.activate(256)?;
-                        instance.start()?;
-                        jack.resume_processing();
+                        let count = restore_payload(instance, jack, &state)?;
+                        request_parameter_snapshot(instance, generation)?;
                         println!("RPI1_STATE_RESTORED bytes={count}");
                     } else if !line.is_empty() {
                         return Err(invalid("unknown command"));
@@ -447,6 +498,54 @@ mod appliance {
         }
     }
 
+    fn request_parameter_snapshot(instance: &Instance, generation: u64) -> io::Result<()> {
+        instance.gui_command(
+            generation,
+            &mut Message {
+                kind: 4,
+                // VST3 kParamValuesChanged. A zero mask cannot retain a refresh
+                // requested while EditorSession is publishing an earlier snapshot.
+                flags: 1 << 2,
+                ..Message::default()
+            },
+        )
+    }
+
+    fn set_parameter(
+        instance: &Instance,
+        generation: u64,
+        control: &Control,
+        id: u32,
+        value: f64,
+    ) -> io::Result<()> {
+        control
+            .parameters
+            .push(ParameterUpdate { id, value })
+            .map_err(|_| invalid("parameter queue full"))?;
+        instance.gui_command(
+            generation,
+            &mut Message {
+                kind: 3,
+                id,
+                value,
+                ..Message::default()
+            },
+        )?;
+        request_parameter_snapshot(instance, generation)
+    }
+
+    fn restore_payload(instance: &Instance, jack: &mut Client, state: &[u8]) -> io::Result<usize> {
+        let mut output = vec![0; STATE_CAPACITY];
+        jack.pause_processing()?;
+        instance.stop()?;
+        instance.deactivate()?;
+        let count = instance.restore_state(state, &mut output)?;
+        instance.activate(256)?;
+        instance.start()?;
+        jack.resume_processing();
+        Ok(count)
+    }
+
     fn drain_gui(
         instance: &Instance,
         generation: u64,
@@ -454,6 +553,7 @@ mod appliance {
         view_epoch: &mut u32,
         phase: &PhaseCapture,
         binding: &lvb_arm_pigments_standalone::binding::Binding,
+        panel: &mut Option<(PanelModel, PanelHardware)>,
     ) -> io::Result<()> {
         for _ in 0..128 {
             let mut message = Message::default();
@@ -470,6 +570,9 @@ mod appliance {
             }
             if message.kind == 110 && binding.controls.iter().any(|p| p.id == message.id) {
                 let value = binding.readback(&message)?;
+                if let Some((model, _)) = panel {
+                    model.readback(message.id, value);
+                }
                 println!(
                     "RPI1_PARAMETER_READBACK id={} normalized={value:.17} revision={}",
                     message.id, message.revision
