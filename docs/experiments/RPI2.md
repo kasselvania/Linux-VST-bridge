@@ -637,12 +637,59 @@ was added. Sanitized counters, audio summaries, phase markers, identities and
 cleanup are in
 [`pigments-audio-presets.json`](../../evidence/rpi2/pigments-audio-presets.json).
 
-After the active heatsink is installed, reuse Altered Alter Boy, volume and note
+The planned active-cooling follow-up was to reuse Altered Alter Boy, volume and note
 sequence, first without opening the editor and then with it open, at comparable
 starting temperatures. Only then increase held notes to characterize polyphonic
 capacity. Heat, editor startup, save/recall, preset selection and ShieldXL control
 ownership remain distinct questions. A general runtime performance win has not
 been established.
+
+### Active cooling: first battery-powered chord sequence
+
+After fitting a fan, the operator found that cooler clearance prevented proper
+GPIO seating. That boot had no ShieldXL audio card: CS4270 reported four I2C
+lost-arbitration messages and probe error -11, and JACK could not start. No
+Pigments test ran. The operator subsequently removed U2, reporting damaged pads,
+to gain clearance. Upstream identifies U2 as the HCPL-0631 MIDI-input optocoupler;
+the CS4270 audio codec is U1. Physical TRS MIDI input is excluded from this fixture.
+
+On the next boot, ShieldXL audio and JACK were available, all six control devices
+were registered, and the operator saw the display. Idle temperature was 24.85°C
+with no throttle flags. The operator reported battery-only PiSugar power and a
+running fan. Control-device registration is not a post-modification physical
+knob/button test, and the successful audio check does not establish that every
+damaged trace is healthy.
+
+Session `pigments-cooled-01` reused the installed Pigments native and Windows
+hosts without rebuilding. Only the private X-session fingerprint was refreshed
+after verifying the current user-owned session; the previous config was retained.
+The host restored the same 365,534-byte Altered Alter Boy state, confirmed master
+0.45, and retained 48 kHz / 512-frame JACK / 256-frame Windows blocks / 2,048-frame
+reserve. The vendor editor was never opened.
+
+| Check | Audio duration | Temperature during fixture | Added gaps / JACK xruns |
+| --- | --- | --- | --- |
+| Single-note repeat | 5 s | 29.8–31.45°C | 0 / 0 |
+| 1, 2, 4, 6, 8 held MIDI keys | 30 s | 29.25–35.85°C | 0 / 0 |
+
+The chord fixture holds each chord for three seconds within a six-second window,
+then sends note-offs and CC123. All 47 chord-sequence MIDI messages arrived without
+errors, both channels produced finite audio, and the operator reported it was
+clean throughout, including the larger chords. Both intervals added zero missing
+or paused frames, process failures or callback deadline misses. The whole session
+peaked at 35.85°C with no throttle flags. Sampled Pi input voltage during the chord
+fixture was 4.97274–5.0384 V; that is not a battery-current or endurance measurement.
+
+One 1,536-frame startup gap preceded the intervals and remains unresolved.
+Readiness took 43.23 seconds; the session closed cleanly after 130.47 seconds,
+left no new session directories or experiment units, and restored the JACK graph.
+The Pi remained powered on. Audio and state stayed private; sanitized observations
+are in `evidence/rpi2/pigments-active-cooling.json`.
+
+This establishes a short, fan-cooled battery workload with larger chords and
+operator-confirmed sound. It does not establish sustained eight-voice capacity,
+maximum polyphony, editor-open behavior, or an isolated causal comparison of the
+cooler. The editor-open repeat from the original follow-up plan remains undone.
 
 ## What ran
 
