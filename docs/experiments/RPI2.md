@@ -1080,3 +1080,51 @@ process, not a cold boot or flushed cache; it restored state rather than using
 the original sweep's browser navigation. The operator's prior starting state
 was restored before shutdown. See
 `evidence/rpi2/pigments-24am-first-repeat.json` for retained measurements.
+
+### 24 AM warm-up and editor closed/open/closed comparison
+
+`24am-editor-01` restored the same Poly 4 state once at master 0.35, ran a
+four-key warm-up, then repeated the same 12-second hold with the editor closed,
+open, and closed again. There was no intervening preset restore. The previous
+clean warm repeat did **not** reproduce: every recorded seconds 3–14 held window
+was exactly silent, including both headless passes. Warming up is not an
+established remedy, and this sequence did not provide a clean audio baseline.
+
+| Condition | Average whole-Pi CPU | Audio worker, one-core CPU | Missing frames added | Peak temperature |
+| --- | ---: | ---: | ---: | ---: |
+| Warm-up | 39.37% | 85.26% | 697,088 | 53.45 C |
+| Closed before | 39.84% | 83.47% | 622,848 | 54.00 C |
+| Editor open | 55.90% | 94.82% | 1,027,840 | 56.75 C |
+| Closed after | 36.16% | 84.93% | 790,016 | 56.20 C |
+
+Each pass accepted nine MIDI events and reported zero processing failures and
+JACK xruns, despite substantial missing output. The host remained alive and its
+processed-block counter advanced. All recordings were finite and below full
+scale. Status intervals include observer setup/teardown around each 20-second
+capture, so their missing-frame totals are not exact silence durations inside
+the recordings. Closing the editor does not reset accumulated work; the final
+pass can carry backlog from the open pass. Request-queue high water rose from
+117 to 1,163 during the open trial. These are queue entries, not audio frames.
+
+The operator saw approximately 65% on Pigments' meter at rest and over 100%
+with cutoff during the **automated four-note chord**, clarifying that this was
+not a separate one-note test. The meter's denominator remains unestablished.
+The `lvb-audio` thread is the Windows worker that calls the VST3 processor, but
+its CPU time also includes bridge work; these observations do not isolate DSP
+from translation, polling, copying, or synchronization costs.
+
+Read-only process inspection found OpenGL/GLX Mesa libraries and a V3D render
+device in the Windows host after opening the editor. Its GPU render counter
+advanced by 8.414 seconds around the open trial and 0.371 seconds around the
+final closed trial. This establishes actual host GPU activity, beyond the desktop's
+accelerated V3D capability. It does not establish that every part of the editor
+is GPU-rendered. Xtigervnc separately consumed 23.85% of one core during the
+open trial, versus 0% before and 0.63% after. The open condition includes both
+editor and remote-desktop costs.
+
+The 175.39-second session peaked at 57.3 C with no throttle flags, restored
+8-Bit Crystals and the exact prior master value, and shut down cleanly with the
+baseline JACK graph. No binary changed. Power source was not reverified. The
+next useful investigation is time spent inside processing versus the worker's
+other work and queue recovery, rather than attributing this run to heat or
+graphics alone. See `evidence/rpi2/pigments-24am-editor-comparison.json`.

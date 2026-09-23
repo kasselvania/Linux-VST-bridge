@@ -1,0 +1,1513 @@
+{
+  "preset": "24 AM",
+  "notes": [
+    60,
+    64,
+    67,
+    71
+  ],
+  "velocity": 96,
+  "hold_seconds": 12,
+  "capture_seconds": 20,
+  "passes": [
+    {
+      "name": "warmup",
+      "samples": [
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 0.014
+        },
+        {
+          "temperature_c": 49.6,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 1.028
+        },
+        {
+          "temperature_c": 49.6,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 2.042
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400017408,
+          "seconds": 3.057
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 1800028544,
+          "seconds": 4.072
+        },
+        {
+          "temperature_c": 51.25,
+          "throttled": 0,
+          "arm_clock_hz": 2400017408,
+          "seconds": 5.087
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 6.101
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 7.115
+        },
+        {
+          "temperature_c": 52.9,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 8.129
+        },
+        {
+          "temperature_c": 51.25,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 9.144
+        },
+        {
+          "temperature_c": 51.25,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 10.158
+        },
+        {
+          "temperature_c": 51.25,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 11.172
+        },
+        {
+          "temperature_c": 53.45,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 12.187
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 13.201
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400017408,
+          "seconds": 14.215
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 15.23
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 16.244
+        },
+        {
+          "temperature_c": 51.25,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 17.258
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 18.272
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 19.286
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 20.3
+        }
+      ],
+      "master": [
+        "RPI1_PARAMETER_READBACK id=0 normalized=0.34999996423721313 revision=2"
+      ],
+      "before": {
+        "midi_accepted": 0,
+        "output_nonzero_l": 0,
+        "output_nonzero_r": 0,
+        "output_peak_l": 0,
+        "output_peak_r": 0,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 2993,
+        "request_high": 13,
+        "result_high": 10,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 1582,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 57981,
+        "missing_frames": 5632,
+        "gaps": 5,
+        "delivered_frames": 756736,
+        "paused_frames": 43520,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "graphics_before": [
+        {
+          "process": "wf0-factory-pro",
+          "libraries": [],
+          "dri": []
+        },
+        {
+          "process": "explorer.exe",
+          "libraries": [
+            "libGL.so.1.7.0",
+            "libGLX.so.0.0.0",
+            "libGLX_mesa.so.0.0.0",
+            "libGLdispatch.so.0.0.0",
+            "libgallium-26.2.2-1~bpo13+0~rpt1.so",
+            "libvulkan.so.1.4.309"
+          ],
+          "dri": [
+            {
+              "device": "/dev/dri/renderD128",
+              "counters": [
+                "drm-driver:\tv3d",
+                "drm-engine-bin: \t0 ns",
+                "drm-engine-render: \t0 ns",
+                "drm-engine-tfu: \t0 ns",
+                "drm-engine-csd: \t0 ns",
+                "drm-engine-cache_clean: \t0 ns",
+                "drm-engine-cpu: \t0 ns",
+                "drm-total-memory:\t8 KiB",
+                "drm-shared-memory:\t0",
+                "drm-resident-memory:\t8 KiB"
+              ]
+            }
+          ]
+        }
+      ],
+      "fixture_exit": 0,
+      "elapsed_seconds": 21.300217563999922,
+      "vnc_one_core_percent": 0.05,
+      "graphics_after": [
+        {
+          "process": "wf0-factory-pro",
+          "libraries": [],
+          "dri": []
+        },
+        {
+          "process": "explorer.exe",
+          "libraries": [
+            "libGL.so.1.7.0",
+            "libGLX.so.0.0.0",
+            "libGLX_mesa.so.0.0.0",
+            "libGLdispatch.so.0.0.0",
+            "libgallium-26.2.2-1~bpo13+0~rpt1.so",
+            "libvulkan.so.1.4.309"
+          ],
+          "dri": [
+            {
+              "device": "/dev/dri/renderD128",
+              "counters": [
+                "drm-driver:\tv3d",
+                "drm-engine-bin: \t0 ns",
+                "drm-engine-render: \t0 ns",
+                "drm-engine-tfu: \t0 ns",
+                "drm-engine-csd: \t0 ns",
+                "drm-engine-cache_clean: \t0 ns",
+                "drm-engine-cpu: \t0 ns",
+                "drm-total-memory:\t8 KiB",
+                "drm-shared-memory:\t0",
+                "drm-resident-memory:\t8 KiB"
+              ]
+            }
+          ]
+        }
+      ],
+      "cpu_core_busy_percent": {
+        "cpu0": 42.97,
+        "cpu1": 46.94,
+        "cpu2": 49.24,
+        "cpu3": 18.33
+      },
+      "hottest_surviving_threads": [
+        {
+          "name": "lvb-audio",
+          "one_core_percent": 85.26
+        },
+        {
+          "name": "Processing Thre",
+          "one_core_percent": 29.48
+        },
+        {
+          "name": "ArturiaSoftware",
+          "one_core_percent": 12.72
+        },
+        {
+          "name": "wf0-factory-pro",
+          "one_core_percent": 2.07
+        },
+        {
+          "name": "winedevice.exe",
+          "one_core_percent": 1.74
+        }
+      ],
+      "after": {
+        "midi_accepted": 9,
+        "output_nonzero_l": 228352,
+        "output_nonzero_r": 228352,
+        "output_peak_l": 4.362311e-06,
+        "output_peak_r": 3.2901019e-06,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 7070,
+        "request_high": 117,
+        "result_high": 10,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 3620,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 71999,
+        "missing_frames": 702720,
+        "gaps": 6,
+        "delivered_frames": 1103104,
+        "paused_frames": 43520,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "trial_delta": {
+        "midi_accepted": 9,
+        "missing_frames": 697088,
+        "gaps": 1,
+        "process_failures": 0,
+        "xruns": 0,
+        "deadline_misses": 0
+      },
+      "average_whole_pi_cpu_percent": 39.37,
+      "peak_temperature_c": 53.45,
+      "throttled_flags": [
+        0
+      ],
+      "recording": {
+        "frames": 960000,
+        "finite": true,
+        "peaks": [
+          4.362310846772743e-06,
+          3.290101858510752e-06
+        ],
+        "rms": [
+          1.8704667214885005e-07,
+          1.845230339898112e-07
+        ],
+        "full_scale_samples": 0,
+        "first_nonzero_seconds": 16.576,
+        "held_window_seconds": [
+          3,
+          14
+        ],
+        "held_stereo_zero_frames": 528000,
+        "held_window_rms": 0.0
+      },
+      "host_gpu_render_ns_delta": null
+    },
+    {
+      "name": "closed-before",
+      "samples": [
+        {
+          "temperature_c": 51.25,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 0.014
+        },
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 2400017408,
+          "seconds": 1.028
+        },
+        {
+          "temperature_c": 49.6,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 2.042
+        },
+        {
+          "temperature_c": 52.9,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 3.057
+        },
+        {
+          "temperature_c": 52.9,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 4.071
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 5.085
+        },
+        {
+          "temperature_c": 54.0,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 6.101
+        },
+        {
+          "temperature_c": 53.45,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 7.116
+        },
+        {
+          "temperature_c": 53.45,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 8.13
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 9.144
+        },
+        {
+          "temperature_c": 54.0,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 10.159
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400017408,
+          "seconds": 11.173
+        },
+        {
+          "temperature_c": 51.25,
+          "throttled": 0,
+          "arm_clock_hz": 2400037120,
+          "seconds": 12.187
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 13.202
+        },
+        {
+          "temperature_c": 52.9,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 14.216
+        },
+        {
+          "temperature_c": 52.9,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 15.23
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 16.244
+        },
+        {
+          "temperature_c": 51.25,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 17.258
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 18.272
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 19.286
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400017408,
+          "seconds": 20.3
+        }
+      ],
+      "master": [
+        "RPI1_PARAMETER_READBACK id=0 normalized=0.34999996423721313 revision=3"
+      ],
+      "before": {
+        "midi_accepted": 9,
+        "output_nonzero_l": 482816,
+        "output_nonzero_r": 482816,
+        "output_peak_l": 4.362311e-06,
+        "output_peak_r": 3.2901019e-06,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 8064,
+        "request_high": 117,
+        "result_high": 10,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 4117,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 71999,
+        "missing_frames": 702720,
+        "gaps": 6,
+        "delivered_frames": 1357568,
+        "paused_frames": 43520,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "graphics_before": [
+        {
+          "process": "wf0-factory-pro",
+          "libraries": [],
+          "dri": []
+        },
+        {
+          "process": "explorer.exe",
+          "libraries": [
+            "libGL.so.1.7.0",
+            "libGLX.so.0.0.0",
+            "libGLX_mesa.so.0.0.0",
+            "libGLdispatch.so.0.0.0",
+            "libgallium-26.2.2-1~bpo13+0~rpt1.so",
+            "libvulkan.so.1.4.309"
+          ],
+          "dri": [
+            {
+              "device": "/dev/dri/renderD128",
+              "counters": [
+                "drm-driver:\tv3d",
+                "drm-engine-bin: \t0 ns",
+                "drm-engine-render: \t0 ns",
+                "drm-engine-tfu: \t0 ns",
+                "drm-engine-csd: \t0 ns",
+                "drm-engine-cache_clean: \t0 ns",
+                "drm-engine-cpu: \t0 ns",
+                "drm-total-memory:\t8 KiB",
+                "drm-shared-memory:\t0",
+                "drm-resident-memory:\t8 KiB"
+              ]
+            }
+          ]
+        }
+      ],
+      "fixture_exit": 0,
+      "elapsed_seconds": 21.300133706999986,
+      "vnc_one_core_percent": 0.0,
+      "graphics_after": [
+        {
+          "process": "wf0-factory-pro",
+          "libraries": [],
+          "dri": []
+        },
+        {
+          "process": "explorer.exe",
+          "libraries": [
+            "libGL.so.1.7.0",
+            "libGLX.so.0.0.0",
+            "libGLX_mesa.so.0.0.0",
+            "libGLdispatch.so.0.0.0",
+            "libgallium-26.2.2-1~bpo13+0~rpt1.so",
+            "libvulkan.so.1.4.309"
+          ],
+          "dri": [
+            {
+              "device": "/dev/dri/renderD128",
+              "counters": [
+                "drm-driver:\tv3d",
+                "drm-engine-bin: \t0 ns",
+                "drm-engine-render: \t0 ns",
+                "drm-engine-tfu: \t0 ns",
+                "drm-engine-csd: \t0 ns",
+                "drm-engine-cache_clean: \t0 ns",
+                "drm-engine-cpu: \t0 ns",
+                "drm-total-memory:\t8 KiB",
+                "drm-shared-memory:\t0",
+                "drm-resident-memory:\t8 KiB"
+              ]
+            }
+          ]
+        }
+      ],
+      "cpu_core_busy_percent": {
+        "cpu0": 50.05,
+        "cpu1": 41.17,
+        "cpu2": 28.18,
+        "cpu3": 39.97
+      },
+      "hottest_surviving_threads": [
+        {
+          "name": "lvb-audio",
+          "one_core_percent": 83.47
+        },
+        {
+          "name": "Processing Thre",
+          "one_core_percent": 28.17
+        },
+        {
+          "name": "wf0-factory-pro",
+          "one_core_percent": 1.97
+        },
+        {
+          "name": "winedevice.exe",
+          "one_core_percent": 1.69
+        },
+        {
+          "name": "wf0-factory-pro",
+          "one_core_percent": 1.13
+        }
+      ],
+      "after": {
+        "midi_accepted": 18,
+        "output_nonzero_l": 902400,
+        "output_nonzero_r": 902400,
+        "output_peak_l": 0.042456258,
+        "output_peak_r": 0.04437883,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 12135,
+        "request_high": 117,
+        "result_high": 10,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 6153,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 71999,
+        "missing_frames": 1325568,
+        "gaps": 21,
+        "delivered_frames": 1777152,
+        "paused_frames": 43520,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "trial_delta": {
+        "midi_accepted": 9,
+        "missing_frames": 622848,
+        "gaps": 15,
+        "process_failures": 0,
+        "xruns": 0,
+        "deadline_misses": 0
+      },
+      "average_whole_pi_cpu_percent": 39.84,
+      "peak_temperature_c": 54.0,
+      "throttled_flags": [
+        0
+      ],
+      "recording": {
+        "frames": 960000,
+        "finite": true,
+        "peaks": [
+          0.042456258088350296,
+          0.04437882825732231
+        ],
+        "rms": [
+          0.001106593983229263,
+          0.0009437426775387131
+        ],
+        "full_scale_samples": 0,
+        "first_nonzero_seconds": 0.0,
+        "held_window_seconds": [
+          3,
+          14
+        ],
+        "held_stereo_zero_frames": 528000,
+        "held_window_rms": 0.0
+      },
+      "host_gpu_render_ns_delta": null
+    },
+    {
+      "name": "editor-open",
+      "samples": [
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 0.016
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 1.03
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 2.044
+        },
+        {
+          "temperature_c": 54.55,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 3.131
+        },
+        {
+          "temperature_c": 55.1,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 4.148
+        },
+        {
+          "temperature_c": 53.45,
+          "throttled": 0,
+          "arm_clock_hz": 2400017408,
+          "seconds": 5.165
+        },
+        {
+          "temperature_c": 53.45,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 6.182
+        },
+        {
+          "temperature_c": 55.1,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 7.197
+        },
+        {
+          "temperature_c": 54.55,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 8.213
+        },
+        {
+          "temperature_c": 55.1,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 9.228
+        },
+        {
+          "temperature_c": 55.1,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 10.244
+        },
+        {
+          "temperature_c": 55.65,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 11.261
+        },
+        {
+          "temperature_c": 55.65,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 12.276
+        },
+        {
+          "temperature_c": 55.1,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 13.292
+        },
+        {
+          "temperature_c": 55.1,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 14.309
+        },
+        {
+          "temperature_c": 54.55,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 15.326
+        },
+        {
+          "temperature_c": 55.65,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 16.342
+        },
+        {
+          "temperature_c": 54.55,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 17.359
+        },
+        {
+          "temperature_c": 56.75,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 18.374
+        },
+        {
+          "temperature_c": 55.65,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 19.388
+        },
+        {
+          "temperature_c": 56.2,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 20.403
+        },
+        {
+          "temperature_c": 55.65,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 21.419
+        },
+        {
+          "temperature_c": 55.1,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 22.433
+        }
+      ],
+      "master": [
+        "RPI1_PARAMETER_READBACK id=0 normalized=0.34999996423721313 revision=4"
+      ],
+      "before": {
+        "midi_accepted": 18,
+        "output_nonzero_l": 1967616,
+        "output_nonzero_r": 1967616,
+        "output_peak_l": 0.042456258,
+        "output_peak_r": 0.04437883,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 16330,
+        "request_high": 117,
+        "result_high": 10,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 8250,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 90867,
+        "missing_frames": 1334016,
+        "gaps": 23,
+        "delivered_frames": 2842368,
+        "paused_frames": 43520,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "graphics_before": [
+        {
+          "process": "wf0-factory-pro",
+          "libraries": [
+            "libGL.so.1.7.0",
+            "libGLX.so.0.0.0",
+            "libGLX_mesa.so.0.0.0",
+            "libGLdispatch.so.0.0.0",
+            "libgallium-26.2.2-1~bpo13+0~rpt1.so"
+          ],
+          "dri": [
+            {
+              "device": "/dev/dri/renderD128",
+              "counters": [
+                "drm-driver:\tv3d",
+                "drm-engine-bin: \t18069882 ns",
+                "drm-engine-render: \t241536039 ns",
+                "drm-engine-tfu: \t0 ns",
+                "drm-engine-csd: \t0 ns",
+                "drm-engine-cache_clean: \t0 ns",
+                "drm-engine-cpu: \t509208 ns",
+                "drm-total-memory:\t52764 KiB",
+                "drm-shared-memory:\t4012 KiB",
+                "drm-resident-memory:\t52764 KiB"
+              ]
+            }
+          ]
+        },
+        {
+          "process": "explorer.exe",
+          "libraries": [
+            "libGL.so.1.7.0",
+            "libGLX.so.0.0.0",
+            "libGLX_mesa.so.0.0.0",
+            "libGLdispatch.so.0.0.0",
+            "libgallium-26.2.2-1~bpo13+0~rpt1.so",
+            "libvulkan.so.1.4.309"
+          ],
+          "dri": [
+            {
+              "device": "/dev/dri/renderD128",
+              "counters": [
+                "drm-driver:\tv3d",
+                "drm-engine-bin: \t0 ns",
+                "drm-engine-render: \t0 ns",
+                "drm-engine-tfu: \t0 ns",
+                "drm-engine-csd: \t0 ns",
+                "drm-engine-cache_clean: \t0 ns",
+                "drm-engine-cpu: \t0 ns",
+                "drm-total-memory:\t8 KiB",
+                "drm-shared-memory:\t0",
+                "drm-resident-memory:\t8 KiB"
+              ]
+            }
+          ]
+        }
+      ],
+      "fixture_exit": 0,
+      "elapsed_seconds": 23.433310526999776,
+      "vnc_one_core_percent": 23.85,
+      "graphics_after": [
+        {
+          "process": "wf0-factory-pro",
+          "libraries": [
+            "libGL.so.1.7.0",
+            "libGLX.so.0.0.0",
+            "libGLX_mesa.so.0.0.0",
+            "libGLdispatch.so.0.0.0",
+            "libgallium-26.2.2-1~bpo13+0~rpt1.so"
+          ],
+          "dri": [
+            {
+              "device": "/dev/dri/renderD128",
+              "counters": [
+                "drm-driver:\tv3d",
+                "drm-engine-bin: \t693336713 ns",
+                "drm-engine-render: \t8655652130 ns",
+                "drm-engine-tfu: \t0 ns",
+                "drm-engine-csd: \t0 ns",
+                "drm-engine-cache_clean: \t0 ns",
+                "drm-engine-cpu: \t21490884 ns",
+                "drm-total-memory:\t54656 KiB",
+                "drm-shared-memory:\t4012 KiB",
+                "drm-resident-memory:\t54656 KiB"
+              ]
+            }
+          ]
+        },
+        {
+          "process": "explorer.exe",
+          "libraries": [
+            "libGL.so.1.7.0",
+            "libGLX.so.0.0.0",
+            "libGLX_mesa.so.0.0.0",
+            "libGLdispatch.so.0.0.0",
+            "libgallium-26.2.2-1~bpo13+0~rpt1.so",
+            "libvulkan.so.1.4.309"
+          ],
+          "dri": [
+            {
+              "device": "/dev/dri/renderD128",
+              "counters": [
+                "drm-driver:\tv3d",
+                "drm-engine-bin: \t0 ns",
+                "drm-engine-render: \t0 ns",
+                "drm-engine-tfu: \t0 ns",
+                "drm-engine-csd: \t0 ns",
+                "drm-engine-cache_clean: \t0 ns",
+                "drm-engine-cpu: \t0 ns",
+                "drm-total-memory:\t8 KiB",
+                "drm-shared-memory:\t0",
+                "drm-resident-memory:\t8 KiB"
+              ]
+            }
+          ]
+        }
+      ],
+      "cpu_core_busy_percent": {
+        "cpu0": 57.86,
+        "cpu1": 53.83,
+        "cpu2": 58.38,
+        "cpu3": 53.52
+      },
+      "hottest_surviving_threads": [
+        {
+          "name": "lvb-audio",
+          "one_core_percent": 94.82
+        },
+        {
+          "name": "Processing Thre",
+          "one_core_percent": 36.19
+        },
+        {
+          "name": "wf0-factory-pro",
+          "one_core_percent": 16.56
+        },
+        {
+          "name": "wf0-factory-pro",
+          "one_core_percent": 13.36
+        },
+        {
+          "name": "winedevice.exe",
+          "one_core_percent": 2.99
+        }
+      ],
+      "after": {
+        "midi_accepted": 27,
+        "output_nonzero_l": 2086144,
+        "output_nonzero_r": 2086144,
+        "output_peak_l": 0.042456258,
+        "output_peak_r": 0.04437883,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 19840,
+        "request_high": 1163,
+        "result_high": 10,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 10489,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 90867,
+        "missing_frames": 2361856,
+        "gaps": 24,
+        "delivered_frames": 2960896,
+        "paused_frames": 43520,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "trial_delta": {
+        "midi_accepted": 9,
+        "missing_frames": 1027840,
+        "gaps": 1,
+        "process_failures": 0,
+        "xruns": 0,
+        "deadline_misses": 0
+      },
+      "average_whole_pi_cpu_percent": 55.9,
+      "peak_temperature_c": 56.75,
+      "throttled_flags": [
+        0
+      ],
+      "recording": {
+        "frames": 960000,
+        "finite": true,
+        "peaks": [
+          6.825659363144721e-16,
+          1.6357918276825177e-15
+        ],
+        "rms": [
+          5.737050872916143e-18,
+          8.730399407793802e-18
+        ],
+        "full_scale_samples": 0,
+        "first_nonzero_seconds": 0.0,
+        "held_window_seconds": [
+          3,
+          14
+        ],
+        "held_stereo_zero_frames": 528000,
+        "held_window_rms": 0.0
+      },
+      "host_gpu_render_ns_delta": 8414116091
+    },
+    {
+      "name": "closed-after",
+      "samples": [
+        {
+          "temperature_c": 55.65,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 0.014
+        },
+        {
+          "temperature_c": 55.1,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 1.028
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 2.042
+        },
+        {
+          "temperature_c": 53.45,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 3.057
+        },
+        {
+          "temperature_c": 55.65,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 4.071
+        },
+        {
+          "temperature_c": 54.55,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 5.085
+        },
+        {
+          "temperature_c": 55.65,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 6.099
+        },
+        {
+          "temperature_c": 55.1,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 7.114
+        },
+        {
+          "temperature_c": 54.55,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 8.128
+        },
+        {
+          "temperature_c": 55.1,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 9.142
+        },
+        {
+          "temperature_c": 55.1,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 10.157
+        },
+        {
+          "temperature_c": 55.65,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 11.273
+        },
+        {
+          "temperature_c": 54.55,
+          "throttled": 0,
+          "arm_clock_hz": 2400037120,
+          "seconds": 12.287
+        },
+        {
+          "temperature_c": 55.65,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 13.302
+        },
+        {
+          "temperature_c": 55.1,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 14.316
+        },
+        {
+          "temperature_c": 54.55,
+          "throttled": 0,
+          "arm_clock_hz": 2400037120,
+          "seconds": 15.33
+        },
+        {
+          "temperature_c": 54.55,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 16.344
+        },
+        {
+          "temperature_c": 54.55,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 17.358
+        },
+        {
+          "temperature_c": 55.65,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 18.372
+        },
+        {
+          "temperature_c": 54.55,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 19.386
+        },
+        {
+          "temperature_c": 56.2,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 20.4
+        },
+        {
+          "temperature_c": 54.0,
+          "throttled": 0,
+          "arm_clock_hz": 2400017408,
+          "seconds": 21.414
+        },
+        {
+          "temperature_c": 54.0,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 22.428
+        },
+        {
+          "temperature_c": 52.9,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 23.442
+        },
+        {
+          "temperature_c": 52.9,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 24.456
+        }
+      ],
+      "master": [
+        "RPI1_PARAMETER_READBACK id=0 normalized=0.34999996423721313 revision=5"
+      ],
+      "before": {
+        "midi_accepted": 27,
+        "output_nonzero_l": 2086144,
+        "output_nonzero_r": 2086144,
+        "output_peak_l": 0.042456258,
+        "output_peak_r": 0.04437883,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 21575,
+        "request_high": 1163,
+        "result_high": 10,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 11000,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 90867,
+        "missing_frames": 2623488,
+        "gaps": 24,
+        "delivered_frames": 2960896,
+        "paused_frames": 43520,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "graphics_before": [
+        {
+          "process": "wf0-factory-pro",
+          "libraries": [
+            "libGL.so.1.7.0",
+            "libGLX.so.0.0.0",
+            "libGLX_mesa.so.0.0.0",
+            "libGLdispatch.so.0.0.0",
+            "libgallium-26.2.2-1~bpo13+0~rpt1.so"
+          ],
+          "dri": [
+            {
+              "device": "/dev/dri/renderD128",
+              "counters": [
+                "drm-driver:\tv3d",
+                "drm-engine-bin: \t704791028 ns",
+                "drm-engine-render: \t8785774759 ns",
+                "drm-engine-tfu: \t0 ns",
+                "drm-engine-csd: \t0 ns",
+                "drm-engine-cache_clean: \t0 ns",
+                "drm-engine-cpu: \t21887996 ns",
+                "drm-total-memory:\t52828 KiB",
+                "drm-shared-memory:\t4012 KiB",
+                "drm-resident-memory:\t52828 KiB"
+              ]
+            }
+          ]
+        },
+        {
+          "process": "explorer.exe",
+          "libraries": [
+            "libGL.so.1.7.0",
+            "libGLX.so.0.0.0",
+            "libGLX_mesa.so.0.0.0",
+            "libGLdispatch.so.0.0.0",
+            "libgallium-26.2.2-1~bpo13+0~rpt1.so",
+            "libvulkan.so.1.4.309"
+          ],
+          "dri": [
+            {
+              "device": "/dev/dri/renderD128",
+              "counters": [
+                "drm-driver:\tv3d",
+                "drm-engine-bin: \t0 ns",
+                "drm-engine-render: \t0 ns",
+                "drm-engine-tfu: \t0 ns",
+                "drm-engine-csd: \t0 ns",
+                "drm-engine-cache_clean: \t0 ns",
+                "drm-engine-cpu: \t0 ns",
+                "drm-total-memory:\t8 KiB",
+                "drm-shared-memory:\t0",
+                "drm-resident-memory:\t8 KiB"
+              ]
+            }
+          ]
+        }
+      ],
+      "fixture_exit": 0,
+      "elapsed_seconds": 25.456212365999818,
+      "vnc_one_core_percent": 0.63,
+      "graphics_after": [
+        {
+          "process": "wf0-factory-pro",
+          "libraries": [
+            "libGL.so.1.7.0",
+            "libGLX.so.0.0.0",
+            "libGLX_mesa.so.0.0.0",
+            "libGLdispatch.so.0.0.0",
+            "libgallium-26.2.2-1~bpo13+0~rpt1.so"
+          ],
+          "dri": [
+            {
+              "device": "/dev/dri/renderD128",
+              "counters": [
+                "drm-driver:\tv3d",
+                "drm-engine-bin: \t736840265 ns",
+                "drm-engine-render: \t9156298265 ns",
+                "drm-engine-tfu: \t0 ns",
+                "drm-engine-csd: \t0 ns",
+                "drm-engine-cache_clean: \t0 ns",
+                "drm-engine-cpu: \t23027827 ns",
+                "drm-total-memory:\t52760 KiB",
+                "drm-shared-memory:\t4012 KiB",
+                "drm-resident-memory:\t52760 KiB"
+              ]
+            }
+          ]
+        },
+        {
+          "process": "explorer.exe",
+          "libraries": [
+            "libGL.so.1.7.0",
+            "libGLX.so.0.0.0",
+            "libGLX_mesa.so.0.0.0",
+            "libGLdispatch.so.0.0.0",
+            "libgallium-26.2.2-1~bpo13+0~rpt1.so",
+            "libvulkan.so.1.4.309"
+          ],
+          "dri": [
+            {
+              "device": "/dev/dri/renderD128",
+              "counters": [
+                "drm-driver:\tv3d",
+                "drm-engine-bin: \t0 ns",
+                "drm-engine-render: \t0 ns",
+                "drm-engine-tfu: \t0 ns",
+                "drm-engine-csd: \t0 ns",
+                "drm-engine-cache_clean: \t0 ns",
+                "drm-engine-cpu: \t0 ns",
+                "drm-total-memory:\t8 KiB",
+                "drm-shared-memory:\t0",
+                "drm-resident-memory:\t8 KiB"
+              ]
+            }
+          ]
+        }
+      ],
+      "cpu_core_busy_percent": {
+        "cpu0": 37.36,
+        "cpu1": 35.71,
+        "cpu2": 31.54,
+        "cpu3": 40.03
+      },
+      "hottest_surviving_threads": [
+        {
+          "name": "lvb-audio",
+          "one_core_percent": 84.93
+        },
+        {
+          "name": "Processing Thre",
+          "one_core_percent": 26.01
+        },
+        {
+          "name": "wf0-factory-pro",
+          "one_core_percent": 4.24
+        },
+        {
+          "name": "winedevice.exe",
+          "one_core_percent": 1.85
+        },
+        {
+          "name": "wineserver",
+          "one_core_percent": 1.41
+        }
+      ],
+      "after": {
+        "midi_accepted": 36,
+        "output_nonzero_l": 2538240,
+        "output_nonzero_r": 2538240,
+        "output_peak_l": 0.042456258,
+        "output_peak_r": 0.04437883,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 26680,
+        "request_high": 1163,
+        "result_high": 10,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 13426,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 90867,
+        "missing_frames": 3413504,
+        "gaps": 32,
+        "delivered_frames": 3412992,
+        "paused_frames": 43520,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "trial_delta": {
+        "midi_accepted": 9,
+        "missing_frames": 790016,
+        "gaps": 8,
+        "process_failures": 0,
+        "xruns": 0,
+        "deadline_misses": 0
+      },
+      "average_whole_pi_cpu_percent": 36.16,
+      "peak_temperature_c": 56.2,
+      "throttled_flags": [
+        0
+      ],
+      "recording": {
+        "frames": 960000,
+        "finite": true,
+        "peaks": [
+          0.016199517995119095,
+          0.0073724170215427876
+        ],
+        "rms": [
+          0.00015189043603152044,
+          0.00013961470016232412
+        ],
+        "full_scale_samples": 0,
+        "first_nonzero_seconds": 1.5786666666666667,
+        "held_window_seconds": [
+          3,
+          14
+        ],
+        "held_stereo_zero_frames": 528000,
+        "held_window_rms": 0.0
+      },
+      "host_gpu_render_ns_delta": 370523506
+    }
+  ],
+  "restore": [
+    "RPI1_STATE_RESTORED bytes=368038"
+  ],
+  "editor_open": [
+    "RPI1_EDITOR native_view=1 epoch=1 lifecycle=3 result=0",
+    "RPI1_EDITOR native_view=1 epoch=1 lifecycle=5 result=0"
+  ],
+  "editor_close": [
+    "RPI1_EDITOR native_view=1 epoch=1 lifecycle=8 result=0"
+  ],
+  "after_state": [
+    "RPI1_STATE_SAVED bytes=368302"
+  ],
+  "original_restore": [
+    "RPI1_STATE_RESTORED bytes=365336",
+    "RPI1_PARAMETER_READBACK id=0 normalized=0.48033079504966736 revision=6"
+  ],
+  "restored_master": [
+    "RPI1_PARAMETER_READBACK id=2394 normalized=0.00000000000000000 revision=6",
+    "RPI1_PARAMETER_READBACK id=2395 normalized=0.00000000000000000 revision=6",
+    "RPI1_PARAMETER_READBACK id=0 normalized=0.48033079504966736 revision=7"
+  ],
+  "restored_save": [
+    "RPI1_STATE_SAVED bytes=365336",
+    "RPI1_PARAMETER_READBACK id=2394 normalized=0.00000000000000000 revision=7",
+    "RPI1_PARAMETER_READBACK id=2395 normalized=0.00000000000000000 revision=7"
+  ],
+  "session": {
+    "label": "24am-editor-01",
+    "ready_seconds": 24.101248009999836,
+    "elapsed_seconds": 175.38651939600004,
+    "exit_code": 0,
+    "clean_shutdown": true,
+    "peak_temperature_c": 57.3,
+    "throttled_flags": [
+      0
+    ],
+    "graph_restored_without_plugin_ports": true
+  },
+  "conditions": {
+    "restore_once_before_warmup": true,
+    "reload_between_trials": false,
+    "master_normalized": 0.35,
+    "voice_mode": "Poly 4, operator-confirmed on same saved preset in preceding session",
+    "preset_identity_after": {
+      "name": "24 AM",
+      "bank": "Pigments 6.0"
+    },
+    "restored_identity": {
+      "name": "8-Bit Crystals",
+      "bank": "Factory"
+    },
+    "observer_sha256": "8f5ed2e299d8342fc50942229756eea7c6a36501e8c30ed5638050002c934e9b",
+    "power_source": "Not reverified",
+    "original_master_restored": true
+  },
+  "fixture": {
+    "plugin": "Pigments 7.0.1.6772",
+    "runtime": "GE-Proton11-7 AArch64 / UMU 1.4.4 / steamrt4-arm64",
+    "sample_rate": 48000,
+    "jack_frames": 512,
+    "processing_frames": 256,
+    "bridge_reserve_frames": 2048,
+    "native_sha256": "9d0a611d7175b05e398f484d9217fb29b7004f3e0eaac76acd6ad00a541bd1da",
+    "note_fixture_sha256": "eb9b82707531ff887bce880825c6c8f9d70d1c56836620a43b987113d6a6bd3e"
+  },
+  "graphics_context": {
+    "display_probe": "glxinfo -B on the existing VNC display before plugin launch",
+    "renderer": "V3D 7.1.10.2",
+    "vendor": "Broadcom",
+    "mesa_version": "26.2.2-1~bpo13+0~rpt1",
+    "accelerated": true,
+    "caution": "Display capability does not establish the plugin rendering API or which work uses the GPU. Library maps establish loading, not execution."
+  },
+  "limitations": [
+    "One warmup and one closed/open/closed sequence; no independent repetitions or randomization.",
+    "Whole-Pi CPU is a four-core average over the entire trial; thread and VNC percentages use one core as 100%.",
+    "Editor-open condition includes remote desktop rendering/encoding; it does not isolate plugin drawing from Wine or VNC costs.",
+    "Private captures and plugin states are excluded.",
+    "No causal attribution of first-use loss to JIT, loading or scheduling.",
+    "Status deltas bracket setup and observer snapshots as well as captures; missing-frame durations must not be presented as exact gaps inside the 20-second recordings.",
+    "Closing the editor after overload does not reset queued work; the final trial can carry backlog from the preceding trial.",
+    "The earlier clean repeated hold did not reproduce in this session."
+  ],
+  "operator_meter": {
+    "preset": "24 AM",
+    "idle_percent_approx": 65,
+    "during_automated_four_note_chord": "Over 100%, with audible cutoff",
+    "not_a_separate_single_note_test": true,
+    "denominator": "Not established; do not equate with whole-Pi percentage"
+  }
+}
