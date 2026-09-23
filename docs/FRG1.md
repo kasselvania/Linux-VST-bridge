@@ -273,6 +273,22 @@ altered, or foreign FRG1 entry is not converted into empty authority. The
 Ubuntu failed generation and first refusal remain evidence; a new physical
 setup and Bitwig load are still required.
 
+## Startup reconciliation over the retired predecessor
+
+The next exact Ubuntu generation passed setup, then its service exited during
+startup reconciliation with `frg1_predecessor_absent`. The registry still
+contained the normally removed revision-11 entry. `restore()` applied the
+revision-12 candidate's parent requirement to that historical entry, although
+its required parent does not exist until revision-12 staging. The service was
+stopped before staging or publication.
+
+Startup reconciliation now checks the exact retired-predecessor authority for
+that historical entry and leaves it unchanged. It does not admit a live or
+altered predecessor and does not change revision-12 parent, stage, publish, or
+ordinary restoration rules. Source tests reproduce the startup refusal and
+verify the corrected path; the Ubuntu service and Bitwig must be retested from
+a new immutable product generation.
+
 ## Evidence
 
 - `evidence/frg1/attempt-001/result.json`
@@ -283,3 +299,4 @@ setup and Bitwig load are still required.
 - `evidence/frg1/attempt-005/validator-replay.json`
 - `evidence/frg1/candidate.json`
 - `evidence/frg1/registered-proxy-repair.json`
+- `evidence/frg1/retired-predecessor-reconcile.json`

@@ -711,6 +711,12 @@ pub fn restore(m: &Manager) -> Result<()> {
                 .as_ref()
                 .ok_or("candidate_identity")?,
         )?;
+        if profile.revision == 12 && revision.profile == predecessor()? {
+            // The removed revision-11 entry remains immutable history until
+            // staging creates its revision-12 child. Startup reconciliation
+            // must verify it, not treat it as the new candidate.
+            return require(retired_predecessor(m, entry)?, "frg1_predecessor_not_retired");
+        }
         let parent_is_exact = if profile.revision == 12 {
             let reference = revision.parent.as_ref().ok_or("frg1_predecessor_absent")?;
             m.load_revision(&profile.class.class_id, reference)?.profile == predecessor()?
@@ -1110,6 +1116,11 @@ mod tests {
         TEST_CONTRACT.with(|slot| slot.borrow_mut().as_mut().unwrap().profile = successor.clone());
         assert!(catalogue_free_registry(manager, &manager.registry().unwrap()).unwrap());
         assert!(crate::catalogue::setup_adoption(manager, &crate::profiles::installed_profiles().unwrap()).unwrap().is_none());
+        // Service startup reconciles this exact removed predecessor before
+        // revision 12 has been staged. It must not require a successor parent.
+        manager.reconcile().unwrap();
+        assert_eq!(manager.registry().unwrap().classes[class].managed_revision, Some(first.clone()));
+        assert_eq!(manager.registry().unwrap().classes[class].publication, Publication::Removed);
         let mut foreign = manager.registry().unwrap();
         foreign.classes.get_mut(class).unwrap().registration.native.sha256 = "aa".repeat(32);
         assert!(catalogue_free_registry(manager, &foreign).is_err());
@@ -1120,6 +1131,7 @@ mod tests {
         atomic_json(&adoption_path, &wrong_adoption).unwrap();
         assert!(stage(manager, &prepared.package).is_err());
         assert!(crate::catalogue::setup_adoption(manager, &crate::profiles::installed_profiles().unwrap()).is_err());
+        assert!(manager.reconcile().is_err());
         wrong_adoption.profile_fingerprint = "bb".repeat(32);
         atomic_json(&adoption_path, &wrong_adoption).unwrap();
         assert!(stage(manager, &prepared.package).is_err());

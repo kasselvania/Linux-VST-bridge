@@ -1,46 +1,44 @@
-# FRG1 removed-predecessor setup transition
+# FRG1 retired-predecessor startup reconciliation
 
-Base: canonical main merge `684518ae580d497cd4539cdc6d9b64d1a23f96db`, tree
-`626c5ce04ba035cac21715eecdaefa5224696b02`.
+Base: canonical main merge `243ad5b557f476e852f23af35511bb81fe5014dc`,
+tree `47bcb35709ccbdd97d8bd02e2c019e569526b804`.
 
 ## Primary claim
 
-An immutable product setup over the exact normally removed FRG1 revision-11
-registry retains its catalogue-free managed authority instead of attempting
-ordinary installed-product catalogue adoption. The subsequent revision-12
-publication still requires the original exact predecessor and remains a
-nonactivating Ubuntu review candidate.
+Service startup accepts the exact normally removed revision-11 FRG1 record as
+retained history while refusing a live or altered predecessor. It does not
+require that historical record to have the parent reserved for the uncreated
+revision-12 candidate.
 
 ## Basis and scope
 
-- `docs/ARCHITECTURE.md` managed catalogue and revisioned publication boundaries.
-- `docs/FRG1.md` sealed Ubuntu FRG1 adoption, inventory, and candidate route.
-- Ubuntu-lab PR #5 first revision-12 install attempt, which stopped in setup
-  with `adoption_requires_existing_managed_artifact` before publication.
-- `bridge-manager/src/main.rs` setup package path,
-  `bridge-manager/src/catalogue.rs` ordinary adoption, and the existing
-  `frg1::catalogue_free_registry` exact authority check.
+- `docs/ARCHITECTURE.md` revisioned publication and service reconciliation.
+- `docs/FRG1.md` sealed revision-11 to revision-12 Ubuntu transition.
+- Ubuntu-lab PR #5 physical install of merged PR #146: setup succeeded, but
+  the new service exited at startup with `frg1_predecessor_absent` before
+  staging, publication, or Bitwig. The exact service was stopped after its
+  first observed restart loop; its failure is retained.
+- `bridge-manager/src/frg1.rs` exact retired-predecessor verification and
+  qualification restoration invoked by `Manager::reconcile()`.
 
 No scanner, Wine/Proton runner, Windows host, module, native proxy, audio,
-editor, protocol, profile, or Ubuntu sandbox topology changes in this slice.
+editor, protocol, profile, or Ubuntu sandbox topology changes are in scope.
 
 ## Acceptance and nonclaims
 
-- Empty and exact sealed FRG1 registry states yield no ordinary catalogue.
-  A live, altered, or foreign FRG1 predecessor refuses; ordinary managed
-  catalogue adoption retains its existing behavior.
-- The existing revision-12 transition test covers the removed exact
-  predecessor and changed-adoption refusal through the production setup
-  authority helper. Manager library/binary tests and strict Clippy pass.
-- This is source qualification only. The failed Ubuntu install is retained;
-  no second setup, revision-12 publication, Bitwig load, editor, audio, state,
-  restart, or restoration result is claimed here.
+- The production reconciliation path succeeds with the exact removed
+  revision-11 predecessor and leaves its registry identity and publication
+  state unchanged.
+- The same path refuses changed adoption authority. Revision-12 staging and
+  normal restoration retain their existing exact-parent behavior.
+- Manager library/binary tests, strict Clippy, and diff checks pass.
+- Source success is not a physical plug-in result. The installed Ubuntu
+  generation remains stopped pending a new immutable build/install.
 
 ## Physical continuation
 
-First recover the failed Ubuntu generation to the exact previously installed
-CPI2 generation without rewriting the removed FRG1 history, healthy inventory,
-adoption, vendor prefix, or module. Then build/install this merged product as
-one new immutable generation and stage/publish the already pinned revision-12
-package. Only after verified publication ask the operator to load FRAGMENTS
-once in Bitwig. Preserve and stop at the first new physical failure.
+Preserve the failed generation and retained vendor, inventory, adoption, and
+revision bytes. After normal merge, update only the Ubuntu product lock, build
+and install one immutable corrected generation, then stage/publish revision 12
+and ask the operator for one Bitwig FRAGMENTS load. Stop at the first new
+physical failure or finish the already-authorized qualification ladder.
