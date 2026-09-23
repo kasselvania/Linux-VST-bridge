@@ -1,0 +1,78 @@
+{
+  "plugin": "Pigments 7.0.1.6772",
+  "runtime": "GE-Proton11-7 AArch64 / UMU 1.4.4 / steamrt4-arm64",
+  "mapping": {
+    "previous": {"channel": 1, "cc": 28, "helper_parameter": 2394},
+    "next": {"channel": 1, "cc": 29, "helper_parameter": 2395},
+    "vendor_assignment": "Operator confirmed both assignments visible in Pigments and Learn disabled",
+    "transport": "Exact previously observed IMidiMapping helper parameters, using existing processor and controller updates; not raw JACK CC passthrough"
+  },
+  "editor_session": {
+    "label": "preset-learn-01",
+    "next_with_editor_open": "Operator confirmed preset changed to electric swings",
+    "previous_with_editor_closed": "Close lifecycle 8 acknowledged before the command; operator reported electric mich after reopening",
+    "state_bytes": {"before": 367612, "after_next": 369150, "after_previous": 368186},
+    "state_changed_in_both_directions": true,
+    "peak_temperature_c": 53.45,
+    "throttled_flags": [0],
+    "elapsed_seconds": 236.2447303009999,
+    "clean_shutdown": true,
+    "exit_code": 0
+  },
+  "physical_candidate": {
+    "sha256": "6b57b9645cc9f3c0c6906832a7895dbf6a3bce3d075f29061c8ae7145c48abe1",
+    "build_seconds": 14.33,
+    "library_tests_passed": 25,
+    "button_1": "Save",
+    "button_2": "Previous, momentary",
+    "button_3": "Next, momentary",
+    "qualification": "Operator confirmed navigation but reported needing two presses; accepted for now. One-press navigation is not qualified."
+  },
+  "physical_session": {
+  "label": "preset-buttons-01",
+  "ready_seconds": 36.19679717400004,
+  "elapsed_seconds": 163.1931714289999,
+  "clean_shutdown": true,
+  "exit_code": 0,
+  "peak_temperature_c": 54,
+  "throttled_flags": [
+    0
+  ],
+  "button_presses": {
+    "2": 3,
+    "3": 10
+  },
+  "button_releases": {
+    "2": 3,
+    "3": 10
+  },
+  "helper_ones": {
+    "2394": 3,
+    "2395": 10
+  },
+  "helper_zeros": {
+    "2394": 3,
+    "2395": 10
+  },
+  "display_available": false,
+  "fresh_headless_state_changed": true,
+  "fresh_state_bytes": [
+    368186,
+    368038
+  ],
+  "saved_final_state": true,
+  "panel_errors": []
+},
+  "two_press_investigation": {
+    "observed": "All 13 physical presses sent helper value 1 and all 13 releases sent value 0. The host is momentary, not alternate-press toggle.",
+    "vendor_mapping_readback": "Private Pigments MIDI configuration assigns controller 28 to parameter 2299 and controller 29 to parameter 2300 on channel 0. Those assignment entries expose no toggle/momentary field.",
+    "cause": "Unresolved; vendor action interpretation and delivery timing remain hypotheses. No further tuning requested after operator accepted the quirk."
+  },
+  "nonclaims": [
+    "No preset sweep or four-note hold was run in this navigation check",
+    "No claim about factory-library coverage, ordering or preserved browser filters",
+    "State changes alone are not treated as proof of selected preset identity",
+    "No CPU-meter or graphics-renderer diagnosis",
+    "Raw preset state and vendor MIDI configuration remain private"
+  ]
+}

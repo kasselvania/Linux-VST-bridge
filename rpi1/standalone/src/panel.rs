@@ -2,7 +2,7 @@
 use crate::binding::Control;
 use serde_json::Value;
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeSet, VecDeque},
     io,
     time::{Duration, Instant},
 };
@@ -17,6 +17,7 @@ pub struct Encoder {
 pub struct Button {
     pub index: usize,
     pub parameter: u32,
+    pub momentary: bool,
 }
 #[derive(Clone, Debug)]
 pub struct Surface {
@@ -70,7 +71,7 @@ impl Surface {
         let mut button_ids = BTreeSet::new();
         let rows = value["encoders"]
             .as_array()
-            .filter(|v| !v.is_empty() && v.len() <= 3)
+            .filter(|v| v.len() <= 3)
             .ok_or_else(|| invalid("surface encoders"))?;
         for row in rows {
             fields(row, &["index", "parameter", "step"])?;
@@ -93,7 +94,17 @@ impl Surface {
             .filter(|v| v.len() <= 2)
             .ok_or_else(|| invalid("surface buttons"))?;
         for row in rows {
-            fields(row, &["index", "parameter"])?;
+            if row.get("mode").is_some() {
+                fields(row, &["index", "parameter", "mode"])?;
+            } else {
+                fields(row, &["index", "parameter"])?;
+            }
+            let momentary = match row.get("mode").and_then(Value::as_str) {
+                None if row.get("mode").is_none() => false,
+                Some("toggle") => false,
+                Some("momentary") => true,
+                _ => return Err(invalid("button mode")),
+            };
             let index = index(&row["index"])?;
             if !button_ids.insert(index) {
                 return Err(invalid("duplicate button"));
@@ -101,6 +112,7 @@ impl Surface {
             buttons.push(Button {
                 index,
                 parameter: parameter(row)?,
+                momentary,
             });
         }
         let save_button = index(&value["save_button"])?;
@@ -124,6 +136,7 @@ struct Parameter {
     id: u32,
     title: String,
     toggle: bool,
+    momentary: bool,
     confirmed: Option<f64>,
     desired: Option<f64>,
     in_flight: Option<(f64, Instant)>,
@@ -133,6 +146,8 @@ pub struct Model {
     parameters: Vec<Parameter>,
     pressed: [bool; 3],
     save_requested: bool,
+    edges: VecDeque<(u32, f64)>,
+    last_edge: Option<Instant>,
     pub status: String,
     pub faulted: bool,
 }
@@ -151,6 +166,10 @@ impl Model {
                 id: p.id,
                 title: p.title.clone(),
                 toggle: surface.buttons.iter().any(|b| b.parameter == p.id),
+                momentary: surface
+                    .buttons
+                    .iter()
+                    .any(|b| b.parameter == p.id && b.momentary),
                 confirmed: None,
                 desired: None,
                 in_flight: None,
@@ -161,6 +180,8 @@ impl Model {
             parameters,
             pressed: [false; 3],
             save_requested: false,
+            edges: VecDeque::with_capacity(32),
+            last_edge: None,
             status: "SYNCING".into(),
             faulted: false,
         }
@@ -205,8 +226,26 @@ impl Model {
         if self.faulted || index >= 3 {
             return;
         }
-        let edge = pressed && !self.pressed[index];
+        let changed = pressed != self.pressed[index];
+        let edge = pressed && changed;
         self.pressed[index] = pressed;
+        if changed {
+            if let Some(mapping) = self
+                .surface
+                .buttons
+                .iter()
+                .find(|b| b.index == index && b.momentary)
+            {
+                if self.edges.len() == 32 {
+                    self.faulted = true;
+                    self.status = "INPUT OVERFLOW".into();
+                } else {
+                    self.edges
+                        .push_back((mapping.parameter, if pressed { 1.0 } else { 0.0 }));
+                }
+                return;
+            }
+        }
         if !edge {
             return;
         }
@@ -240,7 +279,29 @@ impl Model {
             return Vec::new();
         }
         let mut actions = Vec::new();
+        // Preserve even a complete short click read in one evdev batch. Wait
+        // for controller readback and pace edges rather than coalescing them.
+        // This model runs on the control thread, never the audio callback.
+        if self
+            .last_edge
+            .is_none_or(|at| now.duration_since(at) >= Duration::from_millis(50))
+        {
+            if let Some(&(id, value)) = self.edges.front() {
+                if let Some(p) = self.parameters.iter_mut().find(|p| p.id == id) {
+                    if p.confirmed.is_some() && p.in_flight.is_none() {
+                        self.edges.pop_front();
+                        p.in_flight = Some((value, now));
+                        actions.push(Action::Set(id, value));
+                        self.last_edge = Some(now);
+                        self.status = "CONTROL SENT".into();
+                    }
+                }
+            }
+        }
         for p in &mut self.parameters {
+            if p.momentary {
+                continue;
+            }
             if let (Some(actual), Some(desired)) = (p.confirmed, p.desired) {
                 if p.in_flight.is_none() && (desired - actual).abs() > 1e-7 {
                     p.in_flight = Some((desired, now));
@@ -249,6 +310,8 @@ impl Model {
             }
         }
         if self.save_requested
+            && self.edges.is_empty()
+            && actions.is_empty()
             && self
                 .parameters
                 .iter()
@@ -365,6 +428,50 @@ mod tests {
         }];
         assert!(Surface::parse(&v, &c).is_ok());
         v["buttons"] = serde_json::json!([{"index":2,"parameter":99}]);
+        assert!(Surface::parse(&v, &c).is_err());
+    }
+
+    #[test]
+    fn momentary_click_preserves_both_edges_and_waits_for_readback() {
+        let mut m = model();
+        m.surface.buttons[0].momentary = true;
+        m.parameters
+            .iter_mut()
+            .find(|p| p.id == 42)
+            .unwrap()
+            .momentary = true;
+        m.readback(17, 0.5);
+        m.readback(42, 0.0);
+        let now = Instant::now();
+        m.button(0, true);
+        m.button(0, true); // repeated key-down is not another command
+        m.button(0, false); // both edges may arrive in one hardware read
+        m.button(1, true);
+        assert_eq!(m.actions(now), vec![Action::Set(42, 1.0)]);
+        assert!(m.actions(now + Duration::from_millis(60)).is_empty());
+        m.readback(42, 1.0);
+        assert_eq!(
+            m.actions(now + Duration::from_millis(61)),
+            vec![Action::Set(42, 0.0)]
+        );
+        assert!(m.actions(now + Duration::from_millis(120)).is_empty());
+        m.readback(42, 0.0);
+        assert_eq!(
+            m.actions(now + Duration::from_millis(121)),
+            vec![Action::Save]
+        );
+    }
+
+    #[test]
+    fn button_mode_is_explicit_and_invalid_modes_are_refused() {
+        let c = vec![Control {
+            id: 42,
+            title: "CC helper".into(),
+            units: "".into(),
+        }];
+        let mut v = serde_json::json!({"label":"T", "encoders":[], "buttons":[{"index":2,"parameter":42,"mode":"momentary"}],"save_button":1});
+        assert!(Surface::parse(&v, &c).unwrap().buttons[0].momentary);
+        v["buttons"][0]["mode"] = serde_json::json!("unknown");
         assert!(Surface::parse(&v, &c).is_err());
     }
 }

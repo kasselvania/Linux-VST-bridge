@@ -938,3 +938,49 @@ explain the earlier manual failure. See
 The operator subsequently confirmed that this four-note headless Aioliane pass
 sounded exceptionally clean. This closes listening confirmation for that exact
 12-second hold, without extending the claim to other presets or longer runs.
+
+### Pigments Previous/Next preset controls
+
+The operator confirmed that Pigments' MIDI panel assigns CC28 to Previous
+Preset and CC29 to Next Preset, with Learn disabled. The exact retained
+`IMidiMapping` results translate these to writable helpers 2394/2395; the host
+does not write the read-only preset-action parameters. Ordinary JACK CC input
+remains unsupported. The test uses the existing processor/controller parameter
+path and a separate private binding for the same Pigments module and class.
+
+In `preset-learn-01`, one scripted Next pulse changed the visible preset to
+the operator-reported “electric swings.” After an acknowledged editor close,
+a Previous pulse changed state; reopening showed “electric mich.” The
+session closed cleanly and peaked at 53.45 C without throttle flags. These
+observations establish working vendor navigation in this ARM runtime; they
+do not establish that every pulse advances exactly one adjacent preset.
+
+The ShieldXL panel now supports optional `mode: "momentary"` buttons; omitted
+mode retains the existing toggle behavior used for Fragments Freeze. The
+control-thread model retains press/release edges in a bounded queue, spaces
+updates, waits for controller readback and reports timeout/overflow. Button-only
+surfaces are permitted. Existing save and toggle tests remain green; all 25
+library tests passed. The native candidate built on the Pi in 14.33 seconds.
+The previous generic binary was preserved and restored; the navigation candidate
+and its binding remain separately named in private staging.
+
+In the fresh `preset-buttons-01` session, a scripted Next pulse changed saved
+state before the editor was opened. The operator then tested button 2
+(Previous) and button 3 (Next), and reported needing two presses for a change.
+The operator accepted that behavior for now. **One-press navigation remains
+unqualified**; a sweep must not count button messages as confirmed preset changes.
+The panel's OLED connection reported unavailable in this session; successful
+display behavior is not claimed. No note-hold or preset sweep was run here.
+All 13 observed physical presses produced helper value 1 and all 13 releases
+produced 0 (three Previous clicks, ten Next clicks). The two-press behavior
+therefore cannot be attributed simply to this host alternating 1/0 on successive
+presses. The private MIDI assignment records have no toggle/momentary field;
+Pigments' action interpretation and delivery timing remain unverified causes.
+The final state was captured privately; shutdown was clean. This session peaked
+at 54.0 C with no throttle flags.
+State and MIDI configuration remain private. Sanitized results are retained in
+`evidence/rpi2/pigments-preset-navigation.json`.
+
+Deferred separately: compare Pigments' own CPU meter with whole-Pi and per-thread
+measurements, and establish the graphics-rendering path and its load. The
+navigation result does not resolve the earlier performance degradation.
