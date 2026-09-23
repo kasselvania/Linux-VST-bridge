@@ -20,6 +20,13 @@ returned `1` without writing any bytes. No preset selection or playback was
 reached. This is a concrete state/initialization failure, not DSP or thermal
 evidence. Details and the preserved failure are below.
 
+The approved follow-up reached Pigments' editor through the existing vendor-access
+host mode: editor-open, editor-close, component termination and module-unload
+records were obtained. This separates the initial state refusal from the ability
+to attach its editor. Rendered appearance, responsiveness and state capture after
+editor initialization remain unobserved. All three attempts, including two launch
+adapter mistakes, are preserved below.
+
 The preceding account-free process launch proof needed no source build. Its host
 published its environment readiness token, pumped its Windows message loop,
 accepted its stop file, and exited successfully. All 14 processes sampled
@@ -279,6 +286,73 @@ computer control. Editor inspection, preset
 selection and playback remain unperformed; do not infer them from successful
 module initialization.
 
+## Pigments editor investigation
+
+The operator approved up to 25 minutes of active work and three live launches
+from `9dbad8f`, with at most one targeted Windows-host build taking no more than
+five minutes. Scope was editor access and state refusal, without audio,
+Screen Sharing, computer control, credential changes, runtime installation or
+prefix replacement. No Windows build was run.
+
+The existing `ap12-vendor-access` mode permits ordinary state refusal, creates
+the VST3 editor on the controller thread, attaches its Win32 parent and enters
+the message-pump loop. It has no native audio peer or JACK session. The private
+[`pigments_editor_session.py`](../../rpi2/pigments_editor_session.py) adapter
+uses that existing mode, verifies the configured file hashes, holds both the
+RPI2 run lock and original Pigments operation lock, and supervises a bounded
+systemd cohort. The original environment remains unused.
+
+Three launches were made:
+
+| Attempt | Result | Elapsed |
+| --- | --- | --- |
+| editor-ge-01 | Adapter supplied named arguments in an order rejected by the host; no readiness or Pigments loading. It also incorrectly requested an audio architecture handshake without a peer file. | 6.03 s |
+| editor-ge-02 | Audio-peer request removed; argument-order error remained. Again no readiness or Pigments loading. | 6.01 s |
+| editor-ge-03 | Correct argument order reached Pigments initialization and editor attachment. | 62.60 s including cleanup |
+
+The first two results are implementation mistakes in the experiment adapter,
+not Pigments failures. The argument-order error precedes architecture negotiation;
+removing the architecture request alone could not fix the first refusal.
+
+On the third run, Pigments again returned `1` from initial `getState`, with zero
+bytes/writes and no stream error. Nevertheless, the host reported
+`ap12_vendor_access_open` about 25.23 seconds after launch. In the host source,
+that event follows successful view creation, HWND attachment, sizing and the
+window-show request. It does not establish correct rendering or responsiveness.
+The existing message-pump loop was used; no independent pump-count measurement
+was added.
+
+The adapter issued the existing `vendor.stop` file 15 seconds after observing
+the editor-open record. The host subsequently reported editor closure,
+`terminateComponent` result 0, inspection exit 0, successful module exit/unload
+and scanner completion. The runtime owner remained alive and was stopped by
+the adapter's cleanup bound, returning 241. Successful plugin teardown and
+the runtime wrapper's required cleanup are distinct observations.
+
+The run logged `Failed to create DXGI factory.` before reporting editor open.
+That is a graphics-initialization lead, not proof of blank rendering or lack of
+a fallback. No explicit vendor activation/content verdict was obtained. The
+host's `save_available=false` field and its window-title annotation describe
+the **initial** state request, not a later vendor status observation.
+
+Temperatures were 47.95–56.75°C; current throttle/power flags remained clear.
+The runtime cohort reported 2.3 GiB peak memory. This included editor startup
+and no DSP; it is not an audio-performance or sustained-thermal measurement.
+
+**The after-editor state request remains unmeasured.** The existing access mode
+does not issue that request. All three authorized launches were consumed,
+including the two adapter mistakes. No fourth launch was made, and no untested
+Windows-host change was substituted. The next discriminating operation is one
+owner-thread state request after attachment and message pumping, while audio
+remains inactive. It would distinguish a persistent refusal from one relieved
+by normal editor initialization; it would not by itself identify licensing.
+
+All experiment units were gone after cleanup, the JACK graph was unchanged,
+and the original selected-state digest still matched. No original installation,
+activation, password or credential change was made. All three runs, sanitized
+host records, warnings and exact limitations are retained in
+[`pigments-editor-open.json`](../../evidence/rpi2/pigments-editor-open.json).
+
 ## What ran
 
 The fixture was Raspberry Pi 5, Debian 13.7, kernel
@@ -362,7 +436,8 @@ staged launcher is distinct from the earlier `run-ge.sh` process-only helper;
 the Rust supervisor owns its systemd unit. Use a new evidence destination for
 each subsequent session and hold the private `run.lock` exclusively.
 
-Pigments reached the initial-state failure described above. Vendor authorization,
+Pigments reached initialization and editor attachment, with initial state capture
+refused and post-editor state capture unmeasured. Vendor authorization,
 demanding-workload audio deadlines, sustained throughput, preset navigation,
 state recall, ShieldXL controls, and sustained thermal behavior remain unqualified
 on this runtime. Hangover remains an alternative;
