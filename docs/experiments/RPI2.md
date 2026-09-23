@@ -740,3 +740,23 @@ deferred for a later DAW demo. The checked packages, concrete standalone-host
 adaptations and execution order are in
 [Arturia expansion groundwork](RPI2_ARTURIA_EXPANSION.md). This preparation does
 not add an installation or audio result for either new product.
+
+## Reassembly and PiSugar power baseline
+
+On September 23 the operator confirmed a passive aluminium CPU heatsink,
+reconnected ShieldXL, and a PiSugar 3 Plus supplying the Pi with its charger
+connected. After a fresh boot, idle readings were 46.1–48.5°C, all four cores
+were online, and the throttle register remained `0x0` (including historical
+bits for this boot). Two PMIC input-voltage readings were 5.04108 and 5.04242 V.
+PiSugar monitoring software was absent; battery charge, total power, battery-only
+runtime and supply behavior under audio load were not measured.
+
+The planned short Pigments note test stopped before launch: ALSA listed only
+the two HDMI devices, and JACK was absent. The ShieldXL boot configuration was
+still included and its `snd_soc_cs4270` driver loaded, but the kernel reported
+four I²C "lost arbitration" messages, `cs4270 1-0048: failed to read i2c at
+addr 48`, and a deferred sound-card probe. The JACK service repeatedly failed
+its mixer setup because the card was unavailable. SSH subsequently became
+unreachable during read-only checks. This is an unresolved hardware/bus bring-up
+failure; neither PiSugar causation nor a spontaneous power loss is established.
+No plug-in ran and no driver, power policy or boot configuration was changed.
