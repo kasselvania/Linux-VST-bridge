@@ -1,9 +1,9 @@
-use crate::config::{Config, PinnedFile};
+use crate::config::{Config, Runner};
 use std::{
     ffi::OsString,
     fs, io,
     path::{Path, PathBuf},
-    process::{Command, ExitStatus},
+    process::{Command, ExitStatus, Stdio},
     thread,
     time::{Duration, Instant},
 };
@@ -19,7 +19,7 @@ pub struct Identity {
 
 pub struct Cohort {
     identity: Identity,
-    box64: PinnedFile,
+    runner: Runner,
     retired: bool,
 }
 
@@ -32,6 +32,7 @@ impl Cohort {
         if session_hex.len() != 32 || !session_hex.bytes().all(|b| b.is_ascii_hexdigit()) {
             return Err(invalid("session identity"));
         }
+        config.verify_files()?;
         let unit = format!("lvb-rpi0-{session_hex}.service");
         let active = systemctl(&["is-active", &unit])?;
         if active.success() {
@@ -49,38 +50,28 @@ impl Cohort {
             &format!("--unit={unit}"),
         ]);
         command.arg(format!("--setenv=WINEPREFIX={}", config.prefix.display()));
-        command.arg(format!(
-            "--setenv=BOX64_RCFILE={}",
-            config.box64_rc.path.display()
-        ));
-        for setting in [
-            "BOX64_NOBANNER=1",
-            "BOX64_DYNACACHE=0",
-            "BOX64_DYNAREC=1",
-            "BOX64_DYNAREC_STRONGMEM=1",
-        ] {
-            command.arg(format!("--setenv={setting}"));
-        }
-        command
-            .arg(&config.box64.path)
-            .arg(&config.wine.path)
-            .args(windows_arguments);
+        select_runner(&mut command, &config.runner, true)?;
+        command.args(windows_arguments);
         let status = command.status()?;
         require(status.success(), "systemd refused exact RPI0 cohort")?;
         let end = Instant::now() + Duration::from_secs(10);
         let identity = loop {
-            match inspect(&unit, &config.box64.path) {
+            match inspect(&unit, &config.runner.leader().path) {
                 Ok(identity) => break identity,
                 Err(error) if Instant::now() < end => {
                     let _ = error;
                     thread::sleep(Duration::from_millis(20));
                 }
-                Err(error) => return Err(error),
+                Err(error) => {
+                    // Launch succeeded, so cleanup is ours even before Identity exists.
+                    let _ = systemctl(&["stop", &unit]);
+                    return Err(error);
+                }
             }
         };
         Ok(Self {
             identity,
-            box64: config.box64.clone(),
+            runner: config.runner.clone(),
             retired: false,
         })
     }
@@ -90,7 +81,7 @@ impl Cohort {
     }
 
     pub fn verify(&self) -> io::Result<Vec<u32>> {
-        let current = inspect(&self.identity.unit, &self.box64.path)?;
+        let current = inspect(&self.identity.unit, &self.runner.leader().path)?;
         if current.main_pid != self.identity.main_pid
             || current.main_start_ticks != self.identity.main_start_ticks
             || current.cgroup != self.identity.cgroup
@@ -104,11 +95,13 @@ impl Cohort {
             let pid = line
                 .parse::<u32>()
                 .map_err(|_| invalid("cgroup PID syntax"))?;
-            let executable = fs::read_link(format!("/proc/{pid}/exe"))?;
-            if fs::canonicalize(executable)? != fs::canonicalize(&self.box64.path)? {
-                return Err(invalid(format!(
-                    "unrecognized executable in RPI0 cgroup: {pid}"
-                )));
+            if let Runner::Box64 { box64, .. } = &self.runner {
+                let executable = fs::read_link(format!("/proc/{pid}/exe"))?;
+                if fs::canonicalize(executable)? != fs::canonicalize(&box64.path)? {
+                    return Err(invalid(format!(
+                        "unrecognized executable in RPI0 cgroup: {pid}"
+                    )));
+                }
             }
             pids.push(pid);
         }
@@ -125,9 +118,7 @@ impl Cohort {
         let end = Instant::now() + Duration::from_secs(15);
         loop {
             let active = systemctl(&["is-active", &self.identity.unit])?;
-            let empty = fs::read_to_string(self.identity.cgroup.join("cgroup.procs"))
-                .map(|value| value.trim().is_empty())
-                .unwrap_or(true);
+            let empty = cohort_empty(&self.identity.cgroup)?;
             if !active.success() && empty {
                 break;
             }
@@ -144,9 +135,7 @@ impl Cohort {
         let end = Instant::now() + timeout;
         loop {
             let active = systemctl(&["is-active", &self.identity.unit])?;
-            let empty = fs::read_to_string(self.identity.cgroup.join("cgroup.procs"))
-                .map(|value| value.trim().is_empty())
-                .unwrap_or(true);
+            let empty = cohort_empty(&self.identity.cgroup)?;
             if !active.success() && empty {
                 self.retired = true;
                 return Ok(());
@@ -169,10 +158,18 @@ impl Drop for Cohort {
 }
 
 pub fn run_owned_probe(config: &Config, session_hex: &str, windows: bool) -> io::Result<()> {
+    if !windows && matches!(config.runner, Runner::Native { .. }) {
+        // No x86 Linux translation is involved in this runner. Do not report
+        // the old Box64 Linux probe as a native-runner pass.
+        return Ok(());
+    }
     let argument = if windows {
         config.windows_probe.path.as_os_str()
     } else {
-        config.linux_probe.path.as_os_str()
+        match &config.runner {
+            Runner::Box64 { linux_probe, .. } => linux_probe.path.as_os_str(),
+            Runner::Native { .. } => unreachable!(),
+        }
     };
     let mut command = Command::new("/usr/bin/systemd-run");
     let unit = format!(
@@ -188,18 +185,10 @@ pub fn run_owned_probe(config: &Config, session_hex: &str, windows: bool) -> io:
         "--property=KillMode=control-group",
         &format!("--unit={unit}"),
     ]);
-    command.arg(format!(
-        "--setenv=BOX64_RCFILE={}",
-        config.box64_rc.path.display()
-    ));
-    command.arg("--setenv=BOX64_NOBANNER=1");
     if windows {
         command.arg(format!("--setenv=WINEPREFIX={}", config.prefix.display()));
     }
-    command.arg(&config.box64.path);
-    if windows {
-        command.arg(&config.wine.path);
-    }
+    select_runner(&mut command, &config.runner, windows)?;
     let status = command.arg(argument).arg("--self-test").status()?;
     require(
         status.success(),
@@ -211,6 +200,52 @@ pub fn run_owned_probe(config: &Config, session_hex: &str, windows: bool) -> io:
     )?;
     let active = systemctl(&["is-active", &unit])?;
     require(!active.success(), "preflight unit remained active")
+}
+
+fn select_runner(command: &mut Command, runner: &Runner, windows: bool) -> io::Result<()> {
+    match runner {
+        Runner::Box64 {
+            box64,
+            wine,
+            box64_rc,
+            ..
+        } => {
+            command.arg(format!("--setenv=BOX64_RCFILE={}", box64_rc.path.display()));
+            for value in [
+                "BOX64_NOBANNER=1",
+                "BOX64_DYNACACHE=0",
+                "BOX64_DYNAREC=1",
+                "BOX64_DYNAREC_STRONGMEM=1",
+            ] {
+                command.arg(format!("--setenv={value}"));
+            }
+            command.arg(&box64.path);
+            if windows {
+                command.arg(&wine.path);
+            }
+        }
+        Runner::Native { launcher, .. } => {
+            require(
+                windows,
+                "native runner does not translate Linux executables",
+            )?;
+            command.args([
+                "--property=RuntimeMaxSec=90",
+                "--property=MemoryMax=3G",
+                "--property=TasksMax=512",
+            ]);
+            command.arg(&launcher.path);
+        }
+    }
+    Ok(())
+}
+
+fn cohort_empty(path: &Path) -> io::Result<bool> {
+    match fs::read_to_string(path.join("cgroup.events")) {
+        Ok(value) => Ok(value.lines().any(|line| line == "populated 0")),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(true),
+        Err(error) => Err(error),
+    }
 }
 
 pub fn read_journal(unit: &str) -> io::Result<Vec<u8>> {
@@ -271,7 +306,9 @@ fn inspect(unit: &str, expected_executable: &Path) -> io::Result<Identity> {
         .filter(|value| *value > 0)
         .ok_or_else(|| invalid("RPI0 main PID absent"))?;
     let group = group
-        .filter(|value| value.starts_with('/') && !value.contains(".."))
+        .filter(|value| {
+            value.starts_with('/') && value.ends_with(&format!("/{unit}")) && !value.contains("..")
+        })
         .ok_or_else(|| invalid("RPI0 cgroup identity"))?;
     let cgroup = PathBuf::from("/sys/fs/cgroup").join(group.trim_start_matches('/'));
     let executable = fs::canonicalize(fs::read_link(format!("/proc/{main_pid}/exe"))?)?;
@@ -299,6 +336,8 @@ fn systemctl(arguments: &[&str]) -> io::Result<ExitStatus> {
     Command::new("/usr/bin/systemctl")
         .arg("--user")
         .args(arguments)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .status()
 }
 

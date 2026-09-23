@@ -2,8 +2,13 @@
 
 ## Result
 
-GE-Proton11-7 AArch64 with UMU 1.4.4 runs the existing x86-64 Windows
-probe and Windows host on the Pi. No source build was needed. The host
+GE-Proton11-7 AArch64 with UMU 1.4.4 now runs the reference Windows VST
+through the existing native bridge on the Pi: architecture handshake,
+MIDI, stereo processing, and clean shutdown passed. The native supervisor
+release build took 17.18 seconds; the existing Windows host and VST binaries
+were reused.
+
+The preceding account-free process launch proof needed no source build. Its host
 published its environment readiness token, pumped its Windows message loop,
 accepted its stop file, and exited successfully. All 14 processes sampled
 in the owned test cohort were absent after shutdown.
@@ -18,11 +23,65 @@ topology, not a performance prediction:
 Native ARM UMU / Linux runtime / Wine Unix infrastructure
     └── FEX ARM64EC translation
           └── existing x86-64 Windows host
+                └── reference VST → existing bridge transport → ARM JACK
 ```
 
 This experiment is separate from RPI1 and the ordinary `CURRENT_SLICE.md`.
 It does not declare RPI1 a failed architecture. It establishes another
-runtime candidate against which the transferable bridge can be evaluated.
+runtime candidate on which the transferable bridge has now run.
+
+## Reference bridge result
+
+One session processed 9,152 Windows blocks over about 49 seconds, including
+a five-second MIDI/audio capture. At 48 kHz, JACK used 512-frame callbacks,
+Windows processed 256-frame blocks, and the bridge retained its existing
+2,048-frame reserve (42.67 ms).
+
+- Native and Windows architecture handshake bytes matched.
+- The note-on, note-off, and CC123 messages were sent without errors.
+- Both captured channels were identical and finite, with 73,766 nonzero
+  samples each and peak amplitude 0.04535433. Initial and final silence
+  were preserved; the active note measured approximately 262 Hz, consistent
+  with MIDI note 60 at the measurement's 2 Hz resolution.
+- All 4,576 callbacks completed without process failure, deadline miss,
+  missing/expired frames, or a gap. The capture reported zero JACK xruns.
+- The host containing the reference VST also mapped FEX; all 14 sampled
+  cohort executables were native AArch64 ELF images.
+- Close completed successfully, the session directory was removed, all
+  sampled cohort PIDs disappeared, and the original JACK graph returned.
+
+The implementation changes runner selection and supervision in the RPI0
+standalone. A pinned native launcher and its pinned native leader replace
+the Box64-specific fields when `runner=native` is selected. Existing Box64
+configurations and their executable checks remain supported. Native cohorts
+use leader identity and cgroup ownership, rather than requiring every child
+to be Box64; this is process ownership, not a sandbox-security claim. Cleanup
+checks cgroup population including descendants. A startup identity failure
+also stops the launched unit before returning an error.
+
+[`launch-host.sh`](../../rpi2/launch-host.sh) is a fixture adapter copied beside
+the staged runner. It requires the RPI2 private prefix, checks the selected
+Proton and runtime entry hashes, preserves Windows command paths, and execs
+UMU under the existing supervisor. The native cohort is bounded to 90 seconds,
+3 GiB memory, and 512 tasks. This does not define a distributed product runner.
+
+The existing JACK fixture now accepts `LVB_QUALIFICATION_CLIENT` (default
+`lvb-arm-pigments`) and the neutral `notes` alias. The run selected
+`lvb-arm-standalone`; its note schedule, meters, and processing stayed intact.
+
+Validation: 21 standalone Rust tests passed, including unchanged legacy
+configuration parsing, native selection, mixed/unknown runner rejection,
+and changed-file hash rejection. The live run verified the changed launch
+path. Exact tested source hashes, configuration, native/Windows logs, audio
+summary, handshakes, and cleanup are in
+[`reference-bridge.json`](../../evidence/rpi2/reference-bridge.json).
+
+The retained timing window covers 1,643 of 9,152 requests: mean Windows
+processing was 11.174 microseconds and mean admission-to-publication was
+249.611 microseconds. These are a partial-window description of this light
+reference workload, not a complete trace or a comparison with RPI1. No DSP
+or transport algorithm was changed. Pigments performance and behavior remain
+separate questions.
 
 ## What ran
 
@@ -99,14 +158,15 @@ path. For example, from that private directory:
 ./run-ge.sh ge-hello-new 'C:\bridge\probes\rpi0-windows-probe.exe' --self-test
 ```
 
-The next engineering step is to connect this pinned launcher to the existing
-native bridge supervisor and run the source-owned reference VST through the
-actual architecture handshake and processing transport. Those boundaries
-were not exercised here. The supervisor currently embeds the Box64/Wine
-launch shape; adapt that launch boundary without changing audio or control
-semantics merely to fit the new runner.
+That initial launch-only boundary has been extended by the reference bridge
+run above. Its configuration replaces the legacy runner fields with
+`runner=native`, `launcher_path` / `launcher_sha256`, and `leader_path` /
+`leader_sha256`. The other RPI0 configuration fields remain unchanged. The
+staged launcher is distinct from the earlier `run-ge.sh` process-only helper;
+the Rust supervisor owns its systemd unit. Use a new evidence destination for
+each subsequent session and hold the private `run.lock` exclusively.
 
-Pigments, vendor authorization, audio deadlines, sustained throughput,
+Pigments, vendor authorization, demanding-workload audio deadlines, sustained throughput,
 preset navigation, state recall, ShieldXL controls, and comparative thermal
 behavior remain untested on this runtime. Hangover remains an alternative;
 it was not installed or executed in this step.

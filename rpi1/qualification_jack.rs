@@ -175,12 +175,17 @@ fn c(value: &str) -> CString {
 
 pub fn run() -> io::Result<()> {
     let arguments = std::env::args().collect::<Vec<_>>();
+    let bridge_client = std::env::var("LVB_QUALIFICATION_CLIENT")
+        .unwrap_or_else(|_| "lvb-arm-pigments".to_owned());
+    if bridge_client.is_empty() || !bridge_client.bytes().all(|c| c.is_ascii_alphanumeric() || matches!(c, b'-' | b'_')) {
+        return Err(fail("invalid JACK bridge client name"));
+    }
     if !matches!(arguments.len(), 2 | 4)
-        || !matches!(arguments[1].as_str(), "tone" | "pigments" | "polyphony")
+        || !matches!(arguments[1].as_str(), "tone" | "notes" | "pigments" | "polyphony")
         || (arguments.len() == 4 && arguments[2] != "--capture")
     {
         return Err(fail(
-            "usage: qualification tone|pigments|polyphony [--capture NEW_PRIVATE_F32LE_FILE]",
+            "usage: qualification tone|notes|pigments|polyphony [--capture NEW_PRIVATE_F32LE_FILE]",
         ));
     }
     let tone_mode = arguments[1] == "tone";
@@ -270,7 +275,7 @@ pub fn run() -> io::Result<()> {
     if !tone_mode {
         routes.push((
             format!("{NAME}:midi_out"),
-            "lvb-arm-pigments:midi_in".to_owned(),
+            format!("{bridge_client}:midi_in"),
             MIDI,
         ));
     }
@@ -278,7 +283,7 @@ pub fn run() -> io::Result<()> {
         let source = if tone_mode {
             format!("{NAME}:tone_{suffix}")
         } else {
-            format!("lvb-arm-pigments:audio_out_{suffix}")
+            format!("{bridge_client}:audio_out_{suffix}")
         };
         routes.push((source.clone(), format!("{NAME}:meter_{suffix}"), AUDIO));
         routes.push((source, format!("system:playback_{}", index + 1), AUDIO));

@@ -3,6 +3,12 @@
 RPI0 is an isolated Linux AArch64 experiment. It does not launch a DAW and it
 does not consume a commercial plug-in.
 
+The standalone also supports a pinned native launcher selected by
+`runner=native`. The native ARM Wine/FEX fixture, configuration differences,
+resource bounds, and observed bridge result are described in
+[`RPI2`](../docs/experiments/RPI2.md). Existing Box64 configurations retain
+their original runner fields.
+
 ## Build planes
 
 - Windows x86-64: configure the repository with `WF0_BUILD_ONLY=ON`, the pinned
