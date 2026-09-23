@@ -6,7 +6,7 @@ runtime=$(CDPATH= cd -- "$environment/.." && pwd)
 test "${WINEPREFIX:?supervisor selects the copied prefix}" = "$environment/compatdata/pfx"
 test "$#" -gt 0
 case "$1" in
-  'C:\bridge\bin\wf0-factory-probe-rpi1-e232.exe'|'C:\bridge\bin\wf0-factory-probe-rpi2-state-recheck.exe') ;;
+  'C:\bridge\bin\wf0-factory-probe-rpi1-e232.exe'|'C:\bridge\bin\wf0-factory-probe-rpi2-state-recheck.exe'|'C:\Program Files (x86)\Arturia\Arturia Software Center\Arturia Software Center.exe') ;;
   *) exit 64;;
 esac
 

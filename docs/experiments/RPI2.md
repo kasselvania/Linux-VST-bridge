@@ -458,6 +458,33 @@ active at the end, and the original audio service remained inactive.
 The sanitized comparison, scope and limitations are retained in
 [`pigments-vendor-readiness.json`](../../evidence/rpi2/pigments-vendor-readiness.json).
 
+## ASC startup in the migrated environment
+
+At the operator's request, `asc-ge-01` launched the installed Arturia Software
+Center 2.12.0.3157 in the same copied environment through GE-Proton11-7 AArch64.
+No build or installation was needed. The pinned launcher now accepts the exact
+ASC executable path as well as the two existing host paths; its staged ASC copy
+is separate from the existing audio and editor launchers.
+
+The service started at 03:38:42 UTC on September 23, 2026, on the existing X11
+display `:1`. At 03:39:26 UTC both ASC and its agent were present under native
+AArch64 `wine-preloader`, and ASC had written a fresh GUI log. Temperature was
+49.05°C. No DXGI-factory failure, unhandled Wine exception or thermal-stop marker
+appeared in the captured runtime log at that observation. Agent logs continued
+to report the machine-key error.
+
+The session was left running for operator access under the existing five-minute,
+3 GiB and 512-task bounds. It holds both operation locks, refuses an active
+original audio service, checks the ASC executable digest, and stops at 75°C or
+current throttle/power flags. Systemd owns cleanup of its process group. The
+maximum lifetime ends around 03:43:43 UTC; successful final cleanup is not claimed
+from this startup observation.
+
+No rendered window, responsiveness, sign-in or activation has been observed.
+The operator was asked whether the window is visible. Shell syntax checks passed;
+the actual launch, sanitized log metadata, process classification and limits are
+retained in [`asc-native-startup.json`](../../evidence/rpi2/asc-native-startup.json).
+
 ## What ran
 
 The fixture was Raspberry Pi 5, Debian 13.7, kernel
