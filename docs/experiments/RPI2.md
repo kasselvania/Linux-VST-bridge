@@ -1044,3 +1044,39 @@ reverified. Detailed results are in
 `evidence/rpi2/pigments-five-preset-sweep.json`; the bounded observer and identity
 reader are in `rpi2/pigments_preset_sweep.py` and
 `rpi2/pigments_preset_identity.py`.
+
+### 24 AM first hold versus same-process repeat
+
+A fresh headless session restored the exact 24 AM state saved before the sweep's
+first trial, including master 0.35. It played the same C4/E4/G4/B4 chord twice
+(velocity 96, 12-second hold in each 20-second recording), with five seconds
+between trials and no preset reload or editor between them.
+
+| Trial | Missing frames added | Gaps added | Average whole-Pi CPU | Peak temperature |
+| --- | ---: | ---: | ---: | ---: |
+| First hold | 645,376 (13.445 s) | 1 | 39.29% | 52.35 C |
+| Same-process repeat | 0 | 0 | 28.64% | 52.90 C |
+
+Both accepted all nine MIDI messages and added zero processing failures or JACK
+xruns. Neither reported throttling or recorded nonfinite/full-scale samples.
+The first hold was exactly silent throughout the sampled seconds 3–14 and
+produced its first tiny nonzero output at 15.499 seconds, after note-off. The
+repeat contained no exact stereo silence in that same held window and peaked at
+0.0477053. Residual pre-note audio means the repeat's first-nonzero timestamp is
+not a response-latency measurement.
+
+Only after both trials did the host open the editor. The operator confirmed
+**Poly 4** and heard the sound, describing it as very quiet and characteristic
+of the preset. The test's deliberately reduced master also affects loudness.
+Do not classify its sound character as failure, or turn that listening judgment
+into a denial of the separately measured first-trial transport loss.
+
+The saved state after both trials still identified 24 AM in both component and
+controller metadata. This pair supports first-use/transient work as a lead and
+shows the same configured four-key workload can run without added transport
+loss after the first play. It does not identify JIT translation, sample loading,
+scheduling, or a particular plug-in subsystem as the cause. This was a fresh
+process, not a cold boot or flushed cache; it restored state rather than using
+the original sweep's browser navigation. The operator's prior starting state
+was restored before shutdown. See
+`evidence/rpi2/pigments-24am-first-repeat.json` for retained measurements.
