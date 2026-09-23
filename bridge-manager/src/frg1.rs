@@ -425,7 +425,8 @@ fn current_inventory(m: &Manager, software: &Software) -> Result<inventory::Scan
     require(
         scan.schema == 1
             && scan.environment == record.environment
-            && scan.host == software.host
+            && scan.host.sha256 == software.host.sha256
+            && scan.host.verify().is_ok()
             && scan.host_source_sha256 == software.source_sha256
             && scan.completed_at >= record.adopted_at
             && record
@@ -1081,6 +1082,15 @@ mod tests {
         let class = &prepared.profile.class.class_id;
         adopt(manager, &prepared.census.environment.environment.id).unwrap();
         let scan = retain_inventory(&prepared);
+        let relocated_host = prepared.fixture.outer.join("relocated-default-host.exe");
+        fs::copy(&prepared.software.host.path, &relocated_host).unwrap();
+        let mut relocated_software = prepared.software.clone();
+        relocated_software.host.path = relocated_host.clone();
+        atomic_json(&manager.root.join("software.json"), &relocated_software).unwrap();
+        current_inventory(manager, &relocated_software).unwrap();
+        fs::write(&relocated_host, b"changed scanner bytes").unwrap();
+        assert!(current_inventory(manager, &relocated_software).is_err());
+        fs::copy(&prepared.software.host.path, &relocated_host).unwrap();
         stage(manager, &prepared.package).unwrap();
         let first = manager
             .qualify_for(&exact_census(&prepared, &scan), None, Qualification::Frg1Ubuntu)

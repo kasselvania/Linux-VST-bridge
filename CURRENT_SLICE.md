@@ -1,44 +1,42 @@
-# FRG1 retired-predecessor startup reconciliation
+# FRG1 verified scanner relocation
 
-Base: canonical main merge `243ad5b557f476e852f23af35511bb81fe5014dc`,
-tree `47bcb35709ccbdd97d8bd02e2c019e569526b804`.
+Base: canonical main merge `55d692f982eb0d03d7656264ecf4f06f5d8293cb`,
+tree `bc5c370164fa344fb6476aa59c2f2620a1881f80`.
 
 ## Primary claim
 
-Service startup accepts the exact normally removed revision-11 FRG1 record as
-retained history while refusing a live or altered predecessor. It does not
-require that historical record to have the parent reserved for the uncreated
-revision-12 candidate.
+An exact healthy inventory remains current when immutable Ubuntu setup moves
+the scanner host to a new pathname without changing its verified bytes.
+Missing or changed host bytes still refuse publication.
 
-## Basis and scope
+## Basis and fixture
 
-- `docs/ARCHITECTURE.md` revisioned publication and service reconciliation.
-- `docs/FRG1.md` sealed revision-11 to revision-12 Ubuntu transition.
-- Ubuntu-lab PR #5 physical install of merged PR #146: setup succeeded, but
-  the new service exited at startup with `frg1_predecessor_absent` before
-  staging, publication, or Bitwig. The exact service was stopped after its
-  first observed restart loop; its failure is retained.
-- `bridge-manager/src/frg1.rs` exact retired-predecessor verification and
-  qualification restoration invoked by `Manager::reconcile()`.
+- `docs/ARCHITECTURE.md` inventory identity and revisioned publication.
+- `docs/FRG1.md` sealed revision-12 Ubuntu qualification.
+- Ubuntu-lab PR #5 generation
+  `ec2fb7d3ebfba771aa596bcbe20dd6609de3114b57b27834c6633a9b37cfde8e`:
+  service active, exact healthy inventory retained, revision 12 staged, but
+  publication refused `frg1_current_inventory_required` before mutation.
+- The scanner host SHA-256 and source-manifest identity are unchanged; only
+  the software-generation pathname differs from the retained scan.
 
-No scanner, Wine/Proton runner, Windows host, module, native proxy, audio,
-editor, protocol, profile, or Ubuntu sandbox topology changes are in scope.
+Only `bridge-manager/src/frg1.rs` inventory-current authority and regression,
+plus slice/result documentation, are in scope. No scanner, Wine/Proton runner,
+Windows host, module, native proxy, audio, editor, protocol, profile, or Ubuntu
+sandbox topology change is in scope.
 
 ## Acceptance and nonclaims
 
-- The production reconciliation path succeeds with the exact removed
-  revision-11 predecessor and leaves its registry identity and publication
-  state unchanged.
-- The same path refuses changed adoption authority. Revision-12 staging and
-  normal restoration retain their existing exact-parent behavior.
+- Both retained and current host artifacts verify, their SHA-256 identities
+  match, and existing source/environment/module checks remain required.
+- Byte-identical relocation succeeds; altered bytes refuse.
 - Manager library/binary tests, strict Clippy, and diff checks pass.
-- Source success is not a physical plug-in result. The installed Ubuntu
-  generation remains stopped pending a new immutable build/install.
+- Source success is not a physical publication or plug-in result.
 
 ## Physical continuation
 
-Preserve the failed generation and retained vendor, inventory, adoption, and
-revision bytes. After normal merge, update only the Ubuntu product lock, build
-and install one immutable corrected generation, then stage/publish revision 12
-and ask the operator for one Bitwig FRAGMENTS load. Stop at the first new
-physical failure or finish the already-authorized qualification ladder.
+After normal merge, update the Ubuntu product lock and wrapper stamp, build and
+install one immutable generation, verify retained inventory/adoption and idle
+ownership, then stage/publish the already built revision 12. Do not rescan.
+If publication passes, continue the bounded Bitwig load/editor/audio/state/
+retirement ladder and restore. Stop at the first new physical failure.
