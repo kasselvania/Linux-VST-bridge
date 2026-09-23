@@ -485,6 +485,28 @@ The operator was asked whether the window is visible. Shell syntax checks passed
 the actual launch, sanitized log metadata, process classification and limits are
 retained in [`asc-native-startup.json`](../../evidence/rpi2/asc-native-startup.json).
 
+### Operator access recovery
+
+The operator then requested repair of the SSH video connection and lost VNC
+password. The Pi's existing TigerVNC desktop was still active and restricted to
+loopback, but the Mac had no video tunnel listener. The existing SSH master now
+forwards Mac `127.0.0.1:5901` to the Pi's loopback VNC listener. A replacement
+desktop password was installed atomically, with the old file privately backed up,
+and saved in the Mac Keychain as **Pi desktop over SSH**. No credentials were
+printed or added to this repository.
+
+An authentication-only RFB handshake through the restored tunnel succeeded;
+it requested no framebuffer and sent no input. The desktop server retained its
+process identity. The ordinary Mac Screen Sharing client was opened for the
+operator, with the password on their clipboard and a Keychain-backed copy
+shortcut retained locally. Operator-visible desktop confirmation remains pending.
+
+ASC was relaunched as `asc-ge-02` at 03:49:48 UTC on September 23 with the same
+runtime, copied environment, verified launcher/guard and five-minute limit.
+Its first session had already ended. Activation remains unconfirmed. The access
+repair is recorded in
+[`desktop-access-recovery.json`](../../evidence/rpi2/desktop-access-recovery.json).
+
 ## What ran
 
 The fixture was Raspberry Pi 5, Debian 13.7, kernel

@@ -1,0 +1,50 @@
+{
+  "observed_date_utc": "2026-09-23",
+  "request": "Restore SSH-tunneled video and replace the lost desktop password so the operator can use ASC.",
+  "before": {
+    "pi_vnc_service": "active",
+    "pi_vnc_listening_on_loopback_only": true,
+    "pi_vnc_port": 5901,
+    "mac_tunnel_listener_present": false,
+    "previous_asc_unit": "inactive and unloaded after its bounded session"
+  },
+  "repair": {
+    "ssh_master_reused": true,
+    "local_forward": "127.0.0.1:5901 to Pi 127.0.0.1:5901",
+    "vnc_password_replaced": true,
+    "old_password_file_backed_up_privately": true,
+    "replacement_saved_in_mac_keychain": true,
+    "keychain_label": "Pi desktop over SSH",
+    "keychain_readback_verified_in_memory": true,
+    "password_copied_to_operator_clipboard": true,
+    "keychain_backed_copy_shortcut_created": true,
+    "pi_password_file_mode": "0600",
+    "desktop_server_restarted": false
+  },
+  "verification": {
+    "rfb_password_authentication_through_ssh_tunnel": "success",
+    "rfb_framebuffer_requested_by_probe": false,
+    "rfb_input_sent_by_probe": false,
+    "desktop_process_identity_unchanged": true,
+    "mac_screen_sharing_client_open_requested": true,
+    "operator_visible_desktop_confirmed": false
+  },
+  "asc_relaunch": {
+    "label": "asc-ge-02",
+    "started_at_utc": "2026-09-23T03:49:48.469834+00:00",
+    "runtime": "GE-Proton11-7-aarch64 / UMU 1.4.4 / steamrt4-arm64",
+    "same_copied_pigments_environment": true,
+    "previous_launcher_and_guard_hashes_verified": true,
+    "max_seconds": 300,
+    "systemd_launch_exit": 0,
+    "activation_confirmed": false
+  },
+  "handling": {
+    "passwords_in_this_evidence": false,
+    "credentials_in_repository": false,
+    "license_files_inspected_or_modified": false,
+    "screenshots_or_computer_control_used": false
+  },
+  "source": "https://tigervnc.org/doc/Xvnc.html",
+  "source_use": "TigerVNC documents that PasswordFile is reread for each connection; replacement did not require restarting the desktop."
+}
