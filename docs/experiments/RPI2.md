@@ -2,13 +2,25 @@
 
 ## Result
 
-After the operator activated Pigments in ASC under the ARM runtime, the unchanged
-state probe succeeded in a fresh Pigments process. Initial state capture returned
-155,154 bytes in 150 ms before editor attachment; the post-editor call returned
-155,286 bytes in 168 ms. Both had returned `1` with zero bytes before activation.
-This resolves the observed state-capture refusal in the migrated fixture and
-strongly identifies authorization readiness as its cause. Audio, preset changes,
-full save/reopen and sustained performance remain unqualified.
+Actual Pigments now plays factory presets through the ARM Wine/FEX bridge. The
+operator selected Zeus and reported that it played well. Altered Alter Boy was
+saved, restored in a fresh process, and visually confirmed by the operator without
+reselection; its saved master-volume value also matched. A further fresh process
+restored that same state and produced stereo audio without opening the editor.
+
+The short audio windows are mixed: Welcome and Zeus added no bridge gaps; Altered
+Alter Boy added one 768-frame (16 ms) gap with its editor open at 71.6–74.35°C.
+The same five-second note sequence in the fresh, editor-unopened process added no
+gaps at 57.85–60.05°C. No current throttle/power flags or JACK xruns were reported.
+This does not isolate temperature from editor workload or establish polyphonic
+capacity. Sustained-load testing is deferred until the active heatsink arrives.
+All three ordinary audio sessions closed cleanly. No new build was needed.
+
+Previously, operator activation in ASC resolved the migrated fixture's observed
+state-capture refusal: the unchanged probe returned 155,154 bytes in 150 ms before
+editor attachment and 155,286 bytes in 168 ms afterward. Both calls had returned
+`1` with zero bytes before activation. This strongly identifies authorization
+readiness as the cause of that particular refusal, not every earlier RPI1 symptom.
 
 GE-Proton11-7 AArch64 with UMU 1.4.4 now runs the reference Windows VST
 through the existing native bridge on the Pi: architecture handshake,
@@ -22,7 +34,7 @@ inside this light synth, but did not reduce total runtime CPU use or establish
 better deadline behavior. The changed topology is real; a general performance
 win is not established.
 
-The subsequent real Pigments attempt stopped before audio/editor startup:
+Before activation, the first real Pigments attempt stopped before audio/editor startup:
 Pigments initialized and exposed its 4,446 parameters, but `IComponent::getState`
 returned `1` without writing any bytes. No preset selection or playback was
 reached. This is a concrete state/initialization failure, not DSP or thermal
@@ -33,15 +45,15 @@ host mode: editor-open, editor-close, component termination and module-unload
 records were obtained. This separates the initial state refusal from the ability
 to attach its editor. A subsequent single-call probe found that state capture
 still returned `1` with zero bytes after 5.007 seconds and 401 message-pump turns.
-Rendered appearance and responsiveness remain unobserved. The earlier attempts,
+Rendered appearance and responsiveness were unobserved at that stage. The earlier attempts,
 including two launch-adapter mistakes, are preserved below.
 
 A read-only follow-up found a vendor machine-identity error in the migrated
 environment: ASC reports `Can't read file <REDACTED_PATH>: machine key changed.`
 It appears 39 times across three retained ARM-environment agent logs and zero
 times in the three original-environment agent logs. This is a concrete migration
-fault to resolve before interpreting state refusal as a host defect; its causal
-relationship to that refusal remains unproved.
+fault to resolve before interpreting state refusal as a host defect. The later
+activation intervention and state result are recorded below.
 
 The preceding account-free process launch proof needed no source build. Its host
 published its environment readiness token, pumped its Windows message loop,
@@ -554,6 +566,84 @@ graph matched the previous probe. No audio was activated.
 The state and timing comparison, identities and cleanup are retained in
 [`pigments-post-activation-state.json`](../../evidence/rpi2/pigments-post-activation-state.json).
 
+## Factory presets, audio and process-restart recall
+
+Three ordinary audio sessions reused the installed native standalone and existing
+Windows host. Pigments is still the VST3 loaded by our host executable; this does
+not exercise Arturia's standalone application. The ordinary host is distinct
+from the focused post-editor diagnostic host above. No binaries were rebuilt.
+JACK stayed at 48 kHz / 512 frames, Windows blocks at 256 frames, and the bridge
+reserve at 2,048 frames. With Pigments' 48-frame latency, reported latency is
+2,096 frames (43.67 ms), not a measured physical key-to-speaker delay.
+
+The operator confirmed Welcome and selected Zeus and Altered Alter Boy using the
+vendor editor. The initial suspicion that the editor had frozen was withdrawn
+by the operator. No screen capture or computer control was used.
+
+| Preset / condition | Captured sequence | New bridge gaps | JACK xruns |
+| --- | --- | ---: | ---: |
+| Welcome, before opening editor | One note, 5 s | 0 | 0 |
+| Zeus, editor open | One note, 5 s | 0 | 0 |
+| Zeus, editor open | Increasing held MIDI keys, 30 s | 0 | 0 |
+| Altered Alter Boy, restored, editor open | One note, 5 s | 1 / 768 frames / 16 ms | 0 |
+| Altered Alter Boy, restored, editor never opened | One note, 5 s | 0 | 0 |
+
+All captures contained finite stereo audio and no MIDI delivery errors. The
+five-second fixture sends note 60 at velocity 96, its note-off, and CC123. The
+operator identified Zeus as monophonic and reported that it played well. The
+30-second sequence had already been queued; its 1/2/4/6/8 held keys therefore
+do **not** establish polyphonic capacity. Master volume was set to 0.45 for each
+capture. Sample equality was not an acceptance criterion.
+
+After Altered Alter Boy was selected in `pigments-ge-02`, the host saved 365,534
+bytes privately and shut down cleanly. Session `pigments-ge-03` restored those
+bytes before opening its editor, read back the saved master value
+`0.59233081340789795`, and the operator confirmed: "Yes, Altered Alter Boy was
+restored." This establishes one preset/master recall across a full process
+restart. It does not establish DAW project recall, machine-reboot persistence,
+or ShieldXL preset-button mappings. The state payload is not exported.
+
+The editor-open Altered test added a 16 ms gap at 71.6–74.35°C. Its counter
+interval includes fixture connection and startup as well as the note; it does
+not prove DSP caused the gap. The larger chord test was skipped. Closing the
+editor produced lifecycle 8 and temperature fell from 73.25 to 66.65°C over 24
+seconds. The existing policy retains the view until instance retirement, so
+this close was not view destruction. The session then reached its time bound
+and closed cleanly; no editor-hidden note repeat occurred within it.
+
+Instead, `pigments-ge-04` restored the same state in another fresh process and
+never opened the editor. Its five-second capture added no gaps at 57.85–60.05°C.
+The runtime cohort's recorded memory peak was about 1.13 GiB, versus 2.66 GiB
+in the editor-open Altered session. Process lifetimes, starting temperatures
+and UI histories differed. This establishes useful editor-unopened behavior,
+without isolating graphics cost, proving a memory leak, or attributing the
+earlier gap to heat. Full readiness took 19.04–27.24 seconds across the three
+sessions; this is not isolated preset-load time.
+
+Every session recorded an initial 1,536 missing frames. Existing phase records
+place the additional pre-playback gaps in the two editor sessions between the
+editor-open request and completion of attachment. The editor-unopened session
+retained only its initial gap. None reported callback deadline misses, process
+failures, or active throttle/power flags; the register stayed at its historical
+`0xe0000`. A bridge gap is observable even when JACK reports no xrun. Initial
+queue filling and editor startup remain specific work to examine, without a
+claim about the underlying cause.
+
+All sessions exited successfully, removed their session directories, and
+returned the original JACK graph. No experiment units remained. Existing phase
+capture stayed enabled, producing private files of approximately 24–93 MB per
+session; its control-thread work is part of this configuration. No new tracing
+was added. Sanitized counters, audio summaries, phase markers, identities and
+cleanup are in
+[`pigments-audio-presets.json`](../../evidence/rpi2/pigments-audio-presets.json).
+
+After the active heatsink is installed, reuse Altered Alter Boy, volume and note
+sequence, first without opening the editor and then with it open, at comparable
+starting temperatures. Only then increase held notes to characterize polyphonic
+capacity. Heat, editor startup, save/recall, preset selection and ShieldXL control
+ownership remain distinct questions. A general runtime performance win has not
+been established.
+
 ## What ran
 
 The fixture was Raspberry Pi 5, Debian 13.7, kernel
@@ -637,8 +727,9 @@ staged launcher is distinct from the earlier `run-ge.sh` process-only helper;
 the Rust supervisor owns its systemd unit. Use a new evidence destination for
 each subsequent session and hold the private `run.lock` exclusively.
 
-Pigments reached initialization and editor attachment. After operator activation,
-state capture succeeded before and after the measured editor-pumping interval.
-Demanding-workload audio deadlines, sustained throughput, preset navigation,
-state recall, ShieldXL controls, and sustained thermal behavior remain unqualified
-on this runtime. Hangover remains an alternative; it was not installed or executed.
+Pigments now has operator-confirmed factory preset playback and one successful
+preset/master recall across process restart. Short editor-unopened playback of
+the restored preset also succeeded. The editor-open gap, startup gaps, sustained
+throughput, broader recall and ShieldXL controls remain unresolved. Resume load
+testing with the active heatsink using the comparison described above. Hangover
+remains an alternative; it was not installed or executed.

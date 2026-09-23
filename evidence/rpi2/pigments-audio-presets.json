@@ -1,0 +1,976 @@
+{
+  "observed_at_utc": "2026-09-23T04:31:43.415283+00:00",
+  "source_base_commit": "a1bdf17bb898716ca93d438e864f8a2ea28782f7",
+  "runtime": "GE-Proton11-7-aarch64 / UMU 1.4.4 / steamrt4-arm64",
+  "plugin_version": "7.0.1.6772",
+  "windows_host_builds": 0,
+  "native_builds": 0,
+  "runs": [
+    {
+      "label": "pigments-ge-02",
+      "ready": true,
+      "ready_seconds": 20.09567407099894,
+      "stop_reason": "session time bound",
+      "exit_code": 0,
+      "clean_shutdown": true,
+      "elapsed_seconds": 288.01045840000006,
+      "session_directory_removed": true,
+      "temperature_c": {
+        "minimum": 48.5,
+        "maximum": 68.85,
+        "first": 48.5,
+        "last": 67.75
+      },
+      "throttle_register_values": [
+        "0xe0000"
+      ],
+      "any_current_throttle_or_power_flag": false,
+      "state_and_parameter_records": [
+        "RPI1_MASTER_READBACK normalized=0.44999998807907104 revision=3",
+        "RPI1_MASTER_READBACK normalized=0.48433086276054382 revision=5",
+        "RPI1_MASTER_READBACK normalized=0.44999998807907104 revision=8",
+        "RPI1_MASTER_READBACK normalized=0.59233081340789795 revision=10",
+        "RPI1_MASTER_READBACK normalized=0.59233081340789795 revision=12",
+        "RPI1_STATE_SAVED bytes=365534"
+      ],
+      "callback_snapshots": {
+        "first": {
+          "callbacks": 1281,
+          "failures": 0,
+          "deadline_misses": 0,
+          "callback_ns_max": 58370,
+          "missing_frames": 1536,
+          "gaps": 1,
+          "delivered_frames": 652288,
+          "paused_frames": 0,
+          "unsupported_midi": 0,
+          "malformed_midi": 0,
+          "overflow_midi": 0
+        },
+        "last": {
+          "callbacks": 24423,
+          "failures": 0,
+          "deadline_misses": 0,
+          "callback_ns_max": 100963,
+          "missing_frames": 5120,
+          "gaps": 2,
+          "delivered_frames": 12497408,
+          "paused_frames": 0,
+          "unsupported_midi": 0,
+          "malformed_midi": 0,
+          "overflow_midi": 0
+        }
+      },
+      "audio_snapshots": {
+        "first": {
+          "midi_accepted": 0,
+          "output_nonzero_l": 0,
+          "output_nonzero_r": 0,
+          "output_peak_l": 0,
+          "output_peak_r": 0,
+          "output_nonfinite": 0,
+          "xruns": 0,
+          "process_failures": 0,
+          "bridge_processed": 2562,
+          "request_high": 11,
+          "result_high": 11,
+          "fault": 0,
+          "fault_site": "unknown"
+        },
+        "last": {
+          "midi_accepted": 53,
+          "output_nonzero_l": 2436063,
+          "output_nonzero_r": 2436061,
+          "output_peak_l": 0.30462906,
+          "output_peak_r": 0.30507556,
+          "output_nonfinite": 0,
+          "xruns": 0,
+          "process_failures": 0,
+          "bridge_processed": 48848,
+          "request_high": 16,
+          "result_high": 11,
+          "fault": 0,
+          "fault_site": "unknown"
+        }
+      },
+      "runtime_status_records": [
+        "RPI1_STATUS cohort_processes=15 memory_peak=1207631872 cpu_stat=usage_usec 18395882,user_usec 15319716,system_usec 3076166,nice_usec 0",
+        "RPI1_STATUS cohort_processes=15 memory_peak=1217196032 cpu_stat=usage_usec 23849082,user_usec 19594218,system_usec 4254864,nice_usec 0",
+        "RPI1_STATUS cohort_processes=15 memory_peak=2809012224 cpu_stat=usage_usec 54430333,user_usec 45664149,system_usec 8766183,nice_usec 0",
+        "RPI1_STATUS cohort_processes=15 memory_peak=2861760512 cpu_stat=usage_usec 115666870,user_usec 98943874,system_usec 16722995,nice_usec 0",
+        "RPI1_STATUS cohort_processes=15 memory_peak=2863771648 cpu_stat=usage_usec 120409593,user_usec 103235110,system_usec 17174482,nice_usec 0",
+        "RPI1_STATUS cohort_processes=15 memory_peak=2864775168 cpu_stat=usage_usec 152254342,user_usec 132131527,system_usec 20122814,nice_usec 0",
+        "RPI1_STATUS cohort_processes=15 memory_peak=2894999552 cpu_stat=usage_usec 185622055,user_usec 161199349,system_usec 24422706,nice_usec 0",
+        "RPI1_STATUS cohort_processes=15 memory_peak=2894999552 cpu_stat=usage_usec 185883215,user_usec 161416160,system_usec 24467055,nice_usec 0"
+      ],
+      "editor_lifecycle": [
+        {
+          "native_view": 1,
+          "epoch": 1,
+          "lifecycle": 3,
+          "result": 0
+        },
+        {
+          "native_view": 1,
+          "epoch": 1,
+          "lifecycle": 5,
+          "result": 0
+        }
+      ],
+      "fixtures": [
+        {
+          "label": "initial-notes",
+          "audio": [
+            {
+              "channel": 0,
+              "samples": 240000,
+              "nonzero_samples": 72928,
+              "nonzero_windows": 144,
+              "peak": 0.056278322,
+              "rms": 0.021662413703935,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "samples": 240000,
+              "nonzero_samples": 72928,
+              "nonzero_windows": 144,
+              "peak": 0.056278322,
+              "rms": 0.021662413703935,
+              "nonfinite": 0
+            }
+          ],
+          "result": {
+            "mode": "notes",
+            "completed": true,
+            "midi_sent": 3,
+            "midi_errors": 0,
+            "xruns": 0,
+            "bad_blocks": 0,
+            "stereo_nonzero": true
+          },
+          "capture": {
+            "format": "f32le",
+            "channels": 2,
+            "rate": 48000,
+            "frames": 240000,
+            "bytes": 1920000
+          },
+          "capture_payload_exported": false
+        },
+        {
+          "label": "zeus-note",
+          "audio": [
+            {
+              "channel": 0,
+              "samples": 240000,
+              "nonzero_samples": 213391,
+              "nonzero_windows": 418,
+              "peak": 0.2880889,
+              "rms": 0.04724180518727971,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "samples": 240000,
+              "nonzero_samples": 213391,
+              "nonzero_windows": 418,
+              "peak": 0.28467715,
+              "rms": 0.046340445075826436,
+              "nonfinite": 0
+            }
+          ],
+          "result": {
+            "mode": "notes",
+            "completed": true,
+            "midi_sent": 3,
+            "midi_errors": 0,
+            "xruns": 0,
+            "bad_blocks": 0,
+            "stereo_nonzero": true
+          },
+          "capture": {
+            "format": "f32le",
+            "channels": 2,
+            "rate": 48000,
+            "frames": 240000,
+            "bytes": 1920000
+          },
+          "capture_payload_exported": false
+        },
+        {
+          "label": "zeus-chords",
+          "audio": [
+            {
+              "channel": 0,
+              "samples": 1440000,
+              "nonzero_samples": 1440000,
+              "nonzero_windows": 2813,
+              "peak": 0.30462906,
+              "rms": 0.04886051938070643,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "samples": 1440000,
+              "nonzero_samples": 1440000,
+              "nonzero_windows": 2813,
+              "peak": 0.30507556,
+              "rms": 0.04860309541294421,
+              "nonfinite": 0
+            }
+          ],
+          "result": {
+            "mode": "polyphony",
+            "completed": true,
+            "midi_sent": 47,
+            "midi_errors": 0,
+            "xruns": 0,
+            "bad_blocks": 0,
+            "stereo_nonzero": true
+          },
+          "capture": {
+            "format": "f32le",
+            "channels": 2,
+            "rate": 48000,
+            "frames": 1440000,
+            "bytes": 11520000
+          },
+          "capture_payload_exported": false
+        }
+      ],
+      "zeus_tests": {
+        "operator_preset_name": "zeus",
+        "operator_report": "I have loaded zeus, and it seems to still be running",
+        "started_at_utc": "2026-09-23T04:19:33.526987+00:00",
+        "editor_requested_open": true,
+        "master_target": 0.45,
+        "fixtures": [
+          {
+            "mode": "notes",
+            "label": "zeus-note",
+            "exit_code": 0,
+            "before_callback": "RPI1_CALLBACK_LIVE callbacks=17053 failures=0 deadline_misses=0 callback_ns_max=90388 missing_frames=5120 gaps=2 delivered_frames=8723968 paused_frames=0 unsupported_midi=0 malformed_midi=0 overflow_midi=0",
+            "after_callback": "RPI1_CALLBACK_LIVE callbacks=17576 failures=0 deadline_misses=0 callback_ns_max=90388 missing_frames=5120 gaps=2 delivered_frames=8991744 paused_frames=0 unsupported_midi=0 malformed_midi=0 overflow_midi=0",
+            "before_audio": "RPI1_AUDIO midi_accepted=3 output_nonzero_l=72928 output_nonzero_r=72928 output_peak_l=0.056278322 output_peak_r=0.056278322 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=34105 request_high=16 result_high=11 fault=0 fault_site=unknown",
+            "after_audio": "RPI1_AUDIO midi_accepted=6 output_nonzero_l=297199 output_nonzero_r=297199 output_peak_l=0.2880889 output_peak_r=0.28467715 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=35152 request_high=16 result_high=11 fault=0 fault_site=unknown"
+          },
+          {
+            "mode": "polyphony",
+            "label": "zeus-chords",
+            "exit_code": 0,
+            "before_callback": "RPI1_CALLBACK_LIVE callbacks=17576 failures=0 deadline_misses=0 callback_ns_max=90388 missing_frames=5120 gaps=2 delivered_frames=8991744 paused_frames=0 unsupported_midi=0 malformed_midi=0 overflow_midi=0",
+            "after_callback": "RPI1_CALLBACK_LIVE callbacks=20660 failures=0 deadline_misses=0 callback_ns_max=90388 missing_frames=5120 gaps=2 delivered_frames=10570752 paused_frames=0 unsupported_midi=0 malformed_midi=0 overflow_midi=0",
+            "before_audio": "RPI1_AUDIO midi_accepted=6 output_nonzero_l=297199 output_nonzero_r=297199 output_peak_l=0.2880889 output_peak_r=0.28467715 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=35152 request_high=16 result_high=11 fault=0 fault_site=unknown",
+            "after_audio": "RPI1_AUDIO midi_accepted=53 output_nonzero_l=1876207 output_nonzero_r=1876207 output_peak_l=0.30462906 output_peak_r=0.30507556 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=41318 request_high=16 result_high=11 fault=0 fault_site=unknown"
+          }
+        ]
+      },
+      "phase_gap_and_editor_events": [
+        {
+          "bridge_position": 2048,
+          "callback_sequence": 5,
+          "detail": 0,
+          "event": "rpi1_phase",
+          "phase": "gap_committed",
+          "value_1": 0,
+          "value_2": 256,
+          "seconds_after_first_gap": 0.0
+        },
+        {
+          "event": "rpi1_phase_marker",
+          "name": "editor_open_requested",
+          "seconds_after_first_gap": 37.661657814
+        },
+        {
+          "bridge_position": 2324480,
+          "callback_sequence": 4541,
+          "detail": 0,
+          "event": "rpi1_phase",
+          "phase": "gap_committed",
+          "value_1": 2322432,
+          "value_2": 256,
+          "seconds_after_first_gap": 48.384460796
+        },
+        {
+          "event": "rpi1_phase_marker",
+          "name": "editor_lifecycle_3",
+          "seconds_after_first_gap": 48.476655221
+        },
+        {
+          "event": "rpi1_phase_marker",
+          "name": "editor_lifecycle_5",
+          "seconds_after_first_gap": 49.3848771
+        },
+        {
+          "event": "rpi1_phase_marker",
+          "name": "operator_incident",
+          "seconds_after_first_gap": 181.748568648
+        }
+      ],
+      "private_phase_file_bytes": 86592713,
+      "welcome_capture_gap_counts": {
+        "before_missing_frames": 1536,
+        "after_missing_frames": 1536,
+        "before_gaps": 1,
+        "after_gaps": 1
+      }
+    },
+    {
+      "label": "pigments-ge-03",
+      "ready": true,
+      "ready_seconds": 27.23858955799733,
+      "stop_reason": "session time bound",
+      "exit_code": 0,
+      "clean_shutdown": true,
+      "elapsed_seconds": 288.13330031700025,
+      "session_directory_removed": true,
+      "temperature_c": {
+        "minimum": 55.65,
+        "maximum": 74.35,
+        "first": 57.3,
+        "last": 63.35
+      },
+      "throttle_register_values": [
+        "0xe0000"
+      ],
+      "any_current_throttle_or_power_flag": false,
+      "state_and_parameter_records": [
+        "RPI1_STATE_RESTORED bytes=365534",
+        "RPI1_MASTER_READBACK normalized=0.59233081340789795 revision=1",
+        "RPI1_MASTER_READBACK normalized=0.44999998807907104 revision=4"
+      ],
+      "callback_snapshots": {
+        "first": {
+          "callbacks": 107,
+          "failures": 0,
+          "deadline_misses": 0,
+          "callback_ns_max": 52870,
+          "missing_frames": 1536,
+          "gaps": 1,
+          "delivered_frames": 14848,
+          "paused_frames": 34304,
+          "unsupported_midi": 0,
+          "malformed_midi": 0,
+          "overflow_midi": 0
+        },
+        "last": {
+          "callbacks": 23792,
+          "failures": 0,
+          "deadline_misses": 0,
+          "callback_ns_max": 94314,
+          "missing_frames": 14592,
+          "gaps": 5,
+          "delivered_frames": 12128512,
+          "paused_frames": 34304,
+          "unsupported_midi": 0,
+          "malformed_midi": 0,
+          "overflow_midi": 0
+        }
+      },
+      "audio_snapshots": {
+        "first": {
+          "midi_accepted": 0,
+          "output_nonzero_l": 0,
+          "output_nonzero_r": 0,
+          "output_peak_l": 0,
+          "output_peak_r": 0,
+          "output_nonfinite": 0,
+          "xruns": 0,
+          "process_failures": 0,
+          "bridge_processed": 80,
+          "request_high": 11,
+          "result_high": 9,
+          "fault": 0,
+          "fault_site": "unknown"
+        },
+        "last": {
+          "midi_accepted": 3,
+          "output_nonzero_l": 6238208,
+          "output_nonzero_r": 6238208,
+          "output_peak_l": 0.09279425,
+          "output_peak_r": 0.098125815,
+          "output_nonfinite": 0,
+          "xruns": 0,
+          "process_failures": 0,
+          "bridge_processed": 47452,
+          "request_high": 29,
+          "result_high": 12,
+          "fault": 0,
+          "fault_site": "unknown"
+        }
+      },
+      "runtime_status_records": [
+        "RPI1_STATUS cohort_processes=15 memory_peak=1168674816 cpu_stat=usage_usec 12437571,user_usec 10325795,system_usec 2111776,nice_usec 0",
+        "RPI1_STATUS cohort_processes=15 memory_peak=2854072320 cpu_stat=usage_usec 120848399,user_usec 105385513,system_usec 15462885,nice_usec 0",
+        "RPI1_STATUS cohort_processes=15 memory_peak=2860101632 cpu_stat=usage_usec 127835409,user_usec 111675532,system_usec 16159876,nice_usec 0",
+        "RPI1_STATUS cohort_processes=15 memory_peak=2860101632 cpu_stat=usage_usec 168369834,user_usec 147043017,system_usec 21326816,nice_usec 0",
+        "RPI1_STATUS cohort_processes=15 memory_peak=2860101632 cpu_stat=usage_usec 196900740,user_usec 168533836,system_usec 28366903,nice_usec 0"
+      ],
+      "editor_lifecycle": [
+        {
+          "native_view": 1,
+          "epoch": 1,
+          "lifecycle": 3,
+          "result": 0
+        },
+        {
+          "native_view": 1,
+          "epoch": 1,
+          "lifecycle": 5,
+          "result": 0
+        },
+        {
+          "native_view": 1,
+          "epoch": 1,
+          "lifecycle": 8,
+          "result": 0
+        }
+      ],
+      "fixtures": [
+        {
+          "label": "altered-note",
+          "audio": [
+            {
+              "channel": 0,
+              "samples": 240000,
+              "nonzero_samples": 212864,
+              "nonzero_windows": 416,
+              "peak": 0.09279425,
+              "rms": 0.018489815367797674,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "samples": 240000,
+              "nonzero_samples": 212864,
+              "nonzero_windows": 416,
+              "peak": 0.098125815,
+              "rms": 0.016398473020903814,
+              "nonfinite": 0
+            }
+          ],
+          "result": {
+            "mode": "notes",
+            "completed": true,
+            "midi_sent": 3,
+            "midi_errors": 0,
+            "xruns": 0,
+            "bad_blocks": 0,
+            "stereo_nonzero": true
+          },
+          "capture": {
+            "format": "f32le",
+            "channels": 2,
+            "rate": 48000,
+            "frames": 240000,
+            "bytes": 1920000
+          },
+          "capture_payload_exported": false
+        }
+      ],
+      "altered_tests": {
+        "operator_preset_name": "Altered Alter Boy",
+        "operator_confirmed_restored_without_reselection": true,
+        "master_target": 0.45,
+        "editor_open": true,
+        "fixtures": [
+          {
+            "mode": "notes",
+            "label": "altered-note",
+            "exit_code": 0,
+            "wall_seconds": 7.004649607999454,
+            "before": {
+              "callback": "RPI1_CALLBACK_LIVE callbacks=11522 failures=0 deadline_misses=0 callback_ns_max=94314 missing_frames=13824 gaps=4 delivered_frames=5847040 paused_frames=34304 unsupported_midi=0 malformed_midi=0 overflow_midi=0",
+              "audio": "RPI1_AUDIO midi_accepted=0 output_nonzero_l=0 output_nonzero_r=0 output_peak_l=0 output_peak_r=0 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=22910 request_high=29 result_high=12 fault=0 fault_site=unknown",
+              "runtime": "RPI1_STATUS cohort_processes=15 memory_peak=2854072320 cpu_stat=usage_usec 120848399,user_usec 105385513,system_usec 15462885,nice_usec 0"
+            },
+            "after": {
+              "callback": "RPI1_CALLBACK_LIVE callbacks=12198 failures=0 deadline_misses=0 callback_ns_max=94314 missing_frames=14592 gaps=5 delivered_frames=6192384 paused_frames=34304 unsupported_midi=0 malformed_midi=0 overflow_midi=0",
+              "audio": "RPI1_AUDIO midi_accepted=3 output_nonzero_l=301568 output_nonzero_r=301568 output_peak_l=0.09279425 output_peak_r=0.098125815 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=24260 request_high=29 result_high=12 fault=0 fault_site=unknown",
+              "runtime": "RPI1_STATUS cohort_processes=15 memory_peak=2860101632 cpu_stat=usage_usec 127835409,user_usec 111675532,system_usec 16159876,nice_usec 0"
+            },
+            "samples": [
+              {
+                "elapsed": 0.0015552289987681434,
+                "temperature_c": 71.6
+              },
+              {
+                "elapsed": 1.0019254260005255,
+                "temperature_c": 73.8
+              },
+              {
+                "elapsed": 2.0022234950010898,
+                "temperature_c": 73.8
+              },
+              {
+                "elapsed": 3.002645931999723,
+                "temperature_c": 72.15
+              },
+              {
+                "elapsed": 4.003234350999264,
+                "temperature_c": 74.35
+              },
+              {
+                "elapsed": 5.003621141000622,
+                "temperature_c": 74.35
+              },
+              {
+                "elapsed": 6.004059579001478,
+                "temperature_c": 73.25
+              }
+            ]
+          }
+        ]
+      },
+      "restore_observation": {
+        "operator_preset_name": "Altered Alter Boy",
+        "state_source_session": "pigments-ge-02",
+        "state_bytes": 365534,
+        "observed_at_utc": "2026-09-23T04:22:13.798930+00:00",
+        "native_restore_record": "RPI1_STATE_RESTORED bytes=365534",
+        "master_readback_record": "RPI1_MASTER_READBACK normalized=0.59233081340789795 revision=1"
+      },
+      "editor_hidden_cooling": {
+        "samples": [
+          {
+            "seconds": 0,
+            "temperature_c": 73.25
+          },
+          {
+            "seconds": 1,
+            "temperature_c": 73.8
+          },
+          {
+            "seconds": 2,
+            "temperature_c": 72.15
+          },
+          {
+            "seconds": 3,
+            "temperature_c": 73.25
+          },
+          {
+            "seconds": 4,
+            "temperature_c": 73.8
+          },
+          {
+            "seconds": 5,
+            "temperature_c": 72.15
+          },
+          {
+            "seconds": 6,
+            "temperature_c": 73.25
+          },
+          {
+            "seconds": 7,
+            "temperature_c": 72.7
+          },
+          {
+            "seconds": 8,
+            "temperature_c": 71.6
+          },
+          {
+            "seconds": 9,
+            "temperature_c": 72.15
+          },
+          {
+            "seconds": 10,
+            "temperature_c": 70.5
+          },
+          {
+            "seconds": 11,
+            "temperature_c": 70.5
+          },
+          {
+            "seconds": 12,
+            "temperature_c": 69.95
+          },
+          {
+            "seconds": 13,
+            "temperature_c": 69.4
+          },
+          {
+            "seconds": 14,
+            "temperature_c": 68.85
+          },
+          {
+            "seconds": 15,
+            "temperature_c": 67.75
+          },
+          {
+            "seconds": 16,
+            "temperature_c": 67.2
+          },
+          {
+            "seconds": 17,
+            "temperature_c": 67.75
+          },
+          {
+            "seconds": 18,
+            "temperature_c": 67.75
+          },
+          {
+            "seconds": 19,
+            "temperature_c": 67.75
+          },
+          {
+            "seconds": 20,
+            "temperature_c": 67.2
+          },
+          {
+            "seconds": 21,
+            "temperature_c": 67.75
+          },
+          {
+            "seconds": 22,
+            "temperature_c": 67.2
+          },
+          {
+            "seconds": 23,
+            "temperature_c": 67.2
+          },
+          {
+            "seconds": 24,
+            "temperature_c": 66.65
+          }
+        ],
+        "outer_records": "RPI1_AUDIO midi_accepted=3 output_nonzero_l=2675200 output_nonzero_r=2675200 output_peak_l=0.09279425 output_peak_r=0.098125815 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=33534 request_high=29 result_high=12 fault=0 fault_site=unknown\nRPI1_CALLBACK_LIVE callbacks=16834 failures=0 deadline_misses=0 callback_ns_max=94314 missing_frames=14592 gaps=5 delivered_frames=8566016 paused_frames=34304 unsupported_midi=0 malformed_midi=0 overflow_midi=0\nRPI1_STATUS cohort_processes=15 memory_peak=2860101632 cpu_stat=usage_usec 168369834,user_usec 147043017,system_usec 21326816,nice_usec 0\nRPI1_EDITOR native_view=1 epoch=1 lifecycle=8 result=0\n"
+      },
+      "phase_gap_and_editor_events": [
+        {
+          "bridge_position": 2048,
+          "callback_sequence": 5,
+          "detail": 0,
+          "event": "rpi1_phase",
+          "phase": "gap_committed",
+          "value_1": 0,
+          "value_2": 256,
+          "seconds_after_first_gap": 0.0
+        },
+        {
+          "event": "rpi1_phase_marker",
+          "name": "editor_open_requested",
+          "seconds_after_first_gap": 1.091167718
+        },
+        {
+          "bridge_position": 242176,
+          "callback_sequence": 506,
+          "detail": 0,
+          "event": "rpi1_phase",
+          "phase": "gap_committed",
+          "value_1": 240128,
+          "value_2": 256,
+          "seconds_after_first_gap": 6.05871565
+        },
+        {
+          "bridge_position": 538880,
+          "callback_sequence": 1085,
+          "detail": 0,
+          "event": "rpi1_phase",
+          "phase": "gap_committed",
+          "value_1": 536832,
+          "value_2": 256,
+          "seconds_after_first_gap": 12.2347905
+        },
+        {
+          "event": "rpi1_phase_marker",
+          "name": "editor_lifecycle_3",
+          "seconds_after_first_gap": 12.305524337
+        },
+        {
+          "bridge_position": 544512,
+          "callback_sequence": 1096,
+          "detail": 0,
+          "event": "rpi1_phase",
+          "phase": "gap_committed",
+          "value_1": 542464,
+          "value_2": 256,
+          "seconds_after_first_gap": 12.352156622
+        },
+        {
+          "event": "rpi1_phase_marker",
+          "name": "editor_lifecycle_5",
+          "seconds_after_first_gap": 13.094957019
+        },
+        {
+          "bridge_position": 5892352,
+          "callback_sequence": 11541,
+          "detail": 0,
+          "event": "rpi1_phase",
+          "phase": "gap_committed",
+          "value_1": 5890304,
+          "value_2": 256,
+          "seconds_after_first_gap": 123.76671326
+        },
+        {
+          "event": "rpi1_phase_marker",
+          "name": "editor_close_requested",
+          "seconds_after_first_gap": 179.517088031
+        },
+        {
+          "event": "rpi1_phase_marker",
+          "name": "editor_lifecycle_8",
+          "seconds_after_first_gap": 179.568906384
+        }
+      ],
+      "private_phase_file_bytes": 93111324
+    },
+    {
+      "label": "pigments-ge-04",
+      "ready": true,
+      "ready_seconds": 19.043179268999666,
+      "exit_code": 0,
+      "clean_shutdown": true,
+      "elapsed_seconds": 74.3302475140008,
+      "session_directory_removed": true,
+      "temperature_c": {
+        "minimum": 55.1,
+        "maximum": 61.7,
+        "first": 55.1,
+        "last": 60.6
+      },
+      "throttle_register_values": [
+        "0xe0000"
+      ],
+      "any_current_throttle_or_power_flag": false,
+      "state_and_parameter_records": [
+        "RPI1_STATE_RESTORED bytes=365534",
+        "RPI1_MASTER_READBACK normalized=0.44999998807907104 revision=2"
+      ],
+      "callback_snapshots": {
+        "first": {
+          "callbacks": 1538,
+          "failures": 0,
+          "deadline_misses": 0,
+          "callback_ns_max": 48481,
+          "missing_frames": 1536,
+          "gaps": 1,
+          "delivered_frames": 749568,
+          "paused_frames": 32256,
+          "unsupported_midi": 0,
+          "malformed_midi": 0,
+          "overflow_midi": 0
+        },
+        "last": {
+          "callbacks": 4524,
+          "failures": 0,
+          "deadline_misses": 0,
+          "callback_ns_max": 62295,
+          "missing_frames": 1536,
+          "gaps": 1,
+          "delivered_frames": 2278400,
+          "paused_frames": 32256,
+          "unsupported_midi": 0,
+          "malformed_midi": 0,
+          "overflow_midi": 0
+        }
+      },
+      "audio_snapshots": {
+        "first": {
+          "midi_accepted": 0,
+          "output_nonzero_l": 0,
+          "output_nonzero_r": 0,
+          "output_peak_l": 0,
+          "output_peak_r": 0,
+          "output_nonfinite": 0,
+          "xruns": 0,
+          "process_failures": 0,
+          "bridge_processed": 2950,
+          "request_high": 12,
+          "result_high": 9,
+          "fault": 0,
+          "fault_site": "unknown"
+        },
+        "last": {
+          "midi_accepted": 3,
+          "output_nonzero_l": 269344,
+          "output_nonzero_r": 269344,
+          "output_peak_l": 0.06869957,
+          "output_peak_r": 0.06607299,
+          "output_nonfinite": 0,
+          "xruns": 0,
+          "process_failures": 0,
+          "bridge_processed": 8926,
+          "request_high": 12,
+          "result_high": 9,
+          "fault": 0,
+          "fault_site": "unknown"
+        }
+      },
+      "runtime_status_records": [
+        "RPI1_STATUS cohort_processes=15 memory_peak=1154813952 cpu_stat=usage_usec 16920900,user_usec 13950677,system_usec 2970223,nice_usec 0",
+        "RPI1_STATUS cohort_processes=15 memory_peak=1208975360 cpu_stat=usage_usec 27134246,user_usec 23006862,system_usec 4127383,nice_usec 0",
+        "RPI1_STATUS cohort_processes=15 memory_peak=1210527744 cpu_stat=usage_usec 29417053,user_usec 25034404,system_usec 4382648,nice_usec 0",
+        "RPI1_STATUS cohort_processes=15 memory_peak=1210527744 cpu_stat=usage_usec 29557210,user_usec 25158452,system_usec 4398758,nice_usec 0"
+      ],
+      "editor_lifecycle": [],
+      "fixtures": [
+        {
+          "label": "altered-noeditor-note",
+          "audio": [
+            {
+              "channel": 0,
+              "samples": 240000,
+              "nonzero_samples": 213408,
+              "nonzero_windows": 418,
+              "peak": 0.06869957,
+              "rms": 0.016831316278761117,
+              "nonfinite": 0
+            },
+            {
+              "channel": 1,
+              "samples": 240000,
+              "nonzero_samples": 213408,
+              "nonzero_windows": 418,
+              "peak": 0.06607299,
+              "rms": 0.014235029613604984,
+              "nonfinite": 0
+            }
+          ],
+          "result": {
+            "mode": "notes",
+            "completed": true,
+            "midi_sent": 3,
+            "midi_errors": 0,
+            "xruns": 0,
+            "bad_blocks": 0,
+            "stereo_nonzero": true
+          },
+          "capture": {
+            "format": "f32le",
+            "channels": 2,
+            "rate": 48000,
+            "frames": 240000,
+            "bytes": 1920000
+          },
+          "capture_payload_exported": false
+        }
+      ],
+      "altered_noeditor_tests": {
+        "preset_state_source": "pigments-ge-02",
+        "operator_preset_name": "Altered Alter Boy",
+        "editor_attached": false,
+        "master_target": 0.45,
+        "started_at_utc": "2026-09-23T04:30:00.079850+00:00",
+        "before": {
+          "callback": "RPI1_CALLBACK_LIVE callbacks=3905 failures=0 deadline_misses=0 callback_ns_max=48481 missing_frames=1536 gaps=1 delivered_frames=1961472 paused_frames=32256 unsupported_midi=0 malformed_midi=0 overflow_midi=0",
+          "audio": "RPI1_AUDIO midi_accepted=0 output_nonzero_l=0 output_nonzero_r=0 output_peak_l=0 output_peak_r=0 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=7684 request_high=12 result_high=9 fault=0 fault_site=unknown",
+          "runtime": "RPI1_STATUS cohort_processes=15 memory_peak=1208975360 cpu_stat=usage_usec 27134246,user_usec 23006862,system_usec 4127383,nice_usec 0"
+        },
+        "samples": [
+          {
+            "elapsed": 0.0006749920030415524,
+            "temperature_c": 58.4
+          },
+          {
+            "elapsed": 1.0009564790016157,
+            "temperature_c": 57.85
+          },
+          {
+            "elapsed": 2.001227751999977,
+            "temperature_c": 59.5
+          },
+          {
+            "elapsed": 3.0014911080033926,
+            "temperature_c": 58.95
+          },
+          {
+            "elapsed": 4.001775637003448,
+            "temperature_c": 60.05
+          },
+          {
+            "elapsed": 5.002040618001047,
+            "temperature_c": 59.5
+          }
+        ],
+        "exit_code": 0,
+        "wall_seconds": 6.002126073002728,
+        "after": {
+          "callback": "RPI1_CALLBACK_LIVE callbacks=4496 failures=0 deadline_misses=0 callback_ns_max=62295 missing_frames=1536 gaps=1 delivered_frames=2264064 paused_frames=32256 unsupported_midi=0 malformed_midi=0 overflow_midi=0",
+          "audio": "RPI1_AUDIO midi_accepted=3 output_nonzero_l=253984 output_nonzero_r=253984 output_peak_l=0.06869957 output_peak_r=0.06607299 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=8866 request_high=12 result_high=9 fault=0 fault_site=unknown",
+          "runtime": "RPI1_STATUS cohort_processes=15 memory_peak=1210527744 cpu_stat=usage_usec 29417053,user_usec 25034404,system_usec 4382648,nice_usec 0"
+        }
+      },
+      "phase_gap_and_editor_events": [
+        {
+          "bridge_position": 2048,
+          "callback_sequence": 5,
+          "detail": 0,
+          "event": "rpi1_phase",
+          "phase": "gap_committed",
+          "value_1": 0,
+          "value_2": 256,
+          "seconds_after_first_gap": 0.0
+        }
+      ],
+      "private_phase_file_bytes": 24224632,
+      "stop_reason": "Single restored-preset note capture completed; quit requested"
+    }
+  ],
+  "configuration": {
+    "plugin_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+    "source_manifest_sha256": "b96f536c6b1164a5a4e308f1d196c27fb5dcad77e194e84546f13a6b36293ce2",
+    "launcher_sha256": "e8b6038065befefbe82c2a731b43e2e2dd6c9c92b5b51d9e6592f396989d95c1",
+    "leader_sha256": "273cb29e073b748379ba546affa562283ed795f84ff230349e12ce610e60975c",
+    "runner": "native",
+    "editor_lifetime_policy": "retain_editor_view_until_instance_retirement",
+    "vendor_retirement_policy": "process_scoped_vendor_retirement",
+    "event_output_policy": "reported_zero_event_channels_unspecified",
+    "windows_host_sha256": "64d629e84a0fdf8833e97b9393cd41b9a5a214f82fe418d1792281622f0007f2"
+  },
+  "native_binary_sha256": "24e6ab174071a46c715d03c6e9d6718652097e965ffb3911eb2aa8298a2ef617",
+  "fixture_sha256": "1cf0c170c8a682779ecfc73cae260385fd8195cb485d020cc28f7813de7c9d2e",
+  "session_helper_sha256": "5efcd4dd35a15f0ddee7a7ca93cdbddc171e30318d31479c2775b0cbb071206e",
+  "saved_state": {
+    "bytes": 365534,
+    "sha256": "06cd019da139f0d0316b226b372836653d32ed33665715006e7c792c2facd1f2",
+    "payload_exported": false
+  },
+  "cleanup": {
+    "experiment_units": "",
+    "jack_graph": [
+      "system:capture_1",
+      "system:capture_2",
+      "system:playback_1",
+      "system:playback_2",
+      "system:midi_capture_1",
+      "system:midi_playback_1",
+      "system:midi_capture_2"
+    ]
+  },
+  "audio_configuration": {
+    "sample_rate": 48000,
+    "jack_period_frames": 512,
+    "windows_block_frames": 256,
+    "bridge_reserve_frames": 2048,
+    "vendor_latency_frames": 48,
+    "reported_total_latency_frames": 2096,
+    "physical_latency_measured": false,
+    "master_target_during_capture": 0.45
+  },
+  "operator_observations": {
+    "welcome_visible": true,
+    "initial_freeze_suspicion_withdrawn": true,
+    "zeus_identified_as_monophonic": true,
+    "zeus_playback": "It runs pretty fucking great!",
+    "selected_preset_before_save": "Altered Alter Boy",
+    "fresh_process_visual_recall": "Yes, Altered Alter Boy was restored",
+    "recall_confirmed_without_reselection": true
+  },
+  "interpretation": {
+    "recall_scope": "One saved preset and matching master value across process restart, plus a second restore and audio run without editor attachment. No reboot or DAW project test.",
+    "five_second_sequence": "MIDI note 60 velocity 96 at 0.5 s, note-off at 2 s, CC123 at 2.5 s. Stereo capture lasts 5 s.",
+    "zeus_30_second_scope": "Increasing held MIDI keys on an operator-identified monophonic preset; not a polyphonic capacity measurement.",
+    "gap_measurement": "Before/after bridge status; interval includes fixture connection and startup, not only held-note processing. Initial and editor-attachment gaps are retained separately.",
+    "thermal_scope": "Current throttle and power flags stayed clear. Editor-open and editor-unopened captures have different process lifetimes and starting temperatures; heat versus editor cost is not isolated.",
+    "deferred": "Sustained load and polyphonic capacity until the active heatsink arrives.",
+    "unresolved": [
+      "Initial queue gaps",
+      "Editor-attachment gaps",
+      "One gap during editor-open Altered fixture interval",
+      "Broader state and project recall",
+      "ShieldXL preset controls"
+    ],
+    "phase_capture": "Existing capture remained enabled; private phase file sizes retained, selected deduplicated gap and editor markers exported. No new tracing added."
+  }
+}
