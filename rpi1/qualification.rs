@@ -12,13 +12,20 @@ pub const CHORD_NOTES: [u8; 8] = [48, 52, 55, 59, 62, 65, 69, 72];
 /// Identical two-key stimulus for editor/headless comparison: C4/G4 at velocity
 /// 96, held from second 2 through second 14 of a 20-second capture.
 pub fn two_note_events() -> Vec<(u64, [u8; 3])> {
-    vec![
-        (RATE * 2, [0x90, 60, 96]),
-        (RATE * 2, [0x90, 67, 96]),
-        (RATE * 14, [0x80, 60, 0]),
-        (RATE * 14, [0x80, 67, 0]),
-        (RATE * 18, [0xb0, 123, 0]),
-    ]
+    held_note_events(&[60, 67])
+}
+
+/// Adds E4/B4 to the two-note comparison, preserving its timing and velocity.
+pub fn four_note_events() -> Vec<(u64, [u8; 3])> {
+    held_note_events(&[60, 64, 67, 71])
+}
+
+fn held_note_events(notes: &[u8]) -> Vec<(u64, [u8; 3])> {
+    let mut events = Vec::with_capacity(notes.len() * 2 + 1);
+    for &pitch in notes { events.push((RATE * 2, [0x90, pitch, 96])); }
+    for &pitch in notes { events.push((RATE * 14, [0x80, pitch, 0])); }
+    events.push((RATE * 18, [0xb0, 123, 0]));
+    events
 }
 
 /// A fixed channel-1 chord ladder. Each six-second window has three seconds
@@ -164,6 +171,31 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn four_notes_extend_comparison_without_changing_hold_or_velocity() {
+        let events = four_note_events();
+        assert_eq!(events.len(), 9);
+        let mut held = [false; 128];
+        for &(at, bytes) in &events {
+            match bytes[0] {
+                0x90 => {
+                    assert_eq!(at, RATE * 2);
+                    assert_eq!(bytes[2], 96);
+                    assert!(!held[bytes[1] as usize]);
+                    held[bytes[1] as usize] = true;
+                }
+                0x80 => {
+                    assert_eq!(at, RATE * 14);
+                    assert!(held[bytes[1] as usize]);
+                    held[bytes[1] as usize] = false;
+                }
+                0xb0 => assert!(held.iter().all(|&v| !v)),
+                _ => panic!("unexpected event"),
+            }
+        }
+        assert!(held.iter().all(|&v| !v));
+        for event in two_note_events() { assert!(events.contains(&event)); }
+    }
     #[test]
     fn two_notes_are_balanced_and_keep_offsets_across_periods() {
         let events = two_note_events();

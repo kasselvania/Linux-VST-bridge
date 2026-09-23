@@ -923,3 +923,14 @@ history was not replayed. The failure remains open. The new two-note fixture
 passed seven tests and built on the Pi in 3.422 seconds. Full sanitized results
 are in `evidence/rpi2/pigments-aioliane-editor-comparison.json`; recordings and
 vendor state remain private.
+
+A subsequent fresh headless Aioliane pass added E4/B4 to the preceding C4/G4
+stimulus, retaining velocity 96, the saved master level, 12-second hold and
+20-second capture. All nine MIDI events were accepted. It added zero gaps,
+missing frames, processing failures or JACK xruns, and the captured sustained
+portion contained no exact stereo silence. Average total-Pi CPU was 22.36%;
+temperature peaked at 51.8°C without throttle flags. Shutdown was clean and
+restored the graph. The extended fixture passed eight tests and built in
+0.895 seconds. This one short hold does not establish sustained capacity or
+explain the earlier manual failure. See
+`evidence/rpi2/pigments-aioliane-four-notes.json` for measurements and listening status.
