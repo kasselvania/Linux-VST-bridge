@@ -313,11 +313,7 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
     let me = std::env::current_exe()?;
     let (catalogue, files, source) = if let Some(package) = package {
         let profiles = profiles::installed_profiles()?;
-        let catalogue = if m.registry()?.classes.is_empty() {
-            None
-        } else {
-            Some(catalogue::adoption(m, &profiles)?)
-        };
+        let catalogue = catalogue::setup_adoption(m, &profiles)?;
         (
             catalogue,
             [
