@@ -1,0 +1,11 @@
+{
+  "schema": "linux-vst-bridge-frg1-revision12-setup-repair/v1",
+  "ubuntu_observed_failure": "revision-12 install setup refused adoption_requires_existing_managed_artifact before publication",
+  "ubuntu_failed_generation": "917cdb848eef82b20773e963425ed19439a5fc4d459fa154bbf528f355e8fc16",
+  "prior_valid_generation": "467cbbc5fbb8cddb0d65bd421b73b2f5f5a2a2a6b907679fc12e1f86fcd6fadc",
+  "registry_state": "one exact normally removed FRG1 revision-11 entry; physical publication absent",
+  "cause": "setup treated every nonempty registry as ordinary installed-product catalogue authority",
+  "repair": "setup uses the existing exact catalogue-free FRG1 registry check before ordinary catalogue adoption",
+  "unchanged": ["FRG1 profile", "native proxy", "Windows host", "scanner", "runner", "protocol", "vendor prefix"],
+  "qualification": "deterministic source tests only; no corrected Ubuntu setup or Bitwig result"
+}

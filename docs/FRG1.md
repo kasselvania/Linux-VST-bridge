@@ -260,6 +260,19 @@ predecessor refuses. The corrected revision is still a review candidate, not
 an activation or physical pass. Bitwig load, editor, audio, state and restart
 must be repeated on revision 12 after product review and deployment.
 
+## Exact setup over the removed revision-11 registry
+
+The first revision-12 Ubuntu installation stopped before publication with
+`adoption_requires_existing_managed_artifact`. Setup saw the retained removed
+FRG1 registry entry and incorrectly attempted ordinary catalogue adoption,
+which requires the unrelated ordinary installed-product roster. The manager
+now reuses the existing exact `frg1::catalogue_free_registry` authority at
+setup: a valid sealed FRG1 registry keeps `native_catalogue` absent; ordinary
+populated registries still use the unchanged catalogue adoption path. A live,
+altered, or foreign FRG1 entry is not converted into empty authority. The
+Ubuntu failed generation and first refusal remain evidence; a new physical
+setup and Bitwig load are still required.
+
 ## Evidence
 
 - `evidence/frg1/attempt-001/result.json`

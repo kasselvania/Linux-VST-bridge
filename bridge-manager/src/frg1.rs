@@ -1100,6 +1100,7 @@ mod tests {
         ).unwrap();
 
         assert!(catalogue_free_registry(manager, &manager.registry().unwrap()).is_err());
+        assert!(crate::catalogue::setup_adoption(manager, &crate::profiles::installed_profiles().unwrap()).is_err());
         assert!(stage(manager, &prepared.package).is_err());
         assert_eq!(manager.registry().unwrap().classes[class].publication, Publication::Published);
         // The previous product owns this normal restore; the successor then
@@ -1108,6 +1109,7 @@ mod tests {
         restore(manager).unwrap();
         TEST_CONTRACT.with(|slot| slot.borrow_mut().as_mut().unwrap().profile = successor.clone());
         assert!(catalogue_free_registry(manager, &manager.registry().unwrap()).unwrap());
+        assert!(crate::catalogue::setup_adoption(manager, &crate::profiles::installed_profiles().unwrap()).unwrap().is_none());
         let mut foreign = manager.registry().unwrap();
         foreign.classes.get_mut(class).unwrap().registration.native.sha256 = "aa".repeat(32);
         assert!(catalogue_free_registry(manager, &foreign).is_err());
@@ -1117,6 +1119,7 @@ mod tests {
         wrong_adoption.profile_fingerprint = successor.fingerprint().unwrap();
         atomic_json(&adoption_path, &wrong_adoption).unwrap();
         assert!(stage(manager, &prepared.package).is_err());
+        assert!(crate::catalogue::setup_adoption(manager, &crate::profiles::installed_profiles().unwrap()).is_err());
         wrong_adoption.profile_fingerprint = "bb".repeat(32);
         atomic_json(&adoption_path, &wrong_adoption).unwrap();
         assert!(stage(manager, &prepared.package).is_err());

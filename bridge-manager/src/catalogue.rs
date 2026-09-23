@@ -244,6 +244,14 @@ impl Catalogue {
 /// AP14 adopts only already managed, verified generated artifacts. Setup is an
 /// inactive product operation; neither playback nor managed publication needs
 /// the original generator checkout/build path after this copy.
+pub fn setup_adoption(m: &Manager, profiles: &[Profile]) -> Result<Option<Catalogue>> {
+    let registry = m.registry()?;
+    if crate::frg1::catalogue_free_registry(m, &registry)? {
+        return Ok(None);
+    }
+    Ok(Some(adoption(m, profiles)?))
+}
+
 pub fn adoption(m: &Manager, profiles: &[Profile]) -> Result<Catalogue> {
     validate_set(profiles)?;
     let db = m.registry()?;
