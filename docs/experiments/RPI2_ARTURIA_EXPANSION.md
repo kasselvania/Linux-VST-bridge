@@ -285,22 +285,51 @@ it ORed that mask into its pending request. The native caller now requests
 existing Windows host is unchanged. The mask follows the
 [official VST3 interface definition](https://github.com/steinbergmedia/vst3_pluginterfaces/blob/master/vst/ivsteditcontroller.h).
 
-The implementation is installed, but hands-on acceptance is **pending**. The
-final setup run restored and reported all three selected parameters, then routed
+The initial setup-only run restored and reported all three selected parameters, then routed
 physical stereo audio for 210.72 seconds with the surface enabled. It observed
 no knob or button events before its timed stop, so it did not exercise button
 save or saved-slot restart recall. No physical display confirmation was received.
 Two bridge gaps totaling 1,792 missing frames occurred before any physical control
 input; JACK xruns, callback deadline misses and process failures stayed zero.
 Audio-interval temperature was 42.45–46.3°C with no throttle flags. The gap cause
-is unestablished. The host closed cleanly and restored the JACK graph.
+is unestablished. The host closed cleanly and restored the JACK graph. This
+observation is retained separately from the later hands-on checks.
+
+**The installed controls subsequently passed hands-on checks.** On source
+`77566e57b97c8e88ed086031234583655a808393`, the physical Grain Mix and Density
+encoders produced actual evdev events and confirmed plugin parameter changes;
+the operator confirmed both their displayed and audible effects. Four button-2
+press/release pairs toggled Freeze, with displayed ON/OFF and audible hold/release
+confirmed. One button-1 press saved 162,158 bytes of private plugin state and the
+operator saw SAVED.
+
+A fresh process automatically loaded that saved slot and reported Grain Mix
+1.0, Freeze 0.0 and Density 1.0 before any control changes. No external restore
+command or parameter write was issued in the recall session. The operator
+confirmed the settings and sound returned without touching the controls. This
+proves the selected button-save/process-restart behavior, not reboot recall or
+an exhaustive comparison of all plugin state.
+
+| Physical check | Routed audio | CPU temperature during audio | Added gaps / JACK xruns |
+| --- | --- | --- | --- |
+| Grain Mix, `fragments-panel-05` | 210.66 s | 42.45–46.3°C | 0 / 0 |
+| Density, Freeze and Save, `fragments-panel-06` | 150.74 s | 45.2–49.05°C | 0 / 0 |
+| Saved-slot recall, `fragments-panel-recall-01` | 43.468 s | 45.75–48.5°C | 0 / 0 |
+
+These intervals also added zero missing/paused frames, process failures or
+callback deadline misses, with no throttle flags. Each session had one gap before
+audio routing: 1,024, 1,024 and 2,048 missing frames respectively. Startup remains
+an unresolved limit; the later successful intervals do not erase the earlier
+setup gaps. All three hosts shut down cleanly, left no new session directories
+or experiment units, and restored the JACK graph. Preexisting directories were
+untouched. The Pi remained powered on. No Fragments editor was opened.
 
 Twenty-three library tests passed, including parameter-confirmation, button-edge,
 save-ordering and private-state corruption checks. Four focused panel tests also
 passed after adding the overlapping-readback regression. Native builds took
 20.84 and 16.82 seconds. The OLED fixture accepted a valid six-line frame in its
 renderer test and refused oversized/non-ASCII requests. Setup failures and the
-pending physical checks are recorded in `evidence/rpi2/shieldxl-control-surface.json`.
+physical confirmations are recorded in `evidence/rpi2/shieldxl-control-surface.json`.
 
 ## Remaining work
 
