@@ -1,0 +1,73 @@
+{
+  "download_only": true,
+  "installers_executed": false,
+  "reaper_deferred_by_operator": true,
+  "items": [
+    {
+      "product": "Efx FRAGMENTS",
+      "version": "1.3.1.6566",
+      "filename": "Efx_FRAGMENTS__1_3_1_6566.exe",
+      "source_url": "https://dl.arturia.net/products/efx-fragments/soft/Efx_FRAGMENTS__1_3_1_6566.exe",
+      "bytes": 180305152,
+      "sha256": "e10be7377ea9155b0efb0dbca354557964bbb625b443ab0dc0b0099eca8f6843",
+      "seconds": 15.78
+    },
+    {
+      "product": "Analog Lab Pro",
+      "version": "5.12.5.6878",
+      "filename": "Analog_Lab_V__5_12_5_6878.exe",
+      "source_url": "https://dl.arturia.net/products/analoglab-v/soft/Analog_Lab_V__5_12_5_6878.exe",
+      "bytes": 3715465600,
+      "sha256": "4e1a1670bee15b573b83c5b9414bf018555664c2409a854b63525984ad94ede1",
+      "seconds": 278.96
+    }
+  ],
+  "observed_date": "2026-09-23",
+  "source_base_commit": "2d7889b9f7c50bbc4e05e021afe45a3a4248b260",
+  "operator_analog_lab_edition": "Pro",
+  "runtime_retained": "GE-Proton11-7-aarch64 / UMU 1.4.4 / steamrt4-arm64",
+  "existing_environment_changed": false,
+  "source_or_binaries_built": false,
+  "new_plugin_audio_tested": false,
+  "activation_performed": false,
+  "initial_pi_inventory": {
+    "free_gib": 77.11,
+    "temperature_c": 44.1,
+    "owned_experiment_units": 0,
+    "vst3_directory_entries": [
+      "Pigments.vst3"
+    ],
+    "reaper_on_path": false,
+    "matching_installers_in_checked_directories": 0
+  },
+  "initial_reaper_download_attempt": {
+    "result": "HTTP 404",
+    "installed": false,
+    "subsequent_action": "Operator deferred REAPER; no retry"
+  },
+  "host_changes_identified": [
+    "Select exact module and class from discovery instead of fixed Pigments identity",
+    "Configure reported audio and event buses per plugin",
+    "Do not assume Pigments Master Volume parameter identity",
+    "Expose stereo JACK input and pass real samples to the existing bridge",
+    "Route tone source through effect before metering; current tone mode bypasses bridge"
+  ],
+  "first_audio_tests": [
+    "Fragments low-level stereo source with dry/wet comparison and output capture",
+    "Fragments one state change saved and restored across process restart",
+    "Analog Lab Pro isolated notes from three available instrument families, then one preset recall"
+  ],
+  "limits": {
+    "one_instance_at_a_time": true,
+    "existing_temperature_stop_c": 75,
+    "stop_on_current_throttle_or_power_flags": true,
+    "sustained_load_deferred_until_active_cooling": true
+  },
+  "sources": [
+    "https://www.arturia.com/support/downloads-manuals/product/efx-fragments",
+    "https://www.arturia.com/support/downloads-manuals/product/analoglab-v",
+    "https://support.arturia.com/hc/en-us/articles/11077881030556-Analog-Lab-Pro-General-Questions",
+    "https://www.arturia.com/store/software-instruments/analoglab-v",
+    "https://www.raspberrypi.com/news/heating-and-cooling-raspberry-pi-5/"
+  ]
+}

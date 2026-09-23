@@ -733,3 +733,10 @@ the restored preset also succeeded. The editor-open gap, startup gaps, sustained
 throughput, broader recall and ShieldXL controls remain unresolved. Resume load
 testing with the active heatsink using the comparison described above. Hangover
 remains an alternative; it was not installed or executed.
+
+While waiting for active cooling, the operator selected installation groundwork
+and short functional checks for Efx FRAGMENTS, then Analog Lab Pro. REAPER is
+deferred for a later DAW demo. The checked packages, concrete standalone-host
+adaptations and execution order are in
+[Arturia expansion groundwork](RPI2_ARTURIA_EXPANSION.md). This preparation does
+not add an installation or audio result for either new product.
