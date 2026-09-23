@@ -15,13 +15,9 @@ def main():
     root = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser()
     parser.add_argument("label")
-    parser.add_argument("--session-seconds", type=int, default=280,
-                        help="manual session lifetime, including startup (30-3600 seconds)")
     parser.add_argument("--config", type=Path, default=root / "appliance.conf")
     parser.add_argument("--binary", type=Path, default=root.parent / "source-bridge/rpi0/standalone/target/release/lvb-arm-pigments-standalone")
     arguments = parser.parse_args()
-    if not 30 <= arguments.session_seconds <= 3600:
-        parser.error("session lifetime must be between 30 and 3600 seconds")
     label = arguments.label
     if not arguments.config.is_absolute() or not arguments.binary.is_absolute():
         raise ValueError("session paths must be absolute")
@@ -42,16 +38,14 @@ def main():
     sessions = root / "compatdata/pfx/drive_c/bridge/sessions"
     before = set(sessions.iterdir())
     started = time.monotonic()
-    report = {"label": label, "samples": [], "ready": False,
-              "session_seconds": arguments.session_seconds}
+    report = {"label": label, "samples": [], "ready": False}
     log_path = run / "outer.log"
     with log_path.open("x") as output:
         process = subprocess.Popen([
             "systemd-run", "--user", "--wait", "--collect", "--pipe",
             "--service-type=exec", "--unit=" + unit,
             "--property=KillMode=control-group", "--property=TimeoutStopSec=15",
-            "--property=RuntimeMaxSec=" + str(arguments.session_seconds + 40),
-            "--property=MemoryMax=1G",
+            "--property=RuntimeMaxSec=320", "--property=MemoryMax=1G",
             str(arguments.binary), str(arguments.config)], stdin=descriptor, stdout=output,
             stderr=subprocess.STDOUT)
         try:
@@ -64,23 +58,9 @@ def main():
                                           "throttled": flags})
                 text = log_path.read_text()
                 if not report["ready"] and "RPI1_READY " in text:
-                    if arguments.session_seconds != 280:
-                        # The Windows cohort has its own default five-minute bound.
-                        # Change only this launch's exact owned child unit.
-                        added = set(sessions.iterdir()) - before
-                        if len(added) != 1:
-                            raise RuntimeError("expected exactly one owned Windows session")
-                        child = next(iter(added)).name
-                        if not re.fullmatch(r"[0-9a-f]{32}", child):
-                            raise RuntimeError("invalid owned Windows session identity")
-                        subprocess.run([
-                            "systemctl", "--user", "set-property", "--runtime",
-                            "lvb-rpi1-" + child + ".service",
-                            "RuntimeMaxSec=" + str(arguments.session_seconds + 20)
-                        ], check=True, timeout=10, capture_output=True)
                     report["ready"], report["ready_seconds"] = True, elapsed
                     print("PIGMENTS_READY commands=" + str(fifo), flush=True)
-                if temperature >= 75 or flags & 15 or elapsed >= arguments.session_seconds:
+                if temperature >= 75 or flags & 15 or elapsed >= 280:
                     report["stop_reason"] = "thermal/power bound" if temperature >= 75 or flags & 15 else "session time bound"
                     os.write(descriptor, b"status\nquit\n")
                     process.wait(timeout=25)

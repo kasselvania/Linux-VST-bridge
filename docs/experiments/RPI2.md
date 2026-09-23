@@ -877,10 +877,15 @@ ALSA polling timeouts and could not accept clients. Its service restart required
 local administrator authentication. This is a separate unresolved audio-service
 failure, not evidence that MIDI routing or vendor authorization failed.
 
-The session helper now accepts an explicit `--session-seconds` for manual work,
-retaining the 280-second default. A longer session updates only the exact newly
-owned Windows cohort's time limit as well as its native supervisor's limit;
-thermal, power, memory, ownership and cleanup checks remain in place. This avoids
-using the short demo lifetime as an unexplained editor shutdown during manual
-testing. The new helper passed syntax validation; live extended-session validation
-awaits recovery of the audio service.
+A candidate session-helper change attempted an explicit longer manual lifetime.
+It passed syntax validation but failed live: this systemd build rejects changing
+`RuntimeMaxUSec` on an active service. The helper consequently retired the first
+reopening attempt before editor attachment. A short isolated service check
+reproduced the rejection; a runtime drop-in/reload also failed to extend an
+already armed timer. Both temporary check services were removed. The candidate
+was reverted to the previously working helper and its 280-second session limit.
+A longer manual session remains unimplemented; the failed attempt is retained.
+
+On a later connection, ShieldXL and JACK again accepted clients before Pigments
+was started. This recovery does not establish what caused the preceding DMA
+stall. No driver, overlay or audio-buffer configuration was changed by the agent.
