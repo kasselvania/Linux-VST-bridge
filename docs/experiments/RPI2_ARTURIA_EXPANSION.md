@@ -207,6 +207,36 @@ path. Sanitized observations are in
 `evidence/rpi2/fragments-arm-stereo.json`; installers, audio, state and licensing
 material remain private.
 
+## Battery-only repeat
+
+The operator unplugged the PiSugar 3 Plus USB-C charger while the audio host was
+idle and confirmed that the Pi stayed on. A fresh Fragments process restored the
+same private state, confirmed Grain Mix 100% and Freeze off, and processed the
+same physical stereo route continuously for another 120 seconds. No binary,
+buffer, routing or control changes were made during this repeat. The operator
+reported that it sounded just as good.
+
+| Audio interval | External power connected | Battery only |
+| --- | --- | --- |
+| Duration | 120 seconds | 120 seconds |
+| CPU temperature | 45.2–48.5°C | 43.55–46.85°C |
+| Sampled supply at the Pi | 5.01562–5.05716 V | 5.01562–5.05984 V |
+| Added bridge gaps / JACK xruns | 0 / 0 | 0 / 0 |
+| Throttle flags | 0 | 0 |
+
+The battery repeat also added zero missing frames, process failures, callback
+deadline misses or paused frames. Its pre-interval 1,024-frame startup gap remains
+recorded. Full-session temperature, including launch and teardown, peaked at
+47.4°C. Shutdown was intentional and clean; no experiment units or session
+directories remained, and the JACK graph was restored. The Pi was left on.
+
+This establishes one battery-powered Fragments workload with user-confirmed
+audio, not battery endurance or a measured power budget. The supply readings are
+at the Pi, not battery current or energy measurements. Unplugging happened before
+the audio session, so switchover during processing was not tested. Different
+initial conditions do not establish a thermal advantage of battery power.
+Sanitized results are in `evidence/rpi2/fragments-battery.json`.
+
 ## Remaining work
 
 Analog Lab Pro is staged but has not been installed, activated or tested.
