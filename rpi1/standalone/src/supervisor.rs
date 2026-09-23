@@ -264,6 +264,9 @@ pub fn environment(config: &Config) -> io::Result<BTreeMap<String, String>> {
             }
             values.insert(key.to_owned(), value);
         }
+        if !config.binding.zero_event_channels_unspecified {
+            values.remove("LVB_EVENT_OUTPUT_POLICY");
+        }
         return Ok(values);
     }
     let Runner::Box64(runtime) = &config.runner else {
@@ -564,6 +567,7 @@ mod tests {
             environment_root: "/root".into(),
             display: ":1".into(),
             xauthority: file("/home/user/.Xauthority"),
+            binding: crate::binding::Binding::pigments(),
             source_manifest_sha256: [0; 32],
             bridge_frames: 2048,
             jack_client: "lvb-arm-pigments".into(),

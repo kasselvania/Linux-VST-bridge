@@ -1,0 +1,17 @@
+{
+  "schema": "lvb-arm-plugin-binding/v1",
+  "module_sha256": "5846dfe91396596715f01a85d51c5ca21a808ef7dad1bfb44b02ab444345e1a5",
+  "class_id": "41727475415649536772616E50726F63",
+  "input": "stereo",
+  "zero_event_channels_unspecified": false,
+  "buses": [
+    [0, 0, 0, 2, 0, 1, 3],
+    [0, 0, 1, 2, 1, 0, 3],
+    [0, 1, 0, 2, 0, 1, 3],
+    [1, 0, 0, 16, 0, 1, 0]
+  ],
+  "controls": [
+    { "id": 1, "title": "Grain Mix", "units": "%" },
+    { "id": 8, "title": "Freeze", "units": "" }
+  ]
+}

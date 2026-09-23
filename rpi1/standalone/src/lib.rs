@@ -1,4 +1,5 @@
 //! Experiment-owned Pigments binding over the accepted RPI0 ARM appliance edge.
+pub mod binding;
 pub mod config;
 pub mod contract;
 pub mod master;

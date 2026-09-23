@@ -21,7 +21,7 @@ mod appliance {
     use ap2_backend::rpi0::{Identity as BridgeIdentity, Instance, Message, STATE_CAPACITY};
     use lvb_arm_pigments_standalone::{
         config::{hex, Config},
-        contract::{handshake, host_arguments, pigments_bus_contract, PIGMENTS_CLASS},
+        contract::{handshake, host_arguments},
         master,
         retirement::RetirementStatus,
         supervisor::{read_journal, Cohort},
@@ -62,7 +62,7 @@ mod appliance {
         fs::set_permissions(&directory, fs::Permissions::from_mode(0o700))?;
         let retirement = RetirementStatus::create(&directory, &session)?;
         let identity = BridgeIdentity {
-            class: PIGMENTS_CLASS,
+            class: config.binding.class,
             module: config.plugin.sha256,
         };
         let architecture = ArchitectureHandshake::native(page_size()?);
@@ -109,16 +109,21 @@ mod appliance {
         );
 
         let control = Control::new();
-        let mut jack = Client::open(
+        let mut jack = Client::open_with_io(
             &config.jack_client,
             &instance,
             &control,
             lvb_arm_standalone::midi::ControllerPolicy::TrackedNoteOffs,
+            config.binding.stereo_input,
+            config.binding.midi_input,
         )?;
-        let phase = PhaseCapture::start(instance.phase_rings()?,
-            &config.evidence_directory, &session_hex)?;
-        let buses = pigments_bus_contract();
-        let traits = instance.setup(jack.buffer_size(), 48_000.0, &buses)?;
+        let phase = PhaseCapture::start(
+            instance.phase_rings()?,
+            &config.evidence_directory,
+            &session_hex,
+        )?;
+        let buses = &config.binding.buses;
+        let traits = instance.setup(jack.buffer_size(), 48_000.0, buses)?;
         instance.activate(256)?;
         instance.start()?;
         jack.activate()?;
@@ -128,12 +133,22 @@ mod appliance {
             ports[0], ports[1], ports[2], jack.buffer_size(), config.bridge_frames,
             traits.vendor_frames, traits.total_frames
         );
+        if let Some(inputs) = jack.audio_input_ports() {
+            println!("RPI1_INPUT left={} right={}", inputs[0], inputs[1]);
+        }
         println!("RPI1_LATENCY tail_frames={}", traits.tail_frames);
         println!("RPI1_MIDI cc123=tracked_note_offs cc64=unsupported duplicate_note_on=refused");
         println!(
-            "Commands: open | close | save /absolute/path | restore /absolute/path | master [normalized] | status | mark | quit"
+            "Commands: open | close | save /absolute/path | restore /absolute/path | master [normalized] | parameter id [normalized] | status | mark | quit"
         );
-        let result = command_loop(&instance, &control, &cohort, &mut jack, &phase);
+        let result = command_loop(
+            &instance,
+            &control,
+            &cohort,
+            &mut jack,
+            &phase,
+            &config.binding,
+        );
 
         let jack_frames = jack.buffer_size();
         let deactivate = jack.deactivate();
@@ -265,6 +280,7 @@ mod appliance {
         cohort: &Cohort,
         jack: &mut Client,
         phase: &PhaseCapture,
+        binding: &lvb_arm_pigments_standalone::binding::Binding,
     ) -> io::Result<()> {
         let generation = instance.gui_generation()?;
         instance.gui_capabilities(generation, 7)?;
@@ -283,7 +299,14 @@ mod appliance {
         let mut native_view = 0u64;
         let mut view_epoch = 0u32;
         loop {
-            drain_gui(instance, generation, control, &mut view_epoch, phase)?;
+            drain_gui(
+                instance,
+                generation,
+                control,
+                &mut view_epoch,
+                phase,
+                binding,
+            )?;
             match receiver.recv_timeout(Duration::from_millis(5)) {
                 Ok(line) => {
                     let line = line.trim();
@@ -313,7 +336,40 @@ mod appliance {
                             memory_peak.trim(),
                             cpu.trim_end_matches(',')
                         );
+                    } else if let Some(arguments) = line.strip_prefix("parameter ") {
+                        let words = arguments.split_whitespace().collect::<Vec<_>>();
+                        if !(1..=2).contains(&words.len()) {
+                            return Err(invalid("parameter id [normalized]"));
+                        }
+                        let id = words[0]
+                            .parse::<u32>()
+                            .map_err(|_| invalid("parameter id"))?;
+                        binding.control(id)?;
+                        if let Some(text) = words.get(1) {
+                            let value = master::normalized(text)?;
+                            control
+                                .parameters
+                                .push(ParameterUpdate { id, value })
+                                .map_err(|_| invalid("parameter queue full"))?;
+                            let mut set = Message {
+                                kind: 3,
+                                id,
+                                value,
+                                ..Message::default()
+                            };
+                            instance.gui_command(generation, &mut set)?;
+                            println!("RPI1_PARAMETER_QUEUED id={id} normalized={value:.17}");
+                        }
+                        let mut refresh = Message {
+                            kind: 4,
+                            id,
+                            ..Message::default()
+                        };
+                        instance.gui_command(generation, &mut refresh)?;
                     } else if line == "master" || line.starts_with("master ") {
+                        if !binding.legacy_master {
+                            return Err(invalid("master command requires the Pigments binding"));
+                        }
                         if let Some(text) = line.strip_prefix("master ") {
                             let value = master::normalized(text)?;
                             // Reuse the same bounded audio parameter queue and controller
@@ -397,6 +453,7 @@ mod appliance {
         control: &Control,
         view_epoch: &mut u32,
         phase: &PhaseCapture,
+        binding: &lvb_arm_pigments_standalone::binding::Binding,
     ) -> io::Result<()> {
         for _ in 0..128 {
             let mut message = Message::default();
@@ -404,11 +461,18 @@ mod appliance {
             if message.kind == 0 {
                 break;
             }
-            if message.kind == 110 && message.id == master::ID {
+            if binding.legacy_master && message.kind == 110 && message.id == master::ID {
                 let value = master::readback(&message)?;
                 println!(
                     "RPI1_MASTER_READBACK normalized={value:.17} revision={}",
                     message.revision
+                );
+            }
+            if message.kind == 110 && binding.controls.iter().any(|p| p.id == message.id) {
+                let value = binding.readback(&message)?;
+                println!(
+                    "RPI1_PARAMETER_READBACK id={} normalized={value:.17} revision={}",
+                    message.id, message.revision
                 );
             }
             if message.kind == 102 {
@@ -425,8 +489,11 @@ mod appliance {
                 *view_epoch = message.view_epoch;
                 println!(
                     "RPI1_EDITOR native_view={} epoch={} lifecycle={} result={} target_x11=0x{:x}",
-                    message.native_view, message.view_epoch, message.lifecycle,
-                    message.result, message.target_x11
+                    message.native_view,
+                    message.view_epoch,
+                    message.lifecycle,
+                    message.result,
+                    message.target_x11
                 );
                 if message.lifecycle == 3 {
                     let mut focus = Message {

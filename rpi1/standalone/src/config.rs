@@ -81,6 +81,7 @@ pub struct Config {
     pub runner: Runner,
     pub windows_host: PinnedFile,
     pub plugin: PinnedFile,
+    pub binding: crate::binding::Binding,
     pub environment_root: PathBuf,
     pub display: String,
     pub xauthority: PinnedFile,
@@ -257,6 +258,7 @@ impl Config {
             }),
             windows_host: pinned("windows_host_path", "windows_host_sha256")?,
             plugin: pinned("plugin_path", "plugin_sha256")?,
+            binding: crate::binding::Binding::pigments(),
             environment_root,
             display: values["display"].clone(),
             xauthority: pinned("xauthority_path", "xauthority_sha256")?,
@@ -303,7 +305,13 @@ impl Config {
             "environment_family",
             "accessibility_policy",
         ];
-        if values.len() != KEYS.len() || KEYS.iter().any(|k| !values.contains_key(*k)) {
+        let generic = values.contains_key("binding_path");
+        let mut keys = KEYS.to_vec();
+        if generic {
+            keys.retain(|k| !k.starts_with("pigments_"));
+            keys.extend(["binding_path", "binding_sha256"]);
+        }
+        if values.len() != keys.len() || keys.iter().any(|k| !values.contains_key(*k)) {
             return Err(invalid("native configuration key set differs"));
         }
         for (key, expected) in [
@@ -336,6 +344,12 @@ impl Config {
             ("pigments_precision", "float32_only"),
             ("environment_family", "arturia_persistent_v1:1"),
         ] {
+            if generic
+                && (key.starts_with("pigments_")
+                    || matches!(key, "plugin_sha256" | "jack_client" | "event_output_policy"))
+            {
+                continue;
+            }
             if values[key] != expected {
                 return Err(invalid(format!("{key} pin differs")));
             }
@@ -356,13 +370,37 @@ impl Config {
         if display.is_empty() || display.bytes().any(|b| b.is_ascii_control()) {
             return Err(invalid("display identity"));
         }
+        let plugin = file("plugin")?;
+        let binding = if generic {
+            crate::binding::Binding::load(&file("binding")?, &plugin.sha256)?
+        } else {
+            crate::binding::Binding::pigments()
+        };
+        let event_policy = if binding.zero_event_channels_unspecified {
+            "reported_zero_event_channels_unspecified"
+        } else {
+            "strict"
+        };
+        if values["event_output_policy"] != event_policy {
+            return Err(invalid("binding event policy differs"));
+        }
+        let jack_client = &values["jack_client"];
+        if jack_client.is_empty()
+            || jack_client.len() > 48
+            || !jack_client
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
+        {
+            return Err(invalid("JACK client name"));
+        }
         let result = Self {
             runner: Runner::Native {
                 launcher: file("launcher")?,
                 leader: file("leader")?,
             },
             windows_host: file("windows_host")?,
-            plugin: file("plugin")?,
+            plugin,
+            binding,
             environment_root: exact_directory(&values["environment_root"], "environment root")?,
             display,
             xauthority: file("xauthority")?,
@@ -399,7 +437,7 @@ impl Config {
             }
         }
         self.windows_host.verify("Windows VST3 host")?;
-        self.plugin.verify("Pigments module")?;
+        self.plugin.verify("Windows plugin module")?;
         self.xauthority.verify("X authority")
     }
 

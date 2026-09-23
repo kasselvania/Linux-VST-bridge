@@ -792,3 +792,12 @@ reachable, its audio server remained running, and no experiment units or session
 directories remained. Private `power-note.json`, `run.json`, `note.log` and the
 audio capture retain the underlying observations. The earlier boot's I²C fault
 has not been causally explained by this successful retry.
+
+## Efx FRAGMENTS stereo processing
+
+The same ARM Wine/FEX environment now runs Efx FRAGMENTS 1.3.1.6566 through the
+existing Windows VST3 host, with native stereo audio input added to the Pi test
+application. Digital input/output comparison, one setting restored across a
+process restart, and user-confirmed physical stereo processing are recorded in
+[the Arturia expansion result](RPI2_ARTURIA_EXPANSION.md). The existing Pigments
+executable and its earlier observations remain separate.

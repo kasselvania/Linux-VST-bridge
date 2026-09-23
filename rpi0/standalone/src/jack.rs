@@ -145,6 +145,7 @@ struct Rt {
     instance: *const Instance,
     control: *const Control,
     midi: *mut JackPort,
+    inputs: Option<[*mut JackPort; 2]>,
     left: *mut JackPort,
     right: *mut JackPort,
     position: u64,
@@ -170,6 +171,17 @@ impl Client {
         control: &Control,
         controller_policy: ControllerPolicy,
     ) -> io::Result<Self> {
+        Self::open_with_io(name, instance, control, controller_policy, false, true)
+    }
+
+    pub fn open_with_io(
+        name: &str,
+        instance: &Instance,
+        control: &Control,
+        controller_policy: ControllerPolicy,
+        stereo_input: bool,
+        midi_input: bool,
+    ) -> io::Result<Self> {
         let name = CString::new(name).map_err(|_| invalid("JACK name"))?;
         let mut status = 0;
         let client = unsafe { jack_client_open(name.as_ptr(), JACK_NULL_OPTION, &mut status) };
@@ -187,7 +199,13 @@ impl Client {
                 Ok(port)
             }
         };
-        let midi = register("midi_in", JACK_DEFAULT_MIDI_TYPE, JACK_PORT_IS_INPUT)?;
+        let midi = if midi_input {
+            register("midi_in", JACK_DEFAULT_MIDI_TYPE, JACK_PORT_IS_INPUT)?
+        } else { ptr::null_mut() };
+        let inputs = if stereo_input {
+            Some([register("audio_in_l", JACK_DEFAULT_AUDIO_TYPE, JACK_PORT_IS_INPUT)?,
+                  register("audio_in_r", JACK_DEFAULT_AUDIO_TYPE, JACK_PORT_IS_INPUT)?])
+        } else { None };
         let left = register("audio_out_l", JACK_DEFAULT_AUDIO_TYPE, JACK_PORT_IS_OUTPUT)?;
         let right = register("audio_out_r", JACK_DEFAULT_AUDIO_TYPE, JACK_PORT_IS_OUTPUT)?;
         if unsafe { jack_get_sample_rate(client) } != SAMPLE_RATE {
@@ -211,6 +229,7 @@ impl Client {
             instance,
             control,
             midi,
+            inputs,
             left,
             right,
             position: 0,
@@ -254,9 +273,16 @@ impl Client {
         }
     }
 
+    pub fn audio_input_ports(&self) -> Option<[String; 2]> {
+        self.rt.inputs.map(|ports| ports.map(|port| unsafe {
+            std::ffi::CStr::from_ptr(jack_port_name(port)).to_string_lossy().into_owned()
+        }))
+    }
+
     pub fn ports(&self) -> [String; 3] {
         unsafe {
             [self.rt.midi, self.rt.left, self.rt.right].map(|port| {
+                if port.is_null() { return "none".to_owned(); }
                 let name = jack_port_name(port);
                 if name.is_null() {
                     String::new()
@@ -380,8 +406,8 @@ unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_in
             event_count += 1;
         }
     }
-    let midi_buffer = jack_port_get_buffer(rt.midi, frames);
-    let midi_count = jack_midi_get_event_count(midi_buffer);
+    let midi_buffer = if rt.midi.is_null() { ptr::null_mut() } else { jack_port_get_buffer(rt.midi, frames) };
+    let midi_count = if midi_buffer.is_null() { 0 } else { jack_midi_get_event_count(midi_buffer) };
     let prior = rt.parser.counters;
     for index in 0..midi_count {
         let mut raw = JackMidiEvent {
@@ -447,11 +473,15 @@ unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_in
         reserved: 0,
     };
     let mut delivery = Delivery::default();
+    let (inputs, silence) = if let Some(ports) = rt.inputs {
+        ([slice::from_raw_parts(jack_port_get_buffer(ports[0], frames).cast::<f32>(), count),
+          slice::from_raw_parts(jack_port_get_buffer(ports[1], frames).cast::<f32>(), count)], 0)
+    } else { ([&rt.zero[..count], &rt.zero[..count]], 3) };
     let result = (*rt.instance).process(
         frames,
-        [&rt.zero[..count], &rt.zero[..count]],
+        inputs,
         [&mut *left, &mut *right],
-        3,
+        silence,
         &rt.events[..event_count],
         &context,
         before,

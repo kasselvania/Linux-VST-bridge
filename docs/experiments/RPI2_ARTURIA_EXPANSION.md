@@ -47,15 +47,15 @@ SHA-256 hashes are recorded separately; a download hash pins received bytes and
 is not a vendor signature validation or an installation result. Proprietary
 installers, state, presets and licensing material stay outside Git.
 
-## Current Pi and implementation findings
+## Initial Pi and implementation findings
 
 At the read-only inventory, the RPI2 filesystem had 77.11 GiB available, the CPU
 was 44.1°C, no experiment units were active, and the ARM test prefix contained
 only Pigments in its VST3 directory. No matching Fragments or Analog Lab installer
 was found in the checked Pi staging/download locations or Mac Downloads.
 
-The transferable bridge already carries plugin audio and events. The Pi test
-application is still fixture-specific:
+The transferable bridge already carried plugin audio and events. At the initial
+inspection, the Pi test application was still fixture-specific:
 
 - `rpi1/standalone/src/config.rs` requires the Pigments module hash/class.
 - `rpi1/standalone/src/contract.rs` supplies Pigments' exact bus census and class
@@ -77,7 +77,7 @@ other products without their own reported metadata. The Windows host and shared
 audio transport should be reused unless an observed interface gap requires a
 change. A new host application per vendor product is not the intended design.
 
-## Execution order
+## Selected execution order
 
 1. **Install and discover Fragments.** Reuse the pinned ARM runtime and existing
    Arturia environment/machine identity. Preserve the working Pigments setup and
@@ -104,7 +104,9 @@ change. A new host application per vendor product is not the intended design.
 
 Run only one test instance at a time. Begin each audio check cool, retain the
 existing 75°C/current-throttle stop conditions, and use seconds-long captures
-with enough quiet time for the effect or note tail. Installation may also load
+with enough quiet time for the effect or note tail. The operator subsequently
+requested a longer listening pass; its two-minute result is recorded below.
+Installation may also load
 the CPU: a thermal interruption is an incomplete installation to inspect before
 retrying. Do not blindly replay or recreate the prefix. These short runs establish
 functionality only; sustained performance remains for the active cooler.
@@ -126,9 +128,90 @@ cooling for sustained work; it does not make a passive heatsink useless or prove
 our earlier 74°C gap was thermal throttling.
 [Raspberry Pi cooling measurements](https://www.raspberrypi.com/news/heating-and-cooling-raspberry-pi-5/).
 
-## Status
+## Fragments implementation and observed result
 
-Research and source inspection are complete. Installer staging is recorded in
-`evidence/rpi2/arturia-expansion-groundwork.json`. Neither installer has been
-executed, neither new product has been activated, and the Pi host has not yet
-been changed for these products. No audio or performance result is claimed.
+Efx FRAGMENTS 1.3.1.6566 is installed in the existing private ARM Arturia
+environment. The operator activated it through ASC. The official installation
+completed in 69.67 seconds and left the Pigments module hash unchanged. Discovery
+found a stereo main input, stereo auxiliary sidechain, stereo output, a 16-channel
+MIDI input and 2,415 parameters. The sidechain is explicitly inactive in this
+test; external sidechain processing is not claimed.
+
+The native host now selects the exact module, class, bus layout and selected
+control metadata from a pinned binding. It exposes stereo JACK input and sends
+those samples through the existing shared-memory transport and Windows host.
+The Windows host and vendor module were reused unchanged. This is the actual
+Windows VST3 hosted by our standalone bridge, not Arturia's standalone executable
+or a Linux rewrite. The incremental native build took 26.06 seconds including
+supervision. The previously installed Pigments executable was preserved.
+
+`rpi2/fragments-binding.json` contains the non-sensitive module identity and
+configuration. A native configuration selects it with `binding_path` and
+`binding_sha256`, replacing the four `pigments_*` fields; it uses
+`event_output_policy=strict` and a distinct JACK client name. The binding's bus
+rows are `[media, direction, index, channels, kind, active, arrangement]` using
+the existing VST3 setup protocol. Unsupported layouts and mismatched identities
+are refused before audio activation. Pigments' default binding remains available.
+
+The `lvb-arm-plugin-standalone` target uses the same application code, and
+`pigments_session.py` accepts optional absolute `--config` and `--binary` paths.
+`parameter id [normalized]` uses the existing bounded audio parameter queue and
+controller channel, checking readback against selected parameter metadata. The
+Fragments binding selects Grain Mix (1, percent) and Freeze (8). The legacy
+Pigments `master` command is not applied to Fragments.
+
+The capture helper's new `effect` mode routes its low-level stereo stimulus
+through the plugin; `input` routes the physical ShieldXL capture ports through
+the plugin. Both retain five seconds of stereo input and output privately.
+The original `tone` mode still measures direct tone routing.
+
+Observed results with the passive aluminium heatsink and externally powered
+PiSugar 3 Plus:
+
+- Two digital captures delivered bit-identical input with Grain Mix at 0% and
+  100%, verified by parameter readback. Their outputs differed, including a much
+  stronger final-second tail at 100%. Grain Mix 0% is not a full plugin bypass;
+  the other effects can still process audio.
+- A 162,176-byte private state was saved, the process closed, and a fresh process
+  restored Grain Mix to 100% before any parameter write. This is one setting's
+  process-restart recall, not broad preset or DAW project persistence.
+- Both physical input channels contained the user's source and produced finite
+  stereo output. The operator confirmed hearing both short passes and the effect
+  change. No editor was opened for these processing or recall tests.
+- All four five-second capture intervals added zero bridge gaps and zero JACK
+  xruns. Each session already had one 1,024-frame startup gap; that limitation
+  remains visible. Full-session temperature peaked at 50.7°C for the physical
+  test, with no throttle flags. These measurements do not identify the cause of
+  any earlier Pigments failure.
+- At the operator's request, a fresh session then ran physical stereo input
+  continuously for 120 seconds at Grain Mix 100%, with no changes to routing or
+  controls during that interval. Temperature was 45.2–48.5°C, sampled supply
+  voltage 5.01562–5.05716 V, and throttle flags remained zero. It added zero
+  missing frames, bridge gaps, JACK xruns, process failures or callback deadline
+  misses. The operator reported that it sounded great. This longer pass used
+  live counters and listening, not a continuous audio recording.
+
+All three audio sessions ended with an intentional quit, clean host shutdown,
+no remaining session directories and the original JACK graph restored. The
+silence at the ends of the short passes and continuous pass was deliberate.
+
+Sample rate remains 48 kHz, JACK period 512 frames, Windows process blocks 256
+frames and bridge reserve 2,048 frames. Fragments reported 192 vendor frames,
+giving 2,240 total frames (46.67 ms). This is reported transport/plugin latency,
+not a measured physical round trip or an optimized latency result.
+
+Focused checks covered binding identity, stereo buses, inactive sidechain and
+parameter metadata refusals, plus the existing standalone and capture tests.
+The ARM build and actual digital and physical sessions exercised the Linux JACK
+path. Sanitized observations are in
+`evidence/rpi2/fragments-arm-stereo.json`; installers, audio, state and licensing
+material remain private.
+
+## Remaining work
+
+Analog Lab Pro is staged but has not been installed, activated or tested.
+REAPER remains deferred. Active-cooling capacity tests, editor interaction,
+lower latency, external sidechain use and measured battery power/endurance are
+separate follow-ups. The earlier download-only result in
+`evidence/rpi2/arturia-expansion-groundwork.json` remains an unchanged historical
+observation.

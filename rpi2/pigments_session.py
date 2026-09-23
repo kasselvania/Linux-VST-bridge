@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 """One supervised editor/preset session in the private Pigments copy."""
+import argparse
 import fcntl
 import json
 import os
@@ -12,7 +13,14 @@ import time
 
 def main():
     root = Path(__file__).resolve().parent
-    label = sys.argv[1]
+    parser = argparse.ArgumentParser()
+    parser.add_argument("label")
+    parser.add_argument("--config", type=Path, default=root / "appliance.conf")
+    parser.add_argument("--binary", type=Path, default=root.parent / "source-bridge/rpi0/standalone/target/release/lvb-arm-pigments-standalone")
+    arguments = parser.parse_args()
+    label = arguments.label
+    if not arguments.config.is_absolute() or not arguments.binary.is_absolute():
+        raise ValueError("session paths must be absolute")
     if not re.fullmatch(r"[a-z0-9-]{1,32}", label):
         raise ValueError("invalid session label")
     lock = (root.parent / "run.lock").open("a")
@@ -38,8 +46,7 @@ def main():
             "--service-type=exec", "--unit=" + unit,
             "--property=KillMode=control-group", "--property=TimeoutStopSec=15",
             "--property=RuntimeMaxSec=320", "--property=MemoryMax=1G",
-            str(root.parent / "source-bridge/rpi0/standalone/target/release/lvb-arm-pigments-standalone"),
-            str(root / "appliance.conf")], stdin=descriptor, stdout=output,
+            str(arguments.binary), str(arguments.config)], stdin=descriptor, stdout=output,
             stderr=subprocess.STDOUT)
         try:
             while process.poll() is None:

@@ -80,7 +80,7 @@ pub fn host_arguments(config: &Config, session: &str) -> io::Result<Vec<OsString
         "--mode".into(),
         "ap9-commercial".into(),
         "--component-case".into(),
-        format!("class:{}", hex(&PIGMENTS_CLASS)).into(),
+        format!("class:{}", hex(&config.binding.class)).into(),
     ])
 }
 
@@ -92,7 +92,7 @@ pub fn handshake(config: &Config, session: &str) -> io::Result<String> {
         hex(&config.plugin.sha256),
         hex(&config.plugin.sha256),
         hex(&config.source_manifest_sha256),
-        hex(&PIGMENTS_CLASS)
+        hex(&config.binding.class)
     ))
 }
 
@@ -136,6 +136,7 @@ mod tests {
             environment_root: "/environment".into(),
             display: ":1".into(),
             xauthority: file("/home/user/.Xauthority"),
+            binding: crate::binding::Binding::pigments(),
             source_manifest_sha256: [0; 32],
             bridge_frames: 2048,
             jack_client: "lvb-arm-pigments".into(),
