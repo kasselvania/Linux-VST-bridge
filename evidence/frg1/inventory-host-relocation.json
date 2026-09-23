@@ -1,0 +1,19 @@
+{
+  "claim": "Exact verified scanner bytes remain current after immutable software-generation relocation",
+  "base_commit": "55d692f982eb0d03d7656264ecf4f06f5d8293cb",
+  "base_tree": "bc5c370164fa344fb6476aa59c2f2620a1881f80",
+  "fixture": "Ubuntu-lab PR #5",
+  "installed_generation": "ec2fb7d3ebfba771aa596bcbe20dd6609de3114b57b27834c6633a9b37cfde8e",
+  "retained_healthy_inventory_sha256": "6c1950dc0f3aa34c2b9da075d3afe027298a65fbc7a36a42d745a57f1805e168",
+  "observed_refusal": "frg1_current_inventory_required",
+  "observed_boundary": "Revision-12 publication refused before registry or physical publication mutation",
+  "diagnosis": "Retained scan host and installed host verify to the same SHA-256 and source identity, but immutable setup changed the host pathname",
+  "deterministic_regression": {
+    "before_change": "Byte-identical relocated host refused",
+    "after_change": "Byte-identical relocated host accepted; changed host bytes refused"
+  },
+  "nonclaims": [
+    "No second commercial Windows scan was performed",
+    "No revision-12 publication or Bitwig load has passed from this source result"
+  ]
+}

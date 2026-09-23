@@ -289,6 +289,24 @@ ordinary restoration rules. Source tests reproduce the startup refusal and
 verify the corrected path; the Ubuntu service and Bitwig must be retested from
 a new immutable product generation.
 
+## Verified scanner relocation across immutable setup
+
+The next Ubuntu generation started and retained the healthy FRG1 inventory,
+but revision-12 publication refused `frg1_current_inventory_required` before
+creating a publication. Setup had copied the identical scanner host into the
+new immutable software generation. The retained scan and current host had the
+same verified SHA-256, source manifest, environment, and module identity; only
+the host pathname differed. General inventory staleness already uses verified
+artifact identity, while the FRG1 publication check additionally required
+exact path equality.
+
+The FRG1 check now requires the retained and current host artifacts to verify
+and their SHA-256 identities to match. It retains all existing source,
+environment, module, and inspection checks. A production-shaped regression
+accepts byte-identical relocation and refuses changed bytes. This source
+correction is not a publication, Bitwig-load, or audio result; the Ubuntu
+generation must be updated and publication retried without another scan.
+
 ## Evidence
 
 - `evidence/frg1/attempt-001/result.json`
@@ -300,3 +318,4 @@ a new immutable product generation.
 - `evidence/frg1/candidate.json`
 - `evidence/frg1/registered-proxy-repair.json`
 - `evidence/frg1/retired-predecessor-reconcile.json`
+- `evidence/frg1/inventory-host-relocation.json`
