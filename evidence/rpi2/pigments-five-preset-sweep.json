@@ -1,0 +1,1797 @@
+{
+  "notes": [
+    60,
+    64,
+    67,
+    71
+  ],
+  "velocity": 96,
+  "hold_seconds": 12,
+  "capture_seconds": 20,
+  "normalized_master": 0.35,
+  "editor_opened": false,
+  "selections": [
+    {
+      "index": 1,
+      "identity": {
+        "name": "24 AM",
+        "bank": "Pigments 6.0"
+      },
+      "before": {
+        "midi_accepted": 0,
+        "output_nonzero_l": 0,
+        "output_nonzero_r": 0,
+        "output_peak_l": 0,
+        "output_peak_r": 0,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 2478,
+        "request_high": 15,
+        "result_high": 4,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 1322,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 57851,
+        "missing_frames": 9728,
+        "gaps": 3,
+        "delivered_frames": 620544,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "samples": [
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 0.019026519999897573
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400037120,
+          "seconds": 1.0375201930000912
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 2.0554978899999696
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 3.0741315079999367
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 4.092453147000015
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 5.106615159999819
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 6.1207803960001
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 7.135034556999926
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 8.149252329999854
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 9.163464380999812
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 10.17764482199982
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 11.191832040999998
+        },
+        {
+          "temperature_c": 52.9,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 12.20635655299975
+        },
+        {
+          "temperature_c": 52.9,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 13.220502495999881
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 14.234664937999696
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 15.248626087000048
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 16.262485940999795
+        },
+        {
+          "temperature_c": 49.6,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 17.276407369000026
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 18.29021727899999
+        },
+        {
+          "temperature_c": 51.25,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 19.304080726999928
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 20.317950210999697
+        }
+      ],
+      "fixture_exit": 0,
+      "elapsed_seconds": 21.318333881999934,
+      "cpu_core_busy_percent": {
+        "cpu0": 40.96,
+        "cpu1": 40.79,
+        "cpu2": 32.05,
+        "cpu3": 29.36
+      },
+      "after": {
+        "midi_accepted": 9,
+        "output_nonzero_l": 438272,
+        "output_nonzero_r": 438272,
+        "output_peak_l": 0.029234743,
+        "output_peak_r": 0.033423565,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 6494,
+        "request_high": 38,
+        "result_high": 4,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 3330,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 57851,
+        "missing_frames": 491264,
+        "gaps": 94,
+        "delivered_frames": 1167104,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "recording": {
+        "frames": 960000,
+        "finite": true,
+        "peak_by_channel": [
+          0.029234742745757103,
+          0.033423565328121185
+        ],
+        "rms_by_channel": [
+          0.0010515550324012367,
+          0.0010123402506543768
+        ],
+        "samples_at_or_above_full_scale": 0,
+        "held_window_seconds": [
+          3,
+          14
+        ],
+        "held_stereo_zero_frames": 436096,
+        "longest_held_stereo_zero_run_frames": 384384,
+        "first_nonzero_seconds": 11.008,
+        "last_nonzero_seconds": 19.999979166666666,
+        "rms_per_second": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0016965103392659678,
+          0.0020579684308054593,
+          0.0033200848854327376,
+          0.0017802360168748025,
+          2.0405160374510854e-05,
+          2.4192232499768513e-06,
+          3.8752572894150395e-07,
+          5.898202814825215e-08,
+          9.687584953021793e-09
+        ]
+      },
+      "trial_delta": {
+        "midi_accepted": 9,
+        "missing_frames": 481536,
+        "gaps": 91,
+        "xruns": 0,
+        "process_failures": 0,
+        "deadline_misses": 0,
+        "output_nonfinite": 0
+      },
+      "average_whole_pi_cpu_percent": 35.79,
+      "peak_temperature_c": 52.9,
+      "arm_clock_hz_range": [
+        2400020480,
+        2400037120
+      ]
+    },
+    {
+      "index": 2,
+      "identity": {
+        "name": "3030 Bassline",
+        "bank": "Pigments 4.0"
+      },
+      "before": {
+        "midi_accepted": 9,
+        "output_nonzero_l": 490736,
+        "output_nonzero_r": 490734,
+        "output_peak_l": 0.029234743,
+        "output_peak_r": 0.033423565,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 7960,
+        "request_high": 38,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 4063,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 57962,
+        "missing_frames": 491264,
+        "gaps": 94,
+        "delivered_frames": 1542400,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "samples": [
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 0.017064613000002282
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400017408,
+          "seconds": 1.0307702320001226
+        },
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 2.0445205740002166
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 3.058359415999803
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 4.072184313999969
+        },
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 1800022016,
+          "seconds": 5.086723501000051
+        },
+        {
+          "temperature_c": 48.5,
+          "throttled": 0,
+          "arm_clock_hz": 1800022016,
+          "seconds": 6.101270706999912
+        },
+        {
+          "temperature_c": 47.95,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 7.115133753999999
+        },
+        {
+          "temperature_c": 47.95,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 8.129061985000135
+        },
+        {
+          "temperature_c": 49.6,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 9.143042753999907
+        },
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 10.177256716000102
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 11.191231632999916
+        },
+        {
+          "temperature_c": 48.5,
+          "throttled": 0,
+          "arm_clock_hz": 1700017792,
+          "seconds": 12.206325225
+        },
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 1700014464,
+          "seconds": 13.221270504000131
+        },
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 1700017792,
+          "seconds": 14.236206765000134
+        },
+        {
+          "temperature_c": 49.6,
+          "throttled": 0,
+          "arm_clock_hz": 1600020224,
+          "seconds": 15.251260378000097
+        },
+        {
+          "temperature_c": 49.6,
+          "throttled": 0,
+          "arm_clock_hz": 1700014464,
+          "seconds": 16.26611573299988
+        },
+        {
+          "temperature_c": 48.5,
+          "throttled": 0,
+          "arm_clock_hz": 1600020224,
+          "seconds": 17.281161197000074
+        },
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 1700014464,
+          "seconds": 18.29602888699992
+        },
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 1700014464,
+          "seconds": 19.310956241999975
+        },
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 1800018688,
+          "seconds": 20.325545953000073
+        },
+        {
+          "temperature_c": 48.5,
+          "throttled": 0,
+          "arm_clock_hz": 1600017024,
+          "seconds": 21.344522380999933
+        }
+      ],
+      "fixture_exit": 0,
+      "elapsed_seconds": 22.344959136999933,
+      "cpu_core_busy_percent": {
+        "cpu0": 12.53,
+        "cpu1": 5.6,
+        "cpu2": 6.84,
+        "cpu3": 7.89
+      },
+      "after": {
+        "midi_accepted": 18,
+        "output_nonzero_l": 1086301,
+        "output_nonzero_r": 1085204,
+        "output_peak_l": 0.09352674,
+        "output_peak_r": 0.091854185,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 12168,
+        "request_high": 38,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 6167,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 70259,
+        "missing_frames": 491264,
+        "gaps": 94,
+        "delivered_frames": 2619648,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "recording": {
+        "frames": 960000,
+        "finite": true,
+        "peak_by_channel": [
+          0.09352674335241318,
+          0.09185418486595154
+        ],
+        "rms_by_channel": [
+          0.02478679680234319,
+          0.024765990737614405
+        ],
+        "samples_at_or_above_full_scale": 0,
+        "held_window_seconds": [
+          3,
+          14
+        ],
+        "held_stereo_zero_frames": 0,
+        "longest_held_stereo_zero_run_frames": 0,
+        "first_nonzero_seconds": 2.1266875,
+        "last_nonzero_seconds": 14.5358125,
+        "rms_per_second": [
+          0.0,
+          0.0,
+          0.030152373602935576,
+          0.03241971009076981,
+          0.031549198427608935,
+          0.03241971166911021,
+          0.031549177949100206,
+          0.03241989619718977,
+          0.031549179079816705,
+          0.03241876886380937,
+          0.03154944166965763,
+          0.03241953100889025,
+          0.03154924674930289,
+          0.03241745089259916,
+          0.009243167189061138,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "trial_delta": {
+        "midi_accepted": 9,
+        "missing_frames": 0,
+        "gaps": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "deadline_misses": 0,
+        "output_nonfinite": 0
+      },
+      "average_whole_pi_cpu_percent": 8.21,
+      "peak_temperature_c": 50.15,
+      "arm_clock_hz_range": [
+        1600017024,
+        2400030464
+      ]
+    },
+    {
+      "index": 3,
+      "identity": {
+        "name": "3k",
+        "bank": "Pigments 5.0"
+      },
+      "before": {
+        "midi_accepted": 18,
+        "output_nonzero_l": 1086301,
+        "output_nonzero_r": 1085204,
+        "output_peak_l": 0.09352674,
+        "output_peak_r": 0.091854185,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 13596,
+        "request_high": 38,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 6881,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 70259,
+        "missing_frames": 491264,
+        "gaps": 94,
+        "delivered_frames": 2985216,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "samples": [
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 0.0141822890000185
+        },
+        {
+          "temperature_c": 48.5,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 1.0279200859999946
+        },
+        {
+          "temperature_c": 49.6,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 2.0416133280000395
+        },
+        {
+          "temperature_c": 48.5,
+          "throttled": 0,
+          "arm_clock_hz": 2400037120,
+          "seconds": 3.055467958999998
+        },
+        {
+          "temperature_c": 49.6,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 4.069240219000221
+        },
+        {
+          "temperature_c": 48.5,
+          "throttled": 0,
+          "arm_clock_hz": 1800028544,
+          "seconds": 5.086903850999988
+        },
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 1700014464,
+          "seconds": 6.102101986999969
+        },
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 1800028544,
+          "seconds": 7.116915387000063
+        },
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 1700024448,
+          "seconds": 8.131706010000016
+        },
+        {
+          "temperature_c": 49.6,
+          "throttled": 0,
+          "arm_clock_hz": 1800022016,
+          "seconds": 9.146345394000036
+        },
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 1700024448,
+          "seconds": 10.161053352000181
+        },
+        {
+          "temperature_c": 48.5,
+          "throttled": 0,
+          "arm_clock_hz": 1700014464,
+          "seconds": 11.175987901000099
+        },
+        {
+          "temperature_c": 47.4,
+          "throttled": 0,
+          "arm_clock_hz": 1700021120,
+          "seconds": 12.19086117200004
+        },
+        {
+          "temperature_c": 47.95,
+          "throttled": 0,
+          "arm_clock_hz": 1700014464,
+          "seconds": 13.20606171899999
+        },
+        {
+          "temperature_c": 48.5,
+          "throttled": 0,
+          "arm_clock_hz": 1700021120,
+          "seconds": 14.221002861000215
+        },
+        {
+          "temperature_c": 47.95,
+          "throttled": 0,
+          "arm_clock_hz": 1700014464,
+          "seconds": 15.235743913000078
+        },
+        {
+          "temperature_c": 48.5,
+          "throttled": 0,
+          "arm_clock_hz": 1700017792,
+          "seconds": 16.250522057000126
+        },
+        {
+          "temperature_c": 48.5,
+          "throttled": 0,
+          "arm_clock_hz": 1700014464,
+          "seconds": 17.265245665000293
+        },
+        {
+          "temperature_c": 48.5,
+          "throttled": 0,
+          "arm_clock_hz": 1700017792,
+          "seconds": 18.28001879200019
+        },
+        {
+          "temperature_c": 47.95,
+          "throttled": 0,
+          "arm_clock_hz": 1700014464,
+          "seconds": 19.29492906600035
+        },
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 1700024448,
+          "seconds": 20.31075894200012
+        }
+      ],
+      "fixture_exit": 0,
+      "elapsed_seconds": 21.311199856000258,
+      "cpu_core_busy_percent": {
+        "cpu0": 10.21,
+        "cpu1": 7.37,
+        "cpu2": 6.84,
+        "cpu3": 13.75
+      },
+      "after": {
+        "midi_accepted": 27,
+        "output_nonzero_l": 1268502,
+        "output_nonzero_r": 1267336,
+        "output_peak_l": 0.09352674,
+        "output_peak_r": 0.091854185,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 17612,
+        "request_high": 38,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 8889,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 70259,
+        "missing_frames": 491264,
+        "gaps": 94,
+        "delivered_frames": 4013312,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "recording": {
+        "frames": 960000,
+        "finite": true,
+        "peak_by_channel": [
+          0.03360510617494583,
+          0.03543924167752266
+        ],
+        "rms_by_channel": [
+          0.00418984575611745,
+          0.004311196015844371
+        ],
+        "samples_at_or_above_full_scale": 0,
+        "held_window_seconds": [
+          3,
+          14
+        ],
+        "held_stereo_zero_frames": 391174,
+        "longest_held_stereo_zero_run_frames": 391174,
+        "first_nonzero_seconds": 2.0546875,
+        "last_nonzero_seconds": 5.850520833333333,
+        "rms_per_second": [
+          0.0,
+          0.0,
+          0.013667895433678506,
+          0.010991222180413601,
+          0.0068143769129455824,
+          0.0027125858795556375,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "trial_delta": {
+        "midi_accepted": 9,
+        "missing_frames": 0,
+        "gaps": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "deadline_misses": 0,
+        "output_nonfinite": 0
+      },
+      "average_whole_pi_cpu_percent": 9.54,
+      "peak_temperature_c": 50.15,
+      "arm_clock_hz_range": [
+        1700014464,
+        2400037120
+      ]
+    },
+    {
+      "index": 4,
+      "identity": {
+        "name": "5th Sweep",
+        "bank": "Factory"
+      },
+      "before": {
+        "midi_accepted": 27,
+        "output_nonzero_l": 1268502,
+        "output_nonzero_r": 1267336,
+        "output_peak_l": 0.09352674,
+        "output_peak_r": 0.091854185,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 19040,
+        "request_high": 38,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 9603,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 70259,
+        "missing_frames": 491264,
+        "gaps": 94,
+        "delivered_frames": 4378880,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "samples": [
+        {
+          "temperature_c": 48.5,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 0.014687358000173845
+        },
+        {
+          "temperature_c": 49.6,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 1.028571718999956
+        },
+        {
+          "temperature_c": 48.5,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 2.042486748000101
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 3.0568633269999737
+        },
+        {
+          "temperature_c": 49.6,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 4.071188148000147
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 5.0853700269999536
+        },
+        {
+          "temperature_c": 49.6,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 6.099495127999944
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 7.113585212000089
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 8.127620369999931
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 9.141600196000127
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 10.155503300999953
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 11.169357888999912
+        },
+        {
+          "temperature_c": 49.6,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 12.18326458699994
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 13.197019490999992
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 14.210939781999969
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 15.224792667000202
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400037120,
+          "seconds": 16.238907290000043
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 17.252934859000106
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 18.267187149000165
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 19.28140864199986
+        },
+        {
+          "temperature_c": 51.25,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 20.295590100000027
+        },
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 21.309757872999853
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400037120,
+          "seconds": 22.323908978999953
+        }
+      ],
+      "fixture_exit": 0,
+      "elapsed_seconds": 23.324307867000243,
+      "cpu_core_busy_percent": {
+        "cpu0": 29.43,
+        "cpu1": 20.22,
+        "cpu2": 21.83,
+        "cpu3": 23.92
+      },
+      "after": {
+        "midi_accepted": 36,
+        "output_nonzero_l": 2284533,
+        "output_nonzero_r": 2283367,
+        "output_peak_l": 0.37654757,
+        "output_peak_r": 0.36921793,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 23431,
+        "request_high": 38,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 11799,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 70259,
+        "missing_frames": 491264,
+        "gaps": 94,
+        "delivered_frames": 5503232,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "recording": {
+        "frames": 960000,
+        "finite": true,
+        "peak_by_channel": [
+          0.37654757499694824,
+          0.3692179322242737
+        ],
+        "rms_by_channel": [
+          0.0606223680284479,
+          0.060489165116010615
+        ],
+        "samples_at_or_above_full_scale": 0,
+        "held_window_seconds": [
+          3,
+          14
+        ],
+        "held_stereo_zero_frames": 0,
+        "longest_held_stereo_zero_run_frames": 0,
+        "first_nonzero_seconds": 2.0540208333333334,
+        "last_nonzero_seconds": 19.999979166666666,
+        "rms_per_second": [
+          0.0,
+          0.0,
+          0.04223485378636522,
+          0.07522538468015001,
+          0.07699898707119264,
+          0.07999420351051041,
+          0.07868140024586917,
+          0.07694462737551296,
+          0.0771658831289046,
+          0.07775361508945013,
+          0.08193376341399106,
+          0.07589468072911575,
+          0.07514295911935939,
+          0.0775964215821332,
+          0.06503810169770621,
+          0.0306253266570044,
+          0.011250950958225132,
+          0.0044248482292844,
+          0.0016450334577973432,
+          0.0007508099737320852
+        ]
+      },
+      "trial_delta": {
+        "midi_accepted": 9,
+        "missing_frames": 0,
+        "gaps": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "deadline_misses": 0,
+        "output_nonfinite": 0
+      },
+      "average_whole_pi_cpu_percent": 23.85,
+      "peak_temperature_c": 52.35,
+      "arm_clock_hz_range": [
+        2400020480,
+        2400037120
+      ]
+    },
+    {
+      "index": 5,
+      "identity": {
+        "name": "7AM",
+        "bank": "Pigments 2.0"
+      },
+      "before": {
+        "midi_accepted": 36,
+        "output_nonzero_l": 2331877,
+        "output_nonzero_r": 2330709,
+        "output_peak_l": 0.37654757,
+        "output_peak_r": 0.36921793,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 25330,
+        "request_high": 38,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 12748,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 70259,
+        "missing_frames": 491264,
+        "gaps": 94,
+        "delivered_frames": 5989120,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "samples": [
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 0.01440389800018238
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 1.0281988819997423
+        },
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 2.042031310999846
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 3.0563895870000124
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 4.070565939000062
+        },
+        {
+          "temperature_c": 49.6,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 5.084706810000171
+        },
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 6.098773255999731
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 7.112696721999782
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 8.126548690000163
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 9.140423601999828
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 10.154476308000085
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 11.168609755000034
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 12.18279425799983
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 13.197177166000074
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 14.211472278999736
+        },
+        {
+          "temperature_c": 51.25,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 15.225798855999983
+        },
+        {
+          "temperature_c": 51.25,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 16.240181135000057
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400037120,
+          "seconds": 17.254512303999945
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 18.26832851600011
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 19.28213406099985
+        },
+        {
+          "temperature_c": 49.6,
+          "throttled": 0,
+          "arm_clock_hz": 1700014464,
+          "seconds": 20.29681920999974
+        }
+      ],
+      "fixture_exit": 0,
+      "elapsed_seconds": 21.297242181,
+      "cpu_core_busy_percent": {
+        "cpu0": 18.41,
+        "cpu1": 21.63,
+        "cpu2": 29.14,
+        "cpu3": 19.36
+      },
+      "after": {
+        "midi_accepted": 45,
+        "output_nonzero_l": 3250628,
+        "output_nonzero_r": 3249460,
+        "output_peak_l": 0.37654757,
+        "output_peak_r": 0.36921793,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 29342,
+        "request_high": 38,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 14754,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 70259,
+        "missing_frames": 491264,
+        "gaps": 94,
+        "delivered_frames": 7016192,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "recording": {
+        "frames": 960000,
+        "finite": true,
+        "peak_by_channel": [
+          0.06935859471559525,
+          0.06853122264146805
+        ],
+        "rms_by_channel": [
+          0.012363506823958197,
+          0.0125854480574043
+        ],
+        "samples_at_or_above_full_scale": 0,
+        "held_window_seconds": [
+          3,
+          14
+        ],
+        "held_stereo_zero_frames": 0,
+        "longest_held_stereo_zero_run_frames": 0,
+        "first_nonzero_seconds": 2.0540208333333334,
+        "last_nonzero_seconds": 19.999979166666666,
+        "rms_per_second": [
+          0.0,
+          0.0,
+          0.009405008548130535,
+          0.016147398312448876,
+          0.016178672402072446,
+          0.01656764681313703,
+          0.015945238996242794,
+          0.016285546238488872,
+          0.01567097491253492,
+          0.015939449754050556,
+          0.01605619432271692,
+          0.01623435779995167,
+          0.016048238342219436,
+          0.01620824108368704,
+          0.011783807270298484,
+          0.004845956805087538,
+          0.0018580882952744257,
+          0.0006858480299160054,
+          0.0002643999871351048,
+          0.00010421993106021883
+        ]
+      },
+      "trial_delta": {
+        "midi_accepted": 9,
+        "missing_frames": 0,
+        "gaps": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "deadline_misses": 0,
+        "output_nonfinite": 0
+      },
+      "average_whole_pi_cpu_percent": 22.13,
+      "peak_temperature_c": 52.35,
+      "arm_clock_hz_range": [
+        1700014464,
+        2400037120
+      ]
+    }
+  ],
+  "navigation": [
+    {
+      "from_preset": {
+        "name": "8-Bit Crystals",
+        "bank": "Factory"
+      },
+      "initializing": true,
+      "edges": [
+        {
+          "attempt": 1,
+          "value": 1,
+          "selected": {
+            "name": "8-Bit Crystals",
+            "bank": "Factory"
+          }
+        },
+        {
+          "attempt": 1,
+          "value": 0,
+          "selected": {
+            "name": "24 AM",
+            "bank": "Pigments 6.0"
+          }
+        }
+      ],
+      "before": {
+        "midi_accepted": 0,
+        "output_nonzero_l": 0,
+        "output_nonzero_r": 0,
+        "output_peak_l": 0,
+        "output_peak_r": 0,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 1106,
+        "request_high": 12,
+        "result_high": 2,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 636,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 40926,
+        "missing_frames": 1024,
+        "gaps": 1,
+        "delivered_frames": 278016,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "selected": {
+        "name": "24 AM",
+        "bank": "Pigments 6.0"
+      },
+      "navigation_and_settle_seconds": 4.409894936000001,
+      "after": {
+        "midi_accepted": 0,
+        "output_nonzero_l": 0,
+        "output_nonzero_r": 0,
+        "output_peak_l": 0,
+        "output_peak_r": 0,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 1952,
+        "request_high": 15,
+        "result_high": 4,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 1059,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 57851,
+        "missing_frames": 9728,
+        "gaps": 3,
+        "delivered_frames": 485888,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "navigation_delta": {
+        "missing_frames": 8704,
+        "gaps": 2,
+        "xruns": 0,
+        "process_failures": 0
+      }
+    },
+    {
+      "from_preset": {
+        "name": "24 AM",
+        "bank": "Pigments 6.0"
+      },
+      "initializing": false,
+      "edges": [
+        {
+          "attempt": 1,
+          "value": 1,
+          "selected": {
+            "name": "3030 Bassline",
+            "bank": "Pigments 4.0"
+          }
+        },
+        {
+          "attempt": 1,
+          "value": 0,
+          "selected": {
+            "name": "3030 Bassline",
+            "bank": "Pigments 4.0"
+          }
+        }
+      ],
+      "before": {
+        "midi_accepted": 9,
+        "output_nonzero_l": 467456,
+        "output_nonzero_r": 467456,
+        "output_peak_l": 0.029234743,
+        "output_peak_r": 0.033423565,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 6607,
+        "request_high": 38,
+        "result_high": 4,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 3387,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 57851,
+        "missing_frames": 491264,
+        "gaps": 94,
+        "delivered_frames": 1196288,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "selected": {
+        "name": "3030 Bassline",
+        "bank": "Pigments 4.0"
+      },
+      "navigation_and_settle_seconds": 4.307925415999762,
+      "after": {
+        "midi_accepted": 9,
+        "output_nonzero_l": 490736,
+        "output_nonzero_r": 490734,
+        "output_peak_l": 0.029234743,
+        "output_peak_r": 0.033423565,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 7434,
+        "request_high": 38,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 3800,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 57962,
+        "missing_frames": 491264,
+        "gaps": 94,
+        "delivered_frames": 1407744,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "navigation_delta": {
+        "missing_frames": 0,
+        "gaps": 0,
+        "xruns": 0,
+        "process_failures": 0
+      }
+    },
+    {
+      "from_preset": {
+        "name": "3030 Bassline",
+        "bank": "Pigments 4.0"
+      },
+      "initializing": false,
+      "edges": [
+        {
+          "attempt": 1,
+          "value": 1,
+          "selected": {
+            "name": "3k",
+            "bank": "Pigments 5.0"
+          }
+        },
+        {
+          "attempt": 1,
+          "value": 0,
+          "selected": {
+            "name": "3k",
+            "bank": "Pigments 5.0"
+          }
+        }
+      ],
+      "before": {
+        "midi_accepted": 18,
+        "output_nonzero_l": 1086301,
+        "output_nonzero_r": 1085204,
+        "output_peak_l": 0.09352674,
+        "output_peak_r": 0.091854185,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 12282,
+        "request_high": 38,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 6224,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 70259,
+        "missing_frames": 491264,
+        "gaps": 94,
+        "delivered_frames": 2648832,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "selected": {
+        "name": "3k",
+        "bank": "Pigments 5.0"
+      },
+      "navigation_and_settle_seconds": 4.208057742000165,
+      "after": {
+        "midi_accepted": 18,
+        "output_nonzero_l": 1086301,
+        "output_nonzero_r": 1085204,
+        "output_peak_l": 0.09352674,
+        "output_peak_r": 0.091854185,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 13090,
+        "request_high": 38,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 6628,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 70259,
+        "missing_frames": 491264,
+        "gaps": 94,
+        "delivered_frames": 2855680,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "navigation_delta": {
+        "missing_frames": 0,
+        "gaps": 0,
+        "xruns": 0,
+        "process_failures": 0
+      }
+    },
+    {
+      "from_preset": {
+        "name": "3k",
+        "bank": "Pigments 5.0"
+      },
+      "initializing": false,
+      "edges": [
+        {
+          "attempt": 1,
+          "value": 1,
+          "selected": {
+            "name": "5th Sweep",
+            "bank": "Factory"
+          }
+        },
+        {
+          "attempt": 1,
+          "value": 0,
+          "selected": {
+            "name": "5th Sweep",
+            "bank": "Factory"
+          }
+        }
+      ],
+      "before": {
+        "midi_accepted": 27,
+        "output_nonzero_l": 1268502,
+        "output_nonzero_r": 1267336,
+        "output_peak_l": 0.09352674,
+        "output_peak_r": 0.091854185,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 17724,
+        "request_high": 38,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 8945,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 70259,
+        "missing_frames": 491264,
+        "gaps": 94,
+        "delivered_frames": 4041984,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "selected": {
+        "name": "5th Sweep",
+        "bank": "Factory"
+      },
+      "navigation_and_settle_seconds": 4.108206855999924,
+      "after": {
+        "midi_accepted": 27,
+        "output_nonzero_l": 1268502,
+        "output_nonzero_r": 1267336,
+        "output_peak_l": 0.09352674,
+        "output_peak_r": 0.091854185,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 18514,
+        "request_high": 38,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 9340,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 70259,
+        "missing_frames": 491264,
+        "gaps": 94,
+        "delivered_frames": 4244224,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "navigation_delta": {
+        "missing_frames": 0,
+        "gaps": 0,
+        "xruns": 0,
+        "process_failures": 0
+      }
+    },
+    {
+      "from_preset": {
+        "name": "5th Sweep",
+        "bank": "Factory"
+      },
+      "initializing": false,
+      "edges": [
+        {
+          "attempt": 1,
+          "value": 1,
+          "selected": {
+            "name": "7AM",
+            "bank": "Pigments 2.0"
+          }
+        },
+        {
+          "attempt": 1,
+          "value": 0,
+          "selected": {
+            "name": "7AM",
+            "bank": "Pigments 2.0"
+          }
+        }
+      ],
+      "before": {
+        "midi_accepted": 36,
+        "output_nonzero_l": 2308597,
+        "output_nonzero_r": 2307431,
+        "output_peak_l": 0.37654757,
+        "output_peak_r": 0.36921793,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 23526,
+        "request_high": 38,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 11846,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 70259,
+        "missing_frames": 491264,
+        "gaps": 94,
+        "delivered_frames": 5527296,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "selected": {
+        "name": "7AM",
+        "bank": "Pigments 2.0"
+      },
+      "navigation_and_settle_seconds": 6.715480764999938,
+      "after": {
+        "midi_accepted": 36,
+        "output_nonzero_l": 2331877,
+        "output_nonzero_r": 2330709,
+        "output_peak_l": 0.37654757,
+        "output_peak_r": 0.36921793,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 24804,
+        "request_high": 38,
+        "result_high": 6,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 12485,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 70259,
+        "missing_frames": 491264,
+        "gaps": 94,
+        "delivered_frames": 5854464,
+        "paused_frames": 42496,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "navigation_delta": {
+        "missing_frames": 0,
+        "gaps": 0,
+        "xruns": 0,
+        "process_failures": 0
+      }
+    }
+  ],
+  "starting_state_restored": true,
+  "original_identity": {
+    "name": "8-Bit Crystals",
+    "bank": "Factory"
+  },
+  "completed_five": true,
+  "session": {
+    "label": "preset-sweep-01",
+    "ready": true,
+    "ready_seconds": 43.100115681999796,
+    "exit_code": 0,
+    "clean_shutdown": true,
+    "elapsed_seconds": 210.52441962000012,
+    "peak_temperature_c": 53.45,
+    "throttled_flags": [
+      0
+    ],
+    "graph_restored_without_plugin_ports": true
+  },
+  "fixture": {
+    "plugin": "Pigments 7.0.1.6772",
+    "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+    "native_sha256": "9d0a611d7175b05e398f484d9217fb29b7004f3e0eaac76acd6ad00a541bd1da",
+    "note_fixture_sha256": "eb9b82707531ff887bce880825c6c8f9d70d1c56836620a43b987113d6a6bd3e",
+    "runtime": "GE-Proton11-7 AArch64 / UMU 1.4.4 / steamrt4-arm64",
+    "sample_rate": 48000,
+    "jack_frames": 512,
+    "processing_frames": 256,
+    "bridge_reserve_frames": 2048
+  },
+  "interpretation_limits": [
+    "Trial counters and CPU cover the complete approximately 20-second recording, including attack and release, not exclusively the 12-second hold.",
+    "Four held keys do not imply four active voices; preset polyphony, unison, sequences and envelopes remain preset-defined.",
+    "Silence can be part of a preset; zero samples alone are not classified as transport loss.",
+    "Preset name and bank are fixture-specific labels, not durable content identity. Component and controller metadata agreed on every accepted snapshot.",
+    "Five successive verified Next selections after explicitly establishing the browser starting point; no exhaustive factory-index or independent adjacency proof.",
+    "CPU is average across all four Pi cores, not the Pigments CPU meter.",
+    "A fresh session was used; the earlier degraded browsing session was not reproduced.",
+    "No editor or graphics-renderer comparison in this sweep; power-source mode not reverified."
+  ],
+  "identity_validation": {
+    "operator_confirmed_names_matched": [
+      "Electric Swings",
+      "Electric Mich"
+    ],
+    "offline_unit_tests": 5,
+    "malformed_or_mismatched_real_state_variants_refused": 6
+  },
+  "operator_listening": {
+    "heard_all_trials": true,
+    "audible_sounds": "Operator said all the sounds heard sounded great",
+    "uncertain": [
+      "24 AM may not have been audible",
+      "3k may not have been audible"
+    ],
+    "interpretation": "Does not establish clean or audible success for all five presets"
+  }
+}

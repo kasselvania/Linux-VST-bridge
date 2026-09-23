@@ -984,3 +984,63 @@ State and MIDI configuration remain private. Sanitized results are retained in
 Deferred separately: compare Pigments' own CPU meter with whole-Pi and per-thread
 measurements, and establish the graphics-rendering path and its load. The
 navigation result does not resolve the earlier performance degradation.
+
+### Five verified selections, headless four-note sweep
+
+`preset-sweep-01` completed five successive observed Next selections, with no
+editor opened and no physical MIDI connected. Each trial used C4/E4/G4/B4,
+velocity 96, held from seconds 2–14 in a 20-second capture. Master parameter 0
+was set to 0.35 and read back after each preset load. The note generator and
+generic native host binaries were reused. This is four held keys; the preset's
+own voice limit, sequencing, unison and envelopes were not changed.
+
+| Selected preset | Whole-Pi CPU, trial average | Missing frames added | Gaps added | Peak temperature |
+| --- | ---: | ---: | ---: | ---: |
+| 24 AM | 35.79% | 481,536 (10.032 s) | 91 | 52.90 C |
+| 3030 Bassline | 8.21% | 0 | 0 | 50.15 C |
+| 3k | 9.54% | 0 | 0 | 50.15 C |
+| 5th Sweep | 23.85% | 0 | 0 | 52.35 C |
+| 7AM | 22.13% | 0 | 0 | 52.35 C |
+
+All five received the nine planned MIDI events. Processing-failure and JACK
+xrun counters added zero even during 24 AM's substantial bridge loss. No
+recording had nonfinite samples or samples reaching full scale; the largest
+peak was 0.376548. CPU figures average all four cores across the whole trial,
+not exclusively the hold and not Pigments' own meter.
+
+24 AM's first nonzero recorded sample arrived at 11.008 seconds, roughly nine
+seconds after note-on. This result does not distinguish expensive first-note
+initialization from sustained processing overload. A warm repeat in the same
+headless session is a useful next comparison before attributing this to graphics
+or steady-state DSP capacity. 3k produced audio from approximately 2.055–5.851
+seconds and then silence, with no added transport loss. Its decreasing recorded
+level does not establish why it stops sounding; silence is not automatically a
+bridge failure. The operator said the sounds heard sounded great, while being
+uncertain whether 24 AM and 3k were audible. Do not describe all five as audibly
+confirmed passes.
+
+Preset names and banks were read from the component and controller portions of
+private saved state using a strictly bounded parser for this exact Pigments
+serialization. The parser validates the bridge envelope identity, sizes and
+checksum and requires matching component/controller labels. It matched the
+previous operator-confirmed Electric Swings/Electric Mich states, refused six
+damaged or mismatched real-state variants, and passed five synthetic unit tests.
+It is experiment instrumentation, not a stable Arturia preset API or a durable
+content identity. Raw state and audio remain private.
+
+Restoring the prior 8-Bit Crystals state did not restore the browser's Next
+position: the first observed Next selected 24 AM. That selection established
+the sweep's starting point. Every subsequent pulse was checked after both
+edges and again after settling, with unchanged/duplicate selections refused.
+This observes successive selections; it is not an independent complete preset
+index or proof that no unobserved library entry was skipped. Initialization
+navigation added 8,704 missing frames in two gaps; the four later navigation
+intervals added none. These are separate from the note-trial numbers above.
+
+The complete session lasted 210.52 seconds, peaked at 53.45 C and reported no
+throttle flags. The starting state and level were restored and the session
+closed cleanly with the original JACK graph. Power-source mode was not
+reverified. Detailed results are in
+`evidence/rpi2/pigments-five-preset-sweep.json`; the bounded observer and identity
+reader are in `rpi2/pigments_preset_sweep.py` and
+`rpi2/pigments_preset_identity.py`.
