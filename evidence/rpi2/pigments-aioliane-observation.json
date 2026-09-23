@@ -1,0 +1,28 @@
+{
+  "preset_name": "Aioliane",
+  "name_source": "operator",
+  "operator_report": "Pigments CPU meter about 21%, reaches 100% with two sustained notes, audio stops",
+  "samples": [
+    {
+      "temperature": "temp=52.7'C",
+      "throttled": "throttled=0x0",
+      "status": [
+        "RPI1_AUDIO midi_accepted=38 output_nonzero_l=5282107 output_nonzero_r=5283230 output_peak_l=0.36372894 output_peak_r=0.39027354 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=41306 request_high=106 result_high=10 fault=0 fault_site=unknown",
+        "RPI1_CALLBACK_LIVE callbacks=20735 failures=0 deadline_misses=0 callback_ns_max=94851 missing_frames=359168 gaps=36 delivered_frames=10211072 paused_frames=41984 unsupported_midi=0 malformed_midi=0 overflow_midi=0",
+        "RPI1_STATUS cohort_processes=15 memory_peak=2626707456 cpu_stat=usage_usec 213701123,user_usec 190373522,system_usec 23327600,nice_usec 0"
+      ]
+    }
+  ],
+  "state_save": [
+    "RPI1_STATE_SAVED bytes=367348"
+  ],
+  "private_state_bytes": 367348,
+  "operator_note_method": "Holding two keys down; no sustain pedal or released-note-tail interpretation.",
+  "since_previous_observation": {
+    "missing_frames_added": 113920,
+    "missing_audio_seconds_at_48khz": 2.3733333333333335,
+    "gaps_added": 1,
+    "scope": "Interval includes preset browsing/change and playing. It is not an isolated two-note experiment or a causal attribution to Aioliane."
+  },
+  "interpretation": "Operator-reported unplayable preset with audio-delivery losses observed in the surrounding interval. No thermal-throttling flag at capture; the bottleneck remains unisolated. No automated notes were injected."
+}

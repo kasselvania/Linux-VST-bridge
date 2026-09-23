@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
+[[bin]]
+name = "lvb-arm-plugin-standalone"
+path = "src/main.rs"
+
 [features]
 default = []
 jack-runtime = ["lvb-arm-standalone/jack-runtime", "lvb-arm-standalone/rpi1-observe", "ap2-backend/rpi1-observe"]

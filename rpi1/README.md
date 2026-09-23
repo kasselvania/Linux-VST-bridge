@@ -80,6 +80,11 @@ The existing JACK fixture accepts `polyphony`: five six-second windows with
 followed by note-offs and CC123. It emits 47 messages on channel 1. The input
 controller should remain disconnected from the test's JACK MIDI port.
 
+`notes` is an alias for the existing five-second `pigments` note sequence.
+Set `LVB_QUALIFICATION_CLIENT` to select another bridge client explicitly;
+the default remains `lvb-arm-pigments`. RPI2 uses `lvb-arm-standalone` for
+the reference VST. The fixture reports the exact routes it creates.
+
 All fixture modes optionally accept `--capture NEW_PRIVATE_F32LE_FILE`.
 The recording buffer is allocated and its writable pages touched before
 activation. The callback only copies into that fixed buffer; file writing

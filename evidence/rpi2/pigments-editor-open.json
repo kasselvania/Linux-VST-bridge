@@ -1,0 +1,1268 @@
+{
+  "observed_at_utc": "2026-09-23T02:35:48.027064+00:00",
+  "source_base_commit": "9dbad8fd4e4b763358cb6ed8f384dabd4fab74d7",
+  "approved_scope": {
+    "active_minutes_max": 25,
+    "live_launches_max": 3,
+    "windows_host_rebuilds_max": 1,
+    "build_minutes_max": 5,
+    "no_audio": true,
+    "no_screen_sharing_or_computer_control": true
+  },
+  "runtime": "GE-Proton11-7-aarch64 / UMU 1.4.4 / steamrt4-arm64",
+  "plugin_version": "7.0.1.6772",
+  "plugin_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+  "windows_host_sha256": "64d629e84a0fdf8833e97b9393cd41b9a5a214f82fe418d1792281622f0007f2",
+  "windows_host_source_manifest_sha256": "b96f536c6b1164a5a4e308f1d196c27fb5dcad77e194e84546f13a6b36293ce2",
+  "adapter_sha256": "71e40bcf1338cbe98f30197f0363df0e873f566d3f944dfddb23da8535b821b3",
+  "windows_host_rebuilds": 0,
+  "runs": [
+    {
+      "session": "60aeb4a4c4dd4b73985bb221e3b5755d",
+      "label": "editor-ge-01",
+      "samples": [
+        {
+          "seconds": 0.0005307549999997718,
+          "temperature_c": 49.05,
+          "throttled": 917504
+        },
+        {
+          "seconds": 1.0028920719996677,
+          "temperature_c": 48.5,
+          "throttled": 917504
+        },
+        {
+          "seconds": 2.0093094679996284,
+          "temperature_c": 49.6,
+          "throttled": 917504
+        },
+        {
+          "seconds": 3.0156484029994317,
+          "temperature_c": 52.35,
+          "throttled": 917504
+        },
+        {
+          "seconds": 4.021913079999649,
+          "temperature_c": 52.35,
+          "throttled": 917504
+        },
+        {
+          "seconds": 5.0281121479983995,
+          "temperature_c": 51.8,
+          "throttled": 917504
+        }
+      ],
+      "gate_sent": false,
+      "editor_open_record": false,
+      "exit_code": 82,
+      "elapsed_seconds": 6.0346748609990755,
+      "unit_active_after": false,
+      "jack_graph_after": "system:capture_1\nsystem:capture_2\nsystem:playback_1\nsystem:playback_2\nsystem:midi_capture_1\nsystem:midi_playback_1\nsystem:midi_capture_2\n",
+      "lifecycle_records": [],
+      "startup_and_exit_messages": [
+        "Running as unit: lvb-rpi2-editor-ge-01.service; invocation ID: 8d8c47ffce3b40cab82c6d8dda705021",
+        "INFO: umu-launcher version 1.4.4 (3.13.5 (main, Aug 10 2026, 12:06:59) [GCC 14.2.0])",
+        "INFO: steamrt4-arm64 updates disabled, skipping",
+        "WARNING: Executable not found: C:\\bridge\\bin\\wf0-factory-probe-rpi1-e232.exe",
+        "INFO: Running 'GE-Proton11-7-aarch64' using runtime 'steamrt4-arm64'",
+        "INFO: Running 'steamrt4-arm64' using runtime 'host'",
+        "setlocale \"en_US.UTF-8\": No such file or directory",
+        "pv-locale-gen: Missing locale en_US.UTF-8",
+        "pv-locale-gen: Generating locale en_US.UTF-8...",
+        "pv-locale-gen: Generated locale en_US.UTF-8 successfully",
+        "pv-adverb[19264]: W: Container startup will be faster if missing locales are created at OS level",
+        "ProtonFixes[19306] WARN: Skipping fix execution. We are probably running a unit test.",
+        "Proton: Error while copying to \"<RPI2_PRIVATE>/pigments-arm/compatdata/pfx/pfx/drive_c/windows/system32/DriverStore/FileRepository/igd_faux.inf_1/igdext64.dll\": No such file or directory",
+        "Proton: Error: unable to use parent for game drive, path ",
+        "ProtonFixes[19306] WARN: Skipping fix execution. We are probably running a unit test.",
+        "Proton: Executable is inside wine prefix, launching normally.",
+        "fsync: up and running.",
+        "Finished with result: exit-code",
+        "Main processes terminated with: code=exited, status=82/n/a",
+        "Service runtime: 5.682s",
+        "CPU time consumed: 4.473s",
+        "Memory peak: 187.3M (swap: 0B)"
+      ],
+      "temperature_range_c": [
+        48.5,
+        52.35
+      ],
+      "current_throttle_or_power_flags_observed": false,
+      "raw_windows_log_sha256": "b19eb184faec2be7a810b0630b9d874e5b0bbfa1c04e20829248113c3da7867e",
+      "classification": "Adapter argument-order failure before host readiness or Pigments loading; not a plugin compatibility result.",
+      "adapter_arguments_in_wrong_order": true,
+      "requested_audio_architecture_without_peer_file": true
+    },
+    {
+      "session": "a549dc69003c43b08a17c76c40618560",
+      "label": "editor-ge-02",
+      "samples": [
+        {
+          "seconds": 0.0004679409994423622,
+          "temperature_c": 50.7,
+          "throttled": 917504
+        },
+        {
+          "seconds": 1.0025854319992504,
+          "temperature_c": 51.25,
+          "throttled": 917504
+        },
+        {
+          "seconds": 2.004878051999185,
+          "temperature_c": 52.9,
+          "throttled": 917504
+        },
+        {
+          "seconds": 3.0073911889994633,
+          "temperature_c": 52.9,
+          "throttled": 917504
+        },
+        {
+          "seconds": 4.009566757000357,
+          "temperature_c": 52.9,
+          "throttled": 917504
+        },
+        {
+          "seconds": 5.0116266410004755,
+          "temperature_c": 51.25,
+          "throttled": 917504
+        }
+      ],
+      "gate_sent": false,
+      "editor_open_record": false,
+      "exit_code": 82,
+      "elapsed_seconds": 6.014347260999784,
+      "unit_active_after": false,
+      "jack_graph_after": "system:capture_1\nsystem:capture_2\nsystem:playback_1\nsystem:playback_2\nsystem:midi_capture_1\nsystem:midi_playback_1\nsystem:midi_capture_2\n",
+      "lifecycle_records": [],
+      "startup_and_exit_messages": [
+        "Running as unit: lvb-rpi2-editor-ge-02.service; invocation ID: d0e94bc777b24389870733e32abb48ab",
+        "INFO: umu-launcher version 1.4.4 (3.13.5 (main, Aug 10 2026, 12:06:59) [GCC 14.2.0])",
+        "INFO: steamrt4-arm64 updates disabled, skipping",
+        "WARNING: Executable not found: C:\\bridge\\bin\\wf0-factory-probe-rpi1-e232.exe",
+        "INFO: Running 'GE-Proton11-7-aarch64' using runtime 'steamrt4-arm64'",
+        "INFO: Running 'steamrt4-arm64' using runtime 'host'",
+        "setlocale \"en_US.UTF-8\": No such file or directory",
+        "pv-locale-gen: Missing locale en_US.UTF-8",
+        "pv-locale-gen: Generating locale en_US.UTF-8...",
+        "pv-locale-gen: Generated locale en_US.UTF-8 successfully",
+        "pv-adverb[19422]: W: Container startup will be faster if missing locales are created at OS level",
+        "ProtonFixes[19464] WARN: Skipping fix execution. We are probably running a unit test.",
+        "Proton: Error while copying to \"<RPI2_PRIVATE>/pigments-arm/compatdata/pfx/pfx/drive_c/windows/system32/DriverStore/FileRepository/igd_faux.inf_1/igdext64.dll\": No such file or directory",
+        "Proton: Error: unable to use parent for game drive, path ",
+        "ProtonFixes[19464] WARN: Skipping fix execution. We are probably running a unit test.",
+        "Proton: Executable is inside wine prefix, launching normally.",
+        "fsync: up and running.",
+        "Finished with result: exit-code",
+        "Main processes terminated with: code=exited, status=82/n/a",
+        "Service runtime: 5.026s",
+        "CPU time consumed: 4.518s",
+        "Memory peak: 177.3M (swap: 0B)"
+      ],
+      "temperature_range_c": [
+        50.7,
+        52.9
+      ],
+      "current_throttle_or_power_flags_observed": false,
+      "raw_windows_log_sha256": "bfe0fd38767f93f218058cbaa6dc0eb292ef0b97e3102ac9b81bfba02c5c9b59",
+      "classification": "Adapter argument-order failure before host readiness or Pigments loading; not a plugin compatibility result.",
+      "adapter_arguments_in_wrong_order": true,
+      "requested_audio_architecture_without_peer_file": false
+    },
+    {
+      "session": "32cebc5fc5d646939bdcc7013a54403b",
+      "label": "editor-ge-03",
+      "samples": [
+        {
+          "seconds": 0.0004847369982599048,
+          "temperature_c": 47.95,
+          "throttled": 917504
+        },
+        {
+          "seconds": 1.0026556279990473,
+          "temperature_c": 50.15,
+          "throttled": 917504
+        },
+        {
+          "seconds": 2.0048984459990606,
+          "temperature_c": 52.9,
+          "throttled": 917504
+        },
+        {
+          "seconds": 3.007345632999204,
+          "temperature_c": 52.35,
+          "throttled": 917504
+        },
+        {
+          "seconds": 4.009553543999573,
+          "temperature_c": 52.9,
+          "throttled": 917504
+        },
+        {
+          "seconds": 5.015669572998377,
+          "temperature_c": 53.45,
+          "throttled": 917504
+        },
+        {
+          "seconds": 6.021859027998289,
+          "temperature_c": 51.8,
+          "throttled": 917504
+        },
+        {
+          "seconds": 7.027942132999669,
+          "temperature_c": 54.0,
+          "throttled": 917504
+        },
+        {
+          "seconds": 8.03459647499949,
+          "temperature_c": 54.55,
+          "throttled": 917504
+        },
+        {
+          "seconds": 9.040829635998307,
+          "temperature_c": 54.55,
+          "throttled": 917504
+        },
+        {
+          "seconds": 10.047208962998411,
+          "temperature_c": 54.55,
+          "throttled": 917504
+        },
+        {
+          "seconds": 11.054327246998582,
+          "temperature_c": 52.9,
+          "throttled": 917504
+        },
+        {
+          "seconds": 12.061137090999182,
+          "temperature_c": 53.45,
+          "throttled": 917504
+        },
+        {
+          "seconds": 13.06798078599968,
+          "temperature_c": 55.1,
+          "throttled": 917504
+        },
+        {
+          "seconds": 14.07496009299939,
+          "temperature_c": 52.9,
+          "throttled": 917504
+        },
+        {
+          "seconds": 15.081682771999112,
+          "temperature_c": 51.25,
+          "throttled": 917504
+        },
+        {
+          "seconds": 16.088416433998646,
+          "temperature_c": 52.9,
+          "throttled": 917504
+        },
+        {
+          "seconds": 17.095385223999983,
+          "temperature_c": 54.0,
+          "throttled": 917504
+        },
+        {
+          "seconds": 18.102378458999738,
+          "temperature_c": 54.55,
+          "throttled": 917504
+        },
+        {
+          "seconds": 19.109258417998717,
+          "temperature_c": 55.1,
+          "throttled": 917504
+        },
+        {
+          "seconds": 20.116095488998326,
+          "temperature_c": 55.65,
+          "throttled": 917504
+        },
+        {
+          "seconds": 21.123688554998807,
+          "temperature_c": 56.2,
+          "throttled": 917504
+        },
+        {
+          "seconds": 22.2080522819997,
+          "temperature_c": 56.75,
+          "throttled": 917504
+        },
+        {
+          "seconds": 23.214994576999743,
+          "temperature_c": 55.65,
+          "throttled": 917504
+        },
+        {
+          "seconds": 24.221880168999633,
+          "temperature_c": 56.75,
+          "throttled": 917504
+        },
+        {
+          "seconds": 25.22878783499982,
+          "temperature_c": 56.75,
+          "throttled": 917504
+        },
+        {
+          "seconds": 26.236207812999055,
+          "temperature_c": 56.75,
+          "throttled": 917504
+        },
+        {
+          "seconds": 27.242836742998406,
+          "temperature_c": 55.65,
+          "throttled": 917504
+        },
+        {
+          "seconds": 28.249547098999756,
+          "temperature_c": 55.65,
+          "throttled": 917504
+        },
+        {
+          "seconds": 29.25622963999922,
+          "temperature_c": 55.1,
+          "throttled": 917504
+        },
+        {
+          "seconds": 30.26289890499902,
+          "temperature_c": 54.0,
+          "throttled": 917504
+        },
+        {
+          "seconds": 31.269650113999887,
+          "temperature_c": 54.55,
+          "throttled": 917504
+        },
+        {
+          "seconds": 32.27728661299989,
+          "temperature_c": 54.0,
+          "throttled": 917504
+        },
+        {
+          "seconds": 33.284766520999256,
+          "temperature_c": 53.45,
+          "throttled": 917504
+        },
+        {
+          "seconds": 34.29247368799952,
+          "temperature_c": 54.0,
+          "throttled": 917504
+        },
+        {
+          "seconds": 35.29916575199968,
+          "temperature_c": 54.55,
+          "throttled": 917504
+        },
+        {
+          "seconds": 36.30584081699999,
+          "temperature_c": 54.0,
+          "throttled": 917504
+        },
+        {
+          "seconds": 37.31251279099888,
+          "temperature_c": 53.45,
+          "throttled": 917504
+        },
+        {
+          "seconds": 38.319196689999444,
+          "temperature_c": 54.0,
+          "throttled": 917504
+        },
+        {
+          "seconds": 39.32591294199847,
+          "temperature_c": 54.0,
+          "throttled": 917504
+        },
+        {
+          "seconds": 40.333520316999056,
+          "temperature_c": 53.45,
+          "throttled": 917504
+        },
+        {
+          "seconds": 41.412456860998645,
+          "temperature_c": 55.1,
+          "throttled": 917504
+        },
+        {
+          "seconds": 42.419647092998275,
+          "temperature_c": 55.1,
+          "throttled": 917504
+        },
+        {
+          "seconds": 43.426069350000034,
+          "temperature_c": 54.55,
+          "throttled": 917504
+        },
+        {
+          "seconds": 44.432708809999895,
+          "temperature_c": 54.0,
+          "throttled": 917504
+        },
+        {
+          "seconds": 45.43602896399898,
+          "temperature_c": 54.0,
+          "throttled": 917504
+        },
+        {
+          "seconds": 46.44263209199926,
+          "temperature_c": 53.45,
+          "throttled": 917504
+        },
+        {
+          "seconds": 47.450110342999324,
+          "temperature_c": 52.9,
+          "throttled": 917504
+        },
+        {
+          "seconds": 48.4576294089984,
+          "temperature_c": 52.9,
+          "throttled": 917504
+        },
+        {
+          "seconds": 49.46519008699943,
+          "temperature_c": 51.8,
+          "throttled": 917504
+        },
+        {
+          "seconds": 50.47263097099858,
+          "temperature_c": 52.35,
+          "throttled": 917504
+        },
+        {
+          "seconds": 51.48002507699857,
+          "temperature_c": 52.9,
+          "throttled": 917504
+        },
+        {
+          "seconds": 52.48753547999877,
+          "temperature_c": 53.45,
+          "throttled": 917504
+        },
+        {
+          "seconds": 53.494959050000034,
+          "temperature_c": 52.35,
+          "throttled": 917504
+        },
+        {
+          "seconds": 54.50242449199868,
+          "temperature_c": 52.35,
+          "throttled": 917504
+        },
+        {
+          "seconds": 55.509838544998274,
+          "temperature_c": 51.8,
+          "throttled": 917504
+        },
+        {
+          "seconds": 56.51722552499996,
+          "temperature_c": 51.8,
+          "throttled": 917504
+        },
+        {
+          "seconds": 57.52466257999913,
+          "temperature_c": 52.35,
+          "throttled": 917504
+        },
+        {
+          "seconds": 58.532096190998345,
+          "temperature_c": 52.35,
+          "throttled": 917504
+        },
+        {
+          "seconds": 59.53953000599904,
+          "temperature_c": 52.9,
+          "throttled": 917504
+        },
+        {
+          "seconds": 60.547006006998345,
+          "temperature_c": 51.25,
+          "throttled": 917504
+        }
+      ],
+      "gate_sent": true,
+      "editor_open_record": true,
+      "editor_open_seconds": 25.22878783499982,
+      "stop_reason": "editor observation complete",
+      "exit_code": 241,
+      "elapsed_seconds": 62.59779425999841,
+      "unit_active_after": false,
+      "jack_graph_after": "system:capture_1\nsystem:capture_2\nsystem:playback_1\nsystem:playback_2\nsystem:midi_capture_1\nsystem:midi_playback_1\nsystem:midi_capture_2\n",
+      "lifecycle_records": [
+        {
+          "event": "lifecycle",
+          "sequence": 1,
+          "state": "scanner_started",
+          "session": "32cebc5fc5d646939bdcc7013a54403b"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 2,
+          "state": "readiness_announced",
+          "session": "32cebc5fc5d646939bdcc7013a54403b",
+          "scanner_sha256": "64d629e84a0fdf8833e97b9393cd41b9a5a214f82fe418d1792281622f0007f2",
+          "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+          "bundle_manifest_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+          "implementation_source_manifest_sha256": "b96f536c6b1164a5a4e308f1d196c27fb5dcad77e194e84546f13a6b36293ce2",
+          "mode": "ap12-vendor-access",
+          "component_case": "class:41727475415649534b61743150726f63",
+          "run_ordinal": 1
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 3,
+          "state": "supervisor_gate_accepted"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 4,
+          "state": "ap11_ui_apartment",
+          "initial_result": -2147221008,
+          "initialize_result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 5,
+          "state": "module_open_started"
+        },
+        {
+          "event": "call_started",
+          "sequence": 6,
+          "operation": "load_library",
+          "interface": null,
+          "ordinal": null,
+          "tier": null
+        },
+        {
+          "event": "call_completed",
+          "sequence": 7,
+          "attempt_sequence": 6,
+          "operation": "load_library",
+          "interface": null,
+          "ordinal": null,
+          "tier": null,
+          "return_kind": "handle_nonnull",
+          "win32_error_u32_hex": "00000000"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 8,
+          "state": "module_opened"
+        },
+        {
+          "event": "call_started",
+          "sequence": 9,
+          "operation": "init_dll",
+          "interface": null,
+          "ordinal": null,
+          "tier": null
+        },
+        {
+          "event": "call_completed",
+          "sequence": 10,
+          "attempt_sequence": 9,
+          "operation": "init_dll",
+          "interface": null,
+          "ordinal": null,
+          "tier": null,
+          "return_kind": "bool",
+          "bool_result": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 11,
+          "state": "module_entry_succeeded"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 12,
+          "state": "factory_export_found"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 13,
+          "state": "factory_get_started"
+        },
+        {
+          "event": "call_started",
+          "sequence": 14,
+          "operation": "get_plugin_factory",
+          "interface": null,
+          "ordinal": null,
+          "tier": null
+        },
+        {
+          "event": "call_completed",
+          "sequence": 15,
+          "attempt_sequence": 14,
+          "operation": "get_plugin_factory",
+          "interface": null,
+          "ordinal": null,
+          "tier": null,
+          "return_kind": "pointer_nonnull"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 16,
+          "state": "factory_obtained"
+        },
+        {
+          "event": "call_started",
+          "sequence": 17,
+          "operation": "get_factory_info",
+          "interface": "IPluginFactory",
+          "ordinal": null,
+          "tier": null
+        },
+        {
+          "event": "call_completed",
+          "sequence": 18,
+          "attempt_sequence": 17,
+          "operation": "get_factory_info",
+          "interface": "IPluginFactory",
+          "ordinal": null,
+          "tier": null,
+          "return_kind": "tresult",
+          "result_u32_hex": "00000000"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 19,
+          "state": "factory_info_obtained"
+        },
+        {
+          "event": "call_started",
+          "sequence": 20,
+          "operation": "query_factory_2",
+          "interface": "IPluginFactory",
+          "ordinal": null,
+          "tier": null
+        },
+        {
+          "event": "call_completed",
+          "sequence": 21,
+          "attempt_sequence": 20,
+          "operation": "query_factory_2",
+          "interface": "IPluginFactory",
+          "ordinal": null,
+          "tier": null,
+          "return_kind": "tresult",
+          "result_u32_hex": "00000000"
+        },
+        {
+          "event": "call_started",
+          "sequence": 22,
+          "operation": "query_factory_3",
+          "interface": "IPluginFactory",
+          "ordinal": null,
+          "tier": null
+        },
+        {
+          "event": "call_completed",
+          "sequence": 23,
+          "attempt_sequence": 22,
+          "operation": "query_factory_3",
+          "interface": "IPluginFactory",
+          "ordinal": null,
+          "tier": null,
+          "return_kind": "tresult",
+          "result_u32_hex": "00000000"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 24,
+          "state": "factory_interface_versions_recorded"
+        },
+        {
+          "event": "call_started",
+          "sequence": 25,
+          "operation": "count_classes",
+          "interface": "IPluginFactory",
+          "ordinal": null,
+          "tier": null
+        },
+        {
+          "event": "call_completed",
+          "sequence": 26,
+          "attempt_sequence": 25,
+          "operation": "count_classes",
+          "interface": "IPluginFactory",
+          "ordinal": null,
+          "tier": null,
+          "return_kind": "i32",
+          "i32_result": 2
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 27,
+          "state": "class_count_obtained",
+          "class_count": 2
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 28,
+          "state": "class_enumeration_in_progress"
+        },
+        {
+          "event": "call_started",
+          "sequence": 29,
+          "operation": "get_class_info_unicode",
+          "interface": "IPluginFactory3",
+          "ordinal": 0,
+          "tier": "factory_3_unicode"
+        },
+        {
+          "event": "call_completed",
+          "sequence": 30,
+          "attempt_sequence": 29,
+          "operation": "get_class_info_unicode",
+          "interface": "IPluginFactory3",
+          "ordinal": 0,
+          "tier": "factory_3_unicode",
+          "return_kind": "tresult",
+          "result_u32_hex": "00000000"
+        },
+        {
+          "event": "call_started",
+          "sequence": 31,
+          "operation": "get_class_info_unicode",
+          "interface": "IPluginFactory3",
+          "ordinal": 1,
+          "tier": "factory_3_unicode"
+        },
+        {
+          "event": "call_completed",
+          "sequence": 32,
+          "attempt_sequence": 31,
+          "operation": "get_class_info_unicode",
+          "interface": "IPluginFactory3",
+          "ordinal": 1,
+          "tier": "factory_3_unicode",
+          "return_kind": "tresult",
+          "result_u32_hex": "00000000"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 33,
+          "state": "class_enumeration_complete",
+          "class_count": 2
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 35,
+          "state": "ap8_call",
+          "operation": "setHostContext"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 36,
+          "state": "ap8_result",
+          "operation": "setHostContext",
+          "result": -2147467263
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 37,
+          "state": "ap8_result",
+          "operation": "getClassInfo",
+          "result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 38,
+          "state": "ap8_result",
+          "operation": "getClassInfo",
+          "result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 39,
+          "state": "ap11_class",
+          "class_id": "41727475415649534B61743150726F63",
+          "name": "Pigments"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 40,
+          "state": "ap8_result",
+          "operation": "getFactoryInfo",
+          "result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 41,
+          "state": "ap8_result",
+          "operation": "getClassInfoUnicode",
+          "result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 42,
+          "state": "ap12_class",
+          "class_id": "41727475415649534B61743150726F63",
+          "name": "Pigments",
+          "vendor": "Arturia",
+          "version": "7.0.1.6772",
+          "subcategories": "Instrument|Synth",
+          "metadata_tier": "factory_3_unicode"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 43,
+          "state": "ap8_call",
+          "operation": "createComponent"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 44,
+          "state": "ap8_result",
+          "operation": "createComponent",
+          "result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 45,
+          "state": "ap8_call",
+          "operation": "initializeComponent"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 46,
+          "state": "ap8_result",
+          "operation": "initializeComponent",
+          "result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 47,
+          "state": "ap8_call",
+          "operation": "queryAudioProcessor"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 48,
+          "state": "ap8_result",
+          "operation": "queryAudioProcessor",
+          "result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 49,
+          "state": "ap8_controller_association",
+          "combined": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 50,
+          "state": "ap8_call",
+          "operation": "setComponentHandler"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 51,
+          "state": "ap8_result",
+          "operation": "setComponentHandler",
+          "result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 52,
+          "state": "ap8_call",
+          "operation": "getBusCount"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 53,
+          "state": "ap8_result",
+          "operation": "getBusInfo",
+          "result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 54,
+          "state": "ap8_result",
+          "operation": "getBusArrangement",
+          "result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 55,
+          "state": "ap8_bus",
+          "media": 0,
+          "direction": 0,
+          "index": 0,
+          "channels": 2,
+          "type": 1,
+          "flags": 1,
+          "arrangement": 3,
+          "name": "Sidechain"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 56,
+          "state": "ap8_call",
+          "operation": "getBusCount"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 57,
+          "state": "ap8_result",
+          "operation": "getBusInfo",
+          "result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 58,
+          "state": "ap8_result",
+          "operation": "getBusArrangement",
+          "result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 59,
+          "state": "ap8_bus",
+          "media": 0,
+          "direction": 1,
+          "index": 0,
+          "channels": 2,
+          "type": 0,
+          "flags": 1,
+          "arrangement": 3,
+          "name": "Stereo Out"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 60,
+          "state": "ap8_call",
+          "operation": "getBusCount"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 61,
+          "state": "ap8_result",
+          "operation": "getBusInfo",
+          "result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 62,
+          "state": "ap8_bus",
+          "media": 1,
+          "direction": 0,
+          "index": 0,
+          "channels": 16,
+          "type": 0,
+          "flags": 1,
+          "arrangement": 0,
+          "name": "Midi In"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 63,
+          "state": "ap8_call",
+          "operation": "getBusCount"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 64,
+          "state": "ap8_result",
+          "operation": "getBusInfo",
+          "result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 65,
+          "state": "ap8_bus",
+          "media": 1,
+          "direction": 1,
+          "index": 0,
+          "channels": 0,
+          "type": 0,
+          "flags": 1,
+          "arrangement": 0,
+          "name": "Midi Out"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 66,
+          "state": "ap8_parameter_count",
+          "count": 4446
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 67,
+          "state": "ap8_call",
+          "operation": "enumerateParameters"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 207,
+          "state": "ap8_result",
+          "operation": "enumerateParameters",
+          "result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 208,
+          "state": "ap12_capabilities",
+          "latency_samples": 44,
+          "float32_result": 0,
+          "float64_result": 1,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 209,
+          "state": "ap8_call",
+          "operation": "getComponentState"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 210,
+          "state": "ap12_state_stream",
+          "result": 1,
+          "bytes": 0,
+          "failed": false,
+          "writes": 0,
+          "largest_write": 0,
+          "reads": 0,
+          "seeks": 0,
+          "last_seek_offset": 0,
+          "last_seek_mode": 0,
+          "unknown_queries": 0,
+          "last_unknown_iid": "00000000000000000000000000000000"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 211,
+          "state": "ap8_result",
+          "operation": "getComponentState",
+          "result": 1
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 212,
+          "state": "ap12_persistence",
+          "capture_available": false,
+          "sdk_result": 1
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 213,
+          "state": "ap12_vendor_access_open",
+          "save_available": false
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 214,
+          "state": "ap12_vendor_access_closed"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 215,
+          "state": "ap8_call",
+          "operation": "clearComponentHandler"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 216,
+          "state": "ap8_result",
+          "operation": "clearComponentHandler",
+          "result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 217,
+          "state": "ap8_call",
+          "operation": "terminateComponent"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 218,
+          "state": "ap8_result",
+          "operation": "terminateComponent",
+          "result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 219,
+          "state": "ap8_inspection_closed",
+          "exit_code": 0
+        },
+        {
+          "event": "call_started",
+          "sequence": 220,
+          "operation": "release_factory_3",
+          "interface": "IPluginFactory3",
+          "ordinal": null,
+          "tier": null
+        },
+        {
+          "event": "call_completed",
+          "sequence": 221,
+          "attempt_sequence": 220,
+          "operation": "release_factory_3",
+          "interface": "IPluginFactory3",
+          "ordinal": null,
+          "tier": null,
+          "return_kind": "u32",
+          "u32_result": 2
+        },
+        {
+          "event": "call_started",
+          "sequence": 222,
+          "operation": "release_factory_2",
+          "interface": "IPluginFactory2",
+          "ordinal": null,
+          "tier": null
+        },
+        {
+          "event": "call_completed",
+          "sequence": 223,
+          "attempt_sequence": 222,
+          "operation": "release_factory_2",
+          "interface": "IPluginFactory2",
+          "ordinal": null,
+          "tier": null,
+          "return_kind": "u32",
+          "u32_result": 1
+        },
+        {
+          "event": "call_started",
+          "sequence": 224,
+          "operation": "release_factory_base",
+          "interface": "IPluginFactory",
+          "ordinal": null,
+          "tier": null
+        },
+        {
+          "event": "call_completed",
+          "sequence": 225,
+          "attempt_sequence": 224,
+          "operation": "release_factory_base",
+          "interface": "IPluginFactory",
+          "ordinal": null,
+          "tier": null,
+          "return_kind": "u32",
+          "u32_result": 0
+        },
+        {
+          "event": "call_started",
+          "sequence": 226,
+          "operation": "exit_dll",
+          "interface": null,
+          "ordinal": null,
+          "tier": null
+        },
+        {
+          "event": "call_completed",
+          "sequence": 227,
+          "attempt_sequence": 226,
+          "operation": "exit_dll",
+          "interface": null,
+          "ordinal": null,
+          "tier": null,
+          "return_kind": "bool",
+          "bool_result": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 228,
+          "state": "module_exit_succeeded"
+        },
+        {
+          "event": "call_started",
+          "sequence": 229,
+          "operation": "free_library",
+          "interface": null,
+          "ordinal": null,
+          "tier": null
+        },
+        {
+          "event": "call_completed",
+          "sequence": 230,
+          "attempt_sequence": 229,
+          "operation": "free_library",
+          "interface": null,
+          "ordinal": null,
+          "tier": null,
+          "return_kind": "bool_true",
+          "win32_error_u32_hex": "00000000"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 231,
+          "state": "module_unloaded"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 232,
+          "state": "scanner_completed",
+          "inspection_complete": true
+        }
+      ],
+      "startup_and_exit_messages": [
+        "Running as unit: lvb-rpi2-editor-ge-03.service; invocation ID: 42fb5e661d264ba9a6796f997c45973b",
+        "INFO: umu-launcher version 1.4.4 (3.13.5 (main, Aug 10 2026, 12:06:59) [GCC 14.2.0])",
+        "INFO: steamrt4-arm64 updates disabled, skipping",
+        "WARNING: Executable not found: C:\\bridge\\bin\\wf0-factory-probe-rpi1-e232.exe",
+        "INFO: Running 'GE-Proton11-7-aarch64' using runtime 'steamrt4-arm64'",
+        "INFO: Running 'steamrt4-arm64' using runtime 'host'",
+        "setlocale \"en_US.UTF-8\": No such file or directory",
+        "pv-locale-gen: Missing locale en_US.UTF-8",
+        "pv-locale-gen: Generating locale en_US.UTF-8...",
+        "pv-locale-gen: Generated locale en_US.UTF-8 successfully",
+        "pv-adverb[19582]: W: Container startup will be faster if missing locales are created at OS level",
+        "ProtonFixes[19624] WARN: Skipping fix execution. We are probably running a unit test.",
+        "Proton: Error while copying to \"<RPI2_PRIVATE>/pigments-arm/compatdata/pfx/pfx/drive_c/windows/system32/DriverStore/FileRepository/igd_faux.inf_1/igdext64.dll\": No such file or directory",
+        "Proton: Error: unable to use parent for game drive, path ",
+        "ProtonFixes[19624] WARN: Skipping fix execution. We are probably running a unit test.",
+        "Proton: Executable is inside wine prefix, launching normally.",
+        "fsync: up and running.",
+        "## ExtendedFilename : 0",
+        "## LogInRelease : 0",
+        "## ExtendedFilename : 0",
+        "## LogInRelease : 0",
+        "Unable to read VR Path Registry from C:\\users\\steamuser\\AppData\\Local\\openvr\\openvrpaths.vrpath",
+        "Failed to create DXGI factory.",
+        "Finished with result: exit-code",
+        "Main processes terminated with: code=exited, status=241/CONFIGURATION_DIRECTORY",
+        "Service runtime: 1min 2.583s",
+        "CPU time consumed: 26.506s",
+        "Memory peak: 2.3G (swap: 0B)"
+      ],
+      "temperature_range_c": [
+        47.95,
+        56.75
+      ],
+      "current_throttle_or_power_flags_observed": false,
+      "raw_windows_log_sha256": "6f7fad4896c8df93766a6a020866645a6709491444366150509b5eeeac35d48d",
+      "classification": "Host reported editor attachment, editor close, component termination and module unload. Runtime owner subsequently required bounded cleanup.",
+      "before_editor_state": {
+        "result": 1,
+        "bytes": 0,
+        "writes": 0,
+        "stream_failed": false
+      },
+      "after_editor_state": {
+        "measured": false,
+        "reason": "Existing vendor-access mode has no second state request. Three launches exhausted, including two adapter mistakes; no extra launch or untested host change was substituted."
+      }
+    }
+  ],
+  "cleanup": {
+    "experiment_units_remaining": [],
+    "original_selected_state_digest_matches": true,
+    "jack_graph_restored": true,
+    "original_environment_not_selected": true
+  },
+  "findings": [
+    "State capture failure does not prevent the existing host editor-only path from attaching the real Pigments editor.",
+    "The ordinary standalone audio startup would instead terminate on that refusal before exposing editor access.",
+    "The editor-open save_available=false field and host title reflect the pre-editor request; neither is a fresh post-editor state measurement or vendor authorization observation.",
+    "Failed to create DXGI factory was logged before editor-open success. Its effect on rendering and fallback is unobserved.",
+    "The vendor loop includes Win32 message pumping; no independent pump count or visual responsiveness measurement was obtained.",
+    "Scanner completion and module-unload records precede runtime cleanup; systemd wrapper exit 241 is not a plugin crash verdict.",
+    "No plugin state content, proprietary binaries, license material, credentials or rendered UI were retrieved.",
+    "The next discriminating code operation is one owner-thread state request after editor attachment and pumping, before enabling audio."
+  ]
+}

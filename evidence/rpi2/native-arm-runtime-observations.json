@@ -1,0 +1,253 @@
+{
+  "observed_at_utc": "2026-09-23T00:23:56.387441+00:00",
+  "logs": {
+    "ge-hello-01.log": "INFO: umu-launcher version 1.4.4 (3.13.5 (main, Aug 10 2026, 12:06:59) [GCC 14.2.0])\nCRITICAL: steamrt4-arm64 validation failed\nCRITICAL: Could not find steamrt4_platform_* in '<RPI2_PRIVATE>/data/umu/steamrt4-arm64'\nINFO: Setting up Unified Launcher for Windows Games on Linux...\nINFO: Downloading steamrt4-arm64 (4.0.20260914.260627), please wait...\nINFO: SteamLinuxRuntime_4-arm64.tar.xz: SHA256 is OK\nINFO: Verifying integrity of steamrt4_platform_4.0.20260914.260627...\nINFO: steamrt4_platform_4.0.20260914.260627: mtree is OK\nINFO: Using steamrt4-arm64 (latest)\nINFO: Running 'GE-Proton11-7-aarch64' using runtime 'steamrt4-arm64'\nINFO: Running 'steamrt4-arm64' using runtime 'host'\nsetlocale \"en_US.UTF-8\": No such file or directory\npv-locale-gen: Missing locale en_US.UTF-8\npv-locale-gen: Generating locale en_GB.UTF-8...\npv-locale-gen: Generated locale en_GB.UTF-8 successfully\npv-locale-gen: Generating locale en_US.UTF-8...\npv-locale-gen: Generated locale en_US.UTF-8 successfully\npv-adverb[15429]: W: Container startup will be faster if missing locales are created at OS level\nProtonFixes[15483] WARN: Skipping fix execution. We are probably running a unit test.\nProton: Upgrading prefix from None to GE-Proton11-7 (<RPI2_PRIVATE>/prefix-ge-01/)\nProton: Error while copying to \"<RPI2_PRIVATE>/prefix-ge-01/pfx/drive_c/windows/system32/DriverStore/FileRepository/igd_faux.inf_1/igdext64.dll\": No such file or directory\nProton: Error: unable to use parent for game drive, path \nProtonFixes[15483] WARN: Skipping fix execution. We are probably running a unit test.\nProton: <RPI2_PRIVATE>/fixtures/rpi0-windows-probe.exe\nProton: Executable is a unix path, launching with 'umu.exe'.\nfsync: up and running.\nUnhandled exception in Xalia:\nSystem.ApplicationException: No displays available\n  at Xalia.Sdl.SdlSynchronizationContext.Init (SDL3.SDL+SDL_InitFlags flags) [0x00046] in <888c115985634358a38b30a5ed1216d5>:0 \n  at Xalia.MainClass.Main (System.String[] argv) [0x0002b] in <888c115985634358a38b30a5ed1216d5>:0 \n[ERROR] FATAL UNHANDLED EXCEPTION: System.ApplicationException: No displays available\n  at Xalia.Sdl.SdlSynchronizationContext.Init (SDL3.SDL+SDL_InitFlags flags) [0x00046] in <888c115985634358a38b30a5ed1216d5>:0 \n",
+    "ge-hello-02.log": "INFO: umu-launcher version 1.4.4 (3.13.5 (main, Aug 10 2026, 12:06:59) [GCC 14.2.0])\nINFO: steamrt4-arm64 updates disabled, skipping\nINFO: Running 'GE-Proton11-7-aarch64' using runtime 'steamrt4-arm64'\nINFO: Running 'steamrt4-arm64' using runtime 'host'\nsetlocale \"en_US.UTF-8\": No such file or directory\npv-locale-gen: Missing locale en_US.UTF-8\npv-locale-gen: Generating locale en_GB.UTF-8...\npv-locale-gen: Generated locale en_GB.UTF-8 successfully\npv-locale-gen: Generating locale en_US.UTF-8...\npv-locale-gen: Generated locale en_US.UTF-8 successfully\npv-adverb[15626]: W: Container startup will be faster if missing locales are created at OS level\nProtonFixes[15670] WARN: Skipping fix execution. We are probably running a unit test.\nProton: Error while copying to \"<RPI2_PRIVATE>/prefix-ge-01/pfx/drive_c/windows/system32/DriverStore/FileRepository/igd_faux.inf_1/igdext64.dll\": No such file or directory\nProton: Error: unable to use parent for game drive, path \nProtonFixes[15670] WARN: Skipping fix execution. We are probably running a unit test.\nProton: <RPI2_PRIVATE>/fixtures/rpi0-windows-probe.exe\nProton: Executable is a unix path, launching with 'umu.exe'.\nfsync: up and running.\n",
+    "ge-hello-03.log": "INFO: umu-launcher version 1.4.4 (3.13.5 (main, Aug 10 2026, 12:06:59) [GCC 14.2.0])\nINFO: steamrt4-arm64 updates disabled, skipping\nWARNING: Executable not found: C:\\bridge\\probes\\rpi0-windows-probe.exe\nINFO: Running 'GE-Proton11-7-aarch64' using runtime 'steamrt4-arm64'\nINFO: Running 'steamrt4-arm64' using runtime 'host'\nsetlocale \"en_US.UTF-8\": No such file or directory\npv-locale-gen: Missing locale en_US.UTF-8\npv-locale-gen: Generating locale en_GB.UTF-8...\npv-locale-gen: Generated locale en_GB.UTF-8 successfully\npv-locale-gen: Generating locale en_US.UTF-8...\npv-locale-gen: Generated locale en_US.UTF-8 successfully\npv-adverb[15802]: W: Container startup will be faster if missing locales are created at OS level\nProtonFixes[15848] WARN: Skipping fix execution. We are probably running a unit test.\nProton: Error while copying to \"<RPI2_PRIVATE>/prefix-ge-01/pfx/drive_c/windows/system32/DriverStore/FileRepository/igd_faux.inf_1/igdext64.dll\": No such file or directory\nProton: Error: unable to use parent for game drive, path \nProtonFixes[15848] WARN: Skipping fix execution. We are probably running a unit test.\nProton: Executable is inside wine prefix, launching normally.\nfsync: up and running.\nRPI0_X86_64_WINDOWS_PREFLIGHT_PASS 5250493057494e36\n",
+    "ge-host-01.log": "INFO: umu-launcher version 1.4.4 (3.13.5 (main, Aug 10 2026, 12:06:59) [GCC 14.2.0])\nINFO: steamrt4-arm64 updates disabled, skipping\nWARNING: Executable not found: C:\\bridge\\probes\\wf0-factory-probe.exe\nINFO: Running 'GE-Proton11-7-aarch64' using runtime 'steamrt4-arm64'\nINFO: Running 'steamrt4-arm64' using runtime 'host'\nsetlocale \"en_US.UTF-8\": No such file or directory\npv-locale-gen: Missing locale en_US.UTF-8\npv-locale-gen: Generating locale en_GB.UTF-8...\npv-locale-gen: Generated locale en_GB.UTF-8 successfully\npv-locale-gen: Generating locale en_US.UTF-8...\npv-locale-gen: Generated locale en_US.UTF-8 successfully\npv-adverb[15943]: W: Container startup will be faster if missing locales are created at OS level\nProtonFixes[15987] WARN: Skipping fix execution. We are probably running a unit test.\nProton: Error while copying to \"<RPI2_PRIVATE>/prefix-ge-01/pfx/drive_c/windows/system32/DriverStore/FileRepository/igd_faux.inf_1/igdext64.dll\": No such file or directory\nProton: Error: unable to use parent for game drive, path \nProtonFixes[15987] WARN: Skipping fix execution. We are probably running a unit test.\nProton: Executable is inside wine prefix, launching normally.\nfsync: up and running.\n"
+  },
+  "topology": {
+    "ready_token_matched": true,
+    "processes": [
+      {
+        "pid": 15909,
+        "executable": "/usr/bin/python3.13",
+        "elf_machine": 183,
+        "comm": "python3",
+        "fex_mappings": [],
+        "host_module_mapped": false
+      },
+      {
+        "pid": 15913,
+        "executable": "<RPI2_PRIVATE>/data/umu/steamrt4-arm64/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap",
+        "elf_machine": 183,
+        "comm": "srt-bwrap",
+        "fex_mappings": [],
+        "host_module_mapped": false
+      },
+      {
+        "pid": 15943,
+        "executable": "/usr/lib/pressure-vessel/from-host/libexec/steam-runtime-tools-0/pv-adverb",
+        "elf_machine": 183,
+        "comm": "pv-adverb",
+        "fex_mappings": [],
+        "host_module_mapped": false
+      },
+      {
+        "pid": 15987,
+        "executable": "/usr/bin/python3.13",
+        "elf_machine": 183,
+        "comm": "python3",
+        "fex_mappings": [],
+        "host_module_mapped": false
+      },
+      {
+        "pid": 15989,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/wine-preloader",
+        "elf_machine": 183,
+        "comm": "wf0-factory-pro",
+        "fex_mappings": [
+          "/dev/shm/fex-15989-stats",
+          "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/libarm64ecfex.so",
+          "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-windows/libarm64ecfex.dll"
+        ],
+        "host_module_mapped": true
+      },
+      {
+        "pid": 15991,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/bin-arm64/wineserver",
+        "elf_machine": 183,
+        "comm": "wineserver",
+        "fex_mappings": [],
+        "host_module_mapped": false
+      },
+      {
+        "pid": 15995,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/wine-preloader",
+        "elf_machine": 183,
+        "comm": "services.exe",
+        "fex_mappings": [],
+        "host_module_mapped": false
+      },
+      {
+        "pid": 15998,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/wine-preloader",
+        "elf_machine": 183,
+        "comm": "winedevice.exe",
+        "fex_mappings": [],
+        "host_module_mapped": false
+      },
+      {
+        "pid": 16008,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/wine-preloader",
+        "elf_machine": 183,
+        "comm": "plugplay.exe",
+        "fex_mappings": [],
+        "host_module_mapped": false
+      },
+      {
+        "pid": 16014,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/wine-preloader",
+        "elf_machine": 183,
+        "comm": "svchost.exe",
+        "fex_mappings": [],
+        "host_module_mapped": false
+      },
+      {
+        "pid": 16021,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/wine-preloader",
+        "elf_machine": 183,
+        "comm": "winedevice.exe",
+        "fex_mappings": [],
+        "host_module_mapped": false
+      },
+      {
+        "pid": 16037,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/wine-preloader",
+        "elf_machine": 183,
+        "comm": "explorer.exe",
+        "fex_mappings": [],
+        "host_module_mapped": false
+      },
+      {
+        "pid": 16044,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/wine-preloader",
+        "elf_machine": 183,
+        "comm": "rpcss.exe",
+        "fex_mappings": [],
+        "host_module_mapped": false
+      },
+      {
+        "pid": 16054,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/wine-preloader",
+        "elf_machine": 183,
+        "comm": "tabtip.exe",
+        "fex_mappings": [],
+        "host_module_mapped": false
+      }
+    ]
+  },
+  "runtime_versions": "#Name\tVersion\t\tRuntime\tRuntime_Version\tComment\ndepot\t4.0.20260914.260627\t\t\t# Overall version number\npressure-vessel\t0.20260914.0\t\t\t\nscripts\t0.20260914.0\t\t\t# from steam-runtime-tools\nsteamrt4\t4.0.20260914.260627\tsteamrt4\t4.0.20260914.260627\t# steamrt4_platform_4.0.20260914.260627/\n",
+  "download_packages": [
+    {
+      "file": "python3-cbor2_5.6.5-1_arm64.deb",
+      "sha256": "c42160e000d720ba993b19edcb685571a7de534268d55afb5f1157c6eb7119e4"
+    },
+    {
+      "file": "python3-pyzstd_0.17.0+ds-1_arm64.deb",
+      "sha256": "ad0a2a29c3377ab8ee273c17d5c68bfd662450f003c76b06f487e310f42240df"
+    },
+    {
+      "file": "python3-truststore_0.10.1-1_all.deb",
+      "sha256": "90927582cf349af05b7fcc3e1f72873388397c26b842d2762c833fc7153e22a2"
+    },
+    {
+      "file": "python3-umu-launcher_1.4.4-1_arm64_debian-13.deb",
+      "sha256": "3672ace172d232aab4280a241d4e2293428990d3c5bde692d41b75bd03ae9068"
+    },
+    {
+      "file": "python3-xlib_0.33-3_all.deb",
+      "sha256": "34dc3a58f8cb51e4e94efa7ebc6af32ed0bdaa67d01d7455f297e83e89570f7b"
+    },
+    {
+      "file": "python3-xxhash_3.2.0-1+b6_arm64.deb",
+      "sha256": "4b2f942f4f4db264b2be4c7a2c31a7a48089471e123f9ae1946e140f22bea9da"
+    }
+  ],
+  "result": {
+    "windows_probe": "passed with exact stdout marker and exit 0",
+    "windows_host_environment_readiness_and_shutdown": "passed",
+    "bridge_architecture_handshake": "not run",
+    "vst_processing": "not run",
+    "pigments": "not run",
+    "source_builds": 0,
+    "system_package_installations": 0,
+    "rpi1_licensed_prefix_used": false,
+    "rpi1_audio_service_after": "inactive",
+    "host_snapshot_pids_remaining_after_shutdown": [],
+    "final_temperature_c": 54.3,
+    "final_throttled_register": "0xe0000",
+    "current_throttle_bits_set": false
+  },
+  "attempts": [
+    {
+      "label": "ge-hello-01",
+      "unit": "lvb-rpi2-ge-hello-01.service",
+      "exit_code": 64,
+      "service_duration_s": 128.69,
+      "cpu_s": 19.0,
+      "memory_peak_mib": 996.6,
+      "interpretation": "required --self-test argument omitted; runtime download and prefix creation included; no pass claimed"
+    },
+    {
+      "label": "ge-hello-02",
+      "unit": "lvb-rpi2-ge-hello-02.service",
+      "exit_code": 0,
+      "service_duration_s": 7.592,
+      "cpu_s": 7.193,
+      "memory_peak_mib": 214.3,
+      "interpretation": "Unix path selected umu.exe; no captured marker; not counted as marker pass"
+    },
+    {
+      "label": "ge-hello-03",
+      "unit": "lvb-rpi2-ge-hello-03.service",
+      "exit_code": 0,
+      "service_duration_s": 7.068,
+      "cpu_s": 6.615,
+      "memory_peak_mib": 179.5,
+      "interpretation": "Windows C: path; exact marker captured"
+    },
+    {
+      "label": "ge-host-01",
+      "unit": "lvb-rpi2-ge-host-01.service",
+      "exit_code": 0,
+      "service_duration_s": 21.376,
+      "cpu_s": 7.208,
+      "memory_peak_mib": 194.7,
+      "interpretation": "ready token matched; snapshot taken; stop file written; all sampled processes retired; duration includes observation"
+    }
+  ],
+  "launch_settings": {
+    "supervision": "systemd user service, Type=exec, KillMode=control-group, TimeoutStopSec=10, MemoryMax=3G, TasksMax=512",
+    "runtime_max_s": {
+      "first_download_and_setup": 600,
+      "subsequent": 90
+    },
+    "environment": {
+      "PYTHONPATH": "<RPI2_PRIVATE>/launcher/usr/lib/python3/dist-packages",
+      "XDG_DATA_HOME": "<RPI2_PRIVATE>/data",
+      "XDG_CACHE_HOME": "<RPI2_PRIVATE>/cache",
+      "XDG_CONFIG_HOME": "<RPI2_PRIVATE>/config",
+      "WINEPREFIX": "<RPI2_PRIVATE>/prefix-ge-01",
+      "PROTONPATH": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64",
+      "GAMEID": "umu-default",
+      "PROTONFIXES_DISABLE": "1",
+      "UMU_RUNTIME_UPDATE": "0",
+      "PROTON_USE_XALIA": "0 (attempts 02, 03, and host)",
+      "STEAM_COMPAT_INSTALL_PATH": "<RPI2_PRIVATE>/fixtures (attempts 02, 03, and host)",
+      "DISPLAY": ":1",
+      "XAUTHORITY": "existing user Xauthority file"
+    },
+    "host_argv": [
+      "C:\\bridge\\probes\\wf0-factory-probe.exe",
+      "--environment-owner",
+      "72706932000000000000000000000001",
+      "--scanner-sha256",
+      "6f00cf377458037e4ae64c2425578b7c408a0a5ed6f027a0249e0d979f55fc2c"
+    ],
+    "probe_argv": [
+      "C:\\bridge\\probes\\rpi0-windows-probe.exe",
+      "--self-test"
+    ]
+  },
+  "runtime_artifacts": {
+    "GE-Proton11-7-aarch64.tar.gz": {
+      "bytes": 645786140,
+      "sha256": "b77ac906186568c2f3c66674b85c712b145ccf73ff2718a50dd7bf6248b67ba3"
+    },
+    "files/bin-arm64/wine": "164ccd6b3ea7ab98aae8ffacc744058830eda19661d5c667d5476dc29b4b0d33",
+    "files/bin-arm64/wineserver": "19854c7b46328b4a4e4bc35b723b3b78191550d99cf2c99cd8784e5896a81125",
+    "files/lib/wine/aarch64-windows/libarm64ecfex.dll": "08fa3d4bfbdb5a870c7466383a145177e00f2220ac3891451f312e7cb7de0347",
+    "files/lib/wine/aarch64-unix/libarm64ecfex.so": "a7a938b54e295bd30c105f98735a86c83ddf5a6e743027f5ffa12124e957d61a"
+  }
+}

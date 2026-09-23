@@ -1,0 +1,582 @@
+{
+  "preset": "24 AM",
+  "notes": [
+    60,
+    64,
+    67,
+    71
+  ],
+  "velocity": 96,
+  "hold_seconds": 12,
+  "capture_seconds": 20,
+  "passes": [
+    {
+      "name": "first-hold",
+      "samples": [
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 0.014
+        },
+        {
+          "temperature_c": 48.5,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 1.028
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 2.143
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 3.157
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 4.172
+        },
+        {
+          "temperature_c": 51.25,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 5.186
+        },
+        {
+          "temperature_c": 51.25,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 6.2
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 7.214
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400017408,
+          "seconds": 8.229
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 9.243
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 10.257
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 11.272
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 12.286
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 13.3
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 14.314
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 15.328
+        },
+        {
+          "temperature_c": 49.6,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 16.342
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 17.356
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 18.37
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 19.384
+        },
+        {
+          "temperature_c": 49.05,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 20.398
+        }
+      ],
+      "master": [
+        "RPI1_PARAMETER_READBACK id=0 normalized=0.34999996423721313 revision=2",
+        "RPI1_PARAMETER_READBACK id=2394 normalized=0.00000000000000000 revision=2",
+        "RPI1_PARAMETER_READBACK id=2395 normalized=0.00000000000000000 revision=2"
+      ],
+      "before": {
+        "midi_accepted": 0,
+        "output_nonzero_l": 0,
+        "output_nonzero_r": 0,
+        "output_peak_l": 0,
+        "output_peak_r": 0,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 1994,
+        "request_high": 13,
+        "result_high": 7,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 1079,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 68870,
+        "missing_frames": 2048,
+        "gaps": 1,
+        "delivered_frames": 504832,
+        "paused_frames": 41472,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "fixture_exit": 0,
+      "elapsed_seconds": 21.398274021999896,
+      "cpu_core_busy_percent": {
+        "cpu0": 49.54,
+        "cpu1": 42.05,
+        "cpu2": 34.62,
+        "cpu3": 30.94
+      },
+      "hottest_surviving_threads": [
+        {
+          "name": "lvb-audio",
+          "one_core_percent": 82.95
+        },
+        {
+          "name": "Processing Thre",
+          "one_core_percent": 28.55
+        },
+        {
+          "name": "ArturiaSoftware",
+          "one_core_percent": 12.34
+        },
+        {
+          "name": "wf0-factory-pro",
+          "one_core_percent": 3.08
+        },
+        {
+          "name": "ArturiaSoftware",
+          "one_core_percent": 2.99
+        }
+      ],
+      "after": {
+        "midi_accepted": 9,
+        "output_nonzero_l": 279040,
+        "output_nonzero_r": 279040,
+        "output_peak_l": 4.6641595e-05,
+        "output_peak_r": 3.814852e-05,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 6044,
+        "request_high": 90,
+        "result_high": 7,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 3103,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 68870,
+        "missing_frames": 647424,
+        "gaps": 2,
+        "delivered_frames": 895744,
+        "paused_frames": 41472,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "recording": {
+        "frames": 960000,
+        "finite": true,
+        "peaks": [
+          4.6641594963148236e-05,
+          3.8148518797243014e-05
+        ],
+        "rms": [
+          1.955975571125434e-06,
+          1.7490020716092855e-06
+        ],
+        "full_scale_samples": 0,
+        "first_nonzero_seconds": 15.498666666666667,
+        "held_window_seconds": [
+          3,
+          14
+        ],
+        "held_stereo_zero_frames": 528000,
+        "pre_note_rms": 0.0,
+        "held_window_rms": 0.0
+      },
+      "trial_delta": {
+        "midi_accepted": 9,
+        "missing_frames": 645376,
+        "gaps": 1,
+        "process_failures": 0,
+        "xruns": 0,
+        "deadline_misses": 0
+      },
+      "average_whole_pi_cpu_percent": 39.29,
+      "peak_temperature_c": 52.35,
+      "throttled_flags": [
+        0
+      ]
+    },
+    {
+      "name": "repeat-hold",
+      "samples": [
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 0.014
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 1.028
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 2.042
+        },
+        {
+          "temperature_c": 51.25,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 3.056
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 4.071
+        },
+        {
+          "temperature_c": 51.25,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 5.085
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 6.099
+        },
+        {
+          "temperature_c": 52.9,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 7.113
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 8.127
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400017408,
+          "seconds": 9.142
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 10.156
+        },
+        {
+          "temperature_c": 51.25,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 11.17
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 12.184
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400020480,
+          "seconds": 13.198
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400033792,
+          "seconds": 14.213
+        },
+        {
+          "temperature_c": 52.35,
+          "throttled": 0,
+          "arm_clock_hz": 2400037120,
+          "seconds": 15.227
+        },
+        {
+          "temperature_c": 51.8,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 16.241
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 17.255
+        },
+        {
+          "temperature_c": 50.7,
+          "throttled": 0,
+          "arm_clock_hz": 2400030464,
+          "seconds": 18.268
+        },
+        {
+          "temperature_c": 50.15,
+          "throttled": 0,
+          "arm_clock_hz": 2400023808,
+          "seconds": 19.282
+        },
+        {
+          "temperature_c": 51.25,
+          "throttled": 0,
+          "arm_clock_hz": 2400027136,
+          "seconds": 20.296
+        }
+      ],
+      "master": [
+        "RPI1_PARAMETER_READBACK id=0 normalized=0.34999996423721313 revision=3"
+      ],
+      "before": {
+        "midi_accepted": 9,
+        "output_nonzero_l": 533504,
+        "output_nonzero_r": 533504,
+        "output_peak_l": 4.6641595e-05,
+        "output_peak_r": 3.814852e-05,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 7038,
+        "request_high": 90,
+        "result_high": 7,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 3600,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 68870,
+        "missing_frames": 647424,
+        "gaps": 2,
+        "delivered_frames": 1150208,
+        "paused_frames": 41472,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "fixture_exit": 0,
+      "elapsed_seconds": 21.296227775999796,
+      "cpu_core_busy_percent": {
+        "cpu0": 42.97,
+        "cpu1": 20.89,
+        "cpu2": 19.84,
+        "cpu3": 30.87
+      },
+      "hottest_surviving_threads": [
+        {
+          "name": "lvb-audio",
+          "one_core_percent": 80.01
+        },
+        {
+          "name": "Processing Thre",
+          "one_core_percent": 26.95
+        },
+        {
+          "name": "wf0-factory-pro",
+          "one_core_percent": 1.88
+        },
+        {
+          "name": "winedevice.exe",
+          "one_core_percent": 1.64
+        },
+        {
+          "name": "wf0-factory-pro",
+          "one_core_percent": 1.08
+        }
+      ],
+      "after": {
+        "midi_accepted": 18,
+        "output_nonzero_l": 1565184,
+        "output_nonzero_r": 1565184,
+        "output_peak_l": 0.047705267,
+        "output_peak_r": 0.046806406,
+        "output_nonfinite": 0,
+        "xruns": 0,
+        "process_failures": 0,
+        "bridge_processed": 11067,
+        "request_high": 90,
+        "result_high": 7,
+        "fault": 0,
+        "fault_site": "unknown",
+        "callbacks": 5615,
+        "failures": 0,
+        "deadline_misses": 0,
+        "callback_ns_max": 68870,
+        "missing_frames": 647424,
+        "gaps": 2,
+        "delivered_frames": 2181888,
+        "paused_frames": 41472,
+        "unsupported_midi": 0,
+        "malformed_midi": 0,
+        "overflow_midi": 0
+      },
+      "recording": {
+        "frames": 960000,
+        "finite": true,
+        "peaks": [
+          0.0477052666246891,
+          0.04680640622973442
+        ],
+        "rms": [
+          0.0023101211916641924,
+          0.0025912702418083794
+        ],
+        "full_scale_samples": 0,
+        "first_nonzero_seconds": 0.0,
+        "held_window_seconds": [
+          3,
+          14
+        ],
+        "held_stereo_zero_frames": 0,
+        "pre_note_rms": 3.794311673734949e-15,
+        "held_window_rms": 0.002965557919315682
+      },
+      "trial_delta": {
+        "midi_accepted": 9,
+        "missing_frames": 0,
+        "gaps": 0,
+        "process_failures": 0,
+        "xruns": 0,
+        "deadline_misses": 0
+      },
+      "average_whole_pi_cpu_percent": 28.64,
+      "peak_temperature_c": 52.9,
+      "throttled_flags": [
+        0
+      ]
+    }
+  ],
+  "restore": [
+    "RPI1_STATE_RESTORED bytes=368038",
+    "RPI1_PARAMETER_READBACK id=0 normalized=0.34999996423721313 revision=1"
+  ],
+  "after_state": [
+    "RPI1_STATE_SAVED bytes=368038"
+  ],
+  "editor_after_trials": [
+    "RPI1_EDITOR native_view=1 epoch=1 lifecycle=3 result=0 target_x11=0xe00004",
+    "RPI1_EDITOR native_view=1 epoch=1 lifecycle=5 result=0 target_x11=0xe00004"
+  ],
+  "voice_mode": {
+    "value": "Poly 4",
+    "source": "Operator readback from the editor after both headless trials"
+  },
+  "conditions": {
+    "restore_once_before_first_hold": true,
+    "reload_between_holds": false,
+    "quiet_interval_seconds": 5,
+    "master_normalized": 0.35,
+    "editor_opened_during_measurements": false,
+    "editor_opened_after_measurements": true,
+    "preset_identity_after_both": {
+      "name": "24 AM",
+      "bank": "Pigments 6.0"
+    },
+    "original_state_restored_before_shutdown": true,
+    "observer_sha256": "eaa6393796e9c08321ddacfc0c291fce3e7ced3493eec17006f98daa94ea9cf8"
+  },
+  "limitations": [
+    "One first-use/repeat pair in a fresh process; not a cold boot or a cleared runtime/filesystem cache.",
+    "Both trials restored the prior saved 24 AM state rather than navigating to it as in the original sweep.",
+    "No causal attribution to translation, sample loading, scheduling, or a specific thread from this pair.",
+    "Operator listening and editor-read mode must be recorded separately from audio/transport measurements.",
+    "Repeat first-nonzero time includes residual audio before its note-on and is not a measured response latency."
+  ],
+  "operator_listening": {
+    "heard_sound": true,
+    "description": "Really quiet; operator considers its sound a quirk of the preset",
+    "scope": "No claim that operator listening independently located the first-trial transport stall"
+  },
+  "session": {
+    "label": "24am-repeat-01",
+    "ready_seconds": 21.17263100299988,
+    "elapsed_seconds": 188.54149616099994,
+    "exit_code": 0,
+    "clean_shutdown": true,
+    "peak_temperature_c_including_post_trial_editor": 54.55,
+    "throttled_flags": [
+      0
+    ],
+    "graph_restored_without_plugin_ports": true,
+    "original_master": 0.48033079504966736,
+    "restored_master": 0.48033079504966736,
+    "master_matches": true
+  },
+  "fixture": {
+    "plugin": "Pigments 7.0.1.6772",
+    "runtime": "GE-Proton11-7 AArch64 / UMU 1.4.4 / steamrt4-arm64",
+    "sample_rate": 48000,
+    "jack_frames": 512,
+    "processing_frames": 256,
+    "bridge_reserve_frames": 2048,
+    "native_sha256": "9d0a611d7175b05e398f484d9217fb29b7004f3e0eaac76acd6ad00a541bd1da",
+    "note_fixture_sha256": "eb9b82707531ff887bce880825c6c8f9d70d1c56836620a43b987113d6a6bd3e"
+  }
+}

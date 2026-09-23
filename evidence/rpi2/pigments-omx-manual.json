@@ -1,0 +1,23 @@
+{
+  "stop_reason": "session time bound",
+  "elapsed_seconds": 305.314795643,
+  "ready_seconds": 47.272301862000006,
+  "temperature_peak_c": 56.2,
+  "throttled_values": [
+    0
+  ],
+  "final_audio_lines": [
+    "RPI1_AUDIO midi_accepted=380 output_nonzero_l=6942666 output_nonzero_r=6942654 output_peak_l=0.585843 output_peak_r=0.6484398 output_nonfinite=0 xruns=0 process_failures=811 bridge_processed=42008 request_high=12 result_high=8 fault=2 fault_site=append_returned",
+    "RPI1_AUDIO midi_accepted=380 output_nonzero_l=6942666 output_nonzero_r=6942654 output_peak_l=0.585843 output_peak_r=0.6484398 output_nonfinite=0 xruns=0 process_failures=813 bridge_processed=42008 request_high=12 result_high=8 fault=2 fault_site=append_returned",
+    "RPI1_CALLBACK callbacks=21896 failures=813 deadline_misses=0 callback_ns_max=107721 missing_frames=4096 expired_frames=4096 gaps=4 delivered_frames=10745856 priming_frames=4096 paused_frames=40448 unsupported_midi=178 malformed_midi=0 overflow_midi=0"
+  ],
+  "clean_shutdown_marker_present": false,
+  "graph_after": "system:capture_1\nsystem:capture_2\nsystem:playback_1\nsystem:playback_2\nsystem:midi_capture_1\nsystem:midi_playback_1\nsystem:midi_capture_2\nsystem:midi_capture_3\nsystem:midi_playback_2\n",
+  "fixture": "Pigments 7.0.1.6772 on Pi 5 through ARM Wine/FEX, ShieldXL, USB OMX-27",
+  "operator_report": "It worked beautifully. I tried 6 poly presets and they sounded great.",
+  "preset_names": "Not retained for the manually browsed presets; initially restored Clear Skies at the saved lower volume.",
+  "error_attribution": "The operator suggested errors arose while opening a menu that extended the UI rightward. This is an unverified hypothesis, not a demonstrated cause.",
+  "shutdown": "The 280-second session timer requested quit. The native host did not finish within the 25-second graceful wait; supervisor cleanup restored the audio graph.",
+  "power": "Current battery versus charger supply not independently established for this manual session.",
+  "scope": "Manual audible operation was confirmed by the operator. This does not establish error-free transport, clean shutdown, or sustained Poly 8 capacity. No automated notes were used in this session."
+}

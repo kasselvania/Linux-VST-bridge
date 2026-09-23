@@ -214,7 +214,7 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         // Discovery facts remain available when lawful vendor state access is
         // unavailable. This is not a successful state or processing result.
         events.lifecycle("ap12_capabilities",",\"latency_samples\":"+std::to_string(audio->getLatencySamples())+",\"float32_result\":"+std::to_string(audio->canProcessSampleSize(kSample32))+",\"float64_result\":"+std::to_string(audio->canProcessSampleSize(kSample64))+",\"tail_samples\":"+std::to_string(audio->getTailSamples()));
-        LVBState::Stream state;step("getComponentState");auto state_result=component->getState(&state);
+        LVBState::Stream state;step("getComponentState");const auto initial_state_started=GetTickCount64();auto state_result=component->getState(&state);const auto initial_state_ms=GetTickCount64()-initial_state_started;
         char unknown_iid[33]{};FUID::fromTUID(reinterpret_cast<const char*>(state.last_unknown_iid)).toString(unknown_iid);
         events.lifecycle("ap12_state_stream",",\"result\":"+std::to_string(state_result)+",\"bytes\":"+std::to_string(state.bytes.size())+",\"failed\":"+(state.failed?"true":"false")+",\"writes\":"+std::to_string(state.write_calls)+",\"largest_write\":"+std::to_string(state.largest_write)+",\"reads\":"+std::to_string(state.read_calls)+",\"seeks\":"+std::to_string(state.seek_calls)+",\"last_seek_offset\":"+std::to_string(state.last_seek_offset)+",\"last_seek_mode\":"+std::to_string(state.last_seek_mode)+",\"unknown_queries\":"+std::to_string(state.unknown_queries)+",\"last_unknown_iid\":"+quoted(unknown_iid));
         events.lifecycle("ap8_result",",\"operation\":\"getComponentState\",\"result\":"+std::to_string(state_result));
@@ -234,6 +234,12 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         if(!access_directory.empty()){
             // Explicit unpublished access session: no DAW/DSP impersonation.
             // Reuse the same SDK view lifecycle on this initialized controller.
+            wchar_t recheck_policy[32]{};
+            const auto recheck_length=GetEnvironmentVariableW(L"LVB_VENDOR_ACCESS_STATE_RECHECK",recheck_policy,32);
+            const bool recheck=recheck_length!=0;
+            if(recheck && (recheck_length>=32 || std::wstring(recheck_policy,recheck_length)!=L"after-editor-pump"))
+                throw std::runtime_error("vendor access state recheck policy differs");
+            if(recheck)events.lifecycle("ap12_initial_state_timing",",\"duration_ms\":"+std::to_string(initial_state_ms));
             VendorView view;
             if(!view.open(*controller))throw std::runtime_error("vendor access editor open failed");
             int title_size=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,name.data(),int(name.size()),nullptr,0);
@@ -243,8 +249,22 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             title+=state_result==kResultOk?L" - Vendor access (no DAW audio)":L" - Vendor access (saving unavailable; no DAW audio)";
             SetWindowTextW(view.window(),title.c_str());
             events.lifecycle("ap12_vendor_access_open",",\"save_available\":"+std::string(state_result==kResultOk?"true":"false"));
-            const auto deadline=GetTickCount64()+30*60*1000;
-            while(VendorView::pump()&&!view.close_requested()&&GetTickCount64()<deadline&&GetFileAttributesW((access_directory+L"\\vendor.stop").c_str())==INVALID_FILE_ATTRIBUTES)Sleep(10);
+            const auto opened_at=GetTickCount64(),deadline=opened_at+30*60*1000;
+            const auto owner_thread=GetCurrentThreadId();
+            uint32_t pump_turns=0;bool rechecked=false;
+            while(VendorView::pump()&&!view.close_requested()&&GetTickCount64()<deadline&&GetFileAttributesW((access_directory+L"\\vendor.stop").c_str())==INVALID_FILE_ATTRIBUTES){
+                ++pump_turns;
+                if(recheck&&!rechecked&&GetTickCount64()-opened_at>=5000){
+                    rechecked=true;
+                    events.lifecycle("ap12_post_editor_state_started",",\"elapsed_since_open_ms\":"+std::to_string(GetTickCount64()-opened_at)+",\"pump_turns\":"+std::to_string(pump_turns));
+                    LVBState::Stream after;
+                    const auto started=GetTickCount64();
+                    const auto result=component->getState(&after);
+                    events.lifecycle("ap12_post_editor_state",",\"result\":"+std::to_string(result)+",\"bytes\":"+std::to_string(after.bytes.size())+",\"writes\":"+std::to_string(after.write_calls)+",\"failed\":"+(after.failed?"true":"false")+",\"quiescent\":"+(after.quiescent()?"true":"false")+",\"unknown_queries\":"+std::to_string(after.unknown_queries)+",\"duration_ms\":"+std::to_string(GetTickCount64()-started)+",\"owner_thread_match\":"+(GetCurrentThreadId()==owner_thread?"true":"false"));
+                    if(!after.quiescent())ExitProcess(92);
+                }
+                Sleep(10);
+            }
             if(!view.close())ExitProcess(92);
             events.lifecycle("ap12_vendor_access_closed");
         }

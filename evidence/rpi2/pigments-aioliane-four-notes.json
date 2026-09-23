@@ -1,0 +1,120 @@
+{
+  "preset": "Aioliane",
+  "notes": [
+    60,
+    64,
+    67,
+    71
+  ],
+  "velocity": 96,
+  "held_seconds": 12,
+  "capture_seconds": 20,
+  "sample_rate": 48000,
+  "editor_opened": false,
+  "master": [
+    "RPI1_MASTER_READBACK normalized=0.58833080530166626 revision=1"
+  ],
+  "before": {
+    "midi_accepted": 0,
+    "output_nonzero_l": 0,
+    "output_nonzero_r": 0,
+    "output_peak_l": 0,
+    "output_peak_r": 0,
+    "output_nonfinite": 0,
+    "xruns": 0,
+    "process_failures": 0,
+    "bridge_processed": 802,
+    "request_high": 4,
+    "result_high": 4,
+    "fault": 0,
+    "fault_site": "unknown",
+    "callbacks": 489,
+    "failures": 0,
+    "deadline_misses": 0,
+    "callback_ns_max": 53332,
+    "missing_frames": 0,
+    "gaps": 0,
+    "delivered_frames": 202240,
+    "paused_frames": 45056,
+    "unsupported_midi": 0,
+    "malformed_midi": 0,
+    "overflow_midi": 0
+  },
+  "after": {
+    "midi_accepted": 9,
+    "output_nonzero_l": 920303,
+    "output_nonzero_r": 920303,
+    "output_peak_l": 0.3550313,
+    "output_peak_r": 0.3805165,
+    "output_nonfinite": 0,
+    "xruns": 0,
+    "process_failures": 0,
+    "bridge_processed": 4836,
+    "request_high": 7,
+    "result_high": 4,
+    "fault": 0,
+    "fault_site": "unknown",
+    "callbacks": 2506,
+    "failures": 0,
+    "deadline_misses": 0,
+    "callback_ns_max": 53332,
+    "missing_frames": 0,
+    "gaps": 0,
+    "delivered_frames": 1234944,
+    "paused_frames": 45056,
+    "unsupported_midi": 0,
+    "malformed_midi": 0,
+    "overflow_midi": 0
+  },
+  "missing_frames_added": 0,
+  "gaps_added": 0,
+  "average_total_pi_cpu_percent": 22.36,
+  "hottest_surviving_threads": [
+    {
+      "name": "lvb-audio",
+      "one_core_percent": 45.67
+    },
+    {
+      "name": "Processing Thre",
+      "one_core_percent": 24.69
+    },
+    {
+      "name": "ArturiaSoftware",
+      "one_core_percent": 11.27
+    },
+    {
+      "name": "wf0-factory-pro",
+      "one_core_percent": 2.35
+    },
+    {
+      "name": "winedevice.exe",
+      "one_core_percent": 1.83
+    }
+  ],
+  "temperature_c_min_max": [
+    47.95,
+    51.8
+  ],
+  "session_peak_temperature_c": 51.8,
+  "arm_clock_hz_min_max": [
+    1700011264,
+    2400037120
+  ],
+  "throttle_flags": [
+    0
+  ],
+  "exact_stereo_silent_frames_seconds_3_to_14": 0,
+  "fixture_results": [
+    "RPI1_QUALIFICATION_AUDIO channel=0 samples=960000 nonzero_samples=861423 nonzero_windows=1683 peak=0.3550313 rms=0.07337437587686332 nonfinite=0",
+    "RPI1_QUALIFICATION_AUDIO channel=1 samples=960000 nonzero_samples=861423 nonzero_windows=1683 peak=0.3805165 rms=0.07155612065839786 nonfinite=0",
+    "RPI1_QUALIFICATION_RESULT mode=four-notes completed=true midi_sent=9 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true"
+  ],
+  "clean_shutdown": true,
+  "session_elapsed_seconds": 67.65748526800007,
+  "error": null,
+  "fixture_build_seconds": 0.895,
+  "fixture_sha256": "eb9b82707531ff887bce880825c6c8f9d70d1c56836620a43b987113d6a6bd3e",
+  "validation": "Eight qualification tests passed; Pi fixture built with denied warnings. Plugin and host binaries were unchanged.",
+  "operator_listening_confirmation": "The operator confirmed that the four-note headless pass sounded exceptionally clean.",
+  "limitations": "One fresh-session 12-second four-key hold. CPU is averaged across all four cores over the full trial, including setup/release/retirement. This is not sustained capacity or proof of the earlier browsing-related failure cause. Recordings and vendor state remain private."
+}

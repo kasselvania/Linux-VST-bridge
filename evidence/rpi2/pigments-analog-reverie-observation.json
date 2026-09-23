@@ -1,0 +1,15 @@
+{
+  "temperature": "temp=54.9'C",
+  "throttled": "throttled=0x0",
+  "status_lines": [
+    "RPI1_AUDIO midi_accepted=24 output_nonzero_l=2163485 output_nonzero_r=2163483 output_peak_l=0.1528654 output_peak_r=0.15941615 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=26934 request_high=82 result_high=9 fault=0 fault_site=unknown",
+    "RPI1_CALLBACK_LIVE callbacks=13550 failures=0 deadline_misses=0 callback_ns_max=82944 missing_frames=245248 gaps=35 delivered_frames=6646272 paused_frames=41984 unsupported_midi=0 malformed_midi=0 overflow_midi=0",
+    "RPI1_STATUS cohort_processes=15 memory_peak=2541596672 cpu_stat=usage_usec 139002132,user_usec 122721892,system_usec 16280240,nice_usec 0"
+  ],
+  "preset_name": "Analog Reverie",
+  "name_source": "operator",
+  "operator_cpu_meter": "Pigments internal CPU meter, initially about 72%, then 71%",
+  "operator_audio": "unplayable",
+  "private_state_bytes": 365530,
+  "scope": "Counters cover the entire current selection session, including browsing before this named preset. No before/after attribution to this preset is available. No automated MIDI sequence was started."
+}

@@ -1,0 +1,372 @@
+{
+  "started_at_utc": "2026-09-23T03:38:42.863203+00:00",
+  "label": "asc-ge-01",
+  "unit": "lvb-rpi2-asc-ge-01.service",
+  "display": ":1",
+  "max_seconds": 300,
+  "memory_max_bytes": 3221225472,
+  "tasks_max": 512,
+  "start_temperature_below_c": 56,
+  "stop_temperature_c": 75,
+  "stop_on_current_throttle_or_power_flags": true,
+  "script_sha256": {
+    "launch-asc.sh": "064c5e3dfb552842706af84ca8df0dd9a4808ec9ffb8fdcd6119775d5de3863f",
+    "asc_session.sh": "f383fd4616008ebde8a2b21062978832c8be7250ef86fded4b08354d862a545b"
+  },
+  "logs_before": {
+    "ASC_Agent_1.log": {
+      "mtime_ns": 1790131597227629800,
+      "bytes": 2992
+    },
+    "ASC_GUI_1.log": {
+      "mtime_ns": 1790038519617503200,
+      "bytes": 2019
+    },
+    "ASC_Agent_0.log": {
+      "mtime_ns": 1790130745530920000,
+      "bytes": 3850
+    },
+    "ASC_GUI_0.log": {
+      "mtime_ns": 1790045982454415400,
+      "bytes": 2104
+    },
+    "ASC_Agent_N.log": {
+      "mtime_ns": 1790131562432559000,
+      "bytes": 1
+    },
+    "ASC_Agent_2.log": {
+      "mtime_ns": 1790128930411425000,
+      "bytes": 1276
+    },
+    "ASC_GUI_2.log": {
+      "mtime_ns": 1790038933981716500,
+      "bytes": 4379
+    },
+    "ASC_GUI_N.log": {
+      "mtime_ns": 1790045336280966400,
+      "bytes": 1
+    }
+  },
+  "startup_observation": {
+    "observed_at_utc": "2026-09-23T03:39:26.514760+00:00",
+    "unit_state": {
+      "Result": "success",
+      "MemoryCurrent": "348164096",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "changed_logs": [
+      {
+        "log": "ASC_Agent_2.log",
+        "bytes": 7425,
+        "machine_key_changed_count": 46,
+        "error_word_count": 6,
+        "warning_word_count": 48
+      },
+      {
+        "log": "ASC_Agent_N.log",
+        "bytes": 1,
+        "machine_key_changed_count": 0,
+        "error_word_count": 0,
+        "warning_word_count": 0
+      },
+      {
+        "log": "ASC_GUI_1.log",
+        "bytes": 428,
+        "machine_key_changed_count": 0,
+        "error_word_count": 0,
+        "warning_word_count": 4
+      },
+      {
+        "log": "ASC_GUI_N.log",
+        "bytes": 1,
+        "machine_key_changed_count": 0,
+        "error_word_count": 0,
+        "warning_word_count": 0
+      }
+    ],
+    "runtime_diagnostics": {
+      "dxgi_factory_failure": false,
+      "thermal_stop": false,
+      "wine_unhandled_exception": false,
+      "could_not_load_kernel32": false
+    },
+    "temperature_mc": 49050,
+    "cohort_processes_with_target_argument": [
+      {
+        "role": "Arturia Software Center.exe",
+        "linux_executable": "python3.13",
+        "elf_machine": 183
+      },
+      {
+        "role": "Arturia Software Center.exe",
+        "linux_executable": "srt-bwrap",
+        "elf_machine": 183
+      },
+      {
+        "role": "Arturia Software Center.exe",
+        "linux_executable": "pv-adverb",
+        "elf_machine": 183
+      },
+      {
+        "role": "Arturia Software Center.exe",
+        "linux_executable": "python3.13",
+        "elf_machine": 183
+      },
+      {
+        "role": "Arturia Software Center.exe",
+        "linux_executable": "wine-preloader",
+        "elf_machine": 183
+      },
+      {
+        "role": "ArturiaSoftwareCenterAgent.exe",
+        "linux_executable": "wine-preloader",
+        "elf_machine": 183
+      }
+    ]
+  },
+  "resource_samples_to_observation": [
+    {
+      "temperature_mc": 47950,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 51250,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 52350,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 50700,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 50700,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 50700,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49600,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49050,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 50150,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49600,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49050,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49050,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49050,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 47950,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49050,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 48500,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49600,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 47950,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49050,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49050,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 48500,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 48500,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49050,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49050,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49050,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49600,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49600,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49050,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 47950,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 47950,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49600,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49600,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 48500,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 48500,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 47400,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 47950,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 49050,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 48500,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 47950,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 47950,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 48500,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 48500,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 47950,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 47950,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 48500,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 47950,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 47950,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 47950,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 47950,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 47950,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 47950,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 47950,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 48500,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 48500,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 48500,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 47950,
+      "throttled": "0xe0000"
+    },
+    {
+      "temperature_mc": 46850,
+      "throttled": "0xe0000"
+    }
+  ],
+  "resource_observed_at_utc": "2026-09-23T03:40:39.597396+00:00",
+  "runtime": "GE-Proton11-7-aarch64 / UMU 1.4.4 / steamrt4-arm64",
+  "asc_version": "2.12.0.3157",
+  "asc_sha256": "188afb698a0d7838bf491d208f56e9614846e56a60c90919d1018857ca3e7e25",
+  "builds": 0,
+  "launches": 1,
+  "visual_appearance_observed": false,
+  "sign_in_or_activation_observed": false,
+  "interpretation": [
+    "Both Arturia Software Center.exe and ArturiaSoftwareCenterAgent.exe were observed in the task cgroup under native AArch64 wine-preloader. Other listed executables are launcher ancestors carrying the same target argument.",
+    "ASC produced a fresh GUI log. This proves startup activity, not a rendered or responsive window, sign-in, activation or Pigments state recovery.",
+    "The service was left active for the operator within its 300-second runtime bound. It holds the runtime and original-environment operation locks for its lifetime.",
+    "No screenshots, computer control, credential access or activation-file manipulation occurred. Normal ASC startup may update its own logs and preferences."
+  ]
+}

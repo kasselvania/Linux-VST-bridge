@@ -21,10 +21,10 @@ pub fn pigments_bus_contract() -> [u8; 132] {
     write(0, [0, 0, 0, 2, 1, 1], 3); // auxiliary Sidechain input
     write(1, [0, 1, 0, 2, 0, 1], 3); // main Stereo Out
     write(2, [1, 0, 0, 16, 0, 1], 0); // Midi In
-    // Pigments reports zero raw channels here. The pinned
-    // `reported_zero_event_channels_unspecified` policy translates that
-    // sentinel to the 16 effective VST event channels on both sides of the
-    // cross-process contract.
+                                      // Pigments reports zero raw channels here. The pinned
+                                      // `reported_zero_event_channels_unspecified` policy translates that
+                                      // sentinel to the 16 effective VST event channels on both sides of the
+                                      // cross-process contract.
     write(3, [1, 1, 0, 16, 0, 1], 0); // effective Midi Out
     bytes
 }
@@ -80,7 +80,7 @@ pub fn host_arguments(config: &Config, session: &str) -> io::Result<Vec<OsString
         "--mode".into(),
         "ap9-commercial".into(),
         "--component-case".into(),
-        format!("class:{}", hex(&PIGMENTS_CLASS)).into(),
+        format!("class:{}", hex(&config.binding.class)).into(),
     ])
 }
 
@@ -92,7 +92,7 @@ pub fn handshake(config: &Config, session: &str) -> io::Result<String> {
         hex(&config.plugin.sha256),
         hex(&config.plugin.sha256),
         hex(&config.source_manifest_sha256),
-        hex(&PIGMENTS_CLASS)
+        hex(&config.binding.class)
     ))
 }
 
@@ -111,7 +111,7 @@ fn invalid(message: impl Into<String>) -> io::Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::PinnedFile;
+    use crate::config::{Box64Runner, PinnedFile, Runner};
     use std::path::PathBuf;
 
     fn config() -> Config {
@@ -120,20 +120,23 @@ mod tests {
             sha256: [0; 32],
         };
         Config {
-            box64: file("/runtime/box64"),
-            adapter: file("/runtime/adapter"),
-            emulator_manifest: file("/runtime/emulator.json"),
-            graphics_manifest: file("/runtime/graphics.json"),
-            slr_entry: file("/runtime/slr"),
-            proton: file("/runtime/proton"),
+            runner: Runner::Box64(Box64Runner {
+                box64: file("/runtime/box64"),
+                adapter: file("/runtime/adapter"),
+                emulator_manifest: file("/runtime/emulator.json"),
+                graphics_manifest: file("/runtime/graphics.json"),
+                slr_entry: file("/runtime/slr"),
+                proton: file("/runtime/proton"),
+                runtime_variable_dir: "/environment/runtime-var-pyhome-exact".into(),
+            }),
             windows_host: file("/environment/compatdata/pfx/drive_c/bridge/host.exe"),
             plugin: file(
                 "/environment/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Pigments.vst3",
             ),
             environment_root: "/environment".into(),
-            runtime_variable_dir: "/environment/runtime-var-pyhome-exact".into(),
             display: ":1".into(),
             xauthority: file("/home/user/.Xauthority"),
+            binding: crate::binding::Binding::pigments(),
             source_manifest_sha256: [0; 32],
             bridge_frames: 2048,
             jack_client: "lvb-arm-pigments".into(),

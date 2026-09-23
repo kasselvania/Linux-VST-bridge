@@ -1,0 +1,174 @@
+{
+  "observed_at_utc": "2026-09-23T04:09:33.273233+00:00",
+  "source_base_commit": "e01fd4851501a5d29d0c5349459ae98e03562c8c",
+  "operator_reported_activation": true,
+  "windows_host_builds": 0,
+  "pigments_launches": 1,
+  "runtime": "GE-Proton11-7-aarch64 / UMU 1.4.4 / steamrt4-arm64",
+  "plugin_version": "7.0.1.6772",
+  "plugin_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+  "probe_script_sha256": "b38315c269f3a4d924ee7c4a1f09cfeb44f419fe351cae802c858786f49c9f02",
+  "run": {
+    "session": "cfa799f85a8b4245bf97562d62f0c371",
+    "label": "editor-ge-05",
+    "gate_sent": true,
+    "editor_open_record": true,
+    "configuration": "appliance-state-recheck.conf",
+    "windows_host_sha256": "9501baf7b1aae9fba0ad6e99f0659f81487aaee8ee1c2ce2a95e7f22aa94614b",
+    "source_manifest_sha256": "57bf9d76b8f48270f5f859c47ec6a95c721bc6a8f511d9c14fe0152bc3f48c26",
+    "post_editor_state_requested": true,
+    "editor_open_seconds": 33.285287504000735,
+    "post_editor_state_record_seconds": 38.31932725099978,
+    "stop_reason": "state recheck complete",
+    "exit_code": 241,
+    "elapsed_seconds": 62.61344345600082,
+    "unit_active_after": false
+  },
+  "lifecycle": [
+    {
+      "event": "lifecycle",
+      "sequence": 210,
+      "state": "ap12_state_stream",
+      "result": 0,
+      "bytes": 155154,
+      "failed": false,
+      "writes": 1,
+      "largest_write": 155154,
+      "reads": 0,
+      "seeks": 0,
+      "last_seek_offset": 0,
+      "last_seek_mode": 0,
+      "unknown_queries": 0,
+      "last_unknown_iid": "00000000000000000000000000000000"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 211,
+      "state": "ap8_result",
+      "operation": "getComponentState",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 212,
+      "state": "ap12_persistence",
+      "capture_available": true,
+      "sdk_result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 214,
+      "state": "ap12_initial_state_timing",
+      "duration_ms": 150
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 215,
+      "state": "ap12_vendor_access_open",
+      "save_available": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 216,
+      "state": "ap12_post_editor_state_started",
+      "elapsed_since_open_ms": 5006,
+      "pump_turns": 418
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 217,
+      "state": "ap12_post_editor_state",
+      "result": 0,
+      "bytes": 155286,
+      "writes": 1,
+      "failed": false,
+      "quiescent": true,
+      "unknown_queries": 0,
+      "duration_ms": 168,
+      "owner_thread_match": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 218,
+      "state": "ap12_vendor_access_closed"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 220,
+      "state": "ap8_result",
+      "operation": "clearComponentHandler",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 222,
+      "state": "ap8_result",
+      "operation": "terminateComponent",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 235,
+      "state": "module_unloaded"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 236,
+      "state": "scanner_completed",
+      "inspection_complete": true
+    }
+  ],
+  "temperature_summary": {
+    "samples": 61,
+    "min_c": 49.6,
+    "max_c": 56.2,
+    "any_current_throttle_or_power_bits": false,
+    "historical_register_values": [
+      917504
+    ]
+  },
+  "memory_peak": "2.3 GiB, no swap, as reported by systemd",
+  "dxgi_factory_warning": true,
+  "agent_log_after_restart": {
+    "name": "ASC_Agent_2.log",
+    "previous_bytes": 79783,
+    "new_bytes": 498,
+    "previous_machine_key_error_count": 552,
+    "new_machine_key_error_count": 0,
+    "limit": "The agent log rotated/truncated on restart; counts describe separate file generations, not subtraction over one append-only log."
+  },
+  "cleanup": {
+    "probe_unit_active_after": false,
+    "jack_graph_matches_previous_probe": true,
+    "active_experiment_units": []
+  },
+  "comparison_to_pre_activation": {
+    "initial": {
+      "before_result": 1,
+      "before_bytes": 0,
+      "before_duration_ms": 12634,
+      "after_result": 0,
+      "after_bytes": 155154,
+      "after_duration_ms": 150
+    },
+    "post_editor": {
+      "before_result": 1,
+      "before_bytes": 0,
+      "before_duration_ms": 41,
+      "after_result": 0,
+      "after_bytes": 155286,
+      "after_duration_ms": 168
+    },
+    "same_host_plugin_and_probe": true,
+    "previous_evidence": "pigments-post-editor-state.json"
+  },
+  "interpretation": [
+    "After the operator completed ASC activation and the ASC cohort was stopped, a fresh Pigments process using the same host, module, probe and configuration captured state successfully before and after editor attachment.",
+    "This intervention strongly attributes the prior state-capture refusal in the migrated environment to authorization readiness. It does not isolate every file or preference updated by normal ASC activation, nor establish the cause of unrelated RPI1 symptoms.",
+    "Successful initial capture precedes editor attachment, so this state-capture operation did not require the editor in the activated fixture.",
+    "The two payload lengths differ; payload contents were not exported or compared. No save/close/reload or state restoration was tested.",
+    "Editor close, component termination, module unload and scanner completion were reported successfully. The runtime wrapper still required bounded cleanup and exited 241.",
+    "The DXGI warning persists despite successful state capture. Rendering impact remains unobserved.",
+    "Audio DSP, preset selection, ShieldXL controls, sustained throughput and full persistence remain separate follow-ups. No new host build or runtime change was required."
+  ]
+}

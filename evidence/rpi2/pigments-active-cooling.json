@@ -1,0 +1,281 @@
+{
+  "observed_date": "2026-09-23",
+  "scope": "First fan-cooled battery-powered Altered Alter Boy single-note and 1/2/4/6/8-held-key sequence",
+  "fixture": {
+    "hardware": "Raspberry Pi 5 / ShieldXL / PiSugar 3 Plus",
+    "cooling": "Operator fitted active cooler and reported fan running",
+    "power_mode": "Battery only, as reported by operator; not inferred from supply voltage",
+    "modification": "Operator removed ShieldXL U2 and reported damaged pads while making cooler clearance. U2 is the TRS MIDI-input optocoupler in the upstream schematic. Physical TRS MIDI input is excluded.",
+    "kernel": "6.18.50+rpt-rpi-v8",
+    "runtime": "GE-Proton11-7 AArch64 / UMU 1.4.4 / ARM Wine-FEX",
+    "plugin": "Pigments 7.0.1.6772",
+    "preset": "Altered Alter Boy",
+    "master_normalized": 0.45,
+    "sample_rate": 48000,
+    "jack_period_frames": 512,
+    "windows_block_frames": 256,
+    "bridge_reserve_frames": 2048,
+    "vendor_latency_frames": 48,
+    "reported_total_latency_frames": 2096,
+    "native_host_sha256": "24e6ab174071a46c715d03c6e9d6718652097e965ffb3911eb2aa8298a2ef617",
+    "windows_host_sha256": "64d629e84a0fdf8833e97b9393cd41b9a5a214f82fe418d1792281622f0007f2",
+    "plugin_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+    "qualification_sha256": "1cf0c170c8a682779ecfc73cae260385fd8195cb485d020cc28f7813de7c9d2e"
+  },
+  "bringup": {
+    "preceding_boot": "Before the final hardware adjustment, CS4270 failed its I2C read with four lost-arbitration messages and error -11; ShieldXL was absent and JACK could not start. No Pigments test ran in that boot.",
+    "current_boot": "ShieldXL audio card detected, JACK running, all three encoder and three button devices registered. Operator saw display.",
+    "idle_temperature_c": 24.85,
+    "throttled": 0,
+    "x_session": "Verified current user-owned X session and refreshed only its private configuration fingerprint, retaining the previous config.",
+    "binaries_rebuilt": false
+  },
+  "result": {
+    "label": "pigments-cooled-01",
+    "editor_opened": false,
+    "restore": [
+      "RPI1_STATE_RESTORED bytes=365534"
+    ],
+    "master": [
+      "RPI1_MASTER_QUEUED normalized=0.45000000000000001",
+      "RPI1_MASTER_READBACK normalized=0.44999998807907104 revision=2"
+    ],
+    "intervals": [
+      {
+        "mode": "notes",
+        "audio_seconds": 5,
+        "fixture_elapsed_seconds": 5.264,
+        "exit_code": 0,
+        "thermal": {
+          "sample_count": 10,
+          "temperature_min_c": 29.8,
+          "temperature_max_c": 31.45,
+          "throttled_values": [
+            0
+          ],
+          "supply_min_v": 4.99552,
+          "supply_max_v": 5.0384,
+          "clock_khz_min": 1700000,
+          "clock_khz_max": 2400000
+        },
+        "before": {
+          "midi_accepted": 0,
+          "xruns": 0,
+          "process_failures": 0,
+          "output_nonfinite": 0,
+          "deadline_misses": 0,
+          "failures": 0,
+          "callback_ns_max": 61851,
+          "missing_frames": 1536,
+          "gaps": 1,
+          "paused_frames": 39936,
+          "memory_peak": 1597403136
+        },
+        "after": {
+          "midi_accepted": 3,
+          "xruns": 0,
+          "process_failures": 0,
+          "output_nonfinite": 0,
+          "deadline_misses": 0,
+          "failures": 0,
+          "callback_ns_max": 63796,
+          "missing_frames": 1536,
+          "gaps": 1,
+          "paused_frames": 39936,
+          "memory_peak": 1598722048
+        },
+        "counter_deltas": {
+          "midi_accepted": 3,
+          "xruns": 0,
+          "process_failures": 0,
+          "output_nonfinite": 0,
+          "deadline_misses": 0,
+          "failures": 0,
+          "missing_frames": 0,
+          "gaps": 0,
+          "paused_frames": 0
+        },
+        "fixture_results": [
+          "RPI1_QUALIFICATION_AUDIO channel=0 samples=240000 nonzero_samples=213408 nonzero_windows=418 peak=0.06406606 rms=0.016198818138193443 nonfinite=0",
+          "RPI1_QUALIFICATION_AUDIO channel=1 samples=240000 nonzero_samples=213408 nonzero_windows=418 peak=0.06615618 rms=0.014767151701538023 nonfinite=0",
+          "RPI1_QUALIFICATION_RESULT mode=notes completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+          "RPI1_QUALIFICATION_CAPTURE format=f32le channels=2 rate=48000 frames=240000 bytes=1920000"
+        ],
+        "snapshots": []
+      },
+      {
+        "mode": "polyphony",
+        "audio_seconds": 30,
+        "fixture_elapsed_seconds": 32.743,
+        "exit_code": 0,
+        "thermal": {
+          "sample_count": 59,
+          "temperature_min_c": 29.25,
+          "temperature_max_c": 35.85,
+          "throttled_values": [
+            0
+          ],
+          "supply_min_v": 4.97274,
+          "supply_max_v": 5.0384,
+          "clock_khz_min": 1600000,
+          "clock_khz_max": 2400000
+        },
+        "before": {
+          "midi_accepted": 3,
+          "xruns": 0,
+          "process_failures": 0,
+          "output_nonfinite": 0,
+          "deadline_misses": 0,
+          "failures": 0,
+          "callback_ns_max": 63796,
+          "missing_frames": 1536,
+          "gaps": 1,
+          "paused_frames": 39936,
+          "memory_peak": 1608691712
+        },
+        "after": {
+          "midi_accepted": 50,
+          "xruns": 0,
+          "process_failures": 0,
+          "output_nonfinite": 0,
+          "deadline_misses": 0,
+          "failures": 0,
+          "callback_ns_max": 63796,
+          "missing_frames": 1536,
+          "gaps": 1,
+          "paused_frames": 39936,
+          "memory_peak": 1608691712
+        },
+        "counter_deltas": {
+          "midi_accepted": 47,
+          "xruns": 0,
+          "process_failures": 0,
+          "output_nonfinite": 0,
+          "deadline_misses": 0,
+          "failures": 0,
+          "missing_frames": 0,
+          "gaps": 0,
+          "paused_frames": 0
+        },
+        "fixture_results": [
+          "RPI1_QUALIFICATION_AUDIO channel=0 samples=1440000 nonzero_samples=1440000 nonzero_windows=2813 peak=0.21741392 rms=0.035022482325848064 nonfinite=0",
+          "RPI1_QUALIFICATION_AUDIO channel=1 samples=1440000 nonzero_samples=1440000 nonzero_windows=2813 peak=0.19624366 rms=0.03259672140547814 nonfinite=0",
+          "RPI1_QUALIFICATION_RESULT mode=polyphony completed=true midi_sent=47 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true",
+          "RPI1_QUALIFICATION_CAPTURE format=f32le channels=2 rate=48000 frames=1440000 bytes=11520000"
+        ],
+        "snapshots": [
+          {
+            "seconds": 6.35,
+            "counters": {
+              "midi_accepted": 6,
+              "xruns": 0,
+              "process_failures": 0,
+              "output_nonfinite": 0,
+              "deadline_misses": 0,
+              "failures": 0,
+              "callback_ns_max": 63796,
+              "missing_frames": 1536,
+              "gaps": 1,
+              "paused_frames": 39936,
+              "memory_peak": 1608691712
+            }
+          },
+          {
+            "seconds": 12.476,
+            "counters": {
+              "midi_accepted": 11,
+              "xruns": 0,
+              "process_failures": 0,
+              "output_nonfinite": 0,
+              "deadline_misses": 0,
+              "failures": 0,
+              "callback_ns_max": 63796,
+              "missing_frames": 1536,
+              "gaps": 1,
+              "paused_frames": 39936,
+              "memory_peak": 1608691712
+            }
+          },
+          {
+            "seconds": 18.076,
+            "counters": {
+              "midi_accepted": 20,
+              "xruns": 0,
+              "process_failures": 0,
+              "output_nonfinite": 0,
+              "deadline_misses": 0,
+              "failures": 0,
+              "callback_ns_max": 63796,
+              "missing_frames": 1536,
+              "gaps": 1,
+              "paused_frames": 39936,
+              "memory_peak": 1608691712
+            }
+          },
+          {
+            "seconds": 24.205,
+            "counters": {
+              "midi_accepted": 33,
+              "xruns": 0,
+              "process_failures": 0,
+              "output_nonfinite": 0,
+              "deadline_misses": 0,
+              "failures": 0,
+              "callback_ns_max": 63796,
+              "missing_frames": 1536,
+              "gaps": 1,
+              "paused_frames": 39936,
+              "memory_peak": 1608691712
+            }
+          },
+          {
+            "seconds": 30.333,
+            "counters": {
+              "midi_accepted": 50,
+              "xruns": 0,
+              "process_failures": 0,
+              "output_nonfinite": 0,
+              "deadline_misses": 0,
+              "failures": 0,
+              "callback_ns_max": 63796,
+              "missing_frames": 1536,
+              "gaps": 1,
+              "paused_frames": 39936,
+              "memory_peak": 1608691712
+            }
+          }
+        ]
+      }
+    ],
+    "session": {
+      "ready_seconds": 43.23429096200002,
+      "elapsed_seconds": 130.46907824100003,
+      "exit_code": 0,
+      "clean_shutdown": true
+    },
+    "session_thermal": {
+      "sample_count": 129,
+      "temperature_min_c": 27.05,
+      "temperature_max_c": 35.85,
+      "throttled_values": [
+        0
+      ]
+    },
+    "new_session_directories_retained": 0,
+    "jack_graph_restored": true
+  },
+  "operator_audio_confirmation": "Clean throughout, including the larger chords",
+  "remaining_experiment_units": 0,
+  "pi_left_powered_on": true,
+  "nonclaims": [
+    "This is a 30-second sequence with three-second holds and tails, not sustained eight-voice capacity or a maximum-polyphony measurement.",
+    "One startup gap with 1536 missing frames preceded the measured intervals; its cause remains unresolved.",
+    "Different starting conditions and hardware fit do not isolate fan cooling as the cause of the performance result.",
+    "No vendor editor was opened; editor workload and lifecycle are not qualified by this pass.",
+    "Post-modification control-device enumeration does not establish physical knob/button function. USB and TRS MIDI ports were not exercised: notes were generated by the native test fixture.",
+    "PMIC input voltage is not battery current, charge, energy or endurance.",
+    "No claim that all damaged PCB traces are healthy; audio output was physically confirmed in this run."
+  ],
+  "privacy": "Audio and proprietary state remain private on the Pi. No licensing or account material exported.",
+  "operator_power_confirmation": "After the test, operator explicitly confirmed it was done totally with battery power."
+}

@@ -39,15 +39,56 @@ impl PinnedFile {
 }
 
 #[derive(Clone, Debug)]
+pub enum Runner {
+    Box64 {
+        box64: PinnedFile,
+        wine: PinnedFile,
+        linux_probe: PinnedFile,
+        box64_rc: PinnedFile,
+    },
+    /// An explicitly pinned fixture launcher that execs the pinned native leader.
+    Native {
+        launcher: PinnedFile,
+        leader: PinnedFile,
+    },
+}
+
+impl Runner {
+    pub fn leader(&self) -> &PinnedFile {
+        match self {
+            Self::Box64 { box64, .. } => box64,
+            Self::Native { leader, .. } => leader,
+        }
+    }
+
+    fn verify(&self) -> io::Result<()> {
+        match self {
+            Self::Box64 {
+                box64,
+                wine,
+                linux_probe,
+                box64_rc,
+            } => {
+                box64.verify("Box64")?;
+                wine.verify("Wine")?;
+                linux_probe.verify("x86-64 Linux probe")?;
+                box64_rc.verify("Box64 configuration")
+            }
+            Self::Native { launcher, leader } => {
+                launcher.verify("native runner launcher")?;
+                leader.verify("native runner leader")
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct Config {
-    pub box64: PinnedFile,
-    pub wine: PinnedFile,
-    pub linux_probe: PinnedFile,
+    pub runner: Runner,
     pub windows_probe: PinnedFile,
     pub windows_host: PinnedFile,
     pub plugin: PinnedFile,
     pub prefix: PathBuf,
-    pub box64_rc: PinnedFile,
     pub source_manifest_sha256: [u8; 32],
     pub bridge_frames: u32,
     pub jack_client: String,
@@ -89,15 +130,7 @@ impl Config {
                 )));
             }
         }
-        const KEYS: [&str; 24] = [
-            "box64_source_commit",
-            "box64_path",
-            "box64_sha256",
-            "wine_source_commit",
-            "wine_path",
-            "wine_sha256",
-            "linux_probe_path",
-            "linux_probe_sha256",
+        let mut keys = vec![
             "windows_probe_path",
             "windows_probe_sha256",
             "windows_host_path",
@@ -105,8 +138,6 @@ impl Config {
             "plugin_path",
             "plugin_sha256",
             "prefix_path",
-            "box64_rc_path",
-            "box64_rc_sha256",
             "source_manifest_sha256",
             "bridge_frames",
             "jack_client",
@@ -115,11 +146,39 @@ impl Config {
             "protocol_minor",
             "sample_rate",
         ];
-        if values.len() != KEYS.len() || KEYS.iter().any(|key| !values.contains_key(*key)) {
+        let native = match values.get("runner").map(String::as_str) {
+            None => false,
+            Some("native") => true,
+            Some(_) => return Err(invalid("unknown runner selection")),
+        };
+        if native {
+            keys.extend([
+                "runner",
+                "launcher_path",
+                "launcher_sha256",
+                "leader_path",
+                "leader_sha256",
+            ]);
+        } else {
+            keys.extend([
+                "box64_source_commit",
+                "box64_path",
+                "box64_sha256",
+                "wine_source_commit",
+                "wine_path",
+                "wine_sha256",
+                "linux_probe_path",
+                "linux_probe_sha256",
+                "box64_rc_path",
+                "box64_rc_sha256",
+            ]);
+        }
+        if values.len() != keys.len() || keys.iter().any(|key| !values.contains_key(*key)) {
             return Err(invalid("configuration key set differs"));
         }
-        if values["box64_source_commit"] != BOX64_SOURCE_COMMIT
-            || values["wine_source_commit"] != WINE_SOURCE_COMMIT
+        if (!native
+            && (values["box64_source_commit"] != BOX64_SOURCE_COMMIT
+                || values["wine_source_commit"] != WINE_SOURCE_COMMIT))
             || values["protocol_minor"] != "12"
             || values["sample_rate"] != "48000"
         {
@@ -172,14 +231,23 @@ impl Config {
             ));
         }
         let config = Self {
-            box64: pinned("box64_path", "box64_sha256")?,
-            wine: pinned("wine_path", "wine_sha256")?,
-            linux_probe: pinned("linux_probe_path", "linux_probe_sha256")?,
+            runner: if native {
+                Runner::Native {
+                    launcher: pinned("launcher_path", "launcher_sha256")?,
+                    leader: pinned("leader_path", "leader_sha256")?,
+                }
+            } else {
+                Runner::Box64 {
+                    box64: pinned("box64_path", "box64_sha256")?,
+                    wine: pinned("wine_path", "wine_sha256")?,
+                    linux_probe: pinned("linux_probe_path", "linux_probe_sha256")?,
+                    box64_rc: pinned("box64_rc_path", "box64_rc_sha256")?,
+                }
+            },
             windows_probe: pinned("windows_probe_path", "windows_probe_sha256")?,
             windows_host: pinned("windows_host_path", "windows_host_sha256")?,
             plugin: pinned("plugin_path", "plugin_sha256")?,
             prefix,
-            box64_rc: pinned("box64_rc_path", "box64_rc_sha256")?,
             source_manifest_sha256: hex32(&values["source_manifest_sha256"])?,
             bridge_frames,
             jack_client,
@@ -191,13 +259,10 @@ impl Config {
     }
 
     pub fn verify_files(&self) -> io::Result<()> {
-        self.box64.verify("Box64")?;
-        self.wine.verify("Wine")?;
-        self.linux_probe.verify("x86-64 Linux probe")?;
+        self.runner.verify()?;
         self.windows_probe.verify("x86-64 Windows probe")?;
         self.windows_host.verify("Windows VST3 host")?;
-        self.plugin.verify("source-owned Windows instrument")?;
-        self.box64_rc.verify("Box64 configuration")
+        self.plugin.verify("source-owned Windows instrument")
     }
 }
 
@@ -236,5 +301,45 @@ mod tests {
         assert_eq!(WINE_SOURCE_COMMIT.len(), 40);
         assert_eq!(hex32(&"ab".repeat(32)).unwrap(), [0xab; 32]);
         assert!(hex32("00").is_err());
+    }
+
+    #[test]
+    fn runner_selection_preserves_legacy_pins_and_rejects_mixed_or_changed_files() {
+        let root = std::env::temp_dir().join(format!(
+            "rpi2-config-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir(&root).unwrap();
+        let artifact = root.join("artifact");
+        fs::write(&artifact, b"fixture").unwrap();
+        let hash = hex(&Sha256::digest(b"fixture"));
+        let file = artifact.display();
+        let common = format!(
+            "windows_probe_path={file}\nwindows_probe_sha256={hash}\nwindows_host_path={file}\nwindows_host_sha256={hash}\nplugin_path={file}\nplugin_sha256={hash}\nprefix_path={}\nsource_manifest_sha256={hash}\nbridge_frames=2048\njack_client=lvb-arm-standalone\nevidence_path={}/native.jsonl\nwindows_evidence_path={}/windows.jsonl\nprotocol_minor=12\nsample_rate=48000\n", root.display(), root.display(), root.display());
+        let native = format!("{common}runner=native\nlauncher_path={file}\nlauncher_sha256={hash}\nleader_path={file}\nleader_sha256={hash}\n");
+        let legacy = format!("{common}box64_source_commit={BOX64_SOURCE_COMMIT}\nbox64_path={file}\nbox64_sha256={hash}\nwine_source_commit={WINE_SOURCE_COMMIT}\nwine_path={file}\nwine_sha256={hash}\nlinux_probe_path={file}\nlinux_probe_sha256={hash}\nbox64_rc_path={file}\nbox64_rc_sha256={hash}\n");
+        let path = root.join("fixture.conf");
+        fs::write(&path, &legacy).unwrap();
+        assert!(matches!(
+            Config::load(&path).unwrap().runner,
+            Runner::Box64 { .. }
+        ));
+        fs::write(&path, &native).unwrap();
+        assert!(matches!(
+            Config::load(&path).unwrap().runner,
+            Runner::Native { .. }
+        ));
+        fs::write(&path, native.replace("runner=native", "runner=unknown")).unwrap();
+        assert!(Config::load(&path).is_err());
+        fs::write(&path, format!("{native}box64_path={file}\n")).unwrap();
+        assert!(Config::load(&path).is_err());
+        fs::write(&path, &native).unwrap();
+        fs::write(&artifact, b"changed launcher").unwrap();
+        assert!(Config::load(&path).is_err());
+        fs::remove_dir_all(root).unwrap();
     }
 }

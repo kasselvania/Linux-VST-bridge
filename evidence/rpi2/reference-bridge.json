@@ -1,0 +1,702 @@
+{
+  "observed_at_utc": "2026-09-23T00:39:08.848618+00:00",
+  "source_base_commit": "5a8c4df",
+  "changed_source_sha256": {
+    "rpi0/standalone/src/config.rs": "429d449fa4f579421e3def4078fa637e8e2d62a9d28de778f0d970c17ecd419c",
+    "rpi0/standalone/src/supervisor.rs": "b11ac60ffb0939471b67a54730134d5a25bfd70fa973450f8f87b19e05f7c867",
+    "rpi1/qualification_jack.rs": "18a1d9393ca80714a02ba79025c1760190f74125e117a3e7c70735b92273d853",
+    "rpi2/launch-host.sh": "642d846eb8054d1597810a2c7af17a69ce2843e3263dd46007f055ff62378ced"
+  },
+  "native_binary_sha256": "35146bf051aeba36f67ae72cfe2c41ac87a01c9717a83f1163576e29ab44683b",
+  "jack_fixture_sha256": "1cf0c170c8a682779ecfc73cae260385fd8195cb485d020cc28f7813de7c9d2e",
+  "windows_host_sha256": "6f00cf377458037e4ae64c2425578b7c408a0a5ed6f027a0249e0d979f55fc2c",
+  "reference_vst_sha256": "a7718bfb91185b88473ec77f80681496c1f0cfaf8b99105961c980b4c9a50675",
+  "build": {
+    "release_seconds": 17.18,
+    "standalone_tests_passed": 21,
+    "standalone_tests_failed": 0,
+    "windows_rebuilt": false,
+    "runtime_rebuilt": false
+  },
+  "configuration": "runner=native\nlauncher_path=<RPI2_PRIVATE>/launch-host.sh\nlauncher_sha256=642d846eb8054d1597810a2c7af17a69ce2843e3263dd46007f055ff62378ced\nleader_path=/usr/bin/python3.13\nleader_sha256=273cb29e073b748379ba546affa562283ed795f84ff230349e12ce610e60975c\nwindows_probe_path=<RPI2_PRIVATE>/prefix-ge-01/drive_c/bridge/probes/rpi0-windows-probe.exe\nwindows_probe_sha256=86161880adb171519bfa1b263ea136c6f40dd595097891fb5436d256cf727866\nwindows_host_path=<RPI2_PRIVATE>/prefix-ge-01/drive_c/bridge/probes/wf0-factory-probe.exe\nwindows_host_sha256=6f00cf377458037e4ae64c2425578b7c408a0a5ed6f027a0249e0d979f55fc2c\nplugin_path=<RPI2_PRIVATE>/prefix-ge-01/drive_c/bridge/fixtures/LVB ARM Appliance Synth.vst3\nplugin_sha256=a7718bfb91185b88473ec77f80681496c1f0cfaf8b99105961c980b4c9a50675\nprefix_path=<RPI2_PRIVATE>/prefix-ge-01\nsource_manifest_sha256=17182c24546a6ba8163645a6f7883a47d7471666d8f6a5f86c1ab5f7de6fa20e\nbridge_frames=2048\njack_client=lvb-arm-standalone\nevidence_path=<RPI2_PRIVATE>/runs/bridge-01/native.jsonl\nwindows_evidence_path=<RPI2_PRIVATE>/runs/bridge-01/windows.jsonl\nprotocol_minor=12\nsample_rate=48000\n",
+  "architecture_handshake": {
+    "native_hex": "4c564252504930000100000040000000010203044000000020000000600000006002000001000000010000000010000000000000000000000c9537eead585f71",
+    "windows_hex": "4c564252504930000100000040000000010203044000000020000000600000006002000001000000010000000010000000000000000000000c9537eead585f71",
+    "identical": true
+  },
+  "process_snapshot": {
+    "unit": "lvb-rpi0-6cd2e38aa4f3761981938c237163fd39.service",
+    "processes": [
+      {
+        "pid": 17083,
+        "executable": "/usr/bin/python3.13",
+        "machine": 183,
+        "comm": "python3.13",
+        "fex": false,
+        "reference_module": false
+      },
+      {
+        "pid": 17094,
+        "executable": "<RPI2_PRIVATE>/data/umu/steamrt4-arm64/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap",
+        "machine": 183,
+        "comm": "srt-bwrap",
+        "fex": false,
+        "reference_module": false
+      },
+      {
+        "pid": 17122,
+        "executable": "/usr/lib/pressure-vessel/from-host/libexec/steam-runtime-tools-0/pv-adverb",
+        "machine": 183,
+        "comm": "pv-adverb",
+        "fex": false,
+        "reference_module": false
+      },
+      {
+        "pid": 17166,
+        "executable": "/usr/bin/python3.13",
+        "machine": 183,
+        "comm": "python3",
+        "fex": false,
+        "reference_module": false
+      },
+      {
+        "pid": 17168,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/wine-preloader",
+        "machine": 183,
+        "comm": "wf0-factory-pro",
+        "fex": true,
+        "reference_module": true
+      },
+      {
+        "pid": 17170,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/bin-arm64/wineserver",
+        "machine": 183,
+        "comm": "wineserver",
+        "fex": false,
+        "reference_module": false
+      },
+      {
+        "pid": 17174,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/wine-preloader",
+        "machine": 183,
+        "comm": "services.exe",
+        "fex": false,
+        "reference_module": false
+      },
+      {
+        "pid": 17177,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/wine-preloader",
+        "machine": 183,
+        "comm": "winedevice.exe",
+        "fex": false,
+        "reference_module": false
+      },
+      {
+        "pid": 17187,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/wine-preloader",
+        "machine": 183,
+        "comm": "plugplay.exe",
+        "fex": false,
+        "reference_module": false
+      },
+      {
+        "pid": 17193,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/wine-preloader",
+        "machine": 183,
+        "comm": "svchost.exe",
+        "fex": false,
+        "reference_module": false
+      },
+      {
+        "pid": 17200,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/wine-preloader",
+        "machine": 183,
+        "comm": "winedevice.exe",
+        "fex": false,
+        "reference_module": false
+      },
+      {
+        "pid": 17216,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/wine-preloader",
+        "machine": 183,
+        "comm": "explorer.exe",
+        "fex": false,
+        "reference_module": false
+      },
+      {
+        "pid": 17223,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/wine-preloader",
+        "machine": 183,
+        "comm": "rpcss.exe",
+        "fex": false,
+        "reference_module": false
+      },
+      {
+        "pid": 17233,
+        "executable": "<RPI2_PRIVATE>/runners/GE-Proton11-7-aarch64/files/lib/wine/aarch64-unix/wine-preloader",
+        "machine": 183,
+        "comm": "tabtip.exe",
+        "fex": false,
+        "reference_module": false
+      }
+    ]
+  },
+  "outer_log": "Running as unit: lvb-rpi2-bridge-01.service; invocation ID: 067b85f0c0734e1cb813076167cc47a6\nRPI0_READY midi=lvb-arm-standalone:midi_in left=lvb-arm-standalone:audio_out_l right=lvb-arm-standalone:audio_out_r jack_frames=512 bridge_frames=2048 vendor_frames=0 total_frames=2048\nRPI0_LATENCY tail_frames=4294967295\nCommands: open | close | save /absolute/path | restore /absolute/path | status | quit\nRPI0_STATUS cohort_processes=14 memory_peak=218910720 cpu_stat=usage_usec 11947664,user_usec 8435411,system_usec 3512253,nice_usec 0\nRPI0_CALLBACK callbacks=4576 failures=0 deadline_misses=0 callback_ns_max=60907 missing_frames=0 expired_frames=0 gaps=0 delivered_frames=2340864 priming_frames=2048 paused_frames=0 unsupported_midi=0 malformed_midi=0 overflow_midi=0\nRPI0_TRANSPORT fault=0 processed=9152 request_high=2 result_high=2 position=2342912 epoch=1\nRPI0_CLEAN_SHUTDOWN session=6cd2e38aa4f3761981938c237163fd39\nFinished with result: success\nMain processes terminated with: code=exited, status=0/SUCCESS\nService runtime: 57.197s\nCPU time consumed: 2.332s\nMemory peak: 52.9M (swap: 0B)\n",
+  "notes_log": "Running as unit: lvb-rpi2-notes-01.service; invocation ID: 939d78ba65874befbe502e0442f27d0a\nRPI1_QUALIFICATION_GRAPH mode=notes rate=48000 period=512 routes=[[\"lvb-rpi1-qualification:midi_out\", \"lvb-arm-standalone:midi_in\"], [\"lvb-arm-standalone:audio_out_l\", \"lvb-rpi1-qualification:meter_l\"], [\"lvb-arm-standalone:audio_out_l\", \"system:playback_1\"], [\"lvb-arm-standalone:audio_out_r\", \"lvb-rpi1-qualification:meter_r\"], [\"lvb-arm-standalone:audio_out_r\", \"system:playback_2\"]]\nRPI1_QUALIFICATION_AUDIO channel=0 samples=240000 nonzero_samples=73766 nonzero_windows=146 peak=0.04535433 rms=0.014352531898647379 nonfinite=0\nRPI1_QUALIFICATION_AUDIO channel=1 samples=240000 nonzero_samples=73766 nonzero_windows=146 peak=0.04535433 rms=0.014352531898647379 nonfinite=0\nRPI1_QUALIFICATION_RESULT mode=notes completed=true midi_sent=3 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true\nRPI1_QUALIFICATION_RETIRED\nRPI1_QUALIFICATION_CAPTURE format=f32le channels=2 rate=48000 frames=240000 bytes=1920000\nFinished with result: success\nMain processes terminated with: code=exited, status=0/SUCCESS\nService runtime: 5.300s\nCPU time consumed: 49ms\nMemory peak: 4.6M (swap: 0B)\n",
+  "windows_log": "Starting lvb-rpi0-6cd2e38aa4f3761981938c237163fd39.service - [systemd-run] <RPI2_PRIVATE>/launch-host.sh <RPI2_PRIVATE>/prefix-ge-01/drive_c/bridge/probes/wf0-factory-probe.exe --session 6cd2e38aa4f3761981938c237163fd39 --scanner-sha256 6f00cf377458037e4ae64c2425578b7c408a0a5ed6f027a0249e0d979f55fc2c --implementation-source-manifest-sha256 17182c24546a6ba8163645a6f7883a47d7471666d8f6a5f86c1ab5f7de6fa20e --module \"C:\\\\bridge\\\\fixtures\\\\LVB ARM Appliance Synth.vst3\" --module-sha256 a7718bfb91185b88473ec77f80681496c1f0cfaf8b99105961c980b4c9a50675 --bundle-manifest-sha256 a7718bfb91185b88473ec77f80681496c1f0cfaf8b99105961c980b4c9a50675 --ready \"C:\\\\bridge\\\\sessions\\\\6cd2e38aa4f3761981938c237163fd39\\\\6cd2e38aa4f3761981938c237163fd39.ready\" --gate \"C:\\\\bridge\\\\sessions\\\\6cd2e38aa4f3761981938c237163fd39\\\\6cd2e38aa4f3761981938c237163fd39.gate\" --max-classes 256 --stdout-cap 1048576 --mode ap9-commercial --component-case class:5250493041524d41505053594e540001...\nStarted lvb-rpi0-6cd2e38aa4f3761981938c237163fd39.service - [systemd-run] <RPI2_PRIVATE>/launch-host.sh <RPI2_PRIVATE>/prefix-ge-01/drive_c/bridge/probes/wf0-factory-probe.exe --session 6cd2e38aa4f3761981938c237163fd39 --scanner-sha256 6f00cf377458037e4ae64c2425578b7c408a0a5ed6f027a0249e0d979f55fc2c --implementation-source-manifest-sha256 17182c24546a6ba8163645a6f7883a47d7471666d8f6a5f86c1ab5f7de6fa20e --module \"C:\\\\bridge\\\\fixtures\\\\LVB ARM Appliance Synth.vst3\" --module-sha256 a7718bfb91185b88473ec77f80681496c1f0cfaf8b99105961c980b4c9a50675 --bundle-manifest-sha256 a7718bfb91185b88473ec77f80681496c1f0cfaf8b99105961c980b4c9a50675 --ready \"C:\\\\bridge\\\\sessions\\\\6cd2e38aa4f3761981938c237163fd39\\\\6cd2e38aa4f3761981938c237163fd39.ready\" --gate \"C:\\\\bridge\\\\sessions\\\\6cd2e38aa4f3761981938c237163fd39\\\\6cd2e38aa4f3761981938c237163fd39.gate\" --max-classes 256 --stdout-cap 1048576 --mode ap9-commercial --component-case class:5250493041524d41505053594e540001.\nINFO: umu-launcher version 1.4.4 (3.13.5 (main, Aug 10 2026, 12:06:59) [GCC 14.2.0])\nINFO: steamrt4-arm64 updates disabled, skipping\nWARNING: Executable not found: C:\\bridge\\probes\\wf0-factory-probe.exe\nINFO: Running 'GE-Proton11-7-aarch64' using runtime 'steamrt4-arm64'\nINFO: Running 'steamrt4-arm64' using runtime 'host'\nsetlocale \"en_US.UTF-8\": No such file or directory\npv-locale-gen: Missing locale en_US.UTF-8\npv-locale-gen: Generating locale en_GB.UTF-8...\npv-locale-gen: Generated locale en_GB.UTF-8 successfully\npv-locale-gen: Generating locale en_US.UTF-8...\npv-locale-gen: Generated locale en_US.UTF-8 successfully\nW: Container startup will be faster if missing locales are created at OS level\nProtonFixes[17166] WARN: Skipping fix execution. We are probably running a unit test.\nProton: Error while copying to \"<RPI2_PRIVATE>/prefix-ge-01/pfx/drive_c/windows/system32/DriverStore/FileRepository/igd_faux.inf_1/igdext64.dll\": No such file or directory\nProton: Error: unable to use parent for game drive, path\nProtonFixes[17166] WARN: Skipping fix execution. We are probably running a unit test.\nProton: Executable is inside wine prefix, launching normally.\nfsync: up and running.\n{\"event\":\"lifecycle\",\"sequence\":1,\"state\":\"scanner_started\",\"session\":\"6cd2e38aa4f3761981938c237163fd39\"}\n{\"event\":\"lifecycle\",\"sequence\":2,\"state\":\"readiness_announced\",\"session\":\"6cd2e38aa4f3761981938c237163fd39\",\"scanner_sha256\":\"6f00cf377458037e4ae64c2425578b7c408a0a5ed6f027a0249e0d979f55fc2c\",\"module_sha256\":\"a7718bfb91185b88473ec77f80681496c1f0cfaf8b99105961c980b4c9a50675\",\"bundle_manifest_sha256\":\"a7718bfb91185b88473ec77f80681496c1f0cfaf8b99105961c980b4c9a50675\",\"implementation_source_manifest_sha256\":\"17182c24546a6ba8163645a6f7883a47d7471666d8f6a5f86c1ab5f7de6fa20e\",\"mode\":\"ap9-commercial\",\"component_case\":\"class:5250493041524d41505053594e540001\",\"run_ordinal\":1}\n{\"event\":\"lifecycle\",\"sequence\":3,\"state\":\"supervisor_gate_accepted\"}\n{\"event\":\"lifecycle\",\"sequence\":4,\"state\":\"ap11_ui_apartment\",\"initial_result\":-2147221008,\"initialize_result\":0}\n{\"event\":\"lifecycle\",\"sequence\":5,\"state\":\"ap1_mapping_ready\",\"mapping_count\":1,\"connection_count\":1,\"mapping_witness\":true}\n{\"event\":\"lifecycle\",\"sequence\":6,\"state\":\"module_open_started\"}\n{\"event\":\"call_started\",\"sequence\":7,\"operation\":\"load_library\",\"interface\":null,\"ordinal\":null,\"tier\":null}\n{\"event\":\"call_completed\",\"sequence\":8,\"attempt_sequence\":7,\"operation\":\"load_library\",\"interface\":null,\"ordinal\":null,\"tier\":null,\"return_kind\":\"handle_nonnull\",\"win32_error_u32_hex\":\"00000000\"}\n{\"event\":\"lifecycle\",\"sequence\":9,\"state\":\"module_opened\"}\n{\"event\":\"call_started\",\"sequence\":10,\"operation\":\"init_dll\",\"interface\":null,\"ordinal\":null,\"tier\":null}\n{\"event\":\"call_completed\",\"sequence\":11,\"attempt_sequence\":10,\"operation\":\"init_dll\",\"interface\":null,\"ordinal\":null,\"tier\":null,\"return_kind\":\"bool\",\"bool_result\":true}\n{\"event\":\"lifecycle\",\"sequence\":12,\"state\":\"module_entry_succeeded\"}\n{\"event\":\"lifecycle\",\"sequence\":13,\"state\":\"factory_export_found\"}\n{\"event\":\"lifecycle\",\"sequence\":14,\"state\":\"factory_get_started\"}\n{\"event\":\"call_started\",\"sequence\":15,\"operation\":\"get_plugin_factory\",\"interface\":null,\"ordinal\":null,\"tier\":null}\n{\"event\":\"call_completed\",\"sequence\":16,\"attempt_sequence\":15,\"operation\":\"get_plugin_factory\",\"interface\":null,\"ordinal\":null,\"tier\":null,\"return_kind\":\"pointer_nonnull\"}\n{\"event\":\"lifecycle\",\"sequence\":17,\"state\":\"factory_obtained\"}\n{\"event\":\"call_started\",\"sequence\":18,\"operation\":\"get_factory_info\",\"interface\":\"IPluginFactory\",\"ordinal\":null,\"tier\":null}\n{\"event\":\"call_completed\",\"sequence\":19,\"attempt_sequence\":18,\"operation\":\"get_factory_info\",\"interface\":\"IPluginFactory\",\"ordinal\":null,\"tier\":null,\"return_kind\":\"tresult\",\"result_u32_hex\":\"00000000\"}\n{\"event\":\"lifecycle\",\"sequence\":20,\"state\":\"factory_info_obtained\"}\n{\"event\":\"call_started\",\"sequence\":21,\"operation\":\"query_factory_2\",\"interface\":\"IPluginFactory\",\"ordinal\":null,\"tier\":null}\n{\"event\":\"call_completed\",\"sequence\":22,\"attempt_sequence\":21,\"operation\":\"query_factory_2\",\"interface\":\"IPluginFactory\",\"ordinal\":null,\"tier\":null,\"return_kind\":\"tresult\",\"result_u32_hex\":\"00000000\"}\n{\"event\":\"call_started\",\"sequence\":23,\"operation\":\"query_factory_3\",\"interface\":\"IPluginFactory\",\"ordinal\":null,\"tier\":null}\n{\"event\":\"call_completed\",\"sequence\":24,\"attempt_sequence\":23,\"operation\":\"query_factory_3\",\"interface\":\"IPluginFactory\",\"ordinal\":null,\"tier\":null,\"return_kind\":\"tresult\",\"result_u32_hex\":\"00000000\"}\n{\"event\":\"lifecycle\",\"sequence\":25,\"state\":\"factory_interface_versions_recorded\"}\n{\"event\":\"call_started\",\"sequence\":26,\"operation\":\"count_classes\",\"interface\":\"IPluginFactory\",\"ordinal\":null,\"tier\":null}\n{\"event\":\"call_completed\",\"sequence\":27,\"attempt_sequence\":26,\"operation\":\"count_classes\",\"interface\":\"IPluginFactory\",\"ordinal\":null,\"tier\":null,\"return_kind\":\"i32\",\"i32_result\":2}\n{\"event\":\"lifecycle\",\"sequence\":28,\"state\":\"class_count_obtained\",\"class_count\":2}\n{\"event\":\"lifecycle\",\"sequence\":29,\"state\":\"class_enumeration_in_progress\"}\n{\"event\":\"call_started\",\"sequence\":30,\"operation\":\"get_class_info_unicode\",\"interface\":\"IPluginFactory3\",\"ordinal\":0,\"tier\":\"factory_3_unicode\"}\n{\"event\":\"call_completed\",\"sequence\":31,\"attempt_sequence\":30,\"operation\":\"get_class_info_unicode\",\"interface\":\"IPluginFactory3\",\"ordinal\":0,\"tier\":\"factory_3_unicode\",\"return_kind\":\"tresult\",\"result_u32_hex\":\"00000000\"}\n{\"event\":\"call_started\",\"sequence\":32,\"operation\":\"get_class_info_unicode\",\"interface\":\"IPluginFactory3\",\"ordinal\":1,\"tier\":\"factory_3_unicode\"}\n{\"event\":\"call_completed\",\"sequence\":33,\"attempt_sequence\":32,\"operation\":\"get_class_info_unicode\",\"interface\":\"IPluginFactory3\",\"ordinal\":1,\"tier\":\"factory_3_unicode\",\"return_kind\":\"tresult\",\"result_u32_hex\":\"00000000\"}\n{\"event\":\"lifecycle\",\"sequence\":34,\"state\":\"class_enumeration_complete\",\"class_count\":2}\n{\"event\":\"lifecycle\",\"sequence\":35,\"state\":\"ap8_factory\",\"factory\":{\"vendor_hex\":\"4b617373656c76616e6961205265736561726368\",\"url_hex\":\"68747470733a2f2f6769746875622e636f6d2f6b617373656c76616e69612f4c696e75782d5653542d627269646765\",\"email_hex\":\"\",\"flags_i32\":16},\"factory2_supported\":true,\"factory3_supported\":true,\"factory2_query_u32_hex\":\"00000000\",\"factory3_query_u32_hex\":\"00000000\",\"class_count\":2,\"classes\":[{\"ordinal\":0,\"raw_tuid_hex\":\"304950525241414D505053594E540001\",\"cardinality\":2147483647,\"category_hex\":\"417564696f204d6f64756c6520436c617373\",\"name_hex\":\"4c00560042002000410052004d0020004100700070006c00690061006e00630065002000530079006e0074006800\",\"tier\":\"IPluginFactory3.PClassInfoW\",\"tier_attempts\":[{\"tier\":\"IPluginFactory3.PClassInfoW\",\"result_u32_hex\":\"00000000\"}],\"class_flags_u32\":1,\"subcategories_hex\":\"496e737472756d656e747c53796e7468\",\"vendor_hex\":\"\",\"version_hex\":\"31002e0030002e003000\",\"sdk_version_hex\":\"560053005400200033002e0038002e003100\"},{\"ordinal\":1,\"raw_tuid_hex\":\"304950525241414D505053594E540002\",\"cardinality\":2147483647,\"category_hex\":\"436f6d706f6e656e7420436f6e74726f6c6c657220436c617373\",\"name_hex\":\"4c00560042002000410052004d0020004100700070006c00690061006e00630065002000530079006e0074006800200043006f006e00740072006f006c006c0065007200\",\"tier\":\"IPluginFactory3.PClassInfoW\",\"tier_attempts\":[{\"tier\":\"IPluginFactory3.PClassInfoW\",\"result_u32_hex\":\"00000000\"}],\"class_flags_u32\":0,\"subcategories_hex\":\"\",\"vendor_hex\":\"\",\"version_hex\":\"31002e0030002e003000\",\"sdk_version_hex\":\"560053005400200033002e0038002e003100\"}]}\n{\"event\":\"lifecycle\",\"sequence\":36,\"state\":\"ap8_call\",\"operation\":\"setHostContext\"}\n{\"event\":\"lifecycle\",\"sequence\":37,\"state\":\"ap8_result\",\"operation\":\"setHostContext\",\"result\":-2147467263}\n{\"event\":\"lifecycle\",\"sequence\":38,\"state\":\"ap8_result\",\"operation\":\"getClassInfo\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":39,\"state\":\"ap8_result\",\"operation\":\"getClassInfo\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":40,\"state\":\"ap11_class\",\"class_id\":\"5250493041524D41505053594E540001\",\"name\":\"LVB ARM Appliance Synth\"}\n{\"event\":\"lifecycle\",\"sequence\":41,\"state\":\"ap8_result\",\"operation\":\"getFactoryInfo\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":42,\"state\":\"ap8_result\",\"operation\":\"getClassInfoUnicode\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":43,\"state\":\"ap12_class\",\"class_id\":\"5250493041524D41505053594E540001\",\"name\":\"LVB ARM Appliance Synth\",\"vendor\":\"Kasselvania Research\",\"version\":\"1.0.0\",\"subcategories\":\"Instrument|Synth\",\"metadata_tier\":\"factory_3_unicode\"}\n{\"event\":\"lifecycle\",\"sequence\":44,\"state\":\"ap8_call\",\"operation\":\"createComponent\"}\n{\"event\":\"lifecycle\",\"sequence\":45,\"state\":\"ap8_result\",\"operation\":\"createComponent\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":46,\"state\":\"ap8_call\",\"operation\":\"initializeComponent\"}\n{\"event\":\"lifecycle\",\"sequence\":47,\"state\":\"ap8_result\",\"operation\":\"initializeComponent\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":48,\"state\":\"ap8_call\",\"operation\":\"queryAudioProcessor\"}\n{\"event\":\"lifecycle\",\"sequence\":49,\"state\":\"ap8_result\",\"operation\":\"queryAudioProcessor\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":50,\"state\":\"ap8_call\",\"operation\":\"getControllerClassId\"}\n{\"event\":\"lifecycle\",\"sequence\":51,\"state\":\"ap8_result\",\"operation\":\"getControllerClassId\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":52,\"state\":\"ap8_controller_association\",\"combined\":false,\"class_id\":\"5250493041524D41505053594E540002\"}\n{\"event\":\"lifecycle\",\"sequence\":53,\"state\":\"ap8_call\",\"operation\":\"createController\"}\n{\"event\":\"lifecycle\",\"sequence\":54,\"state\":\"ap8_result\",\"operation\":\"createController\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":55,\"state\":\"ap8_call\",\"operation\":\"initializeController\"}\n{\"event\":\"lifecycle\",\"sequence\":56,\"state\":\"ap8_result\",\"operation\":\"initializeController\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":57,\"state\":\"ap8_call\",\"operation\":\"setComponentHandler\"}\n{\"event\":\"lifecycle\",\"sequence\":58,\"state\":\"ap8_result\",\"operation\":\"setComponentHandler\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":59,\"state\":\"ap8_call\",\"operation\":\"connectComponent\"}\n{\"event\":\"lifecycle\",\"sequence\":60,\"state\":\"ap8_result\",\"operation\":\"connectComponent\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":61,\"state\":\"ap8_call\",\"operation\":\"connectController\"}\n{\"event\":\"lifecycle\",\"sequence\":62,\"state\":\"ap8_result\",\"operation\":\"connectController\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":63,\"state\":\"ap8_call\",\"operation\":\"getBusCount\"}\n{\"event\":\"lifecycle\",\"sequence\":64,\"state\":\"ap8_call\",\"operation\":\"getBusCount\"}\n{\"event\":\"lifecycle\",\"sequence\":65,\"state\":\"ap8_result\",\"operation\":\"getBusInfo\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":66,\"state\":\"ap8_result\",\"operation\":\"getBusArrangement\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":67,\"state\":\"ap8_bus\",\"media\":0,\"direction\":1,\"index\":0,\"channels\":2,\"type\":0,\"flags\":1,\"arrangement\":3,\"name\":\"Stereo output\"}\n{\"event\":\"lifecycle\",\"sequence\":68,\"state\":\"ap8_call\",\"operation\":\"getBusCount\"}\n{\"event\":\"lifecycle\",\"sequence\":69,\"state\":\"ap8_result\",\"operation\":\"getBusInfo\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":70,\"state\":\"ap8_bus\",\"media\":1,\"direction\":0,\"index\":0,\"channels\":16,\"type\":0,\"flags\":1,\"arrangement\":0,\"name\":\"MIDI input\"}\n{\"event\":\"lifecycle\",\"sequence\":71,\"state\":\"ap8_call\",\"operation\":\"getBusCount\"}\n{\"event\":\"lifecycle\",\"sequence\":72,\"state\":\"ap8_parameter_count\",\"count\":33}\n{\"event\":\"lifecycle\",\"sequence\":73,\"state\":\"ap8_call\",\"operation\":\"enumerateParameters\"}\n{\"event\":\"lifecycle\",\"sequence\":74,\"state\":\"ap8_parameters\",\"columns\":[\"id\",\"title\",\"units\",\"steps\",\"flags\",\"default\",\"value\"],\"parameters\":[[1380974593,\"Gain\",\"\",0,1,0.500000,0.500000],[1380974848,\"Sustain\",\"\",1,16,0.000000,0.000000],[1380975104,\"All notes off\",\"\",1,16,0.000000,0.000000],[1380974849,\"Sustain\",\"\",1,16,0.000000,0.000000],[1380975105,\"All notes off\",\"\",1,16,0.000000,0.000000],[1380974850,\"Sustain\",\"\",1,16,0.000000,0.000000],[1380975106,\"All notes off\",\"\",1,16,0.000000,0.000000],[1380974851,\"Sustain\",\"\",1,16,0.000000,0.000000],[1380975107,\"All notes off\",\"\",1,16,0.000000,0.000000],[1380974852,\"Sustain\",\"\",1,16,0.000000,0.000000],[1380975108,\"All notes off\",\"\",1,16,0.000000,0.000000],[1380974853,\"Sustain\",\"\",1,16,0.000000,0.000000],[1380975109,\"All notes off\",\"\",1,16,0.000000,0.000000],[1380974854,\"Sustain\",\"\",1,16,0.000000,0.000000],[1380975110,\"All notes off\",\"\",1,16,0.000000,0.000000],[1380974855,\"Sustain\",\"\",1,16,0.000000,0.000000],[1380975111,\"All notes off\",\"\",1,16,0.000000,0.000000],[1380974856,\"Sustain\",\"\",1,16,0.000000,0.000000],[1380975112,\"All notes off\",\"\",1,16,0.000000,0.000000],[1380974857,\"Sustain\",\"\",1,16,0.000000,0.000000],[1380975113,\"All notes off\",\"\",1,16,0.000000,0.000000],[1380974858,\"Sustain\",\"\",1,16,0.000000,0.000000],[1380975114,\"All notes off\",\"\",1,16,0.000000,0.000000],[1380974859,\"Sustain\",\"\",1,16,0.000000,0.000000],[1380975115,\"All notes off\",\"\",1,16,0.000000,0.000000],[1380974860,\"Sustain\",\"\",1,16,0.000000,0.000000],[1380975116,\"All notes off\",\"\",1,16,0.000000,0.000000],[1380974861,\"Sustain\",\"\",1,16,0.000000,0.000000],[1380975117,\"All notes off\",\"\",1,16,0.000000,0.000000],[1380974862,\"Sustain\",\"\",1,16,0.000000,0.000000],[1380975118,\"All notes off\",\"\",1,16,0.000000,0.000000],[1380974863,\"Sustain\",\"\",1,16,0.000000,0.000000]]}\n{\"event\":\"lifecycle\",\"sequence\":75,\"state\":\"ap8_parameters\",\"columns\":[\"id\",\"title\",\"units\",\"steps\",\"flags\",\"default\",\"value\"],\"parameters\":[[1380975119,\"All notes off\",\"\",1,16,0.000000,0.000000]]}\n{\"event\":\"lifecycle\",\"sequence\":76,\"state\":\"ap8_result\",\"operation\":\"enumerateParameters\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":77,\"state\":\"ap12_capabilities\",\"latency_samples\":0,\"float32_result\":0,\"float64_result\":1,\"tail_samples\":4294967295}\n{\"event\":\"lifecycle\",\"sequence\":78,\"state\":\"ap8_call\",\"operation\":\"getComponentState\"}\n{\"event\":\"lifecycle\",\"sequence\":79,\"state\":\"ap12_state_stream\",\"result\":0,\"bytes\":16,\"failed\":false,\"writes\":1,\"largest_write\":16,\"reads\":0,\"seeks\":0,\"last_seek_offset\":0,\"last_seek_mode\":0,\"unknown_queries\":0,\"last_unknown_iid\":\"00000000000000000000000000000000\"}\n{\"event\":\"lifecycle\",\"sequence\":80,\"state\":\"ap8_result\",\"operation\":\"getComponentState\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":81,\"state\":\"ap12_persistence\",\"capture_available\":true,\"sdk_result\":0}\n{\"event\":\"lifecycle\",\"sequence\":82,\"state\":\"ap8_call\",\"operation\":\"synchronizeController\"}\n{\"event\":\"lifecycle\",\"sequence\":83,\"state\":\"ap8_result\",\"operation\":\"synchronizeController\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":84,\"state\":\"ap8_inspected\",\"controller_separate\":true,\"state_bytes\":16,\"latency_samples\":0,\"float32_result\":0,\"float64_result\":1,\"tail_samples\":4294967295}\n{\"event\":\"lifecycle\",\"sequence\":85,\"state\":\"ap10_wait_resolution\",\"samples_per_method\":32,\"sleep50_mean_ns\":1055550,\"ntdelay50_mean_ns\":104387}\n{\"event\":\"lifecycle\",\"sequence\":86,\"state\":\"ap10_delivery_setup\",\"mailbox_version\":3}\n{\"event\":\"lifecycle\",\"sequence\":87,\"state\":\"ap9_processing_setup\",\"sample_rate\":48000.000000,\"maximum\":256,\"precision\":\"float32\",\"vendor_float64\":false,\"latency_samples\":0,\"tail_samples\":4294967295}\n{\"event\":\"lifecycle\",\"sequence\":88,\"state\":\"ap0_call_started\",\"operation\":\"set_active_true\",\"owner_thread\":true}\n{\"event\":\"lifecycle\",\"sequence\":89,\"state\":\"ap0_call_completed\",\"operation\":\"set_active_true\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":90,\"state\":\"ap2_lifecycle_ack\",\"kind\":9,\"next_sequence\":1}\n{\"event\":\"lifecycle\",\"sequence\":91,\"state\":\"ap0_processing_thread_started\",\"distinct_from_owner\":true}\n{\"event\":\"lifecycle\",\"sequence\":92,\"state\":\"ap0_call_started\",\"operation\":\"set_processing_true\",\"owner_thread\":false}\n{\"event\":\"lifecycle\",\"sequence\":93,\"state\":\"ap0_call_completed\",\"operation\":\"set_processing_true\",\"result\":-2147467263}\n{\"event\":\"lifecycle\",\"sequence\":94,\"state\":\"ap2_lifecycle_ack\",\"kind\":11,\"next_sequence\":1}\n{\"event\":\"lifecycle\",\"sequence\":95,\"state\":\"ap0_call_started\",\"operation\":\"set_processing_false\",\"owner_thread\":false}\n{\"event\":\"lifecycle\",\"sequence\":96,\"state\":\"ap0_call_completed\",\"operation\":\"set_processing_false\",\"result\":-2147467263}\n{\"event\":\"lifecycle\",\"sequence\":97,\"state\":\"ap0_thread_joined\",\"joined\":true,\"processing_stopped\":true,\"worker_exception\":false}\n{\"event\":\"lifecycle\",\"sequence\":98,\"state\":\"ap2_lifecycle_ack\",\"kind\":13,\"next_sequence\":9153}\n{\"event\":\"lifecycle\",\"sequence\":99,\"state\":\"ap3_processing_summary\",\"processed_blocks\":9152,\"intervals\":1,\"process_mode\":\"kRealtime\"}\n{\"event\":\"lifecycle\",\"sequence\":100,\"state\":\"ap0_call_started\",\"operation\":\"set_active_false\",\"owner_thread\":true}\n{\"event\":\"lifecycle\",\"sequence\":101,\"state\":\"ap0_call_completed\",\"operation\":\"set_active_false\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":102,\"state\":\"ap2_lifecycle_ack\",\"kind\":15,\"next_sequence\":9153}\n{\"event\":\"lifecycle\",\"sequence\":103,\"state\":\"ap11_editor_summary\",\"opens\":0,\"closes\":0,\"focuses\":0,\"removal_messages\":0,\"gestures\":0,\"values\":0,\"ends\":0,\"host_updates\":1,\"stale_updates\":0,\"suppressed_echoes\":0,\"scale_supported\":false,\"scale\":1.000000,\"failure\":0}\n{\"event\":\"lifecycle\",\"sequence\":104,\"state\":\"ap8_call\",\"operation\":\"disconnectController\"}\n{\"event\":\"lifecycle\",\"sequence\":105,\"state\":\"ap8_result\",\"operation\":\"disconnectController\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":106,\"state\":\"ap8_call\",\"operation\":\"disconnectComponent\"}\n{\"event\":\"lifecycle\",\"sequence\":107,\"state\":\"ap8_result\",\"operation\":\"disconnectComponent\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":108,\"state\":\"ap8_call\",\"operation\":\"clearComponentHandler\"}\n{\"event\":\"lifecycle\",\"sequence\":109,\"state\":\"ap8_result\",\"operation\":\"clearComponentHandler\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":110,\"state\":\"ap8_call\",\"operation\":\"terminateController\"}\n{\"event\":\"lifecycle\",\"sequence\":111,\"state\":\"ap8_result\",\"operation\":\"terminateController\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":112,\"state\":\"ap8_call\",\"operation\":\"terminateComponent\"}\n{\"event\":\"lifecycle\",\"sequence\":113,\"state\":\"ap8_result\",\"operation\":\"terminateComponent\",\"result\":0}\n{\"event\":\"lifecycle\",\"sequence\":114,\"state\":\"ap8_inspection_closed\",\"exit_code\":0}\n{\"event\":\"call_started\",\"sequence\":115,\"operation\":\"release_factory_3\",\"interface\":\"IPluginFactory3\",\"ordinal\":null,\"tier\":null}\n{\"event\":\"call_completed\",\"sequence\":116,\"attempt_sequence\":115,\"operation\":\"release_factory_3\",\"interface\":\"IPluginFactory3\",\"ordinal\":null,\"tier\":null,\"return_kind\":\"u32\",\"u32_result\":2}\n{\"event\":\"call_started\",\"sequence\":117,\"operation\":\"release_factory_2\",\"interface\":\"IPluginFactory2\",\"ordinal\":null,\"tier\":null}\n{\"event\":\"call_completed\",\"sequence\":118,\"attempt_sequence\":117,\"operation\":\"release_factory_2\",\"interface\":\"IPluginFactory2\",\"ordinal\":null,\"tier\":null,\"return_kind\":\"u32\",\"u32_result\":1}\n{\"event\":\"call_started\",\"sequence\":119,\"operation\":\"release_factory_base\",\"interface\":\"IPluginFactory\",\"ordinal\":null,\"tier\":null}\n{\"event\":\"call_completed\",\"sequence\":120,\"attempt_sequence\":119,\"operation\":\"release_factory_base\",\"interface\":\"IPluginFactory\",\"ordinal\":null,\"tier\":null,\"return_kind\":\"u32\",\"u32_result\":0}\n{\"event\":\"call_started\",\"sequence\":121,\"operation\":\"exit_dll\",\"interface\":null,\"ordinal\":null,\"tier\":null}\n{\"event\":\"call_completed\",\"sequence\":122,\"attempt_sequence\":121,\"operation\":\"exit_dll\",\"interface\":null,\"ordinal\":null,\"tier\":null,\"return_kind\":\"bool\",\"bool_result\":true}\n{\"event\":\"lifecycle\",\"sequence\":123,\"state\":\"module_exit_succeeded\"}\n{\"event\":\"call_started\",\"sequence\":124,\"operation\":\"free_library\",\"interface\":null,\"ordinal\":null,\"tier\":null}\n{\"event\":\"call_completed\",\"sequence\":125,\"attempt_sequence\":124,\"operation\":\"free_library\",\"interface\":null,\"ordinal\":null,\"tier\":null,\"return_kind\":\"bool_true\",\"win32_error_u32_hex\":\"00000000\"}\n{\"event\":\"lifecycle\",\"sequence\":126,\"state\":\"module_unloaded\"}\n{\"event\":\"lifecycle\",\"sequence\":127,\"state\":\"ap1_endpoint_closed\",\"mapping_unmapped\":true,\"instance_count\":1}\n{\"event\":\"lifecycle\",\"sequence\":128,\"state\":\"scanner_completed\",\"inspection_complete\":true}\nlvb-rpi0-6cd2e38aa4f3761981938c237163fd39.service: Consumed 12.151s CPU time, 208.7M memory peak.\n",
+  "native_observations": [
+    {
+      "event": "ap9_setup",
+      "host_maximum": 512,
+      "transport_maximum": 256,
+      "sample_rate": 48000,
+      "bridge_frames": 2048,
+      "vendor_frames": 0,
+      "total_frames": 2048,
+      "vendor_precision_bits": 1
+    },
+    {
+      "event": "ap7_observation",
+      "offered_samples": 4685824,
+      "verified_returned_samples": 0,
+      "unchecked_samples": 4685824,
+      "dropped_jobs": 0,
+      "dropped_samples": 0,
+      "reader_skips": 0,
+      "unretained_gap_traces": 0,
+      "maximum_error": 0,
+      "before_edit_samples": 0,
+      "edits": 0
+    },
+    {
+      "event": "ap9_timing",
+      "stage": "queue",
+      "requests": 1643,
+      "mean_ns": 110637,
+      "p50_upper_ns": 120000,
+      "p95_upper_ns": 288000,
+      "p99_upper_ns": 320000,
+      "max_ns": 422051
+    },
+    {
+      "event": "ap9_timing",
+      "stage": "prepare",
+      "requests": 1643,
+      "mean_ns": 2528,
+      "p50_upper_ns": 2500,
+      "p95_upper_ns": 4000,
+      "p99_upper_ns": 5000,
+      "max_ns": 13389
+    },
+    {
+      "event": "ap9_timing",
+      "stage": "send",
+      "requests": 1643,
+      "mean_ns": 785,
+      "p50_upper_ns": 1125,
+      "p95_upper_ns": 1375,
+      "p99_upper_ns": 1875,
+      "max_ns": 6852
+    },
+    {
+      "event": "ap9_timing",
+      "stage": "reply",
+      "requests": 1643,
+      "mean_ns": 129678,
+      "p50_upper_ns": 112000,
+      "p95_upper_ns": 224000,
+      "p99_upper_ns": 224000,
+      "max_ns": 1342762
+    },
+    {
+      "event": "ap9_timing",
+      "stage": "validation",
+      "requests": 1643,
+      "mean_ns": 3337,
+      "p50_upper_ns": 3500,
+      "p95_upper_ns": 5000,
+      "p99_upper_ns": 5500,
+      "max_ns": 11592
+    },
+    {
+      "event": "ap9_timing",
+      "stage": "publication",
+      "requests": 1643,
+      "mean_ns": 2643,
+      "p50_upper_ns": 2750,
+      "p95_upper_ns": 3750,
+      "p99_upper_ns": 5000,
+      "max_ns": 10685
+    },
+    {
+      "event": "ap9_timing",
+      "stage": "admission_to_publication",
+      "requests": 1643,
+      "mean_ns": 249611,
+      "p50_upper_ns": 256000,
+      "p95_upper_ns": 416000,
+      "p99_upper_ns": 576000,
+      "max_ns": 1595815
+    },
+    {
+      "event": "ap9_timing",
+      "stage": "windows_process",
+      "requests": 1643,
+      "mean_ns": 11174,
+      "p50_upper_ns": 11000,
+      "p95_upper_ns": 13000,
+      "p99_upper_ns": 15000,
+      "max_ns": 1210700
+    },
+    {
+      "event": "ap9_timing",
+      "stage": "correlated_non_plugin",
+      "requests": 1643,
+      "mean_ns": 238436,
+      "p50_upper_ns": 240000,
+      "p95_upper_ns": 416000,
+      "p99_upper_ns": 512000,
+      "max_ns": 530360
+    },
+    {
+      "event": "ap9_clock_resolution",
+      "negative_correlated_residuals": 0
+    },
+    {
+      "event": "ap9_unpublished",
+      "requests": 0
+    },
+    {
+      "event": "ap9_slow_request",
+      "epoch": 1,
+      "sequence": 7510,
+      "position": 1922304,
+      "service_ns": 1595815,
+      "windows_process_ns": 1210700
+    },
+    {
+      "event": "ap9_slow_request",
+      "epoch": 1,
+      "sequence": 8292,
+      "position": 2122496,
+      "service_ns": 538160,
+      "windows_process_ns": 7800
+    },
+    {
+      "event": "ap9_slow_request",
+      "epoch": 1,
+      "sequence": 7974,
+      "position": 2041088,
+      "service_ns": 537179,
+      "windows_process_ns": 9000
+    },
+    {
+      "event": "ap9_slow_request",
+      "epoch": 1,
+      "sequence": 7972,
+      "position": 2040576,
+      "service_ns": 536586,
+      "windows_process_ns": 7800
+    },
+    {
+      "event": "ap9_slow_request",
+      "epoch": 1,
+      "sequence": 7870,
+      "position": 2014464,
+      "service_ns": 534087,
+      "windows_process_ns": 7900
+    },
+    {
+      "event": "ap9_slow_request",
+      "epoch": 1,
+      "sequence": 7886,
+      "position": 2018560,
+      "service_ns": 533679,
+      "windows_process_ns": 7800
+    },
+    {
+      "event": "ap9_slow_request",
+      "epoch": 1,
+      "sequence": 8322,
+      "position": 2130176,
+      "service_ns": 533512,
+      "windows_process_ns": 7900
+    },
+    {
+      "event": "ap9_slow_request",
+      "epoch": 1,
+      "sequence": 8038,
+      "position": 2057472,
+      "service_ns": 530493,
+      "windows_process_ns": 7900
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 1920000,
+      "samples": 4992,
+      "nonzero": 4606,
+      "rms": 0.02524022052665505,
+      "peak": 0.04535432904958725,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 1924800,
+      "samples": 9600,
+      "nonzero": 9588,
+      "rms": 0.026163136845068855,
+      "peak": 0.04535432904958725,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 1929600,
+      "samples": 9600,
+      "nonzero": 9594,
+      "rms": 0.026121999642210018,
+      "peak": 0.04535432904958725,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 1934400,
+      "samples": 9600,
+      "nonzero": 9590,
+      "rms": 0.026265053417617645,
+      "peak": 0.04535432904958725,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 1939200,
+      "samples": 9600,
+      "nonzero": 9588,
+      "rms": 0.026174600093840622,
+      "peak": 0.04535432904958725,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 1944000,
+      "samples": 9600,
+      "nonzero": 9594,
+      "rms": 0.0261178105880284,
+      "peak": 0.04535432904958725,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 1948800,
+      "samples": 9600,
+      "nonzero": 9588,
+      "rms": 0.02625615951952106,
+      "peak": 0.04535432904958725,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 1953600,
+      "samples": 9600,
+      "nonzero": 9592,
+      "rms": 0.026187268071383885,
+      "peak": 0.04535432904958725,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 1958400,
+      "samples": 9600,
+      "nonzero": 9590,
+      "rms": 0.0261148233948425,
+      "peak": 0.04535432904958725,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 1963200,
+      "samples": 9600,
+      "nonzero": 9590,
+      "rms": 0.026244877277681686,
+      "peak": 0.04535432904958725,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 1968000,
+      "samples": 9600,
+      "nonzero": 9592,
+      "rms": 0.026201141475335876,
+      "peak": 0.04535432904958725,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 1972800,
+      "samples": 9600,
+      "nonzero": 9590,
+      "rms": 0.0261131768449152,
+      "peak": 0.04535432904958725,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 1977600,
+      "samples": 9600,
+      "nonzero": 9590,
+      "rms": 0.026231053475051096,
+      "peak": 0.04535432904958725,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 1982400,
+      "samples": 9600,
+      "nonzero": 9592,
+      "rms": 0.026216168778517256,
+      "peak": 0.04535432904958725,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 1987200,
+      "samples": 9600,
+      "nonzero": 9590,
+      "rms": 0.026112607894499176,
+      "peak": 0.04535432904958725,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 1992000,
+      "samples": 9600,
+      "nonzero": 8658,
+      "rms": 0.019311996788884546,
+      "peak": 0.04535432904958725,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 1996800,
+      "samples": 9600,
+      "nonzero": 0,
+      "rms": 0,
+      "peak": 0,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 2001600,
+      "samples": 9600,
+      "nonzero": 0,
+      "rms": 0,
+      "peak": 0,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 2006400,
+      "samples": 9600,
+      "nonzero": 0,
+      "rms": 0,
+      "peak": 0,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 2011200,
+      "samples": 9600,
+      "nonzero": 0,
+      "rms": 0,
+      "peak": 0,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 2016000,
+      "samples": 9600,
+      "nonzero": 0,
+      "rms": 0,
+      "peak": 0,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 2020800,
+      "samples": 9600,
+      "nonzero": 0,
+      "rms": 0,
+      "peak": 0,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 2025600,
+      "samples": 9600,
+      "nonzero": 0,
+      "rms": 0,
+      "peak": 0,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 2030400,
+      "samples": 9600,
+      "nonzero": 0,
+      "rms": 0,
+      "peak": 0,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 2035200,
+      "samples": 9600,
+      "nonzero": 0,
+      "rms": 0,
+      "peak": 0,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 2040000,
+      "samples": 9600,
+      "nonzero": 0,
+      "rms": 0,
+      "peak": 0,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 2044800,
+      "samples": 9600,
+      "nonzero": 0,
+      "rms": 0,
+      "peak": 0,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 2049600,
+      "samples": 9600,
+      "nonzero": 0,
+      "rms": 0,
+      "peak": 0,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 2054400,
+      "samples": 9600,
+      "nonzero": 0,
+      "rms": 0,
+      "peak": 0,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 2059200,
+      "samples": 9600,
+      "nonzero": 0,
+      "rms": 0,
+      "peak": 0,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 2064000,
+      "samples": 9600,
+      "nonzero": 0,
+      "rms": 0,
+      "peak": 0,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 2068800,
+      "samples": 9600,
+      "nonzero": 0,
+      "rms": 0,
+      "peak": 0,
+      "unretained_window_samples": 538624
+    },
+    {
+      "event": "rpi0_callback_summary",
+      "callbacks": 4576,
+      "process_failures": 0,
+      "deadline_misses": 0,
+      "callback_ns_max": 60907,
+      "missing_frames": 0,
+      "expired_frames": 0,
+      "gaps": 0,
+      "delivered_frames": 2340864,
+      "priming_frames": 2048,
+      "paused_frames": 0,
+      "unsupported_midi": 0,
+      "malformed_midi": 0,
+      "overflow_midi": 0,
+      "jack_frames": 512,
+      "bridge_frames": 2048
+    }
+  ],
+  "capture": {
+    "frames": 240000,
+    "rate_hz": 48000,
+    "channels": 2,
+    "bytes": 1920000,
+    "sha256": "e2c87ec7de4e696f0de7f5a4eb0ce5dba64f4a24bf80f14f5e1ec0e83dc00637",
+    "all_finite": true,
+    "channels_identical": true,
+    "nonzero_left": 73766,
+    "peak": 0.04535432904958725,
+    "initial_0_4_seconds_silent": true,
+    "last_1_second_silent": true,
+    "active_half_second_upward_crossings": 131,
+    "estimated_note_frequency_hz": 262,
+    "frequency_method": "upward zero crossings during seconds 1.0 to 1.5; approximately 2 Hz resolution"
+  },
+  "cleanup": {
+    "snapshot_pids_remaining": [],
+    "session_directory_removed": true,
+    "jack_graph_after": "system:capture_1\nsystem:capture_2\nsystem:playback_1\nsystem:playback_2\nsystem:midi_capture_1\nsystem:midi_playback_1\nsystem:midi_capture_2\n",
+    "rpi1_audio_service_after": "inactive"
+  },
+  "final_temperature": "temp=52.7'C",
+  "final_throttled": "throttled=0xe0000",
+  "limits": [
+    "One reference instrument, one five-second note capture inside approximately 49 seconds processing.",
+    "2048-frame bridge reserve, 512-frame JACK period, 256-frame Windows process blocks, 48000 Hz.",
+    "Timing summaries retain 1643 of 9152 processed requests; not a complete session trace.",
+    "No Pigments, controller/preset/state investigation, stress test, thermal soak, latency reduction or controlled comparison with Box64."
+  ]
+}

@@ -1,0 +1,467 @@
+{
+  "observed_date": "2026-09-23",
+  "source_base_commit": "bc5b4a69b29ce0d5d0b1584eca4e4e7ffea4d72c",
+  "scope": "Reusable ShieldXL controls, physical OLED/audio confirmation, button save and fresh-process recall on Fragments",
+  "fixture": "Pi 5 / ShieldXL / passive aluminium heatsink / PiSugar 3 Plus external USB-C reconnected by operator",
+  "plugin": "Windows Efx FRAGMENTS 1.3.1.6566 under GE-Proton11-7 AArch64 and ARM Wine/FEX",
+  "mapping": {
+    "button_1": "save",
+    "button_2": "Freeze parameter 8",
+    "encoder_2": "Grain Mix parameter 1",
+    "encoder_3": "Density parameter 23",
+    "encoder_1": "unassigned",
+    "button_3": "unassigned"
+  },
+  "validation": {
+    "library_tests_passed": 23,
+    "subsequent_panel_regression_tests_passed": 4,
+    "oled_valid_frame_and_invalid_request_checks": "passed",
+    "native_first_build_seconds": 20.84,
+    "native_refresh_fix_build_seconds": 16.82,
+    "windows_host_rebuilt": false,
+    "physical_knobs_buttons_passed": true,
+    "physical_display_confirmed": true,
+    "physical_save_restart_confirmed": true
+  },
+  "setup_notes": [
+    "First launch preceded config creation after administrator installation was blocked; exited before plugin launch.",
+    "Second run restored state but the setup reader waited for a duplicate snapshot; no audio route was connected.",
+    "Third run exposed absent automatic post-restore refresh; no audio route was connected.",
+    "Native refresh calls now use VST3 kParamValuesChanged, preserving a pending request during an existing snapshot, and explicit restore requests refreshed values.",
+    "The final setup-only run completed restored readback and physical audio routing; no physical control events were observed before its timed stop. The result object retains that original observation; subsequent physical acceptance is separate below."
+  ],
+  "result": {
+    "host_sha256": "9d0a611d7175b05e398f484d9217fb29b7004f3e0eaac76acd6ad00a541bd1da",
+    "binding_sha256": "1153b7171fe62c115dfd4fe84ba9d98d32a59c536ea7ff1d98bd62f1fee9f96d",
+    "oled_service_sha256": "04753cd60248691ae6bc8aff35f76f480301e1eaab6fd03e2f735917d7c43d1a",
+    "oled_previous_sha256": "bf1b557f145ed9c07dece0966c021b7b1f05319cc72e59854c8a2446445dcb7f",
+    "initial_readback": [
+      "RPI1_PARAMETER_READBACK id=1 normalized=1.00000000000000000 revision=2",
+      "RPI1_PARAMETER_READBACK id=8 normalized=0.00000000000000000 revision=2",
+      "RPI1_PARAMETER_READBACK id=23 normalized=0.52842634916305542 revision=2"
+    ],
+    "elapsed_audio_seconds": 210.72,
+    "audio_interval_thermal": {
+      "sample_count": 209,
+      "temperature_min_c": 42.45,
+      "temperature_max_c": 46.3,
+      "throttled_values": [
+        0
+      ]
+    },
+    "before": {
+      "output_nonfinite": 0,
+      "xruns": 0,
+      "process_failures": 0,
+      "failures": 0,
+      "deadline_misses": 0,
+      "callback_ns_max": 40592,
+      "missing_frames": 0,
+      "gaps": 0,
+      "delivered_frames": 8192,
+      "paused_frames": 110080,
+      "memory_peak": 447930368
+    },
+    "after": {
+      "output_nonfinite": 0,
+      "xruns": 0,
+      "process_failures": 0,
+      "failures": 0,
+      "deadline_misses": 0,
+      "callback_ns_max": 76684,
+      "missing_frames": 1792,
+      "gaps": 2,
+      "delivered_frames": 10137344,
+      "paused_frames": 110080,
+      "memory_peak": 447930368
+    },
+    "physical_event_count": 0,
+    "physical_save_count": 0,
+    "session": {
+      "exit_code": 0,
+      "ready_seconds": 26.15667330999986,
+      "elapsed_seconds": 247.64126234200012,
+      "clean_shutdown": true,
+      "thermal": {
+        "sample_count": 245,
+        "temperature_min_c": 41.35,
+        "temperature_max_c": 47.4,
+        "throttled_values": [
+          0
+        ]
+      }
+    },
+    "remaining_session_directories": 0,
+    "remaining_experiments": 0,
+    "jack_graph_restored": true,
+    "setup_attempts": [
+      {
+        "label": "fragments-panel-01",
+        "ready": false,
+        "exit_code": 1,
+        "clean_shutdown": false,
+        "elapsed_seconds": 1.002678620999177
+      },
+      {
+        "label": "fragments-panel-02",
+        "ready": true,
+        "exit_code": 0,
+        "clean_shutdown": true,
+        "elapsed_seconds": 73.60354144699977
+      },
+      {
+        "label": "fragments-panel-03",
+        "ready": true,
+        "exit_code": 0,
+        "clean_shutdown": true,
+        "elapsed_seconds": 45.14083212700007
+      }
+    ],
+    "counter_deltas": {
+      "xruns": 0,
+      "process_failures": 0,
+      "output_nonfinite": 0,
+      "missing_frames": 1792,
+      "gaps": 2,
+      "deadline_misses": 0,
+      "failures": 0,
+      "paused_frames": 0
+    }
+  },
+  "next_acceptance": "Selected hands-on control and process-restart recall checks completed. Machine reboot, broader plugin mappings, optimized latency and sustained capacity remain separate.",
+  "nonclaims": [
+    "Physical confirmations apply to this Fragments version and selected mapping; other plugins require their own bindings and checks.",
+    "The earlier no-input setup run added two bridge gaps. The three later physical/recall intervals added none, but each had one gap before routing: 1024, 1024 and 2048 missing frames respectively. Their causes remain unresolved.",
+    "One button save and fresh-process restore returned the three selected values and operator-confirmed sound. This is not a reboot, DAW project, vendor preset-browser or exhaustive plugin-state qualification.",
+    "Displayed continuous values are normalized positions, not vendor-formatted engineering units.",
+    "Battery percentage, charging state and power consumption are not implemented in this display."
+  ],
+  "privacy": "No audio, state payloads, licensing material, credentials, or proprietary binaries exported.",
+  "physical_acceptance": {
+    "tested_source_commit": "77566e57b97c8e88ed086031234583655a808393",
+    "runs": [
+      {
+        "label": "fragments-panel-05",
+        "elapsed_audio_seconds": 210.66,
+        "initial_readback": [
+          "RPI1_PARAMETER_READBACK id=1 normalized=1.00000000000000000 revision=2",
+          "RPI1_PARAMETER_READBACK id=8 normalized=0.00000000000000000 revision=2",
+          "RPI1_PARAMETER_READBACK id=23 normalized=0.52842634916305542 revision=2"
+        ],
+        "physical_events": {
+          "encoder_2": 859
+        },
+        "parameter_readbacks": {
+          "1": {
+            "min": 0.0,
+            "max": 1.0,
+            "last": 1.0
+          },
+          "8": {
+            "min": 0.0,
+            "max": 0.0,
+            "last": 0.0
+          },
+          "23": {
+            "min": 0.5284263491630554,
+            "max": 0.5284263491630554,
+            "last": 0.5284263491630554
+          }
+        },
+        "button_events": [],
+        "save_operations": [],
+        "restore_markers": [],
+        "panel_errors": [],
+        "parameter_set_count": 236,
+        "before": {
+          "xruns": 0,
+          "process_failures": 0,
+          "output_nonfinite": 0,
+          "failures": 0,
+          "deadline_misses": 0,
+          "callback_ns_max": 46741,
+          "missing_frames": 1024,
+          "gaps": 1,
+          "delivered_frames": 14848,
+          "paused_frames": 6656
+        },
+        "after": {
+          "xruns": 0,
+          "process_failures": 0,
+          "output_nonfinite": 0,
+          "failures": 0,
+          "deadline_misses": 0,
+          "callback_ns_max": 84110,
+          "missing_frames": 1024,
+          "gaps": 1,
+          "delivered_frames": 10145792,
+          "paused_frames": 6656
+        },
+        "counter_deltas": {
+          "xruns": 0,
+          "process_failures": 0,
+          "output_nonfinite": 0,
+          "failures": 0,
+          "deadline_misses": 0,
+          "missing_frames": 0,
+          "gaps": 0,
+          "paused_frames": 0
+        },
+        "audio_interval_thermal": {
+          "sample_count": 209,
+          "temperature_min_c": 42.45,
+          "temperature_max_c": 46.3,
+          "throttled_values": [
+            0
+          ]
+        },
+        "session": {
+          "ready_seconds": 9.039913718000207,
+          "elapsed_seconds": 227.814663311,
+          "exit_code": 0,
+          "clean_shutdown": true
+        },
+        "session_thermal": {
+          "sample_count": 226,
+          "temperature_min_c": 40.8,
+          "temperature_max_c": 47.95,
+          "throttled_values": [
+            0
+          ]
+        },
+        "remaining_session_directories": 0,
+        "jack_graph_restored": true
+      },
+      {
+        "label": "fragments-panel-06",
+        "elapsed_audio_seconds": 150.74,
+        "initial_readback": [
+          "RPI1_PARAMETER_READBACK id=1 normalized=1.00000000000000000 revision=2",
+          "RPI1_PARAMETER_READBACK id=8 normalized=0.00000000000000000 revision=2",
+          "RPI1_PARAMETER_READBACK id=23 normalized=0.52842634916305542 revision=2"
+        ],
+        "physical_events": {
+          "encoder_3": 660,
+          "button_2": 8,
+          "encoder_2": 319,
+          "button_1": 2
+        },
+        "parameter_readbacks": {
+          "1": {
+            "min": 0.3100000023841858,
+            "max": 1.0,
+            "last": 1.0
+          },
+          "8": {
+            "min": 0.0,
+            "max": 1.0,
+            "last": 0.0
+          },
+          "23": {
+            "min": 0.0,
+            "max": 1.0,
+            "last": 1.0
+          }
+        },
+        "button_events": [
+          "RPI2_PANEL_INPUT button=2 pressed=1",
+          "RPI2_PANEL_INPUT button=2 pressed=0",
+          "RPI2_PANEL_INPUT button=2 pressed=1",
+          "RPI2_PANEL_INPUT button=2 pressed=0",
+          "RPI2_PANEL_INPUT button=2 pressed=1",
+          "RPI2_PANEL_INPUT button=2 pressed=0",
+          "RPI2_PANEL_INPUT button=2 pressed=1",
+          "RPI2_PANEL_INPUT button=2 pressed=0",
+          "RPI2_PANEL_INPUT button=1 pressed=1",
+          "RPI2_PANEL_INPUT button=1 pressed=0"
+        ],
+        "save_operations": [
+          {
+            "marker": "RPI2_PANEL_SAVED bytes=162158",
+            "last_confirmed_parameters": {
+              "1": 1.0,
+              "8": 0.0,
+              "23": 1.0
+            }
+          }
+        ],
+        "restore_markers": [],
+        "panel_errors": [],
+        "parameter_set_count": 171,
+        "before": {
+          "xruns": 0,
+          "process_failures": 0,
+          "output_nonfinite": 0,
+          "failures": 0,
+          "deadline_misses": 0,
+          "callback_ns_max": 47889,
+          "missing_frames": 1024,
+          "gaps": 1,
+          "delivered_frames": 7168,
+          "paused_frames": 6656
+        },
+        "after": {
+          "xruns": 0,
+          "process_failures": 0,
+          "output_nonfinite": 0,
+          "failures": 0,
+          "deadline_misses": 0,
+          "callback_ns_max": 67333,
+          "missing_frames": 1024,
+          "gaps": 1,
+          "delivered_frames": 7259648,
+          "paused_frames": 6656
+        },
+        "counter_deltas": {
+          "xruns": 0,
+          "process_failures": 0,
+          "output_nonfinite": 0,
+          "failures": 0,
+          "deadline_misses": 0,
+          "missing_frames": 0,
+          "gaps": 0,
+          "paused_frames": 0
+        },
+        "audio_interval_thermal": {
+          "sample_count": 149,
+          "temperature_min_c": 45.2,
+          "temperature_max_c": 49.05,
+          "throttled_values": [
+            0
+          ]
+        },
+        "session": {
+          "ready_seconds": 13.028009962999931,
+          "elapsed_seconds": 173.32964233799976,
+          "exit_code": 0,
+          "clean_shutdown": true
+        },
+        "session_thermal": {
+          "sample_count": 172,
+          "temperature_min_c": 45.2,
+          "temperature_max_c": 49.05,
+          "throttled_values": [
+            0
+          ]
+        },
+        "remaining_session_directories": 0,
+        "jack_graph_restored": true
+      },
+      {
+        "label": "fragments-panel-recall-01",
+        "elapsed_audio_seconds": 43.468,
+        "initial_readback": [
+          "RPI1_PARAMETER_READBACK id=1 normalized=1.00000000000000000 revision=1",
+          "RPI1_PARAMETER_READBACK id=8 normalized=0.00000000000000000 revision=1",
+          "RPI1_PARAMETER_READBACK id=23 normalized=1.00000000000000000 revision=1"
+        ],
+        "physical_events": {},
+        "parameter_readbacks": {
+          "1": {
+            "min": 1.0,
+            "max": 1.0,
+            "last": 1.0
+          },
+          "8": {
+            "min": 0.0,
+            "max": 0.0,
+            "last": 0.0
+          },
+          "23": {
+            "min": 1.0,
+            "max": 1.0,
+            "last": 1.0
+          }
+        },
+        "button_events": [],
+        "save_operations": [],
+        "restore_markers": [
+          "RPI2_PANEL_RESTORED bytes=162158"
+        ],
+        "panel_errors": [],
+        "parameter_set_count": 0,
+        "before": {
+          "xruns": 0,
+          "process_failures": 0,
+          "output_nonfinite": 0,
+          "failures": 0,
+          "deadline_misses": 0,
+          "callback_ns_max": 46240,
+          "missing_frames": 2048,
+          "gaps": 1,
+          "delivered_frames": 1024,
+          "paused_frames": 7168
+        },
+        "after": {
+          "xruns": 0,
+          "process_failures": 0,
+          "output_nonfinite": 0,
+          "failures": 0,
+          "deadline_misses": 0,
+          "callback_ns_max": 70888,
+          "missing_frames": 2048,
+          "gaps": 1,
+          "delivered_frames": 2104320,
+          "paused_frames": 7168
+        },
+        "counter_deltas": {
+          "xruns": 0,
+          "process_failures": 0,
+          "output_nonfinite": 0,
+          "failures": 0,
+          "deadline_misses": 0,
+          "missing_frames": 0,
+          "gaps": 0,
+          "paused_frames": 0
+        },
+        "audio_interval_thermal": {
+          "sample_count": 43,
+          "temperature_min_c": 45.75,
+          "temperature_max_c": 48.5,
+          "throttled_values": [
+            0
+          ]
+        },
+        "session": {
+          "ready_seconds": 35.253853041000184,
+          "elapsed_seconds": 86.96394826600044,
+          "exit_code": 0,
+          "clean_shutdown": true
+        },
+        "session_thermal": {
+          "sample_count": 86,
+          "temperature_min_c": 44.1,
+          "temperature_max_c": 50.15,
+          "throttled_values": [
+            0
+          ]
+        },
+        "remaining_session_directories": 0,
+        "jack_graph_restored": true
+      }
+    ],
+    "operator_confirmations": {
+      "encoder_2_grain_mix": "Both display and sound changed",
+      "encoder_3_density": "Sound changes, and visual",
+      "button_2_freeze": "Both display ON/OFF and audible hold/release worked",
+      "button_1_save": "SAVED displayed",
+      "fresh_process_recall": "Settings and sound returned without touching controls"
+    },
+    "saved_parameters_normalized": {
+      "1": 1.0,
+      "8": 0.0,
+      "23": 1.0
+    },
+    "restored_parameters_match_saved": true,
+    "recall_external_restore_commands": 0,
+    "recall_parameter_set_count": 0,
+    "editor_opened": false,
+    "cleanup": {
+      "remaining_experiment_units": 0,
+      "remaining_new_session_directories": 0,
+      "preexisting_session_directories_untouched": 23,
+      "jack_graph_restored": true,
+      "pi_left_powered_on": true
+    }
+  }
+}

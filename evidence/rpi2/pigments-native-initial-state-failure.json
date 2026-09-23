@@ -1,0 +1,1014 @@
+{
+  "observed_at_utc": "2026-09-23T02:06:06.183592+00:00",
+  "source_base_commit": "a0d5d35abdbe2de69d55fe44c4b0706131e9b619",
+  "source_sha256": {
+    "rpi1/standalone/src/config.rs": "7059ee442438a144ce2291a196663c2a6d301f7c702c850ee83cacf7919f00fd",
+    "rpi1/standalone/src/contract.rs": "2d74508a6a8efda6fe94d4895e99f3759f3118ac3ca4912b4810f7ca1a89c1ac",
+    "rpi1/standalone/src/supervisor.rs": "d787c5a27c56b08549292006fe716ad85305abfd0b23c48043fb2b6a8e2c4d8b",
+    "rpi2/launch-pigments.sh": "e8b6038065befefbe82c2a731b43e2e2dd6c9c92b5b51d9e6592f396989d95c1",
+    "rpi2/pigments_session.py": "5efcd4dd35a15f0ddee7a7ca93cdbddc171e30318d31479c2775b0cbb071206e"
+  },
+  "native_binary_sha256": "24e6ab174071a46c715d03c6e9d6718652097e965ffb3911eb2aa8298a2ef617",
+  "build": {
+    "first_release_seconds": 35.67,
+    "final_incremental_release_seconds": 10.61,
+    "native_target": "Linux AArch64",
+    "library_tests": 14,
+    "library_test_host": "macOS"
+  },
+  "configuration": "windows_host_sha256=64d629e84a0fdf8833e97b9393cd41b9a5a214f82fe418d1792281622f0007f2\nplugin_sha256=bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07\nsource_manifest_sha256=b96f536c6b1164a5a4e308f1d196c27fb5dcad77e194e84546f13a6b36293ce2\nbridge_frames=2048\njack_client=lvb-arm-pigments\nprotocol_minor=12\nsample_rate=48000\nevent_output_policy=reported_zero_event_channels_unspecified\neditor_lifetime_policy=retain_editor_view_until_instance_retirement\nvendor_retirement_policy=process_scoped_vendor_retirement\narchitecture_handshake_policy=required\npigments_class_id=41727475415649534B61743150726F63\npigments_version=7.0.1.6772\npigments_parameter_count=4446\npigments_precision=float32_only\nenvironment_family=arturia_persistent_v1:1\naccessibility_policy=uiautomationcore=\ndisplay=:1\nrunner=native\nruntime_id=ge-proton11-7-aarch64-umu1.4.4-slr4.0.20260914.260627\nenvironment_root=<RPI2_PRIVATE>/pigments-arm\nevidence_directory=<RPI2_PRIVATE>/pigments-arm/evidence\nlauncher_path=<RPI2_PRIVATE>/pigments-arm/launch-pigments.sh\nlauncher_sha256=e8b6038065befefbe82c2a731b43e2e2dd6c9c92b5b51d9e6592f396989d95c1\nleader_path=/usr/bin/python3.13\nleader_sha256=273cb29e073b748379ba546affa562283ed795f84ff230349e12ce610e60975c\nxauthority_path=<USER_HOME>/.Xauthority\nxauthority_sha256=3932422c9999e79a2b15eb605cee5a50c3566f79f858dfecb31f5b6ddbd33ec4\nwindows_host_path=<RPI2_PRIVATE>/pigments-arm/compatdata/pfx/drive_c/bridge/bin/wf0-factory-probe-rpi1-e232.exe\nplugin_path=<RPI2_PRIVATE>/pigments-arm/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Pigments.vst3\n",
+  "environment_copy": {
+    "method": "cp -a --reflink=auto of installed compatdata, home, config and data into a new private directory on the same Pi",
+    "seconds": 303.58,
+    "proton_migrated_only_copy": true,
+    "authorization_preserved": "Not established; copied files are not proof that the vendor accepts the new runtime machine identity.",
+    "original_saved_state_digest_still_matches_preference": true
+  },
+  "run": {
+    "label": "pigments-ge-01",
+    "samples": [
+      {
+        "seconds": 0.0018573950001155026,
+        "temperature_c": 50.15,
+        "throttled": 917504
+      },
+      {
+        "seconds": 1.0043058850005764,
+        "temperature_c": 51.8,
+        "throttled": 917504
+      },
+      {
+        "seconds": 2.006340269001157,
+        "temperature_c": 51.8,
+        "throttled": 917504
+      },
+      {
+        "seconds": 3.0085716510002385,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 4.010927385999821,
+        "temperature_c": 54.55,
+        "throttled": 917504
+      },
+      {
+        "seconds": 5.013298788000611,
+        "temperature_c": 54.55,
+        "throttled": 917504
+      },
+      {
+        "seconds": 6.016007854999771,
+        "temperature_c": 54.0,
+        "throttled": 917504
+      },
+      {
+        "seconds": 7.018139928000892,
+        "temperature_c": 54.55,
+        "throttled": 917504
+      },
+      {
+        "seconds": 8.020181723999485,
+        "temperature_c": 54.0,
+        "throttled": 917504
+      },
+      {
+        "seconds": 9.02229455700035,
+        "temperature_c": 53.45,
+        "throttled": 917504
+      },
+      {
+        "seconds": 10.024409613000898,
+        "temperature_c": 54.0,
+        "throttled": 917504
+      },
+      {
+        "seconds": 11.026483429999644,
+        "temperature_c": 52.35,
+        "throttled": 917504
+      },
+      {
+        "seconds": 12.029170836000048,
+        "temperature_c": 52.35,
+        "throttled": 917504
+      },
+      {
+        "seconds": 13.031738724999741,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 14.034200357000373,
+        "temperature_c": 52.35,
+        "throttled": 917504
+      },
+      {
+        "seconds": 15.036722636999912,
+        "temperature_c": 51.8,
+        "throttled": 917504
+      },
+      {
+        "seconds": 16.0392571400007,
+        "temperature_c": 51.25,
+        "throttled": 917504
+      },
+      {
+        "seconds": 17.042072735001057,
+        "temperature_c": 52.35,
+        "throttled": 917504
+      },
+      {
+        "seconds": 18.044870663999973,
+        "temperature_c": 52.35,
+        "throttled": 917504
+      },
+      {
+        "seconds": 19.047612575999665,
+        "temperature_c": 54.0,
+        "throttled": 917504
+      },
+      {
+        "seconds": 20.053680724000515,
+        "temperature_c": 53.45,
+        "throttled": 917504
+      },
+      {
+        "seconds": 21.059818521000125,
+        "temperature_c": 53.45,
+        "throttled": 917504
+      },
+      {
+        "seconds": 22.16236421800022,
+        "temperature_c": 53.45,
+        "throttled": 917504
+      },
+      {
+        "seconds": 23.164449971000067,
+        "temperature_c": 52.35,
+        "throttled": 917504
+      },
+      {
+        "seconds": 24.16716973900111,
+        "temperature_c": 54.0,
+        "throttled": 917504
+      },
+      {
+        "seconds": 25.173911961001068,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 26.180580444000952,
+        "temperature_c": 51.8,
+        "throttled": 917504
+      },
+      {
+        "seconds": 27.18730400200002,
+        "temperature_c": 53.45,
+        "throttled": 917504
+      },
+      {
+        "seconds": 28.19404237500021,
+        "temperature_c": 51.8,
+        "throttled": 917504
+      },
+      {
+        "seconds": 29.200828488999832,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 30.207799140000134,
+        "temperature_c": 54.0,
+        "throttled": 917504
+      },
+      {
+        "seconds": 31.215025974999662,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 32.22191922099955,
+        "temperature_c": 54.0,
+        "throttled": 917504
+      },
+      {
+        "seconds": 33.22795239900006,
+        "temperature_c": 54.0,
+        "throttled": 917504
+      },
+      {
+        "seconds": 34.23402926400013,
+        "temperature_c": 53.45,
+        "throttled": 917504
+      },
+      {
+        "seconds": 35.240035795999574,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 36.24611397700028,
+        "temperature_c": 53.45,
+        "throttled": 917504
+      },
+      {
+        "seconds": 37.252668135999556,
+        "temperature_c": 53.45,
+        "throttled": 917504
+      },
+      {
+        "seconds": 38.2592208340011,
+        "temperature_c": 51.8,
+        "throttled": 917504
+      },
+      {
+        "seconds": 39.2657367920001,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 40.27251404500021,
+        "temperature_c": 54.55,
+        "throttled": 917504
+      },
+      {
+        "seconds": 41.278935487000126,
+        "temperature_c": 53.45,
+        "throttled": 917504
+      },
+      {
+        "seconds": 42.28542291099984,
+        "temperature_c": 52.35,
+        "throttled": 917504
+      },
+      {
+        "seconds": 43.2920319269997,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 44.395830153000134,
+        "temperature_c": 51.8,
+        "throttled": 917504
+      },
+      {
+        "seconds": 45.39838605099976,
+        "temperature_c": 53.45,
+        "throttled": 917504
+      },
+      {
+        "seconds": 46.501433915000234,
+        "temperature_c": 52.35,
+        "throttled": 917504
+      },
+      {
+        "seconds": 47.599766848999934,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 48.60242080399985,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 49.60496663199956,
+        "temperature_c": 52.35,
+        "throttled": 917504
+      },
+      {
+        "seconds": 50.60752171999957,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 51.614212038000915,
+        "temperature_c": 51.25,
+        "throttled": 917504
+      },
+      {
+        "seconds": 52.62086767300025,
+        "temperature_c": 52.35,
+        "throttled": 917504
+      },
+      {
+        "seconds": 53.62747962300091,
+        "temperature_c": 51.8,
+        "throttled": 917504
+      },
+      {
+        "seconds": 54.634096501000386,
+        "temperature_c": 52.35,
+        "throttled": 917504
+      },
+      {
+        "seconds": 55.640708953000285,
+        "temperature_c": 53.45,
+        "throttled": 917504
+      },
+      {
+        "seconds": 56.647214259000975,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 57.6532590679999,
+        "temperature_c": 51.25,
+        "throttled": 917504
+      },
+      {
+        "seconds": 58.65913402800106,
+        "temperature_c": 53.45,
+        "throttled": 917504
+      },
+      {
+        "seconds": 59.66503815500073,
+        "temperature_c": 53.45,
+        "throttled": 917504
+      },
+      {
+        "seconds": 60.671106800000416,
+        "temperature_c": 52.35,
+        "throttled": 917504
+      },
+      {
+        "seconds": 61.67705000299975,
+        "temperature_c": 54.0,
+        "throttled": 917504
+      },
+      {
+        "seconds": 62.6835626280008,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 63.69000349499947,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 64.69646297399959,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 65.70301652700073,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 66.70958982199954,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 67.71606591400086,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 68.72254324800087,
+        "temperature_c": 52.35,
+        "throttled": 917504
+      },
+      {
+        "seconds": 69.72894926899971,
+        "temperature_c": 52.35,
+        "throttled": 917504
+      },
+      {
+        "seconds": 70.73547477099964,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 71.74210960600067,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 72.84898837299988,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 73.85105990800002,
+        "temperature_c": 52.35,
+        "throttled": 917504
+      },
+      {
+        "seconds": 74.85314087000006,
+        "temperature_c": 52.9,
+        "throttled": 917504
+      },
+      {
+        "seconds": 75.85530838799968,
+        "temperature_c": 54.55,
+        "throttled": 917504
+      },
+      {
+        "seconds": 76.85745872100051,
+        "temperature_c": 53.45,
+        "throttled": 917504
+      },
+      {
+        "seconds": 77.86023101399951,
+        "temperature_c": 55.1,
+        "throttled": 917504
+      },
+      {
+        "seconds": 78.86331997200068,
+        "temperature_c": 54.0,
+        "throttled": 917504
+      },
+      {
+        "seconds": 79.86606054399999,
+        "temperature_c": 55.1,
+        "throttled": 917504
+      },
+      {
+        "seconds": 80.86808256699987,
+        "temperature_c": 55.1,
+        "throttled": 917504
+      },
+      {
+        "seconds": 81.87121850800031,
+        "temperature_c": 56.75,
+        "throttled": 917504
+      },
+      {
+        "seconds": 82.87734328100123,
+        "temperature_c": 57.3,
+        "throttled": 917504
+      },
+      {
+        "seconds": 83.88361938799972,
+        "temperature_c": 57.3,
+        "throttled": 917504
+      },
+      {
+        "seconds": 84.88998010500109,
+        "temperature_c": 56.75,
+        "throttled": 917504
+      },
+      {
+        "seconds": 85.89611989900004,
+        "temperature_c": 56.75,
+        "throttled": 917504
+      },
+      {
+        "seconds": 86.90221000900056,
+        "temperature_c": 56.2,
+        "throttled": 917504
+      },
+      {
+        "seconds": 87.90824324999994,
+        "temperature_c": 56.2,
+        "throttled": 917504
+      },
+      {
+        "seconds": 88.91428443599943,
+        "temperature_c": 55.65,
+        "throttled": 917504
+      },
+      {
+        "seconds": 89.92030625200096,
+        "temperature_c": 55.65,
+        "throttled": 917504
+      },
+      {
+        "seconds": 90.92704743499962,
+        "temperature_c": 56.2,
+        "throttled": 917504
+      },
+      {
+        "seconds": 91.93302886399943,
+        "temperature_c": 55.1,
+        "throttled": 917504
+      }
+    ],
+    "ready": false,
+    "exit_code": 1,
+    "clean_shutdown": false,
+    "sessions_retained": [
+      "32ff08f2d333939a999935a85708dc74"
+    ],
+    "elapsed_seconds": 92.95659991200046,
+    "jack_graph_after": "system:capture_1\nsystem:capture_2\nsystem:playback_1\nsystem:playback_2\nsystem:midi_capture_1\nsystem:midi_playback_1\nsystem:midi_capture_2\n"
+  },
+  "architecture_handshake": {
+    "native": "4c564252504930000100000040000000010203044000000020000000600000006002000001000000010000000010000000000000000000000c9537eead585f71",
+    "windows": "4c564252504930000100000040000000010203044000000020000000600000006002000001000000010000000010000000000000000000000c9537eead585f71"
+  },
+  "outer_log": "Running as unit: lvb-rpi2-pigments-ge-01.service; invocation ID: bf45a1d76e994ecca415bd656dc2ae7c\nRPI1_INITIALIZATION_WAIT timeout_seconds=120\nRPI1 refusal: initial component state unavailable\nFinished with result: exit-code\nMain processes terminated with: code=exited, status=1/FAILURE\nService runtime: 1min 32.668s\nCPU time consumed: 1.101s\nMemory peak: 59.1M (swap: 0B)\n",
+  "windows_lifecycle": [
+    {
+      "event": "lifecycle",
+      "sequence": 1,
+      "state": "scanner_started",
+      "session": "32ff08f2d333939a999935a85708dc74"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 2,
+      "state": "readiness_announced",
+      "session": "32ff08f2d333939a999935a85708dc74",
+      "scanner_sha256": "64d629e84a0fdf8833e97b9393cd41b9a5a214f82fe418d1792281622f0007f2",
+      "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+      "bundle_manifest_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+      "implementation_source_manifest_sha256": "b96f536c6b1164a5a4e308f1d196c27fb5dcad77e194e84546f13a6b36293ce2",
+      "mode": "ap9-commercial",
+      "component_case": "class:41727475415649534b61743150726f63",
+      "run_ordinal": 1
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 3,
+      "state": "supervisor_gate_accepted"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 4,
+      "state": "ap11_ui_apartment",
+      "initial_result": -2147221008,
+      "initialize_result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 5,
+      "state": "ap1_mapping_ready",
+      "mapping_count": 1,
+      "connection_count": 1,
+      "mapping_witness": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 6,
+      "state": "module_open_started"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 9,
+      "state": "module_opened"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 12,
+      "state": "module_entry_succeeded"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 13,
+      "state": "factory_export_found"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 14,
+      "state": "factory_get_started"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 17,
+      "state": "factory_obtained"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 20,
+      "state": "factory_info_obtained"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 25,
+      "state": "factory_interface_versions_recorded"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 28,
+      "state": "class_count_obtained",
+      "class_count": 2
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 29,
+      "state": "class_enumeration_in_progress"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 34,
+      "state": "class_enumeration_complete",
+      "class_count": 2
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 35,
+      "state": "ap8_factory",
+      "factory": {
+        "vendor_hex": "41727475726961",
+        "url_hex": "687474703a2f2f7777772e617274757269612e636f6d",
+        "email_hex": "6d61696c746f3a636f6e7461637440617274757269612e636f6d",
+        "flags_i32": 16
+      },
+      "factory2_supported": true,
+      "factory3_supported": true,
+      "factory2_query_u32_hex": "00000000",
+      "factory3_query_u32_hex": "00000000",
+      "class_count": 2,
+      "classes": [
+        {
+          "ordinal": 0,
+          "raw_tuid_hex": "75747241564153494B61743150726F63",
+          "cardinality": 2147483647,
+          "category_hex": "417564696f204d6f64756c6520436c617373",
+          "name_hex": "5000690067006d0065006e0074007300",
+          "tier": "IPluginFactory3.PClassInfoW",
+          "tier_attempts": [
+            {
+              "tier": "IPluginFactory3.PClassInfoW",
+              "result_u32_hex": "00000000"
+            }
+          ],
+          "class_flags_u32": 0,
+          "subcategories_hex": "496e737472756d656e747c53796e7468",
+          "vendor_hex": "",
+          "version_hex": "37002e0030002e0031002e003600370037003200",
+          "sdk_version_hex": "560053005400200033002e0037002e003500"
+        },
+        {
+          "ordinal": 1,
+          "raw_tuid_hex": "6A4BFD4AD73540C2A5C31414FB7D15E6",
+          "cardinality": 2147483647,
+          "category_hex": "506c7567696e20436f6d7061746962696c69747920436c617373",
+          "name_hex": "5000690067006d0065006e0074007300",
+          "tier": "IPluginFactory3.PClassInfoW",
+          "tier_attempts": [
+            {
+              "tier": "IPluginFactory3.PClassInfoW",
+              "result_u32_hex": "00000000"
+            }
+          ],
+          "class_flags_u32": 0,
+          "subcategories_hex": "496e737472756d656e747c53796e7468",
+          "vendor_hex": "",
+          "version_hex": "37002e0030002e0031002e003600370037003200",
+          "sdk_version_hex": "560053005400200033002e0037002e003500"
+        }
+      ]
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 36,
+      "state": "ap8_call",
+      "operation": "setHostContext"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 37,
+      "state": "ap8_result",
+      "operation": "setHostContext",
+      "result": -2147467263
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 38,
+      "state": "ap8_result",
+      "operation": "getClassInfo",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 39,
+      "state": "ap8_result",
+      "operation": "getClassInfo",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 40,
+      "state": "ap11_class",
+      "class_id": "41727475415649534B61743150726F63",
+      "name": "Pigments"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 41,
+      "state": "ap8_result",
+      "operation": "getFactoryInfo",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 42,
+      "state": "ap8_result",
+      "operation": "getClassInfoUnicode",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 43,
+      "state": "ap12_class",
+      "class_id": "41727475415649534B61743150726F63",
+      "name": "Pigments",
+      "vendor": "Arturia",
+      "version": "7.0.1.6772",
+      "subcategories": "Instrument|Synth",
+      "metadata_tier": "factory_3_unicode"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 44,
+      "state": "ap8_call",
+      "operation": "createComponent"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 45,
+      "state": "ap8_result",
+      "operation": "createComponent",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 46,
+      "state": "ap8_call",
+      "operation": "initializeComponent"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 47,
+      "state": "ap8_result",
+      "operation": "initializeComponent",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 48,
+      "state": "ap8_call",
+      "operation": "queryAudioProcessor"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 49,
+      "state": "ap8_result",
+      "operation": "queryAudioProcessor",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 50,
+      "state": "ap8_controller_association",
+      "combined": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 51,
+      "state": "ap8_call",
+      "operation": "setComponentHandler"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 52,
+      "state": "ap8_result",
+      "operation": "setComponentHandler",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 53,
+      "state": "ap8_call",
+      "operation": "getBusCount"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 54,
+      "state": "ap8_result",
+      "operation": "getBusInfo",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 55,
+      "state": "ap8_result",
+      "operation": "getBusArrangement",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 56,
+      "state": "ap8_bus",
+      "media": 0,
+      "direction": 0,
+      "index": 0,
+      "channels": 2,
+      "type": 1,
+      "flags": 1,
+      "arrangement": 3,
+      "name": "Sidechain"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 57,
+      "state": "ap8_call",
+      "operation": "getBusCount"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 58,
+      "state": "ap8_result",
+      "operation": "getBusInfo",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 59,
+      "state": "ap8_result",
+      "operation": "getBusArrangement",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 60,
+      "state": "ap8_bus",
+      "media": 0,
+      "direction": 1,
+      "index": 0,
+      "channels": 2,
+      "type": 0,
+      "flags": 1,
+      "arrangement": 3,
+      "name": "Stereo Out"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 61,
+      "state": "ap8_call",
+      "operation": "getBusCount"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 62,
+      "state": "ap8_result",
+      "operation": "getBusInfo",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 63,
+      "state": "ap8_bus",
+      "media": 1,
+      "direction": 0,
+      "index": 0,
+      "channels": 16,
+      "type": 0,
+      "flags": 1,
+      "arrangement": 0,
+      "name": "Midi In"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 64,
+      "state": "ap8_call",
+      "operation": "getBusCount"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 65,
+      "state": "ap8_result",
+      "operation": "getBusInfo",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 66,
+      "state": "ap8_bus",
+      "media": 1,
+      "direction": 1,
+      "index": 0,
+      "channels": 0,
+      "type": 0,
+      "flags": 1,
+      "arrangement": 0,
+      "name": "Midi Out"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 67,
+      "state": "ap8_parameter_count",
+      "count": 4446
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 68,
+      "state": "ap8_call",
+      "operation": "enumerateParameters"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 208,
+      "state": "ap8_result",
+      "operation": "enumerateParameters",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 209,
+      "state": "ap12_capabilities",
+      "latency_samples": 44,
+      "float32_result": 0,
+      "float64_result": 1,
+      "tail_samples": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 210,
+      "state": "ap8_call",
+      "operation": "getComponentState"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 211,
+      "state": "ap12_state_stream",
+      "result": 1,
+      "bytes": 0,
+      "failed": false,
+      "writes": 0,
+      "largest_write": 0,
+      "reads": 0,
+      "seeks": 0,
+      "last_seek_offset": 0,
+      "last_seek_mode": 0,
+      "unknown_queries": 0,
+      "last_unknown_iid": "00000000000000000000000000000000"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 212,
+      "state": "ap8_result",
+      "operation": "getComponentState",
+      "result": 1
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 213,
+      "state": "ap12_persistence",
+      "capture_available": false,
+      "sdk_result": 1
+    }
+  ],
+  "startup_messages": [
+    "Starting lvb-rpi1-32ff08f2d333939a999935a85708dc74.service - [systemd-run] <RPI2_PRIVATE>/pigments-arm/launch-pigments.sh \"C:\\\\bridge\\\\bin\\\\wf0-factory-probe-rpi1-e232.exe\" --session 32ff08f2d333939a999935a85708dc74 --scanner-sha256 64d629e84a0fdf8833e97b9393cd41b9a5a214f82fe418d1792281622f0007f2 --implementation-source-manifest-sha256 b96f536c6b1164a5a4e308f1d196c27fb5dcad77e194e84546f13a6b36293ce2 --module \"C:\\\\Program Files\\\\Common Files\\\\VST3\\\\Pigments.vst3\" --module-sha256 bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07 --bundle-manifest-sha256 bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07 --ready \"C:\\\\bridge\\\\sessions\\\\32ff08f2d333939a999935a85708dc74\\\\32ff08f2d333939a999935a85708dc74.ready\" --gate \"C:\\\\bridge\\\\sessions\\\\32ff08f2d333939a999935a85708dc74\\\\32ff08f2d333939a999935a85708dc74.gate\" --max-classes 256 --stdout-cap 1048576 --mode ap9-commercial --component-case class:41727475415649534b61743150726f63...",
+    "Started lvb-rpi1-32ff08f2d333939a999935a85708dc74.service - [systemd-run] <RPI2_PRIVATE>/pigments-arm/launch-pigments.sh \"C:\\\\bridge\\\\bin\\\\wf0-factory-probe-rpi1-e232.exe\" --session 32ff08f2d333939a999935a85708dc74 --scanner-sha256 64d629e84a0fdf8833e97b9393cd41b9a5a214f82fe418d1792281622f0007f2 --implementation-source-manifest-sha256 b96f536c6b1164a5a4e308f1d196c27fb5dcad77e194e84546f13a6b36293ce2 --module \"C:\\\\Program Files\\\\Common Files\\\\VST3\\\\Pigments.vst3\" --module-sha256 bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07 --bundle-manifest-sha256 bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07 --ready \"C:\\\\bridge\\\\sessions\\\\32ff08f2d333939a999935a85708dc74\\\\32ff08f2d333939a999935a85708dc74.ready\" --gate \"C:\\\\bridge\\\\sessions\\\\32ff08f2d333939a999935a85708dc74\\\\32ff08f2d333939a999935a85708dc74.gate\" --max-classes 256 --stdout-cap 1048576 --mode ap9-commercial --component-case class:41727475415649534b61743150726f63.",
+    "INFO: umu-launcher version 1.4.4 (3.13.5 (main, Aug 10 2026, 12:06:59) [GCC 14.2.0])",
+    "INFO: steamrt4-arm64 updates disabled, skipping",
+    "WARNING: Executable not found: C:\\bridge\\bin\\wf0-factory-probe-rpi1-e232.exe",
+    "INFO: Running 'GE-Proton11-7-aarch64' using runtime 'steamrt4-arm64'",
+    "INFO: Running 'steamrt4-arm64' using runtime 'host'",
+    "setlocale \"en_US.UTF-8\": No such file or directory",
+    "pv-locale-gen: Missing locale en_US.UTF-8",
+    "pv-locale-gen: Generating locale en_US.UTF-8...",
+    "pv-locale-gen: Generated locale en_US.UTF-8 successfully",
+    "W: Container startup will be faster if missing locales are created at OS level",
+    "ProtonFixes[18900] WARN: Skipping fix execution. We are probably running a unit test.",
+    "Proton: Upgrading prefix from None to GE-Proton11-7 (<RPI2_PRIVATE>/pigments-arm/compatdata/pfx/)",
+    "Proton: Error while copying to \"<RPI2_PRIVATE>/pigments-arm/compatdata/pfx/pfx/drive_c/windows/system32/DriverStore/FileRepository/igd_faux.inf_1/igdext64.dll\": No such file or directory",
+    "Proton: Error: unable to use parent for game drive, path",
+    "ProtonFixes[18900] WARN: Skipping fix execution. We are probably running a unit test.",
+    "Proton: Executable is inside wine prefix, launching normally.",
+    "fsync: up and running.",
+    "wine: failed to start L\"C:\\\\windows\\\\sysarm32\\\\rundll32.exe\": c0000135",
+    "## ExtendedFilename : 0",
+    "## LogInRelease : 0",
+    "Stopping lvb-rpi1-32ff08f2d333939a999935a85708dc74.service - [systemd-run] <RPI2_PRIVATE>/pigments-arm/launch-pigments.sh \"C:\\\\bridge\\\\bin\\\\wf0-factory-probe-rpi1-e232.exe\" --session 32ff08f2d333939a999935a85708dc74 --scanner-sha256 64d629e84a0fdf8833e97b9393cd41b9a5a214f82fe418d1792281622f0007f2 --implementation-source-manifest-sha256 b96f536c6b1164a5a4e308f1d196c27fb5dcad77e194e84546f13a6b36293ce2 --module \"C:\\\\Program Files\\\\Common Files\\\\VST3\\\\Pigments.vst3\" --module-sha256 bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07 --bundle-manifest-sha256 bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07 --ready \"C:\\\\bridge\\\\sessions\\\\32ff08f2d333939a999935a85708dc74\\\\32ff08f2d333939a999935a85708dc74.ready\" --gate \"C:\\\\bridge\\\\sessions\\\\32ff08f2d333939a999935a85708dc74\\\\32ff08f2d333939a999935a85708dc74.gate\" --max-classes 256 --stdout-cap 1048576 --mode ap9-commercial --component-case class:41727475415649534b61743150726f63...",
+    "lvb-rpi1-32ff08f2d333939a999935a85708dc74.service: Main process exited, code=exited, status=241/CONFIGURATION_DIRECTORY",
+    "lvb-rpi1-32ff08f2d333939a999935a85708dc74.service: Failed with result 'exit-code'.",
+    "Stopped lvb-rpi1-32ff08f2d333939a999935a85708dc74.service - [systemd-run] <RPI2_PRIVATE>/pigments-arm/launch-pigments.sh \"C:\\\\bridge\\\\bin\\\\wf0-factory-probe-rpi1-e232.exe\" --session 32ff08f2d333939a999935a85708dc74 --scanner-sha256 64d629e84a0fdf8833e97b9393cd41b9a5a214f82fe418d1792281622f0007f2 --implementation-source-manifest-sha256 b96f536c6b1164a5a4e308f1d196c27fb5dcad77e194e84546f13a6b36293ce2 --module \"C:\\\\Program Files\\\\Common Files\\\\VST3\\\\Pigments.vst3\" --module-sha256 bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07 --bundle-manifest-sha256 bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07 --ready \"C:\\\\bridge\\\\sessions\\\\32ff08f2d333939a999935a85708dc74\\\\32ff08f2d333939a999935a85708dc74.ready\" --gate \"C:\\\\bridge\\\\sessions\\\\32ff08f2d333939a999935a85708dc74\\\\32ff08f2d333939a999935a85708dc74.gate\" --max-classes 256 --stdout-cap 1048576 --mode ap9-commercial --component-case class:41727475415649534b61743150726f63.",
+    "lvb-rpi1-32ff08f2d333939a999935a85708dc74.service: Consumed 17.931s CPU time, 1.9G memory peak."
+  ],
+  "failure": {
+    "operation": "IComponent::getState",
+    "sdk_result": 1,
+    "bytes": 0,
+    "writes": 0,
+    "stream_failed": false,
+    "unknown_interface_queries": 0,
+    "native_reason": "initial component state unavailable"
+  },
+  "cleanup": {
+    "matching_experiment_units_remaining": [],
+    "session_files_retained_for_failure_analysis": true,
+    "jack_graph_restored": true
+  },
+  "not_reached": [
+    "JACK audio activation",
+    "Editor open",
+    "Preset selection",
+    "Playback test"
+  ],
+  "interpretation": [
+    "The actual Pigments module initialized and exposed 4446 parameters under the selected ARM runtime.",
+    "This stopped before DSP and cannot establish performance or a thermal ceiling.",
+    "Vendor authorization, runtime behavior and standalone-host initialization semantics remain possible explanations; the return code alone does not select one.",
+    "The Pi executable is a standalone VST3 host, not the vendor standalone application. Earlier DAW-hosted operation is a separate host context.",
+    "Editor inspection was not performed. The operator ruled out Screen Sharing through computer control. No credentials were reset. The existing editor-only vendor-access mode remains a distinct host capability, not a completed test."
+  ]
+}

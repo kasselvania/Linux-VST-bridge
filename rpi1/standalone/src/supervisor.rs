@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::config::{Config, Runner};
 use std::{
     collections::BTreeMap,
     ffi::{CStr, OsString},
@@ -28,6 +28,7 @@ pub struct ProcessIdentity {
 pub struct Cohort {
     identity: Identity,
     retired: bool,
+    native_leader: Option<PathBuf>,
 }
 
 impl Cohort {
@@ -60,6 +61,13 @@ impl Cohort {
                     + &value,
             );
         }
+        if matches!(config.runner, Runner::Native { .. }) {
+            command.args([
+                "--property=RuntimeMaxSec=300",
+                "--property=MemoryMax=3G",
+                "--property=TasksMax=512",
+            ]);
+        }
         command.args(launch_vector(config, host_arguments));
         require(
             command.status()?.success(),
@@ -67,16 +75,34 @@ impl Cohort {
         )?;
         let end = Instant::now() + Duration::from_secs(10);
         let identity = loop {
-            match inspect(&unit) {
+            match inspect(&unit).and_then(|identity| {
+                if let Runner::Native { leader, .. } = &config.runner {
+                    let actual = fs::read_link(format!("/proc/{}/exe", identity.main_pid))?;
+                    require(
+                        fs::canonicalize(actual)? == fs::canonicalize(&leader.path)?,
+                        "native launcher has not reached its pinned leader",
+                    )?;
+                }
+                Ok(identity)
+            }) {
                 Ok(identity) => break identity,
                 Err(_) if Instant::now() < end => thread::sleep(Duration::from_millis(20)),
-                Err(error) => return Err(error),
+                Err(error) => {
+                    let _ = systemctl(&["stop", &unit]);
+                    return Err(error);
+                }
             }
         };
-        Ok(Self {
+        let cohort = Self {
             identity,
             retired: false,
-        })
+            native_leader: match &config.runner {
+                Runner::Native { leader, .. } => Some(leader.path.clone()),
+                Runner::Box64(_) => None,
+            },
+        };
+        cohort.verify_startup_leader()?;
+        Ok(cohort)
     }
 
     pub fn identity(&self) -> &Identity {
@@ -90,6 +116,13 @@ impl Cohort {
             process_start(self.identity.main_pid)? == self.identity.main_start_ticks,
             "RPI1 startup cohort leader changed",
         )?;
+        if let Some(expected) = &self.native_leader {
+            let actual = fs::read_link(format!("/proc/{}/exe", self.identity.main_pid))?;
+            require(
+                fs::canonicalize(actual)? == fs::canonicalize(expected)?,
+                "native launcher leader executable changed",
+            )?;
+        }
         let members = fs::read_to_string(self.identity.cgroup.join("cgroup.procs"))?;
         require(
             members
@@ -100,6 +133,7 @@ impl Cohort {
     }
 
     pub fn verify(&self) -> io::Result<Vec<ProcessIdentity>> {
+        self.verify_startup_leader()?;
         let current = inspect(&self.identity.unit)?;
         if current.main_pid != self.identity.main_pid
             || current.main_start_ticks != self.identity.main_start_ticks
@@ -180,11 +214,19 @@ impl Drop for Cohort {
 }
 
 pub fn launch_vector(config: &Config, host_arguments: &[OsString]) -> Vec<OsString> {
+    let Runner::Box64(runtime) = &config.runner else {
+        let Runner::Native { launcher, .. } = &config.runner else {
+            unreachable!()
+        };
+        let mut vector = vec![launcher.path.as_os_str().to_owned()];
+        vector.extend_from_slice(host_arguments);
+        return vector;
+    };
     let mut command = vec![
-        config.slr_entry.path.as_os_str().to_owned(),
+        runtime.slr_entry.path.as_os_str().to_owned(),
         "--verb=run".into(),
         "--".into(),
-        config.proton.path.as_os_str().to_owned(),
+        runtime.proton.path.as_os_str().to_owned(),
         "runinprefix".into(),
     ];
     command.extend_from_slice(host_arguments);
@@ -192,6 +234,44 @@ pub fn launch_vector(config: &Config, host_arguments: &[OsString]) -> Vec<OsStri
 }
 
 pub fn environment(config: &Config) -> io::Result<BTreeMap<String, String>> {
+    if matches!(config.runner, Runner::Native { .. }) {
+        let mut values = BTreeMap::new();
+        for (key, value) in [
+            ("WINEPREFIX", config.prefix().to_string_lossy().into_owned()),
+            ("DISPLAY", config.display.clone()),
+            (
+                "XAUTHORITY",
+                config.xauthority.path.to_string_lossy().into_owned(),
+            ),
+            ("LANG", "C.UTF-8".into()),
+            ("WINEDLLOVERRIDES", "uiautomationcore=".into()),
+            (
+                "LVB_EVENT_OUTPUT_POLICY",
+                "reported_zero_event_channels_unspecified".into(),
+            ),
+            ("LVB_RPI0_ARCHITECTURE", "required".into()),
+            (
+                "LVB_EDITOR_LIFETIME",
+                "retain_editor_view_until_instance_retirement".into(),
+            ),
+            (
+                "LVB_VENDOR_RETIREMENT",
+                "process_scoped_vendor_retirement".into(),
+            ),
+        ] {
+            if value.bytes().any(|b| matches!(b, 0 | b'\n' | b'\r')) {
+                return Err(invalid("native environment value"));
+            }
+            values.insert(key.to_owned(), value);
+        }
+        if !config.binding.zero_event_channels_unspecified {
+            values.remove("LVB_EVENT_OUTPUT_POLICY");
+        }
+        return Ok(values);
+    }
+    let Runner::Box64(runtime) = &config.runner else {
+        unreachable!()
+    };
     let (user, _) = user_identity()?;
     let root = &config.environment_root;
     let prefix = config.prefix();
@@ -241,11 +321,11 @@ pub fn environment(config: &Config) -> io::Result<BTreeMap<String, String>> {
         ),
         (
             "STEAM_COMPAT_EMULATOR",
-            path_value(config.emulator_manifest.path.clone())?,
+            path_value(runtime.emulator_manifest.path.clone())?,
         ),
         (
             "STEAM_COMPAT_GRAPHICS_PROVIDER",
-            path_value(config.graphics_manifest.path.clone())?,
+            path_value(runtime.graphics_manifest.path.clone())?,
         ),
         (
             "PRESSURE_VESSEL_FILESYSTEMS_RO",
@@ -254,7 +334,7 @@ pub fn environment(config: &Config) -> io::Result<BTreeMap<String, String>> {
         ("PRESSURE_VESSEL_FILESYSTEMS_RW", path_value(root.clone())?),
         (
             "PRESSURE_VESSEL_VARIABLE_DIR",
-            path_value(config.runtime_variable_dir.clone())?,
+            path_value(runtime.runtime_variable_dir.clone())?,
         ),
         (
             "LVB_EVENT_OUTPUT_POLICY",
@@ -284,12 +364,23 @@ pub fn environment(config: &Config) -> io::Result<BTreeMap<String, String>> {
 /// Optional, bounded per-session diagnostics. The native owner consumes this
 /// selector; it is never forwarded to Proton or interpreted as a shell string.
 /// Exact pinned Box64/Proton support is recorded in RPI1 observability evidence.
-fn diagnostic_environment(config: &Config, session: &str, raw: &str) -> io::Result<BTreeMap<String, String>> {
+fn diagnostic_environment(
+    config: &Config,
+    session: &str,
+    raw: &str,
+) -> io::Result<BTreeMap<String, String>> {
     let mut selected = BTreeMap::new();
-    if raw.is_empty() { return Ok(selected); }
+    if raw.is_empty() {
+        return Ok(selected);
+    }
+    if matches!(config.runner, Runner::Native { .. }) {
+        return Err(invalid("Box64 diagnostic selection on native runner"));
+    }
     let mut seen = std::collections::BTreeSet::new();
     for option in raw.split(',') {
-        if !seen.insert(option) { return Err(invalid("duplicate RPI1 diagnostic option")); }
+        if !seen.insert(option) {
+            return Err(invalid("duplicate RPI1 diagnostic option"));
+        }
         match option {
             "box64-crash" => {
                 selected.insert("BOX64_ROLLING_LOG".into(), "64".into());
@@ -304,14 +395,20 @@ fn diagnostic_environment(config: &Config, session: &str, raw: &str) -> io::Resu
                 use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
                 fs::DirBuilder::new().mode(0o700).create(&path)?;
                 let metadata = fs::symlink_metadata(&path)?;
-                if !metadata.is_dir() || metadata.file_type().is_symlink()
+                if !metadata.is_dir()
+                    || metadata.file_type().is_symlink()
                     || metadata.uid() != unsafe { libc::getuid() }
-                    || metadata.permissions().mode() & 0o077 != 0 {
+                    || metadata.permissions().mode() & 0o077 != 0
+                {
                     return Err(invalid("private Proton diagnostic directory required"));
                 }
                 selected.insert("PROTON_LOG".into(), "1".into());
-                selected.insert("PROTON_LOG_DIR".into(), path.into_os_string().into_string()
-                    .map_err(|_| invalid("Proton diagnostic path encoding"))?);
+                selected.insert(
+                    "PROTON_LOG_DIR".into(),
+                    path.into_os_string()
+                        .into_string()
+                        .map_err(|_| invalid("Proton diagnostic path encoding"))?,
+                );
             }
             _ => return Err(invalid("unknown RPI1 diagnostic option")),
         }
@@ -447,7 +544,7 @@ fn invalid(message: impl Into<String>) -> io::Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::PinnedFile;
+    use crate::config::{Box64Runner, PinnedFile, Runner};
 
     #[test]
     fn launch_vector_is_exact_slr_proton_runinprefix_chain() {
@@ -455,19 +552,22 @@ mod tests {
             path: PathBuf::from(path),
             sha256: [0; 32],
         };
-        let config = Config {
-            box64: file("/root/box64"),
-            adapter: file("/root/adapter"),
-            emulator_manifest: file("/root/emulator.json"),
-            graphics_manifest: file("/root/graphics.json"),
-            slr_entry: file("/root/SteamLinuxRuntime_4/_v2-entry-point"),
-            proton: file("/root/Proton 11.0/proton"),
+        let mut config = Config {
+            runner: Runner::Box64(Box64Runner {
+                box64: file("/root/box64"),
+                adapter: file("/root/adapter"),
+                emulator_manifest: file("/root/emulator.json"),
+                graphics_manifest: file("/root/graphics.json"),
+                slr_entry: file("/root/SteamLinuxRuntime_4/_v2-entry-point"),
+                proton: file("/root/Proton 11.0/proton"),
+                runtime_variable_dir: "/root/runtime-var-pyhome-exact".into(),
+            }),
             windows_host: file("/root/pfx/drive_c/host.exe"),
             plugin: file("/root/pfx/drive_c/Pigments.vst3"),
             environment_root: "/root".into(),
-            runtime_variable_dir: "/root/runtime-var-pyhome-exact".into(),
             display: ":1".into(),
             xauthority: file("/home/user/.Xauthority"),
+            binding: crate::binding::Binding::pigments(),
             source_manifest_sha256: [0; 32],
             bridge_frames: 2048,
             jack_client: "lvb-arm-pigments".into(),
@@ -487,18 +587,54 @@ mod tests {
             values["LVB_VENDOR_RETIREMENT"],
             "process_scoped_vendor_retirement"
         );
-        assert!(diagnostic_environment(&config, "00000000000000000000000000000000", "")
-            .unwrap().is_empty());
-        assert!(diagnostic_environment(&config, "00000000000000000000000000000000",
-            "box64-crash,box64-crash").is_err());
-        assert!(diagnostic_environment(&config, "00000000000000000000000000000000",
-            "full-trace").is_err());
-        let diagnostic = diagnostic_environment(&config,
-            "00000000000000000000000000000000", "box64-crash,box64-perfmap").unwrap();
+        assert!(
+            diagnostic_environment(&config, "00000000000000000000000000000000", "")
+                .unwrap()
+                .is_empty()
+        );
+        assert!(diagnostic_environment(
+            &config,
+            "00000000000000000000000000000000",
+            "box64-crash,box64-crash"
+        )
+        .is_err());
+        assert!(
+            diagnostic_environment(&config, "00000000000000000000000000000000", "full-trace")
+                .is_err()
+        );
+        let diagnostic = diagnostic_environment(
+            &config,
+            "00000000000000000000000000000000",
+            "box64-crash,box64-perfmap",
+        )
+        .unwrap();
         assert_eq!(diagnostic["BOX64_ROLLING_LOG"], "64");
         assert_eq!(diagnostic["BOX64_SHOWBT"], "1");
         assert_eq!(diagnostic["BOX64_SHOWSEGV"], "1");
         assert_eq!(diagnostic["BOX64_DYNAREC_PERFMAP"], "1");
+        config.runner = Runner::Native {
+            launcher: file("/native/launch"),
+            leader: file("/usr/bin/python3"),
+        };
+        assert_eq!(
+            launch_vector(&config, &["C:\\host.exe".into()]),
+            vec![
+                OsString::from("/native/launch"),
+                OsString::from("C:\\host.exe")
+            ]
+        );
+        let env = environment(&config).unwrap();
+        assert_eq!(env["WINEPREFIX"], "/root/compatdata/pfx");
+        assert_eq!(
+            env["LVB_EVENT_OUTPUT_POLICY"],
+            "reported_zero_event_channels_unspecified"
+        );
+        assert!(!env.contains_key("STEAM_COMPAT_EMULATOR"));
+        assert!(!env.contains_key("PYTHONHOME"));
+        assert!(
+            diagnostic_environment(&config, "00000000000000000000000000000000", "box64-crash")
+                .is_err()
+        );
     }
 
     #[test]

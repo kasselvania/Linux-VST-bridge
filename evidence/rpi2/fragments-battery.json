@@ -1,0 +1,121 @@
+{
+  "observed_date": "2026-09-23",
+  "source_commit": "ac6c8923df9497bfd986dd5f964f93dfc97ea96f",
+  "private_run_label": "fragments-battery-01",
+  "reference_result": "evidence/rpi2/fragments-arm-stereo.json",
+  "runtime": "GE-Proton11-7-aarch64 / UMU 1.4.4 / steamrt4-arm64",
+  "binaries": {
+    "native_host_sha256": "b7a97afc644a0786802241d2c8994d6f87183dcf4425f5b73d760f52875e21c3",
+    "windows_host_sha256": "64d629e84a0fdf8833e97b9393cd41b9a5a214f82fe418d1792281622f0007f2"
+  },
+  "audio_configuration": {
+    "sample_rate_hz": 48000,
+    "jack_period_frames": 512,
+    "windows_block_frames": 256,
+    "bridge_reserve_frames": 2048,
+    "vendor_latency_frames": 192,
+    "reported_total_latency_frames": 2240,
+    "physical_round_trip_measured": false,
+    "auxiliary_sidechain_active": false,
+    "event_output_policy": "strict"
+  },
+  "plugin": {
+    "name": "Efx FRAGMENTS",
+    "version": "1.3.1.6566",
+    "module_sha256": "5846dfe91396596715f01a85d51c5ca21a808ef7dad1bfb44b02ab444345e1a5",
+    "class_id": "41727475415649536772616E50726F63"
+  },
+  "hardware": {
+    "platform": "Raspberry Pi 5 / ShieldXL",
+    "cooling": "passive aluminium heatsink",
+    "power": "PiSugar 3 Plus battery only",
+    "power_provenance": "Operator confirmed external USB-C charger unplugged and Pi stayed on before launch",
+    "charging_transition_under_audio_load_tested": false
+  },
+  "operator_audio_feedback": "Sounds just as good",
+  "state": {
+    "restored_private_bytes": 162176,
+    "grain_mix_readback_before_audio": 1,
+    "freeze_readback_before_audio": 0,
+    "editor_opened": false
+  },
+  "result": {
+    "duration_requested_seconds": 120,
+    "elapsed_audio_seconds": 120.0,
+    "completed": true,
+    "grain_mix": 1,
+    "editor_opened": false,
+    "thermal_audio_interval": {
+      "sample_count": 117,
+      "temperature_min_c": 43.55,
+      "temperature_max_c": 46.85,
+      "throttled_values": [
+        0
+      ],
+      "supply_min_v": 5.01562,
+      "supply_max_v": 5.05984
+    },
+    "before": {
+      "output_nonfinite": 0,
+      "xruns": 0,
+      "process_failures": 0,
+      "failures": 0,
+      "deadline_misses": 0,
+      "callback_ns_max": 51407,
+      "missing_frames": 1024,
+      "gaps": 1,
+      "delivered_frames": 1736704,
+      "paused_frames": 7680,
+      "memory_peak": 457265152
+    },
+    "after": {
+      "output_nonfinite": 0,
+      "xruns": 0,
+      "process_failures": 0,
+      "failures": 0,
+      "deadline_misses": 0,
+      "callback_ns_max": 63295,
+      "missing_frames": 1024,
+      "gaps": 1,
+      "delivered_frames": 7513600,
+      "paused_frames": 7680,
+      "memory_peak": 457265152
+    },
+    "session": {
+      "exit_code": 0,
+      "ready_seconds": 10.022719400999904,
+      "elapsed_seconds": 174.38373301599995,
+      "clean_shutdown": true,
+      "thermal_full_session": {
+        "sample_count": 173,
+        "temperature_min_c": 41.35,
+        "temperature_max_c": 47.4,
+        "throttled_values": [
+          0
+        ]
+      },
+      "remaining_session_directories": 0,
+      "jack_graph_restored": true
+    },
+    "cleanup_running_experiment_count": 0,
+    "counter_deltas": {
+      "xruns": 0,
+      "process_failures": 0,
+      "output_nonfinite": 0,
+      "missing_frames": 0,
+      "gaps": 0,
+      "deadline_misses": 0,
+      "failures": 0,
+      "paused_frames": 0
+    }
+  },
+  "measurement_limits": [
+    "Same two-minute route and saved Fragments setting as the charger-connected run; no broad preset or thermal saturation claim.",
+    "The 5 V samples measure the supply at the Pi, not battery voltage, battery current, consumed energy or remaining runtime.",
+    "One pre-interval startup gap of 1024 frames remains; no new gap during this interval.",
+    "Listening and counters were retained; no continuous user audio recording.",
+    "The charger was disconnected while audio was idle; this does not test switchover during audio processing."
+  ],
+  "cleanup": "Intentional route disconnection and quit; Pi left powered on.",
+  "privacy": "No audio, plugin state payload, licensing material, credentials or proprietary binaries exported."
+}

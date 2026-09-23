@@ -1,4 +1,4 @@
-use super::{note_offset, polyphony_events, tone, Capture, Meter, NOTE_EVENTS, RATE};
+use super::{note_offset, polyphony_events, stress_events, two_note_events, four_note_events, tone, Capture, Meter, NOTE_EVENTS, RATE};
 use std::{
     ffi::{c_char, c_int, c_void, CStr, CString},
     io::{self, Write},
@@ -75,6 +75,8 @@ struct Rt {
     notes: Vec<(u64, [u8; 3])>,
     meters: [Meter; 2],
     capture: Option<Capture>,
+    input_capture: Option<Capture>,
+    physical_inputs: Option<[*mut Port; 2]>,
     position: u64,
     total: u64,
     midi_sent: u64,
@@ -107,6 +109,13 @@ unsafe extern "C" fn process(frames: u32, arg: *mut c_void) -> c_int {
                         *value = sample[ch];
                     }
                 }
+                if let Some(capture) = &mut rt.input_capture {
+                    let count = u64::from(frames).min(rt.total.saturating_sub(rt.position)) as usize;
+                    if !capture.store_channel(rt.position as usize, ch, &output[..count]) {
+                        rt.bad_blocks += 1;
+                        signals.done.store(true, Ordering::Release);
+                    }
+                }
             }
         }
     }
@@ -119,6 +128,14 @@ unsafe extern "C" fn process(frames: u32, arg: *mut c_void) -> c_int {
         return 0;
     }
     let count = u64::from(frames).min(rt.total.saturating_sub(rt.position)) as usize;
+    if let (Some(ports), Some(capture)) = (rt.physical_inputs, &mut rt.input_capture) {
+        for ch in 0..2 {
+            let input = slice::from_raw_parts(jack_port_get_buffer(ports[ch], frames).cast::<f32>(), count);
+            if !capture.store_channel(rt.position as usize, ch, input) {
+                rt.bad_blocks += 1; signals.done.store(true, Ordering::Release); return 0;
+            }
+        }
+    }
     for ch in 0..2 {
         let input = slice::from_raw_parts(
             jack_port_get_buffer(rt.inputs[ch], frames).cast::<f32>(),
@@ -175,19 +192,35 @@ fn c(value: &str) -> CString {
 
 pub fn run() -> io::Result<()> {
     let arguments = std::env::args().collect::<Vec<_>>();
+    let bridge_client = std::env::var("LVB_QUALIFICATION_CLIENT")
+        .unwrap_or_else(|_| "lvb-arm-pigments".to_owned());
+    if bridge_client.is_empty() || !bridge_client.bytes().all(|c| c.is_ascii_alphanumeric() || matches!(c, b'-' | b'_')) {
+        return Err(fail("invalid JACK bridge client name"));
+    }
     if !matches!(arguments.len(), 2 | 4)
-        || !matches!(arguments[1].as_str(), "tone" | "pigments" | "polyphony")
+        || !matches!(arguments[1].as_str(), "tone" | "effect" | "input" | "notes" | "pigments" | "polyphony" | "stress" | "two-notes" | "four-notes")
         || (arguments.len() == 4 && arguments[2] != "--capture")
     {
         return Err(fail(
-            "usage: qualification tone|pigments|polyphony [--capture NEW_PRIVATE_F32LE_FILE]",
+            "usage: qualification tone|effect|input|notes|pigments|polyphony|stress|two-notes|four-notes [--capture NEW_PRIVATE_F32LE_FILE]",
         ));
     }
-    let tone_mode = arguments[1] == "tone";
+    let effect_mode = arguments[1] == "effect";
+    let physical_mode = arguments[1] == "input";
+    let tone_mode = arguments[1] == "tone" || effect_mode;
     let polyphony = arguments[1] == "polyphony";
+    let stress = arguments[1] == "stress";
+    let two_notes = arguments[1] == "two-notes";
+    let four_notes = arguments[1] == "four-notes";
     let total = RATE
-        * if tone_mode {
+        * if effect_mode {
+            5
+        } else if tone_mode {
             3
+        } else if two_notes || four_notes {
+            20
+        } else if stress {
+            120
         } else if polyphony {
             30
         } else {
@@ -205,6 +238,10 @@ pub fn run() -> io::Result<()> {
     } else {
         None
     };
+    let input_file = if (effect_mode || physical_mode) && arguments.len() == 4 {
+        Some(std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600)
+            .open(format!("{}.input.f32le", arguments[3]))?)
+    } else { None };
     let mut status = 0;
     let client = unsafe { jack_client_open(c(NAME).as_ptr(), 3, &mut status) }; // NoStartServer | UseExactName
     if client.is_null() {
@@ -222,13 +259,21 @@ pub fn run() -> io::Result<()> {
         } else {
             Vec::new()
         },
-        notes: if polyphony {
+        notes: if physical_mode { Vec::new() } else if four_notes {
+            four_note_events()
+        } else if two_notes {
+            two_note_events()
+        } else if stress {
+            stress_events()
+        } else if polyphony {
             polyphony_events()
         } else {
             NOTE_EVENTS.to_vec()
         },
         meters: [Meter::default(), Meter::default()],
         capture: capture_file.as_ref().map(|_| Capture::new(total as usize)),
+        input_capture: input_file.as_ref().map(|_| Capture::new(total as usize)),
+        physical_inputs: None,
         position: 0,
         total,
         midi_sent: 0,
@@ -266,19 +311,30 @@ pub fn run() -> io::Result<()> {
     if tone_mode {
         rt.outputs = [register("tone_l", AUDIO, 2)?, register("tone_r", AUDIO, 2)?];
     }
+    if physical_mode {
+        rt.physical_inputs = Some([register("source_l", AUDIO, 1)?, register("source_r", AUDIO, 1)?]);
+    }
     let mut routes = Vec::new();
-    if !tone_mode {
+    if !tone_mode && !physical_mode {
         routes.push((
             format!("{NAME}:midi_out"),
-            "lvb-arm-pigments:midi_in".to_owned(),
+            format!("{bridge_client}:midi_in"),
             MIDI,
         ));
     }
     for (index, suffix) in ["l", "r"].into_iter().enumerate() {
-        let source = if tone_mode {
+        if physical_mode {
+            let source = format!("system:capture_{}", index + 1);
+            routes.push((source.clone(), format!("{NAME}:source_{suffix}"), AUDIO));
+            routes.push((source, format!("{bridge_client}:audio_in_{suffix}"), AUDIO));
+        }
+        if effect_mode {
+            routes.push((format!("{NAME}:tone_{suffix}"), format!("{bridge_client}:audio_in_{suffix}"), AUDIO));
+        }
+        let source = if tone_mode && !effect_mode {
             format!("{NAME}:tone_{suffix}")
         } else {
-            format!("lvb-arm-pigments:audio_out_{suffix}")
+            format!("{bridge_client}:audio_out_{suffix}")
         };
         routes.push((source.clone(), format!("{NAME}:meter_{suffix}"), AUDIO));
         routes.push((source, format!("system:playback_{}", index + 1), AUDIO));
@@ -366,6 +422,14 @@ pub fn run() -> io::Result<()> {
             total,
             total * 8
         );
+    }
+    if let (Some(file), Some(capture)) = (input_file, rt.input_capture.as_ref()) {
+        if !finished || rt.bad_blocks != 0 { return Err(fail("incomplete input capture")); }
+        let mut writer = io::BufWriter::new(file);
+        capture.write_interleaved(&mut writer)?;
+        writer.flush()?;
+        writer.get_ref().sync_all()?;
+        println!("RPI1_QUALIFICATION_INPUT_CAPTURE frames={total} channels=2 format=f32le");
     }
     if good {
         Ok(())
