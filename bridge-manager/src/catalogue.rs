@@ -252,6 +252,43 @@ pub fn setup_adoption(m: &Manager, profiles: &[Profile]) -> Result<Option<Catalo
     Ok(Some(adoption(m, profiles)?))
 }
 
+/// Keep an exact registered host needed by a current profile when setup changes
+/// the default host. A retained path alone cannot authorize another profile.
+pub fn setup_adoption_for_host(m: &Manager, profiles: &[Profile], default_host: &str, default_source: &str) -> Result<Option<Catalogue>> {
+    let Some(mut catalogue) = setup_adoption(m, profiles)? else { return Ok(None) };
+    let db = m.registry()?;
+    catalogue.hosts.retain(|h| h.host.sha256 != default_host || h.source_manifest.sha256 != default_source);
+    for profile in profiles {
+        let registration = &db.classes.get(&profile.class.class_id)
+            .ok_or("adoption_requires_existing_managed_artifact")?.registration;
+        if registration.host.sha256 != profile.requirements.host_sha256
+            || registration.host_source_sha256 != profile.requirements.host_source_sha256
+            || (registration.host.sha256 == default_host && registration.host_source_sha256 == default_source) {
+            continue;
+        }
+        let retained = HostArtifact {
+            host: registration.host.clone(),
+            source_manifest: Artifact {
+                path: registration.host.path.with_file_name("host-source-manifest.json"),
+                sha256: registration.host_source_sha256.clone(),
+            },
+        };
+        for artifact in [&retained.host, &retained.source_manifest] {
+            require(artifact.path.starts_with(m.root.join("software"))
+                && artifact.path.canonicalize()? == artifact.path
+                && file(&artifact.path)?.metadata()?.mode() & 0o222 == 0,
+                "catalogue_host_identity")?;
+            artifact.verify()?;
+        }
+        if !catalogue.hosts.iter().any(|h| h.host.sha256 == retained.host.sha256
+            && h.source_manifest.sha256 == retained.source_manifest.sha256) {
+            catalogue.hosts.push(retained);
+        }
+    }
+    if catalogue.schema == 1 && !catalogue.hosts.is_empty() { catalogue.schema = 2; }
+    Ok(Some(catalogue))
+}
+
 pub fn adoption(m: &Manager, profiles: &[Profile]) -> Result<Catalogue> {
     validate_set(profiles)?;
     let db = m.registry()?;
@@ -357,6 +394,35 @@ fn retain_native(natives: &mut Vec<NativeArtifact>, n: NativeArtifact) -> Result
 #[cfg(test)]
 mod path_tests {
     use super::*;
+    #[test]
+    fn setup_retains_exact_registered_host_when_default_changes() {
+        let (f, p, c, n) = crate::test_fixture::prepared();
+        let report = crate::observation::derive(&p, &c, &n).unwrap();
+        f.m.managed_publish(&p, &c, report, &c.host, &c.host_source_sha256, None).unwrap();
+        for path in [f.r.host.path.clone(), f.r.host.path.with_file_name("host-source-manifest.json")] {
+            fs::set_permissions(path, fs::Permissions::from_mode(0o400)).unwrap();
+        }
+        let profiles = std::slice::from_ref(&p);
+        let retained = setup_adoption_for_host(&f.m, profiles, &"cd".repeat(32), &"ef".repeat(32)).unwrap().unwrap();
+        assert_eq!(retained.schema, 2);
+        assert_eq!(retained.hosts.len(), 1);
+        assert_eq!(retained.hosts[0].host, f.r.host);
+        assert_eq!(retained.hosts[0].source_manifest.sha256, f.r.host_source_sha256);
+        retained.host(&p, &Artifact { path: f.outer.join("new-host"), sha256: "cd".repeat(32) }, &"ef".repeat(32)).unwrap();
+
+        let same_default = setup_adoption_for_host(&f.m, profiles, &f.r.host.sha256, &f.r.host_source_sha256).unwrap().unwrap();
+        assert!(same_default.hosts.is_empty());
+        let mut changed_profile = p.clone();
+        changed_profile.requirements.host_sha256 = "cd".repeat(32);
+        changed_profile.requirements.host_source_sha256 = "ef".repeat(32);
+        let changed = setup_adoption_for_host(&f.m, std::slice::from_ref(&changed_profile), &"cd".repeat(32), &"ef".repeat(32)).unwrap().unwrap();
+        assert!(changed.hosts.is_empty());
+
+        fs::set_permissions(&f.r.host.path, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&f.r.host.path, b"changed host").unwrap();
+        fs::set_permissions(&f.r.host.path, fs::Permissions::from_mode(0o400)).unwrap();
+        assert!(setup_adoption_for_host(&f.m, profiles, &"cd".repeat(32), &"ef".repeat(32)).is_err());
+    }
     #[test]
     fn setup_retains_ordinary_rollback_native_after_native_update() {
         let (f,p,c,n) = crate::test_fixture::prepared();

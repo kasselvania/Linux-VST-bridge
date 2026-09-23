@@ -313,7 +313,8 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
     let me = std::env::current_exe()?;
     let (catalogue, files, source) = if let Some(package) = package {
         let profiles = profiles::installed_profiles()?;
-        let catalogue = catalogue::setup_adoption(m, &profiles)?;
+        let source: String = read_json(&package.join("host-source.json"))?;
+        let catalogue = catalogue::setup_adoption_for_host(m, &profiles, &digest(&package.join("host.exe"))?, &source)?;
         (
             catalogue,
             [
@@ -326,7 +327,7 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
                     package.join("host-source-manifest.json"),
                 ),
             ],
-            read_json::<String>(&package.join("host-source.json"))?,
+            source,
         )
     } else {
         let accepted = match acceptance {
