@@ -1,0 +1,15 @@
+{
+  "schema": "frg1-retired-predecessor-reconcile/v1",
+  "product_base_commit": "243ad5b557f476e852f23af35511bb81fe5014dc",
+  "product_base_tree": "47bcb35709ccbdd97d8bd02e2c019e569526b804",
+  "ubuntu_failed_generation": "f63e1a8b4e224bd0ea3ee6ece1567fe874fe0169d44f50583049fe0c61009aef",
+  "installed_setup": "passed",
+  "startup_reconcile": "frg1_predecessor_absent",
+  "service_stopped_after_failure": true,
+  "revision12_staged": false,
+  "revision12_published": false,
+  "bitwig_launched": false,
+  "reproduction": "The production manager reconciliation path failed on the exact removed revision-11 entry before the correction and passes after it.",
+  "scope": "Treat only the exact retired predecessor as history in FRG1 restoration; keep revision-12 parent and foreign-predecessor refusal unchanged.",
+  "physical_qualification_passed": false
+}
