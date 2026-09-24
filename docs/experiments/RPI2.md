@@ -1810,9 +1810,10 @@ consistent with the pinned FEX scalar-SSE fallback when AFP is absent. Sparse
 RIP entries and sampling skid do not give instruction-level cost, and the
 licensed guest instructions or emitted ARM bytes are not published.
 
-The next specific runtime question is why this worker invokes the Wine yield
-path so often and whether an implementation can preserve
-`NtYieldExecution`'s observed context-switch return semantics with less cost.
+The next specific runtime question is to confirm the guest caller and
+frequency behind the suspected Wine yield path, then determine whether an
+implementation can preserve `NtYieldExecution`'s observed context-switch
+return semantics with less cost.
 The previously uncompleted Pigments multicore ON/OFF comparison is also a
 motivated, conditional lever, but it requires valid control and readback after
 full-state restoration; these stacks do not establish that ON or OFF is faster.
