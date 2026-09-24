@@ -30,7 +30,9 @@ const CORRELATION: u64 = 4;
 #[cfg(feature = "rpi1-observe")]
 macro_rules! phase {
     ($shared:expr, $callback:expr, $position:expr, $kind:expr, $detail:expr, $value_1:expr, $value_2:expr) => {
-        $shared.phase.record($callback, $position, $kind, $detail, $value_1, $value_2)
+        if $shared.phase.enabled() {
+            $shared.phase.record($callback, $position, $kind, $detail, $value_1, $value_2)
+        }
     };
 }
 #[derive(Clone, Copy)]
@@ -535,7 +537,9 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
     #[cfg(all(feature = "rpi1-observe", target_os = "linux"))]
     {
         unsafe extern "C" { fn gettid() -> i32; }
-        s.worker_phase.bind_producer(unsafe { gettid() } as u64);
+        if s.worker_phase.enabled() {
+            s.worker_phase.bind_producer(unsafe { gettid() } as u64);
+        }
     }
     let mut input_observation = crate::input_observation::InputObservation::new(crate::observer::delivery_enabled());
     let mut previous_control = [0u64; 4];
@@ -652,7 +656,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                 AUDIO => {
                     let started = Instant::now();
                     #[cfg(feature = "rpi1-observe")]
-                    let clock = crate::observer::ClockSample::sample();
+                    let clock = s.worker_phase.enabled().then(crate::observer::ClockSample::sample);
                     if let Some(status) = &mut session.fault_status {
                         status.delivery = std::array::from_fn(|i| s.delivery_totals[i].load(Ordering::Acquire));
                     }
@@ -670,6 +674,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         item.context,
                     )?;
                     #[cfg(feature = "rpi1-observe")]
+                    if let Some(clock) = clock {
                     for (kind, at) in [
                         (crate::rpi1_phase::WORKER_PROCESS_BEGIN, session.trace.started),
                         (crate::rpi1_phase::WORKER_PREPARED, session.trace.prepared),
@@ -681,6 +686,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                             s.worker_phase.record(item.parent[0], item.position, kind, 0,
                                 clock.at(Some(at)), session.trace.process_ns.unwrap_or(0));
                         }
+                    }
                     }
                     for (ch, word) in words.iter().enumerate() {
                         for i in 0..n {
@@ -912,11 +918,20 @@ unsafe fn open_with(
                 }
             }));
             let installed_delay = binding.installed_delay;
+            #[cfg(feature = "rpi1-observe")]
+            let phase_enabled = if rpi1_mode {
+                let selected = std::env::var("LVB_RPI1_PHASE_TRACE");
+                match selected {
+                    Ok(value) => crate::rpi1_phase::Ring::startup_enabled(Some(&value))?,
+                    Err(std::env::VarError::NotPresent) => false,
+                    Err(_) => return Err(crate::invalid("non-UTF8 phase trace selector")),
+                }
+            } else { false };
             let mut session = Session::open(binding, max as usize, minor)?;
             session.identity = identity;
             let mut shared = Shared::new();
             #[cfg(feature = "rpi1-observe")]
-            if rpi1_mode {
+            if phase_enabled {
                 shared.phase = Arc::new(crate::rpi1_phase::Ring::new());
                 shared.worker_phase = Arc::new(crate::rpi1_phase::Ring::new());
             }

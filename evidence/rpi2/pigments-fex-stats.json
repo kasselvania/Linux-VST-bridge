@@ -1,0 +1,4616 @@
+{
+  "scope": "One existing-counter FEX availability and first/repeated four-note observation; not an optimization comparison",
+  "base_commit": "4978d0fbc208554cfe0ad3f830d85ab6b0c7ead5",
+  "fixture": {
+    "plugin": "Pigments7.0.1.6772",
+    "runtime": "GE-Proton11-7 AArch64 / FEX-2609-41-g82510eb",
+    "preset": "24 AM",
+    "polyphony": 4,
+    "master": 0.35,
+    "notes": [
+      60,
+      64,
+      67,
+      71
+    ],
+    "velocity": 96,
+    "sample_rate": 48000,
+    "jack_period": 512,
+    "vendor_quantum": 256,
+    "reserve": 2048,
+    "native_phase_trace": "off",
+    "headless": true
+  },
+  "binaries": {
+    "candidate": "85780f4856f2bac9f605628ca7decd80568cca0ad36fa92db70960bf74dd1a62",
+    "preserved_generic": "9d0a611d7175b05e398f484d9217fb29b7004f3e0eaac76acd6ad00a541bd1da",
+    "preserved_helper_default": "24e6ab174071a46c715d03c6e9d6718652097e965ffb3911eb2aa8298a2ef617"
+  },
+  "fex": {
+    "errors": [],
+    "conditions": [
+      {
+        "condition": "fex",
+        "unavailable": null,
+        "schema": {
+          "version": 2,
+          "app_type": 2,
+          "slot_size": 112,
+          "size": 4096,
+          "fex_build": "FEX-2609-41-g82510eb"
+        },
+        "file_namespace": "host",
+        "pid_namespace_differs": false,
+        "at_ready_live_slots": 22,
+        "trials": [
+          {
+            "name": "warmup",
+            "snapshots": 42,
+            "reader_cpu_seconds": 0.016552905,
+            "maximum_read_wall_ms": 0.570541,
+            "stable_intervals": 40,
+            "unstable_intervals": 1,
+            "timeline": [
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 23564,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 42,
+                  "cache_read_lock_ticks": 533,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 22,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": -1.102393758,
+                "end_seconds": -0.579788041,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0004363703703703704,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 9.87037037037037e-06,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 23663,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 36,
+                  "cache_read_lock_ticks": 561,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [
+                  [
+                    512,
+                    296
+                  ],
+                  [
+                    1520,
+                    404
+                  ],
+                  [
+                    1632,
+                    408
+                  ]
+                ],
+                "reset_slots": [],
+                "observed_identity_stable": false,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": -0.579788041,
+                "end_seconds": -0.051411797,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0004382037037037037,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 1.038888888888889e-05,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 26180,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 34,
+                  "cache_read_lock_ticks": 544,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": -0.051411797,
+                "end_seconds": 0.472281854,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0004848148148148148,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 1.0074074074074074e-05,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 27270,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 35,
+                  "cache_read_lock_ticks": 599,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 0.472281854,
+                "end_seconds": 0.996451596,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.000505,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 1.1092592592592592e-05,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 21915,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 35,
+                  "cache_read_lock_ticks": 535,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 0.996451596,
+                "end_seconds": 1.518417661,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00040583333333333335,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 9.907407407407408e-06,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 3269302,
+                  "signal_ticks": 413,
+                  "sigbus_count": 9,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 1027,
+                  "cache_read_lock_ticks": 10510,
+                  "cache_write_lock_ticks": 11099,
+                  "jit_count": 288,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 288,
+                  "disk_cache_lookup_ticks": 841
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 1.518417661,
+                "end_seconds": 2.042514405,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.06054262962962963,
+                  "signal_ticks": 7.648148148148148e-06,
+                  "cache_read_lock_ticks": 0.00019462962962962964,
+                  "cache_write_lock_ticks": 0.00020553703703703703,
+                  "disk_cache_lookup_ticks": 1.5574074074074074e-05
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 1269232,
+                  "signal_ticks": 1215,
+                  "sigbus_count": 8,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 17932,
+                  "cache_read_lock_ticks": 49978,
+                  "cache_write_lock_ticks": 1569,
+                  "jit_count": 67,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 67,
+                  "disk_cache_lookup_ticks": 344
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 2.042514405,
+                "end_seconds": 2.566292979,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.023504296296296297,
+                  "signal_ticks": 2.25e-05,
+                  "cache_read_lock_ticks": 0.0009255185185185186,
+                  "cache_write_lock_ticks": 2.9055555555555554e-05,
+                  "disk_cache_lookup_ticks": 6.37037037037037e-06
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 501673,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 18678,
+                  "cache_read_lock_ticks": 47379,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 2.566292979,
+                "end_seconds": 3.09102919,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.009290240740740741,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.0008773888888888889,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 464059,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 13761,
+                  "cache_read_lock_ticks": 38802,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 3.09102919,
+                "end_seconds": 3.614836967,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.008593685185185185,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.0007185555555555555,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 407279,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 12104,
+                  "cache_read_lock_ticks": 37385,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 3.614836967,
+                "end_seconds": 4.138611573,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.007542203703703704,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.0006923148148148148,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 359199,
+                  "signal_ticks": 517,
+                  "sigbus_count": 5,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 7515,
+                  "cache_read_lock_ticks": 20007,
+                  "cache_write_lock_ticks": 221,
+                  "jit_count": 5,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 5,
+                  "disk_cache_lookup_ticks": 62
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 4.138611573,
+                "end_seconds": 4.66223678,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.006651833333333333,
+                  "signal_ticks": 9.574074074074074e-06,
+                  "cache_read_lock_ticks": 0.0003705,
+                  "cache_write_lock_ticks": 4.0925925925925925e-06,
+                  "disk_cache_lookup_ticks": 1.1481481481481482e-06
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 241528,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 6407,
+                  "cache_read_lock_ticks": 12161,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 4.66223678,
+                "end_seconds": 5.186213938,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.004472740740740741,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.0002252037037037037,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 194522,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 6360,
+                  "cache_read_lock_ticks": 11896,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 5.186213938,
+                "end_seconds": 5.709896827,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.003602259259259259,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.0002202962962962963,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 170804,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4703,
+                  "cache_read_lock_ticks": 9193,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 5.709896827,
+                "end_seconds": 6.233698046,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.003163037037037037,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.00017024074074074074,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 89810,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 2136,
+                  "cache_read_lock_ticks": 4805,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 6.233698046,
+                "end_seconds": 6.757286476,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0016631481481481482,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 8.898148148148148e-05,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 147350,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 2217,
+                  "cache_read_lock_ticks": 5104,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 6.757286476,
+                "end_seconds": 7.281329614,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0027287037037037037,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 9.451851851851852e-05,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 100157,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 2150,
+                  "cache_read_lock_ticks": 4870,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 7.281329614,
+                "end_seconds": 7.804978728,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0018547592592592593,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 9.018518518518518e-05,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 144097,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 2221,
+                  "cache_read_lock_ticks": 4996,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 7.804978728,
+                "end_seconds": 8.328920572,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0026684629629629628,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 9.251851851851852e-05,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 91112,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 2136,
+                  "cache_read_lock_ticks": 4621,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 8.328920572,
+                "end_seconds": 8.852556521,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0016872592592592592,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 8.557407407407407e-05,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 55578,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 761,
+                  "cache_read_lock_ticks": 1578,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 8.852556521,
+                "end_seconds": 9.376532437,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0010292222222222222,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 2.922222222222222e-05,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 5732,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 0,
+                  "cache_read_lock_ticks": 0,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 9.376532437,
+                "end_seconds": 9.900341178,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00010614814814814814,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.0,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 5487,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 0,
+                  "cache_read_lock_ticks": 0,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 9.900341178,
+                "end_seconds": 10.424543254,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00010161111111111112,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.0,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 5867,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 0,
+                  "cache_read_lock_ticks": 0,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 10.424543254,
+                "end_seconds": 10.948337386,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00010864814814814815,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.0,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 6073,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 0,
+                  "cache_read_lock_ticks": 0,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 10.948337386,
+                "end_seconds": 11.473290053,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00011246296296296296,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.0,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 6157,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 0,
+                  "cache_read_lock_ticks": 0,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 11.473290053,
+                "end_seconds": 11.997063057,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00011401851851851852,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.0,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 6441,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 0,
+                  "cache_read_lock_ticks": 0,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 11.997063057,
+                "end_seconds": 12.520325784,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00011927777777777777,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.0,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 5871,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 0,
+                  "cache_read_lock_ticks": 0,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 12.520325784,
+                "end_seconds": 13.044239026,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00010872222222222223,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.0,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 5948,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 0,
+                  "cache_read_lock_ticks": 0,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 13.044239026,
+                "end_seconds": 13.568166291,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00011014814814814814,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.0,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 135210,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 889,
+                  "cache_read_lock_ticks": 3779,
+                  "cache_write_lock_ticks": 48,
+                  "jit_count": 7,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 7,
+                  "disk_cache_lookup_ticks": 71
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 13.568166291,
+                "end_seconds": 14.091826188,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.002503888888888889,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 6.998148148148148e-05,
+                  "cache_write_lock_ticks": 8.888888888888889e-07,
+                  "disk_cache_lookup_ticks": 1.3148148148148148e-06
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 230084,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4216,
+                  "cache_read_lock_ticks": 20761,
+                  "cache_write_lock_ticks": 16,
+                  "jit_count": 1,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 1,
+                  "disk_cache_lookup_ticks": 19
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 14.091826188,
+                "end_seconds": 14.615490311,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0042608148148148145,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.00038446296296296297,
+                  "cache_write_lock_ticks": 2.962962962962963e-07,
+                  "disk_cache_lookup_ticks": 3.5185185185185183e-07
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 314075,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 3528,
+                  "cache_read_lock_ticks": 16219,
+                  "cache_write_lock_ticks": 53,
+                  "jit_count": 1,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 1,
+                  "disk_cache_lookup_ticks": 25
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 14.615490311,
+                "end_seconds": 15.13762419,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.005816203703703704,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.00030035185185185183,
+                  "cache_write_lock_ticks": 9.814814814814816e-07,
+                  "disk_cache_lookup_ticks": 4.6296296296296297e-07
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12976,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 0,
+                  "cache_read_lock_ticks": 0,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 15.13762419,
+                "end_seconds": 15.66024082,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0002402962962962963,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.0,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 10216,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 0,
+                  "cache_read_lock_ticks": 0,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 15.66024082,
+                "end_seconds": 16.182569436,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0001891851851851852,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.0,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 10153,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 0,
+                  "cache_read_lock_ticks": 0,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 16.182569436,
+                "end_seconds": 16.705125492,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00018801851851851851,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.0,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 10362,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 0,
+                  "cache_read_lock_ticks": 0,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 16.705125492,
+                "end_seconds": 17.227360518,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00019188888888888888,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.0,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 10006,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 0,
+                  "cache_read_lock_ticks": 0,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 17.227360518,
+                "end_seconds": 17.749706524,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0001852962962962963,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.0,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 336532,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 190,
+                  "cache_read_lock_ticks": 473,
+                  "cache_write_lock_ticks": 475,
+                  "jit_count": 23,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 23,
+                  "disk_cache_lookup_ticks": 158
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 17.749706524,
+                "end_seconds": 18.273165389,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.006232074074074074,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 8.759259259259259e-06,
+                  "cache_write_lock_ticks": 8.796296296296296e-06,
+                  "disk_cache_lookup_ticks": 2.9259259259259257e-06
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 13558,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 2,
+                  "cache_read_lock_ticks": 19,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 18.273165389,
+                "end_seconds": 18.795275587,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0002510740740740741,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 3.5185185185185183e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12782,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 2,
+                  "cache_read_lock_ticks": 20,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 18.795275587,
+                "end_seconds": 19.317503537,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0002367037037037037,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 3.7037037037037036e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 13720,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 2,
+                  "cache_read_lock_ticks": 20,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 19.317503537,
+                "end_seconds": 19.840347753,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0002540740740740741,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 3.7037037037037036e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 13611,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 2,
+                  "cache_read_lock_ticks": 19,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 19.840347753,
+                "end_seconds": 20.362490297,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00025205555555555555,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 3.5185185185185183e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              }
+            ],
+            "windows": {
+              "idle": {
+                "requested_capture_seconds": [
+                  0.3,
+                  1.3
+                ],
+                "contained_stable_intervals": 1,
+                "contained_seconds": 0.524169742,
+                "contained_counter_deltas": {
+                  "jit_path_ticks": 27270,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 35,
+                  "cache_read_lock_ticks": 599,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "overlapping_stable_counter_deltas": {
+                  "jit_path_ticks": 75365,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 104,
+                  "cache_read_lock_ticks": 1678,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "limitation": "Contained intervals omit edge activity; overlapping intervals include activity outside the window. They do not assign an increment to an exact note/callback."
+              },
+              "attack": {
+                "requested_capture_seconds": [
+                  2,
+                  3
+                ],
+                "contained_stable_intervals": 1,
+                "contained_seconds": 0.523778574,
+                "contained_counter_deltas": {
+                  "jit_path_ticks": 1269232,
+                  "signal_ticks": 1215,
+                  "sigbus_count": 8,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 17932,
+                  "cache_read_lock_ticks": 49978,
+                  "cache_write_lock_ticks": 1569,
+                  "jit_count": 67,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 67,
+                  "disk_cache_lookup_ticks": 344
+                },
+                "overlapping_stable_counter_deltas": {
+                  "jit_path_ticks": 5040207,
+                  "signal_ticks": 1628,
+                  "sigbus_count": 17,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 37637,
+                  "cache_read_lock_ticks": 107867,
+                  "cache_write_lock_ticks": 12668,
+                  "jit_count": 355,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 355,
+                  "disk_cache_lookup_ticks": 1185
+                },
+                "limitation": "Contained intervals omit edge activity; overlapping intervals include activity outside the window. They do not assign an increment to an exact note/callback."
+              },
+              "held_including_attack": {
+                "requested_capture_seconds": [
+                  2,
+                  14
+                ],
+                "contained_stable_intervals": 22,
+                "contained_seconds": 11.525651886,
+                "contained_counter_deltas": {
+                  "jit_path_ticks": 4283976,
+                  "signal_ticks": 1732,
+                  "sigbus_count": 13,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 99081,
+                  "cache_read_lock_ticks": 252775,
+                  "cache_write_lock_ticks": 1790,
+                  "jit_count": 72,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 72,
+                  "disk_cache_lookup_ticks": 406
+                },
+                "overlapping_stable_counter_deltas": {
+                  "jit_path_ticks": 7688488,
+                  "signal_ticks": 2145,
+                  "sigbus_count": 22,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 100997,
+                  "cache_read_lock_ticks": 267064,
+                  "cache_write_lock_ticks": 12937,
+                  "jit_count": 367,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 367,
+                  "disk_cache_lookup_ticks": 1318
+                },
+                "limitation": "Contained intervals omit edge activity; overlapping intervals include activity outside the window. They do not assign an increment to an exact note/callback."
+              },
+              "stable_hold": {
+                "requested_capture_seconds": [
+                  3,
+                  14
+                ],
+                "contained_stable_intervals": 20,
+                "contained_seconds": 10.477137101,
+                "contained_counter_deltas": {
+                  "jit_path_ticks": 2513071,
+                  "signal_ticks": 517,
+                  "sigbus_count": 5,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 62471,
+                  "cache_read_lock_ticks": 155418,
+                  "cache_write_lock_ticks": 221,
+                  "jit_count": 5,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 5,
+                  "disk_cache_lookup_ticks": 62
+                },
+                "overlapping_stable_counter_deltas": {
+                  "jit_path_ticks": 3149954,
+                  "signal_ticks": 517,
+                  "sigbus_count": 5,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 82038,
+                  "cache_read_lock_ticks": 206576,
+                  "cache_write_lock_ticks": 269,
+                  "jit_count": 12,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 12,
+                  "disk_cache_lookup_ticks": 133
+                },
+                "limitation": "Contained intervals omit edge activity; overlapping intervals include activity outside the window. They do not assign an increment to an exact note/callback."
+              },
+              "release": {
+                "requested_capture_seconds": [
+                  14,
+                  20
+                ],
+                "contained_stable_intervals": 11,
+                "contained_seconds": 5.748521564999999,
+                "contained_counter_deltas": {
+                  "jit_path_ticks": 974464,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 7940,
+                  "cache_read_lock_ticks": 37512,
+                  "cache_write_lock_ticks": 544,
+                  "jit_count": 25,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 25,
+                  "disk_cache_lookup_ticks": 202
+                },
+                "overlapping_stable_counter_deltas": {
+                  "jit_path_ticks": 1123285,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 8831,
+                  "cache_read_lock_ticks": 41310,
+                  "cache_write_lock_ticks": 592,
+                  "jit_count": 32,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 32,
+                  "disk_cache_lookup_ticks": 273
+                },
+                "limitation": "Contained intervals omit edge activity; overlapping intervals include activity outside the window. They do not assign an increment to an exact note/callback."
+              }
+            },
+            "held_process_cpu_surviving_threads_one_core_percent": {
+              "pigments_host": 147.14954936095356,
+              "arturia_named_other_process": 0.12291609347140264,
+              "other_runtime": 1.8336343374977586
+            },
+            "arturia_named_thread_is_separate_process": true,
+            "full_capture_zero_runs": [
+              {
+                "begin_seconds": 0.0,
+                "end_seconds": 9.546666666666667,
+                "frames": 458240
+              },
+              {
+                "begin_seconds": 9.552,
+                "end_seconds": 9.557333333333334,
+                "frames": 256
+              },
+              {
+                "begin_seconds": 9.562666666666667,
+                "end_seconds": 9.568,
+                "frames": 256
+              },
+              {
+                "begin_seconds": 9.573333333333334,
+                "end_seconds": 9.578666666666667,
+                "frames": 256
+              },
+              {
+                "begin_seconds": 9.584,
+                "end_seconds": 9.589333333333334,
+                "frames": 256
+              },
+              {
+                "begin_seconds": 9.594666666666667,
+                "end_seconds": 9.6,
+                "frames": 256
+              },
+              {
+                "begin_seconds": 9.605333333333334,
+                "end_seconds": 9.610666666666667,
+                "frames": 256
+              },
+              {
+                "begin_seconds": 9.616,
+                "end_seconds": 9.621333333333334,
+                "frames": 256
+              },
+              {
+                "begin_seconds": 9.626666666666667,
+                "end_seconds": 9.632,
+                "frames": 256
+              },
+              {
+                "begin_seconds": 9.637333333333334,
+                "end_seconds": 9.642666666666667,
+                "frames": 256
+              },
+              {
+                "begin_seconds": 9.648,
+                "end_seconds": 9.653333333333334,
+                "frames": 256
+              },
+              {
+                "begin_seconds": 9.658666666666667,
+                "end_seconds": 9.664,
+                "frames": 256
+              },
+              {
+                "begin_seconds": 9.669333333333332,
+                "end_seconds": 9.674666666666667,
+                "frames": 256
+              },
+              {
+                "begin_seconds": 9.68,
+                "end_seconds": 9.685333333333332,
+                "frames": 256
+              },
+              {
+                "begin_seconds": 9.690666666666667,
+                "end_seconds": 9.696,
+                "frames": 256
+              },
+              {
+                "begin_seconds": 9.712,
+                "end_seconds": 9.717333333333332,
+                "frames": 256
+              }
+            ]
+          },
+          {
+            "name": "measured",
+            "snapshots": 53,
+            "reader_cpu_seconds": 0.021459665,
+            "maximum_read_wall_ms": 0.857367,
+            "stable_intervals": 52,
+            "unstable_intervals": 0,
+            "timeline": [
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 14775,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 24,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": -0.080259424,
+                "end_seconds": 0.441860084,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00027361111111111114,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.4444444444444444e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 14013,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 25,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 0.441860084,
+                "end_seconds": 0.964035007,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0002595,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.6296296296296297e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 14140,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 23,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 0.964035007,
+                "end_seconds": 1.486805924,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00026185185185185187,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.259259259259259e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 67072,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 279,
+                  "cache_read_lock_ticks": 678,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 1.486805924,
+                "end_seconds": 2.009248543,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.001242074074074074,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 1.2555555555555555e-05,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 214644,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 3865,
+                  "cache_read_lock_ticks": 19846,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 2.009248543,
+                "end_seconds": 2.538858662,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.003974888888888889,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.00036751851851851854,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 320671,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4093,
+                  "cache_read_lock_ticks": 19087,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 2.538858662,
+                "end_seconds": 3.064426481,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.005938351851851852,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.000353462962962963,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 13246,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 10,
+                  "cache_read_lock_ticks": 73,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 3.064426481,
+                "end_seconds": 3.688777734,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0002452962962962963,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 1.3518518518518518e-06,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 9482,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 32,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 3.688777734,
+                "end_seconds": 4.216924821,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00017559259259259259,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 5.925925925925926e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 8657,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 26,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 4.216924821,
+                "end_seconds": 4.745262883,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00016031481481481482,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.814814814814815e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 1351600,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 545,
+                  "cache_read_lock_ticks": 1246,
+                  "cache_write_lock_ticks": 2493,
+                  "jit_count": 179,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 179,
+                  "disk_cache_lookup_ticks": 752
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 4.745262883,
+                "end_seconds": 5.277431149,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.02502962962962963,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 2.3074074074074074e-05,
+                  "cache_write_lock_ticks": 4.6166666666666666e-05,
+                  "disk_cache_lookup_ticks": 1.3925925925925926e-05
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 6617172,
+                  "signal_ticks": 1336,
+                  "sigbus_count": 27,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 2880,
+                  "cache_read_lock_ticks": 6066,
+                  "cache_write_lock_ticks": 9921,
+                  "jit_count": 856,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 856,
+                  "disk_cache_lookup_ticks": 3062
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 5.277431149,
+                "end_seconds": 5.800880219,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.12254022222222222,
+                  "signal_ticks": 2.4740740740740742e-05,
+                  "cache_read_lock_ticks": 0.00011233333333333333,
+                  "cache_write_lock_ticks": 0.00018372222222222222,
+                  "disk_cache_lookup_ticks": 5.67037037037037e-05
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 10858,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 13,
+                  "cache_read_lock_ticks": 39,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 5.800880219,
+                "end_seconds": 6.324439715,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00020107407407407408,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 7.222222222222222e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 20887,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 47,
+                  "cache_read_lock_ticks": 115,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 6.324439715,
+                "end_seconds": 6.847933671,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00038679629629629627,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 2.1296296296296298e-06,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 9291,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 22,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 6.847933671,
+                "end_seconds": 7.371264913,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00017205555555555556,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.074074074074074e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 197051,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 144,
+                  "cache_read_lock_ticks": 296,
+                  "cache_write_lock_ticks": 314,
+                  "jit_count": 21,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 21,
+                  "disk_cache_lookup_ticks": 125
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 7.371264913,
+                "end_seconds": 7.895049027,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0036490925925925927,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 5.4814814814814815e-06,
+                  "cache_write_lock_ticks": 5.814814814814815e-06,
+                  "disk_cache_lookup_ticks": 2.3148148148148148e-06
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 8103,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 3,
+                  "cache_read_lock_ticks": 21,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 7.895049027,
+                "end_seconds": 8.418799296,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00015005555555555556,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 3.888888888888889e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 8466,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 41,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 8.418799296,
+                "end_seconds": 8.942746516,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0001567777777777778,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 7.592592592592593e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 15605,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 25,
+                  "cache_read_lock_ticks": 81,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 8.942746516,
+                "end_seconds": 9.46685135,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0002889814814814815,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 1.5e-06,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 8887,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 7,
+                  "cache_read_lock_ticks": 27,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 9.46685135,
+                "end_seconds": 9.989799425,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00016457407407407406,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 5e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 8719,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 25,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 9.989799425,
+                "end_seconds": 10.513776281,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00016146296296296297,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.6296296296296297e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 8819,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 23,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 10.513776281,
+                "end_seconds": 11.037496873,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0001633148148148148,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.259259259259259e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 8568,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 32,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 11.037496873,
+                "end_seconds": 11.561887404,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00015866666666666666,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 5.925925925925926e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 8770,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 27,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 11.561887404,
+                "end_seconds": 12.085573754,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00016240740740740742,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 5e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12713,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 48,
+                  "cache_read_lock_ticks": 153,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 12.085573754,
+                "end_seconds": 12.608958439,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00023542592592592593,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 2.8333333333333335e-06,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 8563,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 5,
+                  "cache_read_lock_ticks": 33,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 12.608958439,
+                "end_seconds": 13.13264738,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00015857407407407408,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 6.111111111111111e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 8790,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 22,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 13.13264738,
+                "end_seconds": 13.656570236,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00016277777777777777,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.074074074074074e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 8641,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 24,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 13.656570236,
+                "end_seconds": 14.180511003,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0001600185185185185,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.4444444444444444e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 180638,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 2254,
+                  "cache_read_lock_ticks": 6773,
+                  "cache_write_lock_ticks": 105,
+                  "jit_count": 7,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 7,
+                  "disk_cache_lookup_ticks": 75
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 14.180511003,
+                "end_seconds": 14.704266085,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0033451481481481483,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.00012542592592592594,
+                  "cache_write_lock_ticks": 1.9444444444444444e-06,
+                  "disk_cache_lookup_ticks": 1.388888888888889e-06
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 181143,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 2262,
+                  "cache_read_lock_ticks": 6800,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 14.704266085,
+                "end_seconds": 15.227617457,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0033545,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 0.00012592592592592592,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 11239,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 12,
+                  "cache_read_lock_ticks": 87,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 15.227617457,
+                "end_seconds": 15.74994024,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00020812962962962964,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 1.6111111111111111e-06,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12976,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 23,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 15.74994024,
+                "end_seconds": 16.271769574,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0002402962962962963,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.259259259259259e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12894,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 24,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 16.271769574,
+                "end_seconds": 16.793831825,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00023877777777777778,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.4444444444444444e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12597,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 38,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 16.793831825,
+                "end_seconds": 17.315949614,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00023327777777777778,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 7.037037037037037e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 13077,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 10,
+                  "cache_read_lock_ticks": 52,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 17.315949614,
+                "end_seconds": 17.837979345,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00024216666666666665,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 9.62962962962963e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12993,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 23,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 17.837979345,
+                "end_seconds": 18.36009306,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00024061111111111112,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.259259259259259e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 13196,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 25,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 18.36009306,
+                "end_seconds": 18.882348024,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0002443703703703704,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.6296296296296297e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 13040,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 25,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 18.882348024,
+                "end_seconds": 19.404443109,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0002414814814814815,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.6296296296296297e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12715,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 25,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 19.404443109,
+                "end_seconds": 19.926412671,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00023546296296296295,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.6296296296296297e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 13599,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 25,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 19.926412671,
+                "end_seconds": 20.448399387,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00025183333333333335,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.6296296296296297e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12400,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 31,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 20.448399387,
+                "end_seconds": 20.970291412,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00022962962962962962,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 5.740740740740741e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12322,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 25,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 20.970291412,
+                "end_seconds": 21.492386403,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0002281851851851852,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.6296296296296297e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12125,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 23,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 21.492386403,
+                "end_seconds": 22.014796672,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00022453703703703703,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.259259259259259e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 16087,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 8,
+                  "cache_read_lock_ticks": 49,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 22.014796672,
+                "end_seconds": 22.637422566,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00029790740740740743,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 9.074074074074075e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12296,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 5,
+                  "cache_read_lock_ticks": 28,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 22.637422566,
+                "end_seconds": 23.159367807,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0002277037037037037,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 5.185185185185186e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12426,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 24,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 23.159367807,
+                "end_seconds": 23.681312785,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0002301111111111111,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.4444444444444444e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12645,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 24,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 23.681312785,
+                "end_seconds": 24.203426964,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00023416666666666668,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.4444444444444444e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 15672,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 8,
+                  "cache_read_lock_ticks": 46,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 24.203426964,
+                "end_seconds": 24.825780317,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0002902222222222222,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 8.518518518518518e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12337,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 23,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 24.825780317,
+                "end_seconds": 25.347837351,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00022846296296296297,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.259259259259259e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12220,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 22,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 25.347837351,
+                "end_seconds": 25.869806566,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0002262962962962963,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.074074074074074e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12300,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 28,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 25.869806566,
+                "end_seconds": 26.392124853,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00022777777777777778,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 5.185185185185186e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12265,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 25,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 26.392124853,
+                "end_seconds": 26.914227174,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.00022712962962962964,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.6296296296296297e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              },
+              {
+                "matched_slot_deltas": {
+                  "jit_path_ticks": 12788,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 26,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "matched_slots": 19,
+                "added_slots": [],
+                "removed_slots": [],
+                "reset_slots": [],
+                "observed_identity_stable": true,
+                "limitation": "No generation counter: rapid exit/reuse of same Windows TID and slot between samples may escape detection.",
+                "begin_seconds": 26.914227174,
+                "end_seconds": 27.436048064,
+                "timer_elapsed_seconds": {
+                  "jit_path_ticks": 0.0002368148148148148,
+                  "signal_ticks": 0.0,
+                  "cache_read_lock_ticks": 4.814814814814815e-07,
+                  "cache_write_lock_ticks": 0.0,
+                  "disk_cache_lookup_ticks": 0.0
+                }
+              }
+            ],
+            "windows": {
+              "idle": {
+                "requested_capture_seconds": [
+                  0.3,
+                  1.3
+                ],
+                "contained_stable_intervals": 1,
+                "contained_seconds": 0.522174923,
+                "contained_counter_deltas": {
+                  "jit_path_ticks": 14013,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4,
+                  "cache_read_lock_ticks": 25,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "overlapping_stable_counter_deltas": {
+                  "jit_path_ticks": 42928,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 12,
+                  "cache_read_lock_ticks": 72,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "limitation": "Contained intervals omit edge activity; overlapping intervals include activity outside the window. They do not assign an increment to an exact note/callback."
+              },
+              "attack": {
+                "requested_capture_seconds": [
+                  2,
+                  3
+                ],
+                "contained_stable_intervals": 1,
+                "contained_seconds": 0.529610119,
+                "contained_counter_deltas": {
+                  "jit_path_ticks": 214644,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 3865,
+                  "cache_read_lock_ticks": 19846,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "overlapping_stable_counter_deltas": {
+                  "jit_path_ticks": 602387,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 8237,
+                  "cache_read_lock_ticks": 39611,
+                  "cache_write_lock_ticks": 0,
+                  "jit_count": 0,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 0,
+                  "disk_cache_lookup_ticks": 0
+                },
+                "limitation": "Contained intervals omit edge activity; overlapping intervals include activity outside the window. They do not assign an increment to an exact note/callback."
+              },
+              "held_including_attack": {
+                "requested_capture_seconds": [
+                  2,
+                  14
+                ],
+                "contained_stable_intervals": 22,
+                "contained_seconds": 11.647321693,
+                "contained_counter_deltas": {
+                  "jit_path_ticks": 8879562,
+                  "signal_ticks": 1336,
+                  "sigbus_count": 27,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 11721,
+                  "cache_read_lock_ticks": 47333,
+                  "cache_write_lock_ticks": 12728,
+                  "jit_count": 1056,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 1056,
+                  "disk_cache_lookup_ticks": 3939
+                },
+                "overlapping_stable_counter_deltas": {
+                  "jit_path_ticks": 8955275,
+                  "signal_ticks": 1336,
+                  "sigbus_count": 27,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 12004,
+                  "cache_read_lock_ticks": 48035,
+                  "cache_write_lock_ticks": 12728,
+                  "jit_count": 1056,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 1056,
+                  "disk_cache_lookup_ticks": 3939
+                },
+                "limitation": "Contained intervals omit edge activity; overlapping intervals include activity outside the window. They do not assign an increment to an exact note/callback."
+              },
+              "stable_hold": {
+                "requested_capture_seconds": [
+                  3,
+                  14
+                ],
+                "contained_stable_intervals": 20,
+                "contained_seconds": 10.592143755,
+                "contained_counter_deltas": {
+                  "jit_path_ticks": 8344247,
+                  "signal_ticks": 1336,
+                  "sigbus_count": 27,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 3763,
+                  "cache_read_lock_ticks": 8400,
+                  "cache_write_lock_ticks": 12728,
+                  "jit_count": 1056,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 1056,
+                  "disk_cache_lookup_ticks": 3939
+                },
+                "overlapping_stable_counter_deltas": {
+                  "jit_path_ticks": 8673559,
+                  "signal_ticks": 1336,
+                  "sigbus_count": 27,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 7860,
+                  "cache_read_lock_ticks": 27511,
+                  "cache_write_lock_ticks": 12728,
+                  "jit_count": 1056,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 1056,
+                  "disk_cache_lookup_ticks": 3939
+                },
+                "limitation": "Contained intervals omit edge activity; overlapping intervals include activity outside the window. They do not assign an increment to an exact note/callback."
+              },
+              "release": {
+                "requested_capture_seconds": [
+                  14,
+                  20
+                ],
+                "contained_stable_intervals": 11,
+                "contained_seconds": 5.745901668000002,
+                "contained_counter_deltas": {
+                  "jit_path_ticks": 476508,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4566,
+                  "cache_read_lock_ticks": 13895,
+                  "cache_write_lock_ticks": 105,
+                  "jit_count": 7,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 7,
+                  "disk_cache_lookup_ticks": 75
+                },
+                "overlapping_stable_counter_deltas": {
+                  "jit_path_ticks": 498748,
+                  "signal_ticks": 0,
+                  "sigbus_count": 0,
+                  "smc_count": 0,
+                  "float_fallback_count": 0,
+                  "cache_miss_count": 4574,
+                  "cache_read_lock_ticks": 13944,
+                  "cache_write_lock_ticks": 105,
+                  "jit_count": 7,
+                  "disk_cache_hit_count": 0,
+                  "disk_cache_miss_count": 7,
+                  "disk_cache_lookup_ticks": 75
+                },
+                "limitation": "Contained intervals omit edge activity; overlapping intervals include activity outside the window. They do not assign an increment to an exact note/callback."
+              }
+            },
+            "held_process_cpu_surviving_threads_one_core_percent": {
+              "pigments_host": 153.14501793992642,
+              "arturia_named_other_process": 17.46442467402251,
+              "other_runtime": 2.7566203942210765
+            },
+            "arturia_named_thread_is_separate_process": true,
+            "full_capture_zero_runs": [
+              {
+                "begin_seconds": 2.384,
+                "end_seconds": 2.3893333333333335,
+                "frames": 256
+              },
+              {
+                "begin_seconds": 2.3946666666666667,
+                "end_seconds": 15.52,
+                "frames": 630016
+              },
+              {
+                "begin_seconds": 15.525333333333334,
+                "end_seconds": 15.530666666666667,
+                "frames": 256
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "counter_source_commit": "82510eb452b258959ef982be58a9c3c1bafc82a4",
+    "timer": {
+      "raw_unit": "CNTVCT reference timer ticks",
+      "conversion_hz": 54000000,
+      "source": "Current boot kernel: arch_timer: cp15 timer running at 54.00MHz (phys). Clocksource arch_sys_counter.",
+      "precision": "Derived seconds use boot-reported frequency; raw ticks retained."
+    },
+    "semantics": {
+      "jit_path_ticks": "Elapsed CompileBlock path including precompile, invalidation lock, memory/disk lookup/load and actual compile; not pure compilation CPU time.",
+      "jit_count": "CompileCode attempt count, not every cache lookup or necessarily unique successful block.",
+      "cache_miss_count": "L1 miss count; an L2/L3 hit can still increment this counter. Not retranslation count.",
+      "cache_read_lock_ticks": "Time acquiring shared L2/L3 lookup lock; not whole cache lookup work.",
+      "cache_write_lock_ticks": "Time acquiring cache write lock.",
+      "counter_times": "Elapsed counters may overlap; never sum as exclusive CPU categories.",
+      "identity": "Shared file owned Linux process; slots hold Windows TIDs. No per-audio-thread or Linux TID attribution.",
+      "sampling": "Two bounded reads per snapshot with matching topology, but counters are not an atomic whole-process snapshot. Stable observed slots can still hide very rapid reuse."
+    }
+  },
+  "audio_and_cpu": {
+    "comparison": "fex-existing-stats",
+    "errors": [],
+    "guard_final": {
+      "phase": "unchanged",
+      "governor": "ondemand",
+      "schedstats": "0"
+    },
+    "conditions": [
+      {
+        "condition": "fex",
+        "guard_before": {
+          "phase": "fex",
+          "governor": "ondemand",
+          "schedstats": "0"
+        },
+        "guard_at_measurement": {
+          "phase": "fex",
+          "governor": "ondemand",
+          "schedstats": "0"
+        },
+        "guard_after": {
+          "phase": "fex",
+          "governor": "ondemand",
+          "schedstats": "0"
+        },
+        "trace_readback": "RPI1_PHASE_TRACE mode=off recorder=false file=false",
+        "native_threads_at_ready": [
+          "trace-host",
+          "ap7-observer",
+          "ap3-transport",
+          "trace-host",
+          "trace-host",
+          "trace-host",
+          "trace-host"
+        ],
+        "phase_file_count_after": 0,
+        "restored_identity": {
+          "name": "8-Bit Crystals",
+          "bank": "Factory"
+        },
+        "restored_master": [
+          "RPI1_PARAMETER_READBACK id=2394 normalized=0.00000000000000000 revision=3",
+          "RPI1_PARAMETER_READBACK id=2395 normalized=0.00000000000000000 revision=3",
+          "RPI1_PARAMETER_READBACK id=0 normalized=0.48033079504966736 revision=4"
+        ],
+        "phase_attribution": "unavailable_trace_off",
+        "disabled_mark_reported_unavailable": true,
+        "drain_checks": [
+          {
+            "outstanding_frames_estimate": 0,
+            "request_elapsed_ns": 100493432
+          },
+          {
+            "outstanding_frames_estimate": 512,
+            "request_elapsed_ns": 100468788
+          },
+          {
+            "outstanding_frames_estimate": 256,
+            "request_elapsed_ns": 100473439
+          }
+        ],
+        "session": {
+          "ready_seconds": 11.023846533998949,
+          "elapsed_seconds": 78.54048597700057,
+          "exit_code": 0,
+          "clean_shutdown": true,
+          "graph_restored": true,
+          "temperature_peak_c": 51.8,
+          "throttled_flags": [
+            0
+          ]
+        },
+        "trials": [
+          {
+            "name": "warmup",
+            "fixture_exit": 0,
+            "capture_observation": {
+              "bytes": 7680000,
+              "expected_bytes": 7680000,
+              "fixture_completed": true,
+              "fixture_stereo_nonzero": true,
+              "fixture_result": {
+                "mode": "four-notes",
+                "completed": "true",
+                "midi_sent": "9",
+                "midi_errors": "0",
+                "xruns": "0",
+                "bad_blocks": "0",
+                "stereo_nonzero": "true"
+              },
+              "limitation": "Nonzero samples and process exit do not establish continuous audio; analyze held-window recording separately."
+            },
+            "counter_delta": {
+              "bridge_processed": 4142,
+              "missing_frames": 363520,
+              "gaps": 16,
+              "midi_accepted": 9,
+              "xruns": 0,
+              "process_failures": 0,
+              "delivered_frames": 696832
+            },
+            "flush_marks_count": 0,
+            "audio": {
+              "frames": 960000,
+              "nonfinite_samples": 0,
+              "peak": 0.03358739987015724,
+              "windows": {
+                "idle": {
+                  "capture_seconds": [
+                    0.3,
+                    1.3
+                  ],
+                  "exact_zero_frames": 48000,
+                  "initial_zero_frames": 48000,
+                  "longest_zero_run_frames": 48000,
+                  "internal_zero_runs": [],
+                  "rms": 0.0
+                },
+                "held_including_attack": {
+                  "capture_seconds": [
+                    2,
+                    14
+                  ],
+                  "exact_zero_frames": 366080,
+                  "initial_zero_frames": 362240,
+                  "longest_zero_run_frames": 362240,
+                  "internal_zero_runs": [
+                    {
+                      "start_seconds": 9.552,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.562666666666667,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.573333333333334,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.584,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.594666666666667,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.605333333333334,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.616,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.626666666666667,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.637333333333334,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.648,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.658666666666667,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.669333333333334,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.68,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.690666666666667,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.712,
+                      "frames": 256
+                    }
+                  ],
+                  "rms": 0.001811695132036455
+                },
+                "stable_hold": {
+                  "capture_seconds": [
+                    3,
+                    14
+                  ],
+                  "exact_zero_frames": 318080,
+                  "initial_zero_frames": 314240,
+                  "longest_zero_run_frames": 314240,
+                  "internal_zero_runs": [
+                    {
+                      "start_seconds": 9.552,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.562666666666667,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.573333333333334,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.584,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.594666666666667,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.605333333333334,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.616,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.626666666666667,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.637333333333334,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.648,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.658666666666667,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.669333333333334,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.68,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.690666666666667,
+                      "frames": 256
+                    },
+                    {
+                      "start_seconds": 9.712,
+                      "frames": 256
+                    }
+                  ],
+                  "rms": 0.0018922538513475276
+                }
+              },
+              "first_nonzero_after_scheduled_note_on_seconds": 9.546666666666667,
+              "scheduled_note_on_capture_frame": 96000,
+              "scheduled_note_off_capture_frame": 672000
+            },
+            "common_wall_windows": {
+              "idle": {
+                "start_ns": 12477611410068,
+                "end_ns": 12478611410068,
+                "wall_seconds": 1.0,
+                "cohort_cpu_seconds": 1.28249212578886,
+                "cohort_one_core_percent": 128.24921257888602,
+                "whole_pi_cpu_percent": 35.044521014561745,
+                "sampled_arm_hz": {
+                  "count": 2,
+                  "mean": 2400025600,
+                  "p50": 2400017408,
+                  "p95": 2400017408,
+                  "p99": 2400017408,
+                  "maximum": 2400033792
+                },
+                "temperature_c": {
+                  "count": 2,
+                  "mean": 49.599999999999994,
+                  "p50": 49.05,
+                  "p95": 49.05,
+                  "p99": 49.05,
+                  "maximum": 50.15
+                },
+                "throttled_flags": [
+                  0
+                ],
+                "surviving_threads_by_cpu": [
+                  {
+                    "name": "ArturiaSoftware",
+                    "cpu_seconds": 0.6326514429786299,
+                    "one_core_percent": 63.26514429786298,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "lvb-audio",
+                    "cpu_seconds": 0.5650416027656308,
+                    "one_core_percent": 56.50416027656307,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wf0-factory-pro",
+                    "cpu_seconds": 0.019367709672839163,
+                    "one_core_percent": 1.9367709672839164,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "winedevice.exe",
+                    "cpu_seconds": 0.015627327187575132,
+                    "one_core_percent": 1.562732718757513,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wineserver",
+                    "cpu_seconds": 0.011773782869392336,
+                    "one_core_percent": 1.1773782869392335,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wf0-factory-pro",
+                    "cpu_seconds": 0.010948863412038058,
+                    "one_core_percent": 1.094886341203806,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "ArturiaSoftware",
+                    "cpu_seconds": 0.009994593447003484,
+                    "one_core_percent": 0.9994593447003484,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wf0-factory-pro",
+                    "cpu_seconds": 0.0028873728188765647,
+                    "one_core_percent": 0.28873728188765646,
+                    "scheduler_wait_seconds": null
+                  }
+                ],
+                "sampled_arm_hz_minimum": 2400017408,
+                "native_threads": [
+                  {
+                    "name": "ap3-transport",
+                    "cpu_seconds": 0.0339723762190581,
+                    "one_core_percent": 3.3972376219058096
+                  },
+                  {
+                    "name": "ap7-observer",
+                    "cpu_seconds": 0.00787573608719413,
+                    "one_core_percent": 0.7875736087194131
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0032778412522260734,
+                    "one_core_percent": 0.3277841252226073
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0020999635639830827,
+                    "one_core_percent": 0.20999635639830827
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 5.4764261419163084e-05,
+                    "one_core_percent": 0.005476426141916309
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0,
+                    "one_core_percent": 0.0
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0,
+                    "one_core_percent": 0.0
+                  }
+                ],
+                "native_io_delta": {
+                  "syscw": 2.2951008237858446,
+                  "wchar": 9.180403295147698,
+                  "write_bytes": 0.0
+                }
+              },
+              "held_including_attack": {
+                "start_ns": 12479311410068,
+                "end_ns": 12491311410068,
+                "wall_seconds": 12.0,
+                "cohort_cpu_seconds": 17.89276097752696,
+                "cohort_one_core_percent": 149.10634147939138,
+                "whole_pi_cpu_percent": 39.058896005694585,
+                "sampled_arm_hz": {
+                  "count": 23,
+                  "mean": 2400025577.7391305,
+                  "p50": 2400020480,
+                  "p95": 2400033792,
+                  "p99": 2400033792,
+                  "maximum": 2400033792
+                },
+                "temperature_c": {
+                  "count": 23,
+                  "mean": 49.6,
+                  "p50": 49.6,
+                  "p95": 50.15,
+                  "p99": 50.7,
+                  "maximum": 51.25
+                },
+                "throttled_flags": [
+                  0
+                ],
+                "surviving_threads_by_cpu": [
+                  {
+                    "name": "lvb-audio",
+                    "cpu_seconds": 11.619282638733514,
+                    "one_core_percent": 96.8273553227793,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "Processing Thre",
+                    "cpu_seconds": 5.555738756130046,
+                    "one_core_percent": 46.297822967750385,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wf0-factory-pro",
+                    "cpu_seconds": 0.21584398817609024,
+                    "one_core_percent": 1.7986999014674188,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "winedevice.exe",
+                    "cpu_seconds": 0.2139074799762142,
+                    "one_core_percent": 1.7825623331351186,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wf0-factory-pro",
+                    "cpu_seconds": 0.14431690579065343,
+                    "one_core_percent": 1.2026408815887786,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "Resource worker",
+                    "cpu_seconds": 0.022620997632654877,
+                    "one_core_percent": 0.1885083136054573,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "Resource worker",
+                    "cpu_seconds": 0.02193745219277349,
+                    "one_core_percent": 0.18281210160644576,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "DSP Scheduler",
+                    "cpu_seconds": 0.019553970590492305,
+                    "one_core_percent": 0.16294975492076919,
+                    "scheduler_wait_seconds": null
+                  }
+                ],
+                "sampled_arm_hz_minimum": 2400017408,
+                "native_threads": [
+                  {
+                    "name": "ap3-transport",
+                    "cpu_seconds": 0.43838093698472486,
+                    "one_core_percent": 3.6531744748727073
+                  },
+                  {
+                    "name": "ap7-observer",
+                    "cpu_seconds": 0.11833137892084233,
+                    "one_core_percent": 0.9860948243403529
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.04120054060469155,
+                    "one_core_percent": 0.3433378383724296
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.02825029649172914,
+                    "one_core_percent": 0.23541913743107618
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0,
+                    "one_core_percent": 0.0
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0,
+                    "one_core_percent": 0.0
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0,
+                    "one_core_percent": 0.0
+                  }
+                ],
+                "native_io_delta": {
+                  "syscw": 0.0,
+                  "wchar": 0.0,
+                  "write_bytes": 0.0
+                }
+              },
+              "stable_hold": {
+                "start_ns": 12480311410068,
+                "end_ns": 12491311410068,
+                "wall_seconds": 11.0,
+                "cohort_cpu_seconds": 16.374730560283183,
+                "cohort_one_core_percent": 148.8611869116653,
+                "whole_pi_cpu_percent": 39.020927734922054,
+                "sampled_arm_hz": {
+                  "count": 21,
+                  "mean": 2400024953.904762,
+                  "p50": 2400020480,
+                  "p95": 2400033792,
+                  "p99": 2400033792,
+                  "maximum": 2400033792
+                },
+                "temperature_c": {
+                  "count": 21,
+                  "mean": 49.73095238095238,
+                  "p50": 49.6,
+                  "p95": 50.7,
+                  "p99": 50.7,
+                  "maximum": 51.25
+                },
+                "throttled_flags": [
+                  0
+                ],
+                "surviving_threads_by_cpu": [
+                  {
+                    "name": "lvb-audio",
+                    "cpu_seconds": 10.650961947010025,
+                    "one_core_percent": 96.82692679100022,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "Processing Thre",
+                    "cpu_seconds": 5.080354368646049,
+                    "one_core_percent": 46.18503971496408,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "winedevice.exe",
+                    "cpu_seconds": 0.19579203192513858,
+                    "one_core_percent": 1.7799275629558053,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wf0-factory-pro",
+                    "cpu_seconds": 0.19455493326488496,
+                    "one_core_percent": 1.768681211498954,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wf0-factory-pro",
+                    "cpu_seconds": 0.13219317232711608,
+                    "one_core_percent": 1.2017561120646916,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "Resource worker",
+                    "cpu_seconds": 0.020736607755315162,
+                    "one_core_percent": 0.18851461595741056,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "Resource worker",
+                    "cpu_seconds": 0.020010445079066224,
+                    "one_core_percent": 0.1819131370824202,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "DSP Scheduler",
+                    "cpu_seconds": 0.01789172820508591,
+                    "one_core_percent": 0.1626520745916901,
+                    "scheduler_wait_seconds": null
+                  }
+                ],
+                "sampled_arm_hz_minimum": 2400017408,
+                "native_threads": [
+                  {
+                    "name": "ap3-transport",
+                    "cpu_seconds": 0.40118123669277383,
+                    "one_core_percent": 3.647102151752489
+                  },
+                  {
+                    "name": "ap7-observer",
+                    "cpu_seconds": 0.10808959362464976,
+                    "one_core_percent": 0.9826326693149979
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0370765233212214,
+                    "one_core_percent": 0.3370593029201945
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.025912685192756774,
+                    "one_core_percent": 0.23556986538869792
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0,
+                    "one_core_percent": 0.0
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0,
+                    "one_core_percent": 0.0
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0,
+                    "one_core_percent": 0.0
+                  }
+                ],
+                "native_io_delta": {
+                  "syscw": 0.0,
+                  "wchar": 0.0,
+                  "write_bytes": 0.0
+                }
+              }
+            },
+            "clock_samples_below_2390mhz": []
+          },
+          {
+            "name": "measured",
+            "fixture_exit": 0,
+            "capture_observation": {
+              "bytes": 7680000,
+              "expected_bytes": 7680000,
+              "fixture_completed": true,
+              "fixture_stereo_nonzero": true,
+              "fixture_result": {
+                "mode": "four-notes",
+                "completed": "true",
+                "midi_sent": "9",
+                "midi_errors": "0",
+                "xruns": "0",
+                "bad_blocks": "0",
+                "stereo_nonzero": "true"
+              },
+              "limitation": "Nonzero samples and process exit do not establish continuous audio; analyze held-window recording separately."
+            },
+            "counter_delta": {
+              "bridge_processed": 4260,
+              "missing_frames": 630528,
+              "gaps": 3,
+              "midi_accepted": 9,
+              "xruns": 0,
+              "process_failures": 0,
+              "delivered_frames": 460544
+            },
+            "flush_marks_count": 0,
+            "audio": {
+              "frames": 960000,
+              "nonfinite_samples": 0,
+              "peak": 0.04860755801200867,
+              "windows": {
+                "idle": {
+                  "capture_seconds": [
+                    0.3,
+                    1.3
+                  ],
+                  "exact_zero_frames": 0,
+                  "initial_zero_frames": 0,
+                  "longest_zero_run_frames": 0,
+                  "internal_zero_runs": [],
+                  "rms": 5.1109859979771855e-14
+                },
+                "held_including_attack": {
+                  "capture_seconds": [
+                    2,
+                    14
+                  ],
+                  "exact_zero_frames": 557312,
+                  "initial_zero_frames": 0,
+                  "longest_zero_run_frames": 557056,
+                  "internal_zero_runs": [
+                    {
+                      "start_seconds": 2.384,
+                      "frames": 256
+                    }
+                  ],
+                  "rms": 0.001163631492256959
+                },
+                "stable_hold": {
+                  "capture_seconds": [
+                    3,
+                    14
+                  ],
+                  "exact_zero_frames": 528000,
+                  "initial_zero_frames": 528000,
+                  "longest_zero_run_frames": 528000,
+                  "internal_zero_runs": [],
+                  "rms": 0.0
+                }
+              },
+              "first_nonzero_after_scheduled_note_on_seconds": 2.0,
+              "scheduled_note_on_capture_frame": 96000,
+              "scheduled_note_off_capture_frame": 672000
+            },
+            "common_wall_windows": {
+              "idle": {
+                "start_ns": 12503092685736,
+                "end_ns": 12504092685736,
+                "wall_seconds": 1.0,
+                "cohort_cpu_seconds": 0.7371410308480785,
+                "cohort_one_core_percent": 73.71410308480785,
+                "whole_pi_cpu_percent": 20.99721849205822,
+                "sampled_arm_hz": {
+                  "count": 2,
+                  "mean": 2400025600,
+                  "p50": 2400017408,
+                  "p95": 2400017408,
+                  "p99": 2400017408,
+                  "maximum": 2400033792
+                },
+                "temperature_c": {
+                  "count": 2,
+                  "mean": 49.05,
+                  "p50": 48.5,
+                  "p95": 48.5,
+                  "p99": 48.5,
+                  "maximum": 49.6
+                },
+                "throttled_flags": [
+                  0
+                ],
+                "surviving_threads_by_cpu": [
+                  {
+                    "name": "lvb-audio",
+                    "cpu_seconds": 0.5899359824095154,
+                    "one_core_percent": 58.993598240951535,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "ArturiaSoftware",
+                    "cpu_seconds": 0.08010873254292655,
+                    "one_core_percent": 8.010873254292655,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wf0-factory-pro",
+                    "cpu_seconds": 0.017693038565801622,
+                    "one_core_percent": 1.769303856580162,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "winedevice.exe",
+                    "cpu_seconds": 0.014240969607177138,
+                    "one_core_percent": 1.4240969607177139,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wf0-factory-pro",
+                    "cpu_seconds": 0.009961650746881604,
+                    "one_core_percent": 0.9961650746881604,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wineserver",
+                    "cpu_seconds": 0.008566692214529038,
+                    "one_core_percent": 0.8566692214529037,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wf0-factory-pro",
+                    "cpu_seconds": 0.0026747115351039245,
+                    "one_core_percent": 0.26747115351039247,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "Resource worker",
+                    "cpu_seconds": 0.0017128707457497567,
+                    "one_core_percent": 0.17128707457497566,
+                    "scheduler_wait_seconds": null
+                  }
+                ],
+                "sampled_arm_hz_minimum": 2400017408,
+                "native_threads": [
+                  {
+                    "name": "ap3-transport",
+                    "cpu_seconds": 0.032256313529209615,
+                    "one_core_percent": 3.2256313529209613
+                  },
+                  {
+                    "name": "ap7-observer",
+                    "cpu_seconds": 0.008355886316669166,
+                    "one_core_percent": 0.8355886316669167
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0027859015786044447,
+                    "one_core_percent": 0.2785901578604445
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.001865304095775962,
+                    "one_core_percent": 0.1865304095775962
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 8.76885227839225e-05,
+                    "one_core_percent": 0.008768852278392249
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0,
+                    "one_core_percent": 0.0
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0,
+                    "one_core_percent": 0.0
+                  }
+                ],
+                "native_io_delta": {
+                  "syscw": 3.228539732107407,
+                  "wchar": 12.914158928440884,
+                  "write_bytes": 0.0
+                }
+              },
+              "held_including_attack": {
+                "start_ns": 12504792685736,
+                "end_ns": 12516792685736,
+                "wall_seconds": 12.0,
+                "cohort_cpu_seconds": 20.799263745186888,
+                "cohort_one_core_percent": 173.3271978765574,
+                "whole_pi_cpu_percent": 45.64955384379565,
+                "sampled_arm_hz": {
+                  "count": 22,
+                  "mean": 2400028043.6363635,
+                  "p50": 2400027136,
+                  "p95": 2400033792,
+                  "p99": 2400033792,
+                  "maximum": 2400037120
+                },
+                "temperature_c": {
+                  "count": 22,
+                  "mean": 50.775,
+                  "p50": 50.7,
+                  "p95": 51.25,
+                  "p99": 51.8,
+                  "maximum": 51.8
+                },
+                "throttled_flags": [
+                  0
+                ],
+                "surviving_threads_by_cpu": [
+                  {
+                    "name": "lvb-audio",
+                    "cpu_seconds": 11.736223664885067,
+                    "one_core_percent": 97.80186387404221,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "Processing Thre",
+                    "cpu_seconds": 5.4935309265066,
+                    "one_core_percent": 45.779424387555004,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "ArturiaSoftware",
+                    "cpu_seconds": 1.9267180466636804,
+                    "one_core_percent": 16.055983722197336,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wf0-factory-pro",
+                    "cpu_seconds": 0.4253495895688095,
+                    "one_core_percent": 3.5445799130734126,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wf0-factory-pro",
+                    "cpu_seconds": 0.304476684,
+                    "one_core_percent": 2.5373057,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "winedevice.exe",
+                    "cpu_seconds": 0.23234772699498474,
+                    "one_core_percent": 1.9362310582915394,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wf0-factory-pro",
+                    "cpu_seconds": 0.1557785284350066,
+                    "one_core_percent": 1.2981544036250552,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wine_threadpool",
+                    "cpu_seconds": 0.14701828859476765,
+                    "one_core_percent": 1.2251524049563973,
+                    "scheduler_wait_seconds": null
+                  }
+                ],
+                "sampled_arm_hz_minimum": 2400020480,
+                "native_threads": [
+                  {
+                    "name": "ap3-transport",
+                    "cpu_seconds": 0.471213099209496,
+                    "one_core_percent": 3.9267758267458
+                  },
+                  {
+                    "name": "ap7-observer",
+                    "cpu_seconds": 0.12580880288712817,
+                    "one_core_percent": 1.048406690726068
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.04143433567522432,
+                    "one_core_percent": 0.3452861306268693
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.029213582729560136,
+                    "one_core_percent": 0.24344652274633446
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0,
+                    "one_core_percent": 0.0
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0,
+                    "one_core_percent": 0.0
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0,
+                    "one_core_percent": 0.0
+                  }
+                ],
+                "native_io_delta": {
+                  "syscw": 0.0,
+                  "wchar": 0.0,
+                  "write_bytes": 0.0
+                }
+              },
+              "stable_hold": {
+                "start_ns": 12505792685736,
+                "end_ns": 12516792685736,
+                "wall_seconds": 11.0,
+                "cohort_cpu_seconds": 19.07486651871769,
+                "cohort_one_core_percent": 173.40787744288812,
+                "whole_pi_cpu_percent": 45.635656646704696,
+                "sampled_arm_hz": {
+                  "count": 21,
+                  "mean": 2400027769.904762,
+                  "p50": 2400027136,
+                  "p95": 2400033792,
+                  "p99": 2400033792,
+                  "maximum": 2400037120
+                },
+                "temperature_c": {
+                  "count": 21,
+                  "mean": 50.804761904761904,
+                  "p50": 50.7,
+                  "p95": 51.8,
+                  "p99": 51.8,
+                  "maximum": 51.8
+                },
+                "throttled_flags": [
+                  0
+                ],
+                "surviving_threads_by_cpu": [
+                  {
+                    "name": "lvb-audio",
+                    "cpu_seconds": 10.756604407461701,
+                    "one_core_percent": 97.78731279510637,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "Processing Thre",
+                    "cpu_seconds": 5.022824480815783,
+                    "one_core_percent": 45.66204073468893,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "ArturiaSoftware",
+                    "cpu_seconds": 1.719915565496903,
+                    "one_core_percent": 15.635596049971847,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wf0-factory-pro",
+                    "cpu_seconds": 0.4015579746841526,
+                    "one_core_percent": 3.6505270425832053,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wf0-factory-pro",
+                    "cpu_seconds": 0.304476684,
+                    "one_core_percent": 2.7679698545454547,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "winedevice.exe",
+                    "cpu_seconds": 0.21225781514219688,
+                    "one_core_percent": 1.929616501292699,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wine_threadpool",
+                    "cpu_seconds": 0.14642571391814177,
+                    "one_core_percent": 1.331142853801289,
+                    "scheduler_wait_seconds": null
+                  },
+                  {
+                    "name": "wf0-factory-pro",
+                    "cpu_seconds": 0.14247408518957347,
+                    "one_core_percent": 1.2952189562688496,
+                    "scheduler_wait_seconds": null
+                  }
+                ],
+                "sampled_arm_hz_minimum": 2400020480,
+                "native_threads": [
+                  {
+                    "name": "ap3-transport",
+                    "cpu_seconds": 0.4314619414352534,
+                    "one_core_percent": 3.922381285775031
+                  },
+                  {
+                    "name": "ap7-observer",
+                    "cpu_seconds": 0.11492614154692471,
+                    "one_core_percent": 1.0447831049720429
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.03757014027459115,
+                    "one_core_percent": 0.34154672976901046
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.026613304074991344,
+                    "one_core_percent": 0.2419391279544668
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0,
+                    "one_core_percent": 0.0
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0,
+                    "one_core_percent": 0.0
+                  },
+                  {
+                    "name": "trace-host",
+                    "cpu_seconds": 0.0,
+                    "one_core_percent": 0.0
+                  }
+                ],
+                "native_io_delta": {
+                  "syscw": 0.0,
+                  "wchar": 0.0,
+                  "write_bytes": 0.0
+                }
+              }
+            },
+            "clock_samples_below_2390mhz": []
+          }
+        ]
+      }
+    ],
+    "limitations": [
+      "Common CPU windows use graph-ready stdout observation, not an exact MIDI callback timestamp. Audio windows use capture frame positions and retain actual first nonzero output.",
+      "First nonzero after frame96000 is not new-note onset when a residual tail is already nonzero before the stimulus. Idle RMS is retained to expose this.",
+      "Four note-ons are scheduled at capture frame96000 and note-offs at672000 by the same capture sample counter; this does not establish plugin execution or audible onset at those frames.",
+      "Native phase tracing OFF retains callback deadline/scalar output checks, transport/fault clocks, commercial native observer and Windows diagnostics. This is not a fully uninstrumented runtime.",
+      "Only ON creates phase records and has before/after/five-second flush marks, including disk sync. These are the intended observer difference.",
+      "Before/after status counter deltas span wider than the stimulus hold and include control/marker response time. They are not exact active-block attribution.",
+      "Off has no phase attribution. Common wall-window CPU is not CPU per rendered second. Scheduler wait is unavailable with schedstats disabled.",
+      "Exact-zero audio frames can include onset latency or preset behavior. Counter-reported missing frames are reported separately; neither nonzero output nor exit0 proves continuity.",
+      "One ordered OFF/ON/OFF exposes repeat drift but is not randomized or sustained-performance qualification. No subjective listening or battery energy measurement was made."
+    ]
+  },
+  "prior_companion_comparison": [
+    {
+      "condition": "off1",
+      "held_process_cpu_surviving_threads_one_core_percent": {
+        "pigments_host": 142.75315664379212,
+        "arturia_named_other_process": 0.5025955004853093,
+        "other_runtime": 2.3518952334023617
+      },
+      "arturia_named_thread_is_separate_process": true
+    },
+    {
+      "condition": "on",
+      "held_process_cpu_surviving_threads_one_core_percent": {
+        "pigments_host": 143.92779888873196,
+        "arturia_named_other_process": 0.5035137456348944,
+        "other_runtime": 2.3993308730371137
+      },
+      "arturia_named_thread_is_separate_process": true
+    },
+    {
+      "condition": "off2",
+      "held_process_cpu_surviving_threads_one_core_percent": {
+        "pigments_host": 142.7199999077062,
+        "arturia_named_other_process": 0.4957662165641135,
+        "other_runtime": 3.0371157169982634
+      },
+      "arturia_named_thread_is_separate_process": true
+    }
+  ],
+  "cleanup": {
+    "preference_restored_exact": true,
+    "preference_original_sha256": "02ecde5ac8591e0b6e41e637a083b7a50e3c04a7b77ea96445689c6d48e2cf91",
+    "operator_preset": "8-Bit Crystals",
+    "master": 0.48033079504966736,
+    "owned_services_remaining": 0,
+    "baseline_jack_graph_restored": true,
+    "governor": "ondemand",
+    "schedstats": 0,
+    "current_throttled_flags": 0,
+    "idle_temperature_c": 46.6,
+    "config_and_binaries_unchanged": true
+  },
+  "tests": {
+    "decoder_and_reducer_tests_passed": 5,
+    "native_windows_or_runtime_builds": 0,
+    "live_sessions": 1,
+    "captures": 2
+  },
+  "sources": [
+    "https://github.com/FEX-Emu/FEX/blob/82510eb452b258959ef982be58a9c3c1bafc82a4/FEXCore/include/FEXCore/Utils/SHMStats.h",
+    "https://github.com/FEX-Emu/FEX/blob/82510eb452b258959ef982be58a9c3c1bafc82a4/Source/Common/SHMStats.cpp",
+    "https://github.com/FEX-Emu/FEX/blob/82510eb452b258959ef982be58a9c3c1bafc82a4/Source/Windows/UnixLib/FEXUnixLib.cpp",
+    "https://github.com/FEX-Emu/FEX/blob/82510eb452b258959ef982be58a9c3c1bafc82a4/Source/Windows/ARM64EC/Module.cpp"
+  ],
+  "interpretation": {
+    "supported": "Existing FEX counters are usable with low measured reader overhead. Repeat audio failure begins around2.39s while intervals overlapping2\u20133s have zero JIT attempts; biggest JIT burst is later5.277\u20135.801s. First-note compilation is not supported as the immediate explanation of this repeat cutoff.",
+    "not_supported": "No claim of improved performance, reliable warmed baseline, sole FEX cause, companion-process cause, per-audio-thread compilation, or exact callback alignment.",
+    "remaining_confounds": "Pigments-host CPU increased versus earlier holds, with additional separate Arturia-named process activity during repeat. First hold failed while that companion was nearly idle. Sparse counters cover only observed live slots and the Pigments host, not every runtime process.",
+    "next_lever": "Review feasibility of 512-frame vendor batching at unchanged48k/JACK512/reserve2048 as the next bounded efficiency experiment. No FEX-cache tuning or companion-process stop is justified here; retain execution/wait attribution if throughput does not improve."
+  }
+}

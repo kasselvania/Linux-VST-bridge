@@ -1,0 +1,158 @@
+{
+  "preference_before": 1,
+  "preference_after": 1,
+  "preference_original_sha256": "02ecde5ac8591e0b6e41e637a083b7a50e3c04a7b77ea96445689c6d48e2cf91",
+  "candidate_sha256": "85780f4856f2bac9f605628ca7decd80568cca0ad36fa92db70960bf74dd1a62",
+  "operator_state": {
+    "identity": {
+      "name": "8-Bit Crystals",
+      "bank": "Factory"
+    },
+    "state_sha256": "5142d9f47bd114e8ead3827d4314e22603ac6eb8f16d1e177e0ef0c27fab4514",
+    "component_multicore": 1,
+    "controller_multicore": 1,
+    "agrees": true
+  },
+  "selected_state": {
+    "identity": {
+      "name": "24 AM",
+      "bank": "Pigments 6.0"
+    },
+    "state_sha256": "44ee3eb052eb2912874688d062ddacc9d42f76fcadf78e700922164ed20b7ce7",
+    "component_multicore": 1,
+    "controller_multicore": 1,
+    "agrees": true
+  },
+  "events": [
+    {
+      "event": "preference_changed_while_closed",
+      "monotonic_ns": 11887900604282,
+      "value": 0,
+      "sha256": "7dcf5a3f6f248bb0e9e24cfa3973885df6f87981735ff4f83e82aa288f9a486a"
+    },
+    {
+      "event": "startup_state",
+      "monotonic_ns": 11924426968334,
+      "identity": {
+        "name": "Welcome",
+        "bank": "Factory"
+      },
+      "state_sha256": "da929a6c7ab2bea842c39cb7b6cdf6233a08b87f41c70f69d27e04d1c322db20",
+      "component_multicore": 0,
+      "controller_multicore": 0,
+      "agrees": true
+    },
+    {
+      "event": "after_24am_restore",
+      "monotonic_ns": 11925942653600,
+      "identity": {
+        "name": "24 AM",
+        "bank": "Pigments 6.0"
+      },
+      "state_sha256": "12d79615d865f852b2b0caadfb9b14f813f75dd0462c695252cae05363fb3665",
+      "component_multicore": 1,
+      "controller_multicore": 1,
+      "agrees": true
+    }
+  ],
+  "errors": [],
+  "post_restore_master": [
+    "RPI1_PARAMETER_READBACK id=2394 normalized=0.00000000000000000 revision=1",
+    "RPI1_PARAMETER_READBACK id=2395 normalized=0.00000000000000000 revision=1",
+    "RPI1_PARAMETER_READBACK id=0 normalized=0.34999996423721313 revision=2"
+  ],
+  "restored_master": [
+    "RPI1_PARAMETER_READBACK id=2394 normalized=0.00000000000000000 revision=2",
+    "RPI1_PARAMETER_READBACK id=2395 normalized=0.00000000000000000 revision=2",
+    "RPI1_PARAMETER_READBACK id=0 normalized=0.48033079504966736 revision=3"
+  ],
+  "restored_state": {
+    "identity": {
+      "name": "8-Bit Crystals",
+      "bank": "Factory"
+    },
+    "state_sha256": "8b86ceb470d98e6487a05209c111f956c1eadcd74d6d6cbe1d63aa5abae9bd10",
+    "component_multicore": 1,
+    "controller_multicore": 1,
+    "agrees": true
+  },
+  "preference_restored_exact": true,
+  "preference_metadata_restored": true,
+  "generic_binary_sha256": "9d0a611d7175b05e398f484d9217fb29b7004f3e0eaac76acd6ad00a541bd1da",
+  "helper_default_sha256": "24e6ab174071a46c715d03c6e9d6718652097e965ffb3911eb2aa8298a2ef617",
+  "scope": "One headless no-note preference/readback mechanism check; no multicore performance comparison",
+  "base_commit": "0a966060fd09de69aa9b3cc4c5bcd7ef372c7dc9",
+  "vendor_sources": [
+    {
+      "url": "https://support.arturia.com/hc/en-us/articles/24036230171804-Pigments-General-Questions",
+      "finding": "Vendor names global Multicore control; recommends comparing enabled and disabled."
+    },
+    {
+      "url": "https://dl.arturia.net/products/pigments/manual/pigments_Manual_7_0_1_EN.pdf",
+      "section": "3.7.1.1, printed page40 / PDF page46",
+      "finding": "Instrument-wide setting persists across preset changes; full host-state restoration is assessed separately here."
+    }
+  ],
+  "installed_vendor_definition": {
+    "parameter_name": "Multicore2",
+    "display_name": "Multicore",
+    "processor_parameter_name": "Multicore",
+    "default_item": 1,
+    "item_order": [
+      "Off",
+      "On"
+    ],
+    "savedinpreset": 0,
+    "savedinstate": 1,
+    "savedinpreffile": 1,
+    "preference_relative_to_vendor_root": "Pigments/tmp/plugin.pref.xml",
+    "definition_relative_to_vendor_root": "Pigments/resources/Pigments.xml",
+    "definition_sha256": "33e8770dfd9a8b0425b6d0626bb789c98526af593a687bda4ce942017f4e1f0e",
+    "settings_binding_sha256": "0bfd5810083b2ccfb6aea43c94f6eb04e8a3e40b6419d6afc6c1f2038b31b974"
+  },
+  "vst_parameter_census": {
+    "retained_windows_logs_parsed": 30,
+    "total_rows_including_repeated_catalogs": 124488,
+    "complete_pigments_parameter_count": 4446,
+    "multicore_control_matches": 0,
+    "rule": "Parsed actual title fields; no multicore/core/thread control, unrelated multiband FX excluded. No ID inferred from resource index."
+  },
+  "session": {
+    "ready_seconds": 34.18950198600032,
+    "elapsed_seconds": 43.24507013499897,
+    "clean_shutdown": true,
+    "exit_code": 0,
+    "temperature_peak_c": 49.6,
+    "throttled_flags": [
+      0
+    ],
+    "native_phase_trace": "off",
+    "notes_sent": 0
+  },
+  "cleanup": {
+    "preference_bytes_restored": true,
+    "preference_metadata_fields_verified": [
+      "mode",
+      "uid",
+      "gid",
+      "mtime_ns"
+    ],
+    "operator_preset": "8-Bit Crystals",
+    "master": 0.48033079504966736,
+    "component_multicore": 1,
+    "controller_multicore": 1,
+    "owned_services_remaining": 0,
+    "baseline_jack_graph_restored": true,
+    "governor": "ondemand",
+    "schedstats": 0,
+    "current_throttled_flags": 0,
+    "config_and_original_binaries_unchanged": true
+  },
+  "tests": {
+    "narrow_preference_edit_and_refusal_tests_passed": 2,
+    "native_or_windows_build_performed": false
+  },
+  "conclusion": "Preference is effective at startup (component/controller0) but the unchanged24AM full-state restore overrides it (both1). No valid same-state headless ON/OFF comparison established under the allowed interfaces. Do not run a mislabeled benchmark or patch opaque vendor state.",
+  "optional_fex_groundwork": "One read-only startup sample found the owned Windows cohort before a Pigments mapping was present. Shared-stat availability was not established; no settings changed and no run prolonged.",
+  "next_lever": "Inspect pinned FEX shared statistics in a later owned workload to separate translation/cache/fallback costs from other Windows processing. No FEX cause established here."
+}

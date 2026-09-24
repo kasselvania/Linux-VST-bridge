@@ -1,0 +1,2757 @@
+{
+  "conditions": [
+    {
+      "condition": "original",
+      "guard_before": {
+        "phase": "original",
+        "governor": "ondemand",
+        "schedstats": "0"
+      },
+      "guard_at_measurement": {
+        "phase": "original",
+        "governor": "ondemand",
+        "schedstats": "0"
+      },
+      "guard_after": {
+        "phase": "original",
+        "governor": "ondemand",
+        "schedstats": "0"
+      },
+      "drain_checks": [
+        {
+          "counters": {
+            "midi_accepted": 9,
+            "output_nonzero_l": 377600,
+            "output_nonzero_r": 377600,
+            "output_peak_l": 0.034037106,
+            "output_peak_r": 0.036244072,
+            "output_nonfinite": 0,
+            "xruns": 0,
+            "process_failures": 0,
+            "bridge_processed": 6303,
+            "request_high": 50,
+            "result_high": 9,
+            "fault": 0,
+            "fault_site": "unknown",
+            "callbacks": 3233,
+            "failures": 0,
+            "deadline_misses": 0,
+            "callback_ns_max": 61556,
+            "missing_frames": 573696,
+            "gaps": 14,
+            "delivered_frames": 1036032,
+            "paused_frames": 41472,
+            "unsupported_midi": 0,
+            "malformed_midi": 0,
+            "overflow_midi": 0
+          },
+          "request_elapsed_ns": 100469969,
+          "outstanding_frames_estimate": 256
+        },
+        {
+          "counters": {
+            "midi_accepted": 9,
+            "output_nonzero_l": 430336,
+            "output_nonzero_r": 430336,
+            "output_peak_l": 0.034037106,
+            "output_peak_r": 0.036244072,
+            "output_nonfinite": 0,
+            "xruns": 0,
+            "process_failures": 0,
+            "bridge_processed": 6510,
+            "request_high": 50,
+            "result_high": 9,
+            "fault": 0,
+            "fault_site": "unknown",
+            "callbacks": 3336,
+            "failures": 0,
+            "deadline_misses": 0,
+            "callback_ns_max": 61556,
+            "missing_frames": 573696,
+            "gaps": 14,
+            "delivered_frames": 1088768,
+            "paused_frames": 41472,
+            "unsupported_midi": 0,
+            "malformed_midi": 0,
+            "overflow_midi": 0
+          },
+          "request_elapsed_ns": 100407115,
+          "outstanding_frames_estimate": 0
+        },
+        {
+          "counters": {
+            "midi_accepted": 9,
+            "output_nonzero_l": 483584,
+            "output_nonzero_r": 483584,
+            "output_peak_l": 0.034037106,
+            "output_peak_r": 0.036244072,
+            "output_nonfinite": 0,
+            "xruns": 0,
+            "process_failures": 0,
+            "bridge_processed": 6716,
+            "request_high": 50,
+            "result_high": 9,
+            "fault": 0,
+            "fault_site": "unknown",
+            "callbacks": 3440,
+            "failures": 0,
+            "deadline_misses": 0,
+            "callback_ns_max": 61556,
+            "missing_frames": 573696,
+            "gaps": 14,
+            "delivered_frames": 1142016,
+            "paused_frames": 41472,
+            "unsupported_midi": 0,
+            "malformed_midi": 0,
+            "overflow_midi": 0
+          },
+          "request_elapsed_ns": 100478002,
+          "outstanding_frames_estimate": 512
+        }
+      ],
+      "restored_identity": {
+        "name": "8-Bit Crystals",
+        "bank": "Factory"
+      },
+      "restored_master": [
+        "RPI1_PARAMETER_READBACK id=2394 normalized=0.00000000000000000 revision=3",
+        "RPI1_PARAMETER_READBACK id=2395 normalized=0.00000000000000000 revision=3",
+        "RPI1_PARAMETER_READBACK id=0 normalized=0.48033079504966736 revision=4"
+      ],
+      "session": {
+        "ready_seconds": 17.05080740899939,
+        "elapsed_seconds": 85.47946337900066,
+        "clean_shutdown": true,
+        "exit_code": 0,
+        "graph_restored": true,
+        "peak_temperature_c": 54.0,
+        "throttle_flags": [
+          0
+        ]
+      },
+      "counter_delta": {
+        "bridge_processed": 3882,
+        "missing_frames": 0,
+        "gaps": 0,
+        "midi_accepted": 9,
+        "xruns": 0,
+        "process_failures": 0,
+        "delivered_frames": 993792
+      },
+      "capture_observation": {
+        "bytes": 7680000,
+        "expected_bytes": 7680000,
+        "fixture_completed": true,
+        "fixture_stereo_nonzero": true,
+        "fixture_result": {
+          "mode": "four-notes",
+          "completed": "true",
+          "midi_sent": "9",
+          "midi_errors": "0",
+          "xruns": "0",
+          "bad_blocks": "0",
+          "stereo_nonzero": "true"
+        },
+        "limitation": "Nonzero samples and process exit do not establish continuous audio; analyze held-window recording separately."
+      },
+      "flush_marks_ns": [
+        9191178087305,
+        9196439012325,
+        9201771371011,
+        9206585454583,
+        9211282552254,
+        9211782854929
+      ],
+      "phase_drops": [],
+      "windows": {
+        "before_stimulus": {
+          "coverage": {
+            "nominal_blocks": 188,
+            "boundary_tolerance_blocks": 2,
+            "position_span_expected_blocks": 188,
+            "retained_published_blocks": 188,
+            "matched_completed_blocks": 188,
+            "missing_positions_inside_span": 0,
+            "complete": true
+          },
+          "blocks": 188,
+          "frames": 48128,
+          "vendor_ms": {
+            "count": 188,
+            "mean": 2.9539574468085106,
+            "p50": 2.7524,
+            "p95": 3.3188,
+            "p99": 4.0357,
+            "maximum": 7.0478
+          },
+          "service_ms": {
+            "count": 188,
+            "mean": 3.0912779574468083,
+            "p50": 2.89589,
+            "p95": 3.482709,
+            "p99": 4.171084,
+            "maximum": 7.185734
+          },
+          "queue_ms": {
+            "count": 188,
+            "mean": 1.639972090425532,
+            "p50": 0.208168,
+            "p95": 3.55682,
+            "p99": 4.232436,
+            "maximum": 7.39781
+          },
+          "slow_vendor_blocks": 1,
+          "slow_service_blocks": 1,
+          "cpu": {
+            "start_ns": 9190294513645,
+            "end_ns": 9191292487547,
+            "wall_seconds": 0.997973902,
+            "cohort_cpu_seconds": null,
+            "cohort_cpu_seconds_per_rendered_second": null,
+            "cohort_one_core_percent": null,
+            "whole_pi_cpu_percent": null,
+            "sampled_arm_hz": {
+              "count": 1,
+              "mean": 2400017408,
+              "p50": 2400017408,
+              "p95": 2400017408,
+              "p99": 2400017408,
+              "maximum": 2400017408
+            },
+            "temperature_c": {
+              "count": 1,
+              "mean": 51.8,
+              "p50": 51.8,
+              "p95": 51.8,
+              "p99": 51.8,
+              "maximum": 51.8
+            },
+            "throttled_flags": [
+              0
+            ],
+            "surviving_threads_by_cpu": []
+          },
+          "native_threads": [],
+          "native_io_delta": {
+            "syscw": null,
+            "wchar": null,
+            "write_bytes": null
+          }
+        },
+        "idle": {
+          "coverage": {
+            "nominal_blocks": 188,
+            "boundary_tolerance_blocks": 2,
+            "position_span_expected_blocks": 188,
+            "retained_published_blocks": 188,
+            "matched_completed_blocks": 188,
+            "missing_positions_inside_span": 0,
+            "complete": true
+          },
+          "blocks": 188,
+          "frames": 48128,
+          "vendor_ms": {
+            "count": 188,
+            "mean": 3.017833510638298,
+            "p50": 2.8065,
+            "p95": 3.5972,
+            "p99": 4.2768,
+            "maximum": 4.3314
+          },
+          "service_ms": {
+            "count": 188,
+            "mean": 3.1622242872340425,
+            "p50": 2.956168,
+            "p95": 3.782766,
+            "p99": 4.427363,
+            "maximum": 4.53679
+          },
+          "queue_ms": {
+            "count": 188,
+            "mean": 1.6496296170212765,
+            "p50": 0.114797,
+            "p95": 3.684488,
+            "p99": 4.375344,
+            "maximum": 4.605847
+          },
+          "slow_vendor_blocks": 0,
+          "slow_service_blocks": 0,
+          "cpu": {
+            "start_ns": 9191595990660,
+            "end_ns": 9192594208532,
+            "wall_seconds": 0.998217872,
+            "cohort_cpu_seconds": 0.6519453688703551,
+            "cohort_cpu_seconds_per_rendered_second": 0.6502114716127213,
+            "cohort_one_core_percent": 65.31092932288786,
+            "whole_pi_cpu_percent": 25.522821590553594,
+            "sampled_arm_hz": {
+              "count": 2,
+              "mean": 2400030464,
+              "p50": 2400027136,
+              "p95": 2400027136,
+              "p99": 2400027136,
+              "maximum": 2400033792
+            },
+            "temperature_c": {
+              "count": 2,
+              "mean": 50.975,
+              "p50": 50.7,
+              "p95": 50.7,
+              "p99": 50.7,
+              "maximum": 51.25
+            },
+            "throttled_flags": [
+              0
+            ],
+            "surviving_threads_by_cpu": [
+              {
+                "name": "lvb-audio",
+                "cpu_seconds": 0.5901165825230713,
+                "one_core_percent": 59.11701233526615,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wf0-factory-pro",
+                "cpu_seconds": 0.017120495686337472,
+                "one_core_percent": 1.7151061072504492,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "winedevice.exe",
+                "cpu_seconds": 0.01374543714762926,
+                "one_core_percent": 1.3769977009216743,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wf0-factory-pro",
+                "cpu_seconds": 0.009588664061823309,
+                "one_core_percent": 0.9605782796306525,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wineserver",
+                "cpu_seconds": 0.003294507778658509,
+                "one_core_percent": 0.33003894951887913,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wf0-factory-pro",
+                "cpu_seconds": 0.0026068751076998116,
+                "one_core_percent": 0.2611529186986758,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "ArturiaSoftware",
+                "cpu_seconds": 0.0019617312488503457,
+                "one_core_percent": 0.19652335465802456,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "Resource worker",
+                "cpu_seconds": 0.0016925032614869178,
+                "one_core_percent": 0.16955249038928424,
+                "scheduler_wait_seconds": null
+              }
+            ]
+          },
+          "native_threads": [
+            {
+              "name": "rpi1-phase-drai",
+              "cpu_seconds": 0.29789668956321524,
+              "one_core_percent": 29.84285273978898
+            },
+            {
+              "name": "ap3-transport",
+              "cpu_seconds": 0.03141713026230836,
+              "one_core_percent": 3.147321956815091
+            },
+            {
+              "name": "ap7-observer",
+              "cpu_seconds": 0.008053198124964595,
+              "one_core_percent": 0.8067575577293005
+            },
+            {
+              "name": "original-host",
+              "cpu_seconds": 0.0028637424200948624,
+              "one_core_percent": 0.28688550870734786
+            },
+            {
+              "name": "original-host",
+              "cpu_seconds": 0.0017544164312803744,
+              "one_core_percent": 0.1757548607865813
+            },
+            {
+              "name": "original-host",
+              "cpu_seconds": 8.433093358517392e-05,
+              "one_core_percent": 0.008448149041472373
+            },
+            {
+              "name": "original-host",
+              "cpu_seconds": 0.0,
+              "one_core_percent": 0.0
+            },
+            {
+              "name": "original-host",
+              "cpu_seconds": 0.0,
+              "one_core_percent": 0.0
+            }
+          ],
+          "native_io_delta": {
+            "syscw": 494923.3713610694,
+            "wchar": 1706875.7267252728,
+            "write_bytes": 1707859.7600828484
+          }
+        },
+        "note_active": {
+          "coverage": {
+            "nominal_blocks": 1875,
+            "boundary_tolerance_blocks": 2,
+            "position_span_expected_blocks": 1876,
+            "retained_published_blocks": 1876,
+            "matched_completed_blocks": 1876,
+            "missing_positions_inside_span": 0,
+            "complete": true
+          },
+          "blocks": 1876,
+          "frames": 480256,
+          "vendor_ms": {
+            "count": 1876,
+            "mean": 4.908852132196162,
+            "p50": 4.6557,
+            "p95": 5.6161,
+            "p99": 5.968,
+            "maximum": 6.5487
+          },
+          "service_ms": {
+            "count": 1876,
+            "mean": 5.064725801705757,
+            "p50": 4.826791,
+            "p95": 5.791187,
+            "p99": 6.137467,
+            "maximum": 8.662632
+          },
+          "queue_ms": {
+            "count": 1876,
+            "mean": 2.763807565565032,
+            "p50": 4.00299,
+            "p95": 5.88252,
+            "p99": 7.893294,
+            "maximum": 9.583101
+          },
+          "slow_vendor_blocks": 563,
+          "slow_service_blocks": 641,
+          "cpu": {
+            "start_ns": 9194297647074,
+            "end_ns": 9204299976222,
+            "wall_seconds": 10.002329148,
+            "cohort_cpu_seconds": 14.463244625070057,
+            "cohort_cpu_seconds_per_rendered_second": 1.4455535006399978,
+            "cohort_one_core_percent": 144.59876705779106,
+            "whole_pi_cpu_percent": 43.1471172035357,
+            "sampled_arm_hz": {
+              "count": 19,
+              "mean": 2400028375.5789475,
+              "p50": 2400030464,
+              "p95": 2400037120,
+              "p99": 2400037120,
+              "maximum": 2400037120
+            },
+            "temperature_c": {
+              "count": 19,
+              "mean": 51.973684210526315,
+              "p50": 52.35,
+              "p95": 52.9,
+              "p99": 52.9,
+              "maximum": 52.9
+            },
+            "throttled_flags": [
+              0
+            ],
+            "surviving_threads_by_cpu": [
+              {
+                "name": "lvb-audio",
+                "cpu_seconds": 9.342206225692662,
+                "one_core_percent": 93.40030794288215,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "Processing Thre",
+                "cpu_seconds": 4.3717463153437155,
+                "one_core_percent": 43.707283080339955,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wf0-factory-pro",
+                "cpu_seconds": 0.20956831792256164,
+                "one_core_percent": 2.095195177259944,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "winedevice.exe",
+                "cpu_seconds": 0.1790512101383922,
+                "one_core_percent": 1.7900951617273475,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wf0-factory-pro",
+                "cpu_seconds": 0.1221377954838183,
+                "one_core_percent": 1.2210935440795823,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wineserver",
+                "cpu_seconds": 0.042280335684061525,
+                "one_core_percent": 0.4227049026127642,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wf0-factory-pro",
+                "cpu_seconds": 0.03007421667236376,
+                "one_core_percent": 0.30067213573327767,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "ArturiaSoftware",
+                "cpu_seconds": 0.02679634975153494,
+                "one_core_percent": 0.2679010993843665,
+                "scheduler_wait_seconds": null
+              }
+            ]
+          },
+          "native_threads": [
+            {
+              "name": "rpi1-phase-drai",
+              "cpu_seconds": 1.8793933147327317,
+              "one_core_percent": 18.789556781467475
+            },
+            {
+              "name": "ap3-transport",
+              "cpu_seconds": 0.3731525195468934,
+              "one_core_percent": 3.7306562704098427
+            },
+            {
+              "name": "ap7-observer",
+              "cpu_seconds": 0.09493277524363578,
+              "one_core_percent": 0.949106691441142
+            },
+            {
+              "name": "original-host",
+              "cpu_seconds": 0.031610143987476316,
+              "one_core_percent": 0.31602783231540504
+            },
+            {
+              "name": "original-host",
+              "cpu_seconds": 0.023499241243847252,
+              "one_core_percent": 0.23493769197293418
+            },
+            {
+              "name": "original-host",
+              "cpu_seconds": 3.7185e-05,
+              "one_core_percent": 0.0003717634107995263
+            },
+            {
+              "name": "original-host",
+              "cpu_seconds": 0.0,
+              "one_core_percent": 0.0
+            },
+            {
+              "name": "original-host",
+              "cpu_seconds": 0.0,
+              "one_core_percent": 0.0
+            }
+          ],
+          "native_io_delta": {
+            "syscw": 3128974.0,
+            "wchar": 10791131.0,
+            "write_bytes": 10801152.0
+          }
+        },
+        "release": {
+          "coverage": {
+            "nominal_blocks": 375,
+            "boundary_tolerance_blocks": 2,
+            "position_span_expected_blocks": 376,
+            "retained_published_blocks": 376,
+            "matched_completed_blocks": 376,
+            "missing_positions_inside_span": 0,
+            "complete": true
+          },
+          "blocks": 376,
+          "frames": 96256,
+          "vendor_ms": {
+            "count": 376,
+            "mean": 2.9799476063829786,
+            "p50": 2.7785,
+            "p95": 3.3552,
+            "p99": 4.8332,
+            "maximum": 6.2319
+          },
+          "service_ms": {
+            "count": 376,
+            "mean": 3.1222952420212766,
+            "p50": 2.935464,
+            "p95": 3.53043,
+            "p99": 5.093052,
+            "maximum": 6.401893
+          },
+          "queue_ms": {
+            "count": 376,
+            "mean": 1.6503052553191488,
+            "p50": 0.943266,
+            "p95": 3.54406,
+            "p99": 5.766649,
+            "maximum": 6.683711
+          },
+          "slow_vendor_blocks": 4,
+          "slow_service_blocks": 4,
+          "cpu": {
+            "start_ns": 9206295013738,
+            "end_ns": 9208295920999,
+            "wall_seconds": 2.000907261,
+            "cohort_cpu_seconds": 1.3906974233586789,
+            "cohort_cpu_seconds_per_rendered_second": 0.6934993799993412,
+            "cohort_one_core_percent": 69.5033423320002,
+            "whole_pi_cpu_percent": 28.601521555403906,
+            "sampled_arm_hz": {
+              "count": 4,
+              "mean": 2400029632,
+              "p50": 2400027136,
+              "p95": 2400030464,
+              "p99": 2400030464,
+              "maximum": 2400033792
+            },
+            "temperature_c": {
+              "count": 4,
+              "mean": 51.3875,
+              "p50": 51.25,
+              "p95": 51.25,
+              "p99": 51.25,
+              "maximum": 51.8
+            },
+            "throttled_flags": [
+              0
+            ],
+            "surviving_threads_by_cpu": [
+              {
+                "name": "lvb-audio",
+                "cpu_seconds": 1.2099902632274857,
+                "one_core_percent": 60.472081180952124,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "Processing Thre",
+                "cpu_seconds": 0.0584609422239933,
+                "one_core_percent": 2.9217217291108275,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wf0-factory-pro",
+                "cpu_seconds": 0.034163239062566755,
+                "one_core_percent": 1.7073874301147212,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "winedevice.exe",
+                "cpu_seconds": 0.027675838159098624,
+                "one_core_percent": 1.3831644623682848,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wf0-factory-pro",
+                "cpu_seconds": 0.019249508862543584,
+                "one_core_percent": 0.9620390328796744,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wineserver",
+                "cpu_seconds": 0.00684793727611649,
+                "one_core_percent": 0.3422416125719927,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wf0-factory-pro",
+                "cpu_seconds": 0.005234452190580011,
+                "one_core_percent": 0.2616039380038019,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "ArturiaSoftware",
+                "cpu_seconds": 0.004099649973932266,
+                "one_core_percent": 0.20488955454554003,
+                "scheduler_wait_seconds": null
+              }
+            ]
+          },
+          "native_threads": [
+            {
+              "name": "rpi1-phase-drai",
+              "cpu_seconds": 0.8570239669097004,
+              "one_core_percent": 42.831768548902296
+            },
+            {
+              "name": "ap3-transport",
+              "cpu_seconds": 0.06323672815926384,
+              "one_core_percent": 3.160402752882201
+            },
+            {
+              "name": "ap7-observer",
+              "cpu_seconds": 0.01580026825375056,
+              "one_core_percent": 0.7896552010038691
+            },
+            {
+              "name": "original-host",
+              "cpu_seconds": 0.005696820678478748,
+              "one_core_percent": 0.2847118799314881
+            },
+            {
+              "name": "original-host",
+              "cpu_seconds": 0.0034934540441673993,
+              "one_core_percent": 0.1745935012710916
+            },
+            {
+              "name": "original-host",
+              "cpu_seconds": 1.5019e-05,
+              "one_core_percent": 0.0007506095006369213
+            },
+            {
+              "name": "original-host",
+              "cpu_seconds": 0.0,
+              "one_core_percent": 0.0
+            },
+            {
+              "name": "original-host",
+              "cpu_seconds": 0.0,
+              "one_core_percent": 0.0
+            }
+          ],
+          "native_io_delta": {
+            "syscw": 1431987.0,
+            "wchar": 4938626.0,
+            "write_bytes": 4947968.0
+          }
+        }
+      },
+      "trace_delivery_samples": [
+        {
+          "sample_ns": 9191180800509,
+          "file_bytes": 34054835,
+          "newest_complete_worker_ns": 9187237358099,
+          "age_ms": 3943.44241
+        },
+        {
+          "sample_ns": 9191712724057,
+          "file_bytes": 37072458,
+          "newest_complete_worker_ns": 9190169406957,
+          "age_ms": 1543.3171
+        },
+        {
+          "sample_ns": 9192236066044,
+          "file_bytes": 38118907,
+          "newest_complete_worker_ns": 9191190595298,
+          "age_ms": 1045.470746
+        },
+        {
+          "sample_ns": 9192757690939,
+          "file_bytes": 38118907,
+          "newest_complete_worker_ns": 9191190595298,
+          "age_ms": 1567.095641
+        },
+        {
+          "sample_ns": 9193279473108,
+          "file_bytes": 38118907,
+          "newest_complete_worker_ns": 9191190595298,
+          "age_ms": 2088.87781
+        },
+        {
+          "sample_ns": 9193801414329,
+          "file_bytes": 38118907,
+          "newest_complete_worker_ns": 9191190595298,
+          "age_ms": 2610.819031
+        },
+        {
+          "sample_ns": 9194324383755,
+          "file_bytes": 38118907,
+          "newest_complete_worker_ns": 9191190595298,
+          "age_ms": 3133.788457
+        },
+        {
+          "sample_ns": 9194847816217,
+          "file_bytes": 38118907,
+          "newest_complete_worker_ns": 9191190595298,
+          "age_ms": 3657.220919
+        },
+        {
+          "sample_ns": 9195371010005,
+          "file_bytes": 38118907,
+          "newest_complete_worker_ns": 9191190595298,
+          "age_ms": 4180.414707
+        },
+        {
+          "sample_ns": 9195894427996,
+          "file_bytes": 38118907,
+          "newest_complete_worker_ns": 9191190595298,
+          "age_ms": 4703.832698
+        },
+        {
+          "sample_ns": 9196417406587,
+          "file_bytes": 38118907,
+          "newest_complete_worker_ns": 9191190595298,
+          "age_ms": 5226.811289
+        },
+        {
+          "sample_ns": 9196941539609,
+          "file_bytes": 41038288,
+          "newest_complete_worker_ns": 9194032449708,
+          "age_ms": 2909.089901
+        },
+        {
+          "sample_ns": 9197464869859,
+          "file_bytes": 43514083,
+          "newest_complete_worker_ns": 9196439406716,
+          "age_ms": 1025.463143
+        },
+        {
+          "sample_ns": 9197988629870,
+          "file_bytes": 43514083,
+          "newest_complete_worker_ns": 9196439406716,
+          "age_ms": 1549.223154
+        },
+        {
+          "sample_ns": 9198511991981,
+          "file_bytes": 43514083,
+          "newest_complete_worker_ns": 9196439406716,
+          "age_ms": 2072.585265
+        },
+        {
+          "sample_ns": 9199034487103,
+          "file_bytes": 43514083,
+          "newest_complete_worker_ns": 9196439406716,
+          "age_ms": 2595.080387
+        },
+        {
+          "sample_ns": 9199557585220,
+          "file_bytes": 43514083,
+          "newest_complete_worker_ns": 9196439406716,
+          "age_ms": 3118.178504
+        },
+        {
+          "sample_ns": 9200081330748,
+          "file_bytes": 43514083,
+          "newest_complete_worker_ns": 9196439406716,
+          "age_ms": 3641.924032
+        },
+        {
+          "sample_ns": 9200604473320,
+          "file_bytes": 43514083,
+          "newest_complete_worker_ns": 9196439406716,
+          "age_ms": 4165.066604
+        },
+        {
+          "sample_ns": 9201127490462,
+          "file_bytes": 43514083,
+          "newest_complete_worker_ns": 9196439406716,
+          "age_ms": 4688.083746
+        },
+        {
+          "sample_ns": 9201650585561,
+          "file_bytes": 43514083,
+          "newest_complete_worker_ns": 9196439406716,
+          "age_ms": 5211.178845
+        },
+        {
+          "sample_ns": 9202273731801,
+          "file_bytes": 46941071,
+          "newest_complete_worker_ns": 9199760839779,
+          "age_ms": 2512.892022
+        },
+        {
+          "sample_ns": 9202802543243,
+          "file_bytes": 48909978,
+          "newest_complete_worker_ns": 9201686912561,
+          "age_ms": 1115.630682
+        },
+        {
+          "sample_ns": 9203326089404,
+          "file_bytes": 48909978,
+          "newest_complete_worker_ns": 9201686912561,
+          "age_ms": 1639.176843
+        },
+        {
+          "sample_ns": 9203849661932,
+          "file_bytes": 48909978,
+          "newest_complete_worker_ns": 9201686912561,
+          "age_ms": 2162.749371
+        },
+        {
+          "sample_ns": 9204373450789,
+          "file_bytes": 48909978,
+          "newest_complete_worker_ns": 9201686912561,
+          "age_ms": 2686.538228
+        },
+        {
+          "sample_ns": 9204896186950,
+          "file_bytes": 48909978,
+          "newest_complete_worker_ns": 9201686912561,
+          "age_ms": 3209.274389
+        },
+        {
+          "sample_ns": 9205419166421,
+          "file_bytes": 48909978,
+          "newest_complete_worker_ns": 9201686912561,
+          "age_ms": 3732.25386
+        },
+        {
+          "sample_ns": 9205942762209,
+          "file_bytes": 48909978,
+          "newest_complete_worker_ns": 9201686912561,
+          "age_ms": 4255.849648
+        },
+        {
+          "sample_ns": 9206465584317,
+          "file_bytes": 48909978,
+          "newest_complete_worker_ns": 9201686912561,
+          "age_ms": 4778.671756
+        },
+        {
+          "sample_ns": 9207087764073,
+          "file_bytes": 52400975,
+          "newest_complete_worker_ns": 9205083744072,
+          "age_ms": 2004.020001
+        },
+        {
+          "sample_ns": 9207610128760,
+          "file_bytes": 53848574,
+          "newest_complete_worker_ns": 9206490074273,
+          "age_ms": 1120.054487
+        },
+        {
+          "sample_ns": 9208132106424,
+          "file_bytes": 53848574,
+          "newest_complete_worker_ns": 9206490074273,
+          "age_ms": 1642.032151
+        },
+        {
+          "sample_ns": 9208653826987,
+          "file_bytes": 53848574,
+          "newest_complete_worker_ns": 9206490074273,
+          "age_ms": 2163.752714
+        },
+        {
+          "sample_ns": 9209175525176,
+          "file_bytes": 53848574,
+          "newest_complete_worker_ns": 9206490074273,
+          "age_ms": 2685.450903
+        },
+        {
+          "sample_ns": 9209697337138,
+          "file_bytes": 53848574,
+          "newest_complete_worker_ns": 9206490074273,
+          "age_ms": 3207.262865
+        },
+        {
+          "sample_ns": 9210219085096,
+          "file_bytes": 53848574,
+          "newest_complete_worker_ns": 9206490074273,
+          "age_ms": 3729.010823
+        },
+        {
+          "sample_ns": 9210740818196,
+          "file_bytes": 53848574,
+          "newest_complete_worker_ns": 9206490074273,
+          "age_ms": 4250.743923
+        },
+        {
+          "sample_ns": 9211262697997,
+          "file_bytes": 53848574,
+          "newest_complete_worker_ns": 9206490074273,
+          "age_ms": 4772.623724
+        },
+        {
+          "sample_ns": 9211885370462,
+          "file_bytes": 57260270,
+          "newest_complete_worker_ns": 9209804393944,
+          "age_ms": 2080.976518
+        },
+        {
+          "sample_ns": 9212408436870,
+          "file_bytes": 58805109,
+          "newest_complete_worker_ns": 9211297729038,
+          "age_ms": 1110.707832
+        },
+        {
+          "sample_ns": 9212933946810,
+          "file_bytes": 59948537,
+          "newest_complete_worker_ns": 9212417830801,
+          "age_ms": 516.116009
+        },
+        {
+          "sample_ns": 9213455762329,
+          "file_bytes": 59948537,
+          "newest_complete_worker_ns": 9212417830801,
+          "age_ms": 1037.931528
+        },
+        {
+          "sample_ns": 9213977502977,
+          "file_bytes": 59948537,
+          "newest_complete_worker_ns": 9212417830801,
+          "age_ms": 1559.672176
+        },
+        {
+          "sample_ns": 9214499239875,
+          "file_bytes": 59948537,
+          "newest_complete_worker_ns": 9212417830801,
+          "age_ms": 2081.409074
+        },
+        {
+          "sample_ns": 9215020677622,
+          "file_bytes": 59948537,
+          "newest_complete_worker_ns": 9212417830801,
+          "age_ms": 2602.846821
+        },
+        {
+          "sample_ns": 9215546435129,
+          "file_bytes": 59948537,
+          "newest_complete_worker_ns": 9212417830801,
+          "age_ms": 3128.604328
+        },
+        {
+          "sample_ns": 9216068360055,
+          "file_bytes": 59948537,
+          "newest_complete_worker_ns": 9212417830801,
+          "age_ms": 3650.529254
+        },
+        {
+          "sample_ns": 9216594467129,
+          "file_bytes": 59948537,
+          "newest_complete_worker_ns": 9212417830801,
+          "age_ms": 4176.636328
+        }
+      ],
+      "trace_delivery_age_ms": {
+        "count": 49,
+        "mean": 2822.2527070816327,
+        "p50": 2685.450903,
+        "p95": 4772.623724,
+        "p99": 5211.178845,
+        "maximum": 5226.811289
+      },
+      "trace_bytes": 66368578,
+      "trace_markers": [
+        {
+          "at_ns": 9165927472901,
+          "offset": 26511
+        },
+        {
+          "at_ns": 9171195866359,
+          "offset": 12165717
+        },
+        {
+          "at_ns": 9176010132580,
+          "offset": 17420117
+        },
+        {
+          "at_ns": 9181259543025,
+          "offset": 22450556
+        },
+        {
+          "at_ns": 9186069215504,
+          "offset": 27801380
+        },
+        {
+          "at_ns": 9186669078718,
+          "offset": 32854485
+        },
+        {
+          "at_ns": 9191178046860,
+          "offset": 34054835
+        },
+        {
+          "at_ns": 9196438968546,
+          "offset": 38118907
+        },
+        {
+          "at_ns": 9201671166790,
+          "offset": 43514083
+        },
+        {
+          "at_ns": 9206485204316,
+          "offset": 48909978
+        },
+        {
+          "at_ns": 9211282506069,
+          "offset": 53848574
+        },
+        {
+          "at_ns": 9211782759021,
+          "offset": 58795821
+        },
+        {
+          "at_ns": 9217114443126,
+          "offset": 59948537
+        }
+      ],
+      "all_phase_drops": [],
+      "audio": {
+        "warmup": {
+          "frames": 960000,
+          "finite": true,
+          "channel_peaks": [
+            0.03403710573911667,
+            0.036244072020053864
+          ],
+          "full_scale_samples": 0,
+          "held_window_seconds": [
+            3,
+            14
+          ],
+          "held_stereo_zero_frames": 451712,
+          "held_rms": 0.0010840244902455276,
+          "fixture_exit": 0,
+          "counter_delta": {
+            "bridge_processed": 3908,
+            "missing_frames": 566784,
+            "gaps": 10,
+            "midi_accepted": 9,
+            "xruns": 0,
+            "process_failures": 0
+          },
+          "full_hold_2_to_14_stereo_zero_frames": 499712
+        },
+        "measured": {
+          "frames": 960000,
+          "finite": true,
+          "channel_peaks": [
+            0.04347671568393707,
+            0.04817606136202812
+          ],
+          "full_scale_samples": 0,
+          "held_window_seconds": [
+            3,
+            14
+          ],
+          "held_stereo_zero_frames": 0,
+          "held_rms": 0.002909713668316353,
+          "fixture_exit": 0,
+          "counter_delta": {
+            "bridge_processed": 3882,
+            "missing_frames": 0,
+            "gaps": 0,
+            "midi_accepted": 9,
+            "xruns": 0,
+            "process_failures": 0
+          },
+          "full_hold_2_to_14_stereo_zero_frames": 0
+        }
+      },
+      "post_mark_delivery_check": [
+        {
+          "mark_ack_ns": 9191178087305,
+          "read_after_ack_ms": 534.636752,
+          "newest_worker_record_age_ms": 1543.3171
+        },
+        {
+          "mark_ack_ns": 9196439012325,
+          "read_after_ack_ms": 502.527284,
+          "newest_worker_record_age_ms": 2909.089901
+        },
+        {
+          "mark_ack_ns": 9201771371011,
+          "read_after_ack_ms": 502.36079,
+          "newest_worker_record_age_ms": 2512.892022
+        },
+        {
+          "mark_ack_ns": 9206585454583,
+          "read_after_ack_ms": 502.30949,
+          "newest_worker_record_age_ms": 2004.020001
+        },
+        {
+          "mark_ack_ns": 9211282552254,
+          "read_after_ack_ms": 602.818208,
+          "newest_worker_record_age_ms": 2080.976518
+        },
+        {
+          "mark_ack_ns": 9211782854929,
+          "read_after_ack_ms": 625.581941,
+          "newest_worker_record_age_ms": 1110.707832
+        }
+      ],
+      "restored_master_matches": true,
+      "sampling_peak_temperature_c": 53.45
+    },
+    {
+      "condition": "buffered",
+      "guard_before": {
+        "phase": "buffered",
+        "governor": "ondemand",
+        "schedstats": "0"
+      },
+      "guard_at_measurement": {
+        "phase": "buffered",
+        "governor": "ondemand",
+        "schedstats": "0"
+      },
+      "guard_after": {
+        "phase": "buffered",
+        "governor": "ondemand",
+        "schedstats": "0"
+      },
+      "drain_checks": [
+        {
+          "counters": {
+            "midi_accepted": 9,
+            "output_nonzero_l": 318208,
+            "output_nonzero_r": 318208,
+            "output_peak_l": 3.693281e-05,
+            "output_peak_r": 3.8631737e-05,
+            "output_nonfinite": 0,
+            "xruns": 0,
+            "process_failures": 0,
+            "bridge_processed": 4976,
+            "request_high": 73,
+            "result_high": 9,
+            "fault": 0,
+            "fault_site": "unknown",
+            "callbacks": 2568,
+            "failures": 0,
+            "deadline_misses": 0,
+            "callback_ns_max": 73371,
+            "missing_frames": 647680,
+            "gaps": 7,
+            "delivered_frames": 622080,
+            "paused_frames": 40960,
+            "unsupported_midi": 0,
+            "malformed_midi": 0,
+            "overflow_midi": 0
+          },
+          "request_elapsed_ns": 100467093,
+          "outstanding_frames_estimate": 0
+        },
+        {
+          "counters": {
+            "midi_accepted": 9,
+            "output_nonzero_l": 371456,
+            "output_nonzero_r": 371456,
+            "output_peak_l": 3.693281e-05,
+            "output_peak_r": 3.8631737e-05,
+            "output_nonfinite": 0,
+            "xruns": 0,
+            "process_failures": 0,
+            "bridge_processed": 5182,
+            "request_high": 73,
+            "result_high": 9,
+            "fault": 0,
+            "fault_site": "unknown",
+            "callbacks": 2672,
+            "failures": 0,
+            "deadline_misses": 0,
+            "callback_ns_max": 73371,
+            "missing_frames": 647680,
+            "gaps": 7,
+            "delivered_frames": 675328,
+            "paused_frames": 40960,
+            "unsupported_midi": 0,
+            "malformed_midi": 0,
+            "overflow_midi": 0
+          },
+          "request_elapsed_ns": 100472442,
+          "outstanding_frames_estimate": 512
+        },
+        {
+          "counters": {
+            "midi_accepted": 9,
+            "output_nonzero_l": 424192,
+            "output_nonzero_r": 424192,
+            "output_peak_l": 3.693281e-05,
+            "output_peak_r": 3.8631737e-05,
+            "output_nonfinite": 0,
+            "xruns": 0,
+            "process_failures": 0,
+            "bridge_processed": 5389,
+            "request_high": 73,
+            "result_high": 9,
+            "fault": 0,
+            "fault_site": "unknown",
+            "callbacks": 2775,
+            "failures": 0,
+            "deadline_misses": 0,
+            "callback_ns_max": 73371,
+            "missing_frames": 647680,
+            "gaps": 7,
+            "delivered_frames": 728064,
+            "paused_frames": 40960,
+            "unsupported_midi": 0,
+            "malformed_midi": 0,
+            "overflow_midi": 0
+          },
+          "request_elapsed_ns": 100459645,
+          "outstanding_frames_estimate": 256
+        }
+      ],
+      "restored_identity": {
+        "name": "8-Bit Crystals",
+        "bank": "Factory"
+      },
+      "restored_master": [
+        "RPI1_PARAMETER_READBACK id=2394 normalized=0.00000000000000000 revision=3",
+        "RPI1_PARAMETER_READBACK id=2395 normalized=0.00000000000000000 revision=3",
+        "RPI1_PARAMETER_READBACK id=0 normalized=0.48033079504966736 revision=4"
+      ],
+      "session": {
+        "ready_seconds": 31.165208674001406,
+        "elapsed_seconds": 92.6572783770007,
+        "clean_shutdown": true,
+        "exit_code": 0,
+        "graph_restored": true,
+        "peak_temperature_c": 54.0,
+        "throttle_flags": [
+          0
+        ]
+      },
+      "counter_delta": {
+        "bridge_processed": 3961,
+        "missing_frames": 6144,
+        "gaps": 24,
+        "midi_accepted": 9,
+        "xruns": 0,
+        "process_failures": 0,
+        "delivered_frames": 1008128
+      },
+      "capture_observation": {
+        "bytes": 7680000,
+        "expected_bytes": 7680000,
+        "fixture_completed": true,
+        "fixture_stereo_nonzero": true,
+        "fixture_result": {
+          "mode": "four-notes",
+          "completed": "true",
+          "midi_sent": "9",
+          "midi_errors": "0",
+          "xruns": "0",
+          "bad_blocks": "0",
+          "stereo_nonzero": "true"
+        },
+        "limitation": "Nonzero samples and process exit do not establish continuous audio; analyze held-window recording separately."
+      },
+      "flush_marks_ns": [
+        9283566540956,
+        9288822923891,
+        9294057362822,
+        9298771802231,
+        9304092601051,
+        9304592904508
+      ],
+      "phase_drops": [],
+      "windows": {
+        "before_stimulus": {
+          "coverage": {
+            "nominal_blocks": 188,
+            "boundary_tolerance_blocks": 2,
+            "position_span_expected_blocks": 188,
+            "retained_published_blocks": 188,
+            "matched_completed_blocks": 188,
+            "missing_positions_inside_span": 0,
+            "complete": true
+          },
+          "blocks": 188,
+          "frames": 48128,
+          "vendor_ms": {
+            "count": 188,
+            "mean": 3.1379723404255317,
+            "p50": 2.9091,
+            "p95": 4.2575,
+            "p99": 4.5052,
+            "maximum": 5.8014
+          },
+          "service_ms": {
+            "count": 188,
+            "mean": 3.280982005319149,
+            "p50": 3.017868,
+            "p95": 4.44319,
+            "p99": 4.665802,
+            "maximum": 6.338312
+          },
+          "queue_ms": {
+            "count": 188,
+            "mean": 1.7525439680851065,
+            "p50": 1.907344,
+            "p95": 4.277763,
+            "p99": 5.53164,
+            "maximum": 6.500941
+          },
+          "slow_vendor_blocks": 1,
+          "slow_service_blocks": 2,
+          "cpu": {
+            "start_ns": 9282680827298,
+            "end_ns": 9283679322923,
+            "wall_seconds": 0.998495625,
+            "cohort_cpu_seconds": null,
+            "cohort_cpu_seconds_per_rendered_second": null,
+            "cohort_one_core_percent": null,
+            "whole_pi_cpu_percent": null,
+            "sampled_arm_hz": {
+              "count": 1,
+              "mean": 2400027136,
+              "p50": 2400027136,
+              "p95": 2400027136,
+              "p99": 2400027136,
+              "maximum": 2400027136
+            },
+            "temperature_c": {
+              "count": 1,
+              "mean": 51.25,
+              "p50": 51.25,
+              "p95": 51.25,
+              "p99": 51.25,
+              "maximum": 51.25
+            },
+            "throttled_flags": [
+              0
+            ],
+            "surviving_threads_by_cpu": []
+          },
+          "native_threads": [],
+          "native_io_delta": {
+            "syscw": null,
+            "wchar": null,
+            "write_bytes": null
+          }
+        },
+        "idle": {
+          "coverage": {
+            "nominal_blocks": 188,
+            "boundary_tolerance_blocks": 2,
+            "position_span_expected_blocks": 188,
+            "retained_published_blocks": 188,
+            "matched_completed_blocks": 188,
+            "missing_positions_inside_span": 0,
+            "complete": true
+          },
+          "blocks": 188,
+          "frames": 48128,
+          "vendor_ms": {
+            "count": 188,
+            "mean": 2.91389414893617,
+            "p50": 2.7544,
+            "p95": 3.3161,
+            "p99": 3.3776,
+            "maximum": 3.5293
+          },
+          "service_ms": {
+            "count": 188,
+            "mean": 3.0529103617021276,
+            "p50": 2.893756,
+            "p95": 3.456203,
+            "p99": 3.532055,
+            "maximum": 3.689057
+          },
+          "queue_ms": {
+            "count": 188,
+            "mean": 1.5925836223404255,
+            "p50": 0.099964,
+            "p95": 3.503963,
+            "p99": 3.602722,
+            "maximum": 3.741483
+          },
+          "slow_vendor_blocks": 0,
+          "slow_service_blocks": 0,
+          "cpu": {
+            "start_ns": 9283982213027,
+            "end_ns": 9284980523632,
+            "wall_seconds": 0.998310605,
+            "cohort_cpu_seconds": 0.6369528707982749,
+            "cohort_cpu_seconds_per_rendered_second": 0.6352588472057263,
+            "cohort_one_core_percent": 63.803075676860594,
+            "whole_pi_cpu_percent": 18.509443295143328,
+            "sampled_arm_hz": {
+              "count": 2,
+              "mean": 2400018944,
+              "p50": 2400017408,
+              "p95": 2400017408,
+              "p99": 2400017408,
+              "maximum": 2400020480
+            },
+            "temperature_c": {
+              "count": 2,
+              "mean": 50.975,
+              "p50": 50.7,
+              "p95": 50.7,
+              "p99": 50.7,
+              "maximum": 51.25
+            },
+            "throttled_flags": [
+              0
+            ],
+            "surviving_threads_by_cpu": [
+              {
+                "name": "lvb-audio",
+                "cpu_seconds": 0.5770339289440575,
+                "one_core_percent": 57.80104168522355,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wf0-factory-pro",
+                "cpu_seconds": 0.01614222341828251,
+                "one_core_percent": 1.616954015857871,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "winedevice.exe",
+                "cpu_seconds": 0.013311753014230609,
+                "one_core_percent": 1.3334279879988462,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wf0-factory-pro",
+                "cpu_seconds": 0.00905061889370197,
+                "one_core_percent": 0.9065934838688777,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wineserver",
+                "cpu_seconds": 0.0033125532991176844,
+                "one_core_percent": 0.33181589803082223,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wf0-factory-pro",
+                "cpu_seconds": 0.002510077750990674,
+                "one_core_percent": 0.2514325439817074,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "ArturiaSoftware",
+                "cpu_seconds": 0.0019310052145400046,
+                "one_core_percent": 0.1934272965616753,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "Resource worker",
+                "cpu_seconds": 0.0016572838606628924,
+                "one_core_percent": 0.16600884057150656,
+                "scheduler_wait_seconds": null
+              }
+            ]
+          },
+          "native_threads": [
+            {
+              "name": "ap3-transport",
+              "cpu_seconds": 0.03112628496060586,
+              "one_core_percent": 3.117895853726392
+            },
+            {
+              "name": "rpi1-phase-drai",
+              "cpu_seconds": 0.011248283611389935,
+              "one_core_percent": 1.1267318563033732
+            },
+            {
+              "name": "ap7-observer",
+              "cpu_seconds": 0.007929230685810864,
+              "one_core_percent": 0.794264895724599
+            },
+            {
+              "name": "buffered-host",
+              "cpu_seconds": 0.0027715156455837635,
+              "one_core_percent": 0.2776205753703041
+            },
+            {
+              "name": "buffered-host",
+              "cpu_seconds": 0.0016965469775002003,
+              "one_core_percent": 0.16994179657143885
+            },
+            {
+              "name": "buffered-host",
+              "cpu_seconds": 7.453180030092806e-05,
+              "one_core_percent": 0.007465792702956217
+            },
+            {
+              "name": "buffered-host",
+              "cpu_seconds": 0.0,
+              "one_core_percent": 0.0
+            },
+            {
+              "name": "buffered-host",
+              "cpu_seconds": 0.0,
+              "one_core_percent": 0.0
+            }
+          ],
+          "native_io_delta": {
+            "syscw": 18.739988480020884,
+            "wchar": 1023303.4645946659,
+            "write_bytes": 1025861.3627869636
+          }
+        },
+        "note_active": {
+          "coverage": {
+            "nominal_blocks": 1875,
+            "boundary_tolerance_blocks": 2,
+            "position_span_expected_blocks": 1876,
+            "retained_published_blocks": 1876,
+            "matched_completed_blocks": 1876,
+            "missing_positions_inside_span": 0,
+            "complete": true
+          },
+          "blocks": 1876,
+          "frames": 480256,
+          "vendor_ms": {
+            "count": 1876,
+            "mean": 4.897120735607676,
+            "p50": 4.6487,
+            "p95": 5.6088,
+            "p99": 5.9033,
+            "maximum": 6.8892
+          },
+          "service_ms": {
+            "count": 1876,
+            "mean": 5.050946174307036,
+            "p50": 4.815635,
+            "p95": 5.769937,
+            "p99": 6.077383,
+            "maximum": 7.068444
+          },
+          "queue_ms": {
+            "count": 1876,
+            "mean": 3.7064368299573562,
+            "p50": 4.76258,
+            "p95": 12.165027,
+            "p99": 25.718432,
+            "maximum": 32.80332
+          },
+          "slow_vendor_blocks": 557,
+          "slow_service_blocks": 643,
+          "cpu": {
+            "start_ns": 9286707364861,
+            "end_ns": 9296686078368,
+            "wall_seconds": 9.978713507,
+            "cohort_cpu_seconds": 14.451597853551887,
+            "cohort_cpu_seconds_per_rendered_second": 1.444389444318219,
+            "cohort_one_core_percent": 144.82425859219416,
+            "whole_pi_cpu_percent": 39.918882769234415,
+            "sampled_arm_hz": {
+              "count": 20,
+              "mean": 2400026496,
+              "p50": 2400027136,
+              "p95": 2400033792,
+              "p99": 2400033792,
+              "maximum": 2400033792
+            },
+            "temperature_c": {
+              "count": 20,
+              "mean": 52.57,
+              "p50": 52.35,
+              "p95": 53.45,
+              "p99": 53.45,
+              "maximum": 55.1
+            },
+            "throttled_flags": [
+              0
+            ],
+            "surviving_threads_by_cpu": [
+              {
+                "name": "lvb-audio",
+                "cpu_seconds": 9.316830369717076,
+                "one_core_percent": 93.36704940152237,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "Processing Thre",
+                "cpu_seconds": 4.387306804408502,
+                "one_core_percent": 43.96665763909182,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wf0-factory-pro",
+                "cpu_seconds": 0.20461884444071674,
+                "one_core_percent": 2.050553353367426,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "winedevice.exe",
+                "cpu_seconds": 0.17997410782549297,
+                "one_core_percent": 1.803580268130179,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wf0-factory-pro",
+                "cpu_seconds": 0.12210891664489633,
+                "one_core_percent": 1.2236939817867079,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wineserver",
+                "cpu_seconds": 0.0416706927584424,
+                "one_core_percent": 0.41759584268263333,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wf0-factory-pro",
+                "cpu_seconds": 0.030089388671329438,
+                "one_core_percent": 0.30153575057768656,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "ArturiaSoftware",
+                "cpu_seconds": 0.02673908613516903,
+                "one_core_percent": 0.267961256893604,
+                "scheduler_wait_seconds": null
+              }
+            ]
+          },
+          "native_threads": [
+            {
+              "name": "ap3-transport",
+              "cpu_seconds": 0.3741740500646112,
+              "one_core_percent": 3.749722344489905
+            },
+            {
+              "name": "rpi1-phase-drai",
+              "cpu_seconds": 0.11044144208940679,
+              "one_core_percent": 1.106770346818083
+            },
+            {
+              "name": "ap7-observer",
+              "cpu_seconds": 0.09905122826654482,
+              "one_core_percent": 0.9926252336742712
+            },
+            {
+              "name": "buffered-host",
+              "cpu_seconds": 0.031898203638342115,
+              "one_core_percent": 0.3196624857098637
+            },
+            {
+              "name": "buffered-host",
+              "cpu_seconds": 0.02363847543428135,
+              "one_core_percent": 0.2368890079637933
+            },
+            {
+              "name": "buffered-host",
+              "cpu_seconds": 4.0834e-05,
+              "one_core_percent": 0.00040921106685100464
+            },
+            {
+              "name": "buffered-host",
+              "cpu_seconds": 0.0,
+              "one_core_percent": 0.0
+            },
+            {
+              "name": "buffered-host",
+              "cpu_seconds": 0.0,
+              "one_core_percent": 0.0
+            }
+          ],
+          "native_io_delta": {
+            "syscw": 168.0,
+            "wchar": 10784737.0,
+            "write_bytes": 10797056.0
+          }
+        },
+        "release": {
+          "coverage": {
+            "nominal_blocks": 375,
+            "boundary_tolerance_blocks": 2,
+            "position_span_expected_blocks": 376,
+            "retained_published_blocks": 376,
+            "matched_completed_blocks": 376,
+            "missing_positions_inside_span": 0,
+            "complete": true
+          },
+          "blocks": 376,
+          "frames": 96256,
+          "vendor_ms": {
+            "count": 376,
+            "mean": 3.006173404255319,
+            "p50": 2.749,
+            "p95": 3.3369,
+            "p99": 6.5521,
+            "maximum": 7.6615
+          },
+          "service_ms": {
+            "count": 376,
+            "mean": 3.146118936170213,
+            "p50": 2.892959,
+            "p95": 3.50624,
+            "p99": 6.765182,
+            "maximum": 7.82367
+          },
+          "queue_ms": {
+            "count": 376,
+            "mean": 2.141444093085106,
+            "p50": 2.841681,
+            "p95": 3.732333,
+            "p99": 15.406338,
+            "maximum": 21.48272
+          },
+          "slow_vendor_blocks": 11,
+          "slow_service_blocks": 11,
+          "cpu": {
+            "start_ns": 9298683485116,
+            "end_ns": 9300681652856,
+            "wall_seconds": 1.99816774,
+            "cohort_cpu_seconds": 1.3267113576026708,
+            "cohort_cpu_seconds_per_rendered_second": 0.6615914349747362,
+            "cohort_one_core_percent": 66.39639561004377,
+            "whole_pi_cpu_percent": 18.60822425830192,
+            "sampled_arm_hz": {
+              "count": 4,
+              "mean": 2275028576,
+              "p50": 2400030464,
+              "p95": 2400030464,
+              "p99": 2400030464,
+              "maximum": 2400037120
+            },
+            "temperature_c": {
+              "count": 4,
+              "mean": 52.2125,
+              "p50": 51.8,
+              "p95": 51.8,
+              "p99": 51.8,
+              "maximum": 54.0
+            },
+            "throttled_flags": [
+              0
+            ],
+            "surviving_threads_by_cpu": [
+              {
+                "name": "lvb-audio",
+                "cpu_seconds": 1.1791797953125611,
+                "one_core_percent": 59.01305339423411,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wf0-factory-pro",
+                "cpu_seconds": 0.032295734952857015,
+                "one_core_percent": 1.6162674587498354,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "Processing Thre",
+                "cpu_seconds": 0.028537501676698683,
+                "one_core_percent": 1.428183485571571,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "winedevice.exe",
+                "cpu_seconds": 0.026810694614836334,
+                "one_core_percent": 1.3417639609593706,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wf0-factory-pro",
+                "cpu_seconds": 0.01819580315846896,
+                "one_core_percent": 0.9106244082625897,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wineserver",
+                "cpu_seconds": 0.006602887233048916,
+                "one_core_percent": 0.33044709414880835,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "wf0-factory-pro",
+                "cpu_seconds": 0.005097925381651342,
+                "one_core_percent": 0.2551300013306862,
+                "scheduler_wait_seconds": null
+              },
+              {
+                "name": "ArturiaSoftware",
+                "cpu_seconds": 0.0038199600399341583,
+                "one_core_percent": 0.19117314144678155,
+                "scheduler_wait_seconds": null
+              }
+            ]
+          },
+          "native_threads": [
+            {
+              "name": "ap3-transport",
+              "cpu_seconds": 0.062049018830117944,
+              "one_core_percent": 3.105295796143618
+            },
+            {
+              "name": "rpi1-phase-drai",
+              "cpu_seconds": 0.04775885000065851,
+              "one_core_percent": 2.3901321718194946
+            },
+            {
+              "name": "ap7-observer",
+              "cpu_seconds": 0.01600805353937012,
+              "one_core_percent": 0.8011366222622591
+            },
+            {
+              "name": "buffered-host",
+              "cpu_seconds": 0.00554981935326007,
+              "one_core_percent": 0.2777454185733211
+            },
+            {
+              "name": "buffered-host",
+              "cpu_seconds": 0.0034626489754116534,
+              "one_core_percent": 0.17329120604317502
+            },
+            {
+              "name": "buffered-host",
+              "cpu_seconds": 1.7203e-05,
+              "one_core_percent": 0.0008609387318003642
+            },
+            {
+              "name": "buffered-host",
+              "cpu_seconds": 0.0,
+              "one_core_percent": 0.0
+            },
+            {
+              "name": "buffered-host",
+              "cpu_seconds": 0.0,
+              "one_core_percent": 0.0
+            }
+          ],
+          "native_io_delta": {
+            "syscw": 76.0,
+            "wchar": 4851666.0,
+            "write_bytes": 4853760.0
+          }
+        }
+      },
+      "trace_delivery_samples": [
+        {
+          "sample_ns": 9283570838571,
+          "file_bytes": 26197711,
+          "newest_complete_worker_ns": 9279067972675,
+          "age_ms": 4502.865896
+        },
+        {
+          "sample_ns": 9284098560012,
+          "file_bytes": 30839109,
+          "newest_complete_worker_ns": 9283581441072,
+          "age_ms": 517.11894
+        },
+        {
+          "sample_ns": 9284620205285,
+          "file_bytes": 30839109,
+          "newest_complete_worker_ns": 9283581441072,
+          "age_ms": 1038.764213
+        },
+        {
+          "sample_ns": 9285141951945,
+          "file_bytes": 30839109,
+          "newest_complete_worker_ns": 9283581441072,
+          "age_ms": 1560.510873
+        },
+        {
+          "sample_ns": 9285663658136,
+          "file_bytes": 30839109,
+          "newest_complete_worker_ns": 9283581441072,
+          "age_ms": 2082.217064
+        },
+        {
+          "sample_ns": 9286185480770,
+          "file_bytes": 30839109,
+          "newest_complete_worker_ns": 9283581441072,
+          "age_ms": 2604.039698
+        },
+        {
+          "sample_ns": 9286708563886,
+          "file_bytes": 30839109,
+          "newest_complete_worker_ns": 9283581441072,
+          "age_ms": 3127.122814
+        },
+        {
+          "sample_ns": 9287231925982,
+          "file_bytes": 30839109,
+          "newest_complete_worker_ns": 9283581441072,
+          "age_ms": 3650.48491
+        },
+        {
+          "sample_ns": 9287755063036,
+          "file_bytes": 30839109,
+          "newest_complete_worker_ns": 9283581441072,
+          "age_ms": 4173.621964
+        },
+        {
+          "sample_ns": 9288278414049,
+          "file_bytes": 30839109,
+          "newest_complete_worker_ns": 9283581441072,
+          "age_ms": 4696.972977
+        },
+        {
+          "sample_ns": 9288801684706,
+          "file_bytes": 30839109,
+          "newest_complete_worker_ns": 9283581441072,
+          "age_ms": 5220.243634
+        },
+        {
+          "sample_ns": 9289325201212,
+          "file_bytes": 36226441,
+          "newest_complete_worker_ns": 9288822391777,
+          "age_ms": 502.809435
+        },
+        {
+          "sample_ns": 9289848369861,
+          "file_bytes": 36226441,
+          "newest_complete_worker_ns": 9288822391777,
+          "age_ms": 1025.978084
+        },
+        {
+          "sample_ns": 9290371804895,
+          "file_bytes": 36226441,
+          "newest_complete_worker_ns": 9288822391777,
+          "age_ms": 1549.413118
+        },
+        {
+          "sample_ns": 9290894766628,
+          "file_bytes": 36226441,
+          "newest_complete_worker_ns": 9288822391777,
+          "age_ms": 2072.374851
+        },
+        {
+          "sample_ns": 9291418542933,
+          "file_bytes": 36226441,
+          "newest_complete_worker_ns": 9288822391777,
+          "age_ms": 2596.151156
+        },
+        {
+          "sample_ns": 9291942113606,
+          "file_bytes": 36226441,
+          "newest_complete_worker_ns": 9288822391777,
+          "age_ms": 3119.721829
+        },
+        {
+          "sample_ns": 9292465930088,
+          "file_bytes": 36226441,
+          "newest_complete_worker_ns": 9288822391777,
+          "age_ms": 3643.538311
+        },
+        {
+          "sample_ns": 9292989201751,
+          "file_bytes": 36226441,
+          "newest_complete_worker_ns": 9288822391777,
+          "age_ms": 4166.809974
+        },
+        {
+          "sample_ns": 9293512936724,
+          "file_bytes": 36226441,
+          "newest_complete_worker_ns": 9288822391777,
+          "age_ms": 4690.544947
+        },
+        {
+          "sample_ns": 9294036171694,
+          "file_bytes": 36226441,
+          "newest_complete_worker_ns": 9288822391777,
+          "age_ms": 5213.779917
+        },
+        {
+          "sample_ns": 9294559702047,
+          "file_bytes": 41623786,
+          "newest_complete_worker_ns": 9294062401773,
+          "age_ms": 497.300274
+        },
+        {
+          "sample_ns": 9295082719582,
+          "file_bytes": 41623786,
+          "newest_complete_worker_ns": 9294062401773,
+          "age_ms": 1020.317809
+        },
+        {
+          "sample_ns": 9295606112389,
+          "file_bytes": 41623786,
+          "newest_complete_worker_ns": 9294062401773,
+          "age_ms": 1543.710616
+        },
+        {
+          "sample_ns": 9296129513788,
+          "file_bytes": 41623786,
+          "newest_complete_worker_ns": 9294062401773,
+          "age_ms": 2067.112015
+        },
+        {
+          "sample_ns": 9296652427418,
+          "file_bytes": 41623786,
+          "newest_complete_worker_ns": 9294062401773,
+          "age_ms": 2590.025645
+        },
+        {
+          "sample_ns": 9297175580529,
+          "file_bytes": 41623786,
+          "newest_complete_worker_ns": 9294062401773,
+          "age_ms": 3113.178756
+        },
+        {
+          "sample_ns": 9297698743376,
+          "file_bytes": 41623786,
+          "newest_complete_worker_ns": 9294062401773,
+          "age_ms": 3636.341603
+        },
+        {
+          "sample_ns": 9298222005238,
+          "file_bytes": 41623786,
+          "newest_complete_worker_ns": 9294062401773,
+          "age_ms": 4159.603465
+        },
+        {
+          "sample_ns": 9298745776432,
+          "file_bytes": 41623786,
+          "newest_complete_worker_ns": 9294062401773,
+          "age_ms": 4683.374659
+        },
+        {
+          "sample_ns": 9299273984423,
+          "file_bytes": 46475422,
+          "newest_complete_worker_ns": 9298782730971,
+          "age_ms": 491.253452
+        },
+        {
+          "sample_ns": 9299795874432,
+          "file_bytes": 46475422,
+          "newest_complete_worker_ns": 9298782730971,
+          "age_ms": 1013.143461
+        },
+        {
+          "sample_ns": 9300317668734,
+          "file_bytes": 46475422,
+          "newest_complete_worker_ns": 9298782730971,
+          "age_ms": 1534.937763
+        },
+        {
+          "sample_ns": 9300839827867,
+          "file_bytes": 46475422,
+          "newest_complete_worker_ns": 9298782730971,
+          "age_ms": 2057.096896
+        },
+        {
+          "sample_ns": 9301361596160,
+          "file_bytes": 46475422,
+          "newest_complete_worker_ns": 9298782730971,
+          "age_ms": 2578.865189
+        },
+        {
+          "sample_ns": 9301883612304,
+          "file_bytes": 46475422,
+          "newest_complete_worker_ns": 9298782730971,
+          "age_ms": 3100.881333
+        },
+        {
+          "sample_ns": 9302406005518,
+          "file_bytes": 46475422,
+          "newest_complete_worker_ns": 9298782730971,
+          "age_ms": 3623.274547
+        },
+        {
+          "sample_ns": 9302928169969,
+          "file_bytes": 46475422,
+          "newest_complete_worker_ns": 9298782730971,
+          "age_ms": 4145.438998
+        },
+        {
+          "sample_ns": 9303451196456,
+          "file_bytes": 46475422,
+          "newest_complete_worker_ns": 9298782730971,
+          "age_ms": 4668.465485
+        },
+        {
+          "sample_ns": 9304072970342,
+          "file_bytes": 46475422,
+          "newest_complete_worker_ns": 9298782730971,
+          "age_ms": 5290.239371
+        },
+        {
+          "sample_ns": 9304695390648,
+          "file_bytes": 52464391,
+          "newest_complete_worker_ns": 9304604763048,
+          "age_ms": 90.6276
+        },
+        {
+          "sample_ns": 9305217016376,
+          "file_bytes": 52464391,
+          "newest_complete_worker_ns": 9304604763048,
+          "age_ms": 612.253328
+        },
+        {
+          "sample_ns": 9305738723635,
+          "file_bytes": 52464391,
+          "newest_complete_worker_ns": 9304604763048,
+          "age_ms": 1133.960587
+        },
+        {
+          "sample_ns": 9306260289188,
+          "file_bytes": 52464391,
+          "newest_complete_worker_ns": 9304604763048,
+          "age_ms": 1655.52614
+        },
+        {
+          "sample_ns": 9306781878977,
+          "file_bytes": 52464391,
+          "newest_complete_worker_ns": 9304604763048,
+          "age_ms": 2177.115929
+        },
+        {
+          "sample_ns": 9307303736466,
+          "file_bytes": 52464391,
+          "newest_complete_worker_ns": 9304604763048,
+          "age_ms": 2698.973418
+        },
+        {
+          "sample_ns": 9307825490063,
+          "file_bytes": 52464391,
+          "newest_complete_worker_ns": 9304604763048,
+          "age_ms": 3220.727015
+        },
+        {
+          "sample_ns": 9308347408490,
+          "file_bytes": 52464391,
+          "newest_complete_worker_ns": 9304604763048,
+          "age_ms": 3742.645442
+        },
+        {
+          "sample_ns": 9308873012987,
+          "file_bytes": 52464391,
+          "newest_complete_worker_ns": 9304604763048,
+          "age_ms": 4268.249939
+        },
+        {
+          "sample_ns": 9309397717438,
+          "file_bytes": 52464391,
+          "newest_complete_worker_ns": 9304604763048,
+          "age_ms": 4792.95439
+        }
+      ],
+      "trace_delivery_age_ms": {
+        "count": 50,
+        "mean": 2759.2535946,
+        "p50": 2604.039698,
+        "p95": 4792.95439,
+        "p99": 5220.243634,
+        "maximum": 5290.239371
+      },
+      "trace_bytes": 59484964,
+      "trace_markers": [
+        {
+          "at_ns": 9258002011383,
+          "offset": 26511
+        },
+        {
+          "at_ns": 9263265129675,
+          "offset": 4604626
+        },
+        {
+          "at_ns": 9268527052361,
+          "offset": 9851809
+        },
+        {
+          "at_ns": 9273237753747,
+          "offset": 15147589
+        },
+        {
+          "at_ns": 9278035283852,
+          "offset": 20109852
+        },
+        {
+          "at_ns": 9279057452489,
+          "offset": 25133781
+        },
+        {
+          "at_ns": 9283566501604,
+          "offset": 26197711
+        },
+        {
+          "at_ns": 9288822876632,
+          "offset": 30839109
+        },
+        {
+          "at_ns": 9294057262951,
+          "offset": 36226441
+        },
+        {
+          "at_ns": 9298771767008,
+          "offset": 41623786
+        },
+        {
+          "at_ns": 9304092553347,
+          "offset": 46475422
+        },
+        {
+          "at_ns": 9304592798396,
+          "offset": 51954962
+        },
+        {
+          "at_ns": 9309917600048,
+          "offset": 52464391
+        }
+      ],
+      "all_phase_drops": [],
+      "audio": {
+        "warmup": {
+          "frames": 960000,
+          "finite": true,
+          "channel_peaks": [
+            3.693281178129837e-05,
+            3.863173697027378e-05
+          ],
+          "full_scale_samples": 0,
+          "held_window_seconds": [
+            3,
+            14
+          ],
+          "held_stereo_zero_frames": 528000,
+          "held_rms": 0.0,
+          "fixture_exit": 0,
+          "counter_delta": {
+            "bridge_processed": 3967,
+            "missing_frames": 641536,
+            "gaps": 2,
+            "midi_accepted": 9,
+            "xruns": 0,
+            "process_failures": 0
+          },
+          "full_hold_2_to_14_stereo_zero_frames": 576000
+        },
+        "measured": {
+          "frames": 960000,
+          "finite": true,
+          "channel_peaks": [
+            0.05179508030414581,
+            0.03833169862627983
+          ],
+          "full_scale_samples": 0,
+          "held_window_seconds": [
+            3,
+            14
+          ],
+          "held_stereo_zero_frames": 0,
+          "held_rms": 0.002827501183838865,
+          "fixture_exit": 0,
+          "counter_delta": {
+            "bridge_processed": 3961,
+            "missing_frames": 6144,
+            "gaps": 24,
+            "midi_accepted": 9,
+            "xruns": 0,
+            "process_failures": 0
+          },
+          "full_hold_2_to_14_stereo_zero_frames": 6144
+        }
+      },
+      "post_mark_delivery_check": [
+        {
+          "mark_ack_ns": 9283566540956,
+          "read_after_ack_ms": 532.019056,
+          "newest_worker_record_age_ms": 517.11894
+        },
+        {
+          "mark_ack_ns": 9288822923891,
+          "read_after_ack_ms": 502.277321,
+          "newest_worker_record_age_ms": 502.809435
+        },
+        {
+          "mark_ack_ns": 9294057362822,
+          "read_after_ack_ms": 502.339225,
+          "newest_worker_record_age_ms": 497.300274
+        },
+        {
+          "mark_ack_ns": 9298771802231,
+          "read_after_ack_ms": 502.182192,
+          "newest_worker_record_age_ms": 491.253452
+        },
+        {
+          "mark_ack_ns": 9304092601051,
+          "read_after_ack_ms": 602.789597,
+          "newest_worker_record_age_ms": 90.6276
+        },
+        {
+          "mark_ack_ns": 9304592904508,
+          "read_after_ack_ms": 624.111868,
+          "newest_worker_record_age_ms": 612.253328
+        }
+      ],
+      "restored_master_matches": true,
+      "sampling_peak_temperature_c": 55.1,
+      "measured_gap_localization": {
+        "events": [
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286232871944,
+            "bridge_position": 1558784,
+            "callback_sequence": 3058,
+            "detail": 0,
+            "value_1": 1556736,
+            "value_2": 256,
+            "seconds_from_graph": 2.556339313
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286243559760,
+            "bridge_position": 1559296,
+            "callback_sequence": 3059,
+            "detail": 0,
+            "value_1": 1557248,
+            "value_2": 256,
+            "seconds_from_graph": 2.567027129
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286254205649,
+            "bridge_position": 1559808,
+            "callback_sequence": 3060,
+            "detail": 0,
+            "value_1": 1557760,
+            "value_2": 256,
+            "seconds_from_graph": 2.577673018
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286264887742,
+            "bridge_position": 1560320,
+            "callback_sequence": 3061,
+            "detail": 0,
+            "value_1": 1558272,
+            "value_2": 256,
+            "seconds_from_graph": 2.588355111
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286275543428,
+            "bridge_position": 1560832,
+            "callback_sequence": 3062,
+            "detail": 0,
+            "value_1": 1558784,
+            "value_2": 256,
+            "seconds_from_graph": 2.599010797
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286286216373,
+            "bridge_position": 1561344,
+            "callback_sequence": 3063,
+            "detail": 0,
+            "value_1": 1559296,
+            "value_2": 256,
+            "seconds_from_graph": 2.609683742
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286296875280,
+            "bridge_position": 1561856,
+            "callback_sequence": 3064,
+            "detail": 0,
+            "value_1": 1559808,
+            "value_2": 256,
+            "seconds_from_graph": 2.620342649
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286307541207,
+            "bridge_position": 1562368,
+            "callback_sequence": 3065,
+            "detail": 0,
+            "value_1": 1560320,
+            "value_2": 256,
+            "seconds_from_graph": 2.631008576
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286318217744,
+            "bridge_position": 1562880,
+            "callback_sequence": 3066,
+            "detail": 0,
+            "value_1": 1560832,
+            "value_2": 256,
+            "seconds_from_graph": 2.641685113
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286328892726,
+            "bridge_position": 1563392,
+            "callback_sequence": 3067,
+            "detail": 0,
+            "value_1": 1561344,
+            "value_2": 256,
+            "seconds_from_graph": 2.652360095
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286339550282,
+            "bridge_position": 1563904,
+            "callback_sequence": 3068,
+            "detail": 0,
+            "value_1": 1561856,
+            "value_2": 256,
+            "seconds_from_graph": 2.663017651
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286435602286,
+            "bridge_position": 1568512,
+            "callback_sequence": 3077,
+            "detail": 0,
+            "value_1": 1566464,
+            "value_2": 256,
+            "seconds_from_graph": 2.759069655
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286446228157,
+            "bridge_position": 1569024,
+            "callback_sequence": 3078,
+            "detail": 0,
+            "value_1": 1566976,
+            "value_2": 256,
+            "seconds_from_graph": 2.769695526
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286456886472,
+            "bridge_position": 1569536,
+            "callback_sequence": 3079,
+            "detail": 0,
+            "value_1": 1567488,
+            "value_2": 256,
+            "seconds_from_graph": 2.780353841
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286467564473,
+            "bridge_position": 1570048,
+            "callback_sequence": 3080,
+            "detail": 0,
+            "value_1": 1568000,
+            "value_2": 256,
+            "seconds_from_graph": 2.791031842
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286478216325,
+            "bridge_position": 1570560,
+            "callback_sequence": 3081,
+            "detail": 0,
+            "value_1": 1568512,
+            "value_2": 256,
+            "seconds_from_graph": 2.801683694
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286488889270,
+            "bridge_position": 1571072,
+            "callback_sequence": 3082,
+            "detail": 0,
+            "value_1": 1569024,
+            "value_2": 256,
+            "seconds_from_graph": 2.812356639
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286499562104,
+            "bridge_position": 1571584,
+            "callback_sequence": 3083,
+            "detail": 0,
+            "value_1": 1569536,
+            "value_2": 256,
+            "seconds_from_graph": 2.823029473
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286510222104,
+            "bridge_position": 1572096,
+            "callback_sequence": 3084,
+            "detail": 0,
+            "value_1": 1570048,
+            "value_2": 256,
+            "seconds_from_graph": 2.833689473
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286520887456,
+            "bridge_position": 1572608,
+            "callback_sequence": 3085,
+            "detail": 0,
+            "value_1": 1570560,
+            "value_2": 256,
+            "seconds_from_graph": 2.844354825
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286531550753,
+            "bridge_position": 1573120,
+            "callback_sequence": 3086,
+            "detail": 0,
+            "value_1": 1571072,
+            "value_2": 256,
+            "seconds_from_graph": 2.855018122
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286542217624,
+            "bridge_position": 1573632,
+            "callback_sequence": 3087,
+            "detail": 0,
+            "value_1": 1571584,
+            "value_2": 256,
+            "seconds_from_graph": 2.865684993
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286552882717,
+            "bridge_position": 1574144,
+            "callback_sequence": 3088,
+            "detail": 0,
+            "value_1": 1572096,
+            "value_2": 256,
+            "seconds_from_graph": 2.876350086
+          },
+          {
+            "phase": "gap_committed",
+            "monotonic_ns": 9286563543440,
+            "bridge_position": 1574656,
+            "callback_sequence": 3089,
+            "detail": 0,
+            "value_1": 1572608,
+            "value_2": 256,
+            "seconds_from_graph": 2.887010809
+          }
+        ],
+        "count": 24,
+        "frames": 6144,
+        "seconds_from_graph_range": [
+          2.556339313,
+          2.887010809
+        ],
+        "interpretation": "All24 gaps during held notes (early attack), before conservative3\u201313 analysis window. Active-delivery loss, not outside-capture bookkeeping. Regression possibility remains open; no repeat performed."
+      }
+    }
+  ],
+  "errors": [],
+  "settings_final": {
+    "phase": "unchanged",
+    "governor": "ondemand",
+    "schedstats": "0"
+  },
+  "fixture": {
+    "plugin": "Pigments 7.0.1.6772",
+    "runtime": "GE-Proton11-7 AArch64 / UMU 1.4.4 / steamrt4-arm64",
+    "sample_rate": 48000,
+    "jack_frames": 512,
+    "processing_frames": 256,
+    "bridge_reserve_frames": 2048,
+    "native_sha256": "9d0a611d7175b05e398f484d9217fb29b7004f3e0eaac76acd6ad00a541bd1da",
+    "note_fixture_sha256": "eb9b82707531ff887bce880825c6c8f9d70d1c56836620a43b987113d6a6bd3e",
+    "preset": "24 AM",
+    "voice_mode": "Poly 4",
+    "master_normalized": 0.35,
+    "notes": [
+      60,
+      64,
+      67,
+      71
+    ],
+    "velocity": 96,
+    "editor_opened": false,
+    "governor": "ondemand",
+    "schedstats": "0"
+  },
+  "build": {
+    "candidate_source_files_sha256": {
+      "native-audio-client/Cargo.lock": "c9ccfa326f23253e63701096a7058810a5597fa590710bcfe63644ae6bc425e6",
+      "native-audio-client/Cargo.toml": "4d35a5ee454680711b7d0d779fa511d338f89c3977a6289951d827a9d31568d9",
+      "native-audio-client/src/admission.rs": "8b1b932ab3e4462ebf3724b0b64b6a19f7f1d11444482ec42de40a8a9d7066df",
+      "native-audio-client/src/endpoint.rs": "7feb571c1c3c7d32f9d27f8effc9ff39eff2e223e074189f05a0155646b004a6",
+      "native-audio-client/src/events.rs": "1dcf8004b4e2f08ed1dd7e08d1e7b67fc11083c4d31be12718467bf8fbdce0f4",
+      "native-audio-client/src/lib.rs": "da6dfc1850738c793914e62f9fbdcf033a55191478704bab0c25b25ebb6092b5",
+      "native-audio-client/src/main.rs": "e9fb851d2bfae8652ec0c3f5ce56c190151dfeda60146ff059719c6c96ed8c57",
+      "native-audio-client/src/mapping.rs": "cba4a5733e7bf8be2290a0a5d683bf98eee71f2545ba305cb7668b0efc154a35",
+      "native-vst3-proxy/backend/Cargo.lock": "59422fb7429b8d161b011bd906b82d1b7f0ef3e9c042958b71fe896579c6e91c",
+      "native-vst3-proxy/backend/Cargo.toml": "7c32992637ab4099be4cf70a1641541f855428e5d727568c4f244b9ec28ca3ce",
+      "native-vst3-proxy/backend/src/capture_tests.rs": "8d53b716b9fa5066125afa68f61d83206a1b7cebf786b44d74a4b24d525f57a6",
+      "native-vst3-proxy/backend/src/commercial_tests.rs": "1aeb8284e077a966bed3a3d2fdfb0f3966cfbf02553467b6d28a64bfb19a0e17",
+      "native-vst3-proxy/backend/src/context.rs": "d66b2e7ddcd8f771fff09c270c002871813ce58b708e93095f464a79b811b486",
+      "native-vst3-proxy/backend/src/fault_status.rs": "ce12df04647b0e98b0b667e9cf6c18e78257f979e3dc5cc0fe2f6c068a3d087b",
+      "native-vst3-proxy/backend/src/gui.rs": "51305cf9656c26665c89269ae9662b5ff21fe9198b89e877a770127128ae3464",
+      "native-vst3-proxy/backend/src/input_observation.rs": "424b34e25c4df83d8550eac48cfbd890ba6614aae8134a2ccb76bff812decf59",
+      "native-vst3-proxy/backend/src/instances.rs": "8add1b5f343cb078ae87db2e87cbb4a39b46b79389236c5263bc02cce9d55e4e",
+      "native-vst3-proxy/backend/src/lc1_tests.rs": "92af98985ecf9f517ea077515c5854168ac22c8a06a016dd1e66cc65a5f1c124",
+      "native-vst3-proxy/backend/src/lib.rs": "68776a01aa6c6be05f31d046b1c5b6d04db7f5ed5a13d7053b3b752a84d4e7e0",
+      "native-vst3-proxy/backend/src/mailbox.rs": "1639284f3eb011c6a27ce9eb92ff4401811e16ed2112212efd12816ed9aa7b72",
+      "native-vst3-proxy/backend/src/observer.rs": "24e77bece6aeab8912019b6e43af66ceaefb1de06bf824c29d817e79d25aee71",
+      "native-vst3-proxy/backend/src/performance.rs": "28918b902f68a9d06b454e726978ce2c3bd123b46c5f500b6b001c5d84a421c2",
+      "native-vst3-proxy/backend/src/preview.rs": "c9816dab8e69ac2b698d24ef1125ae868f535fd2ca6bf7aaab15f7062d7d98a1",
+      "native-vst3-proxy/backend/src/process_results.rs": "66836f0dfcf015624c694e424f5a56d78912207a510f6fcd69843fdf414d2390",
+      "native-vst3-proxy/backend/src/queue.rs": "dca1261dc40e572f659123fcde65fd115218d070c6c40593af0b4b83f3810b81",
+      "native-vst3-proxy/backend/src/queued.rs": "b9cc9a0f1e1e7b2b659fdea54bc67d5fc824265967dc5bb741e004a2b864c61f",
+      "native-vst3-proxy/backend/src/recovery.rs": "53378f83e437a55f7eb91baff253f2c8b2bd4fe266a1b26bb86c49a3c25a0bb6",
+      "native-vst3-proxy/backend/src/rpi0.rs": "0b78efc9886f8fc789511878f187e9c2f6a3b946c9e1913f1f9b6c2e24960f01",
+      "native-vst3-proxy/backend/src/rpi1_phase.rs": "335afe0e444fec7518dbb2cddf691a0ace86dd541594d13d914e0e1dd94e5761",
+      "native-vst3-proxy/backend/src/state.rs": "b0306df482e37ed45df071a67d9c6345bfa56d3803d722be492a6475061a6d84",
+      "native-vst3-proxy/backend/src/terminal.rs": "136588afab1838f358045576919e31b3f53c4f28f875d6ec151c20f0b9dedf0e",
+      "rpi0/standalone/Cargo.lock": "67ab050c0c6e0671df983c9f5a8f568f05b5fdb8495f1d1b8ebbd73e2fa7f969",
+      "rpi0/standalone/Cargo.toml": "50d6e5027708090f38cad7e4a5ef8a5187172d20539749197b3a36335cbeb223",
+      "rpi0/standalone/src/audio.rs": "369133fa30b655f7191852d445ec319b15ef4ed1810d78f78dcafd9e4d67ee9b",
+      "rpi0/standalone/src/callback_gate.rs": "24d77bb2a8991c2881d2991f83387afdeebe0bed19561c54204a93b65a180359",
+      "rpi0/standalone/src/config.rs": "429d449fa4f579421e3def4078fa637e8e2d62a9d28de778f0d970c17ecd419c",
+      "rpi0/standalone/src/jack.rs": "293d7289ece94b12199ead92fbb9acbce3958d1b48885fcdc865d98f22908710",
+      "rpi0/standalone/src/lib.rs": "c3e2029b8d73eee2a3661fb5d71ae8712bcfb7f21e3f1f7d9b75f1e83f276081",
+      "rpi0/standalone/src/main.rs": "699cef6aff9123b3b92ba6e429d261e67094fbd038b35cd6074a7a20c7185e94",
+      "rpi0/standalone/src/midi.rs": "50a508f5693daba36f446abad292e019be6ad275dd7462884dcb4383ebb2f8f0",
+      "rpi0/standalone/src/protocol.rs": "81b90bb6e05f6d43b8c9e7e5424fb0250d01c6c5b4c5f5843f1f5516f1071e61",
+      "rpi0/standalone/src/spsc.rs": "7fb47251a9a630b2c37eb25dd21753c05d45f33842b520fc319887e5c08cbf86",
+      "rpi0/standalone/src/supervisor.rs": "b11ac60ffb0939471b67a54730134d5a25bfd70fa973450f8f87b19e05f7c867",
+      "rpi1/standalone/Cargo.lock": "3e0f895485db3e6063160f515197a56f3a6bff7addb66f716dbe052cb159f62b",
+      "rpi1/standalone/Cargo.toml": "be6b7966a45ea859936ac609c527546304d29164c3672dc1c10ad5c5b9c6215f",
+      "rpi1/standalone/src/binding.rs": "b3ff0d8301152fcdb81f521f3e55afb4df206670edc72a0a166bd4fabe894e46",
+      "rpi1/standalone/src/config.rs": "ffdd6a1dcaf8d142afe855d49cda668f000db3c27b5d8ad76e985a1a5c2fe5b5",
+      "rpi1/standalone/src/contract.rs": "4c43e79668f70db207d854e562e2d2c7a15f0688f50801ffc70cd09fbf92778d",
+      "rpi1/standalone/src/lib.rs": "6cb0ba99c5c2d3c88daec91f6374b91b4faff5af8002bd4cfb06acf3542ce62a",
+      "rpi1/standalone/src/main.rs": "a1a43efcdabdbd26040785476c57f02749096d02377e93a74788015e4989894e",
+      "rpi1/standalone/src/master.rs": "884831c122769b91d6ceee199625f2e1f316e630b1497350236ac695bd4cc436",
+      "rpi1/standalone/src/panel.rs": "5e9e9fae9b5619d1725348b4249cbc5566c0e87ed60014b3f84fa37c11fb5ec8",
+      "rpi1/standalone/src/panel_linux.rs": "e2ae5a5b3090b630240906f70afdd32a14172ff2f458afa530e3fd53ba66826e",
+      "rpi1/standalone/src/panel_state.rs": "b52766793b64ea19b70c8bdd47d905aef13435bc48d31499998b29f6ddd7619b",
+      "rpi1/standalone/src/phase_capture.rs": "8d4d26a26c85b930916f586f27b92af20b6330e8eee4b4ddba5c621d8ccc89c1",
+      "rpi1/standalone/src/retirement.rs": "2d1b9cac22d49e0a7768e52df11f3f91996ee3e1e9b61ee777eb85a129fd5460",
+      "rpi1/standalone/src/startup.rs": "1b20319d27a87b68ad885a450496cc26007f1b8b5e92f9e4b8669e1d45dbe868",
+      "rpi1/standalone/src/supervisor.rs": "c6f50eaf137fbdf5c0b0b9ab7cab3ece483ec5880dbce28022dc5ebb3cb5e2c1"
+    },
+    "differences_from_current_checkout": [
+      "rpi1/standalone/src/panel.rs"
+    ],
+    "native_candidate_sha256": "6c3cc393837dc81168a2c7bdb7fc33e4f469ba80659512f4f91d9cfec392e876",
+    "original_native_sha256": "9d0a611d7175b05e398f484d9217fb29b7004f3e0eaac76acd6ad00a541bd1da",
+    "build_seconds": 21.66,
+    "test_build_seconds": 23.8,
+    "modified_installed_source": [
+      "rpi1/standalone/src/phase_capture.rs"
+    ],
+    "original_phase_source_sha256": "7e2b176780561c468e7caf99accdd41b63133498b5a62d3caa90f81be5d10934",
+    "limitation": "Installed source preserved except phase_capture; original binary was retained but not reproducibly rebuilt to prove exact binary/source correspondence. Installed panel differs from current checkout and is intentionally preserved. Candidate release build overlapped initial original-host startup, completed before host readiness and before warmup/measurement."
+  },
+  "source_sha256": {
+    "rpi1/standalone/src/phase_capture.rs": "8d4d26a26c85b930916f586f27b92af20b6330e8eee4b4ddba5c621d8ccc89c1",
+    "rpi2/recorder_compare.py": "45cb88ca596e1ecebdc7cb7f3001b59f08b9ece88bbd65fdc3576869ba506200",
+    "rpi2/recorder_analysis.py": "c72ebc459567d4dd649a1fa290c09f5fbc350d4de26a99c2cc2b01495f151711",
+    "rpi2/governor_phase_analysis.py": "b7388de1c7ca6c3e8f3b239e26d0080bd1b2b20d95ba232358ce8c71e57852eb"
+  },
+  "focused_writer_test": {
+    "records": 300,
+    "identical_bytes": 95824,
+    "direct_underlying_write_calls": 31800,
+    "buffered_underlying_write_calls": 2,
+    "error_cases": [
+      "underlying write failure",
+      "underlying flush failure prevents sync",
+      "underlying sync failure propagates"
+    ]
+  },
+  "limitations": [
+    "One ordered original/candidate pair, not randomized repeated performance qualification.",
+    "CPU spans align to execution of blocks selected by queued stimulus time. Graph-ready stdout is an approximate arm anchor; conservative windows exclude note edges.",
+    "Live outstanding-frame estimates use separate counter reads; a one-callback skew bound is not proven. Fully emitted trace provides the independent pre-stimulus queue check.",
+    "Native process syscw covers all native writes, not exclusively the recorder; most disappear with buffering while written-byte amounts are similar.",
+    "The original binary was not reproducibly rebuilt from the retained source; installed panel source differs from PR base and was intentionally preserved for candidate.",
+    "Baseline startup briefly overlapped final native build work; build completed before readiness, warmup and measured capture.",
+    "Scheduler wait unavailable because scheduler statistics stayed disabled; detailed Windows caller CPU/FEX internals not collected.",
+    "No power-source or energy measurement; no audible operator confirmation.",
+    "Candidate measured6144missing frames vs baseline0; substantial observer CPU reduction does not establish improved audio reliability.",
+    "Trace delivery age naturally increases between five-second marks; post-mark samples distinguish emission delay from the deliberate retention interval.",
+    "Candidate gaps localized to2.556\u20132.887s after graph-ready, during note attack; the zero-silence3\u201314 result excludes them and is not a complete-hold pass."
+  ],
+  "conclusion": {
+    "observer_cpu_reduction_percent": 94.12355885148433,
+    "governor_objective": "Deferred, not achieved",
+    "audio_reliability_improved": false,
+    "default_binary_replaced": false,
+    "next_action": "Review and retain the recorder repair as a prerequisite; investigate the Windows processing path next because its service time and CPU barely changed."
+  }
+}

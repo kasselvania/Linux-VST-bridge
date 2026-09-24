@@ -1,42 +1,62 @@
-# NAD2 — Exact NTKDaemon stop-response characterization
+# RPI2 CPU efficiency — existing FEX statistics
 
-Active basis:
+Base commit: 4978d0f (full resolved identity retained with final evidence).
+Base tree: 71d0d6eb2bcd684968293798b70007725d281135.
+The operator authorizes autonomous continuation; this thread remains the sole
+writer/live Pi owner. The coordinator reviewed the pinned FEX schema and reader.
+The preceding multicore preference check is complete: startup OFF is overridden
+by unchanged24AM full state ON, so no mislabeled multicore comparison will run.
 
-- merged source: `710b0f3be642cca342f2a5915d37158246023aed`
-- reviewed/merged tree: `77efd70fac7985a051343407d4ec13ca183422a8`
-- retained production evidence: `b175fdf5317a6afb512b17dc02cd40fdd907a201`
-- installed immutable generation: `67e3004b087fe1dbb9c1bbd2c0b667a3eab1d1ac8cf14f7931f5ac37bb38880f`
-- installed software record: `bd831fb3659ea27bc52d07bd63327206e46efb87e76af29c604c6ee281a96553`
+## One bounded outcome
 
-NAD1 established the exact Native Access renderer policy, exact NTKDaemon payload
-and registration, fresh process/listener readiness, one-stop ownership, truthful
-retirement reporting, bounded fallback cleanup, and one rendered signed-in Native
-Access session. Preserve all NAD1 and NAUI2 results.
+Determine whether the existing pinned ARM64EC FEX shared statistics are available
+and whether their translation/cache activity distinguishes the first four-note
+hold from its warmed repeat. No new runtime/native/Windows build, feature flags,
+GUI, settings, state edits, latency, affinity, priority or governor changes.
 
-The latest one-shot real operation `f4a2b703d8ea518d14c893c480fd93ed`
-established readiness and both owned listeners, then submitted one SCM stop request.
-The API returned without a control error, but SCM remained `RUNNING`, the exact
-process did not exit, and both listeners remained throughout the 12,045 ms bounded
-observation. Exit-receipt fallback was correctly inapplicable. Forced cleanup
-recovered the bridge and keepers, and no successful preparation receipt was created.
+Use the unchanged85780f4856f2bac9f605628ca7decd80568cca0ad36fa92db70960bf74dd1a62
+native candidate explicitly; phase tracing OFF. Existing Pigments7.0.1.6772,
+GE-Proton11-7 ARM/FEX prefix, 24AM Poly4/master0.35, notes60/64/67/71 velocity96,
+48k/JACK512/vendor256/reserve2048. One fresh session: availability after READY,
+then only the existing20-second warm-up and20-second measured capture if usable.
+The same near-drained estimate and75C/current power-warning stops apply.
 
-Selected next slice: **NAD2 — exact NTKDaemon stop-response characterization**.
+## Reader and interpretation
 
-Authoritative slice document: `docs/NAD2.md`.
+Source: FEX82510eb452b258959ef982be58a9c3c1bafc82a4 SHMStats.h and allocator,
+ARM64EC Module.cpp and UnixLib. Version2/header64/slot112. Head/Next are byte
+offsets from base; Linux getpid names the file but GetCurrentThreadId values are
+Windows IDs. Validate exact owned Pigments mapping and process lifetime. Check
+host /dev/shm and that process root/dev/shm using its NSpid when needed.
 
-NAD2 adds bounded diagnostic characterization only. It must not introduce another
-stop request, a longer production wait, a replacement shutdown strategy, direct
-daemon termination as success, or a Native Access session.
+Read-only bounded snapshots no faster than2Hz; record observer CPU/time. Reject
+unknown schema, invalid bounds/linkage, unstable topology, reset or churn for
+attribution. No atomic whole-process claim or Linux/Windows TID guess. Retain
+raw CNTVCT ticks; derived elapsed seconds may use kernel-reported54.00MHz reference
+timer, never CPU GHz. JIT-path time includes lookup/locking/compile work and is
+not CPU-only compilation. Avoid adding overlapping time counters.
 
-During implementation and PR qualification:
+If unavailable/unusable, retain the specific dependency and stop after this one
+launch without benchmark or rebuild. If usable, compare sparse process-level
+deltas with captured audio, whole held2–14including attack and stable3–14,
+retaining failed warm-up. No per-audio-thread claim without verified identity.
 
-- do not install a candidate;
-- do not start or stop the real NTKDaemon;
-- do not launch Native Access, a DAW, a plug-in, an updater, or a product installer;
-- do not replay the daemon installer;
-- do not increase the 12-second production observation bound;
-- do not turn forced cleanup or bridge recovery into successful retirement;
-- do not rewrite prior evidence.
+## Scope, restoration and delivery
 
-Return one draft PR, uninstalled and unmerged, for independent tech-lead review.
-Reliable real-daemon shutdown remains unqualified.
+Use existing recorder_compare/trace_analysis helpers with narrowly scoped
+reader/reducer/tests, this card, RPI2 documentation and sanitized evidence.
+No new framework/dashboard. Keep proprietary captures/state and raw paths private.
+Restore original user state/master, preference bytes and JACK graph; retire only
+owned processes. Preserve generic9d0a611... and helper-default24e6ab17... binaries.
+Commit/push final results to draftPR150 without merge/default replacement; stop
+with the measured finding, limitations and next evidence-backed lever.
+
+## Observed disposition
+
+Existing FEX v2 counters were readable. One session and the two existing captures
+completed; both had substantial output silence despite no thermal flags and
+near2.4GHz samples. The repeated cutoff around2.39s preceded its later large
+JIT burst, with zero compile attempts in intervals overlapping2–3s. A separate
+Arturia-named process contributed additional repeat CPU, while Pigments-only CPU
+also rose. No sole cause or reliable warmed baseline is claimed. Cleanup and
+five focused reader/reducer tests passed. No further runtime experiments this turn.

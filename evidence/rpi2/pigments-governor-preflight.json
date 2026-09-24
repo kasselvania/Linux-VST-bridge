@@ -1,0 +1,42 @@
+{
+  "slice": "RPI2 fixed-workload governor comparison",
+  "base_commit": "540eb13f39d7d89815d078b28c4c5f815afd5dda",
+  "base_tree": "f73c235b20024e7699d91d6a7d24dc7cff776719",
+  "result": "blocked_before_experiment",
+  "primary_claim_established": false,
+  "blocker": {
+    "governor_setting": "root-owned mode 0644; not writable by the current SSH account",
+    "scheduler_statistics_setting": "root-owned mode 0644; not writable by the current SSH account",
+    "noninteractive_sudo_listing": "sudo: a password is required",
+    "required_dependency": "Operator-authenticated temporary access to set and restore the governor; scheduler statistics may remain unavailable if their enablement is not permitted"
+  },
+  "observed": {
+    "governor": "ondemand",
+    "available_governors": ["conservative", "ondemand", "userspace", "powersave", "performance", "schedutil"],
+    "minimum_frequency_khz": 1500000,
+    "maximum_frequency_khz": 2400000,
+    "scheduler_statistics_enabled": false,
+    "scheduler_wait_measurement": "unavailable, not zero",
+    "temperature_c": 45.5,
+    "throttled_flags": 0,
+    "owned_audio_experiment_running": false,
+    "jack_plugin_ports_present": false,
+    "jack_connections_present": false
+  },
+  "verified_installed_sha256": {
+    "native_generic_host": "9d0a611d7175b05e398f484d9217fb29b7004f3e0eaac76acd6ad00a541bd1da",
+    "four_note_qualification_fixture": "eb9b82707531ff887bce880825c6c8f9d70d1c56836620a43b987113d6a6bd3e"
+  },
+  "actions": {
+    "audio_launched": false,
+    "system_settings_changed": false,
+    "plugin_state_changed": false,
+    "runtime_or_binary_changed": false,
+    "gui_or_vnc_used": false
+  },
+  "limitations": [
+    "No governor comparison was performed; there is no performance, CPU-work or energy result.",
+    "Plugin module, Windows host and runner identities were not rehashed after the privilege dependency blocked launch.",
+    "No scheduler waiting-time interpretation is valid while scheduler statistics are disabled."
+  ]
+}

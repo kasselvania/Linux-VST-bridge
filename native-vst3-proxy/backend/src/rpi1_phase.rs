@@ -59,6 +59,16 @@ impl Default for Ring {
     }
 }
 impl Ring {
+    pub fn enabled(&self) -> bool { self.enabled }
+
+    /// Startup only. Invalid selectors never silently enable or disable tracing.
+    pub fn startup_enabled(value: Option<&str>) -> std::io::Result<bool> {
+        match value {
+            None | Some("off") => Ok(false),
+            Some("on") => Ok(true),
+            _ => Err(std::io::Error::other("LVB_RPI1_PHASE_TRACE must be off or on")),
+        }
+    }
     pub fn new() -> Self {
         Self {
             queue: Queue::new(CAPACITY),
@@ -92,11 +102,18 @@ impl Ring {
         value_1: u64,
         value_2: u64,
     ) {
+        self.record_with_clock(callback_sequence, bridge_position, kind, detail,
+                               value_1, value_2, crate::observer::monotonic_ns);
+    }
+    fn record_with_clock(
+        &self, callback_sequence: u64, bridge_position: u64, kind: u32,
+        detail: u32, value_1: u64, value_2: u64, clock: impl FnOnce() -> u64,
+    ) {
         if !self.enabled {
             return;
         }
         let event = Event {
-            monotonic_ns: crate::observer::monotonic_ns(),
+            monotonic_ns: clock(),
             callback_sequence,
             bridge_position,
             kind,
@@ -116,6 +133,32 @@ impl Ring {
     }
     pub fn producer_tid(&self) -> u64 {
         self.producer_tid.load(Ordering::Acquire)
+    }
+}
+
+#[cfg(test)]
+mod selector_tests {
+    use super::*;
+    #[test]
+    fn selector_defaults_off_and_refuses_unknown_values() {
+        assert!(!Ring::startup_enabled(None).unwrap());
+        assert!(!Ring::startup_enabled(Some("off")).unwrap());
+        assert!(Ring::startup_enabled(Some("on")).unwrap());
+        assert!(Ring::startup_enabled(Some("ON")).is_err());
+        assert!(Ring::startup_enabled(Some("")).is_err());
+    }
+    #[test]
+    fn disabled_producer_never_calls_clock_or_publishes_event() {
+        let disabled = Ring::disabled();
+        disabled.bind_producer(9);
+        disabled.record_with_clock(1, 256, CALLBACK_ENTER, 0, 0, 0,
+                                   || panic!("disabled phase clock called"));
+        assert_eq!(disabled.producer_tid(), 0);
+        assert_eq!(disabled.dropped(), 0);
+        assert!(disabled.pop().is_none());
+        let enabled = Ring::new();
+        enabled.record_with_clock(1, 256, CALLBACK_ENTER, 0, 0, 0, || 42);
+        assert_eq!(enabled.pop().unwrap().monotonic_ns, 42);
     }
 }
 

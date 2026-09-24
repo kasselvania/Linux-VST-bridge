@@ -1128,3 +1128,423 @@ baseline JACK graph. No binary changed. Power source was not reverified. The
 next useful investigation is time spent inside processing versus the worker's
 other work and queue recovery, rather than attributing this run to heat or
 graphics alone. See `evidence/rpi2/pigments-24am-editor-comparison.json`.
+
+### Governor comparison: preflight dependency
+
+The separate CPU-efficiency slice selected a warmed headless
+ondemand/performance/ondemand comparison of unchanged 24 AM. Live preflight
+found ondemand with a 1.5–2.4 GHz range, 45.5 C and no throttle flags. The native
+host and four-note fixture hashes matched the retained campaign. No owned audio
+experiment or plugin JACK ports/connections were present.
+
+The governor and scheduler-statistics controls are root-owned and not writable
+by the SSH account; non-interactive sudo requested a password. Scheduler
+statistics are disabled, so waiting time is unavailable, not zero. The
+experiment stopped before launch without changing system settings, plugin state,
+or binaries. It has **no governor-performance result**. Continuing requires an
+operator-authenticated temporary way to set and restore the governor; scheduler
+statistics are optional if enabling them is unavailable. See
+`evidence/rpi2/pigments-governor-preflight.json`.
+
+The reviewed `rpi2/governor_guard.py` now provides the narrowly scoped temporary
+mechanism, pending operator authentication. It runs in the foreground, permits
+only the fixed governor sequence through a transient operator-owned FIFO, and
+does not execute benchmark code or requested commands as root. It captures and
+restores both original settings on completion, handled signals, errors or a
+15-minute timeout. SIGKILL and power loss are outside that guarantee. Final
+status distinguishes successful restoration from completed phase transitions;
+interruption or invalid requests return nonzero even after successful cleanup.
+Four focused tests passed. The guard's staged SHA256 is
+`83f2d5d77608540e7a51ff468006dd81a550661cdc0b3c2c4b7438759b9c09fd`.
+No governor comparison has run yet.
+
+Attempt 01 subsequently authenticated the guard and completed one ondemand
+warm-up, then stopped before measurement when the live phase-tail reader
+misparsed a partially appended record. The complete retained stream has 91,775
+valid records in 33,422,937 bytes; no durable corruption was found. The exact
+transient failing fragment was not retained. A focused reproduction shows how
+the former iterator could skip a partial prefix and parse its later suffix.
+The repaired reader freezes the byte extent, discards incomplete edge records,
+and continues to reject malformed complete records. Its retained-tail check
+reported 21.21 ms maximum queue wait and therefore still failed the unchanged
+20 ms drain threshold.
+
+The warm-up accepted nine MIDI events but added 643,072 missing frames, with
+exact silence throughout recorded seconds 3–14 despite fixture exit zero.
+This is not an audio pass or a governor comparison. The 69.37-second session
+peaked at 51.25 C with no throttle flags and restored the original preset,
+exact master and JACK graph. The guard restored ondemand/schedstats 0 and
+returned exit 2, distinguishing aborted work from successful cleanup. Original
+failed evidence remains in `evidence/rpi2/pigments-governor-attempt-01.json`.
+
+The retry adapter now uses validated unique attempt labels, requires recent
+worker observations as well as low queue wait, and requests the same explicit
+phase flushes before/after each capture and every five seconds during it. The
+offline reducer joins callback sequence/bridge position and verifies request
+IDs, separates conservative queued note-active/idle/release cohorts, reports
+nominal versus retained/completed block coverage and uses completed frames as
+the CPU-work denominator. Missing coverage cannot be counted as an improvement.
+CPU samples span each cohort's actual execution interval, including runtime
+work outside vendor calls; detailed caller CPU remains unavailable. The
+recorder's formatting and disk synchronization are observer costs. Thirteen
+focused tests passed, including nine reader/reducer tests on the Pi. Retry is
+pending coordinator review and renewed operator authentication.
+
+### Governor attempt 02: recorder delivery prevented admission
+
+The reviewed retry completed one ondemand warm-up, then refused all six drain
+checks because retained worker observations were 3.55–4.06 seconds old. Every
+check nevertheless had 188 matched blocks, zero unmatched requests and only
+3.59–3.67 ms maximum queue wait. This is not evidence of persistent live
+backlog. No measured hold, performance condition or second ondemand condition
+ran. The 99.64-second session restored 8-Bit Crystals, master
+0.48033079504966736 and the baseline JACK graph. The guard restored ondemand
+and scheduler statistics 0, removed its request FIFO and returned cancellation
+exit 2. Peak temperature was 52.35 C with no throttle flags.
+
+Offline inspection of attempt 02 locates the freshness failure inside a
+partially emitted flush. For example, at byte 32,290,630 the selected worker
+record was 2.928 seconds older than its preceding marker; the same flush later
+contains a worker record only 12.85 ms after that marker. Other checks likewise
+sampled older rows partway through a flush containing current records.
+`worker_request_observed` uses raw monotonic time, equal to `recorded_ns`; it
+does not use converted worker-call timestamps. Converted process timestamps
+remain correctly written by the phase writer. Mark acknowledgment means queued,
+not flushed. Callback and worker rings drain in batches, and history is emitted
+in insertion order. No flush-completion timestamp exists in this record.
+
+The recorder formats JSON directly into unbuffered `File` with `writeln!`, then
+syncs after the batch. Multiple formatting writes and serialized batch emission
+are source-visible mechanisms; actual syscall count and time spent writing,
+waiting for storage or being descheduled were not measured. The retained data
+proves incomplete delivery at the reader, not the exclusive cause of its cost.
+Existing live status already exposes callback count, paused frames and completed
+blocks. With this fixed 512/256 quantum and zero failures,
+`callbacks*512 - paused_frames - bridge_processed*256` approximates outstanding
+frames, subject to separately sampled counters. It was 512 before warm-up and
+256 afterward. The atomic native `ap12.status` lane also exposes current epoch,
+request position/stage/time and sampled submitted-frame totals. Neither the
+printed queue high-water mark nor the single delivery-mailbox slot is current
+native queue depth.
+
+Useful warm-up measurements survive this observer failure. All 3,750 published
+blocks in the 20-second stimulus matched completions with no reported phase
+drops. Conservative queued seconds 3–13 contained 1,874 contiguous completed
+blocks (479,744 frames). Vendor wall mean/p95 were 5.382/6.527 ms; total service
+mean/p95 were 5.544/6.721 ms against the 5.333 ms quantum. Respectively 849 and
+951 blocks exceeded that quantum. Across the cohort's actual 10.415-second
+execution span, the audio worker used 10.167 CPU seconds and accumulated 0.0486
+seconds of scheduler wait. Windows-cohort CPU was 19.011 seconds, approximately
+1.902 CPU seconds per rendered second. Nineteen active-span frequency samples
+were approximately 2.400 GHz. These interpolated CPU spans include runtime work
+outside vendor calls; they are not pure DSP or energy measurements. The
+recording was finite but exactly silent throughout held seconds 3–14, despite
+fixture exit zero and nine accepted MIDI events.
+
+The CPU-efficiency objective remains unachieved. Recommended next scope is a
+small control-plane recorder buffering change with explicit flush before sync
+and an overhead check, while using existing live status for drain. This would
+address the observer confound before another governor comparison. No recorder
+or product binary was changed, and no third authentication was requested.
+See `evidence/rpi2/pigments-governor-attempt-02.json` for retained findings.
+
+### Buffered recorder prerequisite: one same-ondemand original/candidate pair
+
+The coordinator authorized buffering on the ordinary recorder thread, keeping
+schema, serialization, incident/marker/finish boundaries and error behavior.
+`phase_capture.rs` now uses a 64 KiB `BufWriter` and explicitly flushes before
+the underlying `sync_data`. Nothing changes in the callback, DSP, routing or
+latency. A counting-writer test produced the same 300 records/95,824 bytes with
+31,800 direct underlying writes versus two buffered writes. Separate tests
+exercise write failure, flush failure preventing sync, and propagated sync
+failure. Focused Pi release-test compilation took 23.80 seconds; the native
+candidate release build took 21.66 seconds. No Windows/runtime build occurred.
+
+The original binary remains the default. Candidate SHA256
+`6c3cc393837dc81168a2c7bdb7fc33e4f469ba80659512f4f91d9cfec392e876`
+is staged separately from original
+`9d0a611d7175b05e398f484d9217fb29b7004f3e0eaac76acd6ad00a541bd1da`.
+Only the recorder source was changed in the installed source tree. Its existing
+older `panel.rs` differs from this PR's base and was deliberately preserved.
+A 58-file source/manifest/lock hash inventory is retained. Exact original
+binary-to-source correspondence was not proved by a reproducible rebuild;
+this limits attribution to a sole binary difference. The final seconds of
+candidate building overlapped initial baseline launch, ending before readiness,
+warm-up and measurement. This startup sequencing limitation is retained.
+
+Both fresh sessions restored the same 24 AM state and ran the same warm-up and
+measured four-note hold, editor closed, ondemand unchanged and scheduler
+statistics disabled. Mark requests before/after capture and every five seconds
+were identical. Three stable small live outstanding-frame estimates guided
+admission; those separately read counters are not an atomic queue bound.
+Offline pre-stimulus traces independently matched all 188 expected blocks,
+with maximum queue waits 7.398 ms original / 6.501 ms buffered. Both measured
+conservative note-active windows matched 1,876 contiguous blocks / 480,256
+frames, with no phase drops or position holes.
+
+| Active-cohort measurement | Original recorder | Buffered recorder |
+| --- | ---: | ---: |
+| Recorder CPU seconds | 1.8794 | 0.1104 |
+| Recorder CPU, one core | 18.79% | 1.11% |
+| Native-process write calls | 3,128,974 | 168 |
+| Native-process bytes written (`wchar`) | 10,791,131 | 10,784,737 |
+| Windows-cohort CPU seconds | 14.4632 | 14.4516 |
+| Windows CPU seconds per rendered second | 1.4456 | 1.4444 |
+| Vendor mean / p95 wall ms | 4.909 / 5.616 | 4.897 / 5.609 |
+| Service mean / p95 wall ms | 5.065 / 5.791 | 5.051 / 5.770 |
+| Whole-Pi CPU | 43.15% | 39.92% |
+
+Recorder CPU fell approximately 94.1% in this matched pair. Process write counts
+include all native writes, but nearly all disappear while byte volume remains
+similar. At about 0.5 seconds after capture-time marks, original complete-record
+ages were approximately 1.5–2.9 seconds versus approximately 0.49–0.52 seconds
+with buffering. Overall age still grows between deliberate five-second marks;
+the recorder is not a synchronous live-status interface. Windows processing
+time and work barely changed, so this is a native observer-efficiency result,
+not an improvement in Pigments DSP capacity or measured energy.
+
+**Audio regression possibility remains open.** The original measured hold
+added zero missing frames/gaps. The candidate added 6,144 frames in 24 gaps,
+each 256 frames. All occurred 2.556–2.887 seconds after graph-ready, during the
+held-note attack, not outside the capture. Exact-zero stereo frames in the
+full seconds 2–14 window were zero original versus 6,144 candidate. The later
+seconds 3–14 subwindow had no exact silence in either, but excludes these gaps
+and cannot be described as a full-hold pass. Both recordings were finite and
+below full scale (peaks 0.04818/0.05180). Both accepted nine MIDI events with
+zero processing failures/JACK xruns. No operator audible judgment or rerun was
+requested. The single ordered pair cannot attribute the extra gaps to buffering
+versus run variability; it provides no audio-reliability win.
+
+Both sessions shut down cleanly and restored 8-Bit Crystals, exact master
+0.48033079504966736 and baseline JACK graph. Governor remained ondemand,
+scheduler statistics remained 0, no owned experiment stayed running, and the
+default original binary hash was verified. Temperatures peaked at 54.0 C in
+session samples; denser trial samples reached 55.1 C in the candidate, with no
+throttle flags. Current power source and energy were not measured.
+
+Governor A/B/A remains explicitly deferred, not achieved. Review the recorder
+repair as an opt-in prerequisite, retaining the active-attack gap caveat, then
+target Windows processing work whose cost remained almost unchanged. Detailed
+results and provenance: `evidence/rpi2/pigments-recorder-buffering.json`.
+
+### Same-binary native phase trace OFF/ON/OFF
+
+The follow-on candidate reads `LVB_RPI1_PHASE_TRACE` once during native startup.
+Absent or `off` disables native phase tracing, `on` enables it, and invalid values
+fail startup. OFF skips phase event clocks/production, worker clock conversion,
+the phase-only JACK cycle/gettid block, recorder thread and phase file. Startup
+reports mode/recorder/file; `mark` explicitly reports unavailable when disabled.
+ON retains the buffered recorder and existing record format/error behavior.
+
+This is **not a fully uninstrumented runtime**. Callback deadline clocks and
+scalar output/nonfinite/missing-frame counters remain, as do request/transport
+and fault timestamps, the commercial `ap7-observer`, `ap3-transport`, and Windows
+host diagnostics. Neither DSP settings nor the synchronization backend changed.
+Six focused native tests passed, including disabled no clock/event/file/thread,
+actual enabled event/marker output, byte identity and write/flush/sync errors.
+Test compilation took 12.54 and 23.19 seconds; incremental native build took
+59.33 seconds and ended before the first session. The separately staged candidate
+SHA256 is `85780f4856f2bac9f605628ca7decd80568cca0ad36fa92db70960bf74dd1a62`.
+Preserved generic binary SHA256 `9d0a611d7175b05e398f484d9217fb29b7004f3e0eaac76acd6ad00a541bd1da`
+was restored before launch. The 58-file source inventory matches this change
+except the intentionally preserved installed `panel.rs` difference.
+
+The reviewed experiment uses one identical candidate for OFF1, ON and OFF2,
+with the same preset, warm-up, near-drained admission and measured four-note hold.
+Common low-rate CPU/frequency/temperature/native I/O sampling and before/after
+status remain identical. ON alone has the recorder and before/after/five-second
+marks with durable sync. No phase-file freshness test is used. OFF has no phase
+attribution; CPU comparisons use common wall windows, not an invented completed
+block denominator. Counter intervals are wider than the hold. Graph-ready stdout
+observation approximates wall alignment; capture frame 96,000 schedules note-ons
+and 672,000 note-offs, and output onset/zeros are separately measured. Initial
+zeros, internal zero runs and reported missing frames are not conflated.
+
+| Measured observation | OFF1 | ON | OFF2 |
+| --- | ---: | ---: | ---: |
+| Whole held 2–14 s Windows CPU, one core | 145.57% | 146.83% | 146.26% |
+| Stable 3–14 s Windows CPU, one core | 145.15% | 146.36% | 145.22% |
+| Phase recorder CPU during whole hold, one core | absent | 0.94% | absent |
+| Whole-Pi CPU during whole hold | 38.92% | 37.73% | 37.46% |
+| Status missing-frame / gap delta | 0 / 0 | 0 / 0 | 1,024 / 4 |
+| Exact-zero output frames, 2–14 s | 0 | 0 | 1,024 |
+| Exact-zero output frames, 3–14 s | 0 | 0 | 0 |
+
+OFF2's four 256-frame zero runs begin at capture seconds 2.640, 2.6613, 2.672
+and 2.704, during the attack. OFF repeats therefore expose audio variation even
+without native phase tracing. This is not evidence that tracing improves audio,
+or that disabling it cures earlier gaps. The three full recordings were finite,
+with peaks 0.04413 / 0.05051 / 0.04465. Residual tails were already nonzero before
+the measured stimulus, so first-nonzero-at-second-2 is not new-note onset.
+All measured passes accepted nine MIDI events with no process faults, callback
+deadline misses or JACK xruns. The ON phase record covered all 2,250 held-window
+blocks and 2,062 stable-window blocks without position holes or phase drops.
+ON full-hold vendor/service means were 4.977/5.130 ms; stable means 4.954/5.107 ms.
+
+Warm-ups remain severe failures. OFF1 and ON captured exact silence throughout
+held seconds 2–14. Their wider status intervals added 644,096 and 639,488 missing
+frames. OFF2 added 313,856 missing frames; first held-window nonzero output was
+at capture second 8.5547, preceded by 314,624 zero frames and followed by seven
+more 256-frame internal zero runs. These are observations, not ordinary onset
+latency. Disabling native phase tracing does not remove this startup problem.
+
+The Windows audio-calling thread consumed approximately 94% of a core and a
+second thread named `Processing Thre` approximately 44% during the measured
+hold. These thread names/CPU observations do not isolate DSP from translation
+or synchronization, but contradict a blanket claim that the workload uses only
+one thread. Native transport used about 3.7% and the retained commercial observer
+about 1% of a core in all modes. The ON native process made 170 writes during the
+whole hold; OFF modes made none in that interval. The small recorder cost is
+measurable, but whole-Pi variation prevents a firm total-system savings claim.
+
+Temperature reached at most 54.0 C in trial samples, with no throttle flags.
+Most active frequency samples were approximately 2.4 GHz. OFF2 included one
+1.8 GHz sample at graph-observation +3.553 seconds, later than its captured gaps;
+that sparse and approximate alignment does not establish causality. No energy
+or battery-life conclusion follows. All three sessions restored 8-Bit Crystals,
+master 0.48033079504966736 and baseline JACK graph, then shut down cleanly.
+No owned service remained; ondemand/schedstats=0 and the preserved generic
+`lvb-arm-plugin-standalone` hash were verified. The separate older
+`lvb-arm-pigments-standalone` executable was not modified.
+
+This baseline supports an exploratory **large-effect warmed multicore setting
+comparison**, after verifying the actual plug-in setting. It does not support
+small-effect audio reliability claims, cold-start usability or generic core
+scaling promises. Retain the warm-up failures and attack interval in that next
+comparison. No extra runs, governor change, GUI action or default replacement
+were performed here. Results: `evidence/rpi2/pigments-phase-trace-comparison.json`.
+
+Path clarification: the preserved generic build output is
+`source-bridge/rpi0/standalone/target/release/lvb-arm-plugin-standalone` (9d0a611...).
+The session helper's actual CLI default is the separate Pigments-specific binary
+in that same release directory (24e6ab174071a46c715d03c6e9d6718652097e965ffb3911eb2aa8298a2ef617).
+Comparison helpers select their executable explicitly with `--binary`; these
+three launches all selected `staging/phase-trace-01/trace-host`. Earlier references
+to preserving the original "default" describe the generic build output, not a
+change to the session helper's default argument. Both original binaries remain.
+
+### Multicore preference works at startup but full state overrides it
+
+The next authorized slice checked a real vendor control before attempting a
+multicore comparison. Arturia's [FAQ](https://support.arturia.com/hc/en-us/articles/24036230171804-Pigments-General-Questions)
+identifies the global Multicore option; the [7.0.1 manual](https://dl.arturia.net/products/pigments/manual/pigments_Manual_7_0_1_EN.pdf),
+section 3.7.1.1, describes instrument-wide settings that persist across preset
+changes. This does not settle what a full host-state restore does.
+
+Installed vendor resources define `Multicore2`, displayed as Multicore and
+transmitted to processor parameter `Multicore`: Off/On item order, default On,
+`savedinpreset=0`, `savedinstate=1`, `savedinpreffile=1`. The preference file and
+both the original operator and 24 AM component/controller states contained On.
+Thirty retained Windows logs yielded 124,488 rows including repeated complete
+4,446-parameter catalogs; no actual VST Multicore control was found. Resource
+positions were not converted into invented VST parameter IDs.
+
+One explicitly reviewed no-note check privately backed up the exact preference
+and changed only `Multicore2` from 1 to 0 while all owned plug-in processes were
+closed. It used the same 85780f... candidate, tracing OFF and unchanged config.
+Actual `getState` results were:
+
+| Observation | Component | Controller |
+| --- | ---: | ---: |
+| Startup, Welcome | Off | Off |
+| After restoring unchanged 24 AM state | On | On |
+| After restoring original 8-Bit Crystals state | On | On |
+
+The preference is therefore read and effective at startup, but the full-state
+restore resets this control. A preference-only ON/OFF experiment restoring the
+same 24 AM state would test On in both conditions. No performance comparison,
+notes, GUI interaction, invented parameter, opaque state rewrite or rebuild was
+performed. This is a confirmed control dependency, not a multicore performance
+verdict. Two focused preference-edit/refusal tests passed.
+
+The session took 43.25 seconds, peaked at 49.6 C with no throttle flags, and shut
+down cleanly. Original preset/master 0.48033079504966736 and multicore On were
+captured before quit. Preference bytes and mode/owner/mtime were restored exactly
+after exit; original generic and helper-default binary hashes, baseline JACK
+graph, ondemand, schedstats=0 and no owned services were verified. The one optional
+FEX-stat presence sample preceded a loaded Pigments mapping, so establishes no
+availability result. No second attempt or prolonged session followed.
+
+Stop this headless control route under the current constraints. A useful next
+lever is a separate bounded check of the pinned FEX runtime's existing shared
+statistics during an owned workload, to distinguish translation/cache/fallback
+work from other processing costs. No FEX cause is inferred here. Sanitized result:
+`evidence/rpi2/pigments-multicore-mechanism.json`.
+
+### Existing FEX counters constrain the first-note compilation hypothesis
+
+One unchanged headless session used the existing 85780f... candidate with native
+phase tracing OFF. A bounded reader found a 4,096-byte version-2 ARM64EC shared
+statistics file for the exact loaded Pigments process, reporting
+`FEX-2609-41-g82510eb`. It was accessible in the host mount namespace and did not
+require a PID-namespace translation. No feature flag, runtime or binary changed.
+The source-defined header is 64 bytes and each linked slot 112 bytes. File names
+use Linux PID; slot IDs are Windows thread IDs. No Linux/Windows TID guess was
+used. Paired reads checked topology and counter resets; one pre-stimulus interval
+lost three slots and was excluded from stable-interval attribution.
+
+Timing fields use CNTVCT reference ticks. Current boot reports the ARM timer at
+54.00 MHz and `arch_sys_counter`; raw ticks remain primary and derived seconds
+use that reported frequency. JIT-path elapsed time includes lookup, locking and
+compilation, not just compile CPU. JIT count measures compile attempts; L1 cache
+misses can hit later caches and do not mean retranslation. Lock timers measure
+acquisition, and overlapping timers are not summed into exclusive CPU budgets.
+
+The first and repeated 20-second captures both failed audibly relevant continuity
+checks, without an operator listening claim:
+
+| Observation | First hold | Repeated hold |
+| --- | ---: | ---: |
+| Wider status missing frames / gaps | 363,520 / 16 | 630,528 / 3 |
+| Exact-zero frames in held 2–14 s | 366,080 | 557,312 |
+| Exact-zero frames in stable 3–14 s | 318,080 | 528,000 |
+| Windows cohort CPU in held 2–14 s, one core | 149.11% | 173.33% |
+| Observed Pigments-process CPU, surviving threads | 147.15% | 153.15% |
+| Separate Arturia-named process CPU, surviving threads | 0.12% | 17.46% |
+| Compile attempts in stable intervals touching held window | 367 | 1,056 |
+| Aggregate JIT-path elapsed in those intervals | 0.1424 s | 0.1658 s |
+
+Touching intervals include activity beyond the requested window edges; fully
+contained intervals and the entire sparse timeline are retained separately.
+These are process-level counters, not per-audio-thread attribution. First-hold
+output begins at capture second 9.5467, then has fifteen short zero runs. The
+repeat has one short zero run at 2.384 s and a long exact-zero run from 2.3947
+through 15.520 s, followed by another short run. Both recordings were finite;
+peaks were 0.03359 and 0.04861. All nine MIDI events per capture were accepted;
+processing faults, callback deadline misses and JACK xruns remained zero.
+
+There were **zero compile attempts in every sparse interval overlapping the
+repeat's 2–3 s attack**, despite the cutoff in that interval. Its major later
+burst was 856 attempts and 122.54 ms of aggregate JIT-path elapsed in graph-relative
+seconds 5.277–5.801. A first-note compilation explanation therefore does not fit
+the immediate repeated cutoff. Graph-ready stdout arrival only approximates the
+capture clock, and counter increments cannot be assigned exact callback times;
+the several-second separation is retained without asserting a sole cause.
+
+The measured pass was admitted after outstanding-frame estimates 0, 512 and 256,
+with about 100 ms status response times. Active frequency samples remained near
+2.4 GHz; maximum temperature was 51.8 C and throttle flags zero. This is another
+failure after the same near-drained rule; a warmed baseline is not reliably
+established. The observer consumed 16.55 ms of CPU across 42 first-hold snapshots
+and 21.46 ms across 53 repeat/tail snapshots; maximum read wall times were
+0.571/0.857 ms. No claim that observer overhead is absolutely zero follows.
+
+Retained prior OFF1/ON/OFF2 measured data put the process containing `lvb-audio`
+at 142.75/143.93/142.72% of a core, and the separate Arturia-named process at
+0.503/0.504/0.496%. Thus extra companion activity explains much of the current
+cohort CPU increase, but Pigments-only work also rose. The companion was nearly
+idle during the failed first hold, so it does not alone explain both failures.
+Names and captured PID grouping establish separate processes; no account or
+licensing behavior was inspected or inferred.
+
+The 78.54-second session closed cleanly. Exact original preference bytes,
+8-Bit Crystals/master 0.48033079504966736, baseline JACK graph, ondemand/schedstats0
+and both preserved binaries were verified; no owned service remained. Five
+focused decoder/reducer tests cover corrupt schema/links, reset/churn, empty
+samples and boundary attribution. No further runtime test or tuning followed.
+The recommended next efficiency experiment is a source/build feasibility review
+for 512-frame vendor batching at unchanged48k/JACK512/reserve2048, followed by a
+bounded comparison if feasible. This does not justify FEX-cache tuning or stopping
+the companion. Execution/wait attribution remains necessary if throughput does
+not improve. No batching change or additional run was made in this slice.
+Results: `evidence/rpi2/pigments-fex-stats.json`.
