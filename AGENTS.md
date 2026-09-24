@@ -12,6 +12,12 @@ An approved implementation task includes ordinary code changes, necessary builds
 
 The operator's current instruction takes precedence over repository process documents. These rules replace the older mandatory selection/receipt/diagnostic/acceptance sequence. `docs/campaigns/`, `docs/maintenance/`, `docs/process/` and previous slice instructions retain historical context, not standing requirements for new work. Platform/tool approvals and security restrictions are separate and remain in force; never route around a denial.
 
+## Shared failure-class check
+
+Before a plug-in-specific repair, inspect `docs/FAILURE_CLASSES.md` and `docs/SUPPORT_MATRIX.md` alongside `CURRENT_SLICE.md`. Product-specific code needs evidence that the shared boundary was selected or ruled out.
+
+Update the relevant card and matrix row in the same PR whenever understanding, fix stage, deployment, physical coverage, workaround, or support posture changes. Keep source correction, built artifact, profile/candidate, installed generation, and physical result distinct. Do not generalize a product result to another product or assign a shared cause to an older report without evidence.
+
 ## Keep the engineering safeguards
 
 - Use the actual Windows plug-in, not substitute DSP or fabricated state. Respect SDK interfaces, object lifetime, thread affinity and explicit protocol boundaries. Keep Rust primary and C++ limited to the SDK edges.

@@ -1,5 +1,7 @@
 # Plug-in reliability and audio I/O follow-up
 
+> Historical slice record, not current deployment or support authority. Current shared status: [touch and editor classes FC-UI-002–007](FAILURE_CLASSES.md#fc-ui-002--x11-raw-touch-release-retains-contact-on-pointer-up), [lifecycle classes](FAILURE_CLASSES.md#fc-life-001--graphical-session-and-keeper-authority), and the [support matrix](SUPPORT_MATRIX.md).
+
 Physical correction update (2026-09-21): the next approved Blackhole attempt
 failed quickly and cleanly before Wine started. Its retained private stderr
 shows pressure-vessel asking Bubblewrap to project the explicit D-Bus denial

@@ -1,5 +1,7 @@
 # UIR2 — Touch release admission and retrieval differential
 
+> Historical slice record, not current deployment or support authority. Current unresolved tail: [FC-UI-004](FAILURE_CLASSES.md#fc-ui-004--windows-touch-release-processing-continues-long-after-x11-release); see the [support matrix](SUPPORT_MATRIX.md).
+
 UIO3 merged unchanged at `a204c2d`. This slice preserves its three-contact result,
 16.513815470-second unpaired release tail, live heartbeats, missing GUI row and
 normal cleanup. No product/runner/profile compatibility change is made.
