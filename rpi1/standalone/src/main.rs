@@ -409,6 +409,11 @@ mod appliance {
                             eprintln!("RPI1_AUDIO_UNAVAILABLE {error}");
                         }
                         print_live_callback_metrics(control);
+                        println!(
+                            "RPI1_OUTPUT_ROUTE bypass={} trim_linear={:.6}",
+                            control.bypass(),
+                            control.output_trim()
+                        );
                         let processes = cohort.verify()?;
                         let memory_peak =
                             fs::read_to_string(cohort.identity().cgroup.join("memory.peak"))
@@ -438,6 +443,29 @@ mod appliance {
                         } else {
                             request_parameter_snapshot(instance, generation)?;
                         }
+                    } else if line == "trim" {
+                        println!("RPI1_OUTPUT_TRIM linear={:.6}", control.output_trim());
+                    } else if let Some(value) = line.strip_prefix("trim ") {
+                        let trim = value
+                            .parse::<f32>()
+                            .map_err(|_| invalid("trim requires linear gain from 0 to 1"))?;
+                        control.set_output_trim(trim)?;
+                        println!("RPI1_OUTPUT_TRIM linear={trim:.6}");
+                    } else if line == "bypass" {
+                        println!("RPI1_BYPASS enabled={}", control.bypass());
+                    } else if let Some(value) = line.strip_prefix("bypass ") {
+                        if !binding.stereo_input {
+                            return Err(invalid("bypass requires stereo effect input"));
+                        }
+                        let bypass = match value {
+                            "on" => true,
+                            "off" => false,
+                            _ => return Err(invalid("bypass requires on or off")),
+                        };
+                        control.set_bypass(bypass);
+                        println!(
+                            "RPI1_BYPASS enabled={bypass} policy=current_dry_processing_continues"
+                        );
                     } else if line == "master" || line.starts_with("master ") {
                         if !binding.legacy_master {
                             return Err(invalid("master command requires the Pigments binding"));

@@ -1,5 +1,5 @@
 use crate::{
-    audio::{OutputObservation, ParameterUpdate},
+    audio::{present_output, OutputObservation, ParameterUpdate},
     callback_gate::CallbackGate,
     midi::{ControllerPolicy, Parser},
     protocol::supported_jack_block,
@@ -10,7 +10,7 @@ use ap2_backend::rpi0::{Context, Delivery, Event, Instance};
 use std::{
     ffi::{c_char, c_int, c_void, CStr, CString},
     io, ptr, slice,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
     time::Duration,
 };
 
@@ -102,6 +102,8 @@ pub struct Metrics {
 pub struct Control {
     pub parameters: Queue<ParameterUpdate, 64>,
     pub metrics: Metrics,
+    output_trim_bits: AtomicU32,
+    bypass: AtomicBool,
 }
 impl Control {
     pub const fn new() -> Self {
@@ -128,7 +130,29 @@ impl Control {
                 malformed_midi: AtomicU64::new(0),
                 overflow_midi: AtomicU64::new(0),
             },
+            output_trim_bits: AtomicU32::new(1.0f32.to_bits()),
+            bypass: AtomicBool::new(false),
         }
+    }
+
+    pub fn set_output_trim(&self, trim: f32) -> io::Result<()> {
+        if !trim.is_finite() || !(0.0..=1.0).contains(&trim) {
+            return Err(invalid("output trim must be finite linear gain from 0 to 1"));
+        }
+        self.output_trim_bits.store(trim.to_bits(), Ordering::Relaxed);
+        Ok(())
+    }
+
+    pub fn output_trim(&self) -> f32 {
+        f32::from_bits(self.output_trim_bits.load(Ordering::Relaxed))
+    }
+
+    pub fn set_bypass(&self, bypass: bool) {
+        self.bypass.store(bypass, Ordering::Relaxed);
+    }
+
+    pub fn bypass(&self) -> bool {
+        self.bypass.load(Ordering::Relaxed)
     }
 }
 impl Default for Control {
@@ -492,6 +516,13 @@ unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_in
         left.fill(0.);
         right.fill(0.);
         metrics.process_failures.fetch_add(1, Ordering::Relaxed);
+    } else {
+        present_output(
+            inputs,
+            [&mut *left, &mut *right],
+            rt.inputs.is_some() && control.bypass(),
+            control.output_trim(),
+        );
     }
     for (channel, samples) in [&*left, &*right].into_iter().enumerate() {
         let observed = OutputObservation::measure(samples);

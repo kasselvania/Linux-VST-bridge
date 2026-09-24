@@ -244,6 +244,24 @@ fn invalid(message: &str) -> io::Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn digitalis_census_binding_matches_stereo_effect_and_selected_controls() {
+        let bytes = include_bytes!("../../../rpi2/digitalis-binding.json");
+        let module =
+            hex32("fb51eec9bda65f5c8ac3f4c7f9a99f6fc0034df3cd54fc1b54e32e598e2af335").unwrap();
+        let binding = Binding::parse(bytes, &module).unwrap();
+        assert!(binding.stereo_input);
+        assert!(!binding.midi_input);
+        assert_eq!(binding.controls.len(), 3);
+        assert_eq!(
+            binding.class,
+            [
+                0xAB, 0xCD, 0xEF, 0x01, 0x91, 0x82, 0xFA, 0xEB, 0x41, 0x62, 0x72, 0x6E, 0x44, 0x69,
+                0x67, 0x69
+            ]
+        );
+        assert!(binding.surface.is_some());
+    }
     fn manifest() -> Value {
         serde_json::json!({"schema":"lvb-arm-plugin-binding/v1", "module_sha256":"11".repeat(32),
             "class_id":"22".repeat(16), "input":"stereo", "zero_event_channels_unspecified":false,
