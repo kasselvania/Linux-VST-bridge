@@ -82,7 +82,7 @@ fn touch_carry_forward_keeps_factory_and_selected_class_without_claiming_a_new_s
         transition: Artifact { path: "/unused/result.json".into(), sha256: "aa".repeat(32) },
         runner_manifest: Artifact { path: "/unused/manifest.json".into(), sha256: "bb".repeat(32) },
     };
-    let next = carry_forward_touch_fields(&before, &after, provenance.clone()).unwrap();
+    let next = carry_forward_touch_fields(&before, &after, provenance.clone(), Origin::X11TouchReleaseV1).unwrap();
     assert_eq!(next.selection.module, before.selection.module);
     assert_eq!(next.selection.class, before.selection.class);
     assert_eq!(next.selection.factory_report, before.selection.factory_report);
@@ -105,6 +105,26 @@ fn touch_carry_forward_keeps_factory_and_selected_class_without_claiming_a_new_s
         touch_successor(&before, &after, next.touch_carry_forward.unwrap())
             .unwrap_err().to_string(),
         "touch_carry_forward_predecessor"
+    );
+}
+#[test]
+fn touch_routing_successor_carries_only_the_exact_candidate_c_authority() {
+    let (_fixture, mut predecessor) = fixture();
+    let mut after = predecessor.selection.environment.clone();
+    after.revision += 1;
+    after.runner.id = "proton-11.0-2c-x11-touch-routing-v2".into();
+    after.runner.policy = Some(RunnerPolicy::X11TouchRoutingV2);
+    predecessor.origin = Origin::X11TouchReleaseV1;
+    let provenance = TouchCarryForward {
+        predecessor: SERUM_TOUCH_ROUTING_PREDECESSOR.into(),
+        transition: Artifact { path: "/unused/result.json".into(), sha256: "aa".repeat(32) },
+        runner_manifest: Artifact { path: "/unused/manifest.json".into(), sha256: "bb".repeat(32) },
+    };
+    // An arbitrary earlier candidate is not candidate C, even if its fields
+    // resemble the physical Serum profile. The transition owner must select C.
+    assert_eq!(
+        touch_routing_successor(&predecessor, &after, provenance).unwrap_err().to_string(),
+        "touch_routing_carry_forward_predecessor"
     );
 }
 #[test]

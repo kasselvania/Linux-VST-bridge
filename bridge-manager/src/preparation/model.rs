@@ -17,6 +17,7 @@ pub enum Origin {
     ManagedPreparation,
     RetainedSv1,
     X11TouchReleaseV1,
+    X11TouchRoutingV2,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]

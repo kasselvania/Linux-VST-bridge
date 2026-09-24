@@ -74,6 +74,12 @@ const TOUCH_BASE_PROTON_SHA256: &str =
 const TOUCH_BASE_ENTRY_SHA256: &str =
     "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1";
 const TOUCH_TREE_SHA256: &str = "d095f1f052ecebb67c66d685dbd88e373b633b0c3000343a7607c4f1bc4d1920";
+const TOUCH_ROUTING_RUNNER: &str = "proton-11.0-2c-x11-touch-routing-v2";
+const TOUCH_ROUTING_PATCH_SHA256: &str = "44c3c11806fe48ed0358fd3469d60c5572c0f78773057ef4c335198c1c497203";
+const TOUCH_ROUTING_MOUSE_SHA256: &str = "8e79383dd969aeb7c48533dcfab945a42c27ac6072ff96a79d9091f7f5a7a2aa";
+const TOUCH_ROUTING_HEADER_SHA256: &str = "fb91d7b0c1bb51b183aadb71e3505687c42827b1381dbc700a4b8fddefa6c57d";
+const TOUCH_ROUTING_BASE_DRIVER_SHA256: &str = "c939ed62a6226a2e88827428281f2e934ebb5546fad101bd354a8a64164d00dc";
+const TOUCH_ROUTING_TREE_SHA256: &str = "de6c55c2a8c82abf2b1b0b47a97ee97a00657fa04582b2112327fa3d0095a698";
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -131,6 +137,7 @@ struct TouchBuildReceipt {
 enum CandidateKind {
     Dcomp,
     X11TouchRelease,
+    X11TouchRouting,
 }
 
 fn verify_tree(root: &Path, expected: &TreeIdentity) -> Result<()> {
@@ -275,26 +282,36 @@ fn dcomp_candidate(manifest: &Artifact) -> Result<(Runner, String, String)> {
     Ok((runner, c.tree.sha256, c.base_runner_sha256))
 }
 
-fn touch_candidate(manifest: &Artifact) -> Result<(Runner, String, String)> {
+fn touch_candidate(manifest: &Artifact, routing: bool) -> Result<(Runner, String, String)> {
     manifest.verify()?;
     let c: TouchCandidateManifest = read_json(&manifest.path)?;
+    let kind = if routing { "x11_touch_routing_reference_runner" } else { "x11_touch_release_reference_runner" };
+    let base_runner = if routing { TOUCH_RUNNER } else { TOUCH_BASE_RUNNER };
+    let runner_id = if routing { TOUCH_ROUTING_RUNNER } else { TOUCH_RUNNER };
+    let patch_sha = if routing { TOUCH_ROUTING_PATCH_SHA256 } else { TOUCH_PATCH_SHA256 };
+    let mouse_sha = if routing { TOUCH_ROUTING_MOUSE_SHA256 } else { TOUCH_PATCHED_MOUSE_SHA256 };
+    let header_sha = if routing { TOUCH_ROUTING_HEADER_SHA256 } else { TOUCH_HEADER_SHA256 };
+    let tree_sha = if routing { TOUCH_ROUTING_TREE_SHA256 } else { TOUCH_TREE_SHA256 };
     require(
         c.schema == 1
-            && c.kind == "x11_touch_release_reference_runner"
+            && c.kind == kind
             && c.environment == TOUCH_ENVIRONMENT
-            && c.base_runner_id == TOUCH_BASE_RUNNER
+            && c.base_runner_id == base_runner
             && valid_hex(&c.base_runner_sha256, 64)
             && c.source.proton_distribution_source_commit == TOUCH_PROTON_SOURCE
             && c.source.wine_commit == TOUCH_WINE_SOURCE
             && c.source.wine_tree == TOUCH_WINE_TREE
-            && c.patch.sha256 == TOUCH_PATCH_SHA256
+            && c.patch.sha256 == patch_sha
             && c.tree.schema == 1
             && c.tree.entries == 8_262
-            && c.tree.regular_bytes == 1_447_967_926
-            && c.tree.sha256 == TOUCH_TREE_SHA256
-            && c.runner.id == TOUCH_RUNNER
-            && c.runner.version
-                == "1788504981 proton-11.0-2c-x86_64+x11-touch-release-v1; SLR 4.0.20260805.254769"
+            && c.tree.regular_bytes == if routing { 1_447_962_774 } else { 1_447_967_926 }
+            && c.tree.sha256 == tree_sha
+            && c.runner.id == runner_id
+            && c.runner.version == if routing {
+                "1788504981 proton-11.0-2c-x86_64+x11-touch-routing-v2; SLR 4.0.20260805.254769"
+            } else {
+                "1788504981 proton-11.0-2c-x86_64+x11-touch-release-v1; SLR 4.0.20260805.254769"
+            }
             && c.runner.files.len() == 32
             && c.runner.policy.is_none()
             && c.root.is_absolute()
@@ -334,9 +351,9 @@ fn touch_candidate(manifest: &Artifact) -> Result<(Runner, String, String)> {
             && receipt.proton_distribution_source_commit == TOUCH_PROTON_SOURCE
             && receipt.wine_commit == TOUCH_WINE_SOURCE
             && receipt.wine_tree == TOUCH_WINE_TREE
-            && receipt.patch_sha256 == TOUCH_PATCH_SHA256
-            && receipt.patched_mouse_sha256 == TOUCH_PATCHED_MOUSE_SHA256
-            && receipt.touch_header_sha256 == TOUCH_HEADER_SHA256
+            && receipt.patch_sha256 == patch_sha
+            && receipt.patched_mouse_sha256 == mouse_sha
+            && receipt.touch_header_sha256 == header_sha
             && receipt.sdk_image_sha256 == TOUCH_SDK_SHA256
             && receipt.configure == ["--enable-archs=i386,x86_64"]
             && receipt.install_prefix == c.build_receipt.path.parent().ok_or("experimental_runner_touch_build_receipt")?.join("stage")
@@ -363,7 +380,7 @@ fn touch_candidate(manifest: &Artifact) -> Result<(Runner, String, String)> {
         "experimental_runner_proton_root",
     )?;
     let mut runner = c.runner;
-    runner.policy = Some(RunnerPolicy::X11TouchReleaseV1);
+    runner.policy = Some(if routing { RunnerPolicy::X11TouchRoutingV2 } else { RunnerPolicy::X11TouchReleaseV1 });
     runner.verify()?;
     Ok((runner, c.tree.sha256, c.base_runner_sha256))
 }
@@ -377,8 +394,12 @@ fn candidate(manifest: &Artifact) -> Result<(CandidateKind, Runner, String, Stri
             Ok((CandidateKind::Dcomp, runner, tree, base))
         }
         Some("x11_touch_release_reference_runner") => {
-            let (runner, tree, base) = touch_candidate(manifest)?;
+            let (runner, tree, base) = touch_candidate(manifest, false)?;
             Ok((CandidateKind::X11TouchRelease, runner, tree, base))
+        }
+        Some("x11_touch_routing_reference_runner") => {
+            let (runner, tree, base) = touch_candidate(manifest, true)?;
+            Ok((CandidateKind::X11TouchRouting, runner, tree, base))
         }
         _ => Err("experimental_runner_manifest_kind".into()),
     }
@@ -473,6 +494,41 @@ fn require_touch_runner_mapping(before: &Runner, after: &Runner) -> Result<()> {
     require(expected == actual, "experimental_runner_touch_roster")
 }
 
+fn require_touch_routing_runner_mapping(before: &Runner, after: &Runner) -> Result<()> {
+    require(
+        before.id == TOUCH_RUNNER
+            && before.policy == Some(RunnerPolicy::X11TouchReleaseV1)
+            && after.id == TOUCH_ROUTING_RUNNER
+            && after.policy == Some(RunnerPolicy::X11TouchRoutingV2),
+        "experimental_runner_routing_base",
+    )?;
+    let before_root = before.proton.parent().ok_or("experimental_runner_routing_base")?;
+    let after_root = after.proton.parent().ok_or("experimental_runner_routing_base")?;
+    let old_driver = before_root.join("files/lib/wine/x86_64-unix/winex11.so");
+    require(
+        before.files.iter().any(|file| file.path == old_driver && file.sha256 == TOUCH_ROUTING_BASE_DRIVER_SHA256),
+        "experimental_runner_routing_base_driver",
+    )?;
+    let actual: BTreeMap<_, _> = after.files.iter().map(|file| (file.path.clone(), file.sha256.clone())).collect();
+    require(actual.len() == after.files.len() && after.files.len() == before.files.len(), "experimental_runner_routing_roster")?;
+    let mut expected = BTreeMap::new();
+    for file in &before.files {
+        let path = match file.path.strip_prefix(before_root) {
+            Ok(relative) => after_root.join(relative),
+            Err(_) => file.path.clone(),
+        };
+        let hash = if path == after_root.join("version") || path == after_root.join("files/lib/wine/x86_64-unix/winex11.so") {
+            let changed = actual.get(&path).ok_or("experimental_runner_routing_roster")?;
+            require(changed != &file.sha256, "experimental_runner_routing_artifact_unchanged")?;
+            changed.clone()
+        } else {
+            file.sha256.clone()
+        };
+        require(expected.insert(path, hash).is_none(), "experimental_runner_routing_roster")?;
+    }
+    require(expected == actual, "experimental_runner_routing_roster")
+}
+
 fn advance(
     before: &Environment,
     request: &Request,
@@ -559,12 +615,18 @@ pub fn update(m: &Manager, input: &Path) -> Result<()> {
     let policy = match kind {
         CandidateKind::Dcomp => RunnerPolicy::DcompWineBuiltinsReferenceV1,
         CandidateKind::X11TouchRelease => RunnerPolicy::X11TouchReleaseV1,
+        CandidateKind::X11TouchRouting => RunnerPolicy::X11TouchRoutingV2,
     };
-    if kind == CandidateKind::X11TouchRelease {
+    if matches!(kind, CandidateKind::X11TouchRelease | CandidateKind::X11TouchRouting) {
+        let predecessor = if kind == CandidateKind::X11TouchRouting {
+            preparation::SERUM_TOUCH_ROUTING_PREDECESSOR
+        } else {
+            preparation::SERUM_TOUCH_PREDECESSOR
+        };
         require(
             request.environment == TOUCH_ENVIRONMENT
                 && request.retired_class == TOUCH_CLASS
-                && request.predecessor_candidate.as_deref() == Some(preparation::SERUM_TOUCH_PREDECESSOR),
+                && request.predecessor_candidate.as_deref() == Some(predecessor),
             "experimental_runner_touch_selection",
         )?;
     } else {
@@ -632,19 +694,30 @@ pub fn update(m: &Manager, input: &Path) -> Result<()> {
         "experimental_runner_candidate_base_changed",
     )?;
     require_base_runner(&before.runner, &runner)?;
-    if kind == CandidateKind::X11TouchRelease {
-        require_touch_runner_mapping(&before.runner, &runner)?;
+    match kind {
+        CandidateKind::X11TouchRelease => require_touch_runner_mapping(&before.runner, &runner)?,
+        CandidateKind::X11TouchRouting => require_touch_routing_runner_mapping(&before.runner, &runner)?,
+        CandidateKind::Dcomp => {},
     }
     let after = advance(&before, &request, runner, policy)?;
-    let predecessor = if kind == CandidateKind::X11TouchRelease {
+    let predecessor_id = match kind {
+        CandidateKind::X11TouchRelease => Some(preparation::SERUM_TOUCH_PREDECESSOR),
+        CandidateKind::X11TouchRouting => Some(preparation::SERUM_TOUCH_ROUTING_PREDECESSOR),
+        CandidateKind::Dcomp => None,
+    };
+    let predecessor = if let Some(predecessor_id) = predecessor_id {
         let prior = preparation::retained_candidates(m)?
             .into_iter()
-            .find(|candidate| candidate.id().is_ok_and(|id| id == preparation::SERUM_TOUCH_PREDECESSOR))
+            .find(|candidate| candidate.id().is_ok_and(|id| id == predecessor_id))
             .ok_or("experimental_runner_touch_predecessor_absent")?;
         require(
             prior.selection.environment == before
                 && prior.selection.class.id == TOUCH_CLASS
-                && prior.origin == preparation::Origin::ManagedPreparation,
+                && prior.origin == if kind == CandidateKind::X11TouchRouting {
+                    preparation::Origin::X11TouchReleaseV1
+                } else {
+                    preparation::Origin::ManagedPreparation
+                },
             "experimental_runner_touch_predecessor",
         )?;
         preparation::verify_candidate(m, &prior, &prior.selection.scanner, &prior.selection.scanner_source)?;
@@ -672,6 +745,7 @@ pub fn update(m: &Manager, input: &Path) -> Result<()> {
     let backup = m.root.join("private-rollback").join(match kind {
         CandidateKind::Dcomp => format!("experimental-runner-{}", random_id()?),
         CandidateKind::X11TouchRelease => format!("experimental-runner-touch-{}", before.id),
+        CandidateKind::X11TouchRouting => format!("experimental-runner-routing-{}", before.id),
     });
     require(
         fs::symlink_metadata(&backup).is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound),
@@ -753,7 +827,7 @@ pub fn update(m: &Manager, input: &Path) -> Result<()> {
             "candidate_manifest_sha256": request.candidate_manifest.sha256
         });
         if predecessor.is_some() {
-            record["carried_predecessor"] = json!(preparation::SERUM_TOUCH_PREDECESSOR);
+            record["carried_predecessor"] = json!(predecessor_id.unwrap());
         }
         if predecessor.is_some() {
             // A kill between environment advance and candidate materialization
@@ -767,16 +841,17 @@ pub fn update(m: &Manager, input: &Path) -> Result<()> {
         if let Some(prior) = predecessor {
             let mut expected_result_bytes = serde_json::to_vec(&record)?;
             expected_result_bytes.push(b'\n');
-            let candidate = preparation::touch_successor(
-                &prior,
-                &after,
-                preparation::TouchCarryForward {
-                    predecessor: preparation::SERUM_TOUCH_PREDECESSOR.into(),
-                    transition: Artifact { path: result.clone(), sha256: hex(&sha2::Sha256::digest(&expected_result_bytes)) },
-                    runner_manifest: request.candidate_manifest.clone(),
-                },
-            )?;
-            let id = preparation::record_candidate_with_predecessor(m, &candidate, Some(preparation::SERUM_TOUCH_PREDECESSOR))?;
+            let provenance = preparation::TouchCarryForward {
+                predecessor: predecessor_id.unwrap().into(),
+                transition: Artifact { path: result.clone(), sha256: hex(&sha2::Sha256::digest(&expected_result_bytes)) },
+                runner_manifest: request.candidate_manifest.clone(),
+            };
+            let candidate = if kind == CandidateKind::X11TouchRouting {
+                preparation::touch_routing_successor(&prior, &after, provenance)?
+            } else {
+                preparation::touch_successor(&prior, &after, provenance)?
+            };
+            let id = preparation::record_candidate_with_predecessor(m, &candidate, predecessor_id)?;
             atomic_json(&result, &record)?;
             preparation::verify_candidate(m, &candidate, &candidate.host, &candidate.source_manifest.sha256)?;
             Ok(Some(id))
@@ -800,7 +875,7 @@ pub fn update(m: &Manager, input: &Path) -> Result<()> {
         "rollback": backup
     });
     if let Some(id) = successor {
-        output["candidate_c"] = json!(id);
+        output[if kind == CandidateKind::X11TouchRouting { "candidate_d" } else { "candidate_c" }] = json!(id);
     }
     println!("{output}");
     Ok(())
@@ -947,6 +1022,42 @@ mod tests {
                 .to_string(),
             "experimental_runner_touch_roster"
         );
+    }
+
+    #[test]
+    fn touch_routing_successor_preserves_candidate_c_roster() {
+        let fixture = test_fixture::Fixture::new();
+        let mut before = fixture.r.environment.runner.clone();
+        before.id = TOUCH_RUNNER.into();
+        before.policy = Some(RunnerPolicy::X11TouchReleaseV1);
+        before.proton = "/candidate-c/proton".into();
+        before.entry_point = "/runtime/entry".into();
+        before.files = vec![
+            Artifact { path: before.proton.clone(), sha256: TOUCH_BASE_PROTON_SHA256.into() },
+            Artifact { path: before.entry_point.clone(), sha256: TOUCH_BASE_ENTRY_SHA256.into() },
+            Artifact { path: "/candidate-c/version".into(), sha256: "aa".repeat(32) },
+            Artifact { path: "/candidate-c/files/bin/wine".into(), sha256: "bb".repeat(32) },
+            Artifact { path: "/candidate-c/files/lib/wine/x86_64-unix/winex11.so".into(), sha256: TOUCH_ROUTING_BASE_DRIVER_SHA256.into() },
+        ];
+        let mut after = before.clone();
+        after.id = TOUCH_ROUTING_RUNNER.into();
+        after.policy = Some(RunnerPolicy::X11TouchRoutingV2);
+        after.proton = "/candidate-d/proton".into();
+        after.files = vec![
+            Artifact { path: after.proton.clone(), sha256: TOUCH_BASE_PROTON_SHA256.into() },
+            before.files[1].clone(),
+            Artifact { path: "/candidate-d/version".into(), sha256: "cc".repeat(32) },
+            Artifact { path: "/candidate-d/files/bin/wine".into(), sha256: "bb".repeat(32) },
+            Artifact { path: "/candidate-d/files/lib/wine/x86_64-unix/winex11.so".into(), sha256: "dd".repeat(32) },
+        ];
+        require_touch_routing_runner_mapping(&before, &after).unwrap();
+        after.files[3].sha256 = "ff".repeat(32);
+        assert_eq!(require_touch_routing_runner_mapping(&before, &after).unwrap_err().to_string(),
+                   "experimental_runner_routing_roster");
+        after.files[3].sha256 = "bb".repeat(32);
+        after.files.pop();
+        assert_eq!(require_touch_routing_runner_mapping(&before, &after).unwrap_err().to_string(),
+                   "experimental_runner_routing_roster");
     }
 
     #[test]

@@ -186,7 +186,7 @@ def environment(reg,graphical=None):
         prior=env.get('WINEDLLOVERRIDES')
         env['WINEDLLOVERRIDES']=graphics+(';' + prior if prior else '')
         env.update(PROTON_USE_WINED3D='1',PROTON_DISABLE_NVAPI='1',PROTON_DLL_COPY='*')
-    elif runner_policy not in (None,'x11_touch_release_v1'):
+    elif runner_policy not in (None,'x11_touch_release_v1','x11_touch_routing_v2'):
         raise RuntimeError('unsupported runner policy')
     policy=reg['compatibility'].get('event_output')
     if policy is not None:

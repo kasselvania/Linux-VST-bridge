@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "claim": "Source-owned Win32 popup fixture under the immutable X11 touch-routing successor; not a Serum product result",
+  "fixture": "Steam Deck Desktop Mode, physical touchscreen and trackpad, isolated unlicensed Wine prefix",
+  "runner_tree_sha256": "de6c55c2a8c82abf2b1b0b47a97ee97a00657fa04582b2112327fa3d0095a698",
+  "fixture_executable_sha256": "23c89154c97bf52635fec4272fd4b7fb7e540fea82c0e683d959396f614fe5d7",
+  "private_log_sha256": "abbcc34c1c974e271eb53de8573477946f950df4c249dc0be0f9a7a523667e25",
+  "operator_sequence": [
+    "One physical finger tap on the visible ordinary control increased its counter.",
+    "One physical finger tap opened the popup; a second finger tap selected its visible item and closed it.",
+    "Trackpad opened and selected the popup item; operator closed the fixture normally."
+  ],
+  "event_counts": {
+    "ordinary_control": 1,
+    "popup_opened": 2,
+    "popup_closed": 2,
+    "pointer_down": 1,
+    "pointer_up": 1,
+    "mouse_down": 2,
+    "mouse_up": 2,
+    "capture_changed": 2
+  },
+  "touch_pointer_up_flags": 8194,
+  "touch_pointer_up_incontact": false,
+  "fixture_exit": 0,
+  "cleanup_confirmed": true,
+  "nonclaims": [
+    "This fixture does not establish that Serum's vendor popup is repaired.",
+    "It does not establish Blackhole or Kontakt touch compatibility.",
+    "It does not establish gap-free audio or other product capability."
+  ]
+}

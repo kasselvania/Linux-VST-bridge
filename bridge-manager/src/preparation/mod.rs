@@ -463,7 +463,7 @@ pub fn candidate(m: &Manager, id: &str, host: &Artifact, source: &str) -> Result
         .ok_or_else(|| "candidate_absent".into())
 }
 pub fn verify_candidate(m: &Manager, c: &Candidate, host: &Artifact, source: &str) -> Result<()> {
-    if c.origin == Origin::X11TouchReleaseV1 {
+    if matches!(c.origin, Origin::X11TouchReleaseV1 | Origin::X11TouchRoutingV2) {
         require(
             (c.selection.scanner.sha256 == host.sha256 && c.selection.scanner_source == source)
                 || (c.host.sha256 == host.sha256 && c.source_manifest.sha256 == source),
@@ -478,6 +478,8 @@ pub fn verify_candidate(m: &Manager, c: &Candidate, host: &Artifact, source: &st
 }
 pub const SERUM_TOUCH_PREDECESSOR: &str =
     "f6af02eba109d3632b2ecc786f2c9006ec6bc1d433772001d24d2969fb944b44";
+pub const SERUM_TOUCH_ROUTING_PREDECESSOR: &str =
+    "91b699291eb7b7d1ff6e725d5e6fd1abed88ea721dbd81a621dd2fb39d38d207";
 
 pub fn touch_successor(
     predecessor: &Candidate,
@@ -496,19 +498,40 @@ pub fn touch_successor(
             && predecessor.selection.class.id == "56534558667350736572756D20320000",
         "touch_carry_forward_predecessor",
     )?;
-    carry_forward_touch_fields(predecessor, after, provenance)
+    carry_forward_touch_fields(predecessor, after, provenance, Origin::X11TouchReleaseV1)
+}
+
+pub fn touch_routing_successor(
+    predecessor: &Candidate,
+    after: &Environment,
+    provenance: TouchCarryForward,
+) -> Result<Candidate> {
+    require(
+        predecessor.id()? == SERUM_TOUCH_ROUTING_PREDECESSOR
+            && predecessor.origin == Origin::X11TouchReleaseV1
+            && predecessor.selection.environment.id == after.id
+            && predecessor.selection.environment.root == after.root
+            && predecessor.selection.environment.revision.checked_add(1) == Some(after.revision)
+            && after.runner.policy == Some(RunnerPolicy::X11TouchRoutingV2)
+            && after.runner.id == "proton-11.0-2c-x11-touch-routing-v2"
+            && provenance.predecessor == SERUM_TOUCH_ROUTING_PREDECESSOR
+            && predecessor.selection.class.id == "56534558667350736572756D20320000",
+        "touch_routing_carry_forward_predecessor",
+    )?;
+    carry_forward_touch_fields(predecessor, after, provenance, Origin::X11TouchRoutingV2)
 }
 
 fn carry_forward_touch_fields(
     predecessor: &Candidate,
     after: &Environment,
     provenance: TouchCarryForward,
+    origin: Origin,
 ) -> Result<Candidate> {
     let mut candidate = predecessor.clone();
     candidate.selection.environment = after.clone();
     candidate.inspection.selection = candidate.selection.clone();
-    candidate.inspection.origin = Origin::X11TouchReleaseV1;
-    candidate.origin = Origin::X11TouchReleaseV1;
+    candidate.inspection.origin = origin.clone();
+    candidate.origin = origin;
     candidate.profile.revision = candidate.profile.revision.checked_add(1).ok_or("touch_profile_revision")?;
     candidate.profile.requirements.environment_revision = after.revision;
     candidate.profile.requirements.runner = runner_match(&after.runner)?;
@@ -520,8 +543,13 @@ fn carry_forward_touch_fields(
 
 fn verify_touch_carry_forward(m: &Manager, c: &Candidate) -> Result<()> {
     let provenance = c.touch_carry_forward.as_ref().ok_or("touch_carry_forward_absent")?;
+    let expected_predecessor = match c.origin {
+        Origin::X11TouchReleaseV1 => SERUM_TOUCH_PREDECESSOR,
+        Origin::X11TouchRoutingV2 => SERUM_TOUCH_ROUTING_PREDECESSOR,
+        _ => return Err("touch_carry_forward_origin".into()),
+    };
     require(
-        provenance.predecessor == SERUM_TOUCH_PREDECESSOR,
+        provenance.predecessor == expected_predecessor,
         "touch_carry_forward_predecessor",
     )?;
     provenance.transition.verify()?;
@@ -568,10 +596,14 @@ fn verify_touch_carry_forward(m: &Manager, c: &Candidate) -> Result<()> {
             && transition["carried_predecessor"] == provenance.predecessor,
         "touch_carry_forward_transition",
     )?;
-    require(
-        *c == touch_successor(&predecessor, &c.selection.environment, provenance.clone())?,
-        "touch_carry_forward_changed",
-    )
+    let expected = match c.origin {
+        Origin::X11TouchReleaseV1 =>
+            touch_successor(&predecessor, &c.selection.environment, provenance.clone())?,
+        Origin::X11TouchRoutingV2 =>
+            touch_routing_successor(&predecessor, &c.selection.environment, provenance.clone())?,
+        _ => return Err("touch_carry_forward_origin".into()),
+    };
+    require(*c == expected, "touch_carry_forward_changed")
 }
 pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
     let host = &c.selection.scanner;

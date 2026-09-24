@@ -2,6 +2,30 @@
 
 > Historical slice record, not current deployment or support authority. Current shared status: [touch and editor classes FC-UI-002–007](FAILURE_CLASSES.md#fc-ui-002--x11-raw-touch-release-retains-contact-on-pointer-up), [lifecycle classes](FAILURE_CLASSES.md#fc-life-001--graphical-session-and-keeper-authority), and the [support matrix](SUPPORT_MATRIX.md).
 
+## Shared touch-routing continuation (2026-09-24)
+
+The action-bound [candidate-C capture](../evidence/serum-x11-touch-routing/candidate-c-action-capture.json)
+reproduced the mouse/touch difference without changing a runner. The
+finger-opened popup remained visible and owned by the main editor, with the
+popup as the Win32 capture window. During a later short readback, the old
+editor child received 16,379 repeated `WM_POINTERUPDATE` records carrying
+`PRIMARY | INCONTACT | INRANGE` while no new physical input was delivered.
+The fixed-size observer overflowed by 79 records in that readback; it is
+diagnostic partial evidence, not a complete touch stream. Five observer
+heartbeats still progressed, so “the whole Windows thread stopped” would
+overstate the result. The initial action trace did not retain a complete XI
+touch Begin/End pair. Its `GetPointerInfo` errors were observer-side calls to
+the pinned Wine stub, not proof that Serum called that API.
+
+The pinned Wine driver selects root-level `XI_RawTouch*` and sends hardware
+pointer messages without a per-window XI delivery target. A proposed shared
+successor instead selects `XI_Touch*` on each Wine window, resolves the exact
+`XIDeviceEvent.event` window to its HWND, and retains candidate C's corrected
+release flag. This is a selected source hypothesis, not a physical fix claim.
+The source-owned popup fixture and the subsequent human-operated Serum session
+must establish whether the input sequence actually exits menu tracking. The
+other five publications and candidate C remain untouched pending that result.
+
 ## Serum waveform touch release, bounded candidate C (2026-09-23)
 
 The accepted Steam Deck input classification for Serum 2 2.1.5, class
