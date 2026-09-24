@@ -18,6 +18,7 @@ def main():
     parser.add_argument("--config", type=Path, default=root / "appliance.conf")
     parser.add_argument("--binary", type=Path, default=root.parent / "source-bridge/rpi0/standalone/target/release/lvb-arm-pigments-standalone")
     parser.add_argument("--phase-trace", choices=("off", "on"))
+    parser.add_argument("--processing-quantum", choices=("256", "512"))
     arguments = parser.parse_args()
     label = arguments.label
     if not arguments.config.is_absolute() or not arguments.binary.is_absolute():
@@ -48,6 +49,7 @@ def main():
             "--property=KillMode=control-group", "--property=TimeoutStopSec=15",
             "--property=RuntimeMaxSec=320", "--property=MemoryMax=1G",
             *(["--setenv=LVB_RPI1_PHASE_TRACE=" + arguments.phase_trace] if arguments.phase_trace else []),
+            *(["--setenv=LVB_RPI2_PROCESS_QUANTUM=" + arguments.processing_quantum] if arguments.processing_quantum else []),
             str(arguments.binary), str(arguments.config)], stdin=descriptor, stdout=output,
             stderr=subprocess.STDOUT)
         try:

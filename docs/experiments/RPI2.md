@@ -1551,19 +1551,19 @@ Results: `evidence/rpi2/pigments-fex-stats.json`.
 
 ## Optimization options retained after the FEX check
 
-The next comparison changes vendor processing quantum256 to512, keeping48k,
-JACK512 and reserve2048. Larger calls may reduce fixed overhead per rendered
+The next comparison changes vendor processing quantum 256 to 512, keeping 48 kHz,
+JACK 512 and reserve 2048. Larger calls may reduce fixed overhead per rendered
 second; they do not establish adequate throughput or repair backlog recovery.
-The private candidate uses map v2/capacity512, with quantum selected separately.
+The private candidate uses map v2/capacity 512, with quantum selected separately.
 Default builds and the installed original binaries retain their previous layout.
 
 | Option | Evidence and next useful decision | Why other changes wait |
 | --- | --- | --- |
-| Processing block size | Compare the same candidate256/512/256 with actual audio and completed calls/frames. | Current bounded experiment; keep reserve and sound fixed. |
+| Processing block size | Compare the same candidate256 / 512 / 256 with actual audio and completed calls/frames. | Current bounded experiment; keep reserve and sound fixed. |
 | Bridge work per call | Native phase tracing OFF removed its recorder but did not materially reduce sustained vendor CPU. Examine copies, validation, wakeups, allocation, logging and release-build work if larger blocks help. | Measure which side consumes time before optimizing it. |
 | Scheduling and CPU placement | Audio caller and Pigments worker already consume different cores. Compare execution with runnable/wait time, JACK policy, Wine/MMCSS mapping, priority and migration. | Blind affinity can take cores away from plugin workers. |
-| Governor, cooling and power | Latest failed repeat was around2.4GHz, peak51.8C with no flags. Earlier governor comparison was not completed. | Thermal failure is not established here; sustained energy/thermal work remains separate. |
-| Pigments multicore | Preference OFF was readable at startup; unchanged fullstate restored ON. A plugin processing worker is active. | Need valid control after state restore before a same-state comparison. |
+| Governor, cooling and power | Latest failed repeat was around 2.4 GHz, peak 51.8°C with no flags. Earlier governor comparison was not completed. | Thermal failure is not established here; sustained energy/thermal work remains separate. |
+| Pigments multicore | Preference OFF was readable at startup; unchanged full state restored ON. A plugin processing worker is active. | Need valid control after state restore before a same-state comparison. |
 | FEX translation and cache | Existing counters show no compile attempts at the immediate repeat cutoff; later compilation occurred. Compare executed-code cost and pinned supported configuration when justified. | No blind flags, ISA changes or weakened memory ordering. |
 | Wine/Proton synchronization | Inspect exact runner/kernel fsync/ntsync support and native/translated boundary waits if execution/wait evidence points there. | Keep runner and licensed environment identity fixed within comparisons. |
 | Backlog recovery | Long silence can outlast a transient slowdown; near-drained admission did not guarantee the repeated hold. | Epoch/resynchronization must preserve notes/state and cannot create compute capacity. |

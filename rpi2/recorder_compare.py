@@ -33,6 +33,16 @@ def status_values(lines):
     return out
 
 
+def outstanding_frames(counters, quantum=None):
+    if quantum is None:
+        rendered = counters['bridge_processed'] * 256
+    else:
+        if counters.get('processing_quantum') != quantum:
+            raise ValueError('Runtime quantum differs from selected condition')
+        rendered = counters['bridge_processed_frames']
+    return counters['callbacks'] * 512 - counters['paused_frames'] - rendered
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('root', type=Path)
@@ -42,16 +52,19 @@ def main():
     modes=parser.add_mutually_exclusive_group()
     modes.add_argument('--trace-comparison', action='store_true')
     modes.add_argument('--fex-stats', action='store_true')
+    modes.add_argument('--quantum-comparison', action='store_true')
+    parser.add_argument('--config', type=Path)
     parser.add_argument('--candidate', type=Path, required=True)
     args = parser.parse_args()
     if not re.fullmatch(r'[0-9]{2}', args.attempt):
         raise ValueError('Attempt must be two digits')
-    same_candidate=args.trace_comparison or args.fex_stats
+    same_candidate=args.trace_comparison or args.fex_stats or args.quantum_comparison
     if not same_candidate and args.original is None:
         parser.error('--original is required for the original/buffered pair')
     root, output = args.root, args.output
     output.mkdir(mode=0o700)
     env = root / 'pigments-arm'
+    config = args.config or env/'preset-navigation.conf'
     original = env / 'logs/preset-buttons-01/physical-navigation-final.state'
     selected = env / 'logs/preset-sweep-01/005-trial-start.state'
     report = {'conditions': [], 'original_identity': identify(original.read_bytes()),
@@ -67,6 +80,7 @@ def main():
         from fex_stats import Reader
         if hashlib.sha256(args.candidate.read_bytes()).hexdigest() != '85780f4856f2bac9f605628ca7decd80568cca0ad36fa92db70960bf74dd1a62':
             raise ValueError('Pinned candidate changed')
+    if args.fex_stats or args.quantum_comparison:
         preference_path=env/'compatdata/pfx/drive_c/ProgramData/Arturia/Pigments/tmp/plugin.pref.xml'
         preference_backup=output/'plugin.pref.original.xml'
         shutil.copy2(preference_path,preference_backup)
@@ -128,6 +142,7 @@ def main():
 
     def trial(name, run, cgroup):
         row = {'name': name, 'samples': [], 'before': status_values(request('status','RPI1_STATUS '))}
+        active_trials.append(row)
         row['flush_marks_ns'] = []
         def flush_mark():
             request('mark', 'RPI1_OBSERVER_MARKER accepted')
@@ -172,28 +187,37 @@ def main():
         return row
 
     try:
-        conditions = ('fex',) if args.fex_stats else ('off1', 'on', 'off2') if args.trace_comparison else ('original', 'buffered')
-        report['comparison'] = 'fex-existing-stats' if args.fex_stats else 'same-binary-phase-off-on-off' if args.trace_comparison else 'original-buffered'
+        conditions = ('q256-first','q512','q256-last') if args.quantum_comparison else ('fex',) if args.fex_stats else ('off1', 'on', 'off2') if args.trace_comparison else ('original', 'buffered')
+        report['comparison'] = 'same-pair-quantum-256-512-256' if args.quantum_comparison else 'fex-existing-stats' if args.fex_stats else 'same-binary-phase-off-on-off' if args.trace_comparison else 'original-buffered'
         for index, expected in enumerate(conditions):
             trace_on = not same_candidate or expected == 'on'
+            quantum = 512 if expected == 'q512' else 256
             state, _, _ = safety()
             row = {'condition': expected, 'guard_before': state, 'trials': []}
             report['conditions'].append(row)
-            label = ('fex-observe-' if args.fex_stats else 'trace-' if args.trace_comparison else 'obs-') + expected.replace('_','-') + '-' + args.attempt
+            active_trials = row['trials']
+            label = ('quantum-' if args.quantum_comparison else 'fex-observe-' if args.fex_stats else 'trace-' if args.trace_comparison else 'obs-') + expected.replace('_','-') + '-' + args.attempt
             run = env/'logs'/label
             fifo, log = run/'commands.fifo', run/'outer.log'
             before = set((env/'evidence').glob('*-phase.jsonl'))
             with (output/(label+'-session.log')).open('x') as sink:
                 session = subprocess.Popen(['flock', '--nonblock', str(root.parent/'rpi1-private/operation.lock'),
-                    '/usr/bin/python3', str(env/('trace_session.py' if same_candidate else 'plugin_session.py')), label, '--config', str(env/'preset-navigation.conf'),
+                    '/usr/bin/python3', str(env/('quantum_session.py' if args.quantum_comparison else 'trace_session.py' if same_candidate else 'plugin_session.py')), label, '--config', str(config),
                     '--binary', str(args.candidate if same_candidate or index else args.original),
-                    *(['--phase-trace', 'on' if trace_on else 'off'] if same_candidate else [])], stdout=sink, stderr=subprocess.STDOUT)
+                    *(['--phase-trace', 'on' if trace_on else 'off'] if same_candidate else []),
+                    *(['--processing-quantum',str(quantum)] if args.quantum_comparison else [])], stdout=sink, stderr=subprocess.STDOUT)
                 end = time.monotonic()+100
                 try:
-                    while not log.exists() or 'RPI1_READY ' not in log.read_text():
+                    while (not log.exists() or 'RPI1_READY ' not in log.read_text()
+                           or args.quantum_comparison and 'RPI2_PROCESSING ' not in log.read_text()):
                         safety()
                         if time.monotonic()>end or session.poll() is not None: raise RuntimeError('Startup failed')
                         time.sleep(.5)
+                    if args.quantum_comparison:
+                        wanted=f'RPI2_PROCESSING quantum={quantum} map_version=2 capacity=512 sample_rate=48000'
+                        if wanted not in log.read_text(): raise RuntimeError('Processing quantum/layout readback mismatch')
+                        row['processing_readback']=wanted
+                        row['quantum']=quantum
                     phases = set((env/'evidence').glob('*-phase.jsonl'))-before
                     if len(phases) != int(trace_on): raise RuntimeError('Phase ownership/mode mismatch')
                     phase = phases.pop() if trace_on else None
@@ -213,6 +237,19 @@ def main():
                     row['native_threads_at_ready'] = [task.joinpath('comm').read_text().strip() for task in Path('/proc',native_pid,'task').glob('*')]
                     if same_candidate and ('rpi1-phase-drai' in row['native_threads_at_ready'] or 'rpi1-phase-drain' in row['native_threads_at_ready']) != trace_on:
                         raise RuntimeError('Phase recorder thread/mode mismatch')
+                    if args.quantum_comparison:
+                        module=(env/'compatdata/pfx/drive_c/Program Files/Common Files/VST3/Pigments.vst3').stat()
+                        matches=[]
+                        for procfile in cgroup.rglob('cgroup.procs'):
+                            for pid in procfile.read_text().split():
+                                try:
+                                    for mapped in Path('/proc',pid,'maps').read_text().splitlines():
+                                        fields=mapped.split(); dev=fields[3].split(':')
+                                        if int(fields[4])==module.st_ino and int(dev[0],16)==os.major(module.st_dev) and int(dev[1],16)==os.minor(module.st_dev):
+                                            matches.append(pid);break
+                                except (FileNotFoundError,ProcessLookupError):pass
+                        if len(set(matches))!=1:raise RuntimeError('Pigments process identity ambiguous')
+                        row['pigments_pid']=matches[0]
                     if args.fex_stats:
                         try:
                             fex=Reader.for_cohort(cgroup,env/'compatdata/pfx/drive_c/Program Files/Common Files/VST3/Pigments.vst3')
@@ -224,7 +261,7 @@ def main():
                     row['restore'] = request('restore '+str(selected),'RPI1_STATE_RESTORED ')
                     time.sleep(4)
                     row['master'] = request('parameter 0','RPI1_PARAMETER_READBACK id=0 ')
-                    row['trials'].append(trial('warmup',run,cgroup))
+                    trial('warmup',run,cgroup)
                     row['drain_checks'] = []
                     good = 0
                     for attempt in range(30):
@@ -232,7 +269,7 @@ def main():
                         began=time.monotonic_ns()
                         counters=status_values(request('status','RPI1_STATUS '))
                         elapsed=time.monotonic_ns()-began
-                        outstanding=counters['callbacks']*512-counters['paused_frames']-counters['bridge_processed']*256
+                        outstanding=outstanding_frames(counters, quantum if args.quantum_comparison else None)
                         check=dict(counters=counters,request_elapsed_ns=elapsed,outstanding_frames_estimate=outstanding)
                         row['drain_checks'].append(check)
                         healthy=(counters['process_failures']==0 and counters['fault']==0 and counters['failures']==0)
@@ -241,7 +278,7 @@ def main():
                     else: raise RuntimeError('No comparable live-counter drained start within 30 samples')
                     time.sleep(1)
                     row['guard_at_measurement'] = guard(expected)
-                    measured = trial('measured',run,cgroup); row['trials'].append(measured)
+                    measured = trial('measured',run,cgroup)
                     # Retain post-release CPU/wait samples while outstanding work can finish.
                     for _ in range(10):
                         measured['samples'].append(snapshot(cgroup)); time.sleep(.5)
