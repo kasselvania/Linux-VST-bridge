@@ -57,6 +57,12 @@ mod appliance {
     }
 
     fn run(config: Config, session: [u8; 16], session_hex: String) -> io::Result<()> {
+        let quantum = match env::var("LVB_RPI2_PROCESS_QUANTUM") {
+            Err(env::VarError::NotPresent) => 256,
+            Ok(v) if v == "256" => 256,
+            Ok(v) if v == "512" && cfg!(feature = "rpi2-quantum") => 512,
+            _ => return Err(invalid("unsupported processing quantum")),
+        };
         let directory = config
             .prefix()
             .join("drive_c/bridge/sessions")
@@ -73,7 +79,7 @@ mod appliance {
         let bridge_directory = directory.clone();
         let delay = config.bridge_frames;
         let bridge =
-            thread::spawn(move || Instance::open_bound(bridge_directory, session, identity, delay));
+            thread::spawn(move || Instance::open_bound_quantum(bridge_directory, session, identity, delay, quantum));
 
         let ready = directory.join(format!("{session_hex}.ready"));
         let gate = directory.join(format!("{session_hex}.gate"));
@@ -129,7 +135,7 @@ mod appliance {
             if phase.enabled() { "on" } else { "off" }, phase.enabled(), phase.enabled());
         let buses = &config.binding.buses;
         let traits = instance.setup(jack.buffer_size(), 48_000.0, buses)?;
-        instance.activate(256)?;
+        instance.activate(instance.processing_quantum())?;
         instance.start()?;
         jack.activate()?;
         let ports = jack.ports();
@@ -141,6 +147,9 @@ mod appliance {
         if let Some(inputs) = jack.audio_input_ports() {
             println!("RPI1_INPUT left={} right={}", inputs[0], inputs[1]);
         }
+        println!("RPI2_PROCESSING quantum={} map_version={} capacity={} sample_rate=48000",
+            instance.processing_quantum(), if cfg!(feature = "rpi2-quantum") { 2 } else { 1 },
+            if cfg!(feature = "rpi2-quantum") { 512 } else { 256 });
         println!("RPI1_LATENCY tail_frames={}", traits.tail_frames);
         println!("RPI1_MIDI cc123=tracked_note_offs cc64=unsupported duplicate_note_on=refused");
         println!(
@@ -239,7 +248,7 @@ mod appliance {
         let metrics = &control.metrics;
         let stats = instance.stats()?;
         println!(
-            "RPI1_AUDIO midi_accepted={} output_nonzero_l={} output_nonzero_r={} output_peak_l={} output_peak_r={} output_nonfinite={} xruns={} process_failures={} bridge_processed={} request_high={} result_high={} fault={} fault_site={}",
+            "RPI1_AUDIO midi_accepted={} output_nonzero_l={} output_nonzero_r={} output_peak_l={} output_peak_r={} output_nonfinite={} xruns={} process_failures={} bridge_processed={} request_high={} result_high={} fault={} fault_site={} bridge_processed_frames={} processing_quantum={}",
             metrics.accepted_midi.load(Ordering::Acquire),
             metrics.output_nonzero[0].load(Ordering::Acquire),
             metrics.output_nonzero[1].load(Ordering::Acquire),
@@ -249,7 +258,8 @@ mod appliance {
             metrics.xruns.load(Ordering::Acquire),
             metrics.process_failures.load(Ordering::Acquire),
             stats.processed, stats.request_high, stats.result_high, stats.fault,
-            ap2_backend::rpi1_phase::site_name(instance.fault_site().unwrap_or(0))
+            ap2_backend::rpi1_phase::site_name(instance.fault_site().unwrap_or(0)),
+            instance.processed_frames()?, instance.processing_quantum()
         );
         Ok(())
     }
@@ -545,7 +555,7 @@ mod appliance {
         instance.stop()?;
         instance.deactivate()?;
         let count = instance.restore_state(state, &mut output)?;
-        instance.activate(256)?;
+        instance.activate(instance.processing_quantum())?;
         instance.start()?;
         jack.resume_processing();
         Ok(count)

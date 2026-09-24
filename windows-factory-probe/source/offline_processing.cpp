@@ -1,6 +1,7 @@
 #include <string_view>
 #include <windows.h>
 #include "offline_processing.h"
+#include "ap1_protocol.h"
 #include "result_status.h"
 #include "../../native-vst3-proxy/include/ap10_sdk_results.h"
 #include "component_instance_session.h"
@@ -22,7 +23,7 @@ namespace {
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 constexpr int frames = 16;
-constexpr int capacity = 256;
+constexpr int capacity = linux_vst_bridge::ap1::capacity;
 constexpr uint32 guard = 0x4b123456;
 constexpr uint32 sentinel = 0x7fc12345;
 struct Block {

@@ -53,6 +53,8 @@ impl ProcessingTraits {
 pub struct Instance {
     handle: u64,
     closed: bool,
+    quantum: u32,
+    negotiated_maximum: std::sync::atomic::AtomicU32,
 }
 
 impl Instance {
@@ -65,6 +67,16 @@ impl Instance {
         identity: Identity,
         bridge_frames: u32,
     ) -> io::Result<Self> {
+        Self::open_bound_quantum(directory, session, identity, bridge_frames, 256)
+    }
+
+    pub fn open_bound_quantum(
+        directory: PathBuf, session: [u8; 16], identity: Identity,
+        bridge_frames: u32, quantum: u32,
+    ) -> io::Result<Self> {
+        if !matches!(quantum, 256 | 512) || quantum as usize > ap1_native_client::CAP {
+            return Err(io::Error::other("unsupported appliance processing quantum"));
+        }
         if !matches!(bridge_frames, 512 | 1024 | 2048) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -97,7 +109,7 @@ impl Instance {
         let mut handle = 0;
         let code = unsafe {
             queued::open_bound(
-                256,
+                quantum,
                 &mut handle,
                 state::Identity {
                     class: identity.class,
@@ -114,7 +126,15 @@ impl Instance {
         Ok(Self {
             handle,
             closed: false,
+            quantum,
+            negotiated_maximum: std::sync::atomic::AtomicU32::new(quantum),
         })
+    }
+
+    pub fn processing_quantum(&self) -> u32 { self.quantum }
+
+    pub fn processed_frames(&self) -> io::Result<u64> {
+        queued::processed_frames(self.handle).ok_or_else(|| io::Error::other("instance absent"))
     }
 
     pub fn handle(&self) -> u64 {
@@ -159,12 +179,13 @@ impl Instance {
             )
         };
         result(code, "setup")?;
+        self.negotiated_maximum.store(maximum.min(self.quantum), std::sync::atomic::Ordering::Release);
         Ok(ProcessingTraits::from_raw(traits))
     }
 
     pub fn activate(&self, maximum: u32) -> io::Result<()> {
         result(
-            unsafe { queued::ap4_activate(self.handle, maximum.min(256), 0) },
+            unsafe { queued::ap4_activate(self.handle, maximum.min(self.negotiated_maximum.load(std::sync::atomic::Ordering::Acquire)), 0) },
             "activate",
         )
     }

@@ -1,62 +1,53 @@
-# RPI2 CPU efficiency — existing FEX statistics
+# RPI2 vendor processing quantum
 
-Base commit: 4978d0f (full resolved identity retained with final evidence).
-Base tree: 71d0d6eb2bcd684968293798b70007725d281135.
-The operator authorizes autonomous continuation; this thread remains the sole
-writer/live Pi owner. The coordinator reviewed the pinned FEX schema and reader.
-The preceding multicore preference check is complete: startup OFF is overridden
-by unchanged24AM full state ON, so no mislabeled multicore comparison will run.
+Base eff40235bb29941476b9fda42122972716c76210. The user authorizes the next
+improvement experiment; coordinator reviewed feasibility before any build.
+Work only in the isolated rpi2-cpu-efficiency checkout, stacked branch/PR.
 
-## One bounded outcome
+Compare the same private native/Windows candidate at quantum 256 / 512 / 256.
+Default builds remain map v1/capacity 256. Experimental opt-in builds use map
+v2/capacity 512 with a separate startup-latched processing quantum; IPC minor 12
+stays unchanged. Wrong peer/layout rejects before processing. Keep sample rate
+48000, JACK 512, reserve 2048, unchanged 24 AM Poly 4/master 0.35 and the existing
+four-note 12-second hold in 20-second capture, headless, phase OFF.
 
-Determine whether the existing pinned ARM64EC FEX shared statistics are available
-and whether their translation/cache activity distinguishes the first four-note
-hold from its warmed repeat. No new runtime/native/Windows build, feature flags,
-GUI, settings, state edits, latency, affinity, priority or governor changes.
+Scope: native AP1 storage, queued splitting/setup/lifecycle, appliance selector
+and readback, mirrored Windows storage and negotiated bounds, existing session
+and comparison helpers, focused tests, sanitized evidence and RPI2 levers table.
+Build once each side using cached Pi release and existing 5-minute host_only
+MSVC workflow; no runtime rebuild or paid capacity purchase. Reuse each pair
+for warm-up and measured hold in each condition. Record actual calls/frames,
+audio gaps/zeros, process and separate companion CPU, temperatures/frequencies.
+Keep failed warm-ups and distinguish higher throughput from backlog recovery.
 
-Use the unchanged85780f4856f2bac9f605628ca7decd80568cca0ad36fa92db70960bf74dd1a62
-native candidate explicitly; phase tracing OFF. Existing Pigments7.0.1.6772,
-GE-Proton11-7 ARM/FEX prefix, 24AM Poly4/master0.35, notes60/64/67/71 velocity96,
-48k/JACK512/vendor256/reserve2048. One fresh session: availability after READY,
-then only the existing20-second warm-up and20-second measured capture if usable.
-The same near-drained estimate and75C/current power-warning stops apply.
+Test map mismatch, negotiated bounds, zero/partial blocks, MIDI/parameter
+boundary offsets and returned-event timing/failure behavior. No concurrent
+process on one instance. Preserve originals, runtime/prefix/activation, installed
+panel.rs difference, user state/master, preference bytes/metadata and JACK graph.
+Do not change governor, scheduling/affinity/priority, FEX flags/cache, vendor
+quality/polyphony, reserve, editor or authorization services. Stop at 75°C/current
+power flags or lifecycle fault. No GUI/control of desktop and no credential logs.
 
-## Reader and interpretation
+Publish one draft stacked PR, commit/push but do not merge/default-install.
+Retain limitations and all previously considered optimization levers in concise
+RPI2 notes. Source/fake-peer tests are not actual Pigments timing proof.
 
-Source: FEX82510eb452b258959ef982be58a9c3c1bafc82a4 SHMStats.h and allocator,
-ARM64EC Module.cpp and UnixLib. Version2/header64/slot112. Head/Next are byte
-offsets from base; Linux getpid names the file but GetCurrentThreadId values are
-Windows IDs. Validate exact owned Pigments mapping and process lifetime. Check
-host /dev/shm and that process root/dev/shm using its NSpid when needed.
+## Completed disposition
 
-Read-only bounded snapshots no faster than2Hz; record observer CPU/time. Reject
-unknown schema, invalid bounds/linkage, unstable topology, reset or churn for
-attribution. No atomic whole-process claim or Linux/Windows TID guess. Retain
-raw CNTVCT ticks; derived elapsed seconds may use kernel-reported54.00MHz reference
-timer, never CPU GHz. JIT-path time includes lookup/locking/compile work and is
-not CPU-only compilation. Avoid adding overlapping time counters.
+Three sessions and six captures completed. Windows setup and completed frames
+per call confirmed 256 / 512 / 256 with the same private binary pair. No reliable
+CPU or audio improvement was demonstrated; repeated delivery losses were 4,352 /
+80,896 / 618,752 frames and the two 256 conditions differed strongly. All runs
+peaked at 54.0°C with zero thermal flags. A 1.9 GHz sample occurred within the
+512 silence interval, while the last 256 failure sampled full clock. Preserve
+that uncertainty. No change to the default is justified by this result.
 
-If unavailable/unusable, retain the specific dependency and stop after this one
-launch without benchmark or rebuild. If usable, compare sparse process-level
-deltas with captured audio, whole held2–14including attack and stable3–14,
-retaining failed warm-up. No per-audio-thread claim without verified identity.
-
-## Scope, restoration and delivery
-
-Use existing recorder_compare/trace_analysis helpers with narrowly scoped
-reader/reducer/tests, this card, RPI2 documentation and sanitized evidence.
-No new framework/dashboard. Keep proprietary captures/state and raw paths private.
-Restore original user state/master, preference bytes and JACK graph; retire only
-owned processes. Preserve generic9d0a611... and helper-default24e6ab17... binaries.
-Commit/push final results to draftPR150 without merge/default replacement; stop
-with the measured finding, limitations and next evidence-backed lever.
-
-## Observed disposition
-
-Existing FEX v2 counters were readable. One session and the two existing captures
-completed; both had substantial output silence despite no thermal flags and
-near2.4GHz samples. The repeated cutoff around2.39s preceded its later large
-JIT burst, with zero compile attempts in intervals overlapping2–3s. A separate
-Arturia-named process contributed additional repeat CPU, while Pigments-only CPU
-also rose. No sole cause or reliable warmed baseline is claimed. Cleanup and
-five focused reader/reducer tests passed. No further runtime experiments this turn.
+The first pre-runtime launch refusal and its exact-basename private launcher
+correction are retained. Original state/master, preference bytes/metadata, source
+files, binaries, runtime settings and graph are restored; no owned unit remains.
+Evidence and remaining optimization options are in docs/experiments/RPI2.md and
+evidence/rpi2/pigments-vendor-quantum-comparison.json. Draft stacked PR #152 remains
+unmerged. Next recommendation: bounded execution-versus-scheduler-wait comparison
+at controlled frequency, also separating DSP/translation from active
+synchronization or host work on the busy caller. No further live experiment
+in this slice.
