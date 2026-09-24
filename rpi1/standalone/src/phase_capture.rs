@@ -4,7 +4,7 @@ use ap2_backend::rpi1_phase::{self as phase, Event, Ring};
 use std::{
     collections::VecDeque,
     fs::{File, OpenOptions},
-    io::{self, Write},
+    io::{self, BufWriter, Write},
     os::unix::fs::OpenOptionsExt,
     path::Path,
     sync::{
@@ -79,12 +79,15 @@ impl Drop for PhaseCapture {
 }
 
 fn drain(
-    mut file: File,
+    file: File,
     session: &str,
     rings: (Arc<Ring>, Arc<Ring>),
     markers: mpsc::Receiver<(u64, String)>,
     stop: Arc<AtomicBool>,
 ) -> io::Result<()> {
+    // Control-plane only: coalesce JSON formatting writes without changing the
+    // existing incident/marker/finish flush boundaries or durable-sync policy.
+    let mut file = BufWriter::with_capacity(64 * 1024, file);
     let mut history = VecDeque::<SourceEvent>::with_capacity(MAX_EVENTS);
     let mut last_drop = [0, 0];
     let mut last_incident_flush = 0;
@@ -151,7 +154,7 @@ fn drain(
                     || now.saturating_sub(last_incident_flush) >= 5_000_000_000);
         if should_flush {
             flush_history(&mut file, session, &mut history)?;
-            file.sync_data()?;
+            finish_batch(&mut file, File::sync_data)?;
             last_incident_flush = now;
         }
         if stop.load(Ordering::Acquire) {
@@ -161,8 +164,16 @@ fn drain(
     }
 }
 
+fn finish_batch<W: Write>(
+    writer: &mut BufWriter<W>,
+    sync: impl FnOnce(&W) -> io::Result<()>,
+) -> io::Result<()> {
+    writer.flush()?;
+    sync(writer.get_ref())
+}
+
 fn flush_history(
-    file: &mut File,
+    file: &mut impl Write,
     session: &str,
     history: &mut VecDeque<SourceEvent>,
 ) -> io::Result<()> {
@@ -198,6 +209,85 @@ fn flush_history(
         )?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{cell::RefCell, rc::Rc};
+
+    #[derive(Default)]
+    struct Recorded {
+        bytes: Vec<u8>,
+        writes: usize,
+        fail_write: bool,
+        fail_flush: bool,
+        flushed: bool,
+    }
+    #[derive(Clone, Default)]
+    struct CountingWriter(Rc<RefCell<Recorded>>);
+    impl Write for CountingWriter {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            let mut state = self.0.borrow_mut();
+            state.writes += 1;
+            if state.fail_write { return Err(io::Error::other("write failed")); }
+            state.bytes.extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            let mut state = self.0.borrow_mut();
+            if state.fail_flush { return Err(io::Error::other("flush failed")); }
+            state.flushed = true;
+            Ok(())
+        }
+    }
+    fn history() -> VecDeque<SourceEvent> {
+        (0..300).map(|i| SourceEvent {
+            event: Event { monotonic_ns: 100 + i, callback_sequence: i,
+                bridge_position: i * 256, kind: phase::WORKER_PROCESS_BEGIN,
+                detail: 0, value_1: 90 + i, value_2: 5_000_000 },
+            domain: "native_bridge_worker", tid: 7,
+        }).collect()
+    }
+    #[test]
+    fn buffering_preserves_records_and_reduces_underlying_writes() {
+        let mut direct = CountingWriter::default();
+        flush_history(&mut direct, "test-session", &mut history()).unwrap();
+        let sink = CountingWriter::default();
+        let view = sink.clone();
+        let mut buffered = BufWriter::with_capacity(64 * 1024, sink);
+        flush_history(&mut buffered, "test-session", &mut history()).unwrap();
+        finish_batch(&mut buffered, |writer| {
+            assert!(writer.0.borrow().flushed);
+            assert_eq!(writer.0.borrow().bytes, direct.0.borrow().bytes);
+            Ok(())
+        }).unwrap();
+        let raw = direct.0.borrow();
+        let batched = view.0.borrow();
+        assert_eq!(raw.bytes, batched.bytes);
+        assert_eq!(batched.bytes.iter().filter(|&&b| b == b'\n').count(), 300);
+        assert!(batched.writes * 100 < raw.writes,
+                "direct={} buffered={}", raw.writes, batched.writes);
+        println!("phase writer calls: direct={} buffered={} bytes={}", raw.writes, batched.writes, raw.bytes.len());
+    }
+    #[test]
+    fn batch_propagates_write_flush_and_sync_errors() {
+        for fail_write in [true, false] {
+            let sink = CountingWriter::default();
+            sink.0.borrow_mut().fail_write = fail_write;
+            sink.0.borrow_mut().fail_flush = !fail_write;
+            let mut writer = BufWriter::new(sink);
+            writer.write_all(b"record\n").unwrap();
+            assert!(finish_batch(&mut writer, |_| panic!("sync after failed flush")).is_err());
+        }
+        let mut writer = BufWriter::new(CountingWriter::default());
+        writer.write_all(b"record\n").unwrap();
+        let error = finish_batch(&mut writer, |sink| {
+            assert_eq!(sink.0.borrow().bytes, b"record\n");
+            Err(io::Error::other("sync failed"))
+        }).unwrap_err();
+        assert_eq!(error.to_string(), "sync failed");
+    }
 }
 fn monotonic_ns() -> u64 {
     let mut time = libc::timespec {

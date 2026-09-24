@@ -1247,3 +1247,82 @@ and an overhead check, while using existing live status for drain. This would
 address the observer confound before another governor comparison. No recorder
 or product binary was changed, and no third authentication was requested.
 See `evidence/rpi2/pigments-governor-attempt-02.json` for retained findings.
+
+### Buffered recorder prerequisite: one same-ondemand original/candidate pair
+
+The coordinator authorized buffering on the ordinary recorder thread, keeping
+schema, serialization, incident/marker/finish boundaries and error behavior.
+`phase_capture.rs` now uses a 64 KiB `BufWriter` and explicitly flushes before
+the underlying `sync_data`. Nothing changes in the callback, DSP, routing or
+latency. A counting-writer test produced the same 300 records/95,824 bytes with
+31,800 direct underlying writes versus two buffered writes. Separate tests
+exercise write failure, flush failure preventing sync, and propagated sync
+failure. Focused Pi release-test compilation took 23.80 seconds; the native
+candidate release build took 21.66 seconds. No Windows/runtime build occurred.
+
+The original binary remains the default. Candidate SHA256
+`6c3cc393837dc81168a2c7bdb7fc33e4f469ba80659512f4f91d9cfec392e876`
+is staged separately from original
+`9d0a611d7175b05e398f484d9217fb29b7004f3e0eaac76acd6ad00a541bd1da`.
+Only the recorder source was changed in the installed source tree. Its existing
+older `panel.rs` differs from this PR's base and was deliberately preserved.
+A 58-file source/manifest/lock hash inventory is retained. Exact original
+binary-to-source correspondence was not proved by a reproducible rebuild;
+this limits attribution to a sole binary difference. The final seconds of
+candidate building overlapped initial baseline launch, ending before readiness,
+warm-up and measurement. This startup sequencing limitation is retained.
+
+Both fresh sessions restored the same 24 AM state and ran the same warm-up and
+measured four-note hold, editor closed, ondemand unchanged and scheduler
+statistics disabled. Mark requests before/after capture and every five seconds
+were identical. Three stable small live outstanding-frame estimates guided
+admission; those separately read counters are not an atomic queue bound.
+Offline pre-stimulus traces independently matched all 188 expected blocks,
+with maximum queue waits 7.398 ms original / 6.501 ms buffered. Both measured
+conservative note-active windows matched 1,876 contiguous blocks / 480,256
+frames, with no phase drops or position holes.
+
+| Active-cohort measurement | Original recorder | Buffered recorder |
+| --- | ---: | ---: |
+| Recorder CPU seconds | 1.8794 | 0.1104 |
+| Recorder CPU, one core | 18.79% | 1.11% |
+| Native-process write calls | 3,128,974 | 168 |
+| Native-process bytes written (`wchar`) | 10,791,131 | 10,784,737 |
+| Windows-cohort CPU seconds | 14.4632 | 14.4516 |
+| Windows CPU seconds per rendered second | 1.4456 | 1.4444 |
+| Vendor mean / p95 wall ms | 4.909 / 5.616 | 4.897 / 5.609 |
+| Service mean / p95 wall ms | 5.065 / 5.791 | 5.051 / 5.770 |
+| Whole-Pi CPU | 43.15% | 39.92% |
+
+Recorder CPU fell approximately 94.1% in this matched pair. Process write counts
+include all native writes, but nearly all disappear while byte volume remains
+similar. At about 0.5 seconds after capture-time marks, original complete-record
+ages were approximately 1.5–2.9 seconds versus approximately 0.49–0.52 seconds
+with buffering. Overall age still grows between deliberate five-second marks;
+the recorder is not a synchronous live-status interface. Windows processing
+time and work barely changed, so this is a native observer-efficiency result,
+not an improvement in Pigments DSP capacity or measured energy.
+
+**Audio regression possibility remains open.** The original measured hold
+added zero missing frames/gaps. The candidate added 6,144 frames in 24 gaps,
+each 256 frames. All occurred 2.556–2.887 seconds after graph-ready, during the
+held-note attack, not outside the capture. Exact-zero stereo frames in the
+full seconds 2–14 window were zero original versus 6,144 candidate. The later
+seconds 3–14 subwindow had no exact silence in either, but excludes these gaps
+and cannot be described as a full-hold pass. Both recordings were finite and
+below full scale (peaks 0.04818/0.05180). Both accepted nine MIDI events with
+zero processing failures/JACK xruns. No operator audible judgment or rerun was
+requested. The single ordered pair cannot attribute the extra gaps to buffering
+versus run variability; it provides no audio-reliability win.
+
+Both sessions shut down cleanly and restored 8-Bit Crystals, exact master
+0.48033079504966736 and baseline JACK graph. Governor remained ondemand,
+scheduler statistics remained 0, no owned experiment stayed running, and the
+default original binary hash was verified. Temperatures peaked at 54.0 C in
+session samples; denser trial samples reached 55.1 C in the candidate, with no
+throttle flags. Current power source and energy were not measured.
+
+Governor A/B/A remains explicitly deferred, not achieved. Review the recorder
+repair as an opt-in prerequisite, retaining the active-attack gap caveat, then
+target Windows processing work whose cost remained almost unchanged. Detailed
+results and provenance: `evidence/rpi2/pigments-recorder-buffering.json`.

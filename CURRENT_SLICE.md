@@ -1,4 +1,4 @@
-# RPI2 CPU efficiency — fixed-workload governor comparison
+# RPI2 CPU efficiency — buffered phase recorder prerequisite
 
 The operator selected CPU efficiency before latency tuning and authorized a
 separate implementation agent, with technical direction and review in the
@@ -15,10 +15,14 @@ isolated branch only.
 - docs/experiments/RPI2.md: "24 AM warm-up and editor closed/open/closed
   comparison" establishes the demanding workload, not a successful baseline.
 
-Determine whether the performance governor materially improves completion of
-the same Pigments workload compared with ondemand, and distinguish increased
-clock availability from reduced CPU work. A supported negative or inconclusive
-result is valid; do not manufacture an optimization claim.
+The coordinator selected a specific prerequisite after two retained governor
+attempts: remove excessive ordinary-thread recorder write granularity without
+changing phase records or audio behavior. Demonstrate byte-identical records,
+flush/sync error propagation, and a short same-ondemand original/candidate
+comparison. The original governor A/B/A is deferred, not achieved: attempt 02
+already sampled approximately 2.4 GHz throughout its active window, while the
+audio worker consumed 97.6% of one core with little scheduler wait. Those samples
+do not isolate DSP, translation or spinning and do not prove a universal ceiling.
 
 ## Fixed fixture
 
@@ -32,25 +36,23 @@ closed. Keep 48 kHz, 512-frame JACK callback, 256-frame vendor quantum and
 
 ## Implementation and experiment
 
-1. Reuse existing supervision, audio capture, phase records and thread sampling.
-   Add only the small adapters/analysis necessary for this comparison. Do not
-   build a dashboard or a general benchmark framework.
-2. Capture the original governor and scheduler-statistics setting. Temporarily
-   enable scheduler statistics if existing privileges allow it; otherwise mark
-   wait data unavailable. A disabled counter is never evidence of zero wait.
-3. Run a short warmed ondemand/performance/ondemand comparison. Ensure each
-   measured hold begins without inherited bridge backlog; use the same existing
-   reset/start and warm-up procedure for every condition. Mark note-active and
-   idle/release windows separately. Do not compare whole-session averages as if
-   they were identical active DSP intervals.
-4. Report vendor wall time (distribution and slow-block count), available
-   caller/worker CPU, scheduling wait, actual sampled frequency, whole-process
-   CPU, queue age, missing frames, captured-audio validity, temperature and power
-   warning flags. Use existing FEX or caller-CPU counters where readily available;
-   identify missing measurements rather than expanding scope to obtain them.
-5. Restore original governor, scheduler-statistics setting, operator plug-in
-   state and JACK graph; terminate only owned experiment processes. Use bounded
-   runs and existing thermal/power limits. Retain failures and cleanup results.
+1. Add BufWriter on the ordinary phase drain thread only, with explicit flush
+   before the existing underlying sync_data. Keep records/schema, markers,
+   incident/finish boundaries and errors. No callback, DSP or routing changes.
+2. Check byte-identical records and reduced underlying write calls with a
+   counting writer. Exercise write, flush and sync errors.
+3. Reuse the native incremental build cache. Preserve the original installed
+   binary and stage a separate identified candidate. No clean runtime build,
+   dependency changes or unrelated repairs. Return a large-build dependency.
+4. Run one original and one candidate session under existing ondemand, each
+   with the same saved 24 AM, warm-up/measurement stimulus and mark cadence.
+   Scheduler statistics stay disabled and wait is unavailable. Use existing
+   live callback/paused-frame/completion counters for a bounded drain check,
+   reporting separate-read uncertainty; trace-file delivery is not a live barrier.
+5. Compare block completion/throughput, Windows and native recorder CPU, phase
+   delivery/coverage and audio separately. Retain failed/incomplete observations.
+   Restore operator state and JACK graph, leave the original default binary
+   intact, preserve the 75 C/current power-warning stops, then stop for review.
 
 The implementation agent is the sole writer and live experiment owner for this
 slice. The coordinating agent reviews source/evidence and selects the next
@@ -58,10 +60,10 @@ intervention. No other agent should concurrently control this Pi experiment.
 
 ## Scope and delivery
 
-Allowed: existing rpi2/ helpers and focused analysis/tests, sanitized
+Allowed: rpi1/standalone/src/phase_capture.rs, existing rpi2/ helpers and focused analysis/tests, sanitized
 evidence/rpi2/ results, the RPI2 experiment documentation, and this task card.
-No dependency changes. Prefer the installed binaries; a need for product-code
-or runtime changes is a finding to return, not an invitation to widen this slice.
+No dependency or Windows/runtime changes. Only the native recorder candidate is
+authorized for a focused incremental build. No new authentication is needed.
 
 Excluded: kernel/NTSYNC installation, runner replacement, FEX tuning, affinity
 or priority changes, multicore changes, DSP simplification, buffer/latency
