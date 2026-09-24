@@ -40,7 +40,7 @@ impl Prepared {
         let mut header = [0; 64];
         for (o, v) in [
             (0, 0x4d315041),
-            (4, 1),
+            (4, MAP_VERSION as u64),
             (8, CAP as u64),
             (12, 2),
             (16, MAP_BYTES as u64),
@@ -147,5 +147,29 @@ impl Prepared {
             minor,
         )?;
         Ok((mapping, socket))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn mismatched_peer_is_rejected_before_ack_or_lifecycle() {
+        for peer_capacity in [256usize,512] {
+            if peer_capacity==CAP {continue;}
+            let dir=std::env::temp_dir().join(format!("ap1-layout-{:032x}",u128::from_le_bytes(random().unwrap())));
+            std::fs::create_dir(&dir).unwrap();
+            let prepared=Prepared::create(&dir,[7;16]).unwrap();
+            assert_eq!(get(&prepared.mapping.read(4,4).unwrap()),u64::from(MAP_VERSION));
+            let mut peer=TcpStream::connect(prepared.listener.local_addr().unwrap()).unwrap();
+            let mut payload=prepared.capability.to_vec();
+            payload.extend((peer_capacity as u32).to_le_bytes());
+            payload.extend((64u32+4*(peer_capacity as u32+2)*4).to_le_bytes());
+            send_version(&mut peer,&Frame{kind:HELLO,session:[7;16],sequence:0,payload},1,12).unwrap();
+            let result=prepared.accept(12);
+            assert!(matches!(result,Err(ref e) if e.to_string().contains("Hello authentication/layout")));
+            use std::io::Read;let mut byte=[0u8;1];assert_eq!(peer.read(&mut byte).unwrap(),0);
+            std::fs::remove_dir_all(dir).unwrap();
+        }
     }
 }

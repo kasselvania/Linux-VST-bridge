@@ -6,6 +6,10 @@ add_executable(wf0-factory-probe
     source/win32_module.cpp
     source/factory_census.cpp)
 target_sources(wf0-factory-probe PRIVATE source/inspect_module.cpp)
+option(LVB_RPI2_QUANTUM "Private RPI2 map v2 with 512-frame storage" OFF)
+if(LVB_RPI2_QUANTUM)
+    target_compile_definitions(wf0-factory-probe PRIVATE LVB_RPI2_QUANTUM=1)
+endif()
 
 target_include_directories(wf0-factory-probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"

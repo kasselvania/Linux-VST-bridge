@@ -7,11 +7,13 @@ use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
 pub const HEADER: usize = 56;
-pub const CAP: usize = 256;
-pub const STRIDE: usize = 1032;
+// Private experimental layout. Default builds retain the original map exactly.
+pub const MAP_VERSION: u32 = if cfg!(feature = "rpi2-quantum") { 2 } else { 1 };
+pub const CAP: usize = if cfg!(feature = "rpi2-quantum") { 512 } else { 256 };
+pub const STRIDE: usize = (CAP + 2) * 4;
 pub const INPUT: usize = 64;
-pub const OUTPUT: usize = 2128;
-pub const MAP_BYTES: usize = 4192;
+pub const OUTPUT: usize = INPUT + 2 * STRIDE;
+pub const MAP_BYTES: usize = OUTPUT + 2 * STRIDE;
 pub const GUARD: u32 = 0x4b123456;
 pub const POISON: u32 = 0x7fc12345;
 pub const WITNESS: u64 = 0x8d396b274e105ac3;

@@ -205,7 +205,7 @@ fn pending_save_does_not_hold_parent_callback_batches_or_replace_a_refused_snaps
                 busy: AtomicBool::new(false),
                 worker: Some(worker),
                 report: None,
-                max: 512,
+                max: 512, quantum: 256,
                 recovery_blocked: false,
                 installed_delay: Some(512),
                 minor: 12,

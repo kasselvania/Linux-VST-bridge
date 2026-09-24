@@ -133,6 +133,7 @@ struct Shared {
     ack: AtomicU64,
     quit: AtomicBool,
     processed: AtomicU64,
+    processed_frames: AtomicU64,
     first_position: AtomicU64,
     detail: std::sync::Mutex<String>,
     // Separate owner-thread mailbox. It never writes the SPSC audio queue.
@@ -181,6 +182,7 @@ impl Shared {
             ack: AtomicU64::new(9),
             quit: AtomicBool::new(false),
             processed: AtomicU64::new(0),
+            processed_frames: AtomicU64::new(0),
             first_position: AtomicU64::new(u64::MAX),
             detail: std::sync::Mutex::new(String::new()),
             control: std::sync::Mutex::new(None),
@@ -510,6 +512,8 @@ struct Live {
     worker: Option<JoinHandle<()>>,
     report: Option<std::path::PathBuf>,
     max: usize,
+    // Latched at open, distinct from host maximum and storage capacity.
+    quantum: usize,
     recovery_blocked: bool,
     installed_delay: Option<u32>,
     minor: u64,
@@ -704,6 +708,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         started.elapsed().as_micros().min(u64::MAX as u128) as u64,
                         Ordering::Relaxed,
                     );
+                    s.processed_frames.fetch_add(n as u64, Ordering::Relaxed);
                     s.processed.fetch_add(1, Ordering::Relaxed);
                     let publish = s.wanted.load(Ordering::Acquire) == item.epoch;
                     let mut completion = Completion::from(item);
@@ -897,7 +902,7 @@ unsafe fn open_with(
     rpi1_mode: bool,
     binding: impl FnOnce() -> io::Result<crate::preview::Binding>,
 ) -> u32 {
-    if handle.is_null() || !(1..=256).contains(&max) {
+    if handle.is_null() || !(1..=CAP as u32).contains(&max) {
         return 1;
     }
     crate::ffi(|| {
@@ -958,6 +963,7 @@ unsafe fn open_with(
                 worker: Some(t),
                 report,
                 max: max as usize,
+                quantum: if rpi1_mode { max as usize } else { 256 },
                 recovery_blocked: false,
                 installed_delay,
                 minor,
@@ -1318,14 +1324,17 @@ unsafe fn setup(
             return 1;
         }
         let result = (|| -> io::Result<()> {
-            let installed = INSTANCES.lease(id).ok_or_else(|| invalid("setup instance absent"))?.installed_delay;
+            let (installed, quantum) = {
+                let live = INSTANCES.lease(id).ok_or_else(|| invalid("setup instance absent"))?;
+                (live.installed_delay, live.quantum as u32)
+            };
             let delay = if let Some(delay) = installed {
                 crate::performance::validate_delay(maximum, delay)?;
                 delay
             } else {
                 crate::performance::selected_delay(maximum)?
             };
-            let mut bytes = crate::performance::wire(maximum, mode, rate)?;
+            let mut bytes = crate::performance::wire_quantum(maximum, mode, rate, quantum)?;
             if !io.is_empty() {
                 bytes[20..24]
                     .copy_from_slice(&(if notifications { 3u32 } else { 1u32 }).to_le_bytes());
@@ -1343,7 +1352,7 @@ unsafe fn setup(
                 callback.delay=u64::from(delay);l.max=maximum as usize;
                 l.setup=Some(bytes);
                 if let Some(path)=&l.report {
-                    crate::preview::append_report(path,format!("{{\"event\":\"ap9_setup\",\"host_maximum\":{maximum},\"transport_maximum\":{},\"sample_rate\":{rate},\"bridge_frames\":{delay},\"vendor_frames\":{vendor},\"total_frames\":{total},\"vendor_precision_bits\":{}}}\n",maximum.min(256),ap1_native_client::get(&reply[8..12])).as_bytes());
+                    crate::preview::append_report(path,format!("{{\"event\":\"ap9_setup\",\"host_maximum\":{maximum},\"transport_maximum\":{},\"sample_rate\":{rate},\"bridge_frames\":{delay},\"vendor_frames\":{vendor},\"total_frames\":{total},\"vendor_precision_bits\":{}}}\n",maximum.min(quantum),ap1_native_client::get(&reply[8..12])).as_bytes());
                 }
                 Ok(())
             }).map_err(|_|invalid("setup instance ownership"))??;
@@ -1577,7 +1586,7 @@ unsafe fn process_events(
     let mut combined = 3;
     let mut offset = 0;
     loop {
-        let count = (n - offset).min(CAP);
+        let count = (n - offset).min(l.quantum);
         let mut item = Item::control(AUDIO, 0);
         item.n = count as u32;
         item.parent = [(*l.callback.get()).host_call, n as u64, offset as u64, entered_ns];
@@ -1637,6 +1646,11 @@ unsafe fn process_events(
         *delivery = total;
     }
     0
+}
+
+#[cfg(feature = "rpi0")]
+pub(crate) fn processed_frames(id: u64) -> Option<u64> {
+    Some(INSTANCES.lease(id)?.shared.processed_frames.load(Ordering::Acquire))
 }
 
 #[repr(C)]
@@ -2127,10 +2141,11 @@ mod tests {
         }
     }
     #[test]
-    fn parent_callbacks_preserve_exact_one_and_two_proxy_delay() {
+    fn quantum_parent_callbacks_preserve_exact_delay() {
         // The consumer runs only after the complete parent host callback. A
         // 512-frame parent must not acquire an artificial wait between chunks.
-        for (maximum, delay) in [(512, 512), (256, 512), (256, 256), (128, 256)] {
+        for (maximum, delay, quantum) in [(512,512,256),(256,512,256),(256,256,256),(128,256,256),(512,512,512),(513,2048,512),(1024,2048,512)] {
+            if quantum>CAP {continue;}
             let mut ids = Vec::new();
             let mut peers = Vec::new();
             for _ in 0..2 {
@@ -2143,7 +2158,7 @@ mod tests {
                 ids.push(INSTANCES.insert(|| Ok::<_, ()>(Live {
                     shared: shared.clone(), callback: UnsafeCell::new(callback),
                     busy: AtomicBool::new(false), worker: None, report: None,
-                    max: maximum, recovery_blocked: false, installed_delay: Some(delay as u32),
+                    max: maximum, quantum, recovery_blocked: false, installed_delay: Some(delay as u32),
                     minor: 11, setup: None,
                 })).unwrap().unwrap());
                 peers.push(shared);
@@ -2200,7 +2215,7 @@ mod tests {
         let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
             shared: shared.clone(), callback: UnsafeCell::new(Callback::new()),
             busy: AtomicBool::new(false), worker: None, report: None,
-            max: 512, recovery_blocked: false, installed_delay: None,
+            max: 512, quantum: 256, recovery_blocked: false, installed_delay: None,
             minor: 11, setup: None,
         })).unwrap().unwrap();
         let input = [0f32;512]; let mut output = [[0f32;512];2];
@@ -2242,7 +2257,7 @@ mod tests {
                     busy: AtomicBool::new(false),
                     worker: None,
                     report: None,
-                    max: 256,
+                    max: 256, quantum: 256,
                     recovery_blocked: false,
                 installed_delay: None,
                     minor: 6,
@@ -2293,6 +2308,52 @@ mod tests {
             .unwrap();
     }
     #[test]
+    fn quantum_preserves_partial_zero_blocks_events_and_context() {
+        for quantum in [256, 512].into_iter().filter(|&q| q <= CAP) {
+            let mut shared = Shared::new();
+            shared.identity=Some(state::Identity{class:[1;16],module:[2;32]});
+            let shared = Arc::new(shared);
+            shared.state_capable.store(true, Ordering::Relaxed);
+            let mut cb = Callback::new(); cb.delay=2048;
+            assert_eq!(cb.transition(&shared,START),0);
+            assert_eq!(shared.requests.pop().unwrap().kind,START);
+            let id=INSTANCES.insert(|| Ok::<_,()>(Live {
+                shared:shared.clone(), callback:UnsafeCell::new(cb), busy:AtomicBool::new(false),
+                worker:None,report:None,max:1024,quantum,recovery_blocked:false,
+                installed_delay:Some(2048),minor:12,setup:None,
+            })).unwrap().unwrap();
+            let input:Vec<f32>=(0..1024).map(|i| i as f32/1024.).collect();
+            let mut left=[0.;1024];let mut right=[0.;1024];let mut flags=0;
+            let mut delivery=Delivery::default();let mut position=0u64;
+            for n in [1024usize, 513, 0, 1, 255, 256, 511, 512] {
+                let events:Vec<Event>=[0,255,256,511,512,1023].into_iter()
+                    .filter(|&o| n==0&&o==0 || o<n as u32)
+                    .map(|offset| Event{offset,kind:if n==0 {2} else {offset%3},id:42,pitch:if n==0||offset%3==2 {0} else {60},value:0.25,..Default::default()}).collect();
+                let context=crate::context::Context{present:1,state:2,rate:48000.,project:position as i64,..Default::default()};
+                assert_eq!(unsafe{if2_process(id,n as u32,events.as_ptr(),events.len() as u32,
+                    &context,0,input.as_ptr(),input.as_ptr(),left.as_mut_ptr(),right.as_mut_ptr(),
+                    &mut flags,&mut delivery,1)},0);
+                let mut offset=0;let mut observed=Vec::new();let mut calls=0;
+                loop {
+                    let item=shared.requests.pop().unwrap();let count=(n-offset).min(quantum);
+                    assert_eq!((item.position,item.n),(position+offset as u64,count as u32));
+                    assert_eq!(item.context.project,(position+offset as u64) as i64);
+                    assert_eq!(item.parent[1..3],[n as u64,offset as u64]);
+                    assert_eq!(&item.data[0][..count],&input[offset..offset+count]);
+                    for e in &item.events[..item.event_count as usize] {
+                        assert!(e.valid_host(count));let mut e=*e;e.offset+=offset as u32;observed.push(e);
+                    }
+                    calls+=1;offset+=count;if offset==n{break;}
+                }
+                assert_eq!(calls,n.div_ceil(quantum).max(1));
+                assert_eq!(observed,events);assert!(shared.requests.pop().is_none());
+                position+=n as u64;
+            }
+            INSTANCES.remove(id, |_|()).unwrap();
+        }
+    }
+
+    #[test]
     fn large_host_blocks_preserve_notes_and_parameter_offsets() {
         let mut shared = Shared::new();
         shared.state_capable.store(true, Ordering::Relaxed);
@@ -2311,7 +2372,7 @@ mod tests {
                     busy: AtomicBool::new(false),
                     worker: None,
                     report: None,
-                    max: 1024,
+                    max: 1024, quantum: 256,
                     recovery_blocked: false,
                 installed_delay: None,
                     minor: 7,
@@ -2652,7 +2713,7 @@ mod tests {
         assert_eq!(shared.fault.load(Ordering::Acquire),WORKER);
         assert!(shared.terminal_latched.load(Ordering::Acquire));
         shared.state_capable.store(true,Ordering::Release);
-        let id=INSTANCES.insert(||Ok::<_,()>(Live{shared,callback:UnsafeCell::new(Callback::new()),busy:AtomicBool::new(false),worker:None,report:None,max:CAP,recovery_blocked:false,installed_delay:None,minor:11,setup:None})).unwrap().unwrap();
+        let id=INSTANCES.insert(||Ok::<_,()>(Live{shared,callback:UnsafeCell::new(Callback::new()),busy:AtomicBool::new(false),worker:None,report:None,max:CAP,quantum:256,recovery_blocked:false,installed_delay:None,minor:11,setup:None})).unwrap().unwrap();
         std::fs::remove_dir_all(&dir).unwrap(); // the UI query outlives physical transport cleanup
         let mut r=crate::terminal::Record::default();
         let input=[0f32;256];let mut left=[0f32;256];let mut right=[0f32;256];let mut flags=0;let mut delivery=Delivery::default();
@@ -2679,7 +2740,7 @@ mod tests {
             shared.state_capable.store(true,Ordering::Release);
             let shared=Arc::new(shared);
             let mut callback=Callback::new();callback.running=true;callback.epoch=2;callback.position=512;
-            let id=INSTANCES.insert(||Ok::<_,()>(Live{shared:shared.clone(),callback:UnsafeCell::new(callback),busy:AtomicBool::new(false),worker:None,report:None,max:512,recovery_blocked:false,installed_delay:None,minor:11,setup:None})).unwrap().unwrap();
+            let id=INSTANCES.insert(||Ok::<_,()>(Live{shared:shared.clone(),callback:UnsafeCell::new(callback),busy:AtomicBool::new(false),worker:None,report:None,max:512,quantum:256,recovery_blocked:false,installed_delay:None,minor:11,setup:None})).unwrap().unwrap();
             let input=[0f32;512];let mut left=[9f32;512];let mut right=[9f32;512];
             let context=crate::context::Context::default();let mut flags=99;let mut delivery=Delivery::default();
             // No complete custody: a local fault is not relabeled contained.
@@ -2858,7 +2919,7 @@ mod tests {
                         busy: AtomicBool::new(false),
                         worker: Some(worker),
                         report: None,
-                        max: CAP,
+                        max: CAP, quantum: 256,
                         recovery_blocked: false,
                 installed_delay: None,
                         minor: 11,
@@ -3013,7 +3074,7 @@ mod tests {
                     busy: AtomicBool::new(false),
                     worker: None,
                     report: None,
-                    max: 256,
+                    max: 256, quantum: 256,
                     recovery_blocked: false,
                 installed_delay: None,
                     minor: 10,

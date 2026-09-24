@@ -7,14 +7,28 @@
 #include <vector>
 #include <cmath>
 namespace linux_vst_bridge::ap1 {
-constexpr uint32_t magic=0x3141504c, capacity=256, header_bytes=56;
-constexpr uint32_t stride=1032, input_offset=64, output_offset=2128, mapping_bytes=4192;
+constexpr uint32_t magic=0x3141504c, header_bytes=56;
+#ifdef LVB_RPI2_QUANTUM
+constexpr uint32_t capacity=512, mapping_version=2;
+#else
+constexpr uint32_t capacity=256, mapping_version=1;
+#endif
+constexpr uint32_t stride=(capacity+2)*4, input_offset=64,
+ output_offset=input_offset+2*stride, mapping_bytes=output_offset+2*stride;
 constexpr uint32_t guard=0x4b123456, poison=0x7fc12345;
 constexpr uint64_t witness_mask=0x8d396b274e105ac3ULL;
 enum Kind:uint16_t {Hello=1,Ready=2,Process=3,Done=4,Close=5,Closed=6,Error=7,Activate=8,Activated=9,Start=10,Started=11,Stop=12,Stopped=13,Deactivate=14,Deactivated=15,GetState=16,State=17,SetState=18,StateApplied=19,Configure=20,Configured=21};
 inline void require(bool ok,const char* message){if(!ok)throw std::runtime_error(message);}
 inline uint64_t get(const uint8_t* p,size_t n){uint64_t v=0;for(size_t i=0;i<n;++i)v|=uint64_t(p[i])<<(8*i);return v;}
 inline void put(uint8_t* p,uint64_t v,size_t n){for(size_t i=0;i<n;++i)p[i]=uint8_t(v>>(8*i));}
+inline bool mapping_layout(const uint8_t* p, size_t bytes) {
+ return bytes==mapping_bytes && get(p,4)==0x4d315041 && get(p+4,4)==mapping_version &&
+ get(p+8,4)==capacity && get(p+12,4)==2 && get(p+16,4)==mapping_bytes &&
+ get(p+20,4)==input_offset && get(p+24,4)==output_offset && get(p+28,4)==stride;
+}
+inline void processing_maximum(uint32_t frames, uint32_t maximum) {
+ require(maximum>=1 && maximum<=capacity && frames<=maximum,"negotiated processing maximum exceeded");
+}
 struct Frame {uint16_t kind;std::array<uint8_t,16> session;uint64_t sequence;std::vector<uint8_t> payload;};
 inline std::vector<uint8_t> encode(const Frame& f,uint16_t minor=1){
  require(minor>=1&&minor<=12&&f.kind>=Hello&&f.kind<=(minor>=6?Configured:minor>=4?StateApplied:minor>=2?Deactivated:Error)&&f.payload.size()<=(minor>=4&&f.kind>=State?(1u<<20):minor>=9&&f.kind==Done?10312:(minor==5||minor==7||minor==8||minor==9||minor==10||minor==11||minor==12)&&f.kind==Process?(minor>=10?8352:minor>=8?8344:8248):4040),"frame kind/length");

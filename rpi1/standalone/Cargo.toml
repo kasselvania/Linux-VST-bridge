@@ -10,6 +10,7 @@ path = "src/main.rs"
 
 [features]
 default = []
+rpi2-quantum = ["ap2-backend/rpi2-quantum"]
 jack-runtime = ["lvb-arm-standalone/jack-runtime", "lvb-arm-standalone/rpi1-observe", "ap2-backend/rpi1-observe"]
 
 [dependencies]

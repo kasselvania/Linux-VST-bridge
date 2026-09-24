@@ -7,9 +7,13 @@ use std::{
     path::PathBuf,
 };
 pub fn wire(max: u32, mode: u32, rate: f64) -> io::Result<Vec<u8>> {
+    wire_quantum(max, mode, rate, 256)
+}
+pub fn wire_quantum(max: u32, mode: u32, rate: f64, quantum: u32) -> io::Result<Vec<u8>> {
+    need((1..=ap1_native_client::CAP as u32).contains(&quantum), "processing quantum exceeds map capacity")?;
     need((1..=1024).contains(&max), "host maximum outside 1..1024")?;
     let mut bytes = Vec::with_capacity(24);
-    bytes.extend_from_slice(&max.min(256).to_le_bytes());
+    bytes.extend_from_slice(&max.min(quantum).to_le_bytes());
     bytes.extend_from_slice(&mode.to_le_bytes());
     bytes.extend_from_slice(&rate.to_le_bytes());
     bytes.extend_from_slice(&[0; 8]);
@@ -38,7 +42,7 @@ pub fn validate_wire(b: &[u8]) -> io::Result<()> {
     }
     let rate = f64::from_le_bytes(b[8..16].try_into().unwrap());
     need(
-        (1..=256).contains(&get(&b[..4]))
+        (1..=ap1_native_client::CAP as u64).contains(&get(&b[..4]))
             && matches!(get(&b[4..8]), 0 | 2)
             && [44100., 48000., 88200., 96000., 192000.].contains(&rate)
             && matches!(get(&b[16..20]), 0 | 2 | 3)
@@ -105,6 +109,19 @@ fn read_delay(path: &std::path::Path, max: u32) -> io::Result<u32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn quantum_setup_preserves_host_and_storage_bounds() {
+        for q in [256,512] {
+            for max in [64,128,256,512,1024] {
+                let r=wire_quantum(max,0,48000.,q);
+                if q as usize > ap1_native_client::CAP { assert!(r.is_err()); }
+                else { assert_eq!(get(&r.unwrap()[..4]),u64::from(max.min(q))); }
+            }
+        }
+        assert!(wire_quantum(512,0,48000.,0).is_err());
+        assert!(wire_quantum(512,0,48000.,513).is_err());
+        assert_eq!(get(&wire(512,0,48000.).unwrap()[..4]),256);
+    }
     #[test]
     fn installed_delay_covers_the_actual_host_maximum_not_the_chunk() {
         assert!(validate_delay(512, 256).is_err());

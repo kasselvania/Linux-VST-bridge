@@ -77,7 +77,7 @@ fn same_session_reconfiguration_two_ended() {
                 busy: AtomicBool::new(false),
                 worker: Some(worker),
                 report: None,
-                max: 256,
+                max: 256, quantum: 256,
                 recovery_blocked: false,
                 installed_delay: Some(512),
                 minor: 12,

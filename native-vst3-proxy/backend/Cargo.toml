@@ -5,6 +5,7 @@ edition = "2021"
 [features]
 registered = []
 rpi0 = []
+rpi2-quantum = ["rpi0", "ap1-native-client/rpi2-quantum"]
 rpi1-observe = ["rpi0"]
 [lib]
 crate-type = ["staticlib", "rlib"]

@@ -1548,3 +1548,26 @@ bounded comparison if feasible. This does not justify FEX-cache tuning or stoppi
 the companion. Execution/wait attribution remains necessary if throughput does
 not improve. No batching change or additional run was made in this slice.
 Results: `evidence/rpi2/pigments-fex-stats.json`.
+
+## Optimization options retained after the FEX check
+
+The next comparison changes vendor processing quantum256 to512, keeping48k,
+JACK512 and reserve2048. Larger calls may reduce fixed overhead per rendered
+second; they do not establish adequate throughput or repair backlog recovery.
+The private candidate uses map v2/capacity512, with quantum selected separately.
+Default builds and the installed original binaries retain their previous layout.
+
+| Option | Evidence and next useful decision | Why other changes wait |
+| --- | --- | --- |
+| Processing block size | Compare the same candidate256/512/256 with actual audio and completed calls/frames. | Current bounded experiment; keep reserve and sound fixed. |
+| Bridge work per call | Native phase tracing OFF removed its recorder but did not materially reduce sustained vendor CPU. Examine copies, validation, wakeups, allocation, logging and release-build work if larger blocks help. | Measure which side consumes time before optimizing it. |
+| Scheduling and CPU placement | Audio caller and Pigments worker already consume different cores. Compare execution with runnable/wait time, JACK policy, Wine/MMCSS mapping, priority and migration. | Blind affinity can take cores away from plugin workers. |
+| Governor, cooling and power | Latest failed repeat was around2.4GHz, peak51.8C with no flags. Earlier governor comparison was not completed. | Thermal failure is not established here; sustained energy/thermal work remains separate. |
+| Pigments multicore | Preference OFF was readable at startup; unchanged fullstate restored ON. A plugin processing worker is active. | Need valid control after state restore before a same-state comparison. |
+| FEX translation and cache | Existing counters show no compile attempts at the immediate repeat cutoff; later compilation occurred. Compare executed-code cost and pinned supported configuration when justified. | No blind flags, ISA changes or weakened memory ordering. |
+| Wine/Proton synchronization | Inspect exact runner/kernel fsync/ntsync support and native/translated boundary waits if execution/wait evidence points there. | Keep runner and licensed environment identity fixed within comparisons. |
+| Backlog recovery | Long silence can outlast a transient slowdown; near-drained admission did not guarantee the repeated hold. | Epoch/resynchronization must preserve notes/state and cannot create compute capacity. |
+| Editor, graphics and companion processes | GPU rendering has been observed; a separate Arturia-named process used more CPU in the failed repeat. Account for processes separately. | No GUI campaign or stopping/patching authorization services in this test. |
+| Controller, preset and state lifecycle | Fullstate includes settings that override startup preferences. Headless navigation and recall need their own correct lifecycle. | Visible editor or audible startup does not prove these semantics. |
+| Memory and asset loading | Page faults, swap, working set, sample I/O and cache locality remain possible resource leads. | Investigate if measurements point there; no blind DSP/denormal changes. |
+| Later product tradeoffs | Measure roundtrip latency, reserve/JACK size, sample rate, quality, unison, polyphony, effects and instance count explicitly. | These change latency, workload or sound; portable power and sustained tests remain distinct. |
