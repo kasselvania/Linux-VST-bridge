@@ -1145,3 +1145,15 @@ or binaries. It has **no governor-performance result**. Continuing requires an
 operator-authenticated temporary way to set and restore the governor; scheduler
 statistics are optional if enabling them is unavailable. See
 `evidence/rpi2/pigments-governor-preflight.json`.
+
+The reviewed `rpi2/governor_guard.py` now provides the narrowly scoped temporary
+mechanism, pending operator authentication. It runs in the foreground, permits
+only the fixed governor sequence through a transient operator-owned FIFO, and
+does not execute benchmark code or requested commands as root. It captures and
+restores both original settings on completion, handled signals, errors or a
+15-minute timeout. SIGKILL and power loss are outside that guarantee. Final
+status distinguishes successful restoration from completed phase transitions;
+interruption or invalid requests return nonzero even after successful cleanup.
+Four focused tests passed. The guard's staged SHA256 is
+`83f2d5d77608540e7a51ff468006dd81a550661cdc0b3c2c4b7438759b9c09fd`.
+No governor comparison has run yet.
