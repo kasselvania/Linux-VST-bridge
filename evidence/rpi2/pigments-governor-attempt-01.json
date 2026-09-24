@@ -1,0 +1,71 @@
+{
+  "attempt": "01",
+  "outcome": "Stopped after warmup before measurement; no governor comparison",
+  "failure": [
+    "Extra data: line 1 column 17 (char 16)"
+  ],
+  "warmup": {
+    "fixture_exit": 0,
+    "counter_delta": {
+      "bridge_processed": 3942,
+      "missing_frames": 643072,
+      "gaps": 2,
+      "midi_accepted": 9,
+      "xruns": 0,
+      "process_failures": 0
+    },
+    "recording": {
+      "frames": 960000,
+      "finite": true,
+      "peak": 3.979038228862919e-05,
+      "held_window_seconds": [
+        3,
+        14
+      ],
+      "held_stereo_zero_frames": 528000
+    }
+  },
+  "session": {
+    "ready_seconds": 33.07598022500042,
+    "elapsed_seconds": 69.3663337400003,
+    "clean_shutdown": true,
+    "exit_code": 0
+  },
+  "guard_final": {
+    "phase": "restored",
+    "original_governor": "ondemand",
+    "original_schedstats": "0",
+    "timeout_seconds": 900,
+    "transition_count": 0,
+    "governor": "ondemand",
+    "schedstats": "0",
+    "stop_reason": "error: Unexpected phase command; stopping and restoring",
+    "restoration_errors": [],
+    "exit_code": 2
+  },
+  "restored_identity": {
+    "name": "8-Bit Crystals",
+    "bank": "Factory"
+  },
+  "restored_master": 0.48033079504966736,
+  "graph_restored": true,
+  "temperature_peak_c": 51.25,
+  "throttled_flags": [
+    0
+  ],
+  "reader_followup": {
+    "complete_file_bytes": 33422937,
+    "complete_file_records": 91775,
+    "all_records_valid_after_shutdown": true,
+    "original_transient_fragment_and_offset": "Not retained",
+    "sanitized_reproduction": "Splitting a JSON record after its first byte permits the former newline-filter iterator to skip the prefix and parse the later suffix. Regression test retains this reproduction.",
+    "repair": "Read a fixed byte extent; discard partial boundary records; reject malformed complete records.",
+    "retained_final_tail": {
+      "matched_blocks": 182,
+      "unmatched": 0,
+      "max_wait_ns": 21210774,
+      "meets_unchanged_20ms_limit": false
+    },
+    "limitation": "Clean final file plus reproduced reader defect does not preserve the exact failed live fragment."
+  }
+}

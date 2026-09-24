@@ -1157,3 +1157,35 @@ interruption or invalid requests return nonzero even after successful cleanup.
 Four focused tests passed. The guard's staged SHA256 is
 `83f2d5d77608540e7a51ff468006dd81a550661cdc0b3c2c4b7438759b9c09fd`.
 No governor comparison has run yet.
+
+Attempt 01 subsequently authenticated the guard and completed one ondemand
+warm-up, then stopped before measurement when the live phase-tail reader
+misparsed a partially appended record. The complete retained stream has 91,775
+valid records in 33,422,937 bytes; no durable corruption was found. The exact
+transient failing fragment was not retained. A focused reproduction shows how
+the former iterator could skip a partial prefix and parse its later suffix.
+The repaired reader freezes the byte extent, discards incomplete edge records,
+and continues to reject malformed complete records. Its retained-tail check
+reported 21.21 ms maximum queue wait and therefore still failed the unchanged
+20 ms drain threshold.
+
+The warm-up accepted nine MIDI events but added 643,072 missing frames, with
+exact silence throughout recorded seconds 3–14 despite fixture exit zero.
+This is not an audio pass or a governor comparison. The 69.37-second session
+peaked at 51.25 C with no throttle flags and restored the original preset,
+exact master and JACK graph. The guard restored ondemand/schedstats 0 and
+returned exit 2, distinguishing aborted work from successful cleanup. Original
+failed evidence remains in `evidence/rpi2/pigments-governor-attempt-01.json`.
+
+The retry adapter now uses validated unique attempt labels, requires recent
+worker observations as well as low queue wait, and requests the same explicit
+phase flushes before/after each capture and every five seconds during it. The
+offline reducer joins callback sequence/bridge position and verifies request
+IDs, separates conservative queued note-active/idle/release cohorts, reports
+nominal versus retained/completed block coverage and uses completed frames as
+the CPU-work denominator. Missing coverage cannot be counted as an improvement.
+CPU samples span each cohort's actual execution interval, including runtime
+work outside vendor calls; detailed caller CPU remains unavailable. The
+recorder's formatting and disk synchronization are observer costs. Thirteen
+focused tests passed, including nine reader/reducer tests on the Pi. Retry is
+pending coordinator review and renewed operator authentication.
