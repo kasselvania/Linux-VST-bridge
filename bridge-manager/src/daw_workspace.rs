@@ -755,9 +755,14 @@ fn status(m: &Manager) -> Result<()> {
         Some(op) => unit_active(&unit(op, true)?)?,
         None => false,
     };
-    let cleanup = if owner_active {
+    let cleanup = if owner_active || install_active {
         "running"
-    } else if w.session_operation.is_some() && !session_result.as_ref().is_some_and(retired) {
+    } else if (w.session_operation.is_some() && !session_result.as_ref().is_some_and(retired))
+        || (w.installation_operation.is_some()
+            && !install_result
+                .as_ref()
+                .is_some_and(|v| v["cleanup_confirmed"] == true && v["owned_live"] == 0))
+    {
         "cleanup_unconfirmed"
     } else {
         "confirmed"
@@ -776,9 +781,10 @@ fn status(m: &Manager) -> Result<()> {
         State::Starting
     } else if install_active {
         State::Installing
-    } else if session_result
-        .as_ref()
-        .is_some_and(|v| v["state"] == "failed")
+    } else if (w.installation_operation.is_some() && w.installed.is_none())
+        || session_result
+            .as_ref()
+            .is_some_and(|v| v["state"] == "failed")
     {
         State::Failed
     } else if w.installed.is_some() && w.state == State::NeedsUserAction {
@@ -795,7 +801,8 @@ fn status(m: &Manager) -> Result<()> {
     let observed_failure = w
         .first_failure
         .as_deref()
-        .or_else(|| session_result.as_ref().and_then(|v| v["error"].as_str()));
+        .or_else(|| session_result.as_ref().and_then(|v| v["error"].as_str()))
+        .or_else(|| install_result.as_ref().and_then(|v| v["error"].as_str()));
     println!(
         "{}",
         json!({"schema":1,"workspace":w,"installer_result":install_result,
