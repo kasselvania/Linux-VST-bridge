@@ -1,0 +1,22 @@
+# Digitalis JACK-period comparison, 2026-09-24
+
+Fixture: Pi 5/ShieldXL, Digitalis v1.1 Windows x64 VST3, the saved owner-approved sound slot from PR #159, 48 kHz, vendor quantum 256 frames, bridge reserve 2,048 frames, editor closed during matched captures. The native bridge, Windows host, runner and plug-in were identical across the two captures. Audio was routed from ShieldXL stereo inputs through the plug-in to the JACK capture helper. Private source audio, output audio, state and full logs remain off Git.
+
+| Observation | JACK 512 | JACK 256 |
+| --- | ---: | ---: |
+| Fresh process, same state | yes | yes |
+| Source-owned physical stereo capture | completed, five seconds | completed, five seconds |
+| Captured audio | finite, nonzero stereo | finite, nonzero stereo |
+| Capture xruns / bad blocks | 0 / 0 | 0 / 0 |
+| Reported missing frames / gaps | 0 / 0 | 0 / 0 |
+| Reported process / callback failures | 0 / 0 | 0 / 0 |
+| Reported vendor / bridge frames | 4,096 / 2,048 | 4,096 / 2,048 |
+| Session result | exit 0, clean shutdown | exit 0, clean shutdown |
+
+The operator listened to the passes and said 256 felt the same as 512. This is a subjective observation, not a measured analog latency result. No matched wet-path loopback delay was established, so the shorter JACK period is not claimed to make Digitalis nearly imperceptible. The combined reported vendor and bridge buffering remains 6,144 frames, or 128 ms at 48 kHz; this is a buffer accounting observation, not a measured analog round-trip time.
+
+After 256 passed, a fresh 128-frame process reached ready and exited cleanly. Before any 128-frame capture or listening pass, the operator asked to stop that comparison and leave Digitalis open at 256 frames. The 128 case therefore has no delivery or feel result.
+
+A separate 256-frame live session was started with the editor open and physical input/output ports connected. A private systemd user-unit owner supervises that session for up to 20 minutes and restores the original 512-frame JACK period at exit. At the initial live check, both owner and inner session were active, JACK reported 256 frames, stereo ports were connected, and the Pi's current throttling flag was clear. Final shutdown/restoration evidence is pending that bounded session's exit.
+
+The period change is runtime-only through `jack_bufsize`; the JACK service configuration remains 512 frames. No runner or vendor installation changed. The working packaged artifacts and canceled multicore/UI checkout were left intact.

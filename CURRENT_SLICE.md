@@ -1,84 +1,31 @@
-# RPI2 Digitalis effect onboarding
+# RPI2 Digitalis JACK-period descent
 
-Base: `7cbf2490c601884ed84ef15ac79922c89ff22830` (draft PR #156).
-Base tree: `c7f84e39cf7768afeaaecc79e99707964cc1a648`.
-Branch: `codex/rpi2-digitalis-effect`, isolated from the canceled multicore/UI checkout.
+Base: `223e02ddc3c24ef47ef00da7e3af95adb93f4df1` (draft PR #159).
+Base tree: `4656219dca3db9a693f9e3a6dfd96b0634b7cfab`.
+Branch: `codex/rpi2-digitalis-latency`, separate from PR #159 and the canceled multicore/UI checkout.
 
-Basis: `AGENTS.md` mission, identity, real-time, privacy and slice laws;
-`GOVERNANCE.md` “Decisions”, “What evidence means”, and “Cost and safety”;
-`docs/ARCHITECTURE.md` host/process and state boundaries; and the operator's
-2026-09-24 device-agent handoff. The later operator direction supersedes the
-old RPI2 CPU task on this new branch.
+Basis: `AGENTS.md` real-time, fixture, privacy and slice laws; `GOVERNANCE.md` evidence and safety; `docs/ARCHITECTURE.md` host/process timing boundary; the 2026-09-24 device-agent handoff's shared-appliance and latency direction; and the operator's request to test Digitalis at JACK 256 and possibly 128 frames.
 
 ## Primary claim and fixture
 
-On the Pi 5/ShieldXL fixture, onboard the owner's purchased Digitalis v1.1
-Windows x64 VST3 as a headless, controllable stereo effect through the existing generic Windows
-host and `lvb-arm-plugin-binding/v1`. The operator supplied
-`Digitalis-v1.1-Windows.zip` (SHA-256
-`c25e0f8682ddf57cb7bd7d3992dba45de223d58de1d0881b2287239638f78ff9`);
-the enclosed setup executable has SHA-256
-`5a596efce6a864e83e0436dc9edfe3f2a75950348841eb6a4dac6560ca900d95`.
-Use the existing pinned GE-Proton11-7 ARM64EC Windows route, the repaired native
-observer, 48 kHz, JACK 512 frames, vendor quantum 256 and 2,048-frame reserve.
-Record the actual installed module/class, edition and authorization posture
-after installation rather than inferring them from the archive name.
+On the Pi 5/ShieldXL with the exact privately staged Digitalis v1.1 Windows x64 module and the saved user-approved effect slot from PR #159, compare short stereo delivery and operator feel at JACK 512 and 256 frames. Keep the 256-frame vendor processing quantum, 2,048-frame bridge reserve, reported 4,096-frame vendor latency, native observer, Windows host, Wine/Proton/UMU/FEX runtime, and physical route fixed. A 128-frame run was initially planned, then canceled by the operator before capture in favor of an interactive 256-frame editor session.
+
+This slice is an evaluation, not a promise of a low-latency pedal result. A smaller JACK period does not imply a smaller vendor or bridge delay. Report JACK-port-relative timing separately from analog input/output latency; an analog claim requires physical loopback evidence.
 
 ## Scope and acceptance
 
-Privately stage the installer in a distinct environment, retaining the
-working runner, Arturia environment and original artifacts. Use the vendor's
-authorization UI only; the operator enters any serial there. Do not commit or
-log the serial, installed module, state, audio, account data or installer.
-Inspect the actual factory/class, bus, precision, parameter, latency and tail
-metadata. Bind a few confirmed controls through the existing generic binding
-and parameter/controller queue. Add only narrowly required shared host behavior
-for output trim and a defined bypass policy; keep callback work bounded.
+- Use one Pi owner, an isolated branch, the existing private runtime and state. Inspect current JACK service and ports first. Make only a reversible period change; restore the original 512-frame service/graph and verify it after testing.
+- Run one same-slot 512 reference and one 256 session. Use fresh processes, editor closed, the same source-owned physical stereo signal/capture route, normal low-rate status reads, and identical settings except JACK period. The requested interactive 256-frame editor session is separate from the matched capture.
+- Qualify the existing source-owned JACK helper for 128/256/512 if needed. Record input/output relationship at JACK ports, completed/delivered/missing frames, longest gap where observable, xruns, process/callback faults, temperature, power flags, and clean retirement. Do not infer audible quality from CPU percentage or sample count alone.
+- Ask the operator for a bounded listening comparison if they are available. Label this subjective. Stop on setup mismatch, thermal 75 C, power/current warning, terminal fault, or sustained delivery loss. If 256 fails, do not run 128.
+- Retain private audio/logs. Commit only sanitized evidence and source changes. No vendor installer, serial, state, preset, binary, or audio in Git.
 
-Run the existing source-owned stereo input capture and the physical input route
-with the editor closed. Demonstrate finite processed audio and bypass behavior,
-one actual audible control change, one private state slot saved and restored
-after process restart, normal shutdown, and restored original JACK graph.
-Report exact buffer settings, algorithmic latency, measured dry-path/analog
-latency where available, missing delivery and longest interruption. Distinguish
-intentional effect chopping from transport loss. Record product/module identity
-and full-versus-demo status. If a full licensed build cannot be made ready,
-state that gate explicitly and nominate the free Kilohearts Delay for the
-first-effect slot.
+## Non-goals
 
-## Non-goals and failure posture
-
-No FEX optimization, Pigments performance campaign, multicore/UI change,
-NTSync/kernel work, format rewrite, universal multi-I/O claim, vendor code
-patch, preset sweep, licensing workaround or global runner install. A demo's
-intentional dropout and save limits are not bridge faults. Stop on altered
-authorization/readiness rather than repairing the vendor's licensing state.
-Stop at 75 C or current thermal/power warnings. Preserve private logs and
-artifacts; retain sanitized evidence only. Restore original graph and setup.
-One physical owner operates the Pi. Deliver one focused draft PR, then leave
-it open and unmerged for review.
+No bridge reserve descent, vendor preset/quality change, sample-rate change, plugin reauthorization, working-runner replacement, FEX tuning, Wine yield change, multicore/UI campaign, priority/affinity/governor experiment, kernel work, new dashboard, or broad latency framework. No near-imperceptible or sub-10-ms claim without measured end-to-end evidence.
 
 ## Observed disposition
 
-The official installer stopped with `Error: Path not found`; successful
-installer supervision is not claimed. The exact owner-supplied archive was
-extracted into the isolated environment, and its module and factory content
-were used. Aberrant DSP documents no activation step for purchased plug-ins;
-the owner supplied the paid My Account download, and no serial was used. The
-module did not expose an independent full/demo edition flag.
+Both matched five-second physical stereo captures completed with nonzero audio, zero capture xruns/bad blocks, zero reported missing frames/gaps/process or callback failures, and normal clean retirement. The 256-frame capture remained healthy; the operator reported that it felt the same as 512. Both sessions still reported 4,096 vendor frames plus a 2,048-frame bridge reserve, so JACK period reduction alone has not demonstrated a wet-path latency improvement. No analog or JACK-port-relative loopback latency result is claimed. The 128-frame process reached ready and exited cleanly after the operator redirected the task; no 128-frame capture or listening result exists.
 
-The generic stereo host, selected control binding, finite input/output,
-current-input dry bypass, output trim, private sound-slot save, fresh-process
-headless restore, and normal shutdown were exercised. The operator heard a
-clear live-editor effect change and confirmed the same sound after restart
-with the editor closed. All three successful physical sessions reported zero
-JACK xruns, missing delivery, processing failures, callback failures, and
-terminal bridge faults. The failed initial installer and host attempts remain
-in private logs and are not counted as successes.
-
-The reported vendor latency was 4,096 frames and bridge reserve 2,048 frames
-at 48 kHz; analog loopback latency was not measured. The 128-ms combined
-reported buffering is not a low-latency pedal claim. Private extraction is
-not a completed managed installation path. Exact fixture identities, source
-tests, physical readings, cleanup, and nonclaims are retained in
-`evidence/rpi2/digitalis-effect-onboarding.md`.
+The separate live 256-frame editor session is supervised with a bounded duration and automatic restoration of JACK 512 at exit. Its in-progress status is not a completed qualification result. Details are in `evidence/rpi2/digitalis-jack-period-512-256.md`.

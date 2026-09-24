@@ -287,8 +287,8 @@ pub fn run() -> io::Result<()> {
     };
     let rate = unsafe { jack_get_sample_rate(client) };
     let period = unsafe { jack_get_buffer_size(client) };
-    if rate != RATE as u32 || period != 512 {
-        return Err(fail("requires exact 48000 Hz / 512-frame JACK graph"));
+    if rate != RATE as u32 || !matches!(period, 128 | 256 | 512) {
+        return Err(fail("requires exact 48000 Hz / 128-, 256-, or 512-frame JACK graph"));
     }
     let register = |name: &str, kind: &[u8], flags| -> io::Result<*mut Port> {
         let port =
