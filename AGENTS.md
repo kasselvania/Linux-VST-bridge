@@ -14,43 +14,9 @@ The operator's current instruction takes precedence over repository process docu
 
 ## Shared failure-class check
 
-Before implementing a plug-in-specific repair, read:
+Before a plug-in-specific repair, inspect `docs/FAILURE_CLASSES.md` and `docs/SUPPORT_MATRIX.md` alongside `CURRENT_SLICE.md`. Product-specific code needs evidence that the shared boundary was selected or ruled out.
 
-- `docs/FAILURE_CLASSES.md`;
-- `docs/SUPPORT_MATRIX.md`;
-- the active `CURRENT_SLICE.md`.
-
-First decide whether the observed symptom belongs to an existing shared boundary: runner/input translation, editor message handling, graphics, transport, manager authority, lifecycle/cleanup, capacity, boot, or audio scheduling. Product-specific code is appropriate only after the shared boundary has been selected or ruled out with evidence.
-
-The same PR must update the relevant failure-class card and support-matrix row when it:
-
-- reproduces a new user-visible failure;
-- changes understanding of an existing mechanism;
-- implements, builds, deploys, accepts, rejects, or supersedes a fix;
-- changes physical product/platform coverage;
-- changes the supported workaround or user posture.
-
-Keep these distinctions explicit:
-
-```text
-source correction
-→ built artifact
-→ profile/candidate
-→ installed generation
-→ physical product result
-```
-
-A source patch is not a physical fix. A physical pass on one exact product does not establish the same result for another product. Do not retroactively assign a shared cause to old observations without the evidence needed to do so.
-
-Every implementation PR body should include:
-
-```text
-Failure class:
-Shared boundary checked:
-Fix-chain stage reached:
-Product coverage changed:
-Claim limit:
-```
+Update the relevant card and matrix row in the same PR whenever understanding, fix stage, deployment, physical coverage, workaround, or support posture changes. Keep source correction, built artifact, profile/candidate, installed generation, and physical result distinct. Do not generalize a product result to another product or assign a shared cause to an older report without evidence.
 
 ## Keep the engineering safeguards
 

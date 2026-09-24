@@ -1,5 +1,7 @@
 # UIO2 — owned popup control
 
+> Historical slice record, not current deployment or support authority. Current diagnostic boundary: [FC-UI-005](FAILURE_CLASSES.md#fc-ui-005--transient-popup-lacks-an-ordinary-win32-owner-chain); see the [support matrix](SUPPORT_MATRIX.md).
+
 UIO2 makes a transient editor-owned popup an exact diagnostic target. It reuses
 UIO1's thread-scoped hooks, XTEST/X RECORD input, heartbeat, private captures and
 installed-profile admission. It does not change the audio path or replace the

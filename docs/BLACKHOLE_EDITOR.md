@@ -1,5 +1,7 @@
 # Blackhole experimental DirectComposition renderer
 
+> Historical slice record, not current deployment or support authority. Current graphics/touch status: [FC-GFX-001](FAILURE_CLASSES.md#fc-gfx-001--directcomposition-presentation-capability), [FC-UI-006](FAILURE_CLASSES.md#fc-ui-006--touch-triggered-editor-loss-on-non-arturia-products), and the [support matrix](SUPPORT_MATRIX.md).
+
 Next reliability and routing work:
 [touchscreen failures, crash reporting, session recovery/reset and full audio I/O](PLUGIN_RELIABILITY_FOLLOWUP.md).
 
