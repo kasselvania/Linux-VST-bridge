@@ -2277,7 +2277,7 @@ def vendor_compatibility(mode):
     return {'disable_windows_accessibility':mode in ('normal','accessibility_probe')}
 
 
-def vendor_process_metadata(scope, record, app):
+def vendor_process_metadata(scope, record, app, allow_missing=False):
     root=scope.proc_root/str(record['pid']);roles=[];exe=None
     try:exe=os.readlink(root/'exe')
     except (FileNotFoundError,ProcessLookupError):pass
@@ -2302,7 +2302,11 @@ def vendor_process_metadata(scope, record, app):
                 major,minor=fields[3].split(':');mapped.add((int(major,16),int(minor,16),int(fields[4])))
             except ValueError:pass
     for role,artifact in candidates:
-        path=artifact['path'];m=pathlib.Path(path).stat()
+        path=artifact['path']
+        try:m=pathlib.Path(path).stat()
+        except FileNotFoundError:
+            if allow_missing:continue # An owned vendor uninstaller may remove itself.
+            raise
         image_mapped=(os.major(m.st_dev),os.minor(m.st_dev),m.st_ino) in mapped
         if exe==path or image_mapped:
             roles.append({'role':role,'path':path,'sha256':artifact['sha256']})
@@ -4025,6 +4029,27 @@ def nad1_application(spec):
     return nad1_owned(spec)
 
 
+def daw_application_binding(app,is_uninstall):
+    if app.get('id')!='fl_studio' or app.get('helpers')!=[]:
+        raise RuntimeError('managed DAW identity unsupported')
+    directory=pathlib.Path(app['environment']['root']);workspace=directory.parent
+    for key in ('preferences','projects','exports'):
+        expected=workspace/key
+        if app.get(key)!=str(expected):raise RuntimeError('managed DAW workspace root changed')
+        private_directory(expected)
+    if is_uninstall:
+        prefix=directory/'compatdata/pfx/drive_c/Program Files/Image-Line'
+        installed=pathlib.Path(app['installed_image']['path'])
+        uninstaller=pathlib.Path(app['executable']['path'])
+        if (installed.name!='FL64.exe' or installed.parent.parent!=prefix
+            or not installed.parent.name.startswith('FL Studio ')
+            or uninstaller!=installed.parent/'uninstall.exe'):
+            raise RuntimeError('managed DAW uninstaller binding changed')
+        verify(app['installed_image'])
+    elif 'installed_image' in app:
+        raise RuntimeError('managed DAW launch fields changed')
+
+
 def vendor_application(spec):
     """Own every process in the dedicated unit until observed retirement.
 
@@ -4034,20 +4059,17 @@ def vendor_application(spec):
     """
     if spec.get('kind')=='native_access_dependency':return nad1_application(spec)
     if spec.get('kind')=='renderer_application':return renderer_application(spec)
-    is_daw=spec.get('kind')=='daw_workspace_application'
-    if spec.get('kind') not in (None,'daw_workspace_application'):
+    is_uninstall=spec.get('kind')=='daw_workspace_uninstall'
+    is_daw=spec.get('kind') in ('daw_workspace_application','daw_workspace_uninstall')
+    if spec.get('kind') not in (None,'daw_workspace_application','daw_workspace_uninstall'):
         raise RuntimeError('application owner kind unsupported')
     app=spec['application'];env=app['environment'];directory=pathlib.Path(env['root'])
     report=pathlib.Path(spec['report']);stop=False;child=None;scope=None;clean=False;error=None
     mode=spec.get('mode','normal');diagnostic=mode!='normal';focus_result=None;close_result=None
-    if is_daw and (mode!='normal' or app.get('id')!='fl_studio' or app.get('helpers')!=[]):
+    if is_daw and mode!='normal':
         raise RuntimeError('managed DAW identity unsupported')
     if is_daw:
-        workspace=directory.parent
-        for key in ('preferences','projects','exports'):
-            expected=workspace/key
-            if app.get(key)!=str(expected):raise RuntimeError('managed DAW workspace root changed')
-            private_directory(expected)
+        daw_application_binding(app,is_uninstall)
     lock=(directory/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     logs=report.parent/('private-diagnostic-'+os.urandom(16).hex());logs.mkdir(mode=0o700)
     captures={name:PrivateCapture(logs/(name+'.log')) for name in ('stdout','stderr','process')}
@@ -4107,7 +4129,7 @@ def vendor_application(spec):
                     observed[key]={'first_observed':now,'last_observed':now,'metadata':None}
                 item=observed[key];item['last_observed']=now
                 if item['metadata'] is None or now-item.get('metadata_time',0)>=1_000_000_000:
-                    metadata=vendor_process_metadata(scope,record,app);after=scope.identity(record['pid'])
+                    metadata=vendor_process_metadata(scope,record,app,allow_missing=is_uninstall);after=scope.identity(record['pid'])
                     if after is None or after['start_ticks']!=record['start_ticks']:continue
                     item['metadata_time']=now
                     if metadata!=item['metadata']:

@@ -226,6 +226,13 @@ not success. Forced termination requires explicit operator confirmation of
 possible unsaved-work loss and targets only the exact workspace cohort. Never
 use global `wineserver -k`, `killall wine` or process-name-only cleanup.
 
+An operator-requested `workspace uninstall` is a separate, exact FL application
+operation: it runs only the installed vendor `uninstall.exe` under the same
+workspace process owner, never an arbitrary executable or another Wine prefix.
+`workspace finish-uninstall` records removal only after that cohort retires
+cleanly and the installed FL executable is absent. It does not wipe the mutable
+prefix, preferences, projects, exports, licensing state, or imported installer.
+
 ## 5. Keep the runtime view coherent
 
 FL and its scan/helper processes share one workspace filesystem, registry, Wine
