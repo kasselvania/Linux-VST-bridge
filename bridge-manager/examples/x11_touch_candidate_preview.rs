@@ -10,12 +10,16 @@ fn sha(bytes: &[u8]) -> String {
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
-    if args.len() != 3 {
-        return Err("usage: x11_touch_candidate_preview B_CANDIDATE ENVIRONMENT RUNNER_MANIFEST".into());
+    if args.len() != 3 && args.len() != 4 {
+        return Err("usage: x11_touch_candidate_preview B_CANDIDATE ENVIRONMENT RUNNER_MANIFEST [ORIGINAL_MANIFEST_PATH]".into());
     }
     let predecessor_path = PathBuf::from(&args[0]);
     let environment_path = PathBuf::from(&args[1]);
     let manifest_path = PathBuf::from(&args[2]);
+    let original_manifest_path = args.get(3).map(PathBuf::from).unwrap_or_else(|| manifest_path.clone());
+    if !original_manifest_path.is_absolute() {
+        return Err("touch_preview_manifest_path".into());
+    }
     let predecessor: preparation::Candidate = serde_json::from_slice(&fs::read(&predecessor_path)?)?;
     let before: Environment = serde_json::from_slice(&fs::read(&environment_path)?)?;
     let manifest_bytes = fs::read(&manifest_path)?;
@@ -29,7 +33,9 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
     let mut runner: Runner = serde_json::from_value(manifest["runner"].clone())?;
     runner.policy = Some(RunnerPolicy::X11TouchReleaseV1);
-    runner.verify()?;
+    if args.len() == 3 {
+        runner.verify()?;
+    }
     let mut after = before.clone();
     after.revision = before.revision.checked_add(1).ok_or("touch_preview_revision")?;
     after.runner = runner;
@@ -56,7 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         preparation::TouchCarryForward {
             predecessor: preparation::SERUM_TOUCH_PREDECESSOR.into(),
             transition: Artifact { path: transition_path, sha256: sha(&result_bytes) },
-            runner_manifest: Artifact { path: manifest_path, sha256: manifest_sha256 },
+            runner_manifest: Artifact { path: original_manifest_path, sha256: manifest_sha256 },
         },
     )?;
     println!("{}", json!({
@@ -64,7 +70,8 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         "profile_sha256": candidate.profile.fingerprint()?,
         "transition_result_sha256": sha(&result_bytes),
         "predecessor": preparation::SERUM_TOUCH_PREDECESSOR,
-        "current_inventory_relabelled": false
+        "current_inventory_relabelled": false,
+        "runner_files_verified_in_preview": args.len() == 3
     }));
     Ok(())
 }

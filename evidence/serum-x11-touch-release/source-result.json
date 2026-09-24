@@ -47,6 +47,15 @@
     "scope_clean_retirement": "passed",
     "complete_tree_unchanged_after_smoke": true
   },
+  "candidate_c_preview": {
+    "identity": "91b699291eb7b7d1ff6e725d5e6fd1abed88ea721dbd81a621dd2fb39d38d207",
+    "profile_sha256": "09af58ff7f66a2e75fcf608571f8805777c4ceb2537ebe47d96c7914b74107d1",
+    "transition_result_sha256": "62c4f1fb906589d8b8fb104f3bf2980e563b7d1d0251794e07723ab10c1a54ae",
+    "predecessor": "f6af02eba109d3632b2ecc786f2c9006ec6bc1d433772001d24d2969fb944b44",
+    "identity_computed_from_private_read_only_copies": true,
+    "runner_files_reverified_in_preview": false,
+    "physical_transition_performed": false
+  },
   "physical_serum_result": "not_run_pending_review",
   "installed_runner_or_publication_changed": false
 }

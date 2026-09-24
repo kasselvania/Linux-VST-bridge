@@ -33,7 +33,12 @@ bytes and complete-tree SHA-256
 Only the x86-64 Unix `winex11.so` and runner version file differ from the
 verified predecessor. An isolated, unlicensed Windows command started and
 retired under the successor without changing its tree. This is a runner
-construction result, not a physical Serum touch-menu pass.
+construction result, not a physical Serum touch-menu pass. A read-only
+cross-host preview of candidate B, the current environment record and the
+sealed runner manifest computes prospective candidate C
+`91b699291eb7b7d1ff6e725d5e6fd1abed88ea721dbd81a621dd2fb39d38d207`.
+That preview did not reverify runner files; the transition owner will do so
+before any environment mutation.
 
 Physical correction update (2026-09-21): the next approved Blackhole attempt
 failed quickly and cleanly before Wine started. Its retained private stderr

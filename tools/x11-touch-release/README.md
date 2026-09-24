@@ -38,7 +38,11 @@ advance. It creates candidate C with a provenance-recorded carry-forward of
 B's existing factory and selected-class result. The old inventory remains
 stale; no fresh scan is claimed. The read-only
 `x11_touch_candidate_preview` example can calculate the prospective C
-identity after sealing, before any physical transition.
+identity after sealing, before any physical transition. With an optional
+original manifest path, it can do this from private copies on another host;
+that mode computes identity only and explicitly reports that runner files
+were not reverified in the preview. The physical transition still performs
+the complete manifest, tree and artifact verification.
 
 Physical Serum use and candidate-C publication are a separate post-review
 step. Candidate B and the installed runner remain the rollback authority.
