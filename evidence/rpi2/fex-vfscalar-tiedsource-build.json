@@ -1,0 +1,66 @@
+{
+  "status": "matched_arm64ec_builds_only; correctness_and_codegen_gates_not_run",
+  "bridge_review_base": "7cbf2490c601884ed84ef15ac79922c89ff22830",
+  "fex_source": {
+    "commit": "82510eb452b258959ef982be58a9c3c1bafc82a4",
+    "tree": "ef99954199750d18dd34af7274780a1b975bdd49",
+    "source_change": "rpi2/fex-vfscalar-tiedsource.patch",
+    "changed_definitions": [
+      "VFAddScalarInsert",
+      "VFSubScalarInsert",
+      "VFMulScalarInsert",
+      "VFDivScalarInsert"
+    ]
+  },
+  "toolchain": {
+    "source": "https://github.com/bylaws/llvm-mingw/releases/tag/20250920",
+    "asset": "llvm-mingw-20250920-ucrt-ubuntu-22.04-aarch64.tar.xz",
+    "sha256": "bce5cc755c613515fd44e1ee9523123d854103abae147571adb645450036274d",
+    "compiler": "Clang 21.1.0, arm64ec-w64-windows-gnu",
+    "staging": "private Pi directory; no global install"
+  },
+  "source_submodule_commits": {
+    "External/fmt": "c07e2aa4b130b4fd359a1c6455a5201b17af01fa",
+    "External/range-v3": "ca1388fb9da8e69314dda222dc7b139ca84e092f",
+    "External/rpmalloc": "09142d726429416bfa7b459151515fe3ab7622dd",
+    "External/unordered_dense": "3234af2c03549bc85656bfd3a86993bf1cd8aef1",
+    "External/xxhash": "e626a72bc2321cd320e953a0ccf1584cad60f363",
+    "Source/Common/cpp-optparse": "9f94388a339fcbb0bc95c17768eb786c85988f6e"
+  },
+  "submodule_materialization": "GitHub codeload archives for the exact gitlink commits after a submodule clone stalled; test-binary submodules were not fetched",
+  "build": {
+    "recipe": "official FEX ARM64EC CMake recipe; original packaging recipe unavailable in retained runner",
+    "target": "arm64ecfex",
+    "options": {
+      "CMAKE_BUILD_TYPE": "Release",
+      "CMAKE_TOOLCHAIN_FILE": "Data/CMake/toolchain_mingw.cmake",
+      "MINGW_TRIPLE": "arm64ec-w64-mingw32",
+      "ENABLE_LTO": false,
+      "BUILD_TESTING": false,
+      "ENABLE_JEMALLOC_GLIBC_ALLOC": false,
+      "CMAKE_INSTALL_PREFIX": "/usr",
+      "CMAKE_INSTALL_LIBDIR": "/usr/lib/wine/aarch64-windows",
+      "TUNE_CPU": "none"
+    },
+    "tune_cpu_reason": "Default native tune called a Python helper whose packaging and pkg_resources modules were unavailable; FEX documents TUNE_CPU=none for ARM64EC build trouble. Both builds used the same final setting.",
+    "build_A": "passed",
+    "build_B": "passed; rebuilt IR-dependent objects from the same CMake cache",
+    "module_format": "COFF-ARM64EC, IMAGE_FILE_MACHINE_ARM64EC (0xA641)",
+    "A_sha256": "c79ad18719948a12deb8d867a228df84c9cd798cb003ba6083087c08c6f05c8a",
+    "B_sha256": "26810b23d35c84e2b3925b2be0926f9101bbe8b91e81fabc4beaaf7edd84e254",
+    "module_bytes_each": 5238784,
+    "packaged_module_sha256_unchanged": "08fa3d4bfbdb5a870c7466383a145177e00f2220ac3891451f312e7cb7de0347"
+  },
+  "verification": {
+    "IR_json_parse": "passed",
+    "patch_diff_check": "passed",
+    "source_owned_scalar_correctness": "not_run",
+    "generated_move_and_spill_comparison": "not_run",
+    "retained_hot_loop_code_reader": "not_run",
+    "Pigments_performance_comparison": "not_run"
+  },
+  "claims": [
+    "A and B are matched self-built candidates, not byte-identical to the packaged module.",
+    "Different DLL hashes do not establish a relevant JIT code-generation change or performance benefit."
+  ]
+}

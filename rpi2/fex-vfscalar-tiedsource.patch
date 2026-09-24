@@ -1,0 +1,44 @@
+diff --git a/FEXCore/Source/Interface/IR/IR.json b/FEXCore/Source/Interface/IR/IR.json
+index 19eb43f..8ce0203 100644
+--- a/FEXCore/Source/Interface/IR/IR.json
++++ b/FEXCore/Source/Interface/IR/IR.json
+@@ -1653,7 +1653,8 @@
+                  "For 256-bit operation with ZeroUpperBits, this matches AVX insert semantics."
+                 ],
+         "DestSize": "RegisterSize",
+-        "ElementSize": "ElementSize"
++        "ElementSize": "ElementSize",
++        "TiedSource": 0
+       },
+       "FPR = VFSubScalarInsert OpSize:#RegisterSize, OpSize:#ElementSize, FPR:$Vector1, FPR:$Vector2, i1:$ZeroUpperBits": {
+         "Desc": ["Does a scalar 'sub' between Vector1 and Vector2.",
+@@ -1663,7 +1664,8 @@
+                  "For 256-bit operation with ZeroUpperBits, this matches AVX insert semantics."
+                 ],
+         "DestSize": "RegisterSize",
+-        "ElementSize": "ElementSize"
++        "ElementSize": "ElementSize",
++        "TiedSource": 0
+       },
+       "FPR = VFMulScalarInsert OpSize:#RegisterSize, OpSize:#ElementSize, FPR:$Vector1, FPR:$Vector2, i1:$ZeroUpperBits": {
+         "Desc": ["Does a scalar 'mul' between Vector1 and Vector2.",
+@@ -1673,7 +1675,8 @@
+                  "For 256-bit operation with ZeroUpperBits, this matches AVX insert semantics."
+                 ],
+         "DestSize": "RegisterSize",
+-        "ElementSize": "ElementSize"
++        "ElementSize": "ElementSize",
++        "TiedSource": 0
+       },
+       "FPR = VFDivScalarInsert OpSize:#RegisterSize, OpSize:#ElementSize, FPR:$Vector1, FPR:$Vector2, i1:$ZeroUpperBits": {
+         "Desc": ["Does a scalar 'div' between Vector1 and Vector2.",
+@@ -1683,7 +1686,8 @@
+                  "For 256-bit operation with ZeroUpperBits, this matches AVX insert semantics."
+                 ],
+         "DestSize": "RegisterSize",
+-        "ElementSize": "ElementSize"
++        "ElementSize": "ElementSize",
++        "TiedSource": 0
+       },
+       "FPR = VFMinScalarInsert OpSize:#RegisterSize, OpSize:#ElementSize, FPR:$Vector1, FPR:$Vector2, i1:$ZeroUpperBits": {
+         "Desc": ["Does a scalar 'min' between Vector1 and Vector2.",
