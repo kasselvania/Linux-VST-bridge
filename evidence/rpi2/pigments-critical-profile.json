@@ -1,0 +1,595 @@
+{
+  "schema": "rpi2-critical-profile/v1",
+  "fixture": {
+    "processing_quantum": 256,
+    "map_capacity": 512,
+    "sample_rate_hz": 48000,
+    "jack_frames": 512,
+    "reserve_frames": 2048,
+    "notes": [
+      60,
+      64,
+      67,
+      71
+    ],
+    "note_velocity": 96,
+    "held_seconds": 12,
+    "preset": "24 AM Poly 4",
+    "master": 0.35,
+    "native_phase_trace": "off",
+    "pigments_version": "7.0.1.6772",
+    "runner": "GE-Proton11-7-aarch64",
+    "umu_version": "1.4.4",
+    "steam_runtime": "steamrt4-arm64",
+    "fex_version": "2609-41-g82510eb",
+    "kernel": "6.18.50+rpt-rpi-v8",
+    "native_candidate_sha256": "c9709c05f54b3ab665c9cf783b79d83c17645537184fcfbd658d54ca25c40d46",
+    "windows_candidate_sha256": "9a1e93f5fa1c144984f2123d9bdbdb9d7c26744aebfdbfe933085336d329182f"
+  },
+  "restoration": {
+    "preference_exact": true,
+    "original_state_matches": true,
+    "settings": {
+      "phase": "unchanged",
+      "governor": "ondemand",
+      "schedstats": "0"
+    },
+    "clean_shutdown": true,
+    "graph_without_owned_nodes": true
+  },
+  "environment_observation": {
+    "session_temperature_peak_c": 54.55,
+    "throttle_flags": [
+      0
+    ]
+  },
+  "trials": [
+    {
+      "name": "warmup",
+      "counter_delta": {
+        "bridge_processed_frames": 1004288,
+        "delivered_frames": 249088,
+        "missing_frames": 755456,
+        "gaps": 1,
+        "midi_accepted": 9,
+        "xruns": 0,
+        "process_failures": 0
+      },
+      "held_audio": {
+        "capture_2_to_14_s": {
+          "exact_zero_frames": 576000,
+          "longest_zero_run_frames": 576000
+        },
+        "capture_4_to_14_s": {
+          "exact_zero_frames": 480000,
+          "longest_zero_run_frames": 480000
+        }
+      },
+      "profiler_cpu_seconds_before_stop": 18.66,
+      "profiler_wakeups": 5142208,
+      "jit_map_quality": {
+        "valid_lines": 283418,
+        "malformed_lines": 11,
+        "duplicate_starts": 4530
+      },
+      "held_profile": {
+        "samples": 1699,
+        "weighted_period": 35973893848,
+        "labeled_jit_percent": 97.96,
+        "perf_selected_owners_percent": {
+          "pigmentsprocessor.dll": 83.722,
+          "libarm64ecfex.dll": 5.265,
+          "ucrtbase.dll": 3.024,
+          "pigments.vst3": 2.191,
+          "unresolved_jit": 1.661,
+          "ntdll.dll": 0.885,
+          "libsndfile-2.dll": 0.833,
+          "wf0-quantum-9a0ac94.exe": 0.716,
+          "fex_dispatcher": 0.709,
+          "ntdll.so": 0.642,
+          "winex11.so": 0.121,
+          "[vdso]": 0.086,
+          "kernelbase.dll": 0.075,
+          "win32u.dll": 0.071,
+          "libc.so.6": 0.0
+        },
+        "threads": [
+          {
+            "name": "lvb-audio",
+            "tid": 15781,
+            "weighted_period": 27393670670
+          },
+          {
+            "name": "Processing Thre",
+            "tid": 15762,
+            "weighted_period": 7292071288
+          },
+          {
+            "name": "wf0-quantum-9a0",
+            "tid": 15710,
+            "weighted_period": 719215964
+          },
+          {
+            "name": "wf0-quantum-9a0",
+            "tid": 15595,
+            "weighted_period": 565079057
+          },
+          {
+            "name": "WavetableLoader",
+            "tid": 15756,
+            "weighted_period": 1120300
+          },
+          {
+            "name": "Resource worker",
+            "tid": 15759,
+            "weighted_period": 693785
+          },
+          {
+            "name": "wf0-quantum-9a0",
+            "tid": 15708,
+            "weighted_period": 511809
+          },
+          {
+            "name": "DSP Scheduler",
+            "tid": 15757,
+            "weighted_period": 484901
+          },
+          {
+            "name": "WavetableLoader",
+            "tid": 15755,
+            "weighted_period": 412071
+          },
+          {
+            "name": "wf0-quantum-9a0",
+            "tid": 15766,
+            "weighted_period": 321860
+          },
+          {
+            "name": "Resource worker",
+            "tid": 15758,
+            "weighted_period": 312143
+          }
+        ],
+        "perf_selected_guest_blocks": [
+          {
+            "thread": "lvb-audio",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x735530",
+            "percent_of_all_held_user_cycles": 20.335
+          },
+          {
+            "thread": "lvb-audio",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x7356e0",
+            "percent_of_all_held_user_cycles": 6.573
+          },
+          {
+            "thread": "lvb-audio",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x629e70",
+            "percent_of_all_held_user_cycles": 3.246
+          },
+          {
+            "thread": "Processing Thre",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x775540",
+            "percent_of_all_held_user_cycles": 2.546
+          },
+          {
+            "thread": "lvb-audio",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x775540",
+            "percent_of_all_held_user_cycles": 2.221
+          },
+          {
+            "thread": "lvb-audio",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x647830",
+            "percent_of_all_held_user_cycles": 2.165
+          },
+          {
+            "thread": "lvb-audio",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x7abd70",
+            "percent_of_all_held_user_cycles": 1.408
+          },
+          {
+            "thread": "Processing Thre",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x76fee7",
+            "percent_of_all_held_user_cycles": 1.044
+          }
+        ],
+        "map_ambiguity": {
+          "multiple_guest_rva_percent": 65.743,
+          "cross_module_ambiguous_percent": 2.111,
+          "arithmetic_family_only_candidates_percent": 27.834,
+          "unambiguous_module_lower_bound_percent_of_all_user_cycles": {
+            "pigmentsprocessor.dll": 82.978,
+            "libarm64ecfex.dll": 5.265,
+            "ucrtbase.dll": 3.024,
+            "pigments.vst3": 1.724,
+            "ntdll.dll": 0.885,
+            "wf0-quantum-9a0ac94.exe": 0.649,
+            "ntdll.so": 0.642,
+            "unresolved_jit": 0.547,
+            "winex11.so": 0.121,
+            "[vdso]": 0.086,
+            "kernelbase.dll": 0.075,
+            "win32u.dll": 0.071,
+            "libc.so.6": 0.0
+          }
+        },
+        "caller_map_ambiguity": {
+          "multiple_guest_rva_percent": 76.058,
+          "cross_module_ambiguous_percent": 1.622,
+          "arithmetic_family_only_candidates_percent": 36.552,
+          "unambiguous_module_lower_bound_percent_of_all_user_cycles": {
+            "pigmentsprocessor.dll": 89.062,
+            "libarm64ecfex.dll": 2.923,
+            "ucrtbase.dll": 2.413,
+            "pigments.vst3": 1.567,
+            "wf0-quantum-9a0ac94.exe": 0.852,
+            "ntdll.so": 0.166,
+            "ntdll.dll": 0.088
+          }
+        }
+      },
+      "temperature_peak_c": 54.0,
+      "held_arm_clock_hz_range": [
+        2400020480,
+        2400033792
+      ]
+    },
+    {
+      "name": "measured",
+      "counter_delta": {
+        "bridge_processed_frames": 995328,
+        "delivered_frames": 942080,
+        "missing_frames": 53248,
+        "gaps": 26,
+        "midi_accepted": 9,
+        "xruns": 0,
+        "process_failures": 0
+      },
+      "held_audio": {
+        "capture_2_to_14_s": {
+          "exact_zero_frames": 53248,
+          "longest_zero_run_frames": 46848
+        },
+        "capture_4_to_14_s": {
+          "exact_zero_frames": 0,
+          "longest_zero_run_frames": 0
+        }
+      },
+      "profiler_cpu_seconds_before_stop": 0.02,
+      "profiler_wakeups": 1,
+      "jit_map_quality": {
+        "valid_lines": 287310,
+        "malformed_lines": 11,
+        "duplicate_starts": 4587
+      },
+      "held_profile": {
+        "samples": 1628,
+        "weighted_period": 35495011919,
+        "labeled_jit_percent": 98.375,
+        "perf_selected_owners_percent": {
+          "pigmentsprocessor.dll": 90.588,
+          "ucrtbase.dll": 2.701,
+          "libarm64ecfex.dll": 1.876,
+          "unresolved_jit": 1.545,
+          "ntdll.dll": 0.881,
+          "pigments.vst3": 0.623,
+          "fex_dispatcher": 0.62,
+          "ntdll.so": 0.525,
+          "wf0-quantum-9a0ac94.exe": 0.264,
+          "vcruntime140.dll": 0.13,
+          "kernelbase.dll": 0.083,
+          "libc.so.6": 0.071,
+          "kernel32.dll": 0.049,
+          "[vdso]": 0.045
+        },
+        "threads": [
+          {
+            "name": "lvb-audio",
+            "tid": 15781,
+            "weighted_period": 27429325531
+          },
+          {
+            "name": "Processing Thre",
+            "tid": 15762,
+            "weighted_period": 8062961080
+          },
+          {
+            "name": "wf0-quantum-9a0",
+            "tid": 15708,
+            "weighted_period": 868953
+          },
+          {
+            "name": "WavetableLoader",
+            "tid": 15755,
+            "weighted_period": 511945
+          },
+          {
+            "name": "DSP Scheduler",
+            "tid": 15757,
+            "weighted_period": 488105
+          },
+          {
+            "name": "wf0-quantum-9a0",
+            "tid": 15766,
+            "weighted_period": 404845
+          },
+          {
+            "name": "Resource worker",
+            "tid": 15758,
+            "weighted_period": 262330
+          },
+          {
+            "name": "WavetableLoader",
+            "tid": 15756,
+            "weighted_period": 189130
+          }
+        ],
+        "perf_selected_guest_blocks": [
+          {
+            "thread": "lvb-audio",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x735530",
+            "percent_of_all_held_user_cycles": 25.209
+          },
+          {
+            "thread": "lvb-audio",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x7354e0",
+            "percent_of_all_held_user_cycles": 3.18
+          },
+          {
+            "thread": "lvb-audio",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x647830",
+            "percent_of_all_held_user_cycles": 2.112
+          },
+          {
+            "thread": "lvb-audio",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x76f370",
+            "percent_of_all_held_user_cycles": 2.011
+          },
+          {
+            "thread": "lvb-audio",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x775540",
+            "percent_of_all_held_user_cycles": 1.848
+          },
+          {
+            "thread": "Processing Thre",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x775540",
+            "percent_of_all_held_user_cycles": 1.847
+          },
+          {
+            "thread": "lvb-audio",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x6c1970",
+            "percent_of_all_held_user_cycles": 1.621
+          },
+          {
+            "thread": "Processing Thre",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x74fcc0",
+            "percent_of_all_held_user_cycles": 1.49
+          }
+        ],
+        "map_ambiguity": {
+          "multiple_guest_rva_percent": 74.376,
+          "cross_module_ambiguous_percent": 0.795,
+          "arithmetic_family_only_candidates_percent": 29.243,
+          "unambiguous_module_lower_bound_percent_of_all_user_cycles": {
+            "pigmentsprocessor.dll": 90.075,
+            "ucrtbase.dll": 2.701,
+            "libarm64ecfex.dll": 1.876,
+            "ntdll.dll": 0.881,
+            "unresolved_jit": 0.652,
+            "ntdll.so": 0.525,
+            "pigments.vst3": 0.471,
+            "wf0-quantum-9a0ac94.exe": 0.264,
+            "kernelbase.dll": 0.083,
+            "libc.so.6": 0.071,
+            "kernel32.dll": 0.049,
+            "[vdso]": 0.045
+          }
+        },
+        "caller_map_ambiguity": {
+          "multiple_guest_rva_percent": 78.157,
+          "cross_module_ambiguous_percent": 0.423,
+          "arithmetic_family_only_candidates_percent": 37.842,
+          "unambiguous_module_lower_bound_percent_of_all_user_cycles": {
+            "pigmentsprocessor.dll": 92.518,
+            "ucrtbase.dll": 2.644,
+            "libarm64ecfex.dll": 1.573,
+            "pigments.vst3": 0.609,
+            "wf0-quantum-9a0ac94.exe": 0.341,
+            "ntdll.dll": 0.337,
+            "libc.so.6": 0.091,
+            "ntdll.so": 0.083
+          }
+        }
+      },
+      "temperature_peak_c": 52.35,
+      "held_arm_clock_hz_range": [
+        2400017408,
+        2400037120
+      ],
+      "stable_aligned_work": {
+        "first": {
+          "snapshot_seconds_after_graph": 4.251292,
+          "status_read_begin_seconds_after_graph": 4.272184,
+          "status_read_end_seconds_after_graph": 4.372641
+        },
+        "last": {
+          "snapshot_seconds_after_graph": 13.610321,
+          "status_read_begin_seconds_after_graph": 13.631479,
+          "status_read_end_seconds_after_graph": 13.731945
+        },
+        "snapshot_wall_seconds": 9.359029,
+        "completed_frames": 449792,
+        "completed_calls": 1757,
+        "delivered_frames": 449024,
+        "missing_frames": 0,
+        "added_gaps": 0,
+        "caller": {
+          "cpu_seconds": 8.97614,
+          "runnable_wait_seconds": 0.011465,
+          "cpu_ms_per_completed_256_frames": 5.1088,
+          "user_ticks": 894,
+          "system_ticks": 4,
+          "minor_faults": 36,
+          "major_faults": 0
+        },
+        "worker": {
+          "cpu_seconds": 4.209607,
+          "runnable_wait_seconds": 0.015342,
+          "cpu_ms_per_completed_256_frames": 2.3959,
+          "user_ticks": 256,
+          "system_ticks": 165,
+          "minor_faults": 215,
+          "major_faults": 0
+        }
+      },
+      "stable_aligned_profile": {
+        "samples": 1283,
+        "weighted_period": 28032440242,
+        "labeled_jit_percent": 98.319,
+        "perf_selected_owners_percent": {
+          "pigmentsprocessor.dll": 90.495,
+          "ucrtbase.dll": 2.75,
+          "libarm64ecfex.dll": 1.874,
+          "unresolved_jit": 1.569,
+          "ntdll.dll": 0.74,
+          "pigments.vst3": 0.702,
+          "fex_dispatcher": 0.644,
+          "ntdll.so": 0.504,
+          "wf0-quantum-9a0ac94.exe": 0.246,
+          "vcruntime140.dll": 0.164,
+          "kernelbase.dll": 0.103,
+          "libc.so.6": 0.089,
+          "kernel32.dll": 0.061,
+          "[vdso]": 0.057
+        },
+        "threads": [
+          {
+            "name": "lvb-audio",
+            "tid": 15781,
+            "weighted_period": 21342818962
+          },
+          {
+            "name": "Processing Thre",
+            "tid": 15762,
+            "weighted_period": 6689216435
+          },
+          {
+            "name": "wf0-quantum-9a0",
+            "tid": 15766,
+            "weighted_period": 404845
+          }
+        ],
+        "perf_selected_guest_blocks": [
+          {
+            "thread": "lvb-audio",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x735530",
+            "percent_of_all_held_user_cycles": 25.056
+          },
+          {
+            "thread": "lvb-audio",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x7354e0",
+            "percent_of_all_held_user_cycles": 3.425
+          },
+          {
+            "thread": "lvb-audio",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x647830",
+            "percent_of_all_held_user_cycles": 2.332
+          },
+          {
+            "thread": "Processing Thre",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x775540",
+            "percent_of_all_held_user_cycles": 1.927
+          },
+          {
+            "thread": "lvb-audio",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x76f370",
+            "percent_of_all_held_user_cycles": 1.875
+          },
+          {
+            "thread": "lvb-audio",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x6c1970",
+            "percent_of_all_held_user_cycles": 1.809
+          },
+          {
+            "thread": "Processing Thre",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x74fcc0",
+            "percent_of_all_held_user_cycles": 1.717
+          },
+          {
+            "thread": "lvb-audio",
+            "module": "pigmentsprocessor.dll",
+            "image_rva": "0x775540",
+            "percent_of_all_held_user_cycles": 1.661
+          }
+        ],
+        "map_ambiguity": {
+          "multiple_guest_rva_percent": 74.27,
+          "cross_module_ambiguous_percent": 0.879,
+          "arithmetic_family_only_candidates_percent": 29.229,
+          "unambiguous_module_lower_bound_percent_of_all_user_cycles": {
+            "pigmentsprocessor.dll": 89.973,
+            "ucrtbase.dll": 2.75,
+            "libarm64ecfex.dll": 1.874,
+            "ntdll.dll": 0.74,
+            "unresolved_jit": 0.647,
+            "pigments.vst3": 0.509,
+            "ntdll.so": 0.504,
+            "wf0-quantum-9a0ac94.exe": 0.246,
+            "kernelbase.dll": 0.103,
+            "libc.so.6": 0.089,
+            "kernel32.dll": 0.061,
+            "[vdso]": 0.057
+          }
+        }
+      },
+      "backlog_observations": [
+        {
+          "event": "first_observed_loss",
+          "seconds_after_graph": 2.38,
+          "missing_frames_since_trial_start": 4096,
+          "current_outstanding_frames_estimate": 2304
+        },
+        {
+          "event": "observed_peak",
+          "seconds_after_graph": 3.004,
+          "missing_frames_since_trial_start": 34304,
+          "current_outstanding_frames_estimate": 2816
+        },
+        {
+          "event": "recovered_to_512_or_less",
+          "seconds_after_graph": 5.499,
+          "missing_frames_since_trial_start": 53248,
+          "current_outstanding_frames_estimate": 256
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Graph-ready stdout reception approximates capture start; status requests complete about 100 ms after each CPU snapshot. Per-frame CPU is approximate and includes thread work outside processor.process().",
+    "Perf samples only user-mode execution; kernel CPU is bounded separately by thread system ticks, without kernel stacks. Scheduler runnable-wait excludes time blocked on a futex or other wait. Weighted samples classify JIT blocks by image, not by FEX translation overhead within a block.",
+    "The warm-up profiler consumed substantial CPU and perturbed its failed audio; it is not an unperturbed warm-up baseline. The repeat profiler was light.",
+    "Completed processing is distinct from timely delivery and nonzero capture. This 256-frame Pigments fixture is not qualified by the measured repeat."
+  ]
+}
