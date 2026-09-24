@@ -529,10 +529,7 @@ fn finalize_install(m: &Manager, w: &mut Workspace) -> Result<()> {
         "daw_workspace_installer_still_running",
     )?;
     let v = result(m, op, true)?.ok_or("daw_workspace_install_result_absent")?;
-    require(
-        v["cleanup_confirmed"] == true && v["owned_live"] == 0,
-        "daw_workspace_installer_cleanup_unconfirmed",
-    )?;
+    require(retired(&v), "daw_workspace_installer_cleanup_unconfirmed")?;
     // A helper's nonzero exit does not erase an exact installed application.
     let installed = discover(w)?;
     installed.executable.verify()?;
@@ -755,13 +752,17 @@ fn status(m: &Manager) -> Result<()> {
         Some(op) => unit_active(&unit(op, true)?)?,
         None => false,
     };
+    let detected_installed =
+        if w.installed.is_none() && !install_active && install_result.as_ref().is_some_and(retired)
+        {
+            discover(&w).ok()
+        } else {
+            None
+        };
     let cleanup = if owner_active || install_active {
         "running"
     } else if (w.session_operation.is_some() && !session_result.as_ref().is_some_and(retired))
-        || (w.installation_operation.is_some()
-            && !install_result
-                .as_ref()
-                .is_some_and(|v| v["cleanup_confirmed"] == true && v["owned_live"] == 0))
+        || (w.installation_operation.is_some() && !install_result.as_ref().is_some_and(retired))
     {
         "cleanup_unconfirmed"
     } else {
@@ -781,11 +782,25 @@ fn status(m: &Manager) -> Result<()> {
         State::Starting
     } else if install_active {
         State::Installing
-    } else if (w.installation_operation.is_some() && w.installed.is_none())
-        || session_result
-            .as_ref()
-            .is_some_and(|v| v["state"] == "failed")
+    } else if session_result
+        .as_ref()
+        .is_some_and(|v| v["state"] == "failed")
     {
+        State::Failed
+    } else if detected_installed.is_some() {
+        if install_result
+            .as_ref()
+            .is_some_and(|v| v["state"] == "completed")
+        {
+            if desktop_prerequisites().is_ok() {
+                State::Ready
+            } else {
+                State::Installed
+            }
+        } else {
+            State::NeedsUserAction
+        }
+    } else if w.installation_operation.is_some() && w.installed.is_none() {
         State::Failed
     } else if w.installed.is_some() && w.state == State::NeedsUserAction {
         State::NeedsUserAction
@@ -808,6 +823,7 @@ fn status(m: &Manager) -> Result<()> {
         json!({"schema":1,"workspace":w,"installer_result":install_result,
         "installer_active":install_active,"session_result":session_result,
         "owner_active":owner_active,"cleanup":cleanup,"effective_state":effective_state,
+        "detected_installed_not_committed":detected_installed,
         "first_useful_failure":observed_failure})
     );
     Ok(())
