@@ -1422,3 +1422,51 @@ Comparison helpers select their executable explicitly with `--binary`; these
 three launches all selected `staging/phase-trace-01/trace-host`. Earlier references
 to preserving the original "default" describe the generic build output, not a
 change to the session helper's default argument. Both original binaries remain.
+
+### Multicore preference works at startup but full state overrides it
+
+The next authorized slice checked a real vendor control before attempting a
+multicore comparison. Arturia's [FAQ](https://support.arturia.com/hc/en-us/articles/24036230171804-Pigments-General-Questions)
+identifies the global Multicore option; the [7.0.1 manual](https://dl.arturia.net/products/pigments/manual/pigments_Manual_7_0_1_EN.pdf),
+section 3.7.1.1, describes instrument-wide settings that persist across preset
+changes. This does not settle what a full host-state restore does.
+
+Installed vendor resources define `Multicore2`, displayed as Multicore and
+transmitted to processor parameter `Multicore`: Off/On item order, default On,
+`savedinpreset=0`, `savedinstate=1`, `savedinpreffile=1`. The preference file and
+both the original operator and 24 AM component/controller states contained On.
+Thirty retained Windows logs yielded 124,488 rows including repeated complete
+4,446-parameter catalogs; no actual VST Multicore control was found. Resource
+positions were not converted into invented VST parameter IDs.
+
+One explicitly reviewed no-note check privately backed up the exact preference
+and changed only `Multicore2` from 1 to 0 while all owned plug-in processes were
+closed. It used the same 85780f... candidate, tracing OFF and unchanged config.
+Actual `getState` results were:
+
+| Observation | Component | Controller |
+| --- | ---: | ---: |
+| Startup, Welcome | Off | Off |
+| After restoring unchanged 24 AM state | On | On |
+| After restoring original 8-Bit Crystals state | On | On |
+
+The preference is therefore read and effective at startup, but the full-state
+restore resets this control. A preference-only ON/OFF experiment restoring the
+same 24 AM state would test On in both conditions. No performance comparison,
+notes, GUI interaction, invented parameter, opaque state rewrite or rebuild was
+performed. This is a confirmed control dependency, not a multicore performance
+verdict. Two focused preference-edit/refusal tests passed.
+
+The session took 43.25 seconds, peaked at 49.6 C with no throttle flags, and shut
+down cleanly. Original preset/master 0.48033079504966736 and multicore On were
+captured before quit. Preference bytes and mode/owner/mtime were restored exactly
+after exit; original generic and helper-default binary hashes, baseline JACK
+graph, ondemand, schedstats=0 and no owned services were verified. The one optional
+FEX-stat presence sample preceded a loaded Pigments mapping, so establishes no
+availability result. No second attempt or prolonged session followed.
+
+Stop this headless control route under the current constraints. A useful next
+lever is a separate bounded check of the pinned FEX runtime's existing shared
+statistics during an owned workload, to distinguish translation/cache/fallback
+work from other processing costs. No FEX cause is inferred here. Sanitized result:
+`evidence/rpi2/pigments-multicore-mechanism.json`.
