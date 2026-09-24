@@ -150,7 +150,9 @@ jobs:
         run: |
           cmake -S . -B "${{ runner.temp }}/ap8-build" -G "Visual Studio 17 2022" -A x64 -T v143 "-DCMAKE_SYSTEM_VERSION=10.0.19041.0" -DWF0_BUILD_ONLY=ON "-DLVB_RPI2_QUANTUM=${{ inputs.rpi2_quantum && 'ON' || 'OFF' }}" "-DWF0_VST3_SDK_ROOT:PATH=${{ runner.temp }}/ap8-sdk"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build "${{ runner.temp }}/ap8-build" --config Release --target wf0-factory-probe --parallel 4
+          cmake --build "${{ runner.temp }}/ap8-build" --config Release --target wf0-factory-probe ap11-state-tests --parallel 4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap11-state-tests.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -c "import hashlib,json,pathlib,subprocess; root=pathlib.Path.cwd(); out=pathlib.Path(r'${{ runner.temp }}/ap8-build/wf0/bin/Release'); sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest(); names=subprocess.check_output(['git','ls-files','windows-factory-probe','native-vst3-proxy/include','vst-state','windows-fixtures/ap10','CMakeLists.txt'],text=True).splitlines(); (out/'host-source-manifest.json').write_text(json.dumps(dict(schema=1,source_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),host_sha256=sha(out/'wf0-factory-probe.exe'),rpi2_quantum='${{ inputs.rpi2_quantum }}',files={n:sha(root/n) for n in names}),sort_keys=True))"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

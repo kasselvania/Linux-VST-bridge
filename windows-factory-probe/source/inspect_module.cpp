@@ -235,7 +235,10 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         InitialSyncObservation sync{};
         try{synchronize_initial(*controller,controller_initialized,state_result,state,&sync);}
         catch(...){if(state_result==kResultOk&&controller_initialized)events.lifecycle("ap12_initial_controller_sync",",\"result\":"+std::to_string(sync.result)+",\"stream_failed\":"+(sync.stream_failed?"true":"false")+",\"stream_quiescent\":"+(sync.stream_quiescent?"true":"false")+",\"reads\":"+std::to_string(sync.reads)+",\"seeks\":"+std::to_string(sync.seeks)+",\"unknown_queries\":"+std::to_string(sync.unknown_queries)+",\"position\":"+std::to_string(sync.position));throw;}
-        if(state_result==kResultOk&&controller_initialized)ok(kResultOk,"synchronizeController");
+        if(state_result==kResultOk&&controller_initialized){
+            events.lifecycle("ap8_result",",\"operation\":\"synchronizeController\",\"result\":"+std::to_string(sync.result));
+            events.lifecycle("ap12_initial_controller_sync",",\"result\":"+std::to_string(sync.result)+",\"stream_failed\":"+(sync.stream_failed?"true":"false")+",\"stream_quiescent\":"+(sync.stream_quiescent?"true":"false")+",\"reads\":"+std::to_string(sync.reads)+",\"seeks\":"+std::to_string(sync.seeks)+",\"unknown_queries\":"+std::to_string(sync.unknown_queries)+",\"position\":"+std::to_string(sync.position));
+        }
         if(state_result==kResultOk)events.lifecycle("ap8_inspected",",\"controller_separate\":"+std::string(controller_initialized?"true":"false")+",\"state_bytes\":"+std::to_string(state.bytes.size())+",\"latency_samples\":"+std::to_string(audio->getLatencySamples())+",\"float32_result\":"+std::to_string(audio->canProcessSampleSize(kSample32))+",\"float64_result\":"+std::to_string(audio->canProcessSampleSize(kSample64))+",\"tail_samples\":"+std::to_string(audio->getTailSamples()));
         if(!external && access_directory.empty()){
             // Preliminary interface observation only: never attach or pump a vendor editor.

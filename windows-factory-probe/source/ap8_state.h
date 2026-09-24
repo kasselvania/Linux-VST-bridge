@@ -30,7 +30,9 @@ inline bool synchronize_initial(Steinberg::Vst::IEditController&controller,bool 
  if(result!=kResultOk){ap1::require(ordinary_refusal(result),"initial state SDK failure");return false;}
  if(separate){state.position=0;auto r=controller.setComponentState(&state);
   if(observation)*observation={r,state.failed,state.quiescent(),state.read_calls,state.seek_calls,state.unknown_queries,state.position};
-  ap1::require(r==kResultOk&&!state.failed&&state.quiescent(),"initial controller synchronization failed");}
+  const bool untouched=state.read_calls==0&&state.seek_calls==0&&state.unknown_queries==0&&state.position==0;
+  ap1::require((r==kResultOk||(r==kNotImplemented&&untouched))&&!state.failed&&state.quiescent(),"initial controller synchronization failed");
+  return r==kResultOk;}
  return true;
 }
 struct ReadbackStatus {uint32_t unavailable=0,first_id=0;uint64_t first_bits=0;};

@@ -36,6 +36,7 @@ struct FixtureComponent final : AudioEffect {
 struct Controller final : EditController {
   unsigned synchronizations = 0, invalidations = 0;
   bool invalid_readback = false;
+  bool refuse_sync = false, read_before_refusal = false;
   double readback_value = 0.;
   ParamValue PLUGIN_API getParamNormalized(ParamID id) override {
     return invalid_readback && id == 42 ? readback_value
@@ -49,6 +50,14 @@ struct Controller final : EditController {
   }
   tresult PLUGIN_API setComponentState(IBStream *s) override {
     ++synchronizations;
+    if (refuse_sync) {
+      if (read_before_refusal) {
+        uint8 byte = 0;
+        int32 count = 0;
+        s->read(&byte, 1, &count);
+      }
+      return kNotImplemented;
+    }
     double value = 0;
     int32 n = 0;
     if (s->read(&value, 8, &n) != kResultOk || n != 8)
@@ -115,6 +124,19 @@ int main() {
   }
   LVBState::Stream fresh;component.getState(&fresh);
   check(linux_vst_bridge::wf0::synchronize_initial(controller,true,kResultOk,fresh)&&controller.synchronizations==before+1,"available initial state synchronizes once");
+  controller.refuse_sync = true;
+  LVBState::Stream unsupported;component.getState(&unsupported);
+  linux_vst_bridge::wf0::InitialSyncObservation observed{};
+  check(!linux_vst_bridge::wf0::synchronize_initial(controller,true,kResultOk,unsupported,&observed)
+            && observed.result==kNotImplemented && observed.reads==0 && observed.position==0
+            && !observed.stream_failed && observed.stream_quiescent,
+        "untouched not-implemented initial controller sync is explicit");
+  controller.read_before_refusal = true;
+  LVBState::Stream partial_sync;component.getState(&partial_sync);
+  bool unsafe_sync = false;
+  try { linux_vst_bridge::wf0::synchronize_initial(controller,true,kResultOk,partial_sync); }
+  catch (const std::runtime_error&) { unsafe_sync = true; }
+  check(unsafe_sync,"partial controller consumption cannot be treated as unsupported sync");
   controller.terminate();
   component.terminate();
   std::cout << "AP11 pure state capture and exactly-once restore "
