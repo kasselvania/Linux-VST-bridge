@@ -70,8 +70,10 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-LIFE-001](#fc-life-001--graphical-session-and-keeper-authority) | Graphical-session/keeper authority | Manager/supervisor lifecycle | causal | accepted | Blackhole, Kontakt / Steam Deck; FRAGMENTS / Ubuntu | supported | Gaming Mode transition coverage |
 | [FC-LIFE-002](#fc-life-002--failed-launch-cleanup-and-truthful-recovery-state) | Failed launch cleanup and truthful recovery | Manager ownership/leases/results | causal | deployed | Steam Deck and Ubuntu fixtures | supported-with-workaround | Manager recovery UX |
 | [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | bounded | instrumentation-only | Arturia Deck and FRAGMENTS Ubuntu observations | supported-with-workaround | One causal scheduler/thread capture |
+| [FC-AUDIO-002](#fc-audio-002--host-block-exceeds-the-selected-bridge-presentation-envelope) | Host block exceeds selected bridge presentation envelope | Proxy setup, selected delay, DAW audio settings | causal | accepted | FRAGMENTS / Ubuntu at Bitwig 512/48 kHz | supported-with-workaround | Actionable requested-versus-supported block message |
 | [FC-CAP-001](#fc-cap-001--capacity-enumeration-versus-lease-retirement-race) | Capacity scan versus lease retirement | Manager capacity ownership | causal | none | AP17 exact fixture | supported-with-workaround | Repair issue #93 |
 | [FC-MGMT-001](#fc-mgmt-001--managed-inventory-refresh-authority) | Managed inventory freshness and refresh | Manager catalogue/registry/onboarding | causal | accepted | Blackhole, Kontakt / Deck; FRAGMENTS / Ubuntu | supported | Preserve one canonical refresh route |
+| [FC-MGMT-002](#fc-mgmt-002--exact-verified-hostsource-omitted-across-software-generations) | Exact verified host/source omitted across generations | Software catalogue, profile/candidate and publication | causal | accepted | Pure LoFi, FRAGMENTS, Serum / Deck | supported | Preserve required exact pairs in every new generation |
 | [FC-PLAT-001](#fc-plat-001--nativewindows-transport-requires-shared-private-loopback) | Native/Windows transport needs shared loopback | Platform namespace adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Regression gate for new adapters |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
@@ -798,7 +800,7 @@ Counters are not automatically audible-dropout evidence. Elapsed Windows `proces
 
 ### Related failure classes
 
-FC-CAP-001, FC-LIFE-002.
+FC-AUDIO-002, FC-CAP-001, FC-LIFE-002.
 
 ### Remaining gate
 
@@ -815,6 +817,74 @@ One bounded exact-thread capture distinguishing CPU execution, runnable wait, bl
 ### Last reviewed
 
 2026-09-23.
+
+---
+
+## FC-AUDIO-002 — Host block exceeds the selected bridge presentation envelope
+
+### Shared boundary
+
+Native proxy `setupProcessing`, selected bridge presentation delay, and DAW audio configuration.
+
+### Understanding
+
+causal
+
+The Ubuntu load refusal was an exact 1024-frame host request against a 512-frame publication, not a processing deadline miss.
+
+### Implementation
+
+accepted
+
+The fail-closed product behavior is intentional; the accepted operating configuration is explicit Bitwig 512 samples at 48 kHz.
+
+### User posture
+
+supported-with-workaround
+
+### Symptom
+
+Bitwig requested a 1024-frame maximum; the 512-frame FRAGMENTS publication returned `kResultFalse` from `setupProcessing` and did not load.
+
+### Mechanism
+
+The selected bridge delay must cover the host's declared maximum block. The proxy refuses an unsupported processing shape rather than claiming it can present that block. `PIPEWIRE_QUANTUM=512/48000` alone left Bitwig's internal maximum at 1024; changing Bitwig's Audio settings to 512 samples and 48 kHz was necessary.
+
+### Fix chain
+
+- **Source correction:** none; the proxy's fail-closed refusal is the intended product law.
+- **Built artifact:** exact registered revision-12 FRAGMENTS native proxy SHA-256 `f29e4cf0d3157308a78097b25f10a05264277291203c77a62db6cc1a2cfa4c1a`.
+- **Profile/candidate:** Ubuntu FRAGMENTS review candidate revision 12, selected 512 added bridge frames, publication `d1273fdb5a50d9f73009bc6473cd3f36`.
+- **Installed generation:** Ubuntu `095b21aa05d991f0e6ca2c5d471da8bd1e9ff8dab75c5a758fe583e5aed4509f`.
+- **Physical result:** explicit Bitwig 512-sample/48-kHz Audio settings together with Bitwig-only `PIPEWIRE_QUANTUM=512/48000` preceded accepted load, editor, audible processing, parameter use, removal, save/reopen, and clean retirement.
+
+### Product coverage
+
+FRAGMENTS 1.3.1.6566 / Ubuntu: the 1024-frame refusal was observed; the exact 512/48-kHz configuration was physically accepted. No other product/platform configuration inherits this result.
+
+### Claim limit
+
+This does not qualify 1024-frame host blocks, 256 bridge frames, other sample rates, or arbitrary DAW configurations. It is separate from residual in-session deadline misses in FC-AUDIO-001.
+
+### Related failure classes
+
+FC-AUDIO-001, FC-LIFE-002.
+
+### Remaining gate
+
+Present an actionable manager/frontend message naming the requested host maximum and the supported selected maximum; retain the refusal until a separately qualified configuration exists.
+
+### Evidence and historical sources
+
+[Ubuntu-lab PR #5](https://github.com/kasselvania/Linux-VST-bridge-ubuntu-lab/pull/5), [manual functional checkpoint](https://github.com/kasselvania/Linux-VST-bridge-ubuntu-lab/blob/473ac0a926e6d95d470c002244b851857b83f41c/evidence/UA1/20260923T0623Z-frg1-manual-closeout/result.json), [SUPPORT_MATRIX](SUPPORT_MATRIX.md).
+
+### Tracking issue
+
+None; actionable configuration messaging is not yet selected work.
+
+### Last reviewed
+
+2026-09-24.
 
 ---
 
@@ -928,7 +998,7 @@ This does not reopen installation or grant arbitrary rescans.
 
 ### Related failure classes
 
-FC-LIFE-002, FC-BOOT-001.
+FC-MGMT-002, FC-LIFE-002, FC-BOOT-001.
 
 ### Remaining gate
 
@@ -945,6 +1015,74 @@ None; accepted behavior.
 ### Last reviewed
 
 2026-09-23.
+
+---
+
+## FC-MGMT-002 — Exact verified host/source omitted across software generations
+
+### Shared boundary
+
+Immutable software catalogue, retained profile/candidate authority, and publication current-host verification.
+
+### Understanding
+
+causal
+
+The exact registered Windows host and source manifest must remain available to a retained activation-permitted profile or selected candidate after an immutable software-generation change.
+
+### Implementation
+
+accepted
+
+PR #149 carries required exact host/source pairs for activation-permitted profiles. Serum candidate C additionally required an exact candidate-package host selection before publication.
+
+### User posture
+
+supported
+
+### Symptom
+
+Pure LoFi and Deck FRAGMENTS remained physically published with intact module, native proxy, link and retained host bytes, yet manager readback reported `installed_host_mismatch` and `needs_attention`. The first Serum candidate-C package similarly disabled its publication action as historical candidate inputs before any Serum launch.
+
+### Mechanism
+
+A new software generation retained only its default Windows host/source pair, omitting a different exact pair still required by active verified profiles. The first candidate-C package selected a default pair different from the candidate's retained preparation pair. Neither mismatch was a stale inventory or missing proxy problem.
+
+### Fix chain
+
+- **Source correction:** [PR #149](https://github.com/kasselvania/Linux-VST-bridge/pull/149) carries forward only exact registered host/source pairs required by current activation-permitted profiles; the Serum transition used exact candidate-package host selection, not a new generic admission rule.
+- **Built artifact:** canonical merge `32fa422581b29318dd2c4653120ab1b63203192d`, tree `4e90a002d8bbca01d9d46283c17947af4c30a62d`.
+- **Profile/candidate:** current Pure LoFi and Deck FRAGMENTS ordinary profiles require the retained host/source pair; Serum candidate C `91b699291eb7b7d1ff6e725d5e6fd1abed88ea721dbd81a621dd2fb39d38d207` requires candidate B's preparation pair.
+- **Installed generation:** corrected Serum candidate-C package `30d144c0b65437e7963692d434f930fe45faf2ec73527d5864580fc08eb913ac` selected that exact pair. The initial wrong-host generation `d4a08aa5cf9a29ca448b8c4a5c591e44d14e288928e8c0604e936261e5f011ee` remains a separate failed attempt.
+- **Physical result:** after the host-retention repair, the operator confirmed Pure LoFi and FRAGMENTS audio/editor use and clean retirement; corrected candidate-C package enabled and completed exact Serum publication without a rescan or proxy rebuild. This does not imply the separate Serum touch-menu defect passed.
+
+### Product coverage
+
+Pure LoFi and Efx FRAGMENTS / Steam Deck: the prior mismatch and later product use are observed. Serum 2 / Steam Deck: first package refusal and corrected candidate-C publication are retained. Ubuntu FRAGMENTS uses separate platform authority and is not inferred from these Deck results.
+
+### Claim limit
+
+Retain only immutable host/source pairs already required by exact verified profile or candidate authority. This is not permission to admit arbitrary historical hosts, rescan to mask the mismatch, or substitute a different plug-in build.
+
+### Related failure classes
+
+FC-MGMT-001, FC-LIFE-002.
+
+### Remaining gate
+
+Every future product package/software generation must prove that its required exact host/source pairs survive current-host verification without rescan, proxy rebuild, or publication replacement.
+
+### Evidence and historical sources
+
+[Six-product Deck readback](../evidence/fl1-deck-fleet-readonly/README.md), [PR #149](https://github.com/kasselvania/Linux-VST-bridge/pull/149), [Serum candidate-C physical attempts](https://github.com/kasselvania/Linux-VST-bridge/pull/151).
+
+### Tracking issue
+
+None; accepted management law.
+
+### Last reviewed
+
+2026-09-24.
 
 ---
 
