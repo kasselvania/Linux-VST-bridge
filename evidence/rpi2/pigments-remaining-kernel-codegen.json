@@ -1,0 +1,130 @@
+{
+  "fixture": "Pigments 7.0.1.6772, 24 AM Poly 4 master 0.35, automated four-note chord, 48 kHz/JACK 512/reserve 2048, vendor quantum 256",
+  "installed_wine_ntdll_sha256": "6ba770ec0df52311b760a0866226a83c177f67227598f990942382cad42b4bc3",
+  "capture_status": "partial: live audio-statistics guard contention made one status response unavailable; controller stopped the measured four-note fixture",
+  "restoration": {
+    "state": true,
+    "preference": true,
+    "governor": "ondemand",
+    "schedstats": "0",
+    "session_clean": true
+  },
+  "warmup": {
+    "missing_frames_added": 650240,
+    "gaps_added": 2,
+    "perf_active": false
+  },
+  "measured_observed": {
+    "snapshot_seconds_after_graph": 12.085,
+    "missing_frames_added": 265728,
+    "gaps_added": 2,
+    "maximum_sampled_temperature_c": 51.8
+  },
+  "aligned_progress": {
+    "first": {
+      "snapshot_seconds_after_graph": 4.258208,
+      "status_read_begin_seconds_after_graph": 4.279571,
+      "status_read_end_seconds_after_graph": 4.380016
+    },
+    "last": {
+      "snapshot_seconds_after_graph": 6.13031,
+      "status_read_begin_seconds_after_graph": 6.151565,
+      "status_read_end_seconds_after_graph": 6.25201
+    },
+    "snapshot_wall_seconds": 1.872102,
+    "completed_frames": 89856,
+    "completed_calls": 351,
+    "delivered_frames": 90112,
+    "missing_frames": 0,
+    "added_gaps": 0,
+    "caller": {
+      "cpu_seconds": 1.762844,
+      "runnable_wait_seconds": 0.00219,
+      "cpu_ms_per_completed_256_frames": 5.0223,
+      "user_ticks": 175,
+      "system_ticks": 1,
+      "minor_faults": 8,
+      "major_faults": 0
+    },
+    "worker": {
+      "cpu_seconds": 0.826878,
+      "runnable_wait_seconds": 0.002134,
+      "cpu_ms_per_completed_256_frames": 2.3558,
+      "user_ticks": 51,
+      "system_ticks": 31,
+      "minor_faults": 0,
+      "major_faults": 0
+    }
+  },
+  "observer": {
+    "user_perf_cpu_seconds_before_stop": 0.01,
+    "kernel_perf_cpu_seconds_before_stop": 0.14,
+    "kernel_perf_bytes": 71400
+  },
+  "kernel_capture": {
+    "samples": 129,
+    "weighted_period": 2351557235,
+    "categories": {
+      "getrusage": {
+        "samples": 28,
+        "weighted_percent": 32.67
+      },
+      "unclassified": {
+        "samples": 48,
+        "weighted_percent": 32.44
+      },
+      "sched_yield": {
+        "samples": 35,
+        "weighted_percent": 27.24
+      },
+      "futex_wait": {
+        "samples": 17,
+        "weighted_percent": 7.13
+      },
+      "fpsimd_state": {
+        "samples": 1,
+        "weighted_percent": 0.51
+      }
+    }
+  },
+  "kernel_progress": {
+    "samples": 42,
+    "weighted_period": 829037999,
+    "categories": {
+      "getrusage": {
+        "samples": 12,
+        "weighted_percent": 42.25
+      },
+      "unclassified": {
+        "samples": 17,
+        "weighted_percent": 32.89
+      },
+      "sched_yield": {
+        "samples": 13,
+        "weighted_percent": 24.86
+      }
+    }
+  },
+  "jit": {
+    "distinct_validated_blocks": 2,
+    "all_block_bytes_unchanged": true,
+    "validated_block_size_bytes": [
+      3360
+    ],
+    "emitted_arm_code_bytes": [
+      2996
+    ],
+    "measured_user_samples": 304,
+    "exact_validated_block_percent_of_user_cycle_period": 19.26,
+    "aligned_progress_user_samples": 91,
+    "aligned_progress_exact_block_percent": 18.64,
+    "arithmetic_family_map_candidate_percent": 40.701,
+    "map_valid_lines": 288041,
+    "map_malformed_lines": 13,
+    "limitation": "FEX map overlaps; exact validated blocks cover only selected code ranges, and sparse RIP entries do not identify each guest instruction."
+  },
+  "limits": [
+    "Kernel stack categories are cycle-period samples, not blocked duration or exact call totals.",
+    "ARM samples can skid; this aborted run cannot establish a diagnostics-disabled improvement."
+  ]
+}
