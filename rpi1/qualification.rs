@@ -154,6 +154,19 @@ pub fn tone(frame: u64, channel: usize) -> f32 {
     (0.05 * ramp * (std::f64::consts::TAU * hz * at as f64 / RATE as f64).sin()) as f32
 }
 
+/// Repeatable, quiet broadband burst for physical loopback correlation.
+/// Generated before activation; peak is below -40 dBFS, with a silent lead/tail.
+pub fn loopback_tone(frame: u64, channel: usize) -> f32 {
+    let Some(at) = frame.checked_sub(RATE / 2) else { return 0.0; };
+    if at >= RATE { return 0.0; }
+    let mut x = (at as u32).wrapping_add(1).wrapping_mul(747796405)
+        .wrapping_add((channel as u32 + 1).wrapping_mul(2891336453));
+    x = ((x >> ((x >> 28) + 4)) ^ x).wrapping_mul(277803737);
+    x = (x >> 22) ^ x;
+    let ramp = (at.min(RATE - 1 - at) as f64 / 480.0).min(1.0);
+    (0.01 * ramp * (2.0 * x as f64 / u32::MAX as f64 - 1.0)) as f32
+}
+
 #[cfg(all(target_os = "linux", not(test)))]
 #[path = "qualification_jack.rs"]
 mod live;
@@ -171,6 +184,21 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn loopback_stimulus_is_quiet_finite_and_has_silent_lead_and_tail() {
+        let mut energy = [0.0_f64; 2];
+        for frame in 0..RATE * 3 {
+            for channel in 0..2 {
+                let value = loopback_tone(frame, channel);
+                assert!(value.is_finite() && value.abs() <= 0.01);
+                if !(RATE / 2..RATE * 3 / 2).contains(&frame) {
+                    assert_eq!(value, 0.0);
+                }
+                energy[channel] += f64::from(value * value);
+            }
+        }
+        assert!(energy.into_iter().all(|value| value > 1.0));
+    }
     #[test]
     fn four_notes_extend_comparison_without_changing_hold_or_velocity() {
         let events = four_note_events();
