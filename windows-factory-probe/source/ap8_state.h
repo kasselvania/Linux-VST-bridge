@@ -23,11 +23,14 @@ inline void capture_result(Steinberg::tresult r,LVBState::Stream&s,uint32_t stag
 }
 // Fresh initialization can expose the real editor without persistence. A
 // successful stream still synchronizes a separate controller exactly once.
-inline bool synchronize_initial(Steinberg::Vst::IEditController&controller,bool separate,Steinberg::tresult result,LVBState::Stream&state){
+struct InitialSyncObservation { Steinberg::tresult result=Steinberg::kResultOk; bool stream_failed=false,stream_quiescent=true; uint32_t reads=0,seeks=0,unknown_queries=0; size_t position=0; };
+inline bool synchronize_initial(Steinberg::Vst::IEditController&controller,bool separate,Steinberg::tresult result,LVBState::Stream&state,InitialSyncObservation*observation=nullptr){
  using namespace Steinberg;
  ap1::require(!state.failed&&state.quiescent(),"initial state stream bounds/lifetime");
  if(result!=kResultOk){ap1::require(ordinary_refusal(result),"initial state SDK failure");return false;}
- if(separate){state.position=0;auto r=controller.setComponentState(&state);ap1::require(r==kResultOk&&!state.failed&&state.quiescent(),"initial controller synchronization failed");}
+ if(separate){state.position=0;auto r=controller.setComponentState(&state);
+  if(observation)*observation={r,state.failed,state.quiescent(),state.read_calls,state.seek_calls,state.unknown_queries,state.position};
+  ap1::require(r==kResultOk&&!state.failed&&state.quiescent(),"initial controller synchronization failed");}
  return true;
 }
 struct ReadbackStatus {uint32_t unavailable=0,first_id=0;uint64_t first_bits=0;};
