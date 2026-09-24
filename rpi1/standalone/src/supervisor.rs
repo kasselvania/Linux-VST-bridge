@@ -62,8 +62,14 @@ impl Cohort {
             );
         }
         if matches!(config.runner, Runner::Native { .. }) {
+            let selected = std::env::var("LVB_RPI1_RUNTIME_SECONDS");
+            let seconds = runtime_seconds(match &selected {
+                Ok(value) => Some(value.as_str()),
+                Err(std::env::VarError::NotPresent) => None,
+                Err(_) => return Err(invalid("runtime seconds must be UTF-8")),
+            })?;
             command.args([
-                "--property=RuntimeMaxSec=300",
+                &format!("--property=RuntimeMaxSec={seconds}"),
                 "--property=MemoryMax=3G",
                 "--property=TasksMax=512",
             ]);
@@ -202,6 +208,13 @@ impl Cohort {
             thread::sleep(Duration::from_millis(50));
         }
     }
+}
+
+fn runtime_seconds(value: Option<&str>) -> io::Result<u32> {
+    let Some(value) = value else { return Ok(300) };
+    let seconds = value.parse::<u32>().map_err(|_| invalid("invalid runtime seconds"))?;
+    require((30..=7200).contains(&seconds), "runtime seconds must be between 30 and 7200")?;
+    Ok(seconds)
 }
 
 impl Drop for Cohort {
@@ -646,5 +659,15 @@ mod tests {
             stat[end + 2..].split_whitespace().nth(19).unwrap(),
             "424242"
         );
+    }
+
+    #[test]
+    fn explicit_runtime_preserves_default_and_finite_limit() {
+        assert_eq!(runtime_seconds(None).unwrap(), 300);
+        assert_eq!(runtime_seconds(Some("7200")).unwrap(), 7200);
+        assert_eq!(runtime_seconds(Some("30")).unwrap(), 30);
+        for value in ["0", "29", "7201", "infinity", "", "4294967296"] {
+            assert!(runtime_seconds(Some(value)).is_err());
+        }
     }
 }

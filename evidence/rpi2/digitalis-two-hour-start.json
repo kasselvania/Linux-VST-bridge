@@ -1,0 +1,75 @@
+{
+  "observed_at_utc": "2026-09-24T19:43:50.124177+00:00",
+  "session_seconds": 7200,
+  "jack_frames": 128,
+  "windows_host": {
+    "RuntimeMaxUSec": "2h",
+    "MainPID": "42285",
+    "MemoryMax": "3221225472",
+    "TasksMax": "512",
+    "ActiveState": "active",
+    "ActiveEnterTimestamp": "Thu 2026-09-24 20:42:52 BST"
+  },
+  "native_wrapper": {
+    "RuntimeMaxUSec": "2h 40s",
+    "MainPID": "42281",
+    "MemoryMax": "1073741824",
+    "TasksMax": "9496",
+    "ActiveState": "active",
+    "ActiveEnterTimestamp": "Thu 2026-09-24 20:42:52 BST"
+  },
+  "outer_owner": {
+    "RuntimeMaxUSec": "2h 1min 40s",
+    "MainPID": "42260",
+    "MemoryMax": "infinity",
+    "TasksMax": "9496",
+    "ActiveState": "active",
+    "ActiveEnterTimestamp": "Thu 2026-09-24 20:42:52 BST"
+  },
+  "starting_status": {
+    "RPI2_PANEL_RESTORED": "RPI2_PANEL_RESTORED bytes=74491",
+    "RPI1_READY": "RPI1_READY midi=none left=lvb-arm-digitalis:audio_out_l right=lvb-arm-digitalis:audio_out_r jack_frames=128 bridge_frames=128 vendor_frames=4096 total_frames=4224",
+    "RPI2_PROCESSING": "RPI2_PROCESSING quantum=128 map_version=2 capacity=512 sample_rate=48000",
+    "RPI1_EDITOR": "RPI1_EDITOR native_view=1 epoch=1 lifecycle=5 result=0 target_x11=0xe00003",
+    "RPI1_AUDIO": "RPI1_AUDIO midi_accepted=0 output_nonzero_l=1064166 output_nonzero_r=1046782 output_peak_l=0.0000036622232 output_peak_r=0.0000024414821 output_nonfinite=0 xruns=0 process_failures=0 bridge_processed=16707 request_high=4 result_high=5 fault=0 fault_site=unknown bridge_processed_frames=2138496 processing_quantum=128",
+    "RPI1_CALLBACK_LIVE": "RPI1_CALLBACK_LIVE callbacks=16708 failures=0 deadline_misses=0 callback_ns_max=87777 missing_frames=1408 gaps=5 delivered_frames=2137088 paused_frames=0 unsupported_midi=0 malformed_midi=0 overflow_midi=0",
+    "RPI1_OUTPUT_ROUTE": "RPI1_OUTPUT_ROUTE bypass=false trim_linear=1.000000"
+  },
+  "routes": [
+    "system:capture_1",
+    "   lvb-arm-digitalis:audio_in_l",
+    "system:capture_2",
+    "   lvb-arm-digitalis:audio_in_r",
+    "system:playback_1",
+    "   lvb-arm-digitalis:audio_out_l",
+    "system:playback_2",
+    "   lvb-arm-digitalis:audio_out_r",
+    "system:midi_capture_1",
+    "system:midi_playback_1",
+    "system:midi_capture_2",
+    "lvb-arm-digitalis:audio_in_l",
+    "   system:capture_1",
+    "lvb-arm-digitalis:audio_in_r",
+    "   system:capture_2",
+    "lvb-arm-digitalis:audio_out_l",
+    "   system:playback_1",
+    "system:midi_capture_3",
+    "system:midi_playback_2",
+    "lvb-arm-digitalis:audio_out_r",
+    "   system:playback_2"
+  ],
+  "terminal_winner": 0,
+  "temperature_c": 50.15,
+  "throttled": "throttled=0x0",
+  "editor_windows": [
+    "0xe00003 \"Digitalis\": (\"steam_app_default\" \"steam_app_default\")  1100x620+1+20  +3+29"
+  ],
+  "editor_viewable": [
+    true
+  ],
+  "started_at_utc": "2026-09-24T19:42:52+00:00",
+  "scheduled_stop_local": "2026-09-24T14:42:52-07:00",
+  "native_sha256": "5e2aee82d0ea8d59c466e4d600ef6f5b783beec27d5b67bfbc24bae3ddb6e925",
+  "source_bundle_sha256": "31c3289297f5e5b4775c58fa63dd61d8f90567dae3962c5764e2d2029f5d2f58",
+  "state": "running; initial snapshot only, not a completed endurance result"
+}
