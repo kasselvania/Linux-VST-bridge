@@ -1,42 +1,23 @@
-# FRG1 verified scanner relocation
+# Current work selection
 
-Base: canonical main merge `55d692f982eb0d03d7656264ecf4f06f5d8293cb`,
-tree `bc5c370164fa344fb6476aa59c2f2620a1881f80`.
+This main-branch pointer records the operator's parallel product direction selected on 2026-09-24. It does not supersede another agent's active branch-local task or grant ownership of its checkout or live experiment.
 
-## Primary claim
+## Primary product and active parallel outcome
 
-An exact healthy inventory remains current when immutable Ubuntu setup moves
-the scanner host to a new pathname without changing its verified bytes.
-Missing or changed host bytes still refuse publication.
+The native-Linux DAW bridge remains the primary product to finish. Its current Deck fleet, shared touchscreen work, mixed-product use, manager usability and Ubuntu portability baseline are preserved. Current claims and open mechanisms are in [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md) and [docs/FAILURE_CLASSES.md](docs/FAILURE_CLASSES.md).
 
-## Basis and fixture
+The selected Windows-DAW implementation is [WD0 — managed FL Studio stock-project workflow](docs/WD0.md), governed by [docs/WINDOWS_DAW_WORKSPACES.md](docs/WINDOWS_DAW_WORKSPACES.md). It may proceed in parallel with the native bridge and the separately owned ARM appliance. Coordination and integration rules are in [docs/WORKSTREAMS.md](docs/WORKSTREAMS.md).
 
-- `docs/ARCHITECTURE.md` inventory identity and revisioned publication.
-- `docs/FRG1.md` sealed revision-12 Ubuntu qualification.
-- Ubuntu-lab PR #5 generation
-  `ec2fb7d3ebfba771aa596bcbe20dd6609de3114b57b27834c6633a9b37cfde8e`:
-  service active, exact healthy inventory retained, revision 12 staged, but
-  publication refused `frg1_current_inventory_required` before mutation.
-- The scanner host SHA-256 and source-manifest identity are unchanged; only
-  the software-generation pathname differs from the retained scan.
+WD0 must deliver real install/normal launch, stock-project playback, export, clean relaunch and licensed project recall in a new FL workspace. It is not a Linux VST proxy path and not a generic Windows-program launcher. The operator supplies the official Windows installer; its bytes and local path are not yet admitted by this planning update.
 
-Only `bridge-manager/src/frg1.rs` inventory-current authority and regression,
-plus slice/result documentation, are in scope. No scanner, Wine/Proton runner,
-Windows host, module, native proxy, audio, editor, protocol, profile, or Ubuntu
-sandbox topology change is in scope.
+## This documentation change
 
-## Acceptance and nonclaims
+Base: `05cb957e0174c3437aac8934b89294e57b53308f`, tree `ce720e73fdcbe7b80434ba62d207d6364b5c8654`.
 
-- Both retained and current host artifacts verify, their SHA-256 identities
-  match, and existing source/environment/module checks remain required.
-- Byte-identical relocation succeeds; altered bytes refuse.
-- Manager library/binary tests, strict Clippy, and diff checks pass.
-- Source success is not a physical publication or plug-in result.
+This change updates architecture/process navigation and the WD0 work order only. No manager, runtime, runner, installer, profile, publication, live machine or proprietary input changes. FL Studio remains unqualified.
 
-## Physical continuation
+After review and normal merge, use one WD0 implementation branch from current canonical main. Its `CURRENT_SLICE.md` should name the implementation and evolving result. Do not borrow unmerged Serum or ARM code implicitly, replace the currently working shared bridge service, or repeat native-bridge qualification because this document changed.
 
-After normal merge, update the Ubuntu product lock and wrapper stamp, build and
-install one immutable generation, verify retained inventory/adoption and idle
-ownership, then stage/publish the already built revision 12. Do not rescan.
-If publication passes, continue the bounded Bitwig load/editor/audio/state/
-retirement ladder and restore. Stop at the first new physical failure.
+## Retired task pointer
+
+The former FRG1 verified-scanner-relocation instructions are retained in [the exact pre-WD0 task pointer](https://github.com/kasselvania/Linux-VST-bridge/blob/05cb957e0174c3437aac8934b89294e57b53308f/CURRENT_SLICE.md) and [docs/FRG1.md](docs/FRG1.md). They are historical work, not instructions to reopen the completed Ubuntu bring-up.
