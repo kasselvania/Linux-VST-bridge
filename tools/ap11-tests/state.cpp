@@ -37,9 +37,11 @@ struct Controller final : EditController {
   unsigned synchronizations = 0, invalidations = 0;
   bool invalid_readback = false;
   bool refuse_sync = false, read_before_refusal = false;
+  FixtureComponent *reflected_component = nullptr;
   double readback_value = 0.;
   ParamValue PLUGIN_API getParamNormalized(ParamID id) override {
     return invalid_readback && id == 42 ? readback_value
+         : reflected_component && id == 42 ? reflected_component->value
                                       : EditController::getParamNormalized(id);
   }
   tresult PLUGIN_API initialize(FUnknown *h) override {
@@ -137,6 +139,17 @@ int main() {
   try { linux_vst_bridge::wf0::synchronize_initial(controller,true,kResultOk,partial_sync); }
   catch (const std::runtime_error&) { unsafe_sync = true; }
   check(unsafe_sync,"partial controller consumption cannot be treated as unsupported sync");
+  controller.read_before_refusal = false;
+  component.value = .75;
+  controller.setParamNormalized(42,.75);
+  bool stale_readback = false;
+  try { commercial_state(component,controller,true,&original); }
+  catch (const std::runtime_error&) { stale_readback = true; }
+  check(stale_readback,"unsupported controller sync cannot claim stale readback as restored state");
+  controller.reflected_component = &component;
+  component.value = .75;
+  check(commercial_state(component,controller,true,&original)==original && component.value==.375,
+        "unsupported controller sync can restore when component state and readback agree");
   controller.terminate();
   component.terminate();
   std::cout << "AP11 pure state capture and exactly-once restore "
