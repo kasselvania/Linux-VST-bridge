@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "claim": "First Deck Serum touch-release transition and publication attempt",
+  "reviewed_source": {
+    "head": "b9633b441982863927de8a078dee5c582ef28dfa",
+    "tree": "3f8a275ef263dc4e2b1145bf5980a28983056e30"
+  },
+  "prestate": {
+    "bitwig": "closed",
+    "dsp": 0,
+    "maintenance": 0,
+    "cleanup_unconfirmed": false,
+    "serum_candidate_b": "f6af02eba109d3632b2ecc786f2c9006ec6bc1d433772001d24d2969fb944b44",
+    "serum_revision_b": "6105dee8ac8aa27855fc611abb794e7c",
+    "serum_environment_revision": 1,
+    "rollback_product_generation": "9039c90d71545a7dec197fdace084761cbd4dc50832d9f8424f86826b4d3f780"
+  },
+  "execution": {
+    "successor_runner_tree_verified": "d095f1f052ecebb67c66d685dbd88e373b633b0c3000343a7607c4f1bc4d1920",
+    "installed_product_generation": "d4a08aa5cf9a29ca448b8c4a5c591e44d14e288928e8c0604e936261e5f011ee",
+    "installed_runtime_dispatch_verified": true,
+    "serum_b_withdrawn_by_canonical_route": true,
+    "other_five_publications_unchanged": true,
+    "service_stopped_cleanly_for_transition": true,
+    "transition_completed": true,
+    "transition_result_sha256": "62c4f1fb906589d8b8fb104f3bf2980e563b7d1d0251794e07723ab10c1a54ae",
+    "environment_revision_after": 2,
+    "runner_after": "proton-11.0-2c-x11-touch-release-v1",
+    "runner_policy_after": "x11_touch_release_v1",
+    "candidate_c_actual": "91b699291eb7b7d1ff6e725d5e6fd1abed88ea721dbd81a621dd2fb39d38d207",
+    "candidate_b_bytes_retained": true,
+    "service_restarted_active_idle": true
+  },
+  "first_failure": {
+    "stage": "candidate_c_publication_projection",
+    "action": "experimental_enable",
+    "result": "disabled_historical_candidate_inputs",
+    "installed_default_host_sha256": "5fa0907b045df5ccb993a135fccffe932b365182bec7fa16c1a48a126b1869c2",
+    "installed_default_source_sha256": "268208f352ca21d7b6f4017802db3bfbb7d7081a59358eb72fd84b261b5a123b",
+    "candidate_c_host_sha256": "348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be",
+    "candidate_c_source_sha256": "0ce0ecae2264bab24290712d0e3d2ed9e8c092ce6cb7a521fd0fac71ca010ac3",
+    "candidate_c_scanner_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "candidate_c_scanner_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "inference": "Neither current-host identity branch in verify_candidate accepts this installed product host, so operator projection marks candidate C historical and disables publication.",
+    "publication_request_submitted": false,
+    "serum_session_launched": false,
+    "touch_result": "not_run"
+  },
+  "final_live_state": {
+    "service": "active",
+    "service_result": "success",
+    "service_restarts": 0,
+    "bitwig": "closed",
+    "dsp": 0,
+    "keepers": 0,
+    "maintenance": 0,
+    "cleanup_unconfirmed": false,
+    "serum_publication": "absent",
+    "other_five_publications": "published"
+  },
+  "nonclaims": [
+    "No physical Serum touch test was performed.",
+    "Candidate C is not published or qualified.",
+    "No post-success transition back to candidate B has been demonstrated.",
+    "No rescan, factory census, proxy rebuild, vendor operation, or direct registry edit was performed."
+  ]
+}
