@@ -1,5 +1,40 @@
 # Plug-in reliability and audio I/O follow-up
 
+## Serum waveform touch release, bounded candidate C (2026-09-23)
+
+The accepted Steam Deck input classification for Serum 2 2.1.5, class
+`56534558667350736572756D20320000`, is narrower than the earlier broad
+touch reports below. A mouse/trackpad action on the waveform dropdown passed;
+physical touch on an ordinary Serum control passed; physical touch on that
+dropdown left its editor and popup visible but stopped the editor thread's
+message/menu progress. Bitwig, the Windows host and audio processing remained
+alive. Normal Bitwig close retired the instance. The input method in the first,
+uncontrolled occurrence remains unknown. Its audio delivery gap is not
+attributed to touch. The retained private capture has no raw `WM_POINTERUP`
+high-word, `GetPointerInfo` flag, or XInput Begin/End record; it therefore does
+not independently prove the released pointer's flags.
+
+Exact pinned Wine source `dc26e61847081a1b5cb0733dc30feba6ee575482`
+does show the defect in `X11DRV_RawTouchEvent`: its common flag assignment
+marks `XI_RawTouchEnd` as `INCONTACT` even after mapping it to `WM_POINTERUP`.
+The source correction is limited to that touch message mapping. The
+source-owned test proves Begin and Update still have contact while End does
+not. Candidate C uses a distinct immutable runner and retains candidate B's
+exact factory and selected-class results with explicit predecessor/transition
+provenance. The old factory inventory remains stale under the new environment
+revision; no fresh census is claimed. The currently published candidate B and
+installed runner remain unchanged until bounded source review and one approved
+physical transition. Mixed-six remains separately permitted with mouse input.
+
+The pinned offline Steam Runtime 4 build and private Wine install completed.
+The sealed successor runner has 8,262 entries, 1,447,967,926 regular-file
+bytes and complete-tree SHA-256
+`d095f1f052ecebb67c66d685dbd88e373b633b0c3000343a7607c4f1bc4d1920`.
+Only the x86-64 Unix `winex11.so` and runner version file differ from the
+verified predecessor. An isolated, unlicensed Windows command started and
+retired under the successor without changing its tree. This is a runner
+construction result, not a physical Serum touch-menu pass.
+
 Physical correction update (2026-09-21): the next approved Blackhole attempt
 failed quickly and cleanly before Wine started. Its retained private stderr
 shows pressure-vessel asking Bubblewrap to project the explicit D-Bus denial

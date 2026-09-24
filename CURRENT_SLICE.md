@@ -1,42 +1,49 @@
-# FRG1 verified scanner relocation
+# Serum 2 X11 touch-release reference runner
 
-Base: canonical main merge `55d692f982eb0d03d7656264ecf4f06f5d8293cb`,
-tree `bc5c370164fa344fb6476aa59c2f2620a1881f80`.
+Base: canonical main `32fa422581b29318dd2c4653120ab1b63203192d`, tree
+`4e90a002d8bbca01d9d46283c17947af4c30a62d`.
 
 ## Primary claim
 
-An exact healthy inventory remains current when immutable Ubuntu setup moves
-the scanner host to a new pathname without changing its verified bytes.
-Missing or changed host bytes still refuse publication.
+The exact Proton 11.0-2c / Wine `dc26e618` X11 raw-touch mapping emits
+`WM_POINTERUP` without `INCONTACT`, while Begin and Update retain contact.
+One immutable successor runner and a typed, reversible Serum environment
+transition can select it without mutating the current runner or inventing a
+new factory census.
 
-## Basis and fixture
+## Authority and fixture
 
-- `docs/ARCHITECTURE.md` inventory identity and revisioned publication.
-- `docs/FRG1.md` sealed revision-12 Ubuntu qualification.
-- Ubuntu-lab PR #5 generation
-  `ec2fb7d3ebfba771aa596bcbe20dd6609de3114b57b27834c6633a9b37cfde8e`:
-  service active, exact healthy inventory retained, revision 12 staged, but
-  publication refused `frg1_current_inventory_required` before mutation.
-- The scanner host SHA-256 and source-manifest identity are unchanged; only
-  the software-generation pathname differs from the retained scan.
+- `docs/ARCHITECTURE.md`: runtime identity, managed environment authority,
+  revisioned publication, callback and process isolation.
+- `docs/PLUGIN_RELIABILITY_FOLLOWUP.md`: bounded editor-input reliability.
+- Serum 2 2.1.5, class `56534558667350736572756D20320000`, corrected
+  candidate B as the exact predecessor.
+- Current runner `proton-11.0-2c-25118279-slr4-4.0.20260805.254769`;
+  Proton source `5b89db940e0ebe3a137a6009a3589232fe084c09`, Wine source
+  `dc26e61847081a1b5cb0733dc30feba6ee575482`.
 
-Only `bridge-manager/src/frg1.rs` inventory-current authority and regression,
-plus slice/result documentation, are in scope. No scanner, Wine/Proton runner,
-Windows host, module, native proxy, audio, editor, protocol, profile, or Ubuntu
-sandbox topology change is in scope.
+## Scope and acceptance
 
-## Acceptance and nonclaims
+- One Wine `X11DRV_RawTouchEvent` flag correction and source-owned mapping test.
+- Offline Steam Runtime 4 reference build, immutable full-tree identity,
+  exact changed-artifact roster, unlicensed runner smoke.
+- Existing `experimental_runner` owner gains only the closed
+  `X11TouchReleaseV1` policy. DirectComposition remains unchanged.
+- Candidate C carries candidate B's exact module, factory/class result,
+  Windows host, source manifest, native proxy, descriptor, capability and
+  capacity facts. It records the predecessor and runner-transition provenance.
+  The old factory scan remains stale under the new runner; it is not called a
+  new scan.
+- Manager library/binary and transition tests, strict Clippy, relevant
+  preparation/profile/transaction, AP12 frontend and PX2 checks pass.
 
-- Both retained and current host artifacts verify, their SHA-256 identities
-  match, and existing source/environment/module checks remain required.
-- Byte-identical relocation succeeds; altered bytes refuse.
-- Manager library/binary tests, strict Clippy, and diff checks pass.
-- Source success is not a physical publication or plug-in result.
+## Nonclaims and physical continuation
 
-## Physical continuation
-
-After normal merge, update the Ubuntu product lock and wrapper stamp, build and
-install one immutable generation, verify retained inventory/adoption and idle
-ownership, then stage/publish the already built revision 12. Do not rescan.
-If publication passes, continue the bounded Bitwig load/editor/audio/state/
-retirement ladder and restore. Stop at the first new physical failure.
+No proxy, manager capacity, scanner, publication, audio-buffer or generic
+editor-pump change is in scope. No Serum or other commercial plug-in executes
+during build proof. Candidate B and the installed runner remain rollback.
+The touch-menu defect is not physically closed by source tests. After bounded
+source review, transition the exact idle Serum environment through its owner
+and run one physical Serum session: mouse dropdown, touch ordinary control,
+touch waveform dropdown and selection, editor/audio continuation, and clean
+retirement. The separate mixed-six campaign may use mouse/trackpad meanwhile.

@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "claim": "Serum 2 X11 touch-release source and immutable runner construction",
+  "fixture": {
+    "product": "Serum 2",
+    "version": "2.1.5",
+    "class": "56534558667350736572756D20320000",
+    "predecessor_candidate": "f6af02eba109d3632b2ecc786f2c9006ec6bc1d433772001d24d2969fb944b44"
+  },
+  "retained_capture": {
+    "mouse_waveform_dropdown": "passed",
+    "physical_touch_ordinary_control": "passed",
+    "physical_touch_waveform_dropdown": "editor_menu_froze",
+    "original_uncontrolled_input_method": "unknown",
+    "windows_host_and_audio": "continued",
+    "bridge_terminal_failure": false,
+    "normal_close_retirement": "passed",
+    "raw_touch_begin_end_and_pointer_flags": "unavailable",
+    "audio_gap_causality": "not_attributed"
+  },
+  "pinned_sources": {
+    "proton_distribution": "5b89db940e0ebe3a137a6009a3589232fe084c09",
+    "wine": "dc26e61847081a1b5cb0733dc30feba6ee575482",
+    "wine_tree": "da4b1eb3b7f209eb4a971d4b5929fcda08ff6b4e",
+    "patch_sha256": "3e8fa75ddb3f1dcfa2b7f73a82d97eeaf8bed0a0d3d51eed6afd514ab3b0723a",
+    "offline_sdk_sha256": "97526b794ce1a9bed5f891084462260b3a02399569f7438a3a57b5a253001db9"
+  },
+  "build": {
+    "mapping_test": "passed",
+    "wine_build_exit": 0,
+    "wine_install_exit": 0,
+    "configure_log_sha256": "14c9f84f8a7ddebd005f0dbec7364e8302254b6b3eb33563ee3db1d844e801e3",
+    "build_log_sha256": "8b315a59121c3f993259d77a73dbbc36861ad3defbeb633fe3e8fb1a534b80c2",
+    "install_log_sha256": "e615ced8c5c56b45be7b4f62ed765ee69bb284b0168267f7036874c8d5ae2422"
+  },
+  "immutable_successor": {
+    "runner_id": "proton-11.0-2c-x11-touch-release-v1",
+    "tree_entries": 8262,
+    "tree_regular_bytes": 1447967926,
+    "tree_sha256": "d095f1f052ecebb67c66d685dbd88e373b633b0c3000343a7607c4f1bc4d1920",
+    "candidate_manifest_sha256": "fae8cd0fb0ac35b4574540258346f99a2c104f2ad2b716d65215fcdfb8f15ed3",
+    "changed_artifacts": {
+      "files/lib/wine/x86_64-unix/winex11.so": "c939ed62a6226a2e88827428281f2e934ebb5546fad101bd354a8a64164d00dc",
+      "version": "02c7d4228038717f705757dfd004844015cd329a2fa36af7118dfbd51ee490a9"
+    },
+    "unlicensed_windows_start": "passed",
+    "scope_clean_retirement": "passed",
+    "complete_tree_unchanged_after_smoke": true
+  },
+  "physical_serum_result": "not_run_pending_review",
+  "installed_runner_or_publication_changed": false
+}

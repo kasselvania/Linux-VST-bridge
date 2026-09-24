@@ -136,6 +136,8 @@ impl Artifact {
 pub enum RunnerPolicy {
     #[serde(rename = "dcomp_wine_builtins_reference_v1")]
     DcompWineBuiltinsReferenceV1,
+    #[serde(rename = "x11_touch_release_v1")]
+    X11TouchReleaseV1,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]

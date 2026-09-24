@@ -20,6 +20,8 @@ struct Request {
     retired_class: String,
     expected_removed_publication: publication::RevisionRef,
     candidate_manifest: Artifact,
+    #[serde(default)]
+    predecessor_candidate: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -54,6 +56,81 @@ struct SourceIdentity {
     wine_tree: String,
     wine_configure: Vec<String>,
     wine_inf_sha256: String,
+}
+
+const TOUCH_ENVIRONMENT: &str = "4db060b14388e41103834fc4dfdd023a";
+const TOUCH_CLASS: &str = "56534558667350736572756D20320000";
+const TOUCH_BASE_RUNNER: &str = "proton-11.0-2c-25118279-slr4-4.0.20260805.254769";
+const TOUCH_RUNNER: &str = "proton-11.0-2c-x11-touch-release-v1";
+const TOUCH_PROTON_SOURCE: &str = "5b89db940e0ebe3a137a6009a3589232fe084c09";
+const TOUCH_WINE_SOURCE: &str = "dc26e61847081a1b5cb0733dc30feba6ee575482";
+const TOUCH_WINE_TREE: &str = "da4b1eb3b7f209eb4a971d4b5929fcda08ff6b4e";
+const TOUCH_PATCH_SHA256: &str = "3e8fa75ddb3f1dcfa2b7f73a82d97eeaf8bed0a0d3d51eed6afd514ab3b0723a";
+const TOUCH_PATCHED_MOUSE_SHA256: &str = "d7a76c5d9769f2abb4eefed56293d1ce83fbbce87eab2ca9d4fef4316cc43131";
+const TOUCH_HEADER_SHA256: &str = "ff549851137e2ec4eaacbdb1960c5b25771bafe519cbe008da702b9b261f73a9";
+const TOUCH_SDK_SHA256: &str = "97526b794ce1a9bed5f891084462260b3a02399569f7438a3a57b5a253001db9";
+const TOUCH_BASE_PROTON_SHA256: &str =
+    "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad";
+const TOUCH_BASE_ENTRY_SHA256: &str =
+    "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1";
+const TOUCH_TREE_SHA256: &str = "d095f1f052ecebb67c66d685dbd88e373b633b0c3000343a7607c4f1bc4d1920";
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TouchSourceIdentity {
+    proton_distribution_source_commit: String,
+    wine_commit: String,
+    wine_tree: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TouchCandidateManifest {
+    schema: u32,
+    kind: String,
+    environment: String,
+    base_runner_id: String,
+    base_runner_sha256: String,
+    source: TouchSourceIdentity,
+    patch: Artifact,
+    build_receipt: Artifact,
+    root: PathBuf,
+    tree: TreeIdentity,
+    runner: Runner,
+    changed_artifacts: BTreeMap<String, Artifact>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TouchBuildReceipt {
+    schema: u32,
+    proton_distribution_source_commit: String,
+    wine_commit: String,
+    wine_tree: String,
+    patch_sha256: String,
+    patched_mouse_sha256: String,
+    touch_header_sha256: String,
+    sdk_image_sha256: String,
+    configure: Vec<String>,
+    install_prefix: PathBuf,
+    configure_log: Artifact,
+    build_log: Artifact,
+    install_log: Artifact,
+    changed_artifacts: BTreeMap<String, String>,
+    candidate_tree_sha256: String,
+    mapping_test_passed: bool,
+    build_passed: bool,
+    unlicensed_smoke_passed: bool,
+    unlicensed_smoke_initialize_exit: i32,
+    unlicensed_smoke_cmd_exit: i32,
+    unlicensed_smoke_cleanup_confirmed: bool,
+    wow64_no_i386_unix_driver: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CandidateKind {
+    Dcomp,
+    X11TouchRelease,
 }
 
 fn verify_tree(root: &Path, expected: &TreeIdentity) -> Result<()> {
@@ -125,7 +202,7 @@ fn verify_tree(root: &Path, expected: &TreeIdentity) -> Result<()> {
     )
 }
 
-fn candidate(manifest: &Artifact) -> Result<(Runner, String, String)> {
+fn dcomp_candidate(manifest: &Artifact) -> Result<(Runner, String, String)> {
     manifest.verify()?;
     let c: CandidateManifest = read_json(&manifest.path)?;
     require(
@@ -198,6 +275,115 @@ fn candidate(manifest: &Artifact) -> Result<(Runner, String, String)> {
     Ok((runner, c.tree.sha256, c.base_runner_sha256))
 }
 
+fn touch_candidate(manifest: &Artifact) -> Result<(Runner, String, String)> {
+    manifest.verify()?;
+    let c: TouchCandidateManifest = read_json(&manifest.path)?;
+    require(
+        c.schema == 1
+            && c.kind == "x11_touch_release_reference_runner"
+            && c.environment == TOUCH_ENVIRONMENT
+            && c.base_runner_id == TOUCH_BASE_RUNNER
+            && valid_hex(&c.base_runner_sha256, 64)
+            && c.source.proton_distribution_source_commit == TOUCH_PROTON_SOURCE
+            && c.source.wine_commit == TOUCH_WINE_SOURCE
+            && c.source.wine_tree == TOUCH_WINE_TREE
+            && c.patch.sha256 == TOUCH_PATCH_SHA256
+            && c.tree.schema == 1
+            && c.tree.entries == 8_262
+            && c.tree.regular_bytes == 1_447_967_926
+            && c.tree.sha256 == TOUCH_TREE_SHA256
+            && c.runner.id == TOUCH_RUNNER
+            && c.runner.version
+                == "1788504981 proton-11.0-2c-x86_64+x11-touch-release-v1; SLR 4.0.20260805.254769"
+            && c.runner.files.len() == 32
+            && c.runner.policy.is_none()
+            && c.root.is_absolute()
+            && c.root.canonicalize()? == c.root,
+        "experimental_runner_touch_manifest",
+    )?;
+    c.patch.verify()?;
+    verify_tree(&c.root, &c.tree)?;
+    let expected_paths: std::collections::BTreeSet<_> = [
+        "version",
+        "files/lib/wine/x86_64-unix/winex11.so",
+    ]
+    .into_iter()
+    .collect();
+    require(
+        c.changed_artifacts
+            .keys()
+            .map(String::as_str)
+            .collect::<std::collections::BTreeSet<_>>()
+            == expected_paths,
+        "experimental_runner_touch_artifacts",
+    )?;
+    for (relative, artifact) in &c.changed_artifacts {
+        artifact.verify()?;
+        require(
+            artifact.path == c.root.join(relative) && c.runner.files.contains(artifact),
+            "experimental_runner_touch_artifacts",
+        )?;
+    }
+    c.build_receipt.verify()?;
+    let receipt: TouchBuildReceipt = read_json(&c.build_receipt.path)?;
+    receipt.configure_log.verify()?;
+    receipt.build_log.verify()?;
+    receipt.install_log.verify()?;
+    require(
+        receipt.schema == 1
+            && receipt.proton_distribution_source_commit == TOUCH_PROTON_SOURCE
+            && receipt.wine_commit == TOUCH_WINE_SOURCE
+            && receipt.wine_tree == TOUCH_WINE_TREE
+            && receipt.patch_sha256 == TOUCH_PATCH_SHA256
+            && receipt.patched_mouse_sha256 == TOUCH_PATCHED_MOUSE_SHA256
+            && receipt.touch_header_sha256 == TOUCH_HEADER_SHA256
+            && receipt.sdk_image_sha256 == TOUCH_SDK_SHA256
+            && receipt.configure == ["--enable-archs=i386,x86_64"]
+            && receipt.install_prefix == c.build_receipt.path.parent().ok_or("experimental_runner_touch_build_receipt")?.join("stage")
+            && receipt.configure_log.path == c.build_receipt.path.parent().ok_or("experimental_runner_touch_build_receipt")?.join("configure.private.log")
+            && receipt.build_log.path == c.build_receipt.path.parent().ok_or("experimental_runner_touch_build_receipt")?.join("build.private.log")
+            && receipt.install_log.path == c.build_receipt.path.parent().ok_or("experimental_runner_touch_build_receipt")?.join("install.private.log")
+            && receipt.candidate_tree_sha256 == c.tree.sha256
+            && receipt.mapping_test_passed
+            && receipt.build_passed
+            && receipt.unlicensed_smoke_passed
+            && receipt.unlicensed_smoke_initialize_exit == 0
+            && receipt.unlicensed_smoke_cmd_exit == 0
+            && receipt.unlicensed_smoke_cleanup_confirmed
+            && receipt.wow64_no_i386_unix_driver
+            && receipt.changed_artifacts
+                == c.changed_artifacts
+                    .iter()
+                    .map(|(path, artifact)| (path.clone(), artifact.sha256.clone()))
+                    .collect(),
+        "experimental_runner_touch_build_receipt",
+    )?;
+    require(
+        c.runner.proton.canonicalize()?.starts_with(&c.root),
+        "experimental_runner_proton_root",
+    )?;
+    let mut runner = c.runner;
+    runner.policy = Some(RunnerPolicy::X11TouchReleaseV1);
+    runner.verify()?;
+    Ok((runner, c.tree.sha256, c.base_runner_sha256))
+}
+
+fn candidate(manifest: &Artifact) -> Result<(CandidateKind, Runner, String, String)> {
+    manifest.verify()?;
+    let value: Value = read_json(&manifest.path)?;
+    match value.get("kind").and_then(Value::as_str) {
+        Some("blackhole_dcomp_reference_runner") => {
+            let (runner, tree, base) = dcomp_candidate(manifest)?;
+            Ok((CandidateKind::Dcomp, runner, tree, base))
+        }
+        Some("x11_touch_release_reference_runner") => {
+            let (runner, tree, base) = touch_candidate(manifest)?;
+            Ok((CandidateKind::X11TouchRelease, runner, tree, base))
+        }
+        _ => Err("experimental_runner_manifest_kind".into()),
+    }
+}
+
 fn canonical_runner_key(runner: &Runner) -> Result<String> {
     Ok(hex(&sha2::Sha256::digest(serde_json::to_vec(
         &serde_json::to_value(runner)?,
@@ -224,7 +410,75 @@ fn require_base_runner(before: &Runner, candidate: &Runner) -> Result<()> {
     )
 }
 
-fn advance(before: &Environment, request: &Request, runner: Runner) -> Result<Environment> {
+fn require_touch_runner_mapping(before: &Runner, after: &Runner) -> Result<()> {
+    require(
+        before.id == TOUCH_BASE_RUNNER
+            && before.policy.is_none()
+            && after.id == TOUCH_RUNNER
+            && after.policy == Some(RunnerPolicy::X11TouchReleaseV1)
+            && before
+                .files
+                .iter()
+                .any(|file| file.path == before.proton && file.sha256 == TOUCH_BASE_PROTON_SHA256)
+            && before.files.iter().any(|file| {
+                file.path == before.entry_point && file.sha256 == TOUCH_BASE_ENTRY_SHA256
+            }),
+        "experimental_runner_touch_base",
+    )?;
+    let before_root = before
+        .proton
+        .parent()
+        .ok_or("experimental_runner_touch_base")?;
+    let after_root = after
+        .proton
+        .parent()
+        .ok_or("experimental_runner_touch_base")?;
+    let actual: BTreeMap<_, _> = after
+        .files
+        .iter()
+        .map(|file| (file.path.clone(), file.sha256.clone()))
+        .collect();
+    require(
+        actual.len() == after.files.len(),
+        "experimental_runner_touch_roster",
+    )?;
+    let mut expected = BTreeMap::new();
+    for file in &before.files {
+        let path = match file.path.strip_prefix(before_root) {
+            Ok(relative) => after_root.join(relative),
+            Err(_) => file.path.clone(),
+        };
+        let hash = if path == after_root.join("version") {
+            let value = actual
+                .get(&path)
+                .ok_or("experimental_runner_touch_roster")?;
+            require(value != &file.sha256, "experimental_runner_touch_version")?;
+            value.clone()
+        } else {
+            file.sha256.clone()
+        };
+        require(
+            expected.insert(path, hash).is_none(),
+            "experimental_runner_touch_roster",
+        )?;
+    }
+    let path = after_root.join("files/lib/wine/x86_64-unix/winex11.so");
+    let hash = actual
+        .get(&path)
+        .ok_or("experimental_runner_touch_roster")?;
+    require(
+        expected.insert(path, hash.clone()).is_none(),
+        "experimental_runner_touch_roster",
+    )?;
+    require(expected == actual, "experimental_runner_touch_roster")
+}
+
+fn advance(
+    before: &Environment,
+    request: &Request,
+    runner: Runner,
+    policy: RunnerPolicy,
+) -> Result<Environment> {
     require(
         request.schema == 1
             && request.environment == before.id
@@ -235,8 +489,7 @@ fn advance(before: &Environment, request: &Request, runner: Runner) -> Result<En
         "experimental_runner_stale_request",
     )?;
     require(
-        runner.policy == Some(RunnerPolicy::DcompWineBuiltinsReferenceV1)
-            && runner != before.runner,
+        runner.policy == Some(policy) && runner != before.runner,
         "experimental_runner_unchanged_or_untyped",
     )?;
     let mut after = before.clone();
@@ -302,7 +555,21 @@ pub fn update(m: &Manager, input: &Path) -> Result<()> {
         valid_hex(&request.environment, 32),
         "experimental_runner_environment",
     )?;
-    let (runner, tree_sha256, base_runner_sha256) = candidate(&request.candidate_manifest)?;
+    let (kind, runner, tree_sha256, base_runner_sha256) = candidate(&request.candidate_manifest)?;
+    let policy = match kind {
+        CandidateKind::Dcomp => RunnerPolicy::DcompWineBuiltinsReferenceV1,
+        CandidateKind::X11TouchRelease => RunnerPolicy::X11TouchReleaseV1,
+    };
+    if kind == CandidateKind::X11TouchRelease {
+        require(
+            request.environment == TOUCH_ENVIRONMENT
+                && request.retired_class == TOUCH_CLASS
+                && request.predecessor_candidate.as_deref() == Some(preparation::SERUM_TOUCH_PREDECESSOR),
+            "experimental_runner_touch_selection",
+        )?;
+    } else {
+        require(request.predecessor_candidate.is_none(), "experimental_runner_dcomp_request")?;
+    }
 
     let _service = m.lock("service.lock")?;
     let _canonical = m.lock("operator-canonical.lock")?;
@@ -365,7 +632,24 @@ pub fn update(m: &Manager, input: &Path) -> Result<()> {
         "experimental_runner_candidate_base_changed",
     )?;
     require_base_runner(&before.runner, &runner)?;
-    let after = advance(&before, &request, runner)?;
+    if kind == CandidateKind::X11TouchRelease {
+        require_touch_runner_mapping(&before.runner, &runner)?;
+    }
+    let after = advance(&before, &request, runner, policy)?;
+    let predecessor = if kind == CandidateKind::X11TouchRelease {
+        let prior = preparation::retained_candidates(m)?
+            .into_iter()
+            .find(|candidate| candidate.id().is_ok_and(|id| id == preparation::SERUM_TOUCH_PREDECESSOR))
+            .ok_or("experimental_runner_touch_predecessor_absent")?;
+        require(
+            prior.selection.environment == before
+                && prior.selection.class.id == TOUCH_CLASS
+                && prior.origin == preparation::Origin::ManagedPreparation,
+            "experimental_runner_touch_predecessor",
+        )?;
+        preparation::verify_candidate(m, &prior, &prior.selection.scanner, &prior.selection.scanner_source)?;
+        Some(prior)
+    } else { None };
     let registry_path = m.root.join("registry.json");
     let mut registry = m.registry()?;
     require(
@@ -385,10 +669,14 @@ pub fn update(m: &Manager, input: &Path) -> Result<()> {
         (record.clone(), fs::read(&record)?),
         (registry_path.clone(), fs::read(&registry_path)?),
     ];
-    let backup = m
-        .root
-        .join("private-rollback")
-        .join(format!("experimental-runner-{}", random_id()?));
+    let backup = m.root.join("private-rollback").join(match kind {
+        CandidateKind::Dcomp => format!("experimental-runner-{}", random_id()?),
+        CandidateKind::X11TouchRelease => format!("experimental-runner-touch-{}", before.id),
+    });
+    require(
+        fs::symlink_metadata(&backup).is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound),
+        "experimental_runner_rollback_exists",
+    )?;
     private_dir(&backup)?;
     for (path, bytes) in &originals {
         let name = path.file_name().ok_or("experimental_runner_backup_name")?;
@@ -454,27 +742,67 @@ pub fn update(m: &Manager, input: &Path) -> Result<()> {
         )?;
         return Err(error);
     }
-    atomic_json(
-        &backup.join("result.json"),
-        &json!({
+    let complete = (|| -> Result<Option<String>> {
+        let result = backup.join("result.json");
+        let mut record = json!({
             "schema": 1,
             "state": "completed",
             "environment": after.id,
             "revision": after.revision,
             "runner_sha256": onboarding::runner_key(&after.runner)?,
             "candidate_manifest_sha256": request.candidate_manifest.sha256
-        }),
-    )?;
-    println!(
-        "{}",
-        json!({
-            "environment": after.id,
-            "revision": after.revision,
-            "runner": after.runner.id,
-            "runner_policy": after.runner.policy,
-            "rollback": backup
-        })
-    );
+        });
+        if predecessor.is_some() {
+            record["carried_predecessor"] = json!(preparation::SERUM_TOUCH_PREDECESSOR);
+        }
+        if predecessor.is_some() {
+            // A kill between environment advance and candidate materialization
+            // must not leave a falsely completed transition receipt.
+            let mut pending = record.clone();
+            pending["state"] = json!("candidate_pending");
+            atomic_json(&result, &pending)?;
+        } else {
+            atomic_json(&result, &record)?;
+        }
+        if let Some(prior) = predecessor {
+            let mut expected_result_bytes = serde_json::to_vec(&record)?;
+            expected_result_bytes.push(b'\n');
+            let candidate = preparation::touch_successor(
+                &prior,
+                &after,
+                preparation::TouchCarryForward {
+                    predecessor: preparation::SERUM_TOUCH_PREDECESSOR.into(),
+                    transition: Artifact { path: result.clone(), sha256: hex(&sha2::Sha256::digest(&expected_result_bytes)) },
+                    runner_manifest: request.candidate_manifest.clone(),
+                },
+            )?;
+            let id = preparation::record_candidate_with_predecessor(m, &candidate, Some(preparation::SERUM_TOUCH_PREDECESSOR))?;
+            atomic_json(&result, &record)?;
+            preparation::verify_candidate(m, &candidate, &candidate.host, &candidate.source_manifest.sha256)?;
+            Ok(Some(id))
+        } else {
+            Ok(None)
+        }
+    })();
+    let successor = match complete {
+        Ok(value) => value,
+        Err(error) => {
+            for (path, bytes) in &originals { restore(path, bytes)?; }
+            atomic_json(&backup.join("result.json"), &json!({"schema":1,"state":"rolled_back","error":error.to_string()}))?;
+            return Err(error);
+        }
+    };
+    let mut output = json!({
+        "environment": after.id,
+        "revision": after.revision,
+        "runner": after.runner.id,
+        "runner_policy": after.runner.policy,
+        "rollback": backup
+    });
+    if let Some(id) = successor {
+        output["candidate_c"] = json!(id);
+    }
+    println!("{output}");
     Ok(())
 }
 
@@ -498,6 +826,7 @@ mod tests {
                 path: "/unused".into(),
                 sha256: "cd".repeat(32),
             },
+            predecessor_candidate: None,
         }
     }
 
@@ -512,7 +841,13 @@ mod tests {
         let mut next = before.runner.clone();
         next.id = "dcomp-reference".into();
         next.policy = Some(RunnerPolicy::DcompWineBuiltinsReferenceV1);
-        let after = advance(&before, &request(&before), next).unwrap();
+        let after = advance(
+            &before,
+            &request(&before),
+            next,
+            RunnerPolicy::DcompWineBuiltinsReferenceV1,
+        )
+        .unwrap();
         assert_eq!(after.id, before.id);
         assert_eq!(after.root, before.root);
         assert_eq!(after.revision, before.revision + 1);
@@ -523,18 +858,94 @@ mod tests {
         let mut stale = request(&before);
         stale.expected_revision += 1;
         assert_eq!(
-            advance(&before, &stale, after.runner.clone())
-                .unwrap_err()
-                .to_string(),
+            advance(
+                &before,
+                &stale,
+                after.runner.clone(),
+                RunnerPolicy::DcompWineBuiltinsReferenceV1,
+            )
+            .unwrap_err()
+            .to_string(),
             "experimental_runner_stale_request"
         );
         let mut untyped = after.runner;
         untyped.policy = None;
         assert_eq!(
-            advance(&before, &request(&before), untyped)
+            advance(
+                &before,
+                &request(&before),
+                untyped,
+                RunnerPolicy::DcompWineBuiltinsReferenceV1,
+            )
+            .unwrap_err()
+            .to_string(),
+            "experimental_runner_unchanged_or_untyped"
+        );
+    }
+
+    #[test]
+    fn touch_successor_preserves_base_roster_and_changes_only_declared_files() {
+        let fixture = test_fixture::Fixture::new();
+        let mut before = fixture.r.environment.runner.clone();
+        before.id = TOUCH_BASE_RUNNER.into();
+        before.proton = "/old/proton".into();
+        before.entry_point = "/runtime/entry".into();
+        before.files = vec![
+            Artifact {
+                path: before.proton.clone(),
+                sha256: TOUCH_BASE_PROTON_SHA256.into(),
+            },
+            Artifact {
+                path: before.entry_point.clone(),
+                sha256: TOUCH_BASE_ENTRY_SHA256.into(),
+            },
+            Artifact {
+                path: "/old/version".into(),
+                sha256: "aa".repeat(32),
+            },
+            Artifact {
+                path: "/old/files/bin/wine".into(),
+                sha256: "bb".repeat(32),
+            },
+        ];
+        let mut after = before.clone();
+        after.id = TOUCH_RUNNER.into();
+        after.policy = Some(RunnerPolicy::X11TouchReleaseV1);
+        after.proton = "/new/proton".into();
+        after.files = vec![
+            Artifact {
+                path: after.proton.clone(),
+                sha256: TOUCH_BASE_PROTON_SHA256.into(),
+            },
+            before.files[1].clone(),
+            Artifact {
+                path: "/new/version".into(),
+                sha256: "cc".repeat(32),
+            },
+            Artifact {
+                path: "/new/files/bin/wine".into(),
+                sha256: "bb".repeat(32),
+            },
+            Artifact {
+                path: "/new/files/lib/wine/x86_64-unix/winex11.so".into(),
+                sha256: "ee".repeat(32),
+            },
+        ];
+        require_touch_runner_mapping(&before, &after).unwrap();
+        after.files[3].sha256 = "ff".repeat(32);
+        assert_eq!(
+            require_touch_runner_mapping(&before, &after)
                 .unwrap_err()
                 .to_string(),
-            "experimental_runner_unchanged_or_untyped"
+            "experimental_runner_touch_roster"
+        );
+        after.files[3].sha256 = "bb".repeat(32);
+        after.files.pop();
+        assert_eq!(
+            require_touch_runner_mapping(&before, &after)
+                .unwrap_err()
+                .to_string(),
+            "experimental_runner_touch_roster"
         );
     }
 
