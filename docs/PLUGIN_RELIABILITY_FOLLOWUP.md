@@ -22,9 +22,9 @@ source-owned test proves Begin and Update still have contact while End does
 not. Candidate C uses a distinct immutable runner and retains candidate B's
 exact factory and selected-class results with explicit predecessor/transition
 provenance. The old factory inventory remains stale under the new environment
-revision; no fresh census is claimed. The currently published candidate B and
-installed runner remain unchanged until bounded source review and one approved
-physical transition. Mixed-six remains separately permitted with mouse input.
+revision; no fresh census is claimed. At source-review time candidate B and
+the installed runner were unchanged pending an approved physical transition.
+Mixed-six remained separately permitted with mouse input.
 
 The pinned offline Steam Runtime 4 build and private Wine install completed.
 The sealed successor runner has 8,262 entries, 1,447,967,926 regular-file
@@ -39,6 +39,28 @@ sealed runner manifest computes prospective candidate C
 `91b699291eb7b7d1ff6e725d5e6fd1abed88ea721dbd81a621dd2fb39d38d207`.
 That preview did not reverify runner files; the transition owner will do so
 before any environment mutation.
+
+Physical transition update (2026-09-23): the first package used the prior
+default host, so the manager correctly disabled candidate C as historical
+before publication. The [first attempt](../evidence/serum-x11-touch-release/physical-attempt-001.json)
+retains that mismatch. An immutable replacement package reused the exact
+candidate B/C preparation host and source manifest without rebuilding either.
+The manager then marked C current and explicitly published revision
+`807828d4b94fccd69e57c352a60dbcd1` under successor runner
+`proton-11.0-2c-x11-touch-release-v1`; the other five publications stayed
+selected.
+
+The [one physical Serum session](../evidence/serum-x11-touch-release/physical-attempt-002.json)
+passed mouse waveform-menu use and finger use of an ordinary control. The first
+finger contact on the waveform menu left it unable to select/dismiss and the
+editor unresponsive, while a following note remained audible. After Serum went
+behind Bitwig and returned to the front, the operator reported that its editor
+became responsive again. Later taps were uncontrolled and are not counted as
+additional trials. Bitwig closed normally; the DSP host, editor, transport and
+lease retired, with one expected environment keeper remaining. No `WM_POINTERUP`
+flags or instrumented editor heartbeat were retained in this run, so the source
+flag fix is **not** claimed as a physical touch-menu repair. One audio gap was
+recorded but is not attributed to the touch action. PR #151 remains draft.
 
 Physical correction update (2026-09-21): the next approved Blackhole attempt
 failed quickly and cleanly before Wine started. Its retained private stderr
