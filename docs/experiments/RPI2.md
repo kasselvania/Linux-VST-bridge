@@ -1551,7 +1551,7 @@ Results: `evidence/rpi2/pigments-fex-stats.json`.
 
 ## Optimization options retained after the FEX check
 
-The next comparison changes vendor processing quantum 256 to 512, keeping 48 kHz,
+The completed comparison changed vendor processing quantum 256 to 512, keeping 48 kHz,
 JACK 512 and reserve 2048. Larger calls may reduce fixed overhead per rendered
 second; they do not establish adequate throughput or repair backlog recovery.
 The private candidate uses map v2/capacity 512, with quantum selected separately.
@@ -1559,7 +1559,7 @@ Default builds and the installed original binaries retain their previous layout.
 
 | Option | Evidence and next useful decision | Why other changes wait |
 | --- | --- | --- |
-| Processing block size | Compare the same candidate256 / 512 / 256 with actual audio and completed calls/frames. | Current bounded experiment; keep reserve and sound fixed. |
+| Processing block size | Compared the same candidate 256 / 512 / 256 with actual audio and completed calls/frames. | Completed below without a demonstrated efficiency win; keep as a selectable experiment. |
 | Bridge work per call | Native phase tracing OFF removed its recorder but did not materially reduce sustained vendor CPU. Examine copies, validation, wakeups, allocation, logging and release-build work if larger blocks help. | Measure which side consumes time before optimizing it. |
 | Scheduling and CPU placement | Audio caller and Pigments worker already consume different cores. Compare execution with runnable/wait time, JACK policy, Wine/MMCSS mapping, priority and migration. | Blind affinity can take cores away from plugin workers. |
 | Governor, cooling and power | Latest failed repeat was around 2.4 GHz, peak 51.8°C with no flags. Earlier governor comparison was not completed. | Thermal failure is not established here; sustained energy/thermal work remains separate. |
@@ -1571,3 +1571,78 @@ Default builds and the installed original binaries retain their previous layout.
 | Controller, preset and state lifecycle | Fullstate includes settings that override startup preferences. Headless navigation and recall need their own correct lifecycle. | Visible editor or audible startup does not prove these semantics. |
 | Memory and asset loading | Page faults, swap, working set, sample I/O and cache locality remain possible resource leads. | Investigate if measurements point there; no blind DSP/denormal changes. |
 | Later product tradeoffs | Measure roundtrip latency, reserve/JACK size, sample rate, quality, unison, polyphony, effects and instance count explicitly. | These change latency, workload or sound; portable power and sustained tests remain distinct. |
+
+## Vendor quantum 256 / 512 / 256: no demonstrated efficiency win
+
+The same private native/Windows pair completed three headless sessions using
+24 AM, Poly 4, master 0.35, four held notes, 48 kHz, JACK 512 and reserve 2048.
+The editor stayed closed and native phase tracing stayed off. Windows setup
+reported maxima 256 / 512 / 256; completed-frame/call ratios independently
+matched those values exactly. Vendor-reported latency remained 48 samples.
+
+| Repeated capture | First 256 | 512 | Last 256 |
+| --- | ---: | ---: | ---: |
+| Missing delivery frames, whole pass | 4,352 | 80,896 | 618,752 |
+| Reported gaps, whole pass | 17 | 1 | 11 |
+| Exact-zero frames during held 2–14 s | 4,352 | 80,896 | 560,640 |
+| Pigments host CPU, % of one core during hold | 143.78% | 144.72% | 150.57% |
+| Separate Arturia-named process CPU, same window | 0.49% | 0.49% | 0.51% |
+| Native transport CPU, same window | 3.80% | 3.57% | 3.97% |
+| Windows audio-calling thread CPU, same window | 94.54% | 94.50% | 97.62% |
+| Pigments processing worker CPU, same window | 44.60% | 45.57% | 48.03% |
+| Peak temperature across all samples | 51.25°C | 51.25°C | 54.0°C |
+
+The first repeated 256 capture had seventeen 256-frame zero runs between
+2.533 and 2.709 seconds. The 512 capture had one continuous zero run from
+3.797 to 5.483 seconds. The last 256 capture had ten short runs followed by
+continuous silence from 2.373 to 15.211 seconds, extending beyond note release.
+The same 256 condition therefore varied substantially across sessions.
+
+Warm-ups were also failures: both 256 captures were silent throughout the
+12-second hold; the 512 warm-up contained 94,976 exact-zero held frames.
+Warm-up delivery losses were 643,584 / 92,672 / 678,912 frames. The separate
+Arturia-named process used 19.66% / 7.66% / 23.56% of one core during those
+warm-up holds, unlike its low usage in all three repeated holds. Its activity
+cannot explain the last repeated failure by itself.
+
+No run reported a thermal/power flag, callback deadline miss, process failure
+or JACK xrun. Those counters plainly did not establish continuous output.
+The 512 repeated capture included a 1.9 GHz sample at graph-observation +4.176 s,
+inside its silence interval, and another at +14.225 s. The other repeated held
+windows sampled approximately 2.4 GHz. Frequency variation remains a possible
+contributor; it does not explain the last 256 failure at sampled full clock.
+Sampling does not prove clock constancy between observations.
+
+Larger processing calls worked correctly, but this comparison does not show a
+reliable CPU or audio improvement. Do not promote 512 as a fix. CPU comparisons
+use common wall windows, not a falsely matched cohort of executed DSP blocks.
+The next useful experiment is a small execution-versus-scheduler-wait comparison
+at controlled frequency, preserving this patch and runtime. Backlog recovery
+remains a separate usability problem. No further live run was made in this slice.
+
+The native candidate built in 20.61 seconds; the existing Windows host-only job
+completed in 99 seconds. Source commit `9a0ac94` identifies both builds; the
+native build manifest records the deliberately preserved installed `panel.rs`
+difference. Default builds keep map v1/capacity 256; only the private candidates
+use map v2/capacity 512, with a separate processing-quantum selector. Focused
+native and portable C++ tests covered layout mismatch, negotiated bounds,
+partial/zero blocks, note/parameter boundaries, delayed output, returned-note
+expiry and terminal refusal. These tests are distinct from the six captures.
+
+The first launch attempt was refused before runtime startup because the original
+launcher permitted only its original executable basename. A separately pinned
+launcher accepting exactly the candidate basename corrected this; no original
+launcher, runtime, prefix or activation change was needed, and no rebuild was
+performed. That failed attempt is retained.
+
+All three completed sessions restored the original 8-Bit Crystals state and
+master level. Preference bytes and metadata, original native/Windows binaries,
+source files, launcher, governor, scheduler-stat setting and JACK graph were
+restored or remained unchanged. No owned runtime was left running; final idle
+readback was 47.2°C with flags zero. This is not a battery-energy measurement.
+
+Sanitized results, source/build identities, exact clock samples, audio hashes,
+CPU windows and cleanup are retained in
+[`pigments-vendor-quantum-comparison.json`](../../evidence/rpi2/pigments-vendor-quantum-comparison.json).
+Proprietary audio recordings and state remain private. Draft PR #152 is stacked
+on #150; neither a merge nor default installation is claimed.

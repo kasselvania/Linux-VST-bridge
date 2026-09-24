@@ -28,7 +28,7 @@ def reduce(directory):
              'restored_master_confirmed':any('normalized=0.48033079504966736 ' in v for v in c.get('restored_master',[])),
              'session':{k:session[k] for k in ['ready','ready_seconds','elapsed_seconds','exit_code','clean_shutdown'] if k in session},
              'drain_checks':[{'outstanding_frames_estimate':r['outstanding_frames_estimate'],'request_elapsed_ns':r['request_elapsed_ns']} for r in c.get('drain_checks',[])]}
-        row['session'].update(temperature_peak_c=max((s['temperature_c'] for s in session.get('samples',[])),default=None),
+        row['session'].update(temperature_peak_c=max([s['temperature_c'] for s in session.get('samples',[])]+[s['temperature_c'] for t in c['trials'] for s in t.get('samples',[])],default=None),
             throttled_flags=sorted(set(s['throttled'] for s in session.get('samples',[]))),
             graph_restored=bool(session.get('jack_graph_after')) and not any('lvb-' in s or s.startswith(' ') for s in session['jack_graph_after'].splitlines()))
         setup=directory/(c['condition']+'-windows-setup.json')
@@ -45,6 +45,7 @@ def reduce(directory):
             trial['audio']=audio(capture);trial['zero_runs']=zero_runs(capture)
             anchor=t['graph_observed_ns']
             trial['common_wall_windows']={name:common_cpu(t['samples'],anchor+int(a*1e9),anchor+int(b*1e9)) for name,(a,b) in WINDOWS.items()}
+            trial['clock_samples_below_2390mhz']=[{'seconds_after_graph_observation':(v['monotonic_ns']-anchor)/1e9,'arm_clock_hz':v['arm_clock_hz'],'temperature_c':v['temperature_c'],'throttled':v['throttled']} for v in t['samples'] if v['arm_clock_hz']<2_390_000_000]
             trial.update(held_process_cpu(t,c['pigments_pid']))
         out['conditions'].append(row)
     return out
