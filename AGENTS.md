@@ -2,7 +2,7 @@
 
 ## Goal
 
-Build a usable Windows plug-in bridge for native Linux music applications. The user should not have to administer Wine prefixes, proxies, runtime versions or recovery machinery to make music. Steam Deck, Bitwig and AGain are current fixtures, not the limits of the product.
+Build a usable Windows plug-in bridge for native Linux music applications as the primary release-driving product. Extend the same canonical management platform with separately scoped Windows DAW workspaces and the existing ARM appliance work. The user should not have to administer Wine prefixes, proxies, runtime versions or recovery machinery to make music. Steam Deck, Bitwig and AGain are fixtures, not the limits of the product.
 
 ## Work to an outcome
 
@@ -17,6 +17,14 @@ The operator's current instruction takes precedence over repository process docu
 Before a plug-in-specific repair, inspect `docs/FAILURE_CLASSES.md` and `docs/SUPPORT_MATRIX.md` alongside `CURRENT_SLICE.md`. Product-specific code needs evidence that the shared boundary was selected or ruled out.
 
 Update the relevant card and matrix row in the same PR whenever understanding, fix stage, deployment, physical coverage, workaround, or support posture changes. Keep source correction, built artifact, profile/candidate, installed generation, and physical result distinct. Do not generalize a product result to another product or assign a shared cause to an older report without evidence.
+
+## Execution lanes and parallel work
+
+Use [docs/WORKSTREAMS.md](docs/WORKSTREAMS.md) for work allocation and [docs/WINDOWS_DAW_WORKSPACES.md](docs/WINDOWS_DAW_WORKSPACES.md) for the Windows DAW architecture extension. The native bridge remains primary; [WD0](docs/WD0.md) is the selected parallel FL Studio implementation. Do not wait for every native-bridge limitation to close before WD0, or delay native product completion behind FL/Ableton/ARM scope.
+
+One canonical management implementation serves different execution lanes. A Windows DAW hosts Windows plug-ins directly in its own coherent workspace; do not insert the Linux proxy or inherit its DSP-count/added-delay claims. Reuse ownership and installer primitives without weakening closed vendor-app selectors into arbitrary execution.
+
+Each branch owns its own task pointer and each lane its mutable workspace state. Coordinate shared-machine GUI/audio activity and service replacement with the current custodian. Do not consume unmerged code silently or replace a working installed generation merely because main is newer. Before any shared package replacement, reconcile every installed runner policy and required host/source pair. Workspace-only development must leave the existing native-bridge service and publications alone.
 
 ## Keep the engineering safeguards
 

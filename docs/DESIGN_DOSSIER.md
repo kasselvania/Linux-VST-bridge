@@ -3,6 +3,14 @@
 **Document identity:** `linux-audio-compatibility-bridge.soft-design-dossier.v1`  
 **Purpose:** Product direction and current capability boundaries, not a release promise or ceremonial checklist.
 
+## Windows DAW architecture extension — 2026-09-24
+
+The native-Linux bridge remains the first release-driving product. The same canonical management platform now has a selected parallel Windows-DAW lane, beginning with [WD0 — FL Studio](WD0.md). In that lane the Windows DAW loads Windows plug-ins directly in its own coherent managed workspace; the Linux native proxy and bridge audio transport are not inserted between them.
+
+[WINDOWS_DAW_WORKSPACES.md](WINDOWS_DAW_WORKSPACES.md) defines this additional execution path, its reuse of installation/runtime/ownership primitives, its separate mutable prefix and project state, and its audio and licensing boundaries. [WORKSTREAMS.md](WORKSTREAMS.md) governs parallel ownership. This is an architecture selection, not a claim that FL Studio or Ableton already works. The existing four-plane architecture continues to govern native-Linux DAW bridging.
+
+The development baseline and campaign sections below retain historical reasoning. Current product/platform claims are in [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md), reusable mechanisms and remaining gaps in [FAILURE_CLASSES.md](FAILURE_CLASSES.md), and active branch work in [CURRENT_SLICE.md](../CURRENT_SLICE.md). Do not reactivate an old campaign from its historical wording.
+
 ## Product and architecture
 
 A native Linux proxy represents an actual Windows plug-in class to the DAW. A supervised Windows host loads the real module under a selected compatible runner. Typed control/state and real-time audio/event paths connect them. A separate management plane owns installation, vendor-access handoff, scanning, publication, profiles, diagnostics and eventually updates/repair/rollback; its UI is not required for music playback.

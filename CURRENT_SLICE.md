@@ -1,70 +1,85 @@
-# Shared X11/Windows touchscreen popup routing — experimental
+# Current work selection
 
-Base: canonical main `05cb957e0174c3437aac8934b89294e57b53308f`, tree
-`ce720e73fdcbe7b80434ba62d207d6364b5c8654`. PR #151 merges that
-base normally; it retains the candidate-C construction and both unsuccessful
-physical attempts as history.
+Canonical base: `a4e140a53cedb8b65b487a45d6fea0e44caea74d`, tree
+`b3f3d264901267e2dcb723b9904c464baf6eefae`. This main-branch pointer records
+the operator's parallel product direction selected on 2026-09-24. It does not
+supersede another agent's branch-local task or grant ownership of its checkout
+or live experiment.
 
-## Primary claim
+## Native-Linux product: current sequence
 
-One exact shared Wine X11/Windows input correction must let a physical Steam
-Deck finger open, select and dismiss a transient Serum menu without losing
-editor message progress, audio, or clean retirement. A source patch, generated
-fixture, or built runner alone cannot close the claim.
+The native-Linux DAW bridge remains the first release-driving product. Serum 2
+candidate D and the shared per-window X11 touch route are now merged and
+physically accepted for the exact Deck waveform-popup interaction. Current
+support and remaining shared failures are maintained in
+[docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md) and
+[docs/FAILURE_CLASSES.md](docs/FAILURE_CLASSES.md).
 
-## Authority and fixture
+The selected near-term sequence is:
 
-- [Architecture](docs/ARCHITECTURE.md), [failure classes](docs/FAILURE_CLASSES.md)
-  FC-UI-002/003/004/005/006, [support matrix](docs/SUPPORT_MATRIX.md), and
-  [historical reliability record](docs/PLUGIN_RELIABILITY_FOLLOWUP.md).
-- Steam Deck Desktop Mode and Bitwig, Serum 2 2.1.5 class
-  `56534558667350736572756D20320000`.
-- Installed predecessor C `91b699291eb7b7d1ff6e725d5e6fd1abed88ea721dbd81a621dd2fb39d38d207`,
-  revision `807828d4b94fccd69e57c352a60dbcd1`, generation
-  `30d144c0b65437e7963692d434f930fe45faf2ec73527d5864580fc08eb913ac`.
-- Pinned Proton source `5b89db940e0ebe3a137a6009a3589232fe084c09`,
-  Wine source `dc26e61847081a1b5cb0733dc30feba6ee575482`, exact
-  Steam Runtime 4 SDK digest and installed candidate-C runner.
+1. the operator uses the current six-product Deck fleet in Desktop Mode and
+   records only useful real-use failures or friction;
+2. a focused manager-frontend product-design slice improves product readiness,
+   live-session, incident and recovery presentation without inventing new
+   backend authority;
+3. after that Desktop-mode soak, GM0 validates one known-good Serum instance
+   through the Desktop-to-Gaming-Mode graphical/audio/session transition.
 
-## Scope
+These are product-development steps, not instructions to replay the historical
+qualification campaigns.
 
-Use the retained action-bound input capture to select a shared routing,
-compatibility-mouse, capture, or observed touch-API owner. Patch only that
-owner in a separately built immutable Wine/Proton successor. Preserve the
-corrected candidate-C `WM_POINTERUP` contact flag and the exact five other
-publications. The existing experimental-runner owner alone may advance the
-Serum environment and create candidate D with C as retained predecessor.
+## Parallel Windows-DAW outcome
 
-Validate the production mapping, source-owned Win32 popup fixture, pinned
-offline build and complete runner tree, unlicensed startup/cleanup, manager
-transition and runtime dispatch, strict manager tests/Clippy, AP12/PX2, and
-documentation links. Then perform one human-operated physical Serum session:
-mouse menu, ordinary touch, touch open/select/reopen/dismiss, following note,
-editor and host liveness, and full retirement. Only after Serum passes may
-exactly applicable Blackhole and Kontakt runner lineages receive a separate
-immutable patch and one bounded physical smoke each.
+The selected Windows-DAW implementation is
+[WD0 — managed FL Studio stock-project workflow](docs/WD0.md), governed by
+[docs/WINDOWS_DAW_WORKSPACES.md](docs/WINDOWS_DAW_WORKSPACES.md). It proceeds in
+parallel with the native bridge and the separately owned ARM appliance.
+Coordination and integration rules are in
+[docs/WORKSTREAMS.md](docs/WORKSTREAMS.md).
 
-The [candidate-D physical result](evidence/serum-x11-touch-routing/candidate-d-physical.json)
-now passes this primary Serum gate. Installed generation
-`d2e90f7b3a38fe1263171d33b9cfc640abf59bc46f1f470f87cb6c8750ba6c4d`
-retains C as predecessor. Follow-on applicability is bounded by each other
-product's exact Wine source and managed runner authority; this result is not
-automatically extended to another plug-in.
+WD0 must deliver a real managed install, normal launch, stock-project playback,
+export, clean relaunch and licensed project recall in a new FL workspace. It is
+not a Linux VST proxy path and not a generic Windows-program launcher.
 
-The [lineage readback](evidence/serum-x11-touch-routing/cross-plugin-lineage.json)
-shows Blackhole's DComp Wine already uses per-window XI touch delivery, so
-the selected routing patch is inapplicable there. Kontakt's NI Wine retains
-the root-raw route; the two source patches apply and its driver compiles in
-isolation, but no immutable NI successor, candidate, or physical product
-result exists. The present experimental-runner/candidate carry-forward owner
-is closed to the exact Serum environment, class and predecessor. Expanding
-that authority is not an incidental file copy and cannot be represented as
-part of Serum candidate D's acceptance.
+The operator reports that the official Windows installer is present in the
+Steam Deck user's `Downloads` directory. That statement admits no filename,
+version, path alias, digest or signature yet. The WD0 owner must identify and
+fingerprint the exact file read-only before execution, preserve the original
+bytes, and then import it through the managed installer boundary. The installer,
+credentials, license material and private projects never enter Git.
 
-## Non-goals and failure posture
+## Shared Deck ownership
 
-No Serum-specific hooks, native proxy/DSP, scan, vendor install, capacity,
-buffer, publication-model, Ubuntu, or mixed-six change. Do not describe the
-candidate-C release-flag repair as a completed popup fix. A failed candidate-D
-physical result remains a failure and leaves PR #151 draft; no direct edits
-to environment records, runner files, or other publications are authorized.
+Source work and isolated builds may proceed concurrently. Only one task custodian
+may mutate or physically exercise the Deck at a time. Installing software,
+replacing the manager/service, changing a runner or environment, changing audio
+or Steam launch settings, and running a physical acceptance session require an
+explicit handoff from the current custodian.
+
+The FL agent may complete source, tests, installer admission and private workspace
+preparation while the operator uses Bitwig. It must not replace the installed
+manager generation, stop another task's session or execute the FL installer until
+it receives the physical-work window.
+
+Every common product package must preserve the now-canonical
+`x11_touch_routing_v2` policy, Serum candidate-D authority, all required exact
+Windows host/source pairs and the other five selected publications.
+
+## This documentation change
+
+This branch updates architecture, work allocation and the WD0 work order only.
+It changes no manager, runtime, runner, installer, profile, publication, live
+machine or proprietary input. FL Studio remains unqualified.
+
+After review and normal merge, start the WD0 implementation branch from the
+then-current canonical main. Its branch-local `CURRENT_SLICE.md` should name the
+implementation and evolving result. Do not replace progress with another
+planning-only PR.
+
+## Retained completed slice
+
+The completed Serum touchscreen slice remains available at the exact pre-WD0
+main pointer and in
+[evidence/serum-x11-touch-routing](evidence/serum-x11-touch-routing/). Its
+accepted result is current product authority; it is not an instruction to rerun
+Serum before WD0 or GM0.
