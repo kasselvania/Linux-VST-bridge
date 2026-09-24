@@ -109,19 +109,31 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         if(external)external->editor_name(name.c_str());
         step("createComponent");ok(factory->createInstance(selected.cid,IComponent::iid,reinterpret_cast<void**>(&component)),"createComponent");
         if(!component)throw std::runtime_error("null component");
+        // The controller class belongs to the component's created state. Query
+        // it before initialize, as required by IComponent, and use that class
+        // directly when the processor and controller are separate objects.
+        TUID controller_cid{};
+        step("getControllerClassId");
+        const auto controller_id_result=component->getControllerClassId(controller_cid);
+        events.lifecycle("ap8_result",",\"operation\":\"getControllerClassId\",\"result\":"+std::to_string(controller_id_result));
+        const bool separate_controller=controller_id_result==kResultOk;
+        if(!separate_controller && controller_id_result!=kNoInterface &&
+           controller_id_result!=kResultFalse && controller_id_result!=kNotImplemented)
+            throw std::runtime_error("controller class query failed");
         step("initializeComponent");ok(component->initialize(&host),"initializeComponent");initialized=true;
         step("queryAudioProcessor");ok(component->queryInterface(IAudioProcessor::iid,reinterpret_cast<void**>(&audio)),"queryAudioProcessor");
         if(!audio)throw std::runtime_error("null audio processor");
         const auto initial_buses = bus_probe ? EventBusCensus::capture(*component,*audio,false) : EventBusCensus{};
-        auto query=component->queryInterface(IEditController::iid,reinterpret_cast<void**>(&controller));
-        if(query==kNoInterface&&controller==nullptr){
-            TUID cid{};step("getControllerClassId");ok(component->getControllerClassId(cid),"getControllerClassId");
-            char controller_id[33]{};FUID::fromTUID(cid).toString(controller_id);
+        if(separate_controller){
+            char controller_id[33]{};FUID::fromTUID(controller_cid).toString(controller_id);
             events.lifecycle("ap8_controller_association",",\"combined\":false,\"class_id\":"+quoted(controller_id));
-            step("createController");ok(factory->createInstance(cid,IEditController::iid,reinterpret_cast<void**>(&controller)),"createController");
+            step("createController");ok(factory->createInstance(controller_cid,IEditController::iid,reinterpret_cast<void**>(&controller)),"createController");
             if(!controller)throw std::runtime_error("null controller");
             step("initializeController");ok(controller->initialize(&host),"initializeController");controller_initialized=true;
-        }else if(query!=kResultOk||!controller)throw std::runtime_error("controller query tuple");
+        }else{
+            const auto query=component->queryInterface(IEditController::iid,reinterpret_cast<void**>(&controller));
+            if(query!=kResultOk||!controller)throw std::runtime_error("controller query tuple");
+        }
         if(!controller_initialized)events.lifecycle("ap8_controller_association",",\"combined\":true");
         step("setComponentHandler");ok(controller->setComponentHandler(&handler),"setComponentHandler");handler_set=true;
         component->queryInterface(IConnectionPoint::iid,reinterpret_cast<void**>(&cp));
