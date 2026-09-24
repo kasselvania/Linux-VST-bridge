@@ -17,6 +17,7 @@ def main():
     parser.add_argument("label")
     parser.add_argument("--config", type=Path, default=root / "appliance.conf")
     parser.add_argument("--binary", type=Path, default=root.parent / "source-bridge/rpi0/standalone/target/release/lvb-arm-pigments-standalone")
+    parser.add_argument("--phase-trace", choices=("off", "on"))
     arguments = parser.parse_args()
     label = arguments.label
     if not arguments.config.is_absolute() or not arguments.binary.is_absolute():
@@ -46,6 +47,7 @@ def main():
             "--service-type=exec", "--unit=" + unit,
             "--property=KillMode=control-group", "--property=TimeoutStopSec=15",
             "--property=RuntimeMaxSec=320", "--property=MemoryMax=1G",
+            *(["--setenv=LVB_RPI1_PHASE_TRACE=" + arguments.phase_trace] if arguments.phase_trace else []),
             str(arguments.binary), str(arguments.config)], stdin=descriptor, stdout=output,
             stderr=subprocess.STDOUT)
         try:

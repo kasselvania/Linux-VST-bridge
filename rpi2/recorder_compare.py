@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Original/buffered recorder comparison; same ondemand, no privileged guard."""
+"""Bounded recorder pair or same-binary phase OFF/ON/OFF; unchanged ondemand."""
 import argparse
 import json
 import os
@@ -36,11 +36,14 @@ def main():
     parser.add_argument('root', type=Path)
     parser.add_argument('output', type=Path)
     parser.add_argument('--attempt', default='01')
-    parser.add_argument('--original', type=Path, required=True)
+    parser.add_argument('--original', type=Path)
+    parser.add_argument('--trace-comparison', action='store_true')
     parser.add_argument('--candidate', type=Path, required=True)
     args = parser.parse_args()
     if not re.fullmatch(r'[0-9]{2}', args.attempt):
         raise ValueError('Attempt must be two digits')
+    if not args.trace_comparison and args.original is None:
+        parser.error('--original is required for the original/buffered pair')
     root, output = args.root, args.output
     output.mkdir(mode=0o700)
     env = root / 'pigments-arm'
@@ -84,7 +87,7 @@ def main():
                   'throttled': flags, 'schedstats_enabled': Path('/proc/sys/kernel/sched_schedstats').read_text().strip() == '1',
                   'arm_clock_hz': int(subprocess.check_output(['vcgencmd', 'measure_clock', 'arm'], text=True).split('=')[1]),
                   'governor': state['governor'], 'threads': {},
-                  'phase_file_bytes': phase.stat().st_size,
+                  'phase_file_bytes': phase.stat().st_size if phase else None,
                   'cpu': [int(x) for x in Path('/proc/stat').read_text().splitlines()[0].split()[1:9]],
                   'cohort_cpu_stat': dict(line.split() for line in (cgroup/'cpu.stat').read_text().splitlines())}
         result['native_io'] = dict(line.split(': ',1) for line in Path('/proc',native_pid,'io').read_text().splitlines())
@@ -112,7 +115,7 @@ def main():
         def flush_mark():
             request('mark', 'RPI1_OBSERVER_MARKER accepted')
             row['flush_marks_ns'].append(time.monotonic_ns())
-        flush_mark()
+        if trace_on: flush_mark()
         fixture = root/'staging/four-notes-20260923/qualification-four-notes'
         lines = []
         process = subprocess.Popen([str(fixture), 'four-notes', '--capture', str(run/(name+'.f32le'))],
@@ -127,7 +130,7 @@ def main():
         try:
             while process.poll() is None:
                 row['samples'].append(snapshot(cgroup))
-                if time.monotonic() >= next_flush:
+                if trace_on and time.monotonic() >= next_flush:
                     flush_mark()
                     next_flush += 5
                 if time.monotonic()-started > 35: raise RuntimeError('Stimulus timeout')
@@ -136,7 +139,7 @@ def main():
             if process.poll() is None: process.terminate(); process.wait(timeout=5)
             reader.join(timeout=3)
         row['fixture_exit'] = process.returncode
-        flush_mark()
+        if trace_on: flush_mark()
         row['fixture_output'] = ''.join(lines)
         results = [line for line in lines if line.startswith('RPI1_QUALIFICATION_RESULT ')]
         fields = dict(re.findall(r'(\w+)=([^ ]+)', results[0].strip())) if len(results)==1 else {}
@@ -152,18 +155,22 @@ def main():
         return row
 
     try:
-        for index, expected in enumerate(('original', 'buffered')):
+        conditions = ('off1', 'on', 'off2') if args.trace_comparison else ('original', 'buffered')
+        report['comparison'] = 'same-binary-phase-off-on-off' if args.trace_comparison else 'original-buffered'
+        for index, expected in enumerate(conditions):
+            trace_on = not args.trace_comparison or expected == 'on'
             state, _, _ = safety()
             row = {'condition': expected, 'guard_before': state, 'trials': []}
             report['conditions'].append(row)
-            label = 'obs-' + expected.replace('_','-') + '-' + args.attempt
+            label = ('trace-' if args.trace_comparison else 'obs-') + expected.replace('_','-') + '-' + args.attempt
             run = env/'logs'/label
             fifo, log = run/'commands.fifo', run/'outer.log'
             before = set((env/'evidence').glob('*-phase.jsonl'))
             with (output/(label+'-session.log')).open('x') as sink:
                 session = subprocess.Popen(['flock', '--nonblock', str(root.parent/'rpi1-private/operation.lock'),
-                    '/usr/bin/python3', str(env/'plugin_session.py'), label, '--config', str(env/'preset-navigation.conf'),
-                    '--binary', str(args.original if index==0 else args.candidate)], stdout=sink, stderr=subprocess.STDOUT)
+                    '/usr/bin/python3', str(env/('trace_session.py' if args.trace_comparison else 'plugin_session.py')), label, '--config', str(env/'preset-navigation.conf'),
+                    '--binary', str(args.candidate if args.trace_comparison or index else args.original),
+                    *(['--phase-trace', 'on' if trace_on else 'off'] if args.trace_comparison else [])], stdout=sink, stderr=subprocess.STDOUT)
                 end = time.monotonic()+100
                 try:
                     while not log.exists() or 'RPI1_READY ' not in log.read_text():
@@ -171,13 +178,24 @@ def main():
                         if time.monotonic()>end or session.poll() is not None: raise RuntimeError('Startup failed')
                         time.sleep(.5)
                     phases = set((env/'evidence').glob('*-phase.jsonl'))-before
-                    if len(phases)!=1: raise RuntimeError('Phase ownership ambiguous')
-                    phase = phases.pop(); row['phase_path'] = str(phase); row['run_path'] = str(run)
+                    if len(phases) != int(trace_on): raise RuntimeError('Phase ownership/mode mismatch')
+                    phase = phases.pop() if trace_on else None
+                    row['phase_path'] = str(phase) if phase else None
+                    row['run_path'] = str(run)
+                    if args.trace_comparison:
+                        wanted = 'RPI1_PHASE_TRACE mode=on recorder=true file=true' if trace_on else 'RPI1_PHASE_TRACE mode=off recorder=false file=false'
+                        if wanted not in log.read_text(): raise RuntimeError('Trace startup readback mismatch')
+                        row['trace_readback'] = wanted
+                        if not trace_on:
+                            row['disabled_mark'] = request('mark','RPI1_OBSERVER_MARKER unavailable phase_trace=off')
                     units = subprocess.check_output(['systemctl','--user','list-units','--state=running','--plain','--no-legend','lvb-rpi1-*.service'], text=True).splitlines()
                     if len(units)!=1: raise RuntimeError('Windows cohort ownership ambiguous')
                     group = subprocess.check_output(['systemctl','--user','show',units[0].split()[0],'-p','ControlGroup','--value'],text=True).strip()
                     cgroup = Path('/sys/fs/cgroup')/group.lstrip('/')
                     native_pid=subprocess.check_output(['systemctl','--user','show','lvb-rpi2-'+label+'.service','-p','MainPID','--value'],text=True).strip()
+                    row['native_threads_at_ready'] = [task.joinpath('comm').read_text().strip() for task in Path('/proc',native_pid,'task').glob('*')]
+                    if args.trace_comparison and ('rpi1-phase-drai' in row['native_threads_at_ready'] or 'rpi1-phase-drain' in row['native_threads_at_ready']) != trace_on:
+                        raise RuntimeError('Phase recorder thread/mode mismatch')
                     row['restore'] = request('restore '+str(selected),'RPI1_STATE_RESTORED ')
                     time.sleep(4)
                     row['master'] = request('parameter 0','RPI1_PARAMETER_READBACK id=0 ')
@@ -202,10 +220,13 @@ def main():
                     # Retain post-release CPU/wait samples while outstanding work can finish.
                     for _ in range(10):
                         measured['samples'].append(snapshot(cgroup)); time.sleep(.5)
-                    request('mark','RPI1_OBSERVER_MARKER accepted')
+                    if trace_on: request('mark','RPI1_OBSERVER_MARKER accepted')
                     row['after_identity_response'] = request('save '+str(run/'after.state'),'RPI1_STATE_SAVED ')
                     row['after_identity'] = identify((run/'after.state').read_bytes())
                     row['guard_after'] = guard(expected)
+                    row['phase_file_count_after'] = len(set((env/'evidence').glob('*-phase.jsonl'))-before)
+                    if args.trace_comparison and row['phase_file_count_after'] != int(trace_on):
+                        raise RuntimeError('Phase file appeared/disappeared during trial')
                 finally:
                     if session.poll() is None and fifo.exists():
                         try:

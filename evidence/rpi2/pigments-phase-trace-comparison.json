@@ -1,0 +1,3313 @@
+{
+  "comparison": "same-binary-phase-off-on-off",
+  "errors": [],
+  "guard_final": {
+    "phase": "unchanged",
+    "governor": "ondemand",
+    "schedstats": "0"
+  },
+  "conditions": [
+    {
+      "condition": "off1",
+      "guard_before": {
+        "phase": "off1",
+        "governor": "ondemand",
+        "schedstats": "0"
+      },
+      "guard_at_measurement": {
+        "phase": "off1",
+        "governor": "ondemand",
+        "schedstats": "0"
+      },
+      "guard_after": {
+        "phase": "off1",
+        "governor": "ondemand",
+        "schedstats": "0"
+      },
+      "trace_readback": "RPI1_PHASE_TRACE mode=off recorder=false file=false",
+      "native_threads_at_ready": [
+        "trace-host",
+        "ap7-observer",
+        "ap3-transport",
+        "trace-host",
+        "trace-host",
+        "trace-host",
+        "trace-host"
+      ],
+      "phase_file_count_after": 0,
+      "restored_identity": {
+        "name": "8-Bit Crystals",
+        "bank": "Factory"
+      },
+      "restored_master": [
+        "RPI1_PARAMETER_READBACK id=2394 normalized=0.00000000000000000 revision=3",
+        "RPI1_PARAMETER_READBACK id=2395 normalized=0.00000000000000000 revision=3",
+        "RPI1_PARAMETER_READBACK id=0 normalized=0.48033079504966736 revision=4"
+      ],
+      "phase_attribution": "unavailable_trace_off",
+      "disabled_mark_reported_unavailable": true,
+      "drain_checks": [
+        {
+          "outstanding_frames_estimate": 256,
+          "request_elapsed_ns": 100434417
+        },
+        {
+          "outstanding_frames_estimate": 0,
+          "request_elapsed_ns": 100469399
+        },
+        {
+          "outstanding_frames_estimate": 512,
+          "request_elapsed_ns": 100467568
+        }
+      ],
+      "session": {
+        "ready_seconds": 45.25522088700018,
+        "elapsed_seconds": 109.00762713700169,
+        "exit_code": 0,
+        "clean_shutdown": true,
+        "graph_restored": true,
+        "temperature_peak_c": 52.35,
+        "throttled_flags": [
+          0
+        ]
+      },
+      "trials": [
+        {
+          "name": "warmup",
+          "fixture_exit": 0,
+          "capture_observation": {
+            "bytes": 7680000,
+            "expected_bytes": 7680000,
+            "fixture_completed": true,
+            "fixture_stereo_nonzero": true,
+            "fixture_result": {
+              "mode": "four-notes",
+              "completed": "true",
+              "midi_sent": "9",
+              "midi_errors": "0",
+              "xruns": "0",
+              "bad_blocks": "0",
+              "stereo_nonzero": "true"
+            },
+            "limitation": "Nonzero samples and process exit do not establish continuous audio; analyze held-window recording separately."
+          },
+          "counter_delta": {
+            "bridge_processed": 3868,
+            "missing_frames": 644096,
+            "gaps": 2,
+            "midi_accepted": 9,
+            "xruns": 0,
+            "process_failures": 0,
+            "delivered_frames": 346112
+          },
+          "flush_marks_count": 0,
+          "audio": {
+            "frames": 960000,
+            "nonfinite_samples": 0,
+            "peak": 3.9073784137144685e-05,
+            "windows": {
+              "idle": {
+                "capture_seconds": [
+                  0.3,
+                  1.3
+                ],
+                "exact_zero_frames": 48000,
+                "initial_zero_frames": 48000,
+                "longest_zero_run_frames": 48000,
+                "internal_zero_runs": [],
+                "rms": 0.0
+              },
+              "held_including_attack": {
+                "capture_seconds": [
+                  2,
+                  14
+                ],
+                "exact_zero_frames": 576000,
+                "initial_zero_frames": 576000,
+                "longest_zero_run_frames": 576000,
+                "internal_zero_runs": [],
+                "rms": 0.0
+              },
+              "stable_hold": {
+                "capture_seconds": [
+                  3,
+                  14
+                ],
+                "exact_zero_frames": 528000,
+                "initial_zero_frames": 528000,
+                "longest_zero_run_frames": 528000,
+                "internal_zero_runs": [],
+                "rms": 0.0
+              }
+            },
+            "first_nonzero_after_scheduled_note_on_seconds": null,
+            "scheduled_note_on_capture_frame": 96000,
+            "scheduled_note_off_capture_frame": 672000
+          },
+          "common_wall_windows": {
+            "idle": {
+              "start_ns": 10594361518386,
+              "end_ns": 10595361518386,
+              "wall_seconds": 1.0,
+              "cohort_cpu_seconds": 0.7678997764459513,
+              "cohort_one_core_percent": 76.78997764459513,
+              "whole_pi_cpu_percent": 19.7819910562339,
+              "sampled_arm_hz": {
+                "count": 2,
+                "mean": 2400033792,
+                "p50": 2400030464,
+                "p95": 2400030464,
+                "p99": 2400030464,
+                "maximum": 2400037120
+              },
+              "temperature_c": {
+                "count": 2,
+                "mean": 48.5,
+                "p50": 48.5,
+                "p95": 48.5,
+                "p99": 48.5,
+                "maximum": 48.5
+              },
+              "throttled_flags": [
+                0
+              ],
+              "surviving_threads_by_cpu": [
+                {
+                  "name": "lvb-audio",
+                  "cpu_seconds": 0.5492009192964,
+                  "one_core_percent": 54.92009192964001,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "ArturiaSoftware",
+                  "cpu_seconds": 0.15579291087137168,
+                  "one_core_percent": 15.579291087137168,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.017830370422616957,
+                  "one_core_percent": 1.783037042261696,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.013906177958138347,
+                  "one_core_percent": 1.3906177958138346,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.009862973019018293,
+                  "one_core_percent": 0.9862973019018293,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wineserver",
+                  "cpu_seconds": 0.009042788666594206,
+                  "one_core_percent": 0.9042788666594207,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.002565583577982502,
+                  "one_core_percent": 0.2565583577982502,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "Resource worker",
+                  "cpu_seconds": 0.0016483068704943806,
+                  "one_core_percent": 0.16483068704943807,
+                  "scheduler_wait_seconds": null
+                }
+              ],
+              "sampled_arm_hz_minimum": 2400030464,
+              "native_threads": [
+                {
+                  "name": "ap3-transport",
+                  "cpu_seconds": 0.0317074324252944,
+                  "one_core_percent": 3.17074324252944
+                },
+                {
+                  "name": "ap7-observer",
+                  "cpu_seconds": 0.007184678514417887,
+                  "one_core_percent": 0.7184678514417887
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.002801124938709553,
+                  "one_core_percent": 0.2801124938709553
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0017965343814535142,
+                  "one_core_percent": 0.1796534381453514
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 8.434929293117858e-05,
+                  "one_core_percent": 0.008434929293117859
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                }
+              ],
+              "native_io_delta": {
+                "syscw": 3.2634796214909443,
+                "wchar": 13.053918485937174,
+                "write_bytes": 0.0
+              }
+            },
+            "held_including_attack": {
+              "start_ns": 10596061518386,
+              "end_ns": 10608061518386,
+              "wall_seconds": 12.0,
+              "cohort_cpu_seconds": 20.820033995363257,
+              "cohort_one_core_percent": 173.5002832946938,
+              "whole_pi_cpu_percent": 45.71511785199689,
+              "sampled_arm_hz": {
+                "count": 22,
+                "mean": 2400028043.6363635,
+                "p50": 2400027136,
+                "p95": 2400037120,
+                "p99": 2400037120,
+                "maximum": 2400037120
+              },
+              "temperature_c": {
+                "count": 22,
+                "mean": 50.725,
+                "p50": 50.7,
+                "p95": 51.25,
+                "p99": 51.8,
+                "maximum": 51.8
+              },
+              "throttled_flags": [
+                0
+              ],
+              "surviving_threads_by_cpu": [
+                {
+                  "name": "lvb-audio",
+                  "cpu_seconds": 11.714505880873094,
+                  "one_core_percent": 97.62088234060913,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "Processing Thre",
+                  "cpu_seconds": 5.608546503944913,
+                  "one_core_percent": 46.737887532874275,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "ArturiaSoftware",
+                  "cpu_seconds": 1.826712171462602,
+                  "one_core_percent": 15.222601428855016,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.42491927945570185,
+                  "one_core_percent": 3.540993995464182,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.320697853,
+                  "one_core_percent": 2.6724821083333334,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.2305469572841481,
+                  "one_core_percent": 1.9212246440345675,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.1580177221944796,
+                  "one_core_percent": 1.3168143516206632,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wine_threadpool",
+                  "cpu_seconds": 0.14675175090730302,
+                  "one_core_percent": 1.2229312575608586,
+                  "scheduler_wait_seconds": null
+                }
+              ],
+              "sampled_arm_hz_minimum": 2400020480,
+              "native_threads": [
+                {
+                  "name": "ap3-transport",
+                  "cpu_seconds": 0.4636586946720066,
+                  "one_core_percent": 3.863822455600055
+                },
+                {
+                  "name": "ap7-observer",
+                  "cpu_seconds": 0.12500697425833476,
+                  "one_core_percent": 1.041724785486123
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.040684167534768945,
+                  "one_core_percent": 0.3390347294564079
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.02981217721225333,
+                  "one_core_percent": 0.2484348101021111
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                }
+              ],
+              "native_io_delta": {
+                "syscw": 0.0,
+                "wchar": 0.0,
+                "write_bytes": 0.0
+              }
+            },
+            "stable_hold": {
+              "start_ns": 10597061518386,
+              "end_ns": 10608061518386,
+              "wall_seconds": 11.0,
+              "cohort_cpu_seconds": 19.243207508602968,
+              "cohort_one_core_percent": 174.93825007820882,
+              "whole_pi_cpu_percent": 46.0969666008583,
+              "sampled_arm_hz": {
+                "count": 21,
+                "mean": 2400028086.857143,
+                "p50": 2400027136,
+                "p95": 2400037120,
+                "p99": 2400037120,
+                "maximum": 2400037120
+              },
+              "temperature_c": {
+                "count": 21,
+                "mean": 50.75238095238095,
+                "p50": 50.7,
+                "p95": 51.8,
+                "p99": 51.8,
+                "maximum": 51.8
+              },
+              "throttled_flags": [
+                0
+              ],
+              "surviving_threads_by_cpu": [
+                {
+                  "name": "lvb-audio",
+                  "cpu_seconds": 10.734094865334262,
+                  "one_core_percent": 97.58268059394783,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "Processing Thre",
+                  "cpu_seconds": 5.114605067610096,
+                  "one_core_percent": 46.49640970554633,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "ArturiaSoftware",
+                  "cpu_seconds": 1.7974600489585724,
+                  "one_core_percent": 16.340545899623386,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.4028451501786251,
+                  "one_core_percent": 3.662228637987501,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.320697853,
+                  "one_core_percent": 2.915435027272727,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.2120293394911592,
+                  "one_core_percent": 1.9275394499196292,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wine_threadpool",
+                  "cpu_seconds": 0.14616171057293403,
+                  "one_core_percent": 1.3287428233903094,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.14552972182510454,
+                  "one_core_percent": 1.322997471137314,
+                  "scheduler_wait_seconds": null
+                }
+              ],
+              "sampled_arm_hz_minimum": 2400020480,
+              "native_threads": [
+                {
+                  "name": "ap3-transport",
+                  "cpu_seconds": 0.42633455545000865,
+                  "one_core_percent": 3.8757686859091693
+                },
+                {
+                  "name": "ap7-observer",
+                  "cpu_seconds": 0.11496587567225418,
+                  "one_core_percent": 1.04514432429322
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.037446107758066734,
+                  "one_core_percent": 0.3404191614369703
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.02743199537990248,
+                  "one_core_percent": 0.24938177618093166
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                }
+              ],
+              "native_io_delta": {
+                "syscw": 0.0,
+                "wchar": 0.0,
+                "write_bytes": 0.0
+              }
+            }
+          },
+          "clock_samples_below_2390mhz": []
+        },
+        {
+          "name": "measured",
+          "fixture_exit": 0,
+          "capture_observation": {
+            "bytes": 7680000,
+            "expected_bytes": 7680000,
+            "fixture_completed": true,
+            "fixture_stereo_nonzero": true,
+            "fixture_result": {
+              "mode": "four-notes",
+              "completed": "true",
+              "midi_sent": "9",
+              "midi_errors": "0",
+              "xruns": "0",
+              "bad_blocks": "0",
+              "stereo_nonzero": "true"
+            },
+            "limitation": "Nonzero samples and process exit do not establish continuous audio; analyze held-window recording separately."
+          },
+          "counter_delta": {
+            "bridge_processed": 4351,
+            "missing_frames": 0,
+            "gaps": 0,
+            "midi_accepted": 9,
+            "xruns": 0,
+            "process_failures": 0,
+            "delivered_frames": 1113600
+          },
+          "flush_marks_count": 0,
+          "audio": {
+            "frames": 960000,
+            "nonfinite_samples": 0,
+            "peak": 0.04413093626499176,
+            "windows": {
+              "idle": {
+                "capture_seconds": [
+                  0.3,
+                  1.3
+                ],
+                "exact_zero_frames": 0,
+                "initial_zero_frames": 0,
+                "longest_zero_run_frames": 0,
+                "internal_zero_runs": [],
+                "rms": 1.0442656635377717e-13
+              },
+              "held_including_attack": {
+                "capture_seconds": [
+                  2,
+                  14
+                ],
+                "exact_zero_frames": 0,
+                "initial_zero_frames": 0,
+                "longest_zero_run_frames": 0,
+                "internal_zero_runs": [],
+                "rms": 0.0033115400050462017
+              },
+              "stable_hold": {
+                "capture_seconds": [
+                  3,
+                  14
+                ],
+                "exact_zero_frames": 0,
+                "initial_zero_frames": 0,
+                "longest_zero_run_frames": 0,
+                "internal_zero_runs": [],
+                "rms": 0.0029554940409039095
+              }
+            },
+            "first_nonzero_after_scheduled_note_on_seconds": 2.0,
+            "scheduled_note_on_capture_frame": 96000,
+            "scheduled_note_off_capture_frame": 672000
+          },
+          "common_wall_windows": {
+            "idle": {
+              "start_ns": 10619417685375,
+              "end_ns": 10620417685375,
+              "wall_seconds": 1.0,
+              "cohort_cpu_seconds": 0.6404816010513306,
+              "cohort_one_core_percent": 64.04816010513305,
+              "whole_pi_cpu_percent": 18.397099557109662,
+              "sampled_arm_hz": {
+                "count": 2,
+                "mean": 2400032128,
+                "p50": 2400030464,
+                "p95": 2400030464,
+                "p99": 2400030464,
+                "maximum": 2400033792
+              },
+              "temperature_c": {
+                "count": 2,
+                "mean": 49.6,
+                "p50": 49.6,
+                "p95": 49.6,
+                "p99": 49.6,
+                "maximum": 49.6
+              },
+              "throttled_flags": [
+                0
+              ],
+              "surviving_threads_by_cpu": [
+                {
+                  "name": "lvb-audio",
+                  "cpu_seconds": 0.5811604197323265,
+                  "one_core_percent": 58.11604197323265,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.01652897851851368,
+                  "one_core_percent": 1.652897851851368,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.013541019745191335,
+                  "one_core_percent": 1.3541019745191336,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.00938683564416027,
+                  "one_core_percent": 0.9386835644160271,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wineserver",
+                  "cpu_seconds": 0.0033248132622739077,
+                  "one_core_percent": 0.33248132622739074,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.002509540767174736,
+                  "one_core_percent": 0.25095407671747355,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "ArturiaSoftware",
+                  "cpu_seconds": 0.0020084411844334604,
+                  "one_core_percent": 0.20084411844334601,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "Resource worker",
+                  "cpu_seconds": 0.0015676192830520123,
+                  "one_core_percent": 0.15676192830520122,
+                  "scheduler_wait_seconds": null
+                }
+              ],
+              "sampled_arm_hz_minimum": 2400030464,
+              "native_threads": [
+                {
+                  "name": "ap3-transport",
+                  "cpu_seconds": 0.03037542705142951,
+                  "one_core_percent": 3.037542705142951
+                },
+                {
+                  "name": "ap7-observer",
+                  "cpu_seconds": 0.008033518477124631,
+                  "one_core_percent": 0.8033518477124632
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0026035858673734815,
+                  "one_core_percent": 0.26035858673734813
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0017653736885308027,
+                  "one_core_percent": 0.17653736885308027
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 8.11882979099357e-05,
+                  "one_core_percent": 0.00811882979099357
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                }
+              ],
+              "native_io_delta": {
+                "syscw": 3.255222379268446,
+                "wchar": 13.020889517094474,
+                "write_bytes": 0.0
+              }
+            },
+            "held_including_attack": {
+              "start_ns": 10621117685375,
+              "end_ns": 10633117685375,
+              "wall_seconds": 12.0,
+              "cohort_cpu_seconds": 17.468441144509672,
+              "cohort_one_core_percent": 145.57034287091395,
+              "whole_pi_cpu_percent": 38.92271174530365,
+              "sampled_arm_hz": {
+                "count": 22,
+                "mean": 2400028823.2727275,
+                "p50": 2400030464,
+                "p95": 2400033792,
+                "p99": 2400033792,
+                "maximum": 2400033792
+              },
+              "temperature_c": {
+                "count": 22,
+                "mean": 50.825,
+                "p50": 50.7,
+                "p95": 51.8,
+                "p99": 51.8,
+                "maximum": 51.8
+              },
+              "throttled_flags": [
+                0
+              ],
+              "surviving_threads_by_cpu": [
+                {
+                  "name": "lvb-audio",
+                  "cpu_seconds": 11.260110884023463,
+                  "one_core_percent": 93.8342573668622,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "Processing Thre",
+                  "cpu_seconds": 5.317498001952268,
+                  "one_core_percent": 44.31248334960224,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.24582305114371492,
+                  "one_core_percent": 2.048525426197624,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.2148731107251886,
+                  "one_core_percent": 1.7906092560432383,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.1478264065481571,
+                  "one_core_percent": 1.2318867212346425,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wineserver",
+                  "cpu_seconds": 0.050630764021538974,
+                  "one_core_percent": 0.4219230335128248,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.03570124611001046,
+                  "one_core_percent": 0.2975103842500872,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "ArturiaSoftware",
+                  "cpu_seconds": 0.03195728609542799,
+                  "one_core_percent": 0.26631071746189994,
+                  "scheduler_wait_seconds": null
+                }
+              ],
+              "sampled_arm_hz_minimum": 2400017408,
+              "native_threads": [
+                {
+                  "name": "ap3-transport",
+                  "cpu_seconds": 0.446201084273308,
+                  "one_core_percent": 3.7183423689442336
+                },
+                {
+                  "name": "ap7-observer",
+                  "cpu_seconds": 0.11934547959710681,
+                  "one_core_percent": 0.9945456633092234
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.03641156847226165,
+                  "one_core_percent": 0.3034297372688471
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.029027539231917976,
+                  "one_core_percent": 0.24189616026598315
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                }
+              ],
+              "native_io_delta": {
+                "syscw": 0.0,
+                "wchar": 0.0,
+                "write_bytes": 0.0
+              }
+            },
+            "stable_hold": {
+              "start_ns": 10622117685375,
+              "end_ns": 10633117685375,
+              "wall_seconds": 11.0,
+              "cohort_cpu_seconds": 15.966963884725935,
+              "cohort_one_core_percent": 145.15421713387215,
+              "whole_pi_cpu_percent": 38.82363716057857,
+              "sampled_arm_hz": {
+                "count": 21,
+                "mean": 2400028586.6666665,
+                "p50": 2400030464,
+                "p95": 2400033792,
+                "p99": 2400033792,
+                "maximum": 2400033792
+              },
+              "temperature_c": {
+                "count": 21,
+                "mean": 50.857142857142854,
+                "p50": 50.7,
+                "p95": 51.8,
+                "p99": 51.8,
+                "maximum": 51.8
+              },
+              "throttled_flags": [
+                0
+              ],
+              "surviving_threads_by_cpu": [
+                {
+                  "name": "lvb-audio",
+                  "cpu_seconds": 10.28892681231738,
+                  "one_core_percent": 93.53569829379435,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "Processing Thre",
+                  "cpu_seconds": 4.862789671704808,
+                  "one_core_percent": 44.20717883368007,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.2251874031085968,
+                  "one_core_percent": 2.0471582100781527,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.19672666640098227,
+                  "one_core_percent": 1.7884242400089294,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.13551184030426372,
+                  "one_core_percent": 1.2319258209478519,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wineserver",
+                  "cpu_seconds": 0.04637717303528082,
+                  "one_core_percent": 0.42161066395709834,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.03269847830354358,
+                  "one_core_percent": 0.297258893668578,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "ArturiaSoftware",
+                  "cpu_seconds": 0.029285306680433273,
+                  "one_core_percent": 0.2662300607312116,
+                  "scheduler_wait_seconds": null
+                }
+              ],
+              "sampled_arm_hz_minimum": 2400017408,
+              "native_threads": [
+                {
+                  "name": "ap3-transport",
+                  "cpu_seconds": 0.4086099646766298,
+                  "one_core_percent": 3.714636042514816
+                },
+                {
+                  "name": "ap7-observer",
+                  "cpu_seconds": 0.10925674602544856,
+                  "one_core_percent": 0.9932431456858961
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.03331185956615172,
+                  "one_core_percent": 0.30283508696501565
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.026643689380655766,
+                  "one_core_percent": 0.2422153580059615
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                }
+              ],
+              "native_io_delta": {
+                "syscw": 0.0,
+                "wchar": 0.0,
+                "write_bytes": 0.0
+              }
+            }
+          },
+          "clock_samples_below_2390mhz": [
+            {
+              "seconds_after_graph_observation": -0.120812856,
+              "hz": 1900019584
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "condition": "on",
+      "guard_before": {
+        "phase": "on",
+        "governor": "ondemand",
+        "schedstats": "0"
+      },
+      "guard_at_measurement": {
+        "phase": "on",
+        "governor": "ondemand",
+        "schedstats": "0"
+      },
+      "guard_after": {
+        "phase": "on",
+        "governor": "ondemand",
+        "schedstats": "0"
+      },
+      "trace_readback": "RPI1_PHASE_TRACE mode=on recorder=true file=true",
+      "native_threads_at_ready": [
+        "trace-host",
+        "ap7-observer",
+        "ap3-transport",
+        "trace-host",
+        "trace-host",
+        "rpi1-phase-drai",
+        "trace-host",
+        "trace-host"
+      ],
+      "phase_file_count_after": 1,
+      "restored_identity": {
+        "name": "8-Bit Crystals",
+        "bank": "Factory"
+      },
+      "restored_master": [
+        "RPI1_PARAMETER_READBACK id=2394 normalized=0.00000000000000000 revision=3",
+        "RPI1_PARAMETER_READBACK id=2395 normalized=0.00000000000000000 revision=3",
+        "RPI1_PARAMETER_READBACK id=0 normalized=0.48033079504966736 revision=4"
+      ],
+      "phase_attribution": "available_on_only",
+      "disabled_mark_reported_unavailable": null,
+      "drain_checks": [
+        {
+          "outstanding_frames_estimate": 256,
+          "request_elapsed_ns": 100492226
+        },
+        {
+          "outstanding_frames_estimate": 0,
+          "request_elapsed_ns": 100442523
+        },
+        {
+          "outstanding_frames_estimate": 512,
+          "request_elapsed_ns": 100462359
+        }
+      ],
+      "session": {
+        "ready_seconds": 28.147520234000694,
+        "elapsed_seconds": 93.73597290699945,
+        "exit_code": 0,
+        "clean_shutdown": true,
+        "graph_restored": true,
+        "temperature_peak_c": 52.9,
+        "throttled_flags": [
+          0
+        ]
+      },
+      "trials": [
+        {
+          "name": "warmup",
+          "fixture_exit": 0,
+          "capture_observation": {
+            "bytes": 7680000,
+            "expected_bytes": 7680000,
+            "fixture_completed": true,
+            "fixture_stereo_nonzero": true,
+            "fixture_result": {
+              "mode": "four-notes",
+              "completed": "true",
+              "midi_sent": "9",
+              "midi_errors": "0",
+              "xruns": "0",
+              "bad_blocks": "0",
+              "stereo_nonzero": "true"
+            },
+            "limitation": "Nonzero samples and process exit do not establish continuous audio; analyze held-window recording separately."
+          },
+          "counter_delta": {
+            "bridge_processed": 4342,
+            "missing_frames": 639488,
+            "gaps": 2,
+            "midi_accepted": 9,
+            "xruns": 0,
+            "process_failures": 0,
+            "delivered_frames": 472576
+          },
+          "flush_marks_count": 6,
+          "audio": {
+            "frames": 960000,
+            "nonfinite_samples": 0,
+            "peak": 4.023195288027637e-05,
+            "windows": {
+              "idle": {
+                "capture_seconds": [
+                  0.3,
+                  1.3
+                ],
+                "exact_zero_frames": 48000,
+                "initial_zero_frames": 48000,
+                "longest_zero_run_frames": 48000,
+                "internal_zero_runs": [],
+                "rms": 0.0
+              },
+              "held_including_attack": {
+                "capture_seconds": [
+                  2,
+                  14
+                ],
+                "exact_zero_frames": 576000,
+                "initial_zero_frames": 576000,
+                "longest_zero_run_frames": 576000,
+                "internal_zero_runs": [],
+                "rms": 0.0
+              },
+              "stable_hold": {
+                "capture_seconds": [
+                  3,
+                  14
+                ],
+                "exact_zero_frames": 528000,
+                "initial_zero_frames": 528000,
+                "longest_zero_run_frames": 528000,
+                "internal_zero_runs": [],
+                "rms": 0.0
+              }
+            },
+            "first_nonzero_after_scheduled_note_on_seconds": null,
+            "scheduled_note_on_capture_frame": 96000,
+            "scheduled_note_off_capture_frame": 672000
+          },
+          "common_wall_windows": {
+            "idle": {
+              "start_ns": 10686801133063,
+              "end_ns": 10687801133063,
+              "wall_seconds": 1.0,
+              "cohort_cpu_seconds": 0.9283683256896995,
+              "cohort_one_core_percent": 92.83683256896995,
+              "whole_pi_cpu_percent": 25.141123842160088,
+              "sampled_arm_hz": {
+                "count": 2,
+                "mean": 2150021632,
+                "p50": 1900022784,
+                "p95": 1900022784,
+                "p99": 1900022784,
+                "maximum": 2400020480
+              },
+              "temperature_c": {
+                "count": 2,
+                "mean": 50.150000000000006,
+                "p50": 49.6,
+                "p95": 49.6,
+                "p99": 49.6,
+                "maximum": 50.7
+              },
+              "throttled_flags": [
+                0
+              ],
+              "surviving_threads_by_cpu": [
+                {
+                  "name": "lvb-audio",
+                  "cpu_seconds": 0.5711130969505543,
+                  "one_core_percent": 57.11130969505543,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "ArturiaSoftware",
+                  "cpu_seconds": 0.23948255186816073,
+                  "one_core_percent": 23.94825518681607,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.02634280978063185,
+                  "one_core_percent": 2.6342809780631846,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.01908623811520386,
+                  "one_core_percent": 1.9086238115203857,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.014979568616212606,
+                  "one_core_percent": 1.4979568616212606,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wineserver",
+                  "cpu_seconds": 0.011843278182695389,
+                  "one_core_percent": 1.184327818269539,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.010348729764491573,
+                  "one_core_percent": 1.0348729764491573,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.0027778386077296044,
+                  "one_core_percent": 0.2777838607729604,
+                  "scheduler_wait_seconds": null
+                }
+              ],
+              "sampled_arm_hz_minimum": 1900022784,
+              "native_threads": [
+                {
+                  "name": "ap3-transport",
+                  "cpu_seconds": 0.034869626411384705,
+                  "one_core_percent": 3.48696264113847
+                },
+                {
+                  "name": "rpi1-phase-drai",
+                  "cpu_seconds": 0.010375809649332835,
+                  "one_core_percent": 1.0375809649332837
+                },
+                {
+                  "name": "ap7-observer",
+                  "cpu_seconds": 0.008059768966174736,
+                  "one_core_percent": 0.8059768966174736
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0030519463438181803,
+                  "one_core_percent": 0.30519463438181804
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0020467971976767777,
+                  "one_core_percent": 0.2046797197676778
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 7.094650291316666e-05,
+                  "one_core_percent": 0.007094650291316665
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                }
+              ],
+              "native_io_delta": {
+                "syscw": 17.984157676308627,
+                "wchar": 972610.4731512535,
+                "write_bytes": 972966.9091651989
+              }
+            },
+            "held_including_attack": {
+              "start_ns": 10688501133063,
+              "end_ns": 10700501133063,
+              "wall_seconds": 12.0,
+              "cohort_cpu_seconds": 20.76213642479683,
+              "cohort_one_core_percent": 173.01780353997356,
+              "whole_pi_cpu_percent": 45.96152910547805,
+              "sampled_arm_hz": {
+                "count": 23,
+                "mean": 2400028304.695652,
+                "p50": 2400030464,
+                "p95": 2400033792,
+                "p99": 2400033792,
+                "maximum": 2400033792
+              },
+              "temperature_c": {
+                "count": 23,
+                "mean": 51.51304347826087,
+                "p50": 51.8,
+                "p95": 52.35,
+                "p99": 52.9,
+                "maximum": 52.9
+              },
+              "throttled_flags": [
+                0
+              ],
+              "surviving_threads_by_cpu": [
+                {
+                  "name": "lvb-audio",
+                  "cpu_seconds": 11.709485167061715,
+                  "one_core_percent": 97.57904305884762,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "Processing Thre",
+                  "cpu_seconds": 5.556509652542732,
+                  "one_core_percent": 46.304247104522766,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "ArturiaSoftware",
+                  "cpu_seconds": 1.814713096615056,
+                  "one_core_percent": 15.1226091384588,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.4254795330393801,
+                  "one_core_percent": 3.545662775328167,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.315776559,
+                  "one_core_percent": 2.631471325,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.238968680833337,
+                  "one_core_percent": 1.9914056736111418,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.1548448775978595,
+                  "one_core_percent": 1.2903739799821625,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wine_threadpool",
+                  "cpu_seconds": 0.14380236937354296,
+                  "one_core_percent": 1.198353078112858,
+                  "scheduler_wait_seconds": null
+                }
+              ],
+              "sampled_arm_hz_minimum": 2400017408,
+              "native_threads": [
+                {
+                  "name": "ap3-transport",
+                  "cpu_seconds": 0.46904865499771126,
+                  "one_core_percent": 3.9087387916475937
+                },
+                {
+                  "name": "ap7-observer",
+                  "cpu_seconds": 0.12498119422069845,
+                  "one_core_percent": 1.0415099518391537
+                },
+                {
+                  "name": "rpi1-phase-drai",
+                  "cpu_seconds": 0.11347139705734557,
+                  "one_core_percent": 0.9455949754778796
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.04429421487553686,
+                  "one_core_percent": 0.3691184572961405
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0309892383130244,
+                  "one_core_percent": 0.25824365260853666
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 5.7018e-05,
+                  "one_core_percent": 0.00047515
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                }
+              ],
+              "native_io_delta": {
+                "syscw": 159.0,
+                "wchar": 10164532.0,
+                "write_bytes": 10170368.0
+              }
+            },
+            "stable_hold": {
+              "start_ns": 10689501133063,
+              "end_ns": 10700501133063,
+              "wall_seconds": 11.0,
+              "cohort_cpu_seconds": 19.040452337720925,
+              "cohort_one_core_percent": 173.09502125200842,
+              "whole_pi_cpu_percent": 46.047257890662934,
+              "sampled_arm_hz": {
+                "count": 21,
+                "mean": 2400028720.7619047,
+                "p50": 2400030464,
+                "p95": 2400033792,
+                "p99": 2400033792,
+                "maximum": 2400033792
+              },
+              "temperature_c": {
+                "count": 21,
+                "mean": 51.61666666666667,
+                "p50": 51.8,
+                "p95": 52.9,
+                "p99": 52.9,
+                "maximum": 52.9
+              },
+              "throttled_flags": [
+                0
+              ],
+              "surviving_threads_by_cpu": [
+                {
+                  "name": "lvb-audio",
+                  "cpu_seconds": 10.734167008279456,
+                  "one_core_percent": 97.58333643890415,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "Processing Thre",
+                  "cpu_seconds": 5.076413487035801,
+                  "one_core_percent": 46.14921351850728,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "ArturiaSoftware",
+                  "cpu_seconds": 1.655667495465701,
+                  "one_core_percent": 15.051522686051827,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.38416711537224196,
+                  "one_core_percent": 3.492428321565836,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.315776559,
+                  "one_core_percent": 2.8706959909090908,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.21987528355467867,
+                  "one_core_percent": 1.9988662141334426,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wine_threadpool",
+                  "cpu_seconds": 0.1432222847400064,
+                  "one_core_percent": 1.3020207703636943,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.142395060053559,
+                  "one_core_percent": 1.2945005459414454,
+                  "scheduler_wait_seconds": null
+                }
+              ],
+              "sampled_arm_hz_minimum": 2400020480,
+              "native_threads": [
+                {
+                  "name": "ap3-transport",
+                  "cpu_seconds": 0.43163050633014266,
+                  "one_core_percent": 3.923913693910388
+                },
+                {
+                  "name": "ap7-observer",
+                  "cpu_seconds": 0.11472818772778962,
+                  "one_core_percent": 1.0429835247980874
+                },
+                {
+                  "name": "rpi1-phase-drai",
+                  "cpu_seconds": 0.11228881025841987,
+                  "one_core_percent": 1.0208073659856352
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.04092050202593541,
+                  "one_core_percent": 0.3720045638721401
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.02853478109610987,
+                  "one_core_percent": 0.25940710087372604
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 5.7018e-05,
+                  "one_core_percent": 0.0005183454545454546
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                }
+              ],
+              "native_io_delta": {
+                "syscw": 159.0,
+                "wchar": 10164532.0,
+                "write_bytes": 10170368.0
+              }
+            }
+          },
+          "clock_samples_below_2390mhz": [
+            {
+              "seconds_after_graph_observation": 0.434979743,
+              "hz": 1900022784
+            }
+          ],
+          "on_phase_windows": {
+            "idle": {
+              "coverage": {
+                "nominal_blocks": 188,
+                "boundary_tolerance_blocks": 2,
+                "position_span_expected_blocks": 188,
+                "retained_published_blocks": 188,
+                "matched_completed_blocks": 188,
+                "missing_positions_inside_span": 0,
+                "complete": true
+              },
+              "vendor_ms": {
+                "count": 188,
+                "mean": 2.9088404255319147,
+                "p50": 2.7925,
+                "p95": 3.8235,
+                "p99": 4.0507,
+                "maximum": 4.7838
+              },
+              "service_ms": {
+                "count": 188,
+                "mean": 3.0719852127659575,
+                "p50": 3.002627,
+                "p95": 3.976374,
+                "p99": 4.663124,
+                "maximum": 4.991509
+              },
+              "queue_ms": {
+                "count": 188,
+                "mean": 1.6129785265957446,
+                "p50": 0.106943,
+                "p95": 3.716303,
+                "p99": 4.350703,
+                "maximum": 4.777308
+              }
+            },
+            "held_including_attack": {
+              "coverage": {
+                "nominal_blocks": 2250,
+                "boundary_tolerance_blocks": 2,
+                "position_span_expected_blocks": 2250,
+                "retained_published_blocks": 2250,
+                "matched_completed_blocks": 2250,
+                "missing_positions_inside_span": 0,
+                "complete": true
+              },
+              "vendor_ms": {
+                "count": 2250,
+                "mean": 5.223228755555556,
+                "p50": 4.9807,
+                "p95": 6.3612,
+                "p99": 7.1995,
+                "maximum": 139.8736
+              },
+              "service_ms": {
+                "count": 2250,
+                "mean": 5.380980119555556,
+                "p50": 5.123138,
+                "p95": 6.531601,
+                "p99": 7.391349,
+                "maximum": 142.982711
+              },
+              "queue_ms": {
+                "count": 2250,
+                "mean": 307.02502426533334,
+                "p50": 304.786857,
+                "p95": 461.789774,
+                "p99": 474.365461,
+                "maximum": 479.034363
+              }
+            },
+            "stable_hold": {
+              "coverage": {
+                "nominal_blocks": 2062,
+                "boundary_tolerance_blocks": 2,
+                "position_span_expected_blocks": 2062,
+                "retained_published_blocks": 2062,
+                "matched_completed_blocks": 2062,
+                "missing_positions_inside_span": 0,
+                "complete": true
+              },
+              "vendor_ms": {
+                "count": 2062,
+                "mean": 5.126917264791465,
+                "p50": 4.8499,
+                "p95": 6.2759,
+                "p99": 7.1727,
+                "maximum": 8.823
+              },
+              "service_ms": {
+                "count": 2062,
+                "mean": 5.281761674587779,
+                "p50": 5.030583,
+                "p95": 6.458823,
+                "p99": 7.389775,
+                "maximum": 8.969069
+              },
+              "queue_ms": {
+                "count": 2062,
+                "mean": 317.97028474927254,
+                "p50": 324.244865,
+                "p95": 462.737022,
+                "p99": 474.630161,
+                "maximum": 479.034363
+              }
+            }
+          }
+        },
+        {
+          "name": "measured",
+          "fixture_exit": 0,
+          "capture_observation": {
+            "bytes": 7680000,
+            "expected_bytes": 7680000,
+            "fixture_completed": true,
+            "fixture_stereo_nonzero": true,
+            "fixture_result": {
+              "mode": "four-notes",
+              "completed": "true",
+              "midi_sent": "9",
+              "midi_errors": "0",
+              "xruns": "0",
+              "bad_blocks": "0",
+              "stereo_nonzero": "true"
+            },
+            "limitation": "Nonzero samples and process exit do not establish continuous audio; analyze held-window recording separately."
+          },
+          "counter_delta": {
+            "bridge_processed": 3947,
+            "missing_frames": 0,
+            "gaps": 0,
+            "midi_accepted": 9,
+            "xruns": 0,
+            "process_failures": 0,
+            "delivered_frames": 1010176
+          },
+          "flush_marks_count": 6,
+          "audio": {
+            "frames": 960000,
+            "nonfinite_samples": 0,
+            "peak": 0.0505111962556839,
+            "windows": {
+              "idle": {
+                "capture_seconds": [
+                  0.3,
+                  1.3
+                ],
+                "exact_zero_frames": 0,
+                "initial_zero_frames": 0,
+                "longest_zero_run_frames": 0,
+                "internal_zero_runs": [],
+                "rms": 1.3611651650841335e-15
+              },
+              "held_including_attack": {
+                "capture_seconds": [
+                  2,
+                  14
+                ],
+                "exact_zero_frames": 0,
+                "initial_zero_frames": 0,
+                "longest_zero_run_frames": 0,
+                "internal_zero_runs": [],
+                "rms": 0.0029503745406900725
+              },
+              "stable_hold": {
+                "capture_seconds": [
+                  3,
+                  14
+                ],
+                "exact_zero_frames": 0,
+                "initial_zero_frames": 0,
+                "longest_zero_run_frames": 0,
+                "internal_zero_runs": [],
+                "rms": 0.0028784939536122362
+              }
+            },
+            "first_nonzero_after_scheduled_note_on_seconds": 2.0,
+            "scheduled_note_on_capture_frame": 96000,
+            "scheduled_note_off_capture_frame": 672000
+          },
+          "common_wall_windows": {
+            "idle": {
+              "start_ns": 10714374768635,
+              "end_ns": 10715374768635,
+              "wall_seconds": 1.0,
+              "cohort_cpu_seconds": 0.6401072710177899,
+              "cohort_one_core_percent": 64.01072710177898,
+              "whole_pi_cpu_percent": 17.157377122771273,
+              "sampled_arm_hz": {
+                "count": 2,
+                "mean": 2400023808,
+                "p50": 2400020480,
+                "p95": 2400020480,
+                "p99": 2400020480,
+                "maximum": 2400027136
+              },
+              "temperature_c": {
+                "count": 2,
+                "mean": 50.7,
+                "p50": 50.15,
+                "p95": 50.15,
+                "p99": 50.15,
+                "maximum": 51.25
+              },
+              "throttled_flags": [
+                0
+              ],
+              "surviving_threads_by_cpu": [
+                {
+                  "name": "lvb-audio",
+                  "cpu_seconds": 0.5799968887108612,
+                  "one_core_percent": 57.99968887108612,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.01655669338009262,
+                  "one_core_percent": 1.6556693380092622,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.013559441571670175,
+                  "one_core_percent": 1.3559441571670174,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.00938861597540182,
+                  "one_core_percent": 0.9388615975401818,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wineserver",
+                  "cpu_seconds": 0.003361834994755268,
+                  "one_core_percent": 0.33618349947552684,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.0025938816942706407,
+                  "one_core_percent": 0.25938816942706405,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "ArturiaSoftware",
+                  "cpu_seconds": 0.0019743668684339523,
+                  "one_core_percent": 0.19743668684339524,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "Resource worker",
+                  "cpu_seconds": 0.0015843486164812595,
+                  "one_core_percent": 0.15843486164812595,
+                  "scheduler_wait_seconds": null
+                }
+              ],
+              "sampled_arm_hz_minimum": 2400020480,
+              "native_threads": [
+                {
+                  "name": "ap3-transport",
+                  "cpu_seconds": 0.03098198989255452,
+                  "one_core_percent": 3.0981989892554522
+                },
+                {
+                  "name": "rpi1-phase-drai",
+                  "cpu_seconds": 0.012159890687815249,
+                  "one_core_percent": 1.215989068781525
+                },
+                {
+                  "name": "ap7-observer",
+                  "cpu_seconds": 0.008035114357117594,
+                  "one_core_percent": 0.8035114357117593
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0026392838304590883,
+                  "one_core_percent": 0.2639283830459088
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0017635898730683328,
+                  "one_core_percent": 0.17635898730683328
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 8.26390948062467e-05,
+                  "one_core_percent": 0.008263909480624668
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                }
+              ],
+              "native_io_delta": {
+                "syscw": 20.499827374027063,
+                "wchar": 1118101.1078940146,
+                "write_bytes": 1131200.9964060634
+              }
+            },
+            "held_including_attack": {
+              "start_ns": 10716074768635,
+              "end_ns": 10728074768635,
+              "wall_seconds": 12.0,
+              "cohort_cpu_seconds": 17.619636781039105,
+              "cohort_one_core_percent": 146.83030650865922,
+              "whole_pi_cpu_percent": 37.730977070698295,
+              "sampled_arm_hz": {
+                "count": 22,
+                "mean": 2400023703.2727275,
+                "p50": 2400020480,
+                "p95": 2400030464,
+                "p99": 2400033792,
+                "maximum": 2400033792
+              },
+              "temperature_c": {
+                "count": 22,
+                "mean": 51.5,
+                "p50": 51.8,
+                "p95": 52.35,
+                "p99": 52.35,
+                "maximum": 53.45
+              },
+              "throttled_flags": [
+                0
+              ],
+              "surviving_threads_by_cpu": [
+                {
+                  "name": "lvb-audio",
+                  "cpu_seconds": 11.348869888703705,
+                  "one_core_percent": 94.57391573919755,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "Processing Thre",
+                  "cpu_seconds": 5.368468488603362,
+                  "one_core_percent": 44.73723740502802,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.2503140124822216,
+                  "one_core_percent": 2.0859501040185133,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.22134531024436796,
+                  "one_core_percent": 1.8445442520363995,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.14514623502650417,
+                  "one_core_percent": 1.2095519585542014,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wineserver",
+                  "cpu_seconds": 0.0508622702244215,
+                  "one_core_percent": 0.42385225187017916,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.0362198055671104,
+                  "one_core_percent": 0.3018317130592534,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "ArturiaSoftware",
+                  "cpu_seconds": 0.032315418057593345,
+                  "one_core_percent": 0.26929515047994457,
+                  "scheduler_wait_seconds": null
+                }
+              ],
+              "sampled_arm_hz_minimum": 2400017408,
+              "native_threads": [
+                {
+                  "name": "ap3-transport",
+                  "cpu_seconds": 0.4483902484830022,
+                  "one_core_percent": 3.736585404025018
+                },
+                {
+                  "name": "ap7-observer",
+                  "cpu_seconds": 0.12048125077435398,
+                  "one_core_percent": 1.0040104231196165
+                },
+                {
+                  "name": "rpi1-phase-drai",
+                  "cpu_seconds": 0.11231492349873215,
+                  "one_core_percent": 0.9359576958227679
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0384264754774598,
+                  "one_core_percent": 0.3202206289788317
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.028944245948605774,
+                  "one_core_percent": 0.2412020495717148
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 3.5816e-05,
+                  "one_core_percent": 0.0002984666666666667
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                }
+              ],
+              "native_io_delta": {
+                "syscw": 170.0,
+                "wchar": 10919374.0,
+                "write_bytes": 10932224.0
+              }
+            },
+            "stable_hold": {
+              "start_ns": 10717074768635,
+              "end_ns": 10728074768635,
+              "wall_seconds": 11.0,
+              "cohort_cpu_seconds": 16.099711098712145,
+              "cohort_one_core_percent": 146.36100998829224,
+              "whole_pi_cpu_percent": 37.555066310528936,
+              "sampled_arm_hz": {
+                "count": 21,
+                "mean": 2400023698.285714,
+                "p50": 2400020480,
+                "p95": 2400033792,
+                "p99": 2400033792,
+                "maximum": 2400033792
+              },
+              "temperature_c": {
+                "count": 21,
+                "mean": 51.59047619047619,
+                "p50": 51.8,
+                "p95": 52.35,
+                "p99": 52.35,
+                "maximum": 53.45
+              },
+              "throttled_flags": [
+                0
+              ],
+              "surviving_threads_by_cpu": [
+                {
+                  "name": "lvb-audio",
+                  "cpu_seconds": 10.372513277666156,
+                  "one_core_percent": 94.29557525151051,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "Processing Thre",
+                  "cpu_seconds": 4.901529478865302,
+                  "one_core_percent": 44.55935889877547,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.2291720952998085,
+                  "one_core_percent": 2.0833826845437136,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.2030247443527353,
+                  "one_core_percent": 1.8456794941157755,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.1330599361652339,
+                  "one_core_percent": 1.2096357833203084,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wineserver",
+                  "cpu_seconds": 0.04652638251751757,
+                  "one_core_percent": 0.42296711379561425,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.03317289312984378,
+                  "one_core_percent": 0.3015717557258526,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "ArturiaSoftware",
+                  "cpu_seconds": 0.029606188262509346,
+                  "one_core_percent": 0.26914716602281225,
+                  "scheduler_wait_seconds": null
+                }
+              ],
+              "sampled_arm_hz_minimum": 2400017408,
+              "native_threads": [
+                {
+                  "name": "ap3-transport",
+                  "cpu_seconds": 0.41148836057138993,
+                  "one_core_percent": 3.7408032779217266
+                },
+                {
+                  "name": "rpi1-phase-drai",
+                  "cpu_seconds": 0.11171968486284715,
+                  "one_core_percent": 1.015633498753156
+                },
+                {
+                  "name": "ap7-observer",
+                  "cpu_seconds": 0.1103452012078464,
+                  "one_core_percent": 1.0031381927986038
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.035284112413029506,
+                  "one_core_percent": 0.32076465830026824
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.026551495623812198,
+                  "one_core_percent": 0.24137723294374727
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 3.5816e-05,
+                  "one_core_percent": 0.0003256
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                }
+              ],
+              "native_io_delta": {
+                "syscw": 170.0,
+                "wchar": 10919374.0,
+                "write_bytes": 10932224.0
+              }
+            }
+          },
+          "clock_samples_below_2390mhz": [
+            {
+              "seconds_after_graph_observation": 23.545819378,
+              "hz": 1800018688
+            }
+          ],
+          "on_phase_windows": {
+            "idle": {
+              "coverage": {
+                "nominal_blocks": 188,
+                "boundary_tolerance_blocks": 2,
+                "position_span_expected_blocks": 188,
+                "retained_published_blocks": 188,
+                "matched_completed_blocks": 188,
+                "missing_positions_inside_span": 0,
+                "complete": true
+              },
+              "vendor_ms": {
+                "count": 188,
+                "mean": 2.9189420212765955,
+                "p50": 2.7754,
+                "p95": 3.3246,
+                "p99": 3.4321,
+                "maximum": 3.557
+              },
+              "service_ms": {
+                "count": 188,
+                "mean": 3.0614474627659574,
+                "p50": 2.945666,
+                "p95": 3.484585,
+                "p99": 3.577195,
+                "maximum": 3.680102
+              },
+              "queue_ms": {
+                "count": 188,
+                "mean": 1.615623670212766,
+                "p50": 0.106369,
+                "p95": 3.549159,
+                "p99": 3.68175,
+                "maximum": 3.714231
+              }
+            },
+            "held_including_attack": {
+              "coverage": {
+                "nominal_blocks": 2250,
+                "boundary_tolerance_blocks": 2,
+                "position_span_expected_blocks": 2250,
+                "retained_published_blocks": 2250,
+                "matched_completed_blocks": 2250,
+                "missing_positions_inside_span": 0,
+                "complete": true
+              },
+              "vendor_ms": {
+                "count": 2250,
+                "mean": 4.976760088888889,
+                "p50": 4.7094,
+                "p95": 5.7204,
+                "p99": 6.0978,
+                "maximum": 25.8989
+              },
+              "service_ms": {
+                "count": 2250,
+                "mean": 5.130131698222222,
+                "p50": 4.870754,
+                "p95": 5.8875,
+                "p99": 6.260662,
+                "maximum": 26.30241
+              },
+              "queue_ms": {
+                "count": 2250,
+                "mean": 5.393313231111111,
+                "p50": 4.840106,
+                "p95": 20.862627,
+                "p99": 26.356039,
+                "maximum": 30.150417
+              }
+            },
+            "stable_hold": {
+              "coverage": {
+                "nominal_blocks": 2062,
+                "boundary_tolerance_blocks": 2,
+                "position_span_expected_blocks": 2062,
+                "retained_published_blocks": 2062,
+                "matched_completed_blocks": 2062,
+                "missing_positions_inside_span": 0,
+                "complete": true
+              },
+              "vendor_ms": {
+                "count": 2062,
+                "mean": 4.9540357419980605,
+                "p50": 4.6912,
+                "p95": 5.6951,
+                "p99": 6.0785,
+                "maximum": 7.3426
+              },
+              "service_ms": {
+                "count": 2062,
+                "mean": 5.10735759214355,
+                "p50": 4.850717,
+                "p95": 5.860779,
+                "p99": 6.260662,
+                "maximum": 7.46448
+              },
+              "queue_ms": {
+                "count": 2062,
+                "mean": 4.052819911251213,
+                "p50": 4.794699,
+                "p95": 14.693538,
+                "p99": 22.827102,
+                "maximum": 30.150417
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "condition": "off2",
+      "guard_before": {
+        "phase": "off2",
+        "governor": "ondemand",
+        "schedstats": "0"
+      },
+      "guard_at_measurement": {
+        "phase": "off2",
+        "governor": "ondemand",
+        "schedstats": "0"
+      },
+      "guard_after": {
+        "phase": "off2",
+        "governor": "ondemand",
+        "schedstats": "0"
+      },
+      "trace_readback": "RPI1_PHASE_TRACE mode=off recorder=false file=false",
+      "native_threads_at_ready": [
+        "trace-host",
+        "ap7-observer",
+        "ap3-transport",
+        "trace-host",
+        "trace-host",
+        "trace-host",
+        "trace-host"
+      ],
+      "phase_file_count_after": 0,
+      "restored_identity": {
+        "name": "8-Bit Crystals",
+        "bank": "Factory"
+      },
+      "restored_master": [
+        "RPI1_PARAMETER_READBACK id=2394 normalized=0.00000000000000000 revision=3",
+        "RPI1_PARAMETER_READBACK id=2395 normalized=0.00000000000000000 revision=3",
+        "RPI1_PARAMETER_READBACK id=0 normalized=0.48033079504966736 revision=4"
+      ],
+      "phase_attribution": "unavailable_trace_off",
+      "disabled_mark_reported_unavailable": true,
+      "drain_checks": [
+        {
+          "outstanding_frames_estimate": 256,
+          "request_elapsed_ns": 100533303
+        },
+        {
+          "outstanding_frames_estimate": 0,
+          "request_elapsed_ns": 100474083
+        },
+        {
+          "outstanding_frames_estimate": 256,
+          "request_elapsed_ns": 100502436
+        }
+      ],
+      "session": {
+        "ready_seconds": 30.08190949100026,
+        "elapsed_seconds": 95.49186473999907,
+        "exit_code": 0,
+        "clean_shutdown": true,
+        "graph_restored": true,
+        "temperature_peak_c": 52.9,
+        "throttled_flags": [
+          0
+        ]
+      },
+      "trials": [
+        {
+          "name": "warmup",
+          "fixture_exit": 0,
+          "capture_observation": {
+            "bytes": 7680000,
+            "expected_bytes": 7680000,
+            "fixture_completed": true,
+            "fixture_stereo_nonzero": true,
+            "fixture_result": {
+              "mode": "four-notes",
+              "completed": "true",
+              "midi_sent": "9",
+              "midi_errors": "0",
+              "xruns": "0",
+              "bad_blocks": "0",
+              "stereo_nonzero": "true"
+            },
+            "limitation": "Nonzero samples and process exit do not establish continuous audio; analyze held-window recording separately."
+          },
+          "counter_delta": {
+            "bridge_processed": 4238,
+            "missing_frames": 313856,
+            "gaps": 8,
+            "midi_accepted": 9,
+            "xruns": 0,
+            "process_failures": 0,
+            "delivered_frames": 771584
+          },
+          "flush_marks_count": 0,
+          "audio": {
+            "frames": 960000,
+            "nonfinite_samples": 0,
+            "peak": 0.03360699862241745,
+            "windows": {
+              "idle": {
+                "capture_seconds": [
+                  0.3,
+                  1.3
+                ],
+                "exact_zero_frames": 48000,
+                "initial_zero_frames": 48000,
+                "longest_zero_run_frames": 48000,
+                "internal_zero_runs": [],
+                "rms": 0.0
+              },
+              "held_including_attack": {
+                "capture_seconds": [
+                  2,
+                  14
+                ],
+                "exact_zero_frames": 316416,
+                "initial_zero_frames": 314624,
+                "longest_zero_run_frames": 314624,
+                "internal_zero_runs": [
+                  {
+                    "start_seconds": 8.559999999999999,
+                    "frames": 256
+                  },
+                  {
+                    "start_seconds": 8.570666666666668,
+                    "frames": 256
+                  },
+                  {
+                    "start_seconds": 8.581333333333333,
+                    "frames": 256
+                  },
+                  {
+                    "start_seconds": 8.591999999999999,
+                    "frames": 256
+                  },
+                  {
+                    "start_seconds": 8.602666666666668,
+                    "frames": 256
+                  },
+                  {
+                    "start_seconds": 8.613333333333333,
+                    "frames": 256
+                  },
+                  {
+                    "start_seconds": 8.623999999999999,
+                    "frames": 256
+                  }
+                ],
+                "rms": 0.0022425192917851296
+              },
+              "stable_hold": {
+                "capture_seconds": [
+                  3,
+                  14
+                ],
+                "exact_zero_frames": 268416,
+                "initial_zero_frames": 266624,
+                "longest_zero_run_frames": 266624,
+                "internal_zero_runs": [
+                  {
+                    "start_seconds": 8.559999999999999,
+                    "frames": 256
+                  },
+                  {
+                    "start_seconds": 8.570666666666668,
+                    "frames": 256
+                  },
+                  {
+                    "start_seconds": 8.581333333333333,
+                    "frames": 256
+                  },
+                  {
+                    "start_seconds": 8.591999999999999,
+                    "frames": 256
+                  },
+                  {
+                    "start_seconds": 8.602666666666668,
+                    "frames": 256
+                  },
+                  {
+                    "start_seconds": 8.613333333333333,
+                    "frames": 256
+                  },
+                  {
+                    "start_seconds": 8.623999999999999,
+                    "frames": 256
+                  }
+                ],
+                "rms": 0.002342235010496322
+              }
+            },
+            "first_nonzero_after_scheduled_note_on_seconds": 8.554666666666666,
+            "scheduled_note_on_capture_frame": 96000,
+            "scheduled_note_off_capture_frame": 672000
+          },
+          "common_wall_windows": {
+            "idle": {
+              "start_ns": 10782289567701,
+              "end_ns": 10783289567701,
+              "wall_seconds": 1.0,
+              "cohort_cpu_seconds": 0.6488074875022453,
+              "cohort_one_core_percent": 64.88074875022453,
+              "whole_pi_cpu_percent": 16.251156422381055,
+              "sampled_arm_hz": {
+                "count": 2,
+                "mean": 2400022144,
+                "p50": 2400020480,
+                "p95": 2400020480,
+                "p99": 2400020480,
+                "maximum": 2400023808
+              },
+              "temperature_c": {
+                "count": 2,
+                "mean": 50.425,
+                "p50": 50.15,
+                "p95": 50.15,
+                "p99": 50.15,
+                "maximum": 50.7
+              },
+              "throttled_flags": [
+                0
+              ],
+              "surviving_threads_by_cpu": [
+                {
+                  "name": "lvb-audio",
+                  "cpu_seconds": 0.5451797266063395,
+                  "one_core_percent": 54.517972660633944,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "ArturiaSoftware",
+                  "cpu_seconds": 0.028482662780071496,
+                  "one_core_percent": 2.8482662780071495,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.016853298956890105,
+                  "one_core_percent": 1.6853298956890106,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.013172139841712534,
+                  "one_core_percent": 1.3172139841712533,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.009370654108859762,
+                  "one_core_percent": 0.9370654108859763,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wineserver",
+                  "cpu_seconds": 0.007579635597234607,
+                  "one_core_percent": 0.7579635597234606,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.0024432562193706037,
+                  "one_core_percent": 0.24432562193706037,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "ArturiaSoftware",
+                  "cpu_seconds": 0.0023506407633142137,
+                  "one_core_percent": 0.23506407633142137,
+                  "scheduler_wait_seconds": null
+                }
+              ],
+              "sampled_arm_hz_minimum": 2400020480,
+              "native_threads": [
+                {
+                  "name": "ap3-transport",
+                  "cpu_seconds": 0.030345119324438393,
+                  "one_core_percent": 3.034511932443839
+                },
+                {
+                  "name": "ap7-observer",
+                  "cpu_seconds": 0.00706574158759968,
+                  "one_core_percent": 0.7065741587599681
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.002584504786371529,
+                  "one_core_percent": 0.2584504786371529
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0017423742989116906,
+                  "one_core_percent": 0.17423742989116908
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 9.454557821948337e-05,
+                  "one_core_percent": 0.009454557821948338
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                }
+              ],
+              "native_io_delta": {
+                "syscw": 3.153486448862793,
+                "wchar": 12.613945795455948,
+                "write_bytes": 0.0
+              }
+            },
+            "held_including_attack": {
+              "start_ns": 10783989567701,
+              "end_ns": 10795989567701,
+              "wall_seconds": 12.0,
+              "cohort_cpu_seconds": 17.903594661721446,
+              "cohort_one_core_percent": 149.19662218101206,
+              "whole_pi_cpu_percent": 39.69243589376754,
+              "sampled_arm_hz": {
+                "count": 22,
+                "mean": 2400027741.090909,
+                "p50": 2400027136,
+                "p95": 2400033792,
+                "p99": 2400037120,
+                "maximum": 2400037120
+              },
+              "temperature_c": {
+                "count": 22,
+                "mean": 51.949999999999996,
+                "p50": 51.8,
+                "p95": 52.9,
+                "p99": 52.9,
+                "maximum": 52.9
+              },
+              "throttled_flags": [
+                0
+              ],
+              "surviving_threads_by_cpu": [
+                {
+                  "name": "lvb-audio",
+                  "cpu_seconds": 11.526511001738013,
+                  "one_core_percent": 96.0542583478168,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "Processing Thre",
+                  "cpu_seconds": 5.433549397387442,
+                  "one_core_percent": 45.27957831156202,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.2542009523235655,
+                  "one_core_percent": 2.1183412693630457,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.21500198617860275,
+                  "one_core_percent": 1.7916832181550228,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.14613449167410475,
+                  "one_core_percent": 1.2177874306175396,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "ArturiaSoftware",
+                  "cpu_seconds": 0.06717976623321051,
+                  "one_core_percent": 0.5598313852767542,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wineserver",
+                  "cpu_seconds": 0.053658199856936574,
+                  "one_core_percent": 0.4471516654744714,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.03533597749608177,
+                  "one_core_percent": 0.29446647913401475,
+                  "scheduler_wait_seconds": null
+                }
+              ],
+              "sampled_arm_hz_minimum": 2400020480,
+              "native_threads": [
+                {
+                  "name": "ap3-transport",
+                  "cpu_seconds": 0.44219135542539423,
+                  "one_core_percent": 3.684927961878285
+                },
+                {
+                  "name": "ap7-observer",
+                  "cpu_seconds": 0.11774460104511117,
+                  "one_core_percent": 0.9812050087092596
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0398062159450295,
+                  "one_core_percent": 0.33171846620857914
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.027707432434479595,
+                  "one_core_percent": 0.23089527028732995
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                }
+              ],
+              "native_io_delta": {
+                "syscw": 0.0,
+                "wchar": 0.0,
+                "write_bytes": 0.0
+              }
+            },
+            "stable_hold": {
+              "start_ns": 10784989567701,
+              "end_ns": 10795989567701,
+              "wall_seconds": 11.0,
+              "cohort_cpu_seconds": 16.356654304346755,
+              "cohort_one_core_percent": 148.69685731224322,
+              "whole_pi_cpu_percent": 39.74235856059461,
+              "sampled_arm_hz": {
+                "count": 21,
+                "mean": 2400028086.857143,
+                "p50": 2400027136,
+                "p95": 2400037120,
+                "p99": 2400037120,
+                "maximum": 2400037120
+              },
+              "temperature_c": {
+                "count": 21,
+                "mean": 51.957142857142856,
+                "p50": 51.8,
+                "p95": 52.9,
+                "p99": 52.9,
+                "maximum": 52.9
+              },
+              "throttled_flags": [
+                0
+              ],
+              "surviving_threads_by_cpu": [
+                {
+                  "name": "lvb-audio",
+                  "cpu_seconds": 10.547955096513775,
+                  "one_core_percent": 95.89050087739795,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "Processing Thre",
+                  "cpu_seconds": 4.956165299061891,
+                  "one_core_percent": 45.05604817328992,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.23293670407585718,
+                  "one_core_percent": 2.1176064006896107,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.19761850683166982,
+                  "one_core_percent": 1.7965318802879073,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.13421823446634587,
+                  "one_core_percent": 1.2201657678758717,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "ArturiaSoftware",
+                  "cpu_seconds": 0.054422215,
+                  "one_core_percent": 0.4947474090909091,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wineserver",
+                  "cpu_seconds": 0.047975753120609164,
+                  "one_core_percent": 0.4361432101873561,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.03235685828727618,
+                  "one_core_percent": 0.29415325715705615,
+                  "scheduler_wait_seconds": null
+                }
+              ],
+              "sampled_arm_hz_minimum": 2400020480,
+              "native_threads": [
+                {
+                  "name": "ap3-transport",
+                  "cpu_seconds": 0.4071399265878431,
+                  "one_core_percent": 3.7012720598894826
+                },
+                {
+                  "name": "ap7-observer",
+                  "cpu_seconds": 0.10825438317385401,
+                  "one_core_percent": 0.9841307561259455
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.03648139834698075,
+                  "one_core_percent": 0.3316490758816432
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.025426056869610907,
+                  "one_core_percent": 0.23114597154191732
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                }
+              ],
+              "native_io_delta": {
+                "syscw": 0.0,
+                "wchar": 0.0,
+                "write_bytes": 0.0
+              }
+            }
+          },
+          "clock_samples_below_2390mhz": [
+            {
+              "seconds_after_graph_observation": 20.296925855,
+              "hz": 1800025216
+            }
+          ]
+        },
+        {
+          "name": "measured",
+          "fixture_exit": 0,
+          "capture_observation": {
+            "bytes": 7680000,
+            "expected_bytes": 7680000,
+            "fixture_completed": true,
+            "fixture_stereo_nonzero": true,
+            "fixture_result": {
+              "mode": "four-notes",
+              "completed": "true",
+              "midi_sent": "9",
+              "midi_errors": "0",
+              "xruns": "0",
+              "bad_blocks": "0",
+              "stereo_nonzero": "true"
+            },
+            "limitation": "Nonzero samples and process exit do not establish continuous audio; analyze held-window recording separately."
+          },
+          "counter_delta": {
+            "bridge_processed": 4341,
+            "missing_frames": 1024,
+            "gaps": 4,
+            "midi_accepted": 9,
+            "xruns": 0,
+            "process_failures": 0,
+            "delivered_frames": 1110016
+          },
+          "flush_marks_count": 0,
+          "audio": {
+            "frames": 960000,
+            "nonfinite_samples": 0,
+            "peak": 0.04465124383568764,
+            "windows": {
+              "idle": {
+                "capture_seconds": [
+                  0.3,
+                  1.3
+                ],
+                "exact_zero_frames": 0,
+                "initial_zero_frames": 0,
+                "longest_zero_run_frames": 0,
+                "internal_zero_runs": [],
+                "rms": 5.746822770274802e-15
+              },
+              "held_including_attack": {
+                "capture_seconds": [
+                  2,
+                  14
+                ],
+                "exact_zero_frames": 1024,
+                "initial_zero_frames": 0,
+                "longest_zero_run_frames": 256,
+                "internal_zero_runs": [
+                  {
+                    "start_seconds": 2.64,
+                    "frames": 256
+                  },
+                  {
+                    "start_seconds": 2.6613333333333333,
+                    "frames": 256
+                  },
+                  {
+                    "start_seconds": 2.672,
+                    "frames": 256
+                  },
+                  {
+                    "start_seconds": 2.7039999999999997,
+                    "frames": 256
+                  }
+                ],
+                "rms": 0.0032423742045706323
+              },
+              "stable_hold": {
+                "capture_seconds": [
+                  3,
+                  14
+                ],
+                "exact_zero_frames": 0,
+                "initial_zero_frames": 0,
+                "longest_zero_run_frames": 0,
+                "internal_zero_runs": [],
+                "rms": 0.0029730577285665017
+              }
+            },
+            "first_nonzero_after_scheduled_note_on_seconds": 2.0,
+            "scheduled_note_on_capture_frame": 96000,
+            "scheduled_note_off_capture_frame": 672000
+          },
+          "common_wall_windows": {
+            "idle": {
+              "start_ns": 10809295792083,
+              "end_ns": 10810295792083,
+              "wall_seconds": 1.0,
+              "cohort_cpu_seconds": 0.6368648852765411,
+              "cohort_one_core_percent": 63.68648852765411,
+              "whole_pi_cpu_percent": 15.823551843845609,
+              "sampled_arm_hz": {
+                "count": 2,
+                "mean": 2400022144,
+                "p50": 2400020480,
+                "p95": 2400020480,
+                "p99": 2400020480,
+                "maximum": 2400023808
+              },
+              "temperature_c": {
+                "count": 2,
+                "mean": 50.975,
+                "p50": 50.7,
+                "p95": 50.7,
+                "p99": 50.7,
+                "maximum": 51.25
+              },
+              "throttled_flags": [
+                0
+              ],
+              "surviving_threads_by_cpu": [
+                {
+                  "name": "lvb-audio",
+                  "cpu_seconds": 0.5801827677940445,
+                  "one_core_percent": 58.01827677940445,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.01621622444405937,
+                  "one_core_percent": 1.6216224444059373,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.013245463342236162,
+                  "one_core_percent": 1.3245463342236161,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.009258918500686884,
+                  "one_core_percent": 0.9258918500686883,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wineserver",
+                  "cpu_seconds": 0.003147764670760274,
+                  "one_core_percent": 0.3147764670760274,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.0024577799227530808,
+                  "one_core_percent": 0.24577799227530808,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "ArturiaSoftware",
+                  "cpu_seconds": 0.001855894474503994,
+                  "one_core_percent": 0.1855894474503994,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "Resource worker",
+                  "cpu_seconds": 0.0014467959011529832,
+                  "one_core_percent": 0.14467959011529832,
+                  "scheduler_wait_seconds": null
+                }
+              ],
+              "sampled_arm_hz_minimum": 2400020480,
+              "native_threads": [
+                {
+                  "name": "ap3-transport",
+                  "cpu_seconds": 0.029553692681268454,
+                  "one_core_percent": 2.9553692681268453
+                },
+                {
+                  "name": "ap7-observer",
+                  "cpu_seconds": 0.007975033949645936,
+                  "one_core_percent": 0.7975033949645937
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.002614981488221347,
+                  "one_core_percent": 0.26149814882213473
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0017563114065316915,
+                  "one_core_percent": 0.17563114065316915
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 7.953762347467873e-05,
+                  "one_core_percent": 0.007953762347467872
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                }
+              ],
+              "native_io_delta": {
+                "syscw": 3.144924968849466,
+                "wchar": 12.579699875379447,
+                "write_bytes": 0.0
+              }
+            },
+            "held_including_attack": {
+              "start_ns": 10810995792083,
+              "end_ns": 10822995792083,
+              "wall_seconds": 12.0,
+              "cohort_cpu_seconds": 17.551717112474808,
+              "cohort_one_core_percent": 146.2643092706234,
+              "whole_pi_cpu_percent": 37.46186195016733,
+              "sampled_arm_hz": {
+                "count": 22,
+                "mean": 2372754356.3636365,
+                "p50": 2400027136,
+                "p95": 2400033792,
+                "p99": 2400033792,
+                "maximum": 2400037120
+              },
+              "temperature_c": {
+                "count": 22,
+                "mean": 52.4,
+                "p50": 52.35,
+                "p95": 52.9,
+                "p99": 52.9,
+                "maximum": 54.0
+              },
+              "throttled_flags": [
+                0
+              ],
+              "surviving_threads_by_cpu": [
+                {
+                  "name": "lvb-audio",
+                  "cpu_seconds": 11.309466714496947,
+                  "one_core_percent": 94.24555595414124,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "Processing Thre",
+                  "cpu_seconds": 5.266487877093584,
+                  "one_core_percent": 43.88739897577987,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.24882486766122913,
+                  "one_core_percent": 2.073540563843576,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.21441220373420156,
+                  "one_core_percent": 1.7867683644516796,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.14618097399188315,
+                  "one_core_percent": 1.218174783265693,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.075685197,
+                  "one_core_percent": 0.630709975,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wineserver",
+                  "cpu_seconds": 0.05780696879029429,
+                  "one_core_percent": 0.481724739919119,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.03565355891952074,
+                  "one_core_percent": 0.29711299099600613,
+                  "scheduler_wait_seconds": null
+                }
+              ],
+              "sampled_arm_hz_minimum": 1800025216,
+              "native_threads": [
+                {
+                  "name": "ap3-transport",
+                  "cpu_seconds": 0.44378400002786017,
+                  "one_core_percent": 3.698200000232168
+                },
+                {
+                  "name": "ap7-observer",
+                  "cpu_seconds": 0.11770841326746369,
+                  "one_core_percent": 0.9809034438955307
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.037327569673922825,
+                  "one_core_percent": 0.3110630806160235
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.02770041571238184,
+                  "one_core_percent": 0.230836797603182
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                }
+              ],
+              "native_io_delta": {
+                "syscw": 0.0,
+                "wchar": 0.0,
+                "write_bytes": 0.0
+              }
+            },
+            "stable_hold": {
+              "start_ns": 10811995792083,
+              "end_ns": 10822995792083,
+              "wall_seconds": 11.0,
+              "cohort_cpu_seconds": 15.974175995662451,
+              "cohort_one_core_percent": 145.21978177874956,
+              "whole_pi_cpu_percent": 37.127092339670796,
+              "sampled_arm_hz": {
+                "count": 21,
+                "mean": 2371455494.095238,
+                "p50": 2400027136,
+                "p95": 2400033792,
+                "p99": 2400033792,
+                "maximum": 2400037120
+              },
+              "temperature_c": {
+                "count": 21,
+                "mean": 52.50714285714286,
+                "p50": 52.35,
+                "p95": 52.9,
+                "p99": 52.9,
+                "maximum": 54.0
+              },
+              "throttled_flags": [
+                0
+              ],
+              "surviving_threads_by_cpu": [
+                {
+                  "name": "lvb-audio",
+                  "cpu_seconds": 10.338013044018666,
+                  "one_core_percent": 93.98193676380605,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "Processing Thre",
+                  "cpu_seconds": 4.812904683768629,
+                  "one_core_percent": 43.753678943351176,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.22699453169135855,
+                  "one_core_percent": 2.0635866517396235,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "winedevice.exe",
+                  "cpu_seconds": 0.1959812458572862,
+                  "one_core_percent": 1.7816476896116928,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.13378449539395082,
+                  "one_core_percent": 1.216222685399553,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wineserver",
+                  "cpu_seconds": 0.04528858019285798,
+                  "one_core_percent": 0.41171436538961803,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "wf0-factory-pro",
+                  "cpu_seconds": 0.03269009903386122,
+                  "one_core_percent": 0.29718271848964745,
+                  "scheduler_wait_seconds": null
+                },
+                {
+                  "name": "ArturiaSoftware",
+                  "cpu_seconds": 0.028943375457520962,
+                  "one_core_percent": 0.2631215950683724,
+                  "scheduler_wait_seconds": null
+                }
+              ],
+              "sampled_arm_hz_minimum": 1800025216,
+              "native_threads": [
+                {
+                  "name": "ap3-transport",
+                  "cpu_seconds": 0.407498315598702,
+                  "one_core_percent": 3.7045301418063814
+                },
+                {
+                  "name": "ap7-observer",
+                  "cpu_seconds": 0.10776191913131129,
+                  "one_core_percent": 0.9796538102846482
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.03417509583093142,
+                  "one_core_percent": 0.31068268937210386
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.025386290429489134,
+                  "one_core_percent": 0.23078445844990123
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                },
+                {
+                  "name": "trace-host",
+                  "cpu_seconds": 0.0,
+                  "one_core_percent": 0.0
+                }
+              ],
+              "native_io_delta": {
+                "syscw": 0.0,
+                "wchar": 0.0,
+                "write_bytes": 0.0
+              }
+            }
+          },
+          "clock_samples_below_2390mhz": [
+            {
+              "seconds_after_graph_observation": 3.553399214,
+              "hz": 1800025216
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Common CPU windows use graph-ready stdout observation, not an exact MIDI callback timestamp. Audio windows use capture frame positions and retain actual first nonzero output.",
+    "First nonzero after frame96000 is not new-note onset when a residual tail is already nonzero before the stimulus. Idle RMS is retained to expose this.",
+    "Four note-ons are scheduled at capture frame96000 and note-offs at672000 by the same capture sample counter; this does not establish plugin execution or audible onset at those frames.",
+    "Native phase tracing OFF retains callback deadline/scalar output checks, transport/fault clocks, commercial native observer and Windows diagnostics. This is not a fully uninstrumented runtime.",
+    "Only ON creates phase records and has before/after/five-second flush marks, including disk sync. These are the intended observer difference.",
+    "Before/after status counter deltas span wider than the stimulus hold and include control/marker response time. They are not exact active-block attribution.",
+    "Off has no phase attribution. Common wall-window CPU is not CPU per rendered second. Scheduler wait is unavailable with schedstats disabled.",
+    "Exact-zero audio frames can include onset latency or preset behavior. Counter-reported missing frames are reported separately; neither nonzero output nor exit0 proves continuity.",
+    "One ordered OFF/ON/OFF exposes repeat drift but is not randomized or sustained-performance qualification. No subjective listening or battery energy measurement was made."
+  ],
+  "fixture": {
+    "hardware": "Pi5 / ShieldXL",
+    "plugin": "Pigments7.0.1.6772",
+    "runner": "GE-Proton11-7 AArch64 / UMU1.4.4 / steamrt4-arm64 / FEX Windows x86",
+    "preset": "24 AM",
+    "polyphony": 4,
+    "master": 0.35,
+    "notes": [
+      60,
+      64,
+      67,
+      71
+    ],
+    "velocity": 96,
+    "headless": true,
+    "sample_rate": 48000,
+    "jack_period": 512,
+    "vendor_quantum": 256,
+    "reserve": 2048,
+    "power_source_verified": false
+  },
+  "build": {
+    "base_commit": "886414518d6dcff033027412095212fb2294ad5a",
+    "base_tree": "e885ab8bdde24b679e7001033cc7b60e6b2dd1c3",
+    "native_incremental_build_seconds": 59.33,
+    "test_build_seconds": [
+      12.54,
+      23.19
+    ],
+    "focused_native_tests_passed": 6,
+    "offline_capture_reducer_tests_passed": 2,
+    "build_finished_before_first_session": true,
+    "candidate_relative_to_private_root": "staging/phase-trace-01/trace-host",
+    "preserved_installed_source_difference": "rpi1/standalone/src/panel.rs",
+    "source_files_sha256": {
+      "rpi1/standalone/Cargo.toml": "be6b7966a45ea859936ac609c527546304d29164c3672dc1c10ad5c5b9c6215f",
+      "rpi1/standalone/Cargo.lock": "3e0f895485db3e6063160f515197a56f3a6bff7addb66f716dbe052cb159f62b",
+      "rpi1/standalone/src/supervisor.rs": "c6f50eaf137fbdf5c0b0b9ab7cab3ece483ec5880dbce28022dc5ebb3cb5e2c1",
+      "rpi1/standalone/src/panel_state.rs": "b52766793b64ea19b70c8bdd47d905aef13435bc48d31499998b29f6ddd7619b",
+      "rpi1/standalone/src/panel.rs": "5e9e9fae9b5619d1725348b4249cbc5566c0e87ed60014b3f84fa37c11fb5ec8",
+      "rpi1/standalone/src/panel_linux.rs": "e2ae5a5b3090b630240906f70afdd32a14172ff2f458afa530e3fd53ba66826e",
+      "rpi1/standalone/src/lib.rs": "6cb0ba99c5c2d3c88daec91f6374b91b4faff5af8002bd4cfb06acf3542ce62a",
+      "rpi1/standalone/src/binding.rs": "b3ff0d8301152fcdb81f521f3e55afb4df206670edc72a0a166bd4fabe894e46",
+      "rpi1/standalone/src/phase_capture.rs": "1fb876846d3ac9ca0180957d1a0bbc3cadf419b4c4c2f79e4e2936818dd73d31",
+      "rpi1/standalone/src/master.rs": "884831c122769b91d6ceee199625f2e1f316e630b1497350236ac695bd4cc436",
+      "rpi1/standalone/src/main.rs": "89b0231bb36a5b3bf1f48d2fb28d07766fcccf05faba231d921a58d4709bfa51",
+      "rpi1/standalone/src/config.rs": "ffdd6a1dcaf8d142afe855d49cda668f000db3c27b5d8ad76e985a1a5c2fe5b5",
+      "rpi1/standalone/src/contract.rs": "4c43e79668f70db207d854e562e2d2c7a15f0688f50801ffc70cd09fbf92778d",
+      "rpi1/standalone/src/retirement.rs": "2d1b9cac22d49e0a7768e52df11f3f91996ee3e1e9b61ee777eb85a129fd5460",
+      "rpi1/standalone/src/startup.rs": "1b20319d27a87b68ad885a450496cc26007f1b8b5e92f9e4b8669e1d45dbe868",
+      "rpi0/standalone/Cargo.toml": "50d6e5027708090f38cad7e4a5ef8a5187172d20539749197b3a36335cbeb223",
+      "rpi0/standalone/Cargo.lock": "67ab050c0c6e0671df983c9f5a8f568f05b5fdb8495f1d1b8ebbd73e2fa7f969",
+      "rpi0/standalone/src/jack.rs": "c33f04272aa17db7e49bab3f7e69e60615638942cc0777ad490a27158c60cda2",
+      "rpi0/standalone/src/supervisor.rs": "b11ac60ffb0939471b67a54730134d5a25bfd70fa973450f8f87b19e05f7c867",
+      "rpi0/standalone/src/audio.rs": "369133fa30b655f7191852d445ec319b15ef4ed1810d78f78dcafd9e4d67ee9b",
+      "rpi0/standalone/src/midi.rs": "50a508f5693daba36f446abad292e019be6ad275dd7462884dcb4383ebb2f8f0",
+      "rpi0/standalone/src/protocol.rs": "81b90bb6e05f6d43b8c9e7e5424fb0250d01c6c5b4c5f5843f1f5516f1071e61",
+      "rpi0/standalone/src/lib.rs": "c3e2029b8d73eee2a3661fb5d71ae8712bcfb7f21e3f1f7d9b75f1e83f276081",
+      "rpi0/standalone/src/callback_gate.rs": "24d77bb2a8991c2881d2991f83387afdeebe0bed19561c54204a93b65a180359",
+      "rpi0/standalone/src/main.rs": "699cef6aff9123b3b92ba6e429d261e67094fbd038b35cd6074a7a20c7185e94",
+      "rpi0/standalone/src/config.rs": "429d449fa4f579421e3def4078fa637e8e2d62a9d28de778f0d970c17ecd419c",
+      "rpi0/standalone/src/spsc.rs": "7fb47251a9a630b2c37eb25dd21753c05d45f33842b520fc319887e5c08cbf86",
+      "native-vst3-proxy/backend/Cargo.toml": "7c32992637ab4099be4cf70a1641541f855428e5d727568c4f244b9ec28ca3ce",
+      "native-vst3-proxy/backend/Cargo.lock": "59422fb7429b8d161b011bd906b82d1b7f0ef3e9c042958b71fe896579c6e91c",
+      "native-vst3-proxy/backend/src/recovery.rs": "53378f83e437a55f7eb91baff253f2c8b2bd4fe266a1b26bb86c49a3c25a0bb6",
+      "native-vst3-proxy/backend/src/rpi0.rs": "0b78efc9886f8fc789511878f187e9c2f6a3b946c9e1913f1f9b6c2e24960f01",
+      "native-vst3-proxy/backend/src/performance.rs": "28918b902f68a9d06b454e726978ce2c3bd123b46c5f500b6b001c5d84a421c2",
+      "native-vst3-proxy/backend/src/lc1_tests.rs": "92af98985ecf9f517ea077515c5854168ac22c8a06a016dd1e66cc65a5f1c124",
+      "native-vst3-proxy/backend/src/mailbox.rs": "1639284f3eb011c6a27ce9eb92ff4401811e16ed2112212efd12816ed9aa7b72",
+      "native-vst3-proxy/backend/src/input_observation.rs": "424b34e25c4df83d8550eac48cfbd890ba6614aae8134a2ccb76bff812decf59",
+      "native-vst3-proxy/backend/src/terminal.rs": "136588afab1838f358045576919e31b3f53c4f28f875d6ec151c20f0b9dedf0e",
+      "native-vst3-proxy/backend/src/rpi1_phase.rs": "e8c0876919501d6525c46b41b8b446dab8d248fa2ab5595233a994ed28a14ab8",
+      "native-vst3-proxy/backend/src/lib.rs": "68776a01aa6c6be05f31d046b1c5b6d04db7f5ed5a13d7053b3b752a84d4e7e0",
+      "native-vst3-proxy/backend/src/instances.rs": "8add1b5f343cb078ae87db2e87cbb4a39b46b79389236c5263bc02cce9d55e4e",
+      "native-vst3-proxy/backend/src/commercial_tests.rs": "1aeb8284e077a966bed3a3d2fdfb0f3966cfbf02553467b6d28a64bfb19a0e17",
+      "native-vst3-proxy/backend/src/fault_status.rs": "ce12df04647b0e98b0b667e9cf6c18e78257f979e3dc5cc0fe2f6c068a3d087b",
+      "native-vst3-proxy/backend/src/capture_tests.rs": "8d53b716b9fa5066125afa68f61d83206a1b7cebf786b44d74a4b24d525f57a6",
+      "native-vst3-proxy/backend/src/queue.rs": "dca1261dc40e572f659123fcde65fd115218d070c6c40593af0b4b83f3810b81",
+      "native-vst3-proxy/backend/src/process_results.rs": "66836f0dfcf015624c694e424f5a56d78912207a510f6fcd69843fdf414d2390",
+      "native-vst3-proxy/backend/src/queued.rs": "70d3739afb186e5d629701ec3c6780ff1f32ce40573e9f0f5cda8b319a8f69ce",
+      "native-vst3-proxy/backend/src/observer.rs": "24e77bece6aeab8912019b6e43af66ceaefb1de06bf824c29d817e79d25aee71",
+      "native-vst3-proxy/backend/src/preview.rs": "c9816dab8e69ac2b698d24ef1125ae868f535fd2ca6bf7aaab15f7062d7d98a1",
+      "native-vst3-proxy/backend/src/gui.rs": "51305cf9656c26665c89269ae9662b5ff21fe9198b89e877a770127128ae3464",
+      "native-vst3-proxy/backend/src/context.rs": "d66b2e7ddcd8f771fff09c270c002871813ce58b708e93095f464a79b811b486",
+      "native-vst3-proxy/backend/src/state.rs": "b0306df482e37ed45df071a67d9c6345bfa56d3803d722be492a6475061a6d84",
+      "native-audio-client/Cargo.toml": "4d35a5ee454680711b7d0d779fa511d338f89c3977a6289951d827a9d31568d9",
+      "native-audio-client/Cargo.lock": "c9ccfa326f23253e63701096a7058810a5597fa590710bcfe63644ae6bc425e6",
+      "native-audio-client/src/admission.rs": "8b1b932ab3e4462ebf3724b0b64b6a19f7f1d11444482ec42de40a8a9d7066df",
+      "native-audio-client/src/lib.rs": "da6dfc1850738c793914e62f9fbdcf033a55191478704bab0c25b25ebb6092b5",
+      "native-audio-client/src/main.rs": "e9fb851d2bfae8652ec0c3f5ce56c190151dfeda60146ff059719c6c96ed8c57",
+      "native-audio-client/src/mapping.rs": "cba4a5733e7bf8be2290a0a5d683bf98eee71f2545ba305cb7668b0efc154a35",
+      "native-audio-client/src/events.rs": "1dcf8004b4e2f08ed1dd7e08d1e7b67fc11083c4d31be12718467bf8fbdce0f4",
+      "native-audio-client/src/endpoint.rs": "7feb571c1c3c7d32f9d27f8effc9ff39eff2e223e074189f05a0155646b004a6"
+    },
+    "candidate_sha256": "85780f4856f2bac9f605628ca7decd80568cca0ad36fa92db70960bf74dd1a62",
+    "config_sha256": "dfcffd1200a58e077b39aeb62fa730d917b1f137562ff77dbe6f5e1a47845a0a",
+    "stimulus_sha256": "eb9b82707531ff887bce880825c6c8f9d70d1c56836620a43b987113d6a6bd3e",
+    "plugin_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+    "host_sha256": "64d629e84a0fdf8833e97b9393cd41b9a5a214f82fe418d1792281622f0007f2",
+    "preserved_generic_binary_sha256": "9d0a611d7175b05e398f484d9217fb29b7004f3e0eaac76acd6ad00a541bd1da",
+    "preserved_generic_binary_relative_to_source_root": "rpi0/standalone/target/release/lvb-arm-plugin-standalone",
+    "generic_binary_restored_before_first_session": true,
+    "helper_cli_default_binary": "rpi0/standalone/target/release/lvb-arm-pigments-standalone",
+    "helper_cli_default_sha256": "24e6ab174071a46c715d03c6e9d6718652097e965ffb3911eb2aa8298a2ef617",
+    "launch_selection": "Explicit --binary selects generic/trace candidate; helper default remains Pigments-specific executable and was not modified."
+  },
+  "cleanup": {
+    "all_three_sessions_clean": true,
+    "state_restored": "8-Bit Crystals",
+    "master_restored": 0.48033079504966736,
+    "baseline_jack_graph_restored": true,
+    "owned_services_remaining": 0,
+    "governor": "ondemand",
+    "schedstats": 0,
+    "current_throttled_flags": 0,
+    "idle_temperature_c": 48.3,
+    "no_privilege_gui_runtime_or_dependency_changes": true,
+    "preserved_generic_binary_sha256": "9d0a611d7175b05e398f484d9217fb29b7004f3e0eaac76acd6ad00a541bd1da",
+    "helper_default_pigments_binary_sha256": "24e6ab174071a46c715d03c6e9d6718652097e965ffb3911eb2aa8298a2ef617"
+  },
+  "interpretation": {
+    "phase_switch": "Native phase observer disabled/enabled truthfully; no phase recorder thread or file off. Remaining diagnostics explicitly retained.",
+    "audio": "OFF repeats differ: zero vs1024missing frames, ONzero. Four OFF2 gaps occur during attack. Phase tracing does not explain warm-up failures or establish audio reliability improvement.",
+    "cpu": "Warmed Windows workload similar; small ON increment and about1%one-core recorder cost. Whole-Pi variation prevents reliable total-system savings attribution.",
+    "next_comparison": "Only an exploratory warmed large-effect multicore comparison is supported. Verify actual plugin setting first; current audio caller plus Processing Thre already run concurrently. Preserve attack and cold-start failures; no production/headless usability claim.",
+    "thermal": "Observed maximum54C and flags0. A1.8GHz sample in OFF2 is retained, not attributed as cause; remaining active samples near2.4GHz."
+  },
+  "prelaunch_helper_repair": "First helper invocation failed import before creating output/session; existing identity helper staged beside it, then the only3 native sessions ran.",
+  "test_repair": "Synthetic timestamp assertion changed from exact float equality to approximate seconds comparison; zero-frame counts remain exact. No native code or live rerun."
+}

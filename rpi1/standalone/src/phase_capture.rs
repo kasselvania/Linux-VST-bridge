@@ -27,7 +27,7 @@ struct SourceEvent {
 
 pub struct PhaseCapture {
     stop: Arc<AtomicBool>,
-    markers: mpsc::Sender<(u64, String)>,
+    markers: Option<mpsc::Sender<(u64, String)>>,
     thread: Option<JoinHandle<io::Result<()>>>,
 }
 impl PhaseCapture {
@@ -36,6 +36,12 @@ impl PhaseCapture {
         directory: &Path,
         session: &str,
     ) -> io::Result<Self> {
+        if rings.0.enabled() != rings.1.enabled() {
+            return Err(io::Error::other("phase producer mode mismatch"));
+        }
+        if !rings.0.enabled() {
+            return Ok(Self { stop: Arc::new(AtomicBool::new(false)), markers: None, thread: None });
+        }
         let path = directory.join(format!("{session}-phase.jsonl"));
         let file = OpenOptions::new()
             .write(true)
@@ -51,20 +57,22 @@ impl PhaseCapture {
             .spawn(move || drain(file, &session, rings, receiver, thread_stop))?;
         Ok(Self {
             stop,
-            markers,
+            markers: Some(markers),
             thread: Some(thread),
         })
     }
-    pub fn mark(&self, marker: &str) -> io::Result<()> {
-        self.markers
+    pub fn enabled(&self) -> bool { self.markers.is_some() }
+    pub fn mark(&self, marker: &str) -> io::Result<bool> {
+        let Some(markers) = &self.markers else { return Ok(false) };
+        markers
             .send((monotonic_ns(), marker.to_owned()))
+            .map(|_| true)
             .map_err(|_| io::Error::other("phase capture retired"))
     }
     pub fn finish(mut self) -> io::Result<()> {
         self.stop.store(true, Ordering::Release);
-        self.thread
-            .take()
-            .unwrap()
+        let Some(thread) = self.thread.take() else { return Ok(()) };
+        thread
             .join()
             .map_err(|_| io::Error::other("phase capture panicked"))?
     }
@@ -215,6 +223,42 @@ fn flush_history(
 mod tests {
     use super::*;
     use std::{cell::RefCell, rc::Rc};
+
+    #[test]
+    fn enabled_capture_writes_event_and_marker() {
+        let directory = std::env::temp_dir().join(format!("lvb-phase-on-{}", std::process::id()));
+        std::fs::create_dir(&directory).unwrap();
+        let callback = Arc::new(Ring::new());
+        let worker = Arc::new(Ring::new());
+        callback.bind_producer(7);
+        callback.record(1, 256, phase::CALLBACK_ENTER, 0, 12, 34);
+        let capture = PhaseCapture::start((callback, worker), &directory, "on").unwrap();
+        assert!(capture.enabled());
+        assert!(capture.thread.is_some());
+        assert!(capture.mark("test").unwrap());
+        capture.finish().unwrap();
+        let records: Vec<serde_json::Value> = std::fs::read_to_string(directory.join("on-phase.jsonl"))
+            .unwrap().lines().map(|line| serde_json::from_str(line).unwrap()).collect();
+        assert!(records.iter().any(|r| r["phase"] == "callback_enter" && r["value_1"] == 12));
+        assert!(records.iter().any(|r| r["event"] == "rpi1_phase_marker" && r["name"] == "test"));
+        std::fs::remove_file(directory.join("on-phase.jsonl")).unwrap();
+        std::fs::remove_dir(directory).unwrap();
+    }
+
+    #[test]
+    fn disabled_capture_has_no_thread_file_or_successful_mark() {
+        let directory = std::env::temp_dir().join(format!("lvb-phase-absent-{}", std::process::id()));
+        assert!(!directory.exists());
+        let capture = PhaseCapture::start((Arc::new(Ring::disabled()), Arc::new(Ring::disabled())),
+                                          &directory, "off").unwrap();
+        assert!(!capture.enabled());
+        assert!(capture.thread.is_none());
+        assert!(!capture.mark("unavailable").unwrap());
+        capture.finish().unwrap();
+        assert!(!directory.exists());
+        assert!(PhaseCapture::start((Arc::new(Ring::new()), Arc::new(Ring::new())),
+                                   &directory, "on").is_err());
+    }
 
     #[derive(Default)]
     struct Recorded {

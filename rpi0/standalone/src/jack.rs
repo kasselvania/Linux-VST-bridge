@@ -341,7 +341,7 @@ unsafe extern "C" fn process(frames: JackNFrames, argument: *mut c_void) -> c_in
     #[cfg(not(feature = "rpi1-observe"))]
     let _ = sequence;
     #[cfg(feature = "rpi1-observe")]
-    {
+    if rt.phase.enabled() {
         use ap2_backend::rpi1_phase as phase;
         if rt.phase.producer_tid() == 0 {
             rt.phase.bind_producer(libc::gettid() as u64);

@@ -125,6 +125,8 @@ mod appliance {
             &config.evidence_directory,
             &session_hex,
         )?;
+        println!("RPI1_PHASE_TRACE mode={} recorder={} file={}",
+            if phase.enabled() { "on" } else { "off" }, phase.enabled(), phase.enabled());
         let buses = &config.binding.buses;
         let traits = instance.setup(jack.buffer_size(), 48_000.0, buses)?;
         instance.activate(256)?;
@@ -385,8 +387,11 @@ mod appliance {
                         return Ok(());
                     }
                     if line == "mark" {
-                        phase.mark("operator_incident")?;
-                        println!("RPI1_OBSERVER_MARKER accepted");
+                        if phase.mark("operator_incident")? {
+                            println!("RPI1_OBSERVER_MARKER accepted");
+                        } else {
+                            println!("RPI1_OBSERVER_MARKER unavailable phase_trace=off");
+                        }
                         continue;
                     }
                     if line == "status" {

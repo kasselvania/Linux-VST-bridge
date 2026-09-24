@@ -1326,3 +1326,99 @@ Governor A/B/A remains explicitly deferred, not achieved. Review the recorder
 repair as an opt-in prerequisite, retaining the active-attack gap caveat, then
 target Windows processing work whose cost remained almost unchanged. Detailed
 results and provenance: `evidence/rpi2/pigments-recorder-buffering.json`.
+
+### Same-binary native phase trace OFF/ON/OFF
+
+The follow-on candidate reads `LVB_RPI1_PHASE_TRACE` once during native startup.
+Absent or `off` disables native phase tracing, `on` enables it, and invalid values
+fail startup. OFF skips phase event clocks/production, worker clock conversion,
+the phase-only JACK cycle/gettid block, recorder thread and phase file. Startup
+reports mode/recorder/file; `mark` explicitly reports unavailable when disabled.
+ON retains the buffered recorder and existing record format/error behavior.
+
+This is **not a fully uninstrumented runtime**. Callback deadline clocks and
+scalar output/nonfinite/missing-frame counters remain, as do request/transport
+and fault timestamps, the commercial `ap7-observer`, `ap3-transport`, and Windows
+host diagnostics. Neither DSP settings nor the synchronization backend changed.
+Six focused native tests passed, including disabled no clock/event/file/thread,
+actual enabled event/marker output, byte identity and write/flush/sync errors.
+Test compilation took 12.54 and 23.19 seconds; incremental native build took
+59.33 seconds and ended before the first session. The separately staged candidate
+SHA256 is `85780f4856f2bac9f605628ca7decd80568cca0ad36fa92db70960bf74dd1a62`.
+Preserved generic binary SHA256 `9d0a611d7175b05e398f484d9217fb29b7004f3e0eaac76acd6ad00a541bd1da`
+was restored before launch. The 58-file source inventory matches this change
+except the intentionally preserved installed `panel.rs` difference.
+
+The reviewed experiment uses one identical candidate for OFF1, ON and OFF2,
+with the same preset, warm-up, near-drained admission and measured four-note hold.
+Common low-rate CPU/frequency/temperature/native I/O sampling and before/after
+status remain identical. ON alone has the recorder and before/after/five-second
+marks with durable sync. No phase-file freshness test is used. OFF has no phase
+attribution; CPU comparisons use common wall windows, not an invented completed
+block denominator. Counter intervals are wider than the hold. Graph-ready stdout
+observation approximates wall alignment; capture frame 96,000 schedules note-ons
+and 672,000 note-offs, and output onset/zeros are separately measured. Initial
+zeros, internal zero runs and reported missing frames are not conflated.
+
+| Measured observation | OFF1 | ON | OFF2 |
+| --- | ---: | ---: | ---: |
+| Whole held 2–14 s Windows CPU, one core | 145.57% | 146.83% | 146.26% |
+| Stable 3–14 s Windows CPU, one core | 145.15% | 146.36% | 145.22% |
+| Phase recorder CPU during whole hold, one core | absent | 0.94% | absent |
+| Whole-Pi CPU during whole hold | 38.92% | 37.73% | 37.46% |
+| Status missing-frame / gap delta | 0 / 0 | 0 / 0 | 1,024 / 4 |
+| Exact-zero output frames, 2–14 s | 0 | 0 | 1,024 |
+| Exact-zero output frames, 3–14 s | 0 | 0 | 0 |
+
+OFF2's four 256-frame zero runs begin at capture seconds 2.640, 2.6613, 2.672
+and 2.704, during the attack. OFF repeats therefore expose audio variation even
+without native phase tracing. This is not evidence that tracing improves audio,
+or that disabling it cures earlier gaps. The three full recordings were finite,
+with peaks 0.04413 / 0.05051 / 0.04465. Residual tails were already nonzero before
+the measured stimulus, so first-nonzero-at-second-2 is not new-note onset.
+All measured passes accepted nine MIDI events with no process faults, callback
+deadline misses or JACK xruns. The ON phase record covered all 2,250 held-window
+blocks and 2,062 stable-window blocks without position holes or phase drops.
+ON full-hold vendor/service means were 4.977/5.130 ms; stable means 4.954/5.107 ms.
+
+Warm-ups remain severe failures. OFF1 and ON captured exact silence throughout
+held seconds 2–14. Their wider status intervals added 644,096 and 639,488 missing
+frames. OFF2 added 313,856 missing frames; first held-window nonzero output was
+at capture second 8.5547, preceded by 314,624 zero frames and followed by seven
+more 256-frame internal zero runs. These are observations, not ordinary onset
+latency. Disabling native phase tracing does not remove this startup problem.
+
+The Windows audio-calling thread consumed approximately 94% of a core and a
+second thread named `Processing Thre` approximately 44% during the measured
+hold. These thread names/CPU observations do not isolate DSP from translation
+or synchronization, but contradict a blanket claim that the workload uses only
+one thread. Native transport used about 3.7% and the retained commercial observer
+about 1% of a core in all modes. The ON native process made 170 writes during the
+whole hold; OFF modes made none in that interval. The small recorder cost is
+measurable, but whole-Pi variation prevents a firm total-system savings claim.
+
+Temperature reached at most 54.0 C in trial samples, with no throttle flags.
+Most active frequency samples were approximately 2.4 GHz. OFF2 included one
+1.8 GHz sample at graph-observation +3.553 seconds, later than its captured gaps;
+that sparse and approximate alignment does not establish causality. No energy
+or battery-life conclusion follows. All three sessions restored 8-Bit Crystals,
+master 0.48033079504966736 and baseline JACK graph, then shut down cleanly.
+No owned service remained; ondemand/schedstats=0 and the preserved generic
+`lvb-arm-plugin-standalone` hash were verified. The separate older
+`lvb-arm-pigments-standalone` executable was not modified.
+
+This baseline supports an exploratory **large-effect warmed multicore setting
+comparison**, after verifying the actual plug-in setting. It does not support
+small-effect audio reliability claims, cold-start usability or generic core
+scaling promises. Retain the warm-up failures and attack interval in that next
+comparison. No extra runs, governor change, GUI action or default replacement
+were performed here. Results: `evidence/rpi2/pigments-phase-trace-comparison.json`.
+
+Path clarification: the preserved generic build output is
+`source-bridge/rpi0/standalone/target/release/lvb-arm-plugin-standalone` (9d0a611...).
+The session helper's actual CLI default is the separate Pigments-specific binary
+in that same release directory (24e6ab174071a46c715d03c6e9d6718652097e965ffb3911eb2aa8298a2ef617).
+Comparison helpers select their executable explicitly with `--binary`; these
+three launches all selected `staging/phase-trace-01/trace-host`. Earlier references
+to preserving the original "default" describe the generic build output, not a
+change to the session helper's default argument. Both original binaries remain.
