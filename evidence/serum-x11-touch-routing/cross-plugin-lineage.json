@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "claim": "Read-only applicability of the selected per-window Wine X11 route to the exact Blackhole and Kontakt runner lineages",
+  "blackhole": {
+    "runner": "proton-11.0-2c-dcomp-c27f058-reference",
+    "wine_source_commit": "c27f058814b402a5709e073adccd42baa66810b9",
+    "wine_source_tree": "622801bdffacb23188c29958c620cc12bf658843",
+    "installed_winex11_sha256": "303eb26ef8e0357aa67ef2c04300b89a68444ec580475e3ac68b958b0bc17f97",
+    "routing": "Already selects per-window XI_TouchBegin/Update/End and handles XIDeviceEvent; Serum's root-raw-to-window-routing patch is not applicable.",
+    "separate_observation": "Its exact source still includes INCONTACT on XI_TouchEnd; no Blackhole physical causality or corrected runner is claimed.",
+    "publication_changed": false
+  },
+  "kontakt": {
+    "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769-ni-msi-ed4a47d3b167",
+    "wine_source_commit": "2809008afc1cc8c9b3ff1738becfd3f43f0bb1f0",
+    "wine_source_tree": "af55648e1a2c2e2a5891820c7806471d99250c82",
+    "installed_winex11_sha256": "a483a2741af99e82c581954060d7885c40e90b0ad616104e841bef8a40c5edbd",
+    "routing": "Still selects root-level XI_RawTouchBegin/Update/End and handles XIRawEvent with no event-window target; release also remains INCONTACT.",
+    "release_patch_sha256": "3e8fa75ddb3f1dcfa2b7f73a82d97eeaf8bed0a0d3d51eed6afd514ab3b0723a",
+    "routing_patch_sha256": "44c3c11806fe48ed0358fd3469d60c5572c0f78773057ef4c335198c1c497203",
+    "private_source_patch_check": "Both patches applied sequentially to an isolated checkout of the exact NI Wine commit; the patched mouse and touch header match the Serum successor source digests.",
+    "isolated_driver_build": {
+      "sdk_sha256": "97526b794ce1a9bed5f891084462260b3a02399569f7438a3a57b5a253001db9",
+      "winex11_sha256": "f1037fa4a93aa228c70161e880166929bb7a0301a571cb925dfce2a7228727b6",
+      "configure_log_sha256": "14c9f84f8a7ddebd005f0dbec7364e8302254b6b3eb33563ee3db1d844e801e3",
+      "build_log_sha256": "8e2c0ed3dc1e5cb9eba76ad917099ae96bd84e59a12d5ac9935548a94a26e404"
+    },
+    "runner_successor_sealed": false,
+    "candidate_or_publication_changed": false,
+    "physical_touch_result": "not_tested"
+  },
+  "authority_boundary": "The current experimental-runner and touch carry-forward owners admit the exact Serum environment, class, predecessor and runner manifests only. They cannot lawfully advance the NI managed environment or publish a Kontakt touch successor. Extending that closed authority is a separate product architecture/security change; no direct environment, prefix, registry or publication edit was made.",
+  "nonclaims": [
+    "The Serum physical result is not assigned to Blackhole or Kontakt.",
+    "A compiled Kontakt Wine driver is not an immutable runner or a Kontakt candidate.",
+    "The Blackhole release-contact source observation is not proof of a Blackhole touch failure mechanism."
+  ]
+}

@@ -17,14 +17,37 @@ overstate the result. The initial action trace did not retain a complete XI
 touch Begin/End pair. Its `GetPointerInfo` errors were observer-side calls to
 the pinned Wine stub, not proof that Serum called that API.
 
-The pinned Wine driver selects root-level `XI_RawTouch*` and sends hardware
-pointer messages without a per-window XI delivery target. A proposed shared
-successor instead selects `XI_Touch*` on each Wine window, resolves the exact
+The pinned candidate-C Wine driver selected root-level `XI_RawTouch*` and sent
+hardware pointer messages without a per-window XI delivery target. The shared
+successor selects `XI_Touch*` on each Wine window, resolves the exact
 `XIDeviceEvent.event` window to its HWND, and retains candidate C's corrected
-release flag. This is a selected source hypothesis, not a physical fix claim.
-The source-owned popup fixture and the subsequent human-operated Serum session
-must establish whether the input sequence actually exits menu tracking. The
-other five publications and candidate C remain untouched pending that result.
+release flag. The original capture was a source-selection hypothesis, not
+itself a physical fix claim. The [source-owned popup fixture](../evidence/serum-x11-touch-routing/popup-fixture-physical.json)
+and [human-operated candidate-D Serum session](../evidence/serum-x11-touch-routing/candidate-d-physical.json)
+subsequently passed. Candidate C and its two failed physical attempts remain
+retained history, not a successful release-flag-only result.
+
+### Candidate D physical result
+
+The installed Serum successor `proton-11.0-2c-x11-touch-routing-v2`, complete
+tree `de6c55c2a8c82abf2b1b0b47a97ee97a00657fa04582b2112327fa3d0095a698`,
+materialized candidate `b43421069dca3872cf7c28440616d1086d192f827ac8ccd80bf16102dc2681ab`
+and published revision `d39392e65959e4fba15d769d9fea9b1a` through the
+existing experimental-runner and operator owners. The operator confirmed
+trackpad menu interaction, ordinary finger control, finger-open/finger-select,
+finger-open/finger-dismiss, continued editor response without focus cycling,
+and an audible note after the touch actions. Exact session
+`3c5bc722b8d92e9844a43bcafac381e3` reported zero underrun gaps and
+callback rejections, followed by confirmed Windows cleanup and transport
+retirement; manager returned to zero DSP and no cleanup uncertainty. This is
+one exact Serum popup pass, not automatic Blackhole, Kontakt, or Pigments
+coverage. The [lineage check](../evidence/serum-x11-touch-routing/cross-plugin-lineage.json)
+found Blackhole's DComp Wine already on the per-window route. Kontakt's NI
+Wine retains root-raw touch; both source patches applied to its exact private
+Wine checkout and an isolated driver compiled under the pinned offline SDK.
+That driver is not a sealed NI runner or a Kontakt touch claim. The current
+experimental-runner and candidate carry-forward owners are intentionally
+Serum-specific, so no NI environment or publication was changed.
 
 ## Serum waveform touch release, bounded candidate C (2026-09-23)
 

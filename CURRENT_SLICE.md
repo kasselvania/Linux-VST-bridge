@@ -44,6 +44,23 @@ editor and host liveness, and full retirement. Only after Serum passes may
 exactly applicable Blackhole and Kontakt runner lineages receive a separate
 immutable patch and one bounded physical smoke each.
 
+The [candidate-D physical result](evidence/serum-x11-touch-routing/candidate-d-physical.json)
+now passes this primary Serum gate. Installed generation
+`d2e90f7b3a38fe1263171d33b9cfc640abf59bc46f1f470f87cb6c8750ba6c4d`
+retains C as predecessor. Follow-on applicability is bounded by each other
+product's exact Wine source and managed runner authority; this result is not
+automatically extended to another plug-in.
+
+The [lineage readback](evidence/serum-x11-touch-routing/cross-plugin-lineage.json)
+shows Blackhole's DComp Wine already uses per-window XI touch delivery, so
+the selected routing patch is inapplicable there. Kontakt's NI Wine retains
+the root-raw route; the two source patches apply and its driver compiles in
+isolation, but no immutable NI successor, candidate, or physical product
+result exists. The present experimental-runner/candidate carry-forward owner
+is closed to the exact Serum environment, class and predecessor. Expanding
+that authority is not an incidental file copy and cannot be represented as
+part of Serum candidate D's acceptance.
+
 ## Non-goals and failure posture
 
 No Serum-specific hooks, native proxy/DSP, scan, vendor install, capacity,
