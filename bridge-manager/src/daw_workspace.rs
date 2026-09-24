@@ -566,7 +566,7 @@ fn check_prerequisites(runtime: &Path, graphical: &str, authority: &Path) -> Res
         graphical.starts_with(':') && graphical.len() <= 16,
         "daw_workspace_graphical_session_unavailable",
     )?;
-    let md = fs::symlink_metadata(authority)?;
+    let md = fs::symlink_metadata(authority).map_err(|_| "daw_workspace_xauthority_unavailable")?;
     require(
         md.is_file()
             && !md.file_type().is_symlink()
@@ -574,7 +574,8 @@ fn check_prerequisites(runtime: &Path, graphical: &str, authority: &Path) -> Res
             && md.mode() & 0o077 == 0,
         "daw_workspace_xauthority_unavailable",
     )?;
-    let pulse = fs::symlink_metadata(runtime.join("pulse/native"))?;
+    let pulse = fs::symlink_metadata(runtime.join("pulse/native"))
+        .map_err(|_| "daw_workspace_audio_endpoint_unavailable")?;
     require(
         pulse.file_type().is_socket() && pulse.uid() == unsafe { libc::getuid() },
         "daw_workspace_audio_endpoint_unavailable",
@@ -780,8 +781,14 @@ fn status(m: &Manager) -> Result<()> {
         .is_some_and(|v| v["state"] == "failed")
     {
         State::Failed
-    } else if w.installed.is_some() && desktop_prerequisites().is_ok() {
-        State::Ready
+    } else if w.installed.is_some() && w.state == State::NeedsUserAction {
+        State::NeedsUserAction
+    } else if w.installed.is_some() {
+        if desktop_prerequisites().is_ok() {
+            State::Ready
+        } else {
+            State::Installed
+        }
     } else {
         w.state
     };
