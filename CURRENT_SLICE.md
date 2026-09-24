@@ -12,8 +12,8 @@ old RPI2 CPU task on this new branch.
 
 ## Primary claim and fixture
 
-On the Pi 5/ShieldXL fixture, onboard licensed Digitalis v1.1 Windows x64 VST3
-as a headless, controllable stereo effect through the existing generic Windows
+On the Pi 5/ShieldXL fixture, onboard the owner's purchased Digitalis v1.1
+Windows x64 VST3 as a headless, controllable stereo effect through the existing generic Windows
 host and `lvb-arm-plugin-binding/v1`. The operator supplied
 `Digitalis-v1.1-Windows.zip` (SHA-256
 `c25e0f8682ddf57cb7bd7d3992dba45de223d58de1d0881b2287239638f78ff9`);
@@ -57,3 +57,28 @@ Stop at 75 C or current thermal/power warnings. Preserve private logs and
 artifacts; retain sanitized evidence only. Restore original graph and setup.
 One physical owner operates the Pi. Deliver one focused draft PR, then leave
 it open and unmerged for review.
+
+## Observed disposition
+
+The official installer stopped with `Error: Path not found`; successful
+installer supervision is not claimed. The exact owner-supplied archive was
+extracted into the isolated environment, and its module and factory content
+were used. Aberrant DSP documents no activation step for purchased plug-ins;
+the owner supplied the paid My Account download, and no serial was used. The
+module did not expose an independent full/demo edition flag.
+
+The generic stereo host, selected control binding, finite input/output,
+current-input dry bypass, output trim, private sound-slot save, fresh-process
+headless restore, and normal shutdown were exercised. The operator heard a
+clear live-editor effect change and confirmed the same sound after restart
+with the editor closed. All three successful physical sessions reported zero
+JACK xruns, missing delivery, processing failures, callback failures, and
+terminal bridge faults. The failed initial installer and host attempts remain
+in private logs and are not counted as successes.
+
+The reported vendor latency was 4,096 frames and bridge reserve 2,048 frames
+at 48 kHz; analog loopback latency was not measured. The 128-ms combined
+reported buffering is not a low-latency pedal claim. Private extraction is
+not a completed managed installation path. Exact fixture identities, source
+tests, physical readings, cleanup, and nonclaims are retained in
+`evidence/rpi2/digitalis-effect-onboarding.md`.
