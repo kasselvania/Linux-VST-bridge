@@ -1,5 +1,6 @@
 //! Presentation over the manager snapshot. No discovery, publication or launch authority.
 use crate::model::{Action, AvailableAction, Product, Snapshot};
+use crate::presentation::{self, ProductKey};
 use eframe::egui;
 
 #[derive(Default)]
@@ -9,9 +10,11 @@ pub struct Library {
     pub expand_details: bool,
     role: String,
     status: String,
+    focus: Option<ProductKey>,
+    scroll_focus: bool,
 }
 
-fn role(product: &Product) -> &str {
+pub fn role(product: &Product) -> &str {
     match product.role.as_str() {
         "instrument" => "Instrument",
         "effect" => "Effect",
@@ -19,7 +22,7 @@ fn role(product: &Product) -> &str {
     }
 }
 
-fn status(product: &Product) -> (&str, &str) {
+pub fn status(product: &Product) -> (&str, &str) {
     match product.disposition.as_str() {
         "ready" => ("Published to Bitwig", "published"),
         "experimental" => ("Published · experimental", "published"),
@@ -41,7 +44,22 @@ fn vendor(product: &Product) -> &str {
 }
 
 impl Library {
+    pub fn focus_product(&mut self, key: ProductKey) {
+        self.search.clear();
+        self.role.clear();
+        self.status.clear();
+        self.focus = Some(key);
+        self.scroll_focus = true;
+    }
+
     fn products<'a>(&self, snapshot: &'a Snapshot) -> Vec<&'a Product> {
+        if let Some(key) = &self.focus {
+            return snapshot
+                .products
+                .iter()
+                .filter(|product| ProductKey::from(*product) == *key)
+                .collect();
+        }
         let search = self.search.to_lowercase();
         let mut products: Vec<_> = snapshot
             .products
@@ -77,7 +95,22 @@ impl Library {
         chosen: &mut Option<Action>,
         details: impl Fn(&mut egui::Ui, &Product),
     ) {
-        ui.heading("Your plug-ins");
+        if self.scroll_focus {
+            ui.scroll_to_cursor(Some(egui::Align::Min));
+            self.scroll_focus = false;
+        }
+        ui.heading("Plug-ins");
+        if self.focus.is_some() {
+            ui.horizontal_wrapped(|ui| {
+                ui.strong("Showing the selected plug-in");
+                if ui
+                    .add_sized([180.0, 42.0], egui::Button::new("Show all plug-ins"))
+                    .clicked()
+                {
+                    self.focus = None;
+                }
+            });
+        }
         ui.add_space(2.0);
         ui.add(
             egui::TextEdit::singleline(&mut self.search)
@@ -137,7 +170,7 @@ impl Library {
             } else {
                 "No matching plug-ins"
             });
-            ui.label(if snapshot.products.is_empty() { "Open a vendor application or add a Windows installer below, then rescan installed products." } else { "Try another search or clear the filters." });
+            ui.label(if snapshot.products.is_empty() { "Go to Setup to open a vendor application or add a Windows installer, then rescan installed products." } else { "Try another search or clear the filters." });
         }
         let mut previous_vendor = String::new();
         for p in products {
@@ -172,62 +205,69 @@ impl Library {
                                 &p.version
                             }
                         ));
-                        let instances=instance_state(&snapshot.active_sessions,&p.class_id);
-                        if instances.active>0 {
-                            ui.small(format!("{} active instance(s) of this plug-in class",instances.active));
+                        let instances = presentation::product_activity(snapshot, p);
+                        ui.small(if instances.shared_class {
+                            format!(
+                                "{} active in this plug-in class · exact build unavailable",
+                                instances.active
+                            )
+                        } else {
+                            format!("{} active instance(s)", instances.active)
+                        });
+                        for failure in &instances.failed_live {
+                            ui.colored_label(
+                                warning_color(ui),
+                                format!(
+                                    "{}live session: {failure}",
+                                    if instances.shared_class {
+                                        "Class-level "
+                                    } else {
+                                        ""
+                                    }
+                                ),
+                            );
                         }
-                        if instances.editor_failed>0 {
-                            ui.colored_label(warning_color(ui),format!("{} instance(s): vendor editor/controller failed; the instance is unavailable",instances.editor_failed));
+                        if let Some(failure) = instances.recent_failure {
+                            ui.colored_label(
+                                warning_color(ui),
+                                format!(
+                                    "{}most recent session: {failure}",
+                                    if instances.shared_class {
+                                        "Class-level "
+                                    } else {
+                                        ""
+                                    }
+                                ),
+                            );
+                            ui.small(if instances.recent_cleanup_unconfirmed {
+                                "Cleanup remains unconfirmed."
+                            } else {
+                                "Cleanup and transport retirement confirmed."
+                            });
                         }
-                        if instances.host_failed>0 {
-                            ui.colored_label(warning_color(ui),format!("{} instance(s): Windows host exited unexpectedly; the instance is unavailable",instances.host_failed));
-                        }
-                        if instances.transport_failed>0 {
-                            ui.colored_label(warning_color(ui),format!("{} instance(s): bridge transport failed; the instance is unavailable",instances.transport_failed));
-                        }
-                        if instances.recent_editor_failed>0 {
-                            ui.colored_label(warning_color(ui),"Most recent instance: vendor editor/controller failed.");
-                        }
-                        if instances.recent_host_failed>0 {
-                            ui.colored_label(warning_color(ui),"Most recent instance: Windows host exited unexpectedly.");
-                        }
-                        if instances.recent_transport_failed>0 {
-                            ui.colored_label(warning_color(ui),"Most recent instance: bridge transport failed.");
-                        }
-                        if instances.recent_editor_failed+instances.recent_host_failed+instances.recent_transport_failed>0 {
-                            ui.small(if instances.recent_cleanup_unconfirmed>0 {"Cleanup remains unconfirmed."} else {"Cleanup confirmed."});
-                        }
-                        if let Some(reason) = problem(p) {
+                        if let Some(reason) =
+                            presentation::product_issue(p).filter(|_| status(p).1 == "attention")
+                        {
                             ui.colored_label(warning_color(ui), reason);
                         }
-                        let primary: Vec<_> = p
-                            .actions
-                            .iter()
-                            .filter(|a| primary_action(&a.action))
-                            .cloned()
-                            .collect();
-                        action_buttons(
-                            ui,
-                            &primary,
-                            snapshot.system.inactive_reason(),
-                            pending,
-                            chosen,
-                        );
                         let related = related_actions(p, snapshot);
-                        action_buttons(
-                            ui,
-                            &related,
-                            snapshot.system.inactive_reason(),
-                            pending,
-                            chosen,
-                        );
-                        egui::CollapsingHeader::new("Details and management")
+                        let primary =
+                            emphasized_action(p, &related, snapshot.system.inactive_reason());
+                        if let Some(action) = &primary {
+                            emphasized_button(ui, action, pending, chosen);
+                        }
+                        egui::CollapsingHeader::new("Details and manager actions")
                             .open(self.expand_details.then_some(true))
                             .show(ui, |ui| {
                                 let management: Vec<_> = p
                                     .actions
                                     .iter()
-                                    .filter(|a| !primary_action(&a.action))
+                                    .chain(related.iter())
+                                    .filter(|action| {
+                                        primary
+                                            .as_ref()
+                                            .is_none_or(|primary| primary.action != action.action)
+                                    })
                                     .cloned()
                                     .collect();
                                 action_buttons(
@@ -266,39 +306,70 @@ pub fn diagnostics(
                 });
 }
 
-fn primary_action(action: &Action) -> bool {
-    matches!(
-        action,
-        Action::PluginInspect { .. }
-            | Action::PluginReinspect { .. }
-            | Action::PluginPrepare { .. }
-            | Action::QuarantinedModuleRetry { .. }
-            | Action::ExperimentalEnable { .. }
-    )
+fn routine_rank(action: &Action) -> Option<u8> {
+    match action {
+        Action::QuarantinedModuleRetry { .. } => Some(0),
+        Action::PluginReinspect { .. } => Some(1),
+        Action::PluginInspect { .. } => Some(2),
+        Action::PluginPrepare { .. } => Some(3),
+        Action::ExperimentalEnable { .. } => Some(4),
+        Action::OrdinaryRestoreRecommended { .. } => Some(5),
+        Action::EnvironmentRescan { .. } => Some(6),
+        Action::VendorApplicationFocus { .. } | Action::RendererFocus { .. } => Some(7),
+        Action::VendorApplicationOpen { .. } | Action::RendererOpen { .. } => Some(8),
+        _ => None,
+    }
 }
 
-fn problem(product: &Product) -> Option<String> {
-    let prep = &product.details["preparation"];
-    let management = [
-        product.details["refusal"].as_str(),
-        product.details["preparation_failure"].as_str(),
-        prep["operation"]["reason"].as_str(),
-        prep["recovery"].as_str(),
-    ]
-    .into_iter()
-    .flatten()
-    .find(|s| !s.is_empty())
-    .map(|s| s.replace('_', " "));
-    management
-    .or_else(|| product.details["inspection_error"].as_str()
-        .filter(|s|!s.is_empty()).map(str::to_owned))
-    .or_else(|| product.details["inspection_hint"].as_str()
-        .filter(|s|!s.is_empty()).map(|s|s.replace('_', " ")))
-    .or_else(|| {
-        (status(product).1 == "attention")
-            .then(|| product.limitations.first().map(|s| s.replace('_', " ")))
-            .flatten()
-    })
+fn emphasized_action(
+    product: &Product,
+    related: &[AvailableAction],
+    busy: Option<&str>,
+) -> Option<AvailableAction> {
+    let published = matches!(product.disposition.as_str(), "ready" | "experimental");
+    product
+        .actions
+        .iter()
+        .chain(related)
+        .filter(|offer| {
+            offer.disabled_reason.is_none() && !(busy.is_some() && offer.action.requires_inactive())
+        })
+        .filter_map(|offer| {
+            routine_rank(&offer.action).map(|rank| {
+                // A published plug-in does not lead with housekeeping when its
+                // manager-offered vendor application is available.
+                let rank = if published {
+                    match offer.action {
+                        Action::VendorApplicationFocus { .. } | Action::RendererFocus { .. } => 5,
+                        Action::VendorApplicationOpen { .. } | Action::RendererOpen { .. } => 6,
+                        Action::EnvironmentRescan { .. } => 8,
+                        _ => rank,
+                    }
+                } else {
+                    rank
+                };
+                (rank, offer)
+            })
+        })
+        .min_by_key(|(rank, _)| *rank)
+        .map(|(_, offer)| offer.clone())
+}
+
+fn emphasized_button(
+    ui: &mut egui::Ui,
+    offer: &AvailableAction,
+    pending: bool,
+    chosen: &mut Option<Action>,
+) {
+    let button = egui::Button::new(egui::RichText::new(&offer.label).strong())
+        .fill(ui.visuals().selection.bg_fill)
+        .min_size(egui::vec2(0.0, 46.0));
+    if ui.add_enabled(!pending, button).clicked() {
+        *chosen = Some(offer.action.clone());
+    }
+    if pending {
+        ui.small("Waiting for the current request or manager readback");
+    }
 }
 
 fn related_actions(product: &Product, snapshot: &Snapshot) -> Vec<AvailableAction> {
@@ -351,30 +422,6 @@ fn warning_color(ui: &egui::Ui) -> egui::Color32 {
     }
 }
 
-#[derive(Debug,Default,PartialEq,Eq)]
-struct InstanceState {active:usize,editor_failed:usize,host_failed:usize,transport_failed:usize,
-    recent_editor_failed:usize,recent_host_failed:usize,recent_transport_failed:usize,
-    recent_cleanup_unconfirmed:usize}
-fn instance_state(sessions:&[serde_json::Value],class_id:&str)->InstanceState {
-    let mut result=InstanceState::default();
-    for session in sessions.iter().filter(|row|row["class_id"]==class_id) {
-        if session["recent"]==true && (session["cleanup_confirmed"]!=true || session["transport_retired"]!=true) {
-            result.recent_cleanup_unconfirmed+=1;
-        }
-        match (session["recent"]==true,session["terminal"].as_str()) {
-            (true,Some("editor_controller_failed"))=>result.recent_editor_failed+=1,
-            (true,Some("windows_host_exited"))=>result.recent_host_failed+=1,
-            (true,Some("transport_failed"))=>result.recent_transport_failed+=1,
-            (_,Some("editor_controller_failed"))=>result.editor_failed+=1,
-            (_,Some("windows_host_exited"))=>result.host_failed+=1,
-            (_,Some("transport_failed"))=>result.transport_failed+=1,
-            _ if session["state"]=="active"=>result.active+=1,
-            _=>{}
-        }
-    }
-    result
-}
-
 pub fn action_buttons(
     ui: &mut egui::Ui,
     actions: &[AvailableAction],
@@ -406,25 +453,34 @@ pub fn action_buttons(
             }
         }
     });
-    // Keep refusal reasons accessible on touch screens as well as hover.
-    let mut reasons = Vec::new();
-    for a in actions {
-        let reason = if pending {
-            Some("Waiting for the current request or manager readback")
-        } else if a.action.requires_inactive() {
-            busy.or(a.disabled_reason.as_deref())
-        } else {
-            a.disabled_reason.as_deref()
-        };
-        if let Some(reason) = reason {
-            if !reasons.contains(&reason) {
-                reasons.push(reason);
-            }
-        }
-    }
-    for reason in reasons {
+    // Keep every refusal visible to touch users, even when global inactivity
+    // also blocks a manager-disabled action.
+    for reason in visible_refusals(actions, busy, pending) {
         ui.small(reason);
     }
+}
+
+fn visible_refusals(actions: &[AvailableAction], busy: Option<&str>, pending: bool) -> Vec<String> {
+    let mut reasons = Vec::new();
+    let mut add = |reason: &str| {
+        if !reasons.iter().any(|existing| existing == reason) {
+            reasons.push(reason.to_owned());
+        }
+    };
+    for offer in actions {
+        if pending {
+            add("Waiting for the current request or manager readback");
+        }
+        if offer.action.requires_inactive() {
+            if let Some(reason) = busy {
+                add(reason);
+            }
+        }
+        if let Some(reason) = &offer.disabled_reason {
+            add(reason);
+        }
+    }
+    reasons
 }
 
 #[cfg(test)]
@@ -470,7 +526,7 @@ mod tests {
             serde_json::json!("TimeoutError: Windows call deadline: load_library");
         p.limitations = vec!["inventory_factory_absent_or_duplicate".into()];
         assert_eq!(
-            problem(&p).as_deref(),
+            presentation::product_issue(&p).as_deref(),
             Some("TimeoutError: Windows call deadline: load_library")
         );
     }
@@ -498,17 +554,78 @@ mod tests {
     }
 
     #[test]
-    fn basic_instance_failures_are_visible_for_any_published_product() {
-        let sessions=vec![
-            serde_json::json!({"class_id":"blackhole","state":"failed","terminal":"editor_controller_failed"}),
-            serde_json::json!({"class_id":"kontakt","state":"failed","terminal":"windows_host_exited"}),
-            serde_json::json!({"class_id":"kontakt","state":"active","terminal":null}),
-            serde_json::json!({"class_id":"kontakt","state":"failed","terminal":"transport_failed","recent":true,
-                "cleanup_confirmed":true,"transport_retired":true}),
-        ];
-        assert_eq!(instance_state(&sessions,"blackhole"),InstanceState{
-            editor_failed:1,..Default::default()});
-        assert_eq!(instance_state(&sessions,"kontakt"),InstanceState{
-            active:1,host_failed:1,recent_transport_failed:1,..Default::default()});
+    fn one_enabled_routine_action_is_emphasized_without_changing_offers() {
+        let mut s = snapshot();
+        let related = related_actions(&s.products[2], &s);
+        let product = &mut s.products[2];
+        let retry = AvailableAction {
+            label: "Retry exact scan".into(),
+            action: Action::PluginReinspect {
+                selection: "exact".into(),
+                audio_layout: None,
+            },
+            disabled_reason: Some("Current manager work blocks this scan".into()),
+        };
+        product.actions.push(retry.clone());
+        assert!(emphasized_action(product, &related, Some("Busy")).is_none());
+        assert_eq!(product.actions.len(), 1);
+        assert_eq!(product.actions[0].action, retry.action);
+        product.actions[0].disabled_reason = None;
+        let selected = emphasized_action(product, &related, None).unwrap();
+        assert_eq!(selected.action, retry.action);
+        assert_eq!(product.actions.len(), 1);
+        assert_eq!(selected.disabled_reason, None);
+    }
+
+    #[test]
+    fn published_product_prefers_offered_vendor_application_over_rescan() {
+        let s = snapshot();
+        let product = &s.products[1];
+        assert_eq!(product.disposition, "ready");
+        let related = related_actions(product, &s);
+        let chosen = emphasized_action(product, &related, None).unwrap();
+        assert!(matches!(
+            chosen.action,
+            Action::VendorApplicationOpen { .. } | Action::VendorApplicationFocus { .. }
+        ));
+        assert!(related
+            .iter()
+            .any(|offer| matches!(offer.action, Action::EnvironmentRescan { .. })));
+    }
+
+    #[test]
+    fn focused_product_is_selected_by_exact_identity_even_after_search() {
+        let s = snapshot();
+        let mut library = Library {
+            search: "other".into(),
+            ..Default::default()
+        };
+        let key = ProductKey::from(&s.products[2]);
+        library.focus_product(key);
+        assert_eq!(library.products(&s).len(), 1);
+        assert_eq!(library.products(&s)[0].name, "Serum 2 FX");
+        assert!(library.scroll_focus);
+    }
+
+    #[test]
+    fn touch_refusals_keep_manager_and_global_reasons_visible() {
+        let offers = [AvailableAction {
+            label: "Rescan".into(),
+            action: Action::EnvironmentRescan {
+                environment: "exact".into(),
+            },
+            disabled_reason: Some("Exact inventory is stale".into()),
+        }];
+        assert_eq!(
+            visible_refusals(&offers, Some("Close active DSP"), false),
+            ["Close active DSP", "Exact inventory is stale"]
+        );
+        assert_eq!(
+            visible_refusals(&offers, None, true),
+            [
+                "Waiting for the current request or manager readback",
+                "Exact inventory is stale"
+            ]
+        );
     }
 }
