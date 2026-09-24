@@ -1561,11 +1561,11 @@ Default builds and the installed original binaries retain their previous layout.
 | --- | --- | --- |
 | Processing block size | Compared the same candidate 256 / 512 / 256 with actual audio and completed calls/frames. | Completed below without a demonstrated efficiency win; keep as a selectable experiment. |
 | Bridge work per call | Native phase tracing OFF removed its recorder but did not materially reduce sustained vendor CPU. Examine copies, validation, wakeups, allocation, logging and release-build work if larger blocks help. | Measure which side consumes time before optimizing it. |
-| Scheduling and CPU placement | Audio caller and Pigments worker already consume different cores. Compare execution with runnable/wait time, JACK policy, Wine/MMCSS mapping, priority and migration. | Blind affinity can take cores away from plugin workers. |
+| Scheduling and CPU placement | The controlled-frequency profile found 8.976 s caller CPU with 0.011 s runnable wait, plus 4.210 s worker CPU with 0.015 s wait in the aligned post-attack interval. | Runnable wait is too small to explain sustained cost in this capture; blind affinity can take cores away from plug-in workers. |
 | Governor, cooling and power | Current peaks were 51.25 / 51.25 / 54.0°C with no flags. A 1.9 GHz sample overlapped the 512 gap; the final 256 failure sampled full clock. Earlier governor comparison was not completed. | Thermal failure is not established here; sustained energy/thermal work remains separate. |
 | Pigments multicore | Preference OFF was readable at startup; unchanged full state restored ON. A plugin processing worker is active. | Need valid control after state restore before a same-state comparison. |
-| FEX translation and cache | Existing counters show no compile attempts at the immediate repeat cutoff; later compilation occurred. Compare executed-code cost and pinned supported configuration when justified. | No blind flags, ISA changes or weakened memory ordering. |
-| Wine/Proton synchronization | Inspect exact runner/kernel fsync/ntsync support and native/translated boundary waits if execution/wait evidence points there. | Keep runner and licensed environment identity fixed within comparisons. |
+| FEX translation and cache | Existing counters showed no compile attempts at the earlier cutoff. The new profile identifies counted scalar floating-point loops in Pigments' translated code. A future targeted generated-ARM/codegen inspection could test whether translation adds avoidable cost there. | Map overlap prevents exact guest-instruction attribution; no blind flags, ISA changes or weakened memory ordering. |
+| Wine/Proton synchronization | Native Wine/FEX and host labels occupy a small share of sampled user cycles in the measured repeat; the inspected caller hot loop is arithmetic, with little runnable wait. The worker used 1.65 s system CPU in the aligned interval without kernel stacks. | No current evidence supports fsync/ntsync or priority tuning for the caller; worker kernel work remains unclassified. |
 | Backlog recovery | Long silence can outlast a transient slowdown; near-drained admission did not guarantee the repeated hold. | Epoch/resynchronization must preserve notes/state and cannot create compute capacity. |
 | Editor, graphics and companion processes | GPU rendering has been observed; a separate Arturia-named process used more CPU in the failed repeat. Account for processes separately. | No GUI campaign or stopping/patching authorization services in this test. |
 | Controller, preset and state lifecycle | Full state includes settings that override startup preferences. Headless navigation and recall need their own correct lifecycle. | Visible editor or audible startup does not prove these semantics. |
@@ -1649,3 +1649,97 @@ CPU windows and cleanup are retained in
 [`pigments-vendor-quantum-comparison.json`](../../evidence/rpi2/pigments-vendor-quantum-comparison.json).
 Proprietary audio recordings and state remain private. Draft PR #152 is stacked
 on #150; neither a merge nor default installation is claimed.
+
+## Critical-path profile of the 256-frame Pigments candidate
+
+One completed headless profile reused the private native/Windows pair with
+GE-Proton11-7-aarch64, UMU 1.4.4, steamrt4-arm64 and FEX
+2609-41-g82510eb on Pi 5 kernel 6.18.50+rpt-rpi-v8. Pigments 7.0.1.6772
+used 24 AM Poly 4/master 0.35. The stimulus was an **automated four-note chord**
+(60/64/67/71, velocity 96) held for 12 seconds within a 20-second stereo
+capture. It was not a separately played single note. JACK stayed at 48 kHz / 512
+frames, reserve 2048, vendor quantum 256 and map v2/capacity 512. Native phase
+tracing and the editor were off. The temporary performance governor and
+scheduler statistics returned to ondemand/0; state, master, preferences and JACK
+graph were restored, and the session shut down cleanly. No new audio or runtime
+build was used.
+
+The first map preflight produced an incomplete `perf` file when an attached
+recorder failed to exit on its own; it sent no notes and its session was retired.
+The corrected SIGINT stop yielded one warm-up and one measured capture. The
+warm-up profiler itself used **18.66 CPU seconds** and woke 5.14 million times
+in about 20.8 seconds. That failed warm-up added 755,456 missing frames and all
+576,000 held capture frames were exactly zero; it cannot serve as an
+unperturbed warm-up baseline. In the measured repeat, `perf` used about **0.02
+CPU seconds** and woke once. That repeat still added 53,248 missing frames in
+26 groups during the early attack, with 53,248 exact-zero held capture frames.
+Its 4–14 second capture interval had zero exact-zero frames; that does not erase
+the attack failure or qualify 256-frame playback. Process faults, JACK xruns and
+current thermal/power flags were zero. Active ARM clock samples stayed near
+2.4 GHz; peak sampled temperature across the session was 54.55°C (52.35°C in
+the measured capture).
+
+The measured repeat's post-attack snapshot bracket runs from graph-observation
++4.251 to +13.610 seconds, entirely before scheduled note-off. It completed
+**449,792 frames / 1,757 calls** in 9.359 seconds, delivered 449,024 frames and
+added no missing frames or gaps. The audio-calling thread consumed **8.976 s CPU,
+or 5.109 ms per completed 256-frame call**, with 0.011 s runnable wait. The
+Pigments processing worker concurrently consumed **4.210 s CPU, or 2.396 ms per
+call**, with 0.015 s runnable wait. Thread ticks divide this into 8.94 s user /
+0.04 s system for the caller and 2.56 s user / **1.65 s system** for the worker.
+`cycles:u` did not sample that kernel work, and runnable wait does not include
+blocked time; the worker's kernel mechanism remains unclassified. These thread
+CPU costs are concurrent, not additive latency. Status counters were read about
+100 ms after each CPU snapshot;
+the exact read brackets and completed-frame denominator are retained. The
+previous phase trace's 4.977 ms mean inside `processor.process()` came from a
+different run, so its difference from this CPU ratio is not an exclusive host
+cost. One 256-frame period is 5.333 ms: the caller is heavily occupied, while
+runnable waiting is a small observed fraction. The measured loss counter rose
+by 4,096 frames at graph-observation +2.380 s, had risen 34,304 at +3.004 s,
+and reached its final +53,248 by +4.251 s. Estimated *current* outstanding work
+peaked at an observed 2,816 frames and returned to 256 by +5.499 s;
+`request_high` is only a historical maximum.
+
+At graph-observation +2–14 s, 1,628 user-cycle samples were collected. The
+perf-selected labels put 90.588% of weighted cycles in
+`pigmentsprocessor.dll`, 2.701% in `ucrtbase.dll`, 1.876% in native
+`libarm64ecfex.dll`, 1.545% in unresolved JIT space, and 0.264% in our Windows
+host. Within the aligned post-attack bracket, the perf-selected processor share
+was 90.495%. These are *sampled user execution labels*, not exclusive DSP
+time or a breakdown of each translated instruction. The final FEX map had
+287,310 valid lines, 11 malformed lines and 4,587 duplicate starts. Pinned FEX
+source applies `CompiledCode.Size` to each subblock's map entry, creating
+overlapping ranges: 74.376% of held sample weight matched multiple guest RVAs.
+Only 0.795% matched multiple modules. Excluding those cross-module conflicts,
+**90.075%** of all held user-cycle weight mapped unambiguously to the processor
+module. Final-map coverage cannot rule out temporal JIT reuse because no
+time-stamped map history was retained.
+
+The perf-selected `pigmentsprocessor.dll` RVA `0x735530` accounts for 25.209%
+of all held user-cycle weight, but overlapping labels prohibit treating that as
+one exact block's cost. The bounded RVA family `0x7354e0`, `0x735530`,
+`0x7356e0` accounts for **29.243%** of all held weight where *every* overlapping
+candidate is in that family; on the audio caller alone it is **37.842%**.
+Read-only inspection of the exact privately retained module at those RVAs found
+counted scalar SSE floating-point buffer/state arithmetic, recurrent state
+stores and a subsequent packed-float mix. The inspected central loop contained
+no pause, lock, atomic, polling loop or call. This supports **translated
+arithmetic/data work in a Pigments loop family** as the dominant identified
+critical-path mechanism, rather than active synchronization in that region.
+The module is stripped; an adjacent export name is not its internal function
+identity. The samples and FEX map do not identify exact guest instructions or
+measure whether generated ARM code is inefficient, and they do not prove every
+processor-module cycle is useful DSP.
+
+The next justified **caller optimization inquiry** is the generated ARM code
+for this scalar SSE loop family: establish whether the pinned FEX lowering adds
+avoidable instructions or memory traffic before changing codegen. Separately,
+kernel stacks would be needed to attribute the worker's 1.65 s system CPU
+before considering any synchronization or kernel-path optimization. Pigments'
+algorithm and worker split are vendor-owned costs. This profile gives no basis
+to change the bridge's processing quantum, fsync/ntsync, priority, affinity,
+runner, quality or preset now. No further live comparison was made.
+Sanitized attribution and exact observation brackets are in
+[`pigments-critical-profile.json`](../../evidence/rpi2/pigments-critical-profile.json);
+licensed binary, disassembly, raw maps, perf data, audio and state stay private.

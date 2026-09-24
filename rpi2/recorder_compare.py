@@ -18,7 +18,8 @@ CONTROL = Path('/run/lvb-rpi2-governor-guard')
 def guard(expected):
     governor = Path('/sys/devices/system/cpu/cpufreq/policy0/scaling_governor').read_text().strip()
     sched = Path('/proc/sys/kernel/sched_schedstats').read_text().strip()
-    if governor != 'ondemand' or sched != '0':
+    wanted=('performance','1') if expected=='profile' else ('ondemand','0')
+    if (governor,sched) != wanted:
         raise RuntimeError('Expected unchanged ondemand and disabled scheduler statistics')
     return dict(phase=expected, governor=governor, schedstats=sched)
 
@@ -53,12 +54,13 @@ def main():
     modes.add_argument('--trace-comparison', action='store_true')
     modes.add_argument('--fex-stats', action='store_true')
     modes.add_argument('--quantum-comparison', action='store_true')
+    modes.add_argument('--critical-profile', action='store_true')
     parser.add_argument('--config', type=Path)
     parser.add_argument('--candidate', type=Path, required=True)
     args = parser.parse_args()
     if not re.fullmatch(r'[0-9]{2}', args.attempt):
         raise ValueError('Attempt must be two digits')
-    same_candidate=args.trace_comparison or args.fex_stats or args.quantum_comparison
+    same_candidate=args.trace_comparison or args.fex_stats or args.quantum_comparison or args.critical_profile
     if not same_candidate and args.original is None:
         parser.error('--original is required for the original/buffered pair')
     root, output = args.root, args.output
@@ -76,11 +78,14 @@ def main():
     log = None
     fex = None
     preference_backup = None
+    profile = None
+    if args.critical_profile:
+        from critical_profile import Profile, finish_guard
     if args.fex_stats:
         from fex_stats import Reader
         if hashlib.sha256(args.candidate.read_bytes()).hexdigest() != '85780f4856f2bac9f605628ca7decd80568cca0ad36fa92db70960bf74dd1a62':
             raise ValueError('Pinned candidate changed')
-    if args.fex_stats or args.quantum_comparison:
+    if args.fex_stats or args.quantum_comparison or args.critical_profile:
         preference_path=env/'compatdata/pfx/drive_c/ProgramData/Arturia/Pigments/tmp/plugin.pref.xml'
         preference_backup=output/'plugin.pref.original.xml'
         shutil.copy2(preference_path,preference_backup)
@@ -134,10 +139,18 @@ def main():
                         sched = list(map(int, (task/'schedstat').read_text().split()))
                         result['threads'][pid+':'+task.name] = dict(name=raw[raw.find('(')+1:raw.rfind(')')],
                             ticks=int(fields[11])+int(fields[12]), cpu_ns=sched[0],
-                            wait_ns=sched[1] if result['schedstats_enabled'] else None)
+                            wait_ns=sched[1] if result['schedstats_enabled'] else None,
+                            user_ticks=int(fields[11]),system_ticks=int(fields[12]),minor_faults=int(fields[7]),major_faults=int(fields[9]))
                     except (FileNotFoundError, ProcessLookupError): pass
         if fex is not None:
             result['fex'] = fex.snapshot()
+        if profile is not None:
+            result['progress']=profile.progress()
+            started=time.monotonic_ns()
+            result['current_counters']=status_values(request('status','RPI1_STATUS '))
+            result['counter_read_begin_ns']=started
+            result['counter_read_end_ns']=time.monotonic_ns()
+            result['outstanding_frames_estimate']=outstanding_frames(result['current_counters'],256)
         return result
 
     def trial(name, run, cgroup):
@@ -149,6 +162,7 @@ def main():
             row['flush_marks_ns'].append(time.monotonic_ns())
         if trace_on: flush_mark()
         fixture = root/'staging/four-notes-20260923/qualification-four-notes'
+        if profile is not None:profile.start(run,name)
         lines = []
         process = subprocess.Popen([str(fixture), 'four-notes', '--capture', str(run/(name+'.f32le'))],
             env=dict(os.environ, LVB_QUALIFICATION_CLIENT='lvb-arm-pigments'), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -170,6 +184,7 @@ def main():
         finally:
             if process.poll() is None: process.terminate(); process.wait(timeout=5)
             reader.join(timeout=3)
+            if profile is not None:row['profile']=profile.stop()
         row['fixture_exit'] = process.returncode
         if trace_on: flush_mark()
         row['fixture_output'] = ''.join(lines)
@@ -187,8 +202,8 @@ def main():
         return row
 
     try:
-        conditions = ('q256-first','q512','q256-last') if args.quantum_comparison else ('fex',) if args.fex_stats else ('off1', 'on', 'off2') if args.trace_comparison else ('original', 'buffered')
-        report['comparison'] = 'same-pair-quantum-256-512-256' if args.quantum_comparison else 'fex-existing-stats' if args.fex_stats else 'same-binary-phase-off-on-off' if args.trace_comparison else 'original-buffered'
+        conditions = ('profile',) if args.critical_profile else ('q256-first','q512','q256-last') if args.quantum_comparison else ('fex',) if args.fex_stats else ('off1', 'on', 'off2') if args.trace_comparison else ('original', 'buffered')
+        report['comparison'] = 'critical-path-profile' if args.critical_profile else 'same-pair-quantum-256-512-256' if args.quantum_comparison else 'fex-existing-stats' if args.fex_stats else 'same-binary-phase-off-on-off' if args.trace_comparison else 'original-buffered'
         for index, expected in enumerate(conditions):
             trace_on = not same_candidate or expected == 'on'
             quantum = 512 if expected == 'q512' else 256
@@ -196,24 +211,24 @@ def main():
             row = {'condition': expected, 'guard_before': state, 'trials': []}
             report['conditions'].append(row)
             active_trials = row['trials']
-            label = ('quantum-' if args.quantum_comparison else 'fex-observe-' if args.fex_stats else 'trace-' if args.trace_comparison else 'obs-') + expected.replace('_','-') + '-' + args.attempt
+            label = ('critical-' if args.critical_profile else 'quantum-' if args.quantum_comparison else 'fex-observe-' if args.fex_stats else 'trace-' if args.trace_comparison else 'obs-') + expected.replace('_','-') + '-' + args.attempt
             run = env/'logs'/label
             fifo, log = run/'commands.fifo', run/'outer.log'
             before = set((env/'evidence').glob('*-phase.jsonl'))
             with (output/(label+'-session.log')).open('x') as sink:
                 session = subprocess.Popen(['flock', '--nonblock', str(root.parent/'rpi1-private/operation.lock'),
-                    '/usr/bin/python3', str(env/('quantum_session.py' if args.quantum_comparison else 'trace_session.py' if same_candidate else 'plugin_session.py')), label, '--config', str(config),
+                    '/usr/bin/python3', str(env/('quantum_session.py' if args.quantum_comparison or args.critical_profile else 'trace_session.py' if same_candidate else 'plugin_session.py')), label, '--config', str(config),
                     '--binary', str(args.candidate if same_candidate or index else args.original),
                     *(['--phase-trace', 'on' if trace_on else 'off'] if same_candidate else []),
-                    *(['--processing-quantum',str(quantum)] if args.quantum_comparison else [])], stdout=sink, stderr=subprocess.STDOUT)
+                    *(['--processing-quantum',str(quantum)] if args.quantum_comparison or args.critical_profile else [])], stdout=sink, stderr=subprocess.STDOUT)
                 end = time.monotonic()+100
                 try:
                     while (not log.exists() or 'RPI1_READY ' not in log.read_text()
-                           or args.quantum_comparison and 'RPI2_PROCESSING ' not in log.read_text()):
+                           or (args.quantum_comparison or args.critical_profile) and 'RPI2_PROCESSING ' not in log.read_text()):
                         safety()
                         if time.monotonic()>end or session.poll() is not None: raise RuntimeError('Startup failed')
                         time.sleep(.5)
-                    if args.quantum_comparison:
+                    if args.quantum_comparison or args.critical_profile:
                         wanted=f'RPI2_PROCESSING quantum={quantum} map_version=2 capacity=512 sample_rate=48000'
                         if wanted not in log.read_text(): raise RuntimeError('Processing quantum/layout readback mismatch')
                         row['processing_readback']=wanted
@@ -237,7 +252,7 @@ def main():
                     row['native_threads_at_ready'] = [task.joinpath('comm').read_text().strip() for task in Path('/proc',native_pid,'task').glob('*')]
                     if same_candidate and ('rpi1-phase-drai' in row['native_threads_at_ready'] or 'rpi1-phase-drain' in row['native_threads_at_ready']) != trace_on:
                         raise RuntimeError('Phase recorder thread/mode mismatch')
-                    if args.quantum_comparison:
+                    if args.quantum_comparison or args.critical_profile:
                         module=(env/'compatdata/pfx/drive_c/Program Files/Common Files/VST3/Pigments.vst3').stat()
                         matches=[]
                         for procfile in cgroup.rglob('cgroup.procs'):
@@ -250,6 +265,9 @@ def main():
                                 except (FileNotFoundError,ProcessLookupError):pass
                         if len(set(matches))!=1:raise RuntimeError('Pigments process identity ambiguous')
                         row['pigments_pid']=matches[0]
+                        if args.critical_profile:
+                            sid=units[0].split()[0].removeprefix('lvb-rpi1-').removesuffix('.service')
+                            profile=Profile(root,matches[0],sid)
                     if args.fex_stats:
                         try:
                             fex=Reader.for_cohort(cgroup,env/'compatdata/pfx/drive_c/Program Files/Common Files/VST3/Pigments.vst3')
@@ -269,7 +287,7 @@ def main():
                         began=time.monotonic_ns()
                         counters=status_values(request('status','RPI1_STATUS '))
                         elapsed=time.monotonic_ns()-began
-                        outstanding=outstanding_frames(counters, quantum if args.quantum_comparison else None)
+                        outstanding=outstanding_frames(counters, quantum if args.quantum_comparison or args.critical_profile else None)
                         check=dict(counters=counters,request_elapsed_ns=elapsed,outstanding_frames_estimate=outstanding)
                         row['drain_checks'].append(check)
                         healthy=(counters['process_failures']==0 and counters['fault']==0 and counters['failures']==0)
@@ -305,9 +323,11 @@ def main():
             if row['restored_identity'] != report['original_identity']: raise RuntimeError('State restoration mismatch')
             if not any('normalized=0.48033079504966736 ' in line for line in row['restored_master']): raise RuntimeError('Master restoration mismatch')
             print('CONDITION_DONE '+expected+' '+json.dumps(measured['after']),flush=True)
+        if args.critical_profile:report['guard_restore']=finish_guard()
         report['guard_final'] = guard('unchanged')
     except Exception as exc:
         report['errors'].append(str(exc)); print('EXPERIMENT_STOP '+str(exc),flush=True)
+        if args.critical_profile:report['guard_restore']=finish_guard()
         report['guard_final'] = guard('unchanged')
     finally:
         if preference_backup is not None:
