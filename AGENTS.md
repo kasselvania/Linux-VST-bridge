@@ -12,6 +12,46 @@ An approved implementation task includes ordinary code changes, necessary builds
 
 The operator's current instruction takes precedence over repository process documents. These rules replace the older mandatory selection/receipt/diagnostic/acceptance sequence. `docs/campaigns/`, `docs/maintenance/`, `docs/process/` and previous slice instructions retain historical context, not standing requirements for new work. Platform/tool approvals and security restrictions are separate and remain in force; never route around a denial.
 
+## Shared failure-class check
+
+Before implementing a plug-in-specific repair, read:
+
+- `docs/FAILURE_CLASSES.md`;
+- `docs/SUPPORT_MATRIX.md`;
+- the active `CURRENT_SLICE.md`.
+
+First decide whether the observed symptom belongs to an existing shared boundary: runner/input translation, editor message handling, graphics, transport, manager authority, lifecycle/cleanup, capacity, boot, or audio scheduling. Product-specific code is appropriate only after the shared boundary has been selected or ruled out with evidence.
+
+The same PR must update the relevant failure-class card and support-matrix row when it:
+
+- reproduces a new user-visible failure;
+- changes understanding of an existing mechanism;
+- implements, builds, deploys, accepts, rejects, or supersedes a fix;
+- changes physical product/platform coverage;
+- changes the supported workaround or user posture.
+
+Keep these distinctions explicit:
+
+```text
+source correction
+→ built artifact
+→ profile/candidate
+→ installed generation
+→ physical product result
+```
+
+A source patch is not a physical fix. A physical pass on one exact product does not establish the same result for another product. Do not retroactively assign a shared cause to old observations without the evidence needed to do so.
+
+Every implementation PR body should include:
+
+```text
+Failure class:
+Shared boundary checked:
+Fix-chain stage reached:
+Product coverage changed:
+Claim limit:
+```
+
 ## Keep the engineering safeguards
 
 - Use the actual Windows plug-in, not substitute DSP or fabricated state. Respect SDK interfaces, object lifetime, thread affinity and explicit protocol boundaries. Keep Rust primary and C++ limited to the SDK edges.
