@@ -52,7 +52,7 @@ pub fn validate_wire(b: &[u8]) -> io::Result<()> {
 }
 pub fn validate_delay(max: u32, delay: u32) -> io::Result<()> {
     let supported = matches!(delay, 256 | 512)
-        || cfg!(feature = "rpi0") && matches!(delay, 1024 | 2048);
+        || cfg!(feature = "rpi0") && matches!(delay, 128 | 1024 | 2048);
     need((1..=1024).contains(&max) && supported && delay >= max,
         "selected bridge delay cannot cover the negotiated host maximum")
 }
@@ -124,6 +124,12 @@ mod tests {
     }
     #[test]
     fn installed_delay_covers_the_actual_host_maximum_not_the_chunk() {
+        if cfg!(feature = "rpi0") {
+            assert!(validate_delay(128, 128).is_ok());
+        } else {
+            assert!(validate_delay(128, 128).is_err());
+        }
+        assert!(validate_delay(129, 128).is_err());
         assert!(validate_delay(512, 256).is_err());
         assert!(validate_delay(257, 256).is_err());
         assert!(validate_delay(256, 256).is_ok());

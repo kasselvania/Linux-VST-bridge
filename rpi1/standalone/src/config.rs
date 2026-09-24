@@ -235,7 +235,7 @@ impl Config {
         let bridge_frames = values["bridge_frames"]
             .parse::<u32>()
             .map_err(|_| invalid("bridge frames syntax"))?;
-        if !matches!(bridge_frames, 512 | 1024 | 2048) {
+        if !matches!(bridge_frames, 128 | 256 | 512 | 1024 | 2048) {
             return Err(invalid("bridge frames outside RPI1 set"));
         }
         if values["jack_client"] != "lvb-arm-pigments" {
@@ -375,7 +375,7 @@ impl Config {
         let bridge_frames = values["bridge_frames"]
             .parse::<u32>()
             .map_err(|_| invalid("bridge frames syntax"))?;
-        if !matches!(bridge_frames, 512 | 1024 | 2048) {
+        if !matches!(bridge_frames, 128 | 256 | 512 | 1024 | 2048) {
             return Err(invalid("bridge frames"));
         }
         let display = values["display"].clone();

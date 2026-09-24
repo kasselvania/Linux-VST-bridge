@@ -59,6 +59,7 @@ mod appliance {
     fn run(config: Config, session: [u8; 16], session_hex: String) -> io::Result<()> {
         let quantum = match env::var("LVB_RPI2_PROCESS_QUANTUM") {
             Err(env::VarError::NotPresent) => 256,
+            Ok(v) if v == "128" => 128,
             Ok(v) if v == "256" => 256,
             Ok(v) if v == "512" && cfg!(feature = "rpi2-quantum") => 512,
             _ => return Err(invalid("unsupported processing quantum")),
