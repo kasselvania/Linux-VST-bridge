@@ -29,6 +29,11 @@ SOURCE_SHA = {
     "dlls/crypt32/msg.c": "89c24b49dc458cae7610b195ec36f0f2796a462a04284975368227a2f83572ca",
     "dlls/crypt32/tests/msg.c": "ff5ee9df8ebd3e22a814cc2b549197d605fcb23079fac70f477ac3d8f5be05a9",
 }
+AUTOGEN_SHA = {
+    "include/wine/server_protocol.h": "acaf87f5988b8c1b6cab07f28889aeb577770fce92424ce355457aba9a500a27",
+    "server/request_handlers.h": "aa7ff287ee226add950af996443bba9ab2ad46e9aca25591e5de880d230d351d",
+    "server/request_trace.h": "d2e987104bf8d34fb23819cd7c6bada2d202f9e1306227c3524424b5eafed2cc",
+}
 CHANGED = (
     "version",
     "files/lib/wine/i386-windows/crypt32.dll",
@@ -106,6 +111,13 @@ def source_check(root):
     for rel, expected in SOURCE_SHA.items():
         if sha(source / rel) != expected:
             raise RuntimeError("patched_source_changed:" + rel)
+    for rel, expected in AUTOGEN_SHA.items():
+        if sha(source / rel) != expected:
+            raise RuntimeError("generated_source_changed:" + rel)
+    tracked_delta = subprocess.check_output(
+        ["git", "-C", str(source), "diff", "--name-only"], text=True).splitlines()
+    if set(tracked_delta) != set(SOURCE_SHA) | set(AUTOGEN_SHA):
+        raise RuntimeError("wine_source_delta_changed")
     status = subprocess.run(["git", "-C", str(source), "diff", "--check"], check=True)
     del status
 
