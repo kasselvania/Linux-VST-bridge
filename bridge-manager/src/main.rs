@@ -10,6 +10,7 @@ mod vendor_product_cli;
 mod operator_cli;
 mod installer_import;
 mod onboarding;
+mod daw_workspace;
 mod preparation_cli;
 mod setup_install;
 use serde::{Deserialize, Serialize};
@@ -1456,6 +1457,7 @@ fn main() -> Result<()> {
   Some("operator")=>operator_cli::run(&m,&args[1..]),
   Some("native-access-callback") if args.len()==2=>native_access_callback::deliver(&m,&args[1]).map_err(|_|"Native Access login return could not be delivered. Open Native Access through the manager and start a fresh sign-in.".into()),
   Some("import-installer") if args.len()==1=>{let source=fs::File::from(std::io::stdin().as_fd().try_clone_to_owned()?);println!("{}",serde_json::to_string(&installer_import::import(&m,source)?)?);Ok(())},
+  Some("workspace")=>daw_workspace::run(&m,&args[1..]),
   Some("vendor-app")=>vendor_cli::run(&m,&args[1..]),
   Some("vendor-product")=>vendor_product_cli::run(&m,&args[1..]),
   Some("qualify-instrument")=>managed_cli::run_installer_qualification(&m,&args[1..]),

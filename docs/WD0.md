@@ -38,6 +38,14 @@ That main includes the accepted Serum candidate-D runtime support and
 `x11_touch_routing_v2` policy. Reconcile later reviewed changes normally; never
 reset another agent's branch or worktree.
 
+The implementation branch starts from the normal architecture merge
+`9f37338140a61e838e83d757628b6cb914b83bb5`, tree
+`3bb22f1d9971c97f01dc65a8227f1a7d7f727f54`. The separate WD0 package
+selects a manager/supervisor generation under the canonical managed root; it
+does not replace the native-bridge service or its software catalogue. Source
+validation is not a physical FL result. The installer, first launch, audio,
+project, export, recall, and retirement gates remain open until observed.
+
 Read [AGENTS.md](../AGENTS.md), [ARCHITECTURE.md](ARCHITECTURE.md), this work
 order, [WINDOWS_DAW_WORKSPACES.md](WINDOWS_DAW_WORKSPACES.md), the support
 matrix and failure ledger. Reuse relevant source owners, especially manager

@@ -2281,7 +2281,13 @@ def vendor_process_metadata(scope, record, app):
     root=scope.proc_root/str(record['pid']);roles=[];exe=None
     try:exe=os.readlink(root/'exe')
     except (FileNotFoundError,ProcessLookupError):pass
-    candidates=[('main',app['executable']),('agent',app['helpers'][0]),('updater',app['helpers'][1])]
+    # The closed ASC owner has two named helpers. A managed DAW has no
+    # predeclared helper binary; its exact cgroup and ancestry remain owned.
+    if len(app['helpers'])==2:
+        candidates=[('main',app['executable']),('agent',app['helpers'][0]),('updater',app['helpers'][1])]
+    elif len(app['helpers'])==0:
+        candidates=[('main',app['executable'])]
+    else:raise RuntimeError('application helper roster unsupported')
     # Arguments identify an intended launch, not the process running that PE.
     # Match mapped file identity across container path aliases; never read or
     # retain bootstrap arguments that could contain account or URL material.
@@ -2309,7 +2315,7 @@ def vendor_process_metadata(scope, record, app):
             {'pid':parent['pid'],'start_ticks':parent['start_ticks']} if parent else None}
 
 
-def vendor_focus(scope,app,installer=False):
+def vendor_focus(scope,app,installer=False,close=False):
     """Application-origin EWMH focus request, bound to current owned main image.
 
     No title matching, arbitrary PID, forced input focus or synthetic user input.
@@ -2362,9 +2368,10 @@ def vendor_focus(scope,app,installer=False):
         class Client(C.Structure):
             _fields_=[('type',I),('serial',U),('send_event',I),('display',P),('window',U),('message',U),('format',I),('data',C.c_long*5)]
         class Event(C.Union):_fields_=[('client',Client),('pad',C.c_long*24)]
-        event=Event();event.client.type=33;event.client.display=display;event.client.window=window;event.client.message=x.XInternAtom(display,b'_NET_ACTIVE_WINDOW',0);event.client.format=32;event.client.data[0]=1
+        event=Event();event.client.type=33;event.client.display=display;event.client.window=window;event.client.message=x.XInternAtom(display,b'_NET_CLOSE_WINDOW' if close else b'_NET_ACTIVE_WINDOW',0);event.client.format=32;event.client.data[0]=0 if close else 1
         bind('XSendEvent',I,[P,U,I,C.c_long,C.POINTER(Event)])
         if not x.XSendEvent(display,root,0,(1<<19)|(1<<20),C.byref(event)):raise RuntimeError('focus request refused')
+        if close:return 'close_requested'
         deadline=time.monotonic()+.75
         while True:
             identity()
@@ -4027,9 +4034,20 @@ def vendor_application(spec):
     """
     if spec.get('kind')=='native_access_dependency':return nad1_application(spec)
     if spec.get('kind')=='renderer_application':return renderer_application(spec)
+    is_daw=spec.get('kind')=='daw_workspace_application'
+    if spec.get('kind') not in (None,'daw_workspace_application'):
+        raise RuntimeError('application owner kind unsupported')
     app=spec['application'];env=app['environment'];directory=pathlib.Path(env['root'])
     report=pathlib.Path(spec['report']);stop=False;child=None;scope=None;clean=False;error=None
-    mode=spec.get('mode','normal');diagnostic=mode!='normal';focus_result=None
+    mode=spec.get('mode','normal');diagnostic=mode!='normal';focus_result=None;close_result=None
+    if is_daw and (mode!='normal' or app.get('id')!='fl_studio' or app.get('helpers')!=[]):
+        raise RuntimeError('managed DAW identity unsupported')
+    if is_daw:
+        workspace=directory.parent
+        for key in ('preferences','projects','exports'):
+            expected=workspace/key
+            if app.get(key)!=str(expected):raise RuntimeError('managed DAW workspace root changed')
+            private_directory(expected)
     lock=(directory/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     logs=report.parent/('private-diagnostic-'+os.urandom(16).hex());logs.mkdir(mode=0o700)
     captures={name:PrivateCapture(logs/(name+'.log')) for name in ('stdout','stderr','process')}
@@ -4061,15 +4079,20 @@ def vendor_application(spec):
                 'owned_live':live,'cleanup_confirmed':clean,'error':error,
                 'discarded_diagnostic_bytes':sum(c.discarded for c in captures.values()),
                 'retained_diagnostic_bytes':sum(c.retained for c in captures.values()),
-                'diagnostic_enabled':diagnostic,'windows_accessibility_disabled':vendor_compatibility(mode)['disable_windows_accessibility'],'account_posture':'unknown'}
+                'diagnostic_enabled':diagnostic,'windows_accessibility_disabled':False if is_daw else vendor_compatibility(mode)['disable_windows_accessibility'],
+                'account_posture':'unknown','close_result':close_result}
     try:
         for artifact in [app['executable'],*app['helpers'],*env['runner']['files']]:verify(artifact)
-        scope=CompanionCgroup()
+        scope=CompanionCgroup(daw_operation=spec['operation_id']) if is_daw else CompanionCgroup()
         if scope.members():raise RuntimeError('companion cgroup not initially empty')
         if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('companion subreaper unavailable')
-        reg={'environment':env,'compatibility':vendor_compatibility(mode)}
+        reg={'environment':env,'compatibility':{'disable_windows_accessibility':False} if is_daw else vendor_compatibility(mode)}
         argv,cwd=vendor_launch(spec)
-        child=subprocess.Popen(argv,cwd=cwd,env=vendor_diagnostic_environment(environment(reg),logs,diagnostic),
+        launch_env=vendor_diagnostic_environment(environment(reg),logs,diagnostic)
+        if is_daw:
+            home=directory/'home';private_directory(home);launch_env['HOME']=str(home)
+            launch_env['XDG_CONFIG_HOME']=app['preferences']
+        child=subprocess.Popen(argv,cwd=cwd,env=launch_env,
                 stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
         event('launcher_started',pid=child.pid,mode=mode,cgroup=scope.group)
         for name,pipe in [('stdout',child.stdout),('stderr',child.stderr)]:
@@ -4116,6 +4139,25 @@ def vendor_application(spec):
                     focus_result={'request':request['request'],'result':vendor_focus(scope,app)}
                 except Exception:
                     focus_result={'request':request_id,'result':'refused_exact_window_unavailable'}
+            if is_daw:
+                close_path=report.parent/'close.json'
+                if close_path.exists():
+                    request_id=None
+                    try:
+                        with os.fdopen(os.open(close_path,os.O_RDONLY|os.O_NOFOLLOW),'rb') as f:
+                            md=os.fstat(f.fileno())
+                            if not stat.S_ISREG(md.st_mode) or md.st_uid!=os.getuid() or md.st_mode & 0o077 or md.st_size>1024:
+                                raise RuntimeError('close request bound')
+                            request=json.loads(f.read(1025))
+                        close_path.unlink()
+                        if not isinstance(request,dict) or set(request)!=set(('request','operation_id')) or not all(isinstance(request[k],str) and re.fullmatch('[0-9a-f]{32}',request[k]) for k in request):
+                            raise RuntimeError('close request schema')
+                        request_id=request['request']
+                        if request['operation_id']!=spec.get('operation_id'):
+                            raise RuntimeError('close operation changed')
+                        close_result={'request':request_id,'result':vendor_focus(scope,app,close=True)}
+                    except Exception:
+                        close_result={'request':request_id,'result':'refused_exact_window_unavailable'}
             state=vendor_operation_state(child.returncode,len(live))
             if state in ('completed','failed'):
                 # No member remains that could create a later handoff. A

@@ -1,7 +1,8 @@
 # Current work selection
 
-Canonical base: `a4e140a53cedb8b65b487a45d6fea0e44caea74d`, tree
-`b3f3d264901267e2dcb723b9904c464baf6eefae`. This main-branch pointer records
+Canonical base: `9f37338140a61e838e83d757628b6cb914b83bb5`, tree
+`3bb22f1d9971c97f01dc65a8227f1a7d7f727f54`. This normal merge of the
+WD0 architecture PR includes the accepted Serum candidate-D authority. It records
 the operator's parallel product direction selected on 2026-09-24. It does not
 supersede another agent's branch-local task or grant ownership of its checkout
 or live experiment.
@@ -40,6 +41,12 @@ Coordination and integration rules are in
 WD0 must deliver a real managed install, normal launch, stock-project playback,
 export, clean relaunch and licensed project recall in a new FL workspace. It is
 not a Linux VST proxy path and not a generic Windows-program launcher.
+
+The active WD0 implementation branch is `codex/wd0-fl-studio-workspace`. Source
+and read-only Deck inventory may proceed while the operator uses the plug-ins.
+The FL installer must not run, and no live Deck surface may be changed, until
+the operator grants the explicit physical handoff. A source build is not WD0
+acceptance; the connected stock-project result remains the completion gate.
 
 The operator reports that the official Windows installer is present in the
 Steam Deck user's `Downloads` directory. That statement admits no filename,
