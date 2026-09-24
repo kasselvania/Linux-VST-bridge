@@ -1617,8 +1617,11 @@ Larger processing calls worked correctly, but this comparison does not show a
 reliable CPU or audio improvement. Do not promote 512 as a fix. CPU comparisons
 use common wall windows, not a falsely matched cohort of executed DSP blocks.
 The next useful experiment is a small execution-versus-scheduler-wait comparison
-at controlled frequency, preserving this patch and runtime. Backlog recovery
-remains a separate usability problem. No further live run was made in this slice.
+at controlled frequency, preserving this patch and runtime. The audio-calling
+thread remained at roughly 95–98% of one core, so that comparison should also
+distinguish DSP/translation from active synchronization or host work. A busy
+thread does not establish that priority is the fix. Backlog recovery remains
+a separate usability problem. No further live run was made in this slice.
 
 The native candidate built in 20.61 seconds; the existing Windows host-only job
 completed in 99 seconds. Source commit `9a0ac94` identifies both builds; the

@@ -48,4 +48,6 @@ files, binaries, runtime settings and graph are restored; no owned unit remains.
 Evidence and remaining optimization options are in docs/experiments/RPI2.md and
 evidence/rpi2/pigments-vendor-quantum-comparison.json. Draft stacked PR #152 remains
 unmerged. Next recommendation: bounded execution-versus-scheduler-wait comparison
-at controlled frequency; no further live experiment in this slice.
+at controlled frequency, also separating DSP/translation from active
+synchronization or host work on the busy caller. No further live experiment
+in this slice.
