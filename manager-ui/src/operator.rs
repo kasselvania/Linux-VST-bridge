@@ -1,12 +1,37 @@
 use crate::{
     client::{self, Query, Reply},
     model::*,
+    presentation::{self, AttemptKey, Destination, ProductKey},
 };
 use eframe::egui;
 use std::{
     sync::mpsc,
     time::{Duration, Instant},
 };
+
+#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq)]
+pub enum Page {
+    #[default]
+    Home,
+    Plugins,
+    Workspaces,
+    Activity,
+    Setup,
+    Diagnostics,
+}
+
+impl Page {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Home => "Home",
+            Self::Plugins => "Plug-ins",
+            Self::Workspaces => "Workspaces",
+            Self::Activity => "Activity",
+            Self::Setup => "Setup",
+            Self::Diagnostics => "Diagnostics",
+        }
+    }
+}
 #[derive(Clone, Debug)]
 struct RequestFeedback {
     action: Action,
@@ -66,8 +91,14 @@ impl RequestFeedback {
             return;
         }
         if let Some(
-            state @ ("refused" | "completed" | "waiting" | "validating" | "vendor_running"
-            | "queued" | "running" | "submission_uncertain"),
+            state @ ("refused"
+            | "completed"
+            | "waiting"
+            | "validating"
+            | "vendor_running"
+            | "queued"
+            | "running"
+            | "submission_uncertain"),
         ) = op["state"].as_str()
         {
             self.transition(state);
@@ -90,7 +121,7 @@ impl RequestFeedback {
                 "This operation is validating manager state. Do not click again.".into()
             }
             Some("submission_uncertain") => {
-                self.release_after_snapshot=true;
+                self.release_after_snapshot = true;
                 "Launch acknowledgment is uncertain. Use the exact Stop / reconcile control; no launch was resubmitted.".into()
             }
             Some("vendor_running") => {
@@ -118,7 +149,9 @@ impl RequestFeedback {
         // A lost acknowledgment is not a failed operation. Only exact canonical
         // onboarding ownership plus its offered recovery action can resolve it.
         if self.acknowledgment_uncertain && self.operation.is_none() {
-            if let Action::InstallerStart { onboarding } | Action::InstallerStartWithPolicy { onboarding, .. } = &self.action {
+            if let Action::InstallerStart { onboarding }
+            | Action::InstallerStartWithPolicy { onboarding, .. } = &self.action
+            {
                 let owners: Vec<_> = s.onboarding.iter().filter(|r| r.environment.as_ref() == Some(onboarding))
                     .filter_map(|r| {
                         let op = r.details["installation"]["operation"].as_str()?;
@@ -135,33 +168,60 @@ impl RequestFeedback {
             }
         }
         let mut renderer_recovery = false;
-        if let Action::RendererOpen { application, policy } = self.action.clone() {
+        if let Action::RendererOpen {
+            application,
+            policy,
+        } = self.action.clone()
+        {
             for app in &s.vendor_applications {
-                if app.details["application_identity"].as_str()==Some(application.as_str()) {
-                    if self.acknowledgment_uncertain && self.operation.is_none()
+                if app.details["application_identity"].as_str() == Some(application.as_str()) {
+                    if self.acknowledgment_uncertain
+                        && self.operation.is_none()
                         && app.details["requested"] == serde_json::to_value(policy).unwrap()
-                        && matches!(app.details["manager_operation"]["state"].as_str(),Some("vendor_running"|"submission_uncertain")) {
-                        if let Some(op)=app.details["operation"].as_str() {
+                        && matches!(
+                            app.details["manager_operation"]["state"].as_str(),
+                            Some("vendor_running" | "submission_uncertain")
+                        )
+                    {
+                        if let Some(op) = app.details["operation"].as_str() {
                             if app.actions.iter().any(|a|matches!(&a.action,Action::RendererStop{operation} if operation==op)) {
                                 self.operation=Some(op.into());self.release_after_snapshot=true;
                             }
                         }
                     }
-                    if let Some(op)=app.details.get("manager_operation") {
-                        renderer_recovery = self.operation.is_some() && op["operation"].as_str()==self.operation.as_deref();
+                    if let Some(op) = app.details.get("manager_operation") {
+                        renderer_recovery = self.operation.is_some()
+                            && op["operation"].as_str() == self.operation.as_deref();
                         self.observe(op);
                     }
                 }
             }
         }
-        if matches!(self.action,Action::DependencyPrepare{}) {
+        if matches!(self.action, Action::DependencyPrepare {}) {
             for app in &s.vendor_applications {
-                if app.id!="native-access" {continue;}
-                let record=&app.details["dependency_manager_operation"];
-                if let Some(op)=record["operation"].as_str() {
-                    let exact=app.actions.iter().any(|a|matches!(&a.action,Action::DependencyStop{operation} if operation==op));
-                    if exact && self.acknowledgment_uncertain && self.operation.is_none() && matches!(record["state"].as_str(),Some("submission_uncertain"|"vendor_running")) {self.operation=Some(op.into());self.release_after_snapshot=true;}
-                    if exact && self.operation.as_deref()==Some(op) {renderer_recovery=true;self.observe(record);}
+                if app.id != "native-access" {
+                    continue;
+                }
+                let record = &app.details["dependency_manager_operation"];
+                if let Some(op) = record["operation"].as_str() {
+                    let exact = app.actions.iter().any(
+                        |a| matches!(&a.action,Action::DependencyStop{operation} if operation==op),
+                    );
+                    if exact
+                        && self.acknowledgment_uncertain
+                        && self.operation.is_none()
+                        && matches!(
+                            record["state"].as_str(),
+                            Some("submission_uncertain" | "vendor_running")
+                        )
+                    {
+                        self.operation = Some(op.into());
+                        self.release_after_snapshot = true;
+                    }
+                    if exact && self.operation.as_deref() == Some(op) {
+                        renderer_recovery = true;
+                        self.observe(record);
+                    }
                 }
             }
         }
@@ -169,7 +229,9 @@ impl RequestFeedback {
             && s.operation
                 .as_ref()
                 .is_some_and(|op| op["operation"].as_str() == self.operation.as_deref());
-        let exact_recovery = if let Action::InstallerStart { onboarding } | Action::InstallerStartWithPolicy { onboarding, .. } = &self.action {
+        let exact_recovery = if let Action::InstallerStart { onboarding }
+        | Action::InstallerStartWithPolicy { onboarding, .. } = &self.action
+        {
             s.onboarding.iter().any(|r| {
                 r.environment.as_ref() == Some(onboarding)
                     && r.actions.iter().any(|a| {
@@ -181,8 +243,16 @@ impl RequestFeedback {
             false
         };
         for product in &s.products {
-            if let Some(op)=product.details["preparation"].get("operation") {self.observe(op);}
-            if let Some(rows)=product.details["preparation"]["candidates"].as_array(){for row in rows{if let Some(op)=row.get("operation"){self.observe(op);}}}
+            if let Some(op) = product.details["preparation"].get("operation") {
+                self.observe(op);
+            }
+            if let Some(rows) = product.details["preparation"]["candidates"].as_array() {
+                for row in rows {
+                    if let Some(op) = row.get("operation") {
+                        self.observe(op);
+                    }
+                }
+            }
         }
         if let Some(op) = &s.operation {
             self.observe(op);
@@ -195,6 +265,13 @@ impl RequestFeedback {
         matches!(&self.action,Action::InstallerEnvironmentCreate{installer,..} if installer==id)
     }
 }
+#[derive(Default)]
+struct RouteFocus {
+    setup: Option<AttemptKey>,
+    setup_scroll: bool,
+    activity: Option<String>,
+}
+
 pub struct Operator {
     snapshot: Option<Snapshot>,
     sender: mpsc::Sender<Reply>,
@@ -209,6 +286,9 @@ pub struct Operator {
     library: crate::library::Library,
     refresh_after: bool,
     product_form: Option<Action>,
+    page: Page,
+    focus: RouteFocus,
+    preview: bool,
 }
 impl Operator {
     pub fn new(ctx: &egui::Context) -> Self {
@@ -228,45 +308,141 @@ impl Operator {
             library: crate::library::Library::default(),
             refresh_after: false,
             product_form: None,
+            page: Page::Home,
+            focus: RouteFocus::default(),
+            preview: false,
         }
     }
-    fn preparation_details(ui:&mut egui::Ui,v:&serde_json::Value) {
-        if v["publication"]=="ordinary" {ui.strong("Ordinarily published");}
-        if let Some(history)=v["candidates"].as_array(){
+    /// The example owns only synthetic state; it never starts the manager client.
+    #[allow(dead_code)]
+    pub fn preview(snapshot: Snapshot, page: Page) -> Self {
+        let (sender, receiver) = mpsc::channel();
+        Self {
+            snapshot: Some(snapshot),
+            sender,
+            receiver,
+            pending: false,
+            background_poll: false,
+            action_inflight: false,
+            queued_action: None,
+            feedback: None,
+            last_poll: Instant::now(),
+            message: "Synthetic preview · no operations execute".into(),
+            library: crate::library::Library::default(),
+            refresh_after: false,
+            product_form: None,
+            page,
+            focus: RouteFocus::default(),
+            preview: true,
+        }
+    }
+    fn preparation_details(ui: &mut egui::Ui, v: &serde_json::Value) {
+        if v["publication"] == "ordinary" {
+            ui.strong("Ordinarily published");
+        }
+        if let Some(history) = v["candidates"].as_array() {
             egui::CollapsingHeader::new("Candidate generations and their own results").id_salt((v["selection"].as_str(),"candidate-history")).default_open(history.len()>1).show(ui,|ui|{
                 for c in history {ui.group(|ui|{ui.label(format!("Candidate {} · {} · {}",c["id"].as_str().unwrap_or("?"),c["disposition"].as_str().unwrap_or("?"),c["publication"].as_str().unwrap_or("?")));if c["publication_acceptance_sealed"]==true && c["unmet_requirements"].as_array().is_some_and(|r|!r.is_empty()){ui.colored_label(egui::Color32::YELLOW,"This publication retains its original acceptance. New evidence needs review; use Withdraw to disable it.");}Self::value(ui,c);});}
             });
         }
-        if let Some(reason)=v["recovery"].as_str(){ui.colored_label(egui::Color32::YELLOW,reason);}
-        if let Some(reason)=v["build_prerequisite"].as_str(){ui.label(reason);}
-        egui::CollapsingHeader::new("Inspection generations").id_salt((v["selection"].as_str(),"inspection-history")).show(ui,|ui|Self::value(ui,&v["inspections"]));
-        ui.label(format!("Inspection: {} · Preparation: {} · Publication: {}",v["inspection"].as_str().unwrap_or("unknown"),v["preparation"].as_str().unwrap_or("unknown"),v["publication"].as_str().unwrap_or("unknown")));
+        if let Some(reason) = v["recovery"].as_str() {
+            ui.colored_label(egui::Color32::YELLOW, reason);
+        }
+        if let Some(reason) = v["build_prerequisite"].as_str() {
+            ui.label(reason);
+        }
+        egui::CollapsingHeader::new("Inspection generations")
+            .id_salt((v["selection"].as_str(), "inspection-history"))
+            .show(ui, |ui| Self::value(ui, &v["inspections"]));
+        ui.label(format!(
+            "Inspection: {} · Preparation: {} · Publication: {}",
+            v["inspection"].as_str().unwrap_or("unknown"),
+            v["preparation"].as_str().unwrap_or("unknown"),
+            v["publication"].as_str().unwrap_or("unknown")
+        ));
         ui.small("Preliminary inspection is not a guarantee of DAW audio, editor, automation, or state recall.");
-        if v["origin"]=="retained_sv1" {ui.small("Adopted exact SV1 work; originally prepared through the engineering CLI.");}
-        if let Some(reason)=v["controller"]["reason"].as_str(){ui.small(reason);}
+        if v["origin"] == "retained_sv1" {
+            ui.small("Adopted exact SV1 work; originally prepared through the engineering CLI.");
+        }
+        if let Some(reason) = v["controller"]["reason"].as_str() {
+            ui.small(reason);
+        }
         if !v["preliminary"].is_null() {
-            egui::CollapsingHeader::new("Preliminary compatibility details").id_salt(("inspection",v["selection"].as_str())).show(ui,|ui|{
-                let f=&v["preliminary"];
-                ui.label(format!("Parameters: {} · Positive inspection cleanup: {}",f["parameter_count"],f["cleanup_confirmed"]));
-                if f["editor_interface"].is_null(){ui.label("Editor interface: not retained by the original inspector");}
-                else {ui.label(format!("Editor created: {} · HWND interface result: {} · Not attached",f["editor_interface"]["created"],f["editor_interface"]["hwnd_result"]));}
-                ui.monospace(serde_json::to_string_pretty(f).unwrap_or_default());
-            });
+            egui::CollapsingHeader::new("Preliminary compatibility details")
+                .id_salt(("inspection", v["selection"].as_str()))
+                .show(ui, |ui| {
+                    let f = &v["preliminary"];
+                    ui.label(format!(
+                        "Parameters: {} · Positive inspection cleanup: {}",
+                        f["parameter_count"], f["cleanup_confirmed"]
+                    ));
+                    if f["editor_interface"].is_null() {
+                        ui.label("Editor interface: not retained by the original inspector");
+                    } else {
+                        ui.label(format!(
+                            "Editor created: {} · HWND interface result: {} · Not attached",
+                            f["editor_interface"]["created"], f["editor_interface"]["hwnd_result"]
+                        ));
+                    }
+                    ui.monospace(serde_json::to_string_pretty(f).unwrap_or_default());
+                });
         }
-        if let Some(op)=v.get("operation").filter(|o|!o.is_null()) {
-            ui.label(format!("This product's operation: {}",op["state"].as_str().unwrap_or("unknown")));
-            if let Some(stage)=op["preparation_failure"]["attempted_stage"].as_str(){ui.label(format!("Stopped during {}",stage.replace('_'," ")));}
-            if let Some(reason)=op["reason"].as_str(){ui.colored_label(egui::Color32::YELLOW,reason);}
-            if let Some(recovery)=op["preparation_failure"]["recovery"].as_str(){ui.small(recovery);}
-        }
-        egui::CollapsingHeader::new("Recorded tests and remaining qualification").id_salt(v["selection"].as_str()).default_open(false).show(ui,|ui|{
-            for area in ["daw_load","midi","audio","editor","parameters","automation","state_recall","processing_restart","retirement"] {
-                let latest=v["evidence"].as_array().and_then(|rows|rows.iter().rev().find(|r|r["area"]==area));
-                ui.label(format!("{}: {}",area.replace('_'," "),latest.and_then(|r|r["status"].as_str()).unwrap_or("not tested")));
-                if let Some(row)=latest{ui.small(format!("{} · {}",row["witness"].as_str().unwrap_or("unavailable"),row["detail"].as_str().unwrap_or("")));}
+        if let Some(op) = v.get("operation").filter(|o| !o.is_null()) {
+            ui.label(format!(
+                "This product's operation: {}",
+                op["state"].as_str().unwrap_or("unknown")
+            ));
+            if let Some(stage) = op["preparation_failure"]["attempted_stage"].as_str() {
+                ui.label(format!("Stopped during {}", stage.replace('_', " ")));
             }
-            if let Some(rows)=v["unmet_requirements"].as_array(){for row in rows{if let Some(text)=row.as_str(){ui.small(text);}}}
-        });
+            if let Some(reason) = op["reason"].as_str() {
+                ui.colored_label(egui::Color32::YELLOW, reason);
+            }
+            if let Some(recovery) = op["preparation_failure"]["recovery"].as_str() {
+                ui.small(recovery);
+            }
+        }
+        egui::CollapsingHeader::new("Recorded tests and remaining qualification")
+            .id_salt(v["selection"].as_str())
+            .default_open(false)
+            .show(ui, |ui| {
+                for area in [
+                    "daw_load",
+                    "midi",
+                    "audio",
+                    "editor",
+                    "parameters",
+                    "automation",
+                    "state_recall",
+                    "processing_restart",
+                    "retirement",
+                ] {
+                    let latest = v["evidence"]
+                        .as_array()
+                        .and_then(|rows| rows.iter().rev().find(|r| r["area"] == area));
+                    ui.label(format!(
+                        "{}: {}",
+                        area.replace('_', " "),
+                        latest
+                            .and_then(|r| r["status"].as_str())
+                            .unwrap_or("not tested")
+                    ));
+                    if let Some(row) = latest {
+                        ui.small(format!(
+                            "{} · {}",
+                            row["witness"].as_str().unwrap_or("unavailable"),
+                            row["detail"].as_str().unwrap_or("")
+                        ));
+                    }
+                }
+                if let Some(rows) = v["unmet_requirements"].as_array() {
+                    for row in rows {
+                        if let Some(text) = row.as_str() {
+                            ui.small(text);
+                        }
+                    }
+                }
+            });
     }
     fn request(&mut self, q: Query, ctx: &egui::Context) {
         self.pending = true;
@@ -383,7 +559,6 @@ impl Operator {
                 self.message = e;
                 if let Some(s) = &mut self.snapshot {
                     s.system.service = "capacity unavailable".into();
-                    s.system.cleanup_unconfirmed = true;
                 }
             }
         }
@@ -398,6 +573,737 @@ impl Operator {
         );
     }
 }
+
+fn warning_color(ui: &egui::Ui) -> egui::Color32 {
+    if ui.visuals().dark_mode {
+        egui::Color32::from_rgb(245, 190, 100)
+    } else {
+        egui::Color32::from_rgb(140, 77, 0)
+    }
+}
+
+fn navigation_button(
+    ui: &mut egui::Ui,
+    page: &mut Page,
+    item: Page,
+    width: f32,
+) -> (Page, bool, egui::Rect) {
+    let selected = *page == item;
+    let button = egui::Button::new(item.label())
+        .min_size(egui::vec2(width, 44.0))
+        .selected(selected);
+    let response = ui.add(button);
+    if response.clicked() {
+        *page = item;
+    }
+    (item, selected, response.rect)
+}
+
+fn navigation(ui: &mut egui::Ui, page: &mut Page) -> Vec<(Page, bool, egui::Rect)> {
+    let items = [
+        Page::Home,
+        Page::Plugins,
+        Page::Workspaces,
+        Page::Activity,
+        Page::Setup,
+        Page::Diagnostics,
+    ];
+    let mut bounds = Vec::new();
+    if ui.available_width() < 760.0 {
+        let width = ((ui.available_width() - 24.0) / 3.0).max(94.0);
+        egui::Grid::new("navigation-narrow")
+            .num_columns(3)
+            .spacing(egui::vec2(12.0, 12.0))
+            .show(ui, |ui| {
+                for (index, item) in items.into_iter().enumerate() {
+                    bounds.push(navigation_button(ui, page, item, width));
+                    if index % 3 == 2 {
+                        ui.end_row();
+                    }
+                }
+            });
+    } else {
+        ui.horizontal_wrapped(|ui| {
+            for item in items {
+                bounds.push(navigation_button(ui, page, item, 94.0));
+            }
+        });
+    }
+    bounds
+}
+
+fn navigate(
+    destination: &Destination,
+    page: &mut Page,
+    library: &mut crate::library::Library,
+    focus: &mut RouteFocus,
+) {
+    match destination {
+        Destination::Product(key) => {
+            library.focus_product(key.clone());
+            *page = Page::Plugins;
+        }
+        Destination::Attempt(key) => {
+            focus.setup = Some(key.clone());
+            focus.setup_scroll = true;
+            *page = Page::Setup;
+        }
+        Destination::Session(session) => {
+            focus.activity = Some(session.clone());
+            *page = Page::Activity;
+        }
+        Destination::Activity => *page = Page::Activity,
+        Destination::Setup => *page = Page::Setup,
+        Destination::Diagnostics => *page = Page::Diagnostics,
+    }
+}
+
+impl Operator {
+    fn health_bar(ui: &mut egui::Ui, system: &System) {
+        egui::Frame::group(ui.style())
+            .fill(ui.visuals().faint_bg_color)
+            .show(ui, |ui| {
+                ui.set_min_width((ui.available_width() - 1.0).max(0.0));
+                ui.spacing_mut().item_spacing.y = 3.0;
+                let state = presentation::health(system);
+                let color = if matches!(
+                    state,
+                    presentation::Health::Unavailable | presentation::Health::NeedsAttention
+                ) {
+                    warning_color(ui)
+                } else {
+                    ui.visuals().text_color()
+                };
+                ui.label(
+                    egui::RichText::new(state.title())
+                        .size(17.0)
+                        .strong()
+                        .color(color),
+                );
+                ui.horizontal_wrapped(|ui| {
+                    let label = |text: String| egui::RichText::new(text).size(13.0);
+                    ui.label(label(if system.capacity_available() {
+                        "Service ready".into()
+                    } else {
+                        "Service readback unavailable".into()
+                    }));
+                    if system.capacity_available() {
+                        ui.label(label(format!("DSP {} / {}", system.dsp, system.ceiling)));
+                        ui.label(label(format!("Install / scan {}", system.maintenance)));
+                        ui.label(label(format!(
+                            "Stale transports {}",
+                            system.stale_transports
+                        )));
+                    } else {
+                        ui.label(label("DSP and capacity unknown".into()));
+                        ui.label(label("Install / scan unknown".into()));
+                        ui.label(label("Stale transports unknown".into()));
+                    }
+                    ui.label(label(format!(
+                        "Pending transactions {}",
+                        system.pending_transactions
+                    )));
+                    ui.label(label(
+                        presentation::activity_certainty(system)
+                            .cleanup_label()
+                            .into(),
+                    ));
+                });
+            });
+    }
+
+    fn request_bar(&self, ui: &mut egui::Ui) {
+        egui::Frame::group(ui.style()).show(ui, |ui| {
+            ui.set_min_width((ui.available_width() - 1.0).max(0.0));
+            ui.spacing_mut().item_spacing.y = 3.0;
+            ui.horizontal_wrapped(|ui| {
+                ui.strong("Request status");
+                if self.pending {
+                    ui.spinner();
+                }
+                ui.label(
+                    self.feedback
+                        .as_ref()
+                        .map_or(self.message.as_str(), |feedback| feedback.text.as_str()),
+                );
+            });
+            if let Some(feedback) = &self.feedback {
+                egui::CollapsingHeader::new("Request details").show(ui, |ui| {
+                    ui.label(
+                        feedback
+                            .operation
+                            .as_deref()
+                            .unwrap_or("Operation identity not yet confirmed"),
+                    );
+                    ui.label(feedback.transitions.join(" → "));
+                });
+            }
+        });
+    }
+
+    fn attention_list(
+        ui: &mut egui::Ui,
+        snapshot: &Snapshot,
+        limit: usize,
+        page: &mut Page,
+        library: &mut crate::library::Library,
+        focus: &mut RouteFocus,
+    ) {
+        let items = presentation::attentions(snapshot);
+        if items.is_empty() {
+            ui.label("Nothing needs attention right now.");
+            return;
+        }
+        for (index, item) in items.iter().take(limit).enumerate() {
+            ui.group(|ui| {
+                ui.set_min_width((ui.available_width() - 1.0).max(0.0));
+                ui.horizontal_wrapped(|ui| {
+                    ui.strong(&item.title);
+                    let button = egui::Button::new(if index == 0 {
+                        "Review this"
+                    } else {
+                        "Open item"
+                    })
+                    .min_size(egui::vec2(128.0, 44.0));
+                    if ui.add(button).clicked() {
+                        navigate(&item.destination, page, library, focus);
+                    }
+                });
+                ui.label(&item.detail);
+            });
+        }
+        if items.len() > limit
+            && ui
+                .add_sized([180.0, 44.0], egui::Button::new("See all attention items"))
+                .clicked()
+        {
+            *page = Page::Activity;
+        }
+    }
+
+    fn home_products(
+        ui: &mut egui::Ui,
+        snapshot: &Snapshot,
+        page: &mut Page,
+        library: &mut crate::library::Library,
+    ) {
+        ui.heading("Published plug-ins");
+        ui.small("Manager publication is current. Bitwig may still need its own browser rescan.");
+        let mut count = 0;
+        for product in snapshot
+            .products
+            .iter()
+            .filter(|product| matches!(product.disposition.as_str(), "ready" | "experimental"))
+            .take(6)
+        {
+            count += 1;
+            let activity = presentation::product_activity(snapshot, product);
+            let label = format!(
+                "{}  ·  {}  ·  {}",
+                product.name,
+                crate::library::status(product).0,
+                activity.home_label()
+            );
+            if ui
+                .add_sized([ui.available_width(), 46.0], egui::Button::new(label))
+                .clicked()
+            {
+                library.focus_product(ProductKey::from(product));
+                *page = Page::Plugins;
+            }
+        }
+        if count == 0 {
+            ui.label("No plug-ins are currently published by the manager.");
+        }
+        if ui
+            .add_sized([180.0, 44.0], egui::Button::new("Browse all plug-ins"))
+            .clicked()
+        {
+            *page = Page::Plugins;
+        }
+    }
+
+    fn home_live(ui: &mut egui::Ui, snapshot: &Snapshot, page: &mut Page) {
+        ui.heading("Running now");
+        match presentation::activity_certainty(&snapshot.system) {
+            presentation::ActivityCertainty::Unavailable => {
+                ui.label("Live session status cannot be confirmed.");
+            }
+            presentation::ActivityCertainty::CleanupUncertain => {
+                ui.colored_label(
+                    warning_color(ui),
+                    "Cleanup is unconfirmed. Retained owners are not proof of live audio.",
+                );
+            }
+            presentation::ActivityCertainty::Confirmed => {
+                let running: Vec<_> = snapshot
+                    .active_sessions
+                    .iter()
+                    .filter(|row| row["recent"] != true && row["state"] == "active")
+                    .collect();
+                if running.is_empty() {
+                    ui.label("No bridge sessions are running.");
+                } else {
+                    for row in running.iter().take(3) {
+                        let class_id = row["class_id"].as_str().unwrap_or("");
+                        ui.label(presentation::session_display_name(snapshot, class_id));
+                    }
+                    if running.len() > 3 {
+                        ui.small(format!("And {} more", running.len() - 3));
+                    }
+                }
+            }
+        }
+        if ui
+            .add_sized([180.0, 44.0], egui::Button::new("Open Activity"))
+            .clicked()
+        {
+            *page = Page::Activity;
+        }
+    }
+
+    fn home_operation(ui: &mut egui::Ui, snapshot: &Snapshot, page: &mut Page) {
+        ui.heading("Setup and operations");
+        let active_state = snapshot
+            .operation
+            .as_ref()
+            .and_then(|operation| operation["state"].as_str())
+            .filter(|state| {
+                matches!(
+                    *state,
+                    "queued"
+                        | "waiting"
+                        | "validating"
+                        | "running"
+                        | "vendor_running"
+                        | "submission_uncertain"
+                )
+            });
+        let active_attempt = snapshot.onboarding.iter().find(|attempt| {
+            matches!(
+                attempt.state.as_str(),
+                "queued"
+                    | "waiting"
+                    | "running"
+                    | "vendor_running"
+                    | "submission_uncertain"
+                    | "cleanup_unconfirmed"
+            )
+        });
+        if let Some(state) = active_state {
+            ui.label(format!("Manager operation: {}", state.replace('_', " ")));
+        }
+        if let Some(attempt) = active_attempt {
+            ui.label(format!(
+                "{}: {}",
+                attempt.name,
+                attempt.state.replace('_', " ")
+            ));
+        }
+        if snapshot.system.maintenance > 0 {
+            ui.label(format!(
+                "{} installation or scan owner(s) active",
+                snapshot.system.maintenance
+            ));
+        }
+        if active_state.is_none() && active_attempt.is_none() && snapshot.system.maintenance == 0 {
+            ui.label("No installation or manager operation is in progress.");
+        }
+        let awaiting = snapshot
+            .onboarding
+            .iter()
+            .filter(|attempt| matches!(attempt.state.as_str(), "imported" | "environment_ready"))
+            .count();
+        if awaiting > 0 {
+            ui.small(format!(
+                "{awaiting} installer(s) ready for your next setup step"
+            ));
+        }
+        if ui
+            .add_sized([180.0, 44.0], egui::Button::new("Open Setup"))
+            .clicked()
+        {
+            *page = Page::Setup;
+        }
+    }
+
+    fn home(
+        ui: &mut egui::Ui,
+        snapshot: &Snapshot,
+        page: &mut Page,
+        library: &mut crate::library::Library,
+        focus: &mut RouteFocus,
+    ) {
+        ui.heading("Home");
+        ui.small("Your bridge at a glance. Closing this manager does not stop audio or vendor applications.");
+        if ui.available_width() >= 760.0 {
+            ui.columns(2, |columns| {
+                Self::home_products(&mut columns[0], snapshot, page, library);
+                columns[1].heading("Needs attention");
+                Self::attention_list(&mut columns[1], snapshot, 3, page, library, focus);
+            });
+            ui.add_space(12.0);
+            ui.columns(2, |columns| {
+                Self::home_live(&mut columns[0], snapshot, page);
+                Self::home_operation(&mut columns[1], snapshot, page);
+            });
+        } else {
+            let published = snapshot
+                .products
+                .iter()
+                .filter(|product| matches!(product.disposition.as_str(), "ready" | "experimental"))
+                .count();
+            let items = presentation::attentions(snapshot);
+            let attention = items.len();
+            ui.small(format!(
+                "{published} published plug-in(s) · {attention} item(s) need attention"
+            ));
+            if let Some(first) = items.first() {
+                ui.horizontal_wrapped(|ui| {
+                    ui.strong(format!("Needs attention: {}", first.title));
+                    if ui
+                        .add_sized([124.0, 44.0], egui::Button::new("Review item"))
+                        .clicked()
+                    {
+                        navigate(&first.destination, page, library, focus);
+                    }
+                });
+            }
+            ui.separator();
+            Self::home_products(ui, snapshot, page, library);
+            if attention > 1 {
+                ui.separator();
+                if ui
+                    .add_sized(
+                        [220.0, 44.0],
+                        egui::Button::new(format!("See all {attention} attention items")),
+                    )
+                    .clicked()
+                {
+                    *page = Page::Activity;
+                }
+            }
+            ui.separator();
+            Self::home_live(ui, snapshot, page);
+            ui.separator();
+            Self::home_operation(ui, snapshot, page);
+        }
+    }
+}
+
+impl Operator {
+    fn session_row(
+        ui: &mut egui::Ui,
+        snapshot: &Snapshot,
+        row: &serde_json::Value,
+        index: usize,
+        page: &mut Page,
+        library: &mut crate::library::Library,
+        activity_focus: &mut Option<String>,
+    ) {
+        let class_id = row["class_id"].as_str().unwrap_or("");
+        let product = presentation::session_product(snapshot, class_id);
+        let frame = ui.push_id((row["recent"] == true, index), |ui| {
+            egui::Frame::group(ui.style()).show(ui, |ui| {
+                ui.set_min_width((ui.available_width() - 1.0).max(0.0));
+                ui.strong(presentation::session_display_name(snapshot, class_id));
+                let state = if row["recent"] == true {
+                    format!(
+                        "Most recent failed session · {}",
+                        presentation::terminal_text(row["terminal"].as_str().unwrap_or(""))
+                    )
+                } else if row["state"] == "cleanup_unconfirmed" {
+                    "Cleanup unconfirmed · this owner is not proof of live audio".into()
+                } else if let Some(terminal) = row["terminal"].as_str() {
+                    format!(
+                        "Session unavailable · {}",
+                        presentation::terminal_text(terminal)
+                    )
+                } else {
+                    "Running bridge session".into()
+                };
+                ui.label(state);
+                if row["recent"] == true {
+                    ui.small(
+                        if row["cleanup_confirmed"] == true && row["transport_retired"] == true {
+                            "Cleanup and transport retirement confirmed"
+                        } else {
+                            "Cleanup or transport retirement is unconfirmed"
+                        },
+                    );
+                }
+                if let Some(product) = product {
+                    if ui
+                        .add_sized([150.0, 44.0], egui::Button::new("View plug-in"))
+                        .clicked()
+                    {
+                        library.focus_product(ProductKey::from(product));
+                        *page = Page::Plugins;
+                    }
+                }
+                egui::CollapsingHeader::new("Technical session details")
+                    .show(ui, |ui| Self::value(ui, row));
+            })
+        });
+        if activity_focus.as_deref() == row["session"].as_str() && activity_focus.is_some() {
+            ui.scroll_to_rect(frame.response.rect, Some(egui::Align::Center));
+            *activity_focus = None;
+        }
+    }
+
+    fn activity(
+        ui: &mut egui::Ui,
+        snapshot: &Snapshot,
+        pending: bool,
+        page: &mut Page,
+        library: &mut crate::library::Library,
+        focus: &mut RouteFocus,
+        chosen: &mut Option<Action>,
+    ) {
+        ui.heading("Activity");
+        ui.small("Bridge sessions, manager work and retained incidents. Managed DAW workspaces will have separate application activity when the manager reports it.");
+        ui.heading("Live bridge sessions");
+        if !snapshot.system.capacity_available() {
+            ui.colored_label(warning_color(ui), "Current session status is unavailable. Rows below are the last successful snapshot, not a live confirmation.");
+        }
+        let live: Vec<_> = snapshot
+            .active_sessions
+            .iter()
+            .filter(|row| row["recent"] != true)
+            .collect();
+        if live.is_empty() {
+            ui.label(if snapshot.system.capacity_available() {
+                "No bridge sessions are reported."
+            } else {
+                "No current session list is available."
+            });
+        }
+        for (index, row) in live.into_iter().enumerate() {
+            Self::session_row(ui, snapshot, row, index, page, library, &mut focus.activity);
+        }
+        ui.separator();
+        ui.heading("Recent session failures");
+        let recent: Vec<_> = snapshot
+            .active_sessions
+            .iter()
+            .filter(|row| row["recent"] == true)
+            .collect();
+        if recent.is_empty() {
+            ui.label("No recent terminal session is retained.");
+        }
+        for (index, row) in recent.into_iter().enumerate() {
+            Self::session_row(ui, snapshot, row, index, page, library, &mut focus.activity);
+        }
+        ui.separator();
+        ui.heading("Needs attention");
+        Self::attention_list(ui, snapshot, usize::MAX, page, library, focus);
+        ui.separator();
+        ui.heading("Incidents");
+        if snapshot.recent_incidents.is_empty() {
+            ui.label("No sanitized incident is retained.");
+        }
+        for incident in snapshot.recent_incidents.iter().rev() {
+            ui.push_id(&incident.id, |ui| {
+                egui::CollapsingHeader::new(format!(
+                    "{} · {}",
+                    incident.state.replace('_', " "),
+                    incident.id
+                ))
+                .show(ui, |ui| {
+                    let lines = incident_lines(&incident.summary);
+                    for line in lines.iter().take(2) {
+                        ui.label(line);
+                    }
+                    if let Some(offer) = &incident.export {
+                        Self::buttons(
+                            ui,
+                            std::slice::from_ref(offer),
+                            snapshot.system.inactive_reason(),
+                            pending,
+                            chosen,
+                        );
+                    }
+                    egui::CollapsingHeader::new("Sanitized technical report").show(ui, |ui| {
+                        for line in lines.iter().skip(2) {
+                            ui.small(line);
+                        }
+                        Self::value(ui, &incident.summary);
+                    });
+                });
+            });
+        }
+    }
+
+    fn setup(
+        ui: &mut egui::Ui,
+        snapshot: &Snapshot,
+        pending: bool,
+        feedback: Option<&RequestFeedback>,
+        focus: &mut RouteFocus,
+        chosen: &mut Option<Action>,
+        pick: &mut bool,
+    ) {
+        let busy = snapshot.system.inactive_reason();
+        if focus.setup_scroll {
+            ui.scroll_to_cursor(Some(egui::Align::Min));
+            focus.setup_scroll = false;
+        }
+        ui.heading("Setup");
+        ui.small("Installers, vendor applications, environments and exact recovery controls.");
+        for offer in &snapshot.actions {
+            if matches!(offer.action, Action::TransactionReconcile {})
+                && snapshot.system.pending_transactions > 0
+            {
+                Self::buttons(ui, std::slice::from_ref(offer), busy, pending, chosen);
+            }
+        }
+        ui.group(|ui| {
+            ui.strong("Add a plug-in");
+            if ui.add_enabled(!pending, egui::Button::new("Add Windows installer").min_size(egui::vec2(240.0, 48.0))).clicked() {
+                *pick = true;
+            }
+            ui.small("Select a local installer, review it, create an isolated environment, install, then scan. New products remain unpublished.");
+        });
+        ui.add_space(10.0);
+        ui.heading("Installation attempts");
+        if focus.setup.is_some() {
+            ui.strong("Showing the selected attempt");
+            if ui
+                .add_sized([180.0, 44.0], egui::Button::new("Show all attempts"))
+                .clicked()
+            {
+                focus.setup = None;
+            }
+        }
+        let rows: Vec<_> = snapshot
+            .onboarding
+            .iter()
+            .rev()
+            .filter(|attempt| {
+                focus.setup.as_ref().is_none_or(|key| {
+                    key.installer == attempt.installer && key.environment == attempt.environment
+                })
+            })
+            .collect();
+        if rows.is_empty() {
+            ui.label(if snapshot.onboarding.is_empty() {
+                "No installer attempts yet."
+            } else {
+                "Selected attempt is no longer in this snapshot."
+            });
+        }
+        for attempt in rows {
+            ui.push_id((&attempt.installer, &attempt.environment), |ui| {
+                egui::Frame::group(ui.style()).show(ui, |ui| {
+                    ui.set_min_width((ui.available_width() - 1.0).max(0.0));
+                    ui.strong(format!("{} · {}", attempt.name, attempt.state.replace('_', " ")));
+                    ui.label(&attempt.required_human_action);
+                    if let Some(line) = installer_lines(&attempt.details["installation"]).first() { ui.label(line); }
+                    if let Some(feedback) = feedback.filter(|feedback| feedback.for_installer(&attempt.installer)
+                        || matches!(&feedback.action, Action::InstallerNewAttempt { previous, .. } if attempt.environment.as_ref() == Some(previous))) {
+                        ui.colored_label(warning_color(ui), &feedback.text);
+                    } else if let Some(reason) = attempt.details["request_result"]["reason"].as_str() {
+                        ui.colored_label(warning_color(ui), format!("Last request refused before worker launch: {reason}"));
+                    }
+                    if let Some(failure) = &attempt.failure {
+                        for line in failure_lines(failure).iter().take(3) { ui.colored_label(warning_color(ui), line); }
+                    }
+                    Self::buttons(ui, &attempt.actions, busy, pending, chosen);
+                    egui::CollapsingHeader::new("Technical installation details").show(ui, |ui| {
+                        ui.small(format!("Installer SHA-256: {}", attempt.installer));
+                        if let Some(environment) = &attempt.environment { ui.small(format!("Environment: {environment}")); }
+                        ui.small(format!("{} bytes · {}", attempt.byte_size, attempt.format));
+                        for line in installer_policy_lines(&attempt.details["installation"]) { ui.small(line); }
+                        for line in installer_lines(&attempt.details["installation"]) { ui.small(line); }
+                        if let Some(failure) = &attempt.failure { for line in failure_lines(failure) { ui.small(line); } }
+                        Self::value(ui, &attempt.details);
+                    });
+                });
+            });
+        }
+        ui.separator();
+        egui::CollapsingHeader::new("Vendor applications").show(ui, |ui| {
+            for app in &snapshot.vendor_applications {
+                ui.push_id(&app.id, |ui| {
+                    ui.group(|ui| {
+                        ui.strong(&app.name);
+                        ui.label(format!("{} · {}", app.version, app.state.replace('_', " ")));
+                        Self::buttons(ui, &app.actions, busy, pending, chosen);
+                        egui::CollapsingHeader::new("Technical application details").show(ui, |ui| {
+                            if app.id == "native-access" {
+                                ui.label(if app.details["dependency_prepared"] == true { "Historical dependency preparation retained; each launch still requires exact session admission and fresh readiness" } else { "Historical dependency preparation is absent; launch uses exact session admission and fresh readiness" });
+                                ui.label(if app.details["effective"].is_object() { "Renderer policy applied to the exact owned application" } else { "Renderer policy application not confirmed" });
+                                ui.label(format!("Rendering cause: {}", app.details["renderer"]["cause"].as_str().unwrap_or("unresolved")));
+                                for line in dependency_retirement_lines(&app.details["dependency_operation"]) { ui.small(line); }
+                                if app.details["dependency"].is_object() { for line in dependency_retirement_lines(&app.details) { ui.small(line); } }
+                            }
+                            Self::value(ui, &app.details);
+                        });
+                    });
+                });
+            }
+        });
+        egui::CollapsingHeader::new("Managed environments").show(ui, |ui| {
+            for environment in &snapshot.environments {
+                ui.push_id(&environment.id, |ui| {
+                    ui.group(|ui| {
+                        ui.strong(&environment.family);
+                        ui.label(format!(
+                            "Revision {} · pinned runner {}",
+                            environment.revision, environment.runner
+                        ));
+                        Self::buttons(ui, &environment.actions, busy, pending, chosen);
+                        egui::CollapsingHeader::new("Technical environment details").show(
+                            ui,
+                            |ui| {
+                                ui.small(&environment.authorization);
+                                ui.small(format!("Environment: {}", environment.id));
+                                Self::value(ui, &environment.last_scan);
+                            },
+                        );
+                    });
+                });
+            }
+        });
+        ui.small("Closing the manager does not stop an installer or vendor application. Sign-in and authorization stay in the vendor interface.");
+    }
+
+    fn diagnostics(
+        ui: &mut egui::Ui,
+        snapshot: &Snapshot,
+        pending: bool,
+        chosen: &mut Option<Action>,
+    ) {
+        ui.heading("Diagnostics");
+        crate::library::diagnostics(ui, snapshot, pending, chosen, true);
+        ui.heading("Manager actions");
+        for offer in &snapshot.actions {
+            if snapshot.capture["armed"] == true && matches!(offer.action, Action::CaptureDisarm {})
+            {
+                continue; // already shown next to the armed state above
+            }
+            Self::buttons(
+                ui,
+                std::slice::from_ref(offer),
+                snapshot.system.inactive_reason(),
+                pending,
+                chosen,
+            );
+        }
+        egui::CollapsingHeader::new("Technical system details").show(ui, |ui| {
+            if let Ok(value) = serde_json::to_value(&snapshot.system) {
+                Self::value(ui, &value);
+            }
+            Self::value(ui, &snapshot.capture);
+        });
+    }
+
+    fn workspaces(ui: &mut egui::Ui) {
+        ui.heading("Workspaces");
+        ui.label("No managed DAW workspace is available here yet.");
+        ui.small("Managed DAWs will appear here when their workspace state is available. Plug-ins published to native DAWs stay in Plug-ins; the bridge DSP count describes those plug-in sessions.");
+    }
+}
 impl eframe::App for Operator {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         while let Ok(reply) = self.receiver.try_recv() {
@@ -408,70 +1314,69 @@ impl eframe::App for Operator {
         let mut refresh = false;
         let mut pick = false;
         let mut chosen = None;
-        egui::CentralPanel::default().show(ui,|ui|{
-            ui.heading("Linux Audio Compatibility Manager");
-            ui.horizontal(|ui|{if ui.add_enabled(!self.pending,egui::Button::new("Refresh")).clicked(){refresh=true;}ui.label(self.feedback.as_ref().map_or(self.message.as_str(),|f|f.text.as_str()));if self.pending{ui.spinner();}});
-            if let Some(f) = &self.feedback {
-                ui.collapsing("Request status", |ui| {
-                    ui.label(f.operation.as_deref().unwrap_or("Operation identity not yet confirmed"));
-                    ui.label(f.transitions.join(" → "));
-                });
+        egui::CentralPanel::default().show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.heading("Linux VST Bridge");
+                if ui.add_enabled(!self.pending, egui::Button::new("Refresh").min_size(egui::vec2(92.0, 44.0))).clicked() {
+                    refresh = true;
+                }
+            });
+            if self.preview { ui.small("LOCAL DESIGN PREVIEW · synthetic records · actions do not execute"); }
+            if let Some(snapshot) = &self.snapshot {
+                Self::health_bar(ui, &snapshot.system);
             }
+            navigation(ui, &mut self.page);
+            self.request_bar(ui);
             ui.separator();
-            egui::ScrollArea::vertical().show(ui,|ui|{
-                let Some(s)=&self.snapshot else{ui.label("The installed Rust manager is the state authority. Waiting for readback.");return;};
-                let busy=s.system.inactive_reason();
-                if !s.system.capacity_available() { ui.colored_label(egui::Color32::YELLOW, "Manager status unavailable. Refresh to check active plug-ins and permitted actions."); }
-                if s.system.capacity_available() && s.system.cleanup_unconfirmed { ui.colored_label(egui::Color32::YELLOW, "Previous instance cleanup needs attention. New instances are blocked."); }
-                self.library.show(ui, s, controls_pending, &mut chosen, |ui, p| {
-                    for limit in &p.limitations { ui.label(limit.replace('_', " ")); }
-                    if let Some(v) = p.details.get("preparation") { Self::preparation_details(ui, v); }
-                    if let Some(revision) = p.active_revision { ui.label(format!("Published revision: {revision} · Recommended: {}", p.recommended_revision.map(|v| v.to_string()).unwrap_or_else(|| "none".into()))); }
-                    for h in &p.history { ui.label(format!("Revision {} · {}{}{}", h.revision, h.claim, if h.active { " · active" } else { "" }, if h.rollback_allowed && !h.active { " · rollback available" } else { "" })); }
-                    egui::CollapsingHeader::new("Technical details").show(ui, |ui| {
-                        ui.label(format!("Status: {}\nClass: {}\nModule SHA-256: {}\nEnvironment: {}\nRunner: {}", p.disposition, p.class_id, p.module_sha256, p.environment, p.runner));
-                        Self::value(ui, &p.details);
-                    });
-                });
-                ui.add_space(16.0);
-                egui::CollapsingHeader::new("Vendor applications and installation locations").default_open(false).show(ui,|ui|{
-                    for app in &s.vendor_applications{ui.heading(&app.name);
-                        if app.id=="native-access" {ui.label(if app.details["dependency_prepared"]==true {"Historical dependency preparation retained; each launch still requires exact session admission and fresh readiness"}else{"Historical dependency preparation is absent; launch uses exact session admission and fresh readiness"});ui.label(if app.details["effective"].is_object(){"Renderer policy applied to the exact owned application"}else{"Renderer policy application not confirmed"});ui.label(format!("Rendering cause: {}",app.details["renderer"]["cause"].as_str().unwrap_or("unresolved")));for line in dependency_retirement_lines(&app.details["dependency_operation"]){ui.small(line);}if app.details["dependency"].is_object(){for line in dependency_retirement_lines(&app.details){ui.small(line);}}}
-                        ui.label(format!("{} · {}",app.version,app.state));Self::buttons(ui,&app.actions,busy,controls_pending,&mut chosen);}
-                    for e in &s.environments{ui.label(format!("{} · revision {} · pinned runner {}",e.family,e.revision,e.runner));ui.small(&e.authorization);if !e.last_scan["id"].is_null(){ui.small(format!("Last scan: {} modules · completed at {}",e.last_scan["module_count"],e.last_scan["completed_at"]));ui.small(format!("Changes: {} added · {} changed · {} removed · {} unchanged",e.last_scan["changes"]["added"],e.last_scan["changes"]["changed"],e.last_scan["changes"]["removed"],e.last_scan["changes"]["unchanged"]));}Self::buttons(ui,&e.actions,busy,controls_pending,&mut chosen);}
-                });
-                crate::library::diagnostics(ui, s, controls_pending, &mut chosen, false);
-                ui.separator();ui.heading("Add a plug-in");
-                if ui.add_enabled(!self.pending,egui::Button::new("Add Windows installer").min_size(egui::vec2(240.0,48.0))).clicked(){pick=true;}
-                ui.small("Select a local installer → review → create isolated environment → install → scan. New products stay unpublished.");
-                for o in s.onboarding.iter().rev() {let historical=matches!(o.state.as_str(),"cancelled"|"failed"|"no_audio_plugin_discovered");egui::CollapsingHeader::new(if historical{format!("Earlier attempt — {}",o.state.replace('_'," "))}else{format!("Current attempt — {}",o.state.replace('_'," "))}).id_salt((&o.installer,&o.environment,"attempt")).default_open(!historical).show(ui,|ui|{
-                    ui.heading(o.state.replace('_'," "));ui.label(format!("{} · {} bytes · {}",o.name,o.byte_size,o.format));
-                    ui.label(&o.required_human_action);
-                    for line in installer_policy_lines(&o.details["installation"]) { ui.small(line); }
-                    for line in installer_lines(&o.details["installation"]) { ui.label(line); }
-                    if let Some(f)=self.feedback.as_ref().filter(|f|f.for_installer(&o.installer) || matches!(&f.action, Action::InstallerNewAttempt {previous,..} if o.environment.as_ref()==Some(previous))) {ui.colored_label(egui::Color32::YELLOW,&f.text);}
-                    else if let Some(reason)=o.details["request_result"]["reason"].as_str(){ui.colored_label(egui::Color32::YELLOW,format!("Last request refused before worker launch: {reason}"));}
-                    if let Some(failure)=&o.failure { for line in failure_lines(failure) { ui.colored_label(egui::Color32::YELLOW,line); } }
-                    ui.small(format!("SHA-256: {}",o.installer));if let Some(id)=&o.environment{ui.small(format!("Isolated environment: {id}"));}
-                    Self::buttons(ui,&o.actions,busy,controls_pending,&mut chosen);
-                    egui::CollapsingHeader::new("Installation and scan details").id_salt((&o.installer,&o.environment)).show(ui,|ui|Self::value(ui,&o.details));
-                });}
-                ui.separator();egui::CollapsingHeader::new("Recent incidents").show(ui,|ui|{
-                    for incident in s.recent_incidents.iter().rev(){egui::CollapsingHeader::new(format!("{} · {}",incident.state,incident.id)).show(ui,|ui|{
-                        for line in incident_lines(&incident.summary){ui.label(line);}
-                        if let Some(a)=&incident.export{Self::buttons(ui,std::slice::from_ref(a),busy,controls_pending,&mut chosen);}
-                        egui::CollapsingHeader::new("Sanitized technical report").id_salt(&incident.id).show(ui,|ui|Self::value(ui,&incident.summary));
-                    });}
-                });
-                Self::buttons(ui,&s.actions,busy,controls_pending,&mut chosen);
-                ui.separator();ui.small("Closing this window does not stop bridged audio or vendor applications. Vendor sign-in and authorization stay in the vendor's own interface.");
+            egui::ScrollArea::vertical().id_salt(("manager-page", self.page)).show(ui, |ui| {
+                let Some(snapshot) = &self.snapshot else {
+                    ui.label("Waiting for the installed manager's canonical readback.");
+                    return;
+                };
+                let page = self.page;
+                match page {
+                    Page::Home => Self::home(ui, snapshot, &mut self.page, &mut self.library, &mut self.focus),
+                    Page::Plugins => self.library.show(ui, snapshot, controls_pending, &mut chosen, |ui, product| {
+                        for limit in &product.limitations { ui.label(limit.replace('_', " ")); }
+                        if let Some(preparation) = product.details.get("preparation") { Self::preparation_details(ui, preparation); }
+                        if let Some(revision) = product.active_revision {
+                            ui.label(format!("Published revision: {revision} · Recommended: {}",
+                                product.recommended_revision.map(|value| value.to_string()).unwrap_or_else(|| "none".into())));
+                        }
+                        for history in &product.history {
+                            ui.label(format!("Revision {} · {}{}{}", history.revision, history.claim,
+                                if history.active { " · active" } else { "" },
+                                if history.rollback_allowed && !history.active { " · rollback available" } else { "" }));
+                        }
+                        egui::CollapsingHeader::new("Technical product details").show(ui, |ui| {
+                            ui.label(format!("Status: {}\nClass: {}\nModule SHA-256: {}\nEnvironment: {}\nRunner: {}",
+                                product.disposition, product.class_id, product.module_sha256,
+                                product.environment, product.runner));
+                            Self::value(ui, &product.details);
+                        });
+                    }),
+                    Page::Workspaces => Self::workspaces(ui),
+                    Page::Activity => Self::activity(ui, snapshot, controls_pending, &mut self.page,
+                        &mut self.library, &mut self.focus, &mut chosen),
+                    Page::Setup => Self::setup(ui, snapshot, controls_pending, self.feedback.as_ref(),
+                        &mut self.focus, &mut chosen, &mut pick),
+                    Page::Diagnostics => Self::diagnostics(ui, snapshot, controls_pending, &mut chosen),
+                }
             });
         });
-        if let Some(a)=chosen.take() {
-            if matches!(a,Action::CandidateObserve{..}|Action::CandidateReview{..}) {self.product_form=Some(a);} else {chosen=Some(a);}
+        if let Some(a) = chosen.take() {
+            if matches!(
+                a,
+                Action::CandidateObserve { .. } | Action::CandidateReview { .. }
+            ) {
+                self.product_form = Some(a);
+            } else {
+                chosen = Some(a);
+            }
         }
-        if let Some(form)=self.product_form.as_mut() {
-            let mut submit=false;let mut cancel=false;
+        if let Some(form) = self.product_form.as_mut() {
+            let mut submit = false;
+            let mut cancel = false;
             egui::Window::new("Exact candidate observation / review").collapsible(false).show(ui.ctx(),|ui|{
                 match form {
                     Action::CandidateObserve{area,status,note,..}=>{
@@ -490,7 +1395,15 @@ impl eframe::App for Operator {
                 }
                 cancel|=ui.button("Cancel").clicked();
             });
-            if submit{chosen=self.product_form.take();}else if cancel{self.product_form=None;}
+            if submit {
+                chosen = self.product_form.take();
+            } else if cancel {
+                self.product_form = None;
+            }
+        }
+        if self.preview {
+            ui.ctx().request_repaint_after(Duration::from_millis(500));
+            return;
         }
         if pick {
             self.request(Query::PickInstaller, ui.ctx());
@@ -515,11 +1428,13 @@ impl eframe::App for Operator {
     }
 }
 fn installer_lines(v: &serde_json::Value) -> Vec<String> {
-    let t=&v["transaction"];
+    let t = &v["transaction"];
     if t["schema"] != 1 || t["operation"] != v["operation"] {
         return if v["error"] == "installer_launcher_failed" {
             vec!["Earlier installer result: outer launch route exited nonzero; the failing later stage and installation completeness were not captured.".into()]
-        } else {vec![]};
+        } else {
+            vec![]
+        };
     }
     let outcome=match t["outcome"].as_str() {
         Some("in_progress")=>"Installer supervision is ongoing. Exact Focus and Stop controls remain available; cleanup will be checked after retirement.",
@@ -533,52 +1448,114 @@ fn installer_lines(v: &serde_json::Value) -> Vec<String> {
         Some("not_installed")=>"No durable installation was found in the inspected surfaces.",
         _=>"Review the installer stage record; completion does not qualify or publish a plug-in.",
     };
-    let mut lines=vec![outcome.into()];
-    if let Some(code)=v["startup"]["first_problem"]["code"].as_str() {
-        let observation=match code {
-            "native_steamclient_load_failed"=>"native runtime dependency load failed",
-            "native_steamclient_export_unavailable"=>"native runtime export unavailable",
-            "runtime_assertion_observed"=>"runtime assertion observed",
-            "prefix_initialization_failed"|"prefix_initialization_timeout"=>"environment initialization did not complete",
-            _=>"startup problem retained; inspect bounded details",
+    let mut lines = vec![outcome.into()];
+    if let Some(code) = v["startup"]["first_problem"]["code"].as_str() {
+        let observation = match code {
+            "native_steamclient_load_failed" => "native runtime dependency load failed",
+            "native_steamclient_export_unavailable" => "native runtime export unavailable",
+            "runtime_assertion_observed" => "runtime assertion observed",
+            "prefix_initialization_failed" | "prefix_initialization_timeout" => {
+                "environment initialization did not complete"
+            }
+            _ => "startup problem retained; inspect bounded details",
         };
-        lines.push(format!("Earlier startup observation: {observation}. Cancellation and cleanup do not erase it."));
+        lines.push(format!(
+            "Earlier startup observation: {observation}. Cancellation and cleanup do not erase it."
+        ));
     }
-    if let Some(n)=t["outer_launcher_exit"].as_i64(){lines.push(format!("Outer launcher exit: {n} (separate from payload and service exits)"));}
-    lines.push(format!("Durable installation: {}",t["durable_installation"].as_str().unwrap_or("unavailable").replace('_'," ")));
+    if let Some(n) = t["outer_launcher_exit"].as_i64() {
+        lines.push(format!(
+            "Outer launcher exit: {n} (separate from payload and service exits)"
+        ));
+    }
+    lines.push(format!(
+        "Durable installation: {}",
+        t["durable_installation"]
+            .as_str()
+            .unwrap_or("unavailable")
+            .replace('_', " ")
+    ));
     if !t["first_failure"].is_null() {
-        let f=&t["first_failure"];
+        let f = &t["first_failure"];
         lines.push(format!("First retained process result: phase {} · role {} · relationship {} · domain {} · status {} · cause unestablished",
             f["phase"].as_str().unwrap_or("unknown"), f["role"].as_str().unwrap_or("unknown"),
             f["relationship"].as_str().unwrap_or("unknown"), f["domain"].as_str().unwrap_or("unknown"), f["status"]));
     }
-    let binding=&t["launch_binding"];
-    if binding["schema"]==1 && binding["operation"]==v["operation"] {
-        lines.push(if binding["status"]=="bound" {"Installer Windows root: exact operation and launch generation observed.".into()}
-            else {format!("Installer Windows root unavailable: {}. Child attribution may be incomplete.",binding["reason"].as_str().unwrap_or("missing observation"))});
+    let binding = &t["launch_binding"];
+    if binding["schema"] == 1 && binding["operation"] == v["operation"] {
+        lines.push(if binding["status"] == "bound" {
+            "Installer Windows root: exact operation and launch generation observed.".into()
+        } else {
+            format!(
+                "Installer Windows root unavailable: {}. Child attribution may be incomplete.",
+                binding["reason"].as_str().unwrap_or("missing observation")
+            )
+        });
     }
-    if t["presence_close"]["schema"]==1 {
+    if t["presence_close"]["schema"] == 1 {
         lines.push(format!("Application presence/close requests observed: {}. Helper success does not prove a match or successful closure; exact match and recheck results remain unavailable.",t["presence_close"]["observation_count"]));
-        if t["presence_close"]["operation_classes"].as_array().is_some_and(|rows| rows.iter().any(|r| r=="presence_query" || r=="close_request")) {
+        if t["presence_close"]["operation_classes"]
+            .as_array()
+            .is_some_and(|rows| {
+                rows.iter()
+                    .any(|r| r == "presence_query" || r == "close_request")
+            })
+        {
             lines.push("Observed request mechanism: PowerShell/CIM process query or script process close. The matched object and actual close outcome are unavailable.".into());
         }
     }
-    lines.push(if v["cleanup_confirmed"]==true {"Owned process cleanup confirmed."} else {"Owned process cleanup not yet confirmed."}.into());
+    lines.push(
+        if v["cleanup_confirmed"] == true {
+            "Owned process cleanup confirmed."
+        } else {
+            "Owned process cleanup not yet confirmed."
+        }
+        .into(),
+    );
     lines
 }
 
 fn dependency_retirement_lines(v: &serde_json::Value) -> Vec<String> {
-    if v.is_null() { return Vec::new(); }
-    let r=if v["dependency_retirement"].is_object(){&v["dependency_retirement"]}else{&v["dependency"]};
-    let mut lines=vec![format!("Dependency service stop: {}",if r["service_retirement_confirmed"]==true {"confirmed"}else{"not confirmed"}),
-         format!("Dependency process cleanup: {}",if r["process_cleanup_confirmed"]==true {"confirmed"}else{"not confirmed"}),
-         format!("Forced cleanup: {}",if r["forced_cleanup_used"]==true {"used; does not confirm a clean service stop"}else{"not reported"})];
+    if v.is_null() {
+        return Vec::new();
+    }
+    let r = if v["dependency_retirement"].is_object() {
+        &v["dependency_retirement"]
+    } else {
+        &v["dependency"]
+    };
+    let mut lines = vec![
+        format!(
+            "Dependency service stop: {}",
+            if r["service_retirement_confirmed"] == true {
+                "confirmed"
+            } else {
+                "not confirmed"
+            }
+        ),
+        format!(
+            "Dependency process cleanup: {}",
+            if r["process_cleanup_confirmed"] == true {
+                "confirmed"
+            } else {
+                "not confirmed"
+            }
+        ),
+        format!(
+            "Forced cleanup: {}",
+            if r["forced_cleanup_used"] == true {
+                "used; does not confirm a clean service stop"
+            } else {
+                "not reported"
+            }
+        ),
+    ];
     lines.push(match r["dependency_cleanup_disposition"].as_str() {
         Some("graceful_service_retirement")=>"Native Access closed with graceful dependency retirement.".into(),
         Some("exact_owned_session_cleanup")=>"Native Access closed with exact-owned compatibility cleanup; graceful service shutdown was not confirmed.".into(),
         _=>"Native Access or dependency cleanup is not confirmed.".into(),
     });
-    if let Some(error)=v["error"].as_str() {
+    if let Some(error) = v["error"].as_str() {
         let explanation=match error {
             "dependency_running_not_ready"=>"The service did not establish exact process and listener readiness; Native Access was not opened.",
             "dependency_recovery_registration_missing"=>"The verified daemon exists, but its service registration is missing. Recovery did not reinstall it.",
@@ -590,25 +1567,35 @@ fn dependency_retirement_lines(v: &serde_json::Value) -> Vec<String> {
         };
         lines.push(format!("Dependency failure: {error}. {explanation}"));
     }
-    if v["dependency"]["recovery"]["authority"]=="qualified_bundle_payload_and_retired_installation" {
+    if v["dependency"]["recovery"]["authority"]
+        == "qualified_bundle_payload_and_retired_installation"
+    {
         lines.push("Recovering the verified installed dependency without reinstalling; the earlier installer failure remains recorded.".into());
-        lines.push(if v["dependency"]["ready_tested"]==true {"Fresh service readiness: verified."}else{"Fresh service readiness: not established."}.into());
+        lines.push(
+            if v["dependency"]["ready_tested"] == true {
+                "Fresh service readiness: verified."
+            } else {
+                "Fresh service readiness: not established."
+            }
+            .into(),
+        );
     }
-    if let Some(stages)=v["dependency"]["stages"].as_array() {
-        for stage in stages.iter().filter(|s| s["action"]=="install") {
-            let result=&stage["installer_result"];
+    if let Some(stages) = v["dependency"]["stages"].as_array() {
+        for stage in stages.iter().filter(|s| s["action"] == "install") {
+            let result = &stage["installer_result"];
             lines.push(match result["installer_exit"].as_u64().filter(|n| *n<=u32::MAX as u64) {
                 Some(code) if result["authority"]=="exact_windows_child_handle_exit"=>format!("Dependency installer exit: {code}. This alone does not establish readiness."),
                 _=>"Dependency installer exit: unavailable.".into(),
             });
             lines.push(match stage["exit"].as_i64() {
-                Some(code)=>format!("Dependency runner exit: {code}."),
-                None=>"Dependency runner retirement was not observed when the command returned.".into(),
+                Some(code) => format!("Dependency runner exit: {code}."),
+                None => "Dependency runner retirement was not observed when the command returned."
+                    .into(),
             });
         }
     }
-    let observation=&r["stop_observation"];
-    if observation["schema"]==3 {
+    let observation = &r["stop_observation"];
+    if observation["schema"] == 3 {
         let explanation=match observation["classification"].as_str() {
             Some("NAD2_STOP_CONFIRMED")=>"Exact service, process-generation, and listener retirement was confirmed.",
             Some("NAD2_STOP_SUBMITTED_PROGRESSING")=>"A stop was submitted or already pending and bounded progress was observed; retirement was not confirmed.",
@@ -618,7 +1605,12 @@ fn dependency_retirement_lines(v: &serde_json::Value) -> Vec<String> {
             Some("NAD2_STOP_OBSERVATION_UNAVAILABLE")=>"The bounded stop observation was unavailable.",
             _=>"The bounded stop classification was unavailable.",
         };
-        lines.push(format!("Bounded stop response: {} {explanation}",observation["classification"].as_str().unwrap_or("unavailable")));
+        lines.push(format!(
+            "Bounded stop response: {} {explanation}",
+            observation["classification"]
+                .as_str()
+                .unwrap_or("unavailable")
+        ));
         lines.push(format!("SCM state: {} -> {}; controls masks: {} -> {}; checkpoint: {} -> {}; wait hint: {} -> {} ms.",
             observation["initial_state"],observation["final_state"],observation["initial_controls_accepted"],
             observation["final_controls_accepted"],observation["initial_checkpoint"],observation["checkpoint"],
@@ -645,9 +1637,11 @@ fn dependency_retirement_lines(v: &serde_json::Value) -> Vec<String> {
 }
 
 fn installer_policy_lines(v: &serde_json::Value) -> Vec<&'static str> {
-    let Some(policy)=v.get("installer_capability") else { return vec![] };
-    let requested=policy["requested"]["powershell"].as_str();
-    let applied=policy["effective"]["effective"]["windows_scripting"]["powershell"].as_str();
+    let Some(policy) = v.get("installer_capability") else {
+        return vec![];
+    };
+    let requested = policy["requested"]["powershell"].as_str();
+    let applied = policy["effective"]["effective"]["windows_scripting"]["powershell"].as_str();
     vec![match requested {
         Some("intentionally_unavailable")=>"Requested: PowerShell intentionally unavailable for this installer only.",
         Some("inherited")=>"Requested: inherited scripting behavior.",
@@ -734,57 +1728,80 @@ fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json:
 mod tests {
     #[test]
     fn recovery_does_not_claim_readiness_or_erase_prior_failure() {
-        let mut value=serde_json::json!({"dependency":{"recovery":{"authority":"qualified_bundle_payload_and_retired_installation"},"ready_tested":false}});
-        value["error"]=serde_json::json!("dependency_running_not_ready");
-        let lines=dependency_retirement_lines(&value);
-        assert!(lines.iter().any(|s|s.contains("Native Access was not opened")));
-        assert!(lines.iter().any(|s|s.contains("earlier installer failure remains")));
-        assert!(lines.iter().any(|s|s=="Fresh service readiness: not established."));
-        value["dependency"]["ready_tested"]=serde_json::json!(true);
-        assert!(dependency_retirement_lines(&value).iter().any(|s|s=="Fresh service readiness: verified."));
+        let mut value = serde_json::json!({"dependency":{"recovery":{"authority":"qualified_bundle_payload_and_retired_installation"},"ready_tested":false}});
+        value["error"] = serde_json::json!("dependency_running_not_ready");
+        let lines = dependency_retirement_lines(&value);
+        assert!(lines
+            .iter()
+            .any(|s| s.contains("Native Access was not opened")));
+        assert!(lines
+            .iter()
+            .any(|s| s.contains("earlier installer failure remains")));
+        assert!(lines
+            .iter()
+            .any(|s| s == "Fresh service readiness: not established."));
+        value["dependency"]["ready_tested"] = serde_json::json!(true);
+        assert!(dependency_retirement_lines(&value)
+            .iter()
+            .any(|s| s == "Fresh service readiness: verified."));
     }
     #[test]
     fn dependency_installer_exit_survives_runner_timeout_and_cleanup() {
-        let mut value=serde_json::json!({"error":"dependency_runner_retirement_timeout","dependency":{
+        let mut value = serde_json::json!({"error":"dependency_runner_retirement_timeout","dependency":{
             "process_cleanup_confirmed":true,"stages":[{"action":"install","exit":null,
             "installer_result":{"installer_exit":100,"authority":"exact_windows_child_handle_exit"}}]}});
-        let lines=dependency_retirement_lines(&value);
-        assert!(lines.iter().any(|l|l.contains("installer exit: 100")));
-        assert!(lines.iter().any(|l|l.contains("runner retirement was not observed")));
-        value["dependency"]["stages"][0]["installer_result"]["authority"]=serde_json::json!("legacy_adapter_wait_or_exit_ambiguous");
-        assert!(dependency_retirement_lines(&value).iter().any(|l|l=="Dependency installer exit: unavailable."));
+        let lines = dependency_retirement_lines(&value);
+        assert!(lines.iter().any(|l| l.contains("installer exit: 100")));
+        assert!(lines
+            .iter()
+            .any(|l| l.contains("runner retirement was not observed")));
+        value["dependency"]["stages"][0]["installer_result"]["authority"] =
+            serde_json::json!("legacy_adapter_wait_or_exit_ambiguous");
+        assert!(dependency_retirement_lines(&value)
+            .iter()
+            .any(|l| l == "Dependency installer exit: unavailable."));
     }
     #[test]
     fn process_cleanup_never_projects_clean_service_retirement() {
-        let value=serde_json::json!({"dependency":{"service_retirement_confirmed":false,"process_cleanup_confirmed":true,"forced_cleanup_used":true}});
-        let lines=dependency_retirement_lines(&value);
+        let value = serde_json::json!({"dependency":{"service_retirement_confirmed":false,"process_cleanup_confirmed":true,"forced_cleanup_used":true}});
+        let lines = dependency_retirement_lines(&value);
         assert!(lines[0].ends_with("not confirmed"));
         assert!(lines[1].ends_with("confirmed"));
         assert!(lines[2].contains("does not confirm"));
-        let recovered=serde_json::json!({"dependency":{"service_retirement_confirmed":true},"dependency_retirement":{"service_retirement_confirmed":false,"process_cleanup_confirmed":true}});
+        let recovered = serde_json::json!({"dependency":{"service_retirement_confirmed":true},"dependency_retirement":{"service_retirement_confirmed":false,"process_cleanup_confirmed":true}});
         assert!(dependency_retirement_lines(&recovered)[0].ends_with("not confirmed"));
     }
     #[test]
     fn native_access_cleanup_dispositions_do_not_conflate_owned_cleanup_with_graceful_stop() {
-        let graceful=serde_json::json!({"dependency":{"dependency_cleanup_disposition":"graceful_service_retirement",
+        let graceful = serde_json::json!({"dependency":{"dependency_cleanup_disposition":"graceful_service_retirement",
             "service_retirement_confirmed":true,"process_cleanup_confirmed":true,"forced_cleanup_used":false}});
-        let exact=serde_json::json!({"dependency":{"dependency_cleanup_disposition":"exact_owned_session_cleanup",
+        let exact = serde_json::json!({"dependency":{"dependency_cleanup_disposition":"exact_owned_session_cleanup",
             "service_retirement_confirmed":false,"process_cleanup_confirmed":true,"forced_cleanup_used":true}});
-        let failed=serde_json::json!({"dependency":{"dependency_cleanup_disposition":"cleanup_unconfirmed",
+        let failed = serde_json::json!({"dependency":{"dependency_cleanup_disposition":"cleanup_unconfirmed",
             "service_retirement_confirmed":false,"process_cleanup_confirmed":false,"forced_cleanup_used":true}});
-        assert!(dependency_retirement_lines(&graceful).iter().any(|s|s=="Native Access closed with graceful dependency retirement."));
-        let exact_text=dependency_retirement_lines(&exact).join(" ");
-        assert!(exact_text.contains("exact-owned compatibility cleanup"));assert!(exact_text.contains("graceful service shutdown was not confirmed"));
-        assert!(dependency_retirement_lines(&failed).iter().any(|s|s=="Native Access or dependency cleanup is not confirmed."));
+        assert!(dependency_retirement_lines(&graceful)
+            .iter()
+            .any(|s| s == "Native Access closed with graceful dependency retirement."));
+        let exact_text = dependency_retirement_lines(&exact).join(" ");
+        assert!(exact_text.contains("exact-owned compatibility cleanup"));
+        assert!(exact_text.contains("graceful service shutdown was not confirmed"));
+        assert!(dependency_retirement_lines(&failed)
+            .iter()
+            .any(|s| s == "Native Access or dependency cleanup is not confirmed."));
     }
     #[test]
     fn nad2_stop_characterizations_are_bounded_and_never_claim_acceptance() {
-        let classes=[
-            "NAD2_STOP_CONFIRMED","NAD2_STOP_SUBMITTED_PROGRESSING","NAD2_STOP_SUBMITTED_NO_TRANSITION",
-            "NAD2_STOP_NOT_SUBMITTED","NAD2_STOPPED_PROCESS_OR_LISTENER_REMAINS","NAD2_STOP_OBSERVATION_UNAVAILABLE"];
+        let classes = [
+            "NAD2_STOP_CONFIRMED",
+            "NAD2_STOP_SUBMITTED_PROGRESSING",
+            "NAD2_STOP_SUBMITTED_NO_TRANSITION",
+            "NAD2_STOP_NOT_SUBMITTED",
+            "NAD2_STOPPED_PROCESS_OR_LISTENER_REMAINS",
+            "NAD2_STOP_OBSERVATION_UNAVAILABLE",
+        ];
         for class in classes {
-            let submitted=class!="NAD2_STOP_NOT_SUBMITTED";
-            let value=serde_json::json!({"dependency":{"service_retirement_confirmed":class=="NAD2_STOP_CONFIRMED",
+            let submitted = class != "NAD2_STOP_NOT_SUBMITTED";
+            let value = serde_json::json!({"dependency":{"service_retirement_confirmed":class=="NAD2_STOP_CONFIRMED",
                 "process_cleanup_confirmed":false,"forced_cleanup_used":class!="NAD2_STOP_CONFIRMED","stop_observation":{
                     "schema":3,"classification":class,"initial_state":4,"final_state":4,"initial_controls_accepted":1,
                     "final_controls_accepted":1,"initial_checkpoint":0,"checkpoint":0,"initial_wait_hint_ms":0,
@@ -793,17 +1810,23 @@ mod tests {
                     "control_return":{"state":4,"controls_accepted":1,"checkpoint":0,"wait_hint_ms":0},
                     "process_wait_class":"timeout","process_wait":258,"initial_listener_mask":3,"listener_mask":3,
                     "transition_count_total":1,"transition_count_retained":1,"transition_count_dropped":0}}});
-            let lines=dependency_retirement_lines(&value);let text=lines.join(" ");
+            let lines = dependency_retirement_lines(&value);
+            let text = lines.join(" ");
             assert!(text.contains(class));
-            if submitted {assert!(text.contains("ControlService result: submitted"));}
-            else {assert!(text.contains("The ControlService request was not submitted; error 5."));}
-            assert!(!text.contains("request accepted")&&!text.contains("service accepted"));
-            if class!="NAD2_STOP_CONFIRMED" { assert!(lines[0].ends_with("not confirmed")); }
+            if submitted {
+                assert!(text.contains("ControlService result: submitted"));
+            } else {
+                assert!(text.contains("The ControlService request was not submitted; error 5."));
+            }
+            assert!(!text.contains("request accepted") && !text.contains("service accepted"));
+            if class != "NAD2_STOP_CONFIRMED" {
+                assert!(lines[0].ends_with("not confirmed"));
+            }
         }
     }
     #[test]
     fn pending_stop_without_control_call_reports_observation_not_error_zero() {
-        let value=serde_json::json!({"dependency":{"service_retirement_confirmed":false,
+        let value = serde_json::json!({"dependency":{"service_retirement_confirmed":false,
             "process_cleanup_confirmed":false,"forced_cleanup_used":false,"stop_observation":{
                 "schema":3,"classification":"NAD2_STOP_SUBMITTED_PROGRESSING","initial_state":3,
                 "final_state":3,"initial_controls_accepted":1,"final_controls_accepted":1,
@@ -811,13 +1834,14 @@ mod tests {
                 "control_count":0,"control_submitted":false,"control_error":0,"control_elapsed_ms":0,
                 "process_wait_class":"timeout","process_wait":258,"initial_listener_mask":3,"listener_mask":3,
                 "transition_count_total":2,"transition_count_retained":2,"transition_count_dropped":0}}});
-        let text=dependency_retirement_lines(&value).join(" ");
-        assert!(text.contains("No ControlService request was issued; the service was already stopping."));
+        let text = dependency_retirement_lines(&value).join(" ");
+        assert!(text
+            .contains("No ControlService request was issued; the service was already stopping."));
         assert!(!text.contains("error 0"));
     }
     #[test]
     fn stopped_service_without_control_call_reports_no_request() {
-        let value=serde_json::json!({"dependency":{"service_retirement_confirmed":false,
+        let value = serde_json::json!({"dependency":{"service_retirement_confirmed":false,
             "process_cleanup_confirmed":false,"forced_cleanup_used":false,"stop_observation":{
                 "schema":3,"classification":"NAD2_STOPPED_PROCESS_OR_LISTENER_REMAINS","initial_state":1,
                 "final_state":1,"initial_controls_accepted":0,"final_controls_accepted":0,
@@ -825,13 +1849,15 @@ mod tests {
                 "control_count":0,"control_submitted":false,"control_error":0,"control_elapsed_ms":0,
                 "process_wait_class":"timeout","process_wait":258,"initial_listener_mask":3,"listener_mask":3,
                 "transition_count_total":1,"transition_count_retained":1,"transition_count_dropped":0}}});
-        let text=dependency_retirement_lines(&value).join(" ");
-        assert!(text.contains("No ControlService request was issued; the service was already stopped."));
+        let text = dependency_retirement_lines(&value).join(" ");
+        assert!(
+            text.contains("No ControlService request was issued; the service was already stopped.")
+        );
         assert!(!text.contains("error 0"));
     }
     #[test]
     fn unavailable_initial_observation_without_control_call_reports_no_request() {
-        let value=serde_json::json!({"dependency":{"service_retirement_confirmed":false,
+        let value = serde_json::json!({"dependency":{"service_retirement_confirmed":false,
             "process_cleanup_confirmed":false,"forced_cleanup_used":false,"stop_observation":{
                 "schema":3,"classification":"NAD2_STOP_OBSERVATION_UNAVAILABLE","initial_state":0,
                 "final_state":0,"initial_controls_accepted":0,"final_controls_accepted":0,
@@ -840,13 +1866,15 @@ mod tests {
                 "process_wait_class":"unavailable","process_wait":4294967295_u64,
                 "initial_listener_mask":4,"listener_mask":4,"transition_count_total":1,
                 "transition_count_retained":1,"transition_count_dropped":0}}});
-        let text=dependency_retirement_lines(&value).join(" ");
-        assert!(text.contains("No ControlService request was issued; the service state could not be evaluated."));
+        let text = dependency_retirement_lines(&value).join(" ");
+        assert!(text.contains(
+            "No ControlService request was issued; the service state could not be evaluated."
+        ));
         assert!(!text.contains("error 0"));
     }
     #[test]
     fn refused_control_call_reports_retained_nonzero_error() {
-        let value=serde_json::json!({"dependency":{"service_retirement_confirmed":false,
+        let value = serde_json::json!({"dependency":{"service_retirement_confirmed":false,
             "process_cleanup_confirmed":false,"forced_cleanup_used":false,"stop_observation":{
                 "schema":3,"classification":"NAD2_STOP_NOT_SUBMITTED","initial_state":4,
                 "final_state":4,"initial_controls_accepted":1,"final_controls_accepted":1,
@@ -854,23 +1882,35 @@ mod tests {
                 "control_count":1,"control_submitted":false,"control_error":5,"control_elapsed_ms":3,
                 "process_wait_class":"timeout","process_wait":258,"initial_listener_mask":3,"listener_mask":3,
                 "transition_count_total":1,"transition_count_retained":1,"transition_count_dropped":0}}});
-        let text=dependency_retirement_lines(&value).join(" ");
+        let text = dependency_retirement_lines(&value).join(" ");
         assert!(text.contains("The ControlService request was not submitted; error 5."));
         assert!(!text.contains("No ControlService request was issued"));
     }
     #[test]
     fn installer_root_and_presence_do_not_claim_close_from_helper_success() {
-        let mut v=serde_json::json!({"operation":"exact","cleanup_confirmed":true,"transaction":{
+        let mut v = serde_json::json!({"operation":"exact","cleanup_confirmed":true,"transaction":{
             "schema":1,"operation":"exact","outcome":"outer_nonzero_stage_unknown","durable_installation":"partial_installation",
             "launch_binding":{"schema":1,"operation":"exact","status":"bound"},
             "presence_close":{"schema":1,"observation_count":3,"operation_classes":["presence_query","close_request","presence_query"]}}});
-        let text=super::installer_lines(&v).join(" ");assert!(text.contains("exact operation and launch generation"));
-        assert!(text.contains("Helper success does not prove") && text.contains("results remain unavailable"));
-        assert!(text.contains("PowerShell/CIM") && text.contains("matched object and actual close outcome are unavailable"));
-        v["transaction"]["launch_binding"]["operation"]="unrelated".into();
-        assert!(!super::installer_lines(&v).join(" ").contains("exact operation and launch generation"));
-        v["transaction"]["launch_binding"]["operation"]="exact".into();v["transaction"]["launch_binding"]["status"]="unavailable".into();
-        assert!(super::installer_lines(&v).join(" ").contains("Child attribution may be incomplete"));
+        let text = super::installer_lines(&v).join(" ");
+        assert!(text.contains("exact operation and launch generation"));
+        assert!(
+            text.contains("Helper success does not prove")
+                && text.contains("results remain unavailable")
+        );
+        assert!(
+            text.contains("PowerShell/CIM")
+                && text.contains("matched object and actual close outcome are unavailable")
+        );
+        v["transaction"]["launch_binding"]["operation"] = "unrelated".into();
+        assert!(!super::installer_lines(&v)
+            .join(" ")
+            .contains("exact operation and launch generation"));
+        v["transaction"]["launch_binding"]["operation"] = "exact".into();
+        v["transaction"]["launch_binding"]["status"] = "unavailable".into();
+        assert!(super::installer_lines(&v)
+            .join(" ")
+            .contains("Child attribution may be incomplete"));
     }
     #[test]
     fn first_failure_presents_exact_stage_role_relationship_domain_without_guessing() {
@@ -882,7 +1922,10 @@ mod tests {
                         "first_failure":{"phase":"target_runner","role":role,
                             "relationship":"descendant","domain":domain,"status":status}}});
                 let lines = super::installer_lines(&v);
-                let failure = lines.iter().find(|l| l.starts_with("First retained")).unwrap();
+                let failure = lines
+                    .iter()
+                    .find(|l| l.starts_with("First retained"))
+                    .unwrap();
                 assert_eq!(failure, &format!("First retained process result: phase target_runner · role {} · relationship descendant · domain {domain} · status {status} · cause unestablished", role.unwrap_or("unknown")));
                 assert!(lines.iter().any(|l| l.contains("Outer launcher exit: -15")));
                 assert!(lines.iter().any(|l| l.contains("cleanup confirmed")));
@@ -891,13 +1934,22 @@ mod tests {
     }
     #[test]
     fn installer_partial_nonzero_cancellation_and_cleanup_stay_separate() {
-        let mut v=serde_json::json!({"operation":"exact","cleanup_confirmed":true,"startup":{"first_problem":{"code":"runtime_assertion_observed"}},"transaction":{"schema":1,"operation":"exact","outcome":"cancelled","outer_launcher_exit":-15,"durable_installation":"partial_installation","first_failure":{"domain":"linux_wait","status":37}}});
-        let lines=super::installer_lines(&v).join(" ");
-        assert!(lines.contains("runtime assertion observed") && lines.contains("cancelled") && lines.contains("status 37") && lines.contains("partial installation") && lines.contains("cleanup confirmed"));
-        v["transaction"]["outcome"]="in_progress".into();
-        let ongoing=super::installer_lines(&v).join(" ");assert!(ongoing.contains("Exact Focus and Stop"));assert!(!ongoing.contains("Further work is blocked"));
-        v["transaction"]["operation"]="other".into();assert!(super::installer_lines(&v).is_empty());
-        let legacy=serde_json::json!({"error":"installer_launcher_failed"});
+        let mut v = serde_json::json!({"operation":"exact","cleanup_confirmed":true,"startup":{"first_problem":{"code":"runtime_assertion_observed"}},"transaction":{"schema":1,"operation":"exact","outcome":"cancelled","outer_launcher_exit":-15,"durable_installation":"partial_installation","first_failure":{"domain":"linux_wait","status":37}}});
+        let lines = super::installer_lines(&v).join(" ");
+        assert!(
+            lines.contains("runtime assertion observed")
+                && lines.contains("cancelled")
+                && lines.contains("status 37")
+                && lines.contains("partial installation")
+                && lines.contains("cleanup confirmed")
+        );
+        v["transaction"]["outcome"] = "in_progress".into();
+        let ongoing = super::installer_lines(&v).join(" ");
+        assert!(ongoing.contains("Exact Focus and Stop"));
+        assert!(!ongoing.contains("Further work is blocked"));
+        v["transaction"]["operation"] = "other".into();
+        assert!(super::installer_lines(&v).is_empty());
+        let legacy = serde_json::json!({"error":"installer_launcher_failed"});
         assert!(super::installer_lines(&legacy)[0].contains("failing later stage"));
     }
 
@@ -918,7 +1970,132 @@ mod tests {
             library: crate::library::Library::default(),
             refresh_after: false,
             product_form: None,
+            page: Page::Home,
+            focus: RouteFocus::default(),
+            preview: false,
         }
+    }
+    #[test]
+    fn ordinary_and_narrow_navigation_keeps_every_page_touch_reachable() {
+        for (width, selected_page) in [(960.0, Page::Home), (560.0, Page::Activity)] {
+            let ctx = egui::Context::default();
+            let mut page = selected_page;
+            let mut bounds = Vec::new();
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                ui.set_max_width(width - 32.0);
+                bounds = navigation(ui, &mut page);
+            });
+            output.textures_delta.clear();
+            assert_eq!(bounds.len(), 6);
+            assert_eq!(
+                bounds.iter().filter(|(_, selected, _)| *selected).count(),
+                1
+            );
+            assert!(bounds
+                .iter()
+                .any(|(item, selected, _)| *item == selected_page && *selected));
+            let first = bounds[0].2;
+            for (_, _, rect) in &bounds {
+                assert!(rect.width() >= 94.0 && rect.height() >= 44.0);
+                assert!(rect.left() >= first.left());
+                assert!(rect.right() <= first.left() + width - 32.0);
+                assert!(rect.bottom() <= first.top() + 112.0);
+            }
+            if width == 560.0 {
+                let first_top = bounds[0].2.top();
+                let second_top = bounds[3].2.top();
+                assert!(second_top > first_top);
+                assert!(bounds[..3]
+                    .iter()
+                    .all(|(_, _, rect)| rect.top() == first_top && rect.width() >= 150.0));
+                assert!(bounds[3..]
+                    .iter()
+                    .all(|(_, _, rect)| rect.top() == second_top && rect.width() >= 150.0));
+            } else {
+                assert!(bounds.iter().all(|(_, _, rect)| rect.top() == first.top()));
+            }
+        }
+    }
+    #[test]
+    fn narrow_home_shows_one_attention_shortcut_and_one_all_items_route() {
+        fn texts(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
+            match shape {
+                egui::epaint::Shape::Text(text) => out.push(text.galley.text().into()),
+                egui::epaint::Shape::Vec(shapes) => {
+                    for shape in shapes {
+                        texts(shape, out);
+                    }
+                }
+                _ => {}
+            }
+        }
+        let mut snapshot: Snapshot =
+            serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap();
+        snapshot.active_sessions.push(serde_json::json!({
+            "session":"exact-session", "class_id":"fixture-kontakt", "state":"failed",
+            "recent":true, "terminal":"editor_controller_failed",
+            "cleanup_confirmed":true, "transport_retired":true
+        }));
+        assert_eq!(presentation::attentions(&snapshot).len(), 2);
+        let ctx = egui::Context::default();
+        let mut page = Page::Home;
+        let mut library = crate::library::Library::default();
+        let mut focus = RouteFocus::default();
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            ui.set_max_width(528.0);
+            Operator::home(ui, &snapshot, &mut page, &mut library, &mut focus);
+        });
+        let mut labels = Vec::new();
+        for clipped in &output.shapes {
+            texts(&clipped.shape, &mut labels);
+        }
+        output.textures_delta.clear();
+        assert!(labels.iter().any(|text| text == "Review item"));
+        assert!(labels
+            .iter()
+            .any(|text| text == "See all 2 attention items"));
+        assert!(!labels
+            .iter()
+            .any(|text| text == "Review this" || text == "Open item"));
+    }
+    #[test]
+    fn session_attention_opens_activity_at_exact_session_identity() {
+        let mut page = Page::Home;
+        let mut library = crate::library::Library::default();
+        let mut focus = RouteFocus::default();
+        navigate(
+            &Destination::Session("exact-session".into()),
+            &mut page,
+            &mut library,
+            &mut focus,
+        );
+        assert_eq!(page, Page::Activity);
+        assert_eq!(focus.activity.as_deref(), Some("exact-session"));
+        navigate(
+            &Destination::Attempt(AttemptKey {
+                installer: "exact-installer".into(),
+                environment: None,
+            }),
+            &mut page,
+            &mut library,
+            &mut focus,
+        );
+        assert_eq!(page, Page::Setup);
+        assert!(focus.setup_scroll);
+    }
+    #[test]
+    fn lost_readback_marks_capacity_unavailable_without_inventing_cleanup_failure() {
+        let mut operator = state_fixture();
+        operator.snapshot =
+            Some(serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap());
+        operator.handle_reply(Reply::Error("readback lost".into()));
+        let system = &operator.snapshot.as_ref().unwrap().system;
+        assert!(!system.capacity_available());
+        assert!(!system.cleanup_unconfirmed);
+        assert_eq!(
+            presentation::activity_certainty(system).cleanup_label(),
+            "Cleanup unknown"
+        );
     }
     fn create_request() -> Request {
         Request {
@@ -1004,11 +2181,35 @@ mod tests {
         // Cover both eligible completed outcomes and the three explicit refusals.
         for (durable, outcome, linked, offered, disabled) in [
             ("not_installed", "not_installed", false, true, None),
-            ("partial_installation", "partial_installation", false, true, None),
+            (
+                "partial_installation",
+                "partial_installation",
+                false,
+                true,
+                None,
+            ),
             ("installed", "installed", false, false, None),
-            ("partial_installation", "cleanup_unconfirmed", false, false, None),
-            ("partial_installation", "partial_installation", true, false, None),
-            ("partial_installation", "partial_installation", false, true, Some("active DSP")),
+            (
+                "partial_installation",
+                "cleanup_unconfirmed",
+                false,
+                false,
+                None,
+            ),
+            (
+                "partial_installation",
+                "partial_installation",
+                true,
+                false,
+                None,
+            ),
+            (
+                "partial_installation",
+                "partial_installation",
+                false,
+                true,
+                Some("active DSP"),
+            ),
         ] {
             let mut s = running_snapshot("prior-op");
             s.system.service = "active".into();
@@ -1018,9 +2219,19 @@ mod tests {
             card.state = "completed".into();
             card.details = serde_json::json!({"installation":{"operation":"prior-op","state":"completed",
                 "transaction":{"schema":1,"operation":"prior-op","outcome":outcome,"durable_installation":durable}},"linked_attempt":linked});
-            let action = Action::InstallerNewAttempt { previous:card.environment.clone().unwrap(), runner:"cd".repeat(32) };
-            card.actions = if offered { vec![AvailableAction { label:"New isolated attempt".into(),
-                action:action.clone(), disabled_reason:disabled.map(Into::into) }] } else { vec![] };
+            let action = Action::InstallerNewAttempt {
+                previous: card.environment.clone().unwrap(),
+                runner: "cd".repeat(32),
+            };
+            card.actions = if offered {
+                vec![AvailableAction {
+                    label: "New isolated attempt".into(),
+                    action: action.clone(),
+                    disabled_reason: disabled.map(Into::into),
+                }]
+            } else {
+                vec![]
+            };
             let mut o = state_fixture(); // reopening receives canonical snapshot
             o.handle_reply(Reply::Snapshot(Box::new(s.clone())));
             o.handle_reply(activity_from(&s));
@@ -1030,19 +2241,47 @@ mod tests {
             for pressed in [None, Some(true), Some(false)] {
                 o.pending = pressed == Some(false);
                 o.background_poll = o.pending;
-                let events = pressed.map(|pressed| vec![egui::Event::PointerMoved(point),
-                    egui::Event::PointerButton { pos:point, button:egui::PointerButton::Primary,
-                        pressed, modifiers:egui::Modifiers::NONE }]).unwrap_or_default();
-                let mut output = ctx.run_ui(egui::RawInput { events, ..Default::default() }, |ui| {
-                    point = ui.next_widget_position() + egui::vec2(12.0, 12.0);
-                    let projected = o.snapshot.as_ref().unwrap();
-                    Operator::buttons(ui, &projected.onboarding[0].actions, projected.system.inactive_reason(),
-                        o.controls_pending(), &mut chosen);
-                });
+                let events = pressed
+                    .map(|pressed| {
+                        vec![
+                            egui::Event::PointerMoved(point),
+                            egui::Event::PointerButton {
+                                pos: point,
+                                button: egui::PointerButton::Primary,
+                                pressed,
+                                modifiers: egui::Modifiers::NONE,
+                            },
+                        ]
+                    })
+                    .unwrap_or_default();
+                let mut output = ctx.run_ui(
+                    egui::RawInput {
+                        events,
+                        ..Default::default()
+                    },
+                    |ui| {
+                        point = ui.next_widget_position() + egui::vec2(12.0, 12.0);
+                        let projected = o.snapshot.as_ref().unwrap();
+                        Operator::buttons(
+                            ui,
+                            &projected.onboarding[0].actions,
+                            projected.system.inactive_reason(),
+                            o.controls_pending(),
+                            &mut chosen,
+                        );
+                    },
+                );
                 output.textures_delta.clear();
             }
-            assert_eq!(chosen, if offered && disabled.is_none() { Some(action) } else { None },
-                "{durable}/{outcome}, linked={linked}");
+            assert_eq!(
+                chosen,
+                if offered && disabled.is_none() {
+                    Some(action)
+                } else {
+                    None
+                },
+                "{durable}/{outcome}, linked={linked}"
+            );
         }
     }
     #[test]
@@ -1112,9 +2351,15 @@ mod tests {
         for snapshot_first in [true, false] {
             let mut o = state_fixture();
             start_feedback(&mut o, true);
-            let feedback=o.feedback.as_mut().unwrap();
-            let onboarding=match &feedback.action { Action::InstallerStart{onboarding}=>onboarding.clone(), _=>panic!("fixture") };
-            feedback.action=Action::InstallerStartWithPolicy{onboarding,powershell:Powershell::IntentionallyUnavailable};
+            let feedback = o.feedback.as_mut().unwrap();
+            let onboarding = match &feedback.action {
+                Action::InstallerStart { onboarding } => onboarding.clone(),
+                _ => panic!("fixture"),
+            };
+            feedback.action = Action::InstallerStartWithPolicy {
+                onboarding,
+                powershell: Powershell::IntentionallyUnavailable,
+            };
             assert!(o.controls_pending());
             let s = running_snapshot("current-op");
             if !snapshot_first {
@@ -1418,63 +2663,150 @@ mod tests {
     }
     #[test]
     fn matching_product_receipt_survives_a_newer_unrelated_latest_operation() {
-        let mut f=RequestFeedback::captured(Action::PluginPrepare{selection:"ab".repeat(32),inspection:"cd".repeat(32),recipe:"ef".repeat(32),predecessor:None});
-        f.receipt(&Receipt{schema:5,accepted:true,operation:Some("11".repeat(16)),refusal:None});
-        let mut s=running_snapshot(&"22".repeat(16));
-        s.operation=Some(serde_json::json!({"operation":"22".repeat(16),"state":"completed"}));
+        let mut f = RequestFeedback::captured(Action::PluginPrepare {
+            selection: "ab".repeat(32),
+            inspection: "cd".repeat(32),
+            recipe: "ef".repeat(32),
+            predecessor: None,
+        });
+        f.receipt(&Receipt {
+            schema: 5,
+            accepted: true,
+            operation: Some("11".repeat(16)),
+            refusal: None,
+        });
+        let mut s = running_snapshot(&"22".repeat(16));
+        s.operation = Some(serde_json::json!({"operation":"22".repeat(16),"state":"completed"}));
         s.products.push(Product{class_id:"aa".repeat(16),name:"Generated instrument".into(),vendor:"Fixture".into(),role:"instrument".into(),version:"1".into(),disposition:"prepared".into(),active_revision:None,recommended_revision:None,environment:"ef".repeat(16),runner:"pinned".into(),module_sha256:"ff".repeat(32),limitations:vec![],history:vec![],actions:vec![],details:serde_json::json!({"preparation":{"operation":{"operation":"11".repeat(16),"state":"completed"}}})});
-        f.reconcile_snapshot(&s);assert!(f.terminal);assert!(!f.blocking);
-        let mut other=RequestFeedback::captured(Action::CandidateObserve{candidate:"bc".repeat(32),area:"processing_restart".into(),status:"failed".into(),note:"Exact candidate observation".into()});
-        other.receipt(&Receipt{schema:5,accepted:true,operation:Some("33".repeat(16)),refusal:None});
-        s.products[0].details["preparation"]["candidates"]=serde_json::json!([
+        f.reconcile_snapshot(&s);
+        assert!(f.terminal);
+        assert!(!f.blocking);
+        let mut other = RequestFeedback::captured(Action::CandidateObserve {
+            candidate: "bc".repeat(32),
+            area: "processing_restart".into(),
+            status: "failed".into(),
+            note: "Exact candidate observation".into(),
+        });
+        other.receipt(&Receipt {
+            schema: 5,
+            accepted: true,
+            operation: Some("33".repeat(16)),
+            refusal: None,
+        });
+        s.products[0].details["preparation"]["candidates"] = serde_json::json!([
             {"id":"aa".repeat(32),"operation":{"operation":"11".repeat(16),"state":"completed"}},
             {"id":"bc".repeat(32),"operation":{"operation":"33".repeat(16),"state":"refused"}}
         ]);
-        other.reconcile_snapshot(&s);assert!(other.terminal);assert!(!other.blocking);assert_eq!(other.transitions.last().map(String::as_str),Some("refused"));
+        other.reconcile_snapshot(&s);
+        assert!(other.terminal);
+        assert!(!other.blocking);
+        assert_eq!(
+            other.transitions.last().map(String::as_str),
+            Some("refused")
+        );
     }
 
     #[test]
     fn dependency_uncertain_ack_recovers_only_exact_stop_and_terminal() {
-        let op="cd".repeat(16);let mut s=running_snapshot(&"ef".repeat(16));
+        let op = "cd".repeat(16);
+        let mut s = running_snapshot(&"ef".repeat(16));
         s.vendor_applications.push(VendorApplication{id:"native-access".into(),name:"Native Access".into(),version:"3.26.0".into(),state:"dependency".into(),actions:vec![AvailableAction{label:"Stop".into(),action:Action::DependencyStop{operation:op.clone()},disabled_reason:None}],details:serde_json::json!({"dependency_manager_operation":{"operation":op,"state":"submission_uncertain"}})});
-        let mut f=RequestFeedback::captured(Action::DependencyPrepare{});
-        f.receipt(&Receipt{schema:7,accepted:true,operation:None,refusal:None});f.reconcile_snapshot(&s);
-        assert_eq!(f.operation,Some(op.clone()));assert!(!f.blocking);assert!(!f.terminal);
-        s.vendor_applications[0].details["dependency_manager_operation"]["state"]=serde_json::json!("completed");f.reconcile_snapshot(&s);assert!(f.terminal);
-        s.vendor_applications[0].actions.clear();let mut other=RequestFeedback::captured(Action::DependencyPrepare{});other.receipt(&Receipt{schema:7,accepted:true,operation:None,refusal:None});other.reconcile_snapshot(&s);assert!(other.operation.is_none());
+        let mut f = RequestFeedback::captured(Action::DependencyPrepare {});
+        f.receipt(&Receipt {
+            schema: 7,
+            accepted: true,
+            operation: None,
+            refusal: None,
+        });
+        f.reconcile_snapshot(&s);
+        assert_eq!(f.operation, Some(op.clone()));
+        assert!(!f.blocking);
+        assert!(!f.terminal);
+        s.vendor_applications[0].details["dependency_manager_operation"]["state"] =
+            serde_json::json!("completed");
+        f.reconcile_snapshot(&s);
+        assert!(f.terminal);
+        s.vendor_applications[0].actions.clear();
+        let mut other = RequestFeedback::captured(Action::DependencyPrepare {});
+        other.receipt(&Receipt {
+            schema: 7,
+            accepted: true,
+            operation: None,
+            refusal: None,
+        });
+        other.reconcile_snapshot(&s);
+        assert!(other.operation.is_none());
     }
 
     #[test]
     fn renderer_snapshot_releases_exact_recovery_even_with_unrelated_latest_receipt() {
-        let id="ab".repeat(32);let op="cd".repeat(16);
-        for (activity_first,state) in [(false,"vendor_running"),(true,"vendor_running"),(false,"submission_uncertain"),(true,"submission_uncertain")] {
-            let mut f=RequestFeedback::captured(Action::RendererOpen{application:id.clone(),policy:RendererPolicy::Inherited});
-            f.receipt(&Receipt{schema:6,accepted:true,operation:Some(op.clone()),refusal:None});
-            let mut s=running_snapshot(&"ef".repeat(16));
-            let operation=serde_json::json!({"operation":op,"state":state});
+        let id = "ab".repeat(32);
+        let op = "cd".repeat(16);
+        for (activity_first, state) in [
+            (false, "vendor_running"),
+            (true, "vendor_running"),
+            (false, "submission_uncertain"),
+            (true, "submission_uncertain"),
+        ] {
+            let mut f = RequestFeedback::captured(Action::RendererOpen {
+                application: id.clone(),
+                policy: RendererPolicy::Inherited,
+            });
+            f.receipt(&Receipt {
+                schema: 6,
+                accepted: true,
+                operation: Some(op.clone()),
+                refusal: None,
+            });
+            let mut s = running_snapshot(&"ef".repeat(16));
+            let operation = serde_json::json!({"operation":op,"state":state});
             s.vendor_applications.push(VendorApplication{id:"native-access".into(),name:"Native Access".into(),version:"3.26.0".into(),state:"supervised".into(),actions:vec![AvailableAction{label:"Stop".into(),action:Action::RendererStop{operation:op.clone()},disabled_reason:None}],details:serde_json::json!({"application_identity":id,"operation":op,"requested":"inherited","manager_operation":operation})});
-            if activity_first{f.observe(&operation);}
-            f.reconcile_snapshot(&s);assert!(!f.blocking);assert!(!f.terminal);
-            f.reconcile_snapshot(&s);assert!(!f.blocking);
-            f.observe(&serde_json::json!({"operation":"ef".repeat(16),"state":"completed"}));assert!(!f.terminal);
-            let mut uncertain=RequestFeedback::captured(f.action.clone());
-            uncertain.receipt(&Receipt{schema:6,accepted:true,operation:None,refusal:None});
-            uncertain.reconcile_snapshot(&s);assert_eq!(uncertain.operation,Some(op.clone()));assert!(!uncertain.blocking);
-            let mut wrong=RequestFeedback::captured(Action::RendererOpen{application:"ff".repeat(32),policy:RendererPolicy::Inherited});
-            wrong.receipt(&Receipt{schema:6,accepted:true,operation:None,refusal:None});wrong.reconcile_snapshot(&s);assert!(wrong.blocking);assert!(wrong.operation.is_none());
+            if activity_first {
+                f.observe(&operation);
+            }
+            f.reconcile_snapshot(&s);
+            assert!(!f.blocking);
+            assert!(!f.terminal);
+            f.reconcile_snapshot(&s);
+            assert!(!f.blocking);
+            f.observe(&serde_json::json!({"operation":"ef".repeat(16),"state":"completed"}));
+            assert!(!f.terminal);
+            let mut uncertain = RequestFeedback::captured(f.action.clone());
+            uncertain.receipt(&Receipt {
+                schema: 6,
+                accepted: true,
+                operation: None,
+                refusal: None,
+            });
+            uncertain.reconcile_snapshot(&s);
+            assert_eq!(uncertain.operation, Some(op.clone()));
+            assert!(!uncertain.blocking);
+            let mut wrong = RequestFeedback::captured(Action::RendererOpen {
+                application: "ff".repeat(32),
+                policy: RendererPolicy::Inherited,
+            });
+            wrong.receipt(&Receipt {
+                schema: 6,
+                accepted: true,
+                operation: None,
+                refusal: None,
+            });
+            wrong.reconcile_snapshot(&s);
+            assert!(wrong.blocking);
+            assert!(wrong.operation.is_none());
         }
     }
-
 }
 
 #[cfg(test)]
 mod is4_presentation_tests {
     #[test]
     fn requested_does_not_imply_effective_or_vendor_success() {
-        let mut v=serde_json::json!({"state":"failed","raw_exit":null,"cleanup_confirmed":true,"owned_live":0,"installer_capability":{"requested":{"powershell":"intentionally_unavailable"},"effective":null}});
-        let lines=super::installer_policy_lines(&v);assert!(lines[1].contains("not been confirmed"));
+        let mut v = serde_json::json!({"state":"failed","raw_exit":null,"cleanup_confirmed":true,"owned_live":0,"installer_capability":{"requested":{"powershell":"intentionally_unavailable"},"effective":null}});
+        let lines = super::installer_policy_lines(&v);
+        assert!(lines[1].contains("not been confirmed"));
         assert!(!lines.iter().any(|s| s.contains("Applied at target launch")));
-        v["installer_capability"]["effective"]=serde_json::json!({"effective":{"windows_scripting":{"powershell":"intentionally_unavailable"}}});
+        v["installer_capability"]["effective"] = serde_json::json!({"effective":{"windows_scripting":{"powershell":"intentionally_unavailable"}}});
         assert!(super::installer_policy_lines(&v)[1].contains("not yet established"));
         assert!(super::installer_policy_lines(&serde_json::json!({})).is_empty());
     }

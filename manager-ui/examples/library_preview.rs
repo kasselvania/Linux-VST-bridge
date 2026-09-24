@@ -1,10 +1,14 @@
 //! Local visual preview of the production library widget. No manager client or OS input.
 //! With OUTPUT.png [WIDTH] [SEARCH] [--diagnostics], saves its own rendered frame and exits.
 #[path = "../src/library.rs"]
+#[allow(dead_code)]
 mod library;
 #[allow(dead_code)]
 #[path = "../../bridge-manager/src/operator_model.rs"]
 mod model;
+#[path = "../src/presentation.rs"]
+#[allow(dead_code)]
+mod presentation;
 use eframe::egui;
 
 struct Preview {

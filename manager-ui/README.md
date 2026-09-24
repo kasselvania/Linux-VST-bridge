@@ -1,42 +1,20 @@
 # Native manager frontend
 
-The plug-in library projects the manager's schema-7 snapshot. It groups records
-by vendor, searches name/vendor/type/version, and filters by role and publication
-status. Unknown statuses remain visible under Needs attention. Publication is
-not a claim that Bitwig has already rescanned or that a plug-in is qualified.
+The Rust/egui frontend projects the manager's schema-7 snapshot. Home keeps bridge readiness, capacity, published plug-ins, current work and attention visible. Plug-ins has the searchable exact product library; Activity shows live and recent bridge sessions plus sanitized incidents; Setup contains installer attempts, vendor applications, environments and transaction reconciliation; Diagnostics retains system and capture detail. Workspaces is a separate empty area until the canonical manager projects a managed DAW workspace. It contains no FL Studio status or action.
 
-Vendor launch/focus and rescan controls are copied from the manager's offered
-actions using the exact environment identity. Names never select an environment.
-An older snapshot without vendor environment metadata simply omits the shortcut;
-its original vendor controls remain available below the library. Requests retain
-the current state token, inactive requirements, disabled reasons and existing
-submission/recovery behavior.
+The manager remains the sole authority. Buttons use only its closed offered actions, exact state token and refusal reasons. The request banner stays outside page scrolling; uncertain acknowledgments never resubmit an operation. The manager's read-only session identity distinguishes Activity rows, while the current session record still identifies only a plug-in class, not a historical installed build. Closing the frontend does not stop audio or vendor applications.
 
-## Local checks and preview
+Published plug-ins are manager publications for Bitwig; Bitwig may still need its own browser rescan. Product history, candidate evidence, exact hashes, installer outcomes, receipts and raw technical data remain under labeled Details. Disabled reasons are printed for touch use as well as hover.
 
-User instructions: [Crash capture guide (PDF)](../output/pdf/Plug-in-Crash-Capture-Guide.pdf)
-and [editable text](../docs/user/plug-in-crash-capture.md). The guide covers manual
-arming, a fresh processing instance, reproduction, sanitized export and comparing
-an attempted fix, including the current ordinary-publication requirement.
+## Local checks and previews
 
 ```sh
 cargo test --manifest-path manager-ui/Cargo.toml --locked
 cargo clippy --manifest-path manager-ui/Cargo.toml --locked --all-targets -- -D warnings
-cargo run --manifest-path manager-ui/Cargo.toml --locked --example library_preview
+cargo run --manifest-path manager-ui/Cargo.toml --locked --example operator_preview -- /tmp/home.png 960 home busy light
+cargo run --manifest-path manager-ui/Cargo.toml --locked --example operator_preview -- /tmp/home-narrow.png 560 home busy light
 ```
 
-The example renders the production library widget with synthetic records.
-It has no manager client and its buttons never execute operations. To save a
-frame and exit, append `-- OUTPUT.png [WIDTH] [SEARCH]`. It needs a graphical
-session and captures only its own rendered frame; it sends no keyboard or pointer
-input. Append `--diagnostics` after SEARCH to expand the product management and
-system diagnostics sections with a synthetic armed capture. For example:
+The operator preview renders the production views with synthetic records and never starts the manager client. Its arguments are `OUTPUT.png [WIDTH] [PAGE] [busy|idle|unavailable|cleanup|shared] [light|dark]`; supported pages are `home`, `plugins`, `workspaces`, `activity`, `setup` and `diagnostics`. It saves its own frame and closes without pointer or keyboard input. The older `library_preview` remains for isolated library checks. [UI0 source-owned captures](../evidence/ui0/README.md) show ordinary and narrow layouts.
 
-```sh
-cargo run --manifest-path manager-ui/Cargo.toml --locked --example library_preview -- capture.png 960 FRAGMENTS --diagnostics
-```
-
-The production frontend accepts no new command-line arguments. Its sections
-remain collapsed by default and crash capture still requires manual arming.
-
-Recorded local verification and images: [manager library](../evidence/manager-library/README.md).
+User instructions remain in the [Crash capture guide (PDF)](../output/pdf/Plug-in-Crash-Capture-Guide.pdf) and [editable source](../docs/user/plug-in-crash-capture.md). This source change does not install a new frontend or qualify a plug-in.
