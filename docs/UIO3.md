@@ -1,5 +1,7 @@
 # UIO3 — Touch release attribution
 
+> Historical slice record, not current deployment or support authority. Current unresolved tail: [FC-UI-004](FAILURE_CLASSES.md#fc-ui-004--windows-touch-release-processing-continues-long-after-x11-release); see the [support matrix](SUPPORT_MATRIX.md).
+
 This development observer follows one ordinary Pigments18 editor. The operator
 supplies all touch and MIDI input. It does not repair or assign a cause to the
 reported held-drag behavior. MF1 reviewed software is installed first.

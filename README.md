@@ -10,174 +10,62 @@ Bitwig on Linux
 → real Windows VST3 and vendor editor
 ```
 
-**Experimental engineering preview, not a consumer-ready release.** The project is not affiliated with Bitwig, Valve, Steinberg, Arturia, Xfer Records, or another plug-in vendor.
+**Experimental engineering preview, not a consumer-ready release.** The project is not affiliated with Bitwig, Valve, Steinberg, Arturia, Xfer Records, Native Instruments, or another plug-in vendor.
 
 > **Ownership:** This repository is publicly readable but proprietary. Copyright © 2026 Peter Kassel. All rights reserved. Public visibility does not grant an open-source or redistribution license. See [COPYRIGHT.md](COPYRIGHT.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Current project truth
+
+Use these documents instead of reconstructing status from chronological campaign files:
+
+- **Active branch work:** [CURRENT_SLICE.md](CURRENT_SLICE.md)
+- **Supported products and platforms:** [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md)
+- **Shared failures, accepted fixes, and remaining gaps:** [docs/FAILURE_CLASSES.md](docs/FAILURE_CLASSES.md)
+- **System architecture:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **Engineering rules:** [AGENTS.md](AGENTS.md)
+
+Historical AP/UIO/UIR/IF documents and `evidence/` remain authoritative for what a particular experiment observed. They are not, by themselves, current deployment or support authority.
+
 ## Accepted system
 
-AP8–AP11 established the native Linux VST3 proxy, supervised Windows host under a pinned Proton environment, bounded audio/events, opaque state, project recall, automation, independent instances, and real detached vendor editors.
+The bridge has established:
 
-AP12 installed the exact Pure LoFi → Efx FRAGMENTS vertical with automatic service startup. AP13 removed a demonstrated state-capture delivery barrier and added the inactive-only 256/512 delay selector. AP14 added exact profiles, manager-derived registration, immutable publication, recovery, and rollback. AP15 made the real vendor editor open directly from Bitwig and close/reopen on the same DSP instance. AP16 moved hot session mappings from journaled storage to private tmpfs, removing one measured 27–29 ms preparation-stall class.
+- a native Linux VST3 proxy loaded by Bitwig;
+- a supervised Windows VST3 host under exact Proton/Wine runners;
+- callback-safe bounded audio, events, parameter control, opaque state, project recall, automation, and independent instances;
+- detached real vendor editors with explicit lifecycle and failure ownership;
+- immutable profiles, revisioned publication, rollback, environment custody, and manager readback;
+- Steam Deck product operation and Ubuntu portability/cold-boot operation for exact reviewed fixtures.
 
-AP17 is integrated at:
+The accepted Steam Deck capacity envelope remains six simultaneous bridged DSP instances globally for the exact AP17 fixture, with lower product/class limits where recorded. Seven remains unqualified and eight was excluded for the tested workload. See [AP17 closure](docs/AP17_CLOSURE.md).
 
-```text
-2329706a6e797137e68d719edbbbe5cc1e0cdbf1
-```
+The supported performance posture remains **512 added frames per proxy**. The opt-in 256 setting remains available but unqualified. Residual startup, queue/reply, editor/removal, and shutdown-window misses remain tracked as [FC-AUDIO-001](docs/FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses).
 
-It establishes the exact Steam Deck / Bitwig / pinned Arturia operating envelope:
+## Product posture
 
-- 16 bounded service workers;
-- 6 simultaneous DSP instances globally;
-- at most 3 Pure LoFi instances;
-- at most 4 Efx FRAGMENTS instances;
-- native hard capacity of 4 per loaded class image;
-- 3 qualified parallel tracks;
-- serial bridged depth 3;
-- 2 simultaneous direct vendor editors exercised;
-- 7 instances remain unqualified;
-- 8 were excluded for the tested workload.
+The currently exercised fleet includes Pure LoFi, Efx FRAGMENTS, Pigments, Serum 2, Blackhole Immersive, and Kontakt. Their current platform-specific claims, runner policies, limitations, and last physical evidence are maintained in [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md).
 
-The result also covers typed over-capacity refusal before partial ownership, exact one-unit removal/replacement, same-class save/reopen, one-host failure containment, service restart, bounded unexpected service loss, and normal reboot recovery. See [AP17 closure](docs/AP17_CLOSURE.md).
-
-One historical Bitwig quit left the frontend/audio-engine alive after all bridge owners had retired. It remains retained and unexplained; it did not recur in the focused matrix or two complete repetitions of the triggering sequence. No causal repair is claimed. SteamOS `foreground_booster` was identified as the writer of quit-time CPUWeight overrides; that is a controlled-performance confound, not a product requirement to disable normal SteamOS behavior.
-
-Revision 10 is the accepted ordinary AP17 source generation. Revision 9 and 8 remain candidate history; revision 7 is its immediate rollback generation and revision 3 remains earlier retained ancestry. AP18 activated the accepted ordinary revision-10 publications without replaying AP17; their exact revision-7 parents and revision-3 ancestry remain retained.
-
-## Current exact fixture
-
-The accepted claims remain deliberately narrow:
-
-- Steam Deck / SteamOS 3.8.16;
-- Bitwig Studio 6.1 Flatpak;
-- exact pinned Proton-SLR runner and Arturia environment;
-- Pure LoFi 1.0.0.6121;
-- Efx FRAGMENTS 1.0.0.2925;
-- Pigments 7.0.1.6772, one instance and its sole stereo auxiliary input;
-- 48 kHz, float32, bounded main stereo/event behavior;
-- exact reviewed Windows host and Linux native artifacts.
-
-This is not a claim of broad Arturia, Linux, DAW, VST3, hardware, or customer-installation support.
-
-## Performance posture
-
-**512 added frames per proxy is selected, supported, and recommended.** The opt-in 256 setting remains available but unqualified.
-
-At 48 kHz, the accepted LoFi → FRAGMENTS chain reports 1,264 frames / 26.333 ms across the two bridged devices, excluding DAW, audio-device, and acoustic latency. Three serial bridged devices in AP17 reported approximately 41 ms per tested chain.
-
-Residual startup, queue/reply, editor/removal, and shutdown-window delivery classes remain tracked in [#90](https://github.com/kasselvania/Linux-VST-bridge/issues/90). A narrow fail-closed capacity-scan/lease-retirement race is tracked in [#93](https://github.com/kasselvania/Linux-VST-bridge/issues/93); it can cause a temporary unnecessary refusal but does not permit over-admission or invalidate AP17.
-
-FRAGMENTS' Advanced panel is accessible and rendering response has improved materially. Further frame-pacing polish is not a current functional blocker.
-
-## Accepted AP18 — Arturia Software Center to Pigments
-
-AP18 is tracked in [#94](https://github.com/kasselvania/Linux-VST-bridge/issues/94) from integrated AP17 main.
-
-ASC is installed and the operator installed and authorized Pigments through its
-real UI. Independent review **5185372983** accepted exact Pigments 7.0.1.6772
-revision 10, including LC1 routing, note audio, preset/control automation recall,
-sibling independence and process-scoped retirement. Revision 10 remains immutable
-ReviewCandidate history. Revision 11 became VerifiedExactFixture with the
-same technical content. The current ordinary Pigments revision is 18, with the
-accepted input fairness, failure containment and scoped accessibility posture.
-Revision 11 remains its exact rollback; intervening candidates and failed
-ordinary revision 13 remain inactive history. The original AP18 single
-ordinary-load/C3/editor/quit smoke passed with nonzero output and positive
-process-scoped retirement. LoFi and FRAGMENTS ordinary revision 10 remain unchanged.
-See the [accepted result](evidence/ap18/lc1/live-completion.json),
-[ordinary smoke](evidence/ap18/acceptance/ordinary-smoke.json), and
-[final installation](evidence/ap18/acceptance/installed-final.json).
-
-```text
-official ASC installer
-→ managed ASC application
-→ user-owned Arturia authentication
-→ Pigments download/install
-→ exact module/class/resource discovery
-→ immutable candidate publication
-→ editor, preset, notes, automation, state, save/reopen and cleanup
-```
-
-The manager owns ASC launch/status and exact discovery; Arturia's real UI owns
-account, licensing, catalogue and download operations. Pigments uses a retained
-editor view and explicit process-scoped final retirement, not clean SDK object
-destruction. Residual delivery gaps remain #90. 512 added frames remain
-recommended; 256 and multi-instance Pigments capacity remain unqualified.
-
-Read [docs/AP18.md](docs/AP18.md) for the accepted implementation and its exact limits.
-
-Serum 2 remains the planned second-vendor generalization after the Arturia acquisition/install vertical.
-
-## Current slice: IF2 — contained terminal state
-
-[UIO1](docs/UIO1.md) is accepted and merged. It adds bounded, development-only input, child-window, heartbeat,
-VST gesture and local-frame observations without replacing accepted product
-artifacts. The Pigments demonstration captured at least 8.237 seconds between
-exact X11 delivery and first observable Win32 hardware-mouse retrieval while the
-UI thread continued servicing heartbeats. Translation, queue admission or an
-already-admitted message waiting behind other traffic, focus/capture, and vendor
-interaction remain unresolved. No renderer fix or universally responsive plug-in
-UI is claimed. The exact records and limits
-are retained in [evidence/uio1](evidence/uio1/).
-
-[UIR1](docs/UIR1.md) reproduced at least 4.963 seconds of input-retrieval delay
-under finite posted traffic, then repaired bounded fairness in the generic
-Windows editor pump. The same fixture now handles Down/Up while posted chains
-remain active, with all posts and sends completing. One automatic Pigments
-Macro 1 drag and Synth-to-Play click succeeded with first mouse-hook bounds
-below 77 ms and local pixel changes within 112 ms. This is an exact diagnostic
-confirmation, not a universal latency or audio-performance claim. The
-revision-12 engineering candidate is independently accepted at review 5187281110.
-The new ordinary revision-13 profile retains its exact technical and artifact
-content. Its narrow ordinary smoke passed. A later Windows endpoint exit led
-to restoring ordinary Pigments 11; revision 13 remains inactive failed ordinary
-history. The input-fairness repair remains accepted.
-
-[IF1](docs/IF1.md) source is accepted and merged. Candidate 15 proved terminal
-custody and Bitwig crash indication, but its native plug-in-host also exited.
-Resize was never selected. [IF2](docs/IF2.md) keeps the native processor and
-controller alive after classified Windows-peer loss, with validated local
-silence, a terminal failure view and positive cleanup. Generated tests and one
-controlled candidate-16 child-exit check passed: the same native host survived,
-the failure view appeared, dead forwarding stopped, and normal quit completed
-after the explicit state-unavailable warning. Ordinary Pigments 11 is restored;
-candidate 16 remains inactive pending review, and LoFi/FRAGMENTS 10 remain
-unchanged. No resize or in-place recovery result is claimed. See
-[CURRENT_SLICE.md](CURRENT_SLICE.md) for scope and nonclaims.
+A source patch or built runner is not a physical product pass. A pass on one exact plug-in does not establish the same result for another plug-in. Shared mechanisms and product coverage are tracked separately in [docs/FAILURE_CLASSES.md](docs/FAILURE_CLASSES.md).
 
 ## Architecture
 
 The system separates four planes:
 
-- **Management:** environments, runners, installers, vendor applications, profiles, publication, rollback, diagnostics, and future UI.
+- **Management:** environments, runners, installers, vendor applications, profiles, publication, rollback, diagnostics, and operator UI.
 - **Native host:** Linux VST3 proxy loaded by Bitwig.
 - **Windows plug-in:** project-owned Windows host running the exact proprietary module under Proton.
 - **Transport:** versioned control/state/editor channels and preallocated real-time audio/event memory.
 
-Rust owns product state, environment/application/installer supervision, transport, profiles, publication, and diagnostics. C++20 is contained at the VST3 and Win32 SDK boundaries. Blocking I/O, allocation, process work, and logging stay out of audio callbacks.
+Rust owns product state, supervision, transport, profiles, publication, and diagnostics. C++20 is contained at VST3 and Win32 SDK boundaries. Blocking I/O, allocation, process work, and logging remain outside audio callbacks.
 
 ## Repository map
 
 - `native-vst3-proxy/` — native Linux VST3 SDK proxy and Rust callback/transport backend;
 - `native-audio-client/` — mapped transport and startup/refusal primitives;
 - `windows-factory-probe/` — supervised Windows VST3 host, processing, state, and editor owners;
-- `bridge-manager/` — environments, installer/application ownership, profiles, publication/rollback, service admission, and supervision;
+- `bridge-manager/` — environments, installation/application ownership, profiles, publication/rollback, service admission, supervision, and manager readback;
 - `compatibility/` — immutable exact-fixture profile history;
-- `docs/` — architecture, decisions, slice contracts, and reviewed results;
+- `docs/` — architecture, current support/failure ledgers, decisions, and historical slice records;
 - `evidence/` — bounded retained results; never proprietary plug-in, installer, preset, credential, or license payloads.
 
-Read [AGENTS.md](AGENTS.md), [CURRENT_SLICE.md](CURRENT_SLICE.md), and [docs/DESIGN_DOSSIER.md](docs/DESIGN_DOSSIER.md) before implementation. The bridge remains independent: Proton/Wine is a runner beneath project-owned proxy, host, transport, state, installation, and management boundaries—not a yabridge configuration project.
-
-## MF1 — native operator manager
-
-Linux Audio Compatibility Manager is a native Rust desktop frontend for the
-installed manager. It shows ordinary products and rollback history, opens and
-focuses ASC, rescans managed VST3 roots, and exposes private crash-capture controls
-and sanitized incident exports. Its bounded installed Deck workflow is complete
-and pending independent review in PR104. New discovered classes remain installed but
-unqualified; rescan does not publish them to Bitwig. Vendor sign-in stays in ASC.
-
-The UI calls a closed versioned Rust interface and refreshes canonical readback.
-It owns no separate product database and does no audio-callback work. See
-[MF1](docs/MF1.md) for the implemented boundary and verification record.
+Read [AGENTS.md](AGENTS.md), [CURRENT_SLICE.md](CURRENT_SLICE.md), [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md), and [docs/FAILURE_CLASSES.md](docs/FAILURE_CLASSES.md) before implementation. Proton/Wine is a runner beneath project-owned proxy, host, transport, state, installation, and management boundaries—not a replacement architecture.

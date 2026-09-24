@@ -1,5 +1,7 @@
 # Plug-in reliability and audio I/O follow-up
 
+> Historical slice record, not current deployment or support authority. Current shared status: [touch and editor classes FC-UI-002–007](FAILURE_CLASSES.md#fc-ui-002--x11-raw-touch-release-retains-contact-on-pointer-up), [lifecycle classes](FAILURE_CLASSES.md#fc-life-001--graphical-session-and-keeper-authority), and the [support matrix](SUPPORT_MATRIX.md).
+
 ## Serum waveform touch release, bounded candidate C (2026-09-23)
 
 The accepted Steam Deck input classification for Serum 2 2.1.5, class

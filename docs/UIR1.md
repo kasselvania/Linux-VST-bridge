@@ -1,5 +1,7 @@
 # UIR1 — generated input-retrieval differential and bounded pump repair
 
+> Historical slice record, not current deployment or support authority. Current shared status: [FC-UI-001](FAILURE_CLASSES.md#fc-ui-001--generic-editor-input-starvation-behind-posted-work) and [support matrix](SUPPORT_MATRIX.md).
+
 UIO1 is accepted and merged at `ddf256c60d3f770e3f2773724d260ed362a1267f`.
 Review 5186750570 accepts its 8.237357339-second conservative lower bound from
 exact X11 delivery to first observable Win32 hardware-mouse retrieval. Internal
