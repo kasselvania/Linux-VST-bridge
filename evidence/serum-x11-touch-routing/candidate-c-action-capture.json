@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "claim": "Candidate-C physical touchscreen popup capture; no successor-runner result",
+  "fixture": "Steam Deck Desktop Mode, Serum 2 2.1.5 candidate C",
+  "candidate": "91b699291eb7b7d1ff6e725d5e6fd1abed88ea721dbd81a621dd2fb39d38d207",
+  "session": "799c984d971eafc82b881bad7cf51d06",
+  "physical_actions": [
+    "Mouse/trackpad opened and dismissed the waveform menu.",
+    "Finger touch opened the same dropdown.",
+    "A following finger tap could not select or dismiss it; the editor was unresponsive."
+  ],
+  "action_capture": {
+    "private_timeline_sha256": "c4d16b8e67560bf6e07647ece7bd80153c88d5b36ae4edfe3b0fed28262bcf37",
+    "complete": true,
+    "win32_records": 3560,
+    "xinput_raw_records": 802,
+    "xinput_delivered_records": 462,
+    "raw_touch_records": 0,
+    "xi_touch_records": 0,
+    "raw_mouse_button_down_records": 6,
+    "raw_mouse_button_up_records": 8,
+    "window_graph_result": "The mouse-opened popup was an owned, visible top-level Wine window. The touch-opened popup appeared near the action-window boundary; its later state was read separately.",
+    "win32_overflow": 0,
+    "xinput_overflow": 0,
+    "gui_ring_dropped": 1
+  },
+  "stalled_popup_readback": {
+    "popup_hwnd": 262330,
+    "popup_xid": 96469003,
+    "popup_owner_hwnd": 327832,
+    "popup_visible": true,
+    "capture_hwnd": 262330,
+    "main_editor_hwnd": 327832,
+    "private_timeline_sha256": "fc04815780e154848f6b790b4bf1dcf18452cfa8f76cd9535bfb4cb356bc5c54",
+    "complete": false,
+    "reason": "The fixed 16384-record Windows ring overflowed by 79 records after 16379 WM_POINTERUPDATE records; this is diagnostic partial evidence, not a complete input trace.",
+    "pointer_update_target_hwnd": 196782,
+    "pointer_update_flags_sample": 8198,
+    "pointer_update_flags_meaning": "PRIMARY | INCONTACT | INRANGE",
+    "pointer_downs_in_short_readback": 0,
+    "pointer_ups_in_short_readback": 0,
+    "observer_heartbeats_in_short_readback": 5,
+    "xinput_records_in_short_readback": 0
+  },
+  "interpretation": "The touch-opened popup remained visible with capture while continuing pointer updates targeted the editor child. A lost or misrouted touch end is plausible, but the action capture did not retain a complete XI touch Begin/End pair; source repair still requires a physical causal test. GetPointerInfo errors in the observer were its own read of pinned Wine's stub, not evidence of a vendor API call.",
+  "nonclaims": [
+    "No claim that the original touch release was captured with exact pointer flags.",
+    "No claim that the popup owner chain is absent; this popup had an owner.",
+    "No claim that a generated fixture or candidate D has passed.",
+    "No claim that the recorded audio delivery gap was caused by this touch action."
+  ],
+  "post_capture": "Operator closed Bitwig normally. Candidate C and all six current publications were not changed by capture."
+}

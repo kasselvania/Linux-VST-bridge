@@ -335,6 +335,7 @@ class BusCensusCommandTests(unittest.TestCase):
             default=session.environment(reg)
             for key in ('PROTON_USE_WINED3D','PROTON_DISABLE_NVAPI','PROTON_DLL_COPY'):
                 self.assertNotIn(key,default)
+            self.assertNotIn('WINEDLLOVERRIDES',default)
             reg['environment']['runner']['policy']='dcomp_wine_builtins_reference_v1'
             selected=session.environment(reg)
             self.assertEqual(selected['WINEDLLOVERRIDES'],'d2d1,d3d11,dxgi,dcomp=b')
@@ -344,9 +345,62 @@ class BusCensusCommandTests(unittest.TestCase):
             reg['compatibility']['disable_windows_accessibility']=True
             self.assertEqual(session.environment(reg)['WINEDLLOVERRIDES'],
                              'd2d1,d3d11,dxgi,dcomp=b;uiautomationcore=')
+            reg['compatibility']['disable_windows_accessibility']=False
+            reg['environment']['runner']['policy']='x11_touch_release_v1'
+            touch=session.environment(reg)
+            for key in ('WINEDLLOVERRIDES','PROTON_USE_WINED3D','PROTON_DISABLE_NVAPI','PROTON_DLL_COPY'):
+                self.assertNotIn(key,touch)
+            reg['compatibility']['disable_windows_accessibility']=True
+            self.assertEqual(session.environment(reg)['WINEDLLOVERRIDES'],'uiautomationcore=')
+            reg['compatibility']['disable_windows_accessibility']=False
+            reg['environment']['runner']['policy']='x11_touch_routing_v2'
+            routed=session.environment(reg)
+            for key in ('WINEDLLOVERRIDES','PROTON_USE_WINED3D','PROTON_DISABLE_NVAPI','PROTON_DLL_COPY'):
+                self.assertNotIn(key,routed)
             reg['environment']['runner']['policy']='unknown'
             with self.assertRaisesRegex(RuntimeError,'unsupported runner policy'):
                 session.environment(reg)
+
+    def test_serum_touch_registration_reaches_exact_runner_command(self):
+        runner={'id':'proton-11.0-2c-x11-touch-release-v1','policy':'x11_touch_release_v1',
+                'entry_point':'/exact/steam-runtime/_v2-entry-point',
+                'proton':'/exact/touch-runner/proton'}
+        reg={'environment':{'root':'/exact/serum-environment','runner':runner},
+             'compatibility':{'disable_windows_accessibility':False},
+             'metadata':{'class_id':'56534558667350736572756D20320000'},
+             'host':{'path':'/exact/serum-environment/host.exe','sha256':'1'*64},
+             'host_source_sha256':'2'*64,
+             'module':{'path':'/exact/serum-environment/Serum 2.vst3','sha256':'3'*64}}
+        with patch.object(session.subprocess,'check_output',return_value='DISPLAY=:0\n'):
+            env=session.environment(reg)
+        for key in ('WINEDLLOVERRIDES','PROTON_USE_WINED3D','PROTON_DISABLE_NVAPI','PROTON_DLL_COPY'):
+            self.assertNotIn(key,env)
+        argv,binding=session.command({'registration':reg,'session':'4'*32,'inspect':False,'first_audio':False})
+        self.assertEqual(argv[:6],[runner['entry_point'],'--verb=run','--',runner['proton'],
+                                   'runinprefix',r'Z:\exact\serum-environment\host.exe'])
+        self.assertEqual(argv[argv.index('--component-case')+1],
+                         'class:56534558667350736572756D20320000')
+        self.assertIn(b'implementation_source_manifest_sha256=' + b'2'*64 + b'\n',binding)
+
+    def test_serum_touch_routing_registration_reaches_successor_runner(self):
+        runner={'id':'proton-11.0-2c-x11-touch-routing-v2','policy':'x11_touch_routing_v2',
+                'entry_point':'/exact/steam-runtime/_v2-entry-point',
+                'proton':'/exact/touch-routing-runner/proton'}
+        reg={'environment':{'root':'/exact/serum-environment','runner':runner},
+             'compatibility':{'disable_windows_accessibility':False},
+             'metadata':{'class_id':'56534558667350736572756D20320000'},
+             'host':{'path':'/exact/serum-environment/host.exe','sha256':'1'*64},
+             'host_source_sha256':'2'*64,
+             'module':{'path':'/exact/serum-environment/Serum 2.vst3','sha256':'3'*64}}
+        with patch.object(session.subprocess,'check_output',return_value='DISPLAY=:0\n'):
+            env=session.environment(reg)
+        self.assertNotIn('WINEDLLOVERRIDES',env)
+        argv,binding=session.command({'registration':reg,'session':'4'*32,'inspect':False,'first_audio':False})
+        self.assertEqual(argv[:6],[runner['entry_point'],'--verb=run','--',runner['proton'],
+                                   'runinprefix',r'Z:\exact\serum-environment\host.exe'])
+        self.assertEqual(argv[argv.index('--component-case')+1],
+                         'class:56534558667350736572756D20320000')
+        self.assertIn(b'implementation_source_manifest_sha256=' + b'2'*64 + b'\n',binding)
 
     def test_exact_inspection_selection_reaches_command_and_handshake(self):
         # Source-owned distinct instrument/effect IDs; no vendor naming dispatch.

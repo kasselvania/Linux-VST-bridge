@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "claim": "One physical Steam Deck Serum 2 touch-popup session under the shared per-window Wine X11 touch route",
+  "fixture": "Steam Deck Desktop Mode, Bitwig 6.1, physical touchscreen and trackpad, disposable project",
+  "source_head": "f979208da1306d9d002a3d8c4d02118fa5a10de2",
+  "installed_generation": "d2e90f7b3a38fe1263171d33b9cfc640abf59bc46f1f470f87cb6c8750ba6c4d",
+  "runner": "proton-11.0-2c-x11-touch-routing-v2",
+  "runner_tree_sha256": "de6c55c2a8c82abf2b1b0b47a97ee97a00657fa04582b2112327fa3d0095a698",
+  "environment": "4db060b14388e41103834fc4dfdd023a",
+  "environment_revision": 3,
+  "candidate": "b43421069dca3872cf7c28440616d1086d192f827ac8ccd80bf16102dc2681ab",
+  "predecessor_candidate": "91b699291eb7b7d1ff6e725d5e6fd1abed88ea721dbd81a621dd2fb39d38d207",
+  "publication": {
+    "id": "d39392e65959e4fba15d769d9fea9b1a",
+    "sha256": "2236e33111db62498b36b8bb10817d856cc7fe768b51b9f2de5c5289c3f6726c"
+  },
+  "operator_sequence": [
+    "Opened Serum once and heard a note before touching the waveform menu.",
+    "Trackpad opened and selected or dismissed the waveform menu; it closed and the editor remained responsive.",
+    "One ordinary finger-operated control responded; the editor remained responsive.",
+    "Finger tap opened the waveform popup; after full lift, a second finger tap selected a visible item. The popup closed and editor remained responsive without focus cycling.",
+    "Finger reopened the popup; a second finger tap outside dismissed it. Editor remained responsive.",
+    "One following note was audible. Bitwig closed normally without saving the disposable project."
+  ],
+  "dsp_session": "3c5bc722b8d92e9844a43bcafac381e3",
+  "native_report_sha256": "8ef9626d5704fa54534b77029ba2dd033cb9d2c842f28d218ed6fab7a996b4f2",
+  "windows_report_sha256": "33a0900eb58ab0b5f2467bb7ad7f63f5f33db13d4cb4eca1c3dbcdcedf65db79",
+  "windows_ownership_sha256": "4bc568b37f5c16a07feff4cf3414853923e22752de8e971ea389f7afc848768f",
+  "delivery": {
+    "frames": 19397632,
+    "delivered_frames": 19397120,
+    "priming_frames": 512,
+    "underrun_frames": 0,
+    "underrun_gaps": 0,
+    "callback_rejections": 0,
+    "discontinuities": 0
+  },
+  "retirement": {
+    "windows_cleanup_confirmed": true,
+    "transport_retired": true,
+    "editor_closed": true,
+    "editor_failure": false,
+    "manager_dsp": 0,
+    "manager_keeper": 1,
+    "manager_stale_transports": 0,
+    "manager_cleanup_unconfirmed": false,
+    "bitwig_closed": true
+  },
+  "final_publications": {
+    "Serum 2": "Published, environment revision 3, artifacts valid",
+    "Pigments": "Published, artifacts valid",
+    "Pure LoFi": "Published, artifacts valid",
+    "Efx FRAGMENTS": "Published, artifacts valid",
+    "Blackhole Immersive": "Published, artifacts valid",
+    "Kontakt 8": "Published, artifacts valid"
+  },
+  "result": "physical_serum_touch_popup_passed",
+  "nonclaims": [
+    "This one session does not establish a universal Wine touch fix or all Serum menus and gestures.",
+    "It does not establish Blackhole, Kontakt, or Pigments touch behavior.",
+    "It does not establish project save/reopen under candidate D or a general gap-free guarantee."
+  ]
+}

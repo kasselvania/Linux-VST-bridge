@@ -2,6 +2,115 @@
 
 > Historical slice record, not current deployment or support authority. Current shared status: [touch and editor classes FC-UI-002–007](FAILURE_CLASSES.md#fc-ui-002--x11-raw-touch-release-retains-contact-on-pointer-up), [lifecycle classes](FAILURE_CLASSES.md#fc-life-001--graphical-session-and-keeper-authority), and the [support matrix](SUPPORT_MATRIX.md).
 
+## Shared touch-routing continuation (2026-09-24)
+
+The action-bound [candidate-C capture](../evidence/serum-x11-touch-routing/candidate-c-action-capture.json)
+reproduced the mouse/touch difference without changing a runner. The
+finger-opened popup remained visible and owned by the main editor, with the
+popup as the Win32 capture window. During a later short readback, the old
+editor child received 16,379 repeated `WM_POINTERUPDATE` records carrying
+`PRIMARY | INCONTACT | INRANGE` while no new physical input was delivered.
+The fixed-size observer overflowed by 79 records in that readback; it is
+diagnostic partial evidence, not a complete touch stream. Five observer
+heartbeats still progressed, so “the whole Windows thread stopped” would
+overstate the result. The initial action trace did not retain a complete XI
+touch Begin/End pair. Its `GetPointerInfo` errors were observer-side calls to
+the pinned Wine stub, not proof that Serum called that API.
+
+The pinned candidate-C Wine driver selected root-level `XI_RawTouch*` and sent
+hardware pointer messages without a per-window XI delivery target. The shared
+successor selects `XI_Touch*` on each Wine window, resolves the exact
+`XIDeviceEvent.event` window to its HWND, and retains candidate C's corrected
+release flag. The original capture was a source-selection hypothesis, not
+itself a physical fix claim. The [source-owned popup fixture](../evidence/serum-x11-touch-routing/popup-fixture-physical.json)
+and [human-operated candidate-D Serum session](../evidence/serum-x11-touch-routing/candidate-d-physical.json)
+subsequently passed. Candidate C and its two failed physical attempts remain
+retained history, not a successful release-flag-only result.
+
+### Candidate D physical result
+
+The installed Serum successor `proton-11.0-2c-x11-touch-routing-v2`, complete
+tree `de6c55c2a8c82abf2b1b0b47a97ee97a00657fa04582b2112327fa3d0095a698`,
+materialized candidate `b43421069dca3872cf7c28440616d1086d192f827ac8ccd80bf16102dc2681ab`
+and published revision `d39392e65959e4fba15d769d9fea9b1a` through the
+existing experimental-runner and operator owners. The operator confirmed
+trackpad menu interaction, ordinary finger control, finger-open/finger-select,
+finger-open/finger-dismiss, continued editor response without focus cycling,
+and an audible note after the touch actions. Exact session
+`3c5bc722b8d92e9844a43bcafac381e3` reported zero underrun gaps and
+callback rejections, followed by confirmed Windows cleanup and transport
+retirement; manager returned to zero DSP and no cleanup uncertainty. This is
+one exact Serum popup pass, not automatic Blackhole, Kontakt, or Pigments
+coverage. The [lineage check](../evidence/serum-x11-touch-routing/cross-plugin-lineage.json)
+found Blackhole's DComp Wine already on the per-window route. Kontakt's NI
+Wine retains root-raw touch; both source patches applied to its exact private
+Wine checkout and an isolated driver compiled under the pinned offline SDK.
+That driver is not a sealed NI runner or a Kontakt touch claim. The current
+experimental-runner and candidate carry-forward owners are intentionally
+Serum-specific, so no NI environment or publication was changed.
+
+## Serum waveform touch release, bounded candidate C (2026-09-23)
+
+The accepted Steam Deck input classification for Serum 2 2.1.5, class
+`56534558667350736572756D20320000`, is narrower than the earlier broad
+touch reports below. A mouse/trackpad action on the waveform dropdown passed;
+physical touch on an ordinary Serum control passed; physical touch on that
+dropdown left its editor and popup visible but stopped the editor thread's
+message/menu progress. Bitwig, the Windows host and audio processing remained
+alive. Normal Bitwig close retired the instance. The input method in the first,
+uncontrolled occurrence remains unknown. Its audio delivery gap is not
+attributed to touch. The retained private capture has no raw `WM_POINTERUP`
+high-word, `GetPointerInfo` flag, or XInput Begin/End record; it therefore does
+not independently prove the released pointer's flags.
+
+Exact pinned Wine source `dc26e61847081a1b5cb0733dc30feba6ee575482`
+does show the defect in `X11DRV_RawTouchEvent`: its common flag assignment
+marks `XI_RawTouchEnd` as `INCONTACT` even after mapping it to `WM_POINTERUP`.
+The source correction is limited to that touch message mapping. The
+source-owned test proves Begin and Update still have contact while End does
+not. Candidate C uses a distinct immutable runner and retains candidate B's
+exact factory and selected-class results with explicit predecessor/transition
+provenance. The old factory inventory remains stale under the new environment
+revision; no fresh census is claimed. At source-review time candidate B and
+the installed runner were unchanged pending an approved physical transition.
+Mixed-six remained separately permitted with mouse input.
+
+The pinned offline Steam Runtime 4 build and private Wine install completed.
+The sealed successor runner has 8,262 entries, 1,447,967,926 regular-file
+bytes and complete-tree SHA-256
+`d095f1f052ecebb67c66d685dbd88e373b633b0c3000343a7607c4f1bc4d1920`.
+Only the x86-64 Unix `winex11.so` and runner version file differ from the
+verified predecessor. An isolated, unlicensed Windows command started and
+retired under the successor without changing its tree. This is a runner
+construction result, not a physical Serum touch-menu pass. A read-only
+cross-host preview of candidate B, the current environment record and the
+sealed runner manifest computes prospective candidate C
+`91b699291eb7b7d1ff6e725d5e6fd1abed88ea721dbd81a621dd2fb39d38d207`.
+That preview did not reverify runner files; the transition owner will do so
+before any environment mutation.
+
+Physical transition update (2026-09-23): the first package used the prior
+default host, so the manager correctly disabled candidate C as historical
+before publication. The [first attempt](../evidence/serum-x11-touch-release/physical-attempt-001.json)
+retains that mismatch. An immutable replacement package reused the exact
+candidate B/C preparation host and source manifest without rebuilding either.
+The manager then marked C current and explicitly published revision
+`807828d4b94fccd69e57c352a60dbcd1` under successor runner
+`proton-11.0-2c-x11-touch-release-v1`; the other five publications stayed
+selected.
+
+The [one physical Serum session](../evidence/serum-x11-touch-release/physical-attempt-002.json)
+passed mouse waveform-menu use and finger use of an ordinary control. The first
+finger contact on the waveform menu left it unable to select/dismiss and the
+editor unresponsive, while a following note remained audible. After Serum went
+behind Bitwig and returned to the front, the operator reported that its editor
+became responsive again. Later taps were uncontrolled and are not counted as
+additional trials. Bitwig closed normally; the DSP host, editor, transport and
+lease retired, with one expected environment keeper remaining. No `WM_POINTERUP`
+flags or instrumented editor heartbeat were retained in this run, so the source
+flag fix is **not** claimed as a physical touch-menu repair. One audio gap was
+recorded but is not attributed to the touch action. PR #151 remains draft.
+
 Physical correction update (2026-09-21): the next approved Blackhole attempt
 failed quickly and cleanly before Wine started. Its retained private stderr
 shows pressure-vessel asking Bubblewrap to project the explicit D-Bus denial

@@ -402,6 +402,7 @@ fn adopt_sv1(m: &Manager, s: &Selection) -> Result<Option<Candidate>> {
         origin: Origin::RetainedSv1,
         recipe_sha256: "retained-sv1".into(),
         preparation_basis: None,
+        touch_carry_forward: None,
     };
     materialize_legacy(m, &candidate, &b)?;
     Ok(Some(candidate))
@@ -462,8 +463,147 @@ pub fn candidate(m: &Manager, id: &str, host: &Artifact, source: &str) -> Result
         .ok_or_else(|| "candidate_absent".into())
 }
 pub fn verify_candidate(m: &Manager, c: &Candidate, host: &Artifact, source: &str) -> Result<()> {
-    verify_selection(m, &c.selection, host, source)?;
+    if matches!(c.origin, Origin::X11TouchReleaseV1 | Origin::X11TouchRoutingV2) {
+        require(
+            (c.selection.scanner.sha256 == host.sha256 && c.selection.scanner_source == source)
+                || (c.host.sha256 == host.sha256 && c.source_manifest.sha256 == source),
+            "touch_current_runtime",
+        )?;
+        verify_touch_carry_forward(m, c)?;
+    } else {
+        require(c.touch_carry_forward.is_none(), "touch_carry_forward_origin")?;
+        verify_selection(m, &c.selection, host, source)?;
+    }
     verify_retained_candidate(m, c)
+}
+pub const SERUM_TOUCH_PREDECESSOR: &str =
+    "f6af02eba109d3632b2ecc786f2c9006ec6bc1d433772001d24d2969fb944b44";
+pub const SERUM_TOUCH_ROUTING_PREDECESSOR: &str =
+    "91b699291eb7b7d1ff6e725d5e6fd1abed88ea721dbd81a621dd2fb39d38d207";
+
+pub fn touch_successor(
+    predecessor: &Candidate,
+    after: &Environment,
+    provenance: TouchCarryForward,
+) -> Result<Candidate> {
+    require(
+        predecessor.id()? == SERUM_TOUCH_PREDECESSOR
+            && predecessor.origin == Origin::ManagedPreparation
+            && predecessor.selection.environment.id == after.id
+            && predecessor.selection.environment.root == after.root
+            && predecessor.selection.environment.revision.checked_add(1) == Some(after.revision)
+            && after.runner.policy == Some(RunnerPolicy::X11TouchReleaseV1)
+            && after.runner.id == "proton-11.0-2c-x11-touch-release-v1"
+            && provenance.predecessor == SERUM_TOUCH_PREDECESSOR
+            && predecessor.selection.class.id == "56534558667350736572756D20320000",
+        "touch_carry_forward_predecessor",
+    )?;
+    carry_forward_touch_fields(predecessor, after, provenance, Origin::X11TouchReleaseV1)
+}
+
+pub fn touch_routing_successor(
+    predecessor: &Candidate,
+    after: &Environment,
+    provenance: TouchCarryForward,
+) -> Result<Candidate> {
+    require(
+        predecessor.id()? == SERUM_TOUCH_ROUTING_PREDECESSOR
+            && predecessor.origin == Origin::X11TouchReleaseV1
+            && predecessor.selection.environment.id == after.id
+            && predecessor.selection.environment.root == after.root
+            && predecessor.selection.environment.revision.checked_add(1) == Some(after.revision)
+            && after.runner.policy == Some(RunnerPolicy::X11TouchRoutingV2)
+            && after.runner.id == "proton-11.0-2c-x11-touch-routing-v2"
+            && provenance.predecessor == SERUM_TOUCH_ROUTING_PREDECESSOR
+            && predecessor.selection.class.id == "56534558667350736572756D20320000",
+        "touch_routing_carry_forward_predecessor",
+    )?;
+    carry_forward_touch_fields(predecessor, after, provenance, Origin::X11TouchRoutingV2)
+}
+
+fn carry_forward_touch_fields(
+    predecessor: &Candidate,
+    after: &Environment,
+    provenance: TouchCarryForward,
+    origin: Origin,
+) -> Result<Candidate> {
+    let mut candidate = predecessor.clone();
+    candidate.selection.environment = after.clone();
+    candidate.inspection.selection = candidate.selection.clone();
+    candidate.inspection.origin = origin.clone();
+    candidate.origin = origin;
+    candidate.profile.revision = candidate.profile.revision.checked_add(1).ok_or("touch_profile_revision")?;
+    candidate.profile.requirements.environment_revision = after.revision;
+    candidate.profile.requirements.runner = runner_match(&after.runner)?;
+    candidate.profile.evidence.push("docs/PLUGIN_RELIABILITY_FOLLOWUP.md".into());
+    candidate.touch_carry_forward = Some(provenance);
+    candidate.profile.validate()?;
+    Ok(candidate)
+}
+
+fn verify_touch_carry_forward(m: &Manager, c: &Candidate) -> Result<()> {
+    let provenance = c.touch_carry_forward.as_ref().ok_or("touch_carry_forward_absent")?;
+    let expected_predecessor = match c.origin {
+        Origin::X11TouchReleaseV1 => SERUM_TOUCH_PREDECESSOR,
+        Origin::X11TouchRoutingV2 => SERUM_TOUCH_ROUTING_PREDECESSOR,
+        _ => return Err("touch_carry_forward_origin".into()),
+    };
+    require(
+        provenance.predecessor == expected_predecessor,
+        "touch_carry_forward_predecessor",
+    )?;
+    provenance.transition.verify()?;
+    provenance.runner_manifest.verify()?;
+    let predecessor = retained_candidates(m)?.into_iter()
+        .find(|prior| prior.id().is_ok_and(|id| id == provenance.predecessor))
+        .ok_or("touch_carry_forward_predecessor_absent")?;
+    let transition: Value = bounded(&provenance.transition.path)?;
+    let prepared_path = provenance.transition.path.parent()
+        .ok_or("touch_carry_forward_transition")?.join("transition.json");
+    let prepared: Value = bounded(&prepared_path)?;
+    require(
+        prepared["schema"] == 1
+            && prepared["state"] == "prepared"
+            && prepared["environment"] == c.selection.environment.id
+            && prepared["before_revision"] == predecessor.selection.environment.revision
+            && prepared["after_revision"] == c.selection.environment.revision
+            && prepared["before_runner_sha256"] == hex(&Sha256::digest(serde_json::to_vec(&predecessor.selection.environment.runner)?))
+            && prepared["after_runner_sha256"] == hex(&Sha256::digest(serde_json::to_vec(&c.selection.environment.runner)?))
+            && prepared["candidate_manifest_sha256"] == provenance.runner_manifest.sha256
+            && prepared["retired_class"] == c.selection.class.id
+            && prepared["prefix_recreated"] == false
+            && prepared["installation_changed"] == false
+            && prepared["historical_results_rewritten"] == false
+            && prepared["publication_carried_forward"] == false,
+        "touch_carry_forward_prepared",
+    )?;
+    let retired: crate::publication::RevisionRef = serde_json::from_value(prepared["removed_publication"].clone())?;
+    let retired_revision = m.load_revision(&c.selection.class.id, &retired)?;
+    require(
+        retired_revision.profile == predecessor.profile
+            && retired_revision.registration.module == predecessor.selection.module
+            && retired_revision.registration.host == predecessor.host
+            && retired_revision.registration.native.sha256 == predecessor.native.artifact.sha256,
+        "touch_carry_forward_retired_revision",
+    )?;
+    require(
+        transition["schema"] == 1
+            && transition["state"] == "completed"
+            && transition["environment"] == c.selection.environment.id
+            && transition["revision"] == c.selection.environment.revision
+            && transition["runner_sha256"] == hex(&Sha256::digest(serde_json::to_vec(&c.selection.environment.runner)?))
+            && transition["candidate_manifest_sha256"] == provenance.runner_manifest.sha256
+            && transition["carried_predecessor"] == provenance.predecessor,
+        "touch_carry_forward_transition",
+    )?;
+    let expected = match c.origin {
+        Origin::X11TouchReleaseV1 =>
+            touch_successor(&predecessor, &c.selection.environment, provenance.clone())?,
+        Origin::X11TouchRoutingV2 =>
+            touch_routing_successor(&predecessor, &c.selection.environment, provenance.clone())?,
+        _ => return Err("touch_carry_forward_origin".into()),
+    };
+    require(*c == expected, "touch_carry_forward_changed")
 }
 pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
     let host = &c.selection.scanner;
@@ -518,10 +658,17 @@ pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
     reg.verify(&m.root)
 }
 pub fn record_candidate(m: &Manager, c: &Candidate) -> Result<String> {
+    record_candidate_with_predecessor(m, c, None)
+}
+pub fn record_candidate_with_predecessor(
+    m: &Manager,
+    c: &Candidate,
+    predecessor: Option<&str>,
+) -> Result<String> {
     let id = c.id()?;
     let d = object(m, "candidates", &id)?;
     immutable(&d.join("candidate.json"), c)?;
-    retain_lineage(m, c, &id, None)?;
+    retain_lineage(m, c, &id, predecessor)?;
     changed(m)?;
     Ok(id)
 }
@@ -593,6 +740,7 @@ pub fn prepared(
         origin: Origin::ManagedPreparation,
         recipe_sha256: recipe,
         preparation_basis: None,
+        touch_carry_forward: None,
     })
 }
 fn evidence_dir(m: &Manager, id: &str) -> Result<PathBuf> {
