@@ -1,0 +1,97 @@
+{
+  "started_utc": "2026-09-24T20:22:49.381225+00:00",
+  "rate": 48000,
+  "period": 128,
+  "digitalis_excluded": true,
+  "exit_code": 0,
+  "stdout": "RPI1_QUALIFICATION_GRAPH mode=loopback rate=48000 period=128 routes=[[\"lvb-rpi1-qualification:tone_l\", \"system:playback_1\"], [\"system:capture_1\", \"lvb-rpi1-qualification:meter_l\"], [\"lvb-rpi1-qualification:tone_r\", \"system:playback_2\"], [\"system:capture_2\", \"lvb-rpi1-qualification:meter_r\"]]\nRPI1_QUALIFICATION_AUDIO channel=0 samples=144000 nonzero_samples=96502 nonzero_windows=1125 peak=0.014343699 rms=0.0025403595088896377 nonfinite=0\nRPI1_QUALIFICATION_AUDIO channel=1 samples=144000 nonzero_samples=96129 nonzero_windows=1125 peak=0.013611255 rms=0.0025264311292020206 nonfinite=0\nRPI1_QUALIFICATION_RESULT mode=loopback completed=true midi_sent=0 midi_errors=0 xruns=0 bad_blocks=0 stereo_nonzero=true\nRPI1_QUALIFICATION_RETIRED\nRPI1_QUALIFICATION_CAPTURE format=f32le channels=2 rate=48000 frames=144000 bytes=1152000\nRPI1_QUALIFICATION_INPUT_CAPTURE frames=144000 channels=2 format=f32le\n",
+  "stderr": "",
+  "restore_failures": [],
+  "graph_restored": true,
+  "finished_utc": "2026-09-24T20:22:58.585834+00:00",
+  "analysis": {
+    "rate": 48000,
+    "frames": 144000,
+    "sent_peak": [
+      0.009999909438192844,
+      0.009999783709645271
+    ],
+    "received_peak": [
+      0.01434369944036007,
+      0.013611255213618279
+    ],
+    "paths": [
+      {
+        "output": 1,
+        "input": 1,
+        "valid": true,
+        "delay_frames": 552,
+        "delay_ms": 11.5,
+        "correlation": 0.8179431166727003,
+        "polarity": 1
+      },
+      {
+        "output": 1,
+        "input": 2,
+        "valid": false,
+        "delay_frames": null,
+        "delay_ms": null,
+        "correlation": 0.018410684652971097,
+        "polarity": null
+      },
+      {
+        "output": 2,
+        "input": 1,
+        "valid": false,
+        "delay_frames": null,
+        "delay_ms": null,
+        "correlation": 0.018489774612583307,
+        "polarity": null
+      },
+      {
+        "output": 2,
+        "input": 2,
+        "valid": true,
+        "delay_frames": 552,
+        "delay_ms": 11.5,
+        "correlation": 0.8196889899325647,
+        "polarity": 1
+      }
+    ]
+  },
+  "fixture": {
+    "board": "Raspberry Pi 5",
+    "interface": "SHIELD XL",
+    "kernel": "6.18.50+rpt-rpi-v8",
+    "jack_version": "1.9.22",
+    "rustc": "1.98.1",
+    "alsa_format": "S16_LE",
+    "alsa_period": 128,
+    "alsa_buffer": 384,
+    "cable_route": "output 1 to input 1; output 2 to input 2"
+  },
+  "instrument": {
+    "binary_sha256": "ae7685275c0475ac85c0a18a1331baa43a6d63d62cae6787571ecb7bab8b7e89",
+    "qualification_rs_sha256_at_build": "0156d0463daa7c843180dbd21a03bd2882c8739495317e3587d2dab7d8fb4c51",
+    "qualification_jack_rs_sha256_at_build": "b75dfb42d6164dc26c35cdb2543b94825e22f5f2f7767c0cec706e91f659ddb3",
+    "note": "Only a cfg(test) test was added to qualification.rs after the live build."
+  },
+  "capture_sha256": {
+    "return.f32le": "b4c230451a3a3ae0b40b89cf942921aa2d531fca21232817b2ee5f6b8fb205fd",
+    "return.f32le.input.f32le": "0aea6a2093f974de4b5a18783d98cc859f48c998eb2eb7f52bbf4c087e06ad97"
+  },
+  "negative_check": {
+    "connected_ports_refused_before_activation": true,
+    "graph_unchanged": true
+  },
+  "validation": {
+    "rust_fixture_tests_passed": 9,
+    "analysis_known_delays_inversion_noise_and_absent_return": "passed"
+  },
+  "operator_report": {
+    "pedal_path_ms_approx": 383,
+    "direct_motu_loop_ms_approx": 284,
+    "same_bitwig_buffer_confirmed": true,
+    "independently_measured_by_pi_probe": false
+  }
+}

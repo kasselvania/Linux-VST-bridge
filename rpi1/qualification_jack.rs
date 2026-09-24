@@ -52,6 +52,7 @@ unsafe extern "C" {
         destination: *const c_char,
     ) -> c_int;
     fn jack_port_connected_to(port: *const Port, destination: *const c_char) -> c_int;
+    fn jack_port_connected(port: *const Port) -> c_int;
     fn jack_midi_clear_buffer(buffer: *mut c_void);
     fn jack_midi_event_write(buffer: *mut c_void, time: u32, data: *const u8, size: usize)
         -> c_int;
@@ -198,16 +199,17 @@ pub fn run() -> io::Result<()> {
         return Err(fail("invalid JACK bridge client name"));
     }
     if !matches!(arguments.len(), 2 | 4)
-        || !matches!(arguments[1].as_str(), "tone" | "effect" | "input" | "notes" | "pigments" | "polyphony" | "stress" | "two-notes" | "four-notes")
+        || !matches!(arguments[1].as_str(), "loopback" | "tone" | "effect" | "input" | "notes" | "pigments" | "polyphony" | "stress" | "two-notes" | "four-notes")
         || (arguments.len() == 4 && arguments[2] != "--capture")
     {
         return Err(fail(
-            "usage: qualification tone|effect|input|notes|pigments|polyphony|stress|two-notes|four-notes [--capture NEW_PRIVATE_F32LE_FILE]",
+            "usage: qualification loopback|tone|effect|input|notes|pigments|polyphony|stress|two-notes|four-notes [--capture NEW_PRIVATE_F32LE_FILE]",
         ));
     }
     let effect_mode = arguments[1] == "effect";
+    let loopback_mode = arguments[1] == "loopback";
     let physical_mode = arguments[1] == "input";
-    let tone_mode = arguments[1] == "tone" || effect_mode;
+    let tone_mode = arguments[1] == "tone" || effect_mode || loopback_mode;
     let polyphony = arguments[1] == "polyphony";
     let stress = arguments[1] == "stress";
     let two_notes = arguments[1] == "two-notes";
@@ -238,7 +240,7 @@ pub fn run() -> io::Result<()> {
     } else {
         None
     };
-    let input_file = if (effect_mode || physical_mode) && arguments.len() == 4 {
+    let input_file = if (effect_mode || physical_mode || loopback_mode) && arguments.len() == 4 {
         Some(std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600)
             .open(format!("{}.input.f32le", arguments[3]))?)
     } else { None };
@@ -255,7 +257,9 @@ pub fn run() -> io::Result<()> {
         inputs: [ptr::null_mut(); 2],
         outputs: [ptr::null_mut(); 2],
         tones: if tone_mode {
-            (0..RATE * 3).map(|i| [tone(i, 0), tone(i, 1)]).collect()
+            (0..RATE * 3).map(|i| if loopback_mode {
+                [super::loopback_tone(i, 0), super::loopback_tone(i, 1)]
+            } else { [tone(i, 0), tone(i, 1)] }).collect()
         } else {
             Vec::new()
         },
@@ -323,6 +327,11 @@ pub fn run() -> io::Result<()> {
         ));
     }
     for (index, suffix) in ["l", "r"].into_iter().enumerate() {
+        if loopback_mode {
+            routes.push((format!("{NAME}:tone_{suffix}"), format!("system:playback_{}", index + 1), AUDIO));
+            routes.push((format!("system:capture_{}", index + 1), format!("{NAME}:meter_{suffix}"), AUDIO));
+            continue;
+        }
         if physical_mode {
             let source = format!("system:capture_{}", index + 1);
             routes.push((source.clone(), format!("{NAME}:source_{suffix}"), AUDIO));
@@ -348,6 +357,14 @@ pub fn run() -> io::Result<()> {
                 || unsafe { CStr::from_ptr(jack_port_type(port)) }.to_bytes_with_nul() != *kind
             {
                 return Err(fail("exact expected port name, direction or type differs"));
+            }
+        }
+    }
+    if loopback_mode {
+        for name in ["system:capture_1", "system:capture_2", "system:playback_1", "system:playback_2"] {
+            let port = unsafe { jack_port_by_name(client, c(name).as_ptr()) };
+            if unsafe { jack_port_connected(port) } != 0 {
+                return Err(fail("loopback requires isolated physical ports; disconnect existing routes first"));
             }
         }
     }
