@@ -26,11 +26,11 @@ struct Request {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct TreeIdentity {
-    schema: u32,
-    entries: u64,
-    regular_bytes: u64,
-    sha256: String,
+pub(super) struct TreeIdentity {
+    pub(super) schema: u32,
+    pub(super) entries: u64,
+    pub(super) regular_bytes: u64,
+    pub(super) sha256: String,
 }
 
 #[derive(Deserialize)]
@@ -140,7 +140,7 @@ enum CandidateKind {
     X11TouchRouting,
 }
 
-fn verify_tree(root: &Path, expected: &TreeIdentity) -> Result<()> {
+pub(super) fn verify_tree(root: &Path, expected: &TreeIdentity) -> Result<()> {
     let root_metadata = fs::symlink_metadata(root)?;
     require(
         root.is_absolute()
@@ -587,7 +587,7 @@ fn retire_removed(
     Ok(())
 }
 
-fn restore(path: &Path, bytes: &[u8]) -> Result<()> {
+pub(super) fn restore(path: &Path, bytes: &[u8]) -> Result<()> {
     let temp = path.with_extension(format!("restore-{}", random_id()?));
     let result = (|| -> Result<()> {
         let mut file = fs::OpenOptions::new()

@@ -1,0 +1,16 @@
+diff --git a/dlls/crypt32/crypt32_private.h b/dlls/crypt32/crypt32_private.h
+--- a/dlls/crypt32/crypt32_private.h
++++ b/dlls/crypt32/crypt32_private.h
+@@ -27,6 +27,12 @@ BOOL CNG_ImportPubKey(CERT_PUBLIC_KEY_INFO *pubKeyInfo, BCRYPT_KEY_HANDLE *key);
+ BOOL cng_prepare_signature(const char *alg_oid, BYTE *encoded_sig, DWORD encoded_sig_len,
+     BYTE **sig_value, DWORD *sig_len);
+ 
++/* Verification hashes authenticated attributes in their decoded order.  The
++ * ordinary DER encoder continues sorting when creating signatures.  This
++ * declaration adapts Wine MR !11824 to pinned Wine dc26e618. */
++BOOL CRYPT_AsnEncodePKCSAttributesUnsorted(const CRYPT_ATTRIBUTES *attributes,
++ BYTE **pbEncoded, DWORD *pcbEncoded);
++
+ /* a few asn.1 tags we need */
+ #define ASN_BOOL            (ASN_UNIVERSAL | ASN_PRIMITIVE | 0x01)
+ #define ASN_BITSTRING       (ASN_UNIVERSAL | ASN_PRIMITIVE | 0x03)

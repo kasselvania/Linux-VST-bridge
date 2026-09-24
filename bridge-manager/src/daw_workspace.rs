@@ -2,10 +2,24 @@
 //! The immutable executable/runtime closure and mutable FL data have distinct owners.
 use super::*;
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 use std::os::unix::fs::{FileTypeExt, MetadataExt};
 
 const APP: &str = "fl-studio";
 const STANDARD_RUNNER: &str = "proton-11.0-2c-25118279-slr4-4.0.20260805.254769";
+const FL_CRYPT32_RUNNER: &str = "proton-11.0-2c-fl-crypt32-order-v1";
+const FL_CRYPT32_TREE: &str = "ef6e2412c74a018831393226f2c3b9816f561d897be508dceda8f2dd9b03f92e";
+const FL_CRYPT32_PATCH: &str = "e3cf1069975463c78506926b30f3f7f4d94169ef178d68a4eeb4b0a41f69e806";
+const FL_CRYPT32_SDK: &str = "97526b794ce1a9bed5f891084462260b3a02399569f7438a3a57b5a253001db9";
+const FL_CRYPT32_VERSION_SHA: &str = "2592ccc90077658b3359a0b85e9fd4c319c8f724968811ebd955879dcae03646";
+const FL_CRYPT32_I386_SHA: &str = "d57b16f7149d583fd9b8b0a2a8851a3fa9578599fe3acfadcefd372253bdf1e5";
+const FL_CRYPT32_X64_SHA: &str = "bc5af588ddd0571c42bf6fce3bfa513362a15549d340ec49f8d4acf7952b8ffd";
+const FL_CRYPT32_SOURCE: &[(&str, &str)] = &[
+    ("dlls/crypt32/crypt32_private.h", "4161501bbfea841c08bcdcf7ac8012da6544f1b1c527efe79c2b1165dfecbd19"),
+    ("dlls/crypt32/encode.c", "b736b05d134e236260a1a9e58b7e1a05c7d5006d6ecf5c3eae2353d1d832a77c"),
+    ("dlls/crypt32/msg.c", "89c24b49dc458cae7610b195ec36f0f2796a462a04284975368227a2f83572ca"),
+    ("dlls/crypt32/tests/msg.c", "ff5ee9df8ebd3e22a814cc2b549197d605fcb23079fac70f477ac3d8f5be05a9"),
+];
 const SESSION_SECONDS: u64 = 30;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -65,6 +79,8 @@ struct Workspace {
     installer: String,
     installer_release: String,
     environment: Environment,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    runner_manifest: Option<Artifact>,
     projects: PathBuf,
     exports: PathBuf,
     preferences: PathBuf,
@@ -74,6 +90,32 @@ struct Workspace {
     audio: Option<AudioObservation>,
     session_operation: Option<String>,
     first_failure: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FlRunnerSource {
+    proton: String,
+    wine: String,
+    wine_tree: String,
+    upstream_merge_request: String,
+    upstream_patch: Artifact,
+    patched_files: BTreeMap<String, String>,
+    sdk_image_sha256: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FlRunnerManifest {
+    schema: u32,
+    kind: String,
+    workspace: String,
+    base_runner: Runner,
+    source: FlRunnerSource,
+    root: PathBuf,
+    tree: experimental_runner::TreeIdentity,
+    runner: Runner,
+    changed_artifacts: BTreeMap<String, Artifact>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -95,6 +137,104 @@ fn base(m: &Manager) -> PathBuf {
 
 fn record(m: &Manager) -> PathBuf {
     base(m).join("workspace.json")
+}
+
+fn fl_runner_root(m: &Manager) -> PathBuf {
+    base(m).join("runner-closures").join(FL_CRYPT32_RUNNER)
+}
+
+fn fl_runner_manifest(m: &Manager) -> PathBuf {
+    base(m).join("runner-closures/fl-runner-manifest.private.json")
+}
+
+fn fl_runner_transition(m: &Manager) -> PathBuf {
+    base(m).join("runner-closures/transition.private.json")
+}
+
+fn transition_settled(m: &Manager) -> Result<()> {
+    let path = fl_runner_transition(m);
+    if path.try_exists()? {
+        let receipt: Value = read_json(&path)?;
+        require(
+            receipt["schema"] == 1
+                && matches!(receipt["state"].as_str(), Some("committed" | "rolled_back")),
+            "daw_workspace_runner_recovery_required",
+        )?;
+    }
+    Ok(())
+}
+
+fn fl_runner_candidate(m: &Manager, manifest: &Artifact, verify_full_tree: bool) -> Result<FlRunnerManifest> {
+    require(manifest.path == fl_runner_manifest(m), "daw_workspace_runner_manifest_path")?;
+    manifest.verify()?;
+    let c: FlRunnerManifest = read_json(&manifest.path)?;
+    let root = fl_runner_root(m);
+    require(
+        c.schema == 1
+            && c.kind == "fl_crypt32_order_reference_runner"
+            && c.root == root
+            && c.workspace == read_json::<Workspace>(&record(m))?.id
+            && c.base_runner.id == STANDARD_RUNNER
+            && c.base_runner.policy.is_none()
+            && c.runner.id == FL_CRYPT32_RUNNER
+            && c.runner.policy.is_none()
+            && c.runner.proton == root.join("proton")
+            && c.runner.entry_point == c.base_runner.entry_point
+            && c.runner.version == "1788504981 proton-11.0-2c-x86_64+fl-crypt32-order-v1; SLR 4.0.20260805.254769"
+            && c.tree.schema == 1
+            && c.tree.sha256 == FL_CRYPT32_TREE
+            && c.source.proton == "5b89db940e0ebe3a137a6009a3589232fe084c09"
+            && c.source.wine == "dc26e61847081a1b5cb0733dc30feba6ee575482"
+            && c.source.wine_tree == "da4b1eb3b7f209eb4a971d4b5929fcda08ff6b4e"
+            && c.source.upstream_merge_request == "wine/wine!11824"
+            && c.source.sdk_image_sha256 == FL_CRYPT32_SDK
+            && c.source.upstream_patch.path == root.parent().ok_or("daw_workspace_runner_root")?.join("upstream-11824.patch")
+            && c.source.upstream_patch.sha256 == FL_CRYPT32_PATCH,
+        "daw_workspace_runner_candidate_identity",
+    )?;
+    c.source.upstream_patch.verify()?;
+    let expected_source: BTreeMap<String, String> = FL_CRYPT32_SOURCE
+        .iter()
+        .map(|(path, sha)| ((*path).to_owned(), (*sha).to_owned()))
+        .collect();
+    require(c.source.patched_files == expected_source, "daw_workspace_runner_source")?;
+    let expected_changed = [
+        ("version", FL_CRYPT32_VERSION_SHA),
+        ("files/lib/wine/i386-windows/crypt32.dll", FL_CRYPT32_I386_SHA),
+        ("files/lib/wine/x86_64-windows/crypt32.dll", FL_CRYPT32_X64_SHA),
+    ];
+    require(c.changed_artifacts.len() == expected_changed.len(), "daw_workspace_runner_delta")?;
+    for (relative, sha) in expected_changed {
+        let artifact = c.changed_artifacts.get(relative).ok_or("daw_workspace_runner_delta")?;
+        require(artifact.path == root.join(relative) && artifact.sha256 == sha, "daw_workspace_runner_delta")?;
+        artifact.verify()?;
+    }
+    let old_root = c.base_runner.proton.parent().ok_or("daw_workspace_base_runner_root")?;
+    let mut expected_files = BTreeMap::new();
+    for item in &c.base_runner.files {
+        let path = if item.path.starts_with(old_root) {
+            root.join(item.path.strip_prefix(old_root)?)
+        } else {
+            item.path.clone()
+        };
+        let relative = path.strip_prefix(&root).ok().and_then(|v| v.to_str());
+        let sha = if let Some(relative) = relative {
+            c.changed_artifacts.get(relative).map_or(item.sha256.as_str(), |a| a.sha256.as_str())
+        } else {
+            item.sha256.as_str()
+        };
+        require(expected_files.insert(path, sha.to_owned()).is_none(), "daw_workspace_runner_roster")?;
+    }
+    for relative in ["files/lib/wine/i386-windows/crypt32.dll", "files/lib/wine/x86_64-windows/crypt32.dll"] {
+        expected_files.insert(root.join(relative), c.changed_artifacts[relative].sha256.clone());
+    }
+    let actual_files: BTreeMap<_, _> = c.runner.files.iter().map(|a| (a.path.clone(), a.sha256.clone())).collect();
+    require(actual_files == expected_files && c.runner.files.len() == expected_files.len(), "daw_workspace_runner_roster")?;
+    c.runner.verify()?;
+    if verify_full_tree {
+        experimental_runner::verify_tree(&root, &c.tree)?;
+    }
+    Ok(c)
 }
 
 fn private_exact(path: &Path) -> Result<()> {
@@ -143,6 +283,7 @@ fn audio_syntax(a: &AudioObservation) -> bool {
 }
 
 fn load(m: &Manager) -> Result<Workspace> {
+    transition_settled(m)?;
     let w: Workspace = read_json(&record(m))?;
     let root = base(m);
     require(
@@ -153,10 +294,15 @@ fn load(m: &Manager) -> Result<Workspace> {
             && valid_hex(&w.installer, 64)
             && release_syntax(&w.installer_release)
             && w.environment.id == w.id
-            && w.environment.revision == 1
             && w.environment.root == root.join("environment")
-            && w.environment.runner.id == STANDARD_RUNNER
-            && w.environment.runner.policy.is_none()
+            && ((w.environment.revision == 1
+                && w.environment.runner.id == STANDARD_RUNNER
+                && w.environment.runner.policy.is_none()
+                && w.runner_manifest.is_none())
+                || (w.environment.revision == 2
+                    && w.environment.runner.id == FL_CRYPT32_RUNNER
+                    && w.environment.runner.policy.is_none()
+                    && w.runner_manifest.is_some()))
             && w.projects == root.join("projects")
             && w.exports == root.join("exports")
             && w.preferences == root.join("preferences")
@@ -182,6 +328,10 @@ fn load(m: &Manager) -> Result<Workspace> {
         read_json::<Environment>(&w.environment.root.join("environment.json"))? == w.environment,
         "daw_workspace_environment_changed",
     )?;
+    if let Some(manifest) = &w.runner_manifest {
+        let candidate = fl_runner_candidate(m, manifest, false)?;
+        require(candidate.runner == w.environment.runner, "daw_workspace_selected_runner_changed")?;
+    }
     if let Some(app) = &w.installed {
         let image_line = w
             .environment
@@ -269,6 +419,107 @@ fn selected_runner(m: &Manager) -> Result<Runner> {
     selected.ok_or("daw_workspace_standard_runner_absent".into())
 }
 
+fn select_fl_crypt32_runner(m: &Manager) -> Result<()> {
+    let _guard = m.lock("daw-workspace.lock")?;
+    let mut w = load(m)?;
+    require(
+        w.environment.revision == 1
+            && w.environment.runner.id == STANDARD_RUNNER
+            && w.runner_manifest.is_none()
+            && w.installed.is_some()
+            && session_ready(m, &w)?,
+        "daw_workspace_runner_prestate",
+    )?;
+    let install_op = w.installation_operation.as_deref().ok_or("daw_workspace_installer_absent")?;
+    require(
+        !unit_active(&unit(install_op, true)?)?
+            && result(m, install_op, true)?.as_ref().is_some_and(retired),
+        "daw_workspace_installer_owner_uncertain",
+    )?;
+    w.environment.runner.verify()?;
+    w.installed.as_ref().ok_or("daw_workspace_not_installed")?.executable.verify()?;
+    let operation = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(w.environment.root.join("operation.lock"))?;
+    require(
+        operation.metadata()?.is_file()
+            && operation.metadata()?.uid() == unsafe { libc::getuid() }
+            && unsafe { libc::flock(operation.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0,
+        "daw_workspace_environment_busy",
+    )?;
+    let manifest_path = fl_runner_manifest(m);
+    let manifest = Artifact {path: manifest_path.clone(), sha256: digest(&manifest_path)?};
+    let candidate = fl_runner_candidate(m, &manifest, true)?;
+    require(candidate.workspace == w.id && candidate.base_runner == w.environment.runner,
+        "daw_workspace_runner_base_changed")?;
+    let smoke_path = base(m).join("runner-closures/fl-runner-smoke.private.json");
+    let smoke: Value = read_json(&smoke_path)?;
+    require(
+        smoke["schema"] == 1
+            && smoke["kind"] == "fl_crypt32_order_unlicensed_smoke"
+            && smoke["runner_tree"] == FL_CRYPT32_TREE
+            && smoke["initialize_exit"] == 0
+            && smoke["cmd_exit"] == 0
+            && smoke["crypt32_msg_exit"] == 0
+            && smoke["cleanup_confirmed"] == true,
+        "daw_workspace_runner_smoke_required",
+    )?;
+    let marker = w.environment.root.join("environment.json");
+    let prior_marker = fs::read(&marker)?;
+    let prior_record = fs::read(record(m))?;
+    let prior_env = w.environment.clone();
+    require(read_json::<Environment>(&marker)? == prior_env,
+        "daw_workspace_environment_changed")?;
+    let receipt = fl_runner_transition(m);
+    require(!receipt.try_exists()?, "daw_workspace_runner_already_selected")?;
+    let backup = base(m).join("runner-closures/transition-backup");
+    require(!backup.try_exists()?, "daw_workspace_runner_backup_exists")?;
+    private_exact(&backup)?;
+    for (name, bytes) in [("environment.json", &prior_marker), ("workspace.json", &prior_record)] {
+        let mut file = fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(backup.join(name))?;
+        file.write_all(bytes)?;
+        file.sync_all()?;
+    }
+    atomic_json(&receipt, &json!({"schema":1,"state":"prepared","workspace":w.id,
+        "before_revision":prior_env.revision,"after_revision":2,
+        "before_environment_sha256":digest(&marker)?,"runner_manifest_sha256":manifest.sha256,
+        "runner_tree_sha256":FL_CRYPT32_TREE,"prefix_changed":false,
+        "native_bridge_changed":false}))?;
+    w.environment.revision = 2;
+    w.environment.runner = candidate.runner;
+    w.runner_manifest = Some(manifest);
+    let transition = (|| -> Result<()> {
+        atomic_json(&marker, &w.environment)?;
+        save(m, &mut w)?;
+        require(
+            read_json::<Environment>(&marker)? == w.environment
+                && read_json::<Workspace>(&record(m))? == w,
+            "daw_workspace_runner_transition_readback",
+        )?;
+        atomic_json(&receipt, &json!({"schema":1,"state":"committed","workspace":w.id,
+            "before_revision":prior_env.revision,"after_revision":2,
+            "runner_manifest_sha256":w.runner_manifest.as_ref().ok_or("daw_workspace_runner_manifest")?.sha256,
+            "runner_tree_sha256":FL_CRYPT32_TREE,"prefix_changed":false,
+            "native_bridge_changed":false}))
+    })();
+    if let Err(error) = transition {
+        if experimental_runner::restore(&marker, &prior_marker).is_err()
+            || experimental_runner::restore(&record(m), &prior_record).is_err()
+        {
+            return Err("daw_workspace_runner_recovery_required".into());
+        }
+        atomic_json(&receipt, &json!({"schema":1,"state":"rolled_back","workspace":w.id,
+            "reason":error.to_string()}))?;
+        return Err(error);
+    }
+    println!("{}", json!({"workspace":w.id,"environment_revision":2,
+        "runner":FL_CRYPT32_RUNNER,"runner_tree":FL_CRYPT32_TREE,
+        "manifest_sha256":w.runner_manifest.ok_or("daw_workspace_runner_manifest")?.sha256}));
+    Ok(())
+}
+
 fn create(m: &Manager, installer: &str, release: &str) -> Result<()> {
     require(
         valid_hex(installer, 64) && release_syntax(release),
@@ -344,6 +595,7 @@ fn create_exact(m: &Manager, installer: &str, release: &str, runner: Runner) -> 
         installer: installer.into(),
         installer_release: release.into(),
         environment,
+        runner_manifest: None,
         projects: root.join("projects"),
         exports: root.join("exports"),
         preferences: root.join("preferences"),
@@ -905,13 +1157,14 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
         }
         [action, id, release] if action == "create" => create(m, id, release),
         [action] if action == "install" => install(m),
+        [action] if action == "select-fl-crypt32-runner" => select_fl_crypt32_runner(m),
         [action] if action == "launch" => launch(m),
         [action] if action == "focus" => request(m, "focus"),
         [action] if action == "stop" => request(m, "stop"),
         [action] if action == "status" => status(m),
         [action, rest @ ..] if action == "record-audio" => record_audio(m, rest),
         [action, version, image_sha] if action == "record-installed-version" => record_installed_version(m, version, image_sha),
-        _ => Err("Usage: workspace import | create INSTALLER_SHA RELEASE | install | launch | focus | status | stop | record-audio BACKEND RATE BUFFER ENDPOINT audible|not-audible | record-installed-version VERSION IMAGE_SHA".into()),
+        _ => Err("Usage: workspace import | create INSTALLER_SHA RELEASE | install | select-fl-crypt32-runner | launch | focus | status | stop | record-audio BACKEND RATE BUFFER ENDPOINT audible|not-audible | record-installed-version VERSION IMAGE_SHA".into()),
     }
 }
 
@@ -961,6 +1214,34 @@ mod tests {
         }
         assert_eq!(fs::read(f.m.root.join("registry.json")).ok(), before);
         assert!(create_exact(&f.m, &"ab".repeat(32), "26.1.6.0", runner).is_err());
+    }
+    #[test]
+    fn fl_runner_transition_requires_installed_retired_exact_prestate() {
+        let f = crate::test_fixture::Fixture::new();
+        let mut runner = f.r.environment.runner.clone();
+        runner.id = STANDARD_RUNNER.into();
+        let w = create_exact(&f.m, &"ab".repeat(32), "26.1.6.0", runner).unwrap();
+        let marker = fs::read(w.environment.root.join("environment.json")).unwrap();
+        let record_bytes = fs::read(record(&f.m)).unwrap();
+        assert!(select_fl_crypt32_runner(&f.m).is_err());
+        assert_eq!(fs::read(w.environment.root.join("environment.json")).unwrap(), marker);
+        assert_eq!(fs::read(record(&f.m)).unwrap(), record_bytes);
+        assert!(!fl_runner_transition(&f.m).exists());
+    }
+    #[test]
+    fn runner_change_and_interrupted_transition_refuse_at_readback() {
+        let f = crate::test_fixture::Fixture::new();
+        let mut runner = f.r.environment.runner.clone();
+        runner.id = STANDARD_RUNNER.into();
+        let mut w = create_exact(&f.m, &"ab".repeat(32), "26.1.6.0", runner).unwrap();
+        w.environment.revision = 2;
+        w.environment.runner.id = FL_CRYPT32_RUNNER.into();
+        atomic_json(&w.environment.root.join("environment.json"), &w.environment).unwrap();
+        atomic_json(&record(&f.m), &w).unwrap();
+        assert!(load(&f.m).is_err());
+        private_exact(&base(&f.m).join("runner-closures")).unwrap();
+        atomic_json(&fl_runner_transition(&f.m), &json!({"schema":1,"state":"prepared"})).unwrap();
+        assert!(load(&f.m).unwrap_err().to_string().contains("recovery_required"));
     }
     #[test]
     fn foreign_workspace_root_refuses_without_registry_mutation() {

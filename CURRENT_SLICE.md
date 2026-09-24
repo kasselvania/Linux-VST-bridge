@@ -43,17 +43,20 @@ export, clean relaunch and licensed project recall in a new FL workspace. It is
 not a Linux VST proxy path and not a generic Windows-program launcher.
 
 The active WD0 implementation branch is `codex/wd0-fl-studio-workspace`. Source
-and read-only Deck inventory may proceed while the operator uses the plug-ins.
-The FL installer must not run, and no live Deck surface may be changed, until
-the operator grants the explicit physical handoff. A source build is not WD0
-acceptance; the connected stock-project result remains the completion gate.
+and Deck execution now have the operator's explicit physical handoff. The
+official FL installer was imported into a fresh private workspace and completed
+its visible UI, while its outer worker returned nonzero; the installed x64 FL
+application was verified separately. Its first managed launch stopped at FL's
+program-validity dialog. An isolated, immutable FL-only Wine `crypt32` successor
+is being selected to correct that exact signature-verification boundary. This
+does not change the installed native bridge, Serum or the other five products.
+A source build or successful unlicensed runner smoke is not WD0 acceptance;
+audible stock playback, project save/export, clean relaunch and licensed recall
+remain the connected completion gate.
 
-The operator reports that the official Windows installer is present in the
-Steam Deck user's `Downloads` directory. That statement admits no filename,
-version, path alias, digest or signature yet. The WD0 owner must identify and
-fingerprint the exact file read-only before execution, preserve the original
-bytes, and then import it through the managed installer boundary. The installer,
-credentials, license material and private projects never enter Git.
+The exact operator-supplied FL Studio 26.1.6 installer was fingerprinted and
+imported without modifying the original download. Installer bytes, account
+state, license material and private projects never enter Git.
 
 ## Shared Deck ownership
 
@@ -72,16 +75,13 @@ Every common product package must preserve the now-canonical
 `x11_touch_routing_v2` policy, Serum candidate-D authority, all required exact
 Windows host/source pairs and the other five selected publications.
 
-## This documentation change
+## Current implementation boundary
 
-This branch updates architecture, work allocation and the WD0 work order only.
-It changes no manager, runtime, runner, installer, profile, publication, live
-machine or proprietary input. FL Studio remains unqualified.
-
-After review and normal merge, start the WD0 implementation branch from the
-then-current canonical main. Its branch-local `CURRENT_SLICE.md` should name the
-implementation and evolving result. Do not replace progress with another
-planning-only PR.
+The WD0 branch adds a typed FL workspace beside the native DSP lane, with
+separate package and process ownership. The FL-only crypt32 correction retains
+signature verification and changes no native-bridge catalogue, publication,
+capacity or audio path. FL Studio remains unqualified until the actual stock
+musical workflow and retirement gates pass.
 
 ## Retained completed slice
 

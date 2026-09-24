@@ -46,6 +46,27 @@ does not replace the native-bridge service or its software catalogue. Source
 validation is not a physical FL result. The installer, first launch, audio,
 project, export, recall, and retirement gates remain open until observed.
 
+### First physical result and selected correction
+
+The operator granted the Deck handoff. The exact FL Studio 26.1.6 Windows
+installer was privately fingerprinted and imported without changing Downloads.
+The managed installer displayed completion, but its outer worker returned a
+nonzero exit; the x64 FL application is present and independently verified.
+The first managed application launch displayed FL's program-validity error and
+retired cleanly. This is neither an installation-success claim nor an audible
+DAW result.
+
+The selected correction is the narrow authenticated-attribute verification
+change from [Wine merge request !11824](https://gitlab.winehq.org/wine/wine/-/merge_requests/11824),
+adapted to the pinned Wine source. It preserves the decoded attribute order for
+verification; it does not disable signature checking or change signing. The
+FL-only immutable successor changes the Proton version marker and both
+`crypt32.dll` PE architectures; the standard runner and native-bridge runners
+remain untouched. The isolated Wine crypt32 message group passed 1,032 tests
+with zero failures, and the successor passed an unlicensed startup/cleanup
+smoke. A managed FL launch and the stock-project workflow are still required
+to establish a physical fix.
+
 Read [AGENTS.md](../AGENTS.md), [ARCHITECTURE.md](ARCHITECTURE.md), this work
 order, [WINDOWS_DAW_WORKSPACES.md](WINDOWS_DAW_WORKSPACES.md), the support
 matrix and failure ledger. Reuse relevant source owners, especially manager
