@@ -1,0 +1,665 @@
+{
+  "attempt": "02",
+  "outcome": "Fresh observation requirement failed before first measurement; no governor comparison",
+  "failure": [
+    "No comparable drained start within 30 seconds"
+  ],
+  "approved_sha256": {
+    "guard": "83f2d5d77608540e7a51ff468006dd81a550661cdc0b3c2c4b7438759b9c09fd",
+    "compare": "1bcced70b2b5927460a27f4bb022af1747e6a423ab15cd1345fbc4ad762eba7e",
+    "analysis": "b7388de1c7ca6c3e8f3b239e26d0080bd1b2b20d95ba232358ce8c71e57852eb"
+  },
+  "guard_before": {
+    "phase": "ondemand_before",
+    "original_governor": "ondemand",
+    "original_schedstats": "0",
+    "timeout_seconds": 900,
+    "transition_count": 0,
+    "governor": "ondemand",
+    "schedstats": "1"
+  },
+  "drain_checks": [
+    {
+      "blocks": 188,
+      "unmatched": 0,
+      "max_wait_ns": 3612940,
+      "last_observed_ns": 8556281417652,
+      "observation_age_ns": 3545213686
+    },
+    {
+      "blocks": 188,
+      "unmatched": 0,
+      "max_wait_ns": 3594809,
+      "last_observed_ns": 8561419992363,
+      "observation_age_ns": 4012256384
+    },
+    {
+      "blocks": 188,
+      "unmatched": 0,
+      "max_wait_ns": 3618178,
+      "last_observed_ns": 8566981050225,
+      "observation_age_ns": 4057876381
+    },
+    {
+      "blocks": 188,
+      "unmatched": 0,
+      "max_wait_ns": 3672346,
+      "last_observed_ns": 8572641889475,
+      "observation_age_ns": 4009435549
+    },
+    {
+      "blocks": 188,
+      "unmatched": 0,
+      "max_wait_ns": 3649677,
+      "last_observed_ns": 8578223732297,
+      "observation_age_ns": 4031976562
+    },
+    {
+      "blocks": 188,
+      "unmatched": 0,
+      "max_wait_ns": 3620453,
+      "last_observed_ns": 8583821091892,
+      "observation_age_ns": 4035350451
+    }
+  ],
+  "drain_requirements": {
+    "minimum_matched_blocks": 150,
+    "unmatched": 0,
+    "maximum_queue_wait_ns": 20000000,
+    "maximum_observation_age_ns": 1000000000
+  },
+  "interpretation": "All six retained queue windows had low wait and full matching, but observations were stale. This does not establish ongoing live backlog or a governor effect.",
+  "warmup": {
+    "fixture_exit": 0,
+    "capture_observation": {
+      "bytes": 7680000,
+      "expected_bytes": 7680000,
+      "fixture_completed": true,
+      "fixture_stereo_nonzero": true,
+      "fixture_result": {
+        "mode": "four-notes",
+        "completed": "true",
+        "midi_sent": "9",
+        "midi_errors": "0",
+        "xruns": "0",
+        "bad_blocks": "0",
+        "stereo_nonzero": "true"
+      },
+      "limitation": "Nonzero samples and process exit do not establish continuous audio; analyze held-window recording separately."
+    },
+    "counter_delta": {
+      "bridge_processed": 4605,
+      "missing_frames": 696576,
+      "gaps": 1,
+      "midi_accepted": 9,
+      "xruns": 0,
+      "process_failures": 0
+    },
+    "flush_marks_ns": [
+      8529648601897,
+      8534994804917,
+      8539829882475,
+      8545160761433,
+      8549958411046,
+      8554107138462
+    ],
+    "recording": {
+      "frames": 960000,
+      "finite": true,
+      "peak": 4.857934982283041e-06,
+      "held_window_seconds": [
+        3,
+        14
+      ],
+      "held_stereo_zero_frames": 528000
+    }
+  },
+  "session": {
+    "ready_seconds": 31.074758707,
+    "elapsed_seconds": 99.64047450900034,
+    "clean_shutdown": true,
+    "exit_code": 0
+  },
+  "guard_final": {
+    "phase": "restored",
+    "original_governor": "ondemand",
+    "original_schedstats": "0",
+    "timeout_seconds": 900,
+    "transition_count": 0,
+    "governor": "ondemand",
+    "schedstats": "0",
+    "stop_reason": "error: Unexpected phase command; stopping and restoring",
+    "restoration_errors": [],
+    "exit_code": 2
+  },
+  "restored_identity": {
+    "name": "8-Bit Crystals",
+    "bank": "Factory"
+  },
+  "restored_master": 0.48033079504966736,
+  "graph_restored": true,
+  "temperature_peak_c": 52.35,
+  "throttled_flags": [
+    0
+  ],
+  "measurement_availability": {
+    "governor_comparison": "Unavailable; performance and second ondemand conditions were not run",
+    "measured_note_active_vendor_wall_cpu_wait": "Unavailable; no measured hold admitted",
+    "raw_warmup_thread_cpu_scheduler_wait_frequency": "Retained privately; not treated as a warmed measurement",
+    "energy": "Not measured",
+    "detailed_windows_caller_cpu_and_fex_internal_stats": "Not collected"
+  },
+  "next_action_recommendation": "Coordinator review of a tiny control-plane recorder buffering change and focused overhead check before further governor trials; use existing live counters for drain rather than trace-file delivery freshness. No product change authorized or made in this attempt.",
+  "warmup_phase_analysis": {
+    "scope": "First ondemand warmup only; not a warmed measured condition or governor comparison",
+    "published": 3750,
+    "completed": 3750,
+    "phase_drops": [],
+    "windows": {
+      "idle": {
+        "coverage": {
+          "nominal_blocks": 188,
+          "boundary_tolerance_blocks": 2,
+          "position_span_expected_blocks": 188,
+          "retained_published_blocks": 188,
+          "matched_completed_blocks": 188,
+          "missing_positions_inside_span": 0,
+          "complete": true
+        },
+        "vendor_ms": {
+          "count": 188,
+          "mean": 2.761741489361702,
+          "p50": 2.633,
+          "p95": 3.1699,
+          "p99": 3.2803,
+          "maximum": 3.311
+        },
+        "service_ms": {
+          "count": 188,
+          "mean": 2.9043494468085105,
+          "p50": 2.783197,
+          "p95": 3.342086,
+          "p99": 3.480016,
+          "maximum": 3.511591
+        },
+        "queue_ms": {
+          "count": 188,
+          "mean": 1.5344446382978723,
+          "p50": 0.102559,
+          "p95": 3.362142,
+          "p99": 3.494183,
+          "maximum": 3.589445
+        },
+        "slow_vendor_blocks": 0,
+        "slow_service_blocks": 0,
+        "completed_frames": 48128,
+        "cpu": {
+          "start_ns": 8530090546290,
+          "end_ns": 8531088958559,
+          "wall_seconds": 0.998412269,
+          "cohort_cpu_seconds": 0.7291831726499721,
+          "cohort_cpu_seconds_per_rendered_second": 0.727243855701435,
+          "cohort_one_core_percent": 73.03427604914299,
+          "whole_pi_cpu_percent": 30.48910681061215,
+          "sampled_arm_hz": {
+            "count": 2,
+            "mean": 2400030464,
+            "p50": 2400030464,
+            "p95": 2400030464,
+            "p99": 2400030464,
+            "maximum": 2400030464
+          },
+          "temperature_c": {
+            "count": 2,
+            "mean": 49.325,
+            "p50": 49.05,
+            "p95": 49.05,
+            "p99": 49.05,
+            "maximum": 49.6
+          },
+          "throttled_flags": [
+            0
+          ],
+          "surviving_threads_by_cpu": [
+            {
+              "name": "lvb-audio",
+              "cpu_seconds": 0.5533887261961608,
+              "one_core_percent": 55.42687558822064,
+              "scheduler_wait_seconds": 0.001889320476648435
+            },
+            {
+              "name": "ArturiaSoftware",
+              "cpu_seconds": 0.10520636988416547,
+              "one_core_percent": 10.537367493444279,
+              "scheduler_wait_seconds": 0.0007167679080629685
+            },
+            {
+              "name": "wf0-factory-pro",
+              "cpu_seconds": 0.02020834217155075,
+              "one_core_percent": 2.0240478606889747,
+              "scheduler_wait_seconds": 0.005435172744228453
+            },
+            {
+              "name": "winedevice.exe",
+              "cpu_seconds": 0.014179885413337767,
+              "one_core_percent": 1.4202435059757632,
+              "scheduler_wait_seconds": 0.0023309008980491163
+            },
+            {
+              "name": "wf0-factory-pro",
+              "cpu_seconds": 0.00996678973960109,
+              "one_core_percent": 0.9982639485774478,
+              "scheduler_wait_seconds": 0.005137340706672944
+            },
+            {
+              "name": "wineserver",
+              "cpu_seconds": 0.0053410367087563275,
+              "one_core_percent": 0.5349530323887003,
+              "scheduler_wait_seconds": 0.002534607675145045
+            },
+            {
+              "name": "wf0-factory-pro",
+              "cpu_seconds": 0.0030951268162274213,
+              "one_core_percent": 0.3100048859903805,
+              "scheduler_wait_seconds": 5.093200122155249e-06
+            },
+            {
+              "name": "wf0-factory-pro",
+              "cpu_seconds": 0.0026980265822256506,
+              "one_core_percent": 0.27023171349125824,
+              "scheduler_wait_seconds": 0.00013265877715493366
+            }
+          ]
+        }
+      },
+      "note_active": {
+        "coverage": {
+          "nominal_blocks": 1875,
+          "boundary_tolerance_blocks": 2,
+          "position_span_expected_blocks": 1874,
+          "retained_published_blocks": 1874,
+          "matched_completed_blocks": 1874,
+          "missing_positions_inside_span": 0,
+          "complete": true
+        },
+        "vendor_ms": {
+          "count": 1874,
+          "mean": 5.381957203842049,
+          "p50": 5.1801,
+          "p95": 6.5274,
+          "p99": 7.2919,
+          "maximum": 8.481
+        },
+        "service_ms": {
+          "count": 1874,
+          "mean": 5.54396210298826,
+          "p50": 5.357997,
+          "p95": 6.721004,
+          "p99": 7.494675,
+          "maximum": 9.018349
+        },
+        "queue_ms": {
+          "count": 1874,
+          "mean": 379.1582434188901,
+          "p50": 362.810157,
+          "p95": 572.891537,
+          "p99": 575.827647,
+          "maximum": 576.961548
+        },
+        "slow_vendor_blocks": 849,
+        "slow_service_blocks": 951,
+        "completed_frames": 479744,
+        "cpu": {
+          "start_ns": 8532902400388,
+          "end_ns": 8543317766788,
+          "wall_seconds": 10.4153664,
+          "cohort_cpu_seconds": 19.01071148127788,
+          "cohort_cpu_seconds_per_rendered_second": 1.9020855937778027,
+          "cohort_one_core_percent": 182.52561408956174,
+          "whole_pi_cpu_percent": 52.42274351816437,
+          "sampled_arm_hz": {
+            "count": 19,
+            "mean": 2400030464,
+            "p50": 2400030464,
+            "p95": 2400037120,
+            "p99": 2400037120,
+            "maximum": 2400037120
+          },
+          "temperature_c": {
+            "count": 19,
+            "mean": 50.23684210526316,
+            "p50": 50.15,
+            "p95": 51.25,
+            "p99": 51.25,
+            "maximum": 51.25
+          },
+          "throttled_flags": [
+            0
+          ],
+          "surviving_threads_by_cpu": [
+            {
+              "name": "lvb-audio",
+              "cpu_seconds": 10.166903072139643,
+              "one_core_percent": 97.61445427536417,
+              "scheduler_wait_seconds": 0.048626320785265076
+            },
+            {
+              "name": "Processing Thre",
+              "cpu_seconds": 4.804114907008492,
+              "one_core_percent": 46.12526072062612,
+              "scheduler_wait_seconds": 0.20435567831931636
+            },
+            {
+              "name": "ArturiaSoftware",
+              "cpu_seconds": 2.4467164804778405,
+              "one_core_percent": 23.49141054200302,
+              "scheduler_wait_seconds": 0.043595798651805545
+            },
+            {
+              "name": "wf0-factory-pro",
+              "cpu_seconds": 0.40047994966246603,
+              "one_core_percent": 3.845087482111681,
+              "scheduler_wait_seconds": 0.19407766284058584
+            },
+            {
+              "name": "wf0-factory-pro",
+              "cpu_seconds": 0.300942872,
+              "one_core_percent": 2.889412243816982,
+              "scheduler_wait_seconds": 0.001653443
+            },
+            {
+              "name": "winedevice.exe",
+              "cpu_seconds": 0.2163732612168861,
+              "one_core_percent": 2.0774426257043257,
+              "scheduler_wait_seconds": 0.0915703685758278
+            },
+            {
+              "name": "wine_threadpool",
+              "cpu_seconds": 0.15043838325249895,
+              "one_core_percent": 1.4443887759195773,
+              "scheduler_wait_seconds": 0.006851799
+            },
+            {
+              "name": "wf0-factory-pro",
+              "cpu_seconds": 0.14538571720028143,
+              "one_core_percent": 1.3958771263225214,
+              "scheduler_wait_seconds": 0.08291208471144254
+            }
+          ]
+        }
+      },
+      "release": {
+        "coverage": {
+          "nominal_blocks": 375,
+          "boundary_tolerance_blocks": 2,
+          "position_span_expected_blocks": 374,
+          "retained_published_blocks": 374,
+          "matched_completed_blocks": 374,
+          "missing_positions_inside_span": 0,
+          "complete": true
+        },
+        "vendor_ms": {
+          "count": 374,
+          "mean": 2.9616877005347595,
+          "p50": 2.7482,
+          "p95": 3.3218,
+          "p99": 5.0633,
+          "maximum": 6.1598
+        },
+        "service_ms": {
+          "count": 374,
+          "mean": 3.099337807486631,
+          "p50": 2.89455,
+          "p95": 3.480864,
+          "p99": 5.223731,
+          "maximum": 6.351433
+        },
+        "queue_ms": {
+          "count": 374,
+          "mean": 278.6020219171123,
+          "p50": 262.093978,
+          "p95": 646.250073,
+          "p99": 666.003211,
+          "maximum": 667.594349
+        },
+        "slow_vendor_blocks": 4,
+        "slow_service_blocks": 4,
+        "completed_frames": 95744,
+        "cpu": {
+          "start_ns": 8545450588748,
+          "end_ns": 8546779802640,
+          "wall_seconds": 1.329213892,
+          "cohort_cpu_seconds": 1.289353941789709,
+          "cohort_cpu_seconds_per_rendered_second": 0.646400706111151,
+          "cohort_one_core_percent": 97.00123881865876,
+          "whole_pi_cpu_percent": 36.12534293996114,
+          "sampled_arm_hz": {
+            "count": 3,
+            "mean": 2400030464,
+            "p50": 2400033792,
+            "p95": 2400033792,
+            "p99": 2400033792,
+            "maximum": 2400037120
+          },
+          "temperature_c": {
+            "count": 3,
+            "mean": 50.88333333333333,
+            "p50": 51.25,
+            "p95": 51.25,
+            "p99": 51.25,
+            "maximum": 51.25
+          },
+          "throttled_flags": [
+            0
+          ],
+          "surviving_threads_by_cpu": [
+            {
+              "name": "lvb-audio",
+              "cpu_seconds": 1.1240372516004848,
+              "one_core_percent": 84.56406138738166,
+              "scheduler_wait_seconds": 0.0013920612992777228
+            },
+            {
+              "name": "Processing Thre",
+              "cpu_seconds": 0.0760658147645359,
+              "one_core_percent": 5.722616594841901,
+              "scheduler_wait_seconds": 0.00036942781594115494
+            },
+            {
+              "name": "wf0-factory-pro",
+              "cpu_seconds": 0.02409035091007042,
+              "one_core_percent": 1.8123758000921057,
+              "scheduler_wait_seconds": 0.004320357367221415
+            },
+            {
+              "name": "winedevice.exe",
+              "cpu_seconds": 0.020290692028515456,
+              "one_core_percent": 1.5265182037772036,
+              "scheduler_wait_seconds": 0.0011581736030890943
+            },
+            {
+              "name": "wf0-factory-pro",
+              "cpu_seconds": 0.014385910651705624,
+              "one_core_percent": 1.082287112577486,
+              "scheduler_wait_seconds": 0.0023184144123150705
+            },
+            {
+              "name": "wineserver",
+              "cpu_seconds": 0.004958314996758461,
+              "one_core_percent": 0.3730261191671672,
+              "scheduler_wait_seconds": 0.0021909556148999036
+            },
+            {
+              "name": "wf0-factory-pro",
+              "cpu_seconds": 0.003734778378769122,
+              "one_core_percent": 0.28097647799554615,
+              "scheduler_wait_seconds": 0.0005237808982771486
+            },
+            {
+              "name": "ArturiaSoftware",
+              "cpu_seconds": 0.0030364575697574615,
+              "one_core_percent": 0.22844010193037176,
+              "scheduler_wait_seconds": 0.0002187972484625578
+            }
+          ]
+        }
+      }
+    }
+  },
+  "recorder_delivery_study": {
+    "targets": [
+      {
+        "row_offset": 32290630,
+        "observed_ns": 8556281417652,
+        "recorded_ns": 8556281417652,
+        "newest_callback_already_in_prefix_ns": 8556289075081,
+        "group_index": 6,
+        "check_end_ns": 8559826631338
+      },
+      {
+        "row_offset": 37568478,
+        "observed_ns": 8561419992363,
+        "recorded_ns": 8561419992363,
+        "newest_callback_already_in_prefix_ns": 8561419980603,
+        "group_index": 7,
+        "check_end_ns": 8565432248747
+      },
+      {
+        "row_offset": 43285006,
+        "observed_ns": 8566981050225,
+        "recorded_ns": 8566981050225,
+        "newest_callback_already_in_prefix_ns": 8566977580181,
+        "group_index": 8,
+        "check_end_ns": 8571038926606
+      },
+      {
+        "row_offset": 49106024,
+        "observed_ns": 8572641889475,
+        "recorded_ns": 8572641889475,
+        "newest_callback_already_in_prefix_ns": 8572641842584,
+        "group_index": 9,
+        "check_end_ns": 8576651325024
+      },
+      {
+        "row_offset": 54856063,
+        "observed_ns": 8578223732297,
+        "recorded_ns": 8578223732297,
+        "newest_callback_already_in_prefix_ns": 8578242098739,
+        "group_index": 10,
+        "check_end_ns": 8582255708859
+      },
+      {
+        "row_offset": 60604932,
+        "observed_ns": 8583821091892,
+        "recorded_ns": 8583821091892,
+        "newest_callback_already_in_prefix_ns": 8583821028353,
+        "group_index": 11,
+        "check_end_ns": 8587856442343
+      }
+    ],
+    "groups": [
+      {
+        "marker_ns": 8529648546377,
+        "offset": 22258,
+        "worker_first_ns": 8524065620379,
+        "worker_last_ns": 8529645180124,
+        "callback_max_ns": 8529642455835,
+        "records": 13660
+      },
+      {
+        "marker_ns": 8534894553045,
+        "offset": 4967341,
+        "worker_first_ns": 8529653173003,
+        "worker_last_ns": 8534904413942,
+        "callback_max_ns": 8534901424220,
+        "records": 14452
+      },
+      {
+        "marker_ns": 8539731984892,
+        "offset": 10219002,
+        "worker_first_ns": 8534909426522,
+        "worker_last_ns": 8539750268432,
+        "callback_max_ns": 8539744339529,
+        "records": 13042
+      },
+      {
+        "marker_ns": 8545060523261,
+        "offset": 14969557,
+        "worker_first_ns": 8539757014583,
+        "worker_last_ns": 8545059262686,
+        "callback_max_ns": 8545056609384,
+        "records": 14744
+      },
+      {
+        "marker_ns": 8549858207494,
+        "offset": 20343454,
+        "worker_first_ns": 8545064621237,
+        "worker_last_ns": 8549856830582,
+        "callback_max_ns": 8549856803396,
+        "records": 14600
+      },
+      {
+        "marker_ns": 8554107041422,
+        "offset": 25680221,
+        "worker_first_ns": 8549860589713,
+        "worker_last_ns": 8554116864787,
+        "callback_max_ns": 8554112992653,
+        "records": 11977
+      },
+      {
+        "marker_ns": 8559209784184,
+        "offset": 30058775,
+        "worker_first_ns": 8554123744212,
+        "worker_last_ns": 8559222637134,
+        "callback_max_ns": 8559222546668,
+        "records": 14363
+      },
+      {
+        "marker_ns": 8564850950413,
+        "offset": 35309509,
+        "worker_first_ns": 8559225657889,
+        "worker_last_ns": 8564847988456,
+        "callback_max_ns": 8564844159531,
+        "records": 15823
+      },
+      {
+        "marker_ns": 8570456256365,
+        "offset": 41094065,
+        "worker_first_ns": 8564854873767,
+        "worker_last_ns": 8570469361332,
+        "callback_max_ns": 8570465750673,
+        "records": 15810
+      },
+      {
+        "marker_ns": 8576063739483,
+        "offset": 46873805,
+        "worker_first_ns": 8570476450924,
+        "worker_last_ns": 8576079649933,
+        "callback_max_ns": 8576076668145,
+        "records": 15774
+      },
+      {
+        "marker_ns": 8581676257142,
+        "offset": 52640352,
+        "worker_first_ns": 8576087359373,
+        "worker_last_ns": 8581690595839,
+        "callback_max_ns": 8581687596125,
+        "records": 15780
+      },
+      {
+        "marker_ns": 8587279805117,
+        "offset": 58412358,
+        "worker_first_ns": 8581698262461,
+        "worker_last_ns": 8589704263210,
+        "callback_max_ns": 8589677297191,
+        "records": 20275
+      }
+    ]
+  },
+  "recorder_delivery_finding": "Reader sampled partially emitted flush history. Selected request-observed timestamps equal recorded timestamps. Same flush later contains worker observations close to marker time. Mark acknowledgment means enqueue, not flush completion. Unbuffered formatted writes are source-visible; syscall count and measured write CPU/storage cost are unavailable.",
+  "existing_status_outstanding_frame_estimates": {
+    "formula": "callbacks*512-paused_frames-bridge_processed*256; approximate due to separate live reads, fixed quantum and no failures required",
+    "before_warmup": 512,
+    "after_warmup": 256
+  }
+}

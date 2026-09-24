@@ -1189,3 +1189,61 @@ work outside vendor calls; detailed caller CPU remains unavailable. The
 recorder's formatting and disk synchronization are observer costs. Thirteen
 focused tests passed, including nine reader/reducer tests on the Pi. Retry is
 pending coordinator review and renewed operator authentication.
+
+### Governor attempt 02: recorder delivery prevented admission
+
+The reviewed retry completed one ondemand warm-up, then refused all six drain
+checks because retained worker observations were 3.55–4.06 seconds old. Every
+check nevertheless had 188 matched blocks, zero unmatched requests and only
+3.59–3.67 ms maximum queue wait. This is not evidence of persistent live
+backlog. No measured hold, performance condition or second ondemand condition
+ran. The 99.64-second session restored 8-Bit Crystals, master
+0.48033079504966736 and the baseline JACK graph. The guard restored ondemand
+and scheduler statistics 0, removed its request FIFO and returned cancellation
+exit 2. Peak temperature was 52.35 C with no throttle flags.
+
+Offline inspection of attempt 02 locates the freshness failure inside a
+partially emitted flush. For example, at byte 32,290,630 the selected worker
+record was 2.928 seconds older than its preceding marker; the same flush later
+contains a worker record only 12.85 ms after that marker. Other checks likewise
+sampled older rows partway through a flush containing current records.
+`worker_request_observed` uses raw monotonic time, equal to `recorded_ns`; it
+does not use converted worker-call timestamps. Converted process timestamps
+remain correctly written by the phase writer. Mark acknowledgment means queued,
+not flushed. Callback and worker rings drain in batches, and history is emitted
+in insertion order. No flush-completion timestamp exists in this record.
+
+The recorder formats JSON directly into unbuffered `File` with `writeln!`, then
+syncs after the batch. Multiple formatting writes and serialized batch emission
+are source-visible mechanisms; actual syscall count and time spent writing,
+waiting for storage or being descheduled were not measured. The retained data
+proves incomplete delivery at the reader, not the exclusive cause of its cost.
+Existing live status already exposes callback count, paused frames and completed
+blocks. With this fixed 512/256 quantum and zero failures,
+`callbacks*512 - paused_frames - bridge_processed*256` approximates outstanding
+frames, subject to separately sampled counters. It was 512 before warm-up and
+256 afterward. The atomic native `ap12.status` lane also exposes current epoch,
+request position/stage/time and sampled submitted-frame totals. Neither the
+printed queue high-water mark nor the single delivery-mailbox slot is current
+native queue depth.
+
+Useful warm-up measurements survive this observer failure. All 3,750 published
+blocks in the 20-second stimulus matched completions with no reported phase
+drops. Conservative queued seconds 3–13 contained 1,874 contiguous completed
+blocks (479,744 frames). Vendor wall mean/p95 were 5.382/6.527 ms; total service
+mean/p95 were 5.544/6.721 ms against the 5.333 ms quantum. Respectively 849 and
+951 blocks exceeded that quantum. Across the cohort's actual 10.415-second
+execution span, the audio worker used 10.167 CPU seconds and accumulated 0.0486
+seconds of scheduler wait. Windows-cohort CPU was 19.011 seconds, approximately
+1.902 CPU seconds per rendered second. Nineteen active-span frequency samples
+were approximately 2.400 GHz. These interpolated CPU spans include runtime work
+outside vendor calls; they are not pure DSP or energy measurements. The
+recording was finite but exactly silent throughout held seconds 3–14, despite
+fixture exit zero and nine accepted MIDI events.
+
+The CPU-efficiency objective remains unachieved. Recommended next scope is a
+small control-plane recorder buffering change with explicit flush before sync
+and an overhead check, while using existing live status for drain. This would
+address the observer confound before another governor comparison. No recorder
+or product binary was changed, and no third authentication was requested.
+See `evidence/rpi2/pigments-governor-attempt-02.json` for retained findings.
