@@ -77,6 +77,7 @@ fn session_projection(
         .into_iter().flat_map(|status|status.owners.iter())
         .filter(|owner| owner.kind == capacity::Kind::Dsp)
         .map(|owner| json!({
+            "session":owner.session,
             "class_id":owner.class_id,
             "state":if capacity.is_some_and(|status|status.cleanup_unconfirmed){
                 "cleanup_unconfirmed"
@@ -90,6 +91,7 @@ fn session_projection(
         }))
         .collect();
     rows.extend(summaries.into_iter().map(|summary|json!({
+        "session":summary.session,
         "class_id":summary.class_id,
         "state":"failed",
         "terminal":summary.terminal,
@@ -2841,9 +2843,37 @@ mod tests {
             transport_retired:true,observed_at:1,
         }]);
         assert_eq!(rows,vec![json!({
+            "session":"ab".repeat(16),
             "class_id":class,"state":"failed","terminal":"windows_host_exited",
             "recent":true,"cleanup_confirmed":true,"transport_retired":true,
             "observed_at":1,
+        })]);
+    }
+    #[test]
+    fn live_session_projection_retains_exact_read_only_identity() {
+        let session = "cd".repeat(16);
+        let class = "01".repeat(16);
+        let capacity = CapacityReadback {
+            schema: 1,
+            dsp: 1,
+            maintenance: 0,
+            keepers: 0,
+            cleanup_unconfirmed: false,
+            owners: vec![capacity::Owner {
+                session: session.clone(),
+                class_id: class.clone(),
+                kind: capacity::Kind::Dsp,
+                terminal: None,
+            }],
+            limits: CapacityLimits { global_dsp: 6 },
+        };
+        let rows = session_projection(Some(&capacity), vec![]);
+        assert_eq!(rows, vec![json!({
+            "session": session,
+            "class_id": class,
+            "state": "active",
+            "terminal": null,
+            "recent": false,
         })]);
     }
     #[test]

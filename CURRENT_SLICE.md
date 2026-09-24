@@ -1,92 +1,83 @@
 # Current work selection
 
-Canonical base: `9f37338140a61e838e83d757628b6cb914b83bb5`, tree
-`3bb22f1d9971c97f01dc65a8227f1a7d7f727f54`. This normal merge of the
-WD0 architecture PR includes the accepted Serum candidate-D authority. It records
-the operator's parallel product direction selected on 2026-09-24. It does not
-supersede another agent's branch-local task or grant ownership of its checkout
-or live experiment.
+Canonical source base: main merge commit
+`8bb191b28eedee8aabf058b06706860c9fc64933`, tree
+`39ec5f35f706ea285707ac6ebb5b26b23e505fa7`. The WD0 branch
+`codex/wd0-fl-studio-workspace` integrates that main by a normal merge in
+PR [#163](https://github.com/kasselvania/Linux-VST-bridge/pull/163). The
+native Linux DAW bridge remains the primary release-driving product.
 
-## Native-Linux product: current sequence
+## Completed native manager slice — UI0
 
-The native-Linux DAW bridge remains the first release-driving product. Serum 2
-candidate D and the shared per-window X11 touch route are now merged and
-physically accepted for the exact Deck waveform-popup interaction. Current
-support and remaining shared failures are maintained in
-[docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md) and
-[docs/FAILURE_CLASSES.md](docs/FAILURE_CLASSES.md).
+UI0 [#160](https://github.com/kasselvania/Linux-VST-bridge/issues/160) is
+merged and physically accepted on the Steam Deck. The installed immutable
+manager/frontend generation is
+`29e52e7537c2e150a68db7f66799621a94d39b7aac7b20e22aded0d03a28facf`;
+its sanitized [Deck result](evidence/ui0/deck-acceptance-2026-09-24.md) records
+ordinary and narrow navigation, one Serum 2 session, manager close/reopen,
+continued Bitwig audio and clean retirement. The previous manager/frontend
+generation remains a rollback target. Home, Plug-ins, Workspaces, Activity,
+Setup and Diagnostics, including `ActivityCertainty` and exact session routing,
+are accepted source and installed behavior. WD0 must preserve them.
 
-The selected near-term sequence is:
+The six selected native publications, Serum candidate D,
+`x11_touch_routing_v2`, required exact Windows host/source pairs and runner
+policies remain current product state. WD0 workspace work does not alter the
+native bridge service, publication, proxy, capacity or audio path.
 
-1. the operator uses the current six-product Deck fleet in Desktop Mode and
-   records only useful real-use failures or friction;
-2. a focused manager-frontend product-design slice improves product readiness,
-   live-session, incident and recovery presentation without inventing new
-   backend authority;
-3. after that Desktop-mode soak, GM0 validates one known-good Serum instance
-   through the Desktop-to-Gaming-Mode graphical/audio/session transition.
+## Active Deck-mutating slice — WD0
 
-These are product-development steps, not instructions to replay the historical
-qualification campaigns.
+WD0 [#158](https://github.com/kasselvania/Linux-VST-bridge/issues/158)
+implements a managed FL Studio workspace under
+[docs/WD0.md](docs/WD0.md),
+[docs/WINDOWS_DAW_WORKSPACES.md](docs/WINDOWS_DAW_WORKSPACES.md),
+[docs/WORKSTREAMS.md](docs/WORKSTREAMS.md), `AGENTS.md` and
+`docs/ARCHITECTURE.md`. Its connected outcome remains a normal managed FL
+install, launch, stock-project playback/export, clean relaunch and licensed
+recall where the vendor permits. Source and installed results stay separate.
 
-## Parallel Windows-DAW outcome
+The active WD0 correction is a lifecycle bug: a durable workspace currently
+retains its first installation operation after clean uninstall and then
+refuses every later install. **Workspace lifetime is not installation
+lifetime.** The primary claim of this correction is that the manager can
+select an exact admitted FL installer and install again in the same workspace
+after clean uninstall, retaining every earlier install/uninstall operation and
+its evidence. Same-version reinstall and controlled version change must both
+work. The current installed application, selected installer, active operations
+and append-only history must remain distinct facts.
 
-The selected Windows-DAW implementation is
-[WD0 — managed FL Studio stock-project workflow](docs/WD0.md), governed by
-[docs/WINDOWS_DAW_WORKSPACES.md](docs/WINDOWS_DAW_WORKSPACES.md). It proceeds in
-parallel with the native bridge and the separately owned ARM appliance.
-Coordination and integration rules are in
-[docs/WORKSTREAMS.md](docs/WORKSTREAMS.md).
+The exact physical fixture is the existing manager-owned FL workspace on the
+Steam Deck: schema-1 state, cleanly `Uninstalled`, prior install and uninstall
+evidence retained, with its mutable prefix, projects, preferences, exports,
+account state and selected runtime preserved. This workspace is not reset or
+recreated. Before source rereview and explicit Deck custody confirmation, only
+source work, tests and read-only inventory are permitted; do not execute an FL
+installer or mutate the live workspace.
 
-WD0 must deliver a real managed install, normal launch, stock-project playback,
-export, clean relaunch and licensed project recall in a new FL workspace. It is
-not a Linux VST proxy path and not a generic Windows-program launcher.
+In scope: `bridge-manager` workspace state/CLI, deterministic fail-closed
+schema-1 migration, closed installer selection from canonical custody,
+repeatable install/uninstall history, truthful status, and only the minimal
+canonical manager-UI Workspaces projection needed to show manager-offered
+actions. Focused regression tests and WD0 documentation are in scope. No
+arbitrary path, executable, PID, process name, environment, arguments or
+external-install adoption is admitted. No in-place auto-upgrade or destructive
+fresh-prefix reset is added.
 
-The active WD0 implementation branch is `codex/wd0-fl-studio-workspace`. Source
-and Deck execution now have the operator's explicit physical handoff. The
-official FL installer was imported into a fresh private workspace and completed
-its visible UI, while its outer worker returned nonzero; the installed x64 FL
-application was verified separately. Its first managed launch stopped at FL's
-program-validity dialog. An isolated, immutable FL-only Wine `crypt32` successor
-is being selected to correct that exact signature-verification boundary. This
-does not change the installed native bridge, Serum or the other five products.
-A source build or successful unlicensed runner smoke is not WD0 acceptance;
-audible stock playback, project save/export, clean relaunch and licensed recall
-remain the connected completion gate.
+Source acceptance requires same-version reinstall, installer-B version change,
+active-operation and cleanup refusal, retired-failure retry, exact schema-1
+migration, no history erasure, no unmanaged executable adoption and native
+catalogue/publication isolation. Run the full manager suite, binary and runtime
+tests, strict manager Clippy, relevant frontend tests/Clippy, AP12, PX2, package
+tests and `git diff --check`. Negative acceptance: no duplicate or overwritten
+operation; no uncertain old attempt treated as clean; no workspace, prefix or
+user-root replacement; no native bridge change. Do not repeat Serum touch,
+AP17, Ubuntu, Game Mode, plug-in scan or FL audio qualification for this
+state-model source change.
 
-The exact operator-supplied FL Studio 26.1.6 installer was fingerprinted and
-imported without modifying the original download. Installer bytes, account
-state, license material and private projects never enter Git.
-
-## Shared Deck ownership
-
-Source work and isolated builds may proceed concurrently. Only one task custodian
-may mutate or physically exercise the Deck at a time. Installing software,
-replacing the manager/service, changing a runner or environment, changing audio
-or Steam launch settings, and running a physical acceptance session require an
-explicit handoff from the current custodian.
-
-The FL agent may complete source, tests, installer admission and private workspace
-preparation while the operator uses Bitwig. It must not replace the installed
-manager generation, stop another task's session or execute the FL installer until
-it receives the physical-work window.
-
-Every common product package must preserve the now-canonical
-`x11_touch_routing_v2` policy, Serum candidate-D authority, all required exact
-Windows host/source pairs and the other five selected publications.
-
-## Current implementation boundary
-
-The WD0 branch adds a typed FL workspace beside the native DSP lane, with
-separate package and process ownership. The FL-only crypt32 correction retains
-signature verification and changes no native-bridge catalogue, publication,
-capacity or audio path. FL Studio remains unqualified until the actual stock
-musical workflow and retirement gates pass.
-
-## Retained completed slice
-
-The completed Serum touchscreen slice remains available at the exact pre-WD0
-main pointer and in
-[evidence/serum-x11-touch-routing](evidence/serum-x11-touch-routing/). Its
-accepted result is current product authority; it is not an instruction to rerun
-Serum before WD0 or GM0.
+After source rereview and custody confirmation, physical acceptance uses that
+existing clean-uninstalled workspace: preserve prestate, choose the exact new
+admitted installer/release, install through the manager, prove the new operation
+and executable/version while retaining the same workspace and all old history,
+launch through the normal route, then quit cleanly. A basic stock audio check
+belongs only to the existing WD0 workflow when it is ready. The lifecycle
+correction does not by itself qualify FL Studio in `docs/SUPPORT_MATRIX.md`.
