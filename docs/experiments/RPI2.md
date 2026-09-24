@@ -1563,9 +1563,9 @@ Default builds and the installed original binaries retain their previous layout.
 | Bridge work per call | Native phase tracing OFF removed its recorder but did not materially reduce sustained vendor CPU. Examine copies, validation, wakeups, allocation, logging and release-build work if larger blocks help. | Measure which side consumes time before optimizing it. |
 | Scheduling and CPU placement | The controlled-frequency profile found 8.976 s caller CPU with 0.011 s runnable wait, plus 4.210 s worker CPU with 0.015 s wait in the aligned post-attack interval. | Runnable wait is too small to explain sustained cost in this capture; blind affinity can take cores away from plug-in workers. |
 | Governor, cooling and power | Current peaks were 51.25 / 51.25 / 54.0°C with no flags. A 1.9 GHz sample overlapped the 512 gap; the final 256 failure sampled full clock. Earlier governor comparison was not completed. | Thermal failure is not established here; sustained energy/thermal work remains separate. |
-| Pigments multicore | Preference OFF was readable at startup; unchanged full state restored ON. A plugin processing worker is active. | Need valid control after state restore before a same-state comparison. |
-| FEX translation and cache | Existing counters showed no compile attempts at the earlier cutoff. The new profile identifies counted scalar floating-point loops in Pigments' translated code. A future targeted generated-ARM/codegen inspection could test whether translation adds avoidable cost there. | Map overlap prevents exact guest-instruction attribution; no blind flags, ISA changes or weakened memory ordering. |
-| Wine/Proton synchronization | Native Wine/FEX and host labels occupy a small share of sampled user cycles in the measured repeat; the inspected caller hot loop is arithmetic, with little runnable wait. The worker used 1.65 s system CPU in the aligned interval without kernel stacks. | No current evidence supports fsync/ntsync or priority tuning for the caller; worker kernel work remains unclassified. |
+| Pigments multicore | Preference OFF was readable at startup; unchanged full state restored ON. A plugin processing worker is active. The later kernel profile found worker yield-path cost. | Valid control after state restore is still required before a same-state ON/OFF comparison. That comparison is now a motivated lever, not an established cure; do not edit proprietary state manually. |
+| FEX translation and cache | The exact captured caller JIT block implements scalar floating-point arithmetic with repeated upper-lane preservation. One unchanged block carried 18.64% of sampled caller user-cycle period in the aligned short progress bracket. | Sparse RIP entries and sample skid prevent instruction-level cost or a proven codegen win. Do not alter FP/TSO semantics or force unsupported ISA features. |
+| Wine/Proton synchronization | The worker's sampled kernel cycles include getrusage (32.67%), sched_yield (27.24%) and futex wait (7.13%). The pinned Wine `NtYieldExecution` source and installed binary call getrusage around sched_yield to determine its return status, strongly explaining the first two classes. | Guest caller/frequency and a semantics-preserving replacement are unproven; the sampled share is not a reclaimable percentage. Futex cost alone does not justify fsync/ntsync or priority tuning. |
 | Backlog recovery | Long silence can outlast a transient slowdown; near-drained admission did not guarantee the repeated hold. | Epoch/resynchronization must preserve notes/state and cannot create compute capacity. |
 | Editor, graphics and companion processes | GPU rendering has been observed; a separate Arturia-named process used more CPU in the failed repeat. Account for processes separately. | No GUI campaign or stopping/patching authorization services in this test. |
 | Controller, preset and state lifecycle | Full state includes settings that override startup preferences. Headless navigation and recall need their own correct lifecycle. | Visible editor or audible startup does not prove these semantics. |
@@ -1743,3 +1743,83 @@ runner, quality or preset now. No further live comparison was made.
 Sanitized attribution and exact observation brackets are in
 [`pigments-critical-profile.json`](../../evidence/rpi2/pigments-critical-profile.json);
 licensed binary, disassembly, raw maps, perf data, audio and state stay private.
+
+## Remaining worker kernel cost and emitted ARM (bounded follow-on)
+
+This follow-on used the same pinned quantum-256 native and Windows pair,
+Pigments 7.0.1.6772 / 24 AM Poly 4 / master 0.35, automated four-note chord,
+48 kHz, JACK 512 and reserve 2048. The first owned startup used an old
+configuration that selected a 256-capacity Windows scanner against the
+512-capacity native AP1 mapping. It failed at the exact backing-file-size
+check before READY or notes. That failed session is retained privately. The
+corrected configuration was hash-pinned to the prior successful run; the
+temporary governor and scheduler-statistics settings, preference bytes, master
+and original state were restored, with no owned graph ports or processes left.
+
+The corrected warmup completed, but lost **650,240 frames / 2 gaps** without
+perf active. The measured four-note capture was stopped after one live-audio
+statistics request hit the native callback-side nonblocking guard and returned
+unavailable (code 3), at the last retained graph-relative snapshot
++12.085 s; it added **265,728 missing frames / 2 gaps**. This is a **partial
+diagnostic, not a clean 20-second comparison or a speedup result**. In the
+short, loss-free measured bracket +4.258–6.130 s, 89,856 frames / 351 vendor
+calls completed in 1.872 s. The caller used 1.763 CPU s (5.022 ms per
+completed 256-frame call) and the Pigments processing worker used 0.827 CPU s
+(2.356 ms/call), including about 0.31 s of system ticks. Each thread had
+about 0.002 s runnable wait. Status was read roughly 0.1 s after each CPU
+snapshot, so the frame denominator is bracketed, not instantaneous. This
+short bracket resembles the prior per-completed-call cost, while the
+substantial losses preclude treating it as an unperturbed baseline.
+
+An owned `cycles:k` / frame-pointer-stack sampler captured 129 worker kernel
+samples at 49 Hz during the partial measurement. By cycle-period weight,
+32.67% of sampled kernel cycles had a `getrusage` stack, 27.24% a
+`sched_yield` stack, 7.13% a futex-wait stack, and 32.44% were not safely
+classifiable; one FP-state sample accounted for 0.51%. In the same short
+progress bracket as the CPU/frame figures, 42 samples put 42.25% in
+`getrusage` and 24.86% in `sched_yield`; the rest were unclassified. Sampling
+uncertainty and incomplete unwinds limit exact fractions. These are **kernel
+cycles**, not blocked duration. A futex wait may sleep, while runnable wait
+only measures waiting for CPU.
+
+The referenced Proton 11 Wine implementation of
+[`NtYieldExecution`](https://github.com/ValveSoftware/wine/blob/proton_11.0/dlls/ntdll/unix/sync.c#L2243)
+calls `getrusage(RUSAGE_THREAD)`, `sched_yield()`, then `getrusage` again and
+compares context-switch counts to preserve its return status. Read-only
+inspection of the exact installed `ntdll.so` (SHA-256
+`6ba770ec0df52311b760a0866226a83c177f67227598f990942382cad42b4bc3`)
+verified that call sequence.
+This is a strong mechanism for the two dominant syscall classes; retained
+stacks end at Wine's syscall dispatcher and do not directly show the
+intermediate `NtYieldExecution` frame or its guest caller. The futex stacks
+reach Wine's alert/address-wait path. They do not justify an fsync/ntsync
+toggle or a conclusion about all synchronization cost.
+
+Three bounded, pre/post-hashed JIT reads resolved to **two distinct FEX blocks**
+with guest entry RVA `0x735530` and exact 3,360-byte extents (2,996 emitted
+ARM code bytes after the header); only one block
+received measured user samples. All selected block bytes were unchanged
+across the sample window. That block accounted for 18.64% of weighted caller
+user cycles in the aligned progress bracket (91 samples), and 19.26% in the
+broader available +2–12 s portion. A separate overlapping-map calculation
+places 40.70% of the latter window where all candidate RVAs belong to the
+three-RVA arithmetic family; it cannot establish exact code-byte coverage.
+Private ARM disassembly of the sampled block showed repeated scalar FP
+arithmetic followed by upper-lane-preserving inserts and vector moves,
+consistent with the pinned FEX scalar-SSE fallback when AFP is absent. Sparse
+RIP entries and sampling skid do not give instruction-level cost, and the
+licensed guest instructions or emitted ARM bytes are not published.
+
+The next specific runtime question is why this worker invokes the Wine yield
+path so often and whether an implementation can preserve
+`NtYieldExecution`'s observed context-switch return semantics with less cost.
+The previously uncompleted Pigments multicore ON/OFF comparison is also a
+motivated, conditional lever, but it requires valid control and readback after
+full-state restoration; these stacks do not establish that ON or OFF is faster.
+The captured ARM sequence likewise identifies a codegen cost class, but no
+safe switch or proven alternative removes its upper-lane work. There is no
+justified bridge change or diagnostics-disabled before/after gain in this
+slice. The sanitized figures and their failed/partial status are retained in
+[`pigments-remaining-kernel-codegen.json`](../../evidence/rpi2/pigments-remaining-kernel-codegen.json);
+kernel IPs, raw stacks, JIT bytes, disassembly, vendor binaries, audio and
+state remain private.
