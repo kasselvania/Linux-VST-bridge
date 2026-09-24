@@ -1470,3 +1470,81 @@ lever is a separate bounded check of the pinned FEX runtime's existing shared
 statistics during an owned workload, to distinguish translation/cache/fallback
 work from other processing costs. No FEX cause is inferred here. Sanitized result:
 `evidence/rpi2/pigments-multicore-mechanism.json`.
+
+### Existing FEX counters constrain the first-note compilation hypothesis
+
+One unchanged headless session used the existing 85780f... candidate with native
+phase tracing OFF. A bounded reader found a 4,096-byte version-2 ARM64EC shared
+statistics file for the exact loaded Pigments process, reporting
+`FEX-2609-41-g82510eb`. It was accessible in the host mount namespace and did not
+require a PID-namespace translation. No feature flag, runtime or binary changed.
+The source-defined header is 64 bytes and each linked slot 112 bytes. File names
+use Linux PID; slot IDs are Windows thread IDs. No Linux/Windows TID guess was
+used. Paired reads checked topology and counter resets; one pre-stimulus interval
+lost three slots and was excluded from stable-interval attribution.
+
+Timing fields use CNTVCT reference ticks. Current boot reports the ARM timer at
+54.00 MHz and `arch_sys_counter`; raw ticks remain primary and derived seconds
+use that reported frequency. JIT-path elapsed time includes lookup, locking and
+compilation, not just compile CPU. JIT count measures compile attempts; L1 cache
+misses can hit later caches and do not mean retranslation. Lock timers measure
+acquisition, and overlapping timers are not summed into exclusive CPU budgets.
+
+The first and repeated 20-second captures both failed audibly relevant continuity
+checks, without an operator listening claim:
+
+| Observation | First hold | Repeated hold |
+| --- | ---: | ---: |
+| Wider status missing frames / gaps | 363,520 / 16 | 630,528 / 3 |
+| Exact-zero frames in held 2–14 s | 366,080 | 557,312 |
+| Exact-zero frames in stable 3–14 s | 318,080 | 528,000 |
+| Windows cohort CPU in held 2–14 s, one core | 149.11% | 173.33% |
+| Observed Pigments-process CPU, surviving threads | 147.15% | 153.15% |
+| Separate Arturia-named process CPU, surviving threads | 0.12% | 17.46% |
+| Compile attempts in stable intervals touching held window | 367 | 1,056 |
+| Aggregate JIT-path elapsed in those intervals | 0.1424 s | 0.1658 s |
+
+Touching intervals include activity beyond the requested window edges; fully
+contained intervals and the entire sparse timeline are retained separately.
+These are process-level counters, not per-audio-thread attribution. First-hold
+output begins at capture second 9.5467, then has fifteen short zero runs. The
+repeat has one short zero run at 2.384 s and a long exact-zero run from 2.3947
+through 15.520 s, followed by another short run. Both recordings were finite;
+peaks were 0.03359 and 0.04861. All nine MIDI events per capture were accepted;
+processing faults, callback deadline misses and JACK xruns remained zero.
+
+There were **zero compile attempts in every sparse interval overlapping the
+repeat's 2–3 s attack**, despite the cutoff in that interval. Its major later
+burst was 856 attempts and 122.54 ms of aggregate JIT-path elapsed in graph-relative
+seconds 5.277–5.801. A first-note compilation explanation therefore does not fit
+the immediate repeated cutoff. Graph-ready stdout arrival only approximates the
+capture clock, and counter increments cannot be assigned exact callback times;
+the several-second separation is retained without asserting a sole cause.
+
+The measured pass was admitted after outstanding-frame estimates 0, 512 and 256,
+with about 100 ms status response times. Active frequency samples remained near
+2.4 GHz; maximum temperature was 51.8 C and throttle flags zero. This is another
+failure after the same near-drained rule; a warmed baseline is not reliably
+established. The observer consumed 16.55 ms of CPU across 42 first-hold snapshots
+and 21.46 ms across 53 repeat/tail snapshots; maximum read wall times were
+0.571/0.857 ms. No claim that observer overhead is absolutely zero follows.
+
+Retained prior OFF1/ON/OFF2 measured data put the process containing `lvb-audio`
+at 142.75/143.93/142.72% of a core, and the separate Arturia-named process at
+0.503/0.504/0.496%. Thus extra companion activity explains much of the current
+cohort CPU increase, but Pigments-only work also rose. The companion was nearly
+idle during the failed first hold, so it does not alone explain both failures.
+Names and captured PID grouping establish separate processes; no account or
+licensing behavior was inspected or inferred.
+
+The 78.54-second session closed cleanly. Exact original preference bytes,
+8-Bit Crystals/master 0.48033079504966736, baseline JACK graph, ondemand/schedstats0
+and both preserved binaries were verified; no owned service remained. Five
+focused decoder/reducer tests cover corrupt schema/links, reset/churn, empty
+samples and boundary attribution. No further runtime test or tuning followed.
+The recommended next efficiency experiment is a source/build feasibility review
+for 512-frame vendor batching at unchanged48k/JACK512/reserve2048, followed by a
+bounded comparison if feasible. This does not justify FEX-cache tuning or stopping
+the companion. Execution/wait attribution remains necessary if throughput does
+not improve. No batching change or additional run was made in this slice.
+Results: `evidence/rpi2/pigments-fex-stats.json`.

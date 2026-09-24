@@ -5,6 +5,8 @@ import json
 import os
 from pathlib import Path
 import re
+import hashlib
+import shutil
 import subprocess
 import threading
 import time
@@ -37,12 +39,15 @@ def main():
     parser.add_argument('output', type=Path)
     parser.add_argument('--attempt', default='01')
     parser.add_argument('--original', type=Path)
-    parser.add_argument('--trace-comparison', action='store_true')
+    modes=parser.add_mutually_exclusive_group()
+    modes.add_argument('--trace-comparison', action='store_true')
+    modes.add_argument('--fex-stats', action='store_true')
     parser.add_argument('--candidate', type=Path, required=True)
     args = parser.parse_args()
     if not re.fullmatch(r'[0-9]{2}', args.attempt):
         raise ValueError('Attempt must be two digits')
-    if not args.trace_comparison and args.original is None:
+    same_candidate=args.trace_comparison or args.fex_stats
+    if not same_candidate and args.original is None:
         parser.error('--original is required for the original/buffered pair')
     root, output = args.root, args.output
     output.mkdir(mode=0o700)
@@ -56,6 +61,16 @@ def main():
     session = None
     fifo = None
     log = None
+    fex = None
+    preference_backup = None
+    if args.fex_stats:
+        from fex_stats import Reader
+        if hashlib.sha256(args.candidate.read_bytes()).hexdigest() != '85780f4856f2bac9f605628ca7decd80568cca0ad36fa92db70960bf74dd1a62':
+            raise ValueError('Pinned candidate changed')
+        preference_path=env/'compatdata/pfx/drive_c/ProgramData/Arturia/Pigments/tmp/plugin.pref.xml'
+        preference_backup=output/'plugin.pref.original.xml'
+        shutil.copy2(preference_path,preference_backup)
+        report['preference_original_sha256']=hashlib.sha256(preference_backup.read_bytes()).hexdigest()
 
     def send(command):
         fd = os.open(fifo, os.O_WRONLY | os.O_NONBLOCK)
@@ -107,6 +122,8 @@ def main():
                             ticks=int(fields[11])+int(fields[12]), cpu_ns=sched[0],
                             wait_ns=sched[1] if result['schedstats_enabled'] else None)
                     except (FileNotFoundError, ProcessLookupError): pass
+        if fex is not None:
+            result['fex'] = fex.snapshot()
         return result
 
     def trial(name, run, cgroup):
@@ -155,22 +172,22 @@ def main():
         return row
 
     try:
-        conditions = ('off1', 'on', 'off2') if args.trace_comparison else ('original', 'buffered')
-        report['comparison'] = 'same-binary-phase-off-on-off' if args.trace_comparison else 'original-buffered'
+        conditions = ('fex',) if args.fex_stats else ('off1', 'on', 'off2') if args.trace_comparison else ('original', 'buffered')
+        report['comparison'] = 'fex-existing-stats' if args.fex_stats else 'same-binary-phase-off-on-off' if args.trace_comparison else 'original-buffered'
         for index, expected in enumerate(conditions):
-            trace_on = not args.trace_comparison or expected == 'on'
+            trace_on = not same_candidate or expected == 'on'
             state, _, _ = safety()
             row = {'condition': expected, 'guard_before': state, 'trials': []}
             report['conditions'].append(row)
-            label = ('trace-' if args.trace_comparison else 'obs-') + expected.replace('_','-') + '-' + args.attempt
+            label = ('fex-observe-' if args.fex_stats else 'trace-' if args.trace_comparison else 'obs-') + expected.replace('_','-') + '-' + args.attempt
             run = env/'logs'/label
             fifo, log = run/'commands.fifo', run/'outer.log'
             before = set((env/'evidence').glob('*-phase.jsonl'))
             with (output/(label+'-session.log')).open('x') as sink:
                 session = subprocess.Popen(['flock', '--nonblock', str(root.parent/'rpi1-private/operation.lock'),
-                    '/usr/bin/python3', str(env/('trace_session.py' if args.trace_comparison else 'plugin_session.py')), label, '--config', str(env/'preset-navigation.conf'),
-                    '--binary', str(args.candidate if args.trace_comparison or index else args.original),
-                    *(['--phase-trace', 'on' if trace_on else 'off'] if args.trace_comparison else [])], stdout=sink, stderr=subprocess.STDOUT)
+                    '/usr/bin/python3', str(env/('trace_session.py' if same_candidate else 'plugin_session.py')), label, '--config', str(env/'preset-navigation.conf'),
+                    '--binary', str(args.candidate if same_candidate or index else args.original),
+                    *(['--phase-trace', 'on' if trace_on else 'off'] if same_candidate else [])], stdout=sink, stderr=subprocess.STDOUT)
                 end = time.monotonic()+100
                 try:
                     while not log.exists() or 'RPI1_READY ' not in log.read_text():
@@ -182,7 +199,7 @@ def main():
                     phase = phases.pop() if trace_on else None
                     row['phase_path'] = str(phase) if phase else None
                     row['run_path'] = str(run)
-                    if args.trace_comparison:
+                    if same_candidate:
                         wanted = 'RPI1_PHASE_TRACE mode=on recorder=true file=true' if trace_on else 'RPI1_PHASE_TRACE mode=off recorder=false file=false'
                         if wanted not in log.read_text(): raise RuntimeError('Trace startup readback mismatch')
                         row['trace_readback'] = wanted
@@ -194,8 +211,16 @@ def main():
                     cgroup = Path('/sys/fs/cgroup')/group.lstrip('/')
                     native_pid=subprocess.check_output(['systemctl','--user','show','lvb-rpi2-'+label+'.service','-p','MainPID','--value'],text=True).strip()
                     row['native_threads_at_ready'] = [task.joinpath('comm').read_text().strip() for task in Path('/proc',native_pid,'task').glob('*')]
-                    if args.trace_comparison and ('rpi1-phase-drai' in row['native_threads_at_ready'] or 'rpi1-phase-drain' in row['native_threads_at_ready']) != trace_on:
+                    if same_candidate and ('rpi1-phase-drai' in row['native_threads_at_ready'] or 'rpi1-phase-drain' in row['native_threads_at_ready']) != trace_on:
                         raise RuntimeError('Phase recorder thread/mode mismatch')
+                    if args.fex_stats:
+                        try:
+                            fex=Reader.for_cohort(cgroup,env/'compatdata/pfx/drive_c/Program Files/Common Files/VST3/Pigments.vst3')
+                            row['fex_at_ready']=fex.snapshot()
+                            print('FEX_STATS_AVAILABLE '+str(fex.pid),flush=True)
+                        except (OSError,ValueError) as exc:
+                            row['fex_unavailable']=str(exc)
+                            raise RuntimeError('FEX stats unavailable after READY; no notes sent') from exc
                     row['restore'] = request('restore '+str(selected),'RPI1_STATE_RESTORED ')
                     time.sleep(4)
                     row['master'] = request('parameter 0','RPI1_PARAMETER_READBACK id=0 ')
@@ -225,7 +250,7 @@ def main():
                     row['after_identity'] = identify((run/'after.state').read_bytes())
                     row['guard_after'] = guard(expected)
                     row['phase_file_count_after'] = len(set((env/'evidence').glob('*-phase.jsonl'))-before)
-                    if args.trace_comparison and row['phase_file_count_after'] != int(trace_on):
+                    if same_candidate and row['phase_file_count_after'] != int(trace_on):
                         raise RuntimeError('Phase file appeared/disappeared during trial')
                 finally:
                     if session.poll() is None and fifo.exists():
@@ -236,6 +261,7 @@ def main():
                             row['restored_identity'] = identify((run/'restored.state').read_bytes())
                         finally: send('quit')
                     session.wait(timeout=35)
+                    if fex is not None: fex.close(); fex=None
                     if (run/'run.json').exists(): row['session'] = json.loads((run/'run.json').read_text())
                     (output/'comparison.json').write_text(json.dumps(report,indent=2)+'\n')
             if not row.get('session',{}).get('clean_shutdown'): raise RuntimeError('Session did not close cleanly')
@@ -247,6 +273,13 @@ def main():
         report['errors'].append(str(exc)); print('EXPERIMENT_STOP '+str(exc),flush=True)
         report['guard_final'] = guard('unchanged')
     finally:
+        if preference_backup is not None:
+            if session is not None and session.poll() is None:
+                raise RuntimeError('Cannot restore preference while owned session is live')
+            units=subprocess.check_output(['systemctl','--user','list-units','--state=running','--plain','--no-legend','lvb-rpi1-*.service'],text=True)
+            if units.strip():raise RuntimeError('Cannot restore preference with an owned Windows cohort live')
+            shutil.copy2(preference_backup,preference_path)
+            report['preference_restored_exact']=preference_path.read_bytes()==preference_backup.read_bytes()
         (output/'comparison.json').write_text(json.dumps(report,indent=2)+'\n')
     print('EXPERIMENT_DONE '+json.dumps(report['guard_final']),flush=True)
 

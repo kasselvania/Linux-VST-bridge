@@ -1,70 +1,62 @@
-# RPI2 CPU efficiency — verify and compare Pigments multicore
+# RPI2 CPU efficiency — existing FEX statistics
 
-## Basis and primary claim
+Base commit: 4978d0f (full resolved identity retained with final evidence).
+Base tree: 71d0d6eb2bcd684968293798b70007725d281135.
+The operator authorizes autonomous continuation; this thread remains the sole
+writer/live Pi owner. The coordinator reviewed the pinned FEX schema and reader.
+The preceding multicore preference check is complete: startup OFF is overridden
+by unchanged24AM full state ON, so no mislabeled multicore comparison will run.
 
-Base commit: 0a966060fd09de69aa9b3cc4c5bcd7ef372c7dc9.
-Base tree: 9ec0ee69b5e2c85fa8eea723f4089280d374c83f.
-The operator authorizes autonomous continuation, with this thread the sole writer
-and live Pi owner and the coordinating thread reviewing mechanism/results.
-AGENTS.md engineering safeguards and docs/ARCHITECTURE.md thread affinity,
-shared-memory and real-time failure boundaries remain unchanged.
+## One bounded outcome
 
-Locate a vendor-defined multicore setting, establish its actual loaded value,
-and compare current/alternate/current using one unchanged native candidate.
-If no valid headless control is available, name that dependency and retain the
-read-only finding rather than invent a parameter or GUI workaround.
+Determine whether the existing pinned ARM64EC FEX shared statistics are available
+and whether their translation/cache activity distinguishes the first four-note
+hold from its warmed repeat. No new runtime/native/Windows build, feature flags,
+GUI, settings, state edits, latency, affinity, priority or governor changes.
 
-## Fixed fixture and scope
+Use the unchanged85780f4856f2bac9f605628ca7decd80568cca0ad36fa92db70960bf74dd1a62
+native candidate explicitly; phase tracing OFF. Existing Pigments7.0.1.6772,
+GE-Proton11-7 ARM/FEX prefix, 24AM Poly4/master0.35, notes60/64/67/71 velocity96,
+48k/JACK512/vendor256/reserve2048. One fresh session: availability after READY,
+then only the existing20-second warm-up and20-second measured capture if usable.
+The same near-drained estimate and75C/current power-warning stops apply.
 
-Pigments 7.0.1.6772 on the existing licensed Pi5/ShieldXL ARM Wine/FEX prefix and
-pinned GE-Proton11-7 runtime. Native candidate SHA256
-85780f4856f2bac9f605628ca7decd80568cca0ad36fa92db70960bf74dd1a62,
-selected explicitly with --binary; native phase tracing OFF throughout.
-24 AM Poly4/master0.35, notes60/64/67/71 velocity96, warm-up then measured
-12-second hold in20-second capture; editor closed, 48k/JACK512/vendor256/reserve2048.
-No native/Windows/runtime rebuild, DSP-quality/polyphony, governor, priority,
-affinity, latency, runtime/kernel/FEX, GUI/computer-control/screenshare/VNC changes.
+## Reader and interpretation
 
-Permitted source: this card, existing rpi2 helpers with focused tests, sanitized
-evidence/rpi2 and docs/experiments/RPI2.md. Read vendor-defined preferences and
-resource semantics. Preserve all license/machine data and unrelated settings.
-Do not patch binaries, private memory, or invent a VST parameter ID.
+Source: FEX82510eb452b258959ef982be58a9c3c1bafc82a4 SHMStats.h and allocator,
+ARM64EC Module.cpp and UnixLib. Version2/header64/slot112. Head/Next are byte
+offsets from base; Linux getpid names the file but GetCurrentThreadId values are
+Windows IDs. Validate exact owned Pigments mapping and process lifetime. Check
+host /dev/shm and that process root/dev/shm using its NSpid when needed.
 
-## Method and completion
+Read-only bounded snapshots no faster than2Hz; record observer CPU/time. Reject
+unknown schema, invalid bounds/linkage, unstable topology, reset or churn for
+attribution. No atomic whole-process claim or Linux/Windows TID guess. Retain
+raw CNTVCT ticks; derived elapsed seconds may use kernel-reported54.00MHz reference
+timer, never CPU GHz. JIT-path time includes lookup/locking/compile work and is
+not CPU-only compilation. Avoid adding overlapping time counters.
 
-1. Establish setting identity/scope from vendor sources and observed metadata.
-   Report mechanism, readback and backup/restoration before live mutation.
-   A full-state restore may differ from factory-preset navigation; verify the
-   effective setting AFTER restoring24AM. File bytes alone are not effect proof.
-2. The coordinator authorizes one readback-only mechanism check before any
-   comparison: backup exact preference bytes/metadata, edit only Multicore2 ON
-   to OFF while closed, launch existing trace-host OFF, capture startup state,
-   restore24AM and capture component/controller multicore fields. Send no notes.
-   Restore user state/master, close, then restore exact preference bytes/metadata.
-   If24AM restore returns ON, stop this ineffective live route without repeats.
-3. With a valid mechanism, review the small helper change before first launch.
-   Preserve exact preference bytes; edit only the specific setting while the
-   owned plugin processes are closed. Use fresh current/alternate/current sessions
-   with identical binary/state/audio and existing near-drained admission.
-4. Preserve warm-up, held2–14including attack and stable3–14 results separately.
-   Use existing low-rate CPU/frequency/temperature, audio and counter observations.
-   Keep75C/current power-warning stops and all failed/incomplete runs; no unbounded
-   repeats or new framework. OFF has no phase attribution.
-5. Restore exact operator preset/master, original multicore preference/config,
-   JACK graph and owned processes. Preserve generic installed binary9d0a611...
-   and helper's actual Pigments-specific default24e6ab17... .
-6. Commit/push findings and focused changes to draftPR150; no merge or default
-   replacement. Stop with evidence-backed conclusion and one next lever.
+If unavailable/unusable, retain the specific dependency and stop after this one
+launch without benchmark or rebuild. If usable, compare sparse process-level
+deltas with captured audio, whole held2–14including attack and stable3–14,
+retaining failed warm-up. No per-audio-thread claim without verified identity.
 
-The previous optional phase-trace experiment is complete but not an audio
-reliability win. It supports only a large-effect warmed comparison: cold-start
-failures and occasional attack gaps remain real and must not be excluded.
+## Scope, restoration and delivery
+
+Use existing recorder_compare/trace_analysis helpers with narrowly scoped
+reader/reducer/tests, this card, RPI2 documentation and sanitized evidence.
+No new framework/dashboard. Keep proprietary captures/state and raw paths private.
+Restore original user state/master, preference bytes and JACK graph; retire only
+owned processes. Preserve generic9d0a611... and helper-default24e6ab17... binaries.
+Commit/push final results to draftPR150 without merge/default replacement; stop
+with the measured finding, limitations and next evidence-backed lever.
 
 ## Observed disposition
 
-The one authorized no-note mechanism check completed. Preference OFF produced
-startup component/controller OFF, but unchanged24AM full-state restore produced
-ON/ON. No exposed VST control was found in the complete4446-parameter catalogs.
-The same-state headless comparison therefore has a concrete control dependency;
-no benchmark or further attempts were run. Original preference/state/master,
-processes and graph were restored. Retain this outcome and stop the live route.
+Existing FEX v2 counters were readable. One session and the two existing captures
+completed; both had substantial output silence despite no thermal flags and
+near2.4GHz samples. The repeated cutoff around2.39s preceded its later large
+JIT burst, with zero compile attempts in intervals overlapping2–3s. A separate
+Arturia-named process contributed additional repeat CPU, while Pigments-only CPU
+also rose. No sole cause or reliable warmed baseline is claimed. Cleanup and
+five focused reader/reducer tests passed. No further runtime experiments this turn.
