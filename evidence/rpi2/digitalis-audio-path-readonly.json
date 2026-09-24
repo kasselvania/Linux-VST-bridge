@@ -1,0 +1,328 @@
+{
+  "schema_version": 1,
+  "observed_at_utc": "2026-09-24T19:18:59.146155+00:00",
+  "scope": "Read-only source/configuration/session-evidence inspection; no audio test, restart, bypass, parameter or routing change.",
+  "fixture": {
+    "model": "Raspberry Pi 5 Model B Rev 1.1",
+    "kernel": "6.18.50+rpt-rpi-v8",
+    "thermal_millic": 46850,
+    "throttled": "throttled=0x0"
+  },
+  "alsa": {
+    "pcm0c": [
+      "access: MMAP_INTERLEAVED",
+      "format: S16_LE",
+      "subformat: STD",
+      "channels: 2",
+      "rate: 48000 (48000/1)",
+      "period_size: 128",
+      "buffer_size: 384"
+    ],
+    "pcm0p": [
+      "access: MMAP_INTERLEAVED",
+      "format: S16_LE",
+      "subformat: STD",
+      "channels: 2",
+      "rate: 48000 (48000/1)",
+      "period_size: 128",
+      "buffer_size: 384"
+    ]
+  },
+  "identity": {
+    "running_native_sha256": "cb360cc0f29910e37f3faf98895a5b2c3b67283c4a4520757dcb064f63f4d02d",
+    "selector_sha256": "8bb8d86e0d71d9b7c665869177f1936e3ba417bed4de6f4b8e02841955ed4531",
+    "launcher_sha256": "2ebbd4b148358bacc8818b8489e0c9c45ec7b61e046563f02b50788c5698d0c0",
+    "windows_host_sha256": "4ab203ab8aa25555eebce6782cd52a11643a1b935abe8a2ce0cb04baeb453161"
+  },
+  "retained_session_records": [
+    {
+      "event": "ap9_setup",
+      "host_maximum": 128,
+      "transport_maximum": 128,
+      "sample_rate": 48000,
+      "bridge_frames": 128,
+      "vendor_frames": 4096,
+      "total_frames": 4224,
+      "vendor_precision_bits": 1
+    },
+    {
+      "event": "ap5_worker_fault",
+      "generation": 1,
+      "fault": 3,
+      "first_position": 14057856,
+      "processed": 109827,
+      "request_high": 13,
+      "result_high": 4,
+      "detail": "InvalidData: delivery endpoint disconnected"
+    },
+    {
+      "event": "ap7_fault_progress",
+      "context_ready": true,
+      "epoch": 1,
+      "worker_op": 3,
+      "worker_epoch": 1,
+      "worker_position": 14057856,
+      "request_published": 109842,
+      "request_consumed": 109829,
+      "result_published": 109827,
+      "result_consumed": 109827,
+      "service_us_max_at_report": 11707,
+      "observation_skips": 0
+    },
+    {
+      "event": "ap7_observation",
+      "offered_samples": 28115712,
+      "verified_returned_samples": 0,
+      "unchecked_samples": 28115712,
+      "dropped_jobs": 0,
+      "dropped_samples": 0,
+      "reader_skips": 0,
+      "unretained_gap_traces": 23,
+      "maximum_error": 0,
+      "before_edit_samples": 0,
+      "edits": 0
+    },
+    {
+      "event": "ap9_timing",
+      "stage": "queue",
+      "requests": 109637,
+      "mean_ns": 57671,
+      "p50_upper_ns": 56000,
+      "p95_upper_ns": 112000,
+      "p99_upper_ns": 120000,
+      "max_ns": 3999655
+    },
+    {
+      "event": "ap9_timing",
+      "stage": "prepare",
+      "requests": 109637,
+      "mean_ns": 6227,
+      "p50_upper_ns": 5500,
+      "p95_upper_ns": 12000,
+      "p99_upper_ns": 22000,
+      "max_ns": 595143
+    },
+    {
+      "event": "ap9_timing",
+      "stage": "send",
+      "requests": 109637,
+      "mean_ns": 1844,
+      "p50_upper_ns": 1625,
+      "p95_upper_ns": 3500,
+      "p99_upper_ns": 7000,
+      "max_ns": 51278
+    },
+    {
+      "event": "ap9_timing",
+      "stage": "reply",
+      "requests": 109637,
+      "mean_ns": 490856,
+      "p50_upper_ns": 320000,
+      "p95_upper_ns": 1664000,
+      "p99_upper_ns": 1920000,
+      "max_ns": 4034914
+    },
+    {
+      "event": "ap9_timing",
+      "stage": "validation",
+      "requests": 109637,
+      "mean_ns": 6622,
+      "p50_upper_ns": 6000,
+      "p95_upper_ns": 12000,
+      "p99_upper_ns": 22000,
+      "max_ns": 665513
+    },
+    {
+      "event": "ap9_timing",
+      "stage": "publication",
+      "requests": 109637,
+      "mean_ns": 6011,
+      "p50_upper_ns": 5500,
+      "p95_upper_ns": 12000,
+      "p99_upper_ns": 24000,
+      "max_ns": 101981
+    },
+    {
+      "event": "ap9_timing",
+      "stage": "admission_to_publication",
+      "requests": 109637,
+      "mean_ns": 569233,
+      "p50_upper_ns": 416000,
+      "p95_upper_ns": 1792000,
+      "p99_upper_ns": 2048000,
+      "max_ns": 4356911
+    },
+    {
+      "event": "ap9_timing",
+      "stage": "windows_process",
+      "requests": 109637,
+      "mean_ns": 341185,
+      "p50_upper_ns": 192000,
+      "p95_upper_ns": 1536000,
+      "p99_upper_ns": 1792000,
+      "max_ns": 2806400
+    },
+    {
+      "event": "ap9_timing",
+      "stage": "correlated_non_plugin",
+      "requests": 109637,
+      "mean_ns": 228047,
+      "p50_upper_ns": 224000,
+      "p95_upper_ns": 352000,
+      "p99_upper_ns": 416000,
+      "max_ns": 4117711
+    }
+  ],
+  "retained_record_events": [
+    "ap5_worker_fault",
+    "ap7_fault_progress",
+    "ap7_gap_request",
+    "ap7_observation",
+    "ap8_returned_audio",
+    "ap9_clock_resolution",
+    "ap9_setup",
+    "ap9_slow_request",
+    "ap9_timing",
+    "ap9_unpublished"
+  ],
+  "frozen_native_status": {
+    "publication": 329483,
+    "epoch": 1,
+    "sequence": 109829,
+    "position": 14057856,
+    "stage": 2,
+    "requested_frames": 14058112,
+    "missing_frames": 5504,
+    "gaps": 35,
+    "expired_frames": 5376,
+    "delivered_frames": 14052480,
+    "priming_frames": 128
+  },
+  "terminal": {
+    "winner": 1,
+    "class": 3,
+    "status": 3,
+    "failed_position": 14057856,
+    "producer": 1,
+    "status_domain": 1
+  },
+  "windows_unit_current": [
+    "MainPID=0",
+    "LoadState=not-found",
+    "ActiveState=inactive",
+    "SubState=dead"
+  ],
+  "windows_unit_manager_history": [
+    {
+      "at_utc": "2026-09-24T18:49:04.008719+00:00",
+      "message": "<WINDOWS_HOST_UNIT>: Service reached runtime time limit. Stopping."
+    },
+    {
+      "at_utc": "2026-09-24T18:49:04.104964+00:00",
+      "message": "<WINDOWS_HOST_UNIT>: Main process exited, code=exited, status=1/FAILURE"
+    },
+    {
+      "at_utc": "2026-09-24T18:49:06.042818+00:00",
+      "message": "<WINDOWS_HOST_UNIT>: Failed with result 'timeout'."
+    },
+    {
+      "at_utc": "2026-09-24T18:49:06.043292+00:00",
+      "message": "<WINDOWS_HOST_UNIT>: Consumed 4min 7.690s CPU time, 377.6M memory peak."
+    }
+  ],
+  "stale_outer_log": {
+    "mtime_utc": "2026-09-24T18:47:54.276111+00:00",
+    "latest_selected_lines": {
+      "RPI1_READY": "RPI1_READY midi=none left=lvb-arm-digitalis:audio_out_l right=lvb-arm-digitalis:audio_out_r jack_frames=128 bridge_frames=128 vendor_frames=4096 total_frames=4224",
+      "RPI2_PROCESSING": "RPI2_PROCESSING quantum=128 map_version=2 capacity=512 sample_rate=48000",
+      "RPI1_LATENCY": "RPI1_LATENCY tail_frames=0",
+      "RPI1_AUDIO": "RPI1_AUDIO midi_accepted=0 output_nonzero_l=3836284 output_nonzero_r=3812730 output_peak_l=0.8142932 output_peak_r=0.819231 output_nonfinite=0 xruns=1 process_failures=0 bridge_processed=59173 request_high=4 result_high=4 fault=0 fault_site=unknown bridge_processed_frames=7574144 processing_quantum=128",
+      "RPI1_CALLBACK_LIVE": "RPI1_CALLBACK_LIVE callbacks=59173 failures=0 deadline_misses=0 callback_ns_max=80203 missing_frames=3456 gaps=19 delivered_frames=7570560 paused_frames=0 unsupported_midi=0 malformed_midi=0 overflow_midi=0",
+      "RPI1_BYPASS": "RPI1_BYPASS enabled=false policy=current_dry_processing_continues"
+    }
+  },
+  "selected_native_environment": {
+    "LVB_RPI2_PROCESS_QUANTUM": "128"
+  },
+  "detailed_trace_enable_files": {
+    "legacy_enabled": false,
+    "managed_enabled": false
+  },
+  "nonclaims": [
+    "No present live Windows processing or CPU baseline: the Windows host had already timed out.",
+    "No attribution of the operator-reported 275.79 ms analog round trip.",
+    "Timing rows cover observer-retained armed requests and are not a per-request worst-case guarantee.",
+    "No repair or deployment."
+  ],
+  "source_basis": {
+    "base_commit": "a1af1c2634267381ca35cfbebd88634302158ecd",
+    "base_tree": "1d08a05ef0ddbbe16e4c8df9c63f6eb0ed666fa3",
+    "native_source": "Existing uncommitted timing-selector candidate; preserved without edits.",
+    "native_bundle_sha256": "cf0b1da47d752fdf763d035855318dc22d7d286b80c938a113c931dcc1bb9fc1",
+    "native_files": {
+      "rpi0/standalone/src/jack.rs": {
+        "sha256": "5a9586bea35d858aa8a5b487bb62a940aad8d195c145c0f5f534b198856a6983",
+        "matches_final_source_bundle": true
+      },
+      "rpi0/standalone/src/audio.rs": {
+        "sha256": "6fa58bb8cfe2751c0a914df227ca72530ec214b31822aca995a3618c740e66f1",
+        "matches_final_source_bundle": true
+      },
+      "rpi1/standalone/src/main.rs": {
+        "sha256": "25aff9f98794a6e0a841b9bfcbdf9a538cf478a90cbe4c61c1ab6fc23c43778b",
+        "matches_final_source_bundle": true
+      },
+      "rpi1/standalone/src/supervisor.rs": {
+        "sha256": "c6f50eaf137fbdf5c0b0b9ab7cab3ece483ec5880dbce28022dc5ebb3cb5e2c1",
+        "matches_final_source_bundle": true
+      },
+      "rpi1/standalone/src/config.rs": {
+        "sha256": "bfe66427447762b7ea37dc29e06a77afdefd8431204452e658429b3705994759",
+        "matches_final_source_bundle": true
+      },
+      "native-vst3-proxy/backend/src/queued.rs": {
+        "sha256": "f3b9135779301d5d187b54d7bd50e984a1d0177d2e5136548b2b94f5aa41e8b6",
+        "matches_final_source_bundle": true
+      },
+      "native-vst3-proxy/backend/src/lib.rs": {
+        "sha256": "68776a01aa6c6be05f31d046b1c5b6d04db7f5ed5a13d7053b3b752a84d4e7e0",
+        "matches_final_source_bundle": true
+      },
+      "native-vst3-proxy/backend/src/mailbox.rs": {
+        "sha256": "1639284f3eb011c6a27ce9eb92ff4401811e16ed2112212efd12816ed9aa7b72",
+        "matches_final_source_bundle": true
+      },
+      "native-vst3-proxy/backend/src/rpi0.rs": {
+        "sha256": "ca150265a21affa684a37f79a3b5709b423a1db516896d4fa936218237f6936f",
+        "matches_final_source_bundle": true
+      },
+      "native-vst3-proxy/backend/src/performance.rs": {
+        "sha256": "e931d6d657201b8ac30a8d00f0a78fd0cd6e49046671e2b023895e493f6b7af8",
+        "matches_final_source_bundle": true
+      },
+      "native-vst3-proxy/backend/src/queue.rs": {
+        "sha256": "dca1261dc40e572f659123fcde65fd115218d070c6c40593af0b4b83f3810b81",
+        "matches_final_source_bundle": true
+      },
+      "native-audio-client/src/lib.rs": {
+        "sha256": "bae9e43f7ae4d648a77c69b374489e33e05d2c828be07f1336d0222b8a54800d",
+        "matches_final_source_bundle": true
+      }
+    },
+    "windows_host_source_commit": "6f9d292690c5bacf6098abfc3f90d6dc67c0b9f2",
+    "windows_host_files": {
+      "windows-factory-probe/source/offline_processing.cpp": {
+        "sha256": "740094d5ab236f85feba26464097f5f7bb6edfce7eb8f73eff73841a70cd45d1",
+        "matches_windows_source_commit": true
+      },
+      "windows-factory-probe/source/mapped_processing.cpp": {
+        "sha256": "507de39178d4897dcd90d65221fa1180940ac0d523c2baf473bc3a5ee1178e4c",
+        "matches_windows_source_commit": true
+      },
+      "windows-factory-probe/source/delivery_mailbox.h": {
+        "sha256": "cda6689ca2de5fd63ba4a484f2ad0b55e5032676f086ddc489058a929d1a7a54",
+        "matches_windows_source_commit": true
+      }
+    }
+  }
+}
