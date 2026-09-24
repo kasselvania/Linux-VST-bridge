@@ -1,0 +1,52 @@
+{
+  "date": "2026-09-24",
+  "status": "CORRECT_BUT_NO_RELEVANT_CODE_IMPROVEMENT",
+  "decision": "Park candidate B. Do not run the retained Pigments hot-loop check or physical A/B/B/A for this candidate.",
+  "bridge_base": "7cbf2490c601884ed84ef15ac79922c89ff22830",
+  "fex_source_commit": "82510eb452b258959ef982be58a9c3c1bafc82a4",
+  "source_patch": "rpi2/fex-vfscalar-tiedsource.patch",
+  "patch_verification": "Only TiedSource: 0 was added to VFAddScalarInsert, VFSubScalarInsert, VFMulScalarInsert and VFDivScalarInsert in IR.json.",
+  "candidate_modules": {
+    "A_unmodified_self_built_sha256": "c79ad18719948a12deb8d867a228df84c9cd798cb003ba6083087c08c6f05c8a",
+    "B_four_hints_sha256": "26810b23d35c84e2b3925b2be0926f9101bbe8b91e81fabc4beaaf7edd84e254",
+    "packaged_working_module_sha256": "08fa3d4bfbdb5a870c7466383a145177e00f2220ac3891451f312e7cb7de0347",
+    "build_options": "Matched Release, TUNE_CPU=none, target arm64ecfex; full provenance in fex-vfscalar-tiedsource-build.json"
+  },
+  "source_owned_fixture": {
+    "file": "rpi2/fex_scalar_fixture.c",
+    "x64_exe_sha256": "7b4413a47ed5f68b9da59fda50e482fca717ae47d3d51424539aafb7b6eca3fe",
+    "coverage": "Single and double precision add/subtract/multiply/divide in legacy SSE, VEX alias and VEX live-source forms; known low-lane outputs and bit-exact preserved upper lanes; single precision signed-zero, infinity and NaN-class checks; live first-source preservation; ten additional live vectors under pressure.",
+    "A_result": "fixture_failures=0",
+    "B_result": "fixture_failures=0",
+    "execution": "Fresh Windows x64 fixture process for each candidate through the pinned UMU/Proton/Wine ARM64EC loader, in a private scratch prefix. No commercial plug-in was loaded."
+  },
+  "loaded_identity": {
+    "method": "For each live fixture process, verified /proc/PID/maps mapped the private runner's libarm64ecfex.dll at the selected inode and matched the expected SHA-256 before reading JIT memory.",
+    "A_pid_start_ticks": [25648, 6652478],
+    "B_pid_start_ticks": [25841, 6659268],
+    "jit_map": "FEX_BLOCKJITNAMING=1 for these source-owned diagnostic runs; fresh process-specific map files. FEX_DISKCACHE=0 in both conditions. Neither setting was applied to a timed audio run."
+  },
+  "emitted_code": {
+    "method": "Read only the 25 source-owned guest-RVA blocks from anonymous executable JIT memory with live process and mapped-module identity checks. Disassembled instruction bodies through their terminating ret, excluding per-process trailer data and relocated addresses.",
+    "blocks_per_candidate": 25,
+    "raw_bytes_per_candidate": 5184,
+    "changed_instruction_bodies": 0,
+    "A": {
+      "full_vector_moves": 9,
+      "scalar_result_inserts": 25,
+      "SP_targeted_vector_spill_reload_proxies": 0,
+      "total_instructions": 882
+    },
+    "B": {
+      "full_vector_moves": 9,
+      "scalar_result_inserts": 25,
+      "SP_targeted_vector_spill_reload_proxies": 0,
+      "total_instructions": 882
+    },
+    "interpretation": "Alias and legacy forms already had no full-vector move in their scalar bodies. Each live-source form and the pressure form retained its move. No emitted instruction body changed, so there is no move or spill delta in this fixture. This does not prove that every possible FEX block is unchanged."
+  },
+  "retained_hot_loop": "Not re-inspected: the source-owned emitted-code gate failed. No vendor code or disassembly is published.",
+  "physical_comparison": "Not run: no CPU, delivery, DSP capacity or speed claim.",
+  "cleanup": "The packaged working FEX module never changed. The private runner selection was restored to its packaged module hash after B; the interrupted full-copy partial directory was removed. Candidate modules, build caches and private diagnostic files remain staged. No audio, governor, affinity, priority, activation, UI or multicore setting was changed.",
+  "operational_note": "A first attempt to duplicate the full runner caused high Pi storage pressure and a kernel blocked-task report. It was terminated before candidate testing; the private hard-link runner view completed instantly, and storage pressure returned near zero before the A/B diagnostic runs. No hardware cause was inferred."
+}
