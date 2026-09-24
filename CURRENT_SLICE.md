@@ -1,42 +1,79 @@
-# NAD2 — Exact NTKDaemon stop-response characterization
+# RPI2 CPU efficiency — fixed-workload governor comparison
 
-Active basis:
+The operator selected CPU efficiency before latency tuning and authorized a
+separate implementation agent, with technical direction and review in the
+coordinating conversation. This replaces the unrelated NAD2 task in this
+isolated branch only.
 
-- merged source: `710b0f3be642cca342f2a5915d37158246023aed`
-- reviewed/merged tree: `77efd70fac7985a051343407d4ec13ca183422a8`
-- retained production evidence: `b175fdf5317a6afb512b17dc02cd40fdd907a201`
-- installed immutable generation: `67e3004b087fe1dbb9c1bbd2c0b667a3eab1d1ac8cf14f7931f5ac37bb38880f`
-- installed software record: `bd831fb3659ea27bc52d07bd63327206e46efb87e76af29c604c6ee281a96553`
+## Basis and primary claim
 
-NAD1 established the exact Native Access renderer policy, exact NTKDaemon payload
-and registration, fresh process/listener readiness, one-stop ownership, truthful
-retirement reporting, bounded fallback cleanup, and one rendered signed-in Native
-Access session. Preserve all NAD1 and NAUI2 results.
+- Base commit: 540eb13f39d7d89815d078b28c4c5f815afd5dda.
+- Base tree: f73c235b20024e7699d91d6a7d24dc7cff776719.
+- AGENTS.md: "Work to an outcome" and "Keep the engineering safeguards".
+- docs/ARCHITECTURE.md: "6.4 Thread affinity", "7.3 Audio shared memory",
+  and "7.4 Real-time failure posture".
+- docs/experiments/RPI2.md: "24 AM warm-up and editor closed/open/closed
+  comparison" establishes the demanding workload, not a successful baseline.
 
-The latest one-shot real operation `f4a2b703d8ea518d14c893c480fd93ed`
-established readiness and both owned listeners, then submitted one SCM stop request.
-The API returned without a control error, but SCM remained `RUNNING`, the exact
-process did not exit, and both listeners remained throughout the 12,045 ms bounded
-observation. Exit-receipt fallback was correctly inapplicable. Forced cleanup
-recovered the bridge and keepers, and no successful preparation receipt was created.
+Determine whether the performance governor materially improves completion of
+the same Pigments workload compared with ondemand, and distinguish increased
+clock availability from reduced CPU work. A supported negative or inconclusive
+result is valid; do not manufacture an optimization claim.
 
-Selected next slice: **NAD2 — exact NTKDaemon stop-response characterization**.
+## Fixed fixture
 
-Authoritative slice document: `docs/NAD2.md`.
+Use the existing Pi 5/ShieldXL ARM Wine/FEX installation, activated Pigments
+7.0.1.6772, GE-Proton11-7-aarch64 and installed bridge binaries from the base
+campaign. Verify identities before use. Preserve the licensed prefix and runner.
+Use the existing saved 24 AM state, Poly 4, master 0.35, notes 60/64/67/71 at
+velocity 96, the existing 12-second hold and 20-second recording. Keep the editor
+closed. Keep 48 kHz, 512-frame JACK callback, 256-frame vendor quantum and
+2,048-frame reserve fixed. Preserve all DSP quality and multicore settings.
 
-NAD2 adds bounded diagnostic characterization only. It must not introduce another
-stop request, a longer production wait, a replacement shutdown strategy, direct
-daemon termination as success, or a Native Access session.
+## Implementation and experiment
 
-During implementation and PR qualification:
+1. Reuse existing supervision, audio capture, phase records and thread sampling.
+   Add only the small adapters/analysis necessary for this comparison. Do not
+   build a dashboard or a general benchmark framework.
+2. Capture the original governor and scheduler-statistics setting. Temporarily
+   enable scheduler statistics if existing privileges allow it; otherwise mark
+   wait data unavailable. A disabled counter is never evidence of zero wait.
+3. Run a short warmed ondemand/performance/ondemand comparison. Ensure each
+   measured hold begins without inherited bridge backlog; use the same existing
+   reset/start and warm-up procedure for every condition. Mark note-active and
+   idle/release windows separately. Do not compare whole-session averages as if
+   they were identical active DSP intervals.
+4. Report vendor wall time (distribution and slow-block count), available
+   caller/worker CPU, scheduling wait, actual sampled frequency, whole-process
+   CPU, queue age, missing frames, captured-audio validity, temperature and power
+   warning flags. Use existing FEX or caller-CPU counters where readily available;
+   identify missing measurements rather than expanding scope to obtain them.
+5. Restore original governor, scheduler-statistics setting, operator plug-in
+   state and JACK graph; terminate only owned experiment processes. Use bounded
+   runs and existing thermal/power limits. Retain failures and cleanup results.
 
-- do not install a candidate;
-- do not start or stop the real NTKDaemon;
-- do not launch Native Access, a DAW, a plug-in, an updater, or a product installer;
-- do not replay the daemon installer;
-- do not increase the 12-second production observation bound;
-- do not turn forced cleanup or bridge recovery into successful retirement;
-- do not rewrite prior evidence.
+The implementation agent is the sole writer and live experiment owner for this
+slice. The coordinating agent reviews source/evidence and selects the next
+intervention. No other agent should concurrently control this Pi experiment.
 
-Return one draft PR, uninstalled and unmerged, for independent tech-lead review.
-Reliable real-daemon shutdown remains unqualified.
+## Scope and delivery
+
+Allowed: existing rpi2/ helpers and focused analysis/tests, sanitized
+evidence/rpi2/ results, the RPI2 experiment documentation, and this task card.
+No dependency changes. Prefer the installed binaries; a need for product-code
+or runtime changes is a finding to return, not an invitation to widen this slice.
+
+Excluded: kernel/NTSYNC installation, runner replacement, FEX tuning, affinity
+or priority changes, multicore changes, DSP simplification, buffer/latency
+changes, queue recovery changes, new plug-ins, GUI/computer-control/VNC actions,
+and modification of PR #145 or its original worktree.
+
+Acceptance: reproducible comparison with the controlled differences explicit;
+honest measurement availability; audio/state correctness assessed separately
+from process liveness; failed or confounded runs never counted as wins; exact
+cleanup readback. One good run is not sustained-performance qualification.
+
+Keep proprietary state, audio and raw private paths on the private fixture.
+Commit and push the focused source and sanitized results on a new branch, and
+open a draft follow-on PR based on codex/rpi2-native-arm-runtime. Do not merge.
+Return the measured result, limitations and one evidence-backed next action.

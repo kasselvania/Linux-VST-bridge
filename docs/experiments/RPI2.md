@@ -1128,3 +1128,20 @@ baseline JACK graph. No binary changed. Power source was not reverified. The
 next useful investigation is time spent inside processing versus the worker's
 other work and queue recovery, rather than attributing this run to heat or
 graphics alone. See `evidence/rpi2/pigments-24am-editor-comparison.json`.
+
+### Governor comparison: preflight dependency
+
+The separate CPU-efficiency slice selected a warmed headless
+ondemand/performance/ondemand comparison of unchanged 24 AM. Live preflight
+found ondemand with a 1.5–2.4 GHz range, 45.5 C and no throttle flags. The native
+host and four-note fixture hashes matched the retained campaign. No owned audio
+experiment or plugin JACK ports/connections were present.
+
+The governor and scheduler-statistics controls are root-owned and not writable
+by the SSH account; non-interactive sudo requested a password. Scheduler
+statistics are disabled, so waiting time is unavailable, not zero. The
+experiment stopped before launch without changing system settings, plugin state,
+or binaries. It has **no governor-performance result**. Continuing requires an
+operator-authenticated temporary way to set and restore the governor; scheduler
+statistics are optional if enabling them is unavailable. See
+`evidence/rpi2/pigments-governor-preflight.json`.
