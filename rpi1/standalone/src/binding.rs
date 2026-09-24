@@ -252,7 +252,7 @@ mod tests {
         let binding = Binding::parse(bytes, &module).unwrap();
         assert!(binding.stereo_input);
         assert!(!binding.midi_input);
-        assert_eq!(binding.controls.len(), 3);
+        assert_eq!(binding.controls.len(), 4);
         assert_eq!(
             binding.class,
             [
