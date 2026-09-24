@@ -342,7 +342,6 @@ impl Config {
             ("pigments_version", "7.0.1.6772"),
             ("pigments_parameter_count", "4446"),
             ("pigments_precision", "float32_only"),
-            ("environment_family", "arturia_persistent_v1:1"),
         ] {
             if generic
                 && (key.starts_with("pigments_")
@@ -353,6 +352,19 @@ impl Config {
             if values[key] != expected {
                 return Err(invalid(format!("{key} pin differs")));
             }
+        }
+        let family = &values["environment_family"];
+        if generic {
+            if family.is_empty()
+                || family.len() > 64
+                || !family
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b':'))
+            {
+                return Err(invalid("generic environment family label"));
+            }
+        } else if family != "arturia_persistent_v1:1" {
+            return Err(invalid("environment_family pin differs"));
         }
         let file = |key: &str| -> io::Result<PinnedFile> {
             Ok(PinnedFile {

@@ -135,6 +135,23 @@ mod appliance {
             if phase.enabled() { "on" } else { "off" }, phase.enabled(), phase.enabled());
         let buses = &config.binding.buses;
         let traits = instance.setup(jack.buffer_size(), 48_000.0, buses)?;
+        let state_directory = config.environment_root.join(format!(
+            "panel-state-{}-{}",
+            hex(&config.plugin.sha256),
+            hex(&config.binding.class)
+        ));
+        let restored = if config.binding.surface.is_some() {
+            if let Some(state) = panel_state::load(&state_directory, STATE_CAPACITY)? {
+                let mut readback = vec![0; STATE_CAPACITY];
+                instance.restore_state(&state, &mut readback)?;
+                println!("RPI2_PANEL_RESTORED bytes={}", state.len());
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
         instance.activate(instance.processing_quantum())?;
         instance.start()?;
         jack.activate()?;
@@ -153,9 +170,9 @@ mod appliance {
         println!("RPI1_LATENCY tail_frames={}", traits.tail_frames);
         println!("RPI1_MIDI cc123=tracked_note_offs cc64=unsupported duplicate_note_on=refused");
         println!(
-            "Commands: open | close | save /absolute/path | restore /absolute/path | master [normalized] | parameter id [normalized] | status | mark | quit"
+            "Commands: open | close | save /absolute/path | slot save | restore /absolute/path | master [normalized] | parameter id [normalized] | trim [linear] | bypass [on|off] | status | mark | quit"
         );
-        let result = command_loop(&instance, &control, &cohort, &mut jack, &phase, &config);
+        let result = command_loop(&instance, &control, &cohort, &mut jack, &phase, &config, restored);
 
         let jack_frames = jack.buffer_size();
         let deactivate = jack.deactivate();
@@ -289,6 +306,7 @@ mod appliance {
         jack: &mut Client,
         phase: &PhaseCapture,
         config: &Config,
+        restored: bool,
     ) -> io::Result<()> {
         let binding = &config.binding;
         let state_directory = config.environment_root.join(format!(
@@ -296,14 +314,6 @@ mod appliance {
             hex(&config.plugin.sha256),
             hex(&binding.class)
         ));
-        let mut restored = false;
-        if binding.surface.is_some() {
-            if let Some(state) = panel_state::load(&state_directory, STATE_CAPACITY)? {
-                restore_payload(instance, jack, &state)?;
-                restored = true;
-                println!("RPI2_PANEL_RESTORED bytes={}", state.len());
-            }
-        }
         let mut panel = binding
             .surface
             .clone()
@@ -409,6 +419,11 @@ mod appliance {
                             eprintln!("RPI1_AUDIO_UNAVAILABLE {error}");
                         }
                         print_live_callback_metrics(control);
+                        println!(
+                            "RPI1_OUTPUT_ROUTE bypass={} trim_linear={:.6}",
+                            control.bypass(),
+                            control.output_trim()
+                        );
                         let processes = cohort.verify()?;
                         let memory_peak =
                             fs::read_to_string(cohort.identity().cgroup.join("memory.peak"))
@@ -438,6 +453,29 @@ mod appliance {
                         } else {
                             request_parameter_snapshot(instance, generation)?;
                         }
+                    } else if line == "trim" {
+                        println!("RPI1_OUTPUT_TRIM linear={:.6}", control.output_trim());
+                    } else if let Some(value) = line.strip_prefix("trim ") {
+                        let trim = value
+                            .parse::<f32>()
+                            .map_err(|_| invalid("trim requires linear gain from 0 to 1"))?;
+                        control.set_output_trim(trim)?;
+                        println!("RPI1_OUTPUT_TRIM linear={trim:.6}");
+                    } else if line == "bypass" {
+                        println!("RPI1_BYPASS enabled={}", control.bypass());
+                    } else if let Some(value) = line.strip_prefix("bypass ") {
+                        if !binding.stereo_input {
+                            return Err(invalid("bypass requires stereo effect input"));
+                        }
+                        let bypass = match value {
+                            "on" => true,
+                            "off" => false,
+                            _ => return Err(invalid("bypass requires on or off")),
+                        };
+                        control.set_bypass(bypass);
+                        println!(
+                            "RPI1_BYPASS enabled={bypass} policy=current_dry_processing_continues"
+                        );
                     } else if line == "master" || line.starts_with("master ") {
                         if !binding.legacy_master {
                             return Err(invalid("master command requires the Pigments binding"));
@@ -497,6 +535,14 @@ mod appliance {
                         let count = instance.capture_state(&mut state)?;
                         atomic_new(&path, &state[..count])?;
                         println!("RPI1_STATE_SAVED bytes={count}");
+                    } else if line == "slot save" {
+                        if binding.surface.is_none() {
+                            return Err(invalid("slot requires a selected effect surface"));
+                        }
+                        let mut state = vec![0; STATE_CAPACITY];
+                        let count = instance.capture_state(&mut state)?;
+                        panel_state::save(&state_directory, &state[..count])?;
+                        println!("RPI2_SLOT_SAVED bytes={count}");
                     } else if let Some(path) = line.strip_prefix("restore ") {
                         let path = absolute_state_path(path)?;
                         let state = fs::read(path)?;

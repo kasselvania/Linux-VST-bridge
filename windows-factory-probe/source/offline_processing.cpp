@@ -297,11 +297,24 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     }
     active=!call("set_active_false",[&]{return component.setActive(false);});
     if (active) return {false,false};
-    layout.activate(component,false);
-    if(hosted&&ok) {
+    // A final Close retires the component itself. Some components refuse
+    // disabling a required main bus after setActive(false); no processing or
+    // reactivation can follow Close. A reused component still must accept
+    // explicit bus deactivation before the next Activate.
+    if(hosted&&ok&&stateful&&commercial){
         external->lifecycle_ack(15);
-        if(stateful){if(external->activation_again())continue;}
-        else external->lifecycle_request(5);
+        if(external->activation_again()){
+            layout.activate(component,false);
+            continue;
+        }
+        events.lifecycle("ap18_terminal_bus_retirement",",\"explicit_deactivation\":false");
+    }else{
+        layout.activate(component,false);
+        if(hosted&&ok){
+            external->lifecycle_ack(15);
+            if(stateful){if(external->activation_again())continue;}
+            else external->lifecycle_request(5);
+        }
     }
     if (!external) for(int b=0;b<3;++b) {
         const auto& block=blocks[b];

@@ -24,6 +24,25 @@ impl OutputObservation {
     }
 }
 
+/// Apply the host's final output level. Bypass selects current stereo input
+/// while processing continues, so returning to wet output does not revive old
+/// queued work. Both routes receive the same output trim.
+pub fn present_output(inputs: [&[f32]; 2], outputs: [&mut [f32]; 2], bypass: bool, trim: f32) {
+    let [left, right] = outputs;
+    for (input, output) in inputs.into_iter().zip([left, right]) {
+        debug_assert_eq!(input.len(), output.len());
+        if bypass {
+            for (destination, source) in output.iter_mut().zip(input) {
+                *destination = *source * trim;
+            }
+        } else if trim != 1.0 {
+            for sample in output {
+                *sample *= trim;
+            }
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ParameterUpdate {
     pub id: u32,
@@ -174,6 +193,34 @@ mod tests {
             OutputObservation::measure(&[0.0; 512]),
             OutputObservation::default()
         );
+    }
+
+    #[test]
+    fn output_presentation_selects_current_dry_input_and_trims_both_routes_without_allocation() {
+        let dry_left = [0.25, -0.5];
+        let dry_right = [0.75, -0.25];
+        let mut wet_left = [1.0, -1.0];
+        let mut wet_right = [0.5, -0.5];
+        ALLOCATIONS.store(0, Ordering::Relaxed);
+        TRACK.with(|track| track.set(true));
+        present_output(
+            [&dry_left, &dry_right],
+            [&mut wet_left, &mut wet_right],
+            false,
+            0.5,
+        );
+        assert_eq!(wet_left, [0.5, -0.5]);
+        assert_eq!(wet_right, [0.25, -0.25]);
+        present_output(
+            [&dry_left, &dry_right],
+            [&mut wet_left, &mut wet_right],
+            true,
+            0.5,
+        );
+        TRACK.with(|track| track.set(false));
+        assert_eq!(ALLOCATIONS.load(Ordering::Relaxed), 0);
+        assert_eq!(wet_left, [0.125, -0.25]);
+        assert_eq!(wet_right, [0.375, -0.125]);
     }
 
     #[test]

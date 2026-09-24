@@ -1,6 +1,8 @@
 #pragma once
 #include "ap1_protocol.h"
 #include <cstdlib>
+#include <stdexcept>
+#include <string>
 #include <string_view>
 #include "../../native-vst3-proxy/include/ap18_bus_support.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
@@ -66,7 +68,10 @@ struct BusLayout {
  }
  void activate(Steinberg::Vst::IComponent& c,bool enabled)const {
   std::array<int,4> index{};for(size_t i=0;i<size;++i){const auto& b=buses[i];auto m=b.info.mediaType,d=b.info.direction;
-   ap1::require(c.activateBus(m,d,index[m*2+d]++,enabled&&b.active)==Steinberg::kResultOk,"SDK bus activation rejected");}
+   const auto bus_index=index[m*2+d]++;
+   const auto result=c.activateBus(m,d,bus_index,enabled&&b.active);
+   if(result!=Steinberg::kResultOk)
+    throw std::runtime_error("SDK bus activation rejected media="+std::to_string(m)+" direction="+std::to_string(d)+" index="+std::to_string(bus_index)+" enabled="+std::to_string(enabled&&b.active)+" result="+std::to_string(result));}
  }
 };
 }

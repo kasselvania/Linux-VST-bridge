@@ -4,7 +4,9 @@
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
 #include <unordered_set>
+#include <unordered_map>
 #include <chrono>
+#include <cmath>
 namespace linux_vst_bridge::wf0 {
 // Payload v2 (flags bit 1): 16-byte ID/availability/value records. Legacy
 // 12-byte records remain readable. Unavailable records have no numeric value
@@ -23,11 +25,16 @@ inline void capture_result(Steinberg::tresult r,LVBState::Stream&s,uint32_t stag
 }
 // Fresh initialization can expose the real editor without persistence. A
 // successful stream still synchronizes a separate controller exactly once.
-inline bool synchronize_initial(Steinberg::Vst::IEditController&controller,bool separate,Steinberg::tresult result,LVBState::Stream&state){
+struct InitialSyncObservation { Steinberg::tresult result=Steinberg::kResultOk; bool stream_failed=false,stream_quiescent=true; uint32_t reads=0,seeks=0,unknown_queries=0; size_t position=0; };
+inline bool synchronize_initial(Steinberg::Vst::IEditController&controller,bool separate,Steinberg::tresult result,LVBState::Stream&state,InitialSyncObservation*observation=nullptr){
  using namespace Steinberg;
  ap1::require(!state.failed&&state.quiescent(),"initial state stream bounds/lifetime");
  if(result!=kResultOk){ap1::require(ordinary_refusal(result),"initial state SDK failure");return false;}
- if(separate){state.position=0;auto r=controller.setComponentState(&state);ap1::require(r==kResultOk&&!state.failed&&state.quiescent(),"initial controller synchronization failed");}
+ if(separate){state.position=0;auto r=controller.setComponentState(&state);
+  if(observation)*observation={r,state.failed,state.quiescent(),state.read_calls,state.seek_calls,state.unknown_queries,state.position};
+  const bool untouched=state.read_calls==0&&state.seek_calls==0&&state.unknown_queries==0&&state.position==0;
+  ap1::require((r==kResultOk||(r==kNotImplemented&&untouched))&&!state.failed&&state.quiescent(),"initial controller synchronization failed");
+  return r==kResultOk;}
  return true;
 }
 struct ReadbackStatus {uint32_t unavailable=0,first_id=0;uint64_t first_bits=0;};
@@ -42,14 +49,23 @@ inline std::vector<uint8_t> commercial_state(Steinberg::Vst::IComponent&componen
  using namespace Steinberg;using namespace ap1;
  auto total_start=timing?StateTiming::Clock::now():StateTiming::Clock::time_point{};
  auto checked=[](tresult r,LVBState::Stream&s){require(r==kResultOk&&!s.failed&&s.quiescent(),"commercial state SDK call/stream");};
+ std::unordered_map<uint32_t,double> saved_values;
+ bool unsupported_controller_sync=false;
  if(restore){const auto&p=*restore;require(p.size()>=16,"commercial state header");auto a=get(p.data(),4),b=get(p.data()+4,4),n=get(p.data()+8,4),flags=get(p.data()+12,4);
   auto width=(flags&2)?16u:12u;
   require(flags<=3&&n<=8192&&a+b+16+width*n==p.size()&&((flags&1)||b==0),"commercial state extent");
   std::unordered_set<uint32_t> ids;
   for(size_t i=16+a+b;i<p.size();i+=width){auto q=p.data()+i;auto valid=width==16?get(q+4,4):1;double value;std::memcpy(&value,q+width-8,8);
-   require(ids.insert(uint32_t(get(q,4))).second&&valid<=1&&(valid?(std::isfinite(value)&&value>=0&&value<=1):get(q+8,8)==0),"state parameter value/identity");}
+   const auto id=uint32_t(get(q,4));
+   require(ids.insert(id).second&&valid<=1&&(valid?(std::isfinite(value)&&value>=0&&value<=1):get(q+8,8)==0),"state parameter value/identity");
+   if(valid)saved_values.emplace(id,value);}
   LVBState::Stream c({p.begin()+16,p.begin()+16+a});checked(component.setState(&c),c);
-  if(separate){c.position=0;checked(controller.setComponentState(&c),c);}
+  if(separate){c.position=0;
+   const auto reads=c.read_calls,seeks=c.seek_calls,queries=c.unknown_queries;
+   const auto result=controller.setComponentState(&c);
+   const bool untouched=c.position==0&&c.read_calls==reads&&c.seek_calls==seeks&&c.unknown_queries==queries;
+   unsupported_controller_sync=result==kNotImplemented&&untouched;
+   require((result==kResultOk||unsupported_controller_sync)&&!c.failed&&c.quiescent(),"commercial controller synchronization failed");}
   if(flags&1){LVBState::Stream v({p.begin()+16+a,p.begin()+16+a+b});checked(controller.setState(&v),v);}
  }
  // Capture is read-only. Reapplying component state here makes Serum emit
@@ -69,6 +85,7 @@ inline std::vector<uint8_t> commercial_state(Steinberg::Vst::IComponent&componen
  std::vector<uint8_t> out(length);put(out.data(),c.bytes.size(),4);put(out.data()+4,v.bytes.size(),4);put(out.data()+8,uint32_t(n),4);put(out.data()+12,(supported?1:0)|2,4);
  std::copy(c.bytes.begin(),c.bytes.end(),out.begin()+16);std::copy(v.bytes.begin(),v.bytes.end(),out.begin()+16+c.bytes.size());
  auto*p=out.data()+16+c.bytes.size()+v.bytes.size();
+ size_t matched_saved_values=0;
  for(int i=0;i<n;++i){
   if(timing)stage_start=StateTiming::Clock::now();
   Steinberg::Vst::ParameterInfo info{};require(controller.getParameterInfo(i,info)==kResultOk,"state parameter metadata");
@@ -76,11 +93,19 @@ inline std::vector<uint8_t> commercial_state(Steinberg::Vst::IComponent&componen
   auto value=controller.getParamNormalized(info.id);
   if(timing)timing->values_ns+=StateTiming::elapsed(stage_start);
   const bool available=std::isfinite(value)&&value>=0&&value<=1;
+  if(unsupported_controller_sync){
+   const auto saved=saved_values.find(info.id);
+   if(saved!=saved_values.end()){
+    require(available&&std::abs(value-saved->second)<=1e-7,"restored controller value differs");
+    ++matched_saved_values;
+   }
+  }
   if(!available&&status){if(status->unavailable++==0){status->first_id=info.id;std::memcpy(&status->first_bits,&value,8);}}
   put(p,info.id,4);put(p+4,available?1:0,4);
   if(available)std::memcpy(p+8,&value,8);
   p+=16;
  }
+ if(unsupported_controller_sync)require(matched_saved_values==saved_values.size(),"restored controller identity differs");
  if(timing)timing->total_ns=StateTiming::elapsed(total_start);
  return out;
 }
