@@ -26,11 +26,16 @@ def guard(expected):
 
 def status_values(lines):
     out = {}
+    audio_present = False
     for line in lines:
+        if line.startswith('RPI1_AUDIO '):
+            audio_present = True
         if line.startswith(('RPI1_AUDIO ', 'RPI1_CALLBACK_LIVE ')):
             for k, v in re.findall(r'(\w+)=([^ ]+)', line):
                 try: out[k] = float(v) if '.' in v else int(v)
                 except ValueError: out[k] = v
+    if not audio_present and any(line.startswith('RPI1_AUDIO_UNAVAILABLE ') for line in lines):
+        out['audio_statistics_missing'] = True
     return out
 
 
@@ -44,6 +49,17 @@ def outstanding_frames(counters, quantum=None):
             raise ValueError('Runtime quantum differs from selected condition')
         rendered = counters['bridge_processed_frames']
     return counters['callbacks'] * 512 - counters['paused_frames'] - rendered
+
+
+def sampled_outstanding(counters, quantum=None):
+    if counters.get('audio_statistics_missing'):
+        return None
+    return outstanding_frames(counters, quantum)
+
+
+def check_terminal(counters):
+    if any(counters.get(key, 0) for key in ('fault', 'process_failures', 'failures')):
+        raise RuntimeError('Terminal audio/process fault')
 
 
 def main():
@@ -157,7 +173,8 @@ def main():
             result['current_counters']=status_values(request('status','RPI1_STATUS '))
             result['counter_read_begin_ns']=started
             result['counter_read_end_ns']=time.monotonic_ns()
-            result['outstanding_frames_estimate']=outstanding_frames(result['current_counters'],256)
+            check_terminal(result['current_counters'])
+            result['outstanding_frames_estimate']=sampled_outstanding(result['current_counters'],256)
         return result
 
     def trial(name, run, cgroup):
@@ -297,9 +314,13 @@ def main():
                         began=time.monotonic_ns()
                         counters=status_values(request('status','RPI1_STATUS '))
                         elapsed=time.monotonic_ns()-began
-                        outstanding=outstanding_frames(counters, quantum if args.quantum_comparison or args.critical_profile or args.remaining_profile else None)
+                        check_terminal(counters)
+                        outstanding=sampled_outstanding(counters, quantum if args.quantum_comparison or args.critical_profile or args.remaining_profile else None)
                         check=dict(counters=counters,request_elapsed_ns=elapsed,outstanding_frames_estimate=outstanding)
                         row['drain_checks'].append(check)
+                        if outstanding is None:
+                            good=0
+                            continue
                         healthy=(counters['process_failures']==0 and counters['fault']==0 and counters['failures']==0)
                         good=good+1 if healthy and 0<=outstanding<=1024 and elapsed<250_000_000 else 0
                         if good>=3: break

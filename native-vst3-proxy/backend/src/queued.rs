@@ -134,6 +134,10 @@ struct Shared {
     quit: AtomicBool,
     processed: AtomicU64,
     processed_frames: AtomicU64,
+    // Published by the guarded callback at processing and lifecycle boundaries.
+    // These are observations, not an atomic snapshot of the queues or counters.
+    observed_position: AtomicU64,
+    observed_epoch: AtomicU64,
     first_position: AtomicU64,
     detail: std::sync::Mutex<String>,
     // Separate owner-thread mailbox. It never writes the SPSC audio queue.
@@ -183,6 +187,8 @@ impl Shared {
             quit: AtomicBool::new(false),
             processed: AtomicU64::new(0),
             processed_frames: AtomicU64::new(0),
+            observed_position: AtomicU64::new(0),
+            observed_epoch: AtomicU64::new(0),
             first_position: AtomicU64::new(u64::MAX),
             detail: std::sync::Mutex::new(String::new()),
             control: std::sync::Mutex::new(None),
@@ -326,6 +332,8 @@ impl Callback {
             s.fail(OVERFLOW, self.position);
             return 2;
         }
+        s.observed_position.store(self.position, Ordering::Release);
+        s.observed_epoch.store(self.epoch, Ordering::Release);
         0
     }
     fn process(
@@ -502,6 +510,7 @@ impl Callback {
             }
         }
         self.position += request.n as u64;
+        s.observed_position.store(self.position, Ordering::Release);
         Ok(flags)
     }
 }
@@ -1659,6 +1668,7 @@ pub struct Stats {
     pub fault: u64,
     pub first_position: u64,
     pub processed: u64,
+    // Historical queue occupancy high-water marks, not current backlog.
     pub request_high: u64,
     pub result_high: u64,
     pub position: u64,
@@ -1666,23 +1676,20 @@ pub struct Stats {
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap3_stats(id: u64, out: *mut Stats) -> u32 {
-    let Some(l) = INSTANCES.lease(id) else {
-        return 1;
-    };
-    let Some(_guard) = Guard::acquire(&l) else {
-        return 3;
-    };
     if out.is_null() {
         return 1;
     }
+    let Some(l) = INSTANCES.lease(id) else {
+        return 1;
+    };
     *out = Stats {
         fault: l.shared.fault.load(Ordering::Acquire),
         first_position: l.shared.first_position.load(Ordering::Acquire),
         processed: l.shared.processed.load(Ordering::Acquire),
         request_high: l.shared.requests.high_water(),
         result_high: l.shared.results.high_water(),
-        position: (*l.callback.get()).position,
-        epoch: (*l.callback.get()).epoch,
+        position: l.shared.observed_position.load(Ordering::Acquire),
+        epoch: l.shared.observed_epoch.load(Ordering::Acquire),
     };
     0
 }
@@ -2126,6 +2133,70 @@ pub unsafe extern "C" fn ap10_fail_results(id: u64) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn fake_peer_stats_never_owns_the_callback_guard() {
+        let shared = Arc::new(Shared::new());
+        shared.state_capable.store(true, Ordering::Release);
+        let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
+            shared: shared.clone(), callback: UnsafeCell::new(Callback::new()),
+            busy: AtomicBool::new(false), worker: None, report: None,
+            max: 512, quantum: 256, recovery_blocked: false,
+            installed_delay: None, minor: 11, setup: None,
+        })).unwrap().unwrap();
+        assert_eq!(unsafe { ap3_transition(id, START) }, 0);
+        assert_eq!(shared.requests.pop().unwrap().kind, START);
+
+        let lease = INSTANCES.lease(id).unwrap();
+        let guard = Guard::acquire(&lease).unwrap();
+        // A private interior mutation must not leak through the stats ABI.
+        unsafe { (*lease.callback.get()).position = 99; }
+        let mut stats = Stats::default();
+        assert_eq!(unsafe { ap3_stats(id, &mut stats) }, 0);
+        assert_eq!((stats.position, stats.epoch), (0, 1));
+        assert!(lease.busy.load(Ordering::Acquire));
+        unsafe { (*lease.callback.get()).position = 0; }
+        drop(guard);
+        drop(lease);
+
+        let done = Arc::new(AtomicBool::new(false));
+        let reader_done = done.clone();
+        let reader = thread::spawn(move || {
+            let mut reads = 0;
+            while !reader_done.load(Ordering::Acquire) {
+                let mut stats = Stats::default();
+                assert_eq!(unsafe { ap3_stats(id, &mut stats) }, 0);
+                assert_eq!(stats.epoch, 1);
+                reads += 1;
+                thread::yield_now();
+            }
+            reads
+        });
+        let input = [0f32; 512];
+        let mut left = [0f32; 512];
+        let mut right = [0f32; 512];
+        for _ in 0..128 {
+            let mut flags = 0;
+            assert_eq!(unsafe { ap3_process(id, 512, 0., 3,
+                input.as_ptr(), input.as_ptr(), left.as_mut_ptr(), right.as_mut_ptr(),
+                &mut flags) }, 0);
+            for _ in 0..2 {
+                let request = shared.requests.pop().unwrap();
+                assert!(shared.results.push(Completion::from(request)));
+            }
+        }
+        done.store(true, Ordering::Release);
+        assert!(reader.join().unwrap() > 0);
+        assert_eq!(unsafe { ap3_stats(id, &mut stats) }, 0);
+        assert_eq!((stats.position, stats.epoch), (128 * 512, 1));
+
+        shared.fail(WORKER, stats.position);
+        assert_eq!(unsafe { ap3_process(id, 512, 0., 3,
+            input.as_ptr(), input.as_ptr(), left.as_mut_ptr(), right.as_mut_ptr(),
+            &mut 0) }, 2);
+        assert_eq!(unsafe { ap3_stats(id, &mut stats) }, 0);
+        assert_eq!(stats.fault, WORKER);
+        INSTANCES.remove(id, |_| ()).unwrap();
+    }
     #[test]
     fn gui_abi_rejects_short_prefix_before_forming_full_message() {
         for mut prefix in [[2u32, 584u32], [4, 8], [3, 608], [5, 608], [0, 0]] {
