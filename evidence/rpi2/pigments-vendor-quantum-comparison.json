@@ -3227,5 +3227,5 @@
     "Existing contained-terminal validation/no-new-work test passed in experimental build.",
     "Counter drain test uses actual completed frames, ignores zero-frame call increments and refuses mismatched/missing readback."
   ],
-  "assessment": "No reliable performance improvement established.512 halves processing calls per frame, but measured Pigments process CPU did not materially improve and neither block size consistently delivered continuous audio. The two256 conditions varied strongly. A sampled DVFS dip overlaps the512 gap; the last256 failure occurred at sampled full clock. Separate companion CPU was low during all repeated holds, higher during warm-ups. No sole cause is assigned."
+  "assessment": "No reliable performance improvement established. The 512-frame setting halves processing calls per frame, but measured Pigments process CPU did not materially improve and neither block size consistently delivered continuous audio. The two 256-frame conditions varied strongly. A sampled DVFS dip overlaps the 512-frame gap; the last 256-frame failure occurred at sampled full clock. Separate companion CPU was low during all repeated holds and higher during warm-ups. No sole cause is assigned."
 }
