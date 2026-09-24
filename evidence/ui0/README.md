@@ -33,6 +33,6 @@ cargo run --manifest-path manager-ui/Cargo.toml --locked --example operator_prev
 
 The arguments are output path, width, page (`home`, `plugins`, `workspaces`, `activity`, `setup`, `diagnostics`), synthetic state (`busy`, `idle`, `unavailable`, `cleanup`, `shared`), and theme (`light`, `dark`). Height is 720. The narrow capture uses a deliberate three-column/two-row touch navigation grid. The preview does not contact or replace the installed manager.
 
-## Remaining acceptance
+## Installed acceptance
 
-Keyboard, trackpad, and physical touch behavior need an installed frontend pass after Deck custody is handed to UI0. The preview cannot prove Bitwig browser publication, audio, DAW workspace behavior, or Game Mode state.
+The [controlled Deck pass](deck-acceptance-2026-09-24.md) records the exact installed generation, preserved catalogue, operator-reported ordinary and narrow interaction, and canonical readback across one Serum 2 session and manager close/reopen. These synthetic previews still do not prove Bitwig browser publication, audio performance, DAW workspace behavior, or Game Mode state.
