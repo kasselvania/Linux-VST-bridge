@@ -2215,7 +2215,7 @@ mod tests {
     fn quantum_parent_callbacks_preserve_exact_delay() {
         // The consumer runs only after the complete parent host callback. A
         // 512-frame parent must not acquire an artificial wait between chunks.
-        for (maximum, delay, quantum) in [(512,512,256),(256,512,256),(256,256,256),(128,256,256),(512,512,512),(513,2048,512),(1024,2048,512)] {
+        for (maximum, delay, quantum) in [(128,128,128),(512,512,256),(256,512,256),(256,256,256),(128,256,256),(512,512,512),(513,2048,512),(1024,2048,512)] {
             if quantum>CAP {continue;}
             let mut ids = Vec::new();
             let mut peers = Vec::new();
@@ -2380,7 +2380,7 @@ mod tests {
     }
     #[test]
     fn quantum_preserves_partial_zero_blocks_events_and_context() {
-        for quantum in [256, 512].into_iter().filter(|&q| q <= CAP) {
+        for quantum in [128, 256, 512].into_iter().filter(|&q| q <= CAP) {
             let mut shared = Shared::new();
             shared.identity=Some(state::Identity{class:[1;16],module:[2;32]});
             let shared = Arc::new(shared);

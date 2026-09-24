@@ -74,10 +74,10 @@ impl Instance {
         directory: PathBuf, session: [u8; 16], identity: Identity,
         bridge_frames: u32, quantum: u32,
     ) -> io::Result<Self> {
-        if !matches!(quantum, 256 | 512) || quantum as usize > ap1_native_client::CAP {
+        if !matches!(quantum, 128 | 256 | 512) || quantum as usize > ap1_native_client::CAP {
             return Err(io::Error::other("unsupported appliance processing quantum"));
         }
-        if !matches!(bridge_frames, 512 | 1024 | 2048) {
+        if !matches!(bridge_frames, 128 | 256 | 512 | 1024 | 2048) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "RPI0 bridge delay",
