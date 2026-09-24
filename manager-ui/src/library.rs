@@ -206,14 +206,7 @@ impl Library {
                             }
                         ));
                         let instances = presentation::product_activity(snapshot, p);
-                        ui.small(if instances.shared_class {
-                            format!(
-                                "{} active in this plug-in class · exact build unavailable",
-                                instances.active
-                            )
-                        } else {
-                            format!("{} active instance(s)", instances.active)
-                        });
+                        ui.small(instances.detail_label());
                         for failure in &instances.failed_live {
                             ui.colored_label(
                                 warning_color(ui),

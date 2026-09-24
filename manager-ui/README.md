@@ -15,6 +15,6 @@ cargo run --manifest-path manager-ui/Cargo.toml --locked --example operator_prev
 cargo run --manifest-path manager-ui/Cargo.toml --locked --example operator_preview -- /tmp/home-narrow.png 560 home busy light
 ```
 
-The operator preview renders the production views with synthetic records and never starts the manager client. Its arguments are `OUTPUT.png [WIDTH] [PAGE] [busy|idle|unavailable|cleanup] [light|dark]`; supported pages are `home`, `plugins`, `workspaces`, `activity`, `setup` and `diagnostics`. It saves its own frame and closes without pointer or keyboard input. The older `library_preview` remains for isolated library checks. [UI0 source-owned captures](../evidence/ui0/README.md) show ordinary and narrow layouts.
+The operator preview renders the production views with synthetic records and never starts the manager client. Its arguments are `OUTPUT.png [WIDTH] [PAGE] [busy|idle|unavailable|cleanup|shared] [light|dark]`; supported pages are `home`, `plugins`, `workspaces`, `activity`, `setup` and `diagnostics`. It saves its own frame and closes without pointer or keyboard input. The older `library_preview` remains for isolated library checks. [UI0 source-owned captures](../evidence/ui0/README.md) show ordinary and narrow layouts.
 
 User instructions remain in the [Crash capture guide (PDF)](../output/pdf/Plug-in-Crash-Capture-Guide.pdf) and [editable source](../docs/user/plug-in-crash-capture.md). This source change does not install a new frontend or qualify a plug-in.

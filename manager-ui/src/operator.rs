@@ -559,7 +559,6 @@ impl Operator {
                 self.message = e;
                 if let Some(s) = &mut self.snapshot {
                     s.system.service = "capacity unavailable".into();
-                    s.system.cleanup_unconfirmed = true;
                 }
             }
         }
@@ -583,28 +582,53 @@ fn warning_color(ui: &egui::Ui) -> egui::Color32 {
     }
 }
 
-fn navigation(ui: &mut egui::Ui, page: &mut Page) -> Vec<egui::Rect> {
+fn navigation_button(
+    ui: &mut egui::Ui,
+    page: &mut Page,
+    item: Page,
+    width: f32,
+) -> (Page, bool, egui::Rect) {
+    let selected = *page == item;
+    let button = egui::Button::new(item.label())
+        .min_size(egui::vec2(width, 44.0))
+        .selected(selected);
+    let response = ui.add(button);
+    if response.clicked() {
+        *page = item;
+    }
+    (item, selected, response.rect)
+}
+
+fn navigation(ui: &mut egui::Ui, page: &mut Page) -> Vec<(Page, bool, egui::Rect)> {
+    let items = [
+        Page::Home,
+        Page::Plugins,
+        Page::Workspaces,
+        Page::Activity,
+        Page::Setup,
+        Page::Diagnostics,
+    ];
     let mut bounds = Vec::new();
-    ui.horizontal_wrapped(|ui| {
-        for item in [
-            Page::Home,
-            Page::Plugins,
-            Page::Workspaces,
-            Page::Activity,
-            Page::Setup,
-            Page::Diagnostics,
-        ] {
-            let selected = *page == item;
-            let button = egui::Button::new(item.label())
-                .min_size(egui::vec2(94.0, 44.0))
-                .selected(selected);
-            let response = ui.add(button);
-            bounds.push(response.rect);
-            if response.clicked() {
-                *page = item;
+    if ui.available_width() < 760.0 {
+        let width = ((ui.available_width() - 24.0) / 3.0).max(94.0);
+        egui::Grid::new("navigation-narrow")
+            .num_columns(3)
+            .spacing(egui::vec2(12.0, 12.0))
+            .show(ui, |ui| {
+                for (index, item) in items.into_iter().enumerate() {
+                    bounds.push(navigation_button(ui, page, item, width));
+                    if index % 3 == 2 {
+                        ui.end_row();
+                    }
+                }
+            });
+    } else {
+        ui.horizontal_wrapped(|ui| {
+            for item in items {
+                bounds.push(navigation_button(ui, page, item, 94.0));
             }
-        }
-    });
+        });
+    }
     bounds
 }
 
@@ -679,11 +703,11 @@ impl Operator {
                         "Pending transactions {}",
                         system.pending_transactions
                     )));
-                    ui.label(label(if system.cleanup_unconfirmed {
-                        "Cleanup unconfirmed".into()
-                    } else {
-                        "Cleanup confirmed".into()
-                    }));
+                    ui.label(label(
+                        presentation::activity_certainty(system)
+                            .cleanup_label()
+                            .into(),
+                    ));
                 });
             });
     }
@@ -775,10 +799,10 @@ impl Operator {
             count += 1;
             let activity = presentation::product_activity(snapshot, product);
             let label = format!(
-                "{}  ·  {}  ·  {} active",
+                "{}  ·  {}  ·  {}",
                 product.name,
                 crate::library::status(product).0,
-                activity.active
+                activity.home_label()
             );
             if ui
                 .add_sized([ui.available_width(), 46.0], egui::Button::new(label))
@@ -801,31 +825,32 @@ impl Operator {
 
     fn home_live(ui: &mut egui::Ui, snapshot: &Snapshot, page: &mut Page) {
         ui.heading("Running now");
-        if !snapshot.system.capacity_available() {
-            ui.label("Live session status cannot be confirmed.");
-        } else if snapshot.system.cleanup_unconfirmed {
-            ui.colored_label(
-                warning_color(ui),
-                "Cleanup is unconfirmed. Retained owners are not proof of live audio.",
-            );
-        } else {
-            let running: Vec<_> = snapshot
-                .active_sessions
-                .iter()
-                .filter(|row| row["recent"] != true && row["state"] == "active")
-                .collect();
-            if running.is_empty() {
-                ui.label("No bridge sessions are running.");
-            } else {
-                for row in running.iter().take(3) {
-                    let class_id = row["class_id"].as_str().unwrap_or("");
-                    ui.label(
-                        presentation::session_product(snapshot, class_id)
-                            .map_or("Plug-in class unavailable", |product| product.name.as_str()),
-                    );
-                }
-                if running.len() > 3 {
-                    ui.small(format!("And {} more", running.len() - 3));
+        match presentation::activity_certainty(&snapshot.system) {
+            presentation::ActivityCertainty::Unavailable => {
+                ui.label("Live session status cannot be confirmed.");
+            }
+            presentation::ActivityCertainty::CleanupUncertain => {
+                ui.colored_label(
+                    warning_color(ui),
+                    "Cleanup is unconfirmed. Retained owners are not proof of live audio.",
+                );
+            }
+            presentation::ActivityCertainty::Confirmed => {
+                let running: Vec<_> = snapshot
+                    .active_sessions
+                    .iter()
+                    .filter(|row| row["recent"] != true && row["state"] == "active")
+                    .collect();
+                if running.is_empty() {
+                    ui.label("No bridge sessions are running.");
+                } else {
+                    for row in running.iter().take(3) {
+                        let class_id = row["class_id"].as_str().unwrap_or("");
+                        ui.label(presentation::session_display_name(snapshot, class_id));
+                    }
+                    if running.len() > 3 {
+                        ui.small(format!("And {} more", running.len() - 3));
+                    }
                 }
             }
         }
@@ -946,9 +971,18 @@ impl Operator {
             }
             ui.separator();
             Self::home_products(ui, snapshot, page, library);
-            ui.separator();
-            ui.heading("Needs attention");
-            Self::attention_list(ui, snapshot, 1, page, library, focus);
+            if attention > 1 {
+                ui.separator();
+                if ui
+                    .add_sized(
+                        [220.0, 44.0],
+                        egui::Button::new(format!("See all {attention} attention items")),
+                    )
+                    .clicked()
+                {
+                    *page = Page::Activity;
+                }
+            }
             ui.separator();
             Self::home_live(ui, snapshot, page);
             ui.separator();
@@ -972,9 +1006,7 @@ impl Operator {
         let frame = ui.push_id((row["recent"] == true, index), |ui| {
             egui::Frame::group(ui.style()).show(ui, |ui| {
                 ui.set_min_width((ui.available_width() - 1.0).max(0.0));
-                ui.strong(
-                    product.map_or("Plug-in class unavailable", |product| product.name.as_str()),
-                );
+                ui.strong(presentation::session_display_name(snapshot, class_id));
                 let state = if row["recent"] == true {
                     format!(
                         "Most recent failed session · {}",
@@ -1945,9 +1977,9 @@ mod tests {
     }
     #[test]
     fn ordinary_and_narrow_navigation_keeps_every_page_touch_reachable() {
-        for width in [960.0, 560.0] {
+        for (width, selected_page) in [(960.0, Page::Home), (560.0, Page::Activity)] {
             let ctx = egui::Context::default();
-            let mut page = Page::Home;
+            let mut page = selected_page;
             let mut bounds = Vec::new();
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
                 ui.set_max_width(width - 32.0);
@@ -1955,14 +1987,76 @@ mod tests {
             });
             output.textures_delta.clear();
             assert_eq!(bounds.len(), 6);
-            let first = bounds[0];
-            for rect in &bounds {
+            assert_eq!(
+                bounds.iter().filter(|(_, selected, _)| *selected).count(),
+                1
+            );
+            assert!(bounds
+                .iter()
+                .any(|(item, selected, _)| *item == selected_page && *selected));
+            let first = bounds[0].2;
+            for (_, _, rect) in &bounds {
                 assert!(rect.width() >= 94.0 && rect.height() >= 44.0);
                 assert!(rect.left() >= first.left());
                 assert!(rect.right() <= first.left() + width - 32.0);
                 assert!(rect.bottom() <= first.top() + 112.0);
             }
+            if width == 560.0 {
+                let first_top = bounds[0].2.top();
+                let second_top = bounds[3].2.top();
+                assert!(second_top > first_top);
+                assert!(bounds[..3]
+                    .iter()
+                    .all(|(_, _, rect)| rect.top() == first_top && rect.width() >= 150.0));
+                assert!(bounds[3..]
+                    .iter()
+                    .all(|(_, _, rect)| rect.top() == second_top && rect.width() >= 150.0));
+            } else {
+                assert!(bounds.iter().all(|(_, _, rect)| rect.top() == first.top()));
+            }
         }
+    }
+    #[test]
+    fn narrow_home_shows_one_attention_shortcut_and_one_all_items_route() {
+        fn texts(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
+            match shape {
+                egui::epaint::Shape::Text(text) => out.push(text.galley.text().into()),
+                egui::epaint::Shape::Vec(shapes) => {
+                    for shape in shapes {
+                        texts(shape, out);
+                    }
+                }
+                _ => {}
+            }
+        }
+        let mut snapshot: Snapshot =
+            serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap();
+        snapshot.active_sessions.push(serde_json::json!({
+            "session":"exact-session", "class_id":"fixture-kontakt", "state":"failed",
+            "recent":true, "terminal":"editor_controller_failed",
+            "cleanup_confirmed":true, "transport_retired":true
+        }));
+        assert_eq!(presentation::attentions(&snapshot).len(), 2);
+        let ctx = egui::Context::default();
+        let mut page = Page::Home;
+        let mut library = crate::library::Library::default();
+        let mut focus = RouteFocus::default();
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            ui.set_max_width(528.0);
+            Operator::home(ui, &snapshot, &mut page, &mut library, &mut focus);
+        });
+        let mut labels = Vec::new();
+        for clipped in &output.shapes {
+            texts(&clipped.shape, &mut labels);
+        }
+        output.textures_delta.clear();
+        assert!(labels.iter().any(|text| text == "Review item"));
+        assert!(labels
+            .iter()
+            .any(|text| text == "See all 2 attention items"));
+        assert!(!labels
+            .iter()
+            .any(|text| text == "Review this" || text == "Open item"));
     }
     #[test]
     fn session_attention_opens_activity_at_exact_session_identity() {
@@ -1988,6 +2082,20 @@ mod tests {
         );
         assert_eq!(page, Page::Setup);
         assert!(focus.setup_scroll);
+    }
+    #[test]
+    fn lost_readback_marks_capacity_unavailable_without_inventing_cleanup_failure() {
+        let mut operator = state_fixture();
+        operator.snapshot =
+            Some(serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap());
+        operator.handle_reply(Reply::Error("readback lost".into()));
+        let system = &operator.snapshot.as_ref().unwrap().system;
+        assert!(!system.capacity_available());
+        assert!(!system.cleanup_unconfirmed);
+        assert_eq!(
+            presentation::activity_certainty(system).cleanup_label(),
+            "Cleanup unknown"
+        );
     }
     fn create_request() -> Request {
         Request {

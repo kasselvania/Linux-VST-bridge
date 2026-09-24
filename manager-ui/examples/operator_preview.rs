@@ -1,5 +1,5 @@
 //! Source-owned preview of the production manager views with synthetic records.
-//! Usage: OUTPUT.png [WIDTH] [PAGE] [busy|idle|unavailable|cleanup] [light|dark]
+//! Usage: OUTPUT.png [WIDTH] [PAGE] [busy|idle|unavailable|cleanup|shared] [light|dark]
 #[path = "../src/client.rs"]
 mod client;
 #[path = "../src/library.rs"]
@@ -95,11 +95,18 @@ fn main() -> eframe::Result {
         }
         "unavailable" => {
             snapshot.system.service = "capacity unavailable".into();
-            snapshot.system.cleanup_unconfirmed = true;
+            snapshot.system.cleanup_unconfirmed = true; // canonical unavailable readback is conservative
             snapshot.system.ceiling = 0;
             snapshot.system.dsp = 0;
         }
         "cleanup" => snapshot.system.cleanup_unconfirmed = true,
+        "shared" => {
+            let mut other_build = snapshot.products[1].clone();
+            other_build.name = "Efx FRAGMENTS (other build)".into();
+            other_build.module_sha256 = "fixture-fragments-other-build".into();
+            other_build.environment = "fixture-arturia-other".into();
+            snapshot.products.push(other_build);
+        }
         other => panic!("unknown state: {other}"),
     }
     let theme = match args.get(4).map(String::as_str).unwrap_or("light") {

@@ -88,8 +88,39 @@ pub fn terminal_text(terminal: &str) -> &'static str {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ActivityCertainty {
+    Confirmed,
+    CleanupUncertain,
+    #[default]
+    Unavailable,
+}
+
+pub fn activity_certainty(system: &System) -> ActivityCertainty {
+    // The manager conservatively sets cleanup_unconfirmed when capacity
+    // readback is absent. That does not establish the current cleanup state.
+    if !system.capacity_available() {
+        ActivityCertainty::Unavailable
+    } else if system.cleanup_unconfirmed {
+        ActivityCertainty::CleanupUncertain
+    } else {
+        ActivityCertainty::Confirmed
+    }
+}
+
+impl ActivityCertainty {
+    pub fn cleanup_label(self) -> &'static str {
+        match self {
+            Self::Confirmed => "Cleanup confirmed",
+            Self::CleanupUncertain => "Cleanup unconfirmed",
+            Self::Unavailable => "Cleanup unknown",
+        }
+    }
+}
+
 #[derive(Default, Debug, PartialEq, Eq)]
 pub struct ProductActivity {
+    pub certainty: ActivityCertainty,
     pub active: usize,
     pub failed_live: Vec<&'static str>,
     pub recent_failure: Option<&'static str>,
@@ -98,8 +129,40 @@ pub struct ProductActivity {
     pub shared_class: bool,
 }
 
+impl ProductActivity {
+    pub fn detail_label(&self) -> String {
+        match self.certainty {
+            ActivityCertainty::Confirmed if self.shared_class => format!(
+                "{} active in this plug-in class · exact build unavailable",
+                self.active
+            ),
+            ActivityCertainty::Confirmed => format!("{} active instance(s)", self.active),
+            ActivityCertainty::CleanupUncertain => {
+                "Cleanup unresolved · current instances not confirmed".into()
+            }
+            ActivityCertainty::Unavailable => "Current activity unavailable".into(),
+        }
+    }
+
+    pub fn home_label(&self) -> String {
+        match self.certainty {
+            ActivityCertainty::Confirmed if self.shared_class => {
+                "Class activity in Activity".into()
+            }
+            ActivityCertainty::Confirmed => format!("{} active", self.active),
+            ActivityCertainty::CleanupUncertain => {
+                "Cleanup unresolved · current instances not confirmed".into()
+            }
+            ActivityCertainty::Unavailable => "Current activity unavailable".into(),
+        }
+    }
+}
+
 pub fn product_activity(snapshot: &Snapshot, product: &Product) -> ProductActivity {
-    let mut result = ProductActivity::default();
+    let mut result = ProductActivity {
+        certainty: activity_certainty(&snapshot.system),
+        ..ProductActivity::default()
+    };
     if product.class_id.is_empty() {
         return result;
     }
@@ -120,10 +183,12 @@ pub fn product_activity(snapshot: &Snapshot, product: &Product) -> ProductActivi
                 result.recent_cleanup_unconfirmed |=
                     row["cleanup_confirmed"] != true || row["transport_retired"] != true;
             }
-        } else if let Some(terminal) = row["terminal"].as_str() {
-            result.failed_live.push(terminal_text(terminal));
-        } else if row["state"] == "active" {
-            result.active += 1;
+        } else if result.certainty == ActivityCertainty::Confirmed {
+            if let Some(terminal) = row["terminal"].as_str() {
+                result.failed_live.push(terminal_text(terminal));
+            } else if row["state"] == "active" {
+                result.active += 1;
+            }
         }
     }
     result
@@ -174,7 +239,7 @@ pub fn attentions(snapshot: &Snapshot) -> Vec<Attention> {
             destination: Destination::Diagnostics,
         });
     }
-    if system.cleanup_unconfirmed {
+    if system.capacity_available() && system.cleanup_unconfirmed {
         items.push(Attention {
             title: "Cleanup is unconfirmed".into(),
             detail: "The manager is blocking unsafe new work until ownership is resolved.".into(),
@@ -291,6 +356,18 @@ pub fn session_product<'a>(snapshot: &'a Snapshot, class_id: &str) -> Option<&'a
         .flatten()
 }
 
+pub fn session_display_name<'a>(snapshot: &'a Snapshot, class_id: &str) -> &'a str {
+    let mut matches = snapshot
+        .products
+        .iter()
+        .filter(|product| !class_id.is_empty() && product.class_id == class_id);
+    match (matches.next(), matches.next()) {
+        (Some(product), None) => &product.name,
+        (Some(_), Some(_)) => "Shared plug-in class · exact build unavailable",
+        _ => "Plug-in class unavailable",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -314,6 +391,101 @@ mod tests {
         assert_eq!(health(&system), Health::NeedsAttention);
         system.service = "capacity unavailable".into();
         assert_eq!(health(&system), Health::Unavailable);
+    }
+
+    #[test]
+    fn retained_active_row_never_becomes_a_current_product_claim_without_certain_capacity() {
+        let mut snapshot = snapshot();
+        snapshot.active_sessions = vec![serde_json::json!({
+            "session":"exact-session", "class_id":"fixture-fragments", "state":"active", "recent":false
+        })];
+        let product = &snapshot.products[1];
+        let confirmed = product_activity(&snapshot, product);
+        assert_eq!(confirmed.certainty, ActivityCertainty::Confirmed);
+        assert_eq!(confirmed.active, 1);
+        assert_eq!(confirmed.home_label(), "1 active");
+        assert_eq!(confirmed.detail_label(), "1 active instance(s)");
+        assert_eq!(
+            activity_certainty(&snapshot.system).cleanup_label(),
+            "Cleanup confirmed"
+        );
+
+        snapshot.system.service = "capacity unavailable".into();
+        let unavailable = product_activity(&snapshot, product);
+        assert_eq!(unavailable.certainty, ActivityCertainty::Unavailable);
+        assert_eq!(unavailable.active, 0);
+        assert_eq!(unavailable.home_label(), "Current activity unavailable");
+        assert_eq!(unavailable.detail_label(), "Current activity unavailable");
+        assert_eq!(
+            activity_certainty(&snapshot.system).cleanup_label(),
+            "Cleanup unknown"
+        );
+        snapshot.system.service = "active".into();
+        snapshot.system.cleanup_unconfirmed = true;
+        let uncertain = product_activity(&snapshot, product);
+        assert_eq!(uncertain.certainty, ActivityCertainty::CleanupUncertain);
+        assert_eq!(uncertain.active, 0);
+        assert_eq!(
+            uncertain.home_label(),
+            "Cleanup unresolved · current instances not confirmed"
+        );
+        assert_eq!(
+            uncertain.detail_label(),
+            "Cleanup unresolved · current instances not confirmed"
+        );
+        assert_eq!(
+            activity_certainty(&snapshot.system).cleanup_label(),
+            "Cleanup unconfirmed"
+        );
+        snapshot.system.service = "capacity unavailable".into();
+        assert_eq!(
+            activity_certainty(&snapshot.system).cleanup_label(),
+            "Cleanup unknown"
+        );
+        let unavailable_with_conservative_flag = product_activity(&snapshot, product);
+        assert_eq!(
+            unavailable_with_conservative_flag.certainty,
+            ActivityCertainty::Unavailable
+        );
+        assert_eq!(
+            unavailable_with_conservative_flag.home_label(),
+            "Current activity unavailable"
+        );
+        assert!(!attentions(&snapshot)
+            .iter()
+            .any(|item| item.title == "Cleanup is unconfirmed"));
+    }
+
+    #[test]
+    fn shared_class_session_stays_class_level_on_both_product_surfaces() {
+        let mut snapshot = snapshot();
+        let mut second_build = snapshot.products[1].clone();
+        second_build.module_sha256 = "different-build".into();
+        second_build.environment = "different-environment".into();
+        snapshot.products.push(second_build);
+        snapshot.active_sessions = vec![serde_json::json!({
+            "session":"exact-session", "class_id":"fixture-fragments", "state":"active", "recent":false
+        })];
+        for product in snapshot
+            .products
+            .iter()
+            .filter(|p| p.class_id == "fixture-fragments")
+        {
+            let activity = product_activity(&snapshot, product);
+            assert!(activity.shared_class);
+            assert_eq!(activity.active, 1);
+            assert_eq!(activity.home_label(), "Class activity in Activity");
+            assert_eq!(
+                activity.detail_label(),
+                "1 active in this plug-in class · exact build unavailable"
+            );
+        }
+        assert!(session_product(&snapshot, "fixture-fragments").is_none());
+        assert_eq!(
+            session_display_name(&snapshot, "fixture-fragments"),
+            "Shared plug-in class · exact build unavailable"
+        );
+        assert_eq!(snapshot.active_sessions[0]["session"], "exact-session");
     }
 
     #[test]
