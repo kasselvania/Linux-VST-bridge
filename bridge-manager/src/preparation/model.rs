@@ -16,6 +16,15 @@ pub struct Selection {
 pub enum Origin {
     ManagedPreparation,
     RetainedSv1,
+    X11TouchReleaseV1,
+    X11TouchRoutingV2,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct TouchCarryForward {
+    pub predecessor: String,
+    pub transition: Artifact,
+    pub runner_manifest: Artifact,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -51,6 +60,8 @@ pub struct Candidate {
     pub recipe_sha256: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preparation_basis: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub touch_carry_forward: Option<TouchCarryForward>,
 }
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]

@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "claim": "Corrected Deck package selection, exact candidate-C publication, and one physical Serum touch session",
+  "source_authority": {
+    "reviewed_head": "b9633b441982863927de8a078dee5c582ef28dfa",
+    "reviewed_tree": "3f8a275ef263dc4e2b1145bf5980a28983056e30",
+    "production_source_changed_since_review": false
+  },
+  "package_correction": {
+    "prior_blocker": "installed_default_host_did_not_match_candidate_c",
+    "installed_generation": "30d144c0b65437e7963692d434f930fe45faf2ec73527d5864580fc08eb913ac",
+    "manager_sha256": "2ca67e5e0c9c7c06d39cadc9fea9fef0d0580b58fa2905f53299d9b5a3dfc49c",
+    "supervisor_sha256": "2a1f21ba01243809b7552e427d325efe4bedccdce372c991ca3b10a1ec839c50",
+    "default_host_sha256": "348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be",
+    "default_host_source_sha256": "0ce0ecae2264bab24290712d0e3d2ed9e8c092ce6cb7a521fd0fac71ca010ac3",
+    "candidate_c_current_inputs": true,
+    "service_active_idle_after_install": true,
+    "other_five_publications_remained_selected": true
+  },
+  "publication": {
+    "operator_operation": "51239103de472670bbea731ac3421532",
+    "operator_result": "completed",
+    "candidate_c": "91b699291eb7b7d1ff6e725d5e6fd1abed88ea721dbd81a621dd2fb39d38d207",
+    "revision": "807828d4b94fccd69e57c352a60dbcd1",
+    "revision_sha256": "44b5ca5b432c2746067e17bb3abe3fe4e0652c90a774606abf38b6870aedaeab",
+    "claim": "review_candidate",
+    "runner": "proton-11.0-2c-x11-touch-release-v1",
+    "physical_link_verified": true,
+    "other_five_publications_remained_selected": true
+  },
+  "session": {
+    "mode": "Steam Deck Desktop, Bitwig, disposable project, one Serum 2 instance",
+    "session_id": "ccdd63f0909cf5b49eb8ed2b5a856db0",
+    "keeper_session_id": "c5d7f225cea74fcda46d365ded534c4b",
+    "bitwig_host_pid_start_ticks": [270091, 2805052],
+    "windows_dsp_host_pid_start_ticks": [270398, 2805766],
+    "windows_keeper_host_pid_start_ticks": [270244, 2805527],
+    "mouse_waveform_dropdown": "passed_operator_confirmed",
+    "ordinary_physical_touch_control": "passed_operator_confirmed",
+    "first_physical_touch_waveform_dropdown": "could_not_select_or_dismiss; editor_unresponsive",
+    "note_after_first_touch": "audible_operator_confirmed",
+    "subsequent_focus_cycle": "editor_responsive_after_going_behind_Bitwig_and_returning_to_front",
+    "later_taps": "operator_performed_multiple_uncontrolled_pressings; excluded_from_one-touch causal claim",
+    "window_after_focus_recovery": "Serum editor 1096x681 mapped, WM_STATE Normal, focused; no titled popup observed",
+    "message_pump_progress": "operator-observed visual response after focus cycle; no instrumented heartbeat or Win32 dispatch counter retained for this session",
+    "wm_pointerup_flags": "unavailable",
+    "bridge_terminal_failure": false,
+    "windows_exception": "not_observed",
+    "audio_counters": {
+      "processed_frames": 9952256,
+      "delivered_frames": 9876480,
+      "underrun_gaps": 1,
+      "underrun_frames": 75264,
+      "callback_rejections": 0,
+      "gap_touch_causality": "not_established"
+    }
+  },
+  "retirement": {
+    "bitwig_closed_normally": true,
+    "dsp_host_pid_retired": true,
+    "dsp_owner_count": 0,
+    "dsp_session_transport_retired": true,
+    "dsp_session_lease_retired": true,
+    "editor_window_absent": true,
+    "keeper_count": 1,
+    "keeper_retained_as_expected": true,
+    "maintenance_count": 0,
+    "cleanup_unconfirmed": false,
+    "native_report_sha256": "d6fd74ddb72255efb533aebfd66a6af9ccce7b40484b23292656afd3e3407929",
+    "windows_report_sha256": "d9dd4769435ca58b6941c03888706d9dd8403c4e1cabd45a39ced60ed65fe148",
+    "windows_ownership_sha256": "cf396e37ac2bbe0d99b68b24bd6df8c5e30138c0af6a647dd44dbabf5eeff393"
+  },
+  "disposition": "physical_touch_menu_failure_preserved; PR remains draft; no second Serum session or further runner/source change",
+  "nonclaims": [
+    "The patched runner did not pass the physical waveform-touch gate.",
+    "The retained data does not show WM_POINTERUP flags or prove why focus cycling recovered the editor.",
+    "Audible output and normal retirement do not imply gap-free delivery.",
+    "The operator's later repeated taps are not counted as controlled attempts."
+  ]
+}

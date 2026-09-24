@@ -71,6 +71,63 @@ fn fixture() -> (Fixture, Candidate) {
     (f, c)
 }
 #[test]
+fn touch_carry_forward_keeps_factory_and_selected_class_without_claiming_a_new_scan() {
+    let (fixture, before) = fixture();
+    let mut after = before.selection.environment.clone();
+    after.revision += 1;
+    after.runner.id = "proton-11.0-2c-x11-touch-release-v1".into();
+    after.runner.policy = Some(RunnerPolicy::X11TouchReleaseV1);
+    let provenance = TouchCarryForward {
+        predecessor: SERUM_TOUCH_PREDECESSOR.into(),
+        transition: Artifact { path: "/unused/result.json".into(), sha256: "aa".repeat(32) },
+        runner_manifest: Artifact { path: "/unused/manifest.json".into(), sha256: "bb".repeat(32) },
+    };
+    let next = carry_forward_touch_fields(&before, &after, provenance.clone(), Origin::X11TouchReleaseV1).unwrap();
+    assert_eq!(next.selection.module, before.selection.module);
+    assert_eq!(next.selection.class, before.selection.class);
+    assert_eq!(next.selection.factory_report, before.selection.factory_report);
+    assert_eq!(next.inspection.report, before.inspection.report);
+    assert_eq!(next.native, before.native);
+    assert_eq!(next.host, before.host);
+    assert_eq!(next.source_manifest, before.source_manifest);
+    assert_eq!(next.profile.capabilities, before.profile.capabilities);
+    assert_eq!(next.profile.revision, before.profile.revision + 1);
+    assert_eq!(next.profile.requirements.environment_revision, after.revision);
+    assert_eq!(next.touch_carry_forward, Some(provenance));
+    assert_eq!(next.origin, Origin::X11TouchReleaseV1);
+    assert_eq!(next.inspection.origin, Origin::X11TouchReleaseV1);
+    let inventory_path = fixture.m.root.join("inventory").join(format!("{}.json", before.selection.environment.id));
+    let inventory_bytes = fs::read(&inventory_path).unwrap();
+    atomic_json(&after.root.join("environment.json"), &after).unwrap();
+    assert!(selections(&fixture.m, &before.selection.scanner, &before.selection.scanner_source).unwrap().is_empty());
+    assert_eq!(fs::read(&inventory_path).unwrap(), inventory_bytes);
+    assert_eq!(
+        touch_successor(&before, &after, next.touch_carry_forward.unwrap())
+            .unwrap_err().to_string(),
+        "touch_carry_forward_predecessor"
+    );
+}
+#[test]
+fn touch_routing_successor_carries_only_the_exact_candidate_c_authority() {
+    let (_fixture, mut predecessor) = fixture();
+    let mut after = predecessor.selection.environment.clone();
+    after.revision += 1;
+    after.runner.id = "proton-11.0-2c-x11-touch-routing-v2".into();
+    after.runner.policy = Some(RunnerPolicy::X11TouchRoutingV2);
+    predecessor.origin = Origin::X11TouchReleaseV1;
+    let provenance = TouchCarryForward {
+        predecessor: SERUM_TOUCH_ROUTING_PREDECESSOR.into(),
+        transition: Artifact { path: "/unused/result.json".into(), sha256: "aa".repeat(32) },
+        runner_manifest: Artifact { path: "/unused/manifest.json".into(), sha256: "bb".repeat(32) },
+    };
+    // An arbitrary earlier candidate is not candidate C, even if its fields
+    // resemble the physical Serum profile. The transition owner must select C.
+    assert_eq!(
+        touch_routing_successor(&predecessor, &after, provenance).unwrap_err().to_string(),
+        "touch_routing_carry_forward_predecessor"
+    );
+}
+#[test]
 fn generic_selection_controller_and_exact_reuse() {
     let (f, c) = fixture();
     assert_ne!(

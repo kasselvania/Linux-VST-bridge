@@ -60,8 +60,8 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | ID | Failure class | Shared boundary | Understanding | Implementation | Verified products/platforms | User posture | Next gate |
 |---|---|---|---|---|---|---|---|
 | [FC-UI-001](#fc-ui-001--generic-editor-input-starvation-behind-posted-work) | Generic editor input starvation behind posted work | Windows host editor pump | causal | accepted | Pigments / Steam Deck | supported | Preserve in future host builds |
-| [FC-UI-002](#fc-ui-002--x11-raw-touch-release-retains-contact-on-pointer-up) | X11 raw-touch release retains contact on pointer-up | Proton/Wine `winex11.drv` | causal | deployed | Serum / Deck: patched run failed; no verified fix | supported-with-workaround | Capture exact release delivery and flags before another repair |
-| [FC-UI-003](#fc-ui-003--touch-opened-serum-popup-stalls-the-editor-message-loop) | Touch-opened Serum popup stalls editor message loop | Shared touch/popup/focus path; final owner unknown | bounded | none | Serum / Deck: observed | supported-with-workaround | Correlate touch release, popup, capture and message progress |
+| [FC-UI-002](#fc-ui-002--x11-raw-touch-release-retains-contact-on-pointer-up) | X11 raw-touch release retains contact on pointer-up | Proton/Wine `winex11.drv` | causal | deployed | Serum / Deck: flag-only C failed; combined D passed | supported-with-workaround | Preserve corrected End flags; no flag-only fix claim |
+| [FC-UI-003](#fc-ui-003--touch-opened-serum-popup-stalls-the-editor-message-loop) | Touch-opened Serum popup stalls editor message loop | Shared Wine X11 event-window routing and popup capture | causal | accepted | Serum 2 / Deck: exact popup verified-fixed | supported | Check other exact Wine lineages independently |
 | [FC-UI-004](#fc-ui-004--windows-touch-release-processing-continues-long-after-x11-release) | Long Windows touch-release tail | X11→Wine→User32 admission/retrieval | bounded | instrumentation-only | Pigments / Steam Deck observed | unqualified | Controlled single-contact attribution |
 | [FC-UI-005](#fc-ui-005--transient-popup-lacks-an-ordinary-win32-owner-chain) | Ownerless transient popup targeting | Diagnostic surface identity | causal | instrumentation-only | Pigments / Steam Deck observed | unqualified | Bind exact popup identity for the selected action |
 | [FC-UI-006](#fc-ui-006--touch-triggered-editor-loss-on-non-arturia-products) | Touch-triggered editor disappearance/loss | Unknown editor/window/runtime boundary | reported | none | Blackhole, Kontakt, Serum reports | unqualified | One exact product/process reproduction |
@@ -165,7 +165,7 @@ The exact source flag defect is established; causality for the observed popup st
 
 deployed
 
-Draft [PR #151](https://github.com/kasselvania/Linux-VST-bridge/pull/151) contains the source; the immutable runner and candidate C were installed, but the physical touch result failed.
+Draft [PR #151](https://github.com/kasselvania/Linux-VST-bridge/pull/151) contains the source; the immutable runner and candidate C were installed, but the physical touch result failed. Candidate D retains this corrected End mapping and passed its separate per-window routing gate; the release-flag change alone is not claimed as the fix.
 
 ### User posture
 
@@ -191,7 +191,7 @@ The exact pinned Wine source maps `XI_RawTouchEnd` to `WM_POINTERUP` while its c
 
 | Product | Platform | Coverage | Evidence |
 |---|---|---|---|
-| Serum 2 2.1.5 | Steam Deck | observed on patched candidate; not verified-fixed | [PR #151 physical result](https://github.com/kasselvania/Linux-VST-bridge/blob/4ae414b33e37f771c422d8a70a9fa78a20231118/evidence/serum-x11-touch-release/physical-attempt-002.json) |
+| Serum 2 2.1.5 | Steam Deck | candidate C failed with the corrected release flag alone; candidate D passed the combined per-window route | [candidate-C result](https://github.com/kasselvania/Linux-VST-bridge/blob/4ae414b33e37f771c422d8a70a9fa78a20231118/evidence/serum-x11-touch-release/physical-attempt-002.json), [candidate-D result](../evidence/serum-x11-touch-routing/candidate-d-physical.json) |
 | Pigments | Steam Deck | different delayed-release observation; cause not assigned | [UIO3](UIO3.md) |
 | Blackhole | Steam Deck | operator report only; cause not assigned | [FC-UI-006](#fc-ui-006--touch-triggered-editor-loss-on-non-arturia-products) |
 | Kontakt | Steam Deck | operator report only; cause not assigned | [FC-UI-006](#fc-ui-006--touch-triggered-editor-loss-on-non-arturia-products) |
@@ -206,7 +206,10 @@ FC-UI-003, FC-UI-004, FC-UI-006.
 
 ### Remaining gate
 
-The candidate-C physical gate failed. A future bounded observation must establish whether the patched `WM_POINTERUP` arrived with the corrected flags and where popup/message progress then stopped. Do not change other runners from this source fact alone.
+Candidate C's physical popup gate failed. Candidate D retained the corrected
+End mapping and passed the exact Serum menu gate after switching to per-window
+touch delivery. Other runner lineages still need their own source and physical
+checks; the standalone release-flag correction is not promoted to a universal fix.
 
 ### Evidence and historical sources
 
@@ -226,45 +229,68 @@ No dedicated shared issue yet.
 
 ### Shared boundary
 
-touch-to-Wine-to-popup/focus/message path; exact remaining owner unknown
+Wine X11 touch event-window targeting and popup message delivery
 
 ### Understanding
 
-bounded
+causal
+
+The candidate-C to candidate-D intervention is physically verified for the
+exact Serum popup. The claim is not universal to Wine or other vendors.
 
 ### Implementation
 
-none
+accepted
 
-The FC-UI-002 candidate did not resolve this stall.
+The FC-UI-002 candidate did not resolve this stall. The shared per-window route
+passed both the source-owned popup fixture and one physical Serum session.
 
 ### User posture
 
-supported-with-workaround
+supported
 
 ### Symptom
 
-Mouse/trackpad opens Serum's waveform dropdown successfully. Physical touch on an ordinary control succeeds. Physical touch on the dropdown leaves the editor and menu visible but unable to select/dismiss; audio and the Windows host continue. Focus cycling restored visible response. An instrumented heartbeat/message trace was **not** retained during the patched run.
+Under candidate C, mouse/trackpad opened Serum's waveform dropdown and an
+ordinary touch control worked, but finger-opened popup selection/dismissal
+stalled while audio and the Windows host continued. Focus cycling restored
+visible response in an earlier attempt. The action-bound capture showed a
+real popup owner, retained capture, and 16,379 repeated in-contact
+`WM_POINTERUPDATE` messages to the old editor child with no new physical
+input; the observer ring overflowed by 79 records. Under candidate D, the
+same popup interaction selected and dismissed by finger and the editor
+continued responding.
 
 ### Mechanism
 
-Unresolved after the FC-UI-002 source correction and installed candidate-C run. The retained physical data do not show `WM_POINTERUP` flags, popup capture/focus transitions, or exact message-pump progression at the stall. The popup-specific symptom must not be relabeled as the proven raw-touch flag cause.
+Candidate C's root-raw touch path had no per-window XI delivery target. The
+action capture showed the old editor child receiving repeated in-contact
+pointer updates after popup creation, although its overflowed observer did not
+retain a complete XI Begin/End pair. Candidate D replaced that route with
+per-window `XI_TouchBegin/Update/End` delivered through the actual X event
+window to Wine's HWND and kept the corrected release flag. With no Serum,
+proxy, host, buffer, or capacity change, finger selection and dismissal now
+complete without focus cycling. This physical before/after supports the
+routing correction for this exact fixture; it does not prove which individual
+Windows menu API the vendor consumed. The observer's `GetPointerInfo` failures
+were its own reads of a Wine stub, not evidence that Serum called that API.
 
 ### Fix chain
 
-- **Source correction:** none selected for the remaining stall; FC-UI-002 is a separate exact Wine flag correction.
-- **Built artifact:** no stall repair artifact.
-- **Profile/candidate:** Serum candidate C tested as the FC-UI-002 hypothesis.
-- **Installed generation:** `30d144c0b65437e7963692d434f930fe45faf2ec73527d5864580fc08eb913ac`.
-- **Physical result:** popup still stalled; normal close retired editor, Windows host, transport and lease.
+- **Source correction:** per-window `XI_TouchBegin/Update/End` selection and exact X event-window to HWND routing, preserving FC-UI-002's End flags in draft [PR #151](https://github.com/kasselvania/Linux-VST-bridge/pull/151).
+- **Built artifact:** immutable `proton-11.0-2c-x11-touch-routing-v2`, complete-tree SHA-256 `de6c55c2a8c82abf2b1b0b47a97ee97a00657fa04582b2112327fa3d0095a698`; the [source-owned popup fixture](../evidence/serum-x11-touch-routing/popup-fixture-physical.json) passed physical finger and trackpad paths.
+- **Profile/candidate:** Serum candidate D `b43421069dca3872cf7c28440616d1086d192f827ac8ccd80bf16102dc2681ab`, publication `d39392e65959e4fba15d769d9fea9b1a`; candidate C is the retained predecessor.
+- **Installed generation:** `d2e90f7b3a38fe1263171d33b9cfc640abf59bc46f1f470f87cb6c8750ba6c4d`.
+- **Physical result:** [one Deck Serum session](../evidence/serum-x11-touch-routing/candidate-d-physical.json) passed mouse menu, ordinary touch, finger-open/finger-select, finger-open/finger-dismiss, responsive editor and following audible note. Windows cleanup and transport retirement were confirmed; zero DSP and no cleanup uncertainty remained. The session reported zero underrun gaps, not a general gap-free guarantee.
 
 ### Product coverage
 
-Serum 2 2.1.5 on Steam Deck: reproduced. Mouse/trackpad is the current workaround.
+Serum 2 2.1.5 on Steam Deck: verified-fixed for the exact waveform popup
+interaction under candidate D. Candidate C's failure remains retained.
 
 ### Claim limit
 
-This entry does not establish a universal popup defect or explain the older broad editor-disappearance reports.
+This entry does not establish a universal popup defect or explain the older broad editor-disappearance reports. The action-bound trace overflow prevents claiming a complete Windows message sequence.
 
 ### Related failure classes
 
@@ -272,11 +298,16 @@ FC-UI-001, FC-UI-002, FC-UI-005, FC-UI-006.
 
 ### Remaining gate
 
-One action-bound physical touch-opened popup observation using the existing input/window observers, correlating release flags, popup visibility/capture/focus and message progress. Do not repeat an undifferentiated tap test.
+The [exact lineage check](../evidence/serum-x11-touch-routing/cross-plugin-lineage.json)
+shows Blackhole's DComp Wine already has the per-window route; do not apply
+Serum's routing patch to it. Kontakt's NI Wine still has the root-raw route
+and accepts both source patches, but its managed runner/candidate transition
+needs a separately closed NI authority before a physical product check. Do
+not assign this Serum result to either product or Pigments' older release tail.
 
 ### Evidence and historical sources
 
-[PLUGIN_RELIABILITY_FOLLOWUP](PLUGIN_RELIABILITY_FOLLOWUP.md), [PR #151 physical receipt](https://github.com/kasselvania/Linux-VST-bridge/blob/4ae414b33e37f771c422d8a70a9fa78a20231118/evidence/serum-x11-touch-release/physical-attempt-002.json).
+[PLUGIN_RELIABILITY_FOLLOWUP](PLUGIN_RELIABILITY_FOLLOWUP.md), [candidate-C action capture](../evidence/serum-x11-touch-routing/candidate-c-action-capture.json), [candidate-D physical result](../evidence/serum-x11-touch-routing/candidate-d-physical.json), [PR #151](https://github.com/kasselvania/Linux-VST-bridge/pull/151).
 
 ### Tracking issue
 
@@ -400,7 +431,9 @@ Pigments / Steam Deck diagnostic work.
 
 ### Claim limit
 
-Ownerless popup identity does not prove a renderer, touch, resize, or vendor failure.
+Ownerless popup identity does not prove a renderer, touch, resize, or vendor
+failure. The later Serum waveform popup had an exact Win32 owner; FC-UI-005
+does not explain that stall. See the [action-bound capture](../evidence/serum-x11-touch-routing/candidate-c-action-capture.json).
 
 ### Related failure classes
 

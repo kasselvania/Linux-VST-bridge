@@ -1,23 +1,85 @@
 # Current work selection
 
-This main-branch pointer records the operator's parallel product direction selected on 2026-09-24. It does not supersede another agent's active branch-local task or grant ownership of its checkout or live experiment.
+Canonical base: `a4e140a53cedb8b65b487a45d6fea0e44caea74d`, tree
+`b3f3d264901267e2dcb723b9904c464baf6eefae`. This main-branch pointer records
+the operator's parallel product direction selected on 2026-09-24. It does not
+supersede another agent's branch-local task or grant ownership of its checkout
+or live experiment.
 
-## Primary product and active parallel outcome
+## Native-Linux product: current sequence
 
-The native-Linux DAW bridge remains the primary product to finish. Its current Deck fleet, shared touchscreen work, mixed-product use, manager usability and Ubuntu portability baseline are preserved. Current claims and open mechanisms are in [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md) and [docs/FAILURE_CLASSES.md](docs/FAILURE_CLASSES.md).
+The native-Linux DAW bridge remains the first release-driving product. Serum 2
+candidate D and the shared per-window X11 touch route are now merged and
+physically accepted for the exact Deck waveform-popup interaction. Current
+support and remaining shared failures are maintained in
+[docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md) and
+[docs/FAILURE_CLASSES.md](docs/FAILURE_CLASSES.md).
 
-The selected Windows-DAW implementation is [WD0 — managed FL Studio stock-project workflow](docs/WD0.md), governed by [docs/WINDOWS_DAW_WORKSPACES.md](docs/WINDOWS_DAW_WORKSPACES.md). It may proceed in parallel with the native bridge and the separately owned ARM appliance. Coordination and integration rules are in [docs/WORKSTREAMS.md](docs/WORKSTREAMS.md).
+The selected near-term sequence is:
 
-WD0 must deliver real install/normal launch, stock-project playback, export, clean relaunch and licensed project recall in a new FL workspace. It is not a Linux VST proxy path and not a generic Windows-program launcher. The operator supplies the official Windows installer; its bytes and local path are not yet admitted by this planning update.
+1. the operator uses the current six-product Deck fleet in Desktop Mode and
+   records only useful real-use failures or friction;
+2. a focused manager-frontend product-design slice improves product readiness,
+   live-session, incident and recovery presentation without inventing new
+   backend authority;
+3. after that Desktop-mode soak, GM0 validates one known-good Serum instance
+   through the Desktop-to-Gaming-Mode graphical/audio/session transition.
+
+These are product-development steps, not instructions to replay the historical
+qualification campaigns.
+
+## Parallel Windows-DAW outcome
+
+The selected Windows-DAW implementation is
+[WD0 — managed FL Studio stock-project workflow](docs/WD0.md), governed by
+[docs/WINDOWS_DAW_WORKSPACES.md](docs/WINDOWS_DAW_WORKSPACES.md). It proceeds in
+parallel with the native bridge and the separately owned ARM appliance.
+Coordination and integration rules are in
+[docs/WORKSTREAMS.md](docs/WORKSTREAMS.md).
+
+WD0 must deliver a real managed install, normal launch, stock-project playback,
+export, clean relaunch and licensed project recall in a new FL workspace. It is
+not a Linux VST proxy path and not a generic Windows-program launcher.
+
+The operator reports that the official Windows installer is present in the
+Steam Deck user's `Downloads` directory. That statement admits no filename,
+version, path alias, digest or signature yet. The WD0 owner must identify and
+fingerprint the exact file read-only before execution, preserve the original
+bytes, and then import it through the managed installer boundary. The installer,
+credentials, license material and private projects never enter Git.
+
+## Shared Deck ownership
+
+Source work and isolated builds may proceed concurrently. Only one task custodian
+may mutate or physically exercise the Deck at a time. Installing software,
+replacing the manager/service, changing a runner or environment, changing audio
+or Steam launch settings, and running a physical acceptance session require an
+explicit handoff from the current custodian.
+
+The FL agent may complete source, tests, installer admission and private workspace
+preparation while the operator uses Bitwig. It must not replace the installed
+manager generation, stop another task's session or execute the FL installer until
+it receives the physical-work window.
+
+Every common product package must preserve the now-canonical
+`x11_touch_routing_v2` policy, Serum candidate-D authority, all required exact
+Windows host/source pairs and the other five selected publications.
 
 ## This documentation change
 
-Base: `05cb957e0174c3437aac8934b89294e57b53308f`, tree `ce720e73fdcbe7b80434ba62d207d6364b5c8654`.
+This branch updates architecture, work allocation and the WD0 work order only.
+It changes no manager, runtime, runner, installer, profile, publication, live
+machine or proprietary input. FL Studio remains unqualified.
 
-This change updates architecture/process navigation and the WD0 work order only. No manager, runtime, runner, installer, profile, publication, live machine or proprietary input changes. FL Studio remains unqualified.
+After review and normal merge, start the WD0 implementation branch from the
+then-current canonical main. Its branch-local `CURRENT_SLICE.md` should name the
+implementation and evolving result. Do not replace progress with another
+planning-only PR.
 
-After review and normal merge, use one WD0 implementation branch from current canonical main. Its `CURRENT_SLICE.md` should name the implementation and evolving result. Do not borrow unmerged Serum or ARM code implicitly, replace the currently working shared bridge service, or repeat native-bridge qualification because this document changed.
+## Retained completed slice
 
-## Retired task pointer
-
-The former FRG1 verified-scanner-relocation instructions are retained in [the exact pre-WD0 task pointer](https://github.com/kasselvania/Linux-VST-bridge/blob/05cb957e0174c3437aac8934b89294e57b53308f/CURRENT_SLICE.md) and [docs/FRG1.md](docs/FRG1.md). They are historical work, not instructions to reopen the completed Ubuntu bring-up.
+The completed Serum touchscreen slice remains available at the exact pre-WD0
+main pointer and in
+[evidence/serum-x11-touch-routing](evidence/serum-x11-touch-routing/). Its
+accepted result is current product authority; it is not an instruction to rerun
+Serum before WD0 or GM0.
