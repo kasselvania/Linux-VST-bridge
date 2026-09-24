@@ -3,12 +3,32 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from recorder_compare import outstanding_frames
+from recorder_compare import check_terminal,outstanding_frames,sampled_outstanding,status_values
 from remaining_analysis import kernel_events,kernel_window
 from remaining_profile import FAMILY,SEGMENT_BYTES,family_blocks,map_candidates
 
 
 class RemainingProfileProof(unittest.TestCase):
+    def test_unavailable_audio_sample_is_missing_without_stopping_capture(self):
+        sample=status_values([
+            'RPI1_AUDIO_UNAVAILABLE callback guard busy',
+            'RPI1_CALLBACK_LIVE callbacks=24 failures=0 paused_frames=0',
+        ])
+        self.assertTrue(sample['audio_statistics_missing'])
+        self.assertIsNone(sampled_outstanding(sample,256))
+        check_terminal(sample)
+        healthy=status_values([
+            'RPI1_AUDIO bridge_processed_frames=12288 processing_quantum=256 fault=0 process_failures=0',
+            'RPI1_CALLBACK_LIVE callbacks=24 failures=0 paused_frames=0',
+        ])
+        self.assertNotIn('audio_statistics_missing',healthy)
+        self.assertEqual(sampled_outstanding(healthy,256),0)
+        with self.assertRaisesRegex(RuntimeError,'Terminal audio/process fault'):
+            check_terminal(status_values([
+                'RPI1_AUDIO bridge_processed_frames=12288 processing_quantum=256 fault=3 process_failures=0',
+                'RPI1_CALLBACK_LIVE callbacks=24 failures=0 paused_frames=0',
+            ]))
+
     def test_live_status_gap_is_not_reported_as_quantum_change(self):
         with self.assertRaisesRegex(ValueError,'statistics unavailable'):
             outstanding_frames({'callbacks':10,'paused_frames':0},256)
