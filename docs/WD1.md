@@ -12,10 +12,12 @@ Its presence in private manager custody must be verified at selection time.
 
 The intended claim is an exact manager-owned Serum installation in the FL
 prefix, followed by FL's own verified VST3 scan, audible piano-roll playback,
-one preset change, one parameter automation, WAV export, clean close, and a
-fresh FL session that adds and plays Serum again. Attempt FLP save only if the
-current demo permits it; the operator reports that project saving is unavailable
-in their present trial session. Trial mode does not establish project recall.
+one preset change, one parameter automation, clean close, and a fresh FL
+session that adds and plays Serum again. The operator deferred WAV export as
+unnecessary for this pass, so it remains unqualified. Attempt FLP save only if
+the current demo permits it; the operator reports that project saving is
+unavailable in their present trial session. Trial mode does not establish
+project recall.
 
 ## Owner and action boundary
 
@@ -47,7 +49,7 @@ If the first attempt fails, record the exact failure and stop rather than
 editing workspace JSON or copying another installation.
 
 After FL's verified scan, use mouse/trackpad for one short Serum pattern,
-preset change, parameter automation, and WAV export. If FL offers project save,
+preset change, and parameter automation. If FL offers project save,
 retain an FLP without claiming trial-mode reopen. If it refuses, record the
 trial limitation and continue. Close FL normally, verify exact cohort retirement,
 launch a fresh session, add Serum again and confirm playback. Record only
@@ -64,8 +66,9 @@ Serum parameter automation. The initial editor exceeded the Deck's visible area;
 Serum's logo-menu zoom made it usable. The exact size was not recorded.
 
 The operator elected not to export a WAV in this session. Export is therefore
-unqualified. FL was then quit normally, and the manager retained a completed
-session receipt with zero owned processes and confirmed cleanup. The refreshed
+unqualified and outside the bounded WD1 acceptance. FL was then quit normally,
+and the manager retained a completed session receipt with zero owned processes
+and confirmed cleanup. The refreshed
 manager/frontend generation kept the FL workspace, Serum history, and native
 products exact. The operator then opened FL again, loaded Serum into a fresh
 session, entered a pattern, and reported successful playback. That second exact

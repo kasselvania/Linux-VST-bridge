@@ -23,9 +23,11 @@ operator observation, not a retained WD0 audio receipt.
 
 Primary claim: the existing managed Windows FL Studio workspace installs the
 operator's exact official Serum 2 `2.1.5` Windows VST3 through a typed manager
-product operation, FL's own verified scan discovers it, one fresh session makes
-and exports a short audible Serum pattern, and another normal fresh launch can
-add and play Serum again. Trial-mode saved FLP recall is deferred.
+product operation, FL discovers it and plays a short audible Serum pattern with
+preset change and parameter automation, and another normal fresh launch can add
+and play Serum again. Trial-mode saved FLP recall is deferred. The operator
+explicitly deferred WAV export as unnecessary for this pass; it remains an
+unqualified future check rather than a WD1 completion gate.
 
 Basis: `AGENTS.md` (core product invariants, fixture law, evidence and security),
 `docs/ARCHITECTURE.md` (native bridge boundary),
@@ -43,7 +45,7 @@ In scope: closed Serum product selection/install/readback under the FL workspace
 canonical installer verification and supervised installer cohort; separate
 product operation/history and exact VST3 module/resource observation; small
 Workspaces projection and manager-offered actions; focused changed-owner tests;
-one controlled physical FL scan/play/preset/automation/export/restart pass;
+one controlled physical FL scan/play/preset/automation/restart pass;
 sanitized exact evidence and support/failure-ledger updates for what actually
 passes.
 
@@ -70,10 +72,10 @@ Use the exact already admitted installer; do not download a newer version.
 Observe installer UI through the normal lawful route and leave account/activation
 to the operator. Preserve the existing FL prefix and data. Verify FL's own
 plugin scan, audible piano-roll pattern, one preset change, one parameter
-automation, a finite nonempty WAV with expected output, an FLP save only if
-the current demo permits it, clean cohort retirement, and fresh-session Serum playback after
-normal relaunch. Verify the six native publications and environments remain
-unchanged. Stop at the first physical discrepancy and retain the exact result;
+automation, an FLP save only if the current demo permits it, clean cohort
+retirement, and fresh-session Serum playback after normal relaunch. Verify the
+six native publications and environments remain unchanged. Stop at the first
+physical discrepancy and retain the exact result;
 do not compensate by editing workspace JSON or importing an isolated VST3.
 
 Rollback: keep the prior immutable manager/tooling generation; a source or
@@ -91,5 +93,6 @@ module and all six native publications remain exact. See the
 [WD1 Deck evidence](evidence/wd1/deck-serum-direct-2026-09-25.md).
 
 The operator chose to defer WAV export. No WAV result or FLP save/reopen is
-claimed, so the original export-inclusive primary claim remains open. Do not
-rerun the accepted installation or fresh-session work merely to fill this gap.
+claimed. The earlier export-inclusive WD1 target was narrowed by that operator
+choice; do not rerun the accepted installation or fresh-session work merely to
+fill this separate qualification gap.
