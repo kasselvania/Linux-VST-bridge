@@ -64,7 +64,9 @@ Serum parameter automation. The initial editor exceeded the Deck's visible area;
 Serum's logo-menu zoom made it usable. The exact size was not recorded.
 
 The operator elected not to export a WAV in this session. Export is therefore
-unqualified. FL remains open, so this run has not yet established clean cohort
-retirement or fresh-session use. These limits are recorded in the
+unqualified. FL was then quit normally, and the manager retained a completed
+session receipt with zero owned processes and confirmed cleanup. The refreshed
+manager/frontend generation kept the FL workspace, Serum history, and native
+products exact. Fresh-session Serum use is still pending. These limits are recorded in the
 [physical evidence](../evidence/wd1/deck-serum-direct-2026-09-25.md). A saved
 FLP and licensed project recall are also unclaimed.

@@ -60,8 +60,34 @@ The operator subsequently created an FL automation clip and reported that the
 Serum parameter automation worked during playback. The exact automated control
 and curve were not retained. The operator declined a WAV export in this session;
 export is **not tested**, rather than passed or failed. No FLP save or recall is
-claimed. At this point FL remains open under the managed session owner; clean
-retirement and fresh-session use are pending. A read-only manager check while FL
-was open showed service active, bridge DSP `0`, maintenance `0`, pending
+claimed. A read-only manager check while FL was open showed service active,
+bridge DSP `0`, maintenance `0`, pending
 transactions `0`, stale transports `0`, and cleanup uncertainty false. The
 native registry hash remained the same as above.
+
+The operator quit FL normally. Session operation
+`508d66925c720fa0157341883633788a` retired with result `completed`,
+`cleanup_confirmed=true`, and `owned_live=0`. Workspace readback returned
+`ready` with confirmed cleanup; Serum's installed module still verified. The
+native bridge remained idle at DSP `0`, maintenance `0`, pending transactions
+`0`, stale transports `0`, and no cleanup uncertainty.
+
+## Refreshed manager generation
+
+After FL and the old frontend were closed, the source correction for automatic
+Workspaces refresh was installed as a paired manager/frontend generation from
+PR #169 head `5f5b3820080c3b8af7aad43ec923dce1668f3f3d`, tree
+`815725f90fe29f4ab3018ccccc5220c4809c0bba`. The installed manager SHA-256
+is `4197d6bd2102c9653e171c6333a15b67fcdefb9a605ff9866c922b7708e491f6`;
+frontend SHA-256 is
+`17bd37f05780479d543bb46587a9d229eae39ec6de3ec6509506224d6e8358dc`;
+WD0 tooling package generation is
+`587432f5c5acf757c52db51953080512616125c8a8afa7aa39ddf3aa661dad9e`.
+The prior installed generation was retained as the rollback target.
+
+The workspace record, FL installation history, and Serum installation history
+were exact before and after this software replacement. The canonical native
+product records matched the previous six-product snapshot; native registry SHA
+remained `01e29055a5b22bf0c007b4e2215ddf14acb7c74fbf890c0bc8437c0ca4df1c77`.
+The new manager reported FL `ready`, Serum `installed`, DSP `0`, and confirmed
+cleanup. Fresh-session Serum playback remains pending operator observation.
