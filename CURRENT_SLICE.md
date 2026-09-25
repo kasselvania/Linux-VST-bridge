@@ -81,3 +81,9 @@ The primary usable instrument claim is **not complete**; no Pi Serum
 compatibility assertion or
 deployment promotion follows. Exact identities, results and limits are in
 `evidence/rpi2/serum2-instrument-onboarding.md`.
+
+The later operator session again showed Xfer's authorization page, but OK did
+not open a browser in this Pi environment. No browser handler was installed.
+One operator-approved offline-authorization trial was canceled before opening
+the editor; its temporary route change and prefix graphics selection were
+restored and verified. Serum onboarding is paused at the operator's direction.

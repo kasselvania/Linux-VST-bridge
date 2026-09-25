@@ -166,3 +166,25 @@ launcher/config, Windows host, native bridge and Serum module were unchanged.
 Pi CC64 sustain remains unsupported by this adapter. Four useful controls on
 a selected user sound, preset selection, actual editor control, audible user
 recall, and stable lower JACK periods are not established.
+
+### Operator authorization handoff and cancellation
+
+A subsequent 270-second software OpenGL session again displayed the Xfer
+authorization page and ended with `RPI1_CLEAN_SHUTDOWN`, zero terminal faults,
+3,072 missing frames over nine gaps despite no MIDI, and restored JACK ports.
+The operator clicked OK but observed no browser. The Pi had no `xdg-open`,
+`gio`, Firefox, Chromium or other inspected browser
+command. A dry-run official Firefox ESR plus `xdg-utils` installation required
+74 new packages, so it was not installed. No account or license operation
+completed.
+
+At the operator's request, one short official offline-authorization trial
+temporarily removed only the Pi's internet default route; the local Mac
+SSH/Screen Sharing route remained working and the Pi's internet route was
+verified absent. The operator then canceled this approach before the editor
+was opened in that trial. The owned unit was stopped, the original default
+route restored, the temporary route script removed, and all 19 prefix graphics
+paths restored from the pre-test backup and verified. No owned units remained;
+JACK was system-only and power flags were `0x0`. The canceled trial was not a
+clean Serum shutdown or an authorization result. Serum onboarding is paused
+at the operator's direction.
