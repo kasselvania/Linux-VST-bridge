@@ -27,6 +27,15 @@ const AUDIO: u32 = 3;
 const OVERFLOW: u64 = 2;
 const WORKER: u64 = 3;
 const CORRELATION: u64 = 4;
+const RECOVERY_TIMEOUT: u64 = 6;
+const RECOVERY_EXHAUSTED: u64 = 7;
+const RECOVERY_CAPACITY: u64 = 8;
+const RECOVERY_LIFECYCLE: u64 = 9;
+const LIVE_NORMAL: u64 = 0;
+const LIVE_REQUESTED: u64 = 1;
+const LIVE_ACKNOWLEDGED: u64 = 2;
+const LIVE_FAILED: u64 = 3;
+const LIVE_RESTARTING: u64 = 4;
 #[cfg(feature = "rpi1-observe")]
 macro_rules! phase {
     ($shared:expr, $callback:expr, $position:expr, $kind:expr, $detail:expr, $value_1:expr, $value_2:expr) => {
@@ -42,6 +51,7 @@ pub struct Item {
     pub n: u32,
     pub epoch: u64,
     pub position: u64,
+    pub intent_sequence: u64,
     pub gain: f64,
     pub flags: u64,
     pub queued: Option<Instant>,
@@ -59,6 +69,7 @@ impl Item {
             n: 0,
             epoch,
             position: 0,
+            intent_sequence: 0,
             gain: 0.,
             flags: 0,
             queued: None,
@@ -91,6 +102,7 @@ impl AudioResult {
 struct Completion {
     audio: AudioResult,
     epoch: u64,
+    intent_sequence: u64,
     returned: crate::process_results::Packet,
 }
 impl From<Item> for Completion {
@@ -103,6 +115,7 @@ impl From<Item> for Completion {
                 data: i.data,
             },
             epoch: i.epoch,
+            intent_sequence: i.intent_sequence,
             returned: crate::process_results::Packet::default(),
         }
     }
@@ -159,8 +172,28 @@ struct Shared {
     first_worker_position: AtomicU64,
     first_requests: [AtomicU64; 2],
     first_results: [AtomicU64; 2],
+    live_stage: AtomicU64,
+    live_requested_epoch: AtomicU64,
+    live_ack_epoch: AtomicU64,
+    // The worker's final successful old-epoch process call, including a
+    // completion suppressed after admission closes. Release of ACK publishes
+    // this pair to the callback before it reconciles intent.
+    live_completed_sequence: AtomicU64,
+    live_completed_position: AtomicU64,
+    live_request_ns: AtomicU64,
+    live_worker_return_ns: AtomicU64,
+    live_ack_ns: AtomicU64,
+    live_resume_ns: AtomicU64,
+    live_discard_requests: AtomicU64,
+    live_discard_results: AtomicU64,
+    live_recoveries: AtomicU64,
+    // One instance-local monotonic origin shared by the callback and worker.
+    live_clock: Instant,
 }
 impl Shared {
+    fn live_now_ns(&self) -> u64 {
+        self.live_clock.elapsed().as_nanos().min(u64::MAX as u128) as u64
+    }
     fn new() -> Self {
         Self {
             #[cfg(feature = "rpi1-observe")]
@@ -207,6 +240,19 @@ impl Shared {
             first_worker_position: AtomicU64::new(0),
             first_requests: std::array::from_fn(|_| AtomicU64::new(0)),
             first_results: std::array::from_fn(|_| AtomicU64::new(0)),
+            live_stage: AtomicU64::new(LIVE_NORMAL),
+            live_requested_epoch: AtomicU64::new(0),
+            live_ack_epoch: AtomicU64::new(0),
+            live_completed_sequence: AtomicU64::new(0),
+            live_completed_position: AtomicU64::new(0),
+            live_request_ns: AtomicU64::new(0),
+            live_worker_return_ns: AtomicU64::new(0),
+            live_ack_ns: AtomicU64::new(0),
+            live_resume_ns: AtomicU64::new(0),
+            live_discard_requests: AtomicU64::new(0),
+            live_discard_results: AtomicU64::new(0),
+            live_recoveries: AtomicU64::new(0),
+            live_clock: Instant::now(),
         }
     }
     fn terminal_record(&self) -> Option<crate::terminal::Record> {
@@ -278,6 +324,15 @@ struct Callback {
     next_result: u64,
     in_gap: bool,
     delivery: Delivery,
+    live: Option<Box<LiveCallback>>,
+}
+struct LiveCallback {
+    policy: crate::live_recovery::Policy,
+    ledger: crate::live_recovery::Ledger,
+    phase: u8, // 0 normal, 1 waiting, 2 reconciliation, 3 re-prime
+    requested_at: Option<Instant>,
+    recoveries: u32,
+    prime_until: u64,
 }
 impl Callback {
     fn new() -> Self {
@@ -300,14 +355,27 @@ impl Callback {
             next_result: 0,
             in_gap: false,
             delivery: Delivery::default(),
+            live: None,
         }
     }
     fn transition(&mut self, s: &Shared, op: u32) -> u32 {
         if s.fault.load(Ordering::Acquire) != 0 {
             return 2;
         }
+        if self.live.as_ref().is_some_and(|live| live.phase != 0) {
+            // A second owner lifecycle operation cannot interleave with the
+            // worker's one same-instance recovery transition.
+            return 2;
+        }
         match op {
             START if !self.running && self.epoch < u64::MAX => {
+                if let Some(live) = &mut self.live {
+                    live.ledger = crate::live_recovery::Ledger::default();
+                    live.requested_at = None;
+                    live.prime_until = 0;
+                    s.live_completed_sequence.store(0, Ordering::Relaxed);
+                    s.live_completed_position.store(0, Ordering::Relaxed);
+                }
                 self.epoch += 1;
                 self.position = 0;
                 self.have = false;
@@ -339,45 +407,169 @@ impl Callback {
     fn process(
         &mut self,
         s: &Shared,
+        request: Item,
+        out: &mut [[f32; CAP]; 2],
+    ) -> Result<u64, u32> {
+        if self.live.is_some() {
+            return self.process_live(s, request, out);
+        }
+        self.process_normal(s, request, out)
+    }
+    fn process_live(
+        &mut self,
+        s: &Shared,
         mut request: Item,
         out: &mut [[f32; CAP]; 2],
     ) -> Result<u64, u32> {
-        if !self.running || request.n as usize > CAP {
-            return Err(1);
-        }
+        if !self.running || request.n as usize > CAP { return Err(1); }
         if s.fault.load(Ordering::Acquire) != 0 || s.terminal_latched.load(Ordering::Acquire) {
             return Err(2);
         }
-        request.epoch = self.epoch;
-        request.position = self.position;
-        request.queued = Some(Instant::now());
-        if request.events[..request.event_count as usize]
-            .iter()
-            .any(|e| e.kind == 2)
-        {
-            request.gui_revision = s.gui.as_ref().map_or(0, |gui| gui.revision());
+        if self.live.as_ref().unwrap().phase != 1 { self.consume_results(s)?; }
+        let live = self.live.as_mut().unwrap();
+        if live.phase == 0 || live.phase == 2 || live.phase == 3 {
+            let needed = self.position.saturating_sub(self.delay);
+            let late = needed.saturating_sub(self.next_result);
+            if late > live.policy.horizon_frames as u64 {
+                if live.phase != 0 || live.recoveries >= live.policy.max_recoveries {
+                    s.fail(RECOVERY_EXHAUSTED, self.position);
+                    s.live_stage.store(LIVE_FAILED, Ordering::Release);
+                    return Err(2);
+                }
+                live.phase = 1;
+                live.requested_at = Some(Instant::now());
+                s.wanted.store(0, Ordering::Release);
+                s.live_requested_epoch.store(self.epoch, Ordering::Relaxed);
+                s.live_request_ns.store(s.live_now_ns(), Ordering::Relaxed);
+                s.live_stage.store(LIVE_REQUESTED, Ordering::Release);
+            }
         }
-        #[cfg(feature = "rpi1-observe")]
-        phase!(s, self.host_call, self.position,
-            crate::rpi1_phase::REQUEST_SLOT_INSPECT, 0,
-            s.requests.published(), s.requests.consumed());
-        if !s.requests.push(request) {
-            s.fail_at(OVERFLOW, self.position, 1);
-            #[cfg(feature = "rpi1-observe")]
-            phase!(s, self.host_call, self.position,
-                crate::rpi1_phase::FAULT_COMMITTED, 1, OVERFLOW, s.requests.published());
-            return Err(2);
+        // Classify the current callback's input after the lateness decision.
+        // Input at the trigger boundary has not entered the old request ring.
+        let observation = match live.phase {
+            1 => crate::live_recovery::Observation::AdmissionClosed,
+            2 => crate::live_recovery::Observation::AfterAcknowledge,
+            _ => crate::live_recovery::Observation::Normal,
+        };
+        for event in &request.events[..request.event_count as usize] {
+            if live.ledger.observe(*event, observation).is_err() {
+                s.fail(RECOVERY_CAPACITY, self.position);
+                s.live_stage.store(LIVE_FAILED, Ordering::Release);
+                return Err(2);
+            }
         }
-        #[cfg(feature = "rpi1-observe")]
-        phase!(s, self.host_call, self.position,
-            crate::rpi1_phase::REQUEST_PUBLISHED, 0,
-            s.requests.published(), request.n as u64);
-        if !request.gain.is_nan() || request.event_count > 0 {
-            s.last_edit.store(s.requests.published(), Ordering::Release);
+        if live.phase == 1 {
+            let worker_return = s.live_worker_return_ns.load(Ordering::Acquire);
+            let requested = s.live_request_ns.load(Ordering::Acquire);
+            let deadline_ns = u64::from(live.policy.worker_deadline_ms) * 1_000_000;
+            let timed_out = if worker_return != 0 {
+                worker_return.saturating_sub(requested) >= deadline_ns
+            } else {
+                live.requested_at.unwrap().elapsed()
+                    >= Duration::from_millis(live.policy.worker_deadline_ms as u64)
+            };
+            if timed_out {
+                s.fail(RECOVERY_TIMEOUT, self.position);
+                s.live_stage.store(LIVE_FAILED, Ordering::Release);
+                return Err(2);
+            }
+            let stage = s.live_stage.load(Ordering::Acquire);
+            if worker_return != 0 && stage != LIVE_ACKNOWLEDGED
+                && live.requested_at.unwrap().elapsed()
+                    >= Duration::from_millis((live.policy.worker_deadline_ms as u64 * 2).max(1000)) {
+                s.fail(RECOVERY_LIFECYCLE, self.position);
+                s.live_stage.store(LIVE_FAILED, Ordering::Release);
+                return Err(2);
+            }
+            if stage == LIVE_ACKNOWLEDGED {
+                let epoch = s.live_ack_epoch.load(Ordering::Acquire);
+                if epoch != self.epoch + 1 {
+                    s.fail(RECOVERY_LIFECYCLE, self.position);
+                    s.live_stage.store(LIVE_FAILED, Ordering::Release);
+                    return Err(2);
+                }
+                let final_sequence = s.live_completed_sequence.load(Ordering::Acquire);
+                let final_position = s.live_completed_position.load(Ordering::Acquire);
+                if live.ledger.acknowledge(self.epoch, final_sequence, final_position).is_err() {
+                    s.fail(RECOVERY_LIFECYCLE, self.position);
+                    s.live_stage.store(LIVE_FAILED, Ordering::Release);
+                    return Err(2);
+                }
+                let discarded = s.results.published().saturating_sub(s.results.consumed());
+                s.results.discard_published();
+                s.live_discard_results.store(discarded, Ordering::Release);
+                self.audio.clear();
+                self.current = AudioResult::empty();
+                self.have = false;
+                self.offset = 0;
+                self.returned.reset();
+                self.in_gap = false;
+                self.next_result = 0;
+                self.position = 0;
+                self.epoch = epoch;
+                live.phase = 2;
+                live.recoveries += 1;
+                s.observed_position.store(0, Ordering::Release);
+                s.observed_epoch.store(epoch, Ordering::Release);
+            } else {
+                return self.muted_recovery(s, request.n as usize, out);
+            }
         }
-        self.delivery = Delivery::default();
-        let n = request.n as usize;
-        let mut flags = 3;
+        if self.live.as_ref().unwrap().phase == 2 {
+            if request.n == 0 {
+                // Note reconciliation requires a real audio block. A legal
+                // zero-frame parameter flush remains in the bounded ledger.
+                return self.muted_recovery(s, 0, out);
+            }
+            request.event_count = 0;
+            let live = self.live.as_mut().unwrap();
+            while (request.event_count as usize) < 32 {
+                let Some(event) = live.ledger.next_reconcile() else { break; };
+                request.events[request.event_count as usize] = event;
+                request.event_count += 1;
+            }
+            let finished = live.ledger.finished();
+            if finished {
+                live.ledger.finish();
+                live.phase = 3;
+            }
+            let result = self.process_normal(s, request, out)?;
+            if finished {
+                self.live.as_mut().unwrap().prime_until = self.position.saturating_add(self.delay);
+            }
+            // New-epoch audio is deliberately withheld during reconciliation.
+            out.iter_mut().for_each(|plane| plane[..request.n as usize].fill(0.));
+            self.delivery.priming_frames += self.delivery.delivered_frames;
+            self.delivery.delivered_frames = 0;
+            return Ok(result);
+        }
+        // In the re-prime phase, the normal path presents only new-epoch work.
+        // Completion of a full delay and a delivered frame marks resumption.
+        let result = self.process_normal(s, request, out)?;
+        let prime_until = self.live.as_ref().unwrap().prime_until;
+        if self.live.as_ref().unwrap().phase == 3 && self.position <= prime_until {
+            out.iter_mut().for_each(|plane| plane[..request.n as usize].fill(0.));
+            self.delivery.priming_frames += self.delivery.delivered_frames;
+            self.delivery.delivered_frames = 0;
+        } else if self.live.as_ref().unwrap().phase == 3 && self.delivery.delivered_frames > 0 {
+            self.live.as_mut().unwrap().phase = 0;
+            s.live_resume_ns.store(s.live_now_ns(), Ordering::Release);
+            s.live_stage.store(LIVE_NORMAL, Ordering::Release);
+        }
+        Ok(result)
+    }
+    fn muted_recovery(
+        &mut self, s: &Shared, n: usize, out: &mut [[f32; CAP]; 2],
+    ) -> Result<u64, u32> {
+        for plane in out.iter_mut() { plane[..n].fill(0.); }
+        self.delivery = Delivery { missing_frames: n as u64,
+            gaps: u64::from(n > 0 && !self.in_gap), ..Delivery::default() };
+        if n > 0 { self.in_gap = true; }
+        self.position += n as u64;
+        s.observed_position.store(self.position, Ordering::Release);
+        Ok(3)
+    }
+    fn consume_results(&mut self, s: &Shared) -> Result<(), u32> {
         // Consume whole completions independently of audio presentation. This
         // admits zero-frame results and preserves late events before audio expiry.
         for _ in 0..DESCRIPTORS {
@@ -401,6 +593,13 @@ impl Callback {
                 phase!(s, self.host_call, self.position,
                     crate::rpi1_phase::FAULT_COMMITTED, 2, CORRELATION, a.position);
                 return Err(2);
+            }
+            if let Some(live) = &mut self.live {
+                if live.ledger.completed(item.epoch, a.position, a.n, item.intent_sequence).is_err() {
+                    s.fail(RECOVERY_LIFECYCLE, self.position);
+                    s.live_stage.store(LIVE_FAILED, Ordering::Release);
+                    return Err(2);
+                }
             }
             self.next_result += a.n as u64;
             if !self
@@ -427,6 +626,63 @@ impl Callback {
                 self.audio.push_back(a);
             }
         }
+        Ok(())
+    }
+    fn process_normal(
+        &mut self,
+        s: &Shared,
+        mut request: Item,
+        out: &mut [[f32; CAP]; 2],
+    ) -> Result<u64, u32> {
+        if !self.running || request.n as usize > CAP {
+            return Err(1);
+        }
+        if s.fault.load(Ordering::Acquire) != 0 || s.terminal_latched.load(Ordering::Acquire) {
+            return Err(2);
+        }
+        request.epoch = self.epoch;
+        request.position = self.position;
+        request.queued = Some(Instant::now());
+        if request.events[..request.event_count as usize]
+            .iter()
+            .any(|e| e.kind == 2)
+        {
+            request.gui_revision = s.gui.as_ref().map_or(0, |gui| gui.revision());
+        }
+        if let Some(live) = &mut self.live {
+            if !live.ledger.can_publish(request.event_count as usize) {
+                s.fail(RECOVERY_CAPACITY, self.position);
+                s.live_stage.store(LIVE_FAILED, Ordering::Release);
+                return Err(2);
+            }
+            request.intent_sequence = live.ledger.next_sequence();
+        }
+        #[cfg(feature = "rpi1-observe")]
+        phase!(s, self.host_call, self.position,
+            crate::rpi1_phase::REQUEST_SLOT_INSPECT, 0,
+            s.requests.published(), s.requests.consumed());
+        if !s.requests.push(request) {
+            s.fail_at(OVERFLOW, self.position, 1);
+            #[cfg(feature = "rpi1-observe")]
+            phase!(s, self.host_call, self.position,
+                crate::rpi1_phase::FAULT_COMMITTED, 1, OVERFLOW, s.requests.published());
+            return Err(2);
+        }
+        if let Some(live) = &mut self.live {
+            live.ledger.published(request.epoch, request.position, request.n,
+                &request.events[..request.event_count as usize]);
+        }
+        #[cfg(feature = "rpi1-observe")]
+        phase!(s, self.host_call, self.position,
+            crate::rpi1_phase::REQUEST_PUBLISHED, 0,
+            s.requests.published(), request.n as u64);
+        if !request.gain.is_nan() || request.event_count > 0 {
+            s.last_edit.store(s.requests.published(), Ordering::Release);
+        }
+        self.delivery = Delivery::default();
+        let n = request.n as usize;
+        let mut flags = 3;
+        self.consume_results(s)?;
         let mut i = 0;
         while i < n {
             let position = self.position + i as u64;
@@ -532,6 +788,56 @@ struct Live {
 // guard. The worker owns Shared/Session; removal excludes every live lease.
 unsafe impl Sync for Live {}
 static INSTANCES: crate::instances::Registry<Live> = crate::instances::Registry::new();
+pub(crate) fn select_live_policy(id: u64, policy: crate::live_recovery::Policy) -> io::Result<()> {
+    if !policy.valid() { return Err(invalid("invalid live recovery policy")); }
+    INSTANCES.update(id, |live| {
+        let callback = live.callback.get_mut();
+        if live.minor != 12 || live.shared.identity.is_none() || callback.running
+            || callback.epoch != 0 || callback.live.is_some() {
+            return Err(invalid("live recovery requires a new appliance instance before start"));
+        }
+        callback.live = Some(Box::new(LiveCallback {
+            policy, ledger: crate::live_recovery::Ledger::default(), phase: 0,
+            requested_at: None, recoveries: 0, prime_until: 0,
+        }));
+        Ok(())
+    }).map_err(|_| invalid("live recovery instance ownership"))?
+}
+
+/// Independently sampled observations of one instance. `request_high` is the
+/// historical ring high-water mark, never current backlog or an atomic snapshot.
+#[derive(Default, Clone, Copy, Debug)]
+pub struct LiveStats {
+    pub stage: u64,
+    pub fault: u64,
+    pub request_epoch: u64,
+    pub acknowledged_epoch: u64,
+    pub recoveries: u64,
+    pub request_high: u64,
+    pub request_discarded: u64,
+    pub result_discarded: u64,
+    pub requested_ns: u64,
+    pub worker_return_ns: u64,
+    pub acknowledged_ns: u64,
+    pub resumed_ns: u64,
+}
+pub(crate) fn live_stats(id: u64) -> Option<LiveStats> {
+    let s = &INSTANCES.lease(id)?.shared;
+    Some(LiveStats {
+        stage: s.live_stage.load(Ordering::Acquire),
+        fault: s.fault.load(Ordering::Acquire),
+        request_epoch: s.live_requested_epoch.load(Ordering::Acquire),
+        acknowledged_epoch: s.live_ack_epoch.load(Ordering::Acquire),
+        recoveries: s.live_recoveries.load(Ordering::Acquire),
+        request_high: s.requests.high_water(),
+        request_discarded: s.live_discard_requests.load(Ordering::Acquire),
+        result_discarded: s.live_discard_results.load(Ordering::Acquire),
+        requested_ns: s.live_request_ns.load(Ordering::Acquire),
+        worker_return_ns: s.live_worker_return_ns.load(Ordering::Acquire),
+        acknowledged_ns: s.live_ack_ns.load(Ordering::Acquire),
+        resumed_ns: s.live_resume_ns.load(Ordering::Acquire),
+    })
+}
 struct Guard<'a>(&'a AtomicBool);
 impl<'a> Guard<'a> {
     fn acquire(live: &'a Live) -> Option<Self> {
@@ -574,6 +880,51 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
             crate::preview::check_owner(&mut session.owner)?;
             if s.quit.load(Ordering::Acquire) || s.fault.load(Ordering::Acquire) != 0 {
                 return Err(invalid("queued session fault or cancelled"));
+            }
+            if s.live_stage.load(Ordering::Acquire) == LIVE_REQUESTED {
+                if s.live_stage.compare_exchange(LIVE_REQUESTED, LIVE_RESTARTING,
+                    Ordering::AcqRel, Ordering::Acquire).is_err() {
+                    continue;
+                }
+                // The callback closed admission before publishing the request.
+                // This is the sole request consumer; no queued old input may
+                // execute after the same-instance STOP/START.
+                let old_epoch = s.live_requested_epoch.load(Ordering::Acquire);
+                if old_epoch != session.epoch {
+                    s.fail(RECOVERY_LIFECYCLE, session.position);
+                    return Err(invalid("live recovery epoch mismatch"));
+                }
+                let control_active = {
+                    let _mailbox = s.control.lock()
+                        .map_err(|_| invalid("live recovery control mailbox poisoned"))?;
+                    session.capture.is_some() || s.pending_control.load(Ordering::Acquire)
+                };
+                if control_active {
+                    s.fail(RECOVERY_LIFECYCLE, session.position);
+                    return Err(invalid("live recovery conflicts with active state control"));
+                }
+                if s.live_worker_return_ns.load(Ordering::Acquire) == 0 {
+                    s.live_worker_return_ns.store(s.live_now_ns(), Ordering::Release);
+                }
+                let deferred_discarded = u64::from(deferred.take().is_some());
+                let discarded = s.requests.published().saturating_sub(s.requests.consumed())
+                    + deferred_discarded;
+                s.requests.discard_published();
+                s.live_discard_requests.fetch_add(discarded, Ordering::Release);
+                if s.fault.load(Ordering::Acquire) != 0 { return Err(invalid("live recovery timed out")); }
+                if let Err(error) = session.transition_epoch(STOP as u16, old_epoch)
+                    .and_then(|_| session.transition_epoch(START as u16, old_epoch + 1))
+                {
+                    s.fail(RECOVERY_LIFECYCLE, session.position);
+                    return Err(error);
+                }
+                if s.fault.load(Ordering::Acquire) != 0 { return Err(invalid("live recovery timed out")); }
+                s.wanted.store(old_epoch + 1, Ordering::Release);
+                s.live_ack_epoch.store(old_epoch + 1, Ordering::Release);
+                s.live_ack_ns.store(s.live_now_ns(), Ordering::Release);
+                s.live_recoveries.fetch_add(1, Ordering::Release);
+                s.live_stage.store(LIVE_ACKNOWLEDGED, Ordering::Release);
+                continue;
             }
             if s.pending_control.load(Ordering::Acquire) {
                 let mut mailbox = s
@@ -651,6 +1002,12 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                 thread::sleep(Duration::from_micros(50));
                 continue;
             };
+            if s.live_stage.load(Ordering::Acquire) == LIVE_REQUESTED {
+                // The request may arrive after the loop-head check. Do not
+                // invoke one more old-epoch process call after admission closes.
+                s.live_discard_requests.fetch_add(1, Ordering::Relaxed);
+                continue;
+            }
             #[cfg(feature = "rpi1-observe")]
             s.worker_phase.record(item.parent[0], item.position,
                 crate::rpi1_phase::WORKER_REQUEST_OBSERVED, item.kind,
@@ -686,6 +1043,21 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         &item.events[..item.event_count as usize],
                         item.context,
                     )?;
+                    if item.intent_sequence != 0 {
+                        s.live_completed_position.store(session.position, Ordering::Relaxed);
+                        s.live_completed_sequence.store(item.intent_sequence, Ordering::Release);
+                    }
+                    if s.live_stage.load(Ordering::Acquire) == LIVE_REQUESTED {
+                        // The synchronous call returned, but its old chronology
+                        // is already obsolete. Never publish that completion.
+                        s.live_worker_return_ns.store(s.live_now_ns(), Ordering::Release);
+                        s.processed_frames.fetch_add(n as u64, Ordering::Relaxed);
+                        s.processed.fetch_add(1, Ordering::Relaxed);
+                        continue;
+                    }
+                    if s.fault.load(Ordering::Acquire) != 0 {
+                        return Err(invalid("live processing terminated"));
+                    }
                     #[cfg(feature = "rpi1-observe")]
                     if let Some(clock) = clock {
                     for (kind, at) in [
@@ -713,6 +1085,9 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         session.notices.0 = 0;
                     }
                     item.flags = flags;
+                    // Preserve the established full-service boundary for
+                    // ordinary completions. A suppressed old-epoch call is
+                    // measured by live_worker_return_ns instead.
                     s.service_us_max.fetch_max(
                         started.elapsed().as_micros().min(u64::MAX as u128) as u64,
                         Ordering::Relaxed,
@@ -1210,6 +1585,9 @@ unsafe fn control(id: u64, op: u32, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
     if !s.state_capable.load(Ordering::Acquire) || s.fault.load(Ordering::Acquire) != 0 {
         return Err(invalid("state unavailable"));
     }
+    if !state_control_stage_ready(&s) {
+        return Err(invalid("state control unavailable during live recovery"));
+    }
     let barrier = s.requests.published();
     {
         let mut c = s
@@ -1218,6 +1596,9 @@ unsafe fn control(id: u64, op: u32, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
             .map_err(|_| invalid("state mailbox poisoned"))?;
         if c.is_some() {
             return Err(invalid("state operation already pending"));
+        }
+        if !state_control_stage_ready(&s) {
+            return Err(invalid("state control unavailable during live recovery"));
         }
         *c = Some(Control {
             barrier,
@@ -1247,6 +1628,10 @@ unsafe fn control(id: u64, op: u32, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
         }
         thread::sleep(Duration::from_micros(50));
     }
+}
+
+fn state_control_stage_ready(s: &Shared) -> bool {
+    s.live_stage.load(Ordering::Acquire) == LIVE_NORMAL
 }
 
 fn started_ack(epoch: u64) -> Option<u64> {
@@ -3429,3 +3814,7 @@ mod capture_tests;
 #[cfg(test)]
 #[path = "lc1_tests.rs"]
 mod lc1_tests;
+
+#[cfg(test)]
+#[path = "live_recovery_tests.rs"]
+mod live_recovery_tests;
