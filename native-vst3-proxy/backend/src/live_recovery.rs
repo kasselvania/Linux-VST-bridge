@@ -13,12 +13,19 @@ pub struct Policy {
     pub horizon_frames: u32,
     pub worker_deadline_ms: u32,
     pub max_recoveries: u32,
+    // A second recovery may be armed only after this many consecutive timely
+    // delivered frames following the first return to normal playback.
+    pub rearm_healthy_frames: u32,
 }
 impl Policy {
     pub fn valid(self) -> bool {
         (256..=8192).contains(&self.horizon_frames)
             && (20..=5000).contains(&self.worker_deadline_ms)
-            && self.max_recoveries == 1
+            && match self.max_recoveries {
+                1 => self.rearm_healthy_frames == 0,
+                2 => (48_000..=480_000).contains(&self.rearm_healthy_frames),
+                _ => false,
+            }
     }
 }
 
@@ -306,6 +313,15 @@ impl Ledger {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn second_recovery_requires_explicit_healthy_rearm() {
+        let base = Policy { horizon_frames: 1024, worker_deadline_ms: 1500,
+            max_recoveries: 1, rearm_healthy_frames: 0 };
+        assert!(base.valid());
+        assert!(!Policy { max_recoveries: 2, ..base }.valid());
+        assert!(Policy { max_recoveries: 2, rearm_healthy_frames: 48_000, ..base }.valid());
+        assert!(!Policy { max_recoveries: 3, rearm_healthy_frames: 48_000, ..base }.valid());
+    }
     fn note(kind: u32, id: u32) -> Event {
         Event { kind, id, pitch: 60, value: if kind == NOTE_ON { 0.8 } else { 0. },
             ..Event::default() }

@@ -61,12 +61,13 @@ mod appliance {
             Err(env::VarError::NotPresent) => None,
             Ok(value) => {
                 let parts = value.split(':').collect::<Vec<_>>();
-                if parts.len() != 3 { return Err(invalid("live recovery policy format")); }
+                if !matches!(parts.len(), 3 | 4) { return Err(invalid("live recovery policy format")); }
                 let parse = |part: &str| part.parse::<u32>().map_err(|_| invalid("live recovery policy value"));
                 Some(ap2_backend::rpi0::LiveRecoveryPolicy {
                     horizon_frames: parse(parts[0])?,
                     worker_deadline_ms: parse(parts[1])?,
                     max_recoveries: parse(parts[2])?,
+                    rearm_healthy_frames: if parts.len() == 4 { parse(parts[3])? } else { 0 },
                 })
             }
             Err(_) => return Err(invalid("live recovery policy encoding")),
@@ -118,8 +119,9 @@ mod appliance {
             .map_err(|_| invalid("backend open thread panicked"))??;
         if let Some(policy) = live_recovery {
             instance.enable_live_recovery(policy)?;
-            println!("RPI2_LIVE_RECOVERY horizon_frames={} worker_deadline_ms={} max_recoveries={}",
-                policy.horizon_frames, policy.worker_deadline_ms, policy.max_recoveries);
+            println!("RPI2_LIVE_RECOVERY horizon_frames={} worker_deadline_ms={} max_recoveries={} rearm_healthy_frames={}",
+                policy.horizon_frames, policy.worker_deadline_ms, policy.max_recoveries,
+                policy.rearm_healthy_frames);
         }
 
         // The mapping/host handshake precedes commercial module inspection.

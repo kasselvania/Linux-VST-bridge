@@ -24,7 +24,9 @@ struct PeerResult {
     starts: u32,
     stops: u32,
     new_epoch_audio: u32,
+    third_epoch_audio: u32,
     old_note_offs_new_epoch: u32,
+    held_note_offs_third_epoch: u32,
     parameter_updates_new_epoch: u32,
     parameter_09_new_epoch: u32,
 }
@@ -67,6 +69,9 @@ fn parameter(value: f64) -> Event {
 
 impl Fixture {
     fn new(deadline_ms: u32) -> Self {
+        Self::with_policy(deadline_ms, 1, 0)
+    }
+    fn with_policy(deadline_ms: u32, max_recoveries: u32, rearm_healthy_frames: u32) -> Self {
         let path = std::env::temp_dir().join(format!(
             "br1-source-owned-{}.audio",
             u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())
@@ -101,7 +106,8 @@ impl Fixture {
                         peer_gate.stalled.store(true, Ordering::Release);
                         until(|| peer_gate.release.load(Ordering::Acquire));
                     }
-                    let new_epoch = ap1_native_client::get(&f.payload[32..40]) == 2;
+                    let epoch = ap1_native_client::get(&f.payload[32..40]);
+                    let new_epoch = epoch == 2;
                     for event in events::decode(&f.payload[48..], n).unwrap() {
                         if new_epoch && (event.kind, event.id) == (NOTE_OFF, 1) {
                             result.old_note_offs_new_epoch += 1;
@@ -109,6 +115,9 @@ impl Fixture {
                         if new_epoch && (event.kind, event.id) == (PARAMETER, 77) {
                             result.parameter_updates_new_epoch += 1;
                             if event.value == 0.9 { result.parameter_09_new_epoch += 1; }
+                        }
+                        if epoch == 3 && (event.kind, event.id) == (NOTE_OFF, 2) {
+                            result.held_note_offs_third_epoch += 1;
                         }
                         match (event.kind, event.id) {
                             (NOTE_ON, 1) => result.old_note = true,
@@ -129,6 +138,8 @@ impl Fixture {
                     }
                     if new_epoch {
                         result.new_epoch_audio += 1;
+                    } else if epoch == 3 {
+                        result.third_epoch_audio += 1;
                     }
                     [
                         (n as u32).to_le_bytes().as_slice(),
@@ -205,13 +216,16 @@ impl Fixture {
             policy: crate::live_recovery::Policy {
                 horizon_frames: 256,
                 worker_deadline_ms: deadline_ms,
-                max_recoveries: 1,
+                max_recoveries,
+                rearm_healthy_frames,
             },
             ledger: crate::live_recovery::Ledger::default(),
             phase: 0,
             requested_at: None,
             recoveries: 0,
             prime_until: 0,
+            healthy_frames: 0,
+            rearmed: false,
         }));
         assert_eq!(callback.transition(&shared, START), 0);
         until(|| shared.ack.load(Ordering::Acquire) == started_ack(1).unwrap());
@@ -296,6 +310,9 @@ impl Fixture {
         self.release_and_resume_with(0.72);
     }
     fn release_and_resume_with(&mut self, expected_sample: f32) {
+        self.release_and_resume_epoch(2, expected_sample);
+    }
+    fn release_and_resume_epoch(&mut self, expected_epoch: u64, expected_sample: f32) {
         let old_published = self.shared.results.published();
         self.gate.release.store(true, Ordering::Release);
         until(|| self.shared.live_stage.load(Ordering::Acquire) == LIVE_ACKNOWLEDGED);
@@ -304,8 +321,8 @@ impl Fixture {
             old_published,
             "stale completion published"
         );
-        assert_eq!(self.shared.live_ack_epoch.load(Ordering::Acquire), 2);
-        assert_eq!(self.shared.live_recoveries.load(Ordering::Acquire), 1);
+        assert_eq!(self.shared.live_ack_epoch.load(Ordering::Acquire), expected_epoch);
+        assert_eq!(self.shared.live_recoveries.load(Ordering::Acquire), expected_epoch - 1);
         assert!(self.shared.live_discard_requests.load(Ordering::Acquire) > 0);
         assert!(!state_control_stage_ready(&self.shared),
             "state control must refuse after worker acknowledgement");
@@ -325,7 +342,7 @@ impl Fixture {
                 "state control must refuse throughout reconciliation and re-prime");
         }
         assert!(resumed, "current held note did not resume");
-        assert_eq!(self.callback.epoch, 2);
+        assert_eq!(self.callback.epoch, expected_epoch);
         assert_eq!(self.callback.live.as_ref().unwrap().phase, 0);
         let requested = self.shared.live_request_ns.load(Ordering::Acquire);
         let returned = self.shared.live_worker_return_ns.load(Ordering::Acquire);
@@ -340,7 +357,8 @@ impl Fixture {
         self.gate.release.store(true, Ordering::Release);
         if clean {
             assert_eq!(self.callback.transition(&self.shared, STOP), 0);
-            until(|| self.shared.ack.load(Ordering::Acquire) == (2 << 8) | 13);
+            let epoch = self.callback.epoch;
+            until(|| self.shared.ack.load(Ordering::Acquire) == (epoch << 8) | 13);
             assert!(self.shared.requests.push(Item::control(DEACTIVATE, 0)));
             until(|| self.shared.ack.load(Ordering::Acquire) == 15);
             assert!(self.shared.requests.push(Item::control(CLOSE, 0)));
@@ -463,6 +481,111 @@ fn live_second_incident_is_explicitly_exhausted() {
 }
 
 #[test]
+fn live_second_incident_before_healthy_rearm_is_exhausted() {
+    let mut fixture = Fixture::with_policy(1500, 2, 48_000);
+    fixture.initial_audio();
+    fixture.arm_stall();
+    fixture.request_recovery();
+    fixture.release_and_resume();
+    assert!(!fixture.callback.live.as_ref().unwrap().rearmed);
+    fixture.arm_stall();
+    for _ in 0..16 {
+        if fixture.block(&[]) == Err(2) { break; }
+    }
+    assert_eq!(fixture.shared.fault.load(Ordering::Acquire), RECOVERY_EXHAUSTED);
+    assert_eq!(fixture.shared.live_recoveries.load(Ordering::Acquire), 1);
+    assert!(fixture.shared.requests.high_water() < 64);
+    let result = fixture.finish(false);
+    assert_eq!((result.starts, result.stops), (2, 1));
+}
+
+fn rearm_after_healthy_delivery(fixture: &mut Fixture) {
+    for _ in 0..512 {
+        if fixture.callback.live.as_ref().unwrap().rearmed { break; }
+        fixture.block(&[]).unwrap();
+    }
+    let live = fixture.callback.live.as_ref().unwrap();
+    assert!(live.rearmed, "one second of timely delivery did not rearm recovery");
+    assert!(live.healthy_frames >= 48_000);
+    assert_eq!(fixture.shared.fault.load(Ordering::Acquire), 0);
+}
+
+#[test]
+fn live_separated_second_stall_reconciles_and_retires() {
+    let mut fixture = Fixture::with_policy(1500, 2, 48_000);
+    fixture.initial_audio();
+    fixture.arm_stall();
+    fixture.request_recovery();
+    fixture.release_and_resume();
+    rearm_after_healthy_delivery(&mut fixture);
+    fixture.arm_stall();
+    fixture.request_recovery_with(&[
+        note(NOTE_OFF, 2, 64), note(NOTE_ON, 1, 60), parameter(0.6),
+    ]);
+    fixture.release_and_resume_epoch(3, 0.24);
+    assert_eq!(fixture.shared.live_recoveries.load(Ordering::Acquire), 2);
+    assert!(fixture.shared.requests.high_water() < 64);
+    println!("REARM_SOURCE_OWNED second_epoch=3 recoveries={} request_high={} request_discarded={} result_discarded={} second_request_to_worker_return_ns={} second_worker_return_to_audio_ns={}",
+        fixture.shared.live_recoveries.load(Ordering::Acquire),
+        fixture.shared.requests.high_water(),
+        fixture.shared.live_discard_requests.load(Ordering::Acquire),
+        fixture.shared.live_discard_results.load(Ordering::Acquire),
+        fixture.shared.live_worker_return_ns.load(Ordering::Acquire).saturating_sub(
+            fixture.shared.live_request_ns.load(Ordering::Acquire)),
+        fixture.shared.live_resume_ns.load(Ordering::Acquire).saturating_sub(
+            fixture.shared.live_worker_return_ns.load(Ordering::Acquire)));
+    let result = fixture.finish(true);
+    assert_eq!((result.starts, result.stops), (3, 3));
+    assert_eq!(result.held_note_offs_third_epoch, 1);
+    assert!(result.old_note && !result.held_note);
+    assert_eq!(result.parameter, 0.6);
+    assert!(result.third_epoch_audio > 0);
+}
+
+#[test]
+fn live_third_incident_stays_terminal_after_two_recoveries() {
+    let mut fixture = Fixture::with_policy(1500, 2, 48_000);
+    fixture.initial_audio();
+    fixture.arm_stall();
+    fixture.request_recovery();
+    fixture.release_and_resume();
+    rearm_after_healthy_delivery(&mut fixture);
+    fixture.arm_stall();
+    fixture.request_recovery_with(&[]);
+    fixture.release_and_resume_epoch(3, 0.72);
+    fixture.arm_stall();
+    for _ in 0..16 {
+        if fixture.block(&[]) == Err(2) { break; }
+    }
+    assert_eq!(fixture.shared.fault.load(Ordering::Acquire), RECOVERY_EXHAUSTED);
+    assert_eq!(fixture.shared.live_recoveries.load(Ordering::Acquire), 2);
+    assert!(fixture.shared.requests.high_water() < 64);
+    let result = fixture.finish(false);
+    assert_eq!((result.starts, result.stops), (3, 2));
+}
+
+#[test]
+fn live_second_attempt_retains_its_own_worker_deadline() {
+    let mut fixture = Fixture::with_policy(100, 2, 48_000);
+    fixture.initial_audio();
+    fixture.arm_stall();
+    fixture.request_recovery();
+    fixture.release_and_resume();
+    rearm_after_healthy_delivery(&mut fixture);
+    fixture.arm_stall();
+    fixture.request_recovery_with(&[]);
+    let published = fixture.shared.requests.published();
+    thread::sleep(Duration::from_millis(110));
+    assert_eq!(fixture.block(&[]), Err(2));
+    assert_eq!(fixture.shared.fault.load(Ordering::Acquire), RECOVERY_TIMEOUT);
+    assert_eq!(fixture.shared.live_recoveries.load(Ordering::Acquire), 1);
+    assert_eq!(fixture.shared.requests.published(), published);
+    assert!(fixture.shared.requests.high_water() < 64);
+    let result = fixture.finish(false);
+    assert_eq!((result.starts, result.stops), (2, 1));
+}
+
+#[test]
 fn live_capacity_refuses_an_unrepresentable_note_without_truncation() {
     let shared = Shared::new();
     let mut callback = Callback::new();
@@ -472,12 +595,15 @@ fn live_capacity_refuses_an_unrepresentable_note_without_truncation() {
             horizon_frames: 256,
             worker_deadline_ms: 1000,
             max_recoveries: 1,
+            rearm_healthy_frames: 0,
         },
         ledger: crate::live_recovery::Ledger::default(),
         phase: 0,
         requested_at: None,
         recoveries: 0,
         prime_until: 0,
+        healthy_frames: 0,
+        rearmed: false,
     }));
     assert_eq!(callback.transition(&shared, START), 0);
     assert_eq!(shared.requests.pop().unwrap().kind, START);
@@ -514,12 +640,15 @@ fn old_result_is_discarded_before_new_epoch_audio_and_returned_state() {
             horizon_frames: 256,
             worker_deadline_ms: 1000,
             max_recoveries: 1,
+            rearm_healthy_frames: 0,
         },
         ledger: crate::live_recovery::Ledger::default(),
         phase: 0,
         requested_at: None,
         recoveries: 0,
         prime_until: 0,
+        healthy_frames: 0,
+        rearmed: false,
     }));
     assert_eq!(callback.transition(&shared, START), 0);
     shared.requests.pop().unwrap();
