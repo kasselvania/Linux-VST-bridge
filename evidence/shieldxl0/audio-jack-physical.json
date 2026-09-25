@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "status": "physical_audio_and_jack_acceptance_passed",
+  "fixture": {
+    "model": "Raspberry Pi 5 Model B Rev 1.1",
+    "ram_bytes": 8341209088,
+    "kernel": "6.18.50+rpt-rpi-v8",
+    "page_size": 4096,
+    "cooling": "none",
+    "overclock": false,
+    "shield_airflow": "open and unobstructed for the accepted JACK matrix"
+  },
+  "alsa": {
+    "card": "SHIELDXL",
+    "device": "shieldxl / hw:SHIELDXL",
+    "format": "stereo S16_LE",
+    "sample_rate_hz": 48000,
+    "silent_open_close": "pass",
+    "tone": {
+      "frequency_hz": 440,
+      "level_dbfs": -30,
+      "operator_audible": true,
+      "preserved_failure": "initial inaudibility was external audio-interface routing; the same bounded ShieldXL tone was audible after that route was corrected"
+    },
+    "physical_input": {
+      "frames": 144000,
+      "left_rms_dbfs": -35.33,
+      "right_rms_dbfs": -35.50,
+      "operator_source_confirmed_playing": true,
+      "result": "pass"
+    },
+    "physical_loopback": {
+      "expected_hz": 440.0,
+      "left_estimated_hz": 439.87726271134085,
+      "right_estimated_hz": 439.87726271134085,
+      "left_rms_dbfs": -35.49688061801054,
+      "right_rms_dbfs": -35.542700610079685,
+      "channel_balance_db": 0.045819992069141335,
+      "result": "pass"
+    },
+    "playback_capture_reopen_cycles": 20,
+    "reopen_result": "pass",
+    "post_reset_auto_mute_followup": {
+      "preserved_failure": "after an accidental hardware reset, the codec Auto-Mute control was on and ShieldXL analog playback remained inaudible after silence",
+      "bounded_repair": "setting Auto-Mute Switch off restored the already-running RPI0 synth audio without rebuilding the RPI0 executable",
+      "startup_policy": "Auto-Mute Switch off",
+      "deployed_helper_sha256": "4019c737c39448b25e5da4e422d5389dae8dae446fb5b7d3a03609131c1e5826",
+      "live_readback": "off"
+    }
+  },
+  "jack": {
+    "implementation": "JACK2",
+    "version": "1.9.22~dfsg-4",
+    "sample_rate_hz": 48000,
+    "periods_per_buffer": 3,
+    "ports": {
+      "capture": ["system:capture_1", "system:capture_2"],
+      "playback": ["system:playback_1", "system:playback_2"]
+    },
+    "matrix": [
+      {"period_frames": 128, "left_roundtrip_frames": 533.691, "right_roundtrip_frames": 533.692, "roundtrip_ms": 11.119, "xruns": 2, "cpu_percent": 2.5, "left_loopback": "pass", "right_loopback": "pass", "restart": "pass"},
+      {"period_frames": 256, "left_roundtrip_frames": 1045.691, "right_roundtrip_frames": 1045.692, "roundtrip_ms": 21.785, "xruns": 1, "cpu_percent": 2.0, "left_loopback": "pass", "right_loopback": "pass", "restart": "pass"},
+      {"period_frames": 512, "left_roundtrip_frames": 2070.692, "right_roundtrip_frames": 2070.692, "roundtrip_ms": 43.139, "xruns": 0, "cpu_percent": 1.5, "left_loopback": "pass", "right_loopback": "pass", "restart": "pass"},
+      {"period_frames": 1024, "left_roundtrip_frames": 4118.692, "right_roundtrip_frames": 4118.692, "roundtrip_ms": 85.806, "xruns": 0, "cpu_percent": 1.4, "left_loopback": "pass", "right_loopback": "pass", "restart": "pass"}
+    ],
+    "xrun_detail": "the 128-frame run logged two jack_delay client-not-finished XRUNs; the 256-frame run logged one; the 512- and 1024-frame runs logged none",
+    "recommended_period_frames": 512,
+    "ordinary_user": "pass",
+    "normal_stop_start": "pass",
+    "mixer_restored_before_server_start": "pass"
+  },
+  "thermal": {
+    "duration_seconds": 76.85,
+    "temperature_before_c": 47.2,
+    "temperature_maximum_c": 49.9,
+    "temperature_after_c": 48.3,
+    "observed_clock_range_hz": [1500000000, 2400000000],
+    "throttling_before": "0x0",
+    "throttling_during": ["0x0"],
+    "throttling_after": "0x0"
+  },
+  "nonclaims": [
+    "The JACK roundtrip figures include JACK buffering and the ShieldXL hardware loopback; they are not RPI0 bridge latency.",
+    "The bounded uncooled run establishes functional hardware compatibility, not sustained thermal or low-latency qualification.",
+    "XRUN-free operation at 512 and 1024 frames in one bounded run is not a worst-case guarantee."
+  ]
+}

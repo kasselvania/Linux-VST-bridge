@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "observed_at_utc": "2026-09-21T15:38:21Z",
+  "status": "oled_physical_acceptance_passed",
+  "fixture": {
+    "model": "Raspberry Pi 5 Model B Rev 1.1",
+    "revision": "d04171",
+    "kernel": "6.18.50+rpt-rpi-v8",
+    "page_size_bytes": 4096,
+    "cooling": "none",
+    "overclock": false
+  },
+  "display": {
+    "module": "NHD-2.7-12864WDW3-M",
+    "controller": "SSD1322",
+    "geometry": {"width": 128, "height": 64},
+    "orientation_degrees": 180,
+    "spi_alias": "/dev/shieldxl-oled-spi",
+    "spi_device": "/dev/spidev0.0",
+    "gpio_controller": "pinctrl-rp1",
+    "dc_gpio_offset": 5,
+    "reset_gpio_offset": 6
+  },
+  "source": {
+    "commit": "6b6954b5ca7efec6a95b010854bce4eba8d2648e",
+    "service_sha256": "77cd5f5523016c8450d973b2c8a1bf143066cea9ac66e360b4ef1e74cb5b72bc",
+    "deterministic_tests": "41_passed",
+    "repair": "SSD1322 opcodes use D/C=0 and command parameters use D/C=1"
+  },
+  "operator_observations": [
+    {
+      "operation": "status_text_geometry_orientation",
+      "commanded": ["OLED DC FIX", "M 0 25 50 100", "CPU 0% GAP 0", "TEMP 46C THR NO"],
+      "observed": "readable, correctly oriented text matching the commanded content",
+      "result": "pass"
+    },
+    {
+      "operation": "live_update",
+      "commanded": "OLED UPDATE 2",
+      "observed": "display changed to the commanded text",
+      "result": "pass"
+    },
+    {
+      "operation": "fill",
+      "commanded_gray": 4,
+      "observed": "uniform dim-white rectangle across the display",
+      "result": "pass"
+    },
+    {
+      "operation": "clear",
+      "observed": "display completely black",
+      "result": "pass"
+    },
+    {
+      "operation": "service_restart",
+      "observed": "SHIELDXL0 READY returned after a clean systemd restart",
+      "result": "pass"
+    }
+  ],
+  "service": {
+    "unit": "shieldxl-oled@shieldxl.service",
+    "post_restart_state": "active",
+    "post_restart_main_pid": 3854,
+    "active_enter_timestamp_local": "2026-09-21T16:37:41+01:00",
+    "socket": "/run/shieldxl0/oled.sock"
+  },
+  "screen_health_followup": {
+    "observed_at_utc": "2026-09-21T18:37:38Z",
+    "source_commit": "127d0c54df65f7c09c3fa3e492e02d9e851e776a",
+    "service_sha256": "bf1b557f145ed9c07dece0966c021b7b1f05319cc72e59854c8a2446445dcb7f",
+    "deterministic_tests": "44_passed",
+    "configured_idle_blank_seconds": 60,
+    "blank_after_idle": "pass_operator_observed_completely_dark",
+    "valid_request_wake": "pass_operator_observed_OLED_WAKE_PASS",
+    "service_state": "active",
+    "service_main_pid": 64253,
+    "temperature_c": 47.2,
+    "throttling_flags": "0x0",
+    "observed_arm_clock_hz": 1500016128
+  },
+  "thermal": {
+    "campaign_start_utc": "2026-09-21T15:31:20Z",
+    "campaign_end_utc": "2026-09-21T15:38:21Z",
+    "duration_seconds": 421,
+    "observed_temperature_range_c": [44.4, 46.1],
+    "final_temperature_c": 45.5,
+    "final_throttling_flags": "0x0",
+    "final_cpu_governor": "ondemand",
+    "final_observed_arm_clock_hz": 1500022656
+  },
+  "preserved_failure": {
+    "previous_observation": "corrupted OLED output",
+    "cause": "the user-space service clocked SSD1322 command parameters with D/C=0",
+    "disposition": "repaired and physically rechecked; the earlier corrupted observation remains retained"
+  },
+  "boundaries": {
+    "jack_state_before_and_after": "inactive",
+    "jack_was_manipulated": false,
+    "audio_concurrency_tested_in_this_run": false,
+    "boot_time_failure_injection_tested_in_this_run": false,
+    "rpi0_executable_changed": false
+  },
+  "nonclaims": [
+    "This OLED pass does not complete SHIELDXL0 acceptance while USB MIDI and remaining aggregate contract gates are pending.",
+    "This does not establish RPI0 Box64/Wine, physical MIDI/audio/editor, latency, or sustained-performance acceptance."
+  ]
+}
