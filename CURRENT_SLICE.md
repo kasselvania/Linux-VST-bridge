@@ -1,6 +1,35 @@
 # Current work selection
 
-## Current Pi source reconciliation — PI-R
+## Current Serum first-note attribution — FN1
+
+FN1 starts from canonical `main` merge commit
+`25a6cfc3824164d4fdde79abda758ffdca636998`, tree
+`ed16e8d971dda8c9b844a4235d94dd1a58e14f57`, after PI-R
+[PR #173](https://github.com/kasselvania/Linux-VST-bridge/pull/173)
+merged. Its basis is the operator's 2026-09-25 first-note direction,
+`AGENTS.md` real-time and evidence rules, GOVERNANCE “What evidence means”,
+ARCHITECTURE §§7 and 13, FC-AUDIO-001, and the
+[PI-R physical result](evidence/pi-reconciliation/serum-default-2026-09-25.md).
+
+**One claim:** attribute the repeatable approximately 34 ms first-note
+Windows `processor.process()` span on the canonical Pi source to caller
+execution, worker dependency, scheduling, translation/JIT, faulting or
+blocking, or state the exact remaining attribution gap. Bind the first slow
+request and one later note request to epoch, sequence, position, MIDI identity,
+native service stages, Windows wall and CPU counters, and Linux task activity.
+Diagnostics remain optional and bounded; they do not decide whether audio
+proceeds. Retain source/build identities, raw private records, sanitized
+findings, observed first-note gap and clean shutdown.
+
+The fixture remains the private Serum 2.1.5 module and captured default state
+from PI-R, editor closed, on the Pi 5 with GE Proton/FEX, JACK 48 kHz/512,
+protocol 12/map v1, 256-frame quantum, 512-frame reserve, ondemand governor,
+normal scheduling/affinity, and the existing two-note fixture. No runtime,
+plug-in state, vendor setting, queue, timeout, recovery policy, governor,
+priority, affinity, quantum or reserve change is admitted. FN1 does not
+prewarm, optimize, qualify musical usability or replace an installed service.
+
+## Completed Pi source reconciliation — PI-R
 
 The operator selected the minimal current-main Pi standalone reconciliation after
 the shared-storage repair merged as PR #172. PI-R starts at canonical `main`

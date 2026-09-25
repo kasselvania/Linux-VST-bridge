@@ -423,12 +423,19 @@ impl Session {
         self.armed |= self.minor == 6
             || input.iter().any(|p| p.iter().any(|&v| v != 0.))
             || events.iter().any(|e| e.kind == events::NOTE_ON);
+        let first_note = events.iter().find(|e| e.kind == events::NOTE_ON);
         self.trace = observer::Trace {
             sample_rate: self.sample_rate,
             armed: self.armed,
             epoch: self.epoch,
             position: self.position,
             frames: n as u64,
+            event_count: events.len() as u32,
+            note_on_count: events.iter().filter(|e| e.kind == events::NOTE_ON).count() as u32,
+            note_offset: first_note.map_or(0, |e| e.offset),
+            note_id: first_note.map_or(0, |e| e.id),
+            note_pitch: first_note.map_or(-1, |e| e.pitch),
+            note_channel: first_note.map_or(-1, |e| e.channel),
             sequence: self.state.next,
             started: Some(std::time::Instant::now()),
             ..Default::default()

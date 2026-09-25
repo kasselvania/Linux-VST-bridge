@@ -14,6 +14,12 @@ pub struct Trace {
     pub epoch: u64,
     pub position: u64,
     pub frames: u64,
+    pub event_count: u32,
+    pub note_on_count: u32,
+    pub note_offset: u32,
+    pub note_id: u32,
+    pub note_pitch: i16,
+    pub note_channel: i16,
     pub windows: [u64; 15],
     pub parent: [u64; 4],
     pub previous_control: [u64; 4],
@@ -274,6 +280,7 @@ struct Consumer {
     clock: Option<ClockSample>,
     following: usize,
     captured: bool,
+    note_count: usize,
 }
 fn covers(t: Trace, g: Gap) -> bool {
     t.epoch == g.epoch && t.position < g.position + g.frames && g.position < t.position + t.frames
@@ -295,6 +302,7 @@ impl Consumer {
             clock: delivery_enabled().then(ClockSample::sample),
             following: 0,
             captured: false,
+            note_count: 0,
         }
     }
     fn step(&mut self, s: &Shared) -> bool {
@@ -331,6 +339,10 @@ impl Consumer {
                     self.witness.ready = false;
                 }
             } else {
+                if self.clock.is_some() && job.trace.note_on_count > 0 && self.note_count < 2 {
+                    self.delivery.push(job.trace);
+                    self.note_count += 1;
+                }
                 if self.following > 0 {
                     self.delivery.push(job.trace);
                     self.following -= 1;
@@ -459,7 +471,7 @@ pub fn report_text(s: &Shared) -> String {
                 t.published,
             ]
             .map(|v| clock.at(v));
-            let _=writeln!(text,"{{\"event\":\"ap10_linux_request\",\"epoch\":{},\"sequence\":{},\"position\":{},\"frames\":{},\"monotonic_ns\":{:?},\"windows_reply\":{:?},\"parent_callback\":{:?},\"previous_control\":{:?}}}",t.epoch,t.sequence,t.position,t.frames,points,t.windows,t.parent,t.previous_control);
+            let _=writeln!(text,"{{\"event\":\"ap10_linux_request\",\"epoch\":{},\"sequence\":{},\"position\":{},\"frames\":{},\"event_count\":{},\"note_on_count\":{},\"note_offset\":{},\"note_id\":{},\"note_pitch\":{},\"note_channel\":{},\"monotonic_ns\":{:?},\"windows_reply\":{:?},\"parent_callback\":{:?},\"previous_control\":{:?}}}",t.epoch,t.sequence,t.position,t.frames,t.event_count,t.note_on_count,t.note_offset,t.note_id,t.note_pitch,t.note_channel,points,t.windows,t.parent,t.previous_control);
         }
     }
     for w in &r.audio_windows {
@@ -490,6 +502,30 @@ pub fn report_text(s: &Shared) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn first_two_note_requests_are_retained_with_exact_identity() {
+        let shared = Shared::new();
+        let mut consumer = Consumer::new();
+        consumer.clock = Some(ClockSample::sample());
+        let mut producer = Observer { shared: shared.clone(), sequence: 0, thread: None };
+        for sequence in 0..4 {
+            let note = sequence != 0;
+            producer.audio(0, f64::NAN, [&[], &[]], [[0; CAP + 2]; 2], Trace {
+                epoch: 3, sequence, position: sequence * 256,
+                event_count: u32::from(note), note_on_count: u32::from(note),
+                note_pitch: if note {60 + sequence as i16} else {-1},
+                note_channel: if note {0} else {-1},
+                ..Default::default()
+            });
+            assert!(consumer.step(&shared));
+        }
+        assert_eq!(consumer.note_count, 2);
+        assert_eq!(consumer.delivery.iter().map(|t| t.sequence).collect::<Vec<_>>(), vec![1, 2]);
+        let report = report_text(&shared);
+        assert!(report.contains("\"note_pitch\":61"));
+        assert!(report.contains("\"note_pitch\":62"));
+        assert!(!report.contains("\"note_pitch\":63"));
+    }
     #[test]
     fn delivery_history_keeps_first_gap_predecessors_and_a_bounded_followup() {
         let shared = Shared::new();
