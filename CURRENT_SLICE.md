@@ -1,6 +1,37 @@
 # Current work selection
 
-## Current Serum first-note attribution — FN1
+## Current Pi state-safe first-note prewarm — PW1
+
+PW1 is a separate, stacked source candidate from FN1
+[PR #174](https://github.com/kasselvania/Linux-VST-bridge/pull/174) head
+`1399a9655b6d1c8abb99f7058c8b34d28bcb76ab`, tree
+`1e0a92909f0f94e7be136fe1fc4cbfc92edb8bdb`. FN1 remains unmerged;
+PW1 must not be merged without that prerequisite. Its basis is the operator's
+Pi repair direction, AGENTS real-time and slice laws, GOVERNANCE “What evidence
+means”, ARCHITECTURE §§7 and 13, FC-AUDIO-001, and the
+[FN1 physical attribution](evidence/fn1/serum-first-note-2026-09-25.md).
+
+**One claim:** for the named Serum 2.1.5 default-state Pi fixture, opt-in
+startup-only note-on/note-off processing followed by stop, deactivate, and an
+exact second state restoration removes the repeatable first-user-note gap
+without changing that state, subsequent audio, or clean retirement. The
+normal callback, shared transport, protocol 12/map v1, 256-frame quantum,
+512-frame reserve, 48 kHz/512 JACK setup, GE Proton/FEX runtime, governor,
+scheduling, vendor settings, and installed selections remain fixed. Output
+from the startup note is discarded before JACK activation. A restoration
+mismatch or prewarm timeout refuses readiness. The experiment does not claim
+a general Serum repair, a vendor-internal allocation result, arbitrary preset
+equivalence, or Pi musical qualification.
+
+Source scope is the standalone appliance startup sequence and its focused
+tests; physical scope is a private source candidate, the same state/module,
+editor closed and the retained two-note MIDI fixture. Compare first-user-note
+Windows process span, delivered and missing frames, output presence, state
+readbacks and exact cohort retirement with the retained FN1 baseline. Retain
+the actual result even if prewarming merely moves or fails to remove the gap.
+Do not import BR1/BR1R recovery or install a new normal service as part of PW1.
+
+## Completed, staged Serum first-note attribution — FN1
 
 FN1 starts from canonical `main` merge commit
 `25a6cfc3824164d4fdde79abda758ffdca636998`, tree
