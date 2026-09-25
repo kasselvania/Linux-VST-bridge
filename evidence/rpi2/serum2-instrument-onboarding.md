@@ -274,6 +274,23 @@ observations do not establish why the processing worker stopped making
 progress after the preset action. The visible plug-in meter is not evidence of
 delivered output.
 
+The retained source-owned fault report provides a narrower first-fault
+observation. Its independently sampled counters were 37,570 published and
+35,522 consumed requests, a difference of 2,048, matching the full request
+ring and the failed publish. Published and consumed results were both 35,520:
+there was no completed result waiting in that ring. The worker was recorded
+inside audio operation `3` at stream position 9,093,120. Among 29,472
+completed requests in the timing witness, maximum measured queue residence
+was 10.92 seconds; the eight slowest completed requests each spent about
+10.88–10.93 seconds from admission to output publication, while their
+reported Windows processing portions were about 11–18 ms. The maximum
+reported Windows processing portion across those completed requests was
+41.53 ms. These measurements show that stale waiting dominated the sampled
+completed work. They do not time the audio operation still in flight at the
+first fault or identify what initially held it up. The bridge then allowed
+stale requests to accumulate until overflow; its current behavior cannot
+resume current input from that condition.
+
 The session helper stopped on the terminal fault. The native process did not
 complete graceful retirement within the helper's 25-second wait, so cleanup
 terminated its owned unit. There is no `RPI1_CLEAN_SHUTDOWN` marker or clean
