@@ -51,6 +51,7 @@ pub struct Item {
     pub n: u32,
     pub epoch: u64,
     pub position: u64,
+    pub intent_sequence: u64,
     pub gain: f64,
     pub flags: u64,
     pub queued: Option<Instant>,
@@ -68,6 +69,7 @@ impl Item {
             n: 0,
             epoch,
             position: 0,
+            intent_sequence: 0,
             gain: 0.,
             flags: 0,
             queued: None,
@@ -100,6 +102,7 @@ impl AudioResult {
 struct Completion {
     audio: AudioResult,
     epoch: u64,
+    intent_sequence: u64,
     returned: crate::process_results::Packet,
 }
 impl From<Item> for Completion {
@@ -112,6 +115,7 @@ impl From<Item> for Completion {
                 data: i.data,
             },
             epoch: i.epoch,
+            intent_sequence: i.intent_sequence,
             returned: crate::process_results::Packet::default(),
         }
     }
@@ -171,6 +175,11 @@ struct Shared {
     live_stage: AtomicU64,
     live_requested_epoch: AtomicU64,
     live_ack_epoch: AtomicU64,
+    // The worker's final successful old-epoch process call, including a
+    // completion suppressed after admission closes. Release of ACK publishes
+    // this pair to the callback before it reconciles intent.
+    live_completed_sequence: AtomicU64,
+    live_completed_position: AtomicU64,
     live_request_ns: AtomicU64,
     live_worker_return_ns: AtomicU64,
     live_ack_ns: AtomicU64,
@@ -234,6 +243,8 @@ impl Shared {
             live_stage: AtomicU64::new(LIVE_NORMAL),
             live_requested_epoch: AtomicU64::new(0),
             live_ack_epoch: AtomicU64::new(0),
+            live_completed_sequence: AtomicU64::new(0),
+            live_completed_position: AtomicU64::new(0),
             live_request_ns: AtomicU64::new(0),
             live_worker_return_ns: AtomicU64::new(0),
             live_ack_ns: AtomicU64::new(0),
@@ -362,6 +373,8 @@ impl Callback {
                     live.ledger = crate::live_recovery::Ledger::default();
                     live.requested_at = None;
                     live.prime_until = 0;
+                    s.live_completed_sequence.store(0, Ordering::Relaxed);
+                    s.live_completed_position.store(0, Ordering::Relaxed);
                 }
                 self.epoch += 1;
                 self.position = 0;
@@ -414,14 +427,6 @@ impl Callback {
         }
         if self.live.as_ref().unwrap().phase != 1 { self.consume_results(s)?; }
         let live = self.live.as_mut().unwrap();
-        let incoming = &request.events[..request.event_count as usize];
-        for event in incoming {
-            if live.ledger.observe(*event, live.phase == 2).is_err() {
-                s.fail(RECOVERY_CAPACITY, self.position);
-                s.live_stage.store(LIVE_FAILED, Ordering::Release);
-                return Err(2);
-            }
-        }
         if live.phase == 0 || live.phase == 2 || live.phase == 3 {
             let needed = self.position.saturating_sub(self.delay);
             let late = needed.saturating_sub(self.next_result);
@@ -437,6 +442,20 @@ impl Callback {
                 s.live_requested_epoch.store(self.epoch, Ordering::Relaxed);
                 s.live_request_ns.store(s.live_now_ns(), Ordering::Relaxed);
                 s.live_stage.store(LIVE_REQUESTED, Ordering::Release);
+            }
+        }
+        // Classify the current callback's input after the lateness decision.
+        // Input at the trigger boundary has not entered the old request ring.
+        let observation = match live.phase {
+            1 => crate::live_recovery::Observation::AdmissionClosed,
+            2 => crate::live_recovery::Observation::AfterAcknowledge,
+            _ => crate::live_recovery::Observation::Normal,
+        };
+        for event in &request.events[..request.event_count as usize] {
+            if live.ledger.observe(*event, observation).is_err() {
+                s.fail(RECOVERY_CAPACITY, self.position);
+                s.live_stage.store(LIVE_FAILED, Ordering::Release);
+                return Err(2);
             }
         }
         if live.phase == 1 {
@@ -469,6 +488,13 @@ impl Callback {
                     s.live_stage.store(LIVE_FAILED, Ordering::Release);
                     return Err(2);
                 }
+                let final_sequence = s.live_completed_sequence.load(Ordering::Acquire);
+                let final_position = s.live_completed_position.load(Ordering::Acquire);
+                if live.ledger.acknowledge(self.epoch, final_sequence, final_position).is_err() {
+                    s.fail(RECOVERY_LIFECYCLE, self.position);
+                    s.live_stage.store(LIVE_FAILED, Ordering::Release);
+                    return Err(2);
+                }
                 let discarded = s.results.published().saturating_sub(s.results.consumed());
                 s.results.discard_published();
                 s.live_discard_results.store(discarded, Ordering::Release);
@@ -481,12 +507,10 @@ impl Callback {
                 self.next_result = 0;
                 self.position = 0;
                 self.epoch = epoch;
-                live.ledger.acknowledge();
                 live.phase = 2;
                 live.recoveries += 1;
                 s.observed_position.store(0, Ordering::Release);
                 s.observed_epoch.store(epoch, Ordering::Release);
-                s.live_stage.store(LIVE_NORMAL, Ordering::Release);
             } else {
                 return self.muted_recovery(s, request.n as usize, out);
             }
@@ -530,6 +554,7 @@ impl Callback {
         } else if self.live.as_ref().unwrap().phase == 3 && self.delivery.delivered_frames > 0 {
             self.live.as_mut().unwrap().phase = 0;
             s.live_resume_ns.store(s.live_now_ns(), Ordering::Release);
+            s.live_stage.store(LIVE_NORMAL, Ordering::Release);
         }
         Ok(result)
     }
@@ -568,6 +593,13 @@ impl Callback {
                 phase!(s, self.host_call, self.position,
                     crate::rpi1_phase::FAULT_COMMITTED, 2, CORRELATION, a.position);
                 return Err(2);
+            }
+            if let Some(live) = &mut self.live {
+                if live.ledger.completed(item.epoch, a.position, a.n, item.intent_sequence).is_err() {
+                    s.fail(RECOVERY_LIFECYCLE, self.position);
+                    s.live_stage.store(LIVE_FAILED, Ordering::Release);
+                    return Err(2);
+                }
             }
             self.next_result += a.n as u64;
             if !self
@@ -618,12 +650,12 @@ impl Callback {
             request.gui_revision = s.gui.as_ref().map_or(0, |gui| gui.revision());
         }
         if let Some(live) = &mut self.live {
-            if live.phase != 2 && live.ledger.admitted(
-                &request.events[..request.event_count as usize]).is_err() {
+            if !live.ledger.can_publish(request.event_count as usize) {
                 s.fail(RECOVERY_CAPACITY, self.position);
                 s.live_stage.store(LIVE_FAILED, Ordering::Release);
                 return Err(2);
             }
+            request.intent_sequence = live.ledger.next_sequence();
         }
         #[cfg(feature = "rpi1-observe")]
         phase!(s, self.host_call, self.position,
@@ -635,6 +667,10 @@ impl Callback {
             phase!(s, self.host_call, self.position,
                 crate::rpi1_phase::FAULT_COMMITTED, 1, OVERFLOW, s.requests.published());
             return Err(2);
+        }
+        if let Some(live) = &mut self.live {
+            live.ledger.published(request.epoch, request.position, request.n,
+                &request.events[..request.event_count as usize]);
         }
         #[cfg(feature = "rpi1-observe")]
         phase!(s, self.host_call, self.position,
@@ -1007,16 +1043,16 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         &item.events[..item.event_count as usize],
                         item.context,
                     )?;
-                    s.service_us_max.fetch_max(
-                        started.elapsed().as_micros().min(u64::MAX as u128) as u64,
-                        Ordering::Relaxed,
-                    );
-                    s.processed_frames.fetch_add(n as u64, Ordering::Relaxed);
-                    s.processed.fetch_add(1, Ordering::Relaxed);
+                    if item.intent_sequence != 0 {
+                        s.live_completed_position.store(session.position, Ordering::Relaxed);
+                        s.live_completed_sequence.store(item.intent_sequence, Ordering::Release);
+                    }
                     if s.live_stage.load(Ordering::Acquire) == LIVE_REQUESTED {
                         // The synchronous call returned, but its old chronology
                         // is already obsolete. Never publish that completion.
                         s.live_worker_return_ns.store(s.live_now_ns(), Ordering::Release);
+                        s.processed_frames.fetch_add(n as u64, Ordering::Relaxed);
+                        s.processed.fetch_add(1, Ordering::Relaxed);
                         continue;
                     }
                     if s.fault.load(Ordering::Acquire) != 0 {
@@ -1049,6 +1085,15 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         session.notices.0 = 0;
                     }
                     item.flags = flags;
+                    // Preserve the established full-service boundary for
+                    // ordinary completions. A suppressed old-epoch call is
+                    // measured by live_worker_return_ns instead.
+                    s.service_us_max.fetch_max(
+                        started.elapsed().as_micros().min(u64::MAX as u128) as u64,
+                        Ordering::Relaxed,
+                    );
+                    s.processed_frames.fetch_add(n as u64, Ordering::Relaxed);
+                    s.processed.fetch_add(1, Ordering::Relaxed);
                     let publish = s.wanted.load(Ordering::Acquire) == item.epoch;
                     let mut completion = Completion::from(item);
                     completion.returned = session.returned;
@@ -1540,7 +1585,7 @@ unsafe fn control(id: u64, op: u32, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
     if !s.state_capable.load(Ordering::Acquire) || s.fault.load(Ordering::Acquire) != 0 {
         return Err(invalid("state unavailable"));
     }
-    if s.live_stage.load(Ordering::Acquire) != LIVE_NORMAL {
+    if !state_control_stage_ready(&s) {
         return Err(invalid("state control unavailable during live recovery"));
     }
     let barrier = s.requests.published();
@@ -1552,7 +1597,7 @@ unsafe fn control(id: u64, op: u32, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
         if c.is_some() {
             return Err(invalid("state operation already pending"));
         }
-        if s.live_stage.load(Ordering::Acquire) != LIVE_NORMAL {
+        if !state_control_stage_ready(&s) {
             return Err(invalid("state control unavailable during live recovery"));
         }
         *c = Some(Control {
@@ -1583,6 +1628,10 @@ unsafe fn control(id: u64, op: u32, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
         }
         thread::sleep(Duration::from_micros(50));
     }
+}
+
+fn state_control_stage_ready(s: &Shared) -> bool {
+    s.live_stage.load(Ordering::Acquire) == LIVE_NORMAL
 }
 
 fn started_ack(epoch: u64) -> Option<u64> {

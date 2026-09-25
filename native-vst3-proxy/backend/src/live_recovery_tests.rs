@@ -13,6 +13,7 @@ struct Gate {
     arm: AtomicBool,
     stalled: AtomicBool,
     release: AtomicBool,
+    internal_preset_change: AtomicBool,
 }
 
 #[derive(Default, Debug)]
@@ -23,6 +24,9 @@ struct PeerResult {
     starts: u32,
     stops: u32,
     new_epoch_audio: u32,
+    old_note_offs_new_epoch: u32,
+    parameter_updates_new_epoch: u32,
+    parameter_09_new_epoch: u32,
 }
 
 struct Fixture {
@@ -89,10 +93,23 @@ impl Fixture {
                 let payload = if f.kind == AUDIO as u16 {
                     let n = ap1_native_client::get(&f.payload[..4]) as usize;
                     if peer_gate.arm.swap(false, Ordering::AcqRel) {
+                        if peer_gate.internal_preset_change.swap(false, Ordering::AcqRel) {
+                            // A source-owned stand-in for a preset's internal
+                            // parameter change after the last host automation.
+                            result.parameter = 0.7;
+                        }
                         peer_gate.stalled.store(true, Ordering::Release);
                         until(|| peer_gate.release.load(Ordering::Acquire));
                     }
+                    let new_epoch = ap1_native_client::get(&f.payload[32..40]) == 2;
                     for event in events::decode(&f.payload[48..], n).unwrap() {
+                        if new_epoch && (event.kind, event.id) == (NOTE_OFF, 1) {
+                            result.old_note_offs_new_epoch += 1;
+                        }
+                        if new_epoch && (event.kind, event.id) == (PARAMETER, 77) {
+                            result.parameter_updates_new_epoch += 1;
+                            if event.value == 0.9 { result.parameter_09_new_epoch += 1; }
+                        }
                         match (event.kind, event.id) {
                             (NOTE_ON, 1) => result.old_note = true,
                             (NOTE_OFF, 1) => result.old_note = false,
@@ -110,7 +127,7 @@ impl Fixture {
                         file.write_all_at(&plane, (OUTPUT + ch * STRIDE + 4) as u64)
                             .unwrap();
                     }
-                    if ap1_native_client::get(&f.payload[32..40]) == 2 {
+                    if new_epoch {
                         result.new_epoch_audio += 1;
                     }
                     [
@@ -232,6 +249,17 @@ impl Fixture {
         }
         assert_eq!(sample, 0.2);
     }
+    fn completed_parameter(&mut self, value: f64) {
+        self.block(&[parameter(value)]).unwrap();
+        let published = self.shared.requests.published();
+        until(|| self.shared.requests.consumed() >= published);
+        let mut sample = 0.;
+        for _ in 0..12 {
+            sample = self.block(&[]).unwrap();
+            if (sample - (0.4 * value) as f32).abs() < 0.00001 { break; }
+        }
+        assert!((sample - (0.4 * value) as f32).abs() < 0.00001);
+    }
     fn arm_stall(&mut self) {
         self.gate.release.store(false, Ordering::Release);
         self.gate.stalled.store(false, Ordering::Release);
@@ -240,6 +268,10 @@ impl Fixture {
         until(|| self.gate.stalled.load(Ordering::Acquire));
     }
     fn request_recovery(&mut self) {
+        self.request_recovery_with(&[note(NOTE_OFF, 1, 60), note(NOTE_ON, 2, 64), parameter(0.4)]);
+        self.block(&[parameter(0.9)]).unwrap();
+    }
+    fn request_recovery_with(&mut self, closure_events: &[Event]) {
         for _ in 0..16 {
             self.block(&[]).unwrap();
             if self.shared.live_stage.load(Ordering::Acquire) == LIVE_REQUESTED {
@@ -252,9 +284,7 @@ impl Fixture {
         );
         assert!(self.shared.requests.high_water() < 64);
         let published = self.shared.requests.published();
-        self.block(&[note(NOTE_OFF, 1, 60), note(NOTE_ON, 2, 64), parameter(0.4)])
-            .unwrap();
-        self.block(&[parameter(0.9)]).unwrap();
+        self.block(closure_events).unwrap();
         assert_eq!(
             self.shared.requests.published(),
             published,
@@ -263,6 +293,9 @@ impl Fixture {
         assert_eq!(self.shared.fault.load(Ordering::Acquire), 0);
     }
     fn release_and_resume(&mut self) {
+        self.release_and_resume_with(0.72);
+    }
+    fn release_and_resume_with(&mut self, expected_sample: f32) {
         let old_published = self.shared.results.published();
         self.gate.release.store(true, Ordering::Release);
         until(|| self.shared.live_stage.load(Ordering::Acquire) == LIVE_ACKNOWLEDGED);
@@ -274,16 +307,22 @@ impl Fixture {
         assert_eq!(self.shared.live_ack_epoch.load(Ordering::Acquire), 2);
         assert_eq!(self.shared.live_recoveries.load(Ordering::Acquire), 1);
         assert!(self.shared.live_discard_requests.load(Ordering::Acquire) > 0);
+        assert!(!state_control_stage_ready(&self.shared),
+            "state control must refuse after worker acknowledgement");
         let mut resumed = false;
         for _ in 0..16 {
             let previous = self.shared.processed.load(Ordering::Acquire);
             let sample = self.block(&[]).unwrap();
             until(|| self.shared.processed.load(Ordering::Acquire) > previous);
             if sample > 0. {
-                assert!((sample - 0.72).abs() < 0.00001);
+                assert!((sample - expected_sample).abs() < 0.00001);
+                assert!(state_control_stage_ready(&self.shared),
+                    "state control becomes available on resumed audio");
                 resumed = true;
                 break;
             }
+            assert!(!state_control_stage_ready(&self.shared),
+                "state control must refuse throughout reconciliation and re-prime");
         }
         assert!(resumed, "current held note did not resume");
         assert_eq!(self.callback.epoch, 2);
@@ -335,6 +374,49 @@ fn live_finite_stall_reconciles_same_instance_and_retires() {
     assert!(!result.old_note && result.held_note);
     assert_eq!(result.parameter, 0.9);
     assert!(result.new_epoch_audio > 0);
+}
+
+#[test]
+fn queued_note_off_discard_still_cleans_confirmed_old_note() {
+    let mut fixture = Fixture::new(1500);
+    fixture.initial_audio();
+    fixture.arm_stall();
+    fixture.block(&[note(NOTE_OFF, 1, 60)]).unwrap();
+    fixture.request_recovery_with(&[note(NOTE_ON, 2, 64), parameter(0.9)]);
+    fixture.release_and_resume();
+    let result = fixture.finish(true);
+    assert_eq!(result.old_note_offs_new_epoch, 1);
+    assert!(!result.old_note && result.held_note);
+    assert_eq!(result.parameter, 0.9);
+}
+
+#[test]
+fn queued_parameter_discard_replays_latest_value() {
+    let mut fixture = Fixture::new(1500);
+    fixture.initial_audio();
+    fixture.completed_parameter(0.2);
+    fixture.arm_stall();
+    fixture.block(&[parameter(0.9)]).unwrap();
+    fixture.request_recovery_with(&[note(NOTE_OFF, 1, 60), note(NOTE_ON, 2, 64)]);
+    fixture.release_and_resume();
+    let result = fixture.finish(true);
+    assert_eq!(result.parameter_09_new_epoch, 1);
+    assert_eq!(result.parameter_updates_new_epoch, 1);
+    assert_eq!(result.parameter, 0.9);
+}
+
+#[test]
+fn completed_historical_parameter_does_not_overwrite_internal_preset_change() {
+    let mut fixture = Fixture::new(1500);
+    fixture.initial_audio();
+    fixture.completed_parameter(0.2);
+    fixture.gate.internal_preset_change.store(true, Ordering::Release);
+    fixture.arm_stall();
+    fixture.request_recovery_with(&[note(NOTE_OFF, 1, 60), note(NOTE_ON, 2, 64)]);
+    fixture.release_and_resume_with(0.56);
+    let result = fixture.finish(true);
+    assert_eq!(result.parameter_updates_new_epoch, 0);
+    assert_eq!(result.parameter, 0.7);
 }
 
 #[test]
@@ -457,6 +539,7 @@ fn old_result_is_discarded_before_new_epoch_audio_and_returned_state() {
             data: [[1.; CAP]; 2],
         },
         epoch: 1,
+        intent_sequence: 1,
         returned: crate::process_results::Packet::default(),
     };
     assert!(shared.results.push(stale));
