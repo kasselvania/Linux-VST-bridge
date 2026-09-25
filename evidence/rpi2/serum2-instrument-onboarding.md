@@ -2,8 +2,9 @@
 
 This is a bounded Pi 5/ShieldXL observation on 2026-09-24, not a Serum 2
 compatibility qualification. The original editor sessions rendered a white
-client area. A later private graphics comparison reached Serum's authorization
-screen, but the primary usable-instrument claim remains incomplete.
+client area. A private graphics comparison reached Serum's authorization
+screen, and a later portal setup opened Xfer's sign-in page from Serum's OK
+button. The primary usable-instrument claim remains incomplete.
 
 ## Exact identities and setup
 
@@ -147,8 +148,8 @@ and two gaps before the owned native unit was stopped. There were no MIDI
 messages in either graphics session. These failures are retained, not counted
 as normal Serum playback or blamed on the renderer without causal evidence.
 The second run restored JACK to system-only ports, but had no
-`RPI1_CLEAN_SHUTDOWN` marker. A future operator session must be shorter than
-the host supervision bound unless that lifecycle policy is separately repaired.
+`RPI1_CLEAN_SHUTDOWN` marker. At that point, operator sessions using the
+original candidate had to end before the host supervision bound.
 Maximum sampled temperatures in the two graphics sessions were 49.05 and
 50.70 C; both observed `throttled=0x0`.
 
@@ -186,5 +187,55 @@ was opened in that trial. The owned unit was stopped, the original default
 route restored, the temporary route script removed, and all 19 prefix graphics
 paths restored from the pre-test backup and verified. No owned units remained;
 JACK was system-only and power flags were `0x0`. The canceled trial was not a
-clean Serum shutdown or an authorization result. Serum onboarding is paused
-at the operator's direction.
+clean Serum shutdown or an authorization result. The operator then rejected
+that route and requested the ordinary browser flow.
+
+### Browser handoff, 2026-09-25
+
+Firefox ESR 140.16.0esr and `xdg-utils` were installed from the Pi's official
+Debian repositories. Direct `xdg-open` on display `:1` launched Firefox and
+loaded Xfer's public support site. Clicking Serum's OK button still failed:
+the pinned Steam Runtime's `steam-runtime-urlopen` tried a Steam pipe, then
+reported that `org.freedesktop.portal.Desktop` was unavailable. This was an
+observed URL handoff failure, not a lack of Firefox rendering or an Xfer
+account failure.
+
+The official `xdg-desktop-portal` and GTK backend were installed. Their
+services were activated in the Pi's existing X display and D-Bus user session,
+with an `RPI0`-specific GTK portal preference. Serum's HTTPS request then
+reached the portal, but its app chooser listed no application. Explicitly
+registering `firefox-esr.desktop` as the user's HTTP and HTTPS handler through
+`xdg-mime` resolved that gap. The next click on Serum's OK button visibly
+opened Firefox at Xfer's sign-in page. No credentials, license material,
+machine identifier, authorization URL or callback port are retained in this
+repository. The owner will perform sign-in in Xfer's own browser window.
+
+One prior browser test, `serum-browser-16`, ended with a real `fault=3` and
+13,415 processing failures before the authorization page drew. Another test,
+`serum-browser-18`, showed the authorization page and a directly launched
+Firefox, but ended with `fault=2` at `publish_request` and 4,851 processing
+failures after an editor reopen. Both failed runs were stopped and restored
+JACK to system-only ports. They are not counted as successful audio sessions.
+
+For the owner's unattended sign-in, the native candidate built from this
+branch adds an explicit `LVB_RPI1_OPERATOR_SESSION=1` mode that omits only the
+native Windows host's 300-second service lifetime. The default retains the
+bound. The private operator candidate SHA-256 is
+`4fd300e5cae799b74fd0d62b53d4afc51a8e288404b920c14ac679cc121edff9`;
+the original candidate SHA-256 remains
+`78452d81317aa2a4ac78bf1bc6b8a608250e32188d525e0ccb22f65a84f16895`.
+The private owner service, native session and Windows host each reported
+`RuntimeMaxUSec=infinity`. The private session helper continues the existing
+75 C/current-power stops and stops on a nonzero terminal fault or processing
+failure. It uses a low-rate `status` read and does not enter an account or
+record browser content. The installed module, Windows host, runner, audio
+configuration and working native candidate were not replaced.
+
+At one read of the live `serum-browser-19` operator session, Serum's OK
+button had opened Xfer's sign-in page; processing showed `fault=0`, zero
+processing/callback failures, 45,452 completed 256-frame bridge processes,
+1,536 missing frames over four gaps, zero JACK xruns, 48.8 C and
+`throttled=0x0`. No MIDI or audible test was attempted during sign-in. This
+is an open operator session, not an authorization result or a clean-shutdown
+claim. The browser and Serum are left for the owner; account entry and the
+post-sign-in editor/audio checks remain open.

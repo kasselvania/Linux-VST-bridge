@@ -86,4 +86,11 @@ The later operator session again showed Xfer's authorization page, but OK did
 not open a browser in this Pi environment. No browser handler was installed.
 One operator-approved offline-authorization trial was canceled before opening
 the editor; its temporary route change and prefix graphics selection were
-restored and verified. Serum onboarding is paused at the operator's direction.
+restored and verified. The operator then requested the normal browser path.
+Firefox ESR, the desktop portal and an explicit per-user HTTPS association now
+let Serum's OK button open Xfer's sign-in page on the Pi. A private operator
+candidate omits the Windows host's 300-second service lifetime only when
+`LVB_RPI1_OPERATOR_SESSION=1`; the original candidate remains staged and
+unchanged. The live owner session has no clock timeout and retains thermal,
+power and terminal-fault stops. Sign-in remains owner-controlled and has not
+been completed; the primary usable-instrument claim is still incomplete.
