@@ -398,6 +398,12 @@ bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*im
  if(x.commercial)for(size_t i=0;i<out.event_count;++i)if(out.events[i].kind==2)
   require(x.controller_updates.publish(out.events[i].id,out.events[i].value,out.gui_revision),"controller update identity/value");
  x.diagnostic.current.epoch=x.timeline.epoch;x.diagnostic.current.sequence=x.state.next;x.diagnostic.current.position=x.timeline.position;
+ if(x.diagnostic.enabled){auto&r=x.diagnostic.current;r.event_count=uint32_t(out.event_count);
+  for(size_t i=0;i<out.event_count;++i)if(out.events[i].kind==0){
+   if(r.note_on_count++==0){r.note_offset=out.events[i].offset;r.note_id=out.events[i].id;
+    r.note_pitch=out.events[i].pitch;r.note_channel=out.events[i].channel;}
+  }
+ }
  x.diagnostic.stamp(2);
  // The first active block establishes history, rather than triggering on startup idle.
  if(!x.diagnostic.armed){for(size_t i=0;i<out.event_count;++i)if(out.events[i].kind==0)x.diagnostic.armed=true;
@@ -405,13 +411,16 @@ bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*im
   if(x.diagnostic.armed)x.diagnostic.current.at[0]=x.diagnostic.current.at[1];}
  return true;
  }catch(const std::exception&e){x.error(e);throw;}}
-static uint64_t thread_cpu_ticks(){FILETIME created{},exited{},kernel{},user{};
- if(!GetThreadTimes(GetCurrentThread(),&created,&exited,&kernel,&user))return UINT64_MAX;
- return (uint64_t(kernel.dwHighDateTime)<<32|kernel.dwLowDateTime)+(uint64_t(user.dwHighDateTime)<<32|user.dwLowDateTime);
-}
 ResultStatus* MappedSession::result_status(){return impl_->result_status.get();}
-void MappedSession::before_process(){auto&x=*impl_;x.diagnostic.stamp(3);if(x.diagnostic.enabled){x.completion_trace[8]=thread_cpu_ticks();auto ui=x.fault?x.fault->owner_activity():std::array<uint64_t,2>{};x.completion_trace[10]=ui[0];x.completion_trace[11]=ui[1];}if(x.fault)x.fault->stage(1,3);}
-void MappedSession::after_process(){auto&x=*impl_;x.diagnostic.stamp(4);if(x.diagnostic.enabled){x.completion_trace[9]=thread_cpu_ticks();auto ui=x.fault?x.fault->owner_activity():std::array<uint64_t,2>{};x.completion_trace[12]=ui[0];x.completion_trace[13]=ui[1];}if(x.fault)x.fault->stage(1,4);}
+void MappedSession::before_process(){auto&x=*impl_;x.diagnostic.stamp(3);if(x.diagnostic.enabled){
+ x.diagnostic.current.caller_tid=GetCurrentThreadId();x.diagnostic.current.before=DeliveryTrace::cpu();
+ const auto&c=x.diagnostic.current.before;
+ x.completion_trace[8]=c.thread_user==UINT64_MAX||c.thread_kernel==UINT64_MAX?UINT64_MAX:c.thread_user+c.thread_kernel;
+ auto ui=x.fault?x.fault->owner_activity():std::array<uint64_t,2>{};x.completion_trace[10]=ui[0];x.completion_trace[11]=ui[1];}if(x.fault)x.fault->stage(1,3);}
+void MappedSession::after_process(){auto&x=*impl_;x.diagnostic.stamp(4);if(x.diagnostic.enabled){
+ x.diagnostic.current.after=DeliveryTrace::cpu();const auto&c=x.diagnostic.current.after;
+ x.completion_trace[9]=c.thread_user==UINT64_MAX||c.thread_kernel==UINT64_MAX?UINT64_MAX:c.thread_user+c.thread_kernel;
+ auto ui=x.fault?x.fault->owner_activity():std::array<uint64_t,2>{};x.completion_trace[12]=ui[0];x.completion_trace[13]=ui[1];}if(x.fault)x.fault->stage(1,4);}
 void MappedSession::done_outputs(const Steinberg::Vst::AudioBusBuffers* buses,int count,uint64_t ns,const ap10_results_t* results){
  auto&x=*impl_;
  if(x.socket.minor<13){done(buses[0].channelBuffers32[0],buses[0].channelBuffers32[1],buses[0].silenceFlags,ns,results);return;}
