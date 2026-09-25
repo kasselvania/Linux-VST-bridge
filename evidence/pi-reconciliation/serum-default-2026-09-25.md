@@ -9,6 +9,17 @@ The separately staged Serum configuration and earlier host
 (`4ab203ab8aa25555eebce6782cd52a11643a1b935abe8a2ce0cb04baeb453161`)
 were also preserved. No service, normal binary, selected config, vendor module,
 authorization, or state was replaced.
+The normal Pigments selection is protocol 12 at 48 kHz with a 2,048-frame
+bridge reserve, Pigments 7.0.1.6772 module SHA-256
+`bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07`,
+Windows host SHA-256 `64d629e84a0fdf8833e97b9393cd41b9a5a214f82fe418d1792281622f0007f2`,
+source manifest SHA-256 `b96f536c6b1164a5a4e308f1d196c27fb5dcad77e194e84546f13a6b36293ce2`,
+and pinned Box64/Proton runtime `proton-11.0-2c-25118279-slr4-4.0.20260805.254769`
+(Box64 source `2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a`). Its configuration
+does not declare a map version or source commit, so neither is inferred.
+The pre-existing staged Serum configuration instead selected the native
+GE Proton/FEX path, protocol 12, 48 kHz, 512-frame reserve, and the earlier
+host above. Neither pre-existing selection was an A/B arm.
 
 ## Exact comparison identities
 
