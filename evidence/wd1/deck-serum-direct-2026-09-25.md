@@ -45,8 +45,12 @@ bridge DSP lease.
 ## FL-side acceptance
 
 FL Studio launched through the managed workspace after Serum installation.
-FL's own VST3 scan, piano-roll playback, preset change, parameter automation,
-WAV export, clean cohort retirement, and fresh-session Serum use are pending
-operator observation. A fresh session will not establish FLP recall. The
-operator reports that their trial session cannot save an FLP; no purchase or
-license change is required for the established installation result.
+The operator reports that Serum loaded in FL and produced audible output. The
+exact note source is not yet recorded, so this does not establish a piano-roll
+pattern. The Serum editor initially exceeded the visible Deck area, hiding its
+lower-right resize corner. [Xfer's documented logo-menu resize control](https://xferrecords.com/web-manual/serum-2/resizing-the-ui)
+was given to the operator; its physical result is pending. Preset change, parameter
+automation, WAV export, clean cohort retirement, and fresh-session Serum use
+remain unobserved. A fresh session will not establish FLP recall. The operator
+reports that their trial session cannot save an FLP; no purchase or license
+change is required for the established installation and audible-load result.
