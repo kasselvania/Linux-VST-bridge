@@ -1579,3 +1579,28 @@ class SupervisorOwnershipBoundaryTests(SupervisorFixture,unittest.TestCase):
             report=json.loads(pathlib.Path(spec['report']).read_text())
             self.assertTrue(result['cleanup_confirmed'] and report['cleanup_confirmed'])
             self.assertFalse(report['ready']);self.assertIn('generation changed',report['error'])
+
+
+class DawUninstallBindingTests(unittest.TestCase):
+    def test_only_the_installed_fl_uninstaller_is_admitted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace=pathlib.Path(tmp).resolve()/'fl-studio'
+            env=workspace/'environment'
+            app_root=env/'compatdata/pfx/drive_c/Program Files/Image-Line/FL Studio 2026'
+            app_root.mkdir(parents=True)
+            for key in ('preferences','projects','exports'):(workspace/key).mkdir(mode=0o700)
+            image=app_root/'FL64.exe';image.write_bytes(b'installed FL fixture')
+            uninstall=app_root/'uninstall.exe'
+            artifact=lambda path:{'path':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
+            app={'id':'fl_studio','environment':{'root':str(env)},'helpers':[],
+                 'executable':{'path':str(uninstall),'sha256':'0'*64},
+                 'installed_image':artifact(image),
+                 **{key:str(workspace/key) for key in ('preferences','projects','exports')}}
+            session.daw_application_binding(app,True)
+            for wrong in (app_root/'FL64.exe',workspace/'uninstall.exe'):
+                with self.assertRaisesRegex(RuntimeError,'uninstaller binding changed'):
+                    session.daw_application_binding({**app,'executable':{'path':str(wrong),'sha256':'0'*64}},True)
+            with self.assertRaisesRegex(RuntimeError,'installed_image|registered artifact'):
+                session.daw_application_binding({**app,'installed_image':{'path':str(image),'sha256':'0'*64}},True)
+            with self.assertRaisesRegex(RuntimeError,'launch fields changed'):
+                session.daw_application_binding(app,False)

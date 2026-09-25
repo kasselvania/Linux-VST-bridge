@@ -308,6 +308,10 @@ pub fn is_action(a: &ui::Action) -> bool {
 pub fn offered(actual: &ui::Action, offer: &ui::Action) -> bool {
     match (actual, offer) {
         (
+            ui::Action::WorkspaceSelectInstaller { installer, release },
+            ui::Action::WorkspaceSelectInstaller { installer: offered, .. },
+        ) => installer == offered && daw_workspace::release_syntax(release),
+        (
             ui::Action::CandidateObserve {
                 candidate,
                 area,

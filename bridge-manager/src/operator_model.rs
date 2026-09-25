@@ -164,6 +164,17 @@ pub enum Action {
     IncidentExport {
         incident: String,
     },
+    WorkspaceSelectInstaller {
+        installer: String,
+        release: String,
+    },
+    WorkspaceInstall {},
+    WorkspaceFinishInstall {},
+    WorkspaceLaunch {},
+    WorkspaceUninstall {},
+    WorkspaceFinishUninstall {},
+    WorkspaceFocus {},
+    WorkspaceStop {},
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -232,6 +243,24 @@ pub struct Incident {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct DawWorkspace {
+    pub id: String,
+    pub name: String,
+    pub state: String,
+    pub selected_installer: String,
+    pub selected_release: String,
+    pub installed_advertised_release: Option<String>,
+    pub observed_file_version: Option<String>,
+    pub installed_image_sha256: Option<String>,
+    pub active_installation_operation: Option<String>,
+    pub cleanup: String,
+    pub first_useful_failure: Option<String>,
+    pub actions: Vec<AvailableAction>,
+    pub installer_choices: Vec<AvailableAction>,
+    pub details: serde_json::Value,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct System {
     pub service: String,
     pub keepers: usize,
@@ -252,6 +281,8 @@ pub struct Snapshot {
     pub environments: Vec<Environment>,
     pub vendor_applications: Vec<VendorApplication>,
     pub products: Vec<Product>,
+    #[serde(default)]
+    pub workspaces: Vec<DawWorkspace>,
     pub active_sessions: Vec<serde_json::Value>,
     pub capture: serde_json::Value,
     pub recent_incidents: Vec<Incident>,

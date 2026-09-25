@@ -11,6 +11,15 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+## Managed Windows DAW / Steam Deck Desktop Mode
+
+This lane is separate from the native Bitwig VST3 bridge below. It has no Linux
+proxy, bridge transport, native publication or six-instance DSP claim.
+
+| Application | Posture | Exact managed fixture | Established behavior | Open qualification |
+|---|---|---|---|---|
+| FL Studio 26.1.5.5618 (trial) | unqualified for musical workflow | Same FL workspace across schema-1 clean uninstall and schema-2 reinstall; runner `proton-11.0-2c-fl-crypt32-order-v1`; [Deck result](../evidence/wd0/deck-trial-2026-09-25.md) | Exact manager-owned reinstall and new operation with old install/uninstall history retained; version-matched FL executable; normal managed launch and confirmed cohort retirement; saved `.flp` file present | Stock audible playback and WAV export lack a retained result; selected audio backend unknown; licensed FLP recall deferred by trial mode; third-party VST3 use is WD1 |
+
 ## Tested processing conditions
 
 **Steam Deck AP17 fixture:** 48 kHz, float32, actual host maximum no greater than 512 frames, and 512 added bridge frames. This is the accepted AP17 configuration, not a claim for other host maxima or the opt-in 256-frame setting.

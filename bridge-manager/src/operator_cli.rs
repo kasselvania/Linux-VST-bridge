@@ -59,6 +59,7 @@ fn token(m: &Manager) -> Result<String> {
     Ok(hex(&sha2::Sha256::digest(serde_json::to_vec(
         &json!({"software":optional(&m.root.join("software.json"))?,"registry":m.registry()?,
             "preparation":optional(&m.root.join("preparation/revision.json"))?,
+            "workspace":optional(&m.root.join("daw-workspaces/fl-studio/workspace.json"))?,
             "terminal_summaries":capacity::terminal_summaries(m)?}),
     )?)))
 }
@@ -231,7 +232,7 @@ fn activity_with_capacity(m: &Manager, cap: Option<&CapacityReadback>) -> Result
         }
     }
     Ok(ui::Activity {
-        schema: 7,
+        schema: 8,
         system: ui::System {
             service: if cap.is_some() {
                 "active"
@@ -860,6 +861,7 @@ fn snapshot_for_operation(
     }
     let live = activity_with_capacity(m, cap.as_ref())?;
     let mut onboarding = onboarding::projection(m, busy)?;
+    let workspaces = daw_workspace::projection(m, &onboarding)?;
     if let Some(receipt) = &live.operation {
         project_onboarding_failure(m, receipt, &mut onboarding)?;
     }
@@ -873,12 +875,13 @@ fn snapshot_for_operation(
     let active_sessions=session_projection(cap.as_ref(),capacity::terminal_summaries(m)?);
     Ok(ui::Snapshot {
         onboarding,
-        schema: 7,
+        schema: 8,
         state_token: after,
         system: live.system,
         environments,
         vendor_applications,
         products,
+        workspaces,
         active_sessions,
         capture: capture_state(m)?,
         recent_incidents: incidents,
@@ -939,6 +942,8 @@ pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
         .iter()
         .chain(snapshot.onboarding.iter().flat_map(|p| p.actions.iter()))
         .chain(snapshot.products.iter().flat_map(|p| p.actions.iter()))
+        .chain(snapshot.workspaces.iter().flat_map(|w| w.actions.iter()))
+        .chain(snapshot.workspaces.iter().flat_map(|w| w.installer_choices.iter()))
         .chain(snapshot.environments.iter().flat_map(|p| p.actions.iter()))
         .chain(
             snapshot
@@ -956,7 +961,7 @@ pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
 }
 fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
     require(
-        request.schema == 7 && request.state_token == snapshot.state_token,
+        request.schema == 8 && request.state_token == snapshot.state_token,
         "operator_stale_request_refresh",
     )?;
     let offered = available(snapshot)
@@ -1149,7 +1154,7 @@ fn launch_reserved(
         return Err("operator_worker_launch_failed".into());
     }
     Ok(ui::Receipt {
-        schema: 7,
+        schema: 8,
         accepted: true,
         operation: Some(id.into()),
         refusal: None,
@@ -1174,7 +1179,7 @@ fn dispatch_recorded(
                 false,
             )?;
             Ok(ui::Receipt {
-                schema: 7,
+                schema: 8,
                 accepted: false,
                 operation: Some(id),
                 refusal: Some(reason),
@@ -1416,6 +1421,17 @@ fn execute_with_receipt_policy(
         });
     }
     match a {
+        action @ (ui::Action::WorkspaceSelectInstaller { .. }
+        | ui::Action::WorkspaceInstall {}
+        | ui::Action::WorkspaceFinishInstall {}
+        | ui::Action::WorkspaceLaunch {}
+        | ui::Action::WorkspaceUninstall {}
+        | ui::Action::WorkspaceFinishUninstall {}
+        | ui::Action::WorkspaceFocus {}
+        | ui::Action::WorkspaceStop {}) => {
+            drop(projection.take());
+            daw_workspace::execute_action(m, action, operation.ok_or("operator_operation_identity")?)
+        }
         ui::Action::PluginReinspect { .. }
         | ui::Action::PluginInspect { .. }
         | ui::Action::PluginPrepare { .. }
@@ -1849,7 +1865,7 @@ fn recovery_request(m: &Manager, saved: &ResumeRecord) -> Result<ui::Action> {
     let request: ui::Request =
         read_json(&job_dir(m, &saved.owner_operation)?.join("request.json"))?;
     require(
-        matches!(request.schema, 5..=7),
+        matches!(request.schema, 5..=8),
         "operator_resume_request_schema",
     )?;
     Ok(request.action)
@@ -2362,7 +2378,7 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
             let receipt = match dispatch(m, req) {
                 Ok(r) => r,
                 Err(e) => ui::Receipt {
-                    schema: 7,
+                    schema: 8,
                     accepted: false,
                     operation: None,
                     refusal: Some(e.to_string()),
@@ -2592,7 +2608,7 @@ mod tests {
     fn view(token: &str, action: ui::AvailableAction) -> ui::Snapshot {
         ui::Snapshot {
             onboarding: vec![],
-            schema: 7,
+            schema: 8,
             state_token: token.into(),
             system: ui::System {
                 service: "active".into(),
@@ -2607,6 +2623,7 @@ mod tests {
             environments: vec![],
             vendor_applications: vec![],
             products: vec![],
+            workspaces: vec![],
             active_sessions: vec![],
             capture: Value::Null,
             recent_incidents: vec![],
@@ -2884,7 +2901,7 @@ mod tests {
         };
         let s = view("current", action("Rollback", allowed.clone(), None));
         let mut r = ui::Request {
-            schema: 7,
+            schema: 8,
             state_token: "current".into(),
             action: allowed.clone(),
         };
@@ -2911,6 +2928,63 @@ mod tests {
             action("Rollback", allowed, Some("Active DSP lease")),
         );
         assert!(validate(&r, &busy).is_err());
+    }
+    #[test]
+    fn workspace_selection_accepts_only_exact_offered_import_and_release_syntax() {
+        let installer = "ab".repeat(32);
+        let offered = action(
+            "Choose imported FL installer",
+            ui::Action::WorkspaceSelectInstaller {
+                installer: installer.clone(),
+                release: String::new(),
+            },
+            None,
+        );
+        let mut snapshot = view(
+            "current",
+            action("Refresh", ui::Action::CaptureDisarm {}, None),
+        );
+        snapshot.workspaces.push(ui::DawWorkspace {
+            id: "cd".repeat(16),
+            name: "FL Studio".into(),
+            state: "uninstalled".into(),
+            selected_installer: installer.clone(),
+            selected_release: "26.1.6.0".into(),
+            installed_advertised_release: None,
+            observed_file_version: None,
+            installed_image_sha256: None,
+            active_installation_operation: None,
+            cleanup: "confirmed".into(),
+            first_useful_failure: None,
+            actions: vec![],
+            installer_choices: vec![offered],
+            details: Value::Null,
+        });
+        let mut request = ui::Request {
+            schema: 8,
+            state_token: "current".into(),
+            action: ui::Action::WorkspaceSelectInstaller {
+                installer: installer.clone(),
+                release: "27.0.0.0".into(),
+            },
+        };
+        validate(&request, &snapshot).unwrap();
+        if let ui::Action::WorkspaceSelectInstaller { release, .. } = &mut request.action {
+            *release = "27..0".into();
+        }
+        assert!(validate(&request, &snapshot).is_err());
+        request.action = ui::Action::WorkspaceSelectInstaller {
+            installer: "ef".repeat(32),
+            release: "27.0.0.0".into(),
+        };
+        assert!(validate(&request, &snapshot).is_err());
+        snapshot.workspaces[0].installer_choices[0].disabled_reason =
+            Some("FL session is active".into());
+        request.action = ui::Action::WorkspaceSelectInstaller {
+            installer,
+            release: "27.0.0.0".into(),
+        };
+        assert!(validate(&request, &snapshot).is_err());
     }
     fn capacity_json(blocked: bool, dsp: usize, maintenance: usize) -> Value {
         json!({"ok":true,"capacity":{"schema":1,"dsp":dsp,"maintenance":maintenance,"keepers":1,"cleanup_unconfirmed":blocked,"owners":[],"limits":{"global_dsp":6}}})
@@ -3067,7 +3141,7 @@ mod tests {
     fn terminal_receipt_waits_for_an_existing_writer_instead_of_leaving_running() {
         let f = test_fixture::Fixture::new();
         let request = ui::Request {
-            schema: 7,
+            schema: 8,
             state_token: "t".into(),
             action: ui::Action::CaptureDisarm {},
         };
@@ -3099,7 +3173,7 @@ mod tests {
     fn failed_launch_and_dead_worker_have_terminal_receipts_without_overwriting_new_jobs() {
         let f = test_fixture::Fixture::new();
         let request = ui::Request {
-            schema: 7,
+            schema: 8,
             state_token: "t".into(),
             action: ui::Action::CaptureDisarm {},
         };
@@ -3173,7 +3247,7 @@ mod tests {
         launch_queued(
             m,
             &ui::Request {
-                schema: 7,
+                schema: 8,
                 state_token: "fixture".into(),
                 action,
             },
@@ -3768,7 +3842,7 @@ mod tests {
         fs::write(&source, bytes).unwrap();
         let installer = installer_import::import(&f.m, file(&source).unwrap()).unwrap();
         let request = ui::Request {
-            schema: 7,
+            schema: 8,
             state_token: token(&f.m).unwrap(),
             action: ui::Action::InstallerEnvironmentCreate {
                 installer: installer.id,

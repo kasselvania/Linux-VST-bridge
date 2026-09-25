@@ -39,14 +39,26 @@ At the decision baseline, `bridge-manager/src/vendor_application.rs` has a close
 
 Minimum persistent facts, with private representation left to the implementer:
 
-- workspace ID and revision; admitted DAW application identity and exact installed release;
-- managed environment root/revision, pinned runtime closure and installation result;
+- workspace ID and revision; admitted DAW application identity, selected exact
+  installer/release, and current installed application if any;
+- managed environment root/revision, pinned runtime closure, active operation,
+  and append-only installation/uninstall history with exact retained receipts;
 - admitted executable/resources and known helper ownership;
 - selected audio-backend identity and observed configuration;
 - explicit writable project/user-data roots and later plug-in/content roots;
 - application/session state, first useful failure and confirmed or uncertain retirement.
 
 Executable and runtime generations are immutable. A Wine prefix, DAW preferences, user projects and authorization state are intentionally mutable under their owners. Do not describe the entire workspace as an immutable file tree or hash normal preference writes as corruption.
+
+Workspace lifetime is not installation lifetime. A clean uninstall retires the
+current application claim but keeps the same workspace ID, prefix, user-data
+roots, runner selection and earlier operation evidence. The manager can select
+another already admitted exact installer and start a new installation operation
+after confirmed cleanup, or reinstall the same version. It cannot replace an
+installed version without a separate explicit uninstall. An old failed or
+uncertain operation remains in history; ambiguity blocks new mutation instead
+of being cleared to make an action available. Files found without a matching
+manager-owned installation operation are not silently adopted.
 
 Workspace-specific installation and launch state must not rewrite the native bridge's `software.json`, profiles, publications, environment markers or service selection. The first WD0 package can expose workspace-only commands and a desktop entry from the canonical source, without replacing the shared native-bridge service. Its application state belongs to a distinct manager-owned workspace root. Later unified UI presentation reads these owners; it does not create another authority database.
 

@@ -1,7 +1,8 @@
 # WD0 — Managed FL Studio workspace: first usable stock project
 
-Selected by the operator on 2026-09-24. This is the implementation work order,
-not a completed qualification. Architecture:
+Selected by the operator on 2026-09-24. This work order now has a bounded
+physical trial-mode result; licensed saved-project recall remains deferred.
+Architecture:
 [WINDOWS_DAW_WORKSPACES.md](WINDOWS_DAW_WORKSPACES.md). Work allocation:
 [WORKSTREAMS.md](WORKSTREAMS.md). Tracking issue:
 [#158](https://github.com/kasselvania/Linux-VST-bridge/issues/158).
@@ -37,6 +38,94 @@ tree   b3f3d264901267e2dcb723b9904c464baf6eefae
 That main includes the accepted Serum candidate-D runtime support and
 `x11_touch_routing_v2` policy. Reconcile later reviewed changes normally; never
 reset another agent's branch or worktree.
+
+The implementation branch starts from the normal architecture merge
+`9f37338140a61e838e83d757628b6cb914b83bb5`, tree
+`3bb22f1d9971c97f01dc65a8227f1a7d7f727f54`. The separate WD0 package
+selects a manager/supervisor generation under the canonical managed root; it
+does not replace the native-bridge service or its software catalogue. Source
+validation alone is not a physical FL result. The original installer and
+first-launch findings below are retained as history; the later repeatable
+installation and trial-mode readback are recorded separately.
+
+### First physical result and selected correction
+
+The operator granted the Deck handoff. The exact FL Studio 26.1.6 Windows
+installer was privately fingerprinted and imported without changing Downloads.
+The managed installer displayed completion, but its outer worker returned a
+nonzero exit; the x64 FL application is present and independently verified.
+The first managed application launch displayed FL's program-validity error and
+retired cleanly. This is neither an installation-success claim nor an audible
+DAW result.
+
+The selected correction is the narrow authenticated-attribute verification
+change from [Wine merge request !11824](https://gitlab.winehq.org/wine/wine/-/merge_requests/11824),
+adapted to the pinned Wine source. It preserves the decoded attribute order for
+verification; it does not disable signature checking or change signing. The
+FL-only immutable successor changes the Proton version marker and both
+`crypt32.dll` PE architectures; the standard runner and native-bridge runners
+remain untouched. The isolated Wine crypt32 message group passed 1,032 tests
+with zero failures, and the successor passed an unlicensed startup/cleanup
+smoke. A managed FL launch and the stock-project workflow are still required
+to establish a physical fix.
+
+The existing managed workspace was subsequently uninstalled cleanly. Its
+schema-1 record and exact install/uninstall receipts remain on the Deck. The
+source baseline for the lifecycle correction includes merged UI0 at
+`8bb191b28eedee8aabf058b06706860c9fc64933` through a normal merge into
+PR #163. The then-uninstalled workspace became the acceptance fixture; it was
+not deleted or recreated.
+
+### Repeatable installed result
+
+The controlled Deck handoff reused that clean-uninstalled workspace. The exact
+official FL Studio installer advertised `26.1.5.5618` and had SHA-256
+`87b2f0fe47fa443b6e7e904fb904df11ee0c3adfa83581818016018840b7dd84`.
+The manager migrated the schema-1 record to schema 2 only on authorized
+mutation, kept the same workspace/prefix/user roots and runner, and created a
+new installation operation while retaining the old install and uninstall
+receipts. The executable's version resources read `26.1.5.5618` and its exact
+image SHA-256 is retained in the
+[sanitized Deck result](../evidence/wd0/deck-trial-2026-09-25.md).
+
+The installer's outer process again returned `outer_nonzero_stage_unknown`.
+The manager therefore retained `needs_user_action` for that installation
+outcome even though an exact FL executable was discovered. A subsequent normal
+managed FL session completed with zero owned processes and confirmed cleanup;
+current status reads `ready`. The historical installer failure remains visible.
+The operator reports FL functioning in demo mode. One `.flp` exists and the
+managed application session retired cleanly. The selected audio device and a
+stock WAV export were not retained, and no post-save project recall was tested.
+The accepted WD0 result is therefore bounded to the managed workspace,
+repeatable installation, normal trial-mode launch, saved-file presence and
+clean retirement. It does not prove a clean installer exit, audible stock
+playback, WAV export, licensed saved-project recall, ASIO, physical MIDI, or
+WD1 third-party plug-in use.
+
+### Repeatable installation lifecycle
+
+**Workspace lifetime is not installation lifetime.** The FL workspace keeps
+one stable ID, prefix, selected runner, projects, preferences, exports and
+lawful account state across version changes. The selected installer is a
+separate exact SHA-256/release pair. Each install and uninstall is a new
+manager-owned operation with an append-only history record and retained
+receipt. A clean uninstall removes the current installed application claim,
+not the workspace or earlier evidence.
+
+The ordinary controlled version-change path is: cleanly uninstall A, select
+admitted installer B by exact SHA-256 and release, install B, finish its exact
+readback, then launch B. Reinstalling the same A after clean uninstall is also
+admitted. Selection itself never executes Windows code or touches the prefix.
+An installed version must be uninstalled before another install; there is no
+automatic in-place upgrade or fresh-prefix reset in this slice.
+
+Schema-1 records migrate deterministically at readback. Old installation and
+uninstall operation IDs, installer identity, environment and user roots, runner,
+first failure and receipts remain exact. An incomplete or ambiguous old
+operation becomes historical unknown and blocks new mutation until explicit
+recovery; migration must not manufacture a clean outcome. Current status shows
+the latest current failure, while older failures stay in history after a later
+success. Unowned FL files in the prefix are not adopted as a managed install.
 
 Read [AGENTS.md](../AGENTS.md), [ARCHITECTURE.md](ARCHITECTURE.md), this work
 order, [WINDOWS_DAW_WORKSPACES.md](WINDOWS_DAW_WORKSPACES.md), the support
@@ -112,7 +201,8 @@ a shell command.
 The workspace must bind at least:
 
 - stable workspace ID and revision;
-- exact FL installer and installation result;
+- exact selected FL installer and release, current installation, active
+  operation, and prior install/uninstall results;
 - exact installed FL executable/resources and observed version;
 - a fresh manager-owned prefix and admitted immutable runtime closure;
 - explicit writable preference, project and export roots;
@@ -160,10 +250,14 @@ is the implementer's choice:
 
 ```text
 workspace import/install
+workspace select-installer INSTALLER_SHA256 RELEASE
+workspace finish-install
 workspace launch
 workspace focus
 workspace status
 workspace stop --graceful
+workspace uninstall
+workspace finish-uninstall
 ```
 
 Normal launch selects the known workspace and exact installed application. It
@@ -196,6 +290,13 @@ Graceful stop preserves the user's save opportunity. A timeout is incomplete,
 not success. Forced termination requires explicit operator confirmation of
 possible unsaved-work loss and targets only the exact workspace cohort. Never
 use global `wineserver -k`, `killall wine` or process-name-only cleanup.
+
+An operator-requested `workspace uninstall` is a separate, exact FL application
+operation: it runs only the installed vendor `uninstall.exe` under the same
+workspace process owner, never an arbitrary executable or another Wine prefix.
+`workspace finish-uninstall` records removal only after that cohort retires
+cleanly and the installed FL executable is absent. It does not wipe the mutable
+prefix, preferences, projects, exports, licensing state, or imported installer.
 
 ## 5. Keep the runtime view coherent
 
@@ -280,9 +381,9 @@ edition. No third-party VST or internet sound-pack download is required.
 
 FL trial mode can save/export but cannot reopen saved projects. Record a trial
 limit as `trial_limited`; do not debug it as Wine corruption, automate licensing
-or purchase anything. If licensed recall is unavailable, retain the useful
-playback/export/clean-relaunch result and report the exact remaining gate. Do not
-claim complete WD0.
+or purchase anything. The bounded result above does not claim the original
+stock-audio/export or licensed-recall gate. WD1 will exercise a fresh musical
+session and export through directly hosted Serum without claiming FLP recall.
 
 Touchscreen coverage is not required. Use mouse/trackpad. The merged Serum touch
 repair is a shared Wine lesson, not proof that the selected FL runtime already
@@ -321,8 +422,10 @@ Private installer bytes, projects, audio exports, credentials, license files and
 raw vendor streams remain private.
 
 Update failure-class and support documents only for actual changed understanding
-or physical coverage. Until the workflow passes, FL Studio is planned/in
-progress, not supported. A schema-only or launch-only PR is not WD0 completion.
+or physical coverage. The original full stock-project and licensed-recall
+qualification remains open. The bounded trial-mode workspace result may merge
+as implementation progress under its exact physical claim; it is not a general
+FL Studio support certificate.
 
 ## After WD0
 

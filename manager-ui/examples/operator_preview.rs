@@ -76,6 +76,38 @@ fn main() -> eframe::Result {
     };
     let mut snapshot: model::Snapshot =
         serde_json::from_str(include_str!("library-preview.json")).expect("preview fixture");
+    if page == operator::Page::Workspaces {
+        snapshot.workspaces.push(model::DawWorkspace {
+            id: "aa".repeat(16),
+            name: "FL Studio".into(),
+            state: "uninstalled".into(),
+            selected_installer: "bb".repeat(32),
+            selected_release: "26.1.6.0".into(),
+            installed_advertised_release: None,
+            observed_file_version: None,
+            installed_image_sha256: None,
+            active_installation_operation: None,
+            cleanup: "confirmed".into(),
+            first_useful_failure: None,
+            actions: vec![model::AvailableAction {
+                label: "Install selected version".into(),
+                action: model::Action::WorkspaceInstall {},
+                disabled_reason: None,
+            }],
+            installer_choices: vec![model::AvailableAction {
+                label: "Choose imported installer cccccccccccc".into(),
+                action: model::Action::WorkspaceSelectInstaller {
+                    installer: "cc".repeat(32),
+                    release: String::new(),
+                },
+                disabled_reason: None,
+            }],
+            details: serde_json::json!({
+                "installation_history":[{"record":{"operation":"first-install","outcome":"installed"}}],
+                "uninstall_history":[{"record":{"operation":"first-uninstall","outcome":"completed"}}]
+            }),
+        });
+    }
     snapshot.system.dsp = 1;
     snapshot.active_sessions = vec![
         serde_json::json!({"session":"11".repeat(16),"class_id":"fixture-fragments",
