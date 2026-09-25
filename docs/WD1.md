@@ -52,3 +52,19 @@ retain an FLP without claiming trial-mode reopen. If it refuses, record the
 trial limitation and continue. Close FL normally, verify exact cohort retirement,
 launch a fresh session, add Serum again and confirm playback. Record only
 observed results in [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md) and the failure ledger.
+
+## Current Deck result
+
+The exact official Serum `2.1.5` installer was selected from manager custody and
+installed once into the existing FL prefix. The manager's product completion
+readback verified `Serum2.vst3`, retained a separate product installation record,
+and left the FL application history and native registry unchanged. The operator
+reports FL discovery, audible piano-roll patterns, a preset change, and working
+Serum parameter automation. The initial editor exceeded the Deck's visible area;
+Serum's logo-menu zoom made it usable. The exact size was not recorded.
+
+The operator elected not to export a WAV in this session. Export is therefore
+unqualified. FL remains open, so this run has not yet established clean cohort
+retirement or fresh-session use. These limits are recorded in the
+[physical evidence](../evidence/wd1/deck-serum-direct-2026-09-25.md). A saved
+FLP and licensed project recall are also unclaimed.

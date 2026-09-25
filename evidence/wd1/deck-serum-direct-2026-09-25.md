@@ -50,8 +50,18 @@ piano roll, and played the same pattern with a changed Serum preset. The Serum
 editor initially exceeded the visible Deck area, hiding its lower-right resize
 corner. The operator reported the window working well after using
 [Xfer's documented logo-menu resize control](https://xferrecords.com/web-manual/serum-2/resizing-the-ui);
-the exact selected zoom percentage was not recorded. Parameter automation, WAV
-export, clean cohort retirement, and fresh-session Serum use remain unobserved.
+the exact selected zoom percentage was not recorded. WAV export, clean cohort
+retirement, and fresh-session Serum use remain unobserved.
 A fresh session will not establish FLP recall. The operator reports that their
 trial session cannot save an FLP; no purchase or license change is required for
 the established installation and audible musical result.
+
+The operator subsequently created an FL automation clip and reported that the
+Serum parameter automation worked during playback. The exact automated control
+and curve were not retained. The operator declined a WAV export in this session;
+export is **not tested**, rather than passed or failed. No FLP save or recall is
+claimed. At this point FL remains open under the managed session owner; clean
+retirement and fresh-session use are pending. A read-only manager check while FL
+was open showed service active, bridge DSP `0`, maintenance `0`, pending
+transactions `0`, stale transports `0`, and cleanup uncertainty false. The
+native registry hash remained the same as above.
