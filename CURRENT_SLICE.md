@@ -85,9 +85,10 @@ native bridge service, publication, proxy, capacity or audio path.
 WD0 [#158](https://github.com/kasselvania/Linux-VST-bridge/issues/158)
 merged as [PR #163](https://github.com/kasselvania/Linux-VST-bridge/pull/163)
 at the AS1 canonical base above. Its bounded result is a managed FL Studio
-workspace with repeatable same-workspace install after clean uninstall,
-append-only operation history, a normal managed launch, stock-project
-playback, and the trial-mode limits recorded in
+workspace with repeatable same-workspace installation after clean uninstall,
+append-only operation history, a normal managed trial-mode launch, saved-file
+presence, and confirmed cleanup. Stock-audio/export behavior and licensed
+saved-project recall remain unqualified as recorded in
 [the Deck result](evidence/wd0/deck-trial-2026-09-25.md). The original
 workspace migrated from schema 1 to schema 2 and installed official FL Studio
 `26.1.5.5618`; the earlier install/uninstall receipts remain. The installer
