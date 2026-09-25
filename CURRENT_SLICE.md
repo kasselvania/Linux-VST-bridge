@@ -1,84 +1,119 @@
-# RPI2 Digitalis effect onboarding
+# RPI2 Serum 2 instrument onboarding
 
-Base: `7cbf2490c601884ed84ef15ac79922c89ff22830` (draft PR #156).
-Base tree: `c7f84e39cf7768afeaaecc79e99707964cc1a648`.
-Branch: `codex/rpi2-digitalis-effect`, isolated from the canceled multicore/UI checkout.
+Base: `223e02ddc3c24ef47ef00da7e3af95adb93f4df1` (draft PR #159).
+Base tree: `4656219dca3db9a693f9e3a6dfd96b0634b7cfab`.
+Branch: `codex/rpi2-serum2-instrument`, isolated from Digitalis timing and the canceled multicore/UI checkout.
 
-Basis: `AGENTS.md` mission, identity, real-time, privacy and slice laws;
-`GOVERNANCE.md` “Decisions”, “What evidence means”, and “Cost and safety”;
-`docs/ARCHITECTURE.md` host/process and state boundaries; and the operator's
-2026-09-24 device-agent handoff. The later operator direction supersedes the
-old RPI2 CPU task on this new branch.
+Basis: `AGENTS.md` identity, real-time, licensing and slice laws;
+`GOVERNANCE.md` “What evidence means”; `docs/ARCHITECTURE.md` host,
+controller, state and editor boundaries; `docs/AP8_RESULT.md`, `docs/SV1.md`,
+`docs/LC2.md`, and `docs/AP11.md` for the separate Steam Deck sequence; the
+operator's ARM appliance handoff and instruction to proceed with Serum 2.
 
 ## Primary claim and fixture
 
-On the Pi 5/ShieldXL fixture, onboard the owner's purchased Digitalis v1.1
-Windows x64 VST3 as a headless, controllable stereo effect through the existing generic Windows
-host and `lvb-arm-plugin-binding/v1`. The operator supplied
-`Digitalis-v1.1-Windows.zip` (SHA-256
-`c25e0f8682ddf57cb7bd7d3992dba45de223d58de1d0881b2287239638f78ff9`);
-the enclosed setup executable has SHA-256
-`5a596efce6a864e83e0436dc9edfe3f2a75950348841eb6a4dac6560ca900d95`.
-Use the existing pinned GE-Proton11-7 ARM64EC Windows route, the repaired native
-observer, 48 kHz, JACK 512 frames, vendor quantum 256 and 2,048-frame reserve.
-Record the actual installed module/class, edition and authorization posture
-after installation rather than inferring them from the archive name.
+Establish one usable Serum 2 **instrument** on the Pi 5/ShieldXL through the
+existing generic native host and pinned ARM64EC Windows route: exact class,
+MIDI note audio, same-instance editor, selected controls, vendor state recall
+after process restart, and normal shutdown. The owner-supplied Xfer installer
+is version 2.1.5, SHA-256
+`507b726d97bf78920157f3817aff003b9ee38ee961f4efd318cf43216370f695`;
+the installed Windows x64 VST3 module is SHA-256
+`501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283`.
+The distinct Serum 2 FX class remains inventory only. Start at 48 kHz,
+JACK 512, processing quantum 256 and bridge reserve 512; record
+actual values at runtime.
 
 ## Scope and acceptance
 
-Privately stage the installer in a distinct environment, retaining the
-working runner, Arturia environment and original artifacts. Use the vendor's
-authorization UI only; the operator enters any serial there. Do not commit or
-log the serial, installed module, state, audio, account data or installer.
-Inspect the actual factory/class, bus, precision, parameter, latency and tail
-metadata. Bind a few confirmed controls through the existing generic binding
-and parameter/controller queue. Add only narrowly required shared host behavior
-for output trim and a defined bypass policy; keep callback work bounded.
+Keep the Xfer installation in its separate private environment. Derive the
+instrument binding from the actual 2.1.5 census, including canonical class
+ID, stereo output, event buses and real parameter IDs. Reuse the existing
+generic Windows host, native observer, parameter/controller queue and state
+protocol. Preserve one exact host/source manifest pair. The operator handles
+any vendor account or activation screen; never record credentials or license
+material.
 
-Run the existing source-owned stereo input capture and the physical input route
-with the editor closed. Demonstrate finite processed audio and bypass behavior,
-one actual audible control change, one private state slot saved and restored
-after process restart, normal shutdown, and restored original JACK graph.
-Report exact buffer settings, algorithmic latency, measured dry-path/analog
-latency where available, missing delivery and longest interruption. Distinguish
-intentional effect chopping from transport loss. Record product/module identity
-and full-versus-demo status. If a full licensed build cannot be made ready,
-state that gate explicitly and nominate the free Kilohearts Delay for the
-first-effect slot.
+Qualify a selected, vendor-generated sound in one bounded session: note-on/off
+with finite nonzero stereo output and release, actual editor manipulation,
+four useful controls where the selected sound supports them, an opaque private
+state save, fresh-process restore with editor closed, and user-confirmed
+audible recall. Report the runtime identity, completed frames, timely delivery,
+missing frames, longest loss, JACK xruns, processing/callback faults, temperature
+and power flags separately. Verify exact retirement and JACK graph restoration.
+The installed module and successful inspection alone do not satisfy this claim.
 
-## Non-goals and failure posture
+## Negative gates and nonclaims
 
-No FEX optimization, Pigments performance campaign, multicore/UI change,
-NTSync/kernel work, format rewrite, universal multi-I/O claim, vendor code
-patch, preset sweep, licensing workaround or global runner install. A demo's
-intentional dropout and save limits are not bridge faults. Stop on altered
-authorization/readiness rather than repairing the vendor's licensing state.
-Stop at 75 C or current thermal/power warnings. Preserve private logs and
-artifacts; retain sanitized evidence only. Restore original graph and setup.
-One physical owner operates the Pi. Deliver one focused draft PR, then leave
-it open and unmerged for review.
+Stop on changed authorization/readiness, wrong class, incorrect state, terminal
+fault, current power warning or 75 C temperature. Retain original failures.
+Do not call the Pi supported from Steam Deck evidence, an editor window,
+process liveness or meter movement alone. Touchscreen, FX, multiple instances,
+full MIDI controller support, low latency, stable 128/256 JACK operation, FEX
+tuning, multicore, and universal vendor compatibility are outside this slice.
+The present Pi MIDI adapter reports sustain CC64 unsupported; report that gap.
+
+No proprietary installer, binary, state, preset, account data or private audio
+is committed. Keep the working runner, Digitalis environment, other plug-ins
+and canceled checkout intact. One owner operates the Pi. Sanitize retained
+source and physical evidence, commit and push one focused draft PR, and leave
+it open and unmerged for review. Any incomplete acceptance gate remains explicit.
 
 ## Observed disposition
 
-The official installer stopped with `Error: Path not found`; successful
-installer supervision is not claimed. The exact owner-supplied archive was
-extracted into the isolated environment, and its module and factory content
-were used. Aberrant DSP documents no activation step for purchased plug-ins;
-the owner supplied the paid My Account download, and no serial was used. The
-module did not expose an independent full/demo edition flag.
+The exact instrument class was inspected, bound and run through the generic
+host. Source-owned MIDI notes produced finite stereo audio. Main Vol parameter
+ID 0 changed the measured output level, and its opaque state restored with the
+same parameter readback and output level in a fresh process. All four bounded
+sessions shut down normally and restored the JACK graph. The editor opened and
+reported successful lifecycle events, but its content remained completely
+white in the original session, after close/reopen, and in one reversible
+DirectComposition preference comparison. The preference was restored byte for
+byte. A later private Serum-only WineD3D plus software OpenGL comparison made
+the actual Xfer authorization page legible in two bounded sessions; this Pi
+reported itself not yet authorized. No account or license material was entered.
+Actual editor manipulation and licensed usability are therefore still
+unverified. Each original session recorded at least one delivery gap, despite
+zero JACK xruns, processing failures and terminal faults. The later long
+graphics session exceeded the Windows host's 300-second supervision bound
+and produced a real terminal fault and processing failures before cleanup.
+The primary usable instrument claim is **not complete**; no Pi Serum
+compatibility assertion or
+deployment promotion follows. Exact identities, results and limits are in
+`evidence/rpi2/serum2-instrument-onboarding.md`.
 
-The generic stereo host, selected control binding, finite input/output,
-current-input dry bypass, output trim, private sound-slot save, fresh-process
-headless restore, and normal shutdown were exercised. The operator heard a
-clear live-editor effect change and confirmed the same sound after restart
-with the editor closed. All three successful physical sessions reported zero
-JACK xruns, missing delivery, processing failures, callback failures, and
-terminal bridge faults. The failed initial installer and host attempts remain
-in private logs and are not counted as successes.
+The later operator session again showed Xfer's authorization page, but OK did
+not open a browser in this Pi environment. No browser handler was installed.
+One operator-approved offline-authorization trial was canceled before opening
+the editor; its temporary route change and prefix graphics selection were
+restored and verified. The operator then requested the normal browser path.
+Firefox ESR, the desktop portal and an explicit per-user HTTPS association now
+let Serum's OK button open Xfer's sign-in page on the Pi. A private operator
+candidate omits the Windows host's 300-second service lifetime only when
+`LVB_RPI1_OPERATOR_SESSION=1`; the original candidate remains staged and
+unchanged. The live owner session has no clock timeout and retains thermal,
+power and terminal-fault stops. At that checkpoint, sign-in remained
+owner-controlled and incomplete; the primary usable-instrument claim was not
+established.
 
-The reported vendor latency was 4,096 frames and bridge reserve 2,048 frames
-at 48 kHz; analog loopback latency was not measured. The 128-ms combined
-reported buffering is not a low-latency pedal claim. Private extraction is
-not a completed managed installation path. Exact fixture identities, source
-tests, physical readings, cleanup, and nonclaims are retained in
-`evidence/rpi2/digitalis-effect-onboarding.md`.
+The owner later reported using the loaded Serum editor and encountering a
+session close on a preset change. The private log identified a native selected
+parameter readback refusal after refresh; unlike the first Deck preset failure,
+this Pi session showed no processing restart or lifecycle correlation error.
+The focused native repair accepts changed display metadata under the same
+parameter ID and represents an explicitly unavailable value as missing. A
+separately staged Pi candidate then loaded one new factory preset, reported
+changed metadata for selected parameter ID 7000000, kept the editor open and
+processing, and shut down normally. This is a preset-transition result only:
+the original owner-selected sound was not identified, the candidate test sent
+no MIDI, and three delivery gaps remain recorded. Details and exact identities
+are in `evidence/rpi2/serum2-preset-readback.md`.
+
+A later owner session connected the OMX-27 USB MIDI port to this Serum candidate
+and routed its stereo output to ShieldXL. The initial sound was audible, but
+after the owner selected another preset the Pi output fell silent while the
+Serum editor meter still moved. Processing progress stopped, the request queue
+filled, and the bridge reported terminal `fault=2` at `publish_request`.
+The session was stopped, with no clean-shutdown claim. This is a separate
+failed playable-preset gate; its cause is not yet established. The sanitized
+result is in `evidence/rpi2/serum2-instrument-onboarding.md`.

@@ -62,11 +62,11 @@ impl Cohort {
             );
         }
         if matches!(config.runner, Runner::Native { .. }) {
-            command.args([
-                "--property=RuntimeMaxSec=300",
-                "--property=MemoryMax=3G",
-                "--property=TasksMax=512",
-            ]);
+            // The explicit operator session may stay open during vendor sign-in.
+            if std::env::var("LVB_RPI1_OPERATOR_SESSION").as_deref() != Ok("1") {
+                command.arg("--property=RuntimeMaxSec=300");
+            }
+            command.args(["--property=MemoryMax=3G", "--property=TasksMax=512"]);
         }
         command.args(launch_vector(config, host_arguments));
         require(

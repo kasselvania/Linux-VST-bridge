@@ -1,0 +1,303 @@
+# RPI2 Serum 2 instrument onboarding: partial result
+
+This is a bounded Pi 5/ShieldXL observation on 2026-09-24, not a Serum 2
+compatibility qualification. The original editor sessions rendered a white
+client area. A private graphics comparison reached Serum's authorization
+screen, and a later portal setup opened Xfer's sign-in page from Serum's OK
+button. The primary usable-instrument claim remains incomplete.
+
+## Exact identities and setup
+
+- Source branch: `codex/rpi2-serum2-instrument`, based on
+  `223e02ddc3c24ef47ef00da7e3af95adb93f4df1` (draft PR #159), tree
+  `4656219dca3db9a693f9e3a6dfd96b0634b7cfab`.
+- Owner-supplied official Xfer Serum 2.1.5 installer SHA-256:
+  `507b726d97bf78920157f3817aff003b9ee38ee961f4efd318cf43216370f695`.
+  The owner completed installation in a separate private prefix. The installed
+  x64 Windows VST3 module SHA-256 is
+  `501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283`.
+  Its bytes match the separately recorded Deck 2.1.5 module; the Pi is a
+  distinct fixture and authorization state is not inferred from that match.
+- Canonical instrument class: `56534558667350736572756D20320000`; the
+  distinct FX class was not selected. Source-owned factory inspection found a
+  stereo output, 16-channel event input and output, float32 support, 2,623
+  parameters, and zero reported algorithmic latency and tail. The binding
+  declares the exact inspected bus wire values and selected parameter IDs.
+- Existing native candidate SHA-256:
+  `78452d81317aa2a4ac78bf1bc6b8a608250e32188d525e0ccb22f65a84f16895`.
+  Existing Windows host SHA-256:
+  `4ab203ab8aa25555eebce6782cd52a11643a1b935abe8a2ce0cb04baeb453161`;
+  source manifest SHA-256:
+  `ab61f36922f01797fdb7702a16dca7f96bb06b459da930ef62c684784b203c69`.
+  The launcher used the private pinned GE-Proton11-7-aarch64/UMU 1.4.4 route;
+  its SHA-256 was
+  `28bfe15ec2fd285f35d0e75a6ea0d754718773d460f497d45c4da8e0e2a69ecb`.
+  No working runner or other installed plug-in was replaced.
+- 48 kHz, JACK period 512, bridge presentation reserve 512, map-v2 capacity
+  512, and Windows processing quantum 256 in every session. Runtime reported
+  `jack_frames=512 bridge_frames=512 vendor_frames=0 total_frames=512` and
+  `RPI1_LATENCY tail_frames=0`. These are reported digital buffering values,
+  not measured analog or MIDI-arrival latency.
+
+## Source-owned tests and physical observations
+
+The focused Rust binding regression passed 1/1. It selects the exact instrument
+class and verifies stereo output, event buses and bound parameter IDs. It does
+not establish rendering or licensed usability.
+
+The first ordinary Pi session accepted three MIDI messages from the existing
+source-owned qualification fixture, captured 240,000 stereo frames at 48 kHz,
+and produced finite nonzero audio on both channels (peak 0.28368157, RMS
+0.06242436). There were no fixture JACK xruns or bad blocks. This is captured
+sound, not an operator-confirmed listening result.
+
+In a separate headless control session, the same note fixture at the default
+Main Vol normalized 0.50 measured RMS 0.06242436 and peak 0.28368157. Setting
+the inspected Main Vol ID 0 to 0.25 produced controller readback 0.25 and
+RMS 0.01571659/peak 0.07092041. A private 44,303-byte opaque state was saved.
+In a fresh process, the initial readback was 0.50; restoring that state yielded
+readback 0.25 and repeat-note RMS 0.01560609/peak 0.07092039. Both captures
+were finite and stereo nonzero. The private state and audio stay off Git.
+
+| Session | Purpose | Processed frames | Missing frames / gaps | Result |
+| --- | --- | ---: | ---: | --- |
+| `serum-first-01` | MIDI audio and editor | 12,335,616 | 1,792 / 2 | White editor; clean shutdown |
+| `serum-dcomp-02` | One renderer preference comparison | 1,973,760 | 512 / 1 | Still white; clean shutdown |
+| `serum-state-03` | Main Vol and state save | 2,691,072 | 1,792 / 2 | Control level changed; clean shutdown |
+| `serum-recall-04` | Fresh-process state restore | 2,269,696 | 1,792 / 2 | Parameter and level recalled; clean shutdown |
+
+These are completed work and delivery counters at session end, not a
+work-normalized CPU comparison. Every session reported zero JACK xruns, zero
+processing/callback failures, zero terminal bridge faults and `throttled=0x0`.
+Maximum sampled temperatures were 50.15, 50.15, 49.60 and 51.25 C respectively.
+The recall session also reported 5,632 paused frames during state restoration.
+The available aggregate counters do not give an individual longest gap, so
+longest uninterrupted delivery loss is **unavailable**. No gap-free or latency
+claim is made.
+
+## Editor gate and cleanup
+
+The actual editor returned successful native lifecycle open/shown events for
+two view epochs in the first session. Both the agent's read-only Screen Sharing
+view and the operator's observation showed a fully white client area. Closing
+and reopening the view did not change it. Pi Tahoma links resolved to the
+pinned runner's font files, and the expected Tahoma registrations were present.
+One comparison changed only Serum's private `Disable DirectComposition`
+preference from true to false for a new process; its editor remained white.
+The preference was restored byte for byte to SHA-256
+`5e5d1f8482819d32047532d9bc73561364d933864f2f6d7957dbeb9f7f93a173`.
+At that stage, no renderer cause was established and no activation screen was
+visible. No account or serial operation occurred.
+
+All four original onboarding sessions returned exit code 0, recorded
+`RPI1_CLEAN_SHUTDOWN`, left no owned session running and returned JACK to
+system-only ports at period 512. Their final power/thermal indicator was
+`0x0`. The private prefix, logs, installer, module, state and audio remain
+local; no proprietary files or license data are added to this branch.
+
+### Bounded graphics follow-up
+
+The four developer-documented Wine preference values were already effective:
+`Disable DirectComposition=true`, `Disable Partial Redraw=true`,
+`Show Help Tips=false` and `Show Value Tips=false`. No further preference edit,
+font installation or plug-in reinstall was made. The original private launcher
+and config retained SHA-256 values
+`28bfe15ec2fd285f35d0e75a6ea0d754718773d460f497d45c4da8e0e2a69ecb`
+and `fced453fde80b1d43acb7c9858e94c20cf5ffa9979c0f23339a4200d541637e5`.
+
+An exact loaded-module check found Wine built-in `d2d1`, `dcomp`, and
+`wined3d`, but the default route loaded DXVK `d3d11` and `dxgi`. Its private
+startup trace initially failed Vulkan instance creation. A narrow temporary
+Pi package installation added `libdisplay-info2` 0.2.0-2 and
+`mesa-vulkan-drivers` 26.2.2-1~bpo13+0~rpt1, with no other package upgrades.
+DXVK then saw V3DV but rejected it for missing `multiDrawIndirect`; it skipped
+the software Vulkan device and reported `No adapters found` and failed D3D11
+device creation. The editor remained white. Package installation alone was not
+a rendering repair.
+
+A private Serum-only launcher selected Proton's WineD3D route with
+`PROTON_USE_WINED3D=1`. The live host loaded Wine built-in `d3d11` and `dxgi`,
+but its hardware-facing OpenGL session still showed white. Adding only
+`LIBGL_ALWAYS_SOFTWARE=true` to that private launcher made the actual Serum
+2.1.5 authorization page legible in two separate bounded sessions. The second
+live host inherited both variables and mapped Wine built-in `d2d1`, `dcomp`,
+`d3d11`, `dxgi`, and `wined3d`. On the same X display with the software variable,
+Mesa reported `llvmpipe (LLVM 19.1.7, 128 bits)`. The fallback launcher SHA-256
+was `e2c2f7baf3d1d581e50992aad6afb2bc9f52711d86afcdfefbc36c6b0558fb03`;
+its private config SHA-256 was
+`89f53780f4395880f0905755fcdaf64dcf0f641f132b8f65642cbc827ee8d6ba`.
+The candidate continued to select the same Serum module, Windows host, native
+bridge, 48 kHz, JACK 512, quantum 256 and reserve 512.
+
+The visible page states that this Pi is not yet authorized for Serum 2 and
+offers an Xfer browser-based license retrieval flow. No credential, license
+or authorization material was entered or captured. This proves first paint
+through a private software OpenGL fallback, not a usable editor or acceptable
+playback CPU cost. It narrows the white-window failure to the selected graphics
+path; it does not identify the first failed WineD3D call. Private graphics
+traces, screenshots and vendor data remain off Git.
+
+The graphics sessions did **not** provide a clean-shutdown or audio-use result.
+The first 150-second session spent about 122 seconds in first-use startup; its
+bounded wrapper timed out waiting for the requested shutdown and stopped the
+owned unit. The repeated session reached ready in about 11 seconds, but was
+left open for user authorization beyond the Windows-host supervisor's fixed
+300-second `RuntimeMaxSec`. The host unit expired. The native bridge then
+reported terminal `fault=3`, 8,116 processing failures, 15,360 missing frames
+and two gaps before the owned native unit was stopped. There were no MIDI
+messages in either graphics session. These failures are retained, not counted
+as normal Serum playback or blamed on the renderer without causal evidence.
+The second run restored JACK to system-only ports, but had no
+`RPI1_CLEAN_SHUTDOWN` marker. At that point, operator sessions using the
+original candidate had to end before the host supervision bound.
+Maximum sampled temperatures in the two graphics sessions were 49.05 and
+50.70 C; both observed `throttled=0x0`.
+
+A short final session with the unmodified launcher restored the original DXVK
+selection and recorded `RPI1_CLEAN_SHUTDOWN`. All 19 backed-up prefix graphics
+paths, including `config_info`, matched their pre-test hash or symlink target.
+There were no remaining owned units; JACK returned to system-only ports at
+512 frames and power flags were `0x0`. The two temporary Vulkan packages were
+removed with no other package changes. Mesa software OpenGL still reported
+llvmpipe on the same X display after their removal. The private fallback
+launcher/config and sanitized observations remain available for a later,
+shorter operator-owned authorization session; the packaged runner, original
+launcher/config, Windows host, native bridge and Serum module were unchanged.
+
+Pi CC64 sustain remains unsupported by this adapter. Four useful controls on
+a selected user sound, preset selection, actual editor control, audible user
+recall, and stable lower JACK periods are not established.
+
+### Operator authorization handoff and cancellation
+
+A subsequent 270-second software OpenGL session again displayed the Xfer
+authorization page and ended with `RPI1_CLEAN_SHUTDOWN`, zero terminal faults,
+3,072 missing frames over nine gaps despite no MIDI, and restored JACK ports.
+The operator clicked OK but observed no browser. The Pi had no `xdg-open`,
+`gio`, Firefox, Chromium or other inspected browser
+command. A dry-run official Firefox ESR plus `xdg-utils` installation required
+74 new packages, so it was not installed. No account or license operation
+completed.
+
+At the operator's request, one short official offline-authorization trial
+temporarily removed only the Pi's internet default route; the local Mac
+SSH/Screen Sharing route remained working and the Pi's internet route was
+verified absent. The operator then canceled this approach before the editor
+was opened in that trial. The owned unit was stopped, the original default
+route restored, the temporary route script removed, and all 19 prefix graphics
+paths restored from the pre-test backup and verified. No owned units remained;
+JACK was system-only and power flags were `0x0`. The canceled trial was not a
+clean Serum shutdown or an authorization result. The operator then rejected
+that route and requested the ordinary browser flow.
+
+### Browser handoff, 2026-09-25
+
+Firefox ESR 140.16.0esr and `xdg-utils` were installed from the Pi's official
+Debian repositories. Direct `xdg-open` on display `:1` launched Firefox and
+loaded Xfer's public support site. Clicking Serum's OK button still failed:
+the pinned Steam Runtime's `steam-runtime-urlopen` tried a Steam pipe, then
+reported that `org.freedesktop.portal.Desktop` was unavailable. This was an
+observed URL handoff failure, not a lack of Firefox rendering or an Xfer
+account failure.
+
+The official `xdg-desktop-portal` and GTK backend were installed. Their
+services were activated in the Pi's existing X display and D-Bus user session,
+with an `RPI0`-specific GTK portal preference. Serum's HTTPS request then
+reached the portal, but its app chooser listed no application. Explicitly
+registering `firefox-esr.desktop` as the user's HTTP and HTTPS handler through
+`xdg-mime` resolved that gap. The next click on Serum's OK button visibly
+opened Firefox at Xfer's sign-in page. No credentials, license material,
+machine identifier, authorization URL or callback port are retained in this
+repository. The owner will perform sign-in in Xfer's own browser window.
+
+One prior browser test, `serum-browser-16`, ended with a real `fault=3` and
+13,415 processing failures before the authorization page drew. Another test,
+`serum-browser-18`, showed the authorization page and a directly launched
+Firefox, but ended with `fault=2` at `publish_request` and 4,851 processing
+failures after an editor reopen. Both failed runs were stopped and restored
+JACK to system-only ports. They are not counted as successful audio sessions.
+
+For the owner's unattended sign-in, the native candidate built from this
+branch adds an explicit `LVB_RPI1_OPERATOR_SESSION=1` mode that omits only the
+native Windows host's 300-second service lifetime. The default retains the
+bound. The private operator candidate SHA-256 is
+`4fd300e5cae799b74fd0d62b53d4afc51a8e288404b920c14ac679cc121edff9`;
+the original candidate SHA-256 remains
+`78452d81317aa2a4ac78bf1bc6b8a608250e32188d525e0ccb22f65a84f16895`.
+The private owner service, native session and Windows host each reported
+`RuntimeMaxUSec=infinity`. The private session helper continues the existing
+75 C/current-power stops and stops on a nonzero terminal fault or processing
+failure. It uses a low-rate `status` read and does not enter an account or
+record browser content. The installed module, Windows host, runner, audio
+configuration and working native candidate were not replaced.
+
+At one read of the live `serum-browser-19` operator session, Serum's OK
+button had opened Xfer's sign-in page; processing showed `fault=0`, zero
+processing/callback failures, 45,452 completed 256-frame bridge processes,
+1,536 missing frames over four gaps, zero JACK xruns, 48.8 C and
+`throttled=0x0`. No MIDI or audible test was attempted during sign-in. This
+is an open operator session, not an authorization result or a clean-shutdown
+claim. The browser and Serum are left for the owner; account entry and the
+post-sign-in editor/audio checks remain open.
+
+### OMX-27 and owner-selected preset, 2026-09-25
+
+The private `serum-omx-22` session used the approved preset-readback native
+candidate (`bd531170df973bab7383dc82eb5d523615ed0a4003064aaa2f6b5e5f41d6bc26`),
+the unchanged Serum 2.1.5 module
+(`501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283`),
+the established WineD3D/software-OpenGL configuration, 48 kHz, JACK 512,
+256-frame processing quantum and 512-frame bridge reserve. JACK identified
+the OMX-27 at `system:midi_capture_4`; that port was connected to
+`lvb-arm-serum2:midi_in`, with the two Serum outputs connected to ShieldXL
+`system:playback_1/2`. The editor visibly rendered on the same instance.
+
+Before the preset change, the owner heard Serum notes from the OMX-27 through
+the Pi outputs. The sound felt delayed, but the owner did not hear the two
+delivery gaps recorded at that point. A pre-change status showed 118 accepted
+MIDI events, finite nonzero output on both channels, zero processing failures,
+zero JACK xruns, `fault=0`, and 1,792 missing frames over two gaps. This is
+an audible combined USB-MIDI/stereo-output result, not a latency measurement
+or gap-free-delivery claim.
+
+The owner then selected a different preset in Serum's editor and saw its
+internal meter respond, but heard no audio leave the Pi. The exact selected
+preset identity was not retained. The next status showed 145 accepted MIDI
+events but no increase in the native nonzero-output counters. Completed bridge
+processing reached 35,521 blocks and stopped advancing. The historical
+request high-water mark reached 2,048, and the callback recorded terminal
+`fault=2` at `publish_request` with 1,089 processing failures. At that
+observation, 826,112 missing frames across five gaps were recorded. A later
+status showed 1,206 processing failures and still no completed progress;
+JACK xruns remained zero. The full queue is the point of bridge refusal; these
+observations do not establish why the processing worker stopped making
+progress after the preset action. The visible plug-in meter is not evidence of
+delivered output.
+
+The retained source-owned fault report provides a narrower first-fault
+observation. Its independently sampled counters were 37,570 published and
+35,522 consumed requests, a difference of 2,048, matching the full request
+ring and the failed publish. Published and consumed results were both 35,520:
+there was no completed result waiting in that ring. The worker was recorded
+inside audio operation `3` at stream position 9,093,120. Among 29,472
+completed requests in the timing witness, maximum measured queue residence
+was 10.92 seconds; the eight slowest completed requests each spent about
+10.88–10.93 seconds from admission to output publication, while their
+reported Windows processing portions were about 11–18 ms. The maximum
+reported Windows processing portion across those completed requests was
+41.53 ms. These measurements show that stale waiting dominated the sampled
+completed work. They do not time the audio operation still in flight at the
+first fault or identify what initially held it up. The bridge then allowed
+stale requests to accumulate until overflow; its current behavior cannot
+resume current input from that condition.
+
+The session helper stopped on the terminal fault. The native process did not
+complete graceful retirement within the helper's 25-second wait, so cleanup
+terminated its owned unit. There is no `RPI1_CLEAN_SHUTDOWN` marker or clean
+exit-code claim for this run. One exact private session directory and the
+private logs were retained for diagnosis; no host or native process remained,
+and JACK returned to system-only ports. Maximum sampled temperature was
+58.4 C with power flags `0x0`; the inspected kernel journal contained no OOM
+event for this interval. This failed physical gate does not undo the focused
+parameter-readback source approval, but it blocks a playable preset-switching
+claim.

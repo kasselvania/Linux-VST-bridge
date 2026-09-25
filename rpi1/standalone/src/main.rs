@@ -630,14 +630,30 @@ mod appliance {
                 );
             }
             if message.kind == 110 && binding.controls.iter().any(|p| p.id == message.id) {
-                let value = binding.readback(&message)?;
-                if let Some((model, _)) = panel {
-                    model.readback(message.id, value);
+                let readback = binding.readback(&message)?;
+                if readback.metadata_changed {
+                    println!(
+                        "RPI1_PARAMETER_METADATA_CHANGED id={} revision={}",
+                        message.id, message.revision
+                    );
                 }
-                println!(
-                    "RPI1_PARAMETER_READBACK id={} normalized={value:.17} revision={}",
-                    message.id, message.revision
-                );
+                if let Some(value) = readback.value {
+                    if let Some((model, _)) = panel {
+                        model.readback(message.id, value);
+                    }
+                    println!(
+                        "RPI1_PARAMETER_READBACK id={} normalized={value:.17} revision={}",
+                        message.id, message.revision
+                    );
+                } else {
+                    if let Some((model, _)) = panel {
+                        model.unavailable(message.id);
+                    }
+                    println!(
+                        "RPI1_PARAMETER_UNAVAILABLE id={} revision={}",
+                        message.id, message.revision
+                    );
+                }
             }
             if message.kind == 102 {
                 control

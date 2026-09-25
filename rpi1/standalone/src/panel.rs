@@ -205,6 +205,15 @@ impl Model {
             self.status = "READY".into();
         }
     }
+    pub fn unavailable(&mut self, id: u32) {
+        if let Some(p) = self.parameters.iter_mut().find(|p| p.id == id) {
+            p.confirmed = None;
+            p.desired = None;
+            p.in_flight = None;
+            self.edges.retain(|(edge_id, _)| *edge_id != id);
+            self.status = "SYNCING".into();
+        }
+    }
     pub fn encoder(&mut self, index: usize, delta: i32) {
         if self.faulted {
             return;
@@ -416,6 +425,22 @@ mod tests {
         assert!(m.actions(now + Duration::from_secs(3)).is_empty());
         assert!(m.faulted);
         assert!(m.lines(None)[1].contains("50%"));
+    }
+    #[test]
+    fn unavailable_snapshot_clears_stale_control_until_a_new_value_arrives() {
+        let mut m = model();
+        let now = Instant::now();
+        m.readback(17, 0.5);
+        m.readback(42, 0.0);
+        m.unavailable(17);
+        assert_eq!(m.status, "SYNCING");
+        m.encoder(0, 1);
+        assert!(m.actions(now).is_empty());
+        assert!(m.lines(None)[1].contains("?"));
+        m.readback(17, 0.7);
+        assert_eq!(m.status, "READY");
+        m.encoder(0, 1);
+        assert_eq!(m.actions(now), vec![Action::Set(17, 0.71)]);
     }
     #[test]
     fn mapping_requires_metadata_and_distinct_save_button() {
