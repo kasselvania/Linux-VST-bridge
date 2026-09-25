@@ -5,10 +5,13 @@ Base: `6c6f5ac92cb56e2767bb82bfdbf6d6152a1b0ea3` (tree
 Branch: `codex/rpi2-live-recovery-rearm`. The approved BR1 source and first
 Serum failure record remain on PR #168; this is a separate stacked candidate.
 
-Basis: `AGENTS.md` real-time, slice, identity and evidence laws;
-`GOVERNANCE.md` “What evidence means”; `docs/ARCHITECTURE.md` host/audio
-ownership; the retained BR1 source-owned modes and the first bounded Serum
-gate in `evidence/rpi2/live-recovery-br1-serum-gate.md`.
+Basis: `AGENTS.md` “Core product invariants”, “Real-time laws”, “Slice
+discipline” and “Evidence requirements”; `GOVERNANCE.md` “What evidence
+means”; `docs/ARCHITECTURE.md` “5.7 Native Linux VST3 proxy”, “5.8 Windows
+VST3 host”, “7.3 Audio shared memory”, “7.4 Real-time failure posture” and
+“15.1 Deterministic open fixtures”; the retained BR1 source-owned modes and
+the first bounded Serum gate in
+`evidence/rpi2/live-recovery-br1-serum-gate.md`.
 
 ## Primary claim and fixture
 
