@@ -1,6 +1,54 @@
 # Current work selection
 
-## Current shared-audio source slice — AS1
+## Current Pi source reconciliation — PI-R
+
+The operator selected the minimal current-main Pi standalone reconciliation after
+the shared-storage repair merged as PR #172. PI-R starts at canonical `main`
+`f7668b6ffcb2ae1261d121514aaaed0c9b8986c7`, tree
+`00495de1d8653a26e25b331fef1f93348d14606b`. Its basis is the operator's
+Pi repair direction, the real-time and slice laws in `AGENTS.md`, GOVERNANCE
+“Decisions” and “What evidence means”, ARCHITECTURE §§5.2, 5.7–5.9, 6.3–6.6,
+7, 13 and 15, draft PR #171 at `6fe296bd1139b071c9ae6ffb7da628b519309bd2`,
+and FC-AUDIO-001/002. PR #171 remains unmerged and is cited as evidence, not
+repository-local authority.
+
+**One claim:** the standalone ARM JACK/MIDI frontend and explicit Pi execution
+adapter can run against the canonical shared bridge core and Windows host,
+using protocol 12, map v1, a 256-frame processing quantum and the existing
+512-frame Serum presentation reserve. PI-R may add the minimum Windows host
+architecture check needed to preserve the cross-process mapping contract.
+Source scope is `rpi0/standalone`, `rpi1/standalone`, source-owned `rpi2` binding
+metadata, the bounded `rpi0` backend adapter, and that host handshake. The
+commercial fixture is the existing private Serum 2.1.5 module on the Pi 5,
+with JACK 48 kHz/512 and its pinned GE Proton/FEX runtime. Build artifacts,
+private configuration and state stay outside the repository.
+
+Acceptance requires ARM release build and focused source tests, exact
+architecture/identity validation, normal MIDI/audio and state operation,
+supervised lifecycle and clean retirement on the Pi. An incorrect layout,
+module, runtime, state, or response must refuse explicitly. Retain the actual
+physical observations, including any incomplete gate. The comparison arms are
+the pre-AS1 `b76c9e2` base plus identical reconciliation R and the post-AS1
+base plus R. Establish the runnable pre-AS1 arm before attributing any measured
+effect to the storage repair.
+
+This slice does not import BR1/BR1R recovery, change callback policy, runtime,
+JACK configuration, governor, graphics, quantum, reserve, queue, timeout,
+vendor settings, state identity or installed selections. It does not qualify
+musical usability or a performance gain from a successful source build.
+
+The staged [PI-R Serum default-state result](evidence/pi-reconciliation/serum-default-2026-09-25.md)
+establishes a runnable current-main Pi source candidate and a matched
+four-pair pre/post-AS1 comparison, including one reverse-order pair. Mean
+completed-request service fell by 14–20 µs per pair, while the same
+1,280-frame first-note gap remained in all eight runs and CPU ranges
+overlapped. All sessions retired cleanly. This is
+candidate evidence for [PR #173](https://github.com/kasselvania/Linux-VST-bridge/pull/173),
+not approval of the old recovery policy, an installed change, or Pi musical
+qualification. The next repair must be selected from the repeatable first-note
+Windows processing span rather than folded into PI-R.
+
+## Completed shared-audio source slice — AS1
 
 The operator selected a focused, shared audio-execution storage repair. AS1
 starts from canonical `main` commit
