@@ -92,5 +92,19 @@ let Serum's OK button open Xfer's sign-in page on the Pi. A private operator
 candidate omits the Windows host's 300-second service lifetime only when
 `LVB_RPI1_OPERATOR_SESSION=1`; the original candidate remains staged and
 unchanged. The live owner session has no clock timeout and retains thermal,
-power and terminal-fault stops. Sign-in remains owner-controlled and has not
-been completed; the primary usable-instrument claim is still incomplete.
+power and terminal-fault stops. At that checkpoint, sign-in remained
+owner-controlled and incomplete; the primary usable-instrument claim was not
+established.
+
+The owner later reported using the loaded Serum editor and encountering a
+session close on a preset change. The private log identified a native selected
+parameter readback refusal after refresh; unlike the first Deck preset failure,
+this Pi session showed no processing restart or lifecycle correlation error.
+The focused native repair accepts changed display metadata under the same
+parameter ID and represents an explicitly unavailable value as missing. A
+separately staged Pi candidate then loaded one new factory preset, reported
+changed metadata for selected parameter ID 7000000, kept the editor open and
+processing, and shut down normally. This is a preset-transition result only:
+the original owner-selected sound was not identified, the candidate test sent
+no MIDI, and three delivery gaps remain recorded. Details and exact identities
+are in `evidence/rpi2/serum2-preset-readback.md`.

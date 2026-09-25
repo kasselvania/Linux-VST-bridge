@@ -219,22 +219,42 @@ impl Binding {
             .ok_or_else(|| invalid("parameter absent from selected binding"))
     }
 
-    pub fn readback(&self, message: &Message) -> io::Result<f64> {
+    pub fn readback(&self, message: &Message) -> io::Result<Readback> {
         let control = self.control(message.id)?;
         let text = |s: &[u16]| {
             String::from_utf16(&s[..s.iter().position(|&c| c == 0).unwrap_or(s.len())]).ok()
         };
-        if message.kind != 110
-            || message.result != 0
-            || text(&message.title).as_deref() != Some(&control.title)
-            || text(&message.units).as_deref() != Some(&control.units)
-            || !message.value.is_finite()
-            || !(0.0..=1.0).contains(&message.value)
-        {
+        if message.kind != 110 || message.result > 1 {
             return Err(invalid("parameter readback identity/value"));
         }
-        Ok(message.value)
+        // A VST3 parameter ID is the control identity. The plug-in may rename
+        // its title or units when a preset changes, so the initial census
+        // labels in the binding cannot be used as a runtime identity check.
+        let metadata_changed = text(&message.title).as_deref() != Some(&control.title)
+            || text(&message.units).as_deref() != Some(&control.units);
+        let value = if message.result == 0 {
+            if !message.value.is_finite() || !(0.0..=1.0).contains(&message.value) {
+                return Err(invalid("parameter readback identity/value"));
+            }
+            Some(message.value)
+        } else {
+            // The protocol defines an unavailable value as canonical +0 bits.
+            // It is missing information, not a request to set the control to 0.
+            if message.value.to_bits() != 0 {
+                return Err(invalid("parameter readback identity/value"));
+            }
+            None
+        };
+        Ok(Readback {
+            value,
+            metadata_changed,
+        })
     }
+}
+
+pub struct Readback {
+    pub value: Option<f64>,
+    pub metadata_changed: bool,
 }
 
 fn invalid(message: &str) -> io::Error {
@@ -326,7 +346,7 @@ mod tests {
         assert!(Binding::parse(&serde_json::to_vec(&value).unwrap(), &[0x11; 32]).is_err());
     }
     #[test]
-    fn control_readback_rejects_wrong_parameter_metadata() {
+    fn control_readback_uses_id_when_preset_changes_metadata() {
         let binding =
             Binding::parse(&serde_json::to_vec(&manifest()).unwrap(), &[0x11; 32]).unwrap();
         let mut message = Message {
@@ -339,8 +359,21 @@ mod tests {
             *slot = c;
         }
         message.units[0] = b'%' as u16;
-        assert_eq!(binding.readback(&message).unwrap(), 0.5);
+        assert_eq!(binding.readback(&message).unwrap().value, Some(0.5));
         message.title[0] = b'X' as u16;
+        let renamed = binding.readback(&message).unwrap();
+        assert_eq!(renamed.value, Some(0.5));
+        assert!(renamed.metadata_changed);
+        message.result = 1;
+        message.value = 0.0;
+        assert_eq!(binding.readback(&message).unwrap().value, None);
+        message.value = 0.5;
+        assert!(binding.readback(&message).is_err());
+        message.result = 0;
+        message.value = f64::NAN;
+        assert!(binding.readback(&message).is_err());
+        message.value = 0.5;
+        message.id = 8;
         assert!(binding.readback(&message).is_err());
         assert!(binding.control(0).is_err());
     }
