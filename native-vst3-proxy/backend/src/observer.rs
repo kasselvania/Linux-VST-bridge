@@ -125,6 +125,9 @@ impl ClockSample {
     }
 }
 pub(crate) fn delivery_enabled() -> bool {
+    if std::env::var_os("LVB_AP10_TRACE").is_some_and(|value| value == "1") {
+        return true;
+    }
     std::env::var_os("HOME").is_some_and(|home| {
         let relative = if cfg!(feature = "registered") {
             ".local/share/linux-vst-bridge/managed/runtime/trace-enable"
