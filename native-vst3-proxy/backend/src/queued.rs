@@ -333,6 +333,8 @@ struct LiveCallback {
     requested_at: Option<Instant>,
     recoveries: u32,
     prime_until: u64,
+    healthy_frames: u64,
+    rearmed: bool,
 }
 impl Callback {
     fn new() -> Self {
@@ -373,6 +375,8 @@ impl Callback {
                     live.ledger = crate::live_recovery::Ledger::default();
                     live.requested_at = None;
                     live.prime_until = 0;
+                    live.healthy_frames = 0;
+                    live.rearmed = false;
                     s.live_completed_sequence.store(0, Ordering::Relaxed);
                     s.live_completed_position.store(0, Ordering::Relaxed);
                 }
@@ -431,15 +435,25 @@ impl Callback {
             let needed = self.position.saturating_sub(self.delay);
             let late = needed.saturating_sub(self.next_result);
             if late > live.policy.horizon_frames as u64 {
-                if live.phase != 0 || live.recoveries >= live.policy.max_recoveries {
+                if live.phase != 0 || live.recoveries >= live.policy.max_recoveries
+                    || (live.recoveries > 0 && !live.rearmed) {
                     s.fail(RECOVERY_EXHAUSTED, self.position);
                     s.live_stage.store(LIVE_FAILED, Ordering::Release);
                     return Err(2);
                 }
                 live.phase = 1;
                 live.requested_at = Some(Instant::now());
+                live.healthy_frames = 0;
+                live.rearmed = false;
                 s.wanted.store(0, Ordering::Release);
                 s.live_requested_epoch.store(self.epoch, Ordering::Relaxed);
+                // Each attempt has its own return/ack/deadline observation.
+                // Keeping the first attempt's return would make a later
+                // in-flight worker call appear to have returned already.
+                s.live_worker_return_ns.store(0, Ordering::Relaxed);
+                s.live_ack_ns.store(0, Ordering::Relaxed);
+                s.live_ack_epoch.store(0, Ordering::Relaxed);
+                s.live_resume_ns.store(0, Ordering::Relaxed);
                 s.live_request_ns.store(s.live_now_ns(), Ordering::Relaxed);
                 s.live_stage.store(LIVE_REQUESTED, Ordering::Release);
             }
@@ -553,8 +567,24 @@ impl Callback {
             self.delivery.delivered_frames = 0;
         } else if self.live.as_ref().unwrap().phase == 3 && self.delivery.delivered_frames > 0 {
             self.live.as_mut().unwrap().phase = 0;
+            self.live.as_mut().unwrap().healthy_frames = 0;
             s.live_resume_ns.store(s.live_now_ns(), Ordering::Release);
             s.live_stage.store(LIVE_NORMAL, Ordering::Release);
+        } else if self.live.as_ref().unwrap().phase == 0 && request.n > 0 {
+            let live = self.live.as_mut().unwrap();
+            if live.recoveries > 0 && live.recoveries < live.policy.max_recoveries
+                && !live.rearmed {
+                if self.delivery.delivered_frames == u64::from(request.n)
+                    && self.delivery.missing_frames == 0
+                    && self.delivery.expired_frames == 0 {
+                    live.healthy_frames = live.healthy_frames.saturating_add(u64::from(request.n));
+                    if live.healthy_frames >= u64::from(live.policy.rearm_healthy_frames) {
+                        live.rearmed = true;
+                    }
+                } else {
+                    live.healthy_frames = 0;
+                }
+            }
         }
         Ok(result)
     }
@@ -799,6 +829,7 @@ pub(crate) fn select_live_policy(id: u64, policy: crate::live_recovery::Policy) 
         callback.live = Some(Box::new(LiveCallback {
             policy, ledger: crate::live_recovery::Ledger::default(), phase: 0,
             requested_at: None, recoveries: 0, prime_until: 0,
+            healthy_frames: 0, rearmed: false,
         }));
         Ok(())
     }).map_err(|_| invalid("live recovery instance ownership"))?
