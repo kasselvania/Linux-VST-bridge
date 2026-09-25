@@ -67,6 +67,39 @@ with zero failures, and the successor passed an unlicensed startup/cleanup
 smoke. A managed FL launch and the stock-project workflow are still required
 to establish a physical fix.
 
+The existing managed workspace was subsequently uninstalled cleanly. Its
+schema-1 record and exact install/uninstall receipts remain on the Deck. The
+source baseline for the lifecycle correction includes merged UI0 at
+`8bb191b28eedee8aabf058b06706860c9fc64933` through a normal merge into
+PR #163. The live uninstalled workspace is the acceptance fixture: do not
+delete it, recreate its prefix, edit its JSON or run another installer before
+source rereview and a new Deck handoff.
+
+### Repeatable installation lifecycle
+
+**Workspace lifetime is not installation lifetime.** The FL workspace keeps
+one stable ID, prefix, selected runner, projects, preferences, exports and
+lawful account state across version changes. The selected installer is a
+separate exact SHA-256/release pair. Each install and uninstall is a new
+manager-owned operation with an append-only history record and retained
+receipt. A clean uninstall removes the current installed application claim,
+not the workspace or earlier evidence.
+
+The ordinary controlled version-change path is: cleanly uninstall A, select
+admitted installer B by exact SHA-256 and release, install B, finish its exact
+readback, then launch B. Reinstalling the same A after clean uninstall is also
+admitted. Selection itself never executes Windows code or touches the prefix.
+An installed version must be uninstalled before another install; there is no
+automatic in-place upgrade or fresh-prefix reset in this slice.
+
+Schema-1 records migrate deterministically at readback. Old installation and
+uninstall operation IDs, installer identity, environment and user roots, runner,
+first failure and receipts remain exact. An incomplete or ambiguous old
+operation becomes historical unknown and blocks new mutation until explicit
+recovery; migration must not manufacture a clean outcome. Current status shows
+the latest current failure, while older failures stay in history after a later
+success. Unowned FL files in the prefix are not adopted as a managed install.
+
 Read [AGENTS.md](../AGENTS.md), [ARCHITECTURE.md](ARCHITECTURE.md), this work
 order, [WINDOWS_DAW_WORKSPACES.md](WINDOWS_DAW_WORKSPACES.md), the support
 matrix and failure ledger. Reuse relevant source owners, especially manager
@@ -141,7 +174,8 @@ a shell command.
 The workspace must bind at least:
 
 - stable workspace ID and revision;
-- exact FL installer and installation result;
+- exact selected FL installer and release, current installation, active
+  operation, and prior install/uninstall results;
 - exact installed FL executable/resources and observed version;
 - a fresh manager-owned prefix and admitted immutable runtime closure;
 - explicit writable preference, project and export roots;
@@ -189,10 +223,14 @@ is the implementer's choice:
 
 ```text
 workspace import/install
+workspace select-installer INSTALLER_SHA256 RELEASE
+workspace finish-install
 workspace launch
 workspace focus
 workspace status
 workspace stop --graceful
+workspace uninstall
+workspace finish-uninstall
 ```
 
 Normal launch selects the known workspace and exact installed application. It

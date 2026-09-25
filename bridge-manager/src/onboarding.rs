@@ -1107,7 +1107,7 @@ mod tests {
         )
         .unwrap();
         let snapshot = ui::Snapshot {
-            schema: 7,
+            schema: 8,
             state_token: "fixture".into(),
             system: ui::System {
                 service: "active".into(),
@@ -1123,6 +1123,7 @@ mod tests {
             environments,
             vendor_applications: vec![],
             products: vec![],
+            workspaces: vec![],
             active_sessions: vec![],
             capture: Value::Null,
             recent_incidents: vec![],

@@ -32,6 +32,31 @@ impl Page {
         }
     }
 }
+
+fn workspace_state_label(state: &str) -> &str {
+    match state {
+        "imported" => "Ready to install",
+        "installing" => "Installing",
+        "needs_user_action" => "Needs your attention",
+        "installed" => "Installed",
+        "ready" => "Ready",
+        "starting" => "Starting",
+        "running" => "Running",
+        "stopping" => "Closing",
+        "uninstalling" => "Uninstalling",
+        "uninstalled" => "Uninstalled",
+        "failed" => "Needs your attention",
+        "cleanup_unconfirmed" => "Cleanup unconfirmed",
+        _ => "State unavailable",
+    }
+}
+
+fn workspace_primary_action(actions: &[AvailableAction]) -> Option<usize> {
+    actions
+        .iter()
+        .position(|action| action.disabled_reason.is_none())
+        .or_else(|| (!actions.is_empty()).then_some(0))
+}
 #[derive(Clone, Debug)]
 struct RequestFeedback {
     action: Action,
@@ -286,6 +311,7 @@ pub struct Operator {
     library: crate::library::Library,
     refresh_after: bool,
     product_form: Option<Action>,
+    workspace_select_form: Option<Action>,
     page: Page,
     focus: RouteFocus,
     preview: bool,
@@ -308,6 +334,7 @@ impl Operator {
             library: crate::library::Library::default(),
             refresh_after: false,
             product_form: None,
+            workspace_select_form: None,
             page: Page::Home,
             focus: RouteFocus::default(),
             preview: false,
@@ -331,6 +358,7 @@ impl Operator {
             library: crate::library::Library::default(),
             refresh_after: false,
             product_form: None,
+            workspace_select_form: None,
             page,
             focus: RouteFocus::default(),
             preview: true,
@@ -488,7 +516,7 @@ impl Operator {
         self.action_inflight = false;
         match reply {
             Reply::Snapshot(s) => {
-                if s.schema != 7 {
+                if s.schema != 8 {
                     self.message = "Unsupported manager schema".into();
                 } else {
                     if let Some(f) = &mut self.feedback {
@@ -540,8 +568,7 @@ impl Operator {
                 }
             }
             Reply::Imported => {
-                self.message =
-                    "Installer imported. Review its identity and choose a runner below.".into();
+                self.message = "Installer imported. Review it in Setup or choose its exact release in Workspaces.".into();
                 self.refresh_after = true;
             }
             Reply::Cancelled => {
@@ -1298,10 +1325,91 @@ impl Operator {
         });
     }
 
-    fn workspaces(ui: &mut egui::Ui) {
+    fn workspaces(
+        ui: &mut egui::Ui,
+        snapshot: &Snapshot,
+        pending: bool,
+        chosen: &mut Option<Action>,
+        pick: &mut bool,
+    ) {
         ui.heading("Workspaces");
-        ui.label("No managed DAW workspace is available here yet.");
-        ui.small("Managed DAWs will appear here when their workspace state is available. Plug-ins published to native DAWs stay in Plug-ins; the bridge DSP count describes those plug-in sessions.");
+        ui.small("Managed DAWs have their own workspace and installation history. Native DAW plug-in publications remain in Plug-ins.");
+        if snapshot.workspaces.is_empty() {
+            ui.label("No managed DAW workspace is available here yet.");
+            return;
+        }
+        if ui
+            .add_enabled(
+                !pending,
+                egui::Button::new("Import Windows FL installer").min_size(egui::vec2(240.0, 44.0)),
+            )
+            .clicked()
+        {
+            *pick = true;
+        }
+        ui.small("The manager copies and verifies the selected file in private installer custody. Choose its exact release below afterward.");
+        for workspace in &snapshot.workspaces {
+            ui.push_id(&workspace.id, |ui| {
+                ui.group(|ui| {
+                    ui.heading(&workspace.name);
+                    ui.strong(workspace_state_label(&workspace.state));
+                    ui.label(format!("Selected version: {}", workspace.selected_release));
+                    if let Some(release) = &workspace.installed_advertised_release {
+                        ui.label(format!("Installed from declared release: {release}"));
+                        if let Some(version) = &workspace.observed_file_version {
+                            ui.label(format!("Observed executable version: {version}"));
+                        }
+                    }
+                    if let Some(operation) = &workspace.active_installation_operation {
+                        ui.label(format!("Installation in progress: {operation}"));
+                    }
+                    if workspace.cleanup != "confirmed" {
+                        ui.colored_label(warning_color(ui), format!("Workspace cleanup: {}", workspace.cleanup.replace('_', " ")));
+                    }
+                    if let Some(failure) = &workspace.first_useful_failure {
+                        ui.colored_label(warning_color(ui), failure.replace('_', " "));
+                    }
+                    if let Some(primary_index) = workspace_primary_action(&workspace.actions) {
+                        let primary = &workspace.actions[primary_index];
+                        let response = ui.add_enabled(
+                            !pending && primary.disabled_reason.is_none(),
+                            egui::Button::new(egui::RichText::new(&primary.label).strong())
+                                .min_size(egui::vec2(240.0, 48.0)),
+                        );
+                        if response.clicked() {
+                            *chosen = Some(primary.action.clone());
+                        }
+                        if let Some(reason) = primary.disabled_reason.as_deref() {
+                            ui.small(reason);
+                        } else if pending {
+                            ui.small("Waiting for the current request or manager readback");
+                        }
+                        for (index, offer) in workspace.actions.iter().enumerate() {
+                            if index != primary_index {
+                                Self::buttons(ui, std::slice::from_ref(offer), None, pending, chosen);
+                            }
+                        }
+                    }
+                    egui::CollapsingHeader::new("Choose an imported version")
+                        .show(ui, |ui| {
+                            ui.label("Enter the exact release shown by the installer. Selection does not run Windows code or change workspace files.");
+                            if workspace.installer_choices.is_empty() {
+                                ui.label("No admitted Windows installer is available in manager custody.");
+                            }
+                            Self::buttons(ui, &workspace.installer_choices, None, pending, chosen);
+                        });
+                    egui::CollapsingHeader::new("Technical workspace details and history")
+                        .show(ui, |ui| {
+                            ui.label(format!("Workspace: {}", workspace.id));
+                            ui.label(format!("Selected installer SHA-256: {}", workspace.selected_installer));
+                            if let Some(image) = &workspace.installed_image_sha256 {
+                                ui.label(format!("Installed image SHA-256: {image}"));
+                            }
+                            Self::value(ui, &workspace.details);
+                        });
+                });
+            });
+        }
     }
 }
 impl eframe::App for Operator {
@@ -1355,7 +1463,7 @@ impl eframe::App for Operator {
                             Self::value(ui, &product.details);
                         });
                     }),
-                    Page::Workspaces => Self::workspaces(ui),
+                    Page::Workspaces => Self::workspaces(ui, snapshot, controls_pending, &mut chosen, &mut pick),
                     Page::Activity => Self::activity(ui, snapshot, controls_pending, &mut self.page,
                         &mut self.library, &mut self.focus, &mut chosen),
                     Page::Setup => Self::setup(ui, snapshot, controls_pending, self.feedback.as_ref(),
@@ -1370,8 +1478,31 @@ impl eframe::App for Operator {
                 Action::CandidateObserve { .. } | Action::CandidateReview { .. }
             ) {
                 self.product_form = Some(a);
+            } else if matches!(a, Action::WorkspaceSelectInstaller { .. }) {
+                self.workspace_select_form = Some(a);
             } else {
                 chosen = Some(a);
+            }
+        }
+        if let Some(Action::WorkspaceSelectInstaller { installer, release }) =
+            self.workspace_select_form.as_mut()
+        {
+            let mut submit = false;
+            let mut cancel = false;
+            egui::Window::new("Choose exact FL Studio version")
+                .collapsible(false)
+                .show(ui.ctx(), |ui| {
+                    ui.label(format!("Imported installer SHA-256: {installer}"));
+                    ui.label("Exact installer release");
+                    ui.add(egui::TextEdit::singleline(release).char_limit(32).min_size(egui::vec2(220.0, 44.0)));
+                    ui.small("The manager verifies this installer in canonical custody before changing the selection.");
+                    submit = ui.add_enabled(!release.is_empty() && !controls_pending, egui::Button::new("Select version").min_size(egui::vec2(180.0, 44.0))).clicked();
+                    cancel = ui.add_sized([100.0, 44.0], egui::Button::new("Cancel")).clicked();
+                });
+            if submit {
+                chosen = self.workspace_select_form.take();
+            } else if cancel {
+                self.workspace_select_form = None;
             }
         }
         if let Some(form) = self.product_form.as_mut() {
@@ -1410,7 +1541,7 @@ impl eframe::App for Operator {
         } else if let Some(a) = chosen {
             if let Some(s) = &self.snapshot {
                 self.capture_action(Request {
-                    schema: 7,
+                    schema: 8,
                     state_token: s.state_token.clone(),
                     action: a,
                 });
@@ -1970,6 +2101,7 @@ mod tests {
             library: crate::library::Library::default(),
             refresh_after: false,
             product_form: None,
+            workspace_select_form: None,
             page: Page::Home,
             focus: RouteFocus::default(),
             preview: false,
@@ -2015,6 +2147,118 @@ mod tests {
                 assert!(bounds.iter().all(|(_, _, rect)| rect.top() == first.top()));
             }
         }
+    }
+    #[test]
+    fn workspace_state_actions_and_history_are_reachable_at_ordinary_and_narrow_width() {
+        fn texts(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
+            match shape {
+                egui::epaint::Shape::Text(text) => out.push(text.galley.text().into()),
+                egui::epaint::Shape::Vec(shapes) => {
+                    for shape in shapes {
+                        texts(shape, out);
+                    }
+                }
+                _ => {}
+            }
+        }
+        let mut snapshot: Snapshot =
+            serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap();
+        snapshot.workspaces.push(DawWorkspace {
+            id: "ab".repeat(16),
+            name: "FL Studio".into(),
+            state: "uninstalled".into(),
+            selected_installer: "cd".repeat(32),
+            selected_release: "26.1.6.0".into(),
+            installed_advertised_release: None,
+            observed_file_version: None,
+            installed_image_sha256: None,
+            active_installation_operation: None,
+            cleanup: "confirmed".into(),
+            first_useful_failure: None,
+            actions: vec![AvailableAction {
+                label: "Install selected version".into(),
+                action: Action::WorkspaceInstall {},
+                disabled_reason: Some("Prior owner has not retired".into()),
+            }],
+            installer_choices: vec![AvailableAction {
+                label: "Choose imported installer efefefefefef".into(),
+                action: Action::WorkspaceSelectInstaller {
+                    installer: "ef".repeat(32),
+                    release: String::new(),
+                },
+                disabled_reason: None,
+            }],
+            details: serde_json::json!({"installation_history":[{"operation":"old-exact"}]}),
+        });
+        for width in [960.0, 560.0] {
+            let ctx = egui::Context::default();
+            let mut chosen = None;
+            let mut pick = false;
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                ui.set_max_width(width - 32.0);
+                Operator::workspaces(ui, &snapshot, false, &mut chosen, &mut pick);
+            });
+            let mut labels = Vec::new();
+            for clipped in &output.shapes {
+                texts(&clipped.shape, &mut labels);
+            }
+            output.textures_delta.clear();
+            assert!(labels.iter().any(|s| s == "FL Studio"));
+            assert!(labels.iter().any(|s| s == "Uninstalled"));
+            assert!(labels.iter().any(|s| s == "Selected version: 26.1.6.0"));
+            assert!(labels.iter().any(|s| s == "Install selected version"));
+            assert!(labels.iter().any(|s| s == "Import Windows FL installer"));
+            assert!(labels.iter().any(|s| s == "Prior owner has not retired"));
+            assert!(labels.iter().any(|s| s == "Choose an imported version"));
+            assert!(labels
+                .iter()
+                .any(|s| s == "Technical workspace details and history"));
+            assert!(chosen.is_none());
+            assert!(!pick);
+        }
+        let workspace = &mut snapshot.workspaces[0];
+        workspace.state = "ready".into();
+        workspace.selected_release = "27.0.0.0".into();
+        workspace.installed_advertised_release = Some("26.1.6.0".into());
+        workspace.observed_file_version = Some("26.1.6.5639".into());
+        let ctx = egui::Context::default();
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            Operator::workspaces(ui, &snapshot, false, &mut None, &mut false);
+        });
+        let mut labels = Vec::new();
+        for clipped in &output.shapes {
+            texts(&clipped.shape, &mut labels);
+        }
+        output.textures_delta.clear();
+        assert!(labels.iter().any(|s| s == "Selected version: 27.0.0.0"));
+        assert!(labels
+            .iter()
+            .any(|s| s == "Installed from declared release: 26.1.6.0"));
+        assert!(labels
+            .iter()
+            .any(|s| s == "Observed executable version: 26.1.6.5639"));
+    }
+    #[test]
+    fn workspace_primary_action_uses_manager_eligibility_without_changing_offers() {
+        let actions = vec![
+            AvailableAction {
+                label: "Launch FL Studio".into(),
+                action: Action::WorkspaceLaunch {},
+                disabled_reason: Some("FL session already active".into()),
+            },
+            AvailableAction {
+                label: "Focus FL Studio".into(),
+                action: Action::WorkspaceFocus {},
+                disabled_reason: None,
+            },
+        ];
+        assert_eq!(workspace_primary_action(&actions), Some(1));
+        assert_eq!(
+            actions[0].disabled_reason.as_deref(),
+            Some("FL session already active")
+        );
+        assert_eq!(workspace_primary_action(&actions[..1]), Some(0));
+        assert_eq!(workspace_primary_action(&[]), None);
     }
     #[test]
     fn narrow_home_shows_one_attention_shortcut_and_one_all_items_route() {
@@ -2099,7 +2343,7 @@ mod tests {
     }
     fn create_request() -> Request {
         Request {
-            schema: 7,
+            schema: 8,
             state_token: "snapshot".into(),
             action: Action::InstallerEnvironmentCreate {
                 installer: "ab".repeat(32),
@@ -2110,7 +2354,7 @@ mod tests {
     fn running_snapshot(operation: &str) -> Snapshot {
         let id = "aa".repeat(16);
         Snapshot {
-            schema: 7,
+            schema: 8,
             state_token: "current".into(),
             system: System {
                 service: "capacity unavailable".into(),
@@ -2144,6 +2388,7 @@ mod tests {
             environments: vec![],
             vendor_applications: vec![],
             products: vec![],
+            workspaces: vec![],
             active_sessions: vec![],
             capture: serde_json::Value::Null,
             recent_incidents: vec![],
@@ -2157,7 +2402,7 @@ mod tests {
         }));
         if acknowledged {
             o.handle_reply(Reply::Receipt(Receipt {
-                schema: 7,
+                schema: 8,
                 accepted: true,
                 operation: Some("current-op".into()),
                 refusal: None,
@@ -2169,7 +2414,7 @@ mod tests {
     }
     fn activity_from(s: &Snapshot) -> Reply {
         Reply::Activity(Activity {
-            schema: 7,
+            schema: 8,
             system: s.system.clone(),
             capture: s.capture.clone(),
             operation: s.operation.clone(),
@@ -2489,7 +2734,7 @@ mod tests {
         let old =
             serde_json::json!({"operation":"old","state":"refused","reason":"old lock failure"});
         f.receipt(&Receipt {
-            schema: 7,
+            schema: 8,
             accepted: false,
             operation: Some("new".into()),
             refusal: Some("fresh refusal".into()),
@@ -2501,7 +2746,7 @@ mod tests {
         assert!(!f.for_installer(&"ef".repeat(32)));
         f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 7,
+            schema: 8,
             accepted: true,
             operation: Some("new".into()),
             refusal: None,
@@ -2517,7 +2762,7 @@ mod tests {
     fn vendor_controls_unlock_only_after_current_snapshot_without_losing_feedback() {
         let mut f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 7,
+            schema: 8,
             accepted: true,
             operation: Some("new".into()),
             refusal: None,
@@ -2530,7 +2775,7 @@ mod tests {
         assert!(f.terminal);
         let mut f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 7,
+            schema: 8,
             accepted: false,
             operation: Some("refused".into()),
             refusal: Some("reason".into()),
@@ -2713,7 +2958,7 @@ mod tests {
         s.vendor_applications.push(VendorApplication{id:"native-access".into(),name:"Native Access".into(),version:"3.26.0".into(),state:"dependency".into(),actions:vec![AvailableAction{label:"Stop".into(),action:Action::DependencyStop{operation:op.clone()},disabled_reason:None}],details:serde_json::json!({"dependency_manager_operation":{"operation":op,"state":"submission_uncertain"}})});
         let mut f = RequestFeedback::captured(Action::DependencyPrepare {});
         f.receipt(&Receipt {
-            schema: 7,
+            schema: 8,
             accepted: true,
             operation: None,
             refusal: None,
@@ -2729,7 +2974,7 @@ mod tests {
         s.vendor_applications[0].actions.clear();
         let mut other = RequestFeedback::captured(Action::DependencyPrepare {});
         other.receipt(&Receipt {
-            schema: 7,
+            schema: 8,
             accepted: true,
             operation: None,
             refusal: None,

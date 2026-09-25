@@ -1,8 +1,9 @@
 //! WD0: one typed Windows DAW workspace adjacent to, never inside, DSP admission.
 //! The immutable executable/runtime closure and mutable FL data have distinct owners.
 use super::*;
+use linux_vst_bridge::operator_model as ui;
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::os::unix::fs::{FileTypeExt, MetadataExt};
 
 const APP: &str = "fl-studio";
@@ -87,7 +88,82 @@ struct AudioObservation {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+struct InstallerSelection {
+    sha256: String,
+    release: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum InstallationOutcome {
+    Pending,
+    Installed,
+    NeedsUserAction,
+    Failed,
+    Unknown,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct InstallationRecord {
+    operation: String,
+    installer: InstallerSelection,
+    outcome: InstallationOutcome,
+    installed_image: Option<Artifact>,
+    observed_version: Option<String>,
+    failure: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum UninstallOutcome {
+    Pending,
+    Completed,
+    Unknown,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct UninstallRecord {
+    operation: String,
+    installation_operation: Option<String>,
+    installed_image: Option<Artifact>,
+    outcome: UninstallOutcome,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 struct Workspace {
+    schema: u32,
+    id: String,
+    revision: u64,
+    application: ApplicationId,
+    selected_installer: InstallerSelection,
+    environment: Environment,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    runner_manifest: Option<Artifact>,
+    projects: PathBuf,
+    exports: PathBuf,
+    preferences: PathBuf,
+    state: State,
+    active_installation_operation: Option<String>,
+    installations: Vec<InstallationRecord>,
+    current_installation_operation: Option<String>,
+    installed: Option<InstalledApplication>,
+    audio: Option<AudioObservation>,
+    session_operation: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    active_uninstall_operation: Option<String>,
+    uninstalls: Vec<UninstallRecord>,
+    history_recovery_required: bool,
+    first_failure: Option<String>,
+}
+
+// Exact on-disk WD0 shape from before repeatable installation. Do not edit it
+// in place or treat its one retained operation as a lifetime install gate.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LegacyWorkspace {
     schema: u32,
     id: String,
     revision: u64,
@@ -95,7 +171,7 @@ struct Workspace {
     installer: String,
     installer_release: String,
     environment: Environment,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     runner_manifest: Option<Artifact>,
     projects: PathBuf,
     exports: PathBuf,
@@ -105,7 +181,7 @@ struct Workspace {
     installed: Option<InstalledApplication>,
     audio: Option<AudioObservation>,
     session_operation: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     uninstall_operation: Option<String>,
     first_failure: Option<String>,
 }
@@ -198,7 +274,10 @@ fn fl_runner_candidate(
         c.schema == 1
             && c.kind == "fl_crypt32_order_reference_runner"
             && c.root == root
-            && c.workspace == read_json::<Workspace>(&record(m))?.id
+            && c.workspace
+                == read_json::<Value>(&record(m))?["id"]
+                    .as_str()
+                    .ok_or("daw_workspace_id_absent")?
             && c.base_runner.id == STANDARD_RUNNER
             && c.base_runner.policy.is_none()
             && c.runner.id == FL_CRYPT32_RUNNER
@@ -337,10 +416,15 @@ fn owned_vendor_dir(path: &Path) -> Result<()> {
     )
 }
 
-fn release_syntax(s: &str) -> bool {
-    (3..=32).contains(&s.len())
-        && s.bytes().all(|b| b.is_ascii_digit() || b == b'.')
-        && s.bytes().any(|b| b.is_ascii_digit())
+pub(super) fn release_syntax(s: &str) -> bool {
+    if !(3..=32).contains(&s.len()) {
+        return false;
+    }
+    let parts: Vec<_> = s.split('.').collect();
+    (2..=5).contains(&parts.len())
+        && parts
+            .iter()
+            .all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()))
 }
 
 fn audio_syntax(a: &AudioObservation) -> bool {
@@ -353,17 +437,295 @@ fn audio_syntax(a: &AudioObservation) -> bool {
             .all(|b| b.is_ascii_graphic() || b == b' ')
 }
 
+fn legacy_install_bound(m: &Manager, w: &LegacyWorkspace, op: &str) -> bool {
+    let Ok(spec) = read_json::<Value>(&result_path(m, op, true).with_file_name("spec.json")) else {
+        return false;
+    };
+    spec["operation"] == op
+        && spec["installer"]["sha256"] == w.installer
+        && spec["report"] == result_path(m, op, true).to_string_lossy().as_ref()
+        && spec["environment"]["id"] == w.id
+        && spec["environment"]["root"] == w.environment.root.to_string_lossy().as_ref()
+}
+
+fn legacy_uninstall_image(m: &Manager, w: &LegacyWorkspace, op: &str) -> Option<Artifact> {
+    let spec: Value = read_json(&result_path(m, op, false).with_file_name("spec.json")).ok()?;
+    if spec["kind"] != "daw_workspace_uninstall"
+        || spec["operation_id"] != op
+        || spec["report"] != result_path(m, op, false).to_string_lossy().as_ref()
+        || spec["application"]["id"] != "fl_studio"
+        || spec["application"]["environment"]["id"] != w.id
+        || spec["application"]["environment"]["root"]
+            != w.environment.root.to_string_lossy().as_ref()
+        || spec["application"]["projects"] != w.projects.to_string_lossy().as_ref()
+        || spec["application"]["preferences"] != w.preferences.to_string_lossy().as_ref()
+        || spec["application"]["exports"] != w.exports.to_string_lossy().as_ref()
+    {
+        return None;
+    }
+    let image: Artifact =
+        serde_json::from_value(spec["application"]["installed_image"].clone()).ok()?;
+    image
+        .path
+        .starts_with(
+            w.environment
+                .root
+                .join("compatdata/pfx/drive_c/Program Files/Image-Line"),
+        )
+        .then_some(image)
+}
+
+fn migrate_legacy(m: &Manager, old: LegacyWorkspace) -> Result<Workspace> {
+    require(
+        old.schema == 1
+            && valid_hex(&old.id, 32)
+            && valid_hex(&old.installer, 64)
+            && release_syntax(&old.installer_release)
+            && old
+                .installation_operation
+                .as_deref()
+                .is_none_or(|op| valid_hex(op, 32))
+            && old
+                .session_operation
+                .as_deref()
+                .is_none_or(|op| valid_hex(op, 32))
+            && old
+                .uninstall_operation
+                .as_deref()
+                .is_none_or(|op| valid_hex(op, 32)),
+        "daw_workspace_legacy_identity",
+    )?;
+    let selection = InstallerSelection {
+        sha256: old.installer.clone(),
+        release: old.installer_release.clone(),
+    };
+    let uninstall_image = old
+        .uninstall_operation
+        .as_deref()
+        .and_then(|op| legacy_uninstall_image(m, &old, op));
+    let installed_image = old
+        .installed
+        .as_ref()
+        .map(|app| app.executable.clone())
+        .or_else(|| uninstall_image.clone());
+    let mut installations = Vec::new();
+    let mut active_installation_operation = None;
+    if let Some(op) = &old.installation_operation {
+        let receipt = result(m, op, true).ok().flatten();
+        let bound = legacy_install_bound(m, &old, op);
+        let outcome = if !bound {
+            InstallationOutcome::Unknown
+        } else if receipt.as_ref().is_some_and(retired) {
+            if installed_image.is_some() {
+                if receipt.as_ref().is_some_and(|v| v["state"] == "completed") {
+                    InstallationOutcome::Installed
+                } else {
+                    InstallationOutcome::NeedsUserAction
+                }
+            } else if old.state == State::Uninstalled {
+                InstallationOutcome::Unknown
+            } else {
+                InstallationOutcome::Failed
+            }
+        } else if old.state == State::Installing {
+            InstallationOutcome::Pending
+        } else {
+            InstallationOutcome::Unknown
+        };
+        if outcome == InstallationOutcome::Pending {
+            active_installation_operation = Some(op.clone());
+        }
+        installations.push(InstallationRecord {
+            operation: op.clone(),
+            installer: selection.clone(),
+            outcome,
+            installed_image: installed_image.clone(),
+            observed_version: old
+                .installed
+                .as_ref()
+                .and_then(|app| app.observed_file_version.clone()),
+            failure: (outcome == InstallationOutcome::NeedsUserAction
+                || outcome == InstallationOutcome::Failed)
+                .then(|| {
+                    old.first_failure.clone().unwrap_or_else(|| {
+                        receipt
+                            .as_ref()
+                            .and_then(|v| v["error"].as_str())
+                            .unwrap_or("prior_installation_failed")
+                            .to_owned()
+                    })
+                }),
+        });
+    }
+    let mut uninstalls = Vec::new();
+    let mut active_uninstall_operation = None;
+    if let Some(op) = &old.uninstall_operation {
+        let receipt = result(m, op, false).ok().flatten();
+        let outcome = if uninstall_image.is_none() {
+            UninstallOutcome::Unknown
+        } else if old.state == State::Uninstalled
+            && receipt
+                .as_ref()
+                .is_some_and(|v| retired(v) && v["state"] == "completed")
+        {
+            UninstallOutcome::Completed
+        } else if old.state == State::Uninstalling {
+            UninstallOutcome::Pending
+        } else {
+            UninstallOutcome::Unknown
+        };
+        if outcome == UninstallOutcome::Pending {
+            active_uninstall_operation = Some(op.clone());
+        }
+        uninstalls.push(UninstallRecord {
+            operation: op.clone(),
+            installation_operation: old.installation_operation.clone(),
+            installed_image: uninstall_image,
+            outcome,
+        });
+    }
+    let history_recovery_required = installations
+        .iter()
+        .any(|record| record.outcome == InstallationOutcome::Unknown)
+        || uninstalls
+            .iter()
+            .any(|record| record.outcome == UninstallOutcome::Unknown)
+        || (old.state == State::Uninstalled && (installations.is_empty() || uninstalls.is_empty()));
+    Ok(Workspace {
+        schema: 2,
+        id: old.id,
+        revision: old.revision,
+        application: old.application,
+        selected_installer: selection,
+        environment: old.environment,
+        runner_manifest: old.runner_manifest,
+        projects: old.projects,
+        exports: old.exports,
+        preferences: old.preferences,
+        state: old.state,
+        active_installation_operation,
+        installations,
+        current_installation_operation: old.installed.as_ref().and(old.installation_operation),
+        installed: old.installed,
+        audio: old.audio,
+        session_operation: old.session_operation,
+        active_uninstall_operation,
+        uninstalls,
+        history_recovery_required,
+        first_failure: old.first_failure,
+    })
+}
+
+fn validate_history(w: &Workspace) -> Result<()> {
+    require(
+        w.installations.len() <= 128 && w.uninstalls.len() <= 128,
+        "daw_workspace_history_bound",
+    )?;
+    let image_line = w
+        .environment
+        .root
+        .join("compatdata/pfx/drive_c/Program Files/Image-Line");
+    let mut operations = BTreeSet::new();
+    for record in &w.installations {
+        require(
+            valid_hex(&record.operation, 32)
+                && operations.insert(record.operation.as_str())
+                && valid_hex(&record.installer.sha256, 64)
+                && release_syntax(&record.installer.release)
+                && record
+                    .observed_version
+                    .as_deref()
+                    .is_none_or(release_syntax)
+                && record.installed_image.as_ref().is_none_or(|image| {
+                    valid_hex(&image.sha256, 64) && image.path.starts_with(&image_line)
+                })
+                && (!matches!(
+                    record.outcome,
+                    InstallationOutcome::Installed | InstallationOutcome::NeedsUserAction
+                ) || record.installed_image.is_some())
+                && (record.outcome != InstallationOutcome::Pending
+                    || w.active_installation_operation.as_deref()
+                        == Some(record.operation.as_str())),
+            "daw_workspace_installation_history_identity",
+        )?;
+    }
+    for record in &w.uninstalls {
+        require(
+            valid_hex(&record.operation, 32)
+                && operations.insert(record.operation.as_str())
+                && record
+                    .installation_operation
+                    .as_deref()
+                    .is_none_or(|op| w.installations.iter().any(|i| i.operation == op))
+                && record.installed_image.as_ref().is_none_or(|image| {
+                    valid_hex(&image.sha256, 64) && image.path.starts_with(&image_line)
+                })
+                && (record.outcome != UninstallOutcome::Completed
+                    || (record.installation_operation.is_some()
+                        && record.installed_image.is_some()))
+                && (record.outcome != UninstallOutcome::Pending
+                    || w.active_uninstall_operation.as_deref() == Some(record.operation.as_str())),
+            "daw_workspace_uninstall_history_identity",
+        )?;
+    }
+    require(
+        w.active_installation_operation.as_deref().is_none_or(|op| {
+            w.installations
+                .iter()
+                .any(|i| i.operation == op && i.outcome == InstallationOutcome::Pending)
+        }) && w.active_uninstall_operation.as_deref().is_none_or(|op| {
+            w.uninstalls
+                .iter()
+                .any(|i| i.operation == op && i.outcome == UninstallOutcome::Pending)
+        }) && w
+            .current_installation_operation
+            .as_deref()
+            .is_none_or(|op| {
+                w.installations.iter().any(|i| {
+                    i.operation == op
+                        && matches!(
+                            i.outcome,
+                            InstallationOutcome::Installed | InstallationOutcome::NeedsUserAction
+                        )
+                        && w.installed
+                            .as_ref()
+                            .is_some_and(|app| i.installed_image.as_ref() == Some(&app.executable))
+                })
+            })
+            && (w.installed.is_some() == w.current_installation_operation.is_some())
+            && (w.state != State::Uninstalled
+                || (w.installed.is_none()
+                    && w.active_installation_operation.is_none()
+                    && w.active_uninstall_operation.is_none()))
+            && (w.history_recovery_required
+                || (!w
+                    .installations
+                    .iter()
+                    .any(|record| record.outcome == InstallationOutcome::Unknown)
+                    && !w
+                        .uninstalls
+                        .iter()
+                        .any(|record| record.outcome == UninstallOutcome::Unknown))),
+        "daw_workspace_history_state",
+    )
+}
+
 fn load(m: &Manager) -> Result<Workspace> {
     transition_settled(m)?;
-    let w: Workspace = read_json(&record(m))?;
+    let raw: Value = read_json(&record(m))?;
+    let w: Workspace = match raw["schema"].as_u64() {
+        Some(1) => migrate_legacy(m, serde_json::from_value(raw)?)?,
+        Some(2) => serde_json::from_value(raw)?,
+        _ => return Err("daw_workspace_schema".into()),
+    };
     let root = base(m);
     require(
-        w.schema == 1
+        w.schema == 2
             && valid_hex(&w.id, 32)
             && w.revision >= 1
             && w.application == ApplicationId::FlStudio
-            && valid_hex(&w.installer, 64)
-            && release_syntax(&w.installer_release)
+            && valid_hex(&w.selected_installer.sha256, 64)
+            && release_syntax(&w.selected_installer.release)
             && w.environment.id == w.id
             && w.environment.root == root.join("environment")
             && ((w.environment.revision == 1
@@ -377,17 +739,21 @@ fn load(m: &Manager) -> Result<Workspace> {
             && w.projects == root.join("projects")
             && w.exports == root.join("exports")
             && w.preferences == root.join("preferences")
-            && w.installation_operation
+            && w.active_installation_operation
+                .as_ref()
+                .is_none_or(|v| valid_hex(v, 32))
+            && w.current_installation_operation
                 .as_ref()
                 .is_none_or(|v| valid_hex(v, 32))
             && w.session_operation
                 .as_ref()
                 .is_none_or(|v| valid_hex(v, 32))
-            && w.uninstall_operation
+            && w.active_uninstall_operation
                 .as_ref()
                 .is_none_or(|v| valid_hex(v, 32)),
         "daw_workspace_identity",
     )?;
+    validate_history(&w)?;
     for dir in [
         &m.root.join("daw-workspaces"),
         &root,
@@ -427,8 +793,7 @@ fn load(m: &Manager) -> Result<Workspace> {
         match fs::symlink_metadata(&app.resource_root) {
             Ok(_) => owned_vendor_dir(&app.resource_root)?,
             Err(e)
-                if e.kind() == std::io::ErrorKind::NotFound && w.state == State::Uninstalling =>
-            {},
+                if e.kind() == std::io::ErrorKind::NotFound && w.state == State::Uninstalling => {}
             Err(e) => return Err(e.into()),
         }
     }
@@ -514,7 +879,7 @@ fn select_fl_crypt32_runner(m: &Manager) -> Result<()> {
         "daw_workspace_runner_prestate",
     )?;
     let install_op = w
-        .installation_operation
+        .current_installation_operation
         .as_deref()
         .ok_or("daw_workspace_installer_absent")?;
     require(
@@ -707,22 +1072,28 @@ fn create_exact(m: &Manager, installer: &str, release: &str, runner: Runner) -> 
     };
     atomic_json(&environment.root.join("environment.json"), &environment)?;
     let w = Workspace {
-        schema: 1,
+        schema: 2,
         id,
         revision: 1,
         application: ApplicationId::FlStudio,
-        installer: installer.into(),
-        installer_release: release.into(),
+        selected_installer: InstallerSelection {
+            sha256: installer.into(),
+            release: release.into(),
+        },
         environment,
         runner_manifest: None,
         projects: root.join("projects"),
         exports: root.join("exports"),
         preferences: root.join("preferences"),
         state: State::Imported,
-        installation_operation: None,
+        active_installation_operation: None,
+        installations: Vec::new(),
+        current_installation_operation: None,
         installed: None,
         session_operation: None,
-        uninstall_operation: None,
+        active_uninstall_operation: None,
+        uninstalls: Vec::new(),
+        history_recovery_required: false,
         audio: None,
         first_failure: None,
     };
@@ -744,12 +1115,21 @@ fn supervisor(m: &Manager) -> Result<PathBuf> {
     )?;
     let dir = tooling_root.join("generations").join(&t.generation);
     verify_private_exact(&dir)?;
+    let current = std::env::current_exe()?;
+    let exact_canonical_manager = if current == t.manager.path {
+        false
+    } else {
+        let native_manager = software(m)?.manager;
+        current == native_manager.path
+            && native_manager.sha256 == t.manager.sha256
+            && native_manager.verify().is_ok()
+    };
     require(
         t.manager.path == dir.join("linux-vst-bridge")
             && t.supervisor.path == dir.join("session.py")
             && t.ownership.path == dir.join("ownership.py")
             && t.importer.path == dir.join("import_installer.py")
-            && std::env::current_exe()? == t.manager.path,
+            && (current == t.manager.path || exact_canonical_manager),
         "daw_workspace_unmanaged_tooling",
     )?;
     t.manager.verify()?;
@@ -759,18 +1139,261 @@ fn supervisor(m: &Manager) -> Result<PathBuf> {
     Ok(t.supervisor.path)
 }
 
-fn install(m: &Manager) -> Result<()> {
+fn reserve_install_record(w: &mut Workspace, op: &str) -> Result<()> {
+    require(
+        !w.history_recovery_required
+            && matches!(
+                w.state,
+                State::Imported | State::Uninstalled | State::Failed
+            )
+            && w.installed.is_none()
+            && w.current_installation_operation.is_none()
+            && w.active_installation_operation.is_none()
+            && w.active_uninstall_operation.is_none()
+            && w.installations.len() < 128
+            && valid_hex(op, 32)
+            && !w.installations.iter().any(|record| record.operation == op)
+            && !w.uninstalls.iter().any(|record| record.operation == op),
+        "daw_workspace_install_not_admitted",
+    )?;
+    w.installations.push(InstallationRecord {
+        operation: op.into(),
+        installer: w.selected_installer.clone(),
+        outcome: InstallationOutcome::Pending,
+        installed_image: None,
+        observed_version: None,
+        failure: None,
+    });
+    w.active_installation_operation = Some(op.into());
+    w.state = State::Installing;
+    Ok(())
+}
+
+fn retire_install_record(
+    w: &mut Workspace,
+    op: &str,
+    result_state: &str,
+    installed: Option<InstalledApplication>,
+    absent_failure: &str,
+) -> Result<()> {
+    require(
+        w.active_installation_operation.as_deref() == Some(op)
+            && matches!(result_state, "completed" | "failed" | "cancelled"),
+        "daw_workspace_install_retirement_identity",
+    )?;
+    let attempt = w
+        .installations
+        .iter_mut()
+        .find(|record| record.operation == op)
+        .ok_or("daw_workspace_install_record_absent")?;
+    require(
+        attempt.outcome == InstallationOutcome::Pending,
+        "daw_workspace_install_record_already_retired",
+    )?;
+    w.active_installation_operation = None;
+    if let Some(installed) = installed {
+        require(
+            installed.installer_advertised_release == attempt.installer.release,
+            "daw_workspace_installed_release_binding",
+        )?;
+        attempt.installed_image = Some(installed.executable.clone());
+        attempt.observed_version = installed.observed_file_version.clone();
+        attempt.outcome = if result_state == "completed" {
+            InstallationOutcome::Installed
+        } else {
+            InstallationOutcome::NeedsUserAction
+        };
+        if result_state != "completed" {
+            let failure = "installer_exit_nonzero_application_present".to_owned();
+            attempt.failure = Some(failure.clone());
+            w.first_failure.get_or_insert(failure);
+        }
+        w.installed = Some(installed);
+        w.current_installation_operation = Some(op.into());
+        w.state = if result_state == "completed" {
+            State::Installed
+        } else {
+            State::NeedsUserAction
+        };
+    } else {
+        attempt.outcome = InstallationOutcome::Failed;
+        attempt.failure = Some(absent_failure.into());
+        w.first_failure.get_or_insert_with(|| absent_failure.into());
+        w.state = State::Failed;
+    }
+    Ok(())
+}
+
+fn reserve_uninstall_record(w: &mut Workspace, op: &str) -> Result<()> {
+    let app = w.installed.as_ref().ok_or("daw_workspace_not_installed")?;
+    let install_op = w
+        .current_installation_operation
+        .as_ref()
+        .ok_or("daw_workspace_install_record_absent")?;
+    require(
+        !w.history_recovery_required
+            && w.active_installation_operation.is_none()
+            && w.active_uninstall_operation.is_none()
+            && w.uninstalls.len() < 128
+            && valid_hex(op, 32)
+            && !w.installations.iter().any(|record| record.operation == op)
+            && !w.uninstalls.iter().any(|record| record.operation == op),
+        "daw_workspace_uninstall_not_admitted",
+    )?;
+    w.uninstalls.push(UninstallRecord {
+        operation: op.into(),
+        installation_operation: Some(install_op.clone()),
+        installed_image: Some(app.executable.clone()),
+        outcome: UninstallOutcome::Pending,
+    });
+    w.active_uninstall_operation = Some(op.into());
+    w.session_operation = Some(op.into());
+    w.state = State::Uninstalling;
+    Ok(())
+}
+
+fn retire_uninstall_record(w: &mut Workspace, op: &str) -> Result<()> {
+    require(
+        w.active_uninstall_operation.as_deref() == Some(op) && w.state == State::Uninstalling,
+        "daw_workspace_uninstall_retirement_identity",
+    )?;
+    let attempt = w
+        .uninstalls
+        .iter_mut()
+        .find(|record| record.operation == op)
+        .ok_or("daw_workspace_uninstall_record_absent")?;
+    require(
+        attempt.outcome == UninstallOutcome::Pending,
+        "daw_workspace_uninstall_record_already_retired",
+    )?;
+    attempt.outcome = UninstallOutcome::Completed;
+    w.active_uninstall_operation = None;
+    w.current_installation_operation = None;
+    w.installed = None;
+    w.state = State::Uninstalled;
+    Ok(())
+}
+
+fn selection_admission(
+    w: &Workspace,
+    session_ready: bool,
+    prior_install_active: bool,
+) -> Result<()> {
+    require(
+        !w.history_recovery_required && w.state != State::CleanupUnconfirmed,
+        "daw_workspace_history_recovery_required",
+    )?;
+    require(
+        w.active_installation_operation.is_none() && w.active_uninstall_operation.is_none(),
+        "daw_workspace_operation_active",
+    )?;
+    require(session_ready, "daw_workspace_session_active")?;
+    require(
+        !prior_install_active,
+        "daw_workspace_prior_installer_active",
+    )
+}
+
+fn install_admission(
+    w: &Workspace,
+    session_ready: bool,
+    prior_install_active: bool,
+    image_present: bool,
+) -> Result<()> {
+    selection_admission(w, session_ready, prior_install_active)?;
+    require(
+        matches!(
+            w.state,
+            State::Imported | State::Uninstalled | State::Failed
+        ) && w.installed.is_none()
+            && w.current_installation_operation.is_none(),
+        "daw_workspace_uninstall_required_before_install",
+    )?;
+    require(
+        w.installations.len() < 128,
+        "daw_workspace_install_history_full",
+    )?;
+    require(
+        !image_present,
+        "daw_workspace_unmanaged_or_incomplete_image_present",
+    )
+}
+
+fn apply_installer_selection(
+    w: &mut Workspace,
+    imported: &installer_import::Installer,
+    release: &str,
+) -> Result<bool> {
+    require(
+        release_syntax(release)
+            && imported.format == "pe_executable"
+            && imported.id == imported.artifact.sha256,
+        "daw_workspace_installer_selection_identity",
+    )?;
+    let selected = InstallerSelection {
+        sha256: imported.id.clone(),
+        release: release.into(),
+    };
+    if w.selected_installer == selected {
+        return Ok(false);
+    }
+    w.selected_installer = selected;
+    Ok(true)
+}
+
+fn select_installer(m: &Manager, sha256: &str, release: &str) -> Result<Value> {
+    require(
+        valid_hex(sha256, 64) && release_syntax(release),
+        "daw_workspace_installer_selection_syntax",
+    )?;
     let _guard = m.lock("daw-workspace.lock")?;
     let mut w = load(m)?;
-    require(
-        w.state == State::Imported && w.installation_operation.is_none(),
-        "daw_workspace_install_already_started",
+    let prior_active = w
+        .installations
+        .last()
+        .map(|prior| unit_active(&unit(&prior.operation, true)?))
+        .transpose()?
+        .unwrap_or(false);
+    selection_admission(&w, session_ready(m, &w)?, prior_active)?;
+    let imported = installer_import::load(m, sha256)?;
+    if apply_installer_selection(&mut w, &imported, release)? {
+        save(m, &mut w)?;
+    }
+    Ok(json!({"workspace":w.id,"selected_installer":w.selected_installer,"revision":w.revision}))
+}
+
+fn install(m: &Manager, requested_operation: Option<&str>) -> Result<Value> {
+    let _guard = m.lock("daw-workspace.lock")?;
+    let mut w = load(m)?;
+    let prior_active = w
+        .installations
+        .last()
+        .map(|prior| unit_active(&unit(&prior.operation, true)?))
+        .transpose()?
+        .unwrap_or(false);
+    install_admission(
+        &w,
+        session_ready(m, &w)?,
+        prior_active,
+        !image_roster(&w)?.is_empty(),
     )?;
-    let imported = installer_import::load(m, &w.installer)?;
+    let imported = installer_import::load(m, &w.selected_installer.sha256)?;
+    require(
+        imported.format == "pe_executable",
+        "daw_workspace_requires_pe_installer",
+    )?;
     w.environment.runner.verify()?;
     let sw = software(m)?;
     let owner = supervisor(m)?;
-    let op = random_id()?;
+    let op = requested_operation
+        .map(str::to_owned)
+        .map_or_else(random_id, Ok)?;
+    require(
+        valid_hex(&op, 32)
+            && !w.installations.iter().any(|record| record.operation == op)
+            && !w.uninstalls.iter().any(|record| record.operation == op),
+        "daw_workspace_operation_identity",
+    )?;
     let dir = result_path(m, &op, true)
         .parent()
         .ok_or("daw_workspace_install_dir")?
@@ -783,8 +1406,7 @@ fn install(m: &Manager) -> Result<()> {
         "installer":imported.artifact,"format":imported.format,
         "installer_launch":sw.installer_launch,"report":result_path(m,&op,true)}),
     )?;
-    w.installation_operation = Some(op.clone());
-    w.state = State::Installing;
+    reserve_install_record(&mut w, &op)?;
     save(m, &mut w)?;
     let status = Command::new("systemd-run")
         .args([
@@ -807,17 +1429,17 @@ fn install(m: &Manager) -> Result<()> {
             !unit_active(&unit(&op, true)?)?,
             "daw_workspace_installer_owner_uncertain",
         )?;
-        w.state = State::Failed;
-        w.first_failure
-            .get_or_insert_with(|| "installer_worker_launch_failed".into());
+        retire_install_record(
+            &mut w,
+            &op,
+            "failed",
+            None,
+            "installer_worker_launch_failed",
+        )?;
         save(m, &mut w)?;
         return Err("daw_workspace_installer_launch_failed".into());
     }
-    println!(
-        "{}",
-        json!({"workspace":w.id,"operation":op,"state":"installing"})
-    );
-    Ok(())
+    Ok(json!({"workspace":w.id,"operation":op,"state":"installing"}))
 }
 
 fn pe_machine(path: &Path) -> Result<u16> {
@@ -838,11 +1460,14 @@ fn pe_machine(path: &Path) -> Result<u16> {
     Ok(u16::from_le_bytes(coff[4..6].try_into()?))
 }
 
-fn discover(w: &Workspace) -> Result<InstalledApplication> {
+fn image_roster(w: &Workspace) -> Result<Vec<PathBuf>> {
     let root = w
         .environment
         .root
         .join("compatdata/pfx/drive_c/Program Files/Image-Line");
+    if !root.try_exists()? {
+        return Ok(Vec::new());
+    }
     owned_vendor_dir(&root)?;
     let mut images = Vec::new();
     for (i, entry) in fs::read_dir(&root)?.enumerate() {
@@ -864,6 +1489,11 @@ fn discover(w: &Workspace) -> Result<InstalledApplication> {
             }
         }
     }
+    Ok(images)
+}
+
+fn discover(w: &Workspace, release: &str) -> Result<InstalledApplication> {
+    let mut images = image_roster(w)?;
     require(
         images.len() == 1,
         "daw_workspace_installed_image_ambiguous_or_absent",
@@ -883,43 +1513,71 @@ fn discover(w: &Workspace) -> Result<InstalledApplication> {
             .ok_or("daw_workspace_resource_root")?
             .into(),
         executable,
-        installer_advertised_release: w.installer_release.clone(),
+        installer_advertised_release: release.into(),
         observed_file_version: None,
     })
 }
 
 fn finalize_install(m: &Manager, w: &mut Workspace) -> Result<()> {
-    require(
-        w.state != State::Uninstalled && w.state != State::Uninstalling,
-        "daw_workspace_not_installed",
-    )?;
     if w.installed.is_some() {
         return Ok(());
     }
     let op = w
-        .installation_operation
+        .active_installation_operation
         .as_deref()
-        .ok_or("daw_workspace_not_installed")?;
+        .ok_or("daw_workspace_not_installed")?
+        .to_owned();
     require(
-        !unit_active(&unit(op, true)?)?,
+        !unit_active(&unit(&op, true)?)?,
         "daw_workspace_installer_still_running",
     )?;
-    let v = result(m, op, true)?.ok_or("daw_workspace_install_result_absent")?;
+    let v = result(m, &op, true)?.ok_or("daw_workspace_install_result_absent")?;
     require(retired(&v), "daw_workspace_installer_cleanup_unconfirmed")?;
-    // A helper's nonzero exit does not erase an exact installed application.
-    let installed = discover(w)?;
-    installed.executable.verify()?;
-    w.installed = Some(installed);
-    w.state = if v["state"] == "completed" {
-        State::Installed
+    let index = w
+        .installations
+        .iter()
+        .position(|attempt| attempt.operation == op)
+        .ok_or("daw_workspace_install_record_absent")?;
+    let release = w.installations[index].installer.release.clone();
+    let images = image_roster(w)?;
+    let installed = if images.len() == 1 {
+        Some(discover(w, &release)?)
     } else {
-        State::NeedsUserAction
+        None
     };
-    if v["state"] != "completed" {
-        w.first_failure
-            .get_or_insert_with(|| "installer_exit_nonzero_application_present".into());
+    if images.len() > 1 {
+        w.installations[index].outcome = InstallationOutcome::Unknown;
+        w.installations[index].failure = Some("installed_image_ambiguous".into());
+        w.active_installation_operation = None;
+        w.history_recovery_required = true;
+        w.state = State::Failed;
+        save(m, w)?;
+        return Err("daw_workspace_installed_image_ambiguous".into());
     }
+    if let Some(app) = &installed {
+        app.executable.verify()?;
+    }
+    retire_install_record(
+        w,
+        &op,
+        v["state"]
+            .as_str()
+            .ok_or("daw_workspace_install_result_state")?,
+        installed,
+        v["error"]
+            .as_str()
+            .unwrap_or("installed_image_absent_after_retired_installer"),
+    )?;
     save(m, w)
+}
+
+fn finish_install(m: &Manager) -> Result<Value> {
+    let _guard = m.lock("daw-workspace.lock")?;
+    let mut w = load(m)?;
+    finalize_install(m, &mut w)?;
+    Ok(json!({"workspace":w.id,"state":w.state,
+        "installation_operation":w.current_installation_operation,
+        "installed":w.installed}))
 }
 
 fn session_ready(m: &Manager, w: &Workspace) -> Result<bool> {
@@ -988,6 +1646,13 @@ fn launch(m: &Manager) -> Result<()> {
     let mut w = load(m)?;
     finalize_install(m, &mut w)?;
     require(
+        !w.history_recovery_required
+            && w.state != State::CleanupUnconfirmed
+            && w.active_installation_operation.is_none()
+            && w.active_uninstall_operation.is_none(),
+        "daw_workspace_cleanup_unconfirmed",
+    )?;
+    require(
         session_ready(m, &w)?,
         "daw_workspace_already_running_use_focus",
     )?;
@@ -1047,12 +1712,14 @@ fn launch(m: &Manager) -> Result<()> {
     Ok(())
 }
 
-fn uninstall(m: &Manager) -> Result<()> {
+fn uninstall(m: &Manager, requested_operation: Option<&str>) -> Result<()> {
     let _guard = m.lock("daw-workspace.lock")?;
     let mut w = load(m)?;
     finalize_install(m, &mut w)?;
     require(
-        w.uninstall_operation.is_none(),
+        !w.history_recovery_required
+            && w.active_installation_operation.is_none()
+            && w.active_uninstall_operation.is_none(),
         "daw_workspace_uninstall_already_started",
     )?;
     require(
@@ -1083,7 +1750,10 @@ fn uninstall(m: &Manager) -> Result<()> {
     };
     artifact.verify()?;
     let owner = supervisor(m)?;
-    let op = random_id()?;
+    let op = requested_operation
+        .map(str::to_owned)
+        .map_or_else(random_id, Ok)?;
+    require(valid_hex(&op, 32), "daw_workspace_operation_identity")?;
     let dir = result_path(m, &op, false)
         .parent()
         .ok_or("daw_workspace_uninstall_dir")?
@@ -1098,9 +1768,7 @@ fn uninstall(m: &Manager) -> Result<()> {
         "projects":w.projects,"exports":w.exports},
         "report":result_path(m,&op,false),"mode":"normal","operation_id":op}),
     )?;
-    w.session_operation = Some(op.clone());
-    w.uninstall_operation = Some(op.clone());
-    w.state = State::Uninstalling;
+    reserve_uninstall_record(&mut w, &op)?;
     save(m, &mut w)?;
     let status = Command::new("systemd-run")
         .args([
@@ -1137,7 +1805,7 @@ fn finish_uninstall(m: &Manager) -> Result<()> {
         "daw_workspace_uninstall_not_pending",
     )?;
     let op = w
-        .uninstall_operation
+        .active_uninstall_operation
         .as_deref()
         .ok_or("daw_workspace_uninstall_operation_absent")?
         .to_owned();
@@ -1156,8 +1824,7 @@ fn finish_uninstall(m: &Manager) -> Result<()> {
             .is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound),
         "daw_workspace_application_still_installed",
     )?;
-    w.installed = None;
-    w.state = State::Uninstalled;
+    retire_uninstall_record(&mut w, &op)?;
     save(m, &mut w)?;
     println!(
         "{}",
@@ -1229,12 +1896,45 @@ fn request(m: &Manager, action: &str) -> Result<()> {
     }
 }
 
-fn status(m: &Manager) -> Result<()> {
+fn current_failure(
+    w: &Workspace,
+    state: State,
+    cleanup: &str,
+    unmanaged_image_present: bool,
+    session_result: Option<&Value>,
+) -> Option<String> {
+    if unmanaged_image_present {
+        Some("FL files are present without a current manager-owned installation".to_owned())
+    } else if cleanup == "cleanup_unconfirmed" {
+        Some("Workspace ownership or history needs recovery".to_owned())
+    } else if matches!(state, State::Failed | State::NeedsUserAction) {
+        w.installations
+            .last()
+            .and_then(|record| record.failure.clone())
+            .or_else(|| session_result.and_then(|v| v["error"].as_str().map(str::to_owned)))
+    } else {
+        None
+    }
+}
+
+fn read_status(m: &Manager) -> Result<Value> {
     let w = load(m)?;
-    let install_result = match &w.installation_operation {
-        Some(op) => result(m, op, true)?,
-        None => None,
-    };
+    let installation_history: Vec<Value> = w
+        .installations
+        .iter()
+        .map(|record| Ok(json!({"record":record,"result":result(m,&record.operation,true)?})))
+        .collect::<Result<_>>()?;
+    let uninstall_history: Vec<Value> = w
+        .uninstalls
+        .iter()
+        .map(|record| Ok(json!({"record":record,"result":result(m,&record.operation,false)?})))
+        .collect::<Result<_>>()?;
+    let install_result = w
+        .installations
+        .last()
+        .map(|record| result(m, &record.operation, true))
+        .transpose()?
+        .flatten();
     let session_result = match &w.session_operation {
         Some(op) => result(m, op, false)?,
         None => None,
@@ -1243,23 +1943,49 @@ fn status(m: &Manager) -> Result<()> {
         Some(op) => unit_active(&unit(op, false)?)?,
         None => false,
     };
-    let install_active = match &w.installation_operation {
+    let install_active = match &w.active_installation_operation {
         Some(op) => unit_active(&unit(op, true)?)?,
         None => false,
     };
-    let detected_installed = if w.installed.is_none()
-        && w.uninstall_operation.is_none()
+    let uninstall_active = match &w.active_uninstall_operation {
+        Some(op) => unit_active(&unit(op, false)?)?,
+        None => false,
+    };
+    let detected_installed = if w.active_installation_operation.is_some()
+        && w.installed.is_none()
         && !install_active
         && install_result.as_ref().is_some_and(retired)
     {
-        discover(&w).ok()
+        w.installations
+            .last()
+            .and_then(|record| discover(&w, &record.installer.release).ok())
     } else {
         None
     };
-    let cleanup = if owner_active || install_active {
+    let unmanaged_image_present = w.installed.is_none()
+        && w.active_installation_operation.is_none()
+        && !image_roster(&w)?.is_empty();
+    let active_install_result = w
+        .active_installation_operation
+        .as_ref()
+        .map(|op| result(m, op, true))
+        .transpose()?
+        .flatten();
+    let active_uninstall_result = w
+        .active_uninstall_operation
+        .as_ref()
+        .map(|op| result(m, op, false))
+        .transpose()?
+        .flatten();
+    let cleanup = if owner_active || install_active || uninstall_active {
         "running"
-    } else if (w.session_operation.is_some() && !session_result.as_ref().is_some_and(retired))
-        || (w.installation_operation.is_some() && !install_result.as_ref().is_some_and(retired))
+    } else if w.history_recovery_required
+        || w.state == State::CleanupUnconfirmed
+        || (w.session_operation.is_some() && !session_result.as_ref().is_some_and(retired))
+        || (w.active_installation_operation.is_some()
+            && !active_install_result.as_ref().is_some_and(retired))
+        || (w.active_uninstall_operation.is_some()
+            && !active_uninstall_result.as_ref().is_some_and(retired))
     {
         "cleanup_unconfirmed"
     } else {
@@ -1267,9 +1993,9 @@ fn status(m: &Manager) -> Result<()> {
     };
     let effective_state = if cleanup == "cleanup_unconfirmed" {
         State::CleanupUnconfirmed
-    } else if w.state == State::Uninstalled {
-        State::Uninstalled
-    } else if w.state == State::Uninstalling {
+    } else if install_active || w.active_installation_operation.is_some() {
+        State::Installing
+    } else if uninstall_active || w.active_uninstall_operation.is_some() {
         State::Uninstalling
     } else if owner_active && w.state == State::Stopping {
         State::Stopping
@@ -1281,28 +2007,15 @@ fn status(m: &Manager) -> Result<()> {
         State::Running
     } else if owner_active {
         State::Starting
-    } else if install_active {
-        State::Installing
-    } else if session_result
-        .as_ref()
-        .is_some_and(|v| v["state"] == "failed")
+    } else if unmanaged_image_present
+        || (w.state == State::Failed
+            && session_result
+                .as_ref()
+                .is_some_and(|v| v["state"] == "failed"))
     {
         State::Failed
-    } else if detected_installed.is_some() {
-        if install_result
-            .as_ref()
-            .is_some_and(|v| v["state"] == "completed")
-        {
-            if desktop_prerequisites().is_ok() {
-                State::Ready
-            } else {
-                State::Installed
-            }
-        } else {
-            State::NeedsUserAction
-        }
-    } else if w.installation_operation.is_some() && w.installed.is_none() {
-        State::Failed
+    } else if w.state == State::Uninstalled {
+        State::Uninstalled
     } else if w.installed.is_some() && w.state == State::NeedsUserAction {
         State::NeedsUserAction
     } else if w.installed.is_some() {
@@ -1314,19 +2027,31 @@ fn status(m: &Manager) -> Result<()> {
     } else {
         w.state
     };
-    let observed_failure = w
-        .first_failure
-        .as_deref()
-        .or_else(|| session_result.as_ref().and_then(|v| v["error"].as_str()))
-        .or_else(|| install_result.as_ref().and_then(|v| v["error"].as_str()));
-    println!(
-        "{}",
-        json!({"schema":1,"workspace":w,"installer_result":install_result,
-        "installer_active":install_active,"session_result":session_result,
+    let current_failure = current_failure(
+        &w,
+        effective_state,
+        cleanup,
+        unmanaged_image_present,
+        session_result.as_ref(),
+    );
+    Ok(
+        json!({"schema":2,"workspace":w,"selected_installer":w.selected_installer,
+        "current_installed_application":w.installed,
+        "active_installation_operation":w.active_installation_operation,
+        "active_uninstall_operation":w.active_uninstall_operation,
+        "installer_result":install_result,"installation_history":installation_history,
+        "uninstall_history":uninstall_history,"installer_active":install_active,
+        "uninstall_active":uninstall_active,"session_result":session_result,
         "owner_active":owner_active,"cleanup":cleanup,"effective_state":effective_state,
         "detected_installed_not_committed":detected_installed,
-        "first_useful_failure":observed_failure})
-    );
+        "unmanaged_image_present":unmanaged_image_present,
+        "first_useful_failure":current_failure,
+        "historical_first_failure":w.first_failure}),
+    )
+}
+
+fn status(m: &Manager) -> Result<()> {
+    println!("{}", read_status(m)?);
     Ok(())
 }
 
@@ -1389,12 +2114,219 @@ fn record_installed_version(m: &Manager, version: &str, image_sha: &str) -> Resu
         "daw_workspace_installed_version_conflict",
     )?;
     installed.observed_file_version = Some(version.to_owned());
+    let operation = w
+        .current_installation_operation
+        .as_deref()
+        .ok_or("daw_workspace_install_record_absent")?;
+    let history = w
+        .installations
+        .iter_mut()
+        .find(|record| record.operation == operation)
+        .ok_or("daw_workspace_install_record_absent")?;
+    history.observed_version = Some(version.to_owned());
     save(m, &mut w)?;
     println!(
         "{}",
         json!({"file_version":version,"image_sha256":image_sha})
     );
     Ok(())
+}
+
+fn offer(label: &str, action: ui::Action, reason: Option<String>) -> ui::AvailableAction {
+    ui::AvailableAction {
+        label: label.into(),
+        action,
+        disabled_reason: reason,
+    }
+}
+
+pub(super) fn projection(
+    m: &Manager,
+    imported: &[ui::Onboarding],
+) -> Result<Vec<ui::DawWorkspace>> {
+    if !record(m).try_exists()? {
+        return Ok(Vec::new());
+    }
+    let w = load(m)?;
+    let details = read_status(m)?;
+    let cleanup = details["cleanup"].as_str().unwrap_or("cleanup_unconfirmed");
+    let owner_active = details["owner_active"] == true;
+    let installer_active = details["installer_active"] == true;
+    let unmanaged_image = details["unmanaged_image_present"] == true;
+    let active_uninstall = details["uninstall_active"] == true;
+    let prior_active = w
+        .installations
+        .last()
+        .map(|prior| unit_active(&unit(&prior.operation, true)?))
+        .transpose()?
+        .unwrap_or(false);
+    let selection_reason = if cleanup == "confirmed" {
+        selection_admission(&w, !owner_active, prior_active)
+            .err()
+            .map(|e| e.to_string())
+    } else {
+        Some("Workspace cleanup or history is not confirmed".into())
+    };
+    let mut choices = Vec::new();
+    let mut seen = BTreeSet::new();
+    for row in imported {
+        if row.format != "pe_executable" || !seen.insert(row.installer.as_str()) {
+            continue;
+        }
+        choices.push(offer(
+            &format!(
+                "Choose imported installer {}",
+                row.installer.get(..12).unwrap_or(&row.installer)
+            ),
+            ui::Action::WorkspaceSelectInstaller {
+                installer: row.installer.clone(),
+                release: String::new(),
+            },
+            selection_reason.clone(),
+        ));
+    }
+    let selected_in_custody = seen.contains(w.selected_installer.sha256.as_str());
+    let install_reason = if cleanup != "confirmed" {
+        Some("Workspace cleanup or history is not confirmed".into())
+    } else if !selected_in_custody {
+        Some("Selected installer is absent from canonical custody".into())
+    } else {
+        install_admission(&w, !owner_active, prior_active, unmanaged_image)
+            .err()
+            .map(|e| e.to_string())
+    };
+    let mut actions = Vec::new();
+    if w.installed.is_none() && w.active_installation_operation.is_none() {
+        actions.push(offer(
+            "Install selected version",
+            ui::Action::WorkspaceInstall {},
+            install_reason,
+        ));
+    }
+    if w.active_installation_operation.is_some() {
+        let can_finish = !installer_active
+            && details["installer_result"]
+                .as_object()
+                .is_some_and(|_| retired(&details["installer_result"]));
+        actions.push(offer(
+            "Complete installation readback",
+            ui::Action::WorkspaceFinishInstall {},
+            (!can_finish).then(|| "Installer is still active or cleanup is unconfirmed".into()),
+        ));
+    }
+    if w.installed.is_some() && w.active_uninstall_operation.is_none() {
+        let ready = cleanup == "confirmed"
+            && !owner_active
+            && !installer_active
+            && desktop_prerequisites().is_ok();
+        let launch_reason = (!ready)
+            .then(|| "Close the FL session and confirm cleanup and desktop readiness first".into());
+        actions.push(offer(
+            "Launch FL Studio",
+            ui::Action::WorkspaceLaunch {},
+            launch_reason.clone(),
+        ));
+        actions.push(offer(
+            "Uninstall FL Studio",
+            ui::Action::WorkspaceUninstall {},
+            if w.uninstalls.len() >= 128 {
+                Some("Workspace uninstall history is full; recovery is required".into())
+            } else {
+                launch_reason
+            },
+        ));
+    }
+    if w.active_uninstall_operation.is_some() {
+        let can_finish = !active_uninstall
+            && details["uninstall_history"]
+                .as_array()
+                .and_then(|history| history.last())
+                .is_some_and(|entry| {
+                    retired(&entry["result"]) && entry["result"]["state"] == "completed"
+                })
+            && w.installed.as_ref().is_some_and(|app| {
+                fs::symlink_metadata(&app.executable.path)
+                    .is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound)
+            });
+        actions.push(offer(
+            "Complete uninstall readback",
+            ui::Action::WorkspaceFinishUninstall {},
+            (!can_finish).then(|| "Uninstaller is still active or removal is not confirmed".into()),
+        ));
+    }
+    if owner_active {
+        actions.push(offer(
+            "Focus FL Studio",
+            ui::Action::WorkspaceFocus {},
+            None,
+        ));
+        actions.push(offer(
+            "Close FL Studio gracefully",
+            ui::Action::WorkspaceStop {},
+            None,
+        ));
+    }
+    let installed_advertised_release = w
+        .installed
+        .as_ref()
+        .map(|app| app.installer_advertised_release.clone());
+    let observed_file_version = w
+        .installed
+        .as_ref()
+        .and_then(|app| app.observed_file_version.clone());
+    Ok(vec![ui::DawWorkspace {
+        id: w.id,
+        name: "FL Studio".into(),
+        state: details["effective_state"]
+            .as_str()
+            .unwrap_or("cleanup_unconfirmed")
+            .into(),
+        selected_installer: w.selected_installer.sha256,
+        selected_release: w.selected_installer.release,
+        installed_advertised_release,
+        observed_file_version,
+        installed_image_sha256: w
+            .installed
+            .as_ref()
+            .map(|app| app.executable.sha256.clone()),
+        active_installation_operation: w.active_installation_operation,
+        cleanup: cleanup.into(),
+        first_useful_failure: details["first_useful_failure"].as_str().map(str::to_owned),
+        actions,
+        installer_choices: choices,
+        details,
+    }])
+}
+
+pub(super) fn execute_action(m: &Manager, action: &ui::Action, operation: &str) -> Result<Value> {
+    match action {
+        ui::Action::WorkspaceSelectInstaller { installer, release } => {
+            select_installer(m, installer, release)
+        }
+        ui::Action::WorkspaceInstall {} => install(m, Some(operation)),
+        ui::Action::WorkspaceFinishInstall {} => finish_install(m),
+        ui::Action::WorkspaceLaunch {} => {
+            launch(m)?;
+            read_status(m)
+        }
+        ui::Action::WorkspaceUninstall {} => {
+            uninstall(m, Some(operation))?;
+            read_status(m)
+        }
+        ui::Action::WorkspaceFinishUninstall {} => {
+            finish_uninstall(m)?;
+            read_status(m)
+        }
+        ui::Action::WorkspaceFocus {} => {
+            request(m, "focus")?;
+            read_status(m)
+        }
+        ui::Action::WorkspaceStop {} => {
+            request(m, "stop")?;
+            read_status(m)
+        }
+        _ => Err("daw_workspace_action_not_supported".into()),
+    }
 }
 
 pub fn run(m: &Manager, args: &[String]) -> Result<()> {
@@ -1405,8 +2337,19 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
             Ok(())
         }
         [action, id, release] if action == "create" => create(m, id, release),
-        [action] if action == "install" => install(m),
-        [action] if action == "uninstall" => uninstall(m),
+        [action, sha256, release] if action == "select-installer" => {
+            println!("{}", select_installer(m, sha256, release)?);
+            Ok(())
+        }
+        [action] if action == "install" => {
+            println!("{}", install(m, None)?);
+            Ok(())
+        }
+        [action] if action == "finish-install" => {
+            println!("{}", finish_install(m)?);
+            Ok(())
+        }
+        [action] if action == "uninstall" => uninstall(m, None),
         [action] if action == "finish-uninstall" => finish_uninstall(m),
         [action] if action == "select-fl-crypt32-runner" => select_fl_crypt32_runner(m),
         [action] if action == "launch" => launch(m),
@@ -1415,7 +2358,7 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
         [action] if action == "status" => status(m),
         [action, rest @ ..] if action == "record-audio" => record_audio(m, rest),
         [action, version, image_sha] if action == "record-installed-version" => record_installed_version(m, version, image_sha),
-        _ => Err("Usage: workspace import | create INSTALLER_SHA RELEASE | install | uninstall | finish-uninstall | select-fl-crypt32-runner | launch | focus | status | stop | record-audio BACKEND RATE BUFFER ENDPOINT audible|not-audible | record-installed-version VERSION IMAGE_SHA".into()),
+        _ => Err("Usage: workspace import | create INSTALLER_SHA RELEASE | select-installer INSTALLER_SHA RELEASE | install | finish-install | uninstall | finish-uninstall | select-fl-crypt32-runner | launch | focus | status | stop | record-audio BACKEND RATE BUFFER ENDPOINT audible|not-audible | record-installed-version VERSION IMAGE_SHA".into()),
     }
 }
 
@@ -1424,11 +2367,55 @@ mod tests {
     use super::*;
     use std::os::unix::fs::symlink;
     use std::os::unix::net::UnixListener;
+
+    fn fixture_workspace(f: &crate::test_fixture::Fixture, installer: &str) -> Workspace {
+        let mut runner = f.r.environment.runner.clone();
+        runner.id = STANDARD_RUNNER.into();
+        create_exact(&f.m, installer, "26.1.6.0", runner).unwrap()
+    }
+
+    fn fixture_app(w: &Workspace, release: &str, seed: u8) -> InstalledApplication {
+        let resource_root = w
+            .environment
+            .root
+            .join("compatdata/pfx/drive_c/Program Files/Image-Line/FL Studio fixture");
+        fs::create_dir_all(&resource_root).unwrap();
+        let executable = resource_root.join("FL64.exe");
+        let mut bytes = vec![seed; 1024];
+        bytes[..2].copy_from_slice(b"MZ");
+        bytes[60..64].copy_from_slice(&128u32.to_le_bytes());
+        bytes[128..132].copy_from_slice(b"PE\0\0");
+        bytes[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        fs::write(&executable, bytes).unwrap();
+        InstalledApplication {
+            executable: Artifact {
+                path: executable.clone(),
+                sha256: digest(&executable).unwrap(),
+            },
+            installer_advertised_release: release.into(),
+            observed_file_version: None,
+            resource_root,
+        }
+    }
+
+    fn imported_fixture(f: &crate::test_fixture::Fixture, seed: u8) -> installer_import::Installer {
+        let path = f.outer.join(format!("fl-installer-{seed}.exe"));
+        let mut bytes = vec![seed; 1024];
+        bytes[..2].copy_from_slice(b"MZ");
+        bytes[60..64].copy_from_slice(&128u32.to_le_bytes());
+        bytes[128..132].copy_from_slice(b"PE\0\0");
+        bytes[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        bytes[148..150].copy_from_slice(&224u16.to_le_bytes());
+        bytes[150..152].copy_from_slice(&2u16.to_le_bytes());
+        bytes[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+        fs::write(&path, bytes).unwrap();
+        installer_import::import(&f.m, fs::File::open(path).unwrap()).unwrap()
+    }
     #[test]
     fn closed_workspace_and_release_grammar() {
         assert_eq!(APP, "fl-studio");
         assert!(release_syntax("26.1.6.0"));
-        for value in ["", "latest", "26.1;run", "26/1"] {
+        for value in ["", "latest", "26.1;run", "26/1", "26..1", ".26.1", "26.1."] {
             assert!(!release_syntax(value));
         }
         assert!(unit("a".repeat(32).as_str(), false)
@@ -1550,12 +2537,14 @@ mod tests {
         bytes[128..132].copy_from_slice(b"PE\0\0");
         bytes[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
         fs::write(&pe, bytes).unwrap();
-        let app = discover(&w).unwrap();
+        let app = discover(&w, "26.1.6.0").unwrap();
         assert_eq!(app.executable.path, pe);
         assert_eq!(app.installer_advertised_release, "26.1.6.0");
         assert_eq!(app.observed_file_version, None);
         let image_sha = app.executable.sha256.clone();
-        w.installed = Some(app);
+        let op = "11".repeat(16);
+        reserve_install_record(&mut w, &op).unwrap();
+        retire_install_record(&mut w, &op, "completed", Some(app), "unused").unwrap();
         save(&f.m, &mut w).unwrap();
         assert!(record_installed_version(&f.m, "26.1.6.5639", &"cd".repeat(32)).is_err());
         record_installed_version(&f.m, "26.1.6.5639", &image_sha).unwrap();
@@ -1568,5 +2557,391 @@ mod tests {
                 .as_deref(),
             Some("26.1.6.5639")
         );
+    }
+
+    #[test]
+    fn clean_uninstall_allows_same_version_reinstall_with_new_operation() {
+        let f = crate::test_fixture::Fixture::new();
+        let a = imported_fixture(&f, 11);
+        let mut w = fixture_workspace(&f, &a.id);
+        let identity = (
+            w.id.clone(),
+            w.environment.clone(),
+            w.projects.clone(),
+            w.preferences.clone(),
+            w.exports.clone(),
+        );
+        let native_before = fs::read(f.m.root.join("registry.json")).ok();
+        let first = "11".repeat(16);
+        let removal = "22".repeat(16);
+        let second = "33".repeat(16);
+        reserve_install_record(&mut w, &first).unwrap();
+        let app = fixture_app(&w, "26.1.6.0", 1);
+        retire_install_record(&mut w, &first, "completed", Some(app.clone()), "unused").unwrap();
+        let first_record = w.installations[0].clone();
+        reserve_uninstall_record(&mut w, &removal).unwrap();
+        fs::remove_file(&app.executable.path).unwrap();
+        retire_uninstall_record(&mut w, &removal).unwrap();
+        assert_eq!(w.state, State::Uninstalled);
+        assert!(w.installed.is_none());
+        assert_eq!(w.installations[0], first_record);
+        assert!(!apply_installer_selection(
+            &mut w,
+            &installer_import::load(&f.m, &a.id).unwrap(),
+            "26.1.6.0"
+        )
+        .unwrap());
+        install_admission(&w, true, false, !image_roster(&w).unwrap().is_empty()).unwrap();
+        reserve_install_record(&mut w, &second).unwrap();
+        let app = fixture_app(&w, "26.1.6.0", 2);
+        retire_install_record(&mut w, &second, "completed", Some(app), "unused").unwrap();
+        save(&f.m, &mut w).unwrap();
+        let current = load(&f.m).unwrap();
+        assert_ne!(first, second);
+        assert_eq!(current.installations.len(), 2);
+        assert_eq!(current.installations[0], first_record);
+        assert_eq!(current.uninstalls[0].operation, removal);
+        assert_eq!(
+            current.current_installation_operation.as_deref(),
+            Some(second.as_str())
+        );
+        assert_eq!(
+            (
+                current.id,
+                current.environment,
+                current.projects,
+                current.preferences,
+                current.exports
+            ),
+            identity
+        );
+        assert_eq!(fs::read(f.m.root.join("registry.json")).ok(), native_before);
+    }
+
+    #[test]
+    fn admitted_version_change_keeps_a_history_and_workspace_roots() {
+        let f = crate::test_fixture::Fixture::new();
+        let a = imported_fixture(&f, 21);
+        let b = imported_fixture(&f, 22);
+        let mut w = fixture_workspace(&f, &a.id);
+        let roots = (
+            w.id.clone(),
+            w.environment.clone(),
+            w.projects.clone(),
+            w.preferences.clone(),
+            w.exports.clone(),
+        );
+        let first = "41".repeat(16);
+        reserve_install_record(&mut w, &first).unwrap();
+        let app_a = fixture_app(&w, "26.1.6.0", 3);
+        retire_install_record(&mut w, &first, "completed", Some(app_a.clone()), "unused").unwrap();
+        let old = w.installations[0].clone();
+        let removal = "42".repeat(16);
+        reserve_uninstall_record(&mut w, &removal).unwrap();
+        fs::remove_file(&app_a.executable.path).unwrap();
+        retire_uninstall_record(&mut w, &removal).unwrap();
+        let verified_b = installer_import::load(&f.m, &b.id).unwrap();
+        assert!(apply_installer_selection(&mut w, &verified_b, "27.0.0.0").unwrap());
+        let second = "43".repeat(16);
+        reserve_install_record(&mut w, &second).unwrap();
+        let app_b = fixture_app(&w, "27.0.0.0", 4);
+        retire_install_record(&mut w, &second, "completed", Some(app_b.clone()), "unused").unwrap();
+        assert_eq!(w.selected_installer.sha256, b.id);
+        assert_eq!(w.selected_installer.release, "27.0.0.0");
+        assert_eq!(
+            w.installed.as_ref().unwrap().installer_advertised_release,
+            "27.0.0.0"
+        );
+        assert_eq!(w.installed.as_ref().unwrap().executable, app_b.executable);
+        assert_eq!(w.installations[0], old);
+        assert_eq!(w.installations[1].installer.sha256, b.id);
+        assert_eq!(
+            (w.id, w.environment, w.projects, w.preferences, w.exports),
+            roots
+        );
+    }
+
+    #[test]
+    fn repeatable_workspace_lifecycle_leaves_native_authority_files_unchanged() {
+        let f = crate::test_fixture::Fixture::new();
+        let a = imported_fixture(&f, 23);
+        let b = imported_fixture(&f, 24);
+        let mut w = fixture_workspace(&f, &a.id);
+        let publications = [
+            "Pure LoFi",
+            "Efx FRAGMENTS",
+            "Pigments",
+            "Serum 2",
+            "Blackhole",
+            "Kontakt",
+        ];
+        fs::create_dir_all(&f.m.publications).unwrap();
+        fs::create_dir_all(f.m.root.join("policies")).unwrap();
+        fs::create_dir_all(f.m.root.join("candidates")).unwrap();
+        let mut native_paths = vec![
+            f.m.root.join("registry.json"),
+            f.m.root.join("software.json"),
+            f.m.root.join("policies/x11_touch_routing_v2.json"),
+            f.m.root.join("candidates/serum-candidate-d.json"),
+        ];
+        native_paths.extend(publications.iter().map(|name| f.m.publications.join(name)));
+        for (index, path) in native_paths.iter().enumerate() {
+            fs::write(path, format!("native authority canary {index}")).unwrap();
+        }
+        let before: Vec<_> = native_paths
+            .iter()
+            .map(|path| fs::read(path).unwrap())
+            .collect();
+        let first = "44".repeat(16);
+        reserve_install_record(&mut w, &first).unwrap();
+        let installed_a = fixture_app(&w, "26.1.6.0", 9);
+        retire_install_record(
+            &mut w,
+            &first,
+            "completed",
+            Some(installed_a.clone()),
+            "unused",
+        )
+        .unwrap();
+        reserve_uninstall_record(&mut w, &"45".repeat(16)).unwrap();
+        fs::remove_file(&installed_a.executable.path).unwrap();
+        retire_uninstall_record(&mut w, &"45".repeat(16)).unwrap();
+        apply_installer_selection(
+            &mut w,
+            &installer_import::load(&f.m, &b.id).unwrap(),
+            "27.0.0.0",
+        )
+        .unwrap();
+        let second = "46".repeat(16);
+        reserve_install_record(&mut w, &second).unwrap();
+        let installed_b = fixture_app(&w, "27.0.0.0", 10);
+        retire_install_record(&mut w, &second, "completed", Some(installed_b), "unused").unwrap();
+        save(&f.m, &mut w).unwrap();
+        for (path, bytes) in native_paths.iter().zip(before) {
+            assert_eq!(fs::read(path).unwrap(), bytes, "{} changed", path.display());
+        }
+    }
+
+    #[test]
+    fn two_install_and_uninstall_cycles_keep_both_exact_histories() {
+        let f = crate::test_fixture::Fixture::new();
+        let mut w = fixture_workspace(&f, &"ab".repeat(32));
+        let mut expected_installs = Vec::new();
+        let mut expected_uninstalls = Vec::new();
+        for (index, install_op, uninstall_op) in [
+            (1, "91".repeat(16), "92".repeat(16)),
+            (2, "93".repeat(16), "94".repeat(16)),
+        ] {
+            reserve_install_record(&mut w, &install_op).unwrap();
+            let app = fixture_app(&w, "26.1.6.0", index);
+            retire_install_record(&mut w, &install_op, "completed", Some(app.clone()), "unused")
+                .unwrap();
+            expected_installs.push(w.installations.last().unwrap().clone());
+            reserve_uninstall_record(&mut w, &uninstall_op).unwrap();
+            fs::remove_file(&app.executable.path).unwrap();
+            retire_uninstall_record(&mut w, &uninstall_op).unwrap();
+            expected_uninstalls.push(w.uninstalls.last().unwrap().clone());
+        }
+        save(&f.m, &mut w).unwrap();
+        let reloaded = load(&f.m).unwrap();
+        assert_eq!(reloaded.state, State::Uninstalled);
+        assert_eq!(reloaded.installations, expected_installs);
+        assert_eq!(reloaded.uninstalls, expected_uninstalls);
+        assert_eq!(reloaded.installations.len(), 2);
+        assert_eq!(reloaded.uninstalls.len(), 2);
+    }
+
+    #[test]
+    fn selection_and_install_refuse_live_or_uncertain_ownership() {
+        let f = crate::test_fixture::Fixture::new();
+        let mut w = fixture_workspace(&f, &"ab".repeat(32));
+        assert!(selection_admission(&w, false, false).is_err());
+        assert!(selection_admission(&w, true, true).is_err());
+        assert!(install_admission(&w, true, false, true).is_err());
+        let first = "51".repeat(16);
+        reserve_install_record(&mut w, &first).unwrap();
+        assert!(selection_admission(&w, true, false).is_err());
+        assert!(install_admission(&w, true, false, false).is_err());
+        let app = fixture_app(&w, "26.1.6.0", 5);
+        retire_install_record(&mut w, &first, "completed", Some(app), "unused").unwrap();
+        let removal = "52".repeat(16);
+        reserve_uninstall_record(&mut w, &removal).unwrap();
+        assert!(selection_admission(&w, true, false).is_err());
+        assert!(install_admission(&w, true, false, false).is_err());
+        retire_uninstall_record(&mut w, &removal).unwrap();
+        w.state = State::CleanupUnconfirmed;
+        assert!(selection_admission(&w, true, false).is_err());
+        w.state = State::Uninstalled;
+        w.history_recovery_required = true;
+        assert!(selection_admission(&w, true, false).is_err());
+        assert!(install_admission(&w, true, false, false).is_err());
+    }
+
+    #[test]
+    fn retired_failed_install_can_retry_without_erasing_failure() {
+        let f = crate::test_fixture::Fixture::new();
+        let mut w = fixture_workspace(&f, &"ab".repeat(32));
+        let first = "61".repeat(16);
+        reserve_install_record(&mut w, &first).unwrap();
+        retire_install_record(&mut w, &first, "failed", None, "first_failure_exact").unwrap();
+        assert_eq!(w.state, State::Failed);
+        assert_eq!(
+            w.installations[0].failure.as_deref(),
+            Some("first_failure_exact")
+        );
+        install_admission(&w, true, false, false).unwrap();
+        let second = "62".repeat(16);
+        reserve_install_record(&mut w, &second).unwrap();
+        let app = fixture_app(&w, "26.1.6.0", 6);
+        retire_install_record(&mut w, &second, "completed", Some(app), "unused").unwrap();
+        assert_eq!(w.installations.len(), 2);
+        assert_eq!(w.installations[0].outcome, InstallationOutcome::Failed);
+        assert_eq!(
+            w.installations[0].failure.as_deref(),
+            Some("first_failure_exact")
+        );
+        assert_eq!(w.installations[1].outcome, InstallationOutcome::Installed);
+        assert_eq!(w.first_failure.as_deref(), Some("first_failure_exact"));
+        assert_eq!(
+            current_failure(&w, State::Installed, "confirmed", false, None),
+            None
+        );
+        assert_eq!(
+            w.installations[0].failure.as_deref(),
+            Some("first_failure_exact")
+        );
+    }
+
+    #[test]
+    fn schema_one_clean_uninstall_migrates_without_erasing_receipts() {
+        let f = crate::test_fixture::Fixture::new();
+        let a = imported_fixture(&f, 31);
+        let w = fixture_workspace(&f, &a.id);
+        let first = "71".repeat(16);
+        let removal = "72".repeat(16);
+        let app = fixture_app(&w, "26.1.6.0", 7);
+        let install_dir = result_path(&f.m, &first, true)
+            .parent()
+            .unwrap()
+            .to_path_buf();
+        let uninstall_dir = result_path(&f.m, &removal, false)
+            .parent()
+            .unwrap()
+            .to_path_buf();
+        private_exact(&install_dir).unwrap();
+        private_exact(&uninstall_dir).unwrap();
+        atomic_json(
+            &install_dir.join("spec.json"),
+            &json!({"operation":first,
+            "installer":a.artifact,"environment":w.environment,
+            "report":result_path(&f.m,&first,true)}),
+        )
+        .unwrap();
+        atomic_json(
+            &result_path(&f.m, &first, true),
+            &json!({"operation":first,
+            "state":"failed","cleanup_confirmed":true,"owned_live":0,
+            "error":"first_installer_exit"}),
+        )
+        .unwrap();
+        atomic_json(
+            &uninstall_dir.join("spec.json"),
+            &json!({
+            "kind":"daw_workspace_uninstall","operation_id":removal,
+            "report":result_path(&f.m,&removal,false),
+            "application":{"id":"fl_studio","environment":w.environment,
+                "installed_image":app.executable,"projects":w.projects,
+                "preferences":w.preferences,"exports":w.exports}}),
+        )
+        .unwrap();
+        atomic_json(
+            &result_path(&f.m, &removal, false),
+            &json!({
+            "operation_id":removal,"state":"completed","cleanup_confirmed":true,
+            "owned_live":0}),
+        )
+        .unwrap();
+        fs::remove_file(&app.executable.path).unwrap();
+        atomic_json(
+            &record(&f.m),
+            &json!({"schema":1,"id":w.id,
+            "revision":12,"application":"fl_studio","installer":a.id,
+            "installer_release":"26.1.6.0","environment":w.environment,
+            "runner_manifest":null,"projects":w.projects,"exports":w.exports,
+            "preferences":w.preferences,"state":"uninstalled",
+            "installation_operation":first,"installed":null,"audio":null,
+            "session_operation":removal,"uninstall_operation":removal,
+            "first_failure":"installer_exit_nonzero_application_present"}),
+        )
+        .unwrap();
+        let old_record = fs::read(record(&f.m)).unwrap();
+        let old_install_receipt = fs::read(result_path(&f.m, &first, true)).unwrap();
+        let old_uninstall_receipt = fs::read(result_path(&f.m, &removal, false)).unwrap();
+        let mut migrated = load(&f.m).unwrap();
+        assert_eq!(migrated.schema, 2);
+        assert_eq!(migrated.id, w.id);
+        assert_eq!(migrated.environment, w.environment);
+        assert_eq!(migrated.state, State::Uninstalled);
+        assert!(!migrated.history_recovery_required);
+        assert_eq!(migrated.installations[0].operation, first);
+        assert_eq!(
+            migrated.installations[0].outcome,
+            InstallationOutcome::NeedsUserAction
+        );
+        assert_eq!(migrated.uninstalls[0].operation, removal);
+        assert_eq!(migrated.uninstalls[0].outcome, UninstallOutcome::Completed);
+        assert_eq!(fs::read(record(&f.m)).unwrap(), old_record);
+        let verified_a = installer_import::load(&f.m, &a.id).unwrap();
+        assert!(!apply_installer_selection(&mut migrated, &verified_a, "26.1.6.0").unwrap());
+        reserve_install_record(&mut migrated, &"73".repeat(16)).unwrap();
+        save(&f.m, &mut migrated).unwrap();
+        let reloaded = load(&f.m).unwrap();
+        assert_eq!(reloaded.installations.len(), 2);
+        assert_eq!(reloaded.installations[0].operation, first);
+        assert_eq!(
+            fs::read(result_path(&f.m, &first, true)).unwrap(),
+            old_install_receipt
+        );
+        assert_eq!(
+            fs::read(result_path(&f.m, &removal, false)).unwrap(),
+            old_uninstall_receipt
+        );
+    }
+
+    #[test]
+    fn missing_schema_one_receipt_is_unknown_and_blocks_reinstall() {
+        let f = crate::test_fixture::Fixture::new();
+        let w = fixture_workspace(&f, &"ab".repeat(32));
+        atomic_json(
+            &record(&f.m),
+            &json!({"schema":1,"id":w.id,
+            "revision":2,"application":"fl_studio","installer":w.selected_installer.sha256,
+            "installer_release":"26.1.6.0","environment":w.environment,
+            "runner_manifest":null,"projects":w.projects,"exports":w.exports,
+            "preferences":w.preferences,"state":"uninstalled",
+            "installation_operation":"81".repeat(16),"installed":null,"audio":null,
+            "session_operation":"82".repeat(16),"uninstall_operation":"82".repeat(16),
+            "first_failure":null}),
+        )
+        .unwrap();
+        let migrated = load(&f.m).unwrap();
+        assert!(migrated.history_recovery_required);
+        assert_eq!(
+            migrated.installations[0].outcome,
+            InstallationOutcome::Unknown
+        );
+        assert_eq!(migrated.uninstalls[0].outcome, UninstallOutcome::Unknown);
+        assert!(install_admission(&migrated, true, false, false).is_err());
+    }
+
+    #[test]
+    fn discovered_unowned_image_cannot_be_adopted_as_current_install() {
+        let f = crate::test_fixture::Fixture::new();
+        let w = fixture_workspace(&f, &"ab".repeat(32));
+        let app = fixture_app(&w, "26.1.6.0", 8);
+        assert_eq!(image_roster(&w).unwrap(), vec![app.executable.path]);
+        assert!(install_admission(&w, true, false, !image_roster(&w).unwrap().is_empty()).is_err());
+        assert!(w.installed.is_none());
+        assert!(w.installations.is_empty());
     }
 }
