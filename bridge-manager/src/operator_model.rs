@@ -175,6 +175,22 @@ pub enum Action {
     WorkspaceFinishUninstall {},
     WorkspaceFocus {},
     WorkspaceStop {},
+    WorkspaceSelectProductInstaller {
+        product: WorkspaceProductId,
+        installer: String,
+        release: String,
+    },
+    WorkspaceInstallProduct {
+        product: WorkspaceProductId,
+    },
+    WorkspaceFinishProductInstall {
+        product: WorkspaceProductId,
+    },
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkspaceProductId {
+    Serum2,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -255,6 +271,21 @@ pub struct DawWorkspace {
     pub active_installation_operation: Option<String>,
     pub cleanup: String,
     pub first_useful_failure: Option<String>,
+    pub actions: Vec<AvailableAction>,
+    pub installer_choices: Vec<AvailableAction>,
+    #[serde(default)]
+    pub products: Vec<DawWorkspaceProduct>,
+    pub details: serde_json::Value,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DawWorkspaceProduct {
+    pub id: WorkspaceProductId,
+    pub name: String,
+    pub state: String,
+    pub selected_release: Option<String>,
+    pub module_sha256: Option<String>,
+    pub current_failure: Option<String>,
     pub actions: Vec<AvailableAction>,
     pub installer_choices: Vec<AvailableAction>,
     pub details: serde_json::Value,

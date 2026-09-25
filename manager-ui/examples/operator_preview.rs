@@ -102,6 +102,21 @@ fn main() -> eframe::Result {
                 },
                 disabled_reason: None,
             }],
+            products: vec![model::DawWorkspaceProduct {
+                id: model::WorkspaceProductId::Serum2,
+                name: "Serum 2".into(),
+                state: "selected".into(),
+                selected_release: Some("2.1.5".into()),
+                module_sha256: None,
+                current_failure: None,
+                actions: vec![model::AvailableAction {
+                    label: "Install Serum 2 in FL Studio".into(),
+                    action: model::Action::WorkspaceInstallProduct { product: model::WorkspaceProductId::Serum2 },
+                    disabled_reason: None,
+                }],
+                installer_choices: vec![],
+                details: serde_json::json!({"installation_history":[]}),
+            }],
             details: serde_json::json!({
                 "installation_history":[{"record":{"operation":"first-install","outcome":"installed"}}],
                 "uninstall_history":[{"record":{"operation":"first-uninstall","outcome":"completed"}}]
