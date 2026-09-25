@@ -118,7 +118,7 @@ impl Mailbox {
     }
     #[cfg(test)]
     pub fn receive_while(&mut self, minor: u64, end: Instant, mut healthy: impl FnMut() -> io::Result<()>) -> io::Result<Frame> {
-        let mut frame = Frame { kind: 0, session: [0;16], sequence: 0, payload: Vec::new() };
+        let mut frame = Frame { kind: 0, session: [0;16], sequence: 0, payload: Vec::with_capacity(REPLY_CAP) };
         self.receive_while_into(minor, end, &mut healthy, &mut frame)?;
         Ok(frame)
     }
@@ -144,6 +144,7 @@ impl Mailbox {
             (ap1_native_client::HEADER..=REPLY_CAP).contains(&size),
             "delivery response extent",
         )?;
+        need(size - ap1_native_client::HEADER <= frame.payload.capacity(), "audio reply scratch extent")?;
         let data = unsafe { std::slice::from_raw_parts(self.pointer.as_ptr().add(REPLY), size) };
         let result = Frame::decode_version_into(data, minor, frame);
         for i in 0..15 {
@@ -237,6 +238,21 @@ mod tests {
             assert_eq!((reply.kind,reply.session,reply.sequence,reply.payload.len()),(4,[27;16],sequence,10312));
         }
         worker.join().unwrap();drop(mailbox);std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn wrong_kind_oversized_reply_refuses_before_scratch_growth() {
+        let path=std::env::temp_dir().join(format!("ap10-oversize-{:032x}",u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())));
+        let mut mailbox=Mailbox::create(&path,[31;16]).unwrap();
+        let mut peer=mailbox.counterpart();
+        peer.respond(Frame{kind:17,session:[31;16],sequence:1,payload:vec![0;10313]},9);
+        let mut reply=Frame{kind:0,session:[0;16],sequence:0,payload:Vec::with_capacity(10312)};
+        let scratch=reply.payload.as_ptr();
+        let (result,counts)=crate::allocation_test::measure(||mailbox.receive_while_into(9,Instant::now()+Duration::from_secs(1),||Ok(()),&mut reply));
+        assert!(result.is_err());
+        assert_eq!((reply.payload.as_ptr(),reply.payload.capacity()),(scratch,10312));
+        assert_eq!((counts[1],counts[2]),(0,0));
+        assert_eq!(mailbox.flag(128).load(Ordering::Acquire),1);
+        drop(peer);drop(mailbox);std::fs::remove_file(path).unwrap();
     }
     #[test]
     fn known_endpoint_loss_interrupts_an_unfinished_request() {

@@ -43,7 +43,7 @@ public:
  bool receive(ap1::Frame& out,uint16_t minor){
   using namespace ap1;
   for(;;){auto state=flag(64);
-   if(state==1){auto n=get(view+68,4);require(n>=header_bytes&&n<=request_cap,"delivery request extent");
+   if(state==1){auto n=get(view+68,4);require(n>=header_bytes&&n<=request_cap&&n-header_bytes<=out.payload.capacity(),"delivery request extent");
     decode_into(view+request_offset,size_t(n),minor,out);
     require(out.kind==Process,"delivery request kind");flag(64,0);return true;
    }

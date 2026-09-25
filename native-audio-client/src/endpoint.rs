@@ -23,6 +23,7 @@ pub fn receive_version_into(socket: &mut TcpStream, seconds: u64, minor: u64, fr
     let mut header = [0; HEADER];
     reader.read_exact(&mut header)?;
     let n = payload_length_version(&header, minor)?;
+    need(n <= frame.payload.capacity(), "audio reply scratch extent")?;
     frame.payload.clear();
     frame.payload.resize(n, 0);
     reader.read_exact(&mut frame.payload)?;

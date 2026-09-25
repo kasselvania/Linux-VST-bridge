@@ -56,7 +56,7 @@ struct Socket {
    }
   }
  }
- void read_raw(std::vector<uint8_t>&b,bool command){
+ void read_raw(std::vector<uint8_t>&b,bool command,size_t maximum=1u<<20){
   b.resize(header_bytes);size_t received=0;
   // Idle has no issued-request deadline. The first received byte starts one
   // five-second deadline shared by the rest of the header and payload.
@@ -75,11 +75,11 @@ struct Socket {
    require(n>0,"control disconnected/IO");break;
   }
   auto end=std::chrono::steady_clock::now()+std::chrono::seconds(5);
-  transfer(b.data()+received,b.size()-received,false,end);auto n=payload_length(b.data(),minor);b.resize(header_bytes+n);
+  transfer(b.data()+received,b.size()-received,false,end);auto n=payload_length(b.data(),minor);require(n<=maximum,"audio reply scratch extent");b.resize(header_bytes+n);
   if(n)transfer(b.data()+header_bytes,n,false,end);
  }
  Frame receive(bool command=false){std::vector<uint8_t>b;read_raw(b,command);return decode(b,minor);}
- void receive_audio(Frame& f){read_raw(audio_wire,true);decode_into(audio_wire.data(),audio_wire.size(),minor,f);}
+ void receive_audio(Frame& f){read_raw(audio_wire,true,f.payload.capacity());decode_into(audio_wire.data(),audio_wire.size(),minor,f);}
  void write(const Frame& f){auto b=encode(f,minor);transfer(b.data(),b.size(),true,std::chrono::steady_clock::now()+std::chrono::seconds(5));}
  void write_audio(const Frame&f){encode_into(f,minor,audio_wire);transfer(audio_wire.data(),audio_wire.size(),true,std::chrono::steady_clock::now()+std::chrono::seconds(5));}
 };
@@ -227,9 +227,9 @@ struct MappedSession::Impl {
   events.lifecycle("ap9_processing_setup",",\"sample_rate\":"+std::to_string(hz)+",\"maximum\":"+std::to_string(m)+",\"precision\":\"float32\",\"vendor_float64\":"+(support64?"true":"false")+",\"latency_samples\":"+std::to_string(latency)+",\"tail_samples\":"+std::to_string(tail));
   socket.write(frame(Configured,state.next,std::move(reply)));
  }
- Frame receive(bool processing=false){for(;;){Frame f{};last_fast=false;
+ Frame receive(){for(;;){Frame f{};last_fast=false;
   if(capture_failed.load(std::memory_order_acquire)){std::lock_guard lock(mutex);std::rethrow_exception(state_error);}
-  if(processing&&mailbox){last_fast=mailbox->receive(f,socket.minor);if(!last_fast)f=socket.receive(true);}else f=socket.receive(true);if(f.kind==Configure){configure(f);continue;}if(stateful&&(f.kind==GetState||f.kind==SetState)){dispatch(std::move(f));continue;}return f;}}
+  f=socket.receive(true);if(f.kind==Configure){configure(f);continue;}if(stateful&&(f.kind==GetState||f.kind==SetState)){dispatch(std::move(f));continue;}return f;}}
  void receive_audio(Frame& f){for(;;){last_fast=false;
   if(capture_failed.load(std::memory_order_acquire)){std::lock_guard lock(mutex);std::rethrow_exception(state_error);}
   if(mailbox){last_fast=mailbox->receive(f,socket.minor);if(!last_fast)socket.receive_audio(f);}else socket.receive_audio(f);
