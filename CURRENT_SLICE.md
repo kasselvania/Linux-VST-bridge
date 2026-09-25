@@ -46,13 +46,16 @@ its evidence. Same-version reinstall and controlled version change must both
 work. The current installed application, selected installer, active operations
 and append-only history must remain distinct facts.
 
-The exact physical fixture is the existing manager-owned FL workspace on the
+The exact physical fixture was the existing manager-owned FL workspace on the
 Steam Deck: schema-1 state, cleanly `Uninstalled`, prior install and uninstall
-evidence retained, with its mutable prefix, projects, preferences, exports,
-account state and selected runtime preserved. This workspace is not reset or
-recreated. Before source rereview and explicit Deck custody confirmation, only
-source work, tests and read-only inventory are permitted; do not execute an FL
-installer or mutate the live workspace.
+evidence retained. The controlled Deck handoff installed official FL Studio
+`26.1.5.5618` into that same workspace after deterministic schema-2 migration.
+The old install/uninstall receipts remain, a new install operation and exact
+executable are recorded, and a normal managed FL launch has a completed,
+cleanup-confirmed receipt. Current status is `ready`. The installer itself
+returned a nonzero outer status, retained as historical `needs_user_action`;
+this is not relabeled clean installer completion. Exact evidence and trial
+limits are in [the Deck result](evidence/wd0/deck-trial-2026-09-25.md).
 
 In scope: `bridge-manager` workspace state/CLI, deterministic fail-closed
 schema-1 migration, closed installer selection from canonical custody,
@@ -74,10 +77,10 @@ user-root replacement; no native bridge change. Do not repeat Serum touch,
 AP17, Ubuntu, Game Mode, plug-in scan or FL audio qualification for this
 state-model source change.
 
-After source rereview and custody confirmation, physical acceptance uses that
-existing clean-uninstalled workspace: preserve prestate, choose the exact new
-admitted installer/release, install through the manager, prove the new operation
-and executable/version while retaining the same workspace and all old history,
-launch through the normal route, then quit cleanly. A basic stock audio check
-belongs only to the existing WD0 workflow when it is ready. The lifecycle
-correction does not by itself qualify FL Studio in `docs/SUPPORT_MATRIX.md`.
+The repeatable-install lifecycle gate has a physical result on the original
+workspace. WD0's trial-mode musical result and its exact audio/backend/export
+claims remain separate from that lifecycle evidence. Licensed saved-project
+recall is deferred while the operator uses FL in trial mode. WD1 begins only
+after PR #163 records and merges its honest bounded WD0 result; WD1 will install
+one Windows VST3 into FL's existing workspace without changing FL's application
+installation slot or the six native publications.

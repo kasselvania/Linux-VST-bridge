@@ -1,7 +1,8 @@
 # WD0 — Managed FL Studio workspace: first usable stock project
 
-Selected by the operator on 2026-09-24. This is the implementation work order,
-not a completed qualification. Architecture:
+Selected by the operator on 2026-09-24. This work order now has a bounded
+physical trial-mode result; licensed saved-project recall remains deferred.
+Architecture:
 [WINDOWS_DAW_WORKSPACES.md](WINDOWS_DAW_WORKSPACES.md). Work allocation:
 [WORKSTREAMS.md](WORKSTREAMS.md). Tracking issue:
 [#158](https://github.com/kasselvania/Linux-VST-bridge/issues/158).
@@ -43,8 +44,9 @@ The implementation branch starts from the normal architecture merge
 `3bb22f1d9971c97f01dc65a8227f1a7d7f727f54`. The separate WD0 package
 selects a manager/supervisor generation under the canonical managed root; it
 does not replace the native-bridge service or its software catalogue. Source
-validation is not a physical FL result. The installer, first launch, audio,
-project, export, recall, and retirement gates remain open until observed.
+validation alone is not a physical FL result. The original installer and
+first-launch findings below are retained as history; the later repeatable
+installation and trial-mode readback are recorded separately.
 
 ### First physical result and selected correction
 
@@ -71,9 +73,29 @@ The existing managed workspace was subsequently uninstalled cleanly. Its
 schema-1 record and exact install/uninstall receipts remain on the Deck. The
 source baseline for the lifecycle correction includes merged UI0 at
 `8bb191b28eedee8aabf058b06706860c9fc64933` through a normal merge into
-PR #163. The live uninstalled workspace is the acceptance fixture: do not
-delete it, recreate its prefix, edit its JSON or run another installer before
-source rereview and a new Deck handoff.
+PR #163. The then-uninstalled workspace became the acceptance fixture; it was
+not deleted or recreated.
+
+### Repeatable installed result
+
+The controlled Deck handoff reused that clean-uninstalled workspace. The exact
+official FL Studio installer advertised `26.1.5.5618` and had SHA-256
+`87b2f0fe47fa443b6e7e904fb904df11ee0c3adfa83581818016018840b7dd84`.
+The manager migrated the schema-1 record to schema 2 only on authorized
+mutation, kept the same workspace/prefix/user roots and runner, and created a
+new installation operation while retaining the old install and uninstall
+receipts. The executable's version resources read `26.1.5.5618` and its exact
+image SHA-256 is retained in the
+[sanitized Deck result](../evidence/wd0/deck-trial-2026-09-25.md).
+
+The installer's outer process again returned `outer_nonzero_stage_unknown`.
+The manager therefore retained `needs_user_action` for that installation
+outcome even though an exact FL executable was discovered. A subsequent normal
+managed FL session completed with zero owned processes and confirmed cleanup;
+current status reads `ready`. The historical installer failure remains visible.
+The operator reports FL functioning in demo mode. This does not prove a clean
+installer exit, licensed saved-project recall, ASIO, physical MIDI, or WD1
+third-party plug-in use.
 
 ### Repeatable installation lifecycle
 

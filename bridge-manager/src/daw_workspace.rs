@@ -1836,6 +1836,7 @@ fn finish_uninstall(m: &Manager) -> Result<()> {
 fn request(m: &Manager, action: &str) -> Result<()> {
     let _guard = m.lock("daw-workspace.lock")?;
     let mut w = load(m)?;
+    application_control_admission(&w)?;
     let op = w
         .session_operation
         .as_deref()
@@ -1896,6 +1897,21 @@ fn request(m: &Manager, action: &str) -> Result<()> {
     }
 }
 
+fn application_control_admission(w: &Workspace) -> Result<()> {
+    require(
+        w.active_uninstall_operation.is_none() && w.state != State::Uninstalling,
+        "daw_workspace_uninstaller_control_not_admitted",
+    )
+}
+
+fn failed_current_session<'a>(w: &Workspace, result: Option<&'a Value>) -> Option<&'a Value> {
+    result.filter(|v| {
+        w.installed.is_some()
+            && matches!(w.state, State::Starting | State::Running | State::Stopping)
+            && v["state"] == "failed"
+    })
+}
+
 fn current_failure(
     w: &Workspace,
     state: State,
@@ -1907,6 +1923,13 @@ fn current_failure(
         Some("FL files are present without a current manager-owned installation".to_owned())
     } else if cleanup == "cleanup_unconfirmed" {
         Some("Workspace ownership or history needs recovery".to_owned())
+    } else if let Some(failed) = failed_current_session(w, session_result) {
+        Some(
+            failed["error"]
+                .as_str()
+                .unwrap_or("FL application session failed")
+                .to_owned(),
+        )
     } else if matches!(state, State::Failed | State::NeedsUserAction) {
         w.installations
             .last()
@@ -2008,10 +2031,7 @@ fn read_status(m: &Manager) -> Result<Value> {
     } else if owner_active {
         State::Starting
     } else if unmanaged_image_present
-        || (w.state == State::Failed
-            && session_result
-                .as_ref()
-                .is_some_and(|v| v["state"] == "failed"))
+        || failed_current_session(&w, session_result.as_ref()).is_some()
     {
         State::Failed
     } else if w.state == State::Uninstalled {
@@ -2254,7 +2274,7 @@ pub(super) fn projection(
             (!can_finish).then(|| "Uninstaller is still active or removal is not confirmed".into()),
         ));
     }
-    if owner_active {
+    if owner_active && application_control_admission(&w).is_ok() {
         actions.push(offer(
             "Focus FL Studio",
             ui::Action::WorkspaceFocus {},
@@ -2943,5 +2963,58 @@ mod tests {
         assert!(install_admission(&w, true, false, !image_roster(&w).unwrap().is_empty()).is_err());
         assert!(w.installed.is_none());
         assert!(w.installations.is_empty());
+    }
+
+    #[test]
+    fn failed_current_application_session_keeps_its_own_failure() {
+        let f = crate::test_fixture::Fixture::new();
+        let mut w = fixture_workspace(&f, &"ab".repeat(32));
+        let install = "91".repeat(16);
+        reserve_install_record(&mut w, &install).unwrap();
+        let app = fixture_app(&w, "26.1.6.0", 12);
+        retire_install_record(&mut w, &install, "failed", Some(app), "unused").unwrap();
+        assert_eq!(w.installations[0].failure.as_deref(), Some("installer_exit_nonzero_application_present"));
+        w.session_operation = Some("92".repeat(16));
+        w.state = State::Starting;
+        let failed = json!({"state":"failed","error":"fl_application_crashed",
+            "cleanup_confirmed":true,"owned_live":0});
+        assert!(failed_current_session(&w, Some(&failed)).is_some());
+        assert_eq!(current_failure(&w, State::Failed, "confirmed", false, Some(&failed)).as_deref(),
+            Some("fl_application_crashed"));
+        let completed = json!({"state":"completed","cleanup_confirmed":true,"owned_live":0});
+        assert!(failed_current_session(&w, Some(&completed)).is_none());
+        assert_eq!(current_failure(&w, State::Ready, "confirmed", false, Some(&completed)), None);
+        w.state = State::Installed;
+        assert!(failed_current_session(&w, Some(&failed)).is_none());
+        assert_eq!(current_failure(&w, State::Ready, "confirmed", false, Some(&failed)), None);
+        assert_eq!(w.installations[0].failure.as_deref(), Some("installer_exit_nonzero_application_present"));
+    }
+
+    #[test]
+    fn uninstaller_cannot_receive_application_controls_or_strand_retirement() {
+        let f = crate::test_fixture::Fixture::new();
+        let mut w = fixture_workspace(&f, &"ab".repeat(32));
+        let install = "93".repeat(16);
+        reserve_install_record(&mut w, &install).unwrap();
+        let app = fixture_app(&w, "26.1.6.0", 13);
+        retire_install_record(&mut w, &install, "completed", Some(app), "unused").unwrap();
+        w.session_operation = Some("94".repeat(16));
+        w.state = State::Starting;
+        application_control_admission(&w).unwrap();
+        w.state = State::Stopping;
+        application_control_admission(&w).unwrap();
+        let removal = "95".repeat(16);
+        reserve_uninstall_record(&mut w, &removal).unwrap();
+        let before = w.clone();
+        assert_eq!(application_control_admission(&w).unwrap_err().to_string(),
+            "daw_workspace_uninstaller_control_not_admitted");
+        assert_eq!(w, before);
+        assert_eq!(w.state, State::Uninstalling);
+        assert_eq!(w.uninstalls[0].outcome, UninstallOutcome::Pending);
+        // Incomplete removal remains pending; a control request cannot relabel it.
+        assert_eq!(w.active_uninstall_operation.as_deref(), Some(removal.as_str()));
+        retire_uninstall_record(&mut w, &removal).unwrap();
+        assert_eq!(w.state, State::Uninstalled);
+        assert_eq!(w.uninstalls[0].outcome, UninstallOutcome::Completed);
     }
 }
