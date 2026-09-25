@@ -812,19 +812,43 @@ pub(crate) unsafe fn open(
     minor: u64,
     identity: Option<state::Identity>,
 ) -> u32 {
+    open_with(max, handle, minor, identity, None, || {
+        if minor >= 6 {
+            crate::preview::discover_performance(identity)
+        } else if let Some(identity) = identity {
+            crate::preview::discover_commercial(identity)
+        } else {
+            binding(minor == 4)
+        }
+    })
+}
+
+#[cfg(feature = "rpi0")]
+pub(crate) unsafe fn open_bound(
+    max: u32,
+    handle: *mut u64,
+    identity: state::Identity,
+    binding: crate::preview::Binding,
+) -> u32 {
+    let report = binding.directory.join("rpi0.performance.jsonl");
+    open_with(max, handle, 12, Some(identity), Some(report), || Ok(binding))
+}
+
+unsafe fn open_with(
+    max: u32,
+    handle: *mut u64,
+    minor: u64,
+    identity: Option<state::Identity>,
+    report_override: Option<std::path::PathBuf>,
+    binding: impl FnOnce() -> io::Result<crate::preview::Binding>,
+) -> u32 {
     if handle.is_null() || !(1..=256).contains(&max) {
         return 1;
     }
     crate::ffi(|| {
         match INSTANCES.insert(|| {
-            let binding = if minor >= 6 {
-                crate::preview::discover_performance(identity)?
-            } else if let Some(identity) = identity {
-                crate::preview::discover_commercial(identity)?
-            } else {
-                binding(minor == 4)?
-            };
-            let report = binding.owner.as_ref().map(|_| {
+            let binding = binding()?;
+            let report = report_override.or_else(|| binding.owner.as_ref().map(|_| {
                 if minor >= 6 {
                     crate::preview::performance_root(identity.is_some())
                         .join("results")
@@ -837,7 +861,7 @@ pub(crate) unsafe fn open(
                 } else {
                     crate::preview::report_path(binding.session)
                 }
-            });
+            }));
             let installed_delay = binding.installed_delay;
             let mut session = Session::open(binding, max as usize, minor)?;
             session.identity = identity;
@@ -1123,6 +1147,31 @@ unsafe fn control(id: u64, op: u32, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
             return Err(invalid(
                 "state acknowledgement missing; instance failed, no retry",
             ));
+        }
+        thread::sleep(Duration::from_micros(50));
+    }
+}
+
+fn started_ack(epoch: u64) -> Option<u64> {
+    (epoch != 0 && epoch <= (u64::MAX >> 8))
+        .then(|| (epoch << 8) | u64::from(START + 1))
+}
+
+pub(crate) fn wait_started(id: u64) -> io::Result<()> {
+    let shared = INSTANCES
+        .lease(id)
+        .ok_or_else(|| invalid("start acknowledgement handle"))?
+        .shared
+        .clone();
+    let epoch = shared.wanted.load(Ordering::Acquire);
+    let expected = started_ack(epoch).ok_or_else(|| invalid("start acknowledgement epoch"))?;
+    let deadline = Instant::now() + Duration::from_secs(20);
+    loop {
+        if shared.ack.load(Ordering::Acquire) == expected {
+            return Ok(());
+        }
+        if shared.fault.load(Ordering::Acquire) != 0 || Instant::now() >= deadline {
+            return Err(invalid("start acknowledgement missing"));
         }
         thread::sleep(Duration::from_micros(50));
     }
@@ -1515,13 +1564,13 @@ unsafe fn process_events(
 #[repr(C)]
 #[derive(Default)]
 pub struct Stats {
-    fault: u64,
-    first_position: u64,
-    processed: u64,
-    request_high: u64,
-    result_high: u64,
-    position: u64,
-    epoch: u64,
+    pub fault: u64,
+    pub first_position: u64,
+    pub processed: u64,
+    pub request_high: u64,
+    pub result_high: u64,
+    pub position: u64,
+    pub epoch: u64,
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap3_stats(id: u64, out: *mut Stats) -> u32 {
@@ -3213,6 +3262,13 @@ mod tests {
         cb.process(&s, r, &mut out).unwrap();
         assert_eq!(out, [[0.125; CAP]; 2]);
         assert_eq!(cb.epoch, 2);
+    }
+    #[test]
+    fn start_acknowledgement_is_exactly_epoch_bound() {
+        assert_eq!(started_ack(1), Some(0x10b));
+        assert_eq!(started_ack(2), Some(0x20b));
+        assert_eq!(started_ack(0), None);
+        assert_eq!(started_ack((u64::MAX >> 8) + 1), None);
     }
     #[test]
     fn descriptor_overflow_and_wrong_position_fail() {

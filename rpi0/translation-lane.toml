@@ -1,0 +1,12 @@
+schema = "linux-vst-bridge-rpi0-translation-lane/v1"
+lane = "box64"
+box64_version = "0.4.4"
+box64_source_commit = "2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a"
+box64_cmake = ["-DARM_DYNAREC=ON", "-DRPI5ARM64=ON", "-DBOX32=OFF", "-DCMAKE_BUILD_TYPE=RelWithDebInfo"]
+wine_version = "11.0"
+wine_source_commit = "db11d0fe6a169c457e23d007e20404643d067aa8"
+wine_build = "x86_64-only source build; no ambient latest"
+host_wrapped_libraries = ["X11", "Xext", "Xrender", "Xrandr", "freetype", "fontconfig", "asound"]
+required_x86_64_libraries = ["glibc", "libgcc_s", "libstdc++", "libunwind", "libX11", "libXext", "libXrender", "libasound"]
+environment = ["BOX64_DYNAREC=1", "BOX64_DYNACACHE=0", "BOX64_DYNAREC_STRONGMEM=1", "BOX64_NOBANNER=1"]
+preflight_status = "PHYSICAL_FIXTURE_UNAVAILABLE"

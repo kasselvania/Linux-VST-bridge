@@ -15,6 +15,8 @@ on:
       - 'windows-factory-probe/**'
       - 'vst-state/**'
       - 'windows-fixtures/ap10/**'
+      - 'windows-fixtures/rpi0/**'
+      - 'rpi0/preflight/windows_probe.cpp'
       - 'native-vst3-proxy/include/ap10*'
       - 'native-vst3-proxy/source/output_results.h'
       - 'tools/ap10-tests/**'

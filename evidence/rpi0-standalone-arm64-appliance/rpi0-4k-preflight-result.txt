@@ -1,0 +1,16 @@
+2026-09-21T06:21:00+01:00
+Linux raspberrypi 6.18.50+rpt-rpi-v8 #1 SMP PREEMPT Debian 1:6.18.50-1+rpt1 (2026-09-11) aarch64 GNU/Linux
+page_size=4096
+box64_commit=2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a
+wine_commit=db11d0fe6a169c457e23d007e20404643d067aa8
+windows_probe=PASS
+full_preflight_session_1=94a328565d43c78bb7aea52a46ffae8d
+full_preflight_session_2=9933b83197accc4cb027ee3ade072db2
+full_preflight_restart=PASS
+exact_cleanup=PASS
+package_generated_config=FAIL missing adjacent Wine runtime tree
+installed_wine_config=PASS
+shieldxl_audio_4k=BLOCKED missing snd-soc-cs4270 module for rpt-rpi-v8
+physical_midi_audio_editor=NOT_RUN
+temp=57.1'C
+throttled=0x0

@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "observed_at_utc": "2026-09-21T05:51:38Z",
+  "status": "translated_source_synth_diagnostic_passed_physical_acceptance_pending",
+  "custody": {
+    "executable_source": "53fb9f2a334e2f5fbc3d3c1cf4469148fef30b45",
+    "executable_tree": "fb4a662eba4ac1f8c733a41d63e5c98419832139",
+    "source_rebuilt_for_fixture": false
+  },
+  "fixture": {
+    "model": "Raspberry Pi 5 Model B Rev 1.1",
+    "revision": "d04171",
+    "mem_total_kib": 8145712,
+    "kernel": "6.18.50+rpt-rpi-v8",
+    "page_size_bytes": 4096,
+    "cooling": "none",
+    "overclock": false,
+    "shieldxl_module_sha256": "63414ef8251cd211f69898a0adc7fd06a5475879aa363669563629f7fbefac88",
+    "jack_sample_rate_hz": 48000,
+    "jack_period_frames": 512,
+    "jack_periods": 3
+  },
+  "runtime": {
+    "box64_source_commit": "2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a",
+    "box64_sha256": "79cdd30e5480f5dfb8cd717af99d0e5a89eb55b31701de6fde7896a6a0e79ab6",
+    "wine_source_commit": "db11d0fe6a169c457e23d007e20404643d067aa8",
+    "wine_sha256": "1a34236df8794f6aa8fe623cfa44d7de30f145c7e7c9cd236620e6b92a3f6194",
+    "windows_host_sha256": "6f00cf377458037e4ae64c2425578b7c408a0a5ed6f027a0249e0d979f55fc2c",
+    "plugin_sha256": "e8c75fe1a0067208d785d9b3dbcc965002cd4a4825969e5cbdfd9f06e8a0abed",
+    "plugin_class": "5250493041524d41505053594e540001",
+    "plugin_name": "LVB ARM Appliance Synth",
+    "bridge_frames": 2048
+  },
+  "session_without_midi": {
+    "session": "c09abb7dd8898e812d02ce4f70fd471c",
+    "ready": true,
+    "state_save_bytes": 680,
+    "state_restore_bytes": 680,
+    "callbacks": 12552,
+    "process_failures": 0,
+    "deadline_misses": 0,
+    "callback_ns_max": 46963,
+    "missing_frames": 0,
+    "expired_frames": 0,
+    "gaps": 0,
+    "delivered_frames": 6422528,
+    "priming_frames": 4096,
+    "transport_fault": 0,
+    "clean_shutdown": true,
+    "unit_retired": true,
+    "session_directory_removed": true
+  },
+  "synthetic_midi_diagnostic": {
+    "session": "5d574a9422d08852a6ffb97cc8ddfa4a",
+    "classification": "diagnostic_only_not_physical_midi_acceptance",
+    "input": "ALSA sequencer note C4 velocity 100 followed by note-off through JACK MIDI",
+    "capture": {
+      "source_ports": ["lvb-arm-standalone:audio_out_l", "lvb-arm-standalone:audio_out_r"],
+      "format": "stereo S16_LE WAV",
+      "sample_rate_hz": 48000,
+      "frames": 240000,
+      "samples": 480000,
+      "nonzero_samples": 194996,
+      "peak_normalized": 0.0472412109375,
+      "rms_normalized": 0.017276452392006623,
+      "left_rms_normalized": 0.017276452392006623,
+      "right_rms_normalized": 0.017276452392006623,
+      "sha256": "78d622ef1a2060f16f6c28a6b808212e243553ca3f8878b428b4c2dfeaf0456e"
+    },
+    "callbacks": 9936,
+    "process_failures": 0,
+    "deadline_misses": 0,
+    "callback_ns_max": 57518,
+    "missing_frames": 0,
+    "expired_frames": 0,
+    "gaps": 0,
+    "delivered_frames": 5085184,
+    "priming_frames": 2048,
+    "unsupported_midi": 0,
+    "malformed_midi": 0,
+    "overflow_midi": 0,
+    "transport_fault": 0,
+    "timing_ns": {
+      "windows_process": {"mean": 19065, "p99_upper": 24000, "maximum": 2115000},
+      "admission_to_publication": {"mean": 296075, "p99_upper": 512000, "maximum": 2557652},
+      "correlated_non_plugin": {"mean": 277010, "p99_upper": 512000, "maximum": 546227}
+    },
+    "unpublished_requests": 0,
+    "negative_correlated_residuals": 0,
+    "clean_shutdown": true,
+    "unit_retired": true,
+    "session_directory_removed": true
+  },
+  "resource_observations": {
+    "translated_cohort_processes": 9,
+    "translated_cohort_point_in_time_rss_kib": 611964,
+    "memory_high_water_mark": "unavailable",
+    "native_host_cpu": "not_retained",
+    "translated_cohort_cpu_distribution": "not_retained",
+    "temperature_c_observed": 53.2,
+    "throttling": "0x0",
+    "clock_samples_hz": [1500000000, 1700000000]
+  },
+  "remaining_physical_gates": {
+    "usb_midi_controller_enumerated": false,
+    "physical_midi": "not_run",
+    "audible_shieldxl_output": "not_run_in_this_session",
+    "editor": "not_run_no_x11_or_wayland_session",
+    "mouse_parameter_change": "not_run",
+    "state_change_and_restore": "not_run",
+    "accepted_second_fresh_session": "not_run"
+  },
+  "nonclaims": [
+    "Synthetic sequencer MIDI is not physical MIDI acceptance.",
+    "Direct JACK-port capture is not audible sink acceptance.",
+    "The 512-frame JACK graph is a diagnostic graph, not the requested 128/256-frame physical latency campaign.",
+    "This run does not establish editor, physical MIDI, audible output, latency, polyphony, sustained stability, or overall RPI0 acceptance."
+  ]
+}

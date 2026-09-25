@@ -1,0 +1,9 @@
+2026-09-21T06:09:09+01:00
+Linux raspberrypi 6.18.50+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.18.50-1+rpt1 (2026-09-11) aarch64 GNU/Linux
+16384
+box64_commit=2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a
+wine_commit=db11d0fe6a169c457e23d007e20404643d067aa8
+windows_probe_sha256=86161880adb171519bfa1b263ea136c6f40dd595097891fb5436d256cf727866
+probe_rc=139
+fault=SIGSEGV ntdll.so/signal_init_process accessing 0x7ffe1000 code=2 on 16384-byte pages
+cleanup=exact translated process cohort absent after failure

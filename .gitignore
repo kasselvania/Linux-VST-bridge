@@ -60,6 +60,8 @@ core.*
 
 /native-vst3-proxy/backend/target/
 
+/rpi0/standalone/target/
+
 /bridge-manager/target/
 
 /manager-ui/target/
