@@ -63,6 +63,8 @@ int main() {
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cstdint>
+#include <cstring>
 #include <cstdio>
 #include <cstdlib>
 #include <map>
@@ -75,6 +77,48 @@ namespace wf0 = linux_vst_bridge::wf0;
 namespace {
 
 constexpr const char* kHandshakeSchema = "linux-vst-bridge-wf0-handshake/v1";
+
+struct alignas(8) PiArchitecture {
+    char magic[8];
+    std::uint32_t version, extent, endian, pointer_bits, event_extent,
+        context_extent, gui_extent, atomic32, atomic64, page_size, reserved, padding;
+    std::uint64_t layout_digest;
+};
+static_assert(sizeof(PiArchitecture) == 64 && alignof(PiArchitecture) == 8);
+
+std::string read_bounded(const std::wstring& path);
+void atomic_write(const std::wstring& path, const std::string& bytes);
+
+void verify_pi_architecture(const std::wstring& directory) {
+    const auto bytes = read_bounded(directory + L"\\rpi0.arch.native");
+    if (bytes.size() != sizeof(PiArchitecture))
+        throw std::runtime_error("Pi native architecture extent");
+    PiArchitecture native{};
+    std::memcpy(&native, bytes.data(), sizeof(native));
+    SYSTEM_INFO system{};
+    GetSystemInfo(&system);
+    PiArchitecture local{{'L','V','B','R','P','I','0','\0'}, 1, sizeof(PiArchitecture),
+                         0x04030201, 64, 32, 96, 608, 1, 1, system.dwPageSize,
+                         0, 0, 0x715f58adee37950cULL};
+    const bool valid_page = native.page_size >= 4096 && native.page_size <= 65536 &&
+        (native.page_size & (native.page_size - 1)) == 0;
+    native.page_size = local.page_size = 0;
+    if (!valid_page || std::memcmp(&native, &local, sizeof(local)) != 0)
+        throw std::runtime_error("Pi native architecture mismatch");
+    local.page_size = system.dwPageSize;
+    atomic_write(directory + L"\\rpi0.arch.windows",
+                 std::string(reinterpret_cast<const char*>(&local), sizeof(local)));
+}
+
+bool pi_architecture_required() {
+    wchar_t value[16]{};
+    SetLastError(ERROR_SUCCESS);
+    const auto count = GetEnvironmentVariableW(L"LVB_RPI0_ARCHITECTURE", value, 16);
+    if (count == 0 && GetLastError() == ERROR_ENVVAR_NOT_FOUND) return false;
+    if (count != 8 || std::wstring(value, count) != L"required")
+        throw std::runtime_error("Pi architecture policy differs");
+    return true;
+}
 
 bool is_lower_hex(const std::string& value, std::size_t size) {
     return value.size() == size &&
@@ -268,6 +312,8 @@ int main(int argc, char** argv) {
             wf0::sha256_file(module_path) != args.at("--module-sha256")) return 64;
 
         wf0::EventWriter events(1048576);
+        if (pi_architecture_required())
+            verify_pi_architecture(ready_path.substr(0, ready_path.find_last_of(L"\\/")));
         events.lifecycle("scanner_started", ",\"session\":\"" + args.at("--session") + "\"");
         const std::string binding = handshake(args);
         atomic_write(ready_path, binding);
