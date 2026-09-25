@@ -14,7 +14,8 @@ means”, ARCHITECTURE §§7 and 13, FC-AUDIO-001, and the
 **One claim:** for the named Serum 2.1.5 default-state Pi fixture, opt-in
 startup-only note-on/note-off processing followed by stop, deactivate, and an
 exact second state restoration removes the repeatable first-user-note gap
-without changing that state, subsequent audio, or clean retirement. The
+while preserving the serialized state, ordinary subsequent output, and clean
+retirement. The
 normal callback, shared transport, protocol 12/map v1, 256-frame quantum,
 512-frame reserve, 48 kHz/512 JACK setup, GE Proton/FEX runtime, governor,
 scheduling, vendor settings, and installed selections remain fixed. Output
@@ -23,13 +24,23 @@ mismatch or prewarm timeout refuses readiness. The experiment does not claim
 a general Serum repair, a vendor-internal allocation result, arbitrary preset
 equivalence, or Pi musical qualification.
 
-Source scope is the standalone appliance startup sequence and its focused
-tests; physical scope is a private source candidate, the same state/module,
+Source scope is the standalone appliance startup sequence and focused
+verification; physical scope is a private source candidate, the same state/module,
 editor closed and the retained two-note MIDI fixture. Compare first-user-note
 Windows process span, delivered and missing frames, output presence, state
 readbacks and exact cohort retirement with the retained FN1 baseline. Retain
 the actual result even if prewarming merely moves or fails to remove the gap.
 Do not import BR1/BR1R recovery or install a new normal service as part of PW1.
+
+The staged [PW1 physical result](evidence/pw1/serum-default-prewarm-2026-09-25.md)
+contains a fresh unchanged FN1 baseline between three runs of the final PW1
+build. The baseline again lost 1,280 first-note frames; all three PW1 runs
+lost zero frames, retained byte-identical state readback and matching control
+readbacks, delivered nonzero note audio, and retired cleanly. PW1 moved the
+cold approximately 43 ms call into an approximately 136–140 ms startup
+sequence. It does not establish vendor-hidden state equivalence, arbitrary
+preset behavior, a CPU saving, or musical qualification. FN1 and PW1 require
+separate review before either is merged or installed.
 
 ## Completed, staged Serum first-note attribution — FN1
 
@@ -65,9 +76,8 @@ binds the repeatable 1,280-frame first-note gap to a roughly 34 ms Windows
 call. The caller ran through the span, aligned user-space samples landed in
 the FEX ARM64EC boundary, and new Serum guest-code map entries appeared during
 that call. This supports a cold translation/JIT mechanism for the exact
-default-state fixture. FN1 makes no repair or speed claim. The next separate
-slice is a state-safe prewarm experiment with exact state restoration and
-first-user-note delivery checks.
+default-state fixture. FN1 makes no repair or speed claim. PW1 is the
+separate startup experiment selected from that result.
 
 ## Completed Pi source reconciliation — PI-R
 
