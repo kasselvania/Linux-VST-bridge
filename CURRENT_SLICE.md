@@ -108,3 +108,12 @@ processing, and shut down normally. This is a preset-transition result only:
 the original owner-selected sound was not identified, the candidate test sent
 no MIDI, and three delivery gaps remain recorded. Details and exact identities
 are in `evidence/rpi2/serum2-preset-readback.md`.
+
+A later owner session connected the OMX-27 USB MIDI port to this Serum candidate
+and routed its stereo output to ShieldXL. The initial sound was audible, but
+after the owner selected another preset the Pi output fell silent while the
+Serum editor meter still moved. Processing progress stopped, the request queue
+filled, and the bridge reported terminal `fault=2` at `publish_request`.
+The session was stopped, with no clean-shutdown claim. This is a separate
+failed playable-preset gate; its cause is not yet established. The sanitized
+result is in `evidence/rpi2/serum2-instrument-onboarding.md`.

@@ -239,3 +239,48 @@ processing/callback failures, 45,452 completed 256-frame bridge processes,
 is an open operator session, not an authorization result or a clean-shutdown
 claim. The browser and Serum are left for the owner; account entry and the
 post-sign-in editor/audio checks remain open.
+
+### OMX-27 and owner-selected preset, 2026-09-25
+
+The private `serum-omx-22` session used the approved preset-readback native
+candidate (`bd531170df973bab7383dc82eb5d523615ed0a4003064aaa2f6b5e5f41d6bc26`),
+the unchanged Serum 2.1.5 module
+(`501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283`),
+the established WineD3D/software-OpenGL configuration, 48 kHz, JACK 512,
+256-frame processing quantum and 512-frame bridge reserve. JACK identified
+the OMX-27 at `system:midi_capture_4`; that port was connected to
+`lvb-arm-serum2:midi_in`, with the two Serum outputs connected to ShieldXL
+`system:playback_1/2`. The editor visibly rendered on the same instance.
+
+Before the preset change, the owner heard Serum notes from the OMX-27 through
+the Pi outputs. The sound felt delayed, but the owner did not hear the two
+delivery gaps recorded at that point. A pre-change status showed 118 accepted
+MIDI events, finite nonzero output on both channels, zero processing failures,
+zero JACK xruns, `fault=0`, and 1,792 missing frames over two gaps. This is
+an audible combined USB-MIDI/stereo-output result, not a latency measurement
+or gap-free-delivery claim.
+
+The owner then selected a different preset in Serum's editor and saw its
+internal meter respond, but heard no audio leave the Pi. The exact selected
+preset identity was not retained. The next status showed 145 accepted MIDI
+events but no increase in the native nonzero-output counters. Completed bridge
+processing reached 35,521 blocks and stopped advancing. The historical
+request high-water mark reached 2,048, and the callback recorded terminal
+`fault=2` at `publish_request` with 1,089 processing failures. At that
+observation, 826,112 missing frames across five gaps were recorded. A later
+status showed 1,206 processing failures and still no completed progress;
+JACK xruns remained zero. The full queue is the point of bridge refusal; these
+observations do not establish why the processing worker stopped making
+progress after the preset action. The visible plug-in meter is not evidence of
+delivered output.
+
+The session helper stopped on the terminal fault. The native process did not
+complete graceful retirement within the helper's 25-second wait, so cleanup
+terminated its owned unit. There is no `RPI1_CLEAN_SHUTDOWN` marker or clean
+exit-code claim for this run. One exact private session directory and the
+private logs were retained for diagnosis; no host or native process remained,
+and JACK returned to system-only ports. Maximum sampled temperature was
+58.4 C with power flags `0x0`; the inspected kernel journal contained no OOM
+event for this interval. This failed physical gate does not undo the focused
+parameter-readback source approval, but it blocks a playable preset-switching
+claim.
