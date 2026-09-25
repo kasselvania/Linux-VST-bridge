@@ -11,6 +11,8 @@ pub use context::Context;
 pub use gui::Message;
 pub use process_results::Packet;
 pub use queued::{Delivery, Stats};
+pub use queued::LiveStats;
+pub use crate::live_recovery::Policy as LiveRecoveryPolicy;
 
 pub const ABI_VERSION: u32 = 1;
 pub const PROTOCOL_MINOR: u32 = 12;
@@ -132,6 +134,16 @@ impl Instance {
     }
 
     pub fn processing_quantum(&self) -> u32 { self.quantum }
+
+    /// Selects bounded same-instance live recovery before the first START.
+    /// Ordinary instances remain on the established transport behavior.
+    pub fn enable_live_recovery(&self, policy: LiveRecoveryPolicy) -> io::Result<()> {
+        queued::select_live_policy(self.handle, policy)
+    }
+
+    pub fn live_recovery_stats(&self) -> io::Result<LiveStats> {
+        queued::live_stats(self.handle).ok_or_else(|| io::Error::other("instance absent"))
+    }
 
     pub fn processed_frames(&self) -> io::Result<u64> {
         queued::processed_frames(self.handle).ok_or_else(|| io::Error::other("instance absent"))

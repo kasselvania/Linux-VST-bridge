@@ -57,6 +57,20 @@ mod appliance {
     }
 
     fn run(config: Config, session: [u8; 16], session_hex: String) -> io::Result<()> {
+        let live_recovery = match env::var("LVB_RPI2_LIVE_RECOVERY") {
+            Err(env::VarError::NotPresent) => None,
+            Ok(value) => {
+                let parts = value.split(':').collect::<Vec<_>>();
+                if parts.len() != 3 { return Err(invalid("live recovery policy format")); }
+                let parse = |part: &str| part.parse::<u32>().map_err(|_| invalid("live recovery policy value"));
+                Some(ap2_backend::rpi0::LiveRecoveryPolicy {
+                    horizon_frames: parse(parts[0])?,
+                    worker_deadline_ms: parse(parts[1])?,
+                    max_recoveries: parse(parts[2])?,
+                })
+            }
+            Err(_) => return Err(invalid("live recovery policy encoding")),
+        };
         let quantum = match env::var("LVB_RPI2_PROCESS_QUANTUM") {
             Err(env::VarError::NotPresent) => 256,
             Ok(v) if v == "256" => 256,
@@ -102,6 +116,11 @@ mod appliance {
         let instance = bridge
             .join()
             .map_err(|_| invalid("backend open thread panicked"))??;
+        if let Some(policy) = live_recovery {
+            instance.enable_live_recovery(policy)?;
+            println!("RPI2_LIVE_RECOVERY horizon_frames={} worker_deadline_ms={} max_recoveries={}",
+                policy.horizon_frames, policy.worker_deadline_ms, policy.max_recoveries);
+        }
 
         // The mapping/host handshake precedes commercial module inspection.
         // Keep that startup work out of the ordinary Configure reply budget.
@@ -205,6 +224,7 @@ mod appliance {
         let stop = instance.stop();
         let off = instance.deactivate();
         let stats = instance.stats();
+        let live_stats = live_recovery.map(|_| instance.live_recovery_stats());
         let close = instance.close();
         let retirement_result = retirement.await_ready(Duration::from_secs(30));
         let unit = cohort.identity().unit.clone();
@@ -244,6 +264,13 @@ mod appliance {
                 "RPI1_TRANSPORT fault={} processed={} request_high={} result_high={} position={} epoch={}",
                 stats.fault, stats.processed, stats.request_high, stats.result_high, stats.position, stats.epoch
             );
+        }
+        if let Some(Ok(live)) = live_stats {
+            println!("RPI2_LIVE_RECOVERY_RESULT stage={} fault={} requested_epoch={} acknowledged_epoch={} recoveries={} request_high={} request_discarded={} result_discarded={} request_to_worker_return_ns={} worker_return_to_audio_ns={}",
+                live.stage, live.fault, live.request_epoch, live.acknowledged_epoch,
+                live.recoveries, live.request_high, live.request_discarded, live.result_discarded,
+                live.worker_return_ns.saturating_sub(live.requested_ns),
+                live.resumed_ns.saturating_sub(live.worker_return_ns));
         }
         close?;
         let retirement = retirement_result?;

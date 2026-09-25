@@ -16,6 +16,7 @@ mod queue;
 #[cfg(feature = "rpi1-observe")]
 pub mod rpi1_phase;
 mod queued;
+mod live_recovery;
 mod recovery;
 mod state;
 #[cfg(feature = "rpi0")]
