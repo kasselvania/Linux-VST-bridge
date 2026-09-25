@@ -2,8 +2,8 @@
 
 This record separates manager-owned installation from FL discovery and musical
 use. Private installer, prefix, account, and diagnostic bytes remain on the
-Deck. The installed generation precedes the later source correction for the
-Workspaces refresh delay; that correction is not part of this physical result.
+Deck. Serum installation ran on the initial WD1 generation; fresh-session use
+ran after the paired manager/frontend refresh correction was installed.
 
 ## Exact managed installation
 
@@ -29,9 +29,9 @@ separate Serum product state changed.
 
 The open frontend kept its earlier `installing` snapshot after the installer
 worker retired. A single read-only Refresh exposed the manager-offered
-completion action. PR #169 now includes a source correction for the lightweight
-poll to notice this retirement; it has not been installed on the Deck for this
-physical pass.
+completion action. PR #169 then added a source correction for the lightweight
+poll to notice this retirement; the refreshed generation was installed before
+the later fresh-session test.
 
 ## Native isolation
 
@@ -50,11 +50,9 @@ piano roll, and played the same pattern with a changed Serum preset. The Serum
 editor initially exceeded the visible Deck area, hiding its lower-right resize
 corner. The operator reported the window working well after using
 [Xfer's documented logo-menu resize control](https://xferrecords.com/web-manual/serum-2/resizing-the-ui);
-the exact selected zoom percentage was not recorded. WAV export, clean cohort
-retirement, and fresh-session Serum use remain unobserved.
-A fresh session will not establish FLP recall. The operator reports that their
-trial session cannot save an FLP; no purchase or license change is required for
-the established installation and audible musical result.
+the exact selected zoom percentage was not recorded. The operator reports that
+their trial session cannot save an FLP; no purchase or license change is
+required for the established installation and audible musical result.
 
 The operator subsequently created an FL automation clip and reported that the
 Serum parameter automation worked during playback. The exact automated control
@@ -90,4 +88,22 @@ were exact before and after this software replacement. The canonical native
 product records matched the previous six-product snapshot; native registry SHA
 remained `01e29055a5b22bf0c007b4e2215ddf14acb7c74fbf890c0bc8437c0ca4df1c77`.
 The new manager reported FL `ready`, Serum `installed`, DSP `0`, and confirmed
-cleanup. Fresh-session Serum playback remains pending operator observation.
+cleanup.
+
+## Fresh-session use and retirement
+
+The operator then opened FL normally again, loaded Serum into a new session,
+entered a piano-roll pattern, and reported that it played well. This is an
+operator-observed fresh-session playback result, not saved-project recall or a
+WAV-export result. The exact new FL session operation was
+`e4db6a7e4ef90294558d663de10e7843`, distinct from the first operation. Its
+retained result is `completed`, `cleanup_confirmed=true`, `owned_live=0`, with
+no current failure. Readback returned the workspace to `ready`, with Serum's
+installed module still current and its single installation history record
+retained. The native bridge remained active and idle: DSP `0`, maintenance
+`0`, pending transactions `0`, stale transports `0`, and cleanup uncertainty
+false. The native registry SHA-256 remained
+`01e29055a5b22bf0c007b4e2215ddf14acb7c74fbf890c0bc8437c0ca4df1c77`.
+
+The operator chose to defer WAV export. No exported WAV, FLP save/reopen, ASIO,
+physical MIDI, or wider plug-in compatibility result is claimed.

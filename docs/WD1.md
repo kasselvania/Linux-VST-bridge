@@ -67,6 +67,9 @@ The operator elected not to export a WAV in this session. Export is therefore
 unqualified. FL was then quit normally, and the manager retained a completed
 session receipt with zero owned processes and confirmed cleanup. The refreshed
 manager/frontend generation kept the FL workspace, Serum history, and native
-products exact. Fresh-session Serum use is still pending. These limits are recorded in the
+products exact. The operator then opened FL again, loaded Serum into a fresh
+session, entered a pattern, and reported successful playback. That second exact
+session retired with confirmed cleanup and zero owned processes. This is fresh
+use, not FLP state recall. These limits are recorded in the
 [physical evidence](../evidence/wd1/deck-serum-direct-2026-09-25.md). A saved
 FLP and licensed project recall are also unclaimed.

@@ -80,3 +80,16 @@ Rollback: keep the prior immutable manager/tooling generation; a source or
 presentation failure can restore it without replacing the mutable workspace.
 The product installer may mutate only the existing FL prefix; no destructive
 workspace reset is in scope.
+
+## Physical status
+
+The manager-owned Serum installation, FL discovery and audible piano-roll use,
+preset change, parameter automation, first clean retirement, and playback in a
+second normal FL session have been observed. The second exact session also
+retired with confirmed cleanup and zero owned processes. The current Serum
+module and all six native publications remain exact. See the
+[WD1 Deck evidence](evidence/wd1/deck-serum-direct-2026-09-25.md).
+
+The operator chose to defer WAV export. No WAV result or FLP save/reopen is
+claimed, so the original export-inclusive primary claim remains open. Do not
+rerun the accepted installation or fresh-session work merely to fill this gap.
