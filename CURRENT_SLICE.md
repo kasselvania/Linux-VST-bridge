@@ -37,6 +37,16 @@ JACK configuration, governor, graphics, quantum, reserve, queue, timeout,
 vendor settings, state identity or installed selections. It does not qualify
 musical usability or a performance gain from a successful source build.
 
+The staged [PI-R Serum default-state result](evidence/pi-reconciliation/serum-default-2026-09-25.md)
+establishes a runnable current-main Pi source candidate and a matched
+three-pair pre/post-AS1 comparison. Mean completed-request service fell by
+17–20 µs per pair, while the same 1,280-frame first-note gap remained in all
+six runs and CPU ranges overlapped. All sessions retired cleanly. This is
+candidate evidence for [PR #173](https://github.com/kasselvania/Linux-VST-bridge/pull/173),
+not approval of the old recovery policy, an installed change, or Pi musical
+qualification. The next repair must be selected from the repeatable first-note
+Windows processing span rather than folded into PI-R.
+
 ## Completed shared-audio source slice — AS1
 
 The operator selected a focused, shared audio-execution storage repair. AS1

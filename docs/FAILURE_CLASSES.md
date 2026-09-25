@@ -806,6 +806,10 @@ hot-mapping repair. [AS1 PR #172](https://github.com/kasselvania/Linux-VST-bridg
 removed recurring bridge-owned allocation from its covered shared audio
 request/reply path as a source correction only. No reduction in deadline misses,
 CPU time, dropouts or instrument failures has been established.
+The staged Pi comparison in [PI-R PR #173](https://github.com/kasselvania/Linux-VST-bridge/pull/173)
+measured lower mean completed-request service time, but the same first-note
+delivery gap and overlapping CPU ranges. It is not an installed or accepted
+residual deadline-miss fix.
 
 ### User posture
 
@@ -825,11 +829,13 @@ AP16 established and fixed one disk-backed hot-mapping stall. For the *residual*
 - **Built artifact:** AP16 corrected software revision `f6a19c78100fce548ae380ac043489d85d1543497ea20806e029526ad8fb8f0b`; no residual repair artifact.
 - **Profile/candidate:** AP16 retained ordinary revision-7 LoFi/FRAGMENTS profiles; no residual candidate.
 - **Installed generation:** AP16 corrected transport revision was installed on the Deck; Ubuntu FRAGMENTS remained on its accepted revision 12.
-- **Physical result:** AP16 matched result for the backing-store class; residual gaps persisted in later Deck and Ubuntu sessions.
+- **Physical result:** AP16 matched result for the backing-store class; residual gaps persisted in later Deck and Ubuntu sessions. The staged Pi A/B in [the exact Serum default-state result](../evidence/pi-reconciliation/serum-default-2026-09-25.md) retained a 1,280-frame first-note gap in all six runs despite lower mean request service in the AS1 arm. No installed-generation or support claim follows.
 
 ### Product coverage
 
 Arturia Deck sessions and FRAGMENTS Ubuntu sessions contain retained gap counters. Functional use is accepted; dropout-free operation is not claimed.
+The separate Pi standalone Serum source candidate is unqualified for musical
+use; its measured first-note gap remains.
 
 ### Claim limit
 
@@ -847,7 +853,7 @@ One bounded exact-thread capture distinguishing CPU execution, runnable wait, bl
 
 ### Evidence and historical sources
 
-[AP16](AP16.md), issue #90.
+[AP16](AP16.md), issue #90, [Pi matched result](../evidence/pi-reconciliation/serum-default-2026-09-25.md).
 
 ### Tracking issue
 
