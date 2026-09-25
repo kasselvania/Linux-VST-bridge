@@ -168,6 +168,7 @@ fn pending_save_does_not_hold_parent_callback_batches_or_replace_a_refused_snaps
         fault_status: None,
         notices: (0, 0),
         returned: Default::default(),
+        processing: crate::ProcessingScratch::new(),
         socket,
         state: ClientState {
             session: [13; 16],

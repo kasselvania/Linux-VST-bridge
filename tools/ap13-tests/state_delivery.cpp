@@ -13,12 +13,24 @@
 #include <chrono>
 #include <filesystem>
 #include <iostream>
+#include <new>
+#include <cstdlib>
 #include <thread>
 using namespace linux_vst_bridge;
 using namespace ap1;
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 using Clock=std::chrono::steady_clock;
+// Count only bridge result publication on the delivery thread. The concurrent
+// SDK state capture and peer fixture have separate ownership and timing.
+static thread_local bool count_publication=false;
+static thread_local size_t publication_allocations=0,publication_deallocations=0;
+void* operator new(size_t n){if(count_publication)++publication_allocations;if(auto*p=std::malloc(n))return p;throw std::bad_alloc();}
+void operator delete(void*p) noexcept {if(count_publication)++publication_deallocations;std::free(p);}
+void operator delete(void*p,size_t) noexcept {if(count_publication)++publication_deallocations;std::free(p);}
+void* operator new[](size_t n){if(count_publication)++publication_allocations;if(auto*p=std::malloc(n))return p;throw std::bad_alloc();}
+void operator delete[](void*p) noexcept {if(count_publication)++publication_deallocations;std::free(p);}
+void operator delete[](void*p,size_t) noexcept {if(count_publication)++publication_deallocations;std::free(p);}
 void check(bool ok,const char* message){if(!ok){std::cerr<<message<<'\n';std::exit(1);}}
 template<class F> void until(F f){auto end=Clock::now()+std::chrono::seconds(3);while(!f()){check(Clock::now()<end,"test peer progress deadline");Sleep(1);}}
 struct View {
@@ -108,7 +120,9 @@ int main(){
    session.bind_component(&component);session.bind_processor(&component);session.bind_controller(&controller,true);session.ready();check(session.initial_transition(),"initial transition");session.lifecycle_request(Activate);component.setActive(true);session.lifecycle_ack(Activated);session.lifecycle_request(Start);component.setProcessing(true);session.lifecycle_ack(Started);
    std::thread delivery([&]{wf0::ExternalBlock block{};float left[256]{},right[256]{};ap10_results_t results{};
     while(session.next(block,left,right)){float* channels[]{left,right};AudioBusBuffers bus{};bus.numChannels=2;bus.channelBuffers32=channels;ProcessData p{};p.symbolicSampleSize=kSample32;p.numSamples=block.frames;p.numInputs=1;p.numOutputs=1;p.inputs=&bus;p.outputs=&bus;
-     session.before_process();check(component.process(p)==kResultOk,"SDK processing");session.after_process();session.done(left,right,0,0,&results);}
+     session.before_process();check(component.process(p)==kResultOk,"SDK processing");session.after_process();
+     count_publication=true;session.done(left,right,0,0,&results);count_publication=false;
+     check(publication_allocations==0&&publication_deallocations==0,"MappedSession::done allocated or freed on delivery thread");}
     done.store(true);
    });
    while(!done.load()){session.service_owner();Sleep(1);}delivery.join();component.setProcessing(false);session.lifecycle_ack(Stopped);check(session.next_transition()==Deactivate,"deactivate request");session.lifecycle_request(Deactivate);component.setActive(false);session.lifecycle_ack(Deactivated);check(!session.activation_again(),"close selected");session.bind_controller(nullptr,false);session.finish(true);

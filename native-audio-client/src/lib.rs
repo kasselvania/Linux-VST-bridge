@@ -56,6 +56,11 @@ impl Frame {
         self.encode_version(1)
     }
     pub fn encode_version(&self, minor: u64) -> io::Result<Vec<u8>> {
+        let mut b = Vec::new();
+        self.encode_version_into(minor, &mut b)?;
+        Ok(b)
+    }
+    pub fn encode_version_into(&self, minor: u64, b: &mut Vec<u8>) -> io::Result<()> {
         need(
             (1..=if minor >= 6 {
                 21
@@ -86,7 +91,8 @@ impl Frame {
                     },
             "frame kind/length",
         )?;
-        let mut b = vec![0; HEADER + self.payload.len()];
+        b.clear();
+        b.resize(HEADER + self.payload.len(), 0);
         put(&mut b[0..4], 0x3141504c);
         put(&mut b[4..6], 1);
         put(&mut b[6..8], minor);
@@ -96,21 +102,26 @@ impl Frame {
         put(&mut b[32..40], 1);
         put(&mut b[40..48], self.sequence);
         b[56..].copy_from_slice(&self.payload);
-        Ok(b)
+        Ok(())
     }
     pub fn decode(b: &[u8]) -> io::Result<Self> {
         Self::decode_version(b, 1)
     }
     pub fn decode_version(b: &[u8], minor: u64) -> io::Result<Self> {
+        let mut frame = Self { kind: 0, session: [0; 16], sequence: 0, payload: Vec::new() };
+        Self::decode_version_into(b, minor, &mut frame)?;
+        Ok(frame)
+    }
+    pub fn decode_version_into(b: &[u8], minor: u64, frame: &mut Self) -> io::Result<()> {
         need(b.len() >= HEADER, "truncated header")?;
         let n = payload_length_version(&b[..HEADER], minor)?;
         need(b.len() == HEADER + n, "truncated/extra payload")?;
-        Ok(Self {
-            kind: get(&b[8..10]) as u16,
-            session: b[16..32].try_into().unwrap(),
-            sequence: get(&b[40..48]),
-            payload: b[56..].to_vec(),
-        })
+        frame.kind = get(&b[8..10]) as u16;
+        frame.session.copy_from_slice(&b[16..32]);
+        frame.sequence = get(&b[40..48]);
+        frame.payload.clear();
+        frame.payload.extend_from_slice(&b[HEADER..]);
+        Ok(())
     }
 }
 pub fn payload_length(b: &[u8]) -> io::Result<usize> {

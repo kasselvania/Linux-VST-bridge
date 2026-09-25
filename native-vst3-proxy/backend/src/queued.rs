@@ -2537,6 +2537,7 @@ mod tests {
         fault_status: None,
             notices: (0, 0),
             returned: crate::process_results::Packet::default(),
+            processing: crate::ProcessingScratch::new(),
             mapping: Some(mapping),
             socket,
             state: ClientState {
@@ -2606,7 +2607,7 @@ mod tests {
         let terminal=status.terminal.clone();
         let session=Session {
             gui:None,gui_revision:0,mapping:Some(ap1_native_client::mapping::Mapping::new(&dir.join("ap1.audio")).unwrap()),
-            mailbox:None,mailbox_enabled:false,capture:None,fault_status:Some(status),notices:(0,0),returned:Default::default(),socket,
+            mailbox:None,mailbox_enabled:false,capture:None,fault_status:Some(status),notices:(0,0),returned:Default::default(),processing:crate::ProcessingScratch::new(),socket,
             state:ClientState{session:[31;16],next:104687,slot:Slot::Writable},phase:11,max:CAP,minor:11,epoch:2,position:768,
             witness:None,identity:None,trace:Default::default(),sample_rate:48000,armed:false,owner:None,
         };
@@ -2791,6 +2792,7 @@ mod tests {
         fault_status: None,
                 notices: (0, 0),
                 returned: Default::default(),
+                processing: crate::ProcessingScratch::new(),
                 mapping: Some(mapping),
                 socket,
                 state: ClientState {

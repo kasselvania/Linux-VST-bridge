@@ -7,7 +7,16 @@ TEST=r'''
 #include <cassert>
 #include <filesystem>
 #include <iostream>
+#include <cstdlib>
+#include <new>
 using namespace linux_vst_bridge;
+static bool counting=false;static size_t allocations=0,deallocations=0;
+void* operator new(size_t n){if(counting)++allocations;if(auto*p=std::malloc(n))return p;throw std::bad_alloc();}
+void operator delete(void*p) noexcept {if(counting)++deallocations;std::free(p);}
+void operator delete(void*p,size_t) noexcept {if(counting)++deallocations;std::free(p);}
+void* operator new[](size_t n){if(counting)++allocations;if(auto*p=std::malloc(n))return p;throw std::bad_alloc();}
+void operator delete[](void*p) noexcept {if(counting)++deallocations;std::free(p);}
+void operator delete[](void*p,size_t) noexcept {if(counting)++deallocations;std::free(p);}
 int main(){
  auto dir=std::filesystem::current_path();auto path=dir/L"ap10.delivery";
  auto f=CreateFileW(path.c_str(),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,CREATE_NEW,0,nullptr);assert(f!=INVALID_HANDLE_VALUE);
@@ -20,9 +29,13 @@ int main(){
   wf0::DeliveryMailbox mailbox(dir.wstring(),id);
   ap1::Frame request{ap1::Process,id,9,std::vector<uint8_t>(56)};
   auto encoded=ap1::encode(request,7);std::memcpy(v+256,encoded.data(),encoded.size());ap1::put(v+68,encoded.size(),4);InterlockedExchange(reinterpret_cast<volatile LONG*>(v+64),1);
-  ap1::Frame got{};assert(mailbox.receive(got,7)&&got.sequence==9&&got.session==id&&got.payload==request.payload);
+  ap1::Frame got{};got.payload.reserve(8352);
+  counting=true;bool received=mailbox.receive(got,7);counting=false;
+  assert(received&&got.sequence==9&&got.session==id&&got.payload==request.payload);
   assert(InterlockedCompareExchange(reinterpret_cast<volatile LONG*>(v+64),0,0)==0);
-  ap1::Frame reply{ap1::Done,id,9,std::vector<uint8_t>(40)};std::array<uint64_t,15> trace{};trace[3]=101;trace[4]=102;trace[14]=10000000;mailbox.send(reply,7,&trace);
+  ap1::Frame reply{ap1::Done,id,9,std::vector<uint8_t>(40)};std::array<uint64_t,15> trace{};trace[3]=101;trace[4]=102;trace[14]=10000000;
+  counting=true;mailbox.send(reply,7,&trace);counting=false;
+  assert(allocations==0&&deallocations==0);
   assert(InterlockedCompareExchange(reinterpret_cast<volatile LONG*>(v+128),0,0)==1);
   assert(ap1::get(v+136+3*8,8)==101&&ap1::get(v+136+4*8,8)==102&&ap1::get(v+136+14*8,8)==10000000);
   auto n=ap1::get(v+132,4);assert(n==96);auto result=ap1::decode(std::vector<uint8_t>(v+16640,v+16640+n),7);assert(result.sequence==9&&result.session==id);

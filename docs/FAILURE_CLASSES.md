@@ -69,7 +69,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-GFX-001](#fc-gfx-001--directcomposition-presentation-capability) | DirectComposition presentation capability | Proton/Wine graphics runner | causal | accepted | Blackhole / Steam Deck | supported | Preserve exact runner; close stale issue #132 disposition separately |
 | [FC-LIFE-001](#fc-life-001--graphical-session-and-keeper-authority) | Graphical-session/keeper authority | Manager/supervisor lifecycle | causal | accepted | Blackhole, Kontakt / Steam Deck; FRAGMENTS / Ubuntu | supported | Gaming Mode transition coverage |
 | [FC-LIFE-002](#fc-life-002--failed-launch-cleanup-and-truthful-recovery-state) | Failed launch cleanup and truthful recovery | Manager ownership/leases/results | causal | deployed | Steam Deck and Ubuntu fixtures | supported-with-workaround | Manager recovery UX |
-| [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | bounded | instrumentation-only | Arturia Deck and FRAGMENTS Ubuntu observations | supported-with-workaround | One causal scheduler/thread capture |
+| [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | bounded | instrumentation-only | Arturia Deck and FRAGMENTS Ubuntu observations | supported-with-workaround | AS1 #172 storage source correction only; one causal scheduler/thread capture still needed |
 | [FC-AUDIO-002](#fc-audio-002--host-block-exceeds-the-selected-bridge-presentation-envelope) | Host block exceeds selected bridge presentation envelope | Proxy setup, selected delay, DAW audio settings | causal | accepted | FRAGMENTS / Ubuntu at Bitwig 512/48 kHz | supported-with-workaround | Actionable requested-versus-supported block message |
 | [FC-CAP-001](#fc-cap-001--capacity-enumeration-versus-lease-retirement-race) | Capacity scan versus lease retirement | Manager capacity ownership | causal | none | AP17 exact fixture | supported-with-workaround | Repair issue #93 |
 | [FC-MGMT-001](#fc-mgmt-001--managed-inventory-refresh-authority) | Managed inventory freshness and refresh | Manager catalogue/registry/onboarding | causal | accepted | Blackhole, Kontakt / Deck; FRAGMENTS / Ubuntu | supported | Preserve one canonical refresh route |
@@ -801,7 +801,11 @@ bounded
 
 instrumentation-only
 
-This status is for the residual classes. AP16 separately accepted a disk-backed hot-mapping repair.
+This status is for the residual deadline-miss classes. AP16 separately accepted a disk-backed
+hot-mapping repair. [AS1 PR #172](https://github.com/kasselvania/Linux-VST-bridge/pull/172)
+removed recurring bridge-owned allocation from its covered shared audio
+request/reply path as a source correction only. No reduction in deadline misses,
+CPU time, dropouts or instrument failures has been established.
 
 ### User posture
 
@@ -817,7 +821,7 @@ AP16 established and fixed one disk-backed hot-mapping stall. For the *residual*
 
 ### Fix chain
 
-- **Source correction:** AP16's private-tmpfs hot-transport mapping addressed the demonstrated backing-store class; no residual-class source fix selected.
+- **Source correction:** AP16's private-tmpfs hot-transport mapping addressed the demonstrated backing-store class. AS1 [PR #172](https://github.com/kasselvania/Linux-VST-bridge/pull/172) removes recurring bridge-owned allocation from the covered request/reply path at the source stage only; no residual deadline-miss mechanism or fix has been established.
 - **Built artifact:** AP16 corrected software revision `f6a19c78100fce548ae380ac043489d85d1543497ea20806e029526ad8fb8f0b`; no residual repair artifact.
 - **Profile/candidate:** AP16 retained ordinary revision-7 LoFi/FRAGMENTS profiles; no residual candidate.
 - **Installed generation:** AP16 corrected transport revision was installed on the Deck; Ubuntu FRAGMENTS remained on its accepted revision 12.
@@ -829,7 +833,9 @@ Arturia Deck sessions and FRAGMENTS Ubuntu sessions contain retained gap counter
 
 ### Claim limit
 
-Counters are not automatically audible-dropout evidence. Elapsed Windows `process()` time is not automatically thread CPU time.
+Counters are not automatically audible-dropout evidence. Elapsed Windows
+`process()` time is not automatically thread CPU time. AS1's allocation result
+does not establish a CPU, deadline, dropout or instrument-failure improvement.
 
 ### Related failure classes
 
@@ -849,7 +855,7 @@ One bounded exact-thread capture distinguishing CPU execution, runnable wait, bl
 
 ### Last reviewed
 
-2026-09-23.
+2026-09-25.
 
 ---
 
