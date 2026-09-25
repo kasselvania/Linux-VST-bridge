@@ -123,6 +123,8 @@ struct Shared {
     ack: AtomicU64,
     quit: AtomicBool,
     processed: AtomicU64,
+    #[cfg(feature = "rpi0")]
+    processed_frames: AtomicU64,
     first_position: AtomicU64,
     detail: std::sync::Mutex<String>,
     // Separate owner-thread mailbox. It never writes the SPSC audio queue.
@@ -166,6 +168,8 @@ impl Shared {
             ack: AtomicU64::new(9),
             quit: AtomicBool::new(false),
             processed: AtomicU64::new(0),
+            #[cfg(feature = "rpi0")]
+            processed_frames: AtomicU64::new(0),
             first_position: AtomicU64::new(u64::MAX),
             detail: std::sync::Mutex::new(String::new()),
             control: std::sync::Mutex::new(None),
@@ -656,6 +660,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         Ordering::Relaxed,
                     );
                     s.processed.fetch_add(1, Ordering::Relaxed);
+                    #[cfg(feature = "rpi0")]
+                    s.processed_frames.fetch_add(n as u64, Ordering::Relaxed);
                     let publish = s.wanted.load(Ordering::Acquire) == item.epoch;
                     let mut completion = Completion::from(item);
                     completion.returned = session.returned;
@@ -812,19 +818,43 @@ pub(crate) unsafe fn open(
     minor: u64,
     identity: Option<state::Identity>,
 ) -> u32 {
+    open_with(max, handle, minor, identity, None, || {
+        if minor >= 6 {
+            crate::preview::discover_performance(identity)
+        } else if let Some(identity) = identity {
+            crate::preview::discover_commercial(identity)
+        } else {
+            binding(minor == 4)
+        }
+    })
+}
+
+#[cfg(feature = "rpi0")]
+pub(crate) unsafe fn open_bound(
+    max: u32,
+    handle: *mut u64,
+    identity: state::Identity,
+    binding: crate::preview::Binding,
+) -> u32 {
+    let report = binding.directory.join("rpi0.performance.jsonl");
+    open_with(max, handle, 12, Some(identity), Some(report), || Ok(binding))
+}
+
+unsafe fn open_with(
+    max: u32,
+    handle: *mut u64,
+    minor: u64,
+    identity: Option<state::Identity>,
+    report_override: Option<std::path::PathBuf>,
+    binding_source: impl FnOnce() -> io::Result<crate::preview::Binding>,
+) -> u32 {
     if handle.is_null() || !(1..=256).contains(&max) {
         return 1;
     }
     crate::ffi(|| {
         match INSTANCES.insert(|| {
-            let binding = if minor >= 6 {
-                crate::preview::discover_performance(identity)?
-            } else if let Some(identity) = identity {
-                crate::preview::discover_commercial(identity)?
-            } else {
-                binding(minor == 4)?
-            };
-            let report = binding.owner.as_ref().map(|_| {
+            let binding = binding_source()?;
+            let report = report_override.or_else(|| binding.owner.as_ref().map(|_| {
                 if minor >= 6 {
                     crate::preview::performance_root(identity.is_some())
                         .join("results")
@@ -837,7 +867,7 @@ pub(crate) unsafe fn open(
                 } else {
                     crate::preview::report_path(binding.session)
                 }
-            });
+            }));
             let installed_delay = binding.installed_delay;
             let mut session = Session::open(binding, max as usize, minor)?;
             session.identity = identity;
@@ -1292,6 +1322,23 @@ pub unsafe extern "C" fn ap4_state(
         }
     }) as u32
 }
+#[cfg(feature = "rpi0")]
+pub(crate) fn wait_started(id: u64) -> io::Result<()> {
+    let shared = INSTANCES.lease(id).ok_or_else(|| invalid("start acknowledgement handle"))?.shared.clone();
+    let epoch = shared.wanted.load(Ordering::Acquire);
+    let expected = (epoch != 0 && epoch <= (u64::MAX >> 8))
+        .then(|| (epoch << 8) | u64::from(START + 1))
+        .ok_or_else(|| invalid("start acknowledgement epoch"))?;
+    let deadline = Instant::now() + Duration::from_secs(20);
+    loop {
+        if shared.ack.load(Ordering::Acquire) == expected { return Ok(()); }
+        if shared.fault.load(Ordering::Acquire) != 0 || Instant::now() >= deadline {
+            return Err(invalid("start acknowledgement missing"));
+        }
+        thread::sleep(Duration::from_micros(50));
+    }
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn ap3_transition(id: u64, op: u32) -> u32 {
     let Some(l) = INSTANCES.lease(id) else {
@@ -1512,16 +1559,21 @@ unsafe fn process_events(
     0
 }
 
+#[cfg(feature = "rpi0")]
+pub(crate) fn processed_frames(id: u64) -> Option<u64> {
+    Some(INSTANCES.lease(id)?.shared.processed_frames.load(Ordering::Acquire))
+}
+
 #[repr(C)]
 #[derive(Default)]
 pub struct Stats {
-    fault: u64,
-    first_position: u64,
-    processed: u64,
-    request_high: u64,
-    result_high: u64,
-    position: u64,
-    epoch: u64,
+    pub fault: u64,
+    pub first_position: u64,
+    pub processed: u64,
+    pub request_high: u64,
+    pub result_high: u64,
+    pub position: u64,
+    pub epoch: u64,
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap3_stats(id: u64, out: *mut Stats) -> u32 {
