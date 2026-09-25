@@ -93,9 +93,14 @@ The manager therefore retained `needs_user_action` for that installation
 outcome even though an exact FL executable was discovered. A subsequent normal
 managed FL session completed with zero owned processes and confirmed cleanup;
 current status reads `ready`. The historical installer failure remains visible.
-The operator reports FL functioning in demo mode. This does not prove a clean
-installer exit, licensed saved-project recall, ASIO, physical MIDI, or WD1
-third-party plug-in use.
+The operator reports FL functioning in demo mode. One `.flp` exists and the
+managed application session retired cleanly. The selected audio device and a
+stock WAV export were not retained, and no post-save project recall was tested.
+The accepted WD0 result is therefore bounded to the managed workspace,
+repeatable installation, normal trial-mode launch, saved-file presence and
+clean retirement. It does not prove a clean installer exit, audible stock
+playback, WAV export, licensed saved-project recall, ASIO, physical MIDI, or
+WD1 third-party plug-in use.
 
 ### Repeatable installation lifecycle
 
@@ -376,9 +381,9 @@ edition. No third-party VST or internet sound-pack download is required.
 
 FL trial mode can save/export but cannot reopen saved projects. Record a trial
 limit as `trial_limited`; do not debug it as Wine corruption, automate licensing
-or purchase anything. If licensed recall is unavailable, retain the useful
-playback/export/clean-relaunch result and report the exact remaining gate. Do not
-claim complete WD0.
+or purchase anything. The bounded result above does not claim the original
+stock-audio/export or licensed-recall gate. WD1 will exercise a fresh musical
+session and export through directly hosted Serum without claiming FLP recall.
 
 Touchscreen coverage is not required. Use mouse/trackpad. The merged Serum touch
 repair is a shared Wine lesson, not proof that the selected FL runtime already
@@ -417,8 +422,10 @@ Private installer bytes, projects, audio exports, credentials, license files and
 raw vendor streams remain private.
 
 Update failure-class and support documents only for actual changed understanding
-or physical coverage. Until the workflow passes, FL Studio is planned/in
-progress, not supported. A schema-only or launch-only PR is not WD0 completion.
+or physical coverage. The original full stock-project and licensed-recall
+qualification remains open. The bounded trial-mode workspace result may merge
+as implementation progress under its exact physical claim; it is not a general
+FL Studio support certificate.
 
 ## After WD0
 

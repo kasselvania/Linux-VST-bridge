@@ -16,7 +16,7 @@ generations are distinct facts.
 | Current FL executable | `FL Studio 2026/FL64.exe` under the workspace prefix; SHA-256 `22467af39a0ef64efb43cce02dc121245dbb006277e401f416d6c3f4b7b79243` |
 | Observed executable file version | The executable's `FileVersion` and `ProductVersion` string resources both read `26.1.5.5618`; the manager's optional observed-version field remains unset |
 | Selected workspace runner | `proton-11.0-2c-fl-crypt32-order-v1`; environment revision 2 |
-| Audio observation | No backend/rate/buffer observation was recorded in workspace status; no ASIO or physical MIDI qualification follows from this result |
+| Audio observation | No backend/rate/buffer observation was recorded in workspace status; the operator does not recall the selected audio device. ASIO and physical MIDI remain unqualified |
 
 The original schema-1 workspace was `Uninstalled` at revision 12. Read-only
 migration preserved its first installation operation
@@ -52,6 +52,15 @@ replacement changed its own software generation; it did not turn FL into a
 native publication or consume a bridge DSP lease.
 
 ## Trial-mode scope
+
+| Operation | Disposition |
+|---|---|
+| Manager-owned reinstall/version change | Physically established on the existing workspace; exact new operation and retained old history above |
+| Normal FL application launch and close | Exact completed managed session receipt; zero owned processes and confirmed cleanup |
+| Trial-mode musical playback | Operator reports FL functioning in demo mode, without a separately retained stock-audio observation or selected device identity; audible stock playback is not independently qualified here |
+| Save | A 54,814-byte `.flp` exists in the managed prefix's Image-Line project directory; its contents and licensed reopening were not tested |
+| WAV export | No recent WD0 WAV was found in the managed project/export roots or usual Deck user folders; export is not claimed |
+| Clean relaunch after save | A managed launch/retirement is recorded; a second post-save session and project recall are not established |
 
 Licensed reopening of a saved `.flp` is deferred while FL remains in trial
 mode. A fresh application launch or fresh-session playback does not prove
