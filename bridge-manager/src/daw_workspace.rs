@@ -1998,6 +1998,20 @@ fn finish_product_install(m: &Manager) -> Result<Value> {
         "installed":w.serum2.installed}))
 }
 
+fn serum2_install_finish_ready_for(m: &Manager, w: &Workspace) -> Result<bool> {
+    let Some(op) = w.serum2.active_installation_operation.as_deref() else {
+        return Ok(false);
+    };
+    Ok(!unit_active(&unit(op, true)?)? && product_result(m, op)?.as_ref().is_some_and(retired))
+}
+
+pub(super) fn serum2_install_finish_ready(m: &Manager) -> Result<bool> {
+    if !record(m).try_exists()? {
+        return Ok(false);
+    }
+    serum2_install_finish_ready_for(m, &load(m)?)
+}
+
 fn session_ready(m: &Manager, w: &Workspace) -> Result<bool> {
     let Some(op) = &w.session_operation else {
         return Ok(true);
@@ -2645,13 +2659,7 @@ fn serum2_projection(
     };
     let mut actions = Vec::new();
     if w.serum2.active_installation_operation.is_some() {
-        let op = w
-            .serum2
-            .active_installation_operation
-            .as_deref()
-            .ok_or("daw_workspace_product_operation_absent")?;
-        let ready =
-            !unit_active(&unit(op, true)?)? && product_result(m, op)?.as_ref().is_some_and(retired);
+        let ready = serum2_install_finish_ready_for(m, w)?;
         actions.push(offer(
             "Complete Serum installation readback",
             ui::Action::WorkspaceFinishProductInstall {

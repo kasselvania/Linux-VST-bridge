@@ -570,6 +570,7 @@ impl Operator {
                         || s.system.maintenance != a.system.maintenance
                         || s.system.cleanup_unconfirmed != a.system.cleanup_unconfirmed
                         || refresh_for_receipt(&s.operation, &a.operation)
+                        || refresh_for_workspace_product(s, a.workspace_product_install_ready)
                     {
                         self.refresh_after = true;
                     }
@@ -1923,6 +1924,25 @@ fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json:
             .and_then(|v| v["state"].as_str())
             .is_some_and(|s| matches!(s, "vendor_running" | "completed" | "refused"))
 }
+
+fn refresh_for_workspace_product(snapshot: &Snapshot, install_finish_ready: bool) -> bool {
+    install_finish_ready
+        && snapshot
+            .workspaces
+            .iter()
+            .flat_map(|workspace| &workspace.products)
+            .any(|product| {
+                product.id == WorkspaceProductId::Serum2
+                    && !product.actions.iter().any(|offer| {
+                        matches!(
+                            offer.action,
+                            Action::WorkspaceFinishProductInstall {
+                                product: WorkspaceProductId::Serum2
+                            }
+                        ) && offer.disabled_reason.is_none()
+                    })
+            })
+}
 #[cfg(test)]
 mod tests {
     #[test]
@@ -2339,6 +2359,30 @@ mod tests {
         assert!(labels
             .iter()
             .any(|s| s == "Observed executable version: 26.1.6.5639"));
+
+        assert!(!refresh_for_workspace_product(&snapshot, false));
+        assert!(refresh_for_workspace_product(&snapshot, true));
+        let product = &mut snapshot.workspaces[0].products[0];
+        product.state = "installing".into();
+        product.actions = vec![AvailableAction {
+            label: "Complete Serum installation readback".into(),
+            action: Action::WorkspaceFinishProductInstall {
+                product: WorkspaceProductId::Serum2,
+            },
+            disabled_reason: Some("Serum installer is active".into()),
+        }];
+        assert!(refresh_for_workspace_product(&snapshot, true));
+        let mut operator = Operator::preview(snapshot.clone(), Page::Workspaces);
+        operator.handle_reply(Reply::Activity(Activity {
+            schema: 8,
+            system: snapshot.system.clone(),
+            capture: snapshot.capture.clone(),
+            operation: snapshot.operation.clone(),
+            workspace_product_install_ready: true,
+        }));
+        assert!(operator.refresh_after);
+        snapshot.workspaces[0].products[0].actions[0].disabled_reason = None;
+        assert!(!refresh_for_workspace_product(&snapshot, true));
     }
     #[test]
     fn workspace_primary_action_uses_manager_eligibility_without_changing_offers() {
@@ -2520,6 +2564,7 @@ mod tests {
             system: s.system.clone(),
             capture: s.capture.clone(),
             operation: s.operation.clone(),
+            workspace_product_install_ready: false,
         })
     }
     #[test]

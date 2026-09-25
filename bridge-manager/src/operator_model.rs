@@ -350,6 +350,8 @@ pub struct Activity {
     pub system: System,
     pub capture: serde_json::Value,
     pub operation: Option<serde_json::Value>,
+    #[serde(default)]
+    pub workspace_product_install_ready: bool,
 }
 impl System {
     /// Preserve the version-1 wire shape so an exactly retained frontend can

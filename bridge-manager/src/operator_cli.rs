@@ -252,6 +252,7 @@ fn activity_with_capacity(m: &Manager, cap: Option<&CapacityReadback>) -> Result
         operation: optional(&m.root.join("operator/latest.json"))?
             .as_object()
             .map(|v| Value::Object(v.clone())),
+        workspace_product_install_ready: daw_workspace::serum2_install_finish_ready(m)?,
     })
 }
 fn activity(m: &Manager) -> Result<ui::Activity> {
