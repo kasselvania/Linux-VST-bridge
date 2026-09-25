@@ -1,8 +1,9 @@
 # RPI2 Serum 2 instrument onboarding: partial result
 
 This is a bounded Pi 5/ShieldXL observation on 2026-09-24, not a Serum 2
-compatibility qualification. The primary claim in `CURRENT_SLICE.md` remains
-incomplete because the actual editor rendered a white client area.
+compatibility qualification. The original editor sessions rendered a white
+client area. A later private graphics comparison reached Serum's authorization
+screen, but the primary usable-instrument claim remains incomplete.
 
 ## Exact identities and setup
 
@@ -84,14 +85,84 @@ One comparison changed only Serum's private `Disable DirectComposition`
 preference from true to false for a new process; its editor remained white.
 The preference was restored byte for byte to SHA-256
 `5e5d1f8482819d32047532d9bc73561364d933864f2f6d7957dbeb9f7f93a173`.
-No renderer cause is established. No activation screen was visible; license
-posture is unverified and no account or serial operation occurred.
+At that stage, no renderer cause was established and no activation screen was
+visible. No account or serial operation occurred.
 
-All four owned sessions returned exit code 0, recorded `RPI1_CLEAN_SHUTDOWN`,
-left no owned session running and returned JACK to system-only ports at period
-512. The final power/thermal indicator was `0x0`. The private prefix, logs,
-installer, module, state and audio are retained locally; no proprietary files
-or license data are added to this branch. Pi CC64 sustain remains unsupported
-by this adapter, and four useful controls on a selected user sound, preset
-selection, actual editor control, audible user recall, and stable lower JACK
-periods are not established.
+All four original onboarding sessions returned exit code 0, recorded
+`RPI1_CLEAN_SHUTDOWN`, left no owned session running and returned JACK to
+system-only ports at period 512. Their final power/thermal indicator was
+`0x0`. The private prefix, logs, installer, module, state and audio remain
+local; no proprietary files or license data are added to this branch.
+
+### Bounded graphics follow-up
+
+The four developer-documented Wine preference values were already effective:
+`Disable DirectComposition=true`, `Disable Partial Redraw=true`,
+`Show Help Tips=false` and `Show Value Tips=false`. No further preference edit,
+font installation or plug-in reinstall was made. The original private launcher
+and config retained SHA-256 values
+`28bfe15ec2fd285f35d0e75a6ea0d754718773d460f497d45c4da8e0e2a69ecb`
+and `fced453fde80b1d43acb7c9858e94c20cf5ffa9979c0f23339a4200d541637e5`.
+
+An exact loaded-module check found Wine built-in `d2d1`, `dcomp`, and
+`wined3d`, but the default route loaded DXVK `d3d11` and `dxgi`. Its private
+startup trace initially failed Vulkan instance creation. A narrow temporary
+Pi package installation added `libdisplay-info2` 0.2.0-2 and
+`mesa-vulkan-drivers` 26.2.2-1~bpo13+0~rpt1, with no other package upgrades.
+DXVK then saw V3DV but rejected it for missing `multiDrawIndirect`; it skipped
+the software Vulkan device and reported `No adapters found` and failed D3D11
+device creation. The editor remained white. Package installation alone was not
+a rendering repair.
+
+A private Serum-only launcher selected Proton's WineD3D route with
+`PROTON_USE_WINED3D=1`. The live host loaded Wine built-in `d3d11` and `dxgi`,
+but its hardware-facing OpenGL session still showed white. Adding only
+`LIBGL_ALWAYS_SOFTWARE=true` to that private launcher made the actual Serum
+2.1.5 authorization page legible in two separate bounded sessions. The second
+live host inherited both variables and mapped Wine built-in `d2d1`, `dcomp`,
+`d3d11`, `dxgi`, and `wined3d`. On the same X display with the software variable,
+Mesa reported `llvmpipe (LLVM 19.1.7, 128 bits)`. The fallback launcher SHA-256
+was `e2c2f7baf3d1d581e50992aad6afb2bc9f52711d86afcdfefbc36c6b0558fb03`;
+its private config SHA-256 was
+`89f53780f4395880f0905755fcdaf64dcf0f641f132b8f65642cbc827ee8d6ba`.
+The candidate continued to select the same Serum module, Windows host, native
+bridge, 48 kHz, JACK 512, quantum 256 and reserve 512.
+
+The visible page states that this Pi is not yet authorized for Serum 2 and
+offers an Xfer browser-based license retrieval flow. No credential, license
+or authorization material was entered or captured. This proves first paint
+through a private software OpenGL fallback, not a usable editor or acceptable
+playback CPU cost. It narrows the white-window failure to the selected graphics
+path; it does not identify the first failed WineD3D call. Private graphics
+traces, screenshots and vendor data remain off Git.
+
+The graphics sessions did **not** provide a clean-shutdown or audio-use result.
+The first 150-second session spent about 122 seconds in first-use startup; its
+bounded wrapper timed out waiting for the requested shutdown and stopped the
+owned unit. The repeated session reached ready in about 11 seconds, but was
+left open for user authorization beyond the Windows-host supervisor's fixed
+300-second `RuntimeMaxSec`. The host unit expired. The native bridge then
+reported terminal `fault=3`, 8,116 processing failures, 15,360 missing frames
+and two gaps before the owned native unit was stopped. There were no MIDI
+messages in either graphics session. These failures are retained, not counted
+as normal Serum playback or blamed on the renderer without causal evidence.
+The second run restored JACK to system-only ports, but had no
+`RPI1_CLEAN_SHUTDOWN` marker. A future operator session must be shorter than
+the host supervision bound unless that lifecycle policy is separately repaired.
+Maximum sampled temperatures in the two graphics sessions were 49.05 and
+50.70 C; both observed `throttled=0x0`.
+
+A short final session with the unmodified launcher restored the original DXVK
+selection and recorded `RPI1_CLEAN_SHUTDOWN`. All 19 backed-up prefix graphics
+paths, including `config_info`, matched their pre-test hash or symlink target.
+There were no remaining owned units; JACK returned to system-only ports at
+512 frames and power flags were `0x0`. The two temporary Vulkan packages were
+removed with no other package changes. Mesa software OpenGL still reported
+llvmpipe on the same X display after their removal. The private fallback
+launcher/config and sanitized observations remain available for a later,
+shorter operator-owned authorization session; the packaged runner, original
+launcher/config, Windows host, native bridge and Serum module were unchanged.
+
+Pi CC64 sustain remains unsupported by this adapter. Four useful controls on
+a selected user sound, preset selection, actual editor control, audible user
+recall, and stable lower JACK periods are not established.

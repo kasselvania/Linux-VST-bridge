@@ -69,9 +69,15 @@ sessions shut down normally and restored the JACK graph. The editor opened and
 reported successful lifecycle events, but its content remained completely
 white in the original session, after close/reopen, and in one reversible
 DirectComposition preference comparison. The preference was restored byte for
-byte. Authorization state and actual editor manipulation are therefore
-unverified. Each session recorded at least one delivery gap, despite zero
-JACK xruns, processing failures and terminal faults. The primary usable-
-instrument claim is **not complete**; no Pi Serum compatibility assertion or
+byte. A later private Serum-only WineD3D plus software OpenGL comparison made
+the actual Xfer authorization page legible in two bounded sessions; this Pi
+reported itself not yet authorized. No account or license material was entered.
+Actual editor manipulation and licensed usability are therefore still
+unverified. Each original session recorded at least one delivery gap, despite
+zero JACK xruns, processing failures and terminal faults. The later long
+graphics session exceeded the Windows host's 300-second supervision bound
+and produced a real terminal fault and processing failures before cleanup.
+The primary usable instrument claim is **not complete**; no Pi Serum
+compatibility assertion or
 deployment promotion follows. Exact identities, results and limits are in
 `evidence/rpi2/serum2-instrument-onboarding.md`.
