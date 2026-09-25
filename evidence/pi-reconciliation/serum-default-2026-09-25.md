@@ -73,11 +73,12 @@ fixture frame 48,000. Each produced 30 note-ons, 29 note-offs at termination,
 and zero MIDI-write failures. At 15 seconds the native control path queued
 Macro 1 = 0.5. There was no preset-browser transition because this controlled
 fixture does not expose one. The one-time A setup run, the initial B handshake
-failure before R was complete, and all six matched sessions are retained as
+failure before R was complete, and all eight matched sessions are retained as
 separate outcomes; no favorable warm interval was selected in place of the
 attack or startup frames. The initial B attempt announced Windows readiness
 then correctly refused because the current-main host lacked the Pi layout
 handshake. That missing handshake was repaired in R before either matched arm.
+The first three pairs ran A then B; the fourth ran B then A to check order.
 
 ## Matched release-path result
 
@@ -97,10 +98,12 @@ They must not be summed as serial elapsed time.
 | B2 | 548.03 µs / ≤1,152 µs / 34.50 ms | 228.51 µs / 24.26 ms | 2.08 µs | 178.49 µs / 34.01 ms | 1,441,024 / 2,304 | 0.56 / 1.804 |
 | A3 | 568.71 µs / ≤1,152 µs / 34.43 ms | 237.92 µs / 24.20 ms | 3.63 µs | 179.93 µs / 33.93 ms | 1,441,536 / 1,792 | 0.57 / 1.818 |
 | B3 | 549.08 µs / ≤1,152 µs / 34.83 ms | 229.56 µs / 24.58 ms | 2.08 µs | 178.96 µs / 34.34 ms | 1,441,024 / 2,304 | 0.56 / 1.794 |
+| B4, run first | 551.01 µs / ≤1,152 µs / 34.15 ms | 229.86 µs / 23.90 ms | 2.07 µs | 178.41 µs / 33.67 ms | 1,441,024 / 2,304 | 0.56 / 1.796 |
+| A4, run second | 565.24 µs / ≤1,152 µs / 34.51 ms | 235.31 µs / 24.26 ms | 3.57 µs | 179.65 µs / 34.07 ms | 1,441,024 / 2,304 | 0.57 / 1.816 |
 
-The candidate's mean request service was 17–20 µs lower in each matched pair
-(three-run means: A 565.41 µs; B 547.37 µs). Mean preparation fell from
-3.44–3.65 µs to 2.08 µs. These are measured release-path elapsed-time
+The candidate's mean request service was 14–20 µs lower in each matched pair,
+including the reverse-order pair (four-run means: A 565.37 µs; B 548.28 µs).
+Mean preparation fell from 3.44–3.65 µs to 2.07–2.08 µs. These are measured release-path elapsed-time
 differences for this fixture. The p99 bucket, 34–35 ms maximum service span,
 Windows processing tail, and CPU ranges overlap. There is **no established CPU
 gain or improved audio delivery**.
@@ -111,7 +114,7 @@ processing positions 50,432–51,456. The first-note Windows processing span
 was about 34 ms in every run. Total missing frames equaled expired frames:
 1,792 or 2,304 (37.3 or 48 ms), varying in both arms. No run recorded a JACK
 xrun, bridge fault, unpublished completed request, or MIDI
-write failure. All six sessions produced nonzero samples, retired their exact
+write failure. All eight sessions produced nonzero samples, retired their exact
 Windows cohort, printed `PI_CLEAN_SHUTDOWN`, and left no running test unit or
 JACK client. This is not an audible or usable-instrument qualification.
 

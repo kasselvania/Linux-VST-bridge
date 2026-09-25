@@ -829,7 +829,7 @@ AP16 established and fixed one disk-backed hot-mapping stall. For the *residual*
 - **Built artifact:** AP16 corrected software revision `f6a19c78100fce548ae380ac043489d85d1543497ea20806e029526ad8fb8f0b`; no residual repair artifact.
 - **Profile/candidate:** AP16 retained ordinary revision-7 LoFi/FRAGMENTS profiles; no residual candidate.
 - **Installed generation:** AP16 corrected transport revision was installed on the Deck; Ubuntu FRAGMENTS remained on its accepted revision 12.
-- **Physical result:** AP16 matched result for the backing-store class; residual gaps persisted in later Deck and Ubuntu sessions. The staged Pi A/B in [the exact Serum default-state result](../evidence/pi-reconciliation/serum-default-2026-09-25.md) retained a 1,280-frame first-note gap in all six runs despite lower mean request service in the AS1 arm. No installed-generation or support claim follows.
+- **Physical result:** AP16 matched result for the backing-store class; residual gaps persisted in later Deck and Ubuntu sessions. The staged Pi A/B in [the exact Serum default-state result](../evidence/pi-reconciliation/serum-default-2026-09-25.md) retained a 1,280-frame first-note gap in all eight runs despite lower mean request service in the AS1 arm. No installed-generation or support claim follows.
 
 ### Product coverage
 
