@@ -29,6 +29,15 @@ plug-in state, vendor setting, queue, timeout, recovery policy, governor,
 priority, affinity, quantum or reserve change is admitted. FN1 does not
 prewarm, optimize, qualify musical usability or replace an installed service.
 
+The staged [FN1 Pi result](evidence/fn1/serum-first-note-2026-09-25.md)
+binds the repeatable 1,280-frame first-note gap to a roughly 34 ms Windows
+call. The caller ran through the span, aligned user-space samples landed in
+the FEX ARM64EC boundary, and new Serum guest-code map entries appeared during
+that call. This supports a cold translation/JIT mechanism for the exact
+default-state fixture. FN1 makes no repair or speed claim. The next separate
+slice is a state-safe prewarm experiment with exact state restoration and
+first-user-note delivery checks.
+
 ## Completed Pi source reconciliation — PI-R
 
 The operator selected the minimal current-main Pi standalone reconciliation after

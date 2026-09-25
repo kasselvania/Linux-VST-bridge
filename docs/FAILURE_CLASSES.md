@@ -69,7 +69,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-GFX-001](#fc-gfx-001--directcomposition-presentation-capability) | DirectComposition presentation capability | Proton/Wine graphics runner | causal | accepted | Blackhole / Steam Deck | supported | Preserve exact runner; close stale issue #132 disposition separately |
 | [FC-LIFE-001](#fc-life-001--graphical-session-and-keeper-authority) | Graphical-session/keeper authority | Manager/supervisor lifecycle | causal | accepted | Blackhole, Kontakt / Steam Deck; FRAGMENTS / Ubuntu | supported | Gaming Mode transition coverage |
 | [FC-LIFE-002](#fc-life-002--failed-launch-cleanup-and-truthful-recovery-state) | Failed launch cleanup and truthful recovery | Manager ownership/leases/results | causal | deployed | Steam Deck and Ubuntu fixtures | supported-with-workaround | Manager recovery UX |
-| [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | bounded | instrumentation-only | Arturia Deck and FRAGMENTS Ubuntu observations | supported-with-workaround | AS1 #172 storage source correction only; one causal scheduler/thread capture still needed |
+| [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | bounded | instrumentation-only | Arturia Deck and FRAGMENTS Ubuntu observations | supported-with-workaround | Pi FN1 cold FEX translation/JIT attribution is a separate unqualified source-candidate result |
 | [FC-AUDIO-002](#fc-audio-002--host-block-exceeds-the-selected-bridge-presentation-envelope) | Host block exceeds selected bridge presentation envelope | Proxy setup, selected delay, DAW audio settings | causal | accepted | FRAGMENTS / Ubuntu at Bitwig 512/48 kHz | supported-with-workaround | Actionable requested-versus-supported block message |
 | [FC-CAP-001](#fc-cap-001--capacity-enumeration-versus-lease-retirement-race) | Capacity scan versus lease retirement | Manager capacity ownership | causal | none | AP17 exact fixture | supported-with-workaround | Repair issue #93 |
 | [FC-MGMT-001](#fc-mgmt-001--managed-inventory-refresh-authority) | Managed inventory freshness and refresh | Manager catalogue/registry/onboarding | causal | accepted | Blackhole, Kontakt / Deck; FRAGMENTS / Ubuntu | supported | Preserve one canonical refresh route |
@@ -810,6 +810,11 @@ The staged Pi comparison in [PI-R PR #173](https://github.com/kasselvania/Linux-
 measured lower mean completed-request service time, but the same first-note
 delivery gap and overlapping CPU ranges. It is not an installed or accepted
 residual deadline-miss fix.
+The [FN1 Pi result](../evidence/fn1/serum-first-note-2026-09-25.md) attributes
+the exact default-state first-note span to caller-executed FEX ARM64EC cold
+translation/JIT work, with new Serum guest-code map entries during the call.
+FN1 changes diagnostic source only. It does not repair the gap or establish a
+cause for older unidentified presets, Deck, Ubuntu or other residual misses.
 
 ### User posture
 
@@ -821,7 +826,14 @@ Retained sessions contain startup, queue/reply, editor/removal, lifecycle, and c
 
 ### Mechanism
 
-AP16 established and fixed one disk-backed hot-mapping stall. For the *residual* classes, the retained elapsed-time records do not distinguish vendor CPU work from runnable wait, blocking/faults, native ordering, or cgroup throttling.
+AP16 established and fixed one disk-backed hot-mapping stall. For the older
+*residual* Deck and Ubuntu records, the retained elapsed-time data do not
+distinguish vendor CPU work from runnable wait, blocking/faults, native
+ordering, or cgroup throttling.
+The Pi default-state first note is now narrower: Linux `lvb-audio` ran through
+the call with little runnable delay, FEX-boundary samples and Serum guest-code
+map growth. The particular FEX routine and per-millisecond fault cost remain
+unresolved.
 
 ### Fix chain
 
@@ -830,6 +842,7 @@ AP16 established and fixed one disk-backed hot-mapping stall. For the *residual*
 - **Profile/candidate:** AP16 retained ordinary revision-7 LoFi/FRAGMENTS profiles; no residual candidate.
 - **Installed generation:** AP16 corrected transport revision was installed on the Deck; Ubuntu FRAGMENTS remained on its accepted revision 12.
 - **Physical result:** AP16 matched result for the backing-store class; residual gaps persisted in later Deck and Ubuntu sessions. The staged Pi A/B in [the exact Serum default-state result](../evidence/pi-reconciliation/serum-default-2026-09-25.md) retained a 1,280-frame first-note gap in all eight runs despite lower mean request service in the AS1 arm. No installed-generation or support claim follows.
+- **Attribution:** FN1 [Pi default-state evidence](../evidence/fn1/serum-first-note-2026-09-25.md) records caller CPU/run time, FEX-boundary samples, minor faults and 116 new Serum-named guest JIT regions during the slow first-note call. This is diagnostic source and physical attribution only, not a repair or support change.
 
 ### Product coverage
 
@@ -849,11 +862,13 @@ FC-AUDIO-002, FC-CAP-001, FC-LIFE-002.
 
 ### Remaining gate
 
-One bounded exact-thread capture distinguishing CPU execution, runnable wait, blocking/faults, and cgroup throttling for one continuing miss.
+For the Pi default-state cold path, test state-safe prewarming as a separate
+source and physical slice. Other residual misses still need their own exact
+thread/queue capture; the Pi result does not assign them a shared cause.
 
 ### Evidence and historical sources
 
-[AP16](AP16.md), issue #90, [Pi matched result](../evidence/pi-reconciliation/serum-default-2026-09-25.md).
+[AP16](AP16.md), issue #90, [Pi matched result](../evidence/pi-reconciliation/serum-default-2026-09-25.md), [FN1 Pi result](../evidence/fn1/serum-first-note-2026-09-25.md).
 
 ### Tracking issue
 
