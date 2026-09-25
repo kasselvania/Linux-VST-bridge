@@ -74,8 +74,13 @@ impl Context {
         }
         Some(self)
     }
+    #[cfg(test)]
     pub fn encode(self) -> Vec<u8> {
         let mut b = Vec::with_capacity(96);
+        self.encode_into(&mut b);
+        b
+    }
+    pub fn encode_into(self, b: &mut Vec<u8>) {
         b.extend(self.present.to_le_bytes());
         b.extend(self.state.to_le_bytes());
         b.extend(self.rate.to_le_bytes());
@@ -95,7 +100,6 @@ impl Context {
             b.extend(v.to_le_bytes());
         }
         b.extend(self.reserved.to_le_bytes());
-        b
     }
 }
 #[cfg(test)]

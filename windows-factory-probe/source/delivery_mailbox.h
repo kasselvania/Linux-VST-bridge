@@ -10,6 +10,7 @@ class DeliveryMailbox {
  static constexpr size_t bytes=33024,request_offset=256,reply_offset=16640,request_cap=16384,reply_cap=16384;
  using Delay=LONG (NTAPI*)(BOOLEAN,const LARGE_INTEGER*);Delay delay=nullptr;
  HANDLE file=INVALID_HANDLE_VALUE,mapping=nullptr;uint8_t* view=nullptr;
+ std::vector<uint8_t> wire;
  LONG flag(size_t offset)const{return InterlockedCompareExchange(reinterpret_cast<volatile LONG*>(view+offset),0,0);}
  void flag(size_t offset,LONG value){InterlockedExchange(reinterpret_cast<volatile LONG*>(view+offset),value);}
  void close(){if(view)UnmapViewOfFile(view);if(mapping)CloseHandle(mapping);if(file!=INVALID_HANDLE_VALUE)CloseHandle(file);view=nullptr;mapping=nullptr;file=INVALID_HANDLE_VALUE;}
@@ -20,6 +21,7 @@ public:
  DeliveryMailbox(const std::wstring& directory,const std::array<uint8_t,16>& session){
   using namespace ap1;
   try{
+   wire.reserve(reply_cap);
    delay=reinterpret_cast<Delay>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"),"NtDelayExecution"));require(delay!=nullptr,"precise delay unavailable");
    file=CreateFileW((directory+L"\\ap10.delivery").c_str(),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,OPEN_EXISTING,0,nullptr);
    require(file!=INVALID_HANDLE_VALUE,"delivery mapping file absent");LARGE_INTEGER size{};
@@ -42,7 +44,7 @@ public:
   using namespace ap1;
   for(;;){auto state=flag(64);
    if(state==1){auto n=get(view+68,4);require(n>=header_bytes&&n<=request_cap,"delivery request extent");
-    std::vector<uint8_t> data(view+request_offset,view+request_offset+n);out=decode(data,minor);
+    decode_into(view+request_offset,size_t(n),minor,out);
     require(out.kind==Process,"delivery request kind");flag(64,0);return true;
    }
    if(state==2){flag(64,0);return false;}
@@ -51,9 +53,9 @@ public:
   }
  }
  void send(const ap1::Frame& frame,uint16_t minor,const std::array<uint64_t,15>* diagnostic=nullptr){
-  using namespace ap1;require(flag(128)==0,"delivery response occupied");auto data=encode(frame,minor);
-  require((frame.kind==Done||frame.kind==Error)&&data.size()<=reply_cap,"delivery response extent/kind");
-  std::memcpy(view+reply_offset,data.data(),data.size());put(view+132,data.size(),4);
+  using namespace ap1;require(flag(128)==0,"delivery response occupied");encode_into(frame,minor,wire);
+  require((frame.kind==Done||frame.kind==Error)&&wire.size()<=reply_cap,"delivery response extent/kind");
+  std::memcpy(view+reply_offset,wire.data(),wire.size());put(view+132,wire.size(),4);
   if(version==3){
    auto row=diagnostic?*diagnostic:std::array<uint64_t,15>{};
    if(diagnostic){LARGE_INTEGER stamp{};QueryPerformanceCounter(&stamp);row[7]=uint64_t(stamp.QuadPart);}

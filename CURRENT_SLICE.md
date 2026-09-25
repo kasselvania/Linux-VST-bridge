@@ -1,5 +1,56 @@
 # Current work selection
 
+## Parallel shared-audio source slice — AS1
+
+The operator selected a focused, shared audio-execution storage repair while
+WD0 remains the separate managed-Windows-DAW lane below. AS1 starts from
+canonical `main` commit `b76c9e2270c63c78be2a51adf6562a3f838ffa7f`, tree
+`74e13f5b1e10bd4a53d8b626657c403320fb62d2`. Its basis is the operator's
+2026-09-25 instruction, AGENTS real-time and slice laws, GOVERNANCE “Decisions”
+and “What evidence means”, ARCHITECTURE §§5.2, 5.7–5.9, 6.3–6.6, 7, 13 and 15,
+PR #171's `docs/ARM_PORTABILITY_REASSESSMENT.md`, FC-AUDIO-001/002 and the
+SUPPORT_MATRIX exact processing conditions.
+
+**One source claim:** after session setup, the selected shared processing
+request/reply path uses reusable, bounded per-instance bridge storage without
+recurring allocation, reallocation or deallocation. The covered path is the
+native transport worker's audio mapping, event/context request encoding,
+mailbox or socket frame exchange and result decode, plus the Windows host's
+request decode and result publication. Protocol minors 5 and 7–13, float32,
+negotiated blocks 0–256 where admitted, up to 256 input events, 64 returned
+events, 128 parameter points and 4096 returned payload bytes are the bounded
+source contract. Protocol, quantum, reserve, queue, state, recovery policy,
+checks and callback ownership are unchanged. SDK/vendor/runtime allocations,
+setup/state/lifecycle/error paths and historical protocol minors 1–4 are not
+part of this claim.
+
+Changed implementation scope: `native-audio-client` mapping/frame/event and
+endpoint helpers; `native-vst3-proxy/backend` session/context/mailbox storage;
+Windows `ap1_protocol.h`, `delivery_mailbox.h` and `mapped_processing.cpp`;
+focused tests and this slice entry. No runner, FEX, Wine, graphics, governor,
+priority, JACK, capacity, timeout, policy, vendor setting, plug-in, frontend
+or installed generation change is admitted. Acceptance requires exact wire
+equivalence, first-block and repeated zero bridge allocation counts, maximum
+valid traffic, zero/partial blocks, multi-output checks, malformed responses,
+independent-instance ownership and a Windows production build. Failure must
+remain explicit and must not release a mailbox slot before its reply is copied.
+
+The exact Pi comparison fixture is a Raspberry Pi 5 at JACK 48 kHz/512 using
+the existing supervised standalone path and Serum 2.1.5 module digest
+`501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283`,
+Windows host digest `4ab203ab8aa25555eebce6782cd52a11643a1b935abe8a2ce0cb04baeb453161`,
+protocol 12, 256-frame processing quantum and 512-frame presentation reserve.
+The BR1 gate's unnamed preset is not a reproducible fixture identity. No AS1
+physical comparison may be attributed to this patch until a runnable
+current-main/Pi source pair has been reconciled in a separate prerequisite,
+built with matching options, and baselined before applying the AS1 change.
+The Pi fork's map-v2/512-capacity specialization and current main's
+map-v1/256-capacity plus protocol-13 multi-output support must be reconciled
+without importing BR1/BR1R recovery policy. Keep all installed generations,
+private state and experimental candidates in place. A source pass is not a
+musical or performance qualification; record the physical result or exact
+blocker in the implementation PR.
+
 Canonical source base: main merge commit
 `8bb191b28eedee8aabf058b06706860c9fc64933`, tree
 `39ec5f35f706ea285707ac6ebb5b26b23e505fa7`. The WD0 branch

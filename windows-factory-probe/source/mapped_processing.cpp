@@ -30,6 +30,8 @@ namespace {
 void barrier(){_ReadWriteBarrier();MemoryBarrier();_ReadWriteBarrier();}
 struct Socket {
  SOCKET value=INVALID_SOCKET; uint16_t minor=1; bool eager=false;
+ std::vector<uint8_t> audio_wire;
+ Socket(){audio_wire.reserve(16384);}
  std::thread::id ui_owner;void(*service_ui)(void*)=nullptr;void* ui_context=nullptr;
  bool owner_wait(){return service_ui&&ui_owner==std::this_thread::get_id();}
  void pump(){if(owner_wait())service_ui(ui_context);}
@@ -54,8 +56,8 @@ struct Socket {
    }
   }
  }
- Frame receive(bool command=false){
-  std::vector<uint8_t>b(header_bytes);size_t received=0;
+ void read_raw(std::vector<uint8_t>&b,bool command){
+  b.resize(header_bytes);size_t received=0;
   // Idle has no issued-request deadline. The first received byte starts one
   // five-second deadline shared by the rest of the header and payload.
   if(command)for(;;){
@@ -74,14 +76,18 @@ struct Socket {
   }
   auto end=std::chrono::steady_clock::now()+std::chrono::seconds(5);
   transfer(b.data()+received,b.size()-received,false,end);auto n=payload_length(b.data(),minor);b.resize(header_bytes+n);
-  if(n)transfer(b.data()+header_bytes,n,false,end);return decode(b,minor);
+  if(n)transfer(b.data()+header_bytes,n,false,end);
  }
+ Frame receive(bool command=false){std::vector<uint8_t>b;read_raw(b,command);return decode(b,minor);}
+ void receive_audio(Frame& f){read_raw(audio_wire,true);decode_into(audio_wire.data(),audio_wire.size(),minor,f);}
  void write(const Frame& f){auto b=encode(f,minor);transfer(b.data(),b.size(),true,std::chrono::steady_clock::now()+std::chrono::seconds(5));}
+ void write_audio(const Frame&f){encode_into(f,minor,audio_wire);transfer(audio_wire.data(),audio_wire.size(),true,std::chrono::steady_clock::now()+std::chrono::seconds(5));}
 };
 struct Handle{HANDLE value=INVALID_HANDLE_VALUE;~Handle(){if(value&&value!=INVALID_HANDLE_VALUE)CloseHandle(value);}};
 }
 struct MappedSession::Impl {
  EventWriter& events;DeliveryTrace diagnostic;InputObservation input_observation;std::array<uint64_t,15> completion_trace{};std::unique_ptr<FaultStatus> fault;std::unique_ptr<ResultStatus> result_status;std::unique_ptr<RetirementStatus> retirement;Socket socket;std::wstring directory;std::unique_ptr<DeliveryMailbox> mailbox;bool last_fast=false;Handle file,mapping;uint8_t* view=nullptr;Sequence state;Request current{};bool closed=false;bool winsock=false;bool hosted=false;bool stop_requested=false;bool sustained=false;Timeline timeline;Frame pending{};bool has_pending=false;
+ Frame process_request{},base_request{},process_reply{};
  BusLayout buses;
  std::unique_ptr<GuiChannel> gui;std::unique_ptr<EditorSession> editor;std::wstring editor_title;
  std::atomic<bool> can_notify{false},audio_active{false};
@@ -108,7 +114,7 @@ struct MappedSession::Impl {
    if(!ok)controller_update_failed.store(true);
   }catch(...){if(fault)fault->terminal.editor_fatal(1);controller_update_failed.store(true);}
  }
- explicit Impl(EventWriter&e):events(e){}
+ explicit Impl(EventWriter&e):events(e){process_request.payload.reserve(8352);base_request.payload.reserve(32);process_reply.payload.reserve(10312);}
 
  std::array<uint8_t,52> control{};bool connected=false;uint32_t mapped_bytes=mapping_bytes;uint64_t extra_silence=0;
  void connect_transport(){
@@ -224,6 +230,13 @@ struct MappedSession::Impl {
  Frame receive(bool processing=false){for(;;){Frame f{};last_fast=false;
   if(capture_failed.load(std::memory_order_acquire)){std::lock_guard lock(mutex);std::rethrow_exception(state_error);}
   if(processing&&mailbox){last_fast=mailbox->receive(f,socket.minor);if(!last_fast)f=socket.receive(true);}else f=socket.receive(true);if(f.kind==Configure){configure(f);continue;}if(stateful&&(f.kind==GetState||f.kind==SetState)){dispatch(std::move(f));continue;}return f;}}
+ void receive_audio(Frame& f){for(;;){last_fast=false;
+  if(capture_failed.load(std::memory_order_acquire)){std::lock_guard lock(mutex);std::rethrow_exception(state_error);}
+  if(mailbox){last_fast=mailbox->receive(f,socket.minor);if(!last_fast)socket.receive_audio(f);}else socket.receive_audio(f);
+  if(f.kind==Configure){configure(f);continue;}
+  if(stateful&&(f.kind==GetState||f.kind==SetState)){dispatch(std::move(f));f.payload.reserve(8352);continue;}
+  return;
+ }}
 
  ~Impl(){try{if(diagnostic.enabled)input_observation.dump(events);diagnostic.dump(events);}catch(...){}if(view)UnmapViewOfFile(view);if(socket.value!=INVALID_SOCKET){closesocket(socket.value);socket.value=INVALID_SOCKET;}if(winsock)WSACleanup();}
  void error(const std::exception& e){
@@ -372,7 +385,7 @@ void MappedSession::lifecycle_ack(uint16_t kind){auto&x=*impl_;require(!x.state.
 
 void MappedSession::lifecycle_activity(bool owner,uint64_t stage){if(impl_->fault)impl_->fault->stage(owner?2:1,stage?24:0,stage);}
 void MappedSession::ready(){auto&x=*impl_;x.connect_transport();x.socket.write(x.frame(Ready,0));}
-bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*impl_;try{require(!x.controller_update_failed.load(),"controller automation update failed");x.diagnostic.current={};x.diagnostic.stamp(0);if(x.fault)x.fault->stage(1,1);auto f=x.receive(true);x.diagnostic.stamp(1);if(x.fault)x.fault->publish(1,{0,x.timeline.epoch,f.sequence,x.timeline.position,2,f.kind});if(x.hosted&&f.kind==Stop){require(!x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next,"stop ownership");if(x.sustained)x.timeline.stop(f);else require(f.payload.empty(),"stop payload");x.stop_requested=true;return false;}if(f.kind==Close){require(!x.hosted,"AP2 requires stop before close");x.state.close(f);x.closed=true;return false;}x.current=x.state.begin(x.sustained?x.timeline.request_frame(f,x.commercial):f,x.sustained?UINT64_MAX-1:64,x.stateful);barrier();
+bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*impl_;try{require(!x.controller_update_failed.load(),"controller automation update failed");x.diagnostic.current={};x.diagnostic.stamp(0);if(x.fault)x.fault->stage(1,1);auto&f=x.process_request;x.receive_audio(f);x.diagnostic.stamp(1);if(x.fault)x.fault->publish(1,{0,x.timeline.epoch,f.sequence,x.timeline.position,2,f.kind});if(x.hosted&&f.kind==Stop){require(!x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next,"stop ownership");if(x.sustained)x.timeline.stop(f);else require(f.payload.empty(),"stop payload");x.stop_requested=true;return false;}if(f.kind==Close){require(!x.hosted,"AP2 requires stop before close");x.state.close(f);x.closed=true;return false;}if(x.sustained)x.timeline.request_frame_into(f,x.base_request,x.commercial);x.current=x.state.begin(x.sustained?x.base_request:f,x.sustained?UINT64_MAX-1:64,x.stateful);barrier();
  for(size_t ch=0;ch<2;++ch){auto base=x.view+input_offset+ch*stride;require(get(base,4)==guard&&get(base+stride-4,4)==guard,"input guard");std::memcpy(ch?right:left,base+4,x.current.frames*4);}
  if(x.diagnostic.enabled)x.input_observation.observe(x.timeline.epoch,x.state.next,x.timeline.position,x.current.frames,x.current.silence,left,right);
  out.generation=x.fault?x.fault->rows[1].generation:0;out.epoch=x.timeline.epoch;out.sequence=x.state.next;out.position=x.timeline.position;
@@ -431,7 +444,7 @@ void MappedSession::done(const float* left,const float* right,uint64_t silence,u
   if(!x.sustained)x.events.lifecycle("ap1_output_silence",",\"block\":"+std::to_string(x.state.next-1)+
       ",\"input_silence_flags\":"+std::to_string(x.current.silence)+
       ",\"output_silence_flags\":"+std::to_string(silence));
-  auto payload=processing_result(x.current,left,right,silence);
+  auto&reply=x.process_reply;auto&payload=reply.payload;processing_result_into(x.current,left,right,silence,payload);
   if(x.socket.minor>=13)put(payload.data()+8,silence|x.extra_silence,8);
   if(x.sustained)x.timeline.result(payload,x.current.frames);
   if(x.performance){payload.resize(40);put(payload.data()+32,process_ns,8);}
@@ -450,7 +463,8 @@ void MappedSession::done(const float* left,const float* right,uint64_t silence,u
   barrier();
   x.diagnostic.stamp(6);if(x.fault)x.fault->stage(1,5);
   if(x.diagnostic.enabled){for(size_t i=0;i<8;++i)x.completion_trace[i]=x.diagnostic.current.at[i];x.completion_trace[14]=x.diagnostic.frequency;}
-  if(x.last_fast&&x.mailbox)x.mailbox->send(x.frame(Done,x.state.next,payload),x.socket.minor,x.diagnostic.enabled?&x.completion_trace:nullptr);else x.socket.write(x.frame(Done,x.state.next,payload));
+  reply.kind=Done;reply.session=x.state.session;reply.sequence=x.state.next;
+  if(x.last_fast&&x.mailbox)x.mailbox->send(reply,x.socket.minor,x.diagnostic.enabled?&x.completion_trace:nullptr);else x.socket.write_audio(reply);
   if(x.fault)x.fault->stage(1,6);x.diagnostic.stamp(7);x.diagnostic.complete();
   x.state.complete();
  } catch(const std::exception& error) {x.error(error);throw;}

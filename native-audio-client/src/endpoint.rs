@@ -18,6 +18,23 @@ pub fn receive_version(socket: &mut TcpStream, seconds: u64, minor: u64) -> io::
         minor,
     )
 }
+pub fn receive_version_into(socket: &mut TcpStream, seconds: u64, minor: u64, frame: &mut Frame) -> io::Result<()> {
+    let mut reader = Deadline { stream: socket, end: Instant::now() + Duration::from_secs(seconds) };
+    let mut header = [0; HEADER];
+    reader.read_exact(&mut header)?;
+    let n = payload_length_version(&header, minor)?;
+    frame.payload.clear();
+    frame.payload.resize(n, 0);
+    reader.read_exact(&mut frame.payload)?;
+    frame.kind = get(&header[8..10]) as u16;
+    frame.session.copy_from_slice(&header[16..32]);
+    frame.sequence = get(&header[40..48]);
+    Ok(())
+}
+pub fn send_version_with(socket: &mut TcpStream, f: &Frame, seconds: u64, minor: u64, bytes: &mut Vec<u8>) -> io::Result<()> {
+    f.encode_version_into(minor, bytes)?;
+    Deadline { stream: socket, end: Instant::now() + Duration::from_secs(seconds) }.write_all(bytes)
+}
 pub fn send_version(socket: &mut TcpStream, f: &Frame, seconds: u64, minor: u64) -> io::Result<()> {
     Deadline {
         stream: socket,

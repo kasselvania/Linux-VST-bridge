@@ -24,6 +24,7 @@ pub struct Mailbox {
     pointer: NonNull<u8>,
     _file: File,
     pub diagnostic: [u64; 15],
+    wire: Vec<u8>,
 }
 // A view is moved into the single transport worker. No borrowed data escapes.
 unsafe impl Send for Mailbox {}
@@ -43,6 +44,7 @@ impl Mailbox {
                 .ok_or_else(|| invalid("null delivery mapping"))?,
             _file: file,
             diagnostic: [0; 15],
+            wire: Vec::with_capacity(REQUEST_CAP),
         };
         view.write(0, b"LVBM");
         view.write(4, &3u32.to_le_bytes());
@@ -65,6 +67,7 @@ impl Mailbox {
             )
         }
     }
+    #[cfg(test)]
     fn read(&self, offset: usize, size: usize) -> Vec<u8> {
         assert!(offset + size <= BYTES);
         let mut bytes = vec![0; size];
@@ -91,13 +94,14 @@ impl Mailbox {
     }
     pub fn send(&mut self, frame: &Frame, minor: u64) -> io::Result<()> {
         self.idle()?;
-        let bytes = frame.encode_version(minor)?;
+        frame.encode_version_into(minor, &mut self.wire)?;
         need(
-            frame.kind == ap1_native_client::PROCESS && bytes.len() <= REQUEST_CAP,
+            frame.kind == ap1_native_client::PROCESS && self.wire.len() <= REQUEST_CAP,
             "delivery request extent/kind",
         )?;
-        self.write(REQUEST, &bytes);
-        self.write(68, &(bytes.len() as u32).to_le_bytes());
+        let size = self.wire.len();
+        unsafe { std::ptr::copy_nonoverlapping(self.wire.as_ptr(), self.pointer.as_ptr().add(REQUEST), size); }
+        self.write(68, &(size as u32).to_le_bytes());
         self.flag(64).store(1, Ordering::Release);
         Ok(())
     }
@@ -112,7 +116,13 @@ impl Mailbox {
     pub fn receive(&mut self, minor: u64, end: Instant) -> io::Result<Frame> {
         self.receive_while(minor, end, || Ok(()))
     }
+    #[cfg(test)]
     pub fn receive_while(&mut self, minor: u64, end: Instant, mut healthy: impl FnMut() -> io::Result<()>) -> io::Result<Frame> {
+        let mut frame = Frame { kind: 0, session: [0;16], sequence: 0, payload: Vec::new() };
+        self.receive_while_into(minor, end, &mut healthy, &mut frame)?;
+        Ok(frame)
+    }
+    pub fn receive_while_into(&mut self, minor: u64, end: Instant, mut healthy: impl FnMut() -> io::Result<()>, frame: &mut Frame) -> io::Result<()> {
         let mut next_health = Instant::now();
         loop {
             match self.flag(128).load(Ordering::Acquire) {
@@ -127,12 +137,15 @@ impl Mailbox {
             }
             std::thread::sleep(Duration::from_micros(50));
         }
-        let size = u32::from_le_bytes(self.read(132, 4).try_into().unwrap()) as usize;
+        let mut size_bytes=[0;4];
+        unsafe { std::ptr::copy_nonoverlapping(self.pointer.as_ptr().add(132),size_bytes.as_mut_ptr(),4); }
+        let size = u32::from_le_bytes(size_bytes) as usize;
         need(
             (ap1_native_client::HEADER..=REPLY_CAP).contains(&size),
             "delivery response extent",
         )?;
-        let result = Frame::decode_version(&self.read(REPLY, size), minor);
+        let data = unsafe { std::slice::from_raw_parts(self.pointer.as_ptr().add(REPLY), size) };
+        let result = Frame::decode_version_into(data, minor, frame);
         for i in 0..15 {
             let mut bytes = [0; 8];
             unsafe { std::ptr::copy_nonoverlapping(self.pointer.as_ptr().add(136+i*8), bytes.as_mut_ptr(), 8); }
@@ -177,7 +190,7 @@ impl Mailbox {
         let file=self._file.try_clone().unwrap();
         let p=unsafe {mmap(std::ptr::null_mut(),BYTES,3,1,file.as_raw_fd(),0)};
         assert_ne!(p as isize,-1);
-        Self {pointer:NonNull::new(p.cast()).unwrap(),_file:file,diagnostic:[0;15]}
+        Self {pointer:NonNull::new(p.cast()).unwrap(),_file:file,diagnostic:[0;15],wire:Vec::with_capacity(REQUEST_CAP)}
     }
     pub(crate) fn take_request(&mut self, minor:u64) -> Option<Frame> {
         match self.flag(64).load(Ordering::Acquire) {
@@ -199,6 +212,32 @@ impl Mailbox {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn first_maximum_mailbox_exchange_and_reuse_do_not_allocate() {
+        let path=std::env::temp_dir().join(format!("ap10-storage-{:032x}",u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())));
+        let mut mailbox=Mailbox::create(&path,[27;16]).unwrap();
+        let mut peer=mailbox.counterpart();
+        let worker=std::thread::spawn(move||{
+            for sequence in 1..=3 {
+                let request=loop {if let Some(f)=peer.take_request(9){break f;}std::thread::yield_now();};
+                assert_eq!((request.kind,request.sequence,request.payload.len()),(3,sequence,8344));
+                peer.respond(Frame{kind:4,session:[27;16],sequence,payload:vec![0;10312]},9);
+            }
+        });
+        let request=Frame{kind:3,session:[27;16],sequence:1,payload:vec![0;8344]};
+        let mut reply=Frame{kind:0,session:[0;16],sequence:0,payload:Vec::with_capacity(10312)};
+        for sequence in 1..=3 {
+            let frame=Frame{sequence,..request.clone()};
+            let (result,counts)=crate::allocation_test::measure(||{
+                mailbox.send(&frame,9)?;
+                mailbox.receive_while_into(9,Instant::now()+Duration::from_secs(3),||Ok(()),&mut reply)
+            });
+            result.unwrap();
+            assert_eq!(counts,[0;3],"mailbox request/reply allocated");
+            assert_eq!((reply.kind,reply.session,reply.sequence,reply.payload.len()),(4,[27;16],sequence,10312));
+        }
+        worker.join().unwrap();drop(mailbox);std::fs::remove_file(path).unwrap();
+    }
     #[test]
     fn known_endpoint_loss_interrupts_an_unfinished_request() {
         let path = std::env::temp_dir().join(format!("ap13-loss-{:032x}", u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())));

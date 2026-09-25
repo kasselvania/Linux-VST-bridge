@@ -33,6 +33,39 @@ use std::{
         Mutex,
     },
 };
+#[cfg(test)]
+mod allocation_test {
+    use std::{alloc::{GlobalAlloc, Layout, System}, cell::Cell};
+    thread_local! {
+        static ACTIVE: Cell<bool> = const { Cell::new(false) };
+        static COUNTS: Cell<[usize; 3]> = const { Cell::new([0; 3]) };
+    }
+    struct Counted;
+    #[global_allocator]
+    static ALLOCATOR: Counted = Counted;
+    unsafe impl GlobalAlloc for Counted {
+        unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+            ACTIVE.try_with(|a| { if a.get() { COUNTS.with(|c| { let mut v=c.get();v[0]+=1;c.set(v); }); } }).ok();
+            unsafe { System.alloc(layout) }
+        }
+        unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+            ACTIVE.try_with(|a| { if a.get() { COUNTS.with(|c| { let mut v=c.get();v[2]+=1;c.set(v); }); } }).ok();
+            unsafe { System.dealloc(ptr, layout) }
+        }
+        unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, size: usize) -> *mut u8 {
+            ACTIVE.try_with(|a| { if a.get() { COUNTS.with(|c| { let mut v=c.get();v[1]+=1;c.set(v); }); } }).ok();
+            unsafe { System.realloc(ptr, layout, size) }
+        }
+    }
+    pub fn measure<T>(f: impl FnOnce() -> T) -> (T, [usize; 3]) {
+        ACTIVE.with(|_| {});
+        COUNTS.with(|c| c.set([0; 3]));
+        ACTIVE.with(|a| a.set(true));
+        let result=f();
+        ACTIVE.with(|a| a.set(false));
+        (result, COUNTS.with(Cell::get))
+    }
+}
 struct Session {
     gui: Option<std::sync::Arc<gui::Gui>>,
     gui_revision: u64,
@@ -43,6 +76,7 @@ struct Session {
     fault_status: Option<fault_status::Status>,
     notices: (u32, u64),
     returned: process_results::Packet,
+    processing: ProcessingScratch,
     socket: TcpStream,
     state: ClientState,
     phase: u16,
@@ -56,6 +90,20 @@ struct Session {
     sample_rate: u32,
     armed: bool,
     owner: Option<preview::Owner>,
+}
+struct ProcessingScratch {
+    request: Frame,
+    reply: Frame,
+    wire: Vec<u8>,
+}
+impl ProcessingScratch {
+    fn new() -> Self {
+        Self {
+            request: Frame { kind: PROCESS, session: [0; 16], sequence: 0, payload: Vec::with_capacity(8352) },
+            reply: Frame { kind: 0, session: [0; 16], sequence: 0, payload: Vec::with_capacity(10312) },
+            wire: Vec::with_capacity(HEADER + 8352),
+        }
+    }
 }
 // Mapping has no escaping references; the registry serializes every access.
 unsafe impl Send for Session {}
@@ -156,6 +204,7 @@ impl Session {
             fault_status,
             notices: (0, 0),
             returned: process_results::Packet::default(),
+            processing: ProcessingScratch::new(),
             socket,
             state: ClientState {
                 session: id,
@@ -407,8 +456,11 @@ impl Session {
             }
             for ch in 0..map.output_channels { map.write_plane(OUTPUT, ch, &poison)?; }
             barrier();
-            let mut request = if self.minor >= 4 {
-                let mut payload = vec![0; 32];
+            let request = &mut self.processing.request;
+            if self.minor >= 4 {
+                request.payload.clear();
+                request.payload.resize(32, 0);
+                let payload = &mut request.payload;
                 for (offset, value) in [
                     (0, n as u64),
                     (4, INPUT as u64),
@@ -425,17 +477,14 @@ impl Session {
                     sequence: self.state.next,
                     frames: n,
                 };
-                Frame {
-                    kind: PROCESS,
-                    session: self.state.session,
-                    sequence: self.state.next,
-                    payload,
-                }
+                request.kind = PROCESS;
+                request.session = self.state.session;
+                request.sequence = self.state.next;
             } else if self.minor >= 3 {
-                self.state.process_sustained(n, gain, silence as u32)?
+                *request = self.state.process_sustained(n, gain, silence as u32)?;
             } else {
-                self.state.process(n, gain, silence as u32)?
-            };
+                *request = self.state.process(n, gain, silence as u32)?;
+            }
             if self.minor >= 3 {
                 request.payload.extend_from_slice(&self.epoch.to_le_bytes());
                 request
@@ -443,12 +492,10 @@ impl Session {
                     .extend_from_slice(&self.position.to_le_bytes());
             }
             if matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13) {
-                request
-                    .payload
-                    .extend_from_slice(&events::encode(events, n)?);
+                events::encode_into(events, n, &mut request.payload)?;
             }
             if self.minor >= 8 {
-                request.payload.extend(context.encode());
+                context.encode_into(&mut request.payload);
             }
             if self.minor >= 10 {
                 request.payload.extend(self.gui_revision.to_le_bytes());
@@ -457,31 +504,32 @@ impl Session {
             if let Some(s) = &mut self.fault_status {
                 s.publish(self.epoch, self.state.next, self.position, 1, 0);
             }
-            let mut reply = if self.mailbox_enabled {
+            let reply = &mut self.processing.reply;
+            if self.mailbox_enabled {
                 let mailbox = self
                     .mailbox
                     .as_mut()
                     .ok_or_else(|| invalid("delivery mapping absent"))?;
-                mailbox.send(&request, self.minor)?;
+                mailbox.send(request, self.minor)?;
                 self.trace.sent = Some(std::time::Instant::now());
                 if let Some(s) = &mut self.fault_status {
                     s.publish(self.epoch, self.state.next, self.position, 2, 0);
                 }
-                let reply = mailbox.receive_while(
+                mailbox.receive_while_into(
                     self.minor,
                     std::time::Instant::now() + std::time::Duration::from_secs(5),
                     || { preview::check_owner(&mut self.owner)?; mailbox::peer_status(&self.socket, self.capture.is_some()) },
+                    reply,
                 )?;
                 self.trace.windows = mailbox.diagnostic;
-                reply
             } else {
-                send_version(&mut self.socket, &request, 5, self.minor)?;
+                ap1_native_client::endpoint::send_version_with(&mut self.socket, request, 5, self.minor, &mut self.processing.wire)?;
                 self.trace.sent = Some(std::time::Instant::now());
                 if let Some(s) = &mut self.fault_status {
                     s.publish(self.epoch, self.state.next, self.position, 2, 0);
                 }
-                receive_version(&mut self.socket, 5, self.minor)?
-            };
+                ap1_native_client::endpoint::receive_version_into(&mut self.socket, 5, self.minor, reply)?;
+            }
             if let Some(s) = &mut self.fault_status {
                 s.publish(self.epoch, self.state.next, self.position, 3, 0);
             }
@@ -519,7 +567,7 @@ impl Session {
                 }
                 reply.payload.truncate(16);
             }
-            let flags = self.state.done(&reply)?;
+            let flags = self.state.done(reply)?;
             barrier();
             let output = [map.plane(OUTPUT, 0)?, map.plane(OUTPUT, 1)?];
             need(map.output_channels == 64 || flags >> map.output_channels == 0, "output flags")?;
