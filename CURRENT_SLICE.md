@@ -1,86 +1,98 @@
-# Current work selection
+# Current work selection — WD1
 
-Canonical source base: main merge commit
-`8bb191b28eedee8aabf058b06706860c9fc64933`, tree
-`39ec5f35f706ea285707ac6ebb5b26b23e505fa7`. The WD0 branch
-`codex/wd0-fl-studio-workspace` integrates that main by a normal merge in
-PR [#163](https://github.com/kasselvania/Linux-VST-bridge/pull/163). The
-native Linux DAW bridge remains the primary release-driving product.
+Canonical base: normal merge of WD0 PR #163,
+`b76c9e2270c63c78be2a51adf6562a3f838ffa7f`, tree
+`74e13f5b1e10bd4a53d8b626657c403320fb62d2`. The native Linux DAW
+bridge remains the primary release-driving product. UI0 and the six selected
+native publications remain accepted and installed.
 
-## Completed native manager slice — UI0
+## Completed bounded WD0 result
 
-UI0 [#160](https://github.com/kasselvania/Linux-VST-bridge/issues/160) is
-merged and physically accepted on the Steam Deck. The installed immutable
-manager/frontend generation is
-`29e52e7537c2e150a68db7f66799621a94d39b7aac7b20e22aded0d03a28facf`;
-its sanitized [Deck result](evidence/ui0/deck-acceptance-2026-09-24.md) records
-ordinary and narrow navigation, one Serum 2 session, manager close/reopen,
-continued Bitwig audio and clean retirement. The previous manager/frontend
-generation remains a rollback target. Home, Plug-ins, Workspaces, Activity,
-Setup and Diagnostics, including `ActivityCertainty` and exact session routing,
-are accepted source and installed behavior. WD0 must preserve them.
+The existing Steam Deck FL workspace survived clean uninstall and manager-owned
+reinstall of official FL Studio `26.1.5.5618`. Its identity, prefix, runner,
+user roots, earlier install/uninstall receipts and historical failure remained.
+One normal managed trial-mode launch retired cleanly. A saved `.flp` exists.
+The selected audio backend, stock audible playback, WAV export, post-save
+relaunch and licensed FLP recall were not established by the retained WD0
+evidence. The exact [Deck result](evidence/wd0/deck-trial-2026-09-25.md) and
+[support matrix](docs/SUPPORT_MATRIX.md) keep those boundaries explicit.
+The operator later reported hearing stock playback in demo mode; this is an
+operator observation, not a retained WD0 audio receipt.
 
-The six selected native publications, Serum candidate D,
-`x11_touch_routing_v2`, required exact Windows host/source pairs and runner
-policies remain current product state. WD0 workspace work does not alter the
-native bridge service, publication, proxy, capacity or audio path.
+## Active Deck-mutating slice — WD1
 
-## Active Deck-mutating slice — WD0
+Primary claim: the existing managed Windows FL Studio workspace installs the
+operator's exact official Serum 2 `2.1.5` Windows VST3 through a typed manager
+product operation, FL discovers it and plays a short audible Serum pattern with
+preset change and parameter automation, and another normal fresh launch can add
+and play Serum again. Trial-mode saved FLP recall is deferred. The operator
+explicitly deferred WAV export as unnecessary for this pass; it remains an
+unqualified future check rather than a WD1 completion gate.
 
-WD0 [#158](https://github.com/kasselvania/Linux-VST-bridge/issues/158)
-implements a managed FL Studio workspace under
-[docs/WD0.md](docs/WD0.md),
-[docs/WINDOWS_DAW_WORKSPACES.md](docs/WINDOWS_DAW_WORKSPACES.md),
-[docs/WORKSTREAMS.md](docs/WORKSTREAMS.md), `AGENTS.md` and
-`docs/ARCHITECTURE.md`. Its connected outcome remains a normal managed FL
-install, launch, stock-project playback/export, clean relaunch and licensed
-recall where the vendor permits. Source and installed results stay separate.
+Basis: `AGENTS.md` (core product invariants, fixture law, evidence and security),
+`docs/ARCHITECTURE.md` (native bridge boundary),
+`docs/WINDOWS_DAW_WORKSPACES.md` (architectural ruling, runtime and plug-in
+compatibility, containment, audio and persistence), `docs/WD0.md` (repeatable
+installation lifecycle and trial limit), `docs/FAILURE_CLASSES.md` and
+`docs/SUPPORT_MATRIX.md`. The fixture is Steam Deck Desktop Mode, existing FL
+workspace `762bafec213cefe91dbe14d67ee1b1c6`, FL `26.1.5.5618`, runner
+`proton-11.0-2c-fl-crypt32-order-v1`, and the already imported official Serum
+installer SHA-256
+`507b726d97bf78920157f3817aff003b9ee38ee961f4efd318cf43216370f695`.
+The audio device is currently unknown and must remain unchanged.
 
-The active WD0 correction is a lifecycle bug: a durable workspace currently
-retains its first installation operation after clean uninstall and then
-refuses every later install. **Workspace lifetime is not installation
-lifetime.** The primary claim of this correction is that the manager can
-select an exact admitted FL installer and install again in the same workspace
-after clean uninstall, retaining every earlier install/uninstall operation and
-its evidence. Same-version reinstall and controlled version change must both
-work. The current installed application, selected installer, active operations
-and append-only history must remain distinct facts.
+In scope: closed Serum product selection/install/readback under the FL workspace;
+canonical installer verification and supervised installer cohort; separate
+product operation/history and exact VST3 module/resource observation; small
+Workspaces projection and manager-offered actions; focused changed-owner tests;
+one controlled physical FL scan/play/preset/automation/restart pass;
+sanitized exact evidence and support/failure-ledger updates for what actually
+passes.
 
-The exact physical fixture was the existing manager-owned FL workspace on the
-Steam Deck: schema-1 state, cleanly `Uninstalled`, prior install and uninstall
-evidence retained. The controlled Deck handoff installed official FL Studio
-`26.1.5.5618` into that same workspace after deterministic schema-2 migration.
-The old install/uninstall receipts remain, a new install operation and exact
-executable are recorded, and a normal managed FL launch has a completed,
-cleanup-confirmed receipt. Current status is `ready`. The installer itself
-returned a nonzero outer status, retained as historical `needs_user_action`;
-this is not relabeled clean installer completion. Exact evidence and trial
-limits are in [the Deck result](evidence/wd0/deck-trial-2026-09-25.md).
+Out of scope: changing FL's selected application installer or installation
+history; replacing its runner or audio backend without a concrete classified
+defect; copying another prefix or plug-in binary; native Linux publication,
+proxy, bridge host/transport or DSP lease; six-instance capacity; WineASIO,
+Game Mode, another vendor suite, Ableton, ARM, broad performance or licensed
+trial-project recall.
 
-In scope: `bridge-manager` workspace state/CLI, deterministic fail-closed
-schema-1 migration, closed installer selection from canonical custody,
-repeatable install/uninstall history, truthful status, and only the minimal
-canonical manager-UI Workspaces projection needed to show manager-offered
-actions. Focused regression tests and WD0 documentation are in scope. No
-arbitrary path, executable, PID, process name, environment, arguments or
-external-install adoption is admitted. No in-place auto-upgrade or destructive
-fresh-prefix reset is added.
+Source acceptance: old schema-1/2 workspaces load without mutation; FL app
+fields and prior histories remain exact through Serum selection/install; only
+the exact admitted Serum installer and closed release are accepted; no FL or
+installer session, pending uninstall, uncertain cleanup or pre-existing
+unowned module can be overwritten; every product attempt retains a distinct
+operation and result; module identity is read from the FL prefix only; no native
+registry/software/publication or runner selection changes. Run manager binary
+and library tests, runtime Python tests only if runtime changes, manager/UI
+strict Clippy, manager UI tests if projected, package tests if packaging
+changes, AP12, PX2 and changed-file `git diff --check`.
 
-Source acceptance requires same-version reinstall, installer-B version change,
-active-operation and cleanup refusal, retired-failure retry, exact schema-1
-migration, no history erasure, no unmanaged executable adoption and native
-catalogue/publication isolation. Run the full manager suite, binary and runtime
-tests, strict manager Clippy, relevant frontend tests/Clippy, AP12, PX2, package
-tests and `git diff --check`. Negative acceptance: no duplicate or overwritten
-operation; no uncertain old attempt treated as clean; no workspace, prefix or
-user-root replacement; no native bridge change. Do not repeat Serum touch,
-AP17, Ubuntu, Game Mode, plug-in scan or FL audio qualification for this
-state-model source change.
+Physical acceptance begins with read-only prestate and exclusive Deck custody.
+Use the exact already admitted installer; do not download a newer version.
+Observe installer UI through the normal lawful route and leave account/activation
+to the operator. Preserve the existing FL prefix and data. Verify FL's own
+plugin scan, audible piano-roll pattern, one preset change, one parameter
+automation, an FLP save only if the current demo permits it, clean cohort
+retirement, and fresh-session Serum playback after normal relaunch. Verify the
+six native publications and environments remain unchanged. Stop at the first
+physical discrepancy and retain the exact result;
+do not compensate by editing workspace JSON or importing an isolated VST3.
 
-The repeatable-install lifecycle gate has a physical result on the original
-workspace. WD0's trial-mode musical result and its exact audio/backend/export
-claims remain separate from that lifecycle evidence. Licensed saved-project
-recall is deferred while the operator uses FL in trial mode. WD1 begins only
-after PR #163 records and merges its honest bounded WD0 result; WD1 will install
-one Windows VST3 into FL's existing workspace without changing FL's application
-installation slot or the six native publications.
+Rollback: keep the prior immutable manager/tooling generation; a source or
+presentation failure can restore it without replacing the mutable workspace.
+The product installer may mutate only the existing FL prefix; no destructive
+workspace reset is in scope.
+
+## Physical status
+
+The manager-owned Serum installation, FL discovery and audible piano-roll use,
+preset change, parameter automation, first clean retirement, and playback in a
+second normal FL session have been observed. The second exact session also
+retired with confirmed cleanup and zero owned processes. The current Serum
+module and all six native publications remain exact. See the
+[WD1 Deck evidence](evidence/wd1/deck-serum-direct-2026-09-25.md).
+
+The operator chose to defer WAV export. No WAV result or FLP save/reopen is
+claimed. The earlier export-inclusive WD1 target was narrowed by that operator
+choice; do not rerun the accepted installation or fresh-session work merely to
+fill this separate qualification gap.

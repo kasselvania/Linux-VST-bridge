@@ -9,7 +9,7 @@ and [FAILURE_CLASSES.md](FAILURE_CLASSES.md) retain those separate roles.
 | Workstream | Role | Next outcome | Boundaries |
 |---|---|---|---|
 | Native Linux DAW bridge | Primary release-driving product | Operator Desktop-mode soak, focused manager frontend, then GM0 with one known-good Serum instance | Existing proxy, Windows host, audio/state transport and support limits remain authoritative. Bitwig evidence is not REAPER evidence. |
-| Managed Windows DAW | Active parallel implementation; FL Studio first | [WD0](WD0.md): a managed FL workspace that installs, launches normally, plays a stock project, exports, closes and relaunches; licensed project recall completes the full gate | [Windows DAW workspace architecture](WINDOWS_DAW_WORKSPACES.md). No Linux proxy in this audio path; no changes to the existing six plug-in environments. |
+| Managed Windows DAW | Active FL workspace lane | WD0's bounded trial-mode reinstall/launch result is complete. [WD1](WD1.md) installs one direct-hosted Serum 2 Windows VST3 and checks FL scan, music/export, clean retirement and fresh-session use. Licensed FLP recall remains deferred in trial mode. | [Windows DAW workspace architecture](WINDOWS_DAW_WORKSPACES.md). No Linux proxy in this audio path; no changes to the existing six plug-in environments. |
 | ARM/manufacturer appliance | Separately owned parallel experiment | Continue its already-selected appliance work | No FL-on-ARM claim, no dependency on WD0, no import of unmerged appliance code into the DAW lane. |
 
 FL Studio is selected first. Ableton Live follows a demonstrated FL workspace
@@ -34,15 +34,15 @@ continued, what happened to the editor, and whether normal close cleaned up.
 
 ### FL Studio owner
 
-One dedicated agent owns WD0 continuously through the first stock-project result
-and WD1's first Windows VST3. While another custodian owns the physical Deck, the
+One dedicated agent owns WD1's first Windows VST3 in the existing WD0 workspace.
+While another custodian owns the physical Deck, the
 FL agent may:
 
 - reconcile the WD0 branch with canonical main;
 - inspect and implement the typed workspace owner;
 - run source tests and isolated unlicensed fixtures;
 - read-only identify and fingerprint the installer in `Downloads`;
-- prepare private import, prefix, runner and audio-driver artifacts.
+  - prepare the exact product installer and source-owned workspace projection.
 
 It may not execute the installer, replace the shared manager/service or change
 machine audio/Steam settings until it receives the physical Deck handoff.

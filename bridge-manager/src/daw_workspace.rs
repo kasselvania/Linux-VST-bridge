@@ -36,6 +36,9 @@ const FL_CRYPT32_SOURCE: &[(&str, &str)] = &[
     ),
 ];
 const SESSION_SECONDS: u64 = 30;
+const SERUM2_INSTALLER_SHA: &str =
+    "507b726d97bf78920157f3817aff003b9ee38ee961f4efd318cf43216370f695";
+const SERUM2_RELEASE: &str = "2.1.5";
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -131,6 +134,43 @@ struct UninstallRecord {
     outcome: UninstallOutcome,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum ProductInstallationOutcome {
+    Pending,
+    Installed,
+    NeedsUserAction,
+    Failed,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct InstalledWorkspaceProduct {
+    module: Artifact,
+    bundle_root: PathBuf,
+    installer_release: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct ProductInstallationRecord {
+    operation: String,
+    installer: InstallerSelection,
+    outcome: ProductInstallationOutcome,
+    module: Option<Artifact>,
+    bundle_root: Option<PathBuf>,
+    failure: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct WorkspaceProduct {
+    selected_installer: Option<InstallerSelection>,
+    active_installation_operation: Option<String>,
+    installations: Vec<ProductInstallationRecord>,
+    installed: Option<InstalledWorkspaceProduct>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 struct Workspace {
@@ -157,6 +197,8 @@ struct Workspace {
     uninstalls: Vec<UninstallRecord>,
     history_recovery_required: bool,
     first_failure: Option<String>,
+    #[serde(default)]
+    serum2: WorkspaceProduct,
 }
 
 // Exact on-disk WD0 shape from before repeatable installation. Do not edit it
@@ -613,7 +655,71 @@ fn migrate_legacy(m: &Manager, old: LegacyWorkspace) -> Result<Workspace> {
         uninstalls,
         history_recovery_required,
         first_failure: old.first_failure,
+        serum2: WorkspaceProduct::default(),
     })
+}
+
+fn serum2_bundle_root(w: &Workspace) -> PathBuf {
+    w.environment
+        .root
+        .join("compatdata/pfx/drive_c/Program Files/Common Files/VST3/Serum2.vst3")
+}
+
+fn serum2_module_path(w: &Workspace) -> PathBuf {
+    serum2_bundle_root(w).join("Contents/x86_64-win/Serum2.vst3")
+}
+
+fn validate_serum2<'a>(w: &'a Workspace, operations: &mut BTreeSet<&'a str>) -> Result<()> {
+    let p = &w.serum2;
+    require(
+        p.selected_installer.as_ref().is_none_or(|selection| {
+            selection.sha256 == SERUM2_INSTALLER_SHA && selection.release == SERUM2_RELEASE
+        }) && p.installations.len() <= 32,
+        "daw_workspace_product_identity",
+    )?;
+    for entry in &p.installations {
+        require(
+            valid_hex(&entry.operation, 32)
+                && operations.insert(&entry.operation)
+                && entry.installer.sha256 == SERUM2_INSTALLER_SHA
+                && entry.installer.release == SERUM2_RELEASE
+                && entry.module.as_ref().is_none_or(|module| {
+                    module.path == serum2_module_path(w) && valid_hex(&module.sha256, 64)
+                })
+                && entry
+                    .bundle_root
+                    .as_ref()
+                    .is_none_or(|root| root == &serum2_bundle_root(w))
+                && (entry.outcome != ProductInstallationOutcome::Pending
+                    || p.active_installation_operation.as_deref() == Some(&entry.operation))
+                && (!matches!(
+                    entry.outcome,
+                    ProductInstallationOutcome::Installed
+                        | ProductInstallationOutcome::NeedsUserAction
+                ) || (entry.module.is_some() && entry.bundle_root.is_some())),
+            "daw_workspace_product_history_identity",
+        )?;
+    }
+    require(
+        p.active_installation_operation.as_deref().is_none_or(|op| {
+            p.installations.iter().any(|entry| {
+                entry.operation == op && entry.outcome == ProductInstallationOutcome::Pending
+            })
+        }) && p.installed.as_ref().is_none_or(|installed| {
+            installed.module.path == serum2_module_path(w)
+                && installed.bundle_root == serum2_bundle_root(w)
+                && installed.installer_release == SERUM2_RELEASE
+                && p.installations.iter().any(|entry| {
+                    matches!(
+                        entry.outcome,
+                        ProductInstallationOutcome::Installed
+                            | ProductInstallationOutcome::NeedsUserAction
+                    ) && entry.module.as_ref() == Some(&installed.module)
+                        && entry.bundle_root.as_ref() == Some(&installed.bundle_root)
+                })
+        }),
+        "daw_workspace_product_state",
+    )
 }
 
 fn validate_history(w: &Workspace) -> Result<()> {
@@ -668,6 +774,7 @@ fn validate_history(w: &Workspace) -> Result<()> {
             "daw_workspace_uninstall_history_identity",
         )?;
     }
+    validate_serum2(w, &mut operations)?;
     require(
         w.active_installation_operation.as_deref().is_none_or(|op| {
             w.installations
@@ -834,6 +941,26 @@ fn result_path(m: &Manager, op: &str, install: bool) -> PathBuf {
         .join("result.json")
 }
 
+fn product_result_path(m: &Manager, op: &str) -> PathBuf {
+    base(m)
+        .join("product-installations")
+        .join(op)
+        .join("result.json")
+}
+
+fn product_result(m: &Manager, op: &str) -> Result<Option<Value>> {
+    let path = product_result_path(m, op);
+    if !path.try_exists()? {
+        return Ok(None);
+    }
+    let value: Value = read_json(&path)?;
+    require(
+        value["operation"] == op,
+        "daw_workspace_product_result_operation",
+    )?;
+    Ok(Some(value))
+}
+
 fn result(m: &Manager, op: &str, install: bool) -> Result<Option<Value>> {
     let path = result_path(m, op, install);
     if !path.try_exists()? {
@@ -875,6 +1002,8 @@ fn select_fl_crypt32_runner(m: &Manager) -> Result<()> {
             && w.environment.runner.id == STANDARD_RUNNER
             && w.runner_manifest.is_none()
             && w.installed.is_some()
+            && w.serum2.installations.is_empty()
+            && w.serum2.active_installation_operation.is_none()
             && session_ready(m, &w)?,
         "daw_workspace_runner_prestate",
     )?;
@@ -1096,6 +1225,7 @@ fn create_exact(m: &Manager, installer: &str, release: &str, runner: Runner) -> 
         history_recovery_required: false,
         audio: None,
         first_failure: None,
+        serum2: WorkspaceProduct::default(),
     };
     atomic_json(&record(m), &w)?;
     Ok(w)
@@ -1284,7 +1414,9 @@ fn selection_admission(
         "daw_workspace_history_recovery_required",
     )?;
     require(
-        w.active_installation_operation.is_none() && w.active_uninstall_operation.is_none(),
+        w.active_installation_operation.is_none()
+            && w.active_uninstall_operation.is_none()
+            && w.serum2.active_installation_operation.is_none(),
         "daw_workspace_operation_active",
     )?;
     require(session_ready, "daw_workspace_session_active")?;
@@ -1580,6 +1712,306 @@ fn finish_install(m: &Manager) -> Result<Value> {
         "installed":w.installed}))
 }
 
+fn product_state_admission(
+    w: &Workspace,
+    session_ready: bool,
+    prior_active: bool,
+    prior_retired: bool,
+) -> Result<()> {
+    require(
+        !w.history_recovery_required
+            && w.state != State::CleanupUnconfirmed
+            && w.installed.is_some()
+            && w.active_installation_operation.is_none()
+            && w.active_uninstall_operation.is_none()
+            && w.serum2.active_installation_operation.is_none(),
+        "daw_workspace_product_operation_not_admitted",
+    )?;
+    require(session_ready, "daw_workspace_product_session_active")?;
+    if let Some(prior) = w.serum2.installations.last() {
+        require(
+            !prior_active,
+            "daw_workspace_product_prior_installer_active",
+        )?;
+        require(
+            prior_retired
+                || (prior.outcome == ProductInstallationOutcome::Failed
+                    && prior.failure.as_deref() == Some("product_worker_launch_failed")),
+            "daw_workspace_product_cleanup_unconfirmed",
+        )?;
+    }
+    Ok(())
+}
+
+fn product_admission(m: &Manager, w: &Workspace) -> Result<()> {
+    let (prior_active, prior_retired) = if let Some(prior) = w.serum2.installations.last() {
+        let active = unit_active(&unit(&prior.operation, true)?)?;
+        let retired = product_result(m, &prior.operation)?
+            .as_ref()
+            .is_some_and(retired);
+        (active, retired)
+    } else {
+        (false, true)
+    };
+    product_state_admission(w, session_ready(m, w)?, prior_active, prior_retired)
+}
+
+fn select_serum2_installer(m: &Manager, sha256: &str, release: &str) -> Result<Value> {
+    let selected = serum2_selection(sha256, release)?;
+    let _guard = m.lock("daw-workspace.lock")?;
+    let mut w = load(m)?;
+    product_admission(m, &w)?;
+    let imported = installer_import::load(m, sha256)?;
+    require(
+        imported.format == "pe_executable" && imported.id == sha256,
+        "daw_workspace_product_installer_identity",
+    )?;
+    if w.serum2.selected_installer.as_ref() != Some(&selected) {
+        w.serum2.selected_installer = Some(selected);
+        save(m, &mut w)?;
+    }
+    Ok(json!({"workspace":w.id,"product":"serum2",
+        "selected_installer":w.serum2.selected_installer,"revision":w.revision}))
+}
+
+fn serum2_selection(sha256: &str, release: &str) -> Result<InstallerSelection> {
+    require(
+        sha256 == SERUM2_INSTALLER_SHA && release == SERUM2_RELEASE,
+        "daw_workspace_product_installer_not_admitted",
+    )?;
+    Ok(InstallerSelection {
+        sha256: sha256.into(),
+        release: release.into(),
+    })
+}
+
+fn product_image_admission(w: &Workspace) -> Result<()> {
+    require(
+        w.serum2.installed.is_none() && !path_entry_exists(&serum2_bundle_root(w))?,
+        "daw_workspace_product_unmanaged_or_installed_image_present",
+    )
+}
+
+fn path_entry_exists(path: &Path) -> Result<bool> {
+    match fs::symlink_metadata(path) {
+        Ok(_) => Ok(true),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(e.into()),
+    }
+}
+
+fn reserve_product_install(w: &mut Workspace, op: &str) -> Result<()> {
+    require(
+        valid_hex(op, 32)
+            && w.serum2.selected_installer.is_some()
+            && w.serum2.installed.is_none()
+            && w.serum2.active_installation_operation.is_none()
+            && w.serum2.installations.len() < 32
+            && !w.installations.iter().any(|r| r.operation == op)
+            && !w.uninstalls.iter().any(|r| r.operation == op)
+            && w.session_operation.as_deref() != Some(op)
+            && !w.serum2.installations.iter().any(|r| r.operation == op),
+        "daw_workspace_product_install_not_admitted",
+    )?;
+    w.serum2.installations.push(ProductInstallationRecord {
+        operation: op.into(),
+        installer: w
+            .serum2
+            .selected_installer
+            .clone()
+            .ok_or("daw_workspace_product_selection_absent")?,
+        outcome: ProductInstallationOutcome::Pending,
+        module: None,
+        bundle_root: None,
+        failure: None,
+    });
+    w.serum2.active_installation_operation = Some(op.into());
+    Ok(())
+}
+
+fn retire_product_install(
+    w: &mut Workspace,
+    op: &str,
+    state: &str,
+    installed: Option<InstalledWorkspaceProduct>,
+    failure: &str,
+) -> Result<()> {
+    require(
+        w.serum2.active_installation_operation.as_deref() == Some(op)
+            && matches!(state, "completed" | "failed" | "cancelled"),
+        "daw_workspace_product_retirement_identity",
+    )?;
+    let entry = w
+        .serum2
+        .installations
+        .iter_mut()
+        .find(|entry| entry.operation == op)
+        .ok_or("daw_workspace_product_install_record_absent")?;
+    require(
+        entry.outcome == ProductInstallationOutcome::Pending,
+        "daw_workspace_product_install_already_retired",
+    )?;
+    w.serum2.active_installation_operation = None;
+    if let Some(product) = installed {
+        require(
+            product.installer_release == entry.installer.release,
+            "daw_workspace_product_release_changed",
+        )?;
+        entry.module = Some(product.module.clone());
+        entry.bundle_root = Some(product.bundle_root.clone());
+        entry.outcome = if state == "completed" {
+            ProductInstallationOutcome::Installed
+        } else {
+            ProductInstallationOutcome::NeedsUserAction
+        };
+        if state != "completed" {
+            entry.failure = Some(failure.into());
+        }
+        w.serum2.installed = Some(product);
+    } else {
+        entry.outcome = ProductInstallationOutcome::Failed;
+        entry.failure = Some(failure.into());
+    }
+    Ok(())
+}
+
+fn discover_serum2(w: &Workspace) -> Result<Option<InstalledWorkspaceProduct>> {
+    let bundle = serum2_bundle_root(w);
+    if !path_entry_exists(&bundle)? {
+        return Ok(None);
+    }
+    owned_vendor_dir(&bundle)?;
+    let module = serum2_module_path(w);
+    require(
+        pe_machine(&module)? == 0x8664,
+        "daw_workspace_product_requires_x64_vst3",
+    )?;
+    Ok(Some(InstalledWorkspaceProduct {
+        module: Artifact {
+            path: module.clone(),
+            sha256: digest(&module)?,
+        },
+        bundle_root: bundle,
+        installer_release: SERUM2_RELEASE.into(),
+    }))
+}
+
+fn product_install(m: &Manager, requested_operation: Option<&str>) -> Result<Value> {
+    let _guard = m.lock("daw-workspace.lock")?;
+    let mut w = load(m)?;
+    product_admission(m, &w)?;
+    product_image_admission(&w)?;
+    let selected = w
+        .serum2
+        .selected_installer
+        .as_ref()
+        .ok_or("daw_workspace_product_selection_absent")?;
+    let imported = installer_import::load(m, &selected.sha256)?;
+    require(
+        imported.format == "pe_executable",
+        "daw_workspace_product_requires_pe_installer",
+    )?;
+    w.installed
+        .as_ref()
+        .ok_or("daw_workspace_not_installed")?
+        .executable
+        .verify()?;
+    w.environment.runner.verify()?;
+    let sw = software(m)?;
+    let owner = supervisor(m)?;
+    let op = requested_operation
+        .map(str::to_owned)
+        .map_or_else(random_id, Ok)?;
+    let dir = product_result_path(m, &op)
+        .parent()
+        .ok_or("daw_workspace_product_install_dir")?
+        .to_path_buf();
+    reserve_product_install(&mut w, &op)?;
+    private_exact(&dir)?;
+    atomic_json(
+        &dir.join("spec.json"),
+        &json!({
+            "schema":2,"kind":"daw_workspace_product_install","product":"serum2",
+            "workspace":w.id,"operation":op,"environment":w.environment,
+            "installer":imported.artifact,"format":imported.format,
+            "installer_launch":sw.installer_launch,"report":product_result_path(m,&op)
+        }),
+    )?;
+    save(m, &mut w)?;
+    let status = Command::new("systemd-run")
+        .args([
+            "--user",
+            "--collect",
+            "--property=UMask=0077",
+            "--property=KillMode=control-group",
+            "--property=TimeoutStopSec=30",
+            "--property=StandardOutput=null",
+            "--property=StandardError=null",
+        ])
+        .arg(format!("--unit={}", unit(&op, true)?))
+        .arg("/usr/bin/python3")
+        .arg(owner)
+        .arg("--install")
+        .arg(dir.join("spec.json"))
+        .status();
+    if !status.is_ok_and(|s| s.success()) {
+        require(
+            !unit_active(&unit(&op, true)?)?,
+            "daw_workspace_product_installer_owner_uncertain",
+        )?;
+        retire_product_install(&mut w, &op, "failed", None, "product_worker_launch_failed")?;
+        save(m, &mut w)?;
+        return Err("daw_workspace_product_installer_launch_failed".into());
+    }
+    Ok(json!({"workspace":w.id,"product":"serum2","operation":op,"state":"installing"}))
+}
+
+fn finish_product_install(m: &Manager) -> Result<Value> {
+    let _guard = m.lock("daw-workspace.lock")?;
+    let mut w = load(m)?;
+    let op = w
+        .serum2
+        .active_installation_operation
+        .as_deref()
+        .ok_or("daw_workspace_product_install_not_pending")?
+        .to_owned();
+    require(
+        !unit_active(&unit(&op, true)?)?,
+        "daw_workspace_product_installer_still_running",
+    )?;
+    let result = product_result(m, &op)?.ok_or("daw_workspace_product_result_absent")?;
+    require(
+        retired(&result),
+        "daw_workspace_product_cleanup_unconfirmed",
+    )?;
+    let installed = discover_serum2(&w)?;
+    let state = result["state"]
+        .as_str()
+        .ok_or("daw_workspace_product_result_state")?;
+    let failure = result["error"]
+        .as_str()
+        .unwrap_or("product_module_absent_after_install");
+    retire_product_install(&mut w, &op, state, installed, failure)?;
+    save(m, &mut w)?;
+    Ok(json!({"workspace":w.id,"product":"serum2","operation":op,
+        "outcome":w.serum2.installations.last().map(|r| r.outcome),
+        "installed":w.serum2.installed}))
+}
+
+fn serum2_install_finish_ready_for(m: &Manager, w: &Workspace) -> Result<bool> {
+    let Some(op) = w.serum2.active_installation_operation.as_deref() else {
+        return Ok(false);
+    };
+    Ok(!unit_active(&unit(op, true)?)? && product_result(m, op)?.as_ref().is_some_and(retired))
+}
+
+pub(super) fn serum2_install_finish_ready(m: &Manager) -> Result<bool> {
+    if !record(m).try_exists()? {
+        return Ok(false);
+    }
+    serum2_install_finish_ready_for(m, &load(m)?)
+}
+
 fn session_ready(m: &Manager, w: &Workspace) -> Result<bool> {
     let Some(op) = &w.session_operation else {
         return Ok(true);
@@ -1649,7 +2081,8 @@ fn launch(m: &Manager) -> Result<()> {
         !w.history_recovery_required
             && w.state != State::CleanupUnconfirmed
             && w.active_installation_operation.is_none()
-            && w.active_uninstall_operation.is_none(),
+            && w.active_uninstall_operation.is_none()
+            && w.serum2.active_installation_operation.is_none(),
         "daw_workspace_cleanup_unconfirmed",
     )?;
     require(
@@ -1719,7 +2152,8 @@ fn uninstall(m: &Manager, requested_operation: Option<&str>) -> Result<()> {
     require(
         !w.history_recovery_required
             && w.active_installation_operation.is_none()
-            && w.active_uninstall_operation.is_none(),
+            && w.active_uninstall_operation.is_none()
+            && w.serum2.active_installation_operation.is_none(),
         "daw_workspace_uninstall_already_started",
     )?;
     require(
@@ -1942,6 +2376,34 @@ fn current_failure(
 
 fn read_status(m: &Manager) -> Result<Value> {
     let w = load(m)?;
+    let product_history: Vec<Value> = w
+        .serum2
+        .installations
+        .iter()
+        .map(|entry| {
+            Ok(json!({"record":entry,
+            "result":product_result(m,&entry.operation)?}))
+        })
+        .collect::<Result<_>>()?;
+    let product_active = w
+        .serum2
+        .active_installation_operation
+        .as_ref()
+        .map(|op| unit_active(&unit(op, true)?))
+        .transpose()?
+        .unwrap_or(false);
+    let active_product_result = w
+        .serum2
+        .active_installation_operation
+        .as_ref()
+        .map(|op| product_result(m, op))
+        .transpose()?
+        .flatten();
+    let product_module_current = w
+        .serum2
+        .installed
+        .as_ref()
+        .map(|product| product.module.verify().is_ok());
     let installation_history: Vec<Value> = w
         .installations
         .iter()
@@ -2000,7 +2462,7 @@ fn read_status(m: &Manager) -> Result<Value> {
         .map(|op| result(m, op, false))
         .transpose()?
         .flatten();
-    let cleanup = if owner_active || install_active || uninstall_active {
+    let cleanup = if owner_active || install_active || uninstall_active || product_active {
         "running"
     } else if w.history_recovery_required
         || w.state == State::CleanupUnconfirmed
@@ -2009,6 +2471,8 @@ fn read_status(m: &Manager) -> Result<Value> {
             && !active_install_result.as_ref().is_some_and(retired))
         || (w.active_uninstall_operation.is_some()
             && !active_uninstall_result.as_ref().is_some_and(retired))
+        || (w.serum2.active_installation_operation.is_some()
+            && !active_product_result.as_ref().is_some_and(retired))
     {
         "cleanup_unconfirmed"
     } else {
@@ -2065,6 +2529,11 @@ fn read_status(m: &Manager) -> Result<Value> {
         "owner_active":owner_active,"cleanup":cleanup,"effective_state":effective_state,
         "detected_installed_not_committed":detected_installed,
         "unmanaged_image_present":unmanaged_image_present,
+        "serum2":{"selected_installer":w.serum2.selected_installer,
+            "active_installation_operation":w.serum2.active_installation_operation,
+            "installation_history":product_history,"installed":w.serum2.installed,
+            "module_current":product_module_current,"installer_active":product_active,
+            "installer_result":active_product_result},
         "first_useful_failure":current_failure,
         "historical_first_failure":w.first_failure}),
     )
@@ -2158,6 +2627,105 @@ fn offer(label: &str, action: ui::Action, reason: Option<String>) -> ui::Availab
         action,
         disabled_reason: reason,
     }
+}
+
+fn serum2_projection(
+    m: &Manager,
+    w: &Workspace,
+    details: &Value,
+    imported: &[ui::Onboarding],
+) -> Result<ui::DawWorkspaceProduct> {
+    let cleanup = details["cleanup"].as_str().unwrap_or("cleanup_unconfirmed");
+    let admitted = imported
+        .iter()
+        .any(|row| row.installer == SERUM2_INSTALLER_SHA && row.format == "pe_executable");
+    let admission_reason = if cleanup == "confirmed" {
+        product_admission(m, w).err().map(|e| e.to_string())
+    } else {
+        Some("Workspace cleanup is not confirmed".into())
+    };
+    let installer_choices = if admitted {
+        vec![offer(
+            "Choose official Serum 2 2.1.5 installer",
+            ui::Action::WorkspaceSelectProductInstaller {
+                product: ui::WorkspaceProductId::Serum2,
+                installer: SERUM2_INSTALLER_SHA.into(),
+                release: String::new(),
+            },
+            admission_reason.clone(),
+        )]
+    } else {
+        Vec::new()
+    };
+    let mut actions = Vec::new();
+    if w.serum2.active_installation_operation.is_some() {
+        let ready = serum2_install_finish_ready_for(m, w)?;
+        actions.push(offer(
+            "Complete Serum installation readback",
+            ui::Action::WorkspaceFinishProductInstall {
+                product: ui::WorkspaceProductId::Serum2,
+            },
+            (!ready).then(|| "Serum installer is active or cleanup is unconfirmed".into()),
+        ));
+    } else if w.serum2.installed.is_none() {
+        let reason = if !admitted {
+            Some("Official Serum 2.1.5 installer is absent from manager custody".into())
+        } else if w.serum2.selected_installer.is_none() {
+            Some("Choose the exact imported Serum version first".into())
+        } else if path_entry_exists(&serum2_bundle_root(w))? {
+            Some("Serum files exist without a current manager-owned product installation".into())
+        } else {
+            admission_reason
+        };
+        actions.push(offer(
+            "Install Serum 2 in FL Studio",
+            ui::Action::WorkspaceInstallProduct {
+                product: ui::WorkspaceProductId::Serum2,
+            },
+            reason,
+        ));
+    }
+    let current = details["serum2"]["module_current"].as_bool();
+    let last = w.serum2.installations.last();
+    let state = if w.serum2.active_installation_operation.is_some() {
+        "installing"
+    } else if w.serum2.installed.is_some() && current == Some(false) {
+        "needs_attention"
+    } else if w.serum2.installed.is_some()
+        && last.is_some_and(|r| r.outcome == ProductInstallationOutcome::NeedsUserAction)
+    {
+        "needs_user_action"
+    } else if w.serum2.installed.is_some() {
+        "installed"
+    } else if last.is_some_and(|r| r.outcome == ProductInstallationOutcome::Failed) {
+        "failed"
+    } else if w.serum2.selected_installer.is_some() {
+        "selected"
+    } else {
+        "not_selected"
+    };
+    let current_failure = if current == Some(false) {
+        Some("Installed Serum module changed or is unavailable".into())
+    } else if matches!(state, "failed" | "needs_user_action") {
+        last.and_then(|r| r.failure.clone())
+    } else {
+        None
+    };
+    Ok(ui::DawWorkspaceProduct {
+        id: ui::WorkspaceProductId::Serum2,
+        name: "Serum 2".into(),
+        state: state.into(),
+        selected_release: w
+            .serum2
+            .selected_installer
+            .as_ref()
+            .map(|i| i.release.clone()),
+        module_sha256: w.serum2.installed.as_ref().map(|i| i.module.sha256.clone()),
+        current_failure,
+        actions,
+        installer_choices,
+        details: details["serum2"].clone(),
+    })
 }
 
 pub(super) fn projection(
@@ -2294,6 +2862,7 @@ pub(super) fn projection(
         .installed
         .as_ref()
         .and_then(|app| app.observed_file_version.clone());
+    let products = vec![serum2_projection(m, &w, &details, imported)?];
     Ok(vec![ui::DawWorkspace {
         id: w.id,
         name: "FL Studio".into(),
@@ -2314,6 +2883,7 @@ pub(super) fn projection(
         first_useful_failure: details["first_useful_failure"].as_str().map(str::to_owned),
         actions,
         installer_choices: choices,
+        products,
         details,
     }])
 }
@@ -2345,6 +2915,17 @@ pub(super) fn execute_action(m: &Manager, action: &ui::Action, operation: &str) 
             request(m, "stop")?;
             read_status(m)
         }
+        ui::Action::WorkspaceSelectProductInstaller {
+            product: ui::WorkspaceProductId::Serum2,
+            installer,
+            release,
+        } => select_serum2_installer(m, installer, release),
+        ui::Action::WorkspaceInstallProduct {
+            product: ui::WorkspaceProductId::Serum2,
+        } => product_install(m, Some(operation)),
+        ui::Action::WorkspaceFinishProductInstall {
+            product: ui::WorkspaceProductId::Serum2,
+        } => finish_product_install(m),
         _ => Err("daw_workspace_action_not_supported".into()),
     }
 }
@@ -2359,6 +2940,19 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
         [action, id, release] if action == "create" => create(m, id, release),
         [action, sha256, release] if action == "select-installer" => {
             println!("{}", select_installer(m, sha256, release)?);
+            Ok(())
+        }
+        [action, product, sha256, release]
+            if action == "select-product-installer" && product == "serum2" => {
+                println!("{}", select_serum2_installer(m, sha256, release)?);
+                Ok(())
+            }
+        [action, product] if action == "install-product" && product == "serum2" => {
+            println!("{}", product_install(m, None)?);
+            Ok(())
+        }
+        [action, product] if action == "finish-product-install" && product == "serum2" => {
+            println!("{}", finish_product_install(m)?);
             Ok(())
         }
         [action] if action == "install" => {
@@ -2378,7 +2972,7 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
         [action] if action == "status" => status(m),
         [action, rest @ ..] if action == "record-audio" => record_audio(m, rest),
         [action, version, image_sha] if action == "record-installed-version" => record_installed_version(m, version, image_sha),
-        _ => Err("Usage: workspace import | create INSTALLER_SHA RELEASE | select-installer INSTALLER_SHA RELEASE | install | finish-install | uninstall | finish-uninstall | select-fl-crypt32-runner | launch | focus | status | stop | record-audio BACKEND RATE BUFFER ENDPOINT audible|not-audible | record-installed-version VERSION IMAGE_SHA".into()),
+        _ => Err("Usage: workspace import | create INSTALLER_SHA RELEASE | select-installer INSTALLER_SHA RELEASE | install | finish-install | uninstall | finish-uninstall | select-product-installer serum2 INSTALLER_SHA RELEASE | install-product serum2 | finish-product-install serum2 | select-fl-crypt32-runner | launch | focus | status | stop | record-audio BACKEND RATE BUFFER ENDPOINT audible|not-audible | record-installed-version VERSION IMAGE_SHA".into()),
     }
 }
 
@@ -2430,6 +3024,158 @@ mod tests {
         bytes[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
         fs::write(&path, bytes).unwrap();
         installer_import::import(&f.m, fs::File::open(path).unwrap()).unwrap()
+    }
+
+    fn fixture_serum(w: &Workspace) -> InstalledWorkspaceProduct {
+        let module = serum2_module_path(w);
+        fs::create_dir_all(module.parent().unwrap()).unwrap();
+        let mut bytes = vec![7; 1024];
+        bytes[..2].copy_from_slice(b"MZ");
+        bytes[60..64].copy_from_slice(&128u32.to_le_bytes());
+        bytes[128..132].copy_from_slice(b"PE\0\0");
+        bytes[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        fs::write(&module, bytes).unwrap();
+        discover_serum2(w).unwrap().unwrap()
+    }
+
+    fn installed_fl_fixture(f: &crate::test_fixture::Fixture) -> Workspace {
+        let mut w = fixture_workspace(f, &"ab".repeat(32));
+        let operation = "a1".repeat(16);
+        reserve_install_record(&mut w, &operation).unwrap();
+        let app = fixture_app(&w, "26.1.6.0", 5);
+        retire_install_record(&mut w, &operation, "completed", Some(app), "unused").unwrap();
+        w
+    }
+
+    #[test]
+    fn workspace_product_install_has_separate_history_and_preserves_fl_and_native_authority() {
+        let f = crate::test_fixture::Fixture::new();
+        let mut w = installed_fl_fixture(&f);
+        let fl_before = (
+            w.id.clone(),
+            w.environment.clone(),
+            w.projects.clone(),
+            w.preferences.clone(),
+            w.exports.clone(),
+            w.selected_installer.clone(),
+            w.current_installation_operation.clone(),
+            w.installed.clone(),
+            w.installations.clone(),
+        );
+        let mut native_paths: Vec<_> = [
+            "registry.json", "software.json", "policies/x11_touch_routing_v2.json",
+            "candidates/serum-candidate-d.json",
+        ].iter().map(|p| f.m.root.join(p)).collect();
+        native_paths.extend(["Pure LoFi", "Efx FRAGMENTS", "Pigments", "Serum 2",
+            "Blackhole", "Kontakt"].iter().map(|name| f.m.publications.join(name)));
+        for (index, file) in native_paths.iter().enumerate() {
+            fs::create_dir_all(file.parent().unwrap()).unwrap();
+            fs::write(file, format!("native canary {index}")).unwrap();
+        }
+        let native_before: Vec<_> = native_paths
+            .iter()
+            .map(|p| fs::read(p).unwrap())
+            .collect();
+        w.serum2.selected_installer =
+            Some(serum2_selection(SERUM2_INSTALLER_SHA, SERUM2_RELEASE).unwrap());
+        product_state_admission(&w, true, false, true).unwrap();
+        product_image_admission(&w).unwrap();
+        let operation = "b1".repeat(16);
+        reserve_product_install(&mut w, &operation).unwrap();
+        let module = fixture_serum(&w);
+        retire_product_install(
+            &mut w,
+            &operation,
+            "completed",
+            Some(module.clone()),
+            "unused",
+        )
+        .unwrap();
+        save(&f.m, &mut w).unwrap();
+        let current = load(&f.m).unwrap();
+        assert_eq!(current.serum2.installations.len(), 1);
+        assert_eq!(current.serum2.installations[0].operation, operation);
+        assert_eq!(
+            current.serum2.installations[0].outcome,
+            ProductInstallationOutcome::Installed
+        );
+        assert_eq!(current.serum2.installed, Some(module));
+        assert_eq!(
+            (
+                current.id,
+                current.environment,
+                current.projects,
+                current.preferences,
+                current.exports,
+                current.selected_installer,
+                current.current_installation_operation,
+                current.installed,
+                current.installations
+            ),
+            fl_before
+        );
+        let native_after: Vec<_> = native_paths
+            .iter()
+            .map(|p| fs::read(p).unwrap())
+            .collect();
+        assert_eq!(native_after, native_before);
+    }
+
+    #[test]
+    fn workspace_product_refuses_live_uncertain_and_unmanaged_states() {
+        let f = crate::test_fixture::Fixture::new();
+        let mut w = installed_fl_fixture(&f);
+        w.serum2.selected_installer =
+            Some(serum2_selection(SERUM2_INSTALLER_SHA, SERUM2_RELEASE).unwrap());
+        assert!(serum2_selection(&"ab".repeat(32), SERUM2_RELEASE).is_err());
+        assert!(serum2_selection(SERUM2_INSTALLER_SHA, "2.1.6").is_err());
+        assert!(product_state_admission(&w, false, false, true).is_err());
+        w.active_installation_operation = Some("c1".repeat(16));
+        assert!(product_state_admission(&w, true, false, true).is_err());
+        w.active_installation_operation = None;
+        w.active_uninstall_operation = Some("c2".repeat(16));
+        assert!(product_state_admission(&w, true, false, true).is_err());
+        w.active_uninstall_operation = None;
+        w.state = State::CleanupUnconfirmed;
+        assert!(product_state_admission(&w, true, false, true).is_err());
+        w.state = State::Installed;
+        let operation = "c3".repeat(16);
+        reserve_product_install(&mut w, &operation).unwrap();
+        assert!(product_state_admission(&w, true, false, true).is_err());
+        retire_product_install(&mut w, &operation, "failed", None, "installer_failed").unwrap();
+        assert!(product_state_admission(&w, true, false, false).is_err());
+        product_state_admission(&w, true, false, true).unwrap();
+        let module = fixture_serum(&w);
+        assert!(product_image_admission(&w).is_err());
+        assert_eq!(discover_serum2(&w).unwrap(), Some(module));
+        assert!(
+            w.serum2.installed.is_none(),
+            "discovery alone cannot adopt the module"
+        );
+    }
+
+    #[test]
+    fn retired_product_failure_can_retry_without_erasing_first_record() {
+        let f = crate::test_fixture::Fixture::new();
+        let mut w = installed_fl_fixture(&f);
+        w.serum2.selected_installer =
+            Some(serum2_selection(SERUM2_INSTALLER_SHA, SERUM2_RELEASE).unwrap());
+        let first = "d1".repeat(16);
+        let second = "d2".repeat(16);
+        reserve_product_install(&mut w, &first).unwrap();
+        retire_product_install(&mut w, &first, "failed", None, "installer_failed").unwrap();
+        let retained = w.serum2.installations[0].clone();
+        product_state_admission(&w, true, false, true).unwrap();
+        reserve_product_install(&mut w, &second).unwrap();
+        let module = fixture_serum(&w);
+        retire_product_install(&mut w, &second, "completed", Some(module), "unused").unwrap();
+        assert_ne!(first, second);
+        assert_eq!(w.serum2.installations[0], retained);
+        assert_eq!(w.serum2.installations.len(), 2);
+        assert_eq!(
+            w.serum2.installations[1].outcome,
+            ProductInstallationOutcome::Installed
+        );
     }
     #[test]
     fn closed_workspace_and_release_grammar() {
@@ -2754,8 +3500,14 @@ mod tests {
         ] {
             reserve_install_record(&mut w, &install_op).unwrap();
             let app = fixture_app(&w, "26.1.6.0", index);
-            retire_install_record(&mut w, &install_op, "completed", Some(app.clone()), "unused")
-                .unwrap();
+            retire_install_record(
+                &mut w,
+                &install_op,
+                "completed",
+                Some(app.clone()),
+                "unused",
+            )
+            .unwrap();
             expected_installs.push(w.installations.last().unwrap().clone());
             reserve_uninstall_record(&mut w, &uninstall_op).unwrap();
             fs::remove_file(&app.executable.path).unwrap();
@@ -2902,6 +3654,7 @@ mod tests {
         assert_eq!(migrated.id, w.id);
         assert_eq!(migrated.environment, w.environment);
         assert_eq!(migrated.state, State::Uninstalled);
+        assert_eq!(migrated.serum2, WorkspaceProduct::default());
         assert!(!migrated.history_recovery_required);
         assert_eq!(migrated.installations[0].operation, first);
         assert_eq!(
@@ -2973,21 +3726,35 @@ mod tests {
         reserve_install_record(&mut w, &install).unwrap();
         let app = fixture_app(&w, "26.1.6.0", 12);
         retire_install_record(&mut w, &install, "failed", Some(app), "unused").unwrap();
-        assert_eq!(w.installations[0].failure.as_deref(), Some("installer_exit_nonzero_application_present"));
+        assert_eq!(
+            w.installations[0].failure.as_deref(),
+            Some("installer_exit_nonzero_application_present")
+        );
         w.session_operation = Some("92".repeat(16));
         w.state = State::Starting;
         let failed = json!({"state":"failed","error":"fl_application_crashed",
             "cleanup_confirmed":true,"owned_live":0});
         assert!(failed_current_session(&w, Some(&failed)).is_some());
-        assert_eq!(current_failure(&w, State::Failed, "confirmed", false, Some(&failed)).as_deref(),
-            Some("fl_application_crashed"));
+        assert_eq!(
+            current_failure(&w, State::Failed, "confirmed", false, Some(&failed)).as_deref(),
+            Some("fl_application_crashed")
+        );
         let completed = json!({"state":"completed","cleanup_confirmed":true,"owned_live":0});
         assert!(failed_current_session(&w, Some(&completed)).is_none());
-        assert_eq!(current_failure(&w, State::Ready, "confirmed", false, Some(&completed)), None);
+        assert_eq!(
+            current_failure(&w, State::Ready, "confirmed", false, Some(&completed)),
+            None
+        );
         w.state = State::Installed;
         assert!(failed_current_session(&w, Some(&failed)).is_none());
-        assert_eq!(current_failure(&w, State::Ready, "confirmed", false, Some(&failed)), None);
-        assert_eq!(w.installations[0].failure.as_deref(), Some("installer_exit_nonzero_application_present"));
+        assert_eq!(
+            current_failure(&w, State::Ready, "confirmed", false, Some(&failed)),
+            None
+        );
+        assert_eq!(
+            w.installations[0].failure.as_deref(),
+            Some("installer_exit_nonzero_application_present")
+        );
     }
 
     #[test]
@@ -3006,13 +3773,18 @@ mod tests {
         let removal = "95".repeat(16);
         reserve_uninstall_record(&mut w, &removal).unwrap();
         let before = w.clone();
-        assert_eq!(application_control_admission(&w).unwrap_err().to_string(),
-            "daw_workspace_uninstaller_control_not_admitted");
+        assert_eq!(
+            application_control_admission(&w).unwrap_err().to_string(),
+            "daw_workspace_uninstaller_control_not_admitted"
+        );
         assert_eq!(w, before);
         assert_eq!(w.state, State::Uninstalling);
         assert_eq!(w.uninstalls[0].outcome, UninstallOutcome::Pending);
         // Incomplete removal remains pending; a control request cannot relabel it.
-        assert_eq!(w.active_uninstall_operation.as_deref(), Some(removal.as_str()));
+        assert_eq!(
+            w.active_uninstall_operation.as_deref(),
+            Some(removal.as_str())
+        );
         retire_uninstall_record(&mut w, &removal).unwrap();
         assert_eq!(w.state, State::Uninstalled);
         assert_eq!(w.uninstalls[0].outcome, UninstallOutcome::Completed);

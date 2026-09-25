@@ -68,6 +68,15 @@ Different plug-ins currently need different exact runner policies. A direct-host
 
 WD0 begins with stock FL instruments only and one admitted runtime. WD1 installs one exact third-party Windows VST3 through its lawful installer in that same workspace. It does not copy an activated prefix, registry/license blobs, or a `.vst3` file and assume resources and registration came with it.
 
+WD1's plug-in installation is a workspace product operation, separate from the
+FL application installer slot and append-only FL installation history. The
+manager selects an exact admitted product installer, supervises it in the
+existing FL prefix under the selected FL runner, and retains its own operation,
+result, discovered Windows VST3 module digest and bundle root. Discovery of a
+module without the matching manager-owned operation does not grant installation
+authority. FL's verified plug-in scan and actual musical use are later physical
+observations, not consequences of a copied file or installer exit status.
+
 Reuse installer caches and immutable runtime artifacts where permitted. Defer shared mutable libraries, deduplication, cross-prefix plug-in hosting and runtime patch aggregation until a concrete workload needs them. A later runtime change must preserve already-required fixes and qualify the DAW plus the installed plug-in set; a plug-in-specific runner swap cannot silently change the rest of the workspace.
 
 Existing native-Linux publication claims do not become direct-FL claims. Conversely, a direct-FL pass does not qualify a Linux proxy. Use distinct execution-lane coverage in [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md) when physical evidence exists.

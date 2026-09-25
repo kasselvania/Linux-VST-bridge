@@ -34,6 +34,44 @@ on:
 permissions:
   contents: read
 jobs:
+  wd1-linux-artifacts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - run: rustup toolchain install 1.95.0 --profile minimal
+      - run: cargo +1.95.0 build --release --manifest-path bridge-manager/Cargo.toml --locked --bin linux-vst-bridge
+      - run: cargo +1.95.0 build --release --manifest-path manager-ui/Cargo.toml --locked --bin linux-audio-compatibility-manager
+      - name: Bind exact source and executable identities
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, pathlib, subprocess
+          files = {
+              'linux-vst-bridge': pathlib.Path('bridge-manager/target/release/linux-vst-bridge'),
+              'linux-audio-compatibility-manager': pathlib.Path('manager-ui/target/release/linux-audio-compatibility-manager'),
+          }
+          package = pathlib.Path('wd1-linux-artifacts')
+          package.mkdir()
+          identities = {}
+          for name, path in files.items():
+              data = path.read_bytes()
+              (package / name).write_bytes(data)
+              identities[name] = hashlib.sha256(data).hexdigest()
+          manifest = {
+              'source_head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
+              'source_tree': subprocess.check_output(['git', 'rev-parse', 'HEAD^{tree}'], text=True).strip(),
+              'sha256': identities,
+          }
+          (package / 'manifest.json').write_text(json.dumps(manifest, sort_keys=True) + '\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wd1-linux-artifacts
+          path: wd1-linux-artifacts/
+          if-no-files-found: error
+          retention-days: 7
   operator-frontend:
     runs-on: ubuntu-24.04
     timeout-minutes: 12
