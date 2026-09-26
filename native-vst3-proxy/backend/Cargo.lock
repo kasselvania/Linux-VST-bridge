@@ -11,6 +11,7 @@ name = "ap2-backend"
 version = "0.1.0"
 dependencies = [
  "ap1-native-client",
+ "libc",
  "sha2",
 ]
 
