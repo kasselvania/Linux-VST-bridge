@@ -18,6 +18,10 @@ mod queued;
 mod recovery;
 mod state;
 #[cfg(feature = "private-state-authoring")]
+pub const PRIVATE_STATE_CAPACITY: usize = state::HEADER_SIZE + state::LIMIT;
+#[cfg(feature = "private-state-authoring")]
+pub const PRIVATE_STATE_PAYLOAD_LIMIT: usize = state::LIMIT;
+#[cfg(feature = "private-state-authoring")]
 pub fn bind_private_state(
     reference: &[u8],
     module_sha256: [u8; 32],

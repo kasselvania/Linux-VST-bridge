@@ -16,5 +16,6 @@ crate-type = ["staticlib", "rlib"]
 [dependencies]
 ap1-native-client = { path = "../../native-audio-client" }
 sha2 = "=0.10.9"
+libc = "=0.2.189"
 [profile.release]
 panic = "unwind"
