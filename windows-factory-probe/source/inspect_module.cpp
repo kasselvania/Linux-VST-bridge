@@ -18,6 +18,7 @@
 #include <cmath>
 #include <stdexcept>
 #include <iterator>
+#include <string_view>
 
 namespace linux_vst_bridge::wf0 {
 namespace {
@@ -44,6 +45,44 @@ std::string text16(const TChar* value, size_t limit=128) { return quoted(utf8(va
 template<size_t N> std::string bounded(const char (&value)[N]) {
     if(!std::memchr(value,0,N))throw std::runtime_error("unterminated factory metadata");
     return value;
+}
+
+// A private vendor-access session can request one post-editor state payload.
+// The ordinary access route has no state-publication side effect. The outer
+// supervisor owns this directory and removes it after the session retires.
+bool private_state_requested(const std::wstring& directory) {
+    const auto path=directory+L"\\vendor-state-authoring.request";
+    HANDLE file=CreateFileW(path.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,
+                            OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
+    if(file==INVALID_HANDLE_VALUE){
+        const auto error=GetLastError();
+        if(error==ERROR_FILE_NOT_FOUND)return false;
+        throw std::runtime_error("private state request open failed");
+    }
+    const auto attributes=GetFileAttributesW(path.c_str());
+    char bytes[64]{};DWORD read=0;
+    const bool ok=attributes!=INVALID_FILE_ATTRIBUTES&&
+        !(attributes&(FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT))&&
+        ReadFile(file,bytes,sizeof(bytes),&read,nullptr)!=0;
+    CloseHandle(file);
+    constexpr std::string_view request="lvb-private-state-authoring/v1\n";
+    if(!ok||std::string_view(bytes,read)!=request)
+        throw std::runtime_error("private state request differs");
+    return true;
+}
+
+void publish_private_state(const std::wstring& directory,const std::vector<uint8_t>& payload) {
+    if(payload.empty()||payload.size()>LVBState::payloadLimit)
+        throw std::runtime_error("private state payload bound");
+    const auto path=directory+L"\\vendor-authored-state.payload";
+    HANDLE file=CreateFileW(path.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,
+                            FILE_ATTRIBUTE_NORMAL,nullptr);
+    if(file==INVALID_HANDLE_VALUE)throw std::runtime_error("private state create failed");
+    DWORD written=0;
+    const bool ok=WriteFile(file,payload.data(),DWORD(payload.size()),&written,nullptr)!=0&&
+                  written==payload.size()&&FlushFileBuffers(file)!=0;
+    CloseHandle(file);
+    if(!ok){DeleteFileW(path.c_str());throw std::runtime_error("private state write failed");}
 }
 
 }
@@ -227,10 +266,20 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             title+=state_result==kResultOk?L" - Vendor access (no DAW audio)":L" - Vendor access (saving unavailable; no DAW audio)";
             SetWindowTextW(view.window(),title.c_str());
             events.lifecycle("ap12_vendor_access_open",",\"save_available\":"+std::string(state_result==kResultOk?"true":"false"));
+            const bool author_state=private_state_requested(access_directory);
             const auto deadline=GetTickCount64()+30*60*1000;
             while(VendorView::pump()&&!view.close_requested()&&GetTickCount64()<deadline&&GetFileAttributesW((access_directory+L"\\vendor.stop").c_str())==INVALID_FILE_ATTRIBUTES)Sleep(10);
+            const bool user_closed=view.close_requested();
             if(!view.close())ExitProcess(92);
             events.lifecycle("ap12_vendor_access_closed");
+            if(author_state){
+                if(!user_closed)throw std::runtime_error("private state authoring requires normal editor close");
+                ReadbackStatus readback;
+                const auto payload=commercial_state(*component,*controller,controller_initialized,nullptr,&readback);
+                publish_private_state(access_directory,payload);
+                events.lifecycle("ap12_private_state_captured",",\"bytes\":"+std::to_string(payload.size())+
+                    ",\"unavailable_parameters\":"+std::to_string(readback.unavailable));
+            }
         }
         if(external){
             external->bind_controller(controller,controller_initialized,&handler);

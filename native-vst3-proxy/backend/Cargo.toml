@@ -5,6 +5,12 @@ edition = "2021"
 [features]
 registered = []
 rpi0 = []
+private-state-authoring = []
+
+[[bin]]
+name = "lvb-private-state-bind"
+path = "src/bin/private_state_bind.rs"
+required-features = ["private-state-authoring"]
 [lib]
 crate-type = ["staticlib", "rlib"]
 [dependencies]
