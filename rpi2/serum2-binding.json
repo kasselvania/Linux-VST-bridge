@@ -1,5 +1,5 @@
 {
-  "schema": "lvb-arm-plugin-binding/v1",
+  "schema": "lvb-arm-plugin-binding/v2",
   "module_sha256": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
   "class_id": "56534558667350736572756D20320000",
   "input": "silence",
@@ -15,6 +15,15 @@
     {"id": 2000003, "title": "Filter 1 Freq", "units": "Hz"},
     {"id": 7000000, "title": "Macro 1", "units": ""}
   ],
+  "preparation": {
+    "schema": "lvb-instrument-note-preparation/v1",
+    "channel": 0,
+    "pitch": 60,
+    "velocity": 100,
+    "hold_blocks": 1,
+    "settle_blocks": 6,
+    "completion_timeout_ms": 10000
+  },
   "surface": {
     "label": "SERUM 2",
     "encoders": [

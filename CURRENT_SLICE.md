@@ -1,7 +1,45 @@
-# Current work selection
+# Current work selection — PSL1 Pi prepared-state lifecycle
 
-No further implementation slice is selected by the FN1/PW1 merges. PSL1 is the
-tech-lead's proposed next separate slice; it has not begun.
+PSL1 is selected by the operator. Its exact canonical base is commit
+`65f113b463ed1dbba7d142f1b833720575932a0d`, tree
+`bf364f138849f8744ca18319380858545c0a1cf4`, on
+`codex/pi-prepared-state-lifecycle`. Basis: AGENTS.md real-time, binding,
+state, slice, and evidence laws; GOVERNANCE.md “What evidence means”;
+ARCHITECTURE.md §§7 and 13; FC-AUDIO-001; and the completed FN1 and PW1
+records below.
+
+**One source claim:** the Pi appliance can execute a strict product-binding
+note preparation recipe against an exact selected instrument state, restore
+that state, and refuse readiness when preparation or restoration is not
+trustworthy. Binding v1 behavior remains unchanged. Binding v2 may carry one
+bounded `lvb-instrument-note-preparation/v1` object. `--prewarm` explicitly
+authorizes the selected plan and stays off by default. Startup preparation
+and explicit `restore prepared` share one standalone-library executor. The
+ordinary `restore` command remains unprepared.
+
+Source scope: `rpi1/standalone` binding parser, lifecycle and tests; the Serum
+binding; and one narrow shared-backend state-envelope validation adapter.
+The JACK callback, shared audio transport, Windows host, vendor binary,
+runner, scheduling, quantum, reserve and recovery policy do not change.
+No normal Pi service or private fixture is replaced. The physical fixture is
+Serum 2.1.5 with the exact retained A state plus operator-supplied private B
+and C paths, on the retained 48 kHz/512 JACK, quantum 256, reserve 512,
+protocol 12/map v1, closed-editor GE Proton/FEX configuration. The three-state
+physical classification is separate from source acceptance and must not be
+claimed until B and C are provided and validated. Draft PR status remains
+`PSL1_PRIVATE_STATE_INPUT_PENDING` until then. No substitute states may be
+invented or discovered by searching the Pi.
+
+Executable source acceptance: existing v1 bindings and ordinary startup and
+restore semantics remain intact; strict v2 parsing and authorization refuse
+invalid plans before activation; the private executor completes one exact
+note-on/note-off plan, awaits each completion, discards output, stops and
+deactivates, verifies the final state readback, and returns a bounded receipt.
+Its failures refuse startup readiness or JACK resumption. Run focused source
+and ARM release validation before the draft PR. Physical acceptance requires
+the operator's B/C paths, the lean A/B/C and same-process A-to-B campaign,
+and exact lifecycle/audio evidence. No BR1 work, runtime optimization,
+latency change or normal installation belongs in PSL1.
 
 ## Completed Pi state-safe first-note prewarm — PW1
 

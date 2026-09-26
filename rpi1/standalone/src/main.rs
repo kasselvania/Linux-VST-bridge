@@ -14,12 +14,10 @@ fn main() {
 
 #[cfg(all(target_os = "linux", target_arch = "aarch64", feature = "jack-runtime"))]
 mod appliance {
-    use ap2_backend::rpi0::{
-        Context, Delivery, Event, Identity, Instance, Message, NOTE_OFF, NOTE_ON, STATE_CAPACITY,
-    };
+    use ap2_backend::rpi0::{Identity, Instance, Message, STATE_CAPACITY};
     use lvb_arm_pigments_standalone::{
         config::{hex, Config},
-        contract, master,
+        contract, master, preparation,
         retirement::RetirementStatus,
         startup,
         supervisor::{read_journal, Cohort},
@@ -60,6 +58,7 @@ mod appliance {
             return Err(invalid("expected --prewarm after --state"));
         }
         let config = Config::load(Path::new(&arguments[1]))?;
+        preparation::selected_plan(&config.binding, prewarm, state.is_some())?;
         let session = random_session()?;
         run(config, session, state, prewarm)
     }
@@ -70,6 +69,23 @@ mod appliance {
         state: Option<PathBuf>,
         prewarm: bool,
     ) -> io::Result<()> {
+        let identity = Identity {
+            class: config.binding.class,
+            module: config.plugin.sha256,
+        };
+        let prepared_bytes = if prewarm {
+            Some(preparation::read_private_state(
+                state
+                    .as_ref()
+                    .ok_or_else(|| invalid("prepared startup requires state"))?,
+                identity,
+            ).map_err(|error| {
+                eprintln!("PI_PREPARATION_RECEIPT status=refused stage=state_input state_sha256=unavailable");
+                error
+            })?)
+        } else {
+            None
+        };
         let session_hex = hex(&session);
         let directory = config
             .prefix()
@@ -78,10 +94,6 @@ mod appliance {
         fs::create_dir(&directory)?;
         fs::set_permissions(&directory, fs::Permissions::from_mode(0o700))?;
         let retirement = RetirementStatus::create(&directory, &session)?;
-        let identity = Identity {
-            class: config.binding.class,
-            module: config.plugin.sha256,
-        };
         let architecture = ArchitectureHandshake::native(page_size()?);
         atomic_new(&directory.join("rpi0.arch.native"), &architecture.encode())?;
         let bridge_directory = directory.clone();
@@ -122,24 +134,32 @@ mod appliance {
         )?;
         let traits = instance.setup(jack.buffer_size(), 48_000.0, &config.binding.buses)?;
         if let Some(path) = &state {
-            let bytes = read_state(path)?;
-            let mut readback = vec![0; STATE_CAPACITY];
-            let count = instance.restore_state(&bytes, &mut readback)?;
-            println!(
-                "PI_STATE_RESTORED input_bytes={} returned_bytes={count}",
-                bytes.len()
-            );
             if prewarm {
-                if let Err(error) = prewarm_exact_state(&instance, &bytes, &mut readback) {
-                    drop(jack);
-                    let close = instance.close();
-                    let ready = retirement.await_ready(Duration::from_secs(30));
-                    let retired = cohort.retire();
-                    if close.is_ok() && ready.is_ok() && retired.is_ok() {
-                        let _ = cleanup_session(&directory);
+                let bytes = prepared_bytes
+                    .as_ref()
+                    .ok_or_else(|| invalid("prepared startup state absent"))?;
+                match preparation::execute(&instance, &config.binding, identity, bytes) {
+                    Ok(receipt) => println!("PI_PREPARATION_RECEIPT status=complete {receipt}"),
+                    Err(failure) => {
+                        eprintln!("PI_PREPARATION_RECEIPT status=refused {}", failure.receipt);
+                        drop(jack);
+                        let close = instance.close();
+                        let ready = retirement.await_ready(Duration::from_secs(30));
+                        let retired = cohort.retire();
+                        if close.is_ok() && ready.is_ok() && retired.is_ok() {
+                            let _ = cleanup_session(&directory);
+                        }
+                        return Err(failure.error);
                     }
-                    return Err(error);
                 }
+            } else {
+                let bytes = read_state(path)?;
+                let mut readback = vec![0; STATE_CAPACITY];
+                let count = instance.restore_state(&bytes, &mut readback)?;
+                println!(
+                    "PI_STATE_RESTORED input_bytes={} returned_bytes={count}",
+                    bytes.len()
+                );
             }
         }
         instance.activate(256)?;
@@ -149,7 +169,9 @@ mod appliance {
         println!("PI_READY midi={} left={} right={} jack_frames={} quantum=256 reserve={} vendor_frames={} total_frames={} tail_frames={} protocol=12 map=1",
             ports[0], ports[1], ports[2], jack.buffer_size(), config.bridge_frames,
             traits.vendor_frames, traits.total_frames, traits.tail_frames);
-        let result = commands(&instance, &control, &cohort, &mut jack, &config);
+        let result = commands(
+            &instance, &control, &cohort, &mut jack, &config, prewarm, identity,
+        );
 
         let jack_frames = jack.buffer_size();
         let deactivate_jack = jack.deactivate();
@@ -204,133 +226,14 @@ mod appliance {
         Ok(())
     }
 
-    /// Startup-only experiment. JACK has been opened but has not been activated,
-    /// so the ordinary shared processing path can exercise the selected state
-    /// without publishing the muted output or racing an audio callback.
-    fn prewarm_exact_state(
-        instance: &Instance,
-        state: &[u8],
-        readback: &mut [u8],
-    ) -> io::Result<()> {
-        const FRAMES: usize = 256;
-        const BLOCKS: usize = 8;
-        let started = Instant::now();
-        let zero = [0.0_f32; FRAMES];
-        let mut left = [0.0_f32; FRAMES];
-        let mut right = [0.0_f32; FRAMES];
-        let note = Event {
-            kind: NOTE_ON,
-            id: 1,
-            channel: 0,
-            pitch: 60,
-            value: 100.0 / 127.0,
-            ..Event::default()
-        };
-        let release = Event {
-            kind: NOTE_OFF,
-            value: 0.0,
-            ..note
-        };
-        if !note.valid(FRAMES) || !release.valid(FRAMES) {
-            return Err(invalid("prewarm note contract"));
-        }
-        instance.activate(FRAMES as u32)?;
-        let processed = (|| -> io::Result<()> {
-            instance.start()?;
-            let before = instance.stats()?.processed;
-            for block in 0..BLOCKS {
-                let entered_ns = monotonic_ns()?;
-                let position = (block * FRAMES) as i64;
-                let music = position as f64 * 120.0 / (60.0 * 48_000.0);
-                let context = Context {
-                    present: 1,
-                    state: 0x22f02,
-                    rate: 48_000.0,
-                    project: position,
-                    system: entered_ns.min(i64::MAX as u64) as i64,
-                    continuous: position,
-                    music,
-                    bar: (music / 4.0).floor() * 4.0,
-                    tempo: 120.0,
-                    numerator: 4,
-                    denominator: 4,
-                    ..Context::default()
-                };
-                let event = match block {
-                    0 => &[note][..],
-                    1 => &[release][..],
-                    _ => &[][..],
-                };
-                let mut delivery = Delivery::default();
-                let code = unsafe {
-                    instance.process(
-                        FRAMES as u32,
-                        [&zero, &zero],
-                        [&mut left, &mut right],
-                        3,
-                        event,
-                        &context,
-                        entered_ns,
-                        &mut delivery,
-                    )
-                };
-                if code != 0 {
-                    return Err(invalid(format!("prewarm processing refused: {code}")));
-                }
-                let expected = before + block as u64 + 1;
-                let deadline = Instant::now() + Duration::from_secs(10);
-                loop {
-                    let stats = instance.stats()?;
-                    if stats.fault != 0 {
-                        return Err(invalid("prewarm processing fault"));
-                    }
-                    if stats.processed >= expected {
-                        break;
-                    }
-                    if Instant::now() >= deadline {
-                        return Err(invalid("prewarm processing deadline"));
-                    }
-                    thread::sleep(Duration::from_micros(100));
-                }
-            }
-            Ok(())
-        })();
-        // Stop and deactivate even when the bounded note sequence refused.
-        let stopped = instance.stop();
-        let deactivated = instance.deactivate();
-        processed?;
-        stopped?;
-        deactivated?;
-        let count = instance.restore_state(state, readback)?;
-        if count != state.len() || readback[..count] != *state {
-            return Err(invalid("prewarm state readback differs"));
-        }
-        println!(
-            "PI_PREWARM_COMPLETE blocks={BLOCKS} state_bytes={count} exact_readback=1 elapsed_us={}",
-            started.elapsed().as_micros()
-        );
-        Ok(())
-    }
-
-    fn monotonic_ns() -> io::Result<u64> {
-        let mut time = libc::timespec {
-            tv_sec: 0,
-            tv_nsec: 0,
-        };
-        if unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut time) } != 0 {
-            return Err(io::Error::last_os_error());
-        }
-        Ok((time.tv_sec as u64)
-            .saturating_mul(1_000_000_000)
-            .saturating_add(time.tv_nsec as u64))
-    }
-
     fn commands(
         instance: &Instance,
         control: &Control,
         cohort: &Cohort,
         jack: &mut Client,
         config: &Config,
+        prewarm: bool,
+        identity: Identity,
     ) -> io::Result<()> {
         let generation = instance.gui_generation()?;
         instance.gui_capabilities(generation, 7)?;
@@ -363,6 +266,36 @@ mod appliance {
                         let count = instance.capture_state(&mut bytes)?;
                         atomic_new(&path, &bytes[..count])?;
                         println!("PI_STATE_SAVED bytes={count}");
+                    } else if let Some(path) = line.strip_prefix("restore prepared ") {
+                        if preparation::selected_plan(&config.binding, prewarm, true)?.is_none() {
+                            return Err(invalid(
+                                "prepared restore requires startup --prewarm authorization",
+                            ));
+                        }
+                        let bytes = preparation::read_private_state(&absolute_path(path)?, identity)
+                            .map_err(|error| {
+                                eprintln!("PI_PREPARATION_RECEIPT status=refused stage=state_input state_sha256=unavailable");
+                                error
+                            })?;
+                        match preparation::restore_prepared(
+                            instance,
+                            jack,
+                            &config.binding,
+                            identity,
+                            &bytes,
+                        ) {
+                            Ok(receipt) => {
+                                println!("PI_PREPARATION_RECEIPT status=complete {receipt}")
+                            }
+                            Err(failure) => {
+                                eprintln!(
+                                    "PI_PREPARATION_RECEIPT status=refused {}",
+                                    failure.receipt
+                                );
+                                return Err(failure.error);
+                            }
+                        }
+                        request_parameter_snapshot(instance, generation)?;
                     } else if let Some(path) = line.strip_prefix("restore ") {
                         let bytes = read_state(&absolute_path(path)?)?;
                         let mut readback = vec![0; STATE_CAPACITY];

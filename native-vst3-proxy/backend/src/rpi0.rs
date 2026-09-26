@@ -16,6 +16,17 @@ pub const ABI_VERSION: u32 = 1;
 pub const PROTOCOL_MINOR: u32 = 12;
 pub const STATE_CAPACITY: usize = state::HEADER_SIZE + state::LIMIT;
 
+pub fn validate_bound_state(identity: Identity, bytes: &[u8]) -> io::Result<()> {
+    state::bound_payload(
+        Some(state::Identity {
+            class: identity.class,
+            module: identity.module,
+        }),
+        bytes,
+    )?;
+    Ok(())
+}
+
 const _: () = assert!(std::mem::size_of::<Event>() == 32);
 const _: () = assert!(std::mem::align_of::<Event>() == 8);
 const _: () = assert!(std::mem::size_of::<Context>() == 96);
@@ -367,5 +378,30 @@ mod tests {
                 vendor_frames: 0,
             }
         );
+    }
+
+    #[test]
+    fn prepared_state_adapter_uses_the_commercial_bound_envelope_contract() {
+        let identity = Identity {
+            class: [1; 16],
+            module: [2; 32],
+        };
+        let raw = [0u8; 16];
+        let envelope = state::bound_envelope(
+            Some(state::Identity {
+                class: identity.class,
+                module: identity.module,
+            }),
+            &raw,
+        )
+        .unwrap();
+        assert!(validate_bound_state(identity, &envelope).is_ok());
+        let mut other = identity;
+        other.class[0] ^= 1;
+        assert!(validate_bound_state(other, &envelope).is_err());
+        let mut corrupt = envelope;
+        let last = corrupt.len() - 1;
+        corrupt[last] ^= 1;
+        assert!(validate_bound_state(identity, &corrupt).is_err());
     }
 }

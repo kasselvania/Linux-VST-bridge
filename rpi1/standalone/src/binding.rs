@@ -13,6 +13,8 @@ pub struct Control {
 
 #[derive(Clone, Debug)]
 pub struct Binding {
+    pub sha256: Option<[u8; 32]>,
+    pub preparation: Option<Preparation>,
     pub class: [u8; 16],
     pub buses: Vec<u8>,
     pub stereo_input: bool,
@@ -23,9 +25,77 @@ pub struct Binding {
     pub surface: Option<crate::panel::Surface>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Preparation {
+    pub channel: u8,
+    pub pitch: u8,
+    pub velocity: u8,
+    pub hold_blocks: u8,
+    pub settle_blocks: u8,
+    pub completion_timeout_ms: u16,
+}
+
+impl Preparation {
+    pub const SCHEMA: &'static str = "lvb-instrument-note-preparation/v1";
+    pub fn blocks(self) -> usize {
+        usize::from(self.hold_blocks) + 1 + usize::from(self.settle_blocks)
+    }
+    fn parse(value: &Value) -> io::Result<Self> {
+        let object = value
+            .as_object()
+            .ok_or_else(|| invalid("preparation object"))?;
+        let keys = [
+            "schema",
+            "channel",
+            "pitch",
+            "velocity",
+            "hold_blocks",
+            "settle_blocks",
+            "completion_timeout_ms",
+        ];
+        if object.len() != keys.len()
+            || keys.iter().any(|key| !object.contains_key(*key))
+            || value["schema"] != Self::SCHEMA
+        {
+            return Err(invalid("preparation schema/fields"));
+        }
+        let number = |key: &str| {
+            value[key]
+                .as_u64()
+                .ok_or_else(|| invalid("preparation integer"))
+        };
+        let channel = number("channel")?;
+        let pitch = number("pitch")?;
+        let velocity = number("velocity")?;
+        let hold_blocks = number("hold_blocks")?;
+        let settle_blocks = number("settle_blocks")?;
+        let completion_timeout_ms = number("completion_timeout_ms")?;
+        if channel > 15
+            || pitch > 127
+            || !(1..=127).contains(&velocity)
+            || !(1..=4).contains(&hold_blocks)
+            || settle_blocks > 16
+            || hold_blocks + settle_blocks + 1 > 24
+            || !(1..=10_000).contains(&completion_timeout_ms)
+        {
+            return Err(invalid("preparation bounds"));
+        }
+        Ok(Self {
+            channel: channel as u8,
+            pitch: pitch as u8,
+            velocity: velocity as u8,
+            hold_blocks: hold_blocks as u8,
+            settle_blocks: settle_blocks as u8,
+            completion_timeout_ms: completion_timeout_ms as u16,
+        })
+    }
+}
+
 impl Binding {
     pub fn pigments() -> Self {
         Self {
+            sha256: None,
+            preparation: None,
             class: crate::contract::PIGMENTS_CLASS,
             buses: crate::contract::pigments_bus_contract().to_vec(),
             stereo_input: false,
@@ -47,7 +117,9 @@ impl Binding {
         if Sha256::digest(&bytes).as_slice() != file.sha256 {
             return Err(invalid("plugin binding changed during read"));
         }
-        Self::parse(&bytes, module)
+        let mut binding = Self::parse(&bytes, module)?;
+        binding.sha256 = Some(file.sha256);
+        Ok(binding)
     }
 
     fn parse(bytes: &[u8], module: &[u8; 32]) -> io::Result<Self> {
@@ -65,9 +137,17 @@ impl Binding {
             "controls",
             "zero_event_channels_unspecified",
         ];
-        if object.len() != keys.len() + usize::from(object.contains_key("surface"))
+        let v2 = match value["schema"].as_str() {
+            Some("lvb-arm-plugin-binding/v1") => false,
+            Some("lvb-arm-plugin-binding/v2") => true,
+            _ => return Err(invalid("plugin binding schema")),
+        };
+        if object.len()
+            != keys.len()
+                + usize::from(object.contains_key("surface"))
+                + usize::from(v2 && object.contains_key("preparation"))
             || keys.iter().any(|k| !object.contains_key(*k))
-            || value["schema"] != "lvb-arm-plugin-binding/v1"
+            || (!v2 && object.contains_key("preparation"))
             || hex32(
                 value["module_sha256"]
                     .as_str()
@@ -200,7 +280,20 @@ impl Binding {
             .get("surface")
             .map(|v| crate::panel::Surface::parse(v, &controls))
             .transpose()?;
+        let preparation = if v2 {
+            value
+                .get("preparation")
+                .map(Preparation::parse)
+                .transpose()?
+        } else {
+            None
+        };
+        if preparation.is_some() && (stereo_input || !midi_input) {
+            return Err(invalid("instrument preparation requires MIDI input"));
+        }
         Ok(Self {
+            sha256: None,
+            preparation,
             class,
             buses,
             stereo_input,
@@ -282,6 +375,7 @@ mod tests {
             ]
         );
         assert!(binding.surface.is_some());
+        assert!(binding.preparation.is_none());
     }
     #[test]
     fn serum2_census_binding_selects_instrument_and_declared_event_buses() {
@@ -308,6 +402,7 @@ mod tests {
             [0, 2_000_000, 2_000_003, 7_000_000]
         );
         assert!(binding.surface.is_some());
+        assert_eq!(binding.preparation.unwrap().blocks(), 8);
     }
     fn manifest() -> Value {
         serde_json::json!({"schema":"lvb-arm-plugin-binding/v1", "module_sha256":"11".repeat(32),
@@ -387,5 +482,71 @@ mod tests {
             }
             assert!(Binding::parse(&serde_json::to_vec(&value).unwrap(), &[0x11; 32]).is_err());
         }
+    }
+
+    #[test]
+    fn v1_does_not_acquire_v2_semantics_and_unknown_fields_still_refuse() {
+        let mut value = manifest();
+        assert!(
+            Binding::parse(&serde_json::to_vec(&value).unwrap(), &[0x11; 32])
+                .unwrap()
+                .preparation
+                .is_none()
+        );
+        value["preparation"] = serde_json::json!({});
+        assert!(Binding::parse(&serde_json::to_vec(&value).unwrap(), &[0x11; 32]).is_err());
+        value.as_object_mut().unwrap().remove("preparation");
+        value["unrecognized"] = true.into();
+        assert!(Binding::parse(&serde_json::to_vec(&value).unwrap(), &[0x11; 32]).is_err());
+    }
+    #[test]
+    fn v2_preparation_is_strict_and_instrument_only() {
+        let mut value = manifest();
+        value["schema"] = "lvb-arm-plugin-binding/v2".into();
+        value["input"] = "silence".into();
+        value["buses"]
+            .as_array_mut()
+            .unwrap()
+            .insert(0, serde_json::json!([1, 0, 0, 16, 0, 1, 0]));
+        value["preparation"] = serde_json::json!({"schema":Preparation::SCHEMA,"channel":0,"pitch":60,
+            "velocity":100,"hold_blocks":1,"settle_blocks":6,"completion_timeout_ms":10000});
+        let parse = |v: &Value| Binding::parse(&serde_json::to_vec(v).unwrap(), &[0x11; 32]);
+        assert_eq!(parse(&value).unwrap().preparation.unwrap().blocks(), 8);
+        let mut optional = value.clone();
+        optional.as_object_mut().unwrap().remove("preparation");
+        assert!(parse(&optional).unwrap().preparation.is_none());
+        for (key, bad) in [
+            ("channel", 16),
+            ("pitch", 128),
+            ("velocity", 0),
+            ("velocity", 128),
+            ("hold_blocks", 0),
+            ("hold_blocks", 5),
+            ("settle_blocks", 17),
+            ("completion_timeout_ms", 0),
+            ("completion_timeout_ms", 10001),
+        ] {
+            let mut candidate = value.clone();
+            candidate["preparation"][key] = bad.into();
+            assert!(parse(&candidate).is_err(), "accepted {key}={bad}");
+        }
+        let mut candidate = value.clone();
+        candidate["preparation"]["extra"] = true.into();
+        assert!(parse(&candidate).is_err());
+        candidate = value.clone();
+        candidate["preparation"]
+            .as_object_mut()
+            .unwrap()
+            .remove("schema");
+        assert!(parse(&candidate).is_err());
+        candidate = value.clone();
+        candidate["preparation"]["velocity"] = 0.5.into();
+        assert!(parse(&candidate).is_err());
+        candidate = value.clone();
+        candidate["buses"].as_array_mut().unwrap().remove(0);
+        assert!(parse(&candidate).is_err());
+        candidate = value.clone();
+        candidate["input"] = "stereo".into();
+        assert!(parse(&candidate).is_err());
     }
 }
