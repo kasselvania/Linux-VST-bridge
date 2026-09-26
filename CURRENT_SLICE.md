@@ -52,6 +52,11 @@ actual state, first-note delivery, timing and retirement results. A failed
 candidate remains a failure to investigate; it is not permission to weaken
 identity, conceal missing audio, or substitute a different sound.
 
+The [selected-state result](evidence/psl1/serum-selected-state-2026-09-25.md)
+records the B correction, A/B/C source-candidate playback, in-session changes,
+retained failures and remaining product-use limits. No normal installation or
+general support claim is made.
+
 ## Completed Pi state-safe first-note prewarm — PW1
 
 PW1 was developed separately on FN1

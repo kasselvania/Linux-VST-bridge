@@ -822,9 +822,12 @@ default-state source candidate. It is not installed or accepted as a general
 residual deadline-miss fix; the broad implementation and user postures remain
 unchanged.
 PSL1 moves that opt-in sequence into a strict v2 product binding and shared
-standalone lifecycle executor at source stage. Its three-state physical result
-is pending operator-supplied private B/C states. This does not change the
-residual deadline-miss implementation or support posture.
+standalone lifecycle executor. Its [selected-state continuation](../evidence/psl1/serum-selected-state-2026-09-25.md)
+repairs the B readiness refusal by comparing complete ordinary-restore
+readbacks before and after preparation, always restoring the original input.
+A/B/C and in-session A-to-B-to-C passed a bounded Pi source-candidate run
+with diagnostics disabled. The traced transition also retained one later
+256-frame gap. No installed or general support claim follows.
 
 ### User posture
 
@@ -854,14 +857,15 @@ unresolved.
 - **Physical result:** AP16 matched result for the backing-store class; residual gaps persisted in later Deck and Ubuntu sessions. The staged Pi A/B in [the exact Serum default-state result](../evidence/pi-reconciliation/serum-default-2026-09-25.md) retained a 1,280-frame first-note gap in all eight runs despite lower mean request service in the AS1 arm. No installed-generation or support claim follows.
 - **Attribution:** FN1 [Pi default-state evidence](../evidence/fn1/serum-first-note-2026-09-25.md) records caller CPU/run time, FEX-boundary samples, minor faults and 116 new Serum-named guest JIT regions during the slow first-note call. This is diagnostic source and physical attribution only, not a repair or support change.
 - **Pi source candidate:** PW1 [exact default-state evidence](../evidence/pw1/serum-default-prewarm-2026-09-25.md) records a fresh FN1 baseline with the 1,280-frame first-note gap and three final candidate runs with zero missing frames, exact second state readback and clean retirement. The cold 43 ms call moved into bounded startup. No installed-generation or general support claim follows.
-- **Product-owned preparation source:** PSL1 adds one strict binding-v2 recipe, explicit operator authorization, a reused prepared-state executor, and fail-closed state readback. Its ARM build and source tests do not establish a new physical or support result while private B/C inputs are pending.
+- **Product-owned preparation candidate:** PSL1 plus the [selected-state correction](../evidence/psl1/serum-selected-state-2026-09-25.md) preserves exact ordinary-restore state across private preparation. B and C passed fresh prepared startup; one untraced A-to-B-to-C session delivered over five million frames without missing frames, xruns or faults. All three exact states produced digital audio and retired cleanly. A traced longer B interval lost 256 frames; that failure remains. No normal generation was installed and no general musical-support claim follows.
 
 ### Product coverage
 
 Arturia Deck sessions and FRAGMENTS Ubuntu sessions contain retained gap counters. Functional use is accepted; dropout-free operation is not claimed.
 The separate Pi standalone Serum source candidate is unqualified for musical
-use. FN1 retains the first-note gap; PW1 removes it only in the named
-default-state fixture under an opt-in startup sequence.
+use. FN1 retains the first-note gap; PW1 removes it in the default state.
+The PSL1 continuation extends bounded candidate coverage to exact A/B/C
+states and explicit prepared state changes, with the limits in its evidence.
 
 ### Claim limit
 
@@ -877,7 +881,9 @@ FC-AUDIO-002, FC-CAP-001, FC-LIFE-002.
 
 The separate FN1/PW1 source reviews do not authorize installation or a
 general support claim. PSL1 is the selected product-owned, state-aware source
-slice; its three-state physical classification remains pending. Other residual misses still need their own exact thread/queue
+slice; its selected-state candidate results and remaining ordinary-use,
+physical-listening and persistence limits are now recorded. Other residual
+misses still need their own exact thread/queue
 capture; the Pi result does not assign them a shared cause. Later resilience
 work must reconcile bounded recovery on the shared core without importing
 callback-side policy from the old fork.

@@ -1,0 +1,939 @@
+{
+  "claim": "bounded Pi source candidate; no installed or general instrument qualification",
+  "complete_snapshot_comparisons": [
+    {
+      "equal": true,
+      "left": "B-ordinary-roundtrip-2/initial.state",
+      "right": "B-ordinary-roundtrip-2/second.state"
+    },
+    {
+      "equal": true,
+      "left": "B-ordinary-roundtrip-2/initial.state",
+      "right": "B-prepared-isolated/prepared.state"
+    },
+    {
+      "equal": true,
+      "left": "B-ordinary-roundtrip-2/initial.state",
+      "right": "A-to-B-prepared/B-after-change.state"
+    },
+    {
+      "equal": true,
+      "left": "B-ordinary-roundtrip-2/initial.state",
+      "right": "A-B-C-normal/B-after-change.state"
+    },
+    {
+      "equal": true,
+      "left": "B-ordinary-roundtrip-2/initial.state",
+      "right": "B-normal-fresh-prepared/prepared.state"
+    },
+    {
+      "equal": true,
+      "left": "C-unprepared/ordinary.state",
+      "right": "C-prepared/prepared.state"
+    },
+    {
+      "equal": true,
+      "left": "C-unprepared/ordinary.state",
+      "right": "A-B-C-normal/C-after-change.state"
+    }
+  ],
+  "runs": [
+    {
+      "audio": [],
+      "clean_shutdown": true,
+      "executable_sha256": "433104f7d4061c4fc68d6d01b254b6323eb1c57ada75d96d3b5e49b37a525191",
+      "exit": 0,
+      "first_note_traces": [],
+      "fixtures": [],
+      "input_state_sha256": "3d90d7cf3fbebb100693934f53f1409fb2ed8024e07f81c5d1fed9e88e7473fc",
+      "label": "B-ordinary-roundtrip-2",
+      "metrics": [
+        {
+          "callback_ns_max": 29870,
+          "callbacks": 27,
+          "delivered_frames": 3584,
+          "expired_frames": 512,
+          "fault": 0,
+          "gaps": 1,
+          "jack_frames": 512,
+          "missing_frames": 512,
+          "output_nonzero_l": 0,
+          "output_nonzero_r": 0,
+          "processed": 22,
+          "processed_frames": 5632,
+          "request_high": 3,
+          "result_high": 4,
+          "xruns": 0
+        }
+      ],
+      "preparation": [],
+      "private_result_sha256": "c267b213f1bd436a044debeaf5f7c58cca591873bf7b540e22f1611ebdfc2ac2",
+      "trace": true
+    },
+    {
+      "audio": [],
+      "clean_shutdown": true,
+      "confounded_by": "overlapping ARM test build; excluded from isolated audio comparison",
+      "executable_sha256": "aad6563a6fa78d85878d63018331eb87e3816de045f433b3a200723638653646",
+      "exit": 0,
+      "first_note_traces": [
+        {
+          "epoch": 1,
+          "pitch": 60,
+          "position": 0,
+          "sequence": 2,
+          "service_ns": 67722673,
+          "windows_bracket_ns": 62564400
+        },
+        {
+          "epoch": 2,
+          "pitch": 60,
+          "position": 51456,
+          "sequence": 213,
+          "service_ns": 5947953,
+          "windows_bracket_ns": 5073600
+        },
+        {
+          "epoch": 2,
+          "pitch": 64,
+          "position": 195584,
+          "sequence": 776,
+          "service_ns": 6571297,
+          "windows_bracket_ns": 6117200
+        }
+      ],
+      "fixtures": [
+        "fixture=two-note-48k-v1 duration_s=8 first_note_frame=48000 note_ons=8 note_offs=7 write_failures=0"
+      ],
+      "input_state_sha256": "3d90d7cf3fbebb100693934f53f1409fb2ed8024e07f81c5d1fed9e88e7473fc",
+      "label": "B-prepared-candidate",
+      "metrics": [
+        {
+          "callback_ns_max": 34555,
+          "callbacks": 4,
+          "delivered_frames": 1536,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 0,
+          "output_nonzero_r": 0,
+          "processed": 16,
+          "processed_frames": 4096,
+          "request_high": 2,
+          "result_high": 2,
+          "xruns": 0
+        },
+        {
+          "callback_ns_max": 65832,
+          "callbacks": 761,
+          "delivered_frames": 251904,
+          "expired_frames": 136448,
+          "fault": 0,
+          "gaps": 8,
+          "jack_frames": 512,
+          "missing_frames": 137216,
+          "output_nonzero_l": 200313,
+          "output_nonzero_r": 200313,
+          "processed": 1527,
+          "processed_frames": 390912,
+          "request_high": 44,
+          "result_high": 5,
+          "xruns": 0
+        }
+      ],
+      "preparation": [
+        {
+          "binding_sha256": "1dc7e7251f2a6db860d4dbcb4c5885fe24f174600d43c1714886e7b50ba440a8",
+          "blocks": "8",
+          "class": "56534558667350736572756d20320000",
+          "completed": "8",
+          "deactivate": "Ok",
+          "elapsed_us": "382071",
+          "fault": "Ok",
+          "final_readback": "Exact",
+          "final_reference": "initial_restored_state",
+          "first_readback": "Accepted",
+          "module": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+          "restored_state_sha256": "ca7f3a4b310af397c087efa6a3106356fbf6acddf3df73fb16bcfe024caf34d7",
+          "schema": "lvb-instrument-note-preparation/v1",
+          "slowest_us": "67857",
+          "state_sha256": "3d90d7cf3fbebb100693934f53f1409fb2ed8024e07f81c5d1fed9e88e7473fc",
+          "status": "complete",
+          "stop": "Ok"
+        }
+      ],
+      "private_result_sha256": "d47e96480349b3edddd1c0b2ebeb3747c9838c0362e63921da142b46c7f30ee5",
+      "trace": true
+    },
+    {
+      "audio": [],
+      "clean_shutdown": true,
+      "executable_sha256": "aad6563a6fa78d85878d63018331eb87e3816de045f433b3a200723638653646",
+      "exit": 0,
+      "first_note_traces": [
+        {
+          "epoch": 1,
+          "pitch": 60,
+          "position": 0,
+          "sequence": 2,
+          "service_ns": 63213324,
+          "windows_bracket_ns": 58468900
+        },
+        {
+          "epoch": 2,
+          "pitch": 60,
+          "position": 51968,
+          "sequence": 215,
+          "service_ns": 4930731,
+          "windows_bracket_ns": 4262600
+        }
+      ],
+      "fixtures": [
+        "fixture=two-note-48k-v1 duration_s=8 first_note_frame=48000 note_ons=7 note_offs=7 write_failures=0"
+      ],
+      "input_state_sha256": "3d90d7cf3fbebb100693934f53f1409fb2ed8024e07f81c5d1fed9e88e7473fc",
+      "label": "B-prepared-isolated",
+      "metrics": [
+        {
+          "callback_ns_max": 56888,
+          "callbacks": 5,
+          "delivered_frames": 2048,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 0,
+          "output_nonzero_r": 0,
+          "processed": 18,
+          "processed_frames": 4608,
+          "request_high": 2,
+          "result_high": 2,
+          "xruns": 0
+        },
+        {
+          "callback_ns_max": 56888,
+          "callbacks": 760,
+          "delivered_frames": 388608,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 336505,
+          "output_nonzero_r": 336505,
+          "processed": 1528,
+          "processed_frames": 391168,
+          "request_high": 2,
+          "result_high": 2,
+          "xruns": 0
+        }
+      ],
+      "preparation": [
+        {
+          "binding_sha256": "1dc7e7251f2a6db860d4dbcb4c5885fe24f174600d43c1714886e7b50ba440a8",
+          "blocks": "8",
+          "class": "56534558667350736572756d20320000",
+          "completed": "8",
+          "deactivate": "Ok",
+          "elapsed_us": "355433",
+          "fault": "Ok",
+          "final_readback": "Exact",
+          "final_reference": "initial_restored_state",
+          "first_readback": "Accepted",
+          "module": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+          "restored_state_sha256": "ca7f3a4b310af397c087efa6a3106356fbf6acddf3df73fb16bcfe024caf34d7",
+          "schema": "lvb-instrument-note-preparation/v1",
+          "slowest_us": "63290",
+          "state_sha256": "3d90d7cf3fbebb100693934f53f1409fb2ed8024e07f81c5d1fed9e88e7473fc",
+          "status": "complete",
+          "stop": "Ok"
+        }
+      ],
+      "private_result_sha256": "ac61127ba8352bdcc7bea7a0b746a8f54cd726e05eb54df85847ee7ce3722050",
+      "trace": true
+    },
+    {
+      "audio": [],
+      "clean_shutdown": true,
+      "executable_sha256": "aad6563a6fa78d85878d63018331eb87e3816de045f433b3a200723638653646",
+      "exit": 0,
+      "first_note_traces": [
+        {
+          "epoch": 1,
+          "pitch": 60,
+          "position": 53504,
+          "sequence": 212,
+          "service_ns": 48238269,
+          "windows_bracket_ns": 47495700
+        },
+        {
+          "epoch": 1,
+          "pitch": 64,
+          "position": 101632,
+          "sequence": 400,
+          "service_ns": 8897260,
+          "windows_bracket_ns": 6536500
+        }
+      ],
+      "fixtures": [
+        "fixture=two-note-48k-v1 duration_s=6 first_note_frame=48000 note_ons=6 note_offs=5 write_failures=0"
+      ],
+      "input_state_sha256": "ba0815bb1480a8660e612c0f46f50b8804219c866f4ce7da0ebc869516533aa9",
+      "label": "C-unprepared",
+      "metrics": [
+        {
+          "callback_ns_max": 66425,
+          "callbacks": 8,
+          "delivered_frames": 3072,
+          "expired_frames": 512,
+          "fault": 0,
+          "gaps": 1,
+          "jack_frames": 512,
+          "missing_frames": 512,
+          "output_nonzero_l": 0,
+          "output_nonzero_r": 0,
+          "processed": 14,
+          "processed_frames": 3584,
+          "request_high": 3,
+          "result_high": 4,
+          "xruns": 0
+        },
+        {
+          "callback_ns_max": 66425,
+          "callbacks": 576,
+          "delivered_frames": 288768,
+          "expired_frames": 5632,
+          "fault": 0,
+          "gaps": 11,
+          "jack_frames": 512,
+          "missing_frames": 5632,
+          "output_nonzero_l": 235776,
+          "output_nonzero_r": 235776,
+          "processed": 1151,
+          "processed_frames": 294656,
+          "request_high": 8,
+          "result_high": 5,
+          "xruns": 0
+        }
+      ],
+      "preparation": [],
+      "private_result_sha256": "568bad2917030cf35f583072f1e8c567bf06ee6690c017562060a7acbca0169d",
+      "trace": true
+    },
+    {
+      "audio": [
+        {
+          "bytes": 2688000,
+          "file": "notes.f32",
+          "sha256": "04a5b48dbf71cb4c4b6b146f0855e51bff392997d018015641e6a84c2d75c028"
+        }
+      ],
+      "clean_shutdown": true,
+      "executable_sha256": "aad6563a6fa78d85878d63018331eb87e3816de045f433b3a200723638653646",
+      "exit": 0,
+      "first_note_traces": [
+        {
+          "epoch": 1,
+          "pitch": 60,
+          "position": 0,
+          "sequence": 2,
+          "service_ns": 65821305,
+          "windows_bracket_ns": 60750800
+        },
+        {
+          "epoch": 2,
+          "pitch": 60,
+          "position": 52992,
+          "sequence": 219,
+          "service_ns": 4751372,
+          "windows_bracket_ns": 4061200
+        }
+      ],
+      "fixtures": [
+        "fixture=two-note-48k-v1 duration_s=6 first_note_frame=48000 note_ons=6 note_offs=5 write_failures=0; frames=336000 xruns=0 nonzero=571896 nonfinite=0 peak=0.185336351"
+      ],
+      "input_state_sha256": "ba0815bb1480a8660e612c0f46f50b8804219c866f4ce7da0ebc869516533aa9",
+      "label": "C-prepared",
+      "metrics": [
+        {
+          "callback_ns_max": 33388,
+          "callbacks": 3,
+          "delivered_frames": 1024,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 0,
+          "output_nonzero_r": 0,
+          "processed": 14,
+          "processed_frames": 3584,
+          "request_high": 2,
+          "result_high": 2,
+          "xruns": 0
+        },
+        {
+          "callback_ns_max": 51296,
+          "callbacks": 799,
+          "delivered_frames": 408576,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 355452,
+          "output_nonzero_r": 355452,
+          "processed": 1604,
+          "processed_frames": 410624,
+          "request_high": 2,
+          "result_high": 2,
+          "xruns": 0
+        }
+      ],
+      "preparation": [
+        {
+          "binding_sha256": "1dc7e7251f2a6db860d4dbcb4c5885fe24f174600d43c1714886e7b50ba440a8",
+          "blocks": "8",
+          "class": "56534558667350736572756d20320000",
+          "completed": "8",
+          "deactivate": "Ok",
+          "elapsed_us": "516282",
+          "fault": "Ok",
+          "final_readback": "Exact",
+          "final_reference": "initial_restored_state",
+          "first_readback": "Exact",
+          "module": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+          "restored_state_sha256": "ba0815bb1480a8660e612c0f46f50b8804219c866f4ce7da0ebc869516533aa9",
+          "schema": "lvb-instrument-note-preparation/v1",
+          "slowest_us": "65911",
+          "state_sha256": "ba0815bb1480a8660e612c0f46f50b8804219c866f4ce7da0ebc869516533aa9",
+          "status": "complete",
+          "stop": "Ok"
+        }
+      ],
+      "private_result_sha256": "387287f5f1a7c588cfe6540df44f6e40d1bf68a8332b6446700a445f4e74ef34",
+      "trace": true
+    },
+    {
+      "audio": [
+        {
+          "bytes": 6528000,
+          "file": "B.f32",
+          "sha256": "cf81952d50c2323472548a692c9ada12836b246fceb453581f2094fef9300061"
+        },
+        {
+          "bytes": 2688000,
+          "file": "A.f32",
+          "sha256": "27d1e3c6231bff915041f00ff06f8178d9429b5837478fd4b3acf7989ba4c634"
+        }
+      ],
+      "clean_shutdown": true,
+      "executable_sha256": "aad6563a6fa78d85878d63018331eb87e3816de045f433b3a200723638653646",
+      "exit": 0,
+      "first_note_traces": [
+        {
+          "epoch": 1,
+          "pitch": 60,
+          "position": 0,
+          "sequence": 2,
+          "service_ns": 46750775,
+          "windows_bracket_ns": 42017700
+        },
+        {
+          "epoch": 2,
+          "pitch": 60,
+          "position": 292096,
+          "sequence": 1152,
+          "service_ns": 3331760,
+          "windows_bracket_ns": 2621600
+        }
+      ],
+      "fixtures": [
+        "fixture=two-note-48k-v1 duration_s=6 first_note_frame=48000 note_ons=6 note_offs=5 write_failures=0; frames=336000 xruns=0 nonzero=221672 nonfinite=0 peak=0.283681631",
+        "fixture=two-note-48k-v1 duration_s=16 first_note_frame=48000 note_ons=15 note_offs=15 write_failures=0; frames=816000 xruns=0 nonzero=1531380 nonfinite=0 peak=0.708366334"
+      ],
+      "input_state_sha256": "41fa2e07500a7a8d46f9d833353f5a31cf4eb38117ea1fa5071ff607bf8a90ab",
+      "label": "A-to-B-prepared",
+      "metrics": [
+        {
+          "callback_ns_max": 28445,
+          "callbacks": 1,
+          "delivered_frames": 0,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 0,
+          "output_nonzero_r": 0,
+          "processed": 8,
+          "processed_frames": 2048,
+          "request_high": 2,
+          "result_high": 1,
+          "xruns": 0
+        },
+        {
+          "callback_ns_max": 28445,
+          "callbacks": 469,
+          "delivered_frames": 239616,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 0,
+          "output_nonzero_r": 0,
+          "processed": 946,
+          "processed_frames": 242176,
+          "request_high": 2,
+          "result_high": 2,
+          "xruns": 0
+        },
+        {
+          "callback_ns_max": 46851,
+          "callbacks": 1133,
+          "delivered_frames": 579584,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 112756,
+          "output_nonzero_r": 112756,
+          "processed": 2273,
+          "processed_frames": 581888,
+          "request_high": 2,
+          "result_high": 2,
+          "xruns": 0
+        },
+        {
+          "callback_ns_max": 46851,
+          "callbacks": 1164,
+          "delivered_frames": 580608,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 113268,
+          "output_nonzero_r": 113268,
+          "processed": 2288,
+          "processed_frames": 585728,
+          "request_high": 2,
+          "result_high": 2,
+          "xruns": 0
+        },
+        {
+          "callback_ns_max": 50925,
+          "callbacks": 2766,
+          "delivered_frames": 1400576,
+          "expired_frames": 256,
+          "fault": 0,
+          "gaps": 1,
+          "jack_frames": 512,
+          "missing_frames": 256,
+          "output_nonzero_l": 881134,
+          "output_nonzero_r": 881134,
+          "processed": 5491,
+          "processed_frames": 1405696,
+          "request_high": 2,
+          "result_high": 3,
+          "xruns": 0
+        }
+      ],
+      "preparation": [
+        {
+          "binding_sha256": "1dc7e7251f2a6db860d4dbcb4c5885fe24f174600d43c1714886e7b50ba440a8",
+          "blocks": "8",
+          "class": "56534558667350736572756d20320000",
+          "completed": "8",
+          "deactivate": "Ok",
+          "elapsed_us": "232407",
+          "fault": "Ok",
+          "final_readback": "Exact",
+          "final_reference": "initial_restored_state",
+          "first_readback": "Exact",
+          "module": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+          "restored_state_sha256": "41fa2e07500a7a8d46f9d833353f5a31cf4eb38117ea1fa5071ff607bf8a90ab",
+          "schema": "lvb-instrument-note-preparation/v1",
+          "slowest_us": "46863",
+          "state_sha256": "41fa2e07500a7a8d46f9d833353f5a31cf4eb38117ea1fa5071ff607bf8a90ab",
+          "status": "complete",
+          "stop": "Ok"
+        },
+        {
+          "binding_sha256": "1dc7e7251f2a6db860d4dbcb4c5885fe24f174600d43c1714886e7b50ba440a8",
+          "blocks": "8",
+          "class": "56534558667350736572756d20320000",
+          "completed": "8",
+          "deactivate": "Ok",
+          "elapsed_us": "288380",
+          "fault": "Ok",
+          "final_readback": "Exact",
+          "final_reference": "initial_restored_state",
+          "first_readback": "Accepted",
+          "module": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+          "restored_state_sha256": "ca7f3a4b310af397c087efa6a3106356fbf6acddf3df73fb16bcfe024caf34d7",
+          "schema": "lvb-instrument-note-preparation/v1",
+          "slowest_us": "23656",
+          "state_sha256": "3d90d7cf3fbebb100693934f53f1409fb2ed8024e07f81c5d1fed9e88e7473fc",
+          "status": "complete",
+          "stop": "Ok"
+        }
+      ],
+      "private_result_sha256": "eb9da03bd58271e86c5cd97dbc038a56213ef07b6e5edb860ed95957bd93f6e6",
+      "trace": true
+    },
+    {
+      "audio": [
+        {
+          "bytes": 23424000,
+          "file": "B.f32",
+          "sha256": "9b894afd2fe08cb742eb91af937a51257c59679d94dd99d68d4fffaaa2e8ce7f"
+        },
+        {
+          "bytes": 2688000,
+          "file": "A.f32",
+          "sha256": "27d1e3c6231bff915041f00ff06f8178d9429b5837478fd4b3acf7989ba4c634"
+        },
+        {
+          "bytes": 11904000,
+          "file": "C.f32",
+          "sha256": "9e707f031f4df078dbb9d6bf68642d1d67514739c2bfc438868c6c9e6245a702"
+        }
+      ],
+      "clean_shutdown": true,
+      "executable_sha256": "aad6563a6fa78d85878d63018331eb87e3816de045f433b3a200723638653646",
+      "exit": 0,
+      "first_note_traces": [],
+      "fixtures": [
+        "fixture=two-note-48k-v1 duration_s=6 first_note_frame=48000 note_ons=6 note_offs=5 write_failures=0; frames=336000 xruns=0 nonzero=221672 nonfinite=0 peak=0.283681631",
+        "fixture=two-note-48k-v1 duration_s=60 first_note_frame=48000 note_ons=59 note_offs=59 write_failures=0; frames=2928000 xruns=0 nonzero=5755892 nonfinite=0 peak=0.751333654",
+        "fixture=two-note-48k-v1 duration_s=30 first_note_frame=48000 note_ons=30 note_offs=29 write_failures=0; frames=1488000 xruns=0 nonzero=2875896 nonfinite=0 peak=0.242580980"
+      ],
+      "input_state_sha256": "41fa2e07500a7a8d46f9d833353f5a31cf4eb38117ea1fa5071ff607bf8a90ab",
+      "label": "A-B-C-normal",
+      "metrics": [
+        {
+          "callback_ns_max": 57981,
+          "callbacks": 1,
+          "delivered_frames": 0,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 0,
+          "output_nonzero_r": 0,
+          "processed": 8,
+          "processed_frames": 2048,
+          "request_high": 2,
+          "result_high": 1,
+          "xruns": 0
+        },
+        {
+          "callback_ns_max": 57981,
+          "callbacks": 469,
+          "delivered_frames": 239616,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 0,
+          "output_nonzero_r": 0,
+          "processed": 946,
+          "processed_frames": 242176,
+          "request_high": 2,
+          "result_high": 2,
+          "xruns": 0
+        },
+        {
+          "callback_ns_max": 57981,
+          "callbacks": 1133,
+          "delivered_frames": 579584,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 112756,
+          "output_nonzero_r": 112756,
+          "processed": 2274,
+          "processed_frames": 582144,
+          "request_high": 2,
+          "result_high": 2,
+          "xruns": 0
+        },
+        {
+          "callback_ns_max": 57981,
+          "callbacks": 1257,
+          "delivered_frames": 629248,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 113268,
+          "output_nonzero_r": 113268,
+          "processed": 2478,
+          "processed_frames": 634368,
+          "request_high": 2,
+          "result_high": 2,
+          "xruns": 0
+        },
+        {
+          "callback_ns_max": 57981,
+          "callbacks": 6986,
+          "delivered_frames": 3562496,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 2993902,
+          "output_nonzero_r": 2993902,
+          "processed": 13935,
+          "processed_frames": 3567360,
+          "request_high": 2,
+          "result_high": 2,
+          "xruns": 0
+        },
+        {
+          "callback_ns_max": 57981,
+          "callbacks": 7027,
+          "delivered_frames": 3564544,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 2994414,
+          "output_nonzero_r": 2994414,
+          "processed": 13954,
+          "processed_frames": 3572224,
+          "request_high": 2,
+          "result_high": 2,
+          "xruns": 0
+        },
+        {
+          "callback_ns_max": 57981,
+          "callbacks": 9941,
+          "delivered_frames": 5056512,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 4434282,
+          "output_nonzero_r": 4434282,
+          "processed": 19782,
+          "processed_frames": 5064192,
+          "request_high": 2,
+          "result_high": 2,
+          "xruns": 0
+        }
+      ],
+      "preparation": [
+        {
+          "binding_sha256": "1dc7e7251f2a6db860d4dbcb4c5885fe24f174600d43c1714886e7b50ba440a8",
+          "blocks": "8",
+          "class": "56534558667350736572756d20320000",
+          "completed": "8",
+          "deactivate": "Ok",
+          "elapsed_us": "224622",
+          "fault": "Ok",
+          "final_readback": "Exact",
+          "final_reference": "initial_restored_state",
+          "first_readback": "Exact",
+          "module": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+          "restored_state_sha256": "41fa2e07500a7a8d46f9d833353f5a31cf4eb38117ea1fa5071ff607bf8a90ab",
+          "schema": "lvb-instrument-note-preparation/v1",
+          "slowest_us": "47496",
+          "state_sha256": "41fa2e07500a7a8d46f9d833353f5a31cf4eb38117ea1fa5071ff607bf8a90ab",
+          "status": "complete",
+          "stop": "Ok"
+        },
+        {
+          "binding_sha256": "1dc7e7251f2a6db860d4dbcb4c5885fe24f174600d43c1714886e7b50ba440a8",
+          "blocks": "8",
+          "class": "56534558667350736572756d20320000",
+          "completed": "8",
+          "deactivate": "Ok",
+          "elapsed_us": "265686",
+          "fault": "Ok",
+          "final_readback": "Exact",
+          "final_reference": "initial_restored_state",
+          "first_readback": "Accepted",
+          "module": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+          "restored_state_sha256": "ca7f3a4b310af397c087efa6a3106356fbf6acddf3df73fb16bcfe024caf34d7",
+          "schema": "lvb-instrument-note-preparation/v1",
+          "slowest_us": "23922",
+          "state_sha256": "3d90d7cf3fbebb100693934f53f1409fb2ed8024e07f81c5d1fed9e88e7473fc",
+          "status": "complete",
+          "stop": "Ok"
+        },
+        {
+          "binding_sha256": "1dc7e7251f2a6db860d4dbcb4c5885fe24f174600d43c1714886e7b50ba440a8",
+          "blocks": "8",
+          "class": "56534558667350736572756d20320000",
+          "completed": "8",
+          "deactivate": "Ok",
+          "elapsed_us": "377614",
+          "fault": "Ok",
+          "final_readback": "Exact",
+          "final_reference": "initial_restored_state",
+          "first_readback": "Exact",
+          "module": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+          "restored_state_sha256": "ba0815bb1480a8660e612c0f46f50b8804219c866f4ce7da0ebc869516533aa9",
+          "schema": "lvb-instrument-note-preparation/v1",
+          "slowest_us": "13801",
+          "state_sha256": "ba0815bb1480a8660e612c0f46f50b8804219c866f4ce7da0ebc869516533aa9",
+          "status": "complete",
+          "stop": "Ok"
+        }
+      ],
+      "private_result_sha256": "dc9f16c9fe14c009fd955b4ad10a4e15b2f9695b54a5fc55618c2518ade02993",
+      "trace": false
+    },
+    {
+      "audio": [
+        {
+          "bytes": 2688000,
+          "file": "B.f32",
+          "sha256": "cdc0cc5dd8bea727ea0fb8864816c48cd15fa34682ad1436b5bb5733d1cbe374"
+        }
+      ],
+      "clean_shutdown": true,
+      "executable_sha256": "aad6563a6fa78d85878d63018331eb87e3816de045f433b3a200723638653646",
+      "exit": 0,
+      "first_note_traces": [],
+      "fixtures": [
+        "fixture=two-note-48k-v1 duration_s=6 first_note_frame=48000 note_ons=6 note_offs=5 write_failures=0; frames=336000 xruns=0 nonzero=564992 nonfinite=0 peak=0.737965882"
+      ],
+      "input_state_sha256": "3d90d7cf3fbebb100693934f53f1409fb2ed8024e07f81c5d1fed9e88e7473fc",
+      "label": "B-normal-unprepared",
+      "metrics": [
+        {
+          "callback_ns_max": 50130,
+          "callbacks": 1,
+          "delivered_frames": 0,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 0,
+          "output_nonzero_r": 0,
+          "processed": 0,
+          "processed_frames": 0,
+          "request_high": 2,
+          "result_high": 0,
+          "xruns": 0
+        },
+        {
+          "callback_ns_max": 50130,
+          "callbacks": 664,
+          "delivered_frames": 334848,
+          "expired_frames": 4608,
+          "fault": 0,
+          "gaps": 3,
+          "jack_frames": 512,
+          "missing_frames": 4608,
+          "output_nonzero_l": 284416,
+          "output_nonzero_r": 284416,
+          "processed": 1328,
+          "processed_frames": 339968,
+          "request_high": 8,
+          "result_high": 5,
+          "xruns": 0
+        }
+      ],
+      "preparation": [],
+      "private_result_sha256": "4f890dd16ecb9a7890a27d5e560f30c3f1c27631e2d041a98ab5b9339957d36b",
+      "trace": false
+    },
+    {
+      "audio": [
+        {
+          "bytes": 4992000,
+          "file": "B.f32",
+          "sha256": "b03b1fcd9c1c6f8044f226483b9782054b5c3297376a9da5254b4fd1ec7c86dc"
+        }
+      ],
+      "clean_shutdown": true,
+      "executable_sha256": "aad6563a6fa78d85878d63018331eb87e3816de045f433b3a200723638653646",
+      "exit": 0,
+      "first_note_traces": [],
+      "fixtures": [
+        "fixture=two-note-48k-v1 duration_s=12 first_note_frame=48000 note_ons=11 note_offs=11 write_failures=0; frames=624000 xruns=0 nonzero=1147890 nonfinite=0 peak=0.728993952"
+      ],
+      "input_state_sha256": "3d90d7cf3fbebb100693934f53f1409fb2ed8024e07f81c5d1fed9e88e7473fc",
+      "label": "B-normal-fresh-prepared",
+      "metrics": [
+        {
+          "callback_ns_max": 30648,
+          "callbacks": 3,
+          "delivered_frames": 1024,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 0,
+          "output_nonzero_r": 0,
+          "processed": 14,
+          "processed_frames": 3584,
+          "request_high": 2,
+          "result_high": 2,
+          "xruns": 0
+        },
+        {
+          "callback_ns_max": 33222,
+          "callbacks": 1511,
+          "delivered_frames": 773120,
+          "expired_frames": 0,
+          "fault": 0,
+          "gaps": 0,
+          "jack_frames": 512,
+          "missing_frames": 0,
+          "output_nonzero_l": 719993,
+          "output_nonzero_r": 719993,
+          "processed": 3030,
+          "processed_frames": 775680,
+          "request_high": 2,
+          "result_high": 2,
+          "xruns": 0
+        }
+      ],
+      "preparation": [
+        {
+          "binding_sha256": "1dc7e7251f2a6db860d4dbcb4c5885fe24f174600d43c1714886e7b50ba440a8",
+          "blocks": "8",
+          "class": "56534558667350736572756d20320000",
+          "completed": "8",
+          "deactivate": "Ok",
+          "elapsed_us": "371284",
+          "fault": "Ok",
+          "final_readback": "Exact",
+          "final_reference": "initial_restored_state",
+          "first_readback": "Accepted",
+          "module": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+          "restored_state_sha256": "ca7f3a4b310af397c087efa6a3106356fbf6acddf3df73fb16bcfe024caf34d7",
+          "schema": "lvb-instrument-note-preparation/v1",
+          "slowest_us": "78689",
+          "state_sha256": "3d90d7cf3fbebb100693934f53f1409fb2ed8024e07f81c5d1fed9e88e7473fc",
+          "status": "complete",
+          "stop": "Ok"
+        }
+      ],
+      "private_result_sha256": "a73eca44cd13a7f534eb20bedde09475b424a345e36a20237203a612cf197541",
+      "trace": false
+    }
+  ],
+  "source_commit": "b0c0b113cfe610250db0aa4363152dd5dcf76ee8",
+  "source_tree": "4333a809dcffa3f26a5f7ade6791fe4c51142b99"
+}
