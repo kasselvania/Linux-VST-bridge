@@ -821,6 +821,10 @@ JACK readiness and removed the first-user-note gap in three runs of the exact
 default-state source candidate. It is not installed or accepted as a general
 residual deadline-miss fix; the broad implementation and user postures remain
 unchanged.
+PSL1 moves that opt-in sequence into a strict v2 product binding and shared
+standalone lifecycle executor at source stage. Its three-state physical result
+is pending operator-supplied private B/C states. This does not change the
+residual deadline-miss implementation or support posture.
 
 ### User posture
 
@@ -850,6 +854,7 @@ unresolved.
 - **Physical result:** AP16 matched result for the backing-store class; residual gaps persisted in later Deck and Ubuntu sessions. The staged Pi A/B in [the exact Serum default-state result](../evidence/pi-reconciliation/serum-default-2026-09-25.md) retained a 1,280-frame first-note gap in all eight runs despite lower mean request service in the AS1 arm. No installed-generation or support claim follows.
 - **Attribution:** FN1 [Pi default-state evidence](../evidence/fn1/serum-first-note-2026-09-25.md) records caller CPU/run time, FEX-boundary samples, minor faults and 116 new Serum-named guest JIT regions during the slow first-note call. This is diagnostic source and physical attribution only, not a repair or support change.
 - **Pi source candidate:** PW1 [exact default-state evidence](../evidence/pw1/serum-default-prewarm-2026-09-25.md) records a fresh FN1 baseline with the 1,280-frame first-note gap and three final candidate runs with zero missing frames, exact second state readback and clean retirement. The cold 43 ms call moved into bounded startup. No installed-generation or general support claim follows.
+- **Product-owned preparation source:** PSL1 adds one strict binding-v2 recipe, explicit operator authorization, a reused prepared-state executor, and fail-closed state readback. Its ARM build and source tests do not establish a new physical or support result while private B/C inputs are pending.
 
 ### Product coverage
 
@@ -871,8 +876,8 @@ FC-AUDIO-002, FC-CAP-001, FC-LIFE-002.
 ### Remaining gate
 
 The separate FN1/PW1 source reviews do not authorize installation or a
-general support claim. PSL1 is proposed next to make preparation product-owned
-and state-aware. Other residual misses still need their own exact thread/queue
+general support claim. PSL1 is the selected product-owned, state-aware source
+slice; its three-state physical classification remains pending. Other residual misses still need their own exact thread/queue
 capture; the Pi result does not assign them a shared cause. Later resilience
 work must reconcile bounded recovery on the shared core without importing
 callback-side policy from the old fork.
