@@ -1,45 +1,61 @@
 # Current work selection — PSL1 Pi prepared-state lifecycle
 
-PSL1 is selected by the operator. Its exact canonical base is commit
-`65f113b463ed1dbba7d142f1b833720575932a0d`, tree
-`bf364f138849f8744ca18319380858545c0a1cf4`, on
-`codex/pi-prepared-state-lifecycle`. Basis: AGENTS.md real-time, binding,
-state, slice, and evidence laws; GOVERNANCE.md “What evidence means”;
-ARCHITECTURE.md §§7 and 13; FC-AUDIO-001; and the completed FN1 and PW1
-records below.
+The operator has asked to carry PSL1 through its B-state failure toward a
+reliably playable Serum 2 on the Pi. This continuation starts from PSL1
+commit `8764432721274ce27fd2cb2c020e57c3f0e08563`, tree
+`da4bb6e4fc8fec416000ffb16e76561db19a0877`, itself based on canonical
+`65f113b463ed1dbba7d142f1b833720575932a0d`. The continuation branch is
+`codex/pi-serum-playability`; PR #176 and its original observations remain
+unchanged. Basis: AGENTS.md real-time, state and evidence laws;
+GOVERNANCE.md “What evidence means”; ARCHITECTURE.md §§6.5, 7 and 13;
+FC-AUDIO-001; and the FN1/PW1 results below.
 
-**One source claim:** the Pi appliance can execute a strict product-binding
-note preparation recipe against an exact selected instrument state, restore
-that state, and refuse readiness when preparation or restoration is not
-trustworthy. Binding v1 behavior remains unchanged. Binding v2 may carry one
-bounded `lvb-instrument-note-preparation/v1` object. `--prewarm` explicitly
-authorizes the selected plan and stays off by default. Startup preparation
-and explicit `restore prepared` share one standalone-library executor. The
-ordinary `restore` command remains unprepared.
+**One claim:** opt-in preparation can preserve the complete state produced by
+ordinary restoration of the selected original state, then deliver its first
+user note without the cold-start gap on the declared Pi fixture. Startup and
+explicit `restore prepared` use the same executor. Binding v1, ordinary
+restore and the requirement for explicit `--prewarm` remain unchanged.
 
-Source scope: `rpi1/standalone` binding parser, lifecycle and tests; the Serum
-binding; and one narrow shared-backend state-envelope validation adapter.
-The JACK callback, shared audio transport, Windows host, vendor binary,
-runner, scheduling, quantum, reserve and recovery policy do not change.
-No normal Pi service or private fixture is replaced. The physical fixture is
-Serum 2.1.5 with the exact retained A state plus operator-supplied private B
-and C paths, on the retained 48 kHz/512 JACK, quantum 256, reserve 512,
-protocol 12/map v1, closed-editor GE Proton/FEX configuration. The three-state
-physical classification is separate from source acceptance and must not be
-claimed until B and C are provided and validated. Draft PR status remains
-`PSL1_PRIVATE_STATE_INPUT_PENDING` until then. No substitute states may be
-invented or discovered by searching the Pi.
+B and C now exist as private operator-authorized Serum states authored with
+PR #177's separate capture/binder candidate. The earlier B failure completed
+all eight preparation blocks but refused comparison with the input envelope.
+An ordinary B restore on the Pi already changes five envelope parameter
+readbacks by one double-precision representable step. Repeating restoration
+of the original bytes produces the same readback. Restoring the returned
+readback adds another rounding step. The input is therefore never replaced
+by a normalized derivative.
 
-Executable source acceptance: existing v1 bindings and ordinary startup and
-restore semantics remain intact; strict v2 parsing and authorization refuse
-invalid plans before activation; the private executor completes one exact
-note-on/note-off plan, awaits each completion, discards output, stops and
-deactivates, verifies the final state readback, and returns a bounded receipt.
-Its failures refuse startup readiness or JACK resumption. Run focused source
-and ARM release validation before the draft PR. Physical acceptance requires
-the operator's B/C paths, the lean A/B/C and same-process A-to-B campaign,
-and exact lifecycle/audio evidence. No BR1 work, runtime optimization,
-latency change or normal installation belongs in PSL1.
+The correction retains the validated, complete first restore readback as an
+in-memory baseline. It privately processes the exact binding recipe, stops
+and deactivates, restores the **original input again**, and requires the full
+returned envelope to equal that baseline byte for byte. Both the original
+input digest and the first restored-state digest are reported. No tolerance,
+parameter exemption, proprietary-state parser or ignored field is introduced.
+A difference still refuses readiness or JACK resumption. This proves that
+preparation adds no serialized-state change relative to ordinary restoration;
+it does not promise that a vendor serializes its input identically or expose
+vendor-hidden state.
+
+Source scope is the PSL1 standalone preparation executor, its tests and
+status/evidence. The callback, shared transport, Windows host, vendor binary,
+runner, scheduling, quantum, reserve and recovery policy remain fixed. No
+normal installed generation is replaced. The fixture remains Serum 2.1.5,
+private A/B/C, Pi 5, GE Proton/FEX, closed editor, 48 kHz/512 JACK,
+256-frame quantum, 512-frame reserve and protocol 12/map v1. Private state,
+recordings and paths stay outside Git. Ordinary restoration, prepared startup,
+idle output and same-process A-to-B restoration are compared on that fixture.
+
+Executable source checks must prove original-input reuse, exact full-envelope
+comparison, valid-but-different final-state refusal, malformed-state refusal,
+completion/timeouts and no resume on failure. Live evidence must report the
+actual state, first-note delivery, timing and retirement results. A failed
+candidate remains a failure to investigate; it is not permission to weaken
+identity, conceal missing audio, or substitute a different sound.
+
+The [selected-state result](evidence/psl1/serum-selected-state-2026-09-25.md)
+records the B correction, A/B/C source-candidate playback, in-session changes,
+retained failures and remaining product-use limits. No normal installation or
+general support claim is made.
 
 ## Completed Pi state-safe first-note prewarm — PW1
 

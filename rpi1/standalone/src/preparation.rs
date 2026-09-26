@@ -83,6 +83,9 @@ pub struct Receipt {
     pub class: [u8; 16],
     pub binding_sha256: [u8; 32],
     pub state_sha256: [u8; 32],
+    /// Complete readback of the original selection before private processing.
+    /// A plug-in may serialize a restored state differently from its input.
+    pub restored_state_sha256: Option<[u8; 32]>,
     pub schema: &'static str,
     pub blocks: usize,
     pub completed_blocks: usize,
@@ -99,8 +102,8 @@ impl fmt::Display for Receipt {
         fn hex(bytes: &[u8]) -> String {
             bytes.iter().map(|b| format!("{b:02x}")).collect()
         }
-        write!(f, "module={} class={} binding_sha256={} schema={} state_sha256={} blocks={} completed={} slowest_us={} elapsed_us={} first_readback={:?} final_readback={:?} fault={:?} stop={:?} deactivate={:?}",
-            hex(&self.module), hex(&self.class), hex(&self.binding_sha256), self.schema, hex(&self.state_sha256), self.blocks,
+        write!(f, "module={} class={} binding_sha256={} schema={} state_sha256={} restored_state_sha256={} final_reference=initial_restored_state blocks={} completed={} slowest_us={} elapsed_us={} first_readback={:?} final_readback={:?} fault={:?} stop={:?} deactivate={:?}",
+            hex(&self.module), hex(&self.class), hex(&self.binding_sha256), self.schema, hex(&self.state_sha256), self.restored_state_sha256.as_ref().map_or_else(|| "unavailable".to_owned(), |hash| hex(hash)), self.blocks,
             self.completed_blocks, self.slowest_completion_us, self.total_elapsed_us, self.first_readback, self.final_readback,
             self.processing_fault, self.stop, self.deactivate)
     }
@@ -242,6 +245,7 @@ fn receipt_for(binding: &Binding, identity: Identity, state: &[u8]) -> Receipt {
         class: identity.class,
         binding_sha256: binding.sha256.unwrap_or_default(),
         state_sha256: Sha256::digest(state).into(),
+        restored_state_sha256: None,
         schema: Preparation::SCHEMA,
         blocks: binding.preparation.map_or(0, Preparation::blocks),
         completed_blocks: 0,
@@ -290,6 +294,12 @@ fn execute_with<P: Peer>(
         } else {
             Readback::Accepted
         };
+        // Preserve the observed result of loading the user's original state.
+        // Do not feed this readback back into the plug-in: serialization may
+        // round values on each restore. Preparation must have no additional
+        // effect compared with an ordinary restore of the same original bytes.
+        let restored_state = readback[..first].to_vec();
+        receipt.restored_state_sha256 = Some(Sha256::digest(&restored_state).into());
         peer.activate(frames as u32)?;
         let processed = (|| -> io::Result<()> {
             peer.start()?;
@@ -403,8 +413,7 @@ fn execute_with<P: Peer>(
         })?;
         if final_count > readback.len()
             || rpi0::validate_bound_state(identity, &readback[..final_count]).is_err()
-            || final_count != state.len()
-            || readback[..final_count] != *state
+            || readback[..final_count] != restored_state
         {
             receipt.final_readback = Readback::Refused;
             return Err(invalid("final state readback differs"));
@@ -455,6 +464,9 @@ mod tests {
         stall_block: Option<usize>,
         bad_final: bool,
         bad_first: bool,
+        restored_state: Option<Vec<u8>>,
+        final_state: Option<Vec<u8>>,
+        restore_inputs: Vec<Vec<u8>>,
     }
     struct Fake {
         state: RefCell<Trace>,
@@ -493,14 +505,25 @@ mod tests {
         }
         fn restore(&self, state: &[u8], readback: &mut [u8]) -> io::Result<usize> {
             let mut trace = self.state.borrow_mut();
-            let final_restore = trace.calls.contains(&"deactivate");
+            let final_restore = !trace.restore_inputs.is_empty();
             trace.calls.push("restore");
-            readback[..state.len()].copy_from_slice(state);
+            trace.restore_inputs.push(state.to_vec());
+            let restored = if final_restore {
+                trace
+                    .final_state
+                    .as_deref()
+                    .or(trace.restored_state.as_deref())
+            } else {
+                trace.restored_state.as_deref()
+            }
+            .unwrap_or(state);
+            let count = restored.len();
+            readback[..count].copy_from_slice(restored);
             if (final_restore && trace.bad_final) || (!final_restore && trace.bad_first) {
                 readback[16] ^= 1;
             }
             trace.held = false;
-            Ok(state.len())
+            Ok(count)
         }
         fn activate(&self, _: u32) -> io::Result<()> {
             self.state.borrow_mut().calls.push("activate");
@@ -671,6 +694,60 @@ mod tests {
         incompatible.quantum = 512;
         assert!(execute_with(&incompatible, &binding, identity, &valid).is_err());
         assert!(incompatible.state.borrow().calls.is_empty());
+    }
+
+    fn with_component(state: &[u8], component: &[u8]) -> Vec<u8> {
+        let mut result = state[..104].to_vec();
+        let mut payload = vec![0; 16];
+        payload[..4].copy_from_slice(&(component.len() as u32).to_le_bytes());
+        payload.extend_from_slice(component);
+        result[64..68].copy_from_slice(&(payload.len() as u32).to_le_bytes());
+        result[72..104].copy_from_slice(&Sha256::digest(&payload));
+        result.extend_from_slice(&payload);
+        result
+    }
+
+    #[test]
+    fn preparation_preserves_complete_ordinary_restore_without_rewriting_selection() {
+        let (binding, identity, state) = fixture();
+        // Legal opaque serialization with a different length and digest. This
+        // exercises the real envelope validator, not a tolerance or vendor rule.
+        let restored = with_component(&state, &[1, 2, 3]);
+        let fake = Fake::with(|s| s.restored_state = Some(restored.clone()));
+        let receipt = execute_with(&fake, &binding, identity, &state).unwrap();
+        assert_eq!(receipt.first_readback, Readback::Accepted);
+        assert_eq!(receipt.final_readback, Readback::Exact);
+        assert_eq!(
+            receipt.restored_state_sha256,
+            Some(Sha256::digest(&restored).into())
+        );
+        assert_eq!(
+            fake.state.borrow().restore_inputs,
+            [state.clone(), state.clone()]
+        );
+        let mut gate = Gate::default();
+        let fake = Fake::with(|s| s.restored_state = Some(restored));
+        restore_prepared_with(&fake, &mut gate, &binding, identity, &state).unwrap();
+        assert_eq!((gate.pauses, gate.resumes), (1, 1));
+        assert_eq!(fake.state.borrow().restore_inputs, [state.clone(), state]);
+    }
+
+    #[test]
+    fn valid_but_changed_final_state_refuses_resume_even_when_it_matches_input() {
+        let (binding, identity, state) = fixture();
+        let restored = with_component(&state, &[1, 2, 3]);
+        for final_state in [with_component(&state, &[1, 2, 4]), state.clone()] {
+            let fake = Fake::with(|s| {
+                s.restored_state = Some(restored.clone());
+                s.final_state = Some(final_state);
+            });
+            let mut gate = Gate::default();
+            let failure =
+                restore_prepared_with(&fake, &mut gate, &binding, identity, &state).unwrap_err();
+            assert_eq!(failure.receipt.completed_blocks, 8);
+            assert_eq!(failure.receipt.final_readback, Readback::Refused);
+            assert_eq!((gate.pauses, gate.resumes), (1, 0));
+        }
     }
 
     #[test]
