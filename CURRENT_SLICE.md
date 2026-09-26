@@ -1,6 +1,53 @@
 # Current work selection
 
-## Current Serum first-note attribution — FN1
+No further implementation slice is selected by the FN1/PW1 merges. PSL1 is the
+tech-lead's proposed next separate slice; it has not begun.
+
+## Completed Pi state-safe first-note prewarm — PW1
+
+PW1 was developed separately on FN1
+[PR #174](https://github.com/kasselvania/Linux-VST-bridge/pull/174) head
+`1399a9655b6d1c8abb99f7058c8b34d28bcb76ab`, tree
+`1e0a92909f0f94e7be136fe1fc4cbfc92edb8bdb`. FN1 merged first as
+`64251ef1c328849997cda9fb9381ce2c08916f4c`; PW1 PR #175 was then
+retargeted to canonical `main`. Its basis is the operator's
+Pi repair direction, AGENTS real-time and slice laws, GOVERNANCE “What evidence
+means”, ARCHITECTURE §§7 and 13, FC-AUDIO-001, and the
+[FN1 physical attribution](evidence/fn1/serum-first-note-2026-09-25.md).
+
+**One claim:** for the named Serum 2.1.5 default-state Pi fixture, opt-in
+startup-only note-on/note-off processing followed by stop, deactivate, and an
+exact second state restoration removes the repeatable first-user-note gap
+while preserving the serialized state, ordinary subsequent output, and clean
+retirement. The
+normal callback, shared transport, protocol 12/map v1, 256-frame quantum,
+512-frame reserve, 48 kHz/512 JACK setup, GE Proton/FEX runtime, governor,
+scheduling, vendor settings, and installed selections remain fixed. Output
+from the startup note is discarded before JACK activation. A restoration
+mismatch or prewarm timeout refuses readiness. The experiment does not claim
+a general Serum repair, a vendor-internal allocation result, arbitrary preset
+equivalence, or Pi musical qualification.
+
+Source scope is the standalone appliance startup sequence and focused
+verification; physical scope is a private source candidate, the same state/module,
+editor closed and the retained two-note MIDI fixture. Compare first-user-note
+Windows process span, delivered and missing frames, output presence, state
+readbacks and exact cohort retirement with the retained FN1 baseline. Retain
+the actual result even if prewarming merely moves or fails to remove the gap.
+Do not import BR1/BR1R recovery or install a new normal service as part of PW1.
+
+The staged [PW1 physical result](evidence/pw1/serum-default-prewarm-2026-09-25.md)
+contains a fresh unchanged FN1 baseline between three runs of the final PW1
+build. The baseline again lost 1,280 first-note frames; all three PW1 runs
+lost zero frames, retained byte-identical state readback and matching control
+readbacks, delivered nonzero note audio, and retired cleanly. PW1 moved the
+cold approximately 43 ms call into an approximately 136–140 ms startup
+sequence. It does not establish vendor-hidden state equivalence, arbitrary
+preset behavior, a CPU saving, or musical qualification. FN1 and PW1 were
+reviewed separately. PW1 remains off by default, and no normal Pi generation
+was installed.
+
+## Completed Serum first-note attribution — FN1
 
 FN1 starts from canonical `main` merge commit
 `25a6cfc3824164d4fdde79abda758ffdca636998`, tree
@@ -29,14 +76,13 @@ plug-in state, vendor setting, queue, timeout, recovery policy, governor,
 priority, affinity, quantum or reserve change is admitted. FN1 does not
 prewarm, optimize, qualify musical usability or replace an installed service.
 
-The staged [FN1 Pi result](evidence/fn1/serum-first-note-2026-09-25.md)
+The retained [FN1 Pi result](evidence/fn1/serum-first-note-2026-09-25.md)
 binds the repeatable 1,280-frame first-note gap to a roughly 34 ms Windows
 call. The caller ran through the span, aligned user-space samples landed in
 the FEX ARM64EC boundary, and new Serum guest-code map entries appeared during
 that call. This supports a cold translation/JIT mechanism for the exact
-default-state fixture. FN1 makes no repair or speed claim. The next separate
-slice is a state-safe prewarm experiment with exact state restoration and
-first-user-note delivery checks.
+default-state fixture. FN1 makes no repair or speed claim. PW1 is the
+separate startup experiment selected from that result.
 
 ## Completed Pi source reconciliation — PI-R
 
