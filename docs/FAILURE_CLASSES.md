@@ -870,11 +870,12 @@ FC-AUDIO-002, FC-CAP-001, FC-LIFE-002.
 
 ### Remaining gate
 
-Review FN1 and PW1 separately before any merge or installation. Other
-residual misses still need their own exact thread/queue capture; the Pi
-result does not assign them a shared cause. Later resilience work must
-reconcile bounded recovery on the shared core without importing callback-side
-policy from the old fork.
+The separate FN1/PW1 source reviews do not authorize installation or a
+general support claim. PSL1 is proposed next to make preparation product-owned
+and state-aware. Other residual misses still need their own exact thread/queue
+capture; the Pi result does not assign them a shared cause. Later resilience
+work must reconcile bounded recovery on the shared core without importing
+callback-side policy from the old fork.
 
 ### Evidence and historical sources
 

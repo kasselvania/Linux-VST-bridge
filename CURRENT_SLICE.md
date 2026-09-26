@@ -1,12 +1,16 @@
 # Current work selection
 
-## Current Pi state-safe first-note prewarm — PW1
+No further implementation slice is selected by the FN1/PW1 merges. PSL1 is the
+tech-lead's proposed next separate slice; it has not begun.
 
-PW1 is a separate, stacked source candidate from FN1
+## Completed Pi state-safe first-note prewarm — PW1
+
+PW1 was developed separately on FN1
 [PR #174](https://github.com/kasselvania/Linux-VST-bridge/pull/174) head
 `1399a9655b6d1c8abb99f7058c8b34d28bcb76ab`, tree
-`1e0a92909f0f94e7be136fe1fc4cbfc92edb8bdb`. FN1 remains unmerged;
-PW1 must not be merged without that prerequisite. Its basis is the operator's
+`1e0a92909f0f94e7be136fe1fc4cbfc92edb8bdb`. FN1 merged first as
+`64251ef1c328849997cda9fb9381ce2c08916f4c`; PW1 PR #175 was then
+retargeted to canonical `main`. Its basis is the operator's
 Pi repair direction, AGENTS real-time and slice laws, GOVERNANCE “What evidence
 means”, ARCHITECTURE §§7 and 13, FC-AUDIO-001, and the
 [FN1 physical attribution](evidence/fn1/serum-first-note-2026-09-25.md).
@@ -39,10 +43,11 @@ lost zero frames, retained byte-identical state readback and matching control
 readbacks, delivered nonzero note audio, and retired cleanly. PW1 moved the
 cold approximately 43 ms call into an approximately 136–140 ms startup
 sequence. It does not establish vendor-hidden state equivalence, arbitrary
-preset behavior, a CPU saving, or musical qualification. FN1 and PW1 require
-separate review before either is merged or installed.
+preset behavior, a CPU saving, or musical qualification. FN1 and PW1 were
+reviewed separately. PW1 remains off by default, and no normal Pi generation
+was installed.
 
-## Completed, staged Serum first-note attribution — FN1
+## Completed Serum first-note attribution — FN1
 
 FN1 starts from canonical `main` merge commit
 `25a6cfc3824164d4fdde79abda758ffdca636998`, tree
@@ -71,7 +76,7 @@ plug-in state, vendor setting, queue, timeout, recovery policy, governor,
 priority, affinity, quantum or reserve change is admitted. FN1 does not
 prewarm, optimize, qualify musical usability or replace an installed service.
 
-The staged [FN1 Pi result](evidence/fn1/serum-first-note-2026-09-25.md)
+The retained [FN1 Pi result](evidence/fn1/serum-first-note-2026-09-25.md)
 binds the repeatable 1,280-frame first-note gap to a roughly 34 ms Windows
 call. The caller ran through the span, aligned user-space samples landed in
 the FEX ARM64EC boundary, and new Serum guest-code map entries appeared during
