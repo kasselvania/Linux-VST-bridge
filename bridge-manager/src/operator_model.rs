@@ -268,6 +268,8 @@ pub struct DawWorkspace {
     pub name: String,
     pub state: String,
     pub selected_installer: String,
+    #[serde(default)]
+    pub application_installers: Vec<String>,
     pub selected_release: String,
     pub installed_advertised_release: Option<String>,
     pub observed_file_version: Option<String>,
@@ -347,7 +349,7 @@ pub enum SetupPhase {
     Imported,
     EnvironmentReady,
     InstallerRunning,
-    InstallerNeedsAttention,
+    SetupNeedsAttention,
     InstallerRetired,
     ScanReady,
     DiscoveryComplete,

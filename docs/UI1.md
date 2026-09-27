@@ -25,9 +25,14 @@ and VST3 class ID. A friendly product name is never a relation key.
 Discovery does not itself publish a plug-in. A setup card with mixed historical
 product states routes to the exact Plug-ins records and does not claim that all
 of them are unavailable merely because the original scan found them together.
+Stale and quarantined scans retain their exact attention wording and keep the
+route to an exact projected product visible when one exists. They do not imply
+a fresh discovery or offer an invented recovery action.
 Exact installers owned by the FL Studio application's selected or historical
 installation records stay in Workspaces. They do not receive plug-in Setup
-actions merely because both flows use canonical installer custody.
+actions merely because both flows use canonical installer custody. An installer
+also used by an FL plug-in may have a separate native-DAW setup; its Setup
+status describes that native setup, not the FL installation.
 
 ## Closed import and presentation identity
 
@@ -36,7 +41,8 @@ the selected basename. The manager verifies and copies the bytes, hashes them,
 and returns a typed schema-2 import result with exact SHA-256, size, format,
 new-versus-existing disposition, display label and import time. The full source
 path is not retained. Exact duplicate bytes return the existing installer and
-focus the existing Setup card.
+focus its exact manager-owned destination. A historical FL application
+installer routes to Workspaces rather than an empty Setup card.
 
 The schema-1 installer custody record is unchanged. A separate small schema-1
 presentation sidecar binds a bounded label to its SHA-256. Suggested names come
@@ -82,6 +88,11 @@ records remain schema 1; the presentation sidecar and catalogue runtime policy
 are separately versioned. No private schema-10/11 action or beta support
 snapshot is imported. A later UI2 owner PR must separately reconcile the
 installed guided-check and guided-result records.
+
+The new Setup projection requires its paired manager/frontend generation.
+An older strict frontend may refuse the additional snapshot field, so this
+integration does not claim mixed-generation frontend compatibility. Immutable
+rollback generations must retain their matched manager and frontend binaries.
 
 ## Evidence posture
 

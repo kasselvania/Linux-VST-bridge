@@ -758,18 +758,26 @@ pub fn setup_projection(m: &Manager, rows: &[ui::Onboarding], products: &[ui::Pr
             }
         }
         let (phase, status) = if ambiguous {
-            (ui::SetupPhase::InstallerNeedsAttention,
+            (ui::SetupPhase::SetupNeedsAttention,
                 "Multiple setup environments are retained. Review exact setup history before continuing.".to_owned())
         } else if current.environment.is_none() {
-            (ui::SetupPhase::Imported, "No installation has started.".to_owned())
+            (ui::SetupPhase::Imported,
+                "No native plug-in setup has started from this installer.".to_owned())
         } else {
             match current.state.as_str() {
                 "environment_ready" => (ui::SetupPhase::EnvironmentReady,
                     "The compatibility space is ready. Running the vendor installer is a separate step.".into()),
-                "needs_attention" => (ui::SetupPhase::InstallerNeedsAttention, current.required_human_action.clone()),
+                "needs_attention" => (ui::SetupPhase::SetupNeedsAttention, current.required_human_action.clone()),
                 "cleanup_unconfirmed" => (ui::SetupPhase::CleanupUnconfirmed,
                     "Installer cleanup is unresolved. Further setup is paused.".into()),
-                "installed_unqualified" | "quarantined" | "no_audio_plugin_discovered" =>
+                "quarantined" => (ui::SetupPhase::SetupNeedsAttention,
+                    "A discovered module was quarantined. Review its exact result and recovery in Plug-ins or technical details.".into()),
+                "no_audio_plugin_discovered" => (ui::SetupPhase::SetupNeedsAttention,
+                    "The scan found no audio plug-in class. Review the installer result and scan details.".into()),
+                "installed_unqualified" if discovered.is_empty() =>
+                    (ui::SetupPhase::SetupNeedsAttention,
+                        "The scan completed, but no matching product card is available. Review exact scan details.".into()),
+                "installed_unqualified" =>
                     (ui::SetupPhase::DiscoveryComplete,
                     format!("{} plug-ins found · discovery did not publish them; see each plug-in's current status", discovered.len())),
                 "completed" | "failed" | "cancelled" => (ui::SetupPhase::InstallerRetired,
@@ -783,8 +791,10 @@ pub fn setup_projection(m: &Manager, rows: &[ui::Onboarding], products: &[ui::Pr
         let primary = if ambiguous { None } else { match phase {
             ui::SetupPhase::Imported => current.actions.iter().find(|a| matches!(a.action, ui::Action::InstallerEnvironmentCreate { .. })),
             ui::SetupPhase::EnvironmentReady => current.actions.iter().find(|a| matches!(a.action, ui::Action::InstallerStart { .. })),
-            ui::SetupPhase::InstallerRunning | ui::SetupPhase::InstallerNeedsAttention =>
+            ui::SetupPhase::InstallerRunning =>
                 current.actions.iter().find(|a| matches!(a.action, ui::Action::InstallerFocus { .. })),
+            ui::SetupPhase::SetupNeedsAttention => current.actions.iter().find(|a|
+                matches!(a.action, ui::Action::InstallerFocus { .. } | ui::Action::InstallerScan { .. })),
             ui::SetupPhase::InstallerRetired | ui::SetupPhase::ScanReady =>
                 current.actions.iter().find(|a| matches!(a.action, ui::Action::InstallerScan { .. })),
             _ => None,

@@ -2880,6 +2880,7 @@ pub(super) fn projection(
             .unwrap_or("cleanup_unconfirmed")
             .into(),
         selected_installer: w.selected_installer.sha256,
+        application_installers: application_installers.iter().cloned().collect(),
         selected_release: w.selected_installer.release,
         installed_advertised_release,
         observed_file_version,

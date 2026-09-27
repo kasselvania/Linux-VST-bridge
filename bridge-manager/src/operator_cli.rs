@@ -2966,6 +2966,7 @@ mod tests {
             name: "FL Studio".into(),
             state: "uninstalled".into(),
             selected_installer: installer.clone(),
+            application_installers: vec![installer.clone()],
             selected_release: "26.1.6.0".into(),
             installed_advertised_release: None,
             observed_file_version: None,
@@ -4022,7 +4023,7 @@ mod tests {
                 classes: vec![class], report: f.r.host.clone(),
                 inspection_error: None, quarantine_reason: None }], changes: Default::default() };
         current.state = "installed_unqualified".into();
-        current.details = json!({"scan":scan,"previous_attempt":null});
+        current.details = json!({"scan":scan.clone(),"previous_attempt":null});
         current.actions.clear();
         rows[1] = current.clone();
         let product = ui::Product { class_id: f.r.metadata.class_id.clone(), name: "BEAM".into(),
@@ -4031,13 +4032,38 @@ mod tests {
             environment: environment.clone(), runner: f.r.environment.runner.id.clone(),
             module_sha256: f.r.module.sha256.clone(), limitations: vec![], history: vec![],
             actions: vec![], details: Value::Null };
-        let found = project(&rows, &[product]);
+        let found = project(&rows, std::slice::from_ref(&product));
         assert_eq!(found.phase, ui::SetupPhase::DiscoveryComplete);
         assert_eq!(found.discovered.len(), 1);
         assert_eq!(found.discovered[0].module_sha256, f.r.module.sha256);
         assert!(found.status.contains("discovery did not publish"));
         assert!(!found.status.contains("not yet available in Bitwig"));
         assert!(found.primary.is_none());
+        let mut stale_scan = scan.clone();
+        stale_scan.host_source_sha256 = "ef".repeat(32);
+        current.state = "needs_attention".into();
+        current.details = json!({"scan":stale_scan,"previous_attempt":null});
+        current.actions = vec![action("Scan installed products", ui::Action::InstallerScan {
+            onboarding: environment.clone() }, None)];
+        rows[1] = current.clone();
+        let stale = project(&rows, std::slice::from_ref(&product));
+        assert_eq!(stale.phase, ui::SetupPhase::SetupNeedsAttention);
+        assert_eq!(stale.discovered.len(), 1);
+        assert!(matches!(stale.primary.unwrap().action, ui::Action::InstallerScan { .. }));
+        current.actions.clear();
+        rows[1] = current.clone();
+        let managed_stale = project(&rows, std::slice::from_ref(&product));
+        assert!(managed_stale.primary.is_none());
+        assert_eq!(managed_stale.discovered.len(), 1);
+        let mut quarantined_scan = scan;
+        quarantined_scan.modules[0].quarantine_reason = Some("inventory_factory_absent".into());
+        current.state = "quarantined".into();
+        current.details = json!({"scan":quarantined_scan,"previous_attempt":null});
+        rows[1] = current.clone();
+        let quarantined = project(&rows, std::slice::from_ref(&product));
+        assert_eq!(quarantined.phase, ui::SetupPhase::SetupNeedsAttention);
+        assert!(quarantined.status.contains("quarantined"));
+        assert_eq!(quarantined.discovered.len(), 1);
         current.state = "cleanup_unconfirmed".into();
         current.details = Value::Null;
         rows[1] = current;

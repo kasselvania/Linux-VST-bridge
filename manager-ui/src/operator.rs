@@ -308,6 +308,16 @@ struct RouteFocus {
     setup_scroll: bool,
     activity: Option<String>,
 }
+fn imported_destination(snapshot: &Snapshot, installer: &str) -> Option<Page> {
+    let setups = snapshot.installer_setups.iter().filter(|setup| setup.installer == installer).count();
+    let workspaces = snapshot.workspaces.iter().filter(|workspace|
+        workspace.application_installers.iter().any(|id| id == installer)).count();
+    match (setups, workspaces) {
+        (1, 0) => Some(Page::Setup),
+        (0, 1) => Some(Page::Workspaces),
+        _ => None,
+    }
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum RequestOrigin {
     InitialSnapshot,
@@ -342,6 +352,7 @@ pub struct Operator {
     product_form: Option<Action>,
     workspace_select_form: Option<Action>,
     installer_rename_form: Option<Action>,
+    pending_import_route: Option<(String, bool, String)>,
     page: Page,
     focus: RouteFocus,
     preview: bool,
@@ -369,6 +380,7 @@ impl Operator {
             product_form: None,
             workspace_select_form: None,
             installer_rename_form: None,
+            pending_import_route: None,
             page: Page::Home,
             focus: RouteFocus::default(),
             preview: false,
@@ -397,6 +409,7 @@ impl Operator {
             product_form: None,
             workspace_select_form: None,
             installer_rename_form: None,
+            pending_import_route: None,
             page,
             focus: RouteFocus::default(),
             preview: true,
@@ -549,6 +562,33 @@ impl Operator {
     ) {
         crate::library::action_buttons(ui, actions, busy, pending, chosen);
     }
+    fn resolve_import_route(&mut self, snapshot: &Snapshot) {
+        let Some((installer, newly_imported, label)) = self.pending_import_route.take() else { return };
+        match imported_destination(snapshot, &installer) {
+            Some(Page::Setup) => {
+                self.page = Page::Setup;
+                self.focus.setup = None;
+                self.focus.setup_installer = Some(installer);
+                self.focus.setup_scroll = true;
+                self.message = if newly_imported {
+                    format!("Added {label}. No native plug-in setup has started.")
+                } else {
+                    "This installer was already added. Showing its existing plug-in setup.".into()
+                };
+            }
+            Some(Page::Workspaces) => {
+                self.page = Page::Workspaces;
+                self.focus.setup = None;
+                self.focus.setup_installer = None;
+                self.focus.setup_scroll = false;
+                self.message = "This installer belongs to the managed FL Studio application. Showing Workspaces.".into();
+            }
+            _ => {
+                self.pending_import_route = Some((installer, newly_imported, label));
+                self.message = "The installer is in manager custody, but its exact setup or workspace is unavailable in this readback. Check again before continuing.".into();
+            }
+        }
+    }
     fn handle_reply(&mut self, reply: Reply) {
         let origin = self.origin.take().unwrap_or(if self.action_inflight {
             RequestOrigin::UserAction
@@ -567,6 +607,7 @@ impl Operator {
                     if let Some(f) = &mut self.feedback {
                         f.reconcile_snapshot(&s);
                     }
+                    self.resolve_import_route(&s);
                     self.snapshot = Some(*s);
                     // Initial and post-mutation readback are quiet; a durable
                     // import/action notice is never replaced by polling.
@@ -607,16 +648,11 @@ impl Operator {
                 }
             }
             Reply::Imported(imported) => {
-                self.page = Page::Setup;
-                self.focus.setup = None;
-                self.focus.setup_installer = Some(imported.installer_sha256);
-                self.focus.setup_scroll = true;
+                self.pending_import_route = Some((imported.installer_sha256,
+                    imported.newly_imported, imported.display_label.clone()));
                 self.feedback = None;
-                self.message = if imported.newly_imported {
-                    format!("Added {}. No installation has started.", imported.display_label)
-                } else {
-                    "This installer was already added. Showing the existing setup.".into()
-                };
+                self.message = format!("{} is in manager custody. Locating its exact setup or workspace…",
+                    imported.display_label);
                 self.refresh_after = true;
             }
             Reply::Cancelled => {
@@ -1271,7 +1307,7 @@ impl Operator {
                         (0, crate::model::SetupPhase::Imported)
                         | (1, crate::model::SetupPhase::EnvironmentReady)
                         | (2, crate::model::SetupPhase::InstallerRunning
-                            | crate::model::SetupPhase::InstallerNeedsAttention
+                            | crate::model::SetupPhase::SetupNeedsAttention
                             | crate::model::SetupPhase::CleanupUnconfirmed)
                         | (3, crate::model::SetupPhase::InstallerRetired
                             | crate::model::SetupPhase::ScanReady
@@ -1293,7 +1329,7 @@ impl Operator {
                             crate::model::SetupPhase::Imported => "Imported",
                             crate::model::SetupPhase::EnvironmentReady => "Ready to install",
                             crate::model::SetupPhase::InstallerRunning => "Installer open",
-                            crate::model::SetupPhase::InstallerNeedsAttention => "Installer needs attention",
+                            crate::model::SetupPhase::SetupNeedsAttention => "Setup needs attention",
                             crate::model::SetupPhase::InstallerRetired => "Installer closed",
                             crate::model::SetupPhase::ScanReady => "Ready to find plug-ins",
                             crate::model::SetupPhase::DiscoveryComplete => "Plug-ins found",
@@ -1322,9 +1358,8 @@ impl Operator {
                             ui.colored_label(warning_color(ui),
                                 "Standard compatibility runtime is unavailable. Repair or update the manager package before continuing.");
                         }
-                        if matches!(setup.phase, crate::model::SetupPhase::DiscoveryComplete)
-                            && !setup.discovered.is_empty()
-                            && ui.add_sized([240.0, 48.0], egui::Button::new("View discovered plug-ins")).clicked() {
+                        if !setup.discovered.is_empty()
+                            && ui.add_sized([240.0, 48.0], egui::Button::new("View plug-in details")).clicked() {
                             library.focus_products(setup.discovered.iter().map(|product|
                                 crate::presentation::ProductKey {
                                     environment: product.environment.clone(),
@@ -2349,6 +2384,7 @@ mod tests {
             product_form: None,
             workspace_select_form: None,
             installer_rename_form: None,
+            pending_import_route: None,
             page: Page::Home,
             focus: RouteFocus::default(),
             preview: false,
@@ -2387,23 +2423,74 @@ mod tests {
     fn typed_import_focuses_exact_setup_and_duplicate_does_not_add_another_card() {
         let mut operator = state_fixture();
         let sha = "ab".repeat(32);
+        let mut snapshot: Snapshot =
+            serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap();
+        snapshot.installer_setups.push(crate::model::InstallerSetup {
+            installer: sha.clone(), name: "Lunacy Audio Installer".into(),
+            label_source: "selected_basename".into(), byte_size: 1024,
+            format: "pe_executable".into(), imported_at: 1,
+            phase: crate::model::SetupPhase::Imported,
+            status: "No native plug-in setup has started from this installer.".into(),
+            environment: None, compatibility: None, discovered: vec![],
+            primary: None, secondary: vec![],
+            rename: AvailableAction { label: "Rename".into(),
+                action: Action::InstallerRename { installer: sha.clone(), label: String::new() },
+                disabled_reason: None }, history: vec![],
+        });
         let reply = crate::model::InstallerImportResult { schema: 2,
             installer_sha256: sha.clone(), byte_size: 1024, format: "pe_executable".into(),
             newly_imported: true, display_label: "Lunacy Audio Installer".into(), created_at: 1 };
         operator.pending = true;
         operator.origin = Some(RequestOrigin::InstallerImport);
         operator.handle_reply(Reply::Imported(reply.clone()));
+        assert_eq!(operator.pending_import_route.as_ref().map(|x| x.0.as_str()), Some(sha.as_str()));
+        operator.handle_reply(Reply::Snapshot(Box::new(snapshot.clone())));
         assert_eq!(operator.page, Page::Setup);
         assert_eq!(operator.focus.setup_installer.as_deref(), Some(sha.as_str()));
         assert!(operator.focus.setup_scroll);
-        assert!(operator.message.contains("No installation has started"));
+        assert!(operator.message.contains("No native plug-in setup has started"));
         let mut duplicate = reply;
         duplicate.newly_imported = false;
         operator.pending = true;
         operator.origin = Some(RequestOrigin::InstallerImport);
         operator.handle_reply(Reply::Imported(duplicate));
+        operator.handle_reply(Reply::Snapshot(Box::new(snapshot)));
         assert_eq!(operator.focus.setup_installer.as_deref(), Some(sha.as_str()));
         assert!(operator.message.contains("already added"));
+    }
+    #[test]
+    fn duplicate_historical_fl_application_installer_routes_to_workspaces_not_empty_setup() {
+        let mut operator = state_fixture();
+        let sha = "ab".repeat(32);
+        let snapshot: Snapshot = serde_json::from_value(serde_json::json!({
+            "schema":8,"state_token":"current",
+            "system":{"service":"active","keepers":0,"dsp":0,"maintenance":0,
+                "ceiling":6,"pending_transactions":0,"stale_transports":0,
+                "cleanup_unconfirmed":false},
+            "onboarding":[],"installer_setups":[],"environments":[],
+            "vendor_applications":[],"products":[],"active_sessions":[],
+            "capture":null,"recent_incidents":[],"actions":[],"operation":null,
+            "workspaces":[{"id":"cd".repeat(16),"name":"FL Studio","state":"installed",
+                "selected_installer":"ef".repeat(32),
+                "application_installers":[sha.clone(),"ef".repeat(32)],
+                "selected_release":"27.0.0.0","installed_advertised_release":"27.0.0.0",
+                "observed_file_version":null,"installed_image_sha256":null,
+                "active_installation_operation":null,"cleanup":"confirmed",
+                "first_useful_failure":null,"actions":[],"installer_choices":[],
+                "products":[],"details":null}]
+        })).unwrap();
+        operator.pending = true;
+        operator.origin = Some(RequestOrigin::InstallerImport);
+        operator.handle_reply(Reply::Imported(crate::model::InstallerImportResult {
+            schema: 2, installer_sha256: sha, byte_size: 1024,
+            format: "pe_executable".into(), newly_imported: false,
+            display_label: "FL Studio Installer".into(), created_at: 1,
+        }));
+        operator.handle_reply(Reply::Snapshot(Box::new(snapshot)));
+        assert_eq!(operator.page, Page::Workspaces);
+        assert!(operator.focus.setup_installer.is_none());
+        assert!(operator.message.contains("FL Studio"));
+        assert!(operator.pending_import_route.is_none());
     }
     #[test]
     fn setup_identity_status_and_primary_action_render_at_both_widths() {
@@ -2424,7 +2511,7 @@ mod tests {
             label_source: "operator_named".into(), byte_size: 1024,
             format: "pe_executable".into(), imported_at: 1,
             phase: crate::model::SetupPhase::Imported,
-            status: "No installation has started.".into(), environment: None,
+            status: "No native plug-in setup has started from this installer.".into(), environment: None,
             compatibility: Some("Standard · recommended".into()), discovered: vec![],
             primary: Some(AvailableAction { label: "Continue setup".into(),
                 action: Action::InstallerEnvironmentCreate {
@@ -2446,12 +2533,29 @@ mod tests {
             for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
             output.textures_delta.clear();
             for expected in ["Add a plug-in", "Ready to set up", "Lunacy Audio",
-                "No installation has started.", "Continue setup", "Rename",
+                "No native plug-in setup has started", "Continue setup", "Rename",
                 "Technical details and setup history"] {
                 assert!(labels.iter().any(|label| label.contains(expected)),
                     "missing {expected} at width {width}: {labels:?}");
             }
         }
+        snapshot.installer_setups[0].phase = crate::model::SetupPhase::SetupNeedsAttention;
+        snapshot.installer_setups[0].status = "The completed scan needs review.".into();
+        snapshot.installer_setups[0].discovered = vec![crate::model::DiscoveredProduct {
+            environment: "cd".repeat(16), module_sha256: "ef".repeat(32),
+            class_id: "ab".repeat(16), name: "Exact plug-in".into(),
+        }];
+        let ctx = egui::Context::default();
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            Operator::setup(ui, &snapshot, false, None,
+                (&mut Page::Setup, &mut crate::library::Library::default(),
+                    &mut RouteFocus::default()), &mut None, &mut false);
+        });
+        let mut labels = Vec::new();
+        for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
+        output.textures_delta.clear();
+        assert!(labels.iter().any(|label| label.contains("Setup needs attention")));
+        assert!(labels.iter().any(|label| label.contains("View plug-in details")));
     }
     #[test]
     fn ordinary_and_narrow_navigation_keeps_every_page_touch_reachable() {
@@ -2514,6 +2618,7 @@ mod tests {
             name: "FL Studio".into(),
             state: "uninstalled".into(),
             selected_installer: "cd".repeat(32),
+            application_installers: vec!["cd".repeat(32)],
             selected_release: "26.1.6.0".into(),
             installed_advertised_release: None,
             observed_file_version: None,

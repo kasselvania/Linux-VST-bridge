@@ -123,6 +123,7 @@ fn main() -> eframe::Result {
             name: "FL Studio".into(),
             state: "uninstalled".into(),
             selected_installer: "bb".repeat(32),
+            application_installers: vec!["bb".repeat(32)],
             selected_release: "26.1.6.0".into(),
             installed_advertised_release: None,
             observed_file_version: None,
