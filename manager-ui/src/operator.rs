@@ -299,6 +299,8 @@ struct RouteFocus {
 
 pub struct Operator {
     snapshot: Option<Snapshot>,
+    readiness: Option<ReadinessAssessment>,
+    readiness_error: Option<String>,
     sender: mpsc::Sender<Reply>,
     receiver: mpsc::Receiver<Reply>,
     pending: bool,
@@ -315,13 +317,21 @@ pub struct Operator {
     page: Page,
     focus: RouteFocus,
     preview: bool,
+    preview_real: bool,
 }
+struct ReadinessControls<'a> {
+    chosen: &'a mut Option<Action>,
+    refresh: &'a mut bool,
+}
+
 impl Operator {
     pub fn new(ctx: &egui::Context) -> Self {
         let (sender, receiver) = mpsc::channel();
-        client::send(Query::Snapshot, sender.clone(), ctx.clone());
+        client::send(Query::Overview, sender.clone(), ctx.clone());
         Self {
             snapshot: None,
+            readiness: None,
+            readiness_error: None,
             sender,
             receiver,
             pending: true,
@@ -338,6 +348,7 @@ impl Operator {
             page: Page::Home,
             focus: RouteFocus::default(),
             preview: false,
+            preview_real: false,
         }
     }
     /// The example owns only synthetic state; it never starts the manager client.
@@ -346,6 +357,8 @@ impl Operator {
         let (sender, receiver) = mpsc::channel();
         Self {
             snapshot: Some(snapshot),
+            readiness: None,
+            readiness_error: None,
             sender,
             receiver,
             pending: false,
@@ -362,7 +375,17 @@ impl Operator {
             page,
             focus: RouteFocus::default(),
             preview: true,
+            preview_real: false,
         }
+    }
+    #[allow(dead_code)]
+    pub fn preview_with_readiness(snapshot: Snapshot, readiness: ReadinessAssessment, page: Page,
+        real: bool) -> Self {
+        let mut value = Self::preview(snapshot, page);
+        value.readiness = Some(readiness);
+        value.preview_real = real;
+        if real {value.message="Current readback preview · no operations execute".into();}
+        value
     }
     fn preparation_details(ui: &mut egui::Ui, v: &serde_json::Value) {
         if v["publication"] == "ordinary" {
@@ -526,6 +549,23 @@ impl Operator {
                     self.message = "Canonical installed state refreshed".into();
                 }
             }
+            Reply::Overview(bundle) => {
+                let bundle=*bundle;
+                if bundle.schema!=1 || bundle.snapshot.schema!=8
+                    || bundle.readiness.schema!=1
+                    || bundle.snapshot.state_token!=bundle.readiness.state_token
+                    || bundle.snapshot.system!=bundle.readiness.system {
+                    self.message="Inconsistent readiness readback; refresh before acting".into();
+                    self.readiness_error=Some(self.message.clone());
+                    if let Some(snapshot)=&mut self.snapshot {
+                        snapshot.system.service="capacity unavailable".into();
+                    }
+                    return;
+                }
+                self.readiness_error=None;
+                self.readiness=Some(bundle.readiness);
+                self.handle_reply(Reply::Snapshot(Box::new(bundle.snapshot)));
+            }
             Reply::Receipt(r) => {
                 if let Some(f) = &mut self.feedback {
                     f.receipt(&r);
@@ -584,6 +624,7 @@ impl Operator {
                     }
                 }
                 self.message = e;
+                self.readiness_error=Some(format!("Readiness readback unavailable: {}",self.message));
                 if let Some(s) = &mut self.snapshot {
                     s.system.service = "capacity unavailable".into();
                 }
@@ -686,6 +727,90 @@ fn navigate(
 }
 
 impl Operator {
+    fn readiness_card(
+        ui: &mut egui::Ui,
+        snapshot: &Snapshot,
+        readiness: Option<&ReadinessAssessment>,
+        error: Option<&str>,
+        page: Page,
+        pending: bool,
+        controls: &mut ReadinessControls<'_>,
+    ) {
+        egui::Frame::group(ui.style()).fill(ui.visuals().faint_bg_color).show(ui, |ui| {
+            ui.set_min_width((ui.available_width()-1.0).max(0.0));
+            ui.heading("Supported-system readiness");
+            let current = readiness.filter(|r| error.is_none() && r.schema == 1
+                && r.state_token == snapshot.state_token && r.system == snapshot.system);
+            if let Some(r) = current {
+                let title = match r.overall_status {
+                    ReadinessOutcome::Ready => "Ready for supported plug-ins",
+                    ReadinessOutcome::ActionRequired if r.products.is_empty() => "Setup incomplete",
+                    ReadinessOutcome::ActionRequired => "Action required",
+                    ReadinessOutcome::Unsupported => "This configuration is not supported",
+                    ReadinessOutcome::Unknown => "Compatibility has not been qualified",
+                };
+                ui.strong(title);
+                if let Some(first) = r.blockers.iter().find(|b| b.status == r.overall_status)
+                    .or_else(|| r.blockers.first()) {
+                    ui.label(&first.explanation);
+                } else {
+                    ui.label("The exact published profile and current manager readback verify.");
+                }
+                let ready = r.products.iter().filter(|p| p.status == ReadinessOutcome::Ready).count();
+                ui.small(format!("{ready} exact supported product(s) verified · {} setup item(s) to review",r.blockers.len()));
+                if let Some(step) = r.ordered_steps.first() {
+                    ui.separator();
+                    ui.strong(format!("Next: {}",step.title));
+                    ui.label(&step.detail);
+                    if let Some(offer) = &step.action {
+                        let enabled = !pending && offer.disabled_reason.is_none();
+                        if ui.add_enabled(enabled,egui::Button::new(&offer.label)
+                            .min_size(egui::vec2(220.0,44.0))).clicked() {
+                            *controls.chosen = Some(offer.action.clone());
+                        }
+                        if let Some(reason) = &offer.disabled_reason {ui.label(reason);}
+                    }
+                }
+                if page == Page::Setup {
+                    ui.separator();
+                    if ui.add_enabled(!pending,egui::Button::new(&r.support_export_action.label)
+                        .min_size(egui::vec2(240.0,44.0))).clicked() {
+                        *controls.chosen=Some(r.support_export_action.action.clone());
+                    }
+                    if let Some(file) = snapshot.operation.as_ref()
+                        .and_then(|op|op["result"]["file"].as_str()) {
+                        ui.label(format!("Sanitized report saved: ~/.local/share/linux-vst-bridge/managed/support-exports/{file}"));
+                    }
+                    egui::CollapsingHeader::new("Readiness details and provenance").show(ui,|ui|{
+                        for (heading,facts) in [("Platform",&r.platform),("DAW",&r.daw),
+                            ("Audio",&r.audio),("Graphics",&r.graphics),("Runtime",&r.runtime)] {
+                            ui.strong(heading);
+                            for f in facts {
+                                ui.small(format!("{}: {} · {:?} · {}",f.name,
+                                    f.value.as_deref().unwrap_or("unknown"),f.certainty,f.source));
+                            }
+                        }
+                        ui.strong("Exact product status");
+                        for product in &r.products {
+                            ui.small(format!("{}: {:?} · {}",product.name,product.status,product.reason));
+                            if let Some(code)=&product.failure_code {ui.small(format!("Current failure: {code}"));}
+                            egui::CollapsingHeader::new(format!("{} artifact identities",product.name))
+                                .show(ui,|ui|for fact in &product.facts {
+                                    ui.small(format!("{}: {} · {:?} · {}",fact.name,
+                                        fact.value.as_deref().unwrap_or("unknown"),fact.certainty,fact.source));
+                                });
+                        }
+                    });
+                }
+            } else {
+                ui.label(error.unwrap_or("Checking current machine and manager state…"));
+            }
+            if ui.add_sized([140.0,44.0],egui::Button::new("Check again")).clicked() {
+                *controls.refresh=true;
+            }
+        });
+        ui.add_space(10.0);
+    }
     fn health_bar(ui: &mut egui::Ui, system: &System) {
         egui::Frame::group(ui.style())
             .fill(ui.visuals().faint_bg_color)
@@ -1417,7 +1542,6 @@ impl eframe::App for Operator {
         while let Ok(reply) = self.receiver.try_recv() {
             self.handle_reply(reply);
         }
-
         let controls_pending = self.controls_pending();
         let mut refresh = false;
         let mut pick = false;
@@ -1429,7 +1553,11 @@ impl eframe::App for Operator {
                     refresh = true;
                 }
             });
-            if self.preview { ui.small("LOCAL DESIGN PREVIEW · synthetic records · actions do not execute"); }
+            if self.preview { ui.small(if self.preview_real {
+                "LOCAL READBACK PREVIEW · canonical snapshot · actions do not execute"
+            } else {
+                "LOCAL DESIGN PREVIEW · synthetic records · actions do not execute"
+            }); }
             if let Some(snapshot) = &self.snapshot {
                 Self::health_bar(ui, &snapshot.system);
             }
@@ -1442,6 +1570,10 @@ impl eframe::App for Operator {
                     return;
                 };
                 let page = self.page;
+                if matches!(page,Page::Home|Page::Setup) {
+                    Self::readiness_card(ui,snapshot,self.readiness.as_ref(),self.readiness_error.as_deref(),
+                        page,controls_pending,&mut ReadinessControls {chosen:&mut chosen,refresh:&mut refresh});
+                }
                 match page {
                     Page::Home => Self::home(ui, snapshot, &mut self.page, &mut self.library, &mut self.focus),
                     Page::Plugins => self.library.show(ui, snapshot, controls_pending, &mut chosen, |ui, product| {
@@ -1551,7 +1683,7 @@ impl eframe::App for Operator {
             self.request(Query::Action(request), ui.ctx());
         } else if !self.pending && (refresh || self.refresh_after) {
             self.refresh_after = false;
-            self.request(Query::Snapshot, ui.ctx());
+            self.request(Query::Overview, ui.ctx());
         } else if !self.pending && self.last_poll.elapsed() > Duration::from_secs(2) {
             self.request(Query::Activity, ui.ctx());
         }
@@ -2089,6 +2221,8 @@ mod tests {
         let (sender, receiver) = mpsc::channel();
         Operator {
             snapshot: None,
+            readiness: None,
+            readiness_error: None,
             sender,
             receiver,
             pending: false,
@@ -2105,7 +2239,65 @@ mod tests {
             page: Page::Home,
             focus: RouteFocus::default(),
             preview: false,
+            preview_real: false,
         }
+    }
+    #[test]
+    fn readiness_is_visible_on_home_and_setup_at_both_widths() {
+        fn texts(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
+            match shape {
+                egui::epaint::Shape::Text(text) => out.push(text.galley.text().into()),
+                egui::epaint::Shape::Vec(shapes) => {
+                    for shape in shapes { texts(shape,out); }
+                }
+                _=>{}
+            }
+        }
+        let snapshot:Snapshot=serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap();
+        let readiness=ReadinessAssessment {
+            schema:1,state_token:snapshot.state_token.clone(),observed_at:1,
+            overall_status:ReadinessOutcome::ActionRequired,system:snapshot.system.clone(),
+            platform:vec![],daw:vec![],audio:vec![],graphics:vec![],runtime:vec![],products:vec![],
+            blockers:vec![ReadinessBlocker {category:"audio".into(),
+                status:ReadinessOutcome::ActionRequired,
+                explanation:"Bitwig callback maximum is unknown.".into()}],
+            ordered_steps:vec![ReadinessStep {title:"Verify Bitwig audio settings".into(),
+                detail:"Confirm at most 512 frames.".into(),action:None}],
+            support_export_action:AvailableAction {label:"Create sanitized support export".into(),
+                action:Action::SupportExport {},disabled_reason:None},
+        };
+        for (width,page) in [(960.0,Page::Home),(560.0,Page::Home),
+            (960.0,Page::Setup),(560.0,Page::Setup)] {
+            let ctx=egui::Context::default();
+            let mut chosen=None;let mut refresh=false;
+            let mut output=ctx.run_ui(egui::RawInput::default(),|ui|{
+                ui.set_max_width(width-32.0);
+                Operator::readiness_card(ui,&snapshot,Some(&readiness),None,page,false,
+                    &mut ReadinessControls {chosen:&mut chosen,refresh:&mut refresh});
+            });
+            let mut labels=Vec::new();
+            for clipped in &output.shapes {texts(&clipped.shape,&mut labels);}
+            output.textures_delta.clear();
+            assert!(labels.iter().any(|s|s=="Setup incomplete"),"{width} {page:?}");
+            assert!(labels.iter().any(|s|s.contains("Verify Bitwig audio settings")));
+            assert!(labels.iter().any(|s|s=="Check again"));
+            if page==Page::Setup {assert!(labels.iter().any(|s|s=="Create sanitized support export"));}
+            assert!(chosen.is_none());
+            assert!(!refresh);
+        }
+        let ctx=egui::Context::default();
+        let mut chosen=None;
+        let mut refresh=false;
+        let mut output=ctx.run_ui(egui::RawInput::default(),|ui|{
+            Operator::readiness_card(ui,&snapshot,Some(&readiness),
+                Some("Readiness readback unavailable"),Page::Home,false,
+                &mut ReadinessControls {chosen:&mut chosen,refresh:&mut refresh});
+        });
+        let mut labels=Vec::new();
+        for clipped in &output.shapes {texts(&clipped.shape,&mut labels);}
+        output.textures_delta.clear();
+        assert!(labels.iter().any(|s|s.contains("Readiness readback unavailable")));
+        assert!(!labels.iter().any(|s|s=="Setup incomplete"));
     }
     #[test]
     fn ordinary_and_narrow_navigation_keeps_every_page_touch_reachable() {

@@ -546,7 +546,7 @@ fn canonical_lock(m: &Manager) -> Result<Lock> {
     )?
     .0)
 }
-fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
+pub(super) fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
     snapshot_for_operation(m, None, OPERATOR_WAIT, &mut vec![], &|| {
         live_capacity(m).ok()
     })
@@ -691,7 +691,7 @@ fn snapshot_for_operation(
                 None
             },
         ));
-        products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
+        products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"environment_revision":p.environment_revision,"host_sha256":entry.registration.host.sha256,"host_source_sha256":entry.registration.host_source_sha256,"native_sha256":entry.registration.native.sha256,"module_valid":p.module_valid,"environment_valid":p.environment_valid,"runner_valid":p.runner_valid,"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"publication_valid":p.publication_valid,"recovery_pending":p.recovery_pending,"qualification":p.qualification,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
     }
     let catalogue = operator_catalogue(m, &sw, &db)?;
     let managed_bindings = managed_environment_bindings(m, catalogue.as_ref(), &db)?;
@@ -964,6 +964,11 @@ fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
         request.schema == 8 && request.state_token == snapshot.state_token,
         "operator_stale_request_refresh",
     )?;
+    // This PB0 action is offered only by the separate additive readiness
+    // endpoint, never inserted into schema-8 snapshots read by older UIs.
+    if matches!(request.action, ui::Action::SupportExport {}) {
+        return Ok(());
+    }
     let offered = available(snapshot)
         .into_iter()
         .find(|a| preparation_cli::offered(&request.action, &a.action))
@@ -1552,6 +1557,10 @@ fn execute_with_receipt_policy(
             let path = dir.join(format!("incident-{incident}.json"));
             atomic_json(&path, &value)?;
             Ok(json!({"export":path,"sanitized":true}))
+        }
+        ui::Action::SupportExport {} => {
+            drop(projection.take());
+            readiness::export(m, &snapshot(m)?)
         }
         ui::Action::DependencyPrepare {} => {
             let _environment = m.lock("operator-environment.lock")?;
@@ -2369,6 +2378,17 @@ fn worker_with_capacity(
 pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
     match args {
         [a] if a == "snapshot" => println!("{}", serde_json::to_string(&snapshot(m)?)?),
+        [a] if a == "readiness" => {
+            let current = snapshot(m)?;
+            println!("{}", serde_json::to_string(&readiness::assess(m, &current)?)?);
+        }
+        [a] if a == "overview" => {
+            let current=snapshot(m)?;
+            let assessment=readiness::assess(m,&current)?;
+            println!("{}",serde_json::to_string(&ui::ReadinessBundle {
+                schema:1,snapshot:current,readiness:assessment,
+            })?);
+        }
         [a] if a == "activity" => println!("{}", serde_json::to_string(&activity(m)?)?),
         [a] if a == "request" => {
             let mut bytes = Vec::new();
@@ -2928,6 +2948,18 @@ mod tests {
             action("Rollback", allowed, Some("Active DSP lease")),
         );
         assert!(validate(&r, &busy).is_err());
+    }
+    #[test]
+    fn support_export_uses_closed_action_and_exact_current_state_token() {
+        let s=view("current",action("Unrelated",ui::Action::DependencyPrepare {},None));
+        let mut request=ui::Request {schema:8,state_token:"current".into(),
+            action:ui::Action::SupportExport {}};
+        validate(&request,&s).unwrap();
+        request.state_token="stale".into();
+        assert!(validate(&request,&s).is_err());
+        request.state_token="current".into();
+        request.schema=11;
+        assert!(validate(&request,&s).is_err());
     }
     #[test]
     fn workspace_selection_accepts_only_exact_offered_import_and_release_syntax() {

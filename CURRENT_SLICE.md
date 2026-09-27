@@ -1,7 +1,58 @@
 # Current work selection
 
-No further implementation slice is selected by the FN1/PW1 merges. PSL1 is the
-tech-lead's proposed next separate slice; it has not begun.
+## Selected primary x86 product slice — PB0
+
+**Base:** public canonical `main` commit
+`65f113b463ed1dbba7d142f1b833720575932a0d`, tree
+`bf364f138849f8744ca18319380858545c0a1cf4`. **Branch:**
+`codex/pb0-supported-system-readiness`. Basis: `AGENTS.md` mission and slice
+rules; `GOVERNANCE.md` evidence law; `docs/ARCHITECTURE.md` §§4, 9, 10, 13;
+accepted D-001, D-008, D-009 and D-019 in `docs/DECISION_REGISTER.md`;
+`docs/SUPPORT_MATRIX.md` Steam Deck Arturia rows and processing conditions;
+FC-AUDIO-002 and FC-PLAT-001 in `docs/FAILURE_CLASSES.md`.
+
+**One claim:** the canonical manager can assess one exact supported x86 Linux
+native-DAW fixture, state what is observed, required or unknown, and give one
+safe setup step plus an explicit local sanitized support export. A source-owned
+SteamOS 3.8.16 / Steam Deck Galileo / Bitwig Studio 6.1 Flatpak envelope is
+bound to the exact accepted ordinary Arturia profiles. Unknown combinations
+stay unknown. The GUI presents the manager's answer on Home and Setup.
+
+**Fixture:** existing Steam Deck Desktop Mode, Bitwig Flatpak, one already
+ordinary-published Arturia product and existing manager generation. Physical
+work is read-only except the user-requested local support export. Preserve all
+six publications, runners, environments, projects, authorization and rollback
+generations. No installer, rescan, publication, software replacement, audio
+setting change, or new vendor operation is part of PB0.
+
+**Source scope:** manager operator readback, bounded platform collection,
+reviewed support envelope, support export, Home/Setup projection, source-owned
+fixtures, and repository-facing product documents. No callback/proxy, runner,
+installation, recovery or publication behavior changes. PB0 neither imports
+unmerged ARM/WD1 code nor qualifies another DAW or distribution.
+
+**Positive acceptance:** exact profile and artifacts resolve; unsupported,
+unknown and fixable mismatches remain distinct; audio-device rate and Bitwig
+callback maximum are not inferred from PipeWire settings; the Deck readback is
+truthful; support export is parsable and sanitized; closing/reopening the UI
+does not change the assessment. **Negative acceptance:** tampered artifacts,
+withdrawn profiles, stale transactions, cleanup uncertainty, mismatched
+platforms, DAW or graphics access, and missing observations cannot become
+ready. Retain exact test and physical readback in the PB0 PR.
+
+**Current physical gate:** source-owned fixtures and previews are available.
+The installed Deck manager currently emits operator schema 11 and its managed
+catalogue contains `onboarding_runtime`, an authority field absent from this
+canonical source base. A staged PB0 binary refused that field before producing
+an assessment. Preserve the strict catalogue decoder; the exact ready-product
+assessment and local support-export pass remain pending a normal canonical
+integration of the installed manager authority. The six established native
+publications and active service were unchanged by this read-only attempt; see
+[PB0 physical evidence](evidence/pb0/README.md).
+
+Completed Pi FN1/PW1 history follows. The open PSL1 Pi proposal is separate
+from the primary native x86 product lane. Managed Windows DAWs and ARM/OEM
+work remain parallel expansions, not PB0 completion gates.
 
 ## Completed Pi state-safe first-note prewarm — PW1
 

@@ -8,6 +8,7 @@ mod native_access_runner;
 mod experimental_runner;
 mod vendor_product_cli;
 mod operator_cli;
+mod readiness;
 mod installer_import;
 mod onboarding;
 mod daw_workspace;

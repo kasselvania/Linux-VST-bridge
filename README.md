@@ -2,6 +2,14 @@
 
 A managed compatibility layer for using supported Windows VST3 plug-ins in native Linux DAWs without making musicians administer Wine prefixes, proxy synchronization, runner versions, or recovery machinery by hand.
 
+For an exact supported Linux, DAW, hardware and plug-in combination, the
+manager's intended product job is to verify the machine, guide lawful vendor
+installation and authorization, select the tested runtime/profile, publish to
+the native DAW, explain readiness and offer safe diagnosis or rollback. PB0
+adds a truthful supported-system assessment and setup plan; it does not
+complete the whole guided install journey. See the
+[private-beta contract](docs/PRIVATE_BETA.md).
+
 ```text
 Bitwig on Linux
 → native Linux VST3 proxy
@@ -49,11 +57,16 @@ The currently exercised fleet includes Pure LoFi, Efx FRAGMENTS, Pigments, Serum
 
 A source patch or built runner is not a physical product pass. A pass on one exact plug-in does not establish the same result for another plug-in. Shared mechanisms and product coverage are tracked separately in [docs/FAILURE_CLASSES.md](docs/FAILURE_CLASSES.md).
 
-## Selected Windows DAW direction — not yet qualified
+## Separate managed Windows DAW expansion
 
-[WD0](docs/WD0.md) brings FL Studio into a separate managed Windows workspace as an active parallel implementation. FL hosts its Windows instruments and plug-ins directly; the Linux proxy and bridge audio transport are not inserted into that path. Installation, runtime identity, launch ownership, diagnostics and support records remain part of the same canonical management product.
+[WD0](docs/WD0.md) brings FL Studio into a separate managed Windows workspace. FL hosts its Windows instruments and plug-ins directly; the Linux proxy and bridge audio transport are not inserted into that path. Installation, runtime identity, launch ownership, diagnostics and support records remain part of the same canonical management product.
 
-The first deliverable is normal launch, a usable stock project, audio/export, clean relaunch and licensed project recall. A later WD1 adds one third-party Windows VST3 in the same workspace. Ableton follows in another workspace; the ARM appliance retains its separately owned experiment. No FL Studio or Ableton support is claimed yet, and their work does not replace finishing the native-Linux bridge. See [workstreams](docs/WORKSTREAMS.md) and the [architecture extension](docs/WINDOWS_DAW_WORKSPACES.md).
+Exact FL trial-mode and third-party-plug-in results are separate from native
+Bitwig support; licensed project recall remains unqualified while FL stays in
+trial mode. Ableton is a later separate workspace. The ARM appliance is a
+separate hardware lane. See [workstreams](docs/WORKSTREAMS.md), the
+[support matrix](docs/SUPPORT_MATRIX.md), and the
+[architecture extension](docs/WINDOWS_DAW_WORKSPACES.md).
 
 ## Architecture
 

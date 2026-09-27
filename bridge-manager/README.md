@@ -1,5 +1,16 @@
 # Registered bridge manager
 
+PB0 adds `operator overview`: one schema-1 bundle of the existing schema-8
+snapshot and a read-only supported-system assessment bound to that same state
+token. `operator readiness` remains a separate assessment refresh. It collects
+bounded local platform facts and checks exact accepted Arturia profiles against
+current installed artifact and publication readback. Existing `operator
+snapshot` and request wire shapes remain schema 8. An explicit `SupportExport`
+action creates an allowlisted JSON report locally under managed
+`support-exports`; it does not upload data or read vendor authorization
+payloads. The request uses the normal durable operation worker and exact
+schema-8 state-token revalidation.
+
 The Rust manager owns exact environments, runners, installer/application records, registration, publication, capacity, rollback, and canonical readback. The installed Python supervisor owns each launched Windows process tree. Neither runs in an audio callback.
 
 ## Installed setup

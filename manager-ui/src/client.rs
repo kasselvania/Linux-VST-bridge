@@ -1,5 +1,5 @@
 //! Fixed manager entry point; no shell and no user-supplied executable/arguments.
-use crate::model::{Activity, Receipt, Request, Snapshot};
+use crate::model::{Activity, ReadinessBundle, Receipt, Request, Snapshot};
 use std::{
     io::{Read, Write},
     process::{Command, Stdio},
@@ -8,6 +8,7 @@ use std::{
 };
 pub enum Reply {
     Snapshot(Box<Snapshot>),
+    Overview(Box<ReadinessBundle>),
     Activity(Activity),
     Receipt(Receipt),
     Imported,
@@ -16,7 +17,7 @@ pub enum Reply {
 }
 pub enum Query {
     PickInstaller,
-    Snapshot,
+    Overview,
     Activity,
     Action(Request),
 }
@@ -37,7 +38,7 @@ fn call(query: Query) -> Result<Reply, String> {
     };
     let verb = match &query {
         Query::PickInstaller => "import-installer",
-        Query::Snapshot => "snapshot",
+        Query::Overview => "overview",
         Query::Activity => "activity",
         Query::Action(_) => "request",
     };
@@ -120,14 +121,14 @@ fn call(query: Query) -> Result<Reply, String> {
 fn decode_reply(query: Query, data: &[u8]) -> Result<Reply, String> {
     let envelope: serde_json::Value =
         serde_json::from_slice(data).map_err(|_| "Invalid manager response")?;
-    if envelope["schema"] != 8 {
-        return Err("Update the frontend and manager together: operator model 8 required".into());
+    let expected_schema = if matches!(query, Query::Overview) { 1 } else { 8 };
+    if envelope["schema"] != expected_schema {
+        return Err(format!("Update the frontend and manager together: operator model {expected_schema} required"));
     }
     match query {
         Query::PickInstaller => unreachable!(),
-        Query::Snapshot => {
-            serde_json::from_slice::<Snapshot>(data).map(|s| Reply::Snapshot(Box::new(s)))
-        }
+        Query::Overview => serde_json::from_slice::<ReadinessBundle>(data)
+            .map(|r| Reply::Overview(Box::new(r))),
         Query::Activity => serde_json::from_slice::<Activity>(data).map(Reply::Activity),
         Query::Action(_) => serde_json::from_slice::<Receipt>(data).map(Reply::Receipt),
     }
@@ -195,10 +196,16 @@ mod tests {
             "vendor_applications": [], "products": [], "active_sessions": [],
             "recent_incidents": [], "actions": []
         });
-        assert!(matches!(
-            decode_reply(Query::Snapshot, &serde_json::to_vec(&snapshot).unwrap()),
-            Ok(Reply::Snapshot(_))
-        ));
+        let overview=serde_json::json!({
+            "schema":1,"snapshot":snapshot,
+            "readiness":{"schema":1,"state_token":"exact-state","observed_at":1,
+                "overall_status":"unknown","system":system,"platform":[],"daw":[],
+                "audio":[],"graphics":[],"runtime":[],"products":[],"blockers":[],
+                "ordered_steps":[],"support_export_action":{"label":"Create report",
+                    "action":{"kind":"support_export"},"disabled_reason":null}}
+        });
+        assert!(matches!(decode_reply(Query::Overview,&serde_json::to_vec(&overview).unwrap()),
+            Ok(Reply::Overview(_))));
         for schema in [
             serde_json::json!(6),
             serde_json::json!(7),
@@ -207,7 +214,7 @@ mod tests {
             serde_json::Value::Null,
         ] {
             receipt["schema"] = schema;
-            for request in [query(), Query::Snapshot, Query::Activity] {
+            for request in [query(), Query::Activity] {
                 assert!(
                     decode_reply(request, &serde_json::to_vec(&receipt).unwrap())
                         .err()

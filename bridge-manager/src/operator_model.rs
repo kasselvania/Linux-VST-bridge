@@ -164,6 +164,8 @@ pub enum Action {
     IncidentExport {
         incident: String,
     },
+    /// Explicit local export of an allowlisted readiness report. No path input.
+    SupportExport {},
     WorkspaceSelectInstaller {
         installer: String,
         release: String,
@@ -176,7 +178,7 @@ pub enum Action {
     WorkspaceFocus {},
     WorkspaceStop {},
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct AvailableAction {
     pub label: String,
@@ -259,7 +261,7 @@ pub struct DawWorkspace {
     pub installer_choices: Vec<AvailableAction>,
     pub details: serde_json::Value,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct System {
     pub service: String,
@@ -270,6 +272,85 @@ pub struct System {
     pub pending_transactions: usize,
     pub stale_transports: usize,
     pub cleanup_unconfirmed: bool,
+}
+/// PB0 is a separate additive readback endpoint. Schema-8 snapshots and their
+/// closed action list stay parseable by the retained frontend generation.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ReadinessOutcome {
+    Ready,
+    ActionRequired,
+    Unsupported,
+    Unknown,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FactCertainty {
+    Observed,
+    ProfileRequired,
+    Inferred,
+    Unknown,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ReadinessFact {
+    pub name: String,
+    pub value: Option<String>,
+    pub source: String,
+    pub observed_at: u64,
+    pub certainty: FactCertainty,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ReadinessProduct {
+    pub name: String,
+    pub class_id: String,
+    pub module_sha256: String,
+    pub profile: Option<String>,
+    pub status: ReadinessOutcome,
+    pub reason: String,
+    pub failure_code: Option<String>,
+    pub facts: Vec<ReadinessFact>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ReadinessBlocker {
+    pub category: String,
+    pub status: ReadinessOutcome,
+    pub explanation: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ReadinessStep {
+    pub title: String,
+    pub detail: String,
+    /// Only an action already offered by the canonical manager may be included.
+    pub action: Option<AvailableAction>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReadinessAssessment {
+    pub schema: u32,
+    pub state_token: String,
+    pub observed_at: u64,
+    pub overall_status: ReadinessOutcome,
+    pub system: System,
+    pub platform: Vec<ReadinessFact>,
+    pub daw: Vec<ReadinessFact>,
+    pub audio: Vec<ReadinessFact>,
+    pub graphics: Vec<ReadinessFact>,
+    pub runtime: Vec<ReadinessFact>,
+    pub products: Vec<ReadinessProduct>,
+    pub blockers: Vec<ReadinessBlocker>,
+    pub ordered_steps: Vec<ReadinessStep>,
+    pub support_export_action: AvailableAction,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReadinessBundle {
+    pub schema: u32,
+    pub snapshot: Snapshot,
+    pub readiness: ReadinessAssessment,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
