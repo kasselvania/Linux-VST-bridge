@@ -1841,6 +1841,14 @@ mod tests {
             assert_eq!(inspections.get(), 1);
             assert_eq!(builds.get(), usize::from(boundary == "candidate"));
             if boundary == "candidate" {
+                // The installed private UI2 generation retained schema-11
+                // requests. Only the new continuation uses current schema 10.
+                let request_path = f.m.root.join("operator").join(&source).join("request.json");
+                let mut historical: ui::Request = read_json(&request_path).unwrap();
+                historical.schema = 11;
+                atomic_json(&request_path, &historical).unwrap();
+            }
+            if boundary == "candidate" {
                 assert!(owned.native.artifact.path.exists(),
                     "retirement must preserve the checkpointed native output");
             }
