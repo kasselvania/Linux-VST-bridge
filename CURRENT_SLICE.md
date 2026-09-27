@@ -1,6 +1,21 @@
 # Current work selection
 
-## Selected source-only canonical integration — UI1
+## Selected source-only manager readback measurement
+
+This branch starts from public canonical main `a9e3dab74465f8f39c180e454785261ad1a984ca`
+(tree `2f8896efced382b8b9cb569d1007bf85dedc838a`). **One claim:** measure
+one bounded full-snapshot fixture and remove the repeated parse/validation of
+the same installed profile set inside that snapshot. The canonical projection
+and action admission still use the exact same profile values, with fresh
+readback and mutation checks. This is source-only and does not install a
+manager or change Deck state. The measurement and limits are in
+[manager readback performance](docs/MANAGER_READBACK_PERFORMANCE.md).
+
+This first reduction is independent of UI2, PB0 and package work. It does not
+claim that navigation, cold startup, a larger product library or live Deck use
+is fast. Those user journeys require separate measured evidence.
+
+## Completed source-only canonical integration — UI1
 
 Public canonical main after WD1 is `80e66bc050975a35a80c85bb2a1da3d7738f5c63`
 (tree `585214bbbd44401a085c85cd9efcd0a2f7cdb979`). The UI1
