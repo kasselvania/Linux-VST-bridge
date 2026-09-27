@@ -350,21 +350,20 @@ fn sandbox_path(p: &PlatformReadback) -> Option<bool> {
 /// profile and physical catalogue. It cannot extend support to sibling builds.
 fn accepted_profile(
     m: &Manager,
-    db: Option<&Registry>,
+    db: &Registry,
     installed: &[profiles::Profile],
     product: &ui::Product,
-) -> bool {
-    let Some(db) = db else { return false };
+) -> std::result::Result<bool, &'static str> {
     let Some(entry) = db.classes.get(&product.class_id) else {
-        return false;
+        return Ok(false);
     };
     let Some(reference) = entry.managed_revision.as_ref() else {
-        return false;
+        return Ok(false);
     };
-    let Ok(revision) = m.load_revision(&product.class_id, reference) else {
-        return false;
-    };
-    installed.iter().any(|profile| {
+    let revision = m
+        .load_revision(&product.class_id, reference)
+        .map_err(|_| "READINESS_REVISION_UNAVAILABLE")?;
+    Ok(installed.iter().any(|profile| {
         BETA_PROFILE_IDS.contains(&profile.id.as_str())
             && revision.profile == *profile
             && profile.claim == profiles::Claim::VerifiedExactFixture
@@ -378,19 +377,27 @@ fn accepted_profile(
             && product.version == profile.class.version
             && product.details["profile"]["id"] == profile.id
             && product.details["profile"]["revision"] == profile.revision
-    })
+    }))
 }
 
 fn resolve_with(
     snapshot: &ui::Snapshot,
     p: &PlatformReadback,
     at: u64,
-    accepted: impl Fn(&ui::Product) -> bool,
+    authority_failures: &[&'static str],
+    accepted: impl Fn(&ui::Product) -> std::result::Result<bool, &'static str>,
 ) -> ui::ReadinessAssessment {
     use ui::ReadinessOutcome as O;
     let mut blockers = Vec::new();
     let mut steps = Vec::new();
     let has_deck = matches_deck(p);
+    for code in authority_failures {
+        blockers.push(issue(
+            code,
+            O::Unknown,
+            "Installed compatibility authority could not be verified. Open Diagnostics or create a support export.",
+        ));
+    }
     if p.arch.as_deref() != Some("x86_64") {
         blockers.push(issue(
             "architecture",
@@ -550,7 +557,12 @@ fn resolve_with(
         let beta_profile = product.details["profile"]["id"]
             .as_str()
             .is_some_and(|id| BETA_PROFILE_IDS.contains(&id));
-        let exact = beta_profile && accepted(product);
+        let acceptance = beta_profile.then(|| accepted(product));
+        let authority_failure = acceptance
+            .as_ref()
+            .and_then(|result| result.as_ref().err())
+            .copied();
+        let exact = acceptance.is_some_and(|result| result == Ok(true));
         let broken = [
             "module_valid",
             "environment_valid",
@@ -561,7 +573,12 @@ fn resolve_with(
         ]
         .iter()
         .any(|key| product.details[*key] != true);
-        let (status, reason) = if product.disposition == "quarantined" {
+        let (status, reason) = if authority_failure.is_some() {
+            (
+                O::Unknown,
+                "Installed compatibility authority could not be verified for this product.",
+            )
+        } else if product.disposition == "quarantined" {
             (
                 O::ActionRequired,
                 "The managed scan quarantined this exact module.",
@@ -583,6 +600,12 @@ fn resolve_with(
                 "This build and machine combination has no accepted PB0 support envelope.",
             )
         };
+        if let Some(code) = authority_failure {
+            if !blockers.iter().any(|blocker| blocker.category == code) {
+                blockers.push(issue(code, O::Unknown,
+                    "Installed compatibility authority could not be verified. Open Diagnostics or create a support export."));
+            }
+        }
         if status == O::ActionRequired {
             blockers.push(issue(
                 "product",
@@ -608,9 +631,11 @@ fn resolve_with(
             profile: product.details["profile"]["id"].as_str().map(str::to_owned),
             status,
             reason: reason.into(),
-            failure_code: product.details["refusal"]["code"]
-                .as_str()
-                .map(str::to_owned),
+            failure_code: authority_failure.map(str::to_owned).or_else(|| {
+                product.details["refusal"]["code"]
+                    .as_str()
+                    .map(str::to_owned)
+            }),
             facts: product_facts(product, at),
         });
     }
@@ -652,14 +677,25 @@ fn resolve_with(
             }
         }
     }
-    let overall = if blockers.iter().any(|b| b.status == O::Unsupported) {
+    // Product-specific outcomes remain on their product. A withdrawn profile,
+    // quarantine, or unqualified sibling cannot invalidate a verified system
+    // or another exact supported product.
+    let system_blockers = blockers.iter().filter(|b| b.category != "product");
+    let system_statuses: Vec<_> = system_blockers.map(|b| b.status).collect();
+    let overall = if system_statuses.contains(&O::Unsupported) {
         O::Unsupported
-    } else if blockers.iter().any(|b| b.status == O::Unknown) {
+    } else if system_statuses.contains(&O::Unknown) {
         O::Unknown
-    } else if !blockers.is_empty() {
+    } else if !system_statuses.is_empty() {
         O::ActionRequired
     } else if any_ready {
         O::Ready
+    } else if products.is_empty()
+        || products
+            .iter()
+            .any(|product| product.status == O::ActionRequired)
+    {
+        O::ActionRequired
     } else {
         O::Unknown
     };
@@ -672,7 +708,7 @@ fn resolve_with(
     } else {
         steps.truncate(1);
     }
-    if overall != O::Ready {
+    if !system_statuses.is_empty() {
         for product in &mut products {
             if product.status == O::Ready {
                 product.status = overall;
@@ -860,10 +896,21 @@ pub(super) fn resolve(
     p: &PlatformReadback,
     at: u64,
 ) -> ui::ReadinessAssessment {
-    let db = m.registry().ok();
-    let installed = profiles::installed_profiles().unwrap_or_default();
-    resolve_with(snapshot, p, at, |product| {
-        accepted_profile(m, db.as_ref(), &installed, product)
+    let db = m.registry();
+    let installed = profiles::installed_profiles();
+    let mut authority_failures = Vec::new();
+    if db.is_err() {
+        authority_failures.push("READINESS_REGISTRY_UNAVAILABLE");
+    }
+    if installed.is_err() {
+        authority_failures.push("READINESS_PROFILE_AUTHORITY_UNAVAILABLE");
+    }
+    resolve_with(snapshot, p, at, &authority_failures, |product| {
+        match (db.as_ref(), installed.as_ref()) {
+            (Ok(db), Ok(installed)) => accepted_profile(m, db, installed, product),
+            (Err(_), _) => Err("READINESS_REGISTRY_UNAVAILABLE"),
+            (_, Err(_)) => Err("READINESS_PROFILE_AUTHORITY_UNAVAILABLE"),
+        }
     })
 }
 
@@ -950,9 +997,16 @@ fn write_export(
         .first()
         .map(|step| step.title.clone());
     let current_error = assessment
-        .products
+        .blockers
         .iter()
-        .find_map(|product| product.failure_code.clone())
+        .find(|blocker| blocker.category.starts_with("READINESS_"))
+        .map(|blocker| blocker.category.clone())
+        .or_else(|| {
+            assessment
+                .products
+                .iter()
+                .find_map(|product| product.failure_code.clone())
+        })
         .or_else(|| {
             assessment
                 .blockers
@@ -1050,10 +1104,14 @@ mod tests {
         (snapshot, platform)
     }
     fn result(snapshot: &ui::Snapshot, platform: &PlatformReadback) -> ui::ReadinessAssessment {
-        resolve_with(snapshot, platform, 123, |product| {
-            product.class_id == "417274754156495350724C4650726F63"
-                && product.module_sha256
-                    == "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636"
+        let accepted = profiles::ap17_profiles().unwrap();
+        resolve_with(snapshot, platform, 123, &[], |product| {
+            Ok(accepted.iter().any(|profile| {
+                product.class_id == profile.class.class_id
+                    && product.module_sha256 == profile.module_sha256
+                    && product.details["profile"]["id"] == profile.id
+                    && product.details["profile"]["revision"] == profile.revision
+            }))
         })
     }
     #[test]
@@ -1176,9 +1234,10 @@ mod tests {
         let mut s = s.clone();
         s.products[0].details["profile"]["claim"] = json!("withdrawn");
         assert_eq!(
-            result(&s, &p).overall_status,
+            result(&s, &p).products[0].status,
             ui::ReadinessOutcome::Unsupported
         );
+        assert_eq!(result(&s, &p).overall_status, ui::ReadinessOutcome::Unknown);
         s.products[0].details["profile"]["claim"] = json!("verified_exact_fixture");
         s.system.pending_transactions = 1;
         assert_eq!(
@@ -1208,7 +1267,100 @@ mod tests {
         let (mut s, p) = fixture();
         assert_eq!(result(&s, &p).overall_status, ui::ReadinessOutcome::Ready);
         s.products[0].module_sha256 = "00".repeat(32);
+        assert_eq!(
+            result(&s, &p).products[0].status,
+            ui::ReadinessOutcome::Unknown
+        );
         assert_eq!(result(&s, &p).overall_status, ui::ReadinessOutcome::Unknown);
+    }
+    #[test]
+    fn mixed_roster_keeps_product_outcomes_separate_from_machine_readiness() {
+        use ui::ReadinessOutcome as O;
+        let (mut s, mut p) = fixture();
+        let ready = s.products[0].clone();
+        let mut other = ready.clone();
+        other.name = "Another build".into();
+        other.class_id = "ab".repeat(16);
+        other.module_sha256 = "cd".repeat(32);
+        other.details["profile"]["id"] = json!("unqualified-profile");
+        s.products.push(other.clone());
+        let unknown = result(&s, &p);
+        assert_eq!(unknown.overall_status, O::Ready);
+        assert_eq!(unknown.products[0].status, O::Ready);
+        assert_eq!(unknown.products[1].status, O::Unknown);
+
+        s.products[1].details["profile"]["id"] = ready.details["profile"]["id"].clone();
+        s.products[1].details["profile"]["claim"] = json!("withdrawn");
+        let unsupported = result(&s, &p);
+        assert_eq!(unsupported.overall_status, O::Ready);
+        assert_eq!(unsupported.products[0].status, O::Ready);
+        assert_eq!(unsupported.products[1].status, O::Unsupported);
+
+        s.products[1].disposition = "quarantined".into();
+        let quarantined = result(&s, &p);
+        assert_eq!(quarantined.overall_status, O::Ready);
+        assert_eq!(quarantined.products[0].status, O::Ready);
+        assert_eq!(quarantined.products[1].status, O::ActionRequired);
+
+        let second = profiles::ap17_profiles().unwrap().remove(1);
+        let mut second_ready = ready.clone();
+        second_ready.name = second.class.name;
+        second_ready.class_id = second.class.class_id;
+        second_ready.version = second.class.version;
+        second_ready.module_sha256 = second.module_sha256;
+        second_ready.details["profile"]["id"] = json!(second.id);
+        second_ready.details["profile"]["revision"] = json!(second.revision);
+        s.products.insert(1, second_ready);
+        s.products[2].disposition = "ready".into();
+        let two_and_withdrawn = result(&s, &p);
+        assert_eq!(two_and_withdrawn.overall_status, O::Ready);
+        assert_eq!(
+            two_and_withdrawn
+                .products
+                .iter()
+                .filter(|p| p.status == O::Ready)
+                .count(),
+            2
+        );
+        assert_eq!(two_and_withdrawn.products[2].status, O::Unsupported);
+
+        s.products.retain(|product| product.name == "Another build");
+        s.products[0].details["profile"]["id"] = json!("unqualified-profile");
+        let only_unknown = result(&s, &p);
+        assert_eq!(only_unknown.overall_status, O::Unknown);
+        assert_eq!(only_unknown.products[0].status, O::Unknown);
+
+        s.products = vec![ready];
+        p.arch = Some("aarch64".into());
+        let wrong_arch = result(&s, &p);
+        assert_eq!(wrong_arch.overall_status, O::Unsupported);
+        assert_ne!(wrong_arch.products[0].status, O::Ready);
+    }
+    #[test]
+    fn authority_read_failure_is_distinct_from_unqualified_product() {
+        use ui::ReadinessOutcome as O;
+        let (s, p) = fixture();
+        for code in [
+            "READINESS_REGISTRY_UNAVAILABLE",
+            "READINESS_PROFILE_AUTHORITY_UNAVAILABLE",
+            "READINESS_REVISION_UNAVAILABLE",
+        ] {
+            let r = resolve_with(&s, &p, 123, &[code], |_| Err(code));
+            assert_eq!(r.overall_status, O::Unknown);
+            assert_eq!(r.products[0].status, O::Unknown);
+            assert_eq!(r.products[0].failure_code.as_deref(), Some(code));
+            assert!(r.blockers.iter().any(|b| b.category == code));
+            assert!(r.ordered_steps[0].title.contains("compatibility"));
+        }
+        let f = crate::test_fixture::Fixture::new();
+        let assessment = resolve_with(&s, &p, 123,
+            &["READINESS_REGISTRY_UNAVAILABLE"],
+            |_| Err("READINESS_REGISTRY_UNAVAILABLE"));
+        let receipt = write_export(&f.m, &s, sanitized(assessment), &"cd".repeat(32), None)
+            .unwrap();
+        let report: Value = read_json(&f.m.root.join("support-exports")
+            .join(format!("{}.json",receipt["export"].as_str().unwrap()))).unwrap();
+        assert_eq!(report["current_error"], "READINESS_REGISTRY_UNAVAILABLE");
     }
     #[test]
     fn vendor_attention_and_old_wire_shape_remain_truthful() {

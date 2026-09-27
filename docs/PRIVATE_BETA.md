@@ -40,6 +40,10 @@ not inherited by the Steam Deck envelope or included in this first beta row.
 1. Open the manager. It identifies the machine, DAW, current service and exact
    product artifacts. Each fact states its source and certainty.
 2. Read one truthful outcome: ready, action required, unsupported or unknown.
+   The Home outcome describes the machine and DAW lane; a withdrawn,
+   quarantined or unqualified plug-in retains its own status and cannot erase
+   another product's verified support. Unreadable registry or installed profile
+   authority is a distinct unknown failure, not an unqualified product.
    Unknown combinations are not called incompatible or supported.
 3. Follow one bounded next step. Lawful vendor login remains in the vendor UI;
    the manager never handles credentials. PB1 must prove the full installer to

@@ -750,14 +750,18 @@ impl Operator {
                     ReadinessOutcome::Unknown => "Compatibility has not been qualified",
                 };
                 ui.strong(title);
-                if let Some(first) = r.blockers.iter().find(|b| b.status == r.overall_status)
+                if r.overall_status == ReadinessOutcome::Ready {
+                    ui.label("The exact supported products verify. Other products retain their own compatibility status.");
+                } else if let Some(first) = r.blockers.iter()
+                    .find(|b| b.category != "product" && b.status == r.overall_status)
+                    .or_else(|| r.blockers.iter().find(|b| b.status == r.overall_status))
                     .or_else(|| r.blockers.first()) {
                     ui.label(&first.explanation);
                 } else {
-                    ui.label("The exact published profile and current manager readback verify.");
+                    ui.label("No exact supported product is currently verified.");
                 }
                 let ready = r.products.iter().filter(|p| p.status == ReadinessOutcome::Ready).count();
-                ui.small(format!("{ready} exact supported product(s) verified · {} setup item(s) to review",r.blockers.len()));
+                ui.small(format!("{ready} exact supported product(s) verified · {} compatibility item(s) to review",r.blockers.len()));
                 if let Some(step) = r.ordered_steps.first() {
                     ui.separator();
                     ui.strong(format!("Next: {}",step.title));
@@ -773,10 +777,11 @@ impl Operator {
                 }
                 if page == Page::Setup {
                     ui.separator();
-                    if ui.add_enabled(!pending,egui::Button::new(&r.support_export_action.label)
+                    if ui.add_enabled(!pending && r.support_export_action.disabled_reason.is_none(),egui::Button::new(&r.support_export_action.label)
                         .min_size(egui::vec2(240.0,44.0))).clicked() {
                         *controls.chosen=Some(r.support_export_action.action.clone());
                     }
+                    if let Some(reason) = &r.support_export_action.disabled_reason {ui.label(reason);}
                     if let Some(file) = snapshot.operation.as_ref()
                         .and_then(|op|op["result"]["file"].as_str()) {
                         ui.label(format!("Sanitized report saved: ~/.local/share/linux-vst-bridge/managed/support-exports/{file}"));

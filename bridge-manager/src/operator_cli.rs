@@ -964,11 +964,6 @@ fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
         request.schema == 8 && request.state_token == snapshot.state_token,
         "operator_stale_request_refresh",
     )?;
-    // This PB0 action is offered only by the separate additive readiness
-    // endpoint, never inserted into schema-8 snapshots read by older UIs.
-    if matches!(request.action, ui::Action::SupportExport {}) {
-        return Ok(());
-    }
     let offered = available(snapshot)
         .into_iter()
         .find(|a| preparation_cli::offered(&request.action, &a.action))
@@ -980,6 +975,43 @@ fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
             .as_deref()
             .unwrap_or("operator_action_disabled"),
     )
+}
+fn validate_support_export_offer(
+    request: &ui::Request,
+    snapshot: &ui::Snapshot,
+    assessment: &ui::ReadinessAssessment,
+) -> Result<()> {
+    require(
+        request.schema == 8
+            && request.state_token == snapshot.state_token
+            && assessment.schema == 1
+            && assessment.state_token == snapshot.state_token
+            && assessment.system == snapshot.system,
+        "operator_stale_request_refresh",
+    )?;
+    let offered = &assessment.support_export_action;
+    require(
+        matches!(request.action, ui::Action::SupportExport {})
+            && preparation_cli::offered(&request.action, &offered.action),
+        "operator_action_not_available",
+    )?;
+    require(
+        offered.disabled_reason.is_none(),
+        offered
+            .disabled_reason
+            .as_deref()
+            .unwrap_or("operator_action_disabled"),
+    )
+}
+fn validate_current(m: &Manager, request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
+    if matches!(request.action, ui::Action::SupportExport {}) {
+        // The additive overview is the owner of this offer. Never admit the
+        // command merely because a caller knows its closed enum variant.
+        let assessment = readiness::assess(m, snapshot)?;
+        validate_support_export_offer(request, snapshot, &assessment)
+    } else {
+        validate(request, snapshot)
+    }
 }
 fn job_dir(m: &Manager, id: &str) -> Result<PathBuf> {
     require(valid_hex(id, 32), "operator_operation_identity")?;
@@ -1195,7 +1227,7 @@ fn dispatch_recorded(
 fn dispatch(m: &Manager, request: ui::Request) -> Result<ui::Receipt> {
     dispatch_recorded(m, &request, |id| {
         let _lock = m.lock("operator-dispatch.lock")?;
-        validate(&request, &snapshot(m)?)?;
+        validate_current(m, &request, &snapshot(m)?)?;
         let sw = software(m)?;
         sw.manager.verify()?;
         launch_reserved(m, &request, id, |id| {
@@ -2271,7 +2303,7 @@ fn worker_with_capacity(
     )?;
     let mut waits = vec![];
     let validation = snapshot_for_operation(m, Some(id), timeout, &mut waits, capacity_read)
-        .and_then(|snapshot| validate(&request, &snapshot));
+        .and_then(|snapshot| validate_current(m, &request, &snapshot));
     if let Err(e) = validation {
         let failure = e
             .downcast_ref::<linux_vst_bridge::operator_lock::AcquisitionFailure>()
@@ -2951,15 +2983,47 @@ mod tests {
     }
     #[test]
     fn support_export_uses_closed_action_and_exact_current_state_token() {
-        let s=view("current",action("Unrelated",ui::Action::DependencyPrepare {},None));
-        let mut request=ui::Request {schema:8,state_token:"current".into(),
-            action:ui::Action::SupportExport {}};
-        validate(&request,&s).unwrap();
-        request.state_token="stale".into();
-        assert!(validate(&request,&s).is_err());
-        request.state_token="current".into();
-        request.schema=11;
-        assert!(validate(&request,&s).is_err());
+        let s = view(
+            "current",
+            action("Unrelated", ui::Action::DependencyPrepare {}, None),
+        );
+        let mut request = ui::Request {
+            schema: 8,
+            state_token: "current".into(),
+            action: ui::Action::SupportExport {},
+        };
+        assert!(validate(&request, &s).is_err());
+        let mut assessment = ui::ReadinessAssessment {
+            schema: 1,
+            state_token: s.state_token.clone(),
+            observed_at: 1,
+            overall_status: ui::ReadinessOutcome::Unknown,
+            system: s.system.clone(),
+            platform: vec![],
+            daw: vec![],
+            audio: vec![],
+            graphics: vec![],
+            runtime: vec![],
+            products: vec![],
+            blockers: vec![],
+            ordered_steps: vec![],
+            support_export_action: action("Create report", ui::Action::SupportExport {}, None),
+        };
+        validate_support_export_offer(&request, &s, &assessment).unwrap();
+        assessment.support_export_action.disabled_reason = Some("Readback unavailable".into());
+        assert!(validate_support_export_offer(&request, &s, &assessment).is_err());
+        assessment.support_export_action.disabled_reason = None;
+        assessment.support_export_action.action = ui::Action::DependencyPrepare {};
+        assert!(validate_support_export_offer(&request, &s, &assessment).is_err());
+        assessment.support_export_action.action = ui::Action::SupportExport {};
+        assessment.state_token = "other assessment".into();
+        assert!(validate_support_export_offer(&request, &s, &assessment).is_err());
+        assessment.state_token = "current".into();
+        request.state_token = "stale".into();
+        assert!(validate_support_export_offer(&request, &s, &assessment).is_err());
+        request.state_token = "current".into();
+        request.schema = 11;
+        assert!(validate_support_export_offer(&request, &s, &assessment).is_err());
     }
     #[test]
     fn workspace_selection_accepts_only_exact_offered_import_and_release_syntax() {
