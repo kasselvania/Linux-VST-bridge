@@ -1,98 +1,242 @@
-# Current work selection — WD1
+# Current work selection
 
-Canonical base: normal merge of WD0 PR #163,
+No further implementation slice is selected by the FN1/PW1 merges. PSL1 is the
+tech-lead's proposed next separate slice; it has not begun.
+
+## Completed managed Windows DAW slice — WD1
+
+WD1 [PR #169](https://github.com/kasselvania/Linux-VST-bridge/pull/169) adds
+one manager-owned Serum 2.1.5 Windows VST3 installation inside the existing FL
+Studio trial workspace. The retained [Deck result](evidence/wd1/deck-serum-direct-2026-09-25.md)
+establishes FL discovery, audible piano-roll playback, a preset change,
+parameter automation, normal close, and fresh-session playback. The FL
+application and workspace identities, native bridge publications, runner, and
+audio settings were preserved. The operator deferred WAV export; trial-mode
+FLP save/reopen, licensed recall, ASIO, and physical MIDI remain unqualified.
+WD1 is a bounded parallel lane, not a new native-bridge support claim.
+
+## Completed Pi state-safe first-note prewarm — PW1
+
+PW1 was developed separately on FN1
+[PR #174](https://github.com/kasselvania/Linux-VST-bridge/pull/174) head
+`1399a9655b6d1c8abb99f7058c8b34d28bcb76ab`, tree
+`1e0a92909f0f94e7be136fe1fc4cbfc92edb8bdb`. FN1 merged first as
+`64251ef1c328849997cda9fb9381ce2c08916f4c`; PW1 PR #175 was then
+retargeted to canonical `main`. Its basis is the operator's
+Pi repair direction, AGENTS real-time and slice laws, GOVERNANCE “What evidence
+means”, ARCHITECTURE §§7 and 13, FC-AUDIO-001, and the
+[FN1 physical attribution](evidence/fn1/serum-first-note-2026-09-25.md).
+
+**One claim:** for the named Serum 2.1.5 default-state Pi fixture, opt-in
+startup-only note-on/note-off processing followed by stop, deactivate, and an
+exact second state restoration removes the repeatable first-user-note gap
+while preserving the serialized state, ordinary subsequent output, and clean
+retirement. The
+normal callback, shared transport, protocol 12/map v1, 256-frame quantum,
+512-frame reserve, 48 kHz/512 JACK setup, GE Proton/FEX runtime, governor,
+scheduling, vendor settings, and installed selections remain fixed. Output
+from the startup note is discarded before JACK activation. A restoration
+mismatch or prewarm timeout refuses readiness. The experiment does not claim
+a general Serum repair, a vendor-internal allocation result, arbitrary preset
+equivalence, or Pi musical qualification.
+
+Source scope is the standalone appliance startup sequence and focused
+verification; physical scope is a private source candidate, the same state/module,
+editor closed and the retained two-note MIDI fixture. Compare first-user-note
+Windows process span, delivered and missing frames, output presence, state
+readbacks and exact cohort retirement with the retained FN1 baseline. Retain
+the actual result even if prewarming merely moves or fails to remove the gap.
+Do not import BR1/BR1R recovery or install a new normal service as part of PW1.
+
+The staged [PW1 physical result](evidence/pw1/serum-default-prewarm-2026-09-25.md)
+contains a fresh unchanged FN1 baseline between three runs of the final PW1
+build. The baseline again lost 1,280 first-note frames; all three PW1 runs
+lost zero frames, retained byte-identical state readback and matching control
+readbacks, delivered nonzero note audio, and retired cleanly. PW1 moved the
+cold approximately 43 ms call into an approximately 136–140 ms startup
+sequence. It does not establish vendor-hidden state equivalence, arbitrary
+preset behavior, a CPU saving, or musical qualification. FN1 and PW1 were
+reviewed separately. PW1 remains off by default, and no normal Pi generation
+was installed.
+
+## Completed Serum first-note attribution — FN1
+
+FN1 starts from canonical `main` merge commit
+`25a6cfc3824164d4fdde79abda758ffdca636998`, tree
+`ed16e8d971dda8c9b844a4235d94dd1a58e14f57`, after PI-R
+[PR #173](https://github.com/kasselvania/Linux-VST-bridge/pull/173)
+merged. Its basis is the operator's 2026-09-25 first-note direction,
+`AGENTS.md` real-time and evidence rules, GOVERNANCE “What evidence means”,
+ARCHITECTURE §§7 and 13, FC-AUDIO-001, and the
+[PI-R physical result](evidence/pi-reconciliation/serum-default-2026-09-25.md).
+
+**One claim:** attribute the repeatable approximately 34 ms first-note
+Windows `processor.process()` span on the canonical Pi source to caller
+execution, worker dependency, scheduling, translation/JIT, faulting or
+blocking, or state the exact remaining attribution gap. Bind the first slow
+request and one later note request to epoch, sequence, position, MIDI identity,
+native service stages, Windows wall and CPU counters, and Linux task activity.
+Diagnostics remain optional and bounded; they do not decide whether audio
+proceeds. Retain source/build identities, raw private records, sanitized
+findings, observed first-note gap and clean shutdown.
+
+The fixture remains the private Serum 2.1.5 module and captured default state
+from PI-R, editor closed, on the Pi 5 with GE Proton/FEX, JACK 48 kHz/512,
+protocol 12/map v1, 256-frame quantum, 512-frame reserve, ondemand governor,
+normal scheduling/affinity, and the existing two-note fixture. No runtime,
+plug-in state, vendor setting, queue, timeout, recovery policy, governor,
+priority, affinity, quantum or reserve change is admitted. FN1 does not
+prewarm, optimize, qualify musical usability or replace an installed service.
+
+The retained [FN1 Pi result](evidence/fn1/serum-first-note-2026-09-25.md)
+binds the repeatable 1,280-frame first-note gap to a roughly 34 ms Windows
+call. The caller ran through the span, aligned user-space samples landed in
+the FEX ARM64EC boundary, and new Serum guest-code map entries appeared during
+that call. This supports a cold translation/JIT mechanism for the exact
+default-state fixture. FN1 makes no repair or speed claim. PW1 is the
+separate startup experiment selected from that result.
+
+## Completed Pi source reconciliation — PI-R
+
+The operator selected the minimal current-main Pi standalone reconciliation after
+the shared-storage repair merged as PR #172. PI-R starts at canonical `main`
+`f7668b6ffcb2ae1261d121514aaaed0c9b8986c7`, tree
+`00495de1d8653a26e25b331fef1f93348d14606b`. Its basis is the operator's
+Pi repair direction, the real-time and slice laws in `AGENTS.md`, GOVERNANCE
+“Decisions” and “What evidence means”, ARCHITECTURE §§5.2, 5.7–5.9, 6.3–6.6,
+7, 13 and 15, draft PR #171 at `6fe296bd1139b071c9ae6ffb7da628b519309bd2`,
+and FC-AUDIO-001/002. PR #171 remains unmerged and is cited as evidence, not
+repository-local authority.
+
+**One claim:** the standalone ARM JACK/MIDI frontend and explicit Pi execution
+adapter can run against the canonical shared bridge core and Windows host,
+using protocol 12, map v1, a 256-frame processing quantum and the existing
+512-frame Serum presentation reserve. PI-R may add the minimum Windows host
+architecture check needed to preserve the cross-process mapping contract.
+Source scope is `rpi0/standalone`, `rpi1/standalone`, source-owned `rpi2` binding
+metadata, the bounded `rpi0` backend adapter, and that host handshake. The
+commercial fixture is the existing private Serum 2.1.5 module on the Pi 5,
+with JACK 48 kHz/512 and its pinned GE Proton/FEX runtime. Build artifacts,
+private configuration and state stay outside the repository.
+
+Acceptance requires ARM release build and focused source tests, exact
+architecture/identity validation, normal MIDI/audio and state operation,
+supervised lifecycle and clean retirement on the Pi. An incorrect layout,
+module, runtime, state, or response must refuse explicitly. Retain the actual
+physical observations, including any incomplete gate. The comparison arms are
+the pre-AS1 `b76c9e2` base plus identical reconciliation R and the post-AS1
+base plus R. Establish the runnable pre-AS1 arm before attributing any measured
+effect to the storage repair.
+
+This slice does not import BR1/BR1R recovery, change callback policy, runtime,
+JACK configuration, governor, graphics, quantum, reserve, queue, timeout,
+vendor settings, state identity or installed selections. It does not qualify
+musical usability or a performance gain from a successful source build.
+
+The staged [PI-R Serum default-state result](evidence/pi-reconciliation/serum-default-2026-09-25.md)
+establishes a runnable current-main Pi source candidate and a matched
+four-pair pre/post-AS1 comparison, including one reverse-order pair. Mean
+completed-request service fell by 14–20 µs per pair, while the same
+1,280-frame first-note gap remained in all eight runs and CPU ranges
+overlapped. All sessions retired cleanly. This is
+candidate evidence for [PR #173](https://github.com/kasselvania/Linux-VST-bridge/pull/173),
+not approval of the old recovery policy, an installed change, or Pi musical
+qualification. The next repair must be selected from the repeatable first-note
+Windows processing span rather than folded into PI-R.
+
+## Completed shared-audio source slice — AS1
+
+The operator selected a focused, shared audio-execution storage repair. AS1
+starts from canonical `main` commit
 `b76c9e2270c63c78be2a51adf6562a3f838ffa7f`, tree
-`74e13f5b1e10bd4a53d8b626657c403320fb62d2`. The native Linux DAW
-bridge remains the primary release-driving product. UI0 and the six selected
-native publications remain accepted and installed.
+`74e13f5b1e10bd4a53d8b626657c403320fb62d2`. Its basis is the operator's
+2026-09-25 instruction, AGENTS real-time and slice laws, GOVERNANCE “Decisions”
+and “What evidence means”, ARCHITECTURE §§5.2, 5.7–5.9, 6.3–6.6, 7, 13 and 15,
+[draft PR #171](https://github.com/kasselvania/Linux-VST-bridge/pull/171) at
+`6fe296bd1139b071c9ae6ffb7da628b519309bd2` (its
+`docs/ARM_PORTABILITY_REASSESSMENT.md`), FC-AUDIO-001/002 and the
+SUPPORT_MATRIX exact processing conditions. PR #171 is not merged into this
+source base.
 
-## Completed bounded WD0 result
+**One source claim:** after session setup, the selected shared processing
+request/reply path uses reusable, bounded per-instance bridge storage without
+recurring allocation, reallocation or deallocation. The covered path is the
+native transport worker's audio mapping, event/context request encoding,
+mailbox or socket frame exchange and result decode, plus the Windows host's
+request decode and result publication. Protocol minors 5 and 7–13, float32,
+negotiated blocks 0–256 where admitted, up to 256 input events, 64 returned
+events, 128 parameter points and 4096 returned payload bytes are the bounded
+source contract. Protocol, quantum, reserve, queue, state, recovery policy,
+checks and callback ownership are unchanged. SDK/vendor/runtime allocations,
+setup/state/lifecycle/error paths and historical protocol minors 1–4 are not
+part of this claim.
 
-The existing Steam Deck FL workspace survived clean uninstall and manager-owned
-reinstall of official FL Studio `26.1.5.5618`. Its identity, prefix, runner,
-user roots, earlier install/uninstall receipts and historical failure remained.
-One normal managed trial-mode launch retired cleanly. A saved `.flp` exists.
-The selected audio backend, stock audible playback, WAV export, post-save
-relaunch and licensed FLP recall were not established by the retained WD0
-evidence. The exact [Deck result](evidence/wd0/deck-trial-2026-09-25.md) and
-[support matrix](docs/SUPPORT_MATRIX.md) keep those boundaries explicit.
-The operator later reported hearing stock playback in demo mode; this is an
-operator observation, not a retained WD0 audio receipt.
+Changed implementation scope: `native-audio-client` mapping/frame/event and
+endpoint helpers; `native-vst3-proxy/backend` session/context/mailbox storage;
+Windows `ap1_protocol.h`, `delivery_mailbox.h` and `mapped_processing.cpp`;
+focused tests and this slice entry. No runner, FEX, Wine, graphics, governor,
+priority, JACK, capacity, timeout, policy, vendor setting, plug-in, frontend
+or installed generation change is admitted. Acceptance requires exact wire
+equivalence, first-block and repeated zero bridge allocation counts, maximum
+valid traffic, zero/partial blocks, multi-output checks, malformed responses,
+independent-instance ownership and a Windows production build. Failure must
+remain explicit and must not release a mailbox slot before its reply is copied.
 
-## Active Deck-mutating slice — WD1
+The exact Pi comparison fixture is a Raspberry Pi 5 at JACK 48 kHz/512 using
+the existing supervised standalone path and Serum 2.1.5 module digest
+`501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283`,
+Windows host digest `4ab203ab8aa25555eebce6782cd52a11643a1b935abe8a2ce0cb04baeb453161`,
+protocol 12, 256-frame processing quantum and 512-frame presentation reserve.
+The BR1 gate's unnamed preset is not a reproducible fixture identity. No AS1
+physical comparison may be attributed to this patch until a runnable
+current-main/Pi source pair has been reconciled in a separate prerequisite,
+built with matching options, and baselined before applying the AS1 change.
+The Pi fork's map-v2/512-capacity specialization and current main's
+map-v1/256-capacity plus protocol-13 multi-output support must be reconciled
+without importing BR1/BR1R recovery policy. Keep all installed generations,
+private state and experimental candidates in place. A source pass is not a
+musical or performance qualification; record the physical result or exact
+blocker in the implementation PR.
 
-Primary claim: the existing managed Windows FL Studio workspace installs the
-operator's exact official Serum 2 `2.1.5` Windows VST3 through a typed manager
-product operation, FL discovers it and plays a short audible Serum pattern with
-preset change and parameter automation, and another normal fresh launch can add
-and play Serum again. Trial-mode saved FLP recall is deferred. The operator
-explicitly deferred WAV export as unnecessary for this pass; it remains an
-unqualified future check rather than a WD1 completion gate.
+The native Linux DAW bridge remains the primary release-driving product.
+WD0 merged into this canonical base through
+[PR #163](https://github.com/kasselvania/Linux-VST-bridge/pull/163).
+[WD1 PR #169](https://github.com/kasselvania/Linux-VST-bridge/pull/169) is
+the active, separate managed-Windows-DAW lane; it is not an AS1 dependency or
+part of this source change. No Deck-mutating work is selected by AS1.
 
-Basis: `AGENTS.md` (core product invariants, fixture law, evidence and security),
-`docs/ARCHITECTURE.md` (native bridge boundary),
-`docs/WINDOWS_DAW_WORKSPACES.md` (architectural ruling, runtime and plug-in
-compatibility, containment, audio and persistence), `docs/WD0.md` (repeatable
-installation lifecycle and trial limit), `docs/FAILURE_CLASSES.md` and
-`docs/SUPPORT_MATRIX.md`. The fixture is Steam Deck Desktop Mode, existing FL
-workspace `762bafec213cefe91dbe14d67ee1b1c6`, FL `26.1.5.5618`, runner
-`proton-11.0-2c-fl-crypt32-order-v1`, and the already imported official Serum
-installer SHA-256
-`507b726d97bf78920157f3817aff003b9ee38ee961f4efd318cf43216370f695`.
-The audio device is currently unknown and must remain unchanged.
+## Completed native manager slice — UI0
 
-In scope: closed Serum product selection/install/readback under the FL workspace;
-canonical installer verification and supervised installer cohort; separate
-product operation/history and exact VST3 module/resource observation; small
-Workspaces projection and manager-offered actions; focused changed-owner tests;
-one controlled physical FL scan/play/preset/automation/restart pass;
-sanitized exact evidence and support/failure-ledger updates for what actually
-passes.
+UI0 [#160](https://github.com/kasselvania/Linux-VST-bridge/issues/160) is
+merged and physically accepted on the Steam Deck. The installed immutable
+manager/frontend generation is
+`29e52e7537c2e150a68db7f66799621a94d39b7aac7b20e22aded0d03a28facf`;
+its sanitized [Deck result](evidence/ui0/deck-acceptance-2026-09-24.md) records
+ordinary and narrow navigation, one Serum 2 session, manager close/reopen,
+continued Bitwig audio and clean retirement. The previous manager/frontend
+generation remains a rollback target. Home, Plug-ins, Workspaces, Activity,
+Setup and Diagnostics, including `ActivityCertainty` and exact session routing,
+are accepted source and installed behavior. WD0 preserved that native manager
+boundary.
 
-Out of scope: changing FL's selected application installer or installation
-history; replacing its runner or audio backend without a concrete classified
-defect; copying another prefix or plug-in binary; native Linux publication,
-proxy, bridge host/transport or DSP lease; six-instance capacity; WineASIO,
-Game Mode, another vendor suite, Ableton, ARM, broad performance or licensed
-trial-project recall.
+The six selected native publications, Serum candidate D,
+`x11_touch_routing_v2`, required exact Windows host/source pairs and runner
+policies remain current product state. WD0 workspace work did not alter the
+native bridge service, publication, proxy, capacity or audio path.
 
-Source acceptance: old schema-1/2 workspaces load without mutation; FL app
-fields and prior histories remain exact through Serum selection/install; only
-the exact admitted Serum installer and closed release are accepted; no FL or
-installer session, pending uninstall, uncertain cleanup or pre-existing
-unowned module can be overwritten; every product attempt retains a distinct
-operation and result; module identity is read from the FL prefix only; no native
-registry/software/publication or runner selection changes. Run manager binary
-and library tests, runtime Python tests only if runtime changes, manager/UI
-strict Clippy, manager UI tests if projected, package tests if packaging
-changes, AP12, PX2 and changed-file `git diff --check`.
+## Completed bounded source slice — WD0
 
-Physical acceptance begins with read-only prestate and exclusive Deck custody.
-Use the exact already admitted installer; do not download a newer version.
-Observe installer UI through the normal lawful route and leave account/activation
-to the operator. Preserve the existing FL prefix and data. Verify FL's own
-plugin scan, audible piano-roll pattern, one preset change, one parameter
-automation, an FLP save only if the current demo permits it, clean cohort
-retirement, and fresh-session Serum playback after normal relaunch. Verify the
-six native publications and environments remain unchanged. Stop at the first
-physical discrepancy and retain the exact result;
-do not compensate by editing workspace JSON or importing an isolated VST3.
-
-Rollback: keep the prior immutable manager/tooling generation; a source or
-presentation failure can restore it without replacing the mutable workspace.
-The product installer may mutate only the existing FL prefix; no destructive
-workspace reset is in scope.
-
-## Physical status
-
-The manager-owned Serum installation, FL discovery and audible piano-roll use,
-preset change, parameter automation, first clean retirement, and playback in a
-second normal FL session have been observed. The second exact session also
-retired with confirmed cleanup and zero owned processes. The current Serum
-module and all six native publications remain exact. See the
-[WD1 Deck evidence](evidence/wd1/deck-serum-direct-2026-09-25.md).
-
-The operator chose to defer WAV export. No WAV result or FLP save/reopen is
-claimed. The earlier export-inclusive WD1 target was narrowed by that operator
-choice; do not rerun the accepted installation or fresh-session work merely to
-fill this separate qualification gap.
+WD0 [#158](https://github.com/kasselvania/Linux-VST-bridge/issues/158)
+merged as [PR #163](https://github.com/kasselvania/Linux-VST-bridge/pull/163)
+at the AS1 canonical base above. Its bounded result is a managed FL Studio
+workspace with repeatable same-workspace installation after clean uninstall,
+append-only operation history, a normal managed trial-mode launch, saved-file
+presence, and confirmed cleanup. Stock-audio/export behavior and licensed
+saved-project recall remain unqualified as recorded in
+[the Deck result](evidence/wd0/deck-trial-2026-09-25.md). The original
+workspace migrated from schema 1 to schema 2 and installed official FL Studio
+`26.1.5.5618`; the earlier install/uninstall receipts remain. The installer
+returned a nonzero outer status, retained as historical `needs_user_action`,
+while the later managed launch completed with confirmed cleanup. Licensed
+saved-project recall remains unqualified in trial mode. The broader issue
+#158 remains open; its merged WD0 source slice is complete.

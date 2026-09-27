@@ -42,10 +42,16 @@ impl Event {
     }
 }
 pub fn encode(events: &[Event], frames: usize) -> io::Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    encode_into(events, frames, &mut bytes)?;
+    Ok(bytes)
+}
+pub fn encode_into(events: &[Event], frames: usize, bytes: &mut Vec<u8>) -> io::Result<()> {
     need(events.len() <= MAX_EVENTS, "event capacity")?;
-    let mut bytes = vec![0; 8 + EVENT_BYTES * events.len()];
-    put(&mut bytes[..4], events.len() as u64);
-    for (e, b) in events.iter().zip(bytes[8..].chunks_exact_mut(EVENT_BYTES)) {
+    let start = bytes.len();
+    bytes.resize(start + 8 + EVENT_BYTES * events.len(), 0);
+    put(&mut bytes[start..start + 4], events.len() as u64);
+    for (e, b) in events.iter().zip(bytes[start + 8..].chunks_exact_mut(EVENT_BYTES)) {
         need(e.valid(frames), "event value/extent")?;
         put(&mut b[..4], e.offset as u64);
         put(&mut b[4..8], e.kind as u64);
@@ -55,7 +61,7 @@ pub fn encode(events: &[Event], frames: usize) -> io::Result<Vec<u8>> {
         b[16..24].copy_from_slice(&e.value.to_le_bytes());
         b[24..28].copy_from_slice(&e.tuning.to_le_bytes());
     }
-    Ok(bytes)
+    Ok(())
 }
 pub fn decode(bytes: &[u8], frames: usize) -> io::Result<Vec<Event>> {
     need(bytes.len() >= 8, "event header")?;

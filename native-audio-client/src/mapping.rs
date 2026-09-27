@@ -61,15 +61,19 @@ impl Mapping {
         Ok(())
     }
     pub fn read(&self, offset: usize, n: usize) -> io::Result<Vec<u8>> {
+        let mut b = vec![0; n];
+        self.read_into(offset, &mut b)?;
+        Ok(b)
+    }
+    pub fn read_into(&self, offset: usize, b: &mut [u8]) -> io::Result<()> {
         need(
-            offset.checked_add(n).is_some_and(|end| end <= self.bytes),
+            offset.checked_add(b.len()).is_some_and(|end| end <= self.bytes),
             "mapping read bounds",
         )?;
-        let mut b = vec![0; n];
         unsafe {
-            std::ptr::copy_nonoverlapping(self.pointer.as_ptr().add(offset), b.as_mut_ptr(), n)
+            std::ptr::copy_nonoverlapping(self.pointer.as_ptr().add(offset), b.as_mut_ptr(), b.len())
         };
-        Ok(b)
+        Ok(())
     }
     pub fn write_plane(
         &mut self,
@@ -77,11 +81,15 @@ impl Mapping {
         ch: usize,
         words: &[u32; CAP + 2],
     ) -> io::Result<()> {
-        let bytes: Vec<_> = words.iter().flat_map(|w| w.to_le_bytes()).collect();
+        let mut bytes = [0; STRIDE];
+        for (word, chunk) in words.iter().zip(bytes.chunks_exact_mut(4)) {
+            chunk.copy_from_slice(&word.to_le_bytes());
+        }
         self.write(base + ch * STRIDE, &bytes)
     }
     pub fn plane(&self, base: usize, ch: usize) -> io::Result<[u32; CAP + 2]> {
-        let bytes = self.read(base + ch * STRIDE, STRIDE)?;
+        let mut bytes = [0; STRIDE];
+        self.read_into(base + ch * STRIDE, &mut bytes)?;
         Ok(std::array::from_fn(|i| {
             u32::from_le_bytes(bytes[4 * i..4 * i + 4].try_into().unwrap())
         }))

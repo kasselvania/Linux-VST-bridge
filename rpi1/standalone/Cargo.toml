@@ -1,0 +1,26 @@
+[package]
+name = "lvb-arm-pigments-standalone"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "lvb-arm-plugin-standalone"
+path = "src/main.rs"
+
+[features]
+default = []
+jack-runtime = ["lvb-arm-standalone/jack-runtime"]
+
+[dependencies]
+ap2-backend = { path = "../../native-vst3-proxy/backend", features = ["rpi0"] }
+lvb-arm-standalone = { path = "../../rpi0/standalone" }
+sha2 = "=0.10.9"
+libc = "=0.2.189"
+serde_json = "=1.0.150"
+
+[profile.release]
+panic = "abort"
+strip = true
+lto = "thin"
+codegen-units = 1
