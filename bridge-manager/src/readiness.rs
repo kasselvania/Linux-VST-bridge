@@ -58,7 +58,6 @@ fn bounded_file(path: &Path, limit: u64) -> Option<String> {
 /// output limit prevent a broken helper from hanging manager readback.
 fn bounded_command(program: &str, args: &[&str]) -> Option<String> {
     let executable = match program {
-        "systemctl" => "/usr/bin/systemctl",
         "flatpak" => "/usr/bin/flatpak",
         "pw-metadata" => "/usr/bin/pw-metadata",
         "jack_lsp" => "/usr/bin/jack_lsp",
@@ -68,6 +67,10 @@ fn bounded_command(program: &str, args: &[&str]) -> Option<String> {
     let mut child = Command::new(executable)
         .args(args)
         .env("LC_ALL", "C")
+        .env(
+            "XDG_RUNTIME_DIR",
+            format!("/run/user/{}", unsafe { libc::getuid() }),
+        )
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
@@ -126,18 +129,37 @@ fn pipewire_setting(text: &str, key: &str) -> Option<u32> {
     })
 }
 
+fn local_display_number(raw: &str) -> Option<u8> {
+    let mut parts = raw.strip_prefix(':')?.split('.');
+    let number = parts.next()?;
+    if let Some(screen) = parts.next() {
+        if screen.is_empty() || screen.len() > 2 || !screen.bytes().all(|b| b.is_ascii_digit()) {
+            return None;
+        }
+    }
+    if parts.next().is_some() {
+        return None;
+    }
+    (!number.is_empty() && number.len() <= 2 && number.bytes().all(|b| b.is_ascii_digit()))
+        .then(|| number.parse::<u8>().ok())
+        .flatten()
+}
+
 pub(super) fn collect(m: &Manager) -> PlatformReadback {
     let os = bounded_file(Path::new("/etc/os-release"), 8192).unwrap_or_default();
-    let environment =
-        bounded_command("systemctl", &["--user", "show-environment"]).unwrap_or_default();
     let env = |key: &str| {
-        std::env::var(key)
-            .ok()
-            .or_else(|| key_value(&environment, key))
-            .filter(|value| {
-                !value.is_empty() && value.len() <= 128 && !value.chars().any(char::is_control)
-            })
+        std::env::var(key).ok().filter(|value| {
+            !value.is_empty() && value.len() <= 128 && !value.chars().any(char::is_control)
+        })
     };
+    let display = env("DISPLAY")
+        .and_then(|raw| local_display_number(&raw))
+        .and_then(|number| {
+            Path::new("/tmp/.X11-unix")
+                .join(format!("X{number}"))
+                .exists()
+                .then(|| "socket available".into())
+        });
     let info = bounded_command("flatpak", &["info", BITWIG]).unwrap_or_default();
     let metadata = bounded_command("pw-metadata", &["-n", "settings", "0"]).unwrap_or_default();
     let runtime = PathBuf::from(format!("/run/user/{}", unsafe { libc::getuid() }));
@@ -161,7 +183,7 @@ pub(super) fn collect(m: &Manager) -> PlatformReadback {
             .map(|s| s.trim().to_owned())
             .filter(|s| !s.is_empty()),
         session: env("XDG_SESSION_TYPE"),
-        display: env("DISPLAY").map(|_| "available".into()),
+        display,
         runtime_dir,
         pipewire_socket: runtime.join("pipewire-0").exists(),
         jack_available: bounded_command("jack_lsp", &[]).map(|_| true),
@@ -769,11 +791,16 @@ fn resolve_with(
                 "user session environment",
                 at,
             ),
-            observed(
-                "X11/XWayland display",
+            fact(
+                "X11/XWayland socket",
                 p.display.clone(),
-                "user session environment",
+                "DISPLAY and local X11 socket",
                 at,
+                if p.display.is_some() {
+                    ui::FactCertainty::Inferred
+                } else {
+                    ui::FactCertainty::Unknown
+                },
             ),
             observed(
                 "Graphics driver",
@@ -959,6 +986,10 @@ mod tests {
     #[test]
     fn bounded_platform_parsers_keep_graph_values_separate_from_device_and_host_values() {
         assert!(bounded_command("sh", &["-c", "true"]).is_none());
+        assert_eq!(local_display_number(":0"), Some(0));
+        assert_eq!(local_display_number(":12.0"), Some(12));
+        assert_eq!(local_display_number(":0.bad"), None);
+        assert_eq!(local_display_number("localhost:10"), None);
         let os = "ID=steamos\nVERSION_ID=\"3.8.16\"\n";
         assert_eq!(key_value(os, "ID").as_deref(), Some("steamos"));
         assert_eq!(key_value(os, "VERSION_ID").as_deref(), Some("3.8.16"));
