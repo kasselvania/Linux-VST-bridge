@@ -1150,12 +1150,37 @@ fn finish_operation(m: &Manager, id: &str) -> Result<()> {
         }
         Ok(())
     })();
-    let preparation_cleanup = preparation::build::cleanup_work(m, id);
+    let preparation_cleanup = cleanup_preparation_work(m, id);
     // A failed installer readback must not leave the generic worker queued.
     let finalized = finish_operation_with(m, id, |saved| restore_service(m, saved));
     installer_cleanup?;
     preparation_cleanup?;
     finalized
+}
+fn cleanup_preparation_work(m: &Manager, id: &str) -> Result<()> {
+    let fresh = preparation::build::cleanup_work(m, id);
+    let source = (|| {
+        let request: ui::Request = read_json(&job_dir(m, id)?.join("request.json"))?;
+        if let ui::Action::CompatibilityResumeCheck { operation } = request.action {
+            require(matches!(request.schema, 10 | 11) && operation != id,
+                "guided_check_cleanup_request_binding")?;
+            let intent = preparation::guided_check_stage(m, &operation, "intent")?
+                .ok_or("guided_check_cleanup_intent_missing")?;
+            require(intent["schema"] == 1 && intent["operation"] == operation,
+                "guided_check_cleanup_intent_binding")?;
+            let original: ui::Action = serde_json::from_value(intent["action"].clone())?;
+            require(resumable_check_source(m, &operation, &original)?,
+                "guided_check_source_still_running")?;
+            // ExecStopPost runs after this worker cgroup retires. Construction
+            // used the original check's identity, not this fresh request's ID.
+            // Cleanup preserves exact checkpointed/retained native output and
+            // removes partial scratch before another offered continuation.
+            preparation::build::cleanup_work(m, &operation)?;
+        }
+        Ok(())
+    })();
+    fresh?;
+    source
 }
 
 fn finish_operation_with(
@@ -2018,6 +2043,12 @@ fn stop_vendor_with(
     resume_locked(m, &saved.owner_operation, restore)
 }
 fn resume_interrupted(m: &Manager) -> Result<()> {
+    resume_interrupted_with(m, |saved| restore_service(m, saved))
+}
+fn resume_interrupted_with(
+    m: &Manager,
+    restore: impl FnOnce(&ResumeRecord) -> Result<()>,
+) -> Result<()> {
     // Only explicit reconciliation can recover a completed prior owner. It
     // cannot steal an active Open/Rescan or adopt an ownerless legacy record.
     let _resume = resume_lock(m)?;
@@ -2038,7 +2069,7 @@ fn resume_interrupted(m: &Manager) -> Result<()> {
             dependency_session::retired(m, &saved.owner_operation)?,
             "dependency_custody_uncertain",
         )?;
-        return resume_locked(m, &saved.owner_operation, |saved| restore_service(m, saved));
+        return resume_locked(m, &saved.owner_operation, restore);
     }
     if matches!(
         recovery_request(m, &saved)?,
@@ -2053,7 +2084,7 @@ fn resume_interrupted(m: &Manager) -> Result<()> {
             renderer_session::retired(m, &saved.owner_operation)?,
             "renderer_custody_still_uncertain",
         )?;
-        return resume_locked(m, &saved.owner_operation, |saved| restore_service(m, saved));
+        return resume_locked(m, &saved.owner_operation, restore);
     }
     require(
         matches!(
@@ -2069,6 +2100,7 @@ fn resume_interrupted(m: &Manager) -> Result<()> {
                 | ui::Action::PluginInspect { .. }
                 | ui::Action::PluginPrepare { .. }
                 | ui::Action::CompatibilityCheck { .. }
+                | ui::Action::CompatibilityResumeCheck { .. }
         ),
         "operator_resume_action_mismatch",
     )?;
@@ -2078,7 +2110,7 @@ fn resume_interrupted(m: &Manager) -> Result<()> {
             && matches!(result["state"].as_str(), Some("completed" | "refused")),
         "operator_resume_owner_not_terminal",
     )?;
-    resume_locked(m, &saved.owner_operation, |saved| restore_service(m, saved))
+    resume_locked(m, &saved.owner_operation, restore)
 }
 fn restore_service(m: &Manager, saved: &ResumeRecord) -> Result<()> {
     require(
@@ -3405,6 +3437,49 @@ mod tests {
         let _lock = resume_lock(m).unwrap();
         create_resume(m, &saved).unwrap();
         saved
+    }
+    #[test]
+    fn interrupted_compatibility_continuation_restores_service_without_replaying_work() {
+        for terminal in ["completed", "refused"] {
+            let f = test_fixture::Fixture::new();
+            let source = "cd".repeat(16);
+            let owner = queued_test_action(&f.m, ui::Action::CompatibilityResumeCheck {
+                operation: source.clone(),
+            });
+            let saved = saved_test_resume(&f.m, &owner, None);
+            let resume_path = f.m.root.join("operator/resume.json");
+            let resume_before = fs::read(&resume_path).unwrap();
+            atomic_json(&f.m.root.join("registry.json"), &f.m.registry().unwrap()).unwrap();
+            let registry_before = fs::read(f.m.root.join("registry.json")).unwrap();
+            let scratch = f.m.root.join("preparation/work").join(&source).join("scratch");
+            private_dir(scratch.parent().unwrap()).unwrap();
+            fs::write(&scratch, b"cold recovery must not replay preparation").unwrap();
+            assert!(resume_interrupted_with(&f.m, |_| panic!("owner is not terminal"))
+                .unwrap_err().to_string().contains("operator_resume_owner_not_terminal"));
+            assert_eq!(fs::read(&resume_path).unwrap(), resume_before);
+            write_operation(&f.m, &owner,
+                &json!({"schema":1,"operation":owner,"state":terminal}), false).unwrap();
+            let receipt_before = fs::read(job_dir(&f.m, &owner).unwrap().join("result.json")).unwrap();
+            assert_eq!(resume_interrupted_with(&f.m, |_| Err("service unavailable".into()))
+                .unwrap_err().to_string(), "service unavailable");
+            assert_eq!(fs::read(&resume_path).unwrap(), resume_before);
+            let mut restores = 0;
+            resume_interrupted_with(&f.m, |record| {
+                assert_eq!(record.owner_operation, owner);
+                assert_eq!(record.software, saved.software);
+                assert!(record.resume && record.vendor_operation.is_none());
+                restores += 1;
+                Ok(())
+            }).unwrap();
+            assert_eq!(restores, 1);
+            assert!(!resume_path.exists());
+            resume_interrupted_with(&f.m, |_| panic!("already restored")).unwrap();
+            assert_eq!(fs::read(job_dir(&f.m, &owner).unwrap().join("result.json")).unwrap(), receipt_before);
+            assert_eq!(fs::read(&scratch).unwrap(), b"cold recovery must not replay preparation");
+            assert!(!f.m.root.join("preparation/guided-checks").exists());
+            assert!(!f.m.root.join("preparation/candidates").exists());
+            assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry_before);
+        }
     }
     #[test]
     fn delayed_finish_preserves_newer_service_recovery_until_its_owner_restores() {

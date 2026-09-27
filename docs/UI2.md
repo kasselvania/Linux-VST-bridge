@@ -34,6 +34,13 @@ worker has retired. That action uses a fresh request token while retaining the
 original check's identity and immutable inputs. The original worker receipt
 remains terminal. Its verified checkpointed native output survives the original
 worker's scratch cleanup until the continuation records the candidate.
+The continuation's finalizer cleans both its fresh worker directory and the
+original check's work directory after worker retirement. Partial construction
+is removed with bounded failure evidence retained; exact native output and its
+build receipt survive. A second interruption can therefore resume without
+repeating inspection or adopting preexisting scratch. Cold service recovery
+recognizes this exact continuation action and restores its saved service owner
+without replaying preparation or publication.
 Conflicting checks or changed selection, recipe, or candidate
 ancestry refuse continuation. Neither stage republishes a plug-in. A new
 attempt may reuse only a

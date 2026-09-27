@@ -1069,11 +1069,23 @@ fn probed_inspection() -> Option<prep::Inspection> {
 fn probed_candidate() -> Option<prep::Candidate> {
     GUIDED_CHECK_PROBE.with(|slot| slot.borrow().as_ref().map(|probe| {
         probe.builds.set(probe.builds.get() + 1);
-        if !probe.candidate.native.artifact.path.exists() {
-            private_dir(probe.candidate.native.artifact.path.parent().unwrap()).unwrap();
+        if probe.candidate.native.artifact.path != probe.source_native {
+            let dir = probe.candidate.native.artifact.path.parent().unwrap();
+            assert!(!dir.exists(), "preparation_operation_already_started");
+            private_dir(dir).unwrap();
+            fs::write(dir.join("build.log"), b"source-owned candidate construction").unwrap();
+            private_dir(&dir.join("scratch")).unwrap();
+            fs::write(dir.join("scratch/object.o"), b"compiler scratch").unwrap();
+            if probe.interrupt_after == Some("construction") {
+                panic!("source-owned interruption during construction");
+            }
             fs::copy(&probe.source_native, &probe.candidate.native.artifact.path).unwrap();
             fs::set_permissions(&probe.candidate.native.artifact.path,
                 fs::Permissions::from_mode(0o500)).unwrap();
+            atomic_json(&dir.join("build.json"), &json!({
+                "native_sha256":probe.candidate.native.artifact.sha256,
+                "kit_sha256":probe.candidate.recipe_sha256,
+            })).unwrap();
         }
         probe.candidate.clone()
     }))
@@ -1893,6 +1905,104 @@ mod tests {
             .unwrap()["state"], "refused");
         GUIDED_CHECK_PROBE.with(|slot| *slot.borrow_mut() = None);
         (f, c, source, check)
+    }
+    fn submit_check_continuation(m: &Manager, c: &prep::Candidate, source: &str) -> String {
+        let snapshot = operator_cli::snapshot_idle_test(m).unwrap();
+        let offered = snapshot.products.iter().find(|p| p.class_id == c.selection.class.id)
+            .and_then(|p| p.compatibility.as_ref())
+            .and_then(|workflow| workflow.primary.as_ref()).unwrap();
+        assert_eq!(offered.label, "Finish compatibility check");
+        assert_eq!(offered.action, ui::Action::CompatibilityResumeCheck { operation: source.into() });
+        assert!(offered.disabled_reason.is_none());
+        operator_cli::test_submit_offered(m, &offered.action).unwrap()
+    }
+    #[test]
+    fn ui2_successful_check_continuation_finalizer_cleans_original_source_scratch() {
+        use std::{cell::Cell, rc::Rc};
+        let (f, c, source, _check) = interrupted_check_fixture();
+        let original_receipt = f.m.root.join("operator").join(&source).join("result.json");
+        let before_receipt = fs::read(&original_receipt).unwrap();
+        let before_registry = fs::read(f.m.root.join("registry.json")).unwrap();
+        let dir = f.m.root.join("preparation/work").join(&source);
+        let mut owned = c.clone();
+        owned.native.artifact.path = dir.join("native.so");
+        let inspections = Rc::new(Cell::new(1));
+        let builds = Rc::new(Cell::new(0));
+        GUIDED_CHECK_PROBE.with(|slot| *slot.borrow_mut() = Some(GuidedCheckProbe {
+            inspection: c.inspection.clone(), candidate: owned.clone(),
+            source_native: c.native.artifact.path.clone(), interrupt_after: None,
+            inspections: inspections.clone(), builds: builds.clone(),
+        }));
+        let continuation = submit_check_continuation(&f.m, &c, &source);
+        let result = operator_cli::test_run_offered_worker(&f.m, &continuation).unwrap();
+        assert_eq!(result["state"], "completed", "{result:?}");
+        assert_eq!(result["result"]["candidate"], owned.id().unwrap());
+        assert!(dir.join("scratch/object.o").exists());
+        let build_before = fs::read(dir.join("build.json")).unwrap();
+        let fresh_dir = f.m.root.join("preparation/work").join(&continuation);
+        private_dir(&fresh_dir).unwrap();
+        fs::write(fresh_dir.join("scratch"), b"fresh worker scratch").unwrap();
+        assert_eq!(operator_cli::test_finalize_interrupted_worker(&f.m, &continuation).unwrap(), result);
+        assert!(!fresh_dir.exists());
+        assert!(!dir.join("scratch").exists());
+        assert!(!dir.join("build.log").exists());
+        assert_eq!(fs::read(dir.join("build.json")).unwrap(), build_before);
+        owned.native.artifact.verify().unwrap();
+        assert_eq!(fs::read_dir(&dir).unwrap().count(), 2);
+        assert_eq!(inspections.get(), 1);
+        assert_eq!(builds.get(), 1);
+        assert_eq!(prep::retained_candidates(&f.m).unwrap(), vec![owned.clone()]);
+        assert_eq!(prep::publication_state(&f.m, &owned).unwrap(), "unpublished");
+        assert_eq!(fs::read(&original_receipt).unwrap(), before_receipt);
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), before_registry);
+        assert_eq!(operator_cli::test_finalize_interrupted_worker(&f.m, &continuation).unwrap(), result);
+        GUIDED_CHECK_PROBE.with(|slot| *slot.borrow_mut() = None);
+    }
+    #[test]
+    fn ui2_second_interruption_during_check_continuation_remains_recoverable() {
+        use std::{cell::Cell, panic::{catch_unwind, AssertUnwindSafe}, rc::Rc};
+        let (f, c, source, _check) = interrupted_check_fixture();
+        let original_receipt = f.m.root.join("operator").join(&source).join("result.json");
+        let before_receipt = fs::read(&original_receipt).unwrap();
+        let before_registry = fs::read(f.m.root.join("registry.json")).unwrap();
+        let dir = f.m.root.join("preparation/work").join(&source);
+        let mut owned = c.clone();
+        owned.native.artifact.path = dir.join("native.so");
+        let inspections = Rc::new(Cell::new(1));
+        let builds = Rc::new(Cell::new(0));
+        GUIDED_CHECK_PROBE.with(|slot| *slot.borrow_mut() = Some(GuidedCheckProbe {
+            inspection: c.inspection.clone(), candidate: owned.clone(),
+            source_native: c.native.artifact.path.clone(), interrupt_after: Some("construction"),
+            inspections: inspections.clone(), builds: builds.clone(),
+        }));
+        let interrupted = submit_check_continuation(&f.m, &c, &source);
+        assert!(catch_unwind(AssertUnwindSafe(||
+            operator_cli::test_run_offered_worker(&f.m, &interrupted).unwrap())).is_err());
+        assert!(dir.join("scratch/object.o").exists());
+        assert!(prep::guided_check_stage(&f.m, &source, "candidate").unwrap().is_none());
+        let refused = operator_cli::test_finalize_interrupted_worker(&f.m, &interrupted).unwrap();
+        assert_eq!(refused["state"], "refused");
+        assert!(!dir.exists(), "partial source work must not block the next construction");
+        let failure: Value = read_json(&f.m.root.join("preparation/failures")
+            .join(&source).join("build.log.json")).unwrap();
+        assert_eq!(failure, "source-owned candidate construction");
+        GUIDED_CHECK_PROBE.with(|slot| slot.borrow_mut().as_mut().unwrap().interrupt_after = None);
+        let next = submit_check_continuation(&f.m, &c, &source);
+        assert_ne!(next, interrupted);
+        let result = operator_cli::test_run_offered_worker(&f.m, &next).unwrap();
+        assert_eq!(result["state"], "completed", "{result:?}");
+        assert_eq!(result["result"]["candidate"], owned.id().unwrap());
+        assert_eq!(operator_cli::test_finalize_interrupted_worker(&f.m, &next).unwrap(), result);
+        assert_eq!(inspections.get(), 1);
+        assert_eq!(builds.get(), 2, "only the interrupted construction must restart");
+        assert_eq!(prep::retained_candidates(&f.m).unwrap(), vec![owned.clone()]);
+        owned.native.artifact.verify().unwrap();
+        assert_eq!(fs::read_dir(&dir).unwrap().count(), 2);
+        assert_eq!(prep::publication_state(&f.m, &owned).unwrap(), "unpublished");
+        assert_eq!(fs::read(&original_receipt).unwrap(), before_receipt);
+        assert_eq!(operator_cli::test_finalize_interrupted_worker(&f.m, &interrupted).unwrap(), refused);
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), before_registry);
+        GUIDED_CHECK_PROBE.with(|slot| *slot.borrow_mut() = None);
     }
     #[test]
     fn ui2_interrupted_check_refuses_changed_recipe_and_selection() {
