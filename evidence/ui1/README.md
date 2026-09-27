@@ -18,5 +18,7 @@ cargo run --manifest-path manager-ui/Cargo.toml --locked --example operator_prev
 
 The Lunacy item, installer identity, and product links in these frames are
 fixtures. They are not Deck readback or commercial plug-in acceptance evidence.
+The existing setup uses neutral compatibility wording because this synthetic
+fixture does not bind an exact standard runner policy to that environment.
 The earlier private UI1 physical check remains attached to its original
 private source generation and is not transferred to this public integration.

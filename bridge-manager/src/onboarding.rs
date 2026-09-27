@@ -124,7 +124,7 @@ pub fn history_records(m: &Manager) -> Result<Vec<Record>> {
     out.sort_by_key(|r|r.created_at);Ok(out)
 }
 pub fn runner_key(r: &Runner) -> Result<String> {
-    Ok(hex(&sha2::Sha256::digest(serde_json::to_vec(r)?)))
+    catalogue::runner_key(r)
 }
 pub fn runners(m: &Manager) -> Result<Vec<(String, Runner)>> {
     let sw = software(m)?;
@@ -658,14 +658,25 @@ fn projection_with_live(
                         });
                     }
                 } else if retired(&v) {
-                    human = if v["transaction"]["durable_installation"] == "installed" { "Installation files and registration are present. Review post-install status before reinstalling; scanning does not publish to Bitwig" } else { "Review retained installation outcome, then scan this isolated environment. A nonzero outer exit does not prove nothing was installed" };
-                    actions.push(ui::AvailableAction {
-                        label: "Scan installed products".into(),
-                        action: ui::Action::InstallerScan {
-                            onboarding: r.id.clone(),
-                        },
-                        disabled_reason: busy.map(Into::into),
-                    });
+                    human = match v["transaction"]["durable_installation"].as_str() {
+                        Some("installed") if v["state"] == "completed"
+                            && v["transaction"]["outcome"] == "installed" =>
+                            "Installation files and registration are present. Find installed plug-ins; scanning does not publish to Bitwig",
+                        Some("installed" | "partial_installation") =>
+                            "The installer reported a problem, but durable files may exist. Review the exact result before scanning",
+                        Some("not_installed") =>
+                            "No durable installation was found. Review the result before another exact attempt",
+                        _ => "The durable installation outcome is not confirmed. Review exact history before continuing",
+                    };
+                    if v["transaction"]["durable_installation"] != "not_installed" {
+                        actions.push(ui::AvailableAction {
+                            label: "Scan installed products".into(),
+                            action: ui::Action::InstallerScan {
+                                onboarding: r.id.clone(),
+                            },
+                            disabled_reason: busy.map(Into::into),
+                        });
+                    }
                 } else {
                     state = "cleanup_unconfirmed".into();
                     human = "Cleanup is unresolved; further installation is refused";
@@ -723,10 +734,103 @@ fn projection_with_live(
 /// in history. Product links require the same environment and module as the
 /// retained scan, plus the exact class where discovery established one.
 /// Quarantined modules route only to their exact empty-class product row.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SetupNext { Create, Start, Focus, Scan, Retry, None }
+
+fn setup_posture(current: &ui::Onboarding, ambiguous: bool, discovered: usize)
+    -> (ui::SetupPhase, String, SetupNext) {
+    use ui::SetupPhase as Phase;
+    if ambiguous {
+        return (Phase::SetupNeedsAttention,
+            "Multiple setup environments are retained. Review exact setup history before continuing.".into(),
+            SetupNext::None);
+    }
+    if current.environment.is_none() {
+        return (Phase::Imported,
+            "No native plug-in setup has started from this installer.".into(), SetupNext::Create);
+    }
+    if current.state == "cleanup_unconfirmed" {
+        return (Phase::CleanupUnconfirmed,
+            "Installer cleanup is unresolved. Further setup is paused.".into(), SetupNext::None);
+    }
+    let has_focus = current.actions.iter().any(|a| matches!(a.action, ui::Action::InstallerFocus { .. }));
+    if current.state == "needs_attention" && has_focus {
+        return (Phase::SetupNeedsAttention, current.required_human_action.clone(), SetupNext::Focus);
+    }
+    let installation = &current.details["installation"];
+    let durable = installation["transaction"]["durable_installation"].as_str();
+    let outcome = installation["transaction"]["outcome"].as_str();
+    let result = installation["state"].as_str();
+    if matches!(result, Some("failed" | "cancelled"))
+        || (result == Some("completed") && outcome != Some("installed")) {
+        return match durable {
+            Some("installed" | "partial_installation") => (Phase::SetupNeedsAttention,
+                "The installer reported a problem, but durable installation files may exist. Review its result, then find installed plug-ins if offered.".into(), SetupNext::Scan),
+            Some("not_installed") => (Phase::SetupNeedsAttention,
+                "The installer did not leave a durable installation. Review the result before starting another exact attempt.".into(), SetupNext::Retry),
+            _ => (Phase::SetupNeedsAttention,
+                "The installer retired, but its durable installation outcome is not confirmed. Review exact history before continuing.".into(), SetupNext::None),
+        };
+    }
+    if result == Some("completed") && durable != Some("installed") {
+        return (Phase::SetupNeedsAttention,
+            "The installer retired, but a complete durable installation is not confirmed. Review exact history before continuing.".into(), SetupNext::None);
+    }
+    if result.is_none() && matches!(current.state.as_str(), "completed" | "failed" | "cancelled") {
+        return (Phase::SetupNeedsAttention,
+            "The installer retired without a classified durable installation result. Review exact history before continuing.".into(), SetupNext::None);
+    }
+    match current.state.as_str() {
+        "environment_ready" => (Phase::EnvironmentReady,
+            "The compatibility space is ready. Running the vendor installer is a separate step.".into(), SetupNext::Start),
+        "needs_attention" => (Phase::SetupNeedsAttention, current.required_human_action.clone(), SetupNext::Scan),
+        "quarantined" => (Phase::SetupNeedsAttention,
+            "A discovered module was quarantined. Review its exact result and recovery in Plug-ins or technical details.".into(), SetupNext::None),
+        "no_audio_plugin_discovered" => (Phase::SetupNeedsAttention,
+            "The scan found no audio plug-in class. Review the installer result and scan details.".into(), SetupNext::None),
+        "installed_unqualified" if discovered == 0 => (Phase::SetupNeedsAttention,
+            "The scan completed, but no matching product card is available. Review exact scan details.".into(), SetupNext::None),
+        "installed_unqualified" => (Phase::DiscoveryComplete,
+            format!("{discovered} plug-ins found · discovery did not publish them; see each plug-in's current status"), SetupNext::None),
+        "completed" => (Phase::InstallerRetired,
+            "Installer retired with a durable installation. Ready to find installed plug-ins.".into(), SetupNext::Scan),
+        _ if has_focus => (Phase::InstallerRunning,
+            "Complete installation in the vendor window. Closing this manager does not stop it.".into(), SetupNext::Focus),
+        _ => (Phase::ScanReady, current.required_human_action.clone(), SetupNext::Scan),
+    }
+}
+
+fn compatibility_label(existing: bool, runner: Option<&Runner>,
+    default: Option<&(String, Runner)>, ambiguous: bool) -> Option<String> {
+    if ambiguous { return None; }
+    if !existing {
+        return default.map(|_| "Recommended setup: Standard".into());
+    }
+    let exact_standard = runner.is_some_and(|runner| default.is_some_and(|(key, _)|
+        runner.id == catalogue::STANDARD_ONBOARDING_RUNNER
+            && runner.policy.is_none() && runner.verify().is_ok()
+            && runner_key(runner).is_ok_and(|actual| &actual == key)));
+    Some(if exact_standard { "Standard · recommended" }
+        else { "Existing managed configuration" }.into())
+}
+
+fn setup_primary(actions: &[ui::AvailableAction], next: SetupNext) -> Option<ui::AvailableAction> {
+    actions.iter().find(|a| match next {
+        SetupNext::Create => matches!(a.action, ui::Action::InstallerEnvironmentCreate { .. }),
+        SetupNext::Start => matches!(a.action, ui::Action::InstallerStart { .. }),
+        SetupNext::Focus => matches!(a.action, ui::Action::InstallerFocus { .. }),
+        SetupNext::Scan => matches!(a.action, ui::Action::InstallerScan { .. }),
+        SetupNext::Retry => matches!(a.action, ui::Action::InstallerNewAttempt { .. }),
+        SetupNext::None => false,
+    }).cloned().map(|mut offer| { if matches!(offer.action, ui::Action::InstallerScan { .. }) {
+        offer.label = "Find installed plug-ins".into(); } offer })
+}
+
 pub fn setup_projection(m: &Manager, rows: &[ui::Onboarding], products: &[ui::Product],
     workspace_installers: &std::collections::BTreeSet<String>) -> Result<Vec<ui::InstallerSetup>> {
     let runners = runners(m)?;
     let default = default_runtime(m, &runners)?;
+    let retained = history_records(m)?;
     let mut setups = Vec::new();
     for installer in installer_import::list(m)? {
         if workspace_installers.contains(&installer.id) { continue; }
@@ -769,56 +873,20 @@ pub fn setup_projection(m: &Manager, rows: &[ui::Onboarding], products: &[ui::Pr
                 }
             }
         }
-        let (phase, status) = if ambiguous {
-            (ui::SetupPhase::SetupNeedsAttention,
-                "Multiple setup environments are retained. Review exact setup history before continuing.".to_owned())
-        } else if current.environment.is_none() {
-            (ui::SetupPhase::Imported,
-                "No native plug-in setup has started from this installer.".to_owned())
-        } else {
-            match current.state.as_str() {
-                "environment_ready" => (ui::SetupPhase::EnvironmentReady,
-                    "The compatibility space is ready. Running the vendor installer is a separate step.".into()),
-                "needs_attention" => (ui::SetupPhase::SetupNeedsAttention, current.required_human_action.clone()),
-                "cleanup_unconfirmed" => (ui::SetupPhase::CleanupUnconfirmed,
-                    "Installer cleanup is unresolved. Further setup is paused.".into()),
-                "quarantined" => (ui::SetupPhase::SetupNeedsAttention,
-                    "A discovered module was quarantined. Review its exact result and recovery in Plug-ins or technical details.".into()),
-                "no_audio_plugin_discovered" => (ui::SetupPhase::SetupNeedsAttention,
-                    "The scan found no audio plug-in class. Review the installer result and scan details.".into()),
-                "installed_unqualified" if discovered.is_empty() =>
-                    (ui::SetupPhase::SetupNeedsAttention,
-                        "The scan completed, but no matching product card is available. Review exact scan details.".into()),
-                "installed_unqualified" =>
-                    (ui::SetupPhase::DiscoveryComplete,
-                    format!("{} plug-ins found · discovery did not publish them; see each plug-in's current status", discovered.len())),
-                "completed" | "failed" | "cancelled" => (ui::SetupPhase::InstallerRetired,
-                    current.required_human_action.clone()),
-                _ if current.actions.iter().any(|a| matches!(a.action, ui::Action::InstallerFocus { .. })) =>
-                    (ui::SetupPhase::InstallerRunning,
-                    "Complete installation in the vendor window. Closing this manager does not stop it.".into()),
-                _ => (ui::SetupPhase::ScanReady, current.required_human_action.clone()),
-            }
-        };
-        let primary = if ambiguous { None } else { match phase {
-            ui::SetupPhase::Imported => current.actions.iter().find(|a| matches!(a.action, ui::Action::InstallerEnvironmentCreate { .. })),
-            ui::SetupPhase::EnvironmentReady => current.actions.iter().find(|a| matches!(a.action, ui::Action::InstallerStart { .. })),
-            ui::SetupPhase::InstallerRunning =>
-                current.actions.iter().find(|a| matches!(a.action, ui::Action::InstallerFocus { .. })),
-            ui::SetupPhase::SetupNeedsAttention => current.actions.iter().find(|a|
-                matches!(a.action, ui::Action::InstallerFocus { .. } | ui::Action::InstallerScan { .. })),
-            ui::SetupPhase::InstallerRetired | ui::SetupPhase::ScanReady =>
-                current.actions.iter().find(|a| matches!(a.action, ui::Action::InstallerScan { .. })),
-            _ => None,
-        }}.cloned().map(|mut offer| { if matches!(offer.action, ui::Action::InstallerScan { .. }) {
-            offer.label = "Find installed plug-ins".into(); } offer });
+        let (phase, status, next) = setup_posture(current, ambiguous, discovered.len());
+        let primary = setup_primary(&current.actions, next);
         let secondary = current.actions.iter().filter(|a| !ambiguous && primary.as_ref().is_none_or(|p| p.action != a.action))
             .filter(|a| matches!(a.action, ui::Action::InstallerStop { .. })).cloned().collect();
+        let selected = retained.iter().find(|record|
+            current.environment.as_ref() == Some(&record.id)
+                && record.installer == installer.id);
+        let compatibility = compatibility_label(current.environment.is_some(),
+            selected.map(|record| &record.environment.runner), default.as_ref(), ambiguous);
         setups.push(ui::InstallerSetup { installer: installer.id.clone(), name: presentation.display_label,
             label_source: presentation.label_source, byte_size: installer.byte_size, format: installer.format,
             imported_at: installer.created_at, phase, status,
             environment: if ambiguous { None } else { current.environment.clone() },
-            compatibility: default.as_ref().map(|_| "Standard · recommended".into()),
+            compatibility,
             discovered: if ambiguous { Vec::new() } else { discovered }, primary, secondary,
             rename: ui::AvailableAction { label: "Rename".into(),
                 action: ui::Action::InstallerRename { installer: installer.id, label: String::new() },
@@ -887,6 +955,91 @@ fn scan_state(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn setup_row() -> ui::Onboarding {
+        ui::Onboarding { failure: None, installer: "ab".repeat(32), name: "Installer".into(),
+            byte_size: 1024, format: "pe_executable".into(), environment: Some("cd".repeat(16)),
+            state: "completed".into(), required_human_action: "Review exact result".into(),
+            details: Value::Null, actions: vec![] }
+    }
+    fn offered(action: ui::Action) -> ui::AvailableAction {
+        ui::AvailableAction { label: "Manager offer".into(), action, disabled_reason: None }
+    }
+    #[test]
+    fn setup_guidance_follows_durable_installer_result_and_exact_offers() {
+        let mut row = setup_row();
+        let env = row.environment.clone().unwrap();
+        let scan = offered(ui::Action::InstallerScan { onboarding: env.clone() });
+        let retry = offered(ui::Action::InstallerNewAttempt {
+            previous: env.clone(), runner: "ef".repeat(32) });
+        for (state, outcome, durable, phase, next) in [
+            ("completed", "installed", "installed", ui::SetupPhase::InstallerRetired, SetupNext::Scan),
+            ("completed", "outer_nonzero_stage_unknown", "installed", ui::SetupPhase::SetupNeedsAttention, SetupNext::Scan),
+            ("failed", "installed_dependency_failed", "installed", ui::SetupPhase::SetupNeedsAttention, SetupNext::Scan),
+            ("failed", "outer_nonzero_stage_unknown", "partial_installation", ui::SetupPhase::SetupNeedsAttention, SetupNext::Scan),
+            ("failed", "not_installed", "not_installed", ui::SetupPhase::SetupNeedsAttention, SetupNext::Retry),
+            ("cancelled", "cancelled", "not_installed", ui::SetupPhase::SetupNeedsAttention, SetupNext::Retry),
+        ] {
+            row.state = state.into();
+            row.details = json!({"installation":{"state":state,
+                "transaction":{"schema":1,"outcome":outcome,"durable_installation":durable}}});
+            row.actions = vec![scan.clone(), retry.clone()];
+            let (actual, status, choice) = setup_posture(&row, false, 0);
+            assert_eq!((actual, choice), (phase, next), "{state}/{outcome}/{durable}");
+            if state == "failed" || state == "cancelled" { assert!(status.contains("installer") || status.contains("Installer")); }
+            let primary = setup_primary(&row.actions, choice).unwrap();
+            assert_eq!(primary.action, if choice == SetupNext::Scan { scan.action.clone() } else { retry.action.clone() });
+            if choice == SetupNext::Scan { assert_eq!(primary.label, "Find installed plug-ins"); }
+            row.actions.clear();
+            assert!(setup_primary(&row.actions, choice).is_none(), "no invented {state} action");
+        }
+        row.state = "cleanup_unconfirmed".into();
+        row.actions = vec![scan, retry];
+        let (phase, _, next) = setup_posture(&row, false, 0);
+        assert_eq!(phase, ui::SetupPhase::CleanupUnconfirmed);
+        assert!(setup_primary(&row.actions, next).is_none());
+        row.state = "needs_attention".into();
+        row.actions = vec![offered(ui::Action::InstallerFocus {
+            onboarding: env.clone(), operation: "aa".repeat(16) }),
+            offered(ui::Action::InstallerStop { onboarding: env, operation: "aa".repeat(16) })];
+        let (phase, _, next) = setup_posture(&row, false, 0);
+        assert_eq!(phase, ui::SetupPhase::SetupNeedsAttention);
+        assert!(matches!(setup_primary(&row.actions, next).unwrap().action, ui::Action::InstallerFocus { .. }));
+        row.state = "failed".into();
+        row.details = Value::Null; // retained pre-transaction result
+        row.actions = vec![offered(ui::Action::InstallerScan { onboarding: "cd".repeat(16) })];
+        let (phase, status, next) = setup_posture(&row, false, 0);
+        assert_eq!(phase, ui::SetupPhase::SetupNeedsAttention);
+        assert!(status.contains("without a classified durable installation result"));
+        assert!(setup_primary(&row.actions, next).is_none());
+    }
+    #[test]
+    fn compatibility_label_requires_the_current_environments_exact_standard_runner() {
+        let (f, _) = fixture();
+        let mut standard = f.r.environment.runner.clone();
+        standard.id = catalogue::STANDARD_ONBOARDING_RUNNER.into();
+        standard.policy = None;
+        let key = runner_key(&standard).unwrap();
+        let default = (key.clone(), standard.clone());
+        assert_eq!(compatibility_label(false, None, Some(&default), false).as_deref(),
+            Some("Recommended setup: Standard"));
+        assert_eq!(compatibility_label(true, Some(&standard), Some(&default), false).as_deref(),
+            Some("Standard · recommended"));
+        let mut specialty = standard.clone();
+        specialty.policy = Some(RunnerPolicy::X11TouchRoutingV2);
+        assert_eq!(compatibility_label(true, Some(&specialty), Some(&default), false).as_deref(),
+            Some("Existing managed configuration"));
+        let mut legacy = standard.clone();
+        legacy.id = "legacy".into();
+        assert_eq!(compatibility_label(true, Some(&legacy), Some(&default), false).as_deref(),
+            Some("Existing managed configuration"));
+        let changed_policy = ("ff".repeat(32), standard.clone());
+        assert_eq!(compatibility_label(true, Some(&standard), Some(&changed_policy), false).as_deref(),
+            Some("Existing managed configuration"));
+        assert_eq!(compatibility_label(true, Some(&standard), None, false).as_deref(),
+            Some("Existing managed configuration"));
+        assert!(compatibility_label(true, Some(&standard), Some(&default), true).is_none());
+        assert!(compatibility_label(false, None, None, false).is_none());
+    }
     #[test]
     fn installer_transaction_is_operation_bound_and_legacy_stays_readable() {
         let mut v=json!({"schema":2,"operation":"a","state":"failed","error":"installer_launcher_failed"});
@@ -1231,7 +1384,7 @@ mod tests {
         )
         .unwrap();
         let snapshot = ui::Snapshot {
-            schema: 8,
+            schema: ui::OPERATOR_SCHEMA,
             state_token: "fixture".into(),
             system: ui::System {
                 service: "active".into(),

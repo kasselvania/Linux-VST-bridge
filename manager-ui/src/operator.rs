@@ -62,6 +62,15 @@ fn workspace_product_state_label(state: &str) -> &str {
     }
 }
 
+fn plausible_installer_label(label: &str) -> bool {
+    !label.trim().is_empty()
+        && label.trim() == label
+        && label.len() <= 96
+        && !matches!(label, "." | "..")
+        && !label.chars().any(|c| c.is_control() || matches!(c, '/' | '\\' | ':')
+            || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}'))
+}
+
 fn workspace_primary_action(actions: &[AvailableAction]) -> Option<usize> {
     actions
         .iter()
@@ -601,8 +610,9 @@ impl Operator {
         self.action_inflight = false;
         match reply {
             Reply::Snapshot(s) => {
-                if s.schema != 8 {
-                    self.message = "Unsupported manager schema".into();
+                if s.schema != crate::model::OPERATOR_SCHEMA {
+                    self.message = format!("Update the frontend and manager together: operator model {} required",
+                        crate::model::OPERATOR_SCHEMA);
                 } else {
                     if let Some(f) = &mut self.feedback {
                         f.reconcile_snapshot(&s);
@@ -1342,10 +1352,7 @@ impl Operator {
                                 target.environment.as_deref().unwrap_or("before environment creation")));
                         }
                         if let Some(compatibility) = &setup.compatibility {
-                            if matches!(setup.phase, crate::model::SetupPhase::Imported
-                                | crate::model::SetupPhase::EnvironmentReady) {
-                                ui.small(format!("Compatibility: {compatibility}"));
-                            }
+                            ui.small(compatibility);
                         }
                         if let Some(offer) = &setup.primary {
                             let reason = offer.disabled_reason.as_deref().or(busy);
@@ -1747,10 +1754,7 @@ impl eframe::App for Operator {
                 ui.small(format!("Exact installer ID: {}…{}", &installer[..8], &installer[60..]));
                 ui.add(egui::TextEdit::singleline(label).char_limit(96)
                     .min_size(egui::vec2(240.0, 44.0)));
-                let plausible = !label.trim().is_empty() && label.trim() == label
-                    && !matches!(label.as_str(), "." | "..")
-                    && !label.chars().any(|c| c.is_control() || matches!(c, '/' | '\\' | ':')
-                        || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}'));
+                let plausible = plausible_installer_label(label);
                 submit = ui.add_enabled(plausible && !controls_pending,
                     egui::Button::new("Save name").min_size(egui::vec2(180.0, 44.0))).clicked();
                 cancel = ui.add_sized([100.0, 44.0], egui::Button::new("Cancel")).clicked();
@@ -1794,7 +1798,7 @@ impl eframe::App for Operator {
         if let Some(a) = chosen {
             if let Some(s) = &self.snapshot {
                 self.capture_action(Request {
-                    schema: 8,
+                    schema: crate::model::OPERATOR_SCHEMA,
                     state_token: s.state_token.clone(),
                     action: a,
                 });
@@ -2363,6 +2367,15 @@ mod tests {
     }
 
     use super::*;
+    #[test]
+    fn installer_rename_local_check_matches_manager_utf8_byte_bound() {
+        assert!(plausible_installer_label("Lunacy Audio"));
+        assert!(plausible_installer_label(&"é".repeat(48)));
+        assert!(!plausible_installer_label(&"é".repeat(49)));
+        for invalid in [" leading", "trailing ", ".", "..", "path/name", "a:b", "a\\b", "a\u{202e}b"] {
+            assert!(!plausible_installer_label(invalid));
+        }
+    }
     fn state_fixture() -> Operator {
         let (sender, receiver) = mpsc::channel();
         Operator {
@@ -2401,7 +2414,7 @@ mod tests {
             operator.background_poll = true;
             operator.origin = Some(RequestOrigin::BackgroundActivity);
             operator.handle_reply(Reply::Activity(Activity {
-                schema: 8, system: snapshot.system.clone(), capture: snapshot.capture.clone(),
+                schema: crate::model::OPERATOR_SCHEMA, system: snapshot.system.clone(), capture: snapshot.capture.clone(),
                 operation: snapshot.operation.clone(),
                 workspace_product_install_ready: false,
             }));
@@ -2463,7 +2476,7 @@ mod tests {
         let mut operator = state_fixture();
         let sha = "ab".repeat(32);
         let snapshot: Snapshot = serde_json::from_value(serde_json::json!({
-            "schema":8,"state_token":"current",
+            "schema":crate::model::OPERATOR_SCHEMA,"state_token":"current",
             "system":{"service":"active","keepers":0,"dsp":0,"maintenance":0,
                 "ceiling":6,"pending_transactions":0,"stale_transports":0,
                 "cleanup_unconfirmed":false},
@@ -2512,7 +2525,7 @@ mod tests {
             format: "pe_executable".into(), imported_at: 1,
             phase: crate::model::SetupPhase::Imported,
             status: "No native plug-in setup has started from this installer.".into(), environment: None,
-            compatibility: Some("Standard · recommended".into()), discovered: vec![],
+            compatibility: Some("Recommended setup: Standard".into()), discovered: vec![],
             primary: Some(AvailableAction { label: "Continue setup".into(),
                 action: Action::InstallerEnvironmentCreate {
                     installer: installer.clone(), runner: "exact-default-key".into() },
@@ -2534,11 +2547,25 @@ mod tests {
             output.textures_delta.clear();
             for expected in ["Add a plug-in", "Ready to set up", "Lunacy Audio",
                 "No native plug-in setup has started", "Continue setup", "Rename",
-                "Technical details and setup history"] {
+                "Recommended setup: Standard", "Technical details and setup history"] {
                 assert!(labels.iter().any(|label| label.contains(expected)),
                     "missing {expected} at width {width}: {labels:?}");
             }
         }
+        snapshot.installer_setups[0].phase = crate::model::SetupPhase::EnvironmentReady;
+        snapshot.installer_setups[0].environment = Some("cd".repeat(16));
+        snapshot.installer_setups[0].compatibility = Some("Existing managed configuration".into());
+        let ctx = egui::Context::default();
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            Operator::setup(ui, &snapshot, false, None,
+                (&mut Page::Setup, &mut crate::library::Library::default(),
+                    &mut RouteFocus::default()), &mut None, &mut false);
+        });
+        let mut labels = Vec::new();
+        for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
+        output.textures_delta.clear();
+        assert!(labels.iter().any(|label| label.contains("Existing managed configuration")));
+        assert!(!labels.iter().any(|label| label.contains("Standard · recommended")));
         snapshot.installer_setups[0].phase = crate::model::SetupPhase::SetupNeedsAttention;
         snapshot.installer_setups[0].status = "The completed scan needs review.".into();
         snapshot.installer_setups[0].discovered = vec![crate::model::DiscoveredProduct {
@@ -2737,7 +2764,7 @@ mod tests {
         assert!(refresh_for_workspace_product(&snapshot, true));
         let mut operator = Operator::preview(snapshot.clone(), Page::Workspaces);
         operator.handle_reply(Reply::Activity(Activity {
-            schema: 8,
+            schema: crate::model::OPERATOR_SCHEMA,
             system: snapshot.system.clone(),
             capture: snapshot.capture.clone(),
             operation: snapshot.operation.clone(),
@@ -2876,7 +2903,7 @@ mod tests {
     }
     fn create_request() -> Request {
         Request {
-            schema: 8,
+            schema: crate::model::OPERATOR_SCHEMA,
             state_token: "snapshot".into(),
             action: Action::InstallerEnvironmentCreate {
                 installer: "ab".repeat(32),
@@ -2887,7 +2914,7 @@ mod tests {
     fn running_snapshot(operation: &str) -> Snapshot {
         let id = "aa".repeat(16);
         Snapshot {
-            schema: 8,
+            schema: crate::model::OPERATOR_SCHEMA,
             state_token: "current".into(),
             installer_setups: vec![],
             system: System {
@@ -2936,7 +2963,7 @@ mod tests {
         }));
         if acknowledged {
             o.handle_reply(Reply::Receipt(Receipt {
-                schema: 8,
+                schema: crate::model::OPERATOR_SCHEMA,
                 accepted: true,
                 operation: Some("current-op".into()),
                 refusal: None,
@@ -2948,7 +2975,7 @@ mod tests {
     }
     fn activity_from(s: &Snapshot) -> Reply {
         Reply::Activity(Activity {
-            schema: 8,
+            schema: crate::model::OPERATOR_SCHEMA,
             system: s.system.clone(),
             capture: s.capture.clone(),
             operation: s.operation.clone(),
@@ -3269,7 +3296,7 @@ mod tests {
         let old =
             serde_json::json!({"operation":"old","state":"refused","reason":"old lock failure"});
         f.receipt(&Receipt {
-            schema: 8,
+            schema: crate::model::OPERATOR_SCHEMA,
             accepted: false,
             operation: Some("new".into()),
             refusal: Some("fresh refusal".into()),
@@ -3281,7 +3308,7 @@ mod tests {
         assert!(!f.for_installer(&"ef".repeat(32)));
         f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 8,
+            schema: crate::model::OPERATOR_SCHEMA,
             accepted: true,
             operation: Some("new".into()),
             refusal: None,
@@ -3297,7 +3324,7 @@ mod tests {
     fn vendor_controls_unlock_only_after_current_snapshot_without_losing_feedback() {
         let mut f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 8,
+            schema: crate::model::OPERATOR_SCHEMA,
             accepted: true,
             operation: Some("new".into()),
             refusal: None,
@@ -3310,7 +3337,7 @@ mod tests {
         assert!(f.terminal);
         let mut f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 8,
+            schema: crate::model::OPERATOR_SCHEMA,
             accepted: false,
             operation: Some("refused".into()),
             refusal: Some("reason".into()),
@@ -3493,7 +3520,7 @@ mod tests {
         s.vendor_applications.push(VendorApplication{id:"native-access".into(),name:"Native Access".into(),version:"3.26.0".into(),state:"dependency".into(),actions:vec![AvailableAction{label:"Stop".into(),action:Action::DependencyStop{operation:op.clone()},disabled_reason:None}],details:serde_json::json!({"dependency_manager_operation":{"operation":op,"state":"submission_uncertain"}})});
         let mut f = RequestFeedback::captured(Action::DependencyPrepare {});
         f.receipt(&Receipt {
-            schema: 8,
+            schema: crate::model::OPERATOR_SCHEMA,
             accepted: true,
             operation: None,
             refusal: None,
@@ -3509,7 +3536,7 @@ mod tests {
         s.vendor_applications[0].actions.clear();
         let mut other = RequestFeedback::captured(Action::DependencyPrepare {});
         other.receipt(&Receipt {
-            schema: 8,
+            schema: crate::model::OPERATOR_SCHEMA,
             accepted: true,
             operation: None,
             refusal: None,

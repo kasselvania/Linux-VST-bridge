@@ -1,5 +1,8 @@
 //! Versioned operator projection and closed requests. No filesystem or launch authority.
 use serde::{Deserialize, Serialize};
+/// Manager/frontend wire generation. Durable installer, workspace and operation
+/// records keep their own owner-defined schema versions.
+pub const OPERATOR_SCHEMA: u32 = 9;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AudioLayoutPolicy {

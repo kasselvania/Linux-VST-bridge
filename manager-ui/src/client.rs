@@ -134,8 +134,9 @@ fn decode_import(data: &[u8]) -> Result<Reply, String> {
 fn decode_reply(query: Query, data: &[u8]) -> Result<Reply, String> {
     let envelope: serde_json::Value =
         serde_json::from_slice(data).map_err(|_| "Invalid manager response")?;
-    if envelope["schema"] != 8 {
-        return Err("Update the frontend and manager together: operator model 8 required".into());
+    if envelope["schema"] != crate::model::OPERATOR_SCHEMA {
+        return Err(format!("Update the frontend and manager together: operator model {} required",
+            crate::model::OPERATOR_SCHEMA));
     }
     match query {
         Query::PickInstaller => unreachable!(),
@@ -172,20 +173,20 @@ fn open_selected(path: &std::path::Path) -> Result<std::fs::File, String> {
 mod tests {
     use super::*;
     #[test]
-    fn transport_accepts_current_dependency_receipt_and_refuses_other_models() {
+    fn schema_nine_frontend_accepts_paired_and_refuses_schema_eight_manager() {
         let query = || {
             Query::Action(Request {
-                schema: 8,
+                schema: crate::model::OPERATOR_SCHEMA,
                 state_token: "exact-state".into(),
                 action: crate::model::Action::DependencyPrepare {},
             })
         };
         let mut receipt = serde_json::json!({
-            "schema": 8, "accepted": true, "operation": "exact-operation", "refusal": null
+            "schema": crate::model::OPERATOR_SCHEMA, "accepted": true, "operation": "exact-operation", "refusal": null
         });
         match decode_reply(query(), &serde_json::to_vec(&receipt).unwrap()).unwrap() {
             Reply::Receipt(value) => {
-                assert_eq!(value.schema, 8);
+                assert_eq!(value.schema, crate::model::OPERATOR_SCHEMA);
                 assert!(value.accepted);
                 assert_eq!(value.operation.as_deref(), Some("exact-operation"));
             }
@@ -197,14 +198,14 @@ mod tests {
             "cleanup_unconfirmed": false
         });
         let activity = serde_json::json!({
-            "schema": 8, "system": system, "capture": null, "operation": null
+            "schema": crate::model::OPERATOR_SCHEMA, "system": system, "capture": null, "operation": null
         });
         assert!(matches!(
             decode_reply(Query::Activity, &serde_json::to_vec(&activity).unwrap()),
             Ok(Reply::Activity(_))
         ));
         let snapshot = serde_json::json!({
-            "schema": 8, "state_token": "exact-state", "system": system,
+            "schema": crate::model::OPERATOR_SCHEMA, "state_token": "exact-state", "system": system,
             "capture": null, "operation": null, "onboarding": [], "environments": [],
             "vendor_applications": [], "products": [], "active_sessions": [],
             "recent_incidents": [], "actions": []
@@ -216,8 +217,8 @@ mod tests {
         for schema in [
             serde_json::json!(6),
             serde_json::json!(7),
-            serde_json::json!(9),
-            serde_json::json!("8"),
+            serde_json::json!(8),
+            serde_json::json!("9"),
             serde_json::Value::Null,
         ] {
             receipt["schema"] = schema;
@@ -226,11 +227,11 @@ mod tests {
                     decode_reply(request, &serde_json::to_vec(&receipt).unwrap())
                         .err()
                         .unwrap()
-                        .contains("operator model 8 required")
+                        .contains("operator model 9 required")
                 );
             }
         }
-        receipt["schema"] = serde_json::json!(8);
+        receipt["schema"] = serde_json::json!(crate::model::OPERATOR_SCHEMA);
         receipt["arbitrary"] = serde_json::json!(true);
         assert!(decode_reply(query(), &serde_json::to_vec(&receipt).unwrap()).is_err());
     }

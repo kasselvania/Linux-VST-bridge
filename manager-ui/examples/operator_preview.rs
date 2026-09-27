@@ -97,7 +97,7 @@ fn main() -> eframe::Result {
             format: "pe_executable".into(), imported_at: 1,
             phase: model::SetupPhase::DiscoveryComplete,
             status: "2 plug-ins found · discovery did not publish them; see each plug-in's current status".into(),
-            environment: Some(environment.clone()), compatibility: Some("Standard · recommended".into()),
+            environment: Some(environment.clone()), compatibility: Some("Existing managed configuration".into()),
             discovered: snapshot.products.iter().filter(|p| p.environment == environment)
                 .map(|p| model::DiscoveredProduct { environment: p.environment.clone(),
                     module_sha256: p.module_sha256.clone(), class_id: p.class_id.clone(),
