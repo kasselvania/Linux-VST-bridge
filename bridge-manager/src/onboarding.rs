@@ -757,6 +757,29 @@ fn setup_posture(current: &ui::Onboarding, ambiguous: bool, discovered: usize)
     if current.state == "needs_attention" && has_focus {
         return (Phase::SetupNeedsAttention, current.required_human_action.clone(), SetupNext::Focus);
     }
+    if has_focus {
+        return (Phase::InstallerRunning,
+            "Complete installation in the vendor window. Closing this manager does not stop it.".into(),
+            SetupNext::Focus);
+    }
+    // projection_with_live classifies the retained inventory against the current
+    // environment, host and source; setup_projection verifies its environment
+    // binding. A current scan is later evidence than the installer exit result.
+    if current.details["scan"].is_object() {
+        match current.state.as_str() {
+            "needs_attention" => return (Phase::SetupNeedsAttention,
+                current.required_human_action.clone(), SetupNext::Scan),
+            "quarantined" => return (Phase::SetupNeedsAttention,
+                "A discovered module was quarantined. Review its exact result and recovery in Plug-ins or technical details.".into(), SetupNext::None),
+            "no_audio_plugin_discovered" => return (Phase::SetupNeedsAttention,
+                "The scan found no audio plug-in class. Review the installer result and scan details.".into(), SetupNext::None),
+            "installed_unqualified" if discovered == 0 => return (Phase::SetupNeedsAttention,
+                "The scan completed, but no matching product card is available. Review exact scan details.".into(), SetupNext::None),
+            "installed_unqualified" => return (Phase::DiscoveryComplete,
+                format!("{discovered} plug-ins found · discovery did not publish them; see each plug-in's current status"), SetupNext::None),
+            _ => {}
+        }
+    }
     let installation = &current.details["installation"];
     let durable = installation["transaction"]["durable_installation"].as_str();
     let outcome = installation["transaction"]["outcome"].as_str();
@@ -784,18 +807,8 @@ fn setup_posture(current: &ui::Onboarding, ambiguous: bool, discovered: usize)
         "environment_ready" => (Phase::EnvironmentReady,
             "The compatibility space is ready. Running the vendor installer is a separate step.".into(), SetupNext::Start),
         "needs_attention" => (Phase::SetupNeedsAttention, current.required_human_action.clone(), SetupNext::Scan),
-        "quarantined" => (Phase::SetupNeedsAttention,
-            "A discovered module was quarantined. Review its exact result and recovery in Plug-ins or technical details.".into(), SetupNext::None),
-        "no_audio_plugin_discovered" => (Phase::SetupNeedsAttention,
-            "The scan found no audio plug-in class. Review the installer result and scan details.".into(), SetupNext::None),
-        "installed_unqualified" if discovered == 0 => (Phase::SetupNeedsAttention,
-            "The scan completed, but no matching product card is available. Review exact scan details.".into(), SetupNext::None),
-        "installed_unqualified" => (Phase::DiscoveryComplete,
-            format!("{discovered} plug-ins found · discovery did not publish them; see each plug-in's current status"), SetupNext::None),
         "completed" => (Phase::InstallerRetired,
             "Installer retired with a durable installation. Ready to find installed plug-ins.".into(), SetupNext::Scan),
-        _ if has_focus => (Phase::InstallerRunning,
-            "Complete installation in the vendor window. Closing this manager does not stop it.".into(), SetupNext::Focus),
         _ => (Phase::ScanReady, current.required_human_action.clone(), SetupNext::Scan),
     }
 }
@@ -1011,6 +1024,86 @@ mod tests {
         assert_eq!(phase, ui::SetupPhase::SetupNeedsAttention);
         assert!(status.contains("without a classified durable installation result"));
         assert!(setup_primary(&row.actions, next).is_none());
+    }
+    #[test]
+    fn current_bound_scan_supersedes_retained_installer_outcome() {
+        let (f, _) = fixture();
+        let mut row = setup_row();
+        let environment = f.r.environment.clone();
+        row.environment = Some(environment.id.clone());
+        let scan_action = offered(ui::Action::InstallerScan { onboarding: environment.id.clone() });
+        let class = inventory::Class { id: f.r.metadata.class_id.clone(), name: "BEAM".into(),
+            vendor: "Lunacy Audio".into(), version: "2.3.1".into(),
+            category: "Audio Module Class".into(), subcategories: "Fx".into(), role: "effect".into() };
+        let scan = inventory::Scan { schema: 1, id: "ef".repeat(16),
+            environment: environment.clone(), host: f.r.host.clone(),
+            host_source_sha256: f.r.host_source_sha256.clone(), completed_at: 1,
+            modules: vec![inventory::Module { artifact: f.r.module.clone(),
+                classes: vec![class], report: f.r.host.clone(),
+                inspection_error: None, quarantine_reason: None }], changes: Default::default() };
+        let install = |state: &str, outcome: &str, durable: &str| json!({"state":state,
+            "transaction":{"schema":1,"outcome":outcome,"durable_installation":durable}});
+
+        // The scan found a product despite the earlier partial installer failure.
+        row.state = scan_state(&scan, &environment, &f.r.host, &f.r.host_source_sha256).into();
+        row.details = json!({"installation":install("failed", "partial_installation", "partial_installation"),
+            "scan":scan});
+        row.actions = vec![scan_action.clone()];
+        let (phase, status, next) = setup_posture(&row, false, 1);
+        assert_eq!(phase, ui::SetupPhase::DiscoveryComplete);
+        assert!(status.contains("1 plug-ins found"));
+        assert!(setup_primary(&row.actions, next).is_none());
+
+        // The quarantined exact module remains the current attention item.
+        let mut quarantined = scan.clone();
+        quarantined.modules[0].quarantine_reason = Some("exact scan refusal".into());
+        quarantined.modules[0].classes.clear();
+        row.state = scan_state(&quarantined, &environment, &f.r.host, &f.r.host_source_sha256).into();
+        row.details = json!({"installation":install("failed", "installed_dependency_failed", "installed"),
+            "scan":quarantined});
+        let (phase, status, next) = setup_posture(&row, false, 1);
+        assert_eq!(phase, ui::SetupPhase::SetupNeedsAttention);
+        assert!(status.contains("quarantined"));
+        assert!(setup_primary(&row.actions, next).is_none());
+
+        let mut no_audio = scan.clone();
+        no_audio.modules[0].classes.clear();
+        row.state = scan_state(&no_audio, &environment, &f.r.host, &f.r.host_source_sha256).into();
+        row.details = json!({"installation":install("cancelled", "cancelled", "partial_installation"),
+            "scan":no_audio});
+        let (phase, status, next) = setup_posture(&row, false, 0);
+        assert_eq!(phase, ui::SetupPhase::SetupNeedsAttention);
+        assert!(status.contains("no audio plug-in class"));
+        assert!(setup_primary(&row.actions, next).is_none());
+
+        let mut stale = scan.clone();
+        stale.host_source_sha256 = "ef".repeat(32);
+        row.state = scan_state(&stale, &environment, &f.r.host, &f.r.host_source_sha256).into();
+        row.required_human_action = "Exact inventory refresh is required".into();
+        row.details = json!({"installation":install("failed", "installed_dependency_failed", "installed"),
+            "scan":stale});
+        let (phase, status, next) = setup_posture(&row, false, 0);
+        assert_eq!(phase, ui::SetupPhase::SetupNeedsAttention);
+        assert_eq!(status, row.required_human_action);
+        assert!(matches!(setup_primary(&row.actions, next).unwrap().action, ui::Action::InstallerScan { .. }));
+        row.actions.clear();
+        assert!(setup_primary(&row.actions, next).is_none());
+
+        row.state = scan_state(&scan, &environment, &f.r.host, &f.r.host_source_sha256).into();
+        row.details = json!({"installation":install("completed", "installed", "installed"),
+            "scan":scan});
+        let (phase, _, next) = setup_posture(&row, false, 1);
+        assert_eq!(phase, ui::SetupPhase::DiscoveryComplete);
+        assert!(setup_primary(&row.actions, next).is_none());
+
+        row.state = "failed".into();
+        row.details = json!({"installation":install("failed", "partial_installation", "partial_installation"),
+            "scan":null});
+        row.actions = vec![scan_action];
+        let (phase, status, next) = setup_posture(&row, false, 0);
+        assert_eq!(phase, ui::SetupPhase::SetupNeedsAttention);
+        assert!(status.contains("durable installation files may exist"));
+        assert!(matches!(setup_primary(&row.actions, next).unwrap().action, ui::Action::InstallerScan { .. }));
     }
     #[test]
     fn compatibility_label_requires_the_current_environments_exact_standard_runner() {

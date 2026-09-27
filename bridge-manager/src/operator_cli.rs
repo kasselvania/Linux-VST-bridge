@@ -4051,7 +4051,8 @@ mod tests {
                 classes: vec![class], report: f.r.host.clone(),
                 inspection_error: None, quarantine_reason: None }], changes: Default::default() };
         current.state = "installed_unqualified".into();
-        current.details = json!({"scan":scan.clone(),"previous_attempt":null});
+        current.details["scan"] = json!(scan.clone());
+        current.details["previous_attempt"] = Value::Null;
         current.actions.clear();
         rows[1] = current.clone();
         let product = ui::Product { class_id: f.r.metadata.class_id.clone(), name: "BEAM".into(),
@@ -4067,10 +4068,21 @@ mod tests {
         assert!(found.status.contains("discovery did not publish"));
         assert!(!found.status.contains("not yet available in Bitwig"));
         assert!(found.primary.is_none());
+        current.details["installation"] = json!({"state":"failed",
+            "transaction":{"schema":1,"outcome":"partial_installation",
+                "durable_installation":"partial_installation"}});
+        rows[1] = current.clone();
+        let found_after_partial = project(&rows, std::slice::from_ref(&product));
+        assert_eq!(found_after_partial.phase, ui::SetupPhase::DiscoveryComplete);
+        assert_eq!(found_after_partial.discovered[0].module_sha256, f.r.module.sha256);
+        assert!(found_after_partial.primary.is_none());
+        current.details["installation"] = json!({"state":"failed",
+            "transaction":{"schema":1,"outcome":"installed_dependency_failed",
+                "durable_installation":"installed"}});
         let mut stale_scan = scan.clone();
         stale_scan.host_source_sha256 = "ef".repeat(32);
         current.state = "needs_attention".into();
-        current.details = json!({"scan":stale_scan,"previous_attempt":null});
+        current.details["scan"] = json!(stale_scan);
         current.actions = vec![action("Scan installed products", ui::Action::InstallerScan {
             onboarding: environment.clone() }, None)];
         rows[1] = current.clone();
@@ -4087,7 +4099,7 @@ mod tests {
         quarantined_scan.modules[0].classes.clear();
         quarantined_scan.modules[0].quarantine_reason = Some("inventory_factory_absent".into());
         current.state = "quarantined".into();
-        current.details = json!({"scan":quarantined_scan,"previous_attempt":null});
+        current.details["scan"] = json!(quarantined_scan);
         rows[1] = current.clone();
         let mut quarantined_product = product;
         quarantined_product.class_id.clear();
