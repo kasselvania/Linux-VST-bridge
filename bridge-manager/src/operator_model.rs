@@ -86,6 +86,9 @@ pub enum Action {
         recipe: String,
         predecessor: Option<String>,
     },
+    /// Continue the exact retained check using a new request and its original
+    /// immutable inspection/candidate checkpoints.
+    CompatibilityResumeCheck { operation: String },
     CompatibilityPublishTest {
         candidate: String,
         expected_current: Option<PublicationIdentity>,
@@ -507,6 +510,7 @@ impl Action {
                 | Self::RendererOpen { .. }
                 | Self::PluginReinspect { .. }
                 | Self::CompatibilityCheck { .. }
+                | Self::CompatibilityResumeCheck { .. }
                 | Self::CompatibilityPublishTest { .. }
                 | Self::CompatibilityResult { result: TestResultKind::Worked, .. }
                 | Self::CompatibilityFinishResult { .. }

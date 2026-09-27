@@ -8,7 +8,9 @@ merge. It normally merged forward PR #183 via main
 `bcad71d845b0dd899d23a55dcbfa90fd86f39121`. **One claim:** integrate guided compatibility checks, exact experimental
 test publication, bounded operator results, and interrupted-result recovery into
 public manager/frontend source. The paired operator wire generation is schema
-10. Existing durable installer, candidate, result and publication records keep
+10. Interrupted compatibility checks and test results now have manager-offered
+continuations bound to their original immutable operations and fresh request
+tokens. Existing durable installer, candidate, result and publication records keep
 their owner-defined schemas; historical private schema-11 UI2 operation
 requests remain readable for recovery, while current schema-11 requests refuse.
 The [UI2 source contract](docs/UI2.md) names the bounded workflow and evidence.

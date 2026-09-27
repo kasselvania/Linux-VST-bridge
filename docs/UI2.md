@@ -16,6 +16,7 @@ manager. Package and other installed-state authority need separate integration.
 | Test configuration available | Record observed result | No automatic ordinary support |
 | Problem recorded during activity | Finish after clean retirement | Publication remains selected until safe |
 | Test result interrupted | Finish exact retained operation | Foreign publication remains untouched |
+| Compatibility check interrupted | Finish exact retained check | Completed inspector/build work is not repeated |
 
 The product key is exact environment ID, module SHA-256 and VST3 class ID.
 Friendly names do not merge sibling classes. The manager offers the exact
@@ -28,7 +29,14 @@ It cannot supply an executable path, arbitrary Wine command, runner or class.
 A compatibility check retains operation-bound intent, inspection, candidate and
 completion stages. An interruption after inspection resumes from that exact
 inspection; an interruption after candidate retention finishes from that exact
-candidate. Neither stage republishes a plug-in. A new attempt may reuse only a
+candidate. The manager offers **Finish compatibility check** after the original
+worker has retired. That action uses a fresh request token while retaining the
+original check's identity and immutable inputs. The original worker receipt
+remains terminal. Its verified checkpointed native output survives the original
+worker's scratch cleanup until the continuation records the candidate.
+Conflicting checks or changed selection, recipe, or candidate
+ancestry refuse continuation. Neither stage republishes a plug-in. A new
+attempt may reuse only a
 still-current inspection bound to the same exact inputs. Failed attempts remain
 readable.
 
@@ -39,6 +47,14 @@ removes the exact test publication or restores its accepted ancestor. A changed
 publication refuses disposition. If interrupted after restoration, the pending
 result stays visible across retained candidates and Finish writes the missing
 completion marker without changing the restored revision again.
+
+Finish also resumes an interrupted successful result from its original intent:
+it writes only missing observations, writes an exact positive review only when
+all existing qualification requirements are met, and completes the record
+without ordinary publication. An incomplete success remains experimental.
+For either result, the original observation batch and review are idempotent;
+the completion receipt reports whether the current Finish invocation actually
+changed publication.
 
 Successful observations do not automatically qualify a plug-in. Existing
 evidence requirements determine whether an exact positive review is possible;

@@ -269,6 +269,26 @@ pub fn cleanup_work(m: &Manager, operation: &str) -> Result<()> {
         let c: Candidate = bounded(&path.join("candidate.json"))?;
         retained |= c.native.artifact.path == dir.join("native.so");
     }
+    // A guided check can be interrupted after its immutable candidate
+    // checkpoint but before candidate.json is committed. The original worker
+    // must retire, yet its verified native bytes are needed by the offered
+    // continuation. Do not preserve unrelated or unbound work output.
+    if !retained {
+        if let Some(stage) = guided_check_stage(m, operation, "candidate")? {
+            let intent = guided_check_stage(m, operation, "intent")?
+                .ok_or("guided_check_intent_missing")?;
+            require(stage["schema"] == 1 && stage["operation"] == operation
+                && stage["action"] == intent["action"],
+                "guided_check_candidate_stage_binding")?;
+            let c: Candidate = serde_json::from_value(stage["value"]["candidate"].clone())?;
+            require(stage["value"]["id"] == c.id()?,
+                "guided_check_candidate_stage_identity")?;
+            if c.native.artifact.path == dir.join("native.so") {
+                c.native.artifact.verify()?;
+                retained = true;
+            }
+        }
+    }
     if !retained {
         for name in ["failure.json", "build.log"] {
             let path = dir.join(name);

@@ -556,18 +556,33 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
 }
 #[cfg(test)]
 pub(super) fn snapshot_idle_test(m: &Manager) -> Result<ui::Snapshot> {
-    snapshot_for_operation(m, None, OPERATOR_WAIT, &mut vec![], &|| {
-        serde_json::from_value(json!({
-            "schema": 1,
-            "dsp": 0,
-            "maintenance": 0,
-            "keepers": 0,
-            "cleanup_unconfirmed": false,
-            "owners": [],
-            "limits": {"global_dsp": 6}
-        }))
-        .ok()
-    })
+    snapshot_for_operation(m, None, OPERATOR_WAIT, &mut vec![], &idle_capacity_test)
+}
+#[cfg(test)]
+fn idle_capacity_test() -> Option<CapacityReadback> {
+    serde_json::from_value(json!({
+        "schema": 1, "dsp": 0, "maintenance": 0, "keepers": 0,
+        "cleanup_unconfirmed": false, "owners": [], "limits": {"global_dsp": 6}
+    })).ok()
+}
+#[cfg(test)]
+pub(super) fn test_submit_offered(m: &Manager, action: &ui::Action) -> Result<String> {
+    let snapshot = snapshot_idle_test(m)?;
+    let request = ui::Request { schema: ui::OPERATOR_SCHEMA,
+        state_token: snapshot.state_token.clone(), action: action.clone() };
+    validate(&request, &snapshot)?;
+    launch_queued(m, &request, |_| Ok(true))?.operation.ok_or_else(||
+        "operator_test_operation_missing".into())
+}
+#[cfg(test)]
+pub(super) fn test_run_offered_worker(m: &Manager, operation: &str) -> Result<Value> {
+    worker_with_capacity(m, operation, OPERATOR_WAIT, &idle_capacity_test)?;
+    read_json(&job_dir(m, operation)?.join("result.json"))
+}
+#[cfg(test)]
+pub(super) fn test_finalize_interrupted_worker(m: &Manager, operation: &str) -> Result<Value> {
+    finish_operation(m, operation)?;
+    read_json(&job_dir(m, operation)?.join("result.json"))
 }
 fn acquire_readback(
     m: &Manager,
@@ -997,6 +1012,28 @@ fn job_dir(m: &Manager, id: &str) -> Result<PathBuf> {
     require(valid_hex(id, 32), "operator_operation_identity")?;
     Ok(m.root.join("operator").join(id))
 }
+/// A continuation never revives the original worker. Its exact request and
+/// terminal refusal remain historical authority while a fresh offered request
+/// completes only the missing preparation stages.
+pub(super) fn resumable_check_source(m: &Manager, id: &str, action: &ui::Action) -> Result<bool> {
+    require(matches!(action, ui::Action::CompatibilityCheck { .. }),
+        "guided_check_source_action")?;
+    let dir = job_dir(m, id)?;
+    let original: ui::Request = read_json(&dir.join("request.json"))?;
+    // The installed private UI2 generation used wire 11. Its retained request
+    // can identify an old check; the *new* continuation still enters through
+    // this manager's current schema and fresh offered-action validation.
+    require(matches!(original.schema, 10 | 11) && original.action == *action,
+        "guided_check_source_request_changed")?;
+    let result = optional(&dir.join("result.json"))?;
+    require(result["schema"] == 1 && result["operation"] == id,
+        "guided_check_source_receipt_changed")?;
+    match result["state"].as_str() {
+        Some("refused") => Ok(true),
+        Some("queued" | "waiting" | "running" | "unconfirmed") => Ok(false),
+        _ => Err("guided_check_source_not_interrupted".into()),
+    }
+}
 fn write_operation(m: &Manager, id: &str, value: &Value, make_latest: bool) -> Result<()> {
     let deadline = Instant::now() + Duration::from_secs(5);
     let _lock = loop {
@@ -1410,6 +1447,7 @@ fn execute_with_receipt_policy(
                 | ui::Action::PluginInspect { .. }
                 | ui::Action::PluginPrepare { .. }
                 | ui::Action::CompatibilityCheck { .. }
+                | ui::Action::CompatibilityResumeCheck { .. }
         ) {
             let _environment = m.lock("operator-environment.lock")?;
             suspend(m, owner, None, timeout, waits)?;
@@ -1457,6 +1495,7 @@ fn execute_with_receipt_policy(
         | ui::Action::PluginInspect { .. }
         | ui::Action::PluginPrepare { .. }
         | ui::Action::CompatibilityCheck { .. }
+        | ui::Action::CompatibilityResumeCheck { .. }
         | ui::Action::CompatibilityPublishTest { .. }
         | ui::Action::CompatibilityResult { .. }
         | ui::Action::CompatibilityFinishResult { .. }
