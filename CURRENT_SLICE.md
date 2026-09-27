@@ -4,7 +4,8 @@
 
 UI2 starts from public canonical main `a9e3dab74465f8f39c180e454785261ad1a984ca`
 (tree `2f8896efced382b8b9cb569d1007bf85dedc838a`), after the normal UI1
-merge. **One claim:** integrate guided compatibility checks, exact experimental
+merge. It normally merged forward PR #183 via main
+`bcad71d845b0dd899d23a55dcbfa90fd86f39121`. **One claim:** integrate guided compatibility checks, exact experimental
 test publication, bounded operator results, and interrupted-result recovery into
 public manager/frontend source. The paired operator wire generation is schema
 10. Existing durable installer, candidate, result and publication records keep
@@ -17,6 +18,15 @@ result. The installed private UI2 generation remains Deck authority. It does
 not import BETA0/package, BG1, RPR0, DIST0/CACHY0, PB0 or ARM work. Package
 authority and remaining installed-state convergence require separate review
 before PB0 can replace the installed manager.
+
+## Completed source-only manager readback measurement
+
+PR #183 merged as `bcad71d845b0dd899d23a55dcbfa90fd86f39121`.
+One bounded full-snapshot fixture measured the repeated parse and validation of
+installed profiles, then reused one exact profile set within each snapshot.
+Fresh readback and mutation checks remain. The result and limits are in
+[manager readback performance](docs/MANAGER_READBACK_PERFORMANCE.md). It makes
+no Deck, larger-library, cold-start or user-visible navigation speed claim.
 
 ## Completed source-only canonical integration — UI1
 

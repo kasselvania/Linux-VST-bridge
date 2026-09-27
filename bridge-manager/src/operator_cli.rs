@@ -642,17 +642,17 @@ fn snapshot_for_operation(
     // Digests, runner verification, systemd and presentation run outside the
     // registry lock. The captured registry is checked again after projection.
     let sw = software(m)?;
+    let profiles = profiles::installed_profiles()?;
     let canonical = m.project_managed_registry(
         &sw.host,
         &sw.source_sha256,
-        &profiles::installed_profiles()?,
+        &profiles,
         &db,
     )?;
     let pending = pending_transactions(m)?;
     let retired = vendor_retired(m)? && onboarding::all_retired(m)?;
     let busy = inactive_reason(cap.as_ref(), retired, pending, false);
     let mut products = Vec::new();
-    let profiles = profiles::installed_profiles()?;
     for p in canonical.products {
         let entry = db
             .classes
@@ -3988,6 +3988,23 @@ mod tests {
         };
         let receipt = launch_queued(&f.m, &request, |_| Ok(true)).unwrap();
         (f, receipt.operation.unwrap())
+    }
+    #[test]
+    #[ignore = "opt-in snapshot latency measurement"]
+    fn snapshot_readback_latency_sample() {
+        let (f, _) = onboarding_worker_fixture();
+        let sample = || {
+            let start = Instant::now();
+            std::hint::black_box(snapshot_for_operation(
+                &f.m, None, OPERATOR_WAIT, &mut vec![], &|| capacity_fixture(&f.m),
+            ).unwrap());
+            start.elapsed().as_micros()
+        };
+        let cold = sample();
+        let mut warm: Vec<_> = (0..25).map(|_| sample()).collect();
+        warm.sort_unstable();
+        eprintln!("snapshot_readback_us cold={cold} p50={} p95={} max={}",
+            warm[12], warm[23], warm[24]);
     }
     #[test]
     fn ui1_default_offer_is_one_exact_standard_runner_and_missing_policy_refuses_setup() {
