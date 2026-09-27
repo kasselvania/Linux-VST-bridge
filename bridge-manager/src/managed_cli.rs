@@ -411,7 +411,7 @@ fn execute_qualification_for(
             let mut c = if purpose == publication::Qualification::Frg1Ubuntu {
                 Catalogue {schema:2,natives:Vec::new(),
                     environments:vec![linux_vst_bridge::frg1::qualification_environment(m,&sw)?],
-                    hosts:Vec::new()}
+                    hosts:Vec::new(),onboarding_runtime:None}
             } else { catalogue(m, &sw)? };
             c.natives = candidates.iter().map(|c| c.native.clone()).collect();
             let mut planned = Vec::new();
@@ -576,6 +576,7 @@ mod tests {
                 natives: vec![n],
                 environments: vec![c.environment.clone()],
                 hosts: Vec::new(),
+                onboarding_runtime: None,
             },
         )
         .unwrap();

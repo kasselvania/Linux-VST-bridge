@@ -145,6 +145,17 @@ pub fn runners(m: &Manager) -> Result<Vec<(String, Runner)>> {
     }
     Ok(list)
 }
+fn default_runtime(m: &Manager, installed: &[(String, Runner)]) -> Result<Option<(String, Runner)>> {
+    let sw = software(m)?;
+    let Some(_) = sw.native_catalogue else { return Ok(None) };
+    let catalogue = sw.catalogue(m)?;
+    let Some(policy) = catalogue.onboarding_runtime else { return Ok(None) };
+    let selected = installed.iter().find(|(key, runner)|
+        *key == policy.default_runner_key
+            && runner.id == catalogue::STANDARD_ONBOARDING_RUNNER
+            && runner.policy.is_none()).cloned();
+    Ok(selected)
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct FileIdentity {
     dev: u64,
@@ -577,6 +588,8 @@ fn projection_with_live(
 ) -> Result<Vec<ui::Onboarding>> {
     let mut rows = vec![];
     let runners = runners(m)?;
+    let default = default_runtime(m, &runners)?;
+    let preferred: Vec<_> = default.iter().cloned().collect();
     let records = history_records(m)?;
     for installer in installer_import::list(m)? {
         let bound: Vec<_> = records
@@ -595,10 +608,10 @@ fn projection_with_live(
                 required_human_action: "Review installer identity and choose a pinned runner"
                     .into(),
                 details: json!({"vendor":null,"product":null,"published":false}),
-                actions: runners
+                actions: preferred
                     .iter()
-                    .map(|(key, r)| ui::AvailableAction {
-                        label: format!("Create isolated environment · {}", r.version),
+                    .map(|(key, _r)| ui::AvailableAction {
+                        label: "Continue setup".into(),
                         action: ui::Action::InstallerEnvironmentCreate {
                             installer: installer.id.clone(),
                             runner: key.clone(),
@@ -674,7 +687,7 @@ fn projection_with_live(
                     disabled_reason: busy.map(Into::into),
                 });
             }
-            actions.extend(new_attempt_actions(&v, &r.id, &runners,
+            actions.extend(new_attempt_actions(&v, &r.id, &preferred,
                 records.iter().any(|x| x.previous_attempt.as_deref() == Some(&r.id)), busy));
             let scan_path = m.root.join("inventory").join(format!("{}.json", r.id));
             let scan: Value = if scan_path.exists() {
@@ -704,6 +717,94 @@ fn projection_with_live(
         }
     }
     Ok(rows)
+}
+
+/// One canonical current setup per immutable installer; exact old attempts stay
+/// in history. Product links require the same environment, module and class as
+/// the retained scan, never a friendly-name comparison.
+pub fn setup_projection(m: &Manager, rows: &[ui::Onboarding], products: &[ui::Product],
+    workspace_installers: &std::collections::BTreeSet<String>) -> Result<Vec<ui::InstallerSetup>> {
+    let runners = runners(m)?;
+    let default = default_runtime(m, &runners)?;
+    let mut setups = Vec::new();
+    for installer in installer_import::list(m)? {
+        if workspace_installers.contains(&installer.id) { continue; }
+        let presentation = installer_import::presentation(m, &installer)?;
+        let history: Vec<_> = rows.iter().filter(|row| row.installer == installer.id).cloned().collect();
+        let bound: Vec<_> = history.iter().filter(|row| row.environment.is_some()).collect();
+        let leaves: Vec<_> = bound.iter().copied().filter(|row| !bound.iter().any(|other|
+            other.details["previous_attempt"].as_str() == row.environment.as_deref())).collect();
+        require(bound.is_empty() || !leaves.is_empty(), "installer_setup_history_cycle")?;
+        let ambiguous = leaves.len() > 1;
+        let current = leaves.first().copied().or_else(|| history.first())
+            .ok_or("installer_setup_history_missing")?;
+        let mut discovered = Vec::new();
+        if let Some(env) = &current.environment {
+            if let Some(scan) = current.details.get("scan").filter(|v| v.is_object()) {
+                let scan: inventory::Scan = serde_json::from_value(scan.clone())?;
+                require(scan.schema == 1 && scan.environment.id == *env,
+                    "installer_setup_scan_binding")?;
+                for module in &scan.modules {
+                    for class in &module.classes {
+                        if let Some(product) = products.iter().find(|product|
+                            product.environment == *env && product.module_sha256 == module.artifact.sha256
+                                && product.class_id == class.id) {
+                            discovered.push(ui::DiscoveredProduct { environment: env.clone(),
+                                module_sha256: module.artifact.sha256.clone(), class_id: class.id.clone(),
+                                name: product.name.clone() });
+                        }
+                    }
+                }
+            }
+        }
+        let (phase, status) = if ambiguous {
+            (ui::SetupPhase::InstallerNeedsAttention,
+                "Multiple setup environments are retained. Review exact setup history before continuing.".to_owned())
+        } else if current.environment.is_none() {
+            (ui::SetupPhase::Imported, "No installation has started.".to_owned())
+        } else {
+            match current.state.as_str() {
+                "environment_ready" => (ui::SetupPhase::EnvironmentReady,
+                    "The compatibility space is ready. Running the vendor installer is a separate step.".into()),
+                "needs_attention" => (ui::SetupPhase::InstallerNeedsAttention, current.required_human_action.clone()),
+                "cleanup_unconfirmed" => (ui::SetupPhase::CleanupUnconfirmed,
+                    "Installer cleanup is unresolved. Further setup is paused.".into()),
+                "installed_unqualified" | "quarantined" | "no_audio_plugin_discovered" =>
+                    (ui::SetupPhase::DiscoveryComplete,
+                    format!("{} plug-ins found · discovery did not publish them; see each plug-in's current status", discovered.len())),
+                "completed" | "failed" | "cancelled" => (ui::SetupPhase::InstallerRetired,
+                    current.required_human_action.clone()),
+                _ if current.actions.iter().any(|a| matches!(a.action, ui::Action::InstallerFocus { .. })) =>
+                    (ui::SetupPhase::InstallerRunning,
+                    "Complete installation in the vendor window. Closing this manager does not stop it.".into()),
+                _ => (ui::SetupPhase::ScanReady, current.required_human_action.clone()),
+            }
+        };
+        let primary = if ambiguous { None } else { match phase {
+            ui::SetupPhase::Imported => current.actions.iter().find(|a| matches!(a.action, ui::Action::InstallerEnvironmentCreate { .. })),
+            ui::SetupPhase::EnvironmentReady => current.actions.iter().find(|a| matches!(a.action, ui::Action::InstallerStart { .. })),
+            ui::SetupPhase::InstallerRunning | ui::SetupPhase::InstallerNeedsAttention =>
+                current.actions.iter().find(|a| matches!(a.action, ui::Action::InstallerFocus { .. })),
+            ui::SetupPhase::InstallerRetired | ui::SetupPhase::ScanReady =>
+                current.actions.iter().find(|a| matches!(a.action, ui::Action::InstallerScan { .. })),
+            _ => None,
+        }}.cloned().map(|mut offer| { if matches!(offer.action, ui::Action::InstallerScan { .. }) {
+            offer.label = "Find installed plug-ins".into(); } offer });
+        let secondary = current.actions.iter().filter(|a| !ambiguous && primary.as_ref().is_none_or(|p| p.action != a.action))
+            .filter(|a| matches!(a.action, ui::Action::InstallerStop { .. })).cloned().collect();
+        setups.push(ui::InstallerSetup { installer: installer.id.clone(), name: presentation.display_label,
+            label_source: presentation.label_source, byte_size: installer.byte_size, format: installer.format,
+            imported_at: installer.created_at, phase, status,
+            environment: if ambiguous { None } else { current.environment.clone() },
+            compatibility: default.as_ref().map(|_| "Standard · recommended".into()),
+            discovered: if ambiguous { Vec::new() } else { discovered }, primary, secondary,
+            rename: ui::AvailableAction { label: "Rename".into(),
+                action: ui::Action::InstallerRename { installer: installer.id, label: String::new() },
+                disabled_reason: None },
+            history: history.iter().map(|row| ui::SetupHistoryRef {
+                environment: row.environment.clone(), state: row.state.clone() }).collect() });
+    }
+    Ok(setups)
 }
 
 /// A managed installation may be rescanned only when its retained inventory is
@@ -829,7 +930,7 @@ mod tests {
         let i=installer_import::import(&f.m,file(&input).unwrap()).unwrap();
         let path=f.m.root.join("software/catalogue.json");
         atomic_json(&path,&Catalogue { schema:3,natives:vec![native],hosts:vec![],
-            environments:vec![EnvironmentBinding {family:p.requirements.environment_family,environment:f.r.environment.clone()}] }).unwrap();
+            environments:vec![EnvironmentBinding {family:p.requirements.environment_family,environment:f.r.environment.clone()}],onboarding_runtime:None }).unwrap();
         create_exact(&f.m,&i,f.r.environment.runner.clone(),&"ab".repeat(16),&f.m.lock("registry.lock").unwrap(),None).unwrap();
         let a=f.r.host.clone();
         let mut sw=Software { manager:a.clone(),supervisor:a.clone(),ownership:a.clone(),host:a.clone(),
@@ -976,6 +1077,7 @@ mod tests {
                 family: profiles::Family::ArturiaPersistentV1,
                 environment: f.r.environment.clone(),
             }],
+            onboarding_runtime: None,
         };
         atomic_json(&catalogue_path, &catalogue).unwrap();
         let source_path = f.m.root.join("software/host-source-manifest.json");
@@ -1120,6 +1222,7 @@ mod tests {
                 cleanup_unconfirmed: false,
             },
             onboarding,
+            installer_setups: vec![],
             environments,
             vendor_applications: vec![],
             products: vec![],

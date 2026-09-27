@@ -19,6 +19,70 @@ pub struct Installer {
     pub vendor: Option<String>,
     pub product: Option<String>,
 }
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Presentation {
+    pub schema: u32,
+    pub installer_sha256: String,
+    pub display_label: String,
+    pub label_source: String,
+    pub updated_at: u64,
+}
+pub type ImportResult = linux_vst_bridge::operator_model::InstallerImportResult;
+fn unsafe_label_char(c: char) -> bool {
+    c.is_control() || matches!(c, '/' | '\\' | ':')
+        || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
+}
+pub fn valid_label(label: &str) -> bool {
+    !label.trim().is_empty()
+        && label.trim() == label
+        && label.len() <= 96
+        && !matches!(label, "." | "..")
+        && !label.chars().any(unsafe_label_char)
+}
+pub fn suggested_label(basename: &str, sha: &str) -> (String, &'static str) {
+    let leaf = basename.rsplit(['/', '\\']).next().unwrap_or("");
+    let stem = leaf.strip_suffix(".exe").or_else(|| leaf.strip_suffix(".EXE"))
+        .or_else(|| leaf.strip_suffix(".msi")).or_else(|| leaf.strip_suffix(".MSI"))
+        .unwrap_or(leaf);
+    let cleaned: String = stem.chars().filter(|c| !unsafe_label_char(*c))
+        .take(96).collect();
+    let cleaned = cleaned.trim();
+    if valid_label(cleaned) && !matches!(cleaned.to_ascii_lowercase().as_str(),
+        "setup" | "install" | "installer" | "windows installer") {
+        return (cleaned.into(), "selected_basename");
+    }
+    (format!("Unknown Windows installer · ID {}…{}", &sha[..8], &sha[60..]), "generated")
+}
+fn presentation_path(m: &Manager, sha: &str) -> PathBuf {
+    m.root.join("installers/presentation").join(format!("{sha}.json"))
+}
+pub fn presentation(m: &Manager, installer: &Installer) -> Result<Presentation> {
+    let path = presentation_path(m, &installer.id);
+    if !path.try_exists()? {
+        let (display_label, label_source) = suggested_label("", &installer.id);
+        return Ok(Presentation { schema: 1, installer_sha256: installer.id.clone(),
+            display_label, label_source: label_source.into(), updated_at: installer.created_at });
+    }
+    let value: Presentation = read_json(&path)?;
+    require(value.schema == 1 && value.installer_sha256 == installer.id
+        && valid_label(&value.display_label)
+        && matches!(value.label_source.as_str(), "selected_basename" | "generated" | "operator_named"),
+        "installer_presentation_binding")?;
+    Ok(value)
+}
+pub fn rename(m: &Manager, sha: &str, label: &str) -> Result<Presentation> {
+    require(valid_hex(sha, 64) && valid_label(label), "installer_presentation_label")?;
+    let _guard = m.lock("installer-import.lock")?;
+    let installer = load_record(m, sha)?;
+    let dir = m.root.join("installers/presentation");
+    private_dir(&dir)?;
+    let value = Presentation { schema: 1, installer_sha256: installer.id,
+        display_label: label.into(), label_source: "operator_named".into(),
+        updated_at: observation::now()? };
+    atomic_json(&presentation_path(m, sha), &value)?;
+    Ok(value)
+}
 fn stamp(m: &fs::Metadata) -> (u64, u64, u64, i64, i64, i64, i64) {
     (
         m.dev(),
@@ -85,7 +149,26 @@ fn available_space(dir: &Path) -> Result<u64> {
 pub fn import(m: &Manager, source: fs::File) -> Result<Installer> {
     let dir = m.root.join("installers");
     private_dir(&dir)?;
-    import_with(m, source, available_space(&dir)?, MAX_BYTES, |_| Ok(()))
+    Ok(import_with(m, source, available_space(&dir)?, MAX_BYTES, |_| Ok(()))?.0)
+}
+pub fn import_named(m: &Manager, source: fs::File, basename: &str) -> Result<ImportResult> {
+    require(basename.len() <= 512 && !basename.contains('\0'), "installer_basename_bound")?;
+    let dir = m.root.join("installers");
+    private_dir(&dir)?;
+    let (installer, newly_imported) = import_with(m, source, available_space(&dir)?, MAX_BYTES, |_| Ok(()))?;
+    let _guard = m.lock("installer-import.lock")?;
+    let path = presentation_path(m, &installer.id);
+    if !path.try_exists()? {
+        let (display_label, label_source) = suggested_label(basename, &installer.id);
+        let value = Presentation { schema: 1, installer_sha256: installer.id.clone(),
+            display_label, label_source: label_source.into(), updated_at: observation::now()? };
+        private_dir(path.parent().ok_or("installer_presentation_directory")?)?;
+        atomic_json(&path, &value)?;
+    }
+    let presentation = presentation(m, &installer)?;
+    Ok(ImportResult { schema: 2, installer_sha256: installer.id,
+        byte_size: installer.byte_size, format: installer.format, newly_imported,
+        display_label: presentation.display_label, created_at: installer.created_at })
 }
 fn import_with(
     m: &Manager,
@@ -93,7 +176,7 @@ fn import_with(
     free: u64,
     bound: u64,
     mut after_chunk: impl FnMut(u64) -> Result<()>,
-) -> Result<Installer> {
+) -> Result<(Installer, bool)> {
     let before = source.metadata()?;
     let flags = unsafe { libc::fcntl(source.as_raw_fd(), libc::F_GETFL) };
     require(
@@ -161,7 +244,7 @@ fn import_with(
         if record.exists() {
             let prior = load(m, &sha)?;
             fs::remove_file(&temp)?;
-            return Ok(prior);
+            return Ok((prior, false));
         }
         if path.exists() {
             require(digest(&path)? == sha, "installer_existing_artifact_changed")?;
@@ -185,7 +268,7 @@ fn import_with(
         };
         atomic_json(&record, &value)?;
         fs::File::open(&dir)?.sync_all()?;
-        Ok(value)
+        Ok((value, true))
     })();
     if temp.exists() {
         let _ = fs::remove_file(&temp);
@@ -256,6 +339,30 @@ pub fn list(m: &Manager) -> Result<Vec<Installer>> {
     out.sort_by_key(|x| x.created_at);
     Ok(out)
 }
+pub fn presentation_token(m: &Manager) -> Result<Vec<(String, Option<Presentation>)>> {
+    let dir = m.root.join("installers");
+    if !dir.exists() { return Ok(Vec::new()); }
+    let mut rows = Vec::new();
+    for entry in fs::read_dir(&dir)?.take(513) {
+        require(rows.len() < 512, "installer_inventory_bound")?;
+        let path = entry?.path();
+        let Some(sha) = path.file_stem().and_then(|v| v.to_str()) else { continue };
+        if path.extension().is_some_and(|v| v == "json") && valid_hex(sha, 64) {
+            let value = if presentation_path(m, sha).try_exists()? {
+                let presentation: Presentation = read_json(&presentation_path(m, sha))?;
+                require(presentation.schema == 1 && presentation.installer_sha256 == sha
+                    && valid_label(&presentation.display_label)
+                    && matches!(presentation.label_source.as_str(),
+                        "selected_basename" | "generated" | "operator_named"),
+                    "installer_presentation_binding")?;
+                Some(presentation)
+            } else { None };
+            rows.push((sha.to_owned(), value));
+        }
+    }
+    rows.sort_by(|a,b| a.0.cmp(&b.0));
+    Ok(rows)
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -296,6 +403,45 @@ mod tests {
         std::os::unix::fs::symlink(&p, &link).unwrap();
         assert!(file(&link).is_err());
         assert!(import(&f.m, fs::File::open(&f.outer).unwrap()).is_err());
+    }
+    #[test]
+    fn typed_import_presentation_is_exact_deduplicated_and_legacy_rename_is_sidecar_only() {
+        let f = test_fixture::Fixture::new();
+        let source = f.outer.join("Lunacy Audio Installer.exe");
+        fs::write(&source, pe()).unwrap();
+        let first = import_named(&f.m, file(&source).unwrap(),
+            source.file_name().unwrap().to_str().unwrap()).unwrap();
+        assert!(first.newly_imported);
+        assert_eq!(first.display_label, "Lunacy Audio Installer");
+        let sha = first.installer_sha256.clone();
+        let artifact = load(&f.m, &sha).unwrap();
+        let record = fs::read(f.m.root.join("installers").join(format!("{sha}.json"))).unwrap();
+        let before_token = presentation_token(&f.m).unwrap();
+        let renamed = rename(&f.m, &sha, "Lunacy Audio").unwrap();
+        assert_eq!(renamed.display_label, "Lunacy Audio");
+        assert_ne!(presentation_token(&f.m).unwrap(), before_token);
+        let second = import_named(&f.m, file(&source).unwrap(), "other.exe").unwrap();
+        assert!(!second.newly_imported);
+        assert_eq!(second.display_label, "Lunacy Audio");
+        assert_eq!(list(&f.m).unwrap(), vec![artifact]);
+        assert_eq!(fs::read(f.m.root.join("installers").join(format!("{sha}.json"))).unwrap(), record);
+        assert!(!serde_json::to_string(&second).unwrap().contains(f.outer.to_str().unwrap()));
+    }
+    #[test]
+    fn basename_sanitization_and_generic_ids_are_bounded() {
+        let a = "aa".repeat(32);
+        let b = "bb".repeat(32);
+        assert_eq!(suggested_label("C:\\Downloads\\Lunacy Audio Installer.exe", &a).0,
+            "Lunacy Audio Installer");
+        assert_eq!(suggested_label("/tmp/hello\nworld.msi", &a).0, "helloworld");
+        assert_eq!(suggested_label("C:\\Downloads\\C: Serum\u{202e} 2.exe", &a).0,
+            "C Serum 2");
+        assert_ne!(suggested_label("setup.exe", &a).0, suggested_label("setup.exe", &b).0);
+        assert!(suggested_label(&format!("{}.exe", "a".repeat(200)), &a).0.len() <= 96);
+        for bad in ["", " hello", "hello/command", "hello\\command", "hello\nworld",
+            "C:program", ".", "..", "safe\u{202e}evil"] {
+            assert!(!valid_label(bad));
+        }
     }
     #[test]
     fn ingress_bounds_mutation_and_partial_cleanup() {

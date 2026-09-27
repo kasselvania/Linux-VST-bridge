@@ -144,6 +144,34 @@ pub struct Catalogue {
     // profile requirements; it never changes the legacy default host.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hosts: Vec<HostArtifact>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub onboarding_runtime: Option<OnboardingRuntimePolicy>,
+}
+pub const STANDARD_ONBOARDING_RUNNER: &str = "proton-11.0-2c-25118279-slr4-4.0.20260805.254769";
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct OnboardingRuntimePolicy {
+    pub schema: u32,
+    pub default_runner_key: String,
+    pub display_name: String,
+    pub posture: String,
+}
+impl OnboardingRuntimePolicy {
+    pub fn from_environments(environments: &[EnvironmentBinding]) -> Result<Option<Self>> {
+        let mut selected = None;
+        for binding in environments {
+            let runner = &binding.environment.runner;
+            if runner.id == STANDARD_ONBOARDING_RUNNER && runner.policy.is_none() {
+                let key = hex(&sha2::Sha256::digest(serde_json::to_vec(runner)?));
+                if let Some(previous) = &selected {
+                    require(previous == &key, "onboarding_standard_runner_ambiguous")?;
+                }
+                selected = Some(key);
+            }
+        }
+        Ok(selected.map(|default_runner_key| Self { schema: 1, default_runner_key,
+            display_name: "Standard".into(), posture: "recommended".into() }))
+    }
 }
 impl Catalogue {
     pub fn validate(&self, root: &Path) -> Result<()> {
@@ -182,6 +210,12 @@ impl Catalogue {
                 environments.insert(&e.environment.id),
                 "duplicate_environment_binding",
             )?;
+        }
+        if let Some(policy) = &self.onboarding_runtime {
+            require(policy.schema == 1 && policy.display_name == "Standard"
+                && policy.posture == "recommended"
+                && valid_hex(&policy.default_runner_key, 64),
+                "onboarding_runtime_policy_binding")?;
         }
         let mut hosts = std::collections::BTreeSet::new();
         for h in &self.hosts {
@@ -371,11 +405,13 @@ pub fn adoption(m: &Manager, profiles: &[Profile]) -> Result<Catalogue> {
     } else {
         Vec::new()
     };
+    let onboarding_runtime = OnboardingRuntimePolicy::from_environments(&environments)?;
     Ok(Catalogue {
         schema: if schema == 3 || natives.iter().map(|n| &n.class.class_id).collect::<std::collections::BTreeSet<_>>().len() != natives.len() {3} else if hosts.is_empty() {1} else {2},
         natives,
         environments,
         hosts,
+        onboarding_runtime,
     })
 }
 
@@ -467,5 +503,29 @@ mod path_tests {
         assert!(verify_host_path(Path::new(&"x".repeat(258))).is_err());
         assert!(verify_host_path(Path::new(&"x".repeat(267))).is_err());
         assert!(verify_host_path(Path::new(&"😀".repeat(129))).is_err());
+    }
+}
+
+#[cfg(test)]
+mod ui1_format_tests {
+    use super::*;
+
+    #[test]
+    fn installed_standard_runtime_field_round_trips_without_rewriting_legacy_catalogues() {
+        let old = serde_json::json!({"schema":3,"natives":[],"environments":[]});
+        let legacy: Catalogue = serde_json::from_value(old.clone()).unwrap();
+        assert!(legacy.onboarding_runtime.is_none());
+        assert_eq!(serde_json::to_value(&legacy).unwrap(), old);
+
+        let mut installed = old;
+        installed["onboarding_runtime"] = serde_json::json!({
+            "schema":1,
+            "default_runner_key":"72d6da6c18cd30cb9027952cbbcc7ca2e7753c86933e310a7c8db32d8261be63",
+            "display_name":"Standard",
+            "posture":"recommended"
+        });
+        let current: Catalogue = serde_json::from_value(installed.clone()).unwrap();
+        assert_eq!(serde_json::to_value(&current).unwrap(), installed);
+        assert!(current.onboarding_runtime.is_some());
     }
 }

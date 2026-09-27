@@ -76,6 +76,47 @@ fn main() -> eframe::Result {
     };
     let mut snapshot: model::Snapshot =
         serde_json::from_str(include_str!("library-preview.json")).expect("preview fixture");
+    if page == operator::Page::Setup {
+        let installer = "ab".repeat(32);
+        let environment = "cd".repeat(16);
+        let mut beam = snapshot.products[0].clone();
+        beam.name = "BEAM".into();
+        beam.vendor = "Lunacy Audio".into();
+        beam.environment = environment.clone();
+        beam.class_id = "01".repeat(16);
+        beam.module_sha256 = "ef".repeat(32);
+        beam.disposition = "installed_unqualified".into();
+        beam.actions.clear();
+        let mut sibling = beam.clone();
+        sibling.name = "BEAM Bismuth".into();
+        sibling.class_id = "02".repeat(16);
+        snapshot.products.extend([beam, sibling]);
+        snapshot.installer_setups.push(model::InstallerSetup {
+            installer: installer.clone(), name: "Lunacy Audio".into(),
+            label_source: "operator_named".into(), byte_size: 246_000_000,
+            format: "pe_executable".into(), imported_at: 1,
+            phase: model::SetupPhase::DiscoveryComplete,
+            status: "2 plug-ins found · discovery did not publish them; see each plug-in's current status".into(),
+            environment: Some(environment.clone()), compatibility: Some("Standard · recommended".into()),
+            discovered: snapshot.products.iter().filter(|p| p.environment == environment)
+                .map(|p| model::DiscoveredProduct { environment: p.environment.clone(),
+                    module_sha256: p.module_sha256.clone(), class_id: p.class_id.clone(),
+                    name: p.name.clone() }).collect(),
+            primary: None, secondary: vec![],
+            rename: model::AvailableAction { label: "Rename".into(),
+                action: model::Action::InstallerRename { installer: installer.clone(), label: String::new() },
+                disabled_reason: None },
+            history: vec![model::SetupHistoryRef { environment: Some(environment.clone()),
+                state: "installed_unqualified".into() }],
+        });
+        snapshot.onboarding.push(model::Onboarding { failure: None, installer,
+            name: "Windows installer".into(), byte_size: 246_000_000,
+            format: "pe_executable".into(), environment: Some(environment),
+            state: "installed_unqualified".into(),
+            required_human_action: "Review discovery".into(),
+            details: serde_json::json!({"installation":{"state":"completed","cleanup_confirmed":true},
+                "scan":{"id":"synthetic-scan","modules":2}}), actions: vec![] });
+    }
     if page == operator::Page::Workspaces {
         snapshot.workspaces.push(model::DawWorkspace {
             id: "aa".repeat(16),

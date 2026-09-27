@@ -304,8 +304,23 @@ impl RequestFeedback {
 #[derive(Default)]
 struct RouteFocus {
     setup: Option<AttemptKey>,
+    setup_installer: Option<String>,
     setup_scroll: bool,
     activity: Option<String>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RequestOrigin {
+    InitialSnapshot,
+    BackgroundActivity,
+    SilentPostMutationRefresh,
+    ExplicitRefresh,
+    InstallerImport,
+    UserAction,
+}
+impl RequestOrigin {
+    fn foreground(self) -> bool {
+        matches!(self, Self::InstallerImport | Self::UserAction)
+    }
 }
 
 pub struct Operator {
@@ -315,6 +330,9 @@ pub struct Operator {
     pending: bool,
     background_poll: bool,
     action_inflight: bool,
+    origin: Option<RequestOrigin>,
+    queued_import: bool,
+    explicit_refresh_queued: bool,
     queued_action: Option<Request>,
     feedback: Option<RequestFeedback>,
     last_poll: Instant,
@@ -323,6 +341,7 @@ pub struct Operator {
     refresh_after: bool,
     product_form: Option<Action>,
     workspace_select_form: Option<Action>,
+    installer_rename_form: Option<Action>,
     page: Page,
     focus: RouteFocus,
     preview: bool,
@@ -338,14 +357,18 @@ impl Operator {
             pending: true,
             background_poll: false,
             action_inflight: false,
+            origin: Some(RequestOrigin::InitialSnapshot),
+            queued_import: false,
+            explicit_refresh_queued: false,
             queued_action: None,
             feedback: None,
             last_poll: Instant::now(),
-            message: "Reading installed manager…".into(),
+            message: String::new(),
             library: crate::library::Library::default(),
             refresh_after: false,
             product_form: None,
             workspace_select_form: None,
+            installer_rename_form: None,
             page: Page::Home,
             focus: RouteFocus::default(),
             preview: false,
@@ -362,14 +385,18 @@ impl Operator {
             pending: false,
             background_poll: false,
             action_inflight: false,
+            origin: None,
+            queued_import: false,
+            explicit_refresh_queued: false,
             queued_action: None,
             feedback: None,
             last_poll: Instant::now(),
-            message: "Synthetic preview · no operations execute".into(),
+            message: String::new(),
             library: crate::library::Library::default(),
             refresh_after: false,
             product_form: None,
             workspace_select_form: None,
+            installer_rename_form: None,
             page,
             focus: RouteFocus::default(),
             preview: true,
@@ -483,10 +510,11 @@ impl Operator {
                 }
             });
     }
-    fn request(&mut self, q: Query, ctx: &egui::Context) {
+    fn request(&mut self, q: Query, origin: RequestOrigin, ctx: &egui::Context) {
         self.pending = true;
-        self.background_poll = matches!(&q, Query::Activity);
-        self.action_inflight = matches!(&q, Query::Action(_));
+        self.origin = Some(origin);
+        self.background_poll = origin == RequestOrigin::BackgroundActivity;
+        self.action_inflight = origin == RequestOrigin::UserAction;
         if self.action_inflight {
             if let Some(f) = &mut self.feedback {
                 f.text = "Submitting this request to the manager…".into();
@@ -497,6 +525,7 @@ impl Operator {
     }
     fn controls_pending(&self) -> bool {
         self.queued_action.is_some()
+            || self.queued_import
             || self.feedback.as_ref().is_some_and(|f| f.blocking)
             || (self.pending && !self.background_poll)
     }
@@ -521,7 +550,12 @@ impl Operator {
         crate::library::action_buttons(ui, actions, busy, pending, chosen);
     }
     fn handle_reply(&mut self, reply: Reply) {
-        let was_action = self.action_inflight;
+        let origin = self.origin.take().unwrap_or(if self.action_inflight {
+            RequestOrigin::UserAction
+        } else if self.background_poll {
+            RequestOrigin::BackgroundActivity
+        } else { RequestOrigin::InitialSnapshot });
+        let was_action = origin == RequestOrigin::UserAction;
         self.pending = false;
         self.background_poll = false;
         self.action_inflight = false;
@@ -534,7 +568,8 @@ impl Operator {
                         f.reconcile_snapshot(&s);
                     }
                     self.snapshot = Some(*s);
-                    self.message = "Canonical installed state refreshed".into();
+                    // Initial and post-mutation readback are quiet; a durable
+                    // import/action notice is never replaced by polling.
                 }
             }
             Reply::Receipt(r) => {
@@ -555,14 +590,6 @@ impl Operator {
                     if let Some(f) = &mut self.feedback {
                         f.observe(op);
                     }
-                    if op["state"] == "refused" {
-                        self.message = format!(
-                            "Last operation refused: {}",
-                            op["reason"].as_str().unwrap_or("see receipt")
-                        );
-                    } else if op["state"] == "completed" {
-                        self.message = "Operation completed".into();
-                    }
                 }
                 if let Some(s) = &mut self.snapshot {
                     if s.system.capacity_available() != a.system.capacity_available()
@@ -579,12 +606,23 @@ impl Operator {
                     s.operation = a.operation;
                 }
             }
-            Reply::Imported => {
-                self.message = "Installer imported. Review it in Setup or choose its exact release in Workspaces.".into();
+            Reply::Imported(imported) => {
+                self.page = Page::Setup;
+                self.focus.setup = None;
+                self.focus.setup_installer = Some(imported.installer_sha256);
+                self.focus.setup_scroll = true;
+                self.feedback = None;
+                self.message = if imported.newly_imported {
+                    format!("Added {}. No installation has started.", imported.display_label)
+                } else {
+                    "This installer was already added. Showing the existing setup.".into()
+                };
                 self.refresh_after = true;
             }
             Reply::Cancelled => {
-                self.message = "Installer selection cancelled".into();
+                if origin == RequestOrigin::InstallerImport {
+                    self.message = "No installer selected.".into();
+                }
             }
             Reply::Error(e) => {
                 if was_action {
@@ -595,7 +633,11 @@ impl Operator {
                         self.refresh_after = true;
                     }
                 }
-                self.message = e;
+                if origin.foreground() || matches!(origin, RequestOrigin::InitialSnapshot | RequestOrigin::ExplicitRefresh) {
+                    self.message = e;
+                }
+                // Background readback errors stay quiet as requests, but the
+                // last healthy service state cannot remain current.
                 if let Some(s) = &mut self.snapshot {
                     s.system.service = "capacity unavailable".into();
                 }
@@ -684,6 +726,7 @@ fn navigate(
         }
         Destination::Attempt(key) => {
             focus.setup = Some(key.clone());
+            focus.setup_installer = Some(key.installer.clone());
             focus.setup_scroll = true;
             *page = Page::Setup;
         }
@@ -748,22 +791,27 @@ impl Operator {
                             .into(),
                     ));
                 });
+                ui.small("State updates automatically.");
             });
     }
 
-    fn request_bar(&self, ui: &mut egui::Ui) {
+    fn request_bar(&mut self, ui: &mut egui::Ui) {
+        let foreground_pending = self.queued_import || (self.pending && self.origin.is_some_and(RequestOrigin::foreground));
+        if self.feedback.is_none() && self.message.is_empty() && !foreground_pending {
+            return;
+        }
         egui::Frame::group(ui.style()).show(ui, |ui| {
             ui.set_min_width((ui.available_width() - 1.0).max(0.0));
             ui.spacing_mut().item_spacing.y = 3.0;
             ui.horizontal_wrapped(|ui| {
-                ui.strong("Request status");
-                if self.pending {
+                ui.strong("Current request");
+                if foreground_pending {
                     ui.spinner();
                 }
                 ui.label(
                     self.feedback
                         .as_ref()
-                        .map_or(self.message.as_str(), |feedback| feedback.text.as_str()),
+                        .map_or(if foreground_pending && self.message.is_empty() { "Working…" } else { self.message.as_str() }, |feedback| feedback.text.as_str()),
                 );
             });
             if let Some(feedback) = &self.feedback {
@@ -776,6 +824,11 @@ impl Operator {
                     );
                     ui.label(feedback.transitions.join(" → "));
                 });
+            }
+            if !self.feedback.as_ref().is_some_and(|f| f.blocking)
+                && ui.add_sized([100.0, 44.0], egui::Button::new("Dismiss")).clicked() {
+                self.feedback = None;
+                self.message.clear();
             }
         });
     }
@@ -1178,15 +1231,12 @@ impl Operator {
         snapshot: &Snapshot,
         pending: bool,
         feedback: Option<&RequestFeedback>,
-        focus: &mut RouteFocus,
+        navigation: (&mut Page, &mut crate::library::Library, &mut RouteFocus),
         chosen: &mut Option<Action>,
         pick: &mut bool,
     ) {
+        let (page, library, focus) = navigation;
         let busy = snapshot.system.inactive_reason();
-        if focus.setup_scroll {
-            ui.scroll_to_cursor(Some(egui::Align::Min));
-            focus.setup_scroll = false;
-        }
         ui.heading("Setup");
         ui.small("Installers, vendor applications, environments and exact recovery controls.");
         for offer in &snapshot.actions {
@@ -1197,69 +1247,144 @@ impl Operator {
             }
         }
         ui.group(|ui| {
+            ui.set_min_width((ui.available_width() - 1.0).max(0.0));
             ui.strong("Add a plug-in");
-            if ui.add_enabled(!pending, egui::Button::new("Add Windows installer").min_size(egui::vec2(240.0, 48.0))).clicked() {
-                *pick = true;
-            }
-            ui.small("Select a local installer, review it, create an isolated environment, install, then scan. New products remain unpublished.");
+            if ui.add_enabled(!pending, egui::Button::new("Choose Windows installer")
+                .min_size(egui::vec2(240.0, 48.0))).clicked() { *pick = true; }
+            ui.small("Selecting a file copies it into manager custody. It does not run the installer.");
         });
-        ui.add_space(10.0);
-        ui.heading("Installation attempts");
-        if focus.setup.is_some() {
-            ui.strong("Showing the selected attempt");
-            if ui
-                .add_sized([180.0, 44.0], egui::Button::new("Show all attempts"))
-                .clicked()
-            {
-                focus.setup = None;
-            }
+        if focus.setup_installer.is_some() {
+            ui.strong("Showing the selected installer");
+            if ui.add_sized([180.0, 44.0], egui::Button::new("Show all setup"))
+                .clicked() { focus.setup_installer = None; focus.setup = None; }
         }
-        let rows: Vec<_> = snapshot
-            .onboarding
-            .iter()
-            .rev()
-            .filter(|attempt| {
-                focus.setup.as_ref().is_none_or(|key| {
-                    key.installer == attempt.installer && key.environment == attempt.environment
-                })
-            })
-            .collect();
-        if rows.is_empty() {
-            ui.label(if snapshot.onboarding.is_empty() {
-                "No installer attempts yet."
-            } else {
-                "Selected attempt is no longer in this snapshot."
-            });
-        }
-        for attempt in rows {
-            ui.push_id((&attempt.installer, &attempt.environment), |ui| {
-                egui::Frame::group(ui.style()).show(ui, |ui| {
-                    ui.set_min_width((ui.available_width() - 1.0).max(0.0));
-                    ui.strong(format!("{} · {}", attempt.name, attempt.state.replace('_', " ")));
-                    ui.label(&attempt.required_human_action);
-                    if let Some(line) = installer_lines(&attempt.details["installation"]).first() { ui.label(line); }
-                    if let Some(feedback) = feedback.filter(|feedback| feedback.for_installer(&attempt.installer)
-                        || matches!(&feedback.action, Action::InstallerNewAttempt { previous, .. } if attempt.environment.as_ref() == Some(previous))) {
-                        ui.colored_label(warning_color(ui), &feedback.text);
-                    } else if let Some(reason) = attempt.details["request_result"]["reason"].as_str() {
-                        ui.colored_label(warning_color(ui), format!("Last request refused before worker launch: {reason}"));
+        let sections = [
+            ("Ready to set up", 0),
+            ("Ready to install", 1),
+            ("In progress / Needs attention", 2),
+            ("Installed plug-ins / Ready to continue", 3),
+        ];
+        for (heading, section) in sections {
+            let items: Vec<_> = snapshot.installer_setups.iter().filter(|setup| {
+                focus.setup_installer.as_ref().is_none_or(|id| id == &setup.installer)
+                    && matches!((section, &setup.phase),
+                        (0, crate::model::SetupPhase::Imported)
+                        | (1, crate::model::SetupPhase::EnvironmentReady)
+                        | (2, crate::model::SetupPhase::InstallerRunning
+                            | crate::model::SetupPhase::InstallerNeedsAttention
+                            | crate::model::SetupPhase::CleanupUnconfirmed)
+                        | (3, crate::model::SetupPhase::InstallerRetired
+                            | crate::model::SetupPhase::ScanReady
+                            | crate::model::SetupPhase::DiscoveryComplete))
+            }).collect();
+            if items.is_empty() { continue; }
+            ui.add_space(12.0);
+            ui.heading(heading);
+            for setup in items {
+                ui.push_id(&setup.installer, |ui| {
+                    if focus.setup_scroll && focus.setup_installer.as_ref() == Some(&setup.installer) {
+                        ui.scroll_to_cursor(Some(egui::Align::Center));
+                        focus.setup_scroll = false;
                     }
-                    if let Some(failure) = &attempt.failure {
-                        for line in failure_lines(failure).iter().take(3) { ui.colored_label(warning_color(ui), line); }
-                    }
-                    Self::buttons(ui, &attempt.actions, busy, pending, chosen);
-                    egui::CollapsingHeader::new("Technical installation details").show(ui, |ui| {
-                        ui.small(format!("Installer SHA-256: {}", attempt.installer));
-                        if let Some(environment) = &attempt.environment { ui.small(format!("Environment: {environment}")); }
-                        ui.small(format!("{} bytes · {}", attempt.byte_size, attempt.format));
-                        for line in installer_policy_lines(&attempt.details["installation"]) { ui.small(line); }
-                        for line in installer_lines(&attempt.details["installation"]) { ui.small(line); }
-                        if let Some(failure) = &attempt.failure { for line in failure_lines(failure) { ui.small(line); } }
-                        Self::value(ui, &attempt.details);
+                    egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
+                        ui.set_min_width((ui.available_width() - 1.0).max(0.0));
+                        ui.label(egui::RichText::new(&setup.name).size(19.0).strong());
+                        let phase = match setup.phase {
+                            crate::model::SetupPhase::Imported => "Imported",
+                            crate::model::SetupPhase::EnvironmentReady => "Ready to install",
+                            crate::model::SetupPhase::InstallerRunning => "Installer open",
+                            crate::model::SetupPhase::InstallerNeedsAttention => "Installer needs attention",
+                            crate::model::SetupPhase::InstallerRetired => "Installer closed",
+                            crate::model::SetupPhase::ScanReady => "Ready to find plug-ins",
+                            crate::model::SetupPhase::DiscoveryComplete => "Plug-ins found",
+                            crate::model::SetupPhase::CleanupUnconfirmed => "Cleanup unresolved",
+                        };
+                        ui.strong(phase);
+                        ui.label(&setup.status);
+                        if let Some(target) = focus.setup.as_ref().filter(|key| key.installer == setup.installer) {
+                            ui.small(format!("Attention is linked to setup attempt {}",
+                                target.environment.as_deref().unwrap_or("before environment creation")));
+                        }
+                        if let Some(compatibility) = &setup.compatibility {
+                            if matches!(setup.phase, crate::model::SetupPhase::Imported
+                                | crate::model::SetupPhase::EnvironmentReady) {
+                                ui.small(format!("Compatibility: {compatibility}"));
+                            }
+                        }
+                        if let Some(offer) = &setup.primary {
+                            let reason = offer.disabled_reason.as_deref().or(busy);
+                            let response = ui.add_enabled(!pending && reason.is_none(),
+                                egui::Button::new(egui::RichText::new(&offer.label).strong())
+                                    .min_size(egui::vec2(240.0, 48.0)));
+                            if response.clicked() { *chosen = Some(offer.action.clone()); }
+                            if let Some(reason) = reason { ui.small(reason); }
+                        } else if matches!(setup.phase, crate::model::SetupPhase::Imported) {
+                            ui.colored_label(warning_color(ui),
+                                "Standard compatibility runtime is unavailable. Repair or update the manager package before continuing.");
+                        }
+                        if matches!(setup.phase, crate::model::SetupPhase::DiscoveryComplete)
+                            && !setup.discovered.is_empty()
+                            && ui.add_sized([240.0, 48.0], egui::Button::new("View discovered plug-ins")).clicked() {
+                            library.focus_products(setup.discovered.iter().map(|product|
+                                crate::presentation::ProductKey {
+                                    environment: product.environment.clone(),
+                                    module_sha256: product.module_sha256.clone(),
+                                    class_id: product.class_id.clone(),
+                                }).collect());
+                            *page = Page::Plugins;
+                        }
+                        Self::buttons(ui, &setup.secondary, None, pending, chosen);
+                        if ui.add_enabled(!pending, egui::Button::new("Rename")
+                            .min_size(egui::vec2(120.0, 44.0))).clicked() {
+                            *chosen = Some(Action::InstallerRename {
+                                installer: setup.installer.clone(), label: setup.name.clone() });
+                        }
+                        if let Some(feedback) = feedback.filter(|f| f.for_installer(&setup.installer)) {
+                            ui.small(&feedback.text);
+                        }
+                        egui::CollapsingHeader::new("Technical details and setup history")
+                            .default_open(focus.setup.as_ref().is_some_and(|key| key.installer == setup.installer))
+                            .show(ui, |ui| {
+                                ui.small(format!("Installer SHA-256: {}", setup.installer));
+                                ui.small(format!("{} bytes · {} · label source {}", setup.byte_size,
+                                    setup.format, setup.label_source));
+                                ui.small(format!("Imported at: {}", setup.imported_at));
+                                if let Some(environment) = &setup.environment {
+                                    ui.small(format!("Environment: {environment}"));
+                                }
+                                for reference in &setup.history {
+                                    let Some(item) = snapshot.onboarding.iter().find(|item|
+                                        item.installer == setup.installer
+                                            && item.environment == reference.environment) else {
+                                        ui.small("A retained setup row is unavailable in this readback.");
+                                        continue;
+                                    };
+                                    ui.separator();
+                                    ui.strong(format!("{} · {}", item.environment.as_deref()
+                                        .unwrap_or("Imported artifact"), item.state.replace('_', " ")));
+                                    for line in installer_policy_lines(&item.details["installation"]) { ui.small(line); }
+                                    for line in installer_lines(&item.details["installation"]) { ui.small(line); }
+                                    if let Some(failure) = &item.failure {
+                                        for line in failure_lines(failure) { ui.small(line); }
+                                    }
+                                    Self::value(ui, &item.details);
+                                    Self::buttons(ui, &item.actions, busy, pending, chosen);
+                                }
+                            });
                     });
                 });
-            });
+            }
         }
+        if snapshot.installer_setups.is_empty() { ui.label("No plug-in installers added yet."); }
+        ui.add_space(10.0);
+        egui::CollapsingHeader::new("System setup and recovery").show(ui, |ui| {
+            for offer in &snapshot.actions {
+                if matches!(offer.action, Action::TransactionReconcile {})
+                    && snapshot.system.pending_transactions > 0 {
+                    Self::buttons(ui, std::slice::from_ref(offer), busy, pending, chosen);
+                }
+            }
+        });
         ui.separator();
         egui::CollapsingHeader::new("Vendor applications").show(ui, |ui| {
             for app in &snapshot.vendor_applications {
@@ -1483,8 +1608,11 @@ impl eframe::App for Operator {
         egui::CentralPanel::default().show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.heading("Linux VST Bridge");
-                if ui.add_enabled(!self.pending, egui::Button::new("Refresh").min_size(egui::vec2(92.0, 44.0))).clicked() {
+                if ui.add_enabled(!controls_pending, egui::Button::new("Refresh").min_size(egui::vec2(92.0, 44.0))).clicked() {
                     refresh = true;
+                }
+                if self.pending && self.origin == Some(RequestOrigin::ExplicitRefresh) {
+                    ui.small("Refreshing…");
                 }
             });
             if self.preview { ui.small("LOCAL DESIGN PREVIEW · synthetic records · actions do not execute"); }
@@ -1525,7 +1653,7 @@ impl eframe::App for Operator {
                     Page::Activity => Self::activity(ui, snapshot, controls_pending, &mut self.page,
                         &mut self.library, &mut self.focus, &mut chosen),
                     Page::Setup => Self::setup(ui, snapshot, controls_pending, self.feedback.as_ref(),
-                        &mut self.focus, &mut chosen, &mut pick),
+                        (&mut self.page, &mut self.library, &mut self.focus), &mut chosen, &mut pick),
                     Page::Diagnostics => Self::diagnostics(ui, snapshot, controls_pending, &mut chosen),
                 }
             });
@@ -1542,6 +1670,8 @@ impl eframe::App for Operator {
                     | Action::WorkspaceSelectProductInstaller { .. }
             ) {
                 self.workspace_select_form = Some(a);
+            } else if matches!(a, Action::InstallerRename { .. }) {
+                self.installer_rename_form = Some(a);
             } else {
                 chosen = Some(a);
             }
@@ -1574,6 +1704,25 @@ impl eframe::App for Operator {
                 self.workspace_select_form = None;
             }
         }
+        if let Some(Action::InstallerRename { installer, label }) = self.installer_rename_form.as_mut() {
+            let mut submit = false;
+            let mut cancel = false;
+            egui::Window::new("Name installer").collapsible(false).show(ui.ctx(), |ui| {
+                ui.label("This name is for display only. It cannot change the installer, environment or plug-ins.");
+                ui.small(format!("Exact installer ID: {}…{}", &installer[..8], &installer[60..]));
+                ui.add(egui::TextEdit::singleline(label).char_limit(96)
+                    .min_size(egui::vec2(240.0, 44.0)));
+                let plausible = !label.trim().is_empty() && label.trim() == label
+                    && !matches!(label.as_str(), "." | "..")
+                    && !label.chars().any(|c| c.is_control() || matches!(c, '/' | '\\' | ':')
+                        || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}'));
+                submit = ui.add_enabled(plausible && !controls_pending,
+                    egui::Button::new("Save name").min_size(egui::vec2(180.0, 44.0))).clicked();
+                cancel = ui.add_sized([100.0, 44.0], egui::Button::new("Cancel")).clicked();
+            });
+            if submit { chosen = self.installer_rename_form.take(); }
+            else if cancel { self.installer_rename_form = None; }
+        }
         if let Some(form) = self.product_form.as_mut() {
             let mut submit = false;
             let mut cancel = false;
@@ -1605,9 +1754,9 @@ impl eframe::App for Operator {
             ui.ctx().request_repaint_after(Duration::from_millis(500));
             return;
         }
-        if pick {
-            self.request(Query::PickInstaller, ui.ctx());
-        } else if let Some(a) = chosen {
+        if pick { self.queued_import = true; }
+        if refresh { self.explicit_refresh_queued = true; }
+        if let Some(a) = chosen {
             if let Some(s) = &self.snapshot {
                 self.capture_action(Request {
                     schema: 8,
@@ -1616,13 +1765,19 @@ impl eframe::App for Operator {
                 });
             }
         }
-        if let Some(request) = self.next_action() {
-            self.request(Query::Action(request), ui.ctx());
-        } else if !self.pending && (refresh || self.refresh_after) {
+        if !self.pending && self.queued_import {
+            self.queued_import = false;
+            self.request(Query::PickInstaller, RequestOrigin::InstallerImport, ui.ctx());
+        } else if let Some(request) = self.next_action() {
+            self.request(Query::Action(request), RequestOrigin::UserAction, ui.ctx());
+        } else if !self.pending && (self.explicit_refresh_queued || self.refresh_after) {
+            let origin = if self.explicit_refresh_queued { RequestOrigin::ExplicitRefresh }
+                else { RequestOrigin::SilentPostMutationRefresh };
+            self.explicit_refresh_queued = false;
             self.refresh_after = false;
-            self.request(Query::Snapshot, ui.ctx());
+            self.request(Query::Snapshot, origin, ui.ctx());
         } else if !self.pending && self.last_poll.elapsed() > Duration::from_secs(2) {
-            self.request(Query::Activity, ui.ctx());
+            self.request(Query::Activity, RequestOrigin::BackgroundActivity, ui.ctx());
         }
         ui.ctx().request_repaint_after(Duration::from_millis(500));
     }
@@ -2182,6 +2337,9 @@ mod tests {
             pending: false,
             background_poll: false,
             action_inflight: false,
+            origin: None,
+            queued_import: false,
+            explicit_refresh_queued: false,
             queued_action: None,
             feedback: None,
             last_poll: Instant::now(),
@@ -2190,9 +2348,109 @@ mod tests {
             refresh_after: false,
             product_form: None,
             workspace_select_form: None,
+            installer_rename_form: None,
             page: Page::Home,
             focus: RouteFocus::default(),
             preview: false,
+        }
+    }
+    #[test]
+    fn ten_background_polls_are_quiet_and_silent_refresh_keeps_import_notice() {
+        let mut operator = state_fixture();
+        let snapshot: Snapshot = serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap();
+        operator.snapshot = Some(snapshot.clone());
+        operator.message = "Added Lunacy Audio Installer. No installation has started.".into();
+        for _ in 0..10 {
+            operator.pending = true;
+            operator.background_poll = true;
+            operator.origin = Some(RequestOrigin::BackgroundActivity);
+            operator.handle_reply(Reply::Activity(Activity {
+                schema: 8, system: snapshot.system.clone(), capture: snapshot.capture.clone(),
+                operation: snapshot.operation.clone(),
+                workspace_product_install_ready: false,
+            }));
+            assert!(!operator.controls_pending());
+            assert!(operator.feedback.is_none());
+            assert!(operator.message.starts_with("Added Lunacy"));
+            assert!(operator.origin.is_none());
+        }
+        operator.pending = true;
+        operator.origin = Some(RequestOrigin::SilentPostMutationRefresh);
+        operator.handle_reply(Reply::Snapshot(Box::new(snapshot.clone())));
+        assert!(operator.message.starts_with("Added Lunacy"));
+        operator.pending = true;
+        operator.origin = Some(RequestOrigin::ExplicitRefresh);
+        operator.handle_reply(Reply::Snapshot(Box::new(snapshot)));
+        assert!(operator.message.starts_with("Added Lunacy"));
+    }
+    #[test]
+    fn typed_import_focuses_exact_setup_and_duplicate_does_not_add_another_card() {
+        let mut operator = state_fixture();
+        let sha = "ab".repeat(32);
+        let reply = crate::model::InstallerImportResult { schema: 2,
+            installer_sha256: sha.clone(), byte_size: 1024, format: "pe_executable".into(),
+            newly_imported: true, display_label: "Lunacy Audio Installer".into(), created_at: 1 };
+        operator.pending = true;
+        operator.origin = Some(RequestOrigin::InstallerImport);
+        operator.handle_reply(Reply::Imported(reply.clone()));
+        assert_eq!(operator.page, Page::Setup);
+        assert_eq!(operator.focus.setup_installer.as_deref(), Some(sha.as_str()));
+        assert!(operator.focus.setup_scroll);
+        assert!(operator.message.contains("No installation has started"));
+        let mut duplicate = reply;
+        duplicate.newly_imported = false;
+        operator.pending = true;
+        operator.origin = Some(RequestOrigin::InstallerImport);
+        operator.handle_reply(Reply::Imported(duplicate));
+        assert_eq!(operator.focus.setup_installer.as_deref(), Some(sha.as_str()));
+        assert!(operator.message.contains("already added"));
+    }
+    #[test]
+    fn setup_identity_status_and_primary_action_render_at_both_widths() {
+        fn texts(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
+            match shape {
+                egui::epaint::Shape::Text(text) => out.push(text.galley.text().into()),
+                egui::epaint::Shape::Vec(shapes) => {
+                    for shape in shapes { texts(shape, out); }
+                }
+                _ => {}
+            }
+        }
+        let mut snapshot: Snapshot =
+            serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap();
+        let installer = "ab".repeat(32);
+        snapshot.installer_setups.push(crate::model::InstallerSetup {
+            installer: installer.clone(), name: "Lunacy Audio".into(),
+            label_source: "operator_named".into(), byte_size: 1024,
+            format: "pe_executable".into(), imported_at: 1,
+            phase: crate::model::SetupPhase::Imported,
+            status: "No installation has started.".into(), environment: None,
+            compatibility: Some("Standard · recommended".into()), discovered: vec![],
+            primary: Some(AvailableAction { label: "Continue setup".into(),
+                action: Action::InstallerEnvironmentCreate {
+                    installer: installer.clone(), runner: "exact-default-key".into() },
+                disabled_reason: None }), secondary: vec![],
+            rename: AvailableAction { label: "Rename".into(),
+                action: Action::InstallerRename { installer, label: String::new() },
+                disabled_reason: None }, history: vec![],
+        });
+        for width in [960.0, 560.0] {
+            let ctx = egui::Context::default();
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                ui.set_max_width(width - 32.0);
+                Operator::setup(ui, &snapshot, false, None,
+                    (&mut Page::Setup, &mut crate::library::Library::default(),
+                        &mut RouteFocus::default()), &mut None, &mut false);
+            });
+            let mut labels = Vec::new();
+            for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
+            output.textures_delta.clear();
+            for expected in ["Add a plug-in", "Ready to set up", "Lunacy Audio",
+                "No installation has started.", "Continue setup", "Rename",
+                "Technical details and setup history"] {
+                assert!(labels.iter().any(|label| label.contains(expected)),
+                    "missing {expected} at width {width}: {labels:?}");
+            }
         }
     }
     #[test]
@@ -2487,6 +2745,30 @@ mod tests {
             "Cleanup unknown"
         );
     }
+    #[test]
+    fn failed_background_readback_is_quiet_and_health_recovers_on_next_poll() {
+        let snapshot: Snapshot =
+            serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap();
+        let mut operator = state_fixture();
+        operator.snapshot = Some(snapshot.clone());
+        operator.message = "Installer added. No installation has started.".into();
+        operator.pending = true;
+        operator.background_poll = true;
+        operator.origin = Some(RequestOrigin::BackgroundActivity);
+        operator.handle_reply(Reply::Error("activity readback lost".into()));
+        assert_eq!(operator.message, "Installer added. No installation has started.");
+        assert!(operator.feedback.is_none());
+        let stale = operator.snapshot.as_ref().unwrap();
+        assert_eq!(presentation::health(&stale.system), presentation::Health::Unavailable);
+        assert!(stale.system.inactive_reason().is_some());
+        operator.pending = true;
+        operator.background_poll = true;
+        operator.origin = Some(RequestOrigin::BackgroundActivity);
+        operator.handle_reply(activity_from(&snapshot));
+        assert_eq!(presentation::health(&operator.snapshot.as_ref().unwrap().system),
+            presentation::Health::Ready);
+        assert_eq!(operator.message, "Installer added. No installation has started.");
+    }
     fn create_request() -> Request {
         Request {
             schema: 8,
@@ -2502,6 +2784,7 @@ mod tests {
         Snapshot {
             schema: 8,
             state_token: "current".into(),
+            installer_setups: vec![],
             system: System {
                 service: "capacity unavailable".into(),
                 keepers: 0,

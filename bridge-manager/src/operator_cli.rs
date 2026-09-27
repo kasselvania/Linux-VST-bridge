@@ -60,7 +60,9 @@ fn token(m: &Manager) -> Result<String> {
         &json!({"software":optional(&m.root.join("software.json"))?,"registry":m.registry()?,
             "preparation":optional(&m.root.join("preparation/revision.json"))?,
             "workspace":optional(&m.root.join("daw-workspaces/fl-studio/workspace.json"))?,
-            "terminal_summaries":capacity::terminal_summaries(m)?}),
+            "terminal_summaries":capacity::terminal_summaries(m)?,
+            "installer_presentations":installer_import::presentation_token(m)?,
+            "onboarding_history":onboarding::history_records(m)?}),
     )?)))
 }
 fn action(label: &str, action: ui::Action, reason: Option<&str>) -> ui::AvailableAction {
@@ -862,10 +864,12 @@ fn snapshot_for_operation(
     }
     let live = activity_with_capacity(m, cap.as_ref())?;
     let mut onboarding = onboarding::projection(m, busy)?;
-    let workspaces = daw_workspace::projection(m, &onboarding)?;
+    let (workspaces, workspace_installers) = daw_workspace::projection(m, &onboarding)?;
+    onboarding.retain(|row| !workspace_installers.contains(&row.installer));
     if let Some(receipt) = &live.operation {
         project_onboarding_failure(m, receipt, &mut onboarding)?;
     }
+    let installer_setups = onboarding::setup_projection(m, &onboarding, &products, &workspace_installers)?;
     let recheck = acquire_readback(m, ui::OperatorLock::Registry, id, timeout, waits)?;
     let after = token(m)?;
     require(
@@ -876,6 +880,7 @@ fn snapshot_for_operation(
     let active_sessions=session_projection(cap.as_ref(),capacity::terminal_summaries(m)?);
     Ok(ui::Snapshot {
         onboarding,
+        installer_setups,
         schema: 8,
         state_token: after,
         system: live.system,
@@ -941,6 +946,7 @@ pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
     snapshot
         .actions
         .iter()
+        .chain(snapshot.installer_setups.iter().map(|s| &s.rename))
         .chain(snapshot.onboarding.iter().flat_map(|p| p.actions.iter()))
         .chain(snapshot.products.iter().flat_map(|p| p.actions.iter()))
         .chain(snapshot.workspaces.iter().flat_map(|w| w.actions.iter()))
@@ -1450,6 +1456,10 @@ fn execute_with_receipt_policy(
         | ui::Action::CandidatePublishOrdinary { .. } => unreachable!(),
         ui::Action::InstallerEnvironmentCreate { .. } | ui::Action::InstallerNewAttempt { .. } => {
             unreachable!()
+        }
+        ui::Action::InstallerRename { installer, label } => {
+            let named = installer_import::rename(m, installer, label)?;
+            Ok(json!({"installer":installer,"display_label":named.display_label,"presentation_only":true}))
         }
         ui::Action::InstallerStart { onboarding: id }
         | ui::Action::InstallerStartWithPolicy { onboarding: id, .. } => {
@@ -2547,7 +2557,7 @@ mod tests {
         let (f,p,_,native)=test_fixture::prepared();
         let catalogue=Catalogue {schema:3,natives:vec![native],environments:vec![
             EnvironmentBinding {family:p.requirements.environment_family,
-                environment:f.r.environment.clone()}],hosts:vec![]};
+                environment:f.r.environment.clone()}],hosts:vec![],onboarding_runtime:None};
         let catalogue_path=f.m.root.join("software/catalogue.json");
         atomic_json(&catalogue_path,&catalogue).unwrap();
         let a=f.r.host.clone();
@@ -2614,6 +2624,7 @@ mod tests {
     fn view(token: &str, action: ui::AvailableAction) -> ui::Snapshot {
         ui::Snapshot {
             onboarding: vec![],
+            installer_setups: vec![],
             schema: 8,
             state_token: token.into(),
             system: ui::System {
@@ -3834,16 +3845,26 @@ mod tests {
         assert!(read.operation.is_none());
     }
     fn onboarding_worker_fixture() -> (test_fixture::Fixture, String) {
-        use linux_vst_bridge::catalogue::{Catalogue, EnvironmentBinding};
+        use linux_vst_bridge::catalogue::{Catalogue, EnvironmentBinding, OnboardingRuntimePolicy,
+            STANDARD_ONBOARDING_RUNNER};
         let (f, p, _, native) = test_fixture::prepared();
+        let mut standard = f.r.environment.clone();
+        standard.id = "22".repeat(16);
+        standard.root = f.m.root.join("environments").join(&standard.id);
+        standard.runner.id = STANDARD_ONBOARDING_RUNNER.into();
+        let environments = vec![EnvironmentBinding {
+            family: p.requirements.environment_family.clone(),
+            environment: f.r.environment.clone(),
+        }, EnvironmentBinding {
+            family: p.requirements.environment_family,
+            environment: standard.clone(),
+        }];
         let catalogue = Catalogue {
             schema: 3,
             natives: vec![native],
-            environments: vec![EnvironmentBinding {
-                family: p.requirements.environment_family,
-                environment: f.r.environment.clone(),
-            }],
+            environments: environments.clone(),
             hosts: vec![],
+            onboarding_runtime: OnboardingRuntimePolicy::from_environments(&environments).unwrap(),
         };
         let path = f.m.root.join("software/catalogue.json");
         atomic_json(&path, &catalogue).unwrap();
@@ -3884,11 +3905,145 @@ mod tests {
             state_token: token(&f.m).unwrap(),
             action: ui::Action::InstallerEnvironmentCreate {
                 installer: installer.id,
-                runner: onboarding::runner_key(&f.r.environment.runner).unwrap(),
+                runner: onboarding::runner_key(&standard.runner).unwrap(),
             },
         };
         let receipt = launch_queued(&f.m, &request, |_| Ok(true)).unwrap();
         (f, receipt.operation.unwrap())
+    }
+    #[test]
+    fn ui1_default_offer_is_one_exact_standard_runner_and_missing_policy_refuses_setup() {
+        let (f, _) = onboarding_worker_fixture();
+        let rows = onboarding::projection(&f.m, None).unwrap();
+        let setups = onboarding::setup_projection(&f.m, &rows, &[], &Default::default()).unwrap();
+        assert_eq!(setups.len(), 1);
+        assert_eq!(setups[0].phase, ui::SetupPhase::Imported);
+        assert_eq!(setups[0].history.len(), 1);
+        let offer = setups[0].primary.as_ref().unwrap();
+        let ui::Action::InstallerEnvironmentCreate { runner, .. } = &offer.action else { panic!("expected exact setup offer") };
+        let catalogue = software(&f.m).unwrap().catalogue(&f.m).unwrap();
+        assert_eq!(runner, &catalogue.onboarding_runtime.as_ref().unwrap().default_runner_key);
+        assert_eq!(offer.label, "Continue setup");
+        assert_eq!(rows[0].actions.len(), 1);
+        let mut changed = catalogue.clone();
+        changed.environments[1].environment.runner.id = "specialized-runner".into();
+        let mut sw = software(&f.m).unwrap();
+        let path = sw.native_catalogue.as_ref().unwrap().path.clone();
+        atomic_json(&path, &changed).unwrap();
+        sw.native_catalogue.as_mut().unwrap().sha256 = digest(&path).unwrap();
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let rows = onboarding::projection(&f.m, None).unwrap();
+        assert!(rows[0].actions.is_empty());
+        let setups = onboarding::setup_projection(&f.m, &rows, &[], &Default::default()).unwrap();
+        assert!(setups[0].primary.is_none());
+        let mut unsupported = catalogue;
+        unsupported.onboarding_runtime = None;
+        atomic_json(&path, &unsupported).unwrap();
+        sw.native_catalogue.as_mut().unwrap().sha256 = digest(&path).unwrap();
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        assert!(onboarding::projection(&f.m, None).unwrap()[0].actions.is_empty());
+    }
+    #[test]
+    fn ui1_rename_requires_exact_offered_installer_and_changes_no_custody_record() {
+        let (f, _) = onboarding_worker_fixture();
+        let rows = onboarding::projection(&f.m, None).unwrap();
+        let setups = onboarding::setup_projection(&f.m, &rows, &[], &Default::default()).unwrap();
+        let sha = setups[0].installer.clone();
+        let record_path = f.m.root.join("installers").join(format!("{sha}.json"));
+        let original = fs::read(&record_path).unwrap();
+        let mut view = view("current", action("Refresh", ui::Action::CaptureDisarm {}, None));
+        view.installer_setups = setups;
+        let mut request = ui::Request { schema: 8, state_token: "current".into(),
+            action: ui::Action::InstallerRename { installer: sha.clone(), label: "Lunacy Audio".into() } };
+        assert!(validate(&request, &view).is_ok());
+        request.action = ui::Action::InstallerRename { installer: "ff".repeat(32), label: "Other".into() };
+        assert!(validate(&request, &view).is_err());
+        request.action = ui::Action::InstallerRename { installer: sha.clone(), label: "invalid/label".into() };
+        assert!(validate(&request, &view).is_err());
+        installer_import::rename(&f.m, &sha, "Lunacy Audio").unwrap();
+        assert_eq!(fs::read(&record_path).unwrap(), original);
+        assert_eq!(installer_import::presentation(&f.m, &installer_import::load(&f.m, &sha).unwrap())
+            .unwrap().display_label, "Lunacy Audio");
+    }
+    #[test]
+    fn ui1_workspace_application_installer_is_not_a_plugin_setup() {
+        let (f, _) = onboarding_worker_fixture();
+        let rows = onboarding::projection(&f.m, None).unwrap();
+        let installer = rows[0].installer.clone();
+        let workspace_owned = std::collections::BTreeSet::from([installer.clone()]);
+        assert!(onboarding::setup_projection(&f.m, &rows, &[], &workspace_owned)
+            .unwrap().is_empty());
+        assert_eq!(onboarding::setup_projection(&f.m, &rows, &[], &Default::default())
+            .unwrap()[0].installer, installer);
+    }
+    #[test]
+    fn ui1_one_card_tracks_setup_phases_and_exact_discovered_product() {
+        let (f, _) = onboarding_worker_fixture();
+        let imported = onboarding::projection(&f.m, None).unwrap().remove(0);
+        let environment = f.r.environment.id.clone();
+        let mut current = imported.clone();
+        current.environment = Some(environment.clone());
+        current.state = "environment_ready".into();
+        current.actions = vec![action("Run installer", ui::Action::InstallerStart {
+            onboarding: environment.clone() }, None)];
+        let mut rows = vec![imported, current.clone()];
+        let project = |rows: &[ui::Onboarding], products: &[ui::Product]| {
+            let setups = onboarding::setup_projection(&f.m, rows, products, &Default::default()).unwrap();
+            assert_eq!(setups.len(), 1);
+            assert_eq!(setups[0].history.len(), 2);
+            setups.into_iter().next().unwrap()
+        };
+        let ready = project(&rows, &[]);
+        assert_eq!(ready.phase, ui::SetupPhase::EnvironmentReady);
+        assert!(matches!(ready.primary.unwrap().action, ui::Action::InstallerStart { .. }));
+        current.state = "running".into();
+        current.actions = vec![action("Focus installer", ui::Action::InstallerFocus {
+            onboarding: environment.clone(), operation: "aa".repeat(16) }, None),
+            action("Stop installer", ui::Action::InstallerStop {
+                onboarding: environment.clone(), operation: "aa".repeat(16) }, None)];
+        rows[1] = current.clone();
+        let running = project(&rows, &[]);
+        assert_eq!(running.phase, ui::SetupPhase::InstallerRunning);
+        assert_eq!(running.secondary.len(), 1);
+        current.state = "completed".into();
+        current.actions = vec![action("Scan installed products", ui::Action::InstallerScan {
+            onboarding: environment.clone() }, None)];
+        rows[1] = current.clone();
+        let retired = project(&rows, &[]);
+        assert_eq!(retired.phase, ui::SetupPhase::InstallerRetired);
+        assert_eq!(retired.primary.unwrap().label, "Find installed plug-ins");
+        let class = inventory::Class { id: f.r.metadata.class_id.clone(), name: "BEAM".into(),
+            vendor: "Lunacy Audio".into(), version: "2.3.1".into(), category: "Audio Module Class".into(),
+            subcategories: "Fx".into(), role: "effect".into() };
+        let scan = inventory::Scan { schema: 1, id: "bb".repeat(16),
+            environment: f.r.environment.clone(), host: f.r.host.clone(),
+            host_source_sha256: f.r.host_source_sha256.clone(), completed_at: 1,
+            modules: vec![inventory::Module { artifact: f.r.module.clone(),
+                classes: vec![class], report: f.r.host.clone(),
+                inspection_error: None, quarantine_reason: None }], changes: Default::default() };
+        current.state = "installed_unqualified".into();
+        current.details = json!({"scan":scan,"previous_attempt":null});
+        current.actions.clear();
+        rows[1] = current.clone();
+        let product = ui::Product { class_id: f.r.metadata.class_id.clone(), name: "BEAM".into(),
+            vendor: "Lunacy Audio".into(), role: "effect".into(), version: "2.3.1".into(),
+            disposition: "installed_unqualified".into(), active_revision: None, recommended_revision: None,
+            environment: environment.clone(), runner: f.r.environment.runner.id.clone(),
+            module_sha256: f.r.module.sha256.clone(), limitations: vec![], history: vec![],
+            actions: vec![], details: Value::Null };
+        let found = project(&rows, &[product]);
+        assert_eq!(found.phase, ui::SetupPhase::DiscoveryComplete);
+        assert_eq!(found.discovered.len(), 1);
+        assert_eq!(found.discovered[0].module_sha256, f.r.module.sha256);
+        assert!(found.status.contains("discovery did not publish"));
+        assert!(!found.status.contains("not yet available in Bitwig"));
+        assert!(found.primary.is_none());
+        current.state = "cleanup_unconfirmed".into();
+        current.details = Value::Null;
+        rows[1] = current;
+        let blocked = project(&rows, &[]);
+        assert_eq!(blocked.phase, ui::SetupPhase::CleanupUnconfirmed);
+        assert!(blocked.primary.is_none());
     }
     fn capacity_fixture(m: &Manager) -> Option<CapacityReadback> {
         // Actual capacity owner and registry read, only the Unix socket is omitted.
