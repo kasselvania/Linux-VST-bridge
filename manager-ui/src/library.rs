@@ -595,7 +595,7 @@ mod tests {
 
     #[test]
     fn focused_product_is_selected_by_exact_identity_even_after_search() {
-        let s = snapshot();
+        let mut s = snapshot();
         let mut library = Library {
             search: "other".into(),
             ..Default::default()
@@ -605,6 +605,13 @@ mod tests {
         assert_eq!(library.products(&s).len(), 1);
         assert_eq!(library.products(&s)[0].name, "Serum 2 FX");
         assert!(library.scroll_focus);
+        let mut quarantined = s.products[0].clone();
+        quarantined.name = "Quarantined module".into();
+        quarantined.class_id.clear();
+        s.products.push(quarantined.clone());
+        library.focus_product(ProductKey::from(&quarantined));
+        assert_eq!(library.products(&s).len(), 1);
+        assert_eq!(library.products(&s)[0].name, "Quarantined module");
     }
 
     #[test]

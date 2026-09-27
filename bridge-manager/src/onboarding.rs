@@ -720,8 +720,9 @@ fn projection_with_live(
 }
 
 /// One canonical current setup per immutable installer; exact old attempts stay
-/// in history. Product links require the same environment, module and class as
-/// the retained scan, never a friendly-name comparison.
+/// in history. Product links require the same environment and module as the
+/// retained scan, plus the exact class where discovery established one.
+/// Quarantined modules route only to their exact empty-class product row.
 pub fn setup_projection(m: &Manager, rows: &[ui::Onboarding], products: &[ui::Product],
     workspace_installers: &std::collections::BTreeSet<String>) -> Result<Vec<ui::InstallerSetup>> {
     let runners = runners(m)?;
@@ -745,6 +746,17 @@ pub fn setup_projection(m: &Manager, rows: &[ui::Onboarding], products: &[ui::Pr
                 require(scan.schema == 1 && scan.environment.id == *env,
                     "installer_setup_scan_binding")?;
                 for module in &scan.modules {
+                    if module.quarantine_reason.is_some() {
+                        if let Some(product) = products.iter().find(|product|
+                            product.environment == *env
+                                && product.module_sha256 == module.artifact.sha256
+                                && product.class_id.is_empty()) {
+                            discovered.push(ui::DiscoveredProduct { environment: env.clone(),
+                                module_sha256: module.artifact.sha256.clone(), class_id: String::new(),
+                                name: product.name.clone() });
+                        }
+                        continue;
+                    }
                     for class in &module.classes {
                         if let Some(product) = products.iter().find(|product|
                             product.environment == *env && product.module_sha256 == module.artifact.sha256
