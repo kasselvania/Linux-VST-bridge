@@ -1,0 +1,121 @@
+path	classification	owner	reason
+BETA_EVALUATION_TERMS_DRAFT.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+CURRENT_SLICE.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+bridge-manager/Cargo.toml	independent feature	BETA0 package/readiness	Package binding, host facts and CLI wiring belong to separately reviewed beta owner
+bridge-manager/runtime/ownership.py	independent feature	BG1 graphics/runtime	Exact BEAM runner lineage and native command session; separate graphics owner
+bridge-manager/runtime/session.py	independent feature	BG1 graphics/runtime	Exact BEAM runner lineage and native command session; separate graphics owner
+bridge-manager/runtime/test_native_command_session.py	independent feature	BG1 graphics/runtime	Exact BEAM runner lineage and native command session; separate graphics owner
+bridge-manager/src/acceptance.rs	independent feature	BG1 graphics/runtime	Exact BEAM runner lineage and native command session; separate graphics owner
+bridge-manager/src/acceptance/pigments.rs	independent feature	BG1 graphics/runtime	Exact BEAM runner lineage and native command session; separate graphics owner
+bridge-manager/src/acceptance/uir1.rs	independent feature	BG1 graphics/runtime	Exact BEAM runner lineage and native command session; separate graphics owner
+bridge-manager/src/bin/uio1.rs	independent feature	BG1 graphics/runtime	Exact BEAM runner lineage and native command session; separate graphics owner
+bridge-manager/src/catalogue.rs	shared durable authority candidate	UI1 catalogue	Typed onboarding_runtime format and exact runner-key validation; do not import default-runner action in PB0-R
+bridge-manager/src/daw_workspace.rs	independent feature	UI1 setup grouping	WD1 workspace product owner is already canonical; private delta only excludes FL application installers from plug-in setup
+bridge-manager/src/experimental_runner.rs	independent feature	BG1 graphics/runtime	Exact BEAM runner lineage and native command session; separate graphics owner
+bridge-manager/src/host_readiness.rs	independent feature	BETA0 package/readiness	Package binding, host facts and CLI wiring belong to separately reviewed beta owner
+bridge-manager/src/installer_import.rs	independent feature	UI1 installer presentation	Contains durable presentation sidecar reader plus rename and typed import behavior; separate UI1 review
+bridge-manager/src/main.rs	independent feature	BETA0 package/readiness	Package binding, host facts and CLI wiring belong to separately reviewed beta owner
+bridge-manager/src/managed_cli.rs	independent feature	BETA0 package/readiness	Package binding, host facts and CLI wiring belong to separately reviewed beta owner
+bridge-manager/src/native_daw.rs	independent feature	RPR0 native DAW	REAPER read-only detection is separate platform feature
+bridge-manager/src/onboarding.rs	independent feature	UI1 onboarding	Standard runtime recommendation and setup grouping are user workflow behavior
+bridge-manager/src/operator_cli.rs	independent feature	mixed UI1 UI2 BETA0 RPR0	Schema 11 and action/projection changes are mixed; no whole-file import into PB0-R
+bridge-manager/src/operator_model.rs	independent feature	mixed UI1 UI2 BETA0 RPR0	Schema 11 and action/projection changes are mixed; no whole-file import into PB0-R
+bridge-manager/src/package_binding.rs	independent feature	BETA0 package/readiness	Package binding, host facts and CLI wiring belong to separately reviewed beta owner
+bridge-manager/src/preparation/mod.rs	independent feature	UI2 guided compatibility	Includes durable guided check/result/observation records and closed recovery actions; must be reviewed as UI2 owner
+bridge-manager/src/preparation/tests.rs	independent feature	UI2 guided compatibility	Includes durable guided check/result/observation records and closed recovery actions; must be reviewed as UI2 owner
+bridge-manager/src/preparation_cli.rs	independent feature	UI2 guided compatibility	Includes durable guided check/result/observation records and closed recovery actions; must be reviewed as UI2 owner
+bridge-manager/src/ui_observation.rs	independent feature	BG1 graphics/runtime	Exact BEAM runner lineage and native command session; separate graphics owner
+docs/BETA0.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+docs/BETA_READINESS.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+docs/BG1.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+docs/CACHY0.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+docs/DIST0.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+docs/DISTRIBUTION.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+docs/FAILURE_CLASSES.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+docs/PLUGIN_RELIABILITY_FOLLOWUP.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+docs/RPR0.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+docs/SUPPORT_MATRIX.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+docs/THIRD_PARTY_COMPLIANCE.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+docs/UI1.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+docs/UI2.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+docs/WORKSTREAMS.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/bg1/composition-fixture.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/bg1/content-rendering-v2.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/bg1/content-runner.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/bg1/content-startup-attribution.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/bg1/content-transition.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/bg1/content-v3-context.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/bg1/managed-v4-rendering.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/bg1/native-command-session.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/bg1/native-supervisor-final.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/bg1/native-supervisor-install.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/bg1/operator-touch-2026-09-26.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/bg1/physical-successor-failed.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/bg1/retained-baseline.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/bg1/standalone-attribution.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/bg1/successor-runner.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/bg1/successor-trace-analysis.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/ui1/README.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/ui1/before-setup-560.png	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/ui1/before-setup-960.png	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/ui1/deck-2026-09-26.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/ui1/deck-installed-24fed47.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/ui1/deck-package-24fed47.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/ui1/deck-package-97b2cd2.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/ui1/linux-build-24fed47.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/ui1/linux-build-97b2cd2.sanitized.json	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/ui1/setup-560.png	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/ui1/setup-960.png	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/ui2/README.md	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/ui2/pending-560.png	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/ui2/pending-960.png	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/ui2/plugins-560.png	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/ui2/plugins-960.png	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/ui2/unchecked-560.png	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+evidence/ui2/unchecked-960.png	excluded private documentation/evidence	corresponding private owner	No private docs, research or physical evidence copied into PB0-R
+manager-ui/Cargo.toml	independent feature	mixed UI1 UI2 BETA0 RPR0	Frontend feature stack; current public UI0/WD1 remains canonical until separate integration
+manager-ui/README.md	independent feature	mixed UI1 UI2 BETA0 RPR0	Frontend feature stack; current public UI0/WD1 remains canonical until separate integration
+manager-ui/examples/library-preview.json	independent feature	mixed UI1 UI2 BETA0 RPR0	Frontend feature stack; current public UI0/WD1 remains canonical until separate integration
+manager-ui/examples/operator_preview.rs	independent feature	mixed UI1 UI2 BETA0 RPR0	Frontend feature stack; current public UI0/WD1 remains canonical until separate integration
+manager-ui/src/client.rs	independent feature	mixed UI1 UI2 BETA0 RPR0	Frontend feature stack; current public UI0/WD1 remains canonical until separate integration
+manager-ui/src/library.rs	independent feature	mixed UI1 UI2 BETA0 RPR0	Frontend feature stack; current public UI0/WD1 remains canonical until separate integration
+manager-ui/src/operator.rs	independent feature	mixed UI1 UI2 BETA0 RPR0	Frontend feature stack; current public UI0/WD1 remains canonical until separate integration
+manager-ui/src/presentation.rs	independent feature	mixed UI1 UI2 BETA0 RPR0	Frontend feature stack; current public UI0/WD1 remains canonical until separate integration
+tools/bg1/README.md	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/build_successor.py	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/build_video_coherence.py	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/bundle_command_session.py	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/bundle_content_runtime.py	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/capture_composition_fixture.py	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/composition_fixture.cpp	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/content_init_debugger.c	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/content_window_probe.c	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/fixed_webview_entry.py	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/observe_content.py	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/observe_editor.py	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/prepare_content_transition.py	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/retained_trace.py	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/run_composition_fixture.py	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/runner_tree.py	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/seal_video_coherence.py	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/test_build_successor.py	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/test_fixed_webview_entry.py	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/test_observe_editor.py	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/test_runner_tree.py	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/video_interface_fixture.c	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/webview_runtime_probe.c	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/bg1/wine-video-interface-coherence.patch	independent feature	BG1 graphics/runtime	Source-owned graphics and immutable runner fixtures for separate owner
+tools/cachy0/Dockerfile	independent feature	CACHY0 platform	VM/provisioning source for separate platform owner
+tools/cachy0/README.md	independent feature	CACHY0 platform	VM/provisioning source for separate platform owner
+tools/cachy0/provision-vm.sh	independent feature	CACHY0 platform	VM/provisioning source for separate platform owner
+tools/cachy0/start-vm.sh	independent feature	CACHY0 platform	VM/provisioning source for separate platform owner
+tools/dist0/README.md	independent feature	DIST0 packaging	Package source for separate distribution owner
+tools/dist0/assemble.py	independent feature	DIST0 packaging	Package source for separate distribution owner
+tools/dist0/build-container.sh	independent feature	DIST0 packaging	Package source for separate distribution owner
+tools/dist0/build-linux.sh	independent feature	DIST0 packaging	Package source for separate distribution owner
+tools/dist0/sign_release.py	independent feature	DIST0 packaging	Package source for separate distribution owner
+tools/dist0/test_assemble.py	independent feature	DIST0 packaging	Package source for separate distribution owner
+tools/dist0/verify_package.py	independent feature	DIST0 packaging	Package source for separate distribution owner
+tools/rpr0/admit-reference-fixture.py	independent feature	RPR0 native DAW	REAPER source fixtures for separate owner
+tools/rpr0/build-native.sh	independent feature	RPR0 native DAW	REAPER source fixtures for separate owner
+tools/rpr0/test_admit_reference_fixture.py	independent feature	RPR0 native DAW	REAPER source fixtures for separate owner
