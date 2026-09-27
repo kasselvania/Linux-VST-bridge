@@ -3,6 +3,18 @@
 No further implementation slice is selected by the FN1/PW1 merges. PSL1 is the
 tech-lead's proposed next separate slice; it has not begun.
 
+## Completed managed Windows DAW slice — WD1
+
+WD1 [PR #169](https://github.com/kasselvania/Linux-VST-bridge/pull/169) adds
+one manager-owned Serum 2.1.5 Windows VST3 installation inside the existing FL
+Studio trial workspace. The retained [Deck result](evidence/wd1/deck-serum-direct-2026-09-25.md)
+establishes FL discovery, audible piano-roll playback, a preset change,
+parameter automation, normal close, and fresh-session playback. The FL
+application and workspace identities, native bridge publications, runner, and
+audio settings were preserved. The operator deferred WAV export; trial-mode
+FLP save/reopen, licensed recall, ASIO, and physical MIDI remain unqualified.
+WD1 is a bounded parallel lane, not a new native-bridge support claim.
+
 ## Completed Pi state-safe first-note prewarm — PW1
 
 PW1 was developed separately on FN1

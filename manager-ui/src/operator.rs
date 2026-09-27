@@ -51,6 +51,17 @@ fn workspace_state_label(state: &str) -> &str {
     }
 }
 
+fn workspace_product_state_label(state: &str) -> &str {
+    match state {
+        "not_selected" => "Not installed",
+        "selected" => "Ready to install",
+        "installing" => "Installing",
+        "installed" => "Installed",
+        "needs_user_action" | "needs_attention" | "failed" => "Needs your attention",
+        _ => "State unavailable",
+    }
+}
+
 fn workspace_primary_action(actions: &[AvailableAction]) -> Option<usize> {
     actions
         .iter()
@@ -559,6 +570,7 @@ impl Operator {
                         || s.system.maintenance != a.system.maintenance
                         || s.system.cleanup_unconfirmed != a.system.cleanup_unconfirmed
                         || refresh_for_receipt(&s.operation, &a.operation)
+                        || refresh_for_workspace_product(s, a.workspace_product_install_ready)
                     {
                         self.refresh_after = true;
                     }
@@ -1341,13 +1353,13 @@ impl Operator {
         if ui
             .add_enabled(
                 !pending,
-                egui::Button::new("Import Windows FL installer").min_size(egui::vec2(240.0, 44.0)),
+                egui::Button::new("Import Windows installer").min_size(egui::vec2(240.0, 44.0)),
             )
             .clicked()
         {
             *pick = true;
         }
-        ui.small("The manager copies and verifies the selected file in private installer custody. Choose its exact release below afterward.");
+        ui.small("The manager copies and verifies the selected file in private installer custody. Choose its exact release under the application or product below.");
         for workspace in &snapshot.workspaces {
             ui.push_id(&workspace.id, |ui| {
                 ui.group(|ui| {
@@ -1398,6 +1410,52 @@ impl Operator {
                             }
                             Self::buttons(ui, &workspace.installer_choices, None, pending, chosen);
                         });
+                    for product in &workspace.products {
+                        ui.separator();
+                        ui.push_id(product.id, |ui| {
+                            ui.heading(&product.name);
+                            ui.strong(workspace_product_state_label(&product.state));
+                            if let Some(release) = &product.selected_release {
+                                ui.label(format!("Selected plug-in version: {release}"));
+                            }
+                            if let Some(failure) = &product.current_failure {
+                                ui.colored_label(warning_color(ui), failure.replace('_', " "));
+                            }
+                            if let Some(index) = workspace_primary_action(&product.actions) {
+                                let primary = &product.actions[index];
+                                let response = ui.add_enabled(
+                                    !pending && primary.disabled_reason.is_none(),
+                                    egui::Button::new(egui::RichText::new(&primary.label).strong())
+                                        .min_size(egui::vec2(240.0, 48.0)),
+                                );
+                                if response.clicked() {
+                                    *chosen = Some(primary.action.clone());
+                                }
+                                if let Some(reason) = primary.disabled_reason.as_deref() {
+                                    ui.small(reason.replace('_', " "));
+                                }
+                                for (other, offer) in product.actions.iter().enumerate() {
+                                    if other != index {
+                                        Self::buttons(ui, std::slice::from_ref(offer), None, pending, chosen);
+                                    }
+                                }
+                            }
+                            egui::CollapsingHeader::new("Choose an imported plug-in version")
+                                .show(ui, |ui| {
+                                    if product.installer_choices.is_empty() {
+                                        ui.label("No admitted installer for this plug-in is in manager custody.");
+                                    }
+                                    Self::buttons(ui, &product.installer_choices, None, pending, chosen);
+                                });
+                            egui::CollapsingHeader::new("Technical plug-in installation history")
+                                .show(ui, |ui| {
+                                    if let Some(sha) = &product.module_sha256 {
+                                        ui.label(format!("Installed module SHA-256: {sha}"));
+                                    }
+                                    Self::value(ui, &product.details);
+                                });
+                        });
+                    }
                     egui::CollapsingHeader::new("Technical workspace details and history")
                         .show(ui, |ui| {
                             ui.label(format!("Workspace: {}", workspace.id));
@@ -1478,18 +1536,29 @@ impl eframe::App for Operator {
                 Action::CandidateObserve { .. } | Action::CandidateReview { .. }
             ) {
                 self.product_form = Some(a);
-            } else if matches!(a, Action::WorkspaceSelectInstaller { .. }) {
+            } else if matches!(
+                a,
+                Action::WorkspaceSelectInstaller { .. }
+                    | Action::WorkspaceSelectProductInstaller { .. }
+            ) {
                 self.workspace_select_form = Some(a);
             } else {
                 chosen = Some(a);
             }
         }
-        if let Some(Action::WorkspaceSelectInstaller { installer, release }) =
-            self.workspace_select_form.as_mut()
-        {
+        if let Some(form) = self.workspace_select_form.as_mut() {
+            let (title, installer, release) = match form {
+                Action::WorkspaceSelectInstaller { installer, release } => {
+                    ("Choose exact FL Studio version", installer, release)
+                }
+                Action::WorkspaceSelectProductInstaller {
+                    installer, release, ..
+                } => ("Choose exact plug-in version", installer, release),
+                _ => unreachable!("only workspace selections open this form"),
+            };
             let mut submit = false;
             let mut cancel = false;
-            egui::Window::new("Choose exact FL Studio version")
+            egui::Window::new(title)
                 .collapsible(false)
                 .show(ui.ctx(), |ui| {
                     ui.label(format!("Imported installer SHA-256: {installer}"));
@@ -1855,6 +1924,25 @@ fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json:
             .and_then(|v| v["state"].as_str())
             .is_some_and(|s| matches!(s, "vendor_running" | "completed" | "refused"))
 }
+
+fn refresh_for_workspace_product(snapshot: &Snapshot, install_finish_ready: bool) -> bool {
+    install_finish_ready
+        && snapshot
+            .workspaces
+            .iter()
+            .flat_map(|workspace| &workspace.products)
+            .any(|product| {
+                product.id == WorkspaceProductId::Serum2
+                    && !product.actions.iter().any(|offer| {
+                        matches!(
+                            offer.action,
+                            Action::WorkspaceFinishProductInstall {
+                                product: WorkspaceProductId::Serum2
+                            }
+                        ) && offer.disabled_reason.is_none()
+                    })
+            })
+}
 #[cfg(test)]
 mod tests {
     #[test]
@@ -2188,6 +2276,31 @@ mod tests {
                 },
                 disabled_reason: None,
             }],
+            products: vec![DawWorkspaceProduct {
+                id: WorkspaceProductId::Serum2,
+                name: "Serum 2".into(),
+                state: "selected".into(),
+                selected_release: Some("2.1.5".into()),
+                module_sha256: None,
+                current_failure: None,
+                actions: vec![AvailableAction {
+                    label: "Install Serum 2 in FL Studio".into(),
+                    action: Action::WorkspaceInstallProduct {
+                        product: WorkspaceProductId::Serum2,
+                    },
+                    disabled_reason: Some("FL session is active".into()),
+                }],
+                installer_choices: vec![AvailableAction {
+                    label: "Choose official Serum 2 2.1.5 installer".into(),
+                    action: Action::WorkspaceSelectProductInstaller {
+                        product: WorkspaceProductId::Serum2,
+                        installer: "ef".repeat(32),
+                        release: String::new(),
+                    },
+                    disabled_reason: None,
+                }],
+                details: serde_json::json!({"installation_history":[]}),
+            }],
             details: serde_json::json!({"installation_history":[{"operation":"old-exact"}]}),
         });
         for width in [960.0, 560.0] {
@@ -2207,9 +2320,18 @@ mod tests {
             assert!(labels.iter().any(|s| s == "Uninstalled"));
             assert!(labels.iter().any(|s| s == "Selected version: 26.1.6.0"));
             assert!(labels.iter().any(|s| s == "Install selected version"));
-            assert!(labels.iter().any(|s| s == "Import Windows FL installer"));
+            assert!(labels.iter().any(|s| s == "Import Windows installer"));
             assert!(labels.iter().any(|s| s == "Prior owner has not retired"));
             assert!(labels.iter().any(|s| s == "Choose an imported version"));
+            assert!(labels.iter().any(|s| s == "Serum 2"));
+            assert!(labels
+                .iter()
+                .any(|s| s == "Selected plug-in version: 2.1.5"));
+            assert!(labels.iter().any(|s| s == "Install Serum 2 in FL Studio"));
+            assert!(labels.iter().any(|s| s == "FL session is active"));
+            assert!(labels
+                .iter()
+                .any(|s| s == "Choose an imported plug-in version"));
             assert!(labels
                 .iter()
                 .any(|s| s == "Technical workspace details and history"));
@@ -2237,6 +2359,30 @@ mod tests {
         assert!(labels
             .iter()
             .any(|s| s == "Observed executable version: 26.1.6.5639"));
+
+        assert!(!refresh_for_workspace_product(&snapshot, false));
+        assert!(refresh_for_workspace_product(&snapshot, true));
+        let product = &mut snapshot.workspaces[0].products[0];
+        product.state = "installing".into();
+        product.actions = vec![AvailableAction {
+            label: "Complete Serum installation readback".into(),
+            action: Action::WorkspaceFinishProductInstall {
+                product: WorkspaceProductId::Serum2,
+            },
+            disabled_reason: Some("Serum installer is active".into()),
+        }];
+        assert!(refresh_for_workspace_product(&snapshot, true));
+        let mut operator = Operator::preview(snapshot.clone(), Page::Workspaces);
+        operator.handle_reply(Reply::Activity(Activity {
+            schema: 8,
+            system: snapshot.system.clone(),
+            capture: snapshot.capture.clone(),
+            operation: snapshot.operation.clone(),
+            workspace_product_install_ready: true,
+        }));
+        assert!(operator.refresh_after);
+        snapshot.workspaces[0].products[0].actions[0].disabled_reason = None;
+        assert!(!refresh_for_workspace_product(&snapshot, true));
     }
     #[test]
     fn workspace_primary_action_uses_manager_eligibility_without_changing_offers() {
@@ -2418,6 +2564,7 @@ mod tests {
             system: s.system.clone(),
             capture: s.capture.clone(),
             operation: s.operation.clone(),
+            workspace_product_install_ready: false,
         })
     }
     #[test]

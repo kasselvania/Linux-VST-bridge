@@ -252,6 +252,7 @@ fn activity_with_capacity(m: &Manager, cap: Option<&CapacityReadback>) -> Result
         operation: optional(&m.root.join("operator/latest.json"))?
             .as_object()
             .map(|v| Value::Object(v.clone())),
+        workspace_product_install_ready: daw_workspace::serum2_install_finish_ready(m)?,
     })
 }
 fn activity(m: &Manager) -> Result<ui::Activity> {
@@ -944,6 +945,8 @@ pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
         .chain(snapshot.products.iter().flat_map(|p| p.actions.iter()))
         .chain(snapshot.workspaces.iter().flat_map(|w| w.actions.iter()))
         .chain(snapshot.workspaces.iter().flat_map(|w| w.installer_choices.iter()))
+        .chain(snapshot.workspaces.iter().flat_map(|w| w.products.iter())
+            .flat_map(|p| p.actions.iter().chain(p.installer_choices.iter())))
         .chain(snapshot.environments.iter().flat_map(|p| p.actions.iter()))
         .chain(
             snapshot
@@ -1428,7 +1431,10 @@ fn execute_with_receipt_policy(
         | ui::Action::WorkspaceUninstall {}
         | ui::Action::WorkspaceFinishUninstall {}
         | ui::Action::WorkspaceFocus {}
-        | ui::Action::WorkspaceStop {}) => {
+        | ui::Action::WorkspaceStop {}
+        | ui::Action::WorkspaceSelectProductInstaller { .. }
+        | ui::Action::WorkspaceInstallProduct { .. }
+        | ui::Action::WorkspaceFinishProductInstall { .. }) => {
             drop(projection.take());
             daw_workspace::execute_action(m, action, operation.ok_or("operator_operation_identity")?)
         }
@@ -2958,6 +2964,7 @@ mod tests {
             first_useful_failure: None,
             actions: vec![],
             installer_choices: vec![offered],
+            products: vec![],
             details: Value::Null,
         });
         let mut request = ui::Request {
@@ -2978,6 +2985,37 @@ mod tests {
             release: "27.0.0.0".into(),
         };
         assert!(validate(&request, &snapshot).is_err());
+        snapshot.workspaces[0].products.push(ui::DawWorkspaceProduct {
+            id: ui::WorkspaceProductId::Serum2,
+            name: "Serum 2".into(),
+            state: "not_selected".into(),
+            selected_release: None,
+            module_sha256: None,
+            current_failure: None,
+            actions: vec![action("Install Serum 2", ui::Action::WorkspaceInstallProduct {
+                product: ui::WorkspaceProductId::Serum2,
+            }, Some("Select exact installer first"))],
+            installer_choices: vec![action("Choose Serum 2", ui::Action::WorkspaceSelectProductInstaller {
+                product: ui::WorkspaceProductId::Serum2,
+                installer: "12".repeat(32),
+                release: String::new(),
+            }, None)],
+            details: Value::Null,
+        });
+        request.action = ui::Action::WorkspaceSelectProductInstaller {
+            product: ui::WorkspaceProductId::Serum2,
+            installer: "12".repeat(32),
+            release: "2.1.5".into(),
+        };
+        validate(&request, &snapshot).unwrap();
+        request.action = ui::Action::WorkspaceSelectProductInstaller {
+            product: ui::WorkspaceProductId::Serum2,
+            installer: "13".repeat(32),
+            release: "2.1.5".into(),
+        };
+        assert!(validate(&request, &snapshot).is_err());
+        request.action = ui::Action::WorkspaceInstallProduct { product: ui::WorkspaceProductId::Serum2 };
+        assert!(validate(&request, &snapshot).is_err(), "disabled product action must remain unavailable");
         snapshot.workspaces[0].installer_choices[0].disabled_reason =
             Some("FL session is active".into());
         request.action = ui::Action::WorkspaceSelectInstaller {
