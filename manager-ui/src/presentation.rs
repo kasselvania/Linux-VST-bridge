@@ -195,6 +195,11 @@ pub fn product_activity(snapshot: &Snapshot, product: &Product) -> ProductActivi
 }
 
 pub fn product_issue(product: &Product) -> Option<String> {
+    if let Some(workflow) = &product.compatibility {
+        if matches!(product.disposition.as_str(), "needs_attention" | "another_configuration") {
+            return Some(workflow.summary.clone());
+        }
+    }
     let preparation = &product.details["preparation"];
     let management = [
         product.details["refusal"].as_str(),

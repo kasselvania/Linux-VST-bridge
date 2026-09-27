@@ -173,7 +173,7 @@ fn open_selected(path: &std::path::Path) -> Result<std::fs::File, String> {
 mod tests {
     use super::*;
     #[test]
-    fn schema_nine_frontend_accepts_paired_and_refuses_schema_eight_manager() {
+    fn schema_ten_frontend_accepts_paired_and_refuses_schema_nine_manager() {
         let query = || {
             Query::Action(Request {
                 schema: crate::model::OPERATOR_SCHEMA,
@@ -218,6 +218,7 @@ mod tests {
             serde_json::json!(6),
             serde_json::json!(7),
             serde_json::json!(8),
+            serde_json::json!(9),
             serde_json::json!("9"),
             serde_json::Value::Null,
         ] {
@@ -227,7 +228,7 @@ mod tests {
                     decode_reply(request, &serde_json::to_vec(&receipt).unwrap())
                         .err()
                         .unwrap()
-                        .contains("operator model 9 required")
+                        .contains("operator model 10 required")
                 );
             }
         }

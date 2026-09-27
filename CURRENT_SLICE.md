@@ -1,8 +1,26 @@
 # Current work selection
 
-## Selected source-only canonical integration — UI1
+## Selected source-only canonical integration — UI2
 
-Public canonical main after WD1 is `80e66bc050975a35a80c85bb2a1da3d7738f5c63`
+UI2 starts from public canonical main `a9e3dab74465f8f39c180e454785261ad1a984ca`
+(tree `2f8896efced382b8b9cb569d1007bf85dedc838a`), after the normal UI1
+merge. **One claim:** integrate guided compatibility checks, exact experimental
+test publication, bounded operator results, and interrupted-result recovery into
+public manager/frontend source. The paired operator wire generation is schema
+10. Existing durable installer, candidate, result and publication records keep
+their owner-defined schemas; historical private schema-11 UI2 operation
+requests remain readable for recovery, while current schema-11 requests refuse.
+The [UI2 source contract](docs/UI2.md) names the bounded workflow and evidence.
+
+This branch does not install itself on the Deck or claim a new physical plug-in
+result. The installed private UI2 generation remains Deck authority. It does
+not import BETA0/package, BG1, RPR0, DIST0/CACHY0, PB0 or ARM work. Package
+authority and remaining installed-state convergence require separate review
+before PB0 can replace the installed manager.
+
+## Completed source-only canonical integration — UI1
+
+Public canonical main after WD1 was `80e66bc050975a35a80c85bb2a1da3d7738f5c63`
 (tree `585214bbbd44401a085c85cd9efcd0a2f7cdb979`). The UI1
 [PR #181](https://github.com/kasselvania/Linux-VST-bridge/pull/181) reviewed head
 before the final scan-order correction is `78a17f887fa0e04a44714489639cfe88715e87ee`
@@ -13,9 +31,9 @@ Manager and frontend form one paired operator wire generation, schema 9. New
 catalogues with onboarding runtime use schema 4; historical schema 3 remains
 readable without a read-side rewrite. This is source-only work and does not
 install itself on the Deck; the installed UI2 generation remains Deck authority.
-No UI2, BETA0, BG1, RPR0, DIST0 or CACHY0 implementation is imported. UI2
-canonical integration is the next required owner for installed guided-result
-state. PB0 remains draft behind UI2 and separately reviewed package authority.
+No UI2, BETA0, BG1, RPR0, DIST0 or CACHY0 implementation was imported by UI1.
+UI2 canonical integration now owns the separate guided-result source step above.
+PB0 remains draft behind UI2 and separately reviewed package authority.
 This source integration makes no new physical support claim.
 
 The completed FN1/PW1 work below remains separate ARM history. PSL1 is a

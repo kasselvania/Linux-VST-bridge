@@ -125,7 +125,7 @@ fn quarantined_product(scan: &inventory::Scan, module_index: usize,
         disposition:if stale.is_some(){"needs_attention"}else{"quarantined"}.into(),
         active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),
         runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256,
-        limitations,history:vec![],actions,
+        limitations,history:vec![],actions,compatibility:None,
         details:json!({"scan":scan.id,"scanner_host_sha256":scan.host.sha256,
             "scanner_source_sha256":scan.host_source_sha256,"current":stale.is_none(),
             "inspection_error":inspection_error,"quarantine_reason":reason,
@@ -694,7 +694,7 @@ fn snapshot_for_operation(
                 None
             },
         ));
-        products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
+        products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,compatibility:None,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
     }
     let catalogue = operator_catalogue(m, &sw, &db)?;
     let managed_bindings = managed_environment_bindings(m, catalogue.as_ref(), &db)?;
@@ -761,12 +761,16 @@ fn snapshot_for_operation(
                     {
                         continue;
                     }
-                    products.push(ui::Product {class_id:class.id,name:class.name,vendor:class.vendor,role:class.role,version:class.version,disposition:if current {"installed_unqualified"} else {"needs_attention"}.into(),active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256.clone(),limitations:vec![stale.unwrap_or("Installed — not yet supported; not published to Bitwig").into()],history:vec![],actions:vec![],details:json!({"scan":scan.id,"observed_at":scan.completed_at,"scanner_host_sha256":scan.host.sha256,"scanner_source_sha256":scan.host_source_sha256,"current":current,"inspection_error":module.inspection_error,"inspection_hint":inspection_hint,"activation_permitted":false})});
+                    products.push(ui::Product {class_id:class.id,name:class.name,vendor:class.vendor,role:class.role,version:class.version,disposition:if current {"installed_unqualified"} else {"needs_attention"}.into(),active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256.clone(),limitations:vec![stale.unwrap_or("Installed — not yet supported; not published to Bitwig").into()],history:vec![],actions:vec![],compatibility:None,details:json!({"scan":scan.id,"observed_at":scan.completed_at,"scanner_host_sha256":scan.host.sha256,"scanner_source_sha256":scan.host_source_sha256,"current":current,"inspection_error":module.inspection_error,"inspection_hint":inspection_hint,"activation_permitted":false})});
                 }
             }
         }
     }
-    preparation_cli::project(m, &sw, &mut products, busy)?;
+    if let Some(operation) = id {
+        preparation_cli::project_for_operation(m, &sw, &mut products, busy, operation)?;
+    } else {
+        preparation_cli::project(m, &sw, &mut products, busy)?;
+    }
     let mut vendor_applications = Vec::new();
     let app = app_directory(m).join("application.json");
     if app.exists() {
@@ -949,6 +953,8 @@ pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
         .chain(snapshot.installer_setups.iter().map(|s| &s.rename))
         .chain(snapshot.onboarding.iter().flat_map(|p| p.actions.iter()))
         .chain(snapshot.products.iter().flat_map(|p| p.actions.iter()))
+        .chain(snapshot.products.iter().flat_map(|p| p.compatibility.iter()
+            .flat_map(|workflow| workflow.primary.iter().chain(workflow.alternatives.iter()))))
         .chain(snapshot.workspaces.iter().flat_map(|w| w.actions.iter()))
         .chain(snapshot.workspaces.iter().flat_map(|w| w.installer_choices.iter()))
         .chain(snapshot.workspaces.iter().flat_map(|w| w.products.iter())
@@ -1403,6 +1409,7 @@ fn execute_with_receipt_policy(
             ui::Action::PluginReinspect { .. }
                 | ui::Action::PluginInspect { .. }
                 | ui::Action::PluginPrepare { .. }
+                | ui::Action::CompatibilityCheck { .. }
         ) {
             let _environment = m.lock("operator-environment.lock")?;
             suspend(m, owner, None, timeout, waits)?;
@@ -1449,6 +1456,10 @@ fn execute_with_receipt_policy(
         ui::Action::PluginReinspect { .. }
         | ui::Action::PluginInspect { .. }
         | ui::Action::PluginPrepare { .. }
+        | ui::Action::CompatibilityCheck { .. }
+        | ui::Action::CompatibilityPublishTest { .. }
+        | ui::Action::CompatibilityResult { .. }
+        | ui::Action::CompatibilityFinishResult { .. }
         | ui::Action::ExperimentalReplace { .. }
         | ui::Action::CandidateWithdraw { .. }
         | ui::Action::ExperimentalEnable { .. }
@@ -1882,8 +1893,10 @@ fn resume_locked(
 fn recovery_request(m: &Manager, saved: &ResumeRecord) -> Result<ui::Action> {
     let request: ui::Request =
         read_json(&job_dir(m, &saved.owner_operation)?.join("request.json"))?;
+    // The installed private UI2 manager retained schema-11 requests. This is
+    // historical readback only; live requests still require operator schema 10.
     require(
-        matches!(request.schema, 5..=ui::OPERATOR_SCHEMA),
+        matches!(request.schema, 5..=11),
         "operator_resume_request_schema",
     )?;
     Ok(request.action)
@@ -2016,6 +2029,7 @@ fn resume_interrupted(m: &Manager) -> Result<()> {
                 | ui::Action::PluginReinspect { .. }
                 | ui::Action::PluginInspect { .. }
                 | ui::Action::PluginPrepare { .. }
+                | ui::Action::CompatibilityCheck { .. }
         ),
         "operator_resume_action_mismatch",
     )?;
@@ -2417,6 +2431,7 @@ pub(super) fn product_receipt(
     m: &Manager,
     selection: &str,
     candidate: Option<&str>,
+    exclude_operation: Option<&str>,
 ) -> Result<Option<Value>> {
     let dir = m.root.join("operator");
     if !dir.exists() {
@@ -2428,7 +2443,7 @@ pub(super) fn product_receipt(
         let Some(id) = p.file_name().and_then(|v| v.to_str()) else {
             continue;
         };
-        if !valid_hex(id, 32) || !p.is_dir() {
+        if !valid_hex(id, 32) || exclude_operation == Some(id) || !p.is_dir() {
             continue;
         }
         let r = optional(&p.join("request.json"))?;
@@ -2928,9 +2943,11 @@ mod tests {
         r.state_token = "previous software or registry".into();
         assert!(validate(&r, &s).is_err());
         r.state_token = "current".into();
-        r.schema = 8;
-        assert_eq!(validate(&r, &s).unwrap_err().to_string(),
-            "operator_schema_mismatch_update_manager_frontend");
+        for old_schema in [8, 9] {
+            r.schema = old_schema;
+            assert_eq!(validate(&r, &s).unwrap_err().to_string(),
+                "operator_schema_mismatch_update_manager_frontend");
+        }
         for malformed in [json!({"schema":"9","state_token":"current","action":{"kind":"capture_disarm"}}),
             json!({"schema":null,"state_token":"current","action":{"kind":"capture_disarm"}})] {
             assert!(serde_json::from_value::<ui::Request>(malformed).is_err());
@@ -2954,8 +2971,8 @@ mod tests {
         assert!(validate(&r, &busy).is_err());
     }
     #[test]
-    fn schema_nine_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 9);
+    fn schema_ten_keeps_exact_old_operation_request_history_readable() {
+        assert_eq!(ui::OPERATOR_SCHEMA, 10);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();
@@ -2970,6 +2987,12 @@ mod tests {
         assert_eq!(recovery_request(&f.m, &saved).unwrap(), old.action);
         assert_eq!(worker_receipt(&f.m, &operation)["state"], "completed");
         assert_eq!(worker_receipt(&f.m, &operation)["schema"], 1);
+        let installed_ui2 = ui::Request { schema: 11, state_token: "installed-state".into(),
+            action: ui::Action::CompatibilityFinishResult { operation: operation.clone() } };
+        atomic_json(&dir.join("request.json"), &installed_ui2).unwrap();
+        assert_eq!(recovery_request(&f.m, &saved).unwrap(), installed_ui2.action);
+        assert_eq!(validate(&installed_ui2, &view("installed-state", action("Finish", installed_ui2.action.clone(), None)))
+            .unwrap_err().to_string(), "operator_schema_mismatch_update_manager_frontend");
     }
     #[test]
     fn workspace_selection_accepts_only_exact_offered_import_and_release_syntax() {
@@ -3870,6 +3893,35 @@ mod tests {
         assert!(read.system.cleanup_unconfirmed);
         assert!(read.operation.is_none());
     }
+    #[test]
+    fn ui2_problem_capture_is_admitted_during_cleanup_uncertainty_but_finish_is_not() {
+        let f = test_fixture::Fixture::new();
+        let problem = ui::Action::CompatibilityResult {
+            candidate: "ab".repeat(32),
+            expected_current: ui::PublicationIdentity {
+                id: "cd".repeat(16), sha256: "ef".repeat(32),
+            },
+            result: ui::TestResultKind::Problem {
+                category: ui::ProblemCategory::CleanupIncomplete,
+            },
+            passed: vec![], failed_area: None, note: "Cleanup did not complete".into(),
+        };
+        let finish = ui::Action::CompatibilityFinishResult { operation: "12".repeat(16) };
+        let capacity = || serde_json::from_value(json!({
+            "schema":1,"dsp":0,"maintenance":0,"keepers":0,
+            "cleanup_unconfirmed":true,"owners":[],"limits":{"global_dsp":6}
+        })).ok();
+        assert!(!problem.requires_inactive());
+        assert!(require_operator_inactive_with(&f.m, &problem, &capacity,
+            None, Duration::from_millis(100), &mut vec![]).is_ok());
+        assert!(require_operator_inactive_with(&f.m, &problem, &|| None,
+            None, Duration::from_millis(100), &mut vec![]).is_ok());
+        assert!(finish.requires_inactive());
+        assert!(require_operator_inactive_with(&f.m, &finish, &capacity,
+            None, Duration::from_millis(100), &mut vec![]).is_err());
+        assert!(require_operator_inactive_with(&f.m, &finish, &|| None,
+            None, Duration::from_millis(100), &mut vec![]).is_err());
+    }
     fn onboarding_worker_fixture() -> (test_fixture::Fixture, String) {
         use linux_vst_bridge::catalogue::{Catalogue, EnvironmentBinding, OnboardingRuntimePolicy,
             STANDARD_ONBOARDING_RUNNER};
@@ -4060,7 +4112,7 @@ mod tests {
             disposition: "installed_unqualified".into(), active_revision: None, recommended_revision: None,
             environment: environment.clone(), runner: f.r.environment.runner.id.clone(),
             module_sha256: f.r.module.sha256.clone(), limitations: vec![], history: vec![],
-            actions: vec![], details: Value::Null };
+            actions: vec![], compatibility: None, details: Value::Null };
         let found = project(&rows, std::slice::from_ref(&product));
         assert_eq!(found.phase, ui::SetupPhase::DiscoveryComplete);
         assert_eq!(found.discovered.len(), 1);

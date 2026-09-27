@@ -70,6 +70,35 @@ fn plausible_installer_label(label: &str) -> bool {
         && !label.chars().any(|c| c.is_control() || matches!(c, '/' | '\\' | ':')
             || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}'))
 }
+fn test_areas() -> [TestArea; 9] {
+    [TestArea::DawLoad, TestArea::Midi, TestArea::Audio, TestArea::Editor,
+        TestArea::Parameters, TestArea::Automation, TestArea::StateRecall,
+        TestArea::ProcessingRestart, TestArea::Retirement]
+}
+fn test_area_label(area: TestArea) -> &'static str {
+    match area {
+        TestArea::DawLoad => "Loaded in the DAW", TestArea::Midi => "MIDI or note input",
+        TestArea::Audio => "Audio or musical processing", TestArea::Editor => "Editor rendered and was usable",
+        TestArea::Parameters => "Controls responded", TestArea::Automation => "Automation responded",
+        TestArea::StateRecall => "Save and reopen recalled state",
+        TestArea::ProcessingRestart => "Processing restarted cleanly",
+        TestArea::Retirement => "Editor and DAW closed cleanly",
+    }
+}
+fn problem_category_label(category: ProblemCategory) -> &'static str {
+    match category {
+        ProblemCategory::FailedToLoad => "Failed to load",
+        ProblemCategory::BlankEditor => "Blank or white editor",
+        ProblemCategory::EditorFroze => "Editor froze",
+        ProblemCategory::EditorDisappeared => "Editor disappeared",
+        ProblemCategory::NoAudio => "No audio",
+        ProblemCategory::IncorrectAudio => "Incorrect audio",
+        ProblemCategory::ControlsUnresponsive => "Controls did not respond",
+        ProblemCategory::HostCrashed => "Plug-in or host crashed",
+        ProblemCategory::CleanupIncomplete => "Cleanup did not complete",
+        ProblemCategory::Other => "Other problem",
+    }
+}
 
 fn workspace_primary_action(actions: &[AvailableAction]) -> Option<usize> {
     actions
@@ -1704,6 +1733,7 @@ impl eframe::App for Operator {
             if matches!(
                 a,
                 Action::CandidateObserve { .. } | Action::CandidateReview { .. }
+                    | Action::CompatibilityResult { .. }
             ) {
                 self.product_form = Some(a);
             } else if matches!(
@@ -1762,11 +1792,78 @@ impl eframe::App for Operator {
             if submit { chosen = self.installer_rename_form.take(); }
             else if cancel { self.installer_rename_form = None; }
         }
+        let result_inactive_reason = self.snapshot.as_ref()
+            .map_or(Some("Current manager readback unavailable"), |snapshot|
+                snapshot.system.inactive_reason());
         if let Some(form) = self.product_form.as_mut() {
             let mut submit = false;
             let mut cancel = false;
-            egui::Window::new("Exact candidate observation / review").collapsible(false).show(ui.ctx(),|ui|{
+            egui::Window::new(if matches!(form, Action::CompatibilityResult { .. }) {
+                "Record plug-in test result"
+            } else { "Exact candidate observation / review" })
+                .collapsible(false)
+                .max_height((ui.ctx().content_rect().height() - 40.0).max(200.0))
+                .max_width((ui.ctx().content_rect().width() - 40.0).max(300.0))
+                .vscroll(true)
+                .show(ui.ctx(),|ui|{
                 match form {
+                    Action::CompatibilityResult { result, passed, failed_area, note, .. } => {
+                        ui.label("Mark only what you actually observed. The test configuration stays experimental after a successful result.");
+                        ui.horizontal_wrapped(|ui| {
+                            ui.selectable_value(result, TestResultKind::Worked, "It worked");
+                            ui.selectable_value(result, TestResultKind::Problem {
+                                category: ProblemCategory::Other }, "Report a problem");
+                        });
+                        if let TestResultKind::Problem { category } = result {
+                            egui::ComboBox::from_id_salt("guided-problem-category")
+                                .selected_text(problem_category_label(*category))
+                                .show_ui(ui, |ui| {
+                                    for choice in [ProblemCategory::FailedToLoad,
+                                        ProblemCategory::BlankEditor, ProblemCategory::EditorFroze,
+                                        ProblemCategory::EditorDisappeared, ProblemCategory::NoAudio,
+                                        ProblemCategory::IncorrectAudio, ProblemCategory::ControlsUnresponsive,
+                                        ProblemCategory::HostCrashed, ProblemCategory::CleanupIncomplete,
+                                        ProblemCategory::Other] {
+                                        ui.selectable_value(category, choice, problem_category_label(choice));
+                                    }
+                                });
+                            if *category == ProblemCategory::Other {
+                                ui.label("Which part had the problem?");
+                                egui::ComboBox::from_id_salt("guided-problem-area")
+                                    .selected_text(failed_area.map(test_area_label).unwrap_or("Choose an area"))
+                                    .show_ui(ui, |ui| {
+                                        for area in test_areas() {
+                                            ui.selectable_value(failed_area, Some(area), test_area_label(area));
+                                        }
+                                    });
+                            } else { *failed_area = None; }
+                        } else { *failed_area = None; }
+                        ui.label("Checks you confirmed");
+                        for area in test_areas() {
+                            let mut checked = passed.contains(&area);
+                            if ui.checkbox(&mut checked, test_area_label(area)).changed() {
+                                if checked { passed.push(area); } else { passed.retain(|item| *item != area); }
+                            }
+                        }
+                        ui.label("Optional detail for a successful test; describe a problem when reporting one");
+                        ui.add(egui::TextEdit::singleline(note).char_limit(512)
+                            .desired_width(360.0));
+                        let valid = match result {
+                            TestResultKind::Worked => !passed.is_empty(),
+                            TestResultKind::Problem { category } => !note.trim().is_empty()
+                                && (*category != ProblemCategory::Other || failed_area.is_some()),
+                        };
+                        let success_blocked = matches!(result, TestResultKind::Worked)
+                            && result_inactive_reason.is_some();
+                        submit = ui.add_enabled(valid && !controls_pending && !success_blocked,
+                            egui::Button::new("Record this test result")
+                                .min_size(egui::vec2(240.0, 44.0))).clicked();
+                        if !valid { ui.small("Select an observed check, or choose a problem and describe it."); }
+                        if success_blocked {
+                            ui.small(result_inactive_reason.unwrap_or_default());
+                            ui.small("You can report a problem now. A successful result needs clean retirement.");
+                        }
+                    }
                     Action::CandidateObserve{area,status,note,..}=>{
                         ui.label("This records your observation. It does not create a machine measurement or qualification decision.");
                         egui::ComboBox::from_id_salt("area").selected_text(area.as_str()).show_ui(ui,|ui|{for a in ["daw_load","midi","audio","editor","parameters","automation","state_recall","processing_restart","retirement"]{ui.selectable_value(area,a.into(),a.replace('_'," "));}});
@@ -3291,6 +3388,25 @@ mod tests {
         assert!(o.controls_pending());
     }
     #[test]
+    fn guided_check_keeps_the_offered_identity_and_queues_once() {
+        let mut o = state_fixture();
+        let action = Action::CompatibilityCheck {
+            selection: "ab".repeat(32), audio_layout: None,
+            recipe: "cd".repeat(32), predecessor: None,
+        };
+        let request = Request { schema: crate::model::OPERATOR_SCHEMA, state_token: "current".into(), action };
+        o.pending = true;
+        o.background_poll = true;
+        o.capture_action(request.clone());
+        assert!(o.controls_pending());
+        assert!(o.next_action().is_none());
+        o.pending = false;
+        o.background_poll = false;
+        assert_eq!(o.next_action().unwrap().action, request.action);
+        assert!(o.next_action().is_none());
+        assert!(o.controls_pending());
+    }
+    #[test]
     fn old_poll_cannot_overwrite_current_prequeue_refusal_or_inflight_request() {
         let mut f = RequestFeedback::captured(create_request().action);
         let old =
@@ -3484,7 +3600,7 @@ mod tests {
         });
         let mut s = running_snapshot(&"22".repeat(16));
         s.operation = Some(serde_json::json!({"operation":"22".repeat(16),"state":"completed"}));
-        s.products.push(Product{class_id:"aa".repeat(16),name:"Generated instrument".into(),vendor:"Fixture".into(),role:"instrument".into(),version:"1".into(),disposition:"prepared".into(),active_revision:None,recommended_revision:None,environment:"ef".repeat(16),runner:"pinned".into(),module_sha256:"ff".repeat(32),limitations:vec![],history:vec![],actions:vec![],details:serde_json::json!({"preparation":{"operation":{"operation":"11".repeat(16),"state":"completed"}}})});
+        s.products.push(Product{class_id:"aa".repeat(16),name:"Generated instrument".into(),vendor:"Fixture".into(),role:"instrument".into(),version:"1".into(),disposition:"prepared".into(),active_revision:None,recommended_revision:None,environment:"ef".repeat(16),runner:"pinned".into(),module_sha256:"ff".repeat(32),limitations:vec![],history:vec![],actions:vec![],compatibility:None,details:serde_json::json!({"preparation":{"operation":{"operation":"11".repeat(16),"state":"completed"}}})});
         f.reconcile_snapshot(&s);
         assert!(f.terminal);
         assert!(!f.blocking);
