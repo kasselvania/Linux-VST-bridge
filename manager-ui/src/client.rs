@@ -1,5 +1,5 @@
 //! Fixed manager entry point; no shell and no user-supplied executable/arguments.
-use crate::model::{Activity, Receipt, Request, Snapshot};
+use crate::model::{Activity, InstallerImportResult, Receipt, Request, Snapshot};
 use std::{
     io::{Read, Write},
     process::{Command, Stdio},
@@ -10,7 +10,7 @@ pub enum Reply {
     Snapshot(Box<Snapshot>),
     Activity(Activity),
     Receipt(Receipt),
-    Imported,
+    Imported(InstallerImportResult),
     Cancelled,
     Error(String),
 }
@@ -31,7 +31,9 @@ fn call(query: Query) -> Result<Reply, String> {
         let Some(path) = selected else {
             return Ok(Reply::Cancelled);
         };
-        Some(open_selected(&path)?)
+        let basename = path.file_name().and_then(|part| part.to_str())
+            .ok_or("Selected installer name is unavailable")?.to_owned();
+        Some((open_selected(&path)?, basename))
     } else {
         None
     };
@@ -43,12 +45,12 @@ fn call(query: Query) -> Result<Reply, String> {
     };
     let mut command = Command::new(executable);
     if matches!(query, Query::PickInstaller) {
-        command.arg(verb);
+        command.arg(verb).arg(selected.as_ref().ok_or("Installer selection unavailable")?.1.as_str());
     } else {
         command.args(["operator", verb]);
     }
     let mut child = command
-        .stdin(selected.map(Stdio::from).unwrap_or_else(Stdio::piped))
+        .stdin(selected.map(|(file, _)| Stdio::from(file)).unwrap_or_else(Stdio::piped))
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -107,21 +109,34 @@ fn call(query: Query) -> Result<Reply, String> {
         return Err("Manager response exceeded its bound".into());
     }
     if matches!(query, Query::PickInstaller) {
-        let value: serde_json::Value =
-            serde_json::from_slice(&data).map_err(|_| "Invalid import receipt")?;
-        if value["schema"] != 1 || value["import_result"] != "imported" {
-            return Err("Installer import refused".into());
-        }
-        return Ok(Reply::Imported);
+        return decode_import(&data);
     }
     decode_reply(query, &data)
+}
+fn decode_import(data: &[u8]) -> Result<Reply, String> {
+    let envelope: serde_json::Value =
+        serde_json::from_slice(data).map_err(|_| "Invalid import receipt")?;
+    if envelope["schema"] != 2 {
+        return Err("Update the frontend and manager together: installer import result 2 required".into());
+    }
+    let value: InstallerImportResult = serde_json::from_value(envelope)
+        .map_err(|_| "Incompatible installer import result")?;
+    if value.installer_sha256.len() != 64
+        || !value.installer_sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
+        || value.display_label.is_empty() || value.display_label.len() > 96
+        || value.display_label.chars().any(char::is_control)
+        || !matches!(value.format.as_str(), "pe_executable" | "msi_compound") {
+        return Err("Installer import refused".into());
+    }
+    Ok(Reply::Imported(value))
 }
 
 fn decode_reply(query: Query, data: &[u8]) -> Result<Reply, String> {
     let envelope: serde_json::Value =
         serde_json::from_slice(data).map_err(|_| "Invalid manager response")?;
-    if envelope["schema"] != 8 {
-        return Err("Update the frontend and manager together: operator model 8 required".into());
+    if envelope["schema"] != crate::model::OPERATOR_SCHEMA {
+        return Err(format!("Update the frontend and manager together: operator model {} required",
+            crate::model::OPERATOR_SCHEMA));
     }
     match query {
         Query::PickInstaller => unreachable!(),
@@ -158,20 +173,20 @@ fn open_selected(path: &std::path::Path) -> Result<std::fs::File, String> {
 mod tests {
     use super::*;
     #[test]
-    fn transport_accepts_current_dependency_receipt_and_refuses_other_models() {
+    fn schema_nine_frontend_accepts_paired_and_refuses_schema_eight_manager() {
         let query = || {
             Query::Action(Request {
-                schema: 8,
+                schema: crate::model::OPERATOR_SCHEMA,
                 state_token: "exact-state".into(),
                 action: crate::model::Action::DependencyPrepare {},
             })
         };
         let mut receipt = serde_json::json!({
-            "schema": 8, "accepted": true, "operation": "exact-operation", "refusal": null
+            "schema": crate::model::OPERATOR_SCHEMA, "accepted": true, "operation": "exact-operation", "refusal": null
         });
         match decode_reply(query(), &serde_json::to_vec(&receipt).unwrap()).unwrap() {
             Reply::Receipt(value) => {
-                assert_eq!(value.schema, 8);
+                assert_eq!(value.schema, crate::model::OPERATOR_SCHEMA);
                 assert!(value.accepted);
                 assert_eq!(value.operation.as_deref(), Some("exact-operation"));
             }
@@ -183,14 +198,14 @@ mod tests {
             "cleanup_unconfirmed": false
         });
         let activity = serde_json::json!({
-            "schema": 8, "system": system, "capture": null, "operation": null
+            "schema": crate::model::OPERATOR_SCHEMA, "system": system, "capture": null, "operation": null
         });
         assert!(matches!(
             decode_reply(Query::Activity, &serde_json::to_vec(&activity).unwrap()),
             Ok(Reply::Activity(_))
         ));
         let snapshot = serde_json::json!({
-            "schema": 8, "state_token": "exact-state", "system": system,
+            "schema": crate::model::OPERATOR_SCHEMA, "state_token": "exact-state", "system": system,
             "capture": null, "operation": null, "onboarding": [], "environments": [],
             "vendor_applications": [], "products": [], "active_sessions": [],
             "recent_incidents": [], "actions": []
@@ -202,8 +217,8 @@ mod tests {
         for schema in [
             serde_json::json!(6),
             serde_json::json!(7),
-            serde_json::json!(9),
-            serde_json::json!("8"),
+            serde_json::json!(8),
+            serde_json::json!("9"),
             serde_json::Value::Null,
         ] {
             receipt["schema"] = schema;
@@ -212,13 +227,30 @@ mod tests {
                     decode_reply(request, &serde_json::to_vec(&receipt).unwrap())
                         .err()
                         .unwrap()
-                        .contains("operator model 8 required")
+                        .contains("operator model 9 required")
                 );
             }
         }
-        receipt["schema"] = serde_json::json!(8);
+        receipt["schema"] = serde_json::json!(crate::model::OPERATOR_SCHEMA);
         receipt["arbitrary"] = serde_json::json!(true);
         assert!(decode_reply(query(), &serde_json::to_vec(&receipt).unwrap()).is_err());
+    }
+    #[test]
+    fn paired_import_result_preserves_identity_and_refuses_old_manager() {
+        let exact = serde_json::json!({"schema":2,"installer_sha256":"ab".repeat(32),
+            "byte_size":2048,"format":"pe_executable","newly_imported":false,
+            "display_label":"Lunacy Audio","created_at":42});
+        match decode_import(&serde_json::to_vec(&exact).unwrap()).unwrap() {
+            Reply::Imported(value) => {
+                assert!(!value.newly_imported);
+                assert_eq!(value.installer_sha256, "ab".repeat(32));
+            }
+            _ => panic!("expected typed import"),
+        }
+        let mut old = exact;
+        old["schema"] = 1.into();
+        assert!(decode_import(&serde_json::to_vec(&old).unwrap()).err().unwrap()
+            .contains("Update the frontend and manager together"));
     }
 
     #[test]

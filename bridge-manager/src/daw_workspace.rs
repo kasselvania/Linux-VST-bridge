@@ -910,6 +910,14 @@ fn load(m: &Manager) -> Result<Workspace> {
     Ok(w)
 }
 
+/// Exact FL application installers already owned by the durable workspace.
+/// Plug-in onboarding must not offer these artifacts as new plug-in setups.
+fn application_installer_ids(w: &Workspace) -> BTreeSet<String> {
+    let mut ids = BTreeSet::from([w.selected_installer.sha256.clone()]);
+    ids.extend(w.installations.iter().map(|entry| entry.installer.sha256.clone()));
+    ids
+}
+
 fn save(m: &Manager, w: &mut Workspace) -> Result<()> {
     w.revision = w
         .revision
@@ -2731,11 +2739,12 @@ fn serum2_projection(
 pub(super) fn projection(
     m: &Manager,
     imported: &[ui::Onboarding],
-) -> Result<Vec<ui::DawWorkspace>> {
+) -> Result<(Vec<ui::DawWorkspace>, BTreeSet<String>)> {
     if !record(m).try_exists()? {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), BTreeSet::new()));
     }
     let w = load(m)?;
+    let application_installers = application_installer_ids(&w);
     let details = read_status(m)?;
     let cleanup = details["cleanup"].as_str().unwrap_or("cleanup_unconfirmed");
     let owner_active = details["owner_active"] == true;
@@ -2863,7 +2872,7 @@ pub(super) fn projection(
         .as_ref()
         .and_then(|app| app.observed_file_version.clone());
     let products = vec![serum2_projection(m, &w, &details, imported)?];
-    Ok(vec![ui::DawWorkspace {
+    Ok((vec![ui::DawWorkspace {
         id: w.id,
         name: "FL Studio".into(),
         state: details["effective_state"]
@@ -2871,6 +2880,7 @@ pub(super) fn projection(
             .unwrap_or("cleanup_unconfirmed")
             .into(),
         selected_installer: w.selected_installer.sha256,
+        application_installers: application_installers.iter().cloned().collect(),
         selected_release: w.selected_installer.release,
         installed_advertised_release,
         observed_file_version,
@@ -2885,7 +2895,7 @@ pub(super) fn projection(
         installer_choices: choices,
         products,
         details,
-    }])
+    }], application_installers))
 }
 
 pub(super) fn execute_action(m: &Manager, action: &ui::Action, operation: &str) -> Result<Value> {
@@ -3421,6 +3431,8 @@ mod tests {
         assert_eq!(w.installed.as_ref().unwrap().executable, app_b.executable);
         assert_eq!(w.installations[0], old);
         assert_eq!(w.installations[1].installer.sha256, b.id);
+        save(&f.m, &mut w).unwrap();
+        assert_eq!(application_installer_ids(&load(&f.m).unwrap()), BTreeSet::from([a.id, b.id]));
         assert_eq!(
             (w.id, w.environment, w.projects, w.preferences, w.exports),
             roots

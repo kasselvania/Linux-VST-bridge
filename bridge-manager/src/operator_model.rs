@@ -1,5 +1,8 @@
 //! Versioned operator projection and closed requests. No filesystem or launch authority.
 use serde::{Deserialize, Serialize};
+/// Manager/frontend wire generation. Durable installer, workspace and operation
+/// records keep their own owner-defined schema versions.
+pub const OPERATOR_SCHEMA: u32 = 9;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AudioLayoutPolicy {
@@ -107,6 +110,10 @@ pub enum Action {
     InstallerEnvironmentCreate {
         installer: String,
         runner: String,
+    },
+    InstallerRename {
+        installer: String,
+        label: String,
     },
     InstallerNewAttempt {
         previous: String,
@@ -264,6 +271,8 @@ pub struct DawWorkspace {
     pub name: String,
     pub state: String,
     pub selected_installer: String,
+    #[serde(default)]
+    pub application_installers: Vec<String>,
     pub selected_release: String,
     pub installed_advertised_release: Option<String>,
     pub observed_file_version: Option<String>,
@@ -306,6 +315,8 @@ pub struct System {
 #[serde(deny_unknown_fields)]
 pub struct Snapshot {
     pub onboarding: Vec<Onboarding>,
+    #[serde(default)]
+    pub installer_setups: Vec<InstallerSetup>,
     pub schema: u32,
     pub state_token: String,
     pub system: System,
@@ -334,6 +345,62 @@ pub struct Onboarding {
     pub required_human_action: String,
     pub details: serde_json::Value,
     pub actions: Vec<AvailableAction>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SetupPhase {
+    Imported,
+    EnvironmentReady,
+    InstallerRunning,
+    SetupNeedsAttention,
+    InstallerRetired,
+    ScanReady,
+    DiscoveryComplete,
+    CleanupUnconfirmed,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DiscoveredProduct {
+    pub environment: String,
+    pub module_sha256: String,
+    pub class_id: String,
+    pub name: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InstallerSetup {
+    pub installer: String,
+    pub name: String,
+    pub label_source: String,
+    pub byte_size: u64,
+    pub format: String,
+    pub imported_at: u64,
+    pub phase: SetupPhase,
+    pub status: String,
+    pub environment: Option<String>,
+    pub compatibility: Option<String>,
+    pub discovered: Vec<DiscoveredProduct>,
+    pub primary: Option<AvailableAction>,
+    pub secondary: Vec<AvailableAction>,
+    pub rename: AvailableAction,
+    pub history: Vec<SetupHistoryRef>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SetupHistoryRef {
+    pub environment: Option<String>,
+    pub state: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct InstallerImportResult {
+    pub schema: u32,
+    pub installer_sha256: String,
+    pub byte_size: u64,
+    pub format: String,
+    pub newly_imported: bool,
+    pub display_label: String,
+    pub created_at: u64,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

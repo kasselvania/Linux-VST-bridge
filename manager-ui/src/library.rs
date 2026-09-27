@@ -10,7 +10,7 @@ pub struct Library {
     pub expand_details: bool,
     role: String,
     status: String,
-    focus: Option<ProductKey>,
+    focus: Option<Vec<ProductKey>>,
     scroll_focus: bool,
 }
 
@@ -48,7 +48,14 @@ impl Library {
         self.search.clear();
         self.role.clear();
         self.status.clear();
-        self.focus = Some(key);
+        self.focus = Some(vec![key]);
+        self.scroll_focus = true;
+    }
+    pub fn focus_products(&mut self, keys: Vec<ProductKey>) {
+        self.search.clear();
+        self.role.clear();
+        self.status.clear();
+        self.focus = Some(keys);
         self.scroll_focus = true;
     }
 
@@ -57,7 +64,7 @@ impl Library {
             return snapshot
                 .products
                 .iter()
-                .filter(|product| ProductKey::from(*product) == *key)
+                .filter(|product| key.contains(&ProductKey::from(*product)))
                 .collect();
         }
         let search = self.search.to_lowercase();
@@ -102,7 +109,7 @@ impl Library {
         ui.heading("Plug-ins");
         if self.focus.is_some() {
             ui.horizontal_wrapped(|ui| {
-                ui.strong("Showing the selected plug-in");
+                ui.strong("Showing the selected plug-ins");
                 if ui
                     .add_sized([180.0, 42.0], egui::Button::new("Show all plug-ins"))
                     .clicked()
@@ -588,7 +595,7 @@ mod tests {
 
     #[test]
     fn focused_product_is_selected_by_exact_identity_even_after_search() {
-        let s = snapshot();
+        let mut s = snapshot();
         let mut library = Library {
             search: "other".into(),
             ..Default::default()
@@ -598,6 +605,13 @@ mod tests {
         assert_eq!(library.products(&s).len(), 1);
         assert_eq!(library.products(&s)[0].name, "Serum 2 FX");
         assert!(library.scroll_focus);
+        let mut quarantined = s.products[0].clone();
+        quarantined.name = "Quarantined module".into();
+        quarantined.class_id.clear();
+        s.products.push(quarantined.clone());
+        library.focus_product(ProductKey::from(&quarantined));
+        assert_eq!(library.products(&s).len(), 1);
+        assert_eq!(library.products(&s)[0].name, "Quarantined module");
     }
 
     #[test]

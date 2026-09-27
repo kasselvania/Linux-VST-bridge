@@ -60,7 +60,9 @@ fn token(m: &Manager) -> Result<String> {
         &json!({"software":optional(&m.root.join("software.json"))?,"registry":m.registry()?,
             "preparation":optional(&m.root.join("preparation/revision.json"))?,
             "workspace":optional(&m.root.join("daw-workspaces/fl-studio/workspace.json"))?,
-            "terminal_summaries":capacity::terminal_summaries(m)?}),
+            "terminal_summaries":capacity::terminal_summaries(m)?,
+            "installer_presentations":installer_import::presentation_token(m)?,
+            "onboarding_history":onboarding::history_records(m)?}),
     )?)))
 }
 fn action(label: &str, action: ui::Action, reason: Option<&str>) -> ui::AvailableAction {
@@ -232,7 +234,7 @@ fn activity_with_capacity(m: &Manager, cap: Option<&CapacityReadback>) -> Result
         }
     }
     Ok(ui::Activity {
-        schema: 8,
+        schema: ui::OPERATOR_SCHEMA,
         system: ui::System {
             service: if cap.is_some() {
                 "active"
@@ -862,10 +864,12 @@ fn snapshot_for_operation(
     }
     let live = activity_with_capacity(m, cap.as_ref())?;
     let mut onboarding = onboarding::projection(m, busy)?;
-    let workspaces = daw_workspace::projection(m, &onboarding)?;
+    let (workspaces, workspace_installers) = daw_workspace::projection(m, &onboarding)?;
+    onboarding.retain(|row| !workspace_installers.contains(&row.installer));
     if let Some(receipt) = &live.operation {
         project_onboarding_failure(m, receipt, &mut onboarding)?;
     }
+    let installer_setups = onboarding::setup_projection(m, &onboarding, &products, &workspace_installers)?;
     let recheck = acquire_readback(m, ui::OperatorLock::Registry, id, timeout, waits)?;
     let after = token(m)?;
     require(
@@ -876,7 +880,8 @@ fn snapshot_for_operation(
     let active_sessions=session_projection(cap.as_ref(),capacity::terminal_summaries(m)?);
     Ok(ui::Snapshot {
         onboarding,
-        schema: 8,
+        installer_setups,
+        schema: ui::OPERATOR_SCHEMA,
         state_token: after,
         system: live.system,
         environments,
@@ -941,6 +946,7 @@ pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
     snapshot
         .actions
         .iter()
+        .chain(snapshot.installer_setups.iter().map(|s| &s.rename))
         .chain(snapshot.onboarding.iter().flat_map(|p| p.actions.iter()))
         .chain(snapshot.products.iter().flat_map(|p| p.actions.iter()))
         .chain(snapshot.workspaces.iter().flat_map(|w| w.actions.iter()))
@@ -963,8 +969,10 @@ pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
         .collect()
 }
 fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
+    require(request.schema == ui::OPERATOR_SCHEMA,
+        "operator_schema_mismatch_update_manager_frontend")?;
     require(
-        request.schema == 8 && request.state_token == snapshot.state_token,
+        request.state_token == snapshot.state_token,
         "operator_stale_request_refresh",
     )?;
     let offered = available(snapshot)
@@ -1157,7 +1165,7 @@ fn launch_reserved(
         return Err("operator_worker_launch_failed".into());
     }
     Ok(ui::Receipt {
-        schema: 8,
+        schema: ui::OPERATOR_SCHEMA,
         accepted: true,
         operation: Some(id.into()),
         refusal: None,
@@ -1182,7 +1190,7 @@ fn dispatch_recorded(
                 false,
             )?;
             Ok(ui::Receipt {
-                schema: 8,
+                schema: ui::OPERATOR_SCHEMA,
                 accepted: false,
                 operation: Some(id),
                 refusal: Some(reason),
@@ -1450,6 +1458,10 @@ fn execute_with_receipt_policy(
         | ui::Action::CandidatePublishOrdinary { .. } => unreachable!(),
         ui::Action::InstallerEnvironmentCreate { .. } | ui::Action::InstallerNewAttempt { .. } => {
             unreachable!()
+        }
+        ui::Action::InstallerRename { installer, label } => {
+            let named = installer_import::rename(m, installer, label)?;
+            Ok(json!({"installer":installer,"display_label":named.display_label,"presentation_only":true}))
         }
         ui::Action::InstallerStart { onboarding: id }
         | ui::Action::InstallerStartWithPolicy { onboarding: id, .. } => {
@@ -1871,7 +1883,7 @@ fn recovery_request(m: &Manager, saved: &ResumeRecord) -> Result<ui::Action> {
     let request: ui::Request =
         read_json(&job_dir(m, &saved.owner_operation)?.join("request.json"))?;
     require(
-        matches!(request.schema, 5..=8),
+        matches!(request.schema, 5..=ui::OPERATOR_SCHEMA),
         "operator_resume_request_schema",
     )?;
     Ok(request.action)
@@ -2384,7 +2396,7 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
             let receipt = match dispatch(m, req) {
                 Ok(r) => r,
                 Err(e) => ui::Receipt {
-                    schema: 8,
+                    schema: ui::OPERATOR_SCHEMA,
                     accepted: false,
                     operation: None,
                     refusal: Some(e.to_string()),
@@ -2547,7 +2559,7 @@ mod tests {
         let (f,p,_,native)=test_fixture::prepared();
         let catalogue=Catalogue {schema:3,natives:vec![native],environments:vec![
             EnvironmentBinding {family:p.requirements.environment_family,
-                environment:f.r.environment.clone()}],hosts:vec![]};
+                environment:f.r.environment.clone()}],hosts:vec![],onboarding_runtime:None};
         let catalogue_path=f.m.root.join("software/catalogue.json");
         atomic_json(&catalogue_path,&catalogue).unwrap();
         let a=f.r.host.clone();
@@ -2614,7 +2626,8 @@ mod tests {
     fn view(token: &str, action: ui::AvailableAction) -> ui::Snapshot {
         ui::Snapshot {
             onboarding: vec![],
-            schema: 8,
+            installer_setups: vec![],
+            schema: ui::OPERATOR_SCHEMA,
             state_token: token.into(),
             system: ui::System {
                 service: "active".into(),
@@ -2777,7 +2790,7 @@ mod tests {
             module_sha256:prior.modules[0].artifact.sha256.clone(),
             report_sha256:prior.modules[0].report.sha256.clone(),
         });
-        let request = ui::Request {schema:7,state_token:snapshot.state_token,action};
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:snapshot.state_token,action};
         let operation = launch_queued(m,&request,|_|Ok(true)).unwrap().operation.unwrap();
         SCAN_SPAWN_COUNT.with(|count| count.set(0));
         worker_with_capacity(m,&operation,OPERATOR_WAIT,&||capacity_fixture(m)).unwrap();
@@ -2907,7 +2920,7 @@ mod tests {
         };
         let s = view("current", action("Rollback", allowed.clone(), None));
         let mut r = ui::Request {
-            schema: 8,
+            schema: ui::OPERATOR_SCHEMA,
             state_token: "current".into(),
             action: allowed.clone(),
         };
@@ -2915,9 +2928,14 @@ mod tests {
         r.state_token = "previous software or registry".into();
         assert!(validate(&r, &s).is_err());
         r.state_token = "current".into();
-        r.schema = 1;
-        assert!(validate(&r, &s).is_err());
-        r.schema = 2;
+        r.schema = 8;
+        assert_eq!(validate(&r, &s).unwrap_err().to_string(),
+            "operator_schema_mismatch_update_manager_frontend");
+        for malformed in [json!({"schema":"9","state_token":"current","action":{"kind":"capture_disarm"}}),
+            json!({"schema":null,"state_token":"current","action":{"kind":"capture_disarm"}})] {
+            assert!(serde_json::from_value::<ui::Request>(malformed).is_err());
+        }
+        r.schema = ui::OPERATOR_SCHEMA;
         r.action = ui::Action::OrdinaryRollback {
             class_id: "a".repeat(32),
             publication: "c".repeat(32),
@@ -2934,6 +2952,24 @@ mod tests {
             action("Rollback", allowed, Some("Active DSP lease")),
         );
         assert!(validate(&r, &busy).is_err());
+    }
+    #[test]
+    fn schema_nine_keeps_exact_old_operation_request_history_readable() {
+        assert_eq!(ui::OPERATOR_SCHEMA, 9);
+        let f = test_fixture::Fixture::new();
+        let operation = "ab".repeat(16);
+        let dir = job_dir(&f.m, &operation).unwrap();
+        private_dir(&dir).unwrap();
+        let old = ui::Request { schema: 8, state_token: "old-state".into(),
+            action: ui::Action::DependencyPrepare {} };
+        atomic_json(&dir.join("request.json"), &old).unwrap();
+        atomic_json(&dir.join("result.json"),
+            &json!({"schema":1,"operation":operation,"state":"completed"})).unwrap();
+        let saved = ResumeRecord { schema: 1, owner_operation: operation.clone(),
+            resume: true, software: "cd".repeat(32), vendor_operation: Some(operation.clone()) };
+        assert_eq!(recovery_request(&f.m, &saved).unwrap(), old.action);
+        assert_eq!(worker_receipt(&f.m, &operation)["state"], "completed");
+        assert_eq!(worker_receipt(&f.m, &operation)["schema"], 1);
     }
     #[test]
     fn workspace_selection_accepts_only_exact_offered_import_and_release_syntax() {
@@ -2955,6 +2991,7 @@ mod tests {
             name: "FL Studio".into(),
             state: "uninstalled".into(),
             selected_installer: installer.clone(),
+            application_installers: vec![installer.clone()],
             selected_release: "26.1.6.0".into(),
             installed_advertised_release: None,
             observed_file_version: None,
@@ -2968,7 +3005,7 @@ mod tests {
             details: Value::Null,
         });
         let mut request = ui::Request {
-            schema: 8,
+            schema: ui::OPERATOR_SCHEMA,
             state_token: "current".into(),
             action: ui::Action::WorkspaceSelectInstaller {
                 installer: installer.clone(),
@@ -3179,7 +3216,7 @@ mod tests {
     fn terminal_receipt_waits_for_an_existing_writer_instead_of_leaving_running() {
         let f = test_fixture::Fixture::new();
         let request = ui::Request {
-            schema: 8,
+            schema: ui::OPERATOR_SCHEMA,
             state_token: "t".into(),
             action: ui::Action::CaptureDisarm {},
         };
@@ -3211,7 +3248,7 @@ mod tests {
     fn failed_launch_and_dead_worker_have_terminal_receipts_without_overwriting_new_jobs() {
         let f = test_fixture::Fixture::new();
         let request = ui::Request {
-            schema: 8,
+            schema: ui::OPERATOR_SCHEMA,
             state_token: "t".into(),
             action: ui::Action::CaptureDisarm {},
         };
@@ -3285,7 +3322,7 @@ mod tests {
         launch_queued(
             m,
             &ui::Request {
-                schema: 8,
+                schema: ui::OPERATOR_SCHEMA,
                 state_token: "fixture".into(),
                 action,
             },
@@ -3834,16 +3871,26 @@ mod tests {
         assert!(read.operation.is_none());
     }
     fn onboarding_worker_fixture() -> (test_fixture::Fixture, String) {
-        use linux_vst_bridge::catalogue::{Catalogue, EnvironmentBinding};
+        use linux_vst_bridge::catalogue::{Catalogue, EnvironmentBinding, OnboardingRuntimePolicy,
+            STANDARD_ONBOARDING_RUNNER};
         let (f, p, _, native) = test_fixture::prepared();
+        let mut standard = f.r.environment.clone();
+        standard.id = "22".repeat(16);
+        standard.root = f.m.root.join("environments").join(&standard.id);
+        standard.runner.id = STANDARD_ONBOARDING_RUNNER.into();
+        let environments = vec![EnvironmentBinding {
+            family: p.requirements.environment_family.clone(),
+            environment: f.r.environment.clone(),
+        }, EnvironmentBinding {
+            family: p.requirements.environment_family,
+            environment: standard.clone(),
+        }];
         let catalogue = Catalogue {
-            schema: 3,
+            schema: 4,
             natives: vec![native],
-            environments: vec![EnvironmentBinding {
-                family: p.requirements.environment_family,
-                environment: f.r.environment.clone(),
-            }],
+            environments: environments.clone(),
             hosts: vec![],
+            onboarding_runtime: OnboardingRuntimePolicy::from_environments(&environments).unwrap(),
         };
         let path = f.m.root.join("software/catalogue.json");
         atomic_json(&path, &catalogue).unwrap();
@@ -3880,15 +3927,195 @@ mod tests {
         fs::write(&source, bytes).unwrap();
         let installer = installer_import::import(&f.m, file(&source).unwrap()).unwrap();
         let request = ui::Request {
-            schema: 8,
+            schema: ui::OPERATOR_SCHEMA,
             state_token: token(&f.m).unwrap(),
             action: ui::Action::InstallerEnvironmentCreate {
                 installer: installer.id,
-                runner: onboarding::runner_key(&f.r.environment.runner).unwrap(),
+                runner: onboarding::runner_key(&standard.runner).unwrap(),
             },
         };
         let receipt = launch_queued(&f.m, &request, |_| Ok(true)).unwrap();
         (f, receipt.operation.unwrap())
+    }
+    #[test]
+    fn ui1_default_offer_is_one_exact_standard_runner_and_missing_policy_refuses_setup() {
+        let (f, _) = onboarding_worker_fixture();
+        let rows = onboarding::projection(&f.m, None).unwrap();
+        let setups = onboarding::setup_projection(&f.m, &rows, &[], &Default::default()).unwrap();
+        assert_eq!(setups.len(), 1);
+        assert_eq!(setups[0].phase, ui::SetupPhase::Imported);
+        assert_eq!(setups[0].history.len(), 1);
+        let offer = setups[0].primary.as_ref().unwrap();
+        let ui::Action::InstallerEnvironmentCreate { runner, .. } = &offer.action else { panic!("expected exact setup offer") };
+        let catalogue = software(&f.m).unwrap().catalogue(&f.m).unwrap();
+        assert_eq!(runner, &catalogue.onboarding_runtime.as_ref().unwrap().default_runner_key);
+        assert_eq!(offer.label, "Continue setup");
+        assert_eq!(rows[0].actions.len(), 1);
+        let mut changed = catalogue.clone();
+        changed.environments[1].environment.runner.id = "specialized-runner".into();
+        let mut sw = software(&f.m).unwrap();
+        let path = sw.native_catalogue.as_ref().unwrap().path.clone();
+        atomic_json(&path, &changed).unwrap();
+        sw.native_catalogue.as_mut().unwrap().sha256 = digest(&path).unwrap();
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        assert!(software(&f.m).unwrap().catalogue(&f.m).is_err());
+        let mut unsupported = catalogue;
+        unsupported.schema = 3;
+        unsupported.onboarding_runtime = None;
+        atomic_json(&path, &unsupported).unwrap();
+        sw.native_catalogue.as_mut().unwrap().sha256 = digest(&path).unwrap();
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let rows = onboarding::projection(&f.m, None).unwrap();
+        assert!(rows[0].actions.is_empty());
+        let setups = onboarding::setup_projection(&f.m, &rows, &[], &Default::default()).unwrap();
+        assert!(setups[0].primary.is_none());
+    }
+    #[test]
+    fn ui1_rename_requires_exact_offered_installer_and_changes_no_custody_record() {
+        let (f, _) = onboarding_worker_fixture();
+        let rows = onboarding::projection(&f.m, None).unwrap();
+        let setups = onboarding::setup_projection(&f.m, &rows, &[], &Default::default()).unwrap();
+        let sha = setups[0].installer.clone();
+        let record_path = f.m.root.join("installers").join(format!("{sha}.json"));
+        let original = fs::read(&record_path).unwrap();
+        let mut view = view("current", action("Refresh", ui::Action::CaptureDisarm {}, None));
+        view.installer_setups = setups;
+        let mut request = ui::Request { schema: ui::OPERATOR_SCHEMA, state_token: "current".into(),
+            action: ui::Action::InstallerRename { installer: sha.clone(), label: "Lunacy Audio".into() } };
+        assert!(validate(&request, &view).is_ok());
+        request.action = ui::Action::InstallerRename { installer: "ff".repeat(32), label: "Other".into() };
+        assert!(validate(&request, &view).is_err());
+        request.action = ui::Action::InstallerRename { installer: sha.clone(), label: "invalid/label".into() };
+        assert!(validate(&request, &view).is_err());
+        installer_import::rename(&f.m, &sha, "Lunacy Audio").unwrap();
+        assert_eq!(fs::read(&record_path).unwrap(), original);
+        assert_eq!(installer_import::presentation(&f.m, &installer_import::load(&f.m, &sha).unwrap())
+            .unwrap().display_label, "Lunacy Audio");
+    }
+    #[test]
+    fn ui1_workspace_application_installer_is_not_a_plugin_setup() {
+        let (f, _) = onboarding_worker_fixture();
+        let rows = onboarding::projection(&f.m, None).unwrap();
+        let installer = rows[0].installer.clone();
+        let workspace_owned = std::collections::BTreeSet::from([installer.clone()]);
+        assert!(onboarding::setup_projection(&f.m, &rows, &[], &workspace_owned)
+            .unwrap().is_empty());
+        assert_eq!(onboarding::setup_projection(&f.m, &rows, &[], &Default::default())
+            .unwrap()[0].installer, installer);
+    }
+    #[test]
+    fn ui1_one_card_tracks_setup_phases_and_exact_discovered_product() {
+        let (f, _) = onboarding_worker_fixture();
+        let imported = onboarding::projection(&f.m, None).unwrap().remove(0);
+        let environment = f.r.environment.id.clone();
+        let mut current = imported.clone();
+        current.environment = Some(environment.clone());
+        current.state = "environment_ready".into();
+        current.actions = vec![action("Run installer", ui::Action::InstallerStart {
+            onboarding: environment.clone() }, None)];
+        let mut rows = vec![imported, current.clone()];
+        let project = |rows: &[ui::Onboarding], products: &[ui::Product]| {
+            let setups = onboarding::setup_projection(&f.m, rows, products, &Default::default()).unwrap();
+            assert_eq!(setups.len(), 1);
+            assert_eq!(setups[0].history.len(), 2);
+            setups.into_iter().next().unwrap()
+        };
+        let ready = project(&rows, &[]);
+        assert_eq!(ready.phase, ui::SetupPhase::EnvironmentReady);
+        assert!(matches!(ready.primary.unwrap().action, ui::Action::InstallerStart { .. }));
+        current.state = "running".into();
+        current.actions = vec![action("Focus installer", ui::Action::InstallerFocus {
+            onboarding: environment.clone(), operation: "aa".repeat(16) }, None),
+            action("Stop installer", ui::Action::InstallerStop {
+                onboarding: environment.clone(), operation: "aa".repeat(16) }, None)];
+        rows[1] = current.clone();
+        let running = project(&rows, &[]);
+        assert_eq!(running.phase, ui::SetupPhase::InstallerRunning);
+        assert_eq!(running.secondary.len(), 1);
+        current.state = "completed".into();
+        current.details = json!({"installation":{"state":"completed",
+            "transaction":{"schema":1,"outcome":"installed","durable_installation":"installed"}}});
+        current.actions = vec![action("Scan installed products", ui::Action::InstallerScan {
+            onboarding: environment.clone() }, None)];
+        rows[1] = current.clone();
+        let retired = project(&rows, &[]);
+        assert_eq!(retired.phase, ui::SetupPhase::InstallerRetired);
+        assert_eq!(retired.primary.unwrap().label, "Find installed plug-ins");
+        let class = inventory::Class { id: f.r.metadata.class_id.clone(), name: "BEAM".into(),
+            vendor: "Lunacy Audio".into(), version: "2.3.1".into(), category: "Audio Module Class".into(),
+            subcategories: "Fx".into(), role: "effect".into() };
+        let scan = inventory::Scan { schema: 1, id: "bb".repeat(16),
+            environment: f.r.environment.clone(), host: f.r.host.clone(),
+            host_source_sha256: f.r.host_source_sha256.clone(), completed_at: 1,
+            modules: vec![inventory::Module { artifact: f.r.module.clone(),
+                classes: vec![class], report: f.r.host.clone(),
+                inspection_error: None, quarantine_reason: None }], changes: Default::default() };
+        current.state = "installed_unqualified".into();
+        current.details["scan"] = json!(scan.clone());
+        current.details["previous_attempt"] = Value::Null;
+        current.actions.clear();
+        rows[1] = current.clone();
+        let product = ui::Product { class_id: f.r.metadata.class_id.clone(), name: "BEAM".into(),
+            vendor: "Lunacy Audio".into(), role: "effect".into(), version: "2.3.1".into(),
+            disposition: "installed_unqualified".into(), active_revision: None, recommended_revision: None,
+            environment: environment.clone(), runner: f.r.environment.runner.id.clone(),
+            module_sha256: f.r.module.sha256.clone(), limitations: vec![], history: vec![],
+            actions: vec![], details: Value::Null };
+        let found = project(&rows, std::slice::from_ref(&product));
+        assert_eq!(found.phase, ui::SetupPhase::DiscoveryComplete);
+        assert_eq!(found.discovered.len(), 1);
+        assert_eq!(found.discovered[0].module_sha256, f.r.module.sha256);
+        assert!(found.status.contains("discovery did not publish"));
+        assert!(!found.status.contains("not yet available in Bitwig"));
+        assert!(found.primary.is_none());
+        current.details["installation"] = json!({"state":"failed",
+            "transaction":{"schema":1,"outcome":"partial_installation",
+                "durable_installation":"partial_installation"}});
+        rows[1] = current.clone();
+        let found_after_partial = project(&rows, std::slice::from_ref(&product));
+        assert_eq!(found_after_partial.phase, ui::SetupPhase::DiscoveryComplete);
+        assert_eq!(found_after_partial.discovered[0].module_sha256, f.r.module.sha256);
+        assert!(found_after_partial.primary.is_none());
+        current.details["installation"] = json!({"state":"failed",
+            "transaction":{"schema":1,"outcome":"installed_dependency_failed",
+                "durable_installation":"installed"}});
+        let mut stale_scan = scan.clone();
+        stale_scan.host_source_sha256 = "ef".repeat(32);
+        current.state = "needs_attention".into();
+        current.details["scan"] = json!(stale_scan);
+        current.actions = vec![action("Scan installed products", ui::Action::InstallerScan {
+            onboarding: environment.clone() }, None)];
+        rows[1] = current.clone();
+        let stale = project(&rows, std::slice::from_ref(&product));
+        assert_eq!(stale.phase, ui::SetupPhase::SetupNeedsAttention);
+        assert_eq!(stale.discovered.len(), 1);
+        assert!(matches!(stale.primary.unwrap().action, ui::Action::InstallerScan { .. }));
+        current.actions.clear();
+        rows[1] = current.clone();
+        let managed_stale = project(&rows, std::slice::from_ref(&product));
+        assert!(managed_stale.primary.is_none());
+        assert_eq!(managed_stale.discovered.len(), 1);
+        let mut quarantined_scan = scan;
+        quarantined_scan.modules[0].classes.clear();
+        quarantined_scan.modules[0].quarantine_reason = Some("inventory_factory_absent".into());
+        current.state = "quarantined".into();
+        current.details["scan"] = json!(quarantined_scan);
+        rows[1] = current.clone();
+        let mut quarantined_product = product;
+        quarantined_product.class_id.clear();
+        quarantined_product.disposition = "quarantined".into();
+        let quarantined = project(&rows, std::slice::from_ref(&quarantined_product));
+        assert_eq!(quarantined.phase, ui::SetupPhase::SetupNeedsAttention);
+        assert!(quarantined.status.contains("quarantined"));
+        assert_eq!(quarantined.discovered.len(), 1);
+        assert!(quarantined.discovered[0].class_id.is_empty());
+        assert_eq!(quarantined.discovered[0].module_sha256, f.r.module.sha256);
+        current.state = "cleanup_unconfirmed".into();
+        current.details = Value::Null;
+        rows[1] = current;
+        let blocked = project(&rows, &[]);
+        assert_eq!(blocked.phase, ui::SetupPhase::CleanupUnconfirmed);
+        assert!(blocked.primary.is_none());
     }
     fn capacity_fixture(m: &Manager) -> Option<CapacityReadback> {
         // Actual capacity owner and registry read, only the Unix socket is omitted.
@@ -3896,14 +4123,21 @@ mod tests {
             .ok()
             .and_then(|v| serde_json::from_value(serde_json::to_value(v).unwrap()).ok())
     }
-    fn contended_registry<T>(m: &Manager, run: impl FnOnce() -> T) -> T {
+    fn contended_registry<T>(m: &Manager,
+        run: impl FnOnce(std::sync::mpsc::Sender<()>) -> T) -> T {
         let held = m.lock("registry.lock").unwrap();
+        assert!(matches!(m.try_lock("registry.lock").unwrap(),
+            linux_vst_bridge::operator_lock::LockAttempt::Busy));
+        let (entered, release) = std::sync::mpsc::channel();
         std::thread::scope(|scope| {
             scope.spawn(move || {
-                std::thread::sleep(Duration::from_millis(60));
+                release.recv().unwrap();
+                // Begin the hold window immediately before the intended
+                // acquisition, after unrelated fixture work has finished.
+                std::thread::sleep(Duration::from_millis(200));
                 drop(held);
             });
-            run()
+            run(entered)
         })
     }
     fn idle_test_capacity() -> Option<CapacityReadback> {
@@ -3914,8 +4148,9 @@ mod tests {
         let f = test_fixture::Fixture::new();
         let owner = "ab".repeat(16);
         let mut waits = vec![];
-        let (job, _) = contended_registry(&f.m, || {
+        let (job, _) = contended_registry(&f.m, |entered| {
             preparation_cli::admitted_inspection_spec(&f.m, f.r.clone().into(), || {
+                entered.send(()).unwrap();
                 acquire_readback(
                     &f.m,
                     ui::OperatorLock::Registry,
@@ -3945,21 +4180,26 @@ mod tests {
         };
         let owner = queued_test_action(&f.m, action.clone());
         let mut waits = vec![];
-        contended_registry(&f.m, || require_operator_inactive_with(
-            &f.m, &action, &idle_test_capacity, Some(&owner), Duration::from_secs(2), &mut waits,
-        )).unwrap();
+        contended_registry(&f.m, |entered| {
+            entered.send(()).unwrap();
+            require_operator_inactive_with(
+                &f.m, &action, &idle_test_capacity, Some(&owner), Duration::from_secs(2), &mut waits,
+            )
+        }).unwrap();
         assert!(!f.m.root.join("operator/resume.json").exists());
         let stops = std::cell::Cell::new(0);
-        contended_registry(&f.m, || suspend_with(
-            &f.m, &owner, Some(owner.clone()), Duration::from_secs(2), &mut waits,
-            (|| true, || { stops.set(stops.get()+1); Ok(()) }),
-        )).unwrap();
+        contended_registry(&f.m, |entered| {
+            entered.send(()).unwrap();
+            suspend_with(&f.m, &owner, Some(owner.clone()), Duration::from_secs(2), &mut waits,
+                (|| true, || { stops.set(stops.get()+1); Ok(()) }))
+        }).unwrap();
         assert_eq!(stops.get(), 1);
         let saved = resume_record(&f.m).unwrap().unwrap();
         assert_eq!(saved.owner_operation, owner);
         assert_eq!(saved.vendor_operation.as_deref(), Some(owner.as_str()));
-        assert!(waits.iter().filter(|w| w.name == ui::OperatorLock::Registry)
-            .all(|w| w.attempts > 1 && w.outcome == ui::LockOutcome::Acquired));
+        assert!(waits.iter().all(|w| w.name == ui::OperatorLock::Registry
+            && w.outcome == ui::LockOutcome::Acquired));
+        assert!(waits.iter().any(|w| w.attempts > 1));
         assert_eq!(waits.len(), 2);
         let restores = std::cell::Cell::new(0);
         for _ in 0..2 {
@@ -4136,14 +4376,17 @@ mod tests {
             application: "ab".repeat(32), policy: renderer_application::RendererPolicy::SoftwareRendering,
         };
         let mut waits = vec![];
-        let error = contended_registry(&f.m, || require_operator_inactive_with(
-            &f.m, &action, &idle_test_capacity, Some(&owner), Duration::from_secs(2), &mut waits,
-        )).unwrap_err();
+        let error = contended_registry(&f.m, |entered| {
+            entered.send(()).unwrap();
+            require_operator_inactive_with(&f.m, &action, &idle_test_capacity,
+                Some(&owner), Duration::from_secs(2), &mut waits)
+        }).unwrap_err();
         assert_eq!(error.to_string(), "active_device_lease");
-        let error = contended_registry(&f.m, || suspend_with(
-            &f.m, &owner, Some(owner.clone()), Duration::from_secs(2), &mut waits,
-            (|| panic!("must not inspect service"), || panic!("must not stop service")),
-        )).unwrap_err();
+        let error = contended_registry(&f.m, |entered| {
+            entered.send(()).unwrap();
+            suspend_with(&f.m, &owner, Some(owner.clone()), Duration::from_secs(2), &mut waits,
+                (|| panic!("must not inspect service"), || panic!("must not stop service")))
+        }).unwrap_err();
         assert_eq!(error.to_string(), "active_device_lease");
         assert!(!f.m.root.join("operator/resume.json").exists());
     }

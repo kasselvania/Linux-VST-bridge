@@ -484,6 +484,7 @@ mod tests {
             natives: vec![native.clone()],
             environments: vec![census.environment.clone()],
             hosts: vec![host.clone()],
+            onboarding_runtime: None,
         };
         cat.validate(&f.m.root).unwrap();
         assert_eq!(cat.host(&p, &old, &old_source).unwrap(), host);

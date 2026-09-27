@@ -1,7 +1,25 @@
 # Current work selection
 
-No further implementation slice is selected by the FN1/PW1 merges. PSL1 is the
-tech-lead's proposed next separate slice; it has not begun.
+## Selected source-only canonical integration — UI1
+
+Public canonical main after WD1 is `80e66bc050975a35a80c85bb2a1da3d7738f5c63`
+(tree `585214bbbd44401a085c85cd9efcd0a2f7cdb979`). The UI1
+[PR #181](https://github.com/kasselvania/Linux-VST-bridge/pull/181) reviewed head
+before the final scan-order correction is `78a17f887fa0e04a44714489639cfe88715e87ee`
+(tree `9c0d25939ee1ad917514459b134db5ca50683a6e`); the PR records the
+submitted final head and tree. **One claim:** integrate guided native plug-in
+onboarding and truthful grouped Setup presentation into public manager source.
+Manager and frontend form one paired operator wire generation, schema 9. New
+catalogues with onboarding runtime use schema 4; historical schema 3 remains
+readable without a read-side rewrite. This is source-only work and does not
+install itself on the Deck; the installed UI2 generation remains Deck authority.
+No UI2, BETA0, BG1, RPR0, DIST0 or CACHY0 implementation is imported. UI2
+canonical integration is the next required owner for installed guided-result
+state. PB0 remains draft behind UI2 and separately reviewed package authority.
+This source integration makes no new physical support claim.
+
+The completed FN1/PW1 work below remains separate ARM history. PSL1 is a
+proposed separate Pi slice and has not begun.
 
 ## Completed managed Windows DAW slice — WD1
 

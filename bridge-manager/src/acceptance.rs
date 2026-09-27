@@ -248,6 +248,7 @@ pub(crate) fn prepare_selected_for(
         natives,
         environments,
         hosts: Vec::new(),
+        onboarding_runtime: None,
     };
     catalogue.validate(&m.root)?;
     Ok(AcceptedSoftware {

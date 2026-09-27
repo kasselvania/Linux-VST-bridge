@@ -376,6 +376,7 @@ mod tests {
             natives: vec![native.clone()],
             environments: vec![census.environment.clone()],
             hosts: vec![old_host.clone()],
+            onboarding_runtime: None,
         };
         let path = f.m.root.join("software/native-catalogue.json");
         atomic_json(&path, &cat).unwrap();
