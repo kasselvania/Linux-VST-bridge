@@ -128,6 +128,8 @@ struct SessionSpec {
     shared_inspection: bool,
     #[serde(default)]
     shared_runtime: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    runner_key: Option<String>,
     #[serde(default)]
     transport: Option<transport_storage::MemoryTransport>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -597,6 +599,7 @@ fn spec(
             return Err("managed_session_preparation_required".into());
         }
     }
+    let runner_key = catalogue::runner_key(&r.environment.runner)?;
     let s = SessionSpec {
         onboarding_home,
         crash_capture: None,
@@ -615,6 +618,7 @@ fn spec(
         vendor_access: false,
         shared_inspection: false,
         shared_runtime: false,
+        runner_key: Some(runner_key),
         transport: None,
         graphical_session: None,
         keeper_startup_seconds: keeper.then_some(KEEPER_OWNER_STARTUP_SECONDS),
@@ -1102,6 +1106,7 @@ fn serve(m: Manager) -> Result<()> {
                         }
                     };
                     let registration = m.resolve(&greeting[5..])?;
+                    experimental_runner::verify_selected_bg1_history(&m, &registration.environment)?;
                     m.verify_served_host(&registration, &s.host, &s.source_sha256, &profiles::installed_profiles()?)?;
                     let full_registration = registration.clone();
                     let r: HostBinding = registration.into();
@@ -1657,6 +1662,7 @@ mod tests {
         let f=test_fixture::Fixture::new();
         let (job,_)=spec(&f.m,f.r.clone().into(),true,false,true).unwrap();
         assert_eq!(job.keeper_startup_seconds,Some(KEEPER_OWNER_STARTUP_SECONDS));
+        assert_eq!(job.runner_key.as_deref(), Some(catalogue::runner_key(&f.r.environment.runner).unwrap().as_str()));
         assert_eq!(KEEPER_MANAGER_RETIRE_SECONDS,KEEPER_OWNER_STARTUP_SECONDS+2);
         assert_eq!(KEEPER_ADMISSION_SECONDS,KEEPER_MANAGER_RETIRE_SECONDS+3);
     }

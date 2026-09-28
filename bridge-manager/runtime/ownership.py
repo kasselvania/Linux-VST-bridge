@@ -112,9 +112,30 @@ class ProcessTracker:
         return self.owned
 
 
+def signal_remote_group(root, owned, signum):
+    remote = getattr(root, 'lvb_remote_group', None)
+    if remote is None:
+        return
+    pid, start = remote
+    # The inherited-socket handshake pins this command-service child before
+    # Windows starts. Signal its group only while a known live member still
+    # occupies that group; a recycled numeric PID cannot create new ownership.
+    census = process_identities()
+    known = set(owned) | {(pid, start)}
+    if any((row['pid'], row['start_ticks']) in known and row['pgrp'] == pid
+           for row in census):
+        try:
+            os.killpg(pid, signum)
+        except ProcessLookupError:
+            pass
+
+
 def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]], during_cleanup=None) -> dict[str, Any]:
     # Cleanup ownership is an observed PID/start identity or this root's
     # process group/session, never a stage-shaped string in another command.
+    remote = getattr(root, 'lvb_remote_group', None)
+    if remote is not None:
+        owned = list(set(owned) | {remote})
     deadline = time.monotonic() + CLEANUP_SECONDS
     live_owned = {
         (record["pid"], record["start_ticks"]) for record in process_identities()
@@ -124,6 +145,7 @@ def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]],
             os.killpg(root.pid, signal.SIGTERM)
         except ProcessLookupError:
             pass
+    signal_remote_group(root, owned, signal.SIGTERM)
     while time.monotonic() < deadline - 3:
         if during_cleanup is not None:
             during_cleanup()
@@ -138,6 +160,7 @@ def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]],
             os.killpg(root.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
+    signal_remote_group(root, owned, signal.SIGKILL)
     try:
         root.wait(timeout=max(0.1, deadline - time.monotonic()))
     except subprocess.TimeoutExpired:
@@ -145,7 +168,8 @@ def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]],
     remaining = []
     for record in process_identities():
         if ((record["pid"], record["start_ticks"]) in owned or
-                (record["pgrp"] == root.pid and record["session"] == root.pid)):
+                (record["pgrp"] == root.pid and record["session"] == root.pid) or
+                (remote is not None and record["pgrp"] == remote[0])):
             remaining.append(record["pid"])
     if remaining:
         fail(f"owned descendants survived cleanup: {remaining}")
