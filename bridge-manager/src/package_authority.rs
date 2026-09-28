@@ -970,7 +970,13 @@ mod tests {
     fn root_owned_package_intake() {
         let path = PathBuf::from(std::env::var_os("PKG0_ROOT_INPUT_FIXTURE").unwrap());
         let expected = std::env::var("PKG0_ROOT_EXPECT").unwrap();
-        let result = read_manifest(&Inputs::under(&path), 0);
+        let f = Fixture::new();
+        let result = adopt_from(&f.base.m, &f.home, &Inputs::under(&path), 0, &f.service);
         assert_eq!(result.is_ok(), expected == "ok", "{result:?}");
+        if expected == "ok" {
+            assert!(f.current().manager.path.starts_with(f.base.m.root.join("software")));
+        } else {
+            assert!(!f.base.m.root.join("software.json").exists());
+        }
     }
 }
