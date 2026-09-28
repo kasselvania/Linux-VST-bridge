@@ -1622,7 +1622,7 @@ mod tests {
         assert!(!f.m.root.join("runtime/leases").exists());
         assert!(keepers.lock().unwrap().is_empty());
 
-        let (owner,report,lease)=fixture_keeper(&f,"sleep 5");
+        let (owner,report,lease)=fixture_keeper(&f,"sleep 30");
         atomic_json(&report,&serde_json::json!({"ready":true,
             "environment":f.r.environment.id})).unwrap();
         keepers.lock().unwrap().push(owner);

@@ -1501,7 +1501,7 @@ mod tests {
             starts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let job: crate::SessionSpec = read_json(path)?;
             atomic_json(&job.lease, &job.report)?;
-            Ok(std::process::Command::new("/bin/sh").args(["-c", "sleep 5"]).spawn()?)
+            Ok(std::process::Command::new("/bin/sh").args(["-c", "sleep 30"]).spawn()?)
         };
         assert_eq!(crate::stage_keeper_with_history(&fixture.m, &software, &binding, &keepers,
             None, gate, start).unwrap(), crate::KeeperAvailability::Starting);
