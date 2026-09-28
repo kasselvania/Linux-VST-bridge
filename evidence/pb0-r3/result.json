@@ -1,0 +1,142 @@
+{
+  "audit": {
+    "bg1_command_component_sha256": "1fca37746647a975d80666f75f84c050770820b2c0f7de58352bbf7ed4f40c30",
+    "bg1_environment": "7d8fce354e68595cdc20485f754a892d",
+    "bg1_history_verified": true,
+    "bg1_runner": "proton-11.0-2c-dcomp-bg1-v4",
+    "historical_operator_requests": 177,
+    "historical_private_schema_11_requests": 5,
+    "imported_installers_decoded": 6,
+    "package_predecessor": {
+      "candidate_manifest_sha256": "a9a7223bcb545373f975e6b36e096b4c418705c25c21ab82d8f17811723a1612",
+      "candidate_source_head": "62d556cfea57b17b567c5374a7a42b78fa22780c",
+      "candidate_source_tree": "f0f9c430e303447ea32129cb85d2532b0174a816",
+      "candidate_version": "0.12.0pb0r3",
+      "external_runtime_id": "selected-external-proton-slr-set",
+      "external_runtime_manifest_sha256": "57eb0c1eac79c37f95c7e3b0fee81bcf673b9dbd7036282857a5f35cfb8173d0",
+      "planned_generation": "2bf3a3561c43c6f7c0146296deca1f99cfe23e6b9b4abea7d93a9afdd59dd11b",
+      "predecessor_frontend_sha256": "0963941036532478dab3c028e7b54cae8dca002f77a23bfa848e0dd60db797c9",
+      "predecessor_generation": "6e4c53bf8533741d0e9423dacca9dd542b7329707c2748769cc495386a100385",
+      "predecessor_manager_sha256": "414a953b8e7b1186ae1bf3ce969f09be8c5a011b12dcbcfb83f1c1637449ad71",
+      "retained_catalogue_sha256": "c0d848f3875d29e6532e7c11e6ecafa5ec975165ab1fdb34b5adc6ba650988ba",
+      "retained_host_sha256": "348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be",
+      "retained_source_sha256": "0ce0ecae2264bab24290712d0e3d2ed9e8c092ce6cb7a521fd0fac71ca010ac3",
+      "reuses_selected_generation": false,
+      "routes": [
+        {
+          "route": "manager_command",
+          "status": "exact"
+        },
+        {
+          "route": "frontend_command",
+          "status": "exact"
+        },
+        {
+          "route": "desktop",
+          "status": "exact"
+        },
+        {
+          "route": "callback_desktop",
+          "status": "exact"
+        },
+        {
+          "route": "callback_association",
+          "status": "exact"
+        },
+        {
+          "route": "service",
+          "status": "exact"
+        }
+      ],
+      "schema": 1,
+      "selected_generation": "6e4c53bf8533741d0e9423dacca9dd542b7329707c2748769cc495386a100385",
+      "writes": false
+    },
+    "retained_candidates_decoded": 20,
+    "retained_guided_checks": 1,
+    "retained_guided_results": 1,
+    "retained_observations": 28,
+    "retained_reviews": 3,
+    "schema": 1,
+    "selected_classes": [
+      "ABCDEF019182FAEB4C756E6170726F43",
+      "ABCDEF019182FAEB4C756E61666C744C"
+    ],
+    "writes": false
+  },
+  "candidate_fixture": {
+    "archive_sha256": "403551a6dae4e4e57fcaf5219d02136616967c0de58cec8de21f66e0cb0f0628",
+    "complete_artifact_count": 6,
+    "externally_selected_runner_count": 5,
+    "kind": "internal_six_artifact_adoption_fixture_not_arch_release"
+  },
+  "canonical_base": {
+    "commit": "62d556cfea57b17b567c5374a7a42b78fa22780c",
+    "tree": "f0f9c430e303447ea32129cb85d2532b0174a816"
+  },
+  "canonical_pair": {
+    "sha256": {
+      "linux-audio-compatibility-manager": "5b44542748b9bdea06dfc2e73b567f471eef663e69bf11a1695045bc8e2b2f29",
+      "linux-vst-bridge": "cfa47b7dc9febdb1b1dbe6831e0143384f79c83bd8977ddddebe0d9b137400ed"
+    },
+    "source_head": "62d556cfea57b17b567c5374a7a42b78fa22780c",
+    "source_tree": "f0f9c430e303447ea32129cb85d2532b0174a816"
+  },
+  "claim": "read_only_installed_state_and_predecessor_gate",
+  "date": "2026-09-28",
+  "installed": {
+    "frontend_sha256": "0963941036532478dab3c028e7b54cae8dca002f77a23bfa848e0dd60db797c9",
+    "generation": "6e4c53bf8533741d0e9423dacca9dd542b7329707c2748769cc495386a100385",
+    "manager_sha256": "414a953b8e7b1186ae1bf3ce969f09be8c5a011b12dcbcfb83f1c1637449ad71",
+    "private_source_attribution": "8bf70de6b442bcac4086de4e27dadbdc7e76ea43",
+    "private_source_tree": "146931737cb74781d67c8a9d368ea6bcffeadf3c"
+  },
+  "pb0_forward": {
+    "canonical_operator_schema": 10,
+    "decision": "replacement_integration_from_current_main_preferred",
+    "draft_pr": 179,
+    "head": "2b0dba9c6ecc38972f308d951e5a72c31a172cab",
+    "merge_base": "65f113b463ed1dbba7d142f1b833720575932a0d",
+    "old_operator_schema": 8,
+    "pb0_installed": false
+  },
+  "preservation": {
+    "all_records_and_routes_identical": true,
+    "bg1_command_socket_count": 0,
+    "bounded_record_count_after": 4262,
+    "bounded_record_count_before": 4262,
+    "bounded_record_map_sha256_after": "ce9b45db560a683b6a994a6a9753dade67d03d272105c5f0005b365a9a8ee522",
+    "bounded_record_map_sha256_before": "ce9b45db560a683b6a994a6a9753dade67d03d272105c5f0005b365a9a8ee522",
+    "cleanup_unconfirmed": false,
+    "dsp": 0,
+    "maintenance": 0,
+    "normal_keeper_count": 1,
+    "package_transition_present": false,
+    "pending_transactions": 0,
+    "preexisting_dead_owner_bg1_descriptor_count": 1,
+    "service_active": true,
+    "six_route_map_sha256_after": "a227c04b7b950378c91b2e23f7388f92ef9222d26255a3defa4f426c6cf530d8",
+    "six_route_map_sha256_before": "a227c04b7b950378c91b2e23f7388f92ef9222d26255a3defa4f426c6cf530d8",
+    "stale_transports": 0
+  },
+  "readback": {
+    "active_session_count": 0,
+    "canonical_operator_schema": 10,
+    "canonical_snapshot_90_second_bound_passed": true,
+    "environment_count": 5,
+    "installed_only_transient_fields": [
+      "host_readiness",
+      "native_daws"
+    ],
+    "installed_operator_schema": 11,
+    "installer_setup_count": 4,
+    "onboarding_count": 8,
+    "ordinary_snapshot_30_second_bound_timed_out": true,
+    "product_count": 16,
+    "product_identity_and_disposition_equal": true,
+    "repeated_canonical_snapshot_equal": true,
+    "state_token_equal": true,
+    "workspace_count": 1
+  },
+  "schema": 1
+}
