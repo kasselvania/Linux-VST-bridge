@@ -211,10 +211,12 @@ class SelectionTests(unittest.TestCase):
   replacement=None
   if kind=='descriptor':descriptor.write_text('{"changed":true}')
   else:
-   # Keep the old socket open so Linux cannot immediately recycle its inode.
-   # The replacement must be a genuinely different endpoint identity.
-   endpoint.unlink()
-   replacement=socket.socket(socket.AF_UNIX);replacement.bind(str(endpoint))
+   # Both socket paths exist at once, so the replacement cannot borrow the
+   # old inode even on a filesystem that immediately recycles unlinked ones.
+   replacement_path=endpoint.with_name('replacement')
+   replacement=socket.socket(socket.AF_UNIX);replacement.bind(str(replacement_path))
+   self.assertNotEqual(s.socket_identity(replacement_path,'native command endpoint'),command_session.socket_identity)
+   os.replace(replacement_path,endpoint)
   disputed_descriptor=descriptor.read_bytes()
   disputed_socket=s.socket_identity(endpoint,'native command endpoint')
   if kind=='endpoint':self.assertNotEqual(disputed_socket,command_session.socket_identity)
