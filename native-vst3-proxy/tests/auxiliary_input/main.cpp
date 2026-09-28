@@ -9,8 +9,12 @@
 #include <array>
 #include <cassert>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 #include <string>
+#include <unistd.h>
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 static unsigned setups=0,activations=0,closes=0,processes=0;
@@ -63,6 +67,9 @@ uint32_t __wrap_ap19_process_outputs(uint64_t id,uint32_t n,const ap8_event_t*e,
 uint32_t __wrap_if2_close(uint64_t){++closes;return 0;}
 }
 int main(){
+ char report_path[]="/tmp/lvb-midi0-XXXXXX";int report_fd=mkstemp(report_path);
+ assert(report_fd>=0);assert(close(report_fd)==0);
+ assert(setenv("LVB_AP3_REPORT",report_path,1)==0);
  HostApplication host;auto*p=new AP2::Processor;assert(p->initialize(&host)==kResultOk);
  BusInfo aux{},output{};assert(p->getBusCount(kAudio,kInput)==1);
  assert(p->getBusInfo(kAudio,kInput,0,aux)==kResultOk);
@@ -104,10 +111,14 @@ int main(){
  pressure.polyPressure={9,60,.7f,1};notes.addEvent(pressure);
  Event expression{};expression.type=Event::kNoteExpressionValueEvent;expression.sampleOffset=15;
  expression.noteExpressionValue={1,1,.4};notes.addEvent(expression);
+ std::array<TChar,2> expression_text{u'x',0};
+ Event text_expression{};text_expression.type=Event::kNoteExpressionTextEvent;
+ text_expression.sampleOffset=17;
+ text_expression.noteExpressionText={1,1,1,expression_text.data()};notes.addEvent(text_expression);
  Event off{};off.type=Event::kNoteOffEvent;off.sampleOffset=19;
  off.noteOff.channel=9;off.noteOff.pitch=60;off.noteOff.velocity=.2f;
  off.noteOff.noteId=1;off.noteOff.tuning=0;notes.addEvent(off);run();
- input_case=InputCase::ExpressionOnly;notes.clear();notes.addEvent(pressure);notes.addEvent(expression);run();
+ input_case=InputCase::ExpressionOnly;notes.clear();notes.addEvent(pressure);notes.addEvent(expression);notes.addEvent(text_expression);run();
  input_case=InputCase::NoteOffOnly;notes.clear();notes.addEvent(off);run();
  auto before_unknown=processes;off.type=999;notes.clear();notes.addEvent(off);
  assert(p->process(d)!=kResultOk&&processes==before_unknown);
@@ -151,5 +162,9 @@ int main(){
  d.numSamples=0;d.numInputs=d.numOutputs=0;d.inputs=d.outputs=nullptr;assert(p->process(d)==kResultOk);
  assert(p->setProcessing(false)==kResultOk);assert(p->setActive(false)==kResultOk);
  assert(p->terminate()==kResultOk);p->release();assert(closes==1);
+ std::ifstream report(report_path);assert(report.good());
+ std::string contents(std::istreambuf_iterator<char>{report},{});
+ assert(contents.find("\"skipped_expression_callbacks\":2")!=std::string::npos);
+ report.close();assert(unlink(report_path)==0);assert(unsetenv("LVB_AP3_REPORT")==0);
  std::puts("AP18 native sole auxiliary samples/silence/guards/events PASS");
 }

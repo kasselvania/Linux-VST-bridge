@@ -9,17 +9,20 @@ MIDI0 starts from canonical main `c920f2eca09bb27e92172b1f32e5899d45d2630b`
 “Events and automation”. The exact source contract is in
 [MIDI0 Push note release](docs/MIDI0_PUSH_NOTE_RELEASE.md).
 
-**One claim:** a recognized but currently unsupported VST3 expression event
-cannot cause the native proxy to discard ordinary note-on or note-off events
-from the same Bitwig processing callback. The source-only regression uses the
-production SDK `Processor::process()` boundary and proves that unknown event
-types still refuse. This is a focused repair for the operator's Push 3
-controller-mode held-note report, not a claim of complete MPE support.
+**One bounded claim:** in a valid, admitted callback with at most 256 input
+events on the supported bus, the native proxy skips poly pressure and note
+expression value/text while preserving ordinary note-on and note-off events in
+order. The source-only regression uses the production SDK `Processor::process()`
+boundary; unknown event types and other invalid inputs still refuse. The
+diagnostic counts callbacks containing recognized expression once each. The
+operator's Push 3 held-note report motivates this repair, but the rejected
+physical callback's exact input event type is not established.
 
 The Steam Deck's selected manager, publications, runners, environments and
 workspace remain unchanged while source validation runs. A physical
-Push/Bitwig check on an exact installed successor is required before calling
-the observed held-note bug closed. PB0-C0 remains a separate product lane.
+Push/Bitwig check on an exact installed successor with a new managed native
+proxy publication is required before calling the observed held-note bug closed.
+PB0-C0 remains a separate product lane.
 
 ## Selected read-only installed-state gate — PB0-R3
 
