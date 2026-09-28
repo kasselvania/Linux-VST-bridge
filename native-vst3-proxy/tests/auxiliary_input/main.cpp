@@ -41,11 +41,11 @@ uint32_t __wrap_if2_process(uint64_t,uint32_t n,const ap8_event_t*e,uint32_t cou
  }else if(input_case==InputCase::MixedExpression){
   assert(count==2&&e[0].kind==0&&e[1].kind==1);
   assert(e[0].offset==7&&e[1].offset==19);
-  assert(e[0].id==32&&e[1].id==32&&e[0].channel==9&&e[1].channel==9);
+  assert(e[0].id==1&&e[1].id==1&&e[0].channel==9&&e[1].channel==9);
  }else if(input_case==InputCase::ExpressionOnly){
   assert(count==0);
  }else{
-  assert(count==1&&e[0].kind==1&&e[0].offset==19&&e[0].id==32&&e[0].channel==9);
+  assert(count==1&&e[0].kind==1&&e[0].offset==19&&e[0].id==1&&e[0].channel==9);
  }
  assert(n==0||n==32);
  if(n){assert(silence==expected_silence);for(unsigned i=0;i<n;++i){assert(l[i]==expected_left[i]);assert(r[i]==expected_right[i]);}}
@@ -101,11 +101,11 @@ int main(){
  input_case=InputCase::MixedExpression;notes.clear();parameters.clearQueue();
  note.noteOn.channel=9;notes.addEvent(note);
  Event pressure{};pressure.type=Event::kPolyPressureEvent;pressure.sampleOffset=11;
- pressure.polyPressure={9,60,.7f,32};notes.addEvent(pressure);
+ pressure.polyPressure={9,60,.7f,1};notes.addEvent(pressure);
  Event expression{};expression.type=Event::kNoteExpressionValueEvent;expression.sampleOffset=15;
- expression.noteExpressionValue={1,32,.4};notes.addEvent(expression);
+ expression.noteExpressionValue={1,1,.4};notes.addEvent(expression);
  Event off{};off.type=Event::kNoteOffEvent;off.sampleOffset=19;
- off.noteOff={9,60,.2f,0,32};notes.addEvent(off);run();
+ off.noteOff={9,60,.2f,0,1};notes.addEvent(off);run();
  input_case=InputCase::ExpressionOnly;notes.clear();notes.addEvent(pressure);notes.addEvent(expression);run();
  input_case=InputCase::NoteOffOnly;notes.clear();notes.addEvent(off);run();
  auto before_unknown=processes;off.type=999;notes.clear();notes.addEvent(off);
