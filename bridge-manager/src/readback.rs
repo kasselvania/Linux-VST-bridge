@@ -200,7 +200,6 @@ impl Manager {
     ) -> Result<ManagedStatus> {
         let mut products = Vec::new();
         for (index, (key, e)) in db.classes.iter().enumerate() {
-            let pb0_started = std::time::Instant::now();
             let r = &e.registration;
             let physical = crate::publication::physical(&self.link(key));
             let target = self.entry_target(e);
@@ -223,13 +222,7 @@ impl Manager {
                 read_json::<Environment>(&r.environment.root.join("environment.json"))
                     .is_ok_and(|current| current == r.environment);
             let runner_valid = r.environment.runner.verify().is_ok();
-            if std::env::var_os("LVB_PB0_TRACE").is_some() {
-                eprintln!("pb0_registry {} artifacts {}ms", index, pb0_started.elapsed().as_millis());
-            }
             let host_result = self.verify_served_host(r, installed_host, source, profiles);
-            if std::env::var_os("LVB_PB0_TRACE").is_some() {
-                eprintln!("pb0_registry {} host {}ms", index, pb0_started.elapsed().as_millis());
-            }
             let host_valid = host_result.is_ok();
             let pending = self.publication_pending(key)?;
             let physical_valid = match e.publication {
@@ -330,9 +323,6 @@ impl Manager {
                 recovery_pending: pending,
                 refusal: error.as_ref().map(|e| refusal(e.as_ref())),
             });
-            if std::env::var_os("LVB_PB0_TRACE").is_some() {
-                eprintln!("pb0_registry {} complete {}ms", index, pb0_started.elapsed().as_millis());
-            }
         }
         Ok(ManagedStatus {
             schema: 1,
