@@ -1,6 +1,31 @@
 # Current work selection
 
-## Selected read-only installed-state convergence — PB0-R2
+## Selected source-only native command-session owner — BG1-R0
+
+BG1-R0 starts from post-PB0-R2 canonical main
+`d20d143b5e1beb8009d7ae9f4bc9b4bf18556204` (tree
+`bbfd32cfed8007264ab8f361f7017da64dd0ba9d`). Its basis is `AGENTS.md`
+“Keep the engineering safeguards”, “Shared failure-class check” and
+“Verification and review”; `GOVERNANCE.md` “What evidence means”;
+`docs/ARCHITECTURE.md` runtime ownership and update/rollback boundaries; and
+the completed [PB0-R2 audit](docs/PB0_R2.md).
+
+**One claim:** public source owns the selected BG1 V4 Lunacy runner's exact
+native Proton command session, from pinned-component selection through keeper
+readiness, instance launch and positive process-group retirement. It also
+interprets the exact retained V1/V3/V4 transition and rollback records without
+offering a new runner update or rollback operation. The source contract is in
+[BG1 runtime owner](docs/BG1_RUNTIME_OWNER.md).
+
+The installed Deck generation, all publications, workspaces, installers,
+environments, runners, authorizations and rollback files remain unchanged.
+BG1-R0 does not import private renderer/build tooling, BG1 graphics experiments,
+BETA0, RPR0, DIST0/CACHY0, ARM/Pi or PB0, and makes no new physical BEAM or
+customer-package claim. After independent review and merge, a new read-only
+PB0-R3 continuation must prove the complete canonical Snapshot/Activity and
+PKG0 preservation gates before PB0 may approach Deck installation.
+
+## Completed read-only installed-state audit — PB0-R2
 
 PB0-R2 starts from canonical main `a35604781a703f35691bf193c8f301d94a02ed33`
 (tree `189ae05f3b3917b653575add43b17362ee856ec6`), after the normal

@@ -998,6 +998,196 @@ def prelaunch_owned_failure(spec,peer,error):
     atomic(report.with_suffix('.ownership.json'),receipt)
     return outcome
 
+# Native instances share their keeper's initialized Proton namespace. Selection
+# is an immutable runner component; the manager still owns the one environment
+# keeper and the existing per-instance lease. No audio callback enters this code.
+class NativeProtonSession:
+    COMPONENT = 'native-command-session.json'
+    FORWARD = ('WINEDEBUG','PROTON_LOG','DXVK_LOG_LEVEL','VKD3D_DEBUG',
+               'WINEDLLOVERRIDES','PROTON_USE_WINED3D','PROTON_DISABLE_NVAPI','PROTON_DLL_COPY',
+               'LVB_EVENT_OUTPUT_POLICY','LVB_AUDIO_LAYOUT_POLICY','LVB_EDITOR_LIFETIME',
+               'LVB_VENDOR_RETIREMENT','LVB_AP10_TRACE')
+    def __init__(self,spec,component):
+        self.spec=spec;self.reg=spec['registration'];self.runner=self.reg['environment']['runner']
+        self.canonical_runner_key=spec.get('runner_key')
+        if not isinstance(self.canonical_runner_key,str) or not re.fullmatch('[0-9a-f]{64}',self.canonical_runner_key):
+            raise RuntimeError('native command canonical runner key absent')
+        self.component=component;self.endpoint=None;self.control=None
+        self.remote_identity=None;self.started=False;self.client=None;self.service=None
+        base=pathlib.Path(self.runner['entry_point']).parent/'pressure-vessel/bin'
+        self.client=base/'steam-runtime-launch-client';self.service=base.parent/'libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service'
+        self.verify_tools()
+    @classmethod
+    def selected(cls,spec):
+        if not spec.get('shared_runtime'):return None
+        runner=spec['registration']['environment']['runner']
+        path=pathlib.Path(runner['proton']).parent/cls.COMPONENT
+        rows=[a for a in runner['files'] if a['path']==str(path)]
+        if not rows:return None
+        if len(rows)!=1:raise RuntimeError('native command component ambiguous')
+        component_bytes=private_file_bytes(path,'native command component')
+        if hashlib.sha256(component_bytes).hexdigest()!=rows[0]['sha256']:
+            raise RuntimeError('native command component changed')
+        data=json.loads(component_bytes)
+        if set(data)!={'schema','kind','client_sha256','service_sha256'} or data['schema']!=1 or data['kind']!='native_proton_command_session':
+            raise RuntimeError('native command component unsupported')
+        return cls(spec,data)
+    def verify_tools(self):
+        for key,path in [('client_sha256',self.client),('service_sha256',self.service)]:
+            value=self.component[key]
+            if not isinstance(value,str) or not re.fullmatch('[0-9a-f]{64}',value):raise RuntimeError('native command tool identity')
+            verify({'path':str(path),'sha256':value})
+    @staticmethod
+    def context(spec):
+        g=spec.get('graphical_session')
+        return None if g is None else {k:g.get(k) for k in ('display','wayland_display','xauthority','dbus_session_bus_address')}
+    def runner_key(self):
+        return self.canonical_runner_key
+    def report_for(self,sid):
+        root=pathlib.Path(self.reg['environment']['root']).parent.parent
+        return root/'runtime/results'/('environment-'+sid+'.json')
+    @staticmethod
+    def endpoint_for(sid):
+        if not isinstance(sid,str) or not re.fullmatch('[0-9a-f]{32}',sid):raise RuntimeError('native command keeper identity')
+        return pathlib.Path(pwd.getpwuid(os.getuid()).pw_dir)/'.cache/linux-vst-bridge/command-sessions'/sid/'s'
+    def keeper_launch(self,cmd,env):
+        # This is private bridge IPC. The plug-in retains the caller's exact
+        # graphical bus denial; no desktop session bus is used for launch.
+        self.endpoint=self.endpoint_for(self.spec['session'])
+        self.endpoint.parent.parent.mkdir(mode=0o700,exist_ok=True)
+        private_runtime_root(self.endpoint.parent.parent)
+        if len(os.fsencode(self.endpoint))>100:raise RuntimeError('native command socket path extent')
+        self.endpoint.parent.mkdir(mode=0o700)
+        return cmd[:3]+[str(self.service),'--socket='+str(self.endpoint),
+            '--stop-on-exit','--stop-on-parent-exit','--']+cmd[3:],env
+    def service_ready(self):
+        if self.endpoint is None or not self.endpoint.exists():return False
+        private_runtime_root(self.endpoint.parent)
+        self.socket_identity=socket_identity(self.endpoint,'native command endpoint')
+        return True
+    def publish(self):
+        if not self.service_ready():return False
+        pid=os.getpid();identity=ProcessTracker(pid).identity(pid)
+        if identity is None:raise RuntimeError('native command owner absent')
+        self.descriptor=pathlib.Path(self.spec['directory'])/'command-session.json'
+        self.descriptor_value={'schema':1,'keeper':self.spec['session'],'owner_pid':pid,'owner_start':identity[0],
+            'runner':self.runner_key(),'context':self.context(self.spec),
+            'socket_identity':list(self.socket_identity)}
+        atomic(self.descriptor,self.descriptor_value)
+        return True
+    def retire_endpoint(self):
+        descriptor=getattr(self,'descriptor',None)
+        if descriptor is not None and json.loads(private_file_bytes(descriptor,'native command session'))!=self.descriptor_value:
+            raise RuntimeError('native command descriptor changed before retirement')
+        if self.endpoint is not None:
+            # Only our exclusive directory, after positive process retirement.
+            private_runtime_root(self.endpoint.parent)
+            if self.endpoint.exists():
+                if socket_identity(self.endpoint,'native command endpoint')!=getattr(self,'socket_identity',None):
+                    raise RuntimeError('native command endpoint changed before retirement')
+                self.endpoint.unlink()
+            self.endpoint.parent.rmdir()
+        if descriptor is not None:descriptor.unlink()
+    def find_keeper(self):
+        sessions=pathlib.Path(self.reg['environment']['root'])/'compatdata/pfx/drive_c/bridge/sessions'
+        matches=[];deadline=time.monotonic()+5
+        for directory in sessions.iterdir():
+            if time.monotonic()>deadline:raise TimeoutError('native command keeper discovery deadline')
+            descriptor=directory/'command-session.json'
+            if not descriptor.exists():continue
+            private_runtime_root(directory)
+            value=json.loads(private_file_bytes(descriptor,'native command session'))
+            if set(value)!={'schema','keeper','owner_pid','owner_start','runner','context','socket_identity'} or value['schema']!=1:
+                raise RuntimeError('native command session malformed')
+            if value['runner']!=self.runner_key() or value['context']!=self.context(self.spec):continue
+            if value['keeper']!=directory.name or not re.fullmatch('[0-9a-f]{32}',directory.name):raise RuntimeError('native command keeper binding')
+            owner=json.loads(private_file_bytes(directory/'owner.json','native command owner'))
+            if (owner.get('keeper') is not True or owner.get('session')!=directory.name
+                    or owner.get('runner_key')!=self.runner_key()
+                    or owner.get('registration',{}).get('environment')!=self.reg['environment']
+                    or owner.get('report')!=str(self.report_for(directory.name))
+                    or self.context(owner)!=self.context(self.spec)):
+                raise RuntimeError('native command environment binding')
+            identity=ProcessTracker(value['owner_pid']).identity(value['owner_pid'])
+            if identity is None or identity[0]!=value['owner_start']:continue
+            try:
+                report=json.loads(private_file_bytes(pathlib.Path(owner['report']),'native keeper report'))
+            except (ValueError,TypeError) as exc:
+                raise RuntimeError('native keeper report malformed') from exc
+            if not isinstance(report,dict):raise RuntimeError('native keeper report malformed')
+            if report.get('ready') is not True:continue
+            if report.get('environment')!=self.reg['environment']['id']:
+                raise RuntimeError('native keeper report environment binding')
+            if (directory/'environment.ready').read_bytes()!=(directory.name+'\n').encode():raise RuntimeError('native command keeper readiness')
+            endpoint=self.endpoint_for(directory.name)
+            private_runtime_root(endpoint.parent)
+            if list(socket_identity(endpoint,'native command endpoint'))!=value['socket_identity']:
+                raise RuntimeError('native command endpoint changed')
+            matches.append(endpoint)
+        if len(matches)!=1:raise RuntimeError('native command requires one live exact keeper')
+        self.endpoint=matches[0]
+    def spawn(self,cmd,env):
+        self.find_keeper();self.verify_tools()
+        self.control,child=socket.socketpair();self.control.setblocking(False)
+        self.nonce=os.urandom(32).hex()
+        command=[str(self.client),'--socket='+str(self.endpoint),'--directory='+str(pathlib.Path(self.reg['environment']['root'])/'home'),
+            *['--pass-env='+key for key in self.FORWARD],'--forward-fd='+str(child.fileno()),'--',
+            '/usr/bin/python3',str(pathlib.Path(__file__).resolve()),'--native-command-child',str(child.fileno()),self.nonce,'--',*cmd[3:]]
+        try:
+            root=subprocess.Popen(command,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+                start_new_session=True,bufsize=0,pass_fds=(child.fileno(),))
+            self.started=True
+            return root
+        except BaseException:
+            self.close();raise
+        finally:child.close()
+    def bind(self,root,tracker,pump):
+        deadline=time.monotonic()+5;data=bytearray()
+        while b'\n' not in data:
+            pump(0)
+            try:
+                part=self.control.recv(512)
+                if not part:raise RuntimeError('native command child disconnected before binding')
+                data.extend(part)
+            except BlockingIOError:time.sleep(.01)
+            if len(data)>512:raise RuntimeError('native command child binding extent')
+            if root.poll() is not None or time.monotonic()>deadline:raise RuntimeError('native command child binding timeout')
+        value=json.loads(data)
+        if set(value)!={'nonce','pid','start'} or value['nonce']!=self.nonce or type(value['pid']) is not int or type(value['start']) is not int:
+            raise RuntimeError('native command child binding invalid')
+        if root.poll() is not None:raise RuntimeError('native command launcher exited before binding')
+        identity=tracker.identity(value['pid'])
+        if identity is None or identity[0]!=value['start'] or os.getpgid(value['pid'])!=value['pid']:
+            raise RuntimeError('native command child identity changed')
+        self.remote_identity=(value['pid'],value['start']);tracker.owned.add(self.remote_identity)
+        root.lvb_remote_group=self.remote_identity
+        self.control.sendall((self.nonce+'\n').encode())
+        self.control.close();self.control=None
+    def close(self):
+        if self.control is not None:self.control.close();self.control=None
+
+
+def native_command_child(args):
+    # An inherited socket, not vendor stdout, transfers kernel process custody
+    # before exec. The Windows program never receives this descriptor.
+    if (len(args)<4 or args[2]!='--' or not re.fullmatch('[0-9a-f]{64}',args[1])
+            or not pathlib.Path(args[3]).is_absolute()):raise RuntimeError('native command child arguments')
+    channel=socket.socket(fileno=int(args[0]));channel.settimeout(5)
+    pid=os.getpid()
+    if os.getpgrp()!=pid:os.setsid()
+    identity=ProcessTracker(pid).identity(pid)
+    if identity is None:raise RuntimeError('native command child absent')
+    channel.sendall((json.dumps({'nonce':args[1],'pid':pid,'start':identity[0]})+'\n').encode())
+    acknowledgement=bytearray()
+    while b'\n' not in acknowledgement and len(acknowledgement)<128:
+        part=channel.recv(128-len(acknowledgement))
+        if not part:break
+        acknowledgement.extend(part)
+    if acknowledgement!=(args[1]+'\n').encode():raise RuntimeError('native command child not admitted')
+    channel.close()
+    os.execv(args[3],args[3:])
+
+
 def run(spec,peer=None):
     session_preflight(spec)
     stop_requested=[False]
@@ -1069,7 +1259,9 @@ def run_owned(spec,peer,stop_requested):
     elif env.get('LVB_VENDOR_RETIREMENT'):
         RetirementStatus.create(directory,sid);retirement=RetirementStatus(directory,sid)
     if stop_requested[0]:raise InterruptedError('supervisor interrupted after readiness')
-    root=subprocess.Popen(cmd,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+    command_session=NativeProtonSession.selected(spec)
+    root=(command_session.spawn(cmd,env) if command_session is not None else
+        subprocess.Popen(cmd,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0))
     records=[];owned=set();pending=bytearray();vendor=bytearray();stderr=bytearray();dropped={'vendor':0,'stderr':0};protocol_bytes=0;gated=False;call=None;started=time.monotonic();failure=None;clean=False;code=None
     sel=selectors.DefaultSelector()
     def retain(key,target,data):
@@ -1097,6 +1289,9 @@ def run_owned(spec,peer,stop_requested):
     try:
         for stream,label in [(root.stdout,'stdout'),(root.stderr,'stderr')]:os.set_blocking(stream.fileno(),False);sel.register(stream,selectors.EVENT_READ,label)
         tracker=ProcessTracker(root.pid)
+        if command_session is not None:
+            try:command_session.bind(root,tracker,pump)
+            finally:owned.update(tracker.update())
         while True:
             owned.update(tracker.update())
             capture_call('observe',owned,root)
@@ -1171,6 +1366,9 @@ def run_owned(spec,peer,stop_requested):
                 except Exception as e:failure=failure or ('cleanup diagnostic drain: '+type(e).__name__)
             cleanup=cleanup_process(root,sorted(owned),during_cleanup=cleanup_drain) if capture else cleanup_process(root,sorted(owned))
             clean=all(cleanup.values())
+            if command_session is not None and command_session.remote_identity is None:
+                clean=False
+                raise RuntimeError('native command child retirement unconfirmed before binding')
             if capture:
                 # The process owner is already retired. A closed or saturated
                 # logging stream cannot introduce an unbounded final wait.
@@ -1179,9 +1377,11 @@ def run_owned(spec,peer,stop_requested):
                 capture.counts['final_drain_incomplete']=bool(sel.get_map())
         except Exception as e:
             failure=(failure+'; ' if failure else '')+'cleanup: '+str(e)
+        if command_session is not None:command_session.close()
         sel.close()
         for stream in (root.stdout,root.stderr):stream.close()
         outcome={'vendor_retirement':retirement_ready,'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
+        if command_session is not None:outcome['native_command_child']=command_session.remote_identity
         # Diagnostic persistence cannot skip physical cleanup or peer retirement.
         try:atomic(report,outcome)
         except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]
@@ -1253,6 +1453,7 @@ def keep(spec):
     owned=set();diagnostic_hash={name:hashlib.sha256() for name in ('stdout','stderr')}
     diagnostic_tail={name:bytearray() for name in ('stdout','stderr')}
     diagnostic_bytes={'stdout':0,'stderr':0};ready=False;started=time.monotonic();error=None;clean=False
+    command_session=None
     def drain(timeout):
         for key,_ in sel.select(timeout):
             data=os.read(key.fileobj.fileno(),4096)
@@ -1261,6 +1462,7 @@ def keep(spec):
             tail=diagnostic_tail[key.data];tail.extend(data)
             if len(tail)>65536:del tail[:-65536]
     try:
+        command_session=NativeProtonSession.selected(spec)
         verify(reg['host'])
         cmd=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',windows(reg['host']['path'],pathlib.Path(reg['environment']['root'])/'compatdata/pfx'),'--environment-owner',spec['session'],'--scanner-sha256',reg['host']['sha256']]
         startup_seconds=spec.get('keeper_startup_seconds',60)
@@ -1268,6 +1470,7 @@ def keep(spec):
             raise RuntimeError('keeper startup deadline binding')
         graphical=spec.get('graphical_session')
         env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}},graphical);managed_home(spec,env);transport_environment(spec,env)
+        if command_session is not None:cmd,env=command_session.keeper_launch(cmd,env)
         root=subprocess.Popen(cmd,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
         for pipe,label in ((root.stdout,'stdout'),(root.stderr,'stderr')):
             os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,label)
@@ -1275,8 +1478,9 @@ def keep(spec):
         while not stop:
             owned.update(tracker.update())
             drain(.05)
-            if not ready and (directory/'environment.ready').exists():
+            if not ready and (directory/'environment.ready').exists() and (command_session is None or command_session.service_ready()):
                 if (directory/'environment.ready').read_bytes()!=(spec['session']+'\n').encode():raise RuntimeError('environment readiness binding differs')
+                if command_session is not None:command_session.publish()
                 atomic(report,{'ready':True,'environment':reg['environment']['id']});ready=True
             if root.poll() is not None:raise RuntimeError('shared environment owner exited')
             if not ready and time.monotonic()-started>startup_seconds:raise TimeoutError('environment startup deadline')
@@ -1302,6 +1506,10 @@ def keep(spec):
             root.poll()
             root.stdout.close();root.stderr.close()
         sel.close()
+        if command_session is not None and clean:
+            try:command_session.retire_endpoint()
+            except Exception as exc:
+                clean=False;error=(error+'; ' if error else '')+'command endpoint retirement: '+type(exc).__name__+': '+str(exc)[:256]
         private_diagnostics={};private_diagnostic_error=None
         for name,data in diagnostic_tail.items():
             if not data:continue
@@ -4212,6 +4420,7 @@ def vendor_application(spec):
 
 if __name__=='__main__':
     os.umask(0o077)
+    if sys.argv[1]=='--native-command-child':native_command_child(sys.argv[2:]);sys.exit(1)
     if sys.argv[1]=='--install':sys.exit(0 if install(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
     if sys.argv[1]=='--vendor-application':sys.exit(0 if vendor_application(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
     spec=json.loads(pathlib.Path(sys.argv[1]).read_text());peer=None if spec['inspect'] or spec.get('vendor_access') else socket.socket(fileno=0)

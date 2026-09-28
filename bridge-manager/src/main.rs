@@ -128,6 +128,8 @@ struct SessionSpec {
     shared_inspection: bool,
     #[serde(default)]
     shared_runtime: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    runner_key: Option<String>,
     #[serde(default)]
     transport: Option<transport_storage::MemoryTransport>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -597,6 +599,7 @@ fn spec(
             return Err("managed_session_preparation_required".into());
         }
     }
+    let runner_key = catalogue::runner_key(&r.environment.runner)?;
     let s = SessionSpec {
         onboarding_home,
         crash_capture: None,
@@ -615,6 +618,7 @@ fn spec(
         vendor_access: false,
         shared_inspection: false,
         shared_runtime: false,
+        runner_key: Some(runner_key),
         transport: None,
         graphical_session: None,
         keeper_startup_seconds: keeper.then_some(KEEPER_OWNER_STARTUP_SECONDS),
@@ -745,6 +749,18 @@ fn retire_mismatched_graphical_keeper(m:&Manager,environment:&str,
 fn stage_keeper(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keepers,
     graphical_session:Option<&transport_storage::GraphicalSession>)
     -> Result<KeeperAvailability> {
+    stage_keeper_with_history(m,s,r,keepers,graphical_session,
+        experimental_runner::verify_selected_bg1_history,|software,path|spawn(software,path,None))
+}
+
+fn stage_keeper_with_history(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keepers,
+    graphical_session:Option<&transport_storage::GraphicalSession>,
+    verify_history:impl Fn(&Manager,&Environment)->Result<()>,
+    start_keeper:impl Fn(&Software,&Path)->Result<Child>)
+    -> Result<KeeperAvailability> {
+    // All keeper callers, including inspection and vendor access, must prove
+    // selected V4 history before reusing an owner or creating session state.
+    verify_history(m, &r.environment)?;
     let mut active=keepers.lock().map_err(|_|"environment ownership lock poisoned")?;
     if let Some(owner)=active.iter_mut().find(|owner|owner.environment==r.environment.id) {
         if !owner.retiring && !owner.report.exists()
@@ -783,7 +799,7 @@ fn stage_keeper(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keepers,
     job.shared_runtime=true;
     job.graphical_session=graphical_session.cloned();
     atomic_json(&path,&job)?;
-    let child=spawn(s,&path,None)?;
+    let child=start_keeper(s,&path)?;
     // The keeper is retained before any retryable refusal. No native binding,
     // transport, or DSP lease has been exposed at this point.
     active.push(KeeperOwner{session:job.session.clone(),environment:r.environment.id.clone(),
@@ -1102,6 +1118,7 @@ fn serve(m: Manager) -> Result<()> {
                         }
                     };
                     let registration = m.resolve(&greeting[5..])?;
+                    experimental_runner::verify_selected_bg1_history(&m, &registration.environment)?;
                     m.verify_served_host(&registration, &s.host, &s.source_sha256, &profiles::installed_profiles()?)?;
                     let full_registration = registration.clone();
                     let r: HostBinding = registration.into();
@@ -1587,6 +1604,44 @@ mod tests {
         assert!(!lease.exists());
     }
     #[test]
+    fn shared_keeper_gate_refuses_v4_before_create_or_reuse_on_all_routes() {
+        let f=test_fixture::Fixture::new();
+        let mut binding:HostBinding=f.r.clone().into();
+        binding.environment.runner.id=experimental_runner::BG1_V4_RUNNER.into();
+        let software=Software{installer_launch:None,preparation_kit:None,operator_frontend:None,
+            manager:f.r.host.clone(),supervisor:f.r.host.clone(),ownership:f.r.host.clone(),
+            host:f.r.host.clone(),source_manifest:f.r.host.clone(),
+            source_sha256:f.r.host_source_sha256.clone(),native_catalogue:None};
+        let keepers=Keepers::new(Vec::new());
+        let sessions=binding.environment.root.join("compatdata/pfx/drive_c/bridge/sessions");
+        assert!(stage_keeper(&f.m,&software,&binding,&keepers,None).is_err());
+        // Inspection and vendor access both call ensure_keeper. Their common
+        // owner must refuse before an instance or keeper can be materialized.
+        assert!(ensure_keeper(&f.m,&software,&binding,&keepers).is_err());
+        assert!(!sessions.exists());
+        assert!(!f.m.root.join("runtime/leases").exists());
+        assert!(keepers.lock().unwrap().is_empty());
+
+        let (owner,report,lease)=fixture_keeper(&f,"sleep 30");
+        atomic_json(&report,&serde_json::json!({"ready":true,
+            "environment":f.r.environment.id})).unwrap();
+        keepers.lock().unwrap().push(owner);
+        assert!(stage_keeper(&f.m,&software,&binding,&keepers,None).is_err());
+        assert_eq!(keepers.lock().unwrap().len(),1);
+        assert!(keepers.lock().unwrap()[0].child.try_wait().unwrap().is_none());
+        assert_eq!(read_json::<serde_json::Value>(&report).unwrap()["ready"],true);
+        assert!(lease.exists());
+
+        for runner in ["exact-runner-1","proton-11.0-2c-x11-touch-routing-v2",
+            "proton-11.0-2c-dcomp-reference-v1"] {
+            binding.environment.runner.id=runner.into();
+            assert_eq!(stage_keeper(&f.m,&software,&binding,&keepers,None).unwrap(),
+                KeeperAvailability::Ready);
+        }
+        let mut active=keepers.lock().unwrap();
+        active[0].child.kill().unwrap();active[0].child.wait().unwrap();
+    }
+    #[test]
     fn service_resumed_keeper_retires_before_one_graphical_generation() {
         let f=test_fixture::Fixture::new();
         let (owner,report,lease)=fixture_keeper(&f,
@@ -1657,6 +1712,7 @@ mod tests {
         let f=test_fixture::Fixture::new();
         let (job,_)=spec(&f.m,f.r.clone().into(),true,false,true).unwrap();
         assert_eq!(job.keeper_startup_seconds,Some(KEEPER_OWNER_STARTUP_SECONDS));
+        assert_eq!(job.runner_key.as_deref(), Some(catalogue::runner_key(&f.r.environment.runner).unwrap().as_str()));
         assert_eq!(KEEPER_MANAGER_RETIRE_SECONDS,KEEPER_OWNER_STARTUP_SECONDS+2);
         assert_eq!(KEEPER_ADMISSION_SECONDS,KEEPER_MANAGER_RETIRE_SECONDS+3);
     }
