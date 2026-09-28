@@ -358,7 +358,20 @@ fn verify_bg1_history_with(
         let step = &steps[index];
         let before: Environment = read_json(&path.join("environment.json"))?;
         let record: onboarding::Record = read_json(&path.join("record.json"))?;
-        let registry: Registry = read_json(&path.join("registry.json"))?;
+        let registry_value: Value = read_json(&path.join("registry.json"))?;
+        let retired_value = registry_value
+            .get("classes")
+            .and_then(|classes| classes.get(class))
+            .and_then(Value::as_object)
+            .ok_or("bg1_retained_class_absent")?;
+        require(
+            retired_value.len() == 3
+                && ["registration", "publication", "managed_revision"]
+                    .iter()
+                    .all(|key| retired_value.contains_key(*key)),
+            "bg1_retained_publication_schema",
+        )?;
+        let registry: Registry = serde_json::from_value(registry_value)?;
         let result: Bg1TransitionResult = read_json(&path.join("result.json"))?;
         verify_bg1_step(&transition, &result, step, environment, class)?;
         require(
