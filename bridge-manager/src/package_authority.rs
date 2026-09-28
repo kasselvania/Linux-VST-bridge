@@ -132,6 +132,9 @@ fn verify_generation(m: &Manager, current: &Software) -> Result<Generation> {
     let dir = current.manager.path.parent().ok_or("package_generation_path")?;
     require(dir.parent() == Some(m.root.join("software").as_path()),
         "package_generation_path")?;
+    private_dir(dir)?;
+    require(fs::metadata(dir.join("package-generation.json"))?.permissions().mode() & 0o222 == 0,
+        "package_generation_record_writable")?;
     let record: Generation = read_json(&dir.join("package-generation.json"))?;
     require(record.schema == 1 && id(&record)? == dir.file_name().and_then(|n| n.to_str()).unwrap_or(""),
         "package_generation_identity")?;
@@ -180,6 +183,7 @@ fn stage(m: &Manager, inputs: &Inputs, manifest: PackageManifest,
     catalogue::verify_host_path(&dest.join("host.exe"))?;
     private_dir(&base)?;
     if dest.try_exists()? {
+        private_dir(&dest)?;
         let saved: Generation = read_json(&dest.join("package-generation.json"))?;
         require(id(&saved)? == generation && serde_json::to_vec(&saved)? == serde_json::to_vec(&record)?,
             "package_generation_collision")?;
@@ -216,9 +220,13 @@ fn stage(m: &Manager, inputs: &Inputs, manifest: PackageManifest,
         result?;
     }
     for file in &record.manifest.files {
-        require(digest(&dest.join(&file.name))? == file.sha256,
+        let path = dest.join(&file.name);
+        require(digest(&path)? == file.sha256
+            && fs::metadata(&path)?.permissions().mode() & 0o222 == 0,
             "package_generation_changed")?;
     }
+    require(fs::metadata(dest.join("package-generation.json"))?.permissions().mode() & 0o222 == 0,
+        "package_generation_record_writable")?;
     let native_catalogue = if let Some(expected) = &record.catalogue_sha256 {
         let a = artifact(&dest, "native-catalogue.json")?;
         require(&a.sha256 == expected, "package_generation_catalogue_changed")?;
