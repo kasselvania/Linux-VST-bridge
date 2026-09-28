@@ -24,6 +24,9 @@ records by owner and schema. A bounded before/after hash inventory and the
 record exactly what was inspected. The inventory hashes metadata bytes and
 route identities; it does not copy record payloads, prefixes, installers,
 projects, vendor account state or binaries into this repository.
+The ledger's counted categories account for all 4,262 hashed JSON/TOML files,
+plus six user routes and one selected external runner component. Generated
+runtime metadata is classified separately from manager authority.
 
 ## Clean read-only canary
 
