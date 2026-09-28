@@ -211,10 +211,13 @@ class SelectionTests(unittest.TestCase):
   replacement=None
   if kind=='descriptor':descriptor.write_text('{"changed":true}')
   else:
-   listener.close();endpoint.unlink()
+   # Keep the old socket open so Linux cannot immediately recycle its inode.
+   # The replacement must be a genuinely different endpoint identity.
+   endpoint.unlink()
    replacement=socket.socket(socket.AF_UNIX);replacement.bind(str(endpoint))
   disputed_descriptor=descriptor.read_bytes()
   disputed_socket=s.socket_identity(endpoint,'native command endpoint')
+  if kind=='endpoint':self.assertNotEqual(disputed_socket,command_session.socket_identity)
   class Root:
    pid=123
    returncode=0
