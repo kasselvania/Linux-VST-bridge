@@ -948,6 +948,20 @@ mod tests {
         assert!(effective_exec_is(&f.service.show().unwrap().exec, &f.current().manager.path));
     }
 
+    #[test]
+    fn exact_noop_reload_failure_retains_recoverable_journal() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        let before = fs::read(f.base.m.root.join("software.json")).unwrap();
+        f.service.fail_reload.set(true);
+        assert!(f.adopt().is_err());
+        assert!(f.base.m.root.join("package-transition.json").exists());
+        f.service.fail_reload.set(false);
+        assert!(recover_from(&f.base.m, &f.home, &f.service).unwrap());
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), before);
+        assert!(!f.base.m.root.join("package-transition.json").exists());
+    }
+
     #[cfg(target_os = "linux")]
     #[test]
     #[ignore = "tools/pkg0/root_intake_fixture.py prepares the root-owned input"]

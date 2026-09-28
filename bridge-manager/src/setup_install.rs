@@ -281,10 +281,6 @@ pub(super) fn commit_journaled(m: &Manager, home: &Path, installed: &Software,
     require(!journal.try_exists()?, "package_transition_pending")?;
     let switch = plan(m, home, installed, previous)?;
     switch.validate_paths(m, home)?;
-    if switch.is_after()? {
-        verify_effective(Some(installed))?;
-        return Ok(());
-    }
     atomic_json(&journal, &switch)?;
     match apply(&switch, None) {
         Ok(()) => {
