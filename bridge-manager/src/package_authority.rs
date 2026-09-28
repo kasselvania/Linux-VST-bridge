@@ -98,6 +98,15 @@ fn read_manifest(inputs: &Inputs, owner: u32) -> Result<(PackageManifest, String
     let path = inputs.manifest();
     let (sha, _, bytes) = package_source(&path, owner, 64 * 1024, true)?;
     let manifest: PackageManifest = serde_json::from_slice(&bytes)?;
+    validate_manifest_identity(&manifest)?;
+    for (entry, name) in manifest.files.iter().zip(NAMES) {
+        let (actual, size, _) = package_source(&inputs.path(name)?, owner, 128 * 1024 * 1024, false)?;
+        require(actual == entry.sha256 && size == entry.size,
+            "package_artifact_changed")?;
+    }
+    Ok((manifest, sha))
+}
+fn validate_manifest_identity(manifest: &PackageManifest) -> Result<()> {
     require(manifest.schema == 1 && manifest.operator_schema == operator_model::OPERATOR_SCHEMA
         && manifest.package == "linux-vst-bridge-beta"
         && valid_package_version(&manifest.version) && manifest.pkgrel == 1
@@ -111,11 +120,8 @@ fn read_manifest(inputs: &Inputs, owner: u32) -> Result<(PackageManifest, String
         require(entry.name == name && valid_hex(&entry.sha256, 64)
             && entry.size <= 128 * 1024 * 1024,
             "package_manifest_roster")?;
-        let (actual, size, _) = package_source(&inputs.path(name)?, owner, 128 * 1024 * 1024, false)?;
-        require(actual == entry.sha256 && size == entry.size,
-            "package_artifact_changed")?;
     }
-    Ok((manifest, sha))
+    Ok(())
 }
 fn valid_package_version(value: &str) -> bool {
     !value.is_empty() && value.len() <= 80 && value.as_bytes()[0].is_ascii_digit()
@@ -150,6 +156,91 @@ fn old_software(m: &Manager) -> Result<Option<Software>> {
     let old = software(m)?;
     verify_software_identity(m, &old)?;
     Ok(Some(old))
+}
+fn require_retained_host_pair(m: &Manager, old: &Software,
+    manifest: &PackageManifest) -> Result<()> {
+    if old.native_catalogue.is_some() || !m.registry()?.classes.is_empty() {
+        require(old.host.sha256 == manifest.files[4].sha256
+            && old.source_manifest.sha256 == manifest.files[5].sha256,
+            "package_existing_product_host_pair_changed")?;
+    }
+    Ok(())
+}
+fn generation_record(manifest: PackageManifest, manifest_sha256: String,
+    predecessor: Option<Software>) -> Generation {
+    let catalogue = predecessor.as_ref().and_then(|s| s.native_catalogue.as_ref());
+    Generation {
+        schema: 1, manifest_sha256, manifest,
+        retained_installer_launch: predecessor.as_ref().and_then(|s| s.installer_launch.clone()),
+        retained_preparation_kit: predecessor.as_ref().and_then(|s| s.preparation_kit.clone()),
+        catalogue_sha256: catalogue.map(|a| a.sha256.clone()),
+        predecessor,
+    }
+}
+
+/// A read-only predecessor decision. The caller separately verifies the
+/// candidate package bytes; this method reads selected user authority and
+/// computes the same immutable generation record that adoption would stage.
+fn predecessor_plan(m: &Manager, home: &Path, manifest: PackageManifest,
+    manifest_sha256: String) -> Result<(Generation, Vec<setup_install::RouteStatus>)> {
+    validate_manifest_identity(&manifest)?;
+    require(valid_hex(&manifest_sha256, 64), "package_manifest_digest")?;
+    require(!m.root.join("package-transition.json").try_exists()?,
+        "package_transition_needs_recovery")?;
+    let old = old_software(m)?.ok_or("package_predecessor_absent")?;
+    require_retained_host_pair(m, &old, &manifest)?;
+    let routes = setup_install::current_route_statuses(m, home, &old)?;
+    if old.manager.path.parent().is_some_and(|dir|
+        dir.join("package-generation.json").exists()) {
+        let selected = verify_generation(m, &old)?;
+        if selected.manifest_sha256 == manifest_sha256 {
+            require(selected.manifest == manifest, "package_manifest_changed")?;
+            return Ok((selected, routes));
+        }
+    }
+    let record = generation_record(manifest, manifest_sha256, Some(old.clone()));
+    let planned_id = id(&record)?;
+    require(old.manager.path.parent().and_then(|p| p.file_name())
+        .and_then(|p| p.to_str()) != Some(planned_id.as_str()),
+        "package_self_predecessor")?;
+    Ok((record, routes))
+}
+/// Source-owned PB0-R3 audit entry point. The input is only an exact bounded
+/// package manifest, never a path or command. It cannot stage or select it.
+#[cfg(feature = "pb0-r3-audit")]
+pub(super) fn audit_predecessor_from_bytes(m: &Manager, home: &Path,
+    bytes: &[u8]) -> Result<serde_json::Value> {
+    require(bytes.len() <= 64 * 1024, "package_manifest_extent")?;
+    let manifest: PackageManifest = serde_json::from_slice(bytes)?;
+    let sha = hex(&sha2::Sha256::digest(bytes));
+    let (record, routes) = predecessor_plan(m, home, manifest, sha)?;
+    let old = old_software(m)?.ok_or("package_predecessor_absent")?;
+    let selected_generation = old.manager.path.parent()
+        .and_then(|p| p.file_name()).and_then(|p| p.to_str())
+        .ok_or("package_predecessor_identity")?;
+    let planned_generation = id(&record)?;
+    let rollback_predecessor = record.predecessor.as_ref().and_then(|s|
+        s.manager.path.parent()?.file_name()?.to_str());
+    Ok(serde_json::json!({
+        "schema": 1,
+        "candidate_source_head": record.manifest.source_head,
+        "candidate_source_tree": record.manifest.source_tree,
+        "candidate_version": record.manifest.version,
+        "candidate_manifest_sha256": record.manifest_sha256,
+        "planned_generation": planned_generation,
+        "selected_generation": selected_generation,
+        "reuses_selected_generation": planned_generation == selected_generation,
+        "predecessor_generation": rollback_predecessor,
+        "predecessor_manager_sha256": old.manager.sha256,
+        "predecessor_frontend_sha256": old.operator_frontend.as_ref().map(|a| &a.sha256),
+        "retained_catalogue_sha256": record.catalogue_sha256,
+        "retained_host_sha256": old.host.sha256,
+        "retained_source_sha256": old.source_manifest.sha256,
+        "external_runtime_id": record.manifest.external_runtime.id,
+        "external_runtime_manifest_sha256": record.manifest.external_runtime.manifest_sha256,
+        "routes": routes,
+        "writes": false,
+    }))
 }
 fn verify_generation(m: &Manager, current: &Software) -> Result<Generation> {
     let dir = current.manager.path.parent().ok_or("package_generation_path")?;
@@ -197,13 +288,7 @@ fn stage(m: &Manager, inputs: &Inputs, manifest: PackageManifest,
     manifest_sha256: String, predecessor: Option<Software>) -> Result<Software> {
     let catalogue = predecessor.as_ref().and_then(|s| s.native_catalogue.clone());
     if let Some(a) = &catalogue { a.verify()?; }
-    let record = Generation {
-        schema: 1, manifest_sha256, manifest,
-        retained_installer_launch: predecessor.as_ref().and_then(|s| s.installer_launch.clone()),
-        retained_preparation_kit: predecessor.as_ref().and_then(|s| s.preparation_kit.clone()),
-        catalogue_sha256: catalogue.as_ref().map(|a| a.sha256.clone()),
-        predecessor,
-    };
+    let record = generation_record(manifest, manifest_sha256, predecessor);
     let generation = id(&record)?;
     let base = m.root.join("software");
     let dest = base.join(&generation);
@@ -307,13 +392,10 @@ fn adopt_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
         let (manifest, sha) = read_manifest(inputs, owner)?;
         let predecessor = old_software(m)?;
         if let Some(old) = &predecessor {
-            if old.native_catalogue.is_some() || !m.registry()?.classes.is_empty() {
-                let host = &manifest.files[4];
-                let source = &manifest.files[5];
-                require(old.host.sha256 == host.sha256
-                    && old.source_manifest.sha256 == source.sha256,
-                    "package_existing_product_host_pair_changed")?;
-            }
+            require_retained_host_pair(m, old, &manifest)?;
+            // The same read-only predecessor and route checks used by the
+            // PB0-R3 gate run before any successor files are staged.
+            let _ = predecessor_plan(m, home, manifest.clone(), sha.clone())?;
         }
         if let Some(old) = &predecessor {
             if old.manager.path.parent()
@@ -625,6 +707,74 @@ mod tests {
         assert_eq!(fs::read_link(f.home.join(".local/bin/linux-vst-bridge")).unwrap(), first.manager.path);
         assert_eq!(fs::read_link(f.home.join(".local/bin/linux-audio-compatibility-manager")).unwrap(), first.operator_frontend.unwrap().path);
         second.manager.verify().unwrap();
+    }
+
+    #[test]
+    fn predecessor_plan_is_read_only_and_matches_adoption_identity() {
+        let (base, _, _, native) = test_fixture::prepared();
+        let home = base.outer.join("home");
+        let f = Fixture { service: FakeService::new(&home), home,
+            inputs: Inputs::under(&base.outer.join("package/usr")),
+            owner: unsafe { libc::getuid() }, base };
+        for name in NAMES {
+            let path = f.inputs.path(name).unwrap();
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, if name == "host.exe" { b"host".as_slice() }
+                else if name == "host-source-manifest.json" { b"fixture host source".as_slice() }
+                else { name.as_bytes() }).unwrap();
+            fs::set_permissions(path, fs::Permissions::from_mode(0o444)).unwrap();
+        }
+        f.write_manifest();
+        f.setup_legacy_with_catalogue(native);
+        let old = f.current();
+        let software_before = fs::read(f.base.m.root.join("software.json")).unwrap();
+        let catalogue_before = fs::read(old.native_catalogue.as_ref().unwrap().path.clone()).unwrap();
+        let registry_before = fs::read(f.base.m.root.join("registry.json")).unwrap();
+        let (manifest, sha) = read_manifest(&f.inputs, f.owner).unwrap();
+        let (planned, routes) = predecessor_plan(&f.base.m, &f.home, manifest.clone(), sha.clone()).unwrap();
+        assert!(routes.iter().all(|r| r.status == "exact"));
+        assert_eq!(planned.predecessor.as_ref().unwrap().manager.sha256, old.manager.sha256);
+        assert_eq!(planned.catalogue_sha256.as_deref(), old.native_catalogue.as_ref().map(|a| a.sha256.as_str()));
+        assert!(!f.base.m.root.join("package-transition.json").exists());
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), software_before);
+        assert_eq!(fs::read(old.native_catalogue.as_ref().unwrap().path.clone()).unwrap(), catalogue_before);
+        assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry_before);
+        assert!(!f.base.m.root.join("software").join(id(&planned).unwrap()).exists());
+        f.adopt().unwrap();
+        assert_eq!(f.current().manager.path.parent().unwrap().file_name().unwrap().to_str(),
+            Some(id(&planned).unwrap().as_str()));
+        let selected_before = fs::read(f.base.m.root.join("software.json")).unwrap();
+        let (same, _) = predecessor_plan(&f.base.m, &f.home, manifest, sha).unwrap();
+        assert_eq!(id(&same).unwrap(), id(&planned).unwrap());
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected_before);
+    }
+
+    #[test]
+    fn predecessor_plan_classifies_missing_owned_routes_and_refuses_foreign_or_changed_host() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        let (manifest, sha) = read_manifest(&f.inputs, f.owner).unwrap();
+        let frontend = f.home.join(".local/bin/linux-audio-compatibility-manager");
+        fs::remove_file(&frontend).unwrap();
+        let (same, routes) = predecessor_plan(&f.base.m, &f.home, manifest.clone(), sha.clone()).unwrap();
+        assert_eq!(routes.iter().find(|r| r.route == "frontend_command").unwrap().status, "missing");
+        assert_eq!(same.manifest_sha256, sha);
+        std::os::unix::fs::symlink("/tmp/foreign-manager", &frontend).unwrap();
+        assert!(predecessor_plan(&f.base.m, &f.home, manifest.clone(), sha.clone()).is_err());
+        fs::remove_file(&frontend).unwrap();
+        let unit = f.home.join(".config/systemd/user/linux-vst-bridge.service");
+        let original = fs::read(&unit).unwrap();
+        let stale = String::from_utf8(original.clone()).unwrap()
+            .replace("RestartSec=2", "RestartSec=3");
+        fs::write(&unit, stale.as_bytes()).unwrap();
+        let (_, routes) = predecessor_plan(&f.base.m, &f.home, manifest.clone(), sha.clone()).unwrap();
+        assert_eq!(routes.iter().find(|r| r.route == "service").unwrap().status,
+            "stale_package_owned");
+        assert_eq!(fs::read(&unit).unwrap(), stale.as_bytes());
+        fs::write(&unit, original).unwrap();
+        let mut changed_host = manifest;
+        changed_host.files[4].sha256 = "ab".repeat(32);
+        assert!(predecessor_plan(&f.base.m, &f.home, changed_host, sha).is_err());
     }
 
     #[test]

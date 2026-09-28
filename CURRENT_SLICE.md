@@ -1,6 +1,27 @@
 # Current work selection
 
-## Selected source-only native command-session owner — BG1-R0
+## Selected read-only installed-state gate — PB0-R3
+
+PB0-R3 starts from post-BG1-R0 canonical main
+`62d556cfea57b17b567c5374a7a42b78fa22780c` (tree
+`f0f9c430e303447ea32129cb85d2532b0174a816`). Its basis is
+`AGENTS.md` “Keep the engineering safeguards” and “Verification and review”;
+`GOVERNANCE.md` “What evidence means”; `docs/ARCHITECTURE.md` installed
+software, runtime ownership and rollback boundaries; and the completed
+[PB0-R2 owner audit](docs/PB0_R2.md) and
+[BG1-R0 source contract](docs/BG1_RUNTIME_OWNER.md).
+
+**One claim:** canonical source can read and project the exact installed Deck
+state, verify the selected BG1 V4 history, and compute an exact PKG0 successor
+predecessor plan without changing the installed generation or any managed
+record. The bounded result and limits are in [PB0-R3](docs/PB0_R3.md).
+
+No PB0, PKG0 or manager generation is installed by this slice. The current
+private UI2 generation remains selected on the Deck. PB0 PR #179 remains
+draft and uninstalled; only an independently reviewed complete PB0-R3 gate may
+allow a new PB0 integration on current canonical main.
+
+## Completed source-only native command-session owner — BG1-R0
 
 BG1-R0 starts from post-PB0-R2 canonical main
 `d20d143b5e1beb8009d7ae9f4bc9b4bf18556204` (tree
@@ -17,13 +38,15 @@ interprets the exact retained V1/V3/V4 transition and rollback records without
 offering a new runner update or rollback operation. The source contract is in
 [BG1 runtime owner](docs/BG1_RUNTIME_OWNER.md).
 
+BG1-R0 was normally merged as `62d556cfea57b17b567c5374a7a42b78fa22780c`
+with the reviewed tree `f0f9c430e303447ea32129cb85d2532b0174a816`.
 The installed Deck generation, all publications, workspaces, installers,
 environments, runners, authorizations and rollback files remain unchanged.
 BG1-R0 does not import private renderer/build tooling, BG1 graphics experiments,
 BETA0, RPR0, DIST0/CACHY0, ARM/Pi or PB0, and makes no new physical BEAM or
-customer-package claim. After independent review and merge, a new read-only
-PB0-R3 continuation must prove the complete canonical Snapshot/Activity and
-PKG0 preservation gates before PB0 may approach Deck installation.
+customer-package claim. The selected PB0-R3 continuation tests the canonical
+Snapshot/Activity and PKG0 predecessor boundaries before PB0 may approach Deck
+installation.
 
 ## Completed read-only installed-state audit — PB0-R2
 

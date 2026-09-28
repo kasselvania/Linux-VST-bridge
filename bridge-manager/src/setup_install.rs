@@ -128,6 +128,37 @@ pub(super) struct Plan {
     links: Vec<LinkChange>,
     files: Vec<FileChange>,
 }
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+pub(super) struct RouteStatus {
+    pub(super) route: &'static str,
+    pub(super) status: &'static str,
+}
+/// Check the six selected user routes without staging or changing any file.
+/// The ordinary switch uses the same plan and foreign-route preflights.
+pub(super) fn current_route_statuses(
+    m: &Manager, home: &Path, selected: &Software,
+) -> Result<Vec<RouteStatus>> {
+    let plan = plan(m, home, selected, Some(selected))?;
+    require(plan.links.len() == 2 && plan.files.len() == 5,
+        "package_route_plan_shape")?;
+    let mut result = Vec::with_capacity(6);
+    for (name, link) in ["manager_command", "frontend_command"]
+        .into_iter().zip(&plan.links) {
+        result.push(RouteStatus { route: name,
+            status: if link.before.as_ref() == Some(&link.after) { "exact" }
+                else { "missing" } });
+    }
+    for (name, file) in ["desktop", "callback_desktop",
+        "callback_association", "service"].into_iter().zip(&plan.files) {
+        result.push(RouteStatus { route: name,
+            status: match &file.before {
+                None => "missing",
+                Some(bytes) if bytes == &file.after => "exact",
+                Some(_) => "stale_package_owned",
+            } });
+    }
+    Ok(result)
+}
 fn command(path: PathBuf, after: &Path, prior: Option<&Path>) -> Result<LinkChange> {
     publication::preflight_command(&path, after, prior)?;
     let before = match fs::read_link(&path) {

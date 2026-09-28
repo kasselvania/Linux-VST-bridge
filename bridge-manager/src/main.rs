@@ -14,6 +14,8 @@ mod daw_workspace;
 mod preparation_cli;
 mod setup_install;
 mod package_authority;
+#[cfg(feature = "pb0-r3-audit")]
+mod pb0_r3_audit;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::{
@@ -1468,6 +1470,8 @@ fn main() -> Result<()> {
   Some("package-adopt") if args.len()==1=>package_authority::adopt(&m),
   Some("package-rollback") if args.len()==1=>package_authority::rollback(&m),
   Some("package-recover") if args.len()==1=>package_authority::recover(&m).map(|_|()),
+  #[cfg(feature = "pb0-r3-audit")]
+  Some("pb0-r3-audit") if args.len()==1=>pb0_r3_audit::run(&m),
   Some("accept-editor") if args.len()==1=>managed_cli::run_acceptance(&m),
   Some("accept-capacity") if args.len()==1=>managed_cli::run_capacity_acceptance(&m),
   Some("accept-pigments") if args.len()==1=>managed_cli::run_pigments_acceptance(&m),
