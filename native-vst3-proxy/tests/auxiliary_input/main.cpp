@@ -105,7 +105,8 @@ int main(){
  Event expression{};expression.type=Event::kNoteExpressionValueEvent;expression.sampleOffset=15;
  expression.noteExpressionValue={1,1,.4};notes.addEvent(expression);
  Event off{};off.type=Event::kNoteOffEvent;off.sampleOffset=19;
- off.noteOff={9,60,.2f,0,1};notes.addEvent(off);run();
+ off.noteOff.channel=9;off.noteOff.pitch=60;off.noteOff.velocity=.2f;
+ off.noteOff.noteId=1;off.noteOff.tuning=0;notes.addEvent(off);run();
  input_case=InputCase::ExpressionOnly;notes.clear();notes.addEvent(pressure);notes.addEvent(expression);run();
  input_case=InputCase::NoteOffOnly;notes.clear();notes.addEvent(off);run();
  auto before_unknown=processes;off.type=999;notes.clear();notes.addEvent(off);
