@@ -134,7 +134,7 @@ fn quarantined_product(scan: &inventory::Scan, module_index: usize,
 fn app_directory(m: &Manager) -> PathBuf {
     m.root.join("vendor-applications").join(ASC)
 }
-fn vendor_retired(m: &Manager) -> Result<bool> {
+pub(super) fn vendor_retired(m: &Manager) -> Result<bool> {
     if !renderer_cli::all_retired(m)? || !dependency_cli::all_retired(m)? {
         return Ok(false);
     }
@@ -194,7 +194,7 @@ fn live_capacity(m: &Manager) -> Result<CapacityReadback> {
     require(value.schema == 1, "operator_capacity_schema")?;
     Ok(value)
 }
-fn pending_transactions(m: &Manager) -> Result<usize> {
+pub(super) fn pending_transactions(m: &Manager) -> Result<usize> {
     let transactions = m.root.join("transactions");
     let mut pending = 0;
     if transactions.exists() {

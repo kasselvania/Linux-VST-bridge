@@ -1,6 +1,40 @@
 # Current work selection
 
-## Selected source-only canonical integration — UI2
+## Selected source-only package authority — PKG0
+
+PKG0 begins at public canonical main `1120efa349f84250fc9602503c28ea2fbd6fb8b9`
+(tree `1956a0071f626ec7fa0808369b618520549d1825`) after the reviewed UI2
+source merge. Its basis is `AGENTS.md` “Mission”, “Authority order”, “Core
+product invariants”, “Slice discipline”, “Flatpak and SteamOS rules”, and
+“Third-party and clean-room rules”; `GOVERNANCE.md` “What evidence means”;
+`docs/ARCHITECTURE.md` installed-software and rollback boundaries; and the
+selected [PKG0 contract](docs/PKG0.md).
+The focused source repair is commit `4c56e8b5567f4fe72b452d0e30ca97b6254bd8f1`
+(tree `86bc073f65d9a3f892e216a1696e7e08137c97f8`); the PR body binds the
+final documentation head/tree. PR #184 remains draft and unmerged.
+
+**One claim:** a fixed installed package with one exact paired manager/frontend
+generation and a complete declared release roster can be verified, copied to
+immutable user-owned software, selected, updated without discarding a populated
+catalogue, and rolled back to its exact predecessor. Interrupted route switches
+have an exact recovery journal. Package uninstall retains user-owned software,
+installers, environments, publications, compatibility history, workspaces,
+projects, preferences and vendor authorization. The exact Proton/SLR runtime is
+an external verified prerequisite; this package does not distribute it.
+
+Scope is package assembly/verification/signing tools, fixed package intake,
+immutable software generation and exact route switch/rollback. Source-owned
+synthetic fixtures prove the owner boundaries. The existing Deck generation and
+rollback remain untouched. PKG0 does not install on the Deck, qualify a clean
+CachyOS/Ubuntu/Debian machine, merge private UI1/UI2/BG1/BETA0/RPR0/DIST0 work,
+or claim a releasable Proton closure. Independent source review and PB0-R
+installed-state convergence precede any Deck replacement. PB0 remains draft.
+The repair binds root-owned package reads to one checked descriptor, verifies
+Arch package metadata and removes the install hook, restores missing/stale
+routes for the same generation, and retains the transition journal until the
+effective user-service route has reloaded and matched the selected generation.
+
+## Completed source-only canonical integration — UI2
 
 UI2 starts from public canonical main `a9e3dab74465f8f39c180e454785261ad1a984ca`
 (tree `2f8896efced382b8b9cb569d1007bf85dedc838a`), after the normal UI1
@@ -15,8 +49,8 @@ their owner-defined schemas; historical private schema-11 UI2 operation
 requests remain readable for recovery, while current schema-11 requests refuse.
 The [UI2 source contract](docs/UI2.md) names the bounded workflow and evidence.
 
-This branch does not install itself on the Deck or claim a new physical plug-in
-result. The installed private UI2 generation remains Deck authority. It does
+The UI2 source integration did not install itself on the Deck or claim a new physical plug-in
+result. The installed private UI2 generation remains Deck authority. It did
 not import BETA0/package, BG1, RPR0, DIST0/CACHY0, PB0 or ARM work. Package
 authority and remaining installed-state convergence require separate review
 before PB0 can replace the installed manager.

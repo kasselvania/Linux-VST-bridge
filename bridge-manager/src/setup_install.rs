@@ -106,15 +106,27 @@ fn put(path: &Path, bytes: &[u8]) -> Result<()> {
     }
     result
 }
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct FileChange {
     path: PathBuf,
     before: Option<Vec<u8>>,
     after: Vec<u8>,
 }
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct LinkChange {
     path: PathBuf,
     before: Option<PathBuf>,
     after: PathBuf,
+}
+/// A complete, exact switch of the user-facing command, frontend, service and
+/// software authority. PKG0 retains this before changing any of those routes.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct Plan {
+    links: Vec<LinkChange>,
+    files: Vec<FileChange>,
 }
 fn command(path: PathBuf, after: &Path, prior: Option<&Path>) -> Result<LinkChange> {
     publication::preflight_command(&path, after, prior)?;
@@ -137,6 +149,16 @@ pub(super) fn commit(
     previous: Option<&Software>,
     fail_after: Option<usize>,
 ) -> Result<()> {
+    let plan = plan(m, home, installed, previous)?;
+    apply(&plan, fail_after)
+}
+
+pub(super) fn plan(
+    m: &Manager,
+    home: &Path,
+    installed: &Software,
+    previous: Option<&Software>,
+) -> Result<Plan> {
     let mut links = vec![command(
         home.join(".local/bin/linux-vst-bridge"),
         &installed.manager.path,
@@ -196,27 +218,35 @@ pub(super) fn commit(
         after: serde_json::to_vec(installed)?,
     });
     // All command, desktop, unit and manifest checks above are read-only.
+    Ok(Plan { links, files })
+}
+
+fn apply(plan: &Plan, fail_after: Option<usize>) -> Result<()> {
+    let Plan { links, files } = plan;
     let mut linked = 0;
-    let mut written = 0;
+    let mut written = Vec::new();
     let mut step = 0;
     let result = (|| -> Result<()> {
-        for l in &links {
+        for l in links {
             publication::install_command(&l.path, &l.after, l.before.as_deref())?;
             linked += 1;
             step += 1;
             require(fail_after != Some(step), "setup_injected_failure")?;
         }
-        for f in &files {
+        for (index, f) in files.iter().enumerate() {
             require(owned_file(&f.path, None)? == f.before, "setup_file_changed")?;
-            put(&f.path, &f.after)?;
-            written += 1;
+            if f.before.as_deref() != Some(f.after.as_slice()) {
+                put(&f.path, &f.after)?;
+                written.push(index);
+            }
             step += 1;
             require(fail_after != Some(step), "setup_injected_failure")?;
         }
         Ok(())
     })();
     if let Err(error) = result {
-        for f in files[..written].iter().rev() {
+        for index in written.into_iter().rev() {
+            let f = &files[index];
             require(
                 owned_file(&f.path, None)?.as_ref() == Some(&f.after),
                 "setup_rollback_file_changed",
@@ -241,6 +271,160 @@ pub(super) fn commit(
         return Err(error);
     }
     Ok(())
+}
+
+/// The package owner writes this private journal before changing any route.
+/// It is kept on ordinary failure until the exact old or new state is proven.
+pub(super) fn commit_journaled(m: &Manager, home: &Path, installed: &Software,
+    previous: Option<&Software>, verify_effective: impl Fn(Option<&Software>) -> Result<()>) -> Result<()> {
+    let journal = m.root.join("package-transition.json");
+    require(!journal.try_exists()?, "package_transition_pending")?;
+    let switch = plan(m, home, installed, previous)?;
+    switch.validate_paths(m, home)?;
+    atomic_json(&journal, &switch)?;
+    match apply(&switch, None) {
+        Ok(()) => {
+            require(switch.is_after()?, "package_transition_incomplete")?;
+            verify_effective(Some(installed))?;
+            fs::remove_file(journal)?;
+            Ok(())
+        }
+        Err(error) => {
+            if switch.is_before()? { fs::remove_file(journal)?; }
+            Err(error)
+        }
+    }
+}
+
+impl Plan {
+    fn verify_software(m: &Manager, software: &Software) -> Result<()> {
+        for artifact in [&software.manager, &software.supervisor, &software.ownership,
+            &software.host, &software.source_manifest] { artifact.verify()?; }
+        for artifact in [&software.operator_frontend, &software.installer_launch,
+            &software.preparation_kit].into_iter().flatten() { artifact.verify()?; }
+        require(software.source_sha256 == software.source_manifest.sha256,
+            "package_transition_host_source")?;
+        if let Some(catalogue) = &software.native_catalogue {
+            software.catalogue(m)?;
+            require(fs::metadata(&catalogue.path)?.permissions().mode() & 0o222 == 0,
+                "package_transition_catalogue_writable")?;
+        }
+        Ok(())
+    }
+    fn validate_paths(&self, m: &Manager, home: &Path) -> Result<()> {
+        let links = [home.join(".local/bin/linux-vst-bridge"),
+            home.join(".local/bin/linux-audio-compatibility-manager")];
+        require((1..=2).contains(&self.links.len())
+            && self.links.iter().enumerate().all(|(i, change)| change.path == links[i]),
+            "package_transition_paths")?;
+        let files = [
+            home.join(".local/share/applications/linux-audio-compatibility-manager.desktop"),
+            home.join(".local/share/applications/linux-vst-bridge-native-access.desktop"),
+            home.join(".config/mimeapps.list"),
+            home.join(".config/systemd/user/linux-vst-bridge.service"),
+            m.root.join("software.json"),
+        ];
+        let expected = if self.links.len() == 2 { &files[..] } else { &files[1..] };
+        require(self.files.len() == expected.len()
+            && self.files.iter().zip(expected).all(|(change, path)| change.path == *path),
+            "package_transition_paths")?;
+        for link in &self.links {
+            require(link.after.starts_with(m.root.join("software"))
+                && link.before.as_ref().is_none_or(|p| p.starts_with(m.root.join("software"))),
+                "package_transition_link")?;
+        }
+        let after: Software = serde_json::from_slice(&self.files.last().ok_or("package_transition_paths")?.after)?;
+        Self::verify_software(m, &after)?;
+        require(after.manager.path == self.links[0].after
+            && after.operator_frontend.as_ref().map(|a| &a.path) == self.links.get(1).map(|l| &l.after),
+            "package_transition_software")?;
+        if let Some(before) = &self.files.last().ok_or("package_transition_paths")?.before {
+            let old: Software = serde_json::from_slice(before)?;
+            Self::verify_software(m, &old)?;
+            require(self.links[0].before.as_ref().is_none_or(|p| p == &old.manager.path)
+                && self.links.get(1).is_none_or(|l| l.before.as_ref().is_none_or(|p|
+                    old.operator_frontend.as_ref().is_some_and(|a| &a.path == p))),
+                "package_transition_software")?;
+        }
+        Ok(())
+    }
+    fn link_state(change: &LinkChange) -> Result<Option<PathBuf>> {
+        match fs::read_link(&change.path) {
+            Ok(path) => Ok(Some(path)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+    fn states(&self) -> Result<(bool, bool)> {
+        let mut before = true;
+        let mut after = true;
+        for link in &self.links {
+            let actual = Self::link_state(link)?;
+            require(actual == link.before || actual.as_ref() == Some(&link.after),
+                "package_transition_foreign_link")?;
+            before &= actual == link.before;
+            after &= actual.as_ref() == Some(&link.after);
+        }
+        for file in &self.files {
+            let actual = owned_file(&file.path, None)?;
+            require(actual == file.before || actual.as_ref() == Some(&file.after),
+                "package_transition_foreign_file")?;
+            before &= actual == file.before;
+            after &= actual.as_ref() == Some(&file.after);
+        }
+        Ok((before, after))
+    }
+    fn is_before(&self) -> Result<bool> { Ok(self.states()?.0) }
+    fn is_after(&self) -> Result<bool> { Ok(self.states()?.1) }
+}
+
+/// After a crash, finish an entirely applied switch or restore the exact
+/// predecessor. A foreign edit refuses; the journal remains for inspection.
+pub(super) fn recover_journaled(m: &Manager, home: &Path,
+    verify_effective: impl Fn(Option<&Software>) -> Result<()>) -> Result<bool> {
+    let journal = m.root.join("package-transition.json");
+    if !journal.try_exists()? { return Ok(false); }
+    let switch: Plan = read_json(&journal)?;
+    switch.validate_paths(m, home)?;
+    if !switch.is_after()? && !switch.is_before()? {
+        for file in switch.files.iter().rev() {
+            let actual = owned_file(&file.path, None)?;
+            if actual.as_ref() == Some(&file.after) && actual != file.before {
+                if let Some(bytes) = &file.before { put(&file.path, bytes)?; }
+                else { fs::remove_file(&file.path)?; }
+            }
+        }
+        for link in switch.links.iter().rev() {
+            if Plan::link_state(link)?.as_ref() == Some(&link.after)
+                && link.before.as_ref() != Some(&link.after) {
+                if let Some(prior) = &link.before {
+                    publication::install_command(&link.path, prior, Some(&link.after))?;
+                } else { fs::remove_file(&link.path)?; }
+            }
+        }
+    }
+    require(switch.is_after()? || switch.is_before()?, "package_transition_recovery_incomplete")?;
+    let chosen = if switch.is_after()? {
+        Some(serde_json::from_slice::<Software>(&switch.files.last().ok_or("package_transition_paths")?.after)?)
+    } else {
+        switch.files.last().ok_or("package_transition_paths")?.before.as_ref()
+            .map(|bytes| serde_json::from_slice::<Software>(bytes)).transpose()?
+    };
+    verify_effective(chosen.as_ref())?;
+    fs::remove_file(journal)?;
+    Ok(true)
+}
+
+#[cfg(test)]
+pub(super) fn interrupt_journaled_for_test(m: &Manager, home: &Path,
+    installed: &Software, previous: Option<&Software>, complete: bool) -> Result<()> {
+    let switch = plan(m, home, installed, previous)?;
+    atomic_json(&m.root.join("package-transition.json"), &switch)?;
+    if complete { apply(&switch, None) }
+    else {
+        let first = switch.links.first().ok_or("package_transition_paths")?;
+        publication::install_command(&first.path, &first.after, first.before.as_deref())
+    }
 }
 
 #[cfg(test)]
