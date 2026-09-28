@@ -10,8 +10,8 @@ a reviewed fixed-path package builder and a first immutable binding proof. It
 explicitly refused an update with a populated catalogue. This public slice adds
 that transition and interruption recovery; those parts require their own review.
 The focused package-authority repair is source commit
-`153a58fd66073c66e84b8c04f9c05f173ae6ea02`, tree
-`f96355d50a6dec193d2b78199956efbbe8c93b8a`. The PR body records the
+`4c56e8b5567f4fe72b452d0e30ca97b6254bd8f1`, tree
+`86bc073f65d9a3f892e216a1696e7e08137c97f8`. The PR body records the
 final documentation head and tree.
 
 ## Package and user state
@@ -91,10 +91,10 @@ owner/transaction/cleanup refusal, interruption, rollback, reinstall, changed
 source and foreign generation refusal, same-generation route repair, service
 state/reload recovery, non-writable retained catalogue, and preservation of
 unrelated user records. A hosted Linux fixture creates an actually root-owned
-package tree and executes intake as the ordinary runner user, including owner,
-symlink, write-mode, byte and extent refusals. All six cases passed on the
-hosted Linux manager job at repair predecessor `607daea`; final-head status is
-linked from PR #184. Package tests cover an Arch
+package tree and executes full adoption as the ordinary runner user, including owner,
+symlink, write-mode, byte and extent refusals. The manifest-read variant passed
+all six cases on hosted Linux at repair predecessor `607daea`; the final-head
+full-adoption result is linked from PR #184. Package tests cover an Arch
 archive with exact `.PKGINFO`, optional metadata, no install hook, roster, build
 pairing, external-runtime exclusion, tampering, and signature verification where
 GPG is available. The exact hosted result is recorded in PR #184. No Deck package

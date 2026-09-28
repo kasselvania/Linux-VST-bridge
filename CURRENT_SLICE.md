@@ -9,8 +9,8 @@ product invariants”, “Slice discipline”, “Flatpak and SteamOS rules”, 
 “Third-party and clean-room rules”; `GOVERNANCE.md` “What evidence means”;
 `docs/ARCHITECTURE.md` installed-software and rollback boundaries; and the
 selected [PKG0 contract](docs/PKG0.md).
-The focused source repair is commit `153a58fd66073c66e84b8c04f9c05f173ae6ea02`
-(tree `f96355d50a6dec193d2b78199956efbbe8c93b8a`); the PR body binds the
+The focused source repair is commit `4c56e8b5567f4fe72b452d0e30ca97b6254bd8f1`
+(tree `86bc073f65d9a3f892e216a1696e7e08137c97f8`); the PR body binds the
 final documentation head/tree. PR #184 remains draft and unmerged.
 
 **One claim:** a fixed installed package with one exact paired manager/frontend
