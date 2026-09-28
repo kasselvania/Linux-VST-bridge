@@ -6,6 +6,7 @@ only destination names, digests and component identities enter the package.
 """
 import argparse
 import hashlib
+import io
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -14,6 +15,7 @@ import secrets
 import shutil
 import stat
 import tarfile
+import zipfile
 
 PACKAGE = "linux-vst-bridge-beta"
 PKGREL = 1
@@ -32,6 +34,7 @@ REQUIRED = {
     "usr/share/doc/linux-vst-bridge-beta/COMPLIANCE_MANIFEST.json": "compliance",
 }
 ADOPTION_MANIFEST = "usr/share/linux-vst-bridge/pkg0-manifest.json"
+KIT_DESTINATION = "usr/lib/linux-vst-bridge/preparation/preparation-kit.zip"
 ADOPTED = {
     "usr/bin/linux-vst-bridge": "linux-vst-bridge",
     "usr/bin/linux-audio-compatibility-manager": "linux-audio-compatibility-manager",
@@ -40,6 +43,7 @@ ADOPTED = {
     "usr/lib/linux-vst-bridge/host/bridge-host.exe": "host.exe",
     "usr/lib/linux-vst-bridge/host/source-manifest.json": "host-source-manifest.json",
 }
+ADOPTED_WITH_KIT = {**ADOPTED, KIT_DESTINATION: "preparation-kit.zip"}
 SOURCE_SUFFIXES = {".rs", ".c", ".cc", ".cpp", ".h", ".hpp", ".py"}
 SECRET_MARKERS = (b"-----BEGIN PRIVATE KEY-----", b"-----BEGIN OPENSSH PRIVATE KEY-----",
                   b"github_pat_", b"ghp_")
@@ -80,6 +84,8 @@ def source_file(raw):
 def file_bytes(item):
     p = source_file(item["source"])
     before = p.stat()
+    if item["kind"] == "preparation_kit" and before.st_size > 256 * 1024 * 1024:
+        raise ValueError("preparation kit extent")
     data = p.read_bytes()
     after = p.stat()
     stamp = lambda m: (m.st_dev, m.st_ino, m.st_size, m.st_mtime_ns, m.st_ctime_ns)
@@ -90,10 +96,65 @@ def file_bytes(item):
     return data
 
 
+def verify_kit(data, source_head, host_sha256, source_sha256):
+    if len(data) > 256 * 1024 * 1024:
+        raise ValueError("preparation kit extent")
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        entries = archive.infolist()
+        names = [entry.filename for entry in entries]
+        if len(names) > 512 or len(names) != len(set(names)) or "recipe.json" not in names:
+            raise ValueError("preparation kit roster")
+        total = 0
+        fixed = {"recipe.json", "CMakeLists.txt", "cmake/HP0ModernGcc.cmake",
+                 "cmake/HP0Vst3SdkLock.cmake", "libap2_backend.a",
+                 "runtime/host.exe", "runtime/host-source-manifest.json",
+                 "tools/mf3/native_builder.py", "tools/ap8_descriptor.py"}
+        for entry in entries:
+            name = entry.filename
+            path = PurePosixPath(name)
+            entry_type = stat.S_IFMT(entry.external_attr >> 16)
+            source_path = (name.startswith("native-vst3-proxy/")
+                           and path.suffix in {".rs", ".h", ".cpp", ".c", ".toml", ".lock", ".py"})
+            state_path = name.startswith("vst-state/") and path.suffix in {".h", ".cpp"}
+            if (entry.is_dir() or path.is_absolute() or str(path) != name
+                    or any(part in ("", ".", "..") for part in path.parts)
+                    or name not in fixed and not source_path and not state_path
+                    or entry_type not in (0, stat.S_IFREG)
+                    or entry.file_size > 128 * 1024 * 1024):
+                raise ValueError("preparation kit entry")
+            total += entry.file_size
+            if total > 512 * 1024 * 1024:
+                raise ValueError("preparation kit extent")
+        if archive.getinfo("recipe.json").file_size > 65536:
+            raise ValueError("preparation kit recipe extent")
+        recipe = json.loads(archive.read("recipe.json"))
+        if (set(recipe) != {"schema", "source_commit", "sdk", "sdk_runtime", "files"}
+                or recipe["schema"] != 2 or recipe["source_commit"] != source_head
+                or not isinstance(recipe["files"], dict)
+                or set(recipe["files"]) != set(names) - {"recipe.json"}
+                or not isinstance(recipe["sdk"], str)
+                or not isinstance(recipe["sdk_runtime"], str)):
+            raise ValueError("preparation kit recipe")
+        required = {"libap2_backend.a", "runtime/host.exe",
+                    "runtime/host-source-manifest.json", "tools/mf3/native_builder.py",
+                    "tools/ap8_descriptor.py", "CMakeLists.txt"}
+        if not required <= set(recipe["files"]):
+            raise ValueError("preparation kit required files")
+        for name, expected in recipe["files"].items():
+            source = archive.read(name)
+            if (not re.fullmatch(r"[0-9a-f]{64}", expected)
+                    or sha(source) != expected
+                    or any(marker in source for marker in SECRET_MARKERS)):
+                raise ValueError("preparation kit file digest")
+        if (recipe["files"]["runtime/host.exe"] != host_sha256
+                or recipe["files"]["runtime/host-source-manifest.json"] != source_sha256):
+            raise ValueError("preparation kit host pair")
+
+
 def validate(spec):
     base = {"schema", "version", "source_head", "source_tree", "operator_schema",
             "external_runtime", "files"}
-    if set(spec) != base or spec["schema"] != 1:
+    if set(spec) != base or spec["schema"] not in (1, 2):
         raise ValueError("PKG0 input schema")
     if spec["operator_schema"] != 10:
         raise ValueError("paired operator schema differs")
@@ -126,7 +187,7 @@ def validate(spec):
             raise ValueError("file digest syntax")
         if item["mode"] not in ("0444", "0555") or item["kind"] not in (
             "manager", "frontend", "supervisor", "ownership", "windows_host",
-            "host_source", "proxy", "fixture",
+            "host_source", "proxy", "fixture", "preparation_kit",
             "fixture_resource",
             "profile", "guide", "notices", "sbom", "compliance", "license"
         ):
@@ -138,6 +199,7 @@ def validate(spec):
         if name not in REQUIRED:
             prefix = {
                 "proxy": "usr/lib/linux-vst-bridge/proxy/",
+                "preparation_kit": "usr/lib/linux-vst-bridge/preparation/",
                 "fixture": "usr/lib/linux-vst-bridge/self-test/",
                 "fixture_resource": "usr/lib/linux-vst-bridge/self-test/",
                 "profile": "usr/lib/linux-vst-bridge/profiles/",
@@ -145,11 +207,15 @@ def validate(spec):
             }.get(item["kind"])
             if prefix is None or not name.startswith(prefix):
                 raise ValueError("file role and destination disagree")
+        if item["kind"] == "preparation_kit" and (name != KIT_DESTINATION or item["mode"] != "0444"):
+            raise ValueError("preparation kit destination or mode")
         if item["kind"] != "license" and PurePosixPath(name).suffix in SOURCE_SUFFIXES:
             raise ValueError("proprietary source in binary package")
         seen[name] = item
     if any(name not in seen for name in REQUIRED):
         raise ValueError("required binary/document missing")
+    if (KIT_DESTINATION in seen) != (spec["schema"] == 2):
+        raise ValueError("preparation kit required by package schema")
     if not any(x["kind"] == "proxy" for x in spec["files"]):
         raise ValueError("native proxy absent")
     if not any(x["kind"] == "fixture" for x in spec["files"]):
@@ -169,8 +235,12 @@ def _build(spec, output, epoch):
     payload = output / "payload.tar"
     roster = []
     with tarfile.open(payload, "w", format=tarfile.PAX_FORMAT) as archive:
+        host_sha256 = files["usr/lib/linux-vst-bridge/host/bridge-host.exe"]["sha256"]
+        source_sha256 = files["usr/lib/linux-vst-bridge/host/source-manifest.json"]["sha256"]
         for name, item in sorted(files.items()):
             data = file_bytes(item)
+            if item["kind"] == "preparation_kit":
+                verify_kit(data, spec["source_head"], host_sha256, source_sha256)
             if item["kind"] in ("manager", "frontend", "proxy") and not data.startswith(b"\x7fELF"):
                 raise ValueError("Linux executable format")
             if item["kind"] in ("windows_host", "fixture") and not data.startswith(b"MZ"):
@@ -180,9 +250,10 @@ def _build(spec, output, epoch):
             add_bytes(archive, name, data, int(item["mode"], 8), epoch)
             roster.append({"destination": name, "sha256": sha(data), "size": len(data),
                            "mode": item["mode"], "kind": item["kind"], "component": item["component"]})
-        adopted = [{"name": ADOPTED[name], "sha256": files[name]["sha256"],
-                    "size": len(file_bytes(files[name]))} for name in ADOPTED]
-        adoption = canonical({"schema": 1, "package": PACKAGE, "version": spec["version"],
+        adopted_names = ADOPTED_WITH_KIT if spec["schema"] == 2 else ADOPTED
+        adopted = [{"name": adopted_names[name], "sha256": files[name]["sha256"],
+                    "size": len(file_bytes(files[name]))} for name in adopted_names]
+        adoption = canonical({"schema": spec["schema"], "package": PACKAGE, "version": spec["version"],
                               "pkgrel": PKGREL,
                               "source_head": spec["source_head"],
                               "source_tree": spec["source_tree"],

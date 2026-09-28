@@ -7,6 +7,7 @@ import subprocess
 import tarfile
 import tempfile
 import unittest
+import zipfile
 
 import assemble
 import verify_package
@@ -66,6 +67,62 @@ class PackageAssembly(unittest.TestCase):
         if kind in ("manager", "frontend"):
             item.update(build_head="a" * 40, build_tree="b" * 40)
         self.files.append(item)
+
+    def add_kit(self, *, source_commit=None):
+        contents = {
+            "CMakeLists.txt": b"owned native build",
+            "libap2_backend.a": b"!<arch>\n",
+            "runtime/host.exe": (self.inputs / "4").read_bytes(),
+            "runtime/host-source-manifest.json": (self.inputs / "5").read_bytes(),
+            "tools/mf3/native_builder.py": b"owned builder",
+            "tools/ap8_descriptor.py": b"owned generator",
+        }
+        recipe = {"schema": 2, "source_commit": source_commit or self.spec["source_head"],
+                  "sdk": "pinned-sdk", "sdk_runtime": "pinned-runtime",
+                  "files": {name: hashlib.sha256(data).hexdigest()
+                            for name, data in contents.items()}}
+        archive = io.BytesIO()
+        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as target:
+            for name, data in contents.items():
+                target.writestr(name, data)
+            target.writestr("recipe.json", json.dumps(recipe))
+        self.add_file(assemble.KIT_DESTINATION, "preparation_kit", archive.getvalue(), 106)
+        self.spec["schema"] = 2
+
+    def test_package_kit_is_bound_to_adoption_and_host_pair(self):
+        self.add_kit()
+        out = self.root / "with-kit"
+        release = assemble.build(self.spec, out, 1234567890)
+        with tarfile.open(out / "payload.tar") as package:
+            adoption = json.loads(package.extractfile(assemble.ADOPTION_MANIFEST).read())
+        self.assertEqual(adoption["schema"], 2)
+        self.assertEqual(adoption["files"][-1]["name"], "preparation-kit.zip")
+        self.assertEqual(adoption["files"][-1]["sha256"],
+                         next(item for item in self.files if item["kind"] == "preparation_kit")["sha256"])
+        package = package_archive(out, self.root / "with-kit.pkg.tar.zst")
+        self.assertEqual(verify_package.verify(package, release, True)["files"], len(self.files) + 1)
+
+    def test_kit_schema_source_and_host_mismatch_refuse(self):
+        with self.assertRaisesRegex(ValueError, "required"):
+            assemble.validate({**self.spec, "schema": 2})
+        self.add_kit(source_commit="0" * 40)
+        with self.assertRaisesRegex(ValueError, "preparation kit recipe"):
+            assemble.build(self.spec, self.root / "wrong-source", 1234567890)
+        self.files.pop()
+        self.add_kit()
+        self.spec["files"] = self.files
+        host = next(item for item in self.files if item["kind"] == "windows_host")
+        changed_host = b"MZdifferent host"
+        pathlib.Path(host["source"]).write_bytes(changed_host)
+        host["sha256"] = hashlib.sha256(changed_host).hexdigest()
+        with self.assertRaisesRegex(ValueError, "preparation kit host pair"):
+            assemble.build(self.spec, self.root / "wrong-host", 1234567890)
+
+    def test_old_package_schema_cannot_smuggle_a_kit(self):
+        self.add_kit()
+        self.spec["schema"] = 1
+        with self.assertRaisesRegex(ValueError, "preparation kit required"):
+            assemble.validate(self.spec)
 
     def test_binary_roster_and_external_runtime_contract(self):
         out = self.root / "out"

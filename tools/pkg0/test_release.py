@@ -54,6 +54,18 @@ class SignedRelease(unittest.TestCase):
         with self.assertRaises(subprocess.CalledProcessError):
             verify_release.verify(bundle, trusted, fingerprint, "internal_test", True)
 
+        fixture.add_kit()
+        kit_output = root / "kit-staged"
+        assemble.build(fixture.spec, kit_output, 1234567890)
+        kit_package = root / "kit-package" / package.name
+        kit_package.parent.mkdir()
+        test_assemble.package_archive(kit_output, kit_package)
+        kit_bundle = root / "kit-signed"
+        sign_release.sign(kit_package, kit_output / "RELEASE_MANIFEST.json", home,
+                          fingerprint, "internal_test", kit_bundle, structure_only=True)
+        self.assertEqual(verify_release.verify(kit_bundle, trusted, fingerprint,
+                                               "internal_test", True)["files"], len(fixture.files) + 1)
+
 
 if __name__ == "__main__":
     unittest.main()

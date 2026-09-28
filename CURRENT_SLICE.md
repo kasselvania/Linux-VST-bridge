@@ -1,6 +1,29 @@
 # Current work selection
 
-## Selected native note-release correction — MIDI0
+## Selected source-only package-kit authority — PKG1
+
+PKG1 starts from post-MIDI0 canonical main
+`0385faaef3251e5c1036741b4e440ec5b66e5133` (tree
+`87f3e9c5ccc446c85db77d17a1d774c748431fa0`). Its basis is
+`AGENTS.md` “Keep the engineering safeguards” and “Verification and review”;
+`GOVERNANCE.md` “What evidence means”; and `docs/ARCHITECTURE.md`
+installed-software and rollback boundaries. The focused contract is in
+[PKG1 native kit adoption](docs/PKG1_NATIVE_KIT.md).
+
+**One claim:** a verified package may select one exact source-owned native
+preparation kit in the same immutable software generation as its paired
+manager/frontend, while retaining the previously selected kit and all product
+state for exact rollback. Historical six-file PKG0 generations remain readable.
+The new kit cannot become a managed proxy publication merely by adopting the
+package. UI2 must prepare and test an exact successor candidate separately.
+
+PKG1 is source-only. It does not install a Deck generation, publish Pure LoFi,
+launch Bitwig, choose a release signing key, or claim that the operator's Push 3
+held-note symptom is physically resolved. PB0-C0 remains draft and uninstalled
+on its separate branch; its final package must be integrated with this owner
+before a controlled Deck successor can be selected.
+
+## Completed source-only native note-release correction — MIDI0
 
 MIDI0 starts from canonical main `c920f2eca09bb27e92172b1f32e5899d45d2630b`
 (tree `656049fe96aa9a0685c8326ca5a93058b3b0e08b`). Its basis is
@@ -22,7 +45,10 @@ The Steam Deck's selected manager, publications, runners, environments and
 workspace remain unchanged while source validation runs. A physical
 Push/Bitwig check on an exact installed successor with a new managed native
 proxy publication is required before calling the observed held-note bug closed.
-PB0-C0 remains a separate product lane.
+MIDI0 merged normally into canonical main as
+`0385faaef3251e5c1036741b4e440ec5b66e5133` with the reviewed tree
+`87f3e9c5ccc446c85db77d17a1d774c748431fa0`. PB0-C0 remains a
+separate product lane.
 
 ## Selected read-only installed-state gate — PB0-R3
 

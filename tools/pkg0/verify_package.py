@@ -10,7 +10,8 @@ import re
 import stat
 import subprocess
 import tempfile
-from assemble import DEPENDENCIES, PKGREL
+from assemble import (ADOPTION_MANIFEST, DEPENDENCIES, KIT_DESTINATION, PKGREL,
+                      verify_kit)
 
 OPTIONAL_META = {".BUILDINFO": 1024 * 1024, ".MTREE": 4 * 1024 * 1024}
 
@@ -106,6 +107,22 @@ def verify(package, manifest, structure_only=False):
                 pe = subprocess.check_output(["file", "-b", str(path)], text=True)
                 if "PE32+" not in pe or "x86-64" not in pe:
                     raise ValueError("package PE architecture differs")
+        adopted = json.loads((root / ADOPTION_MANIFEST).read_bytes())
+        schema = 2 if KIT_DESTINATION in expected else 1
+        if (adopted.get("schema") != schema
+                or adopted.get("source_head") != manifest["source_head"]
+                or adopted.get("source_tree") != manifest["source_tree"]
+                or adopted.get("version") != manifest["version"]
+                or adopted.get("pkgrel") != manifest["pkgrel"]):
+            raise ValueError("package adoption identity differs")
+        if schema == 2:
+            kit = expected[KIT_DESTINATION]
+            if not any(row == {"name": "preparation-kit.zip", "sha256": kit["sha256"],
+                               "size": kit["size"]} for row in adopted["files"]):
+                raise ValueError("package adoption kit differs")
+            verify_kit((root / KIT_DESTINATION).read_bytes(), manifest["source_head"],
+                       expected["usr/lib/linux-vst-bridge/host/bridge-host.exe"]["sha256"],
+                       expected["usr/lib/linux-vst-bridge/host/source-manifest.json"]["sha256"])
     return {"package_sha256": digest(package), "files": len(expected),
             "structure_only": structure_only}
 
