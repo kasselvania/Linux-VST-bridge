@@ -15,6 +15,8 @@ using namespace Steinberg;
 using namespace Steinberg::Vst;
 static unsigned setups=0,activations=0,closes=0,processes=0;
 static bool input_enabled=true,last_output=false;
+enum class InputCase { Original, MixedExpression, ExpressionOnly, NoteOffOnly };
+static InputCase input_case=InputCase::Original;
 static std::array<float,32> expected_left{},expected_right{};
 static uint64_t expected_silence=3;
 extern "C" {
@@ -32,8 +34,19 @@ uint32_t __wrap_ap4_deactivate(uint64_t){return 0;}
 uint32_t __wrap_ap3_transition(uint64_t,uint32_t){return 0;}
 uint32_t __wrap_ap10_take_results(uint64_t,ap10_results_t*p){static const ap10_results_t empty{};*p=empty;return 0;}
 uint32_t __wrap_if2_process(uint64_t,uint32_t n,const ap8_event_t*e,uint32_t count,const ap10_context_t*,uint64_t silence,const float*l,const float*r,float*ol,float*orr,uint64_t*out,ap7_delivery_t*d,uint64_t entered){
- assert(entered&&count==2&&e[0].kind==0&&e[1].kind==2);
- assert(e[0].offset==(n?7u:0u)&&e[1].offset==(n?11u:0u));
+ assert(entered);
+ if(input_case==InputCase::Original){
+  assert(count==2&&e[0].kind==0&&e[1].kind==2);
+  assert(e[0].offset==(n?7u:0u)&&e[1].offset==(n?11u:0u));
+ }else if(input_case==InputCase::MixedExpression){
+  assert(count==2&&e[0].kind==0&&e[1].kind==1);
+  assert(e[0].offset==7&&e[1].offset==19);
+  assert(e[0].id==32&&e[1].id==32&&e[0].channel==9&&e[1].channel==9);
+ }else if(input_case==InputCase::ExpressionOnly){
+  assert(count==0);
+ }else{
+  assert(count==1&&e[0].kind==1&&e[0].offset==19&&e[0].id==32&&e[0].channel==9);
+ }
  assert(n==0||n==32);
  if(n){assert(silence==expected_silence);for(unsigned i=0;i<n;++i){assert(l[i]==expected_left[i]);assert(r[i]==expected_right[i]);}}
  std::copy_n(l,n,ol);std::copy_n(r,n,orr);*out=silence;*d={};d->delivered_frames=n;++processes;return 0;
@@ -82,6 +95,23 @@ int main(){
  // Preserve the existing correction of false silence hints without dropping audio.
  ib.silenceFlags=3;run();
  expected_left.fill(0);expected_right.fill(0);expected_silence=3;run();
+ // Push-style note expression can share a block with an ordinary note-off.
+ // The unsupported expressive events must not discard either note event or
+ // make the whole audio callback fail.
+ input_case=InputCase::MixedExpression;notes.clear();parameters.clearQueue();
+ note.noteOn.channel=9;notes.addEvent(note);
+ Event pressure{};pressure.type=Event::kPolyPressureEvent;pressure.sampleOffset=11;
+ pressure.polyPressure={9,60,.7f,32};notes.addEvent(pressure);
+ Event expression{};expression.type=Event::kNoteExpressionValueEvent;expression.sampleOffset=15;
+ expression.noteExpressionValue={1,32,.4};notes.addEvent(expression);
+ Event off{};off.type=Event::kNoteOffEvent;off.sampleOffset=19;
+ off.noteOff={9,60,.2f,0,32};notes.addEvent(off);run();
+ input_case=InputCase::ExpressionOnly;notes.clear();notes.addEvent(pressure);notes.addEvent(expression);run();
+ input_case=InputCase::NoteOffOnly;notes.clear();notes.addEvent(off);run();
+ auto before_unknown=processes;off.type=999;notes.clear();notes.addEvent(off);
+ assert(p->process(d)!=kResultOk&&processes==before_unknown);
+ input_case=InputCase::Original;notes.clear();note.noteOn.channel=0;notes.addEvent(note);
+ parameters.addParameterData(0,qi)->addPoint(11,.75,pi);
  // A DAW can supply all declared buses or omit trailing inactive buses. Neither
  // form may touch inactive storage or change the transported sample positions.
  std::array<AudioBusBuffers,32> outputs{};outputs[0]=ob;

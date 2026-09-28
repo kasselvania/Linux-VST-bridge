@@ -762,6 +762,14 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   ap8_event_t events[256]{};uint32_t event_count=0;
   auto append=[&](ap8_event_t e){if(event_count==256)return false;events[event_count++]=e;return true;};
   if(d.inputEvents){auto n=d.inputEvents->getEventCount();if(n<0||n>256)return reject();for(int i=0;i<n;++i){Event e{};if(d.inputEvents->getEvent(i,e)!=kResultOk||e.busIndex!=0)return reject();
+    // The current AP8 transport owns note on/off, not VST3 expression. A
+    // recognized expression must not discard a note-off in the same callback.
+    // Count it for the non-real-time lifecycle report; do not claim MPE input.
+    if(e.type==Event::kPolyPressureEvent||e.type==Event::kNoteExpressionValueEvent||
+       e.type==Event::kNoteExpressionTextEvent){
+      skipped_expression_events_.fetch_add(1,std::memory_order_relaxed);
+      continue;
+    }
     ap8_event_t v{};v.offset=static_cast<uint32_t>(e.sampleOffset);
     if(e.type==Event::kNoteOnEvent){v.kind=0;v.id=static_cast<uint32_t>(e.noteOn.noteId);v.channel=e.noteOn.channel;v.pitch=e.noteOn.pitch;v.value=e.noteOn.velocity;v.tuning=e.noteOn.tuning;}
     else if(e.type==Event::kNoteOffEvent){v.kind=1;v.id=static_cast<uint32_t>(e.noteOff.noteId);v.channel=e.noteOff.channel;v.pitch=e.noteOff.pitch;v.value=e.noteOff.velocity;v.tuning=e.noteOff.tuning;}else return reject();
@@ -1039,6 +1047,7 @@ tresult PLUGIN_API Processor::terminate() {
         "%d,"
         "\"requested_rate\":%.0f,\"requested_mode\":%d,\"frames\":%llu,"
         "\"blocks\":%u,\"callback_rejections\":%llu,"
+        "\"skipped_expression_events\":%llu,"
         "\"rejected_silent_frames\":%llu,\"discontinuities\":%llu,"
         "\"successful_silent_callbacks\":%llu,\"successful_silent_frames\":%llu,"
         "\"priming_frames\":%llu,\"underrun_frames\":%llu,\"underrun_gaps\":%llu,"
@@ -1050,6 +1059,8 @@ tresult PLUGIN_API Processor::terminate() {
         static_cast<int>(phase_.load()), requested_maximum_, requested_rate_,
         requested_mode_, (unsigned long long)frames_, blocks_,
         (unsigned long long)callback_rejections_.load(
+            std::memory_order_relaxed),
+        (unsigned long long)skipped_expression_events_.load(
             std::memory_order_relaxed),
         (unsigned long long)rejected_frames_.load(std::memory_order_relaxed),
         (unsigned long long)discontinuities_.load(std::memory_order_relaxed),
