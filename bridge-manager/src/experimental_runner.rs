@@ -5,7 +5,7 @@ use super::*;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::os::fd::AsRawFd;
 use std::os::unix::fs::MetadataExt;
 
@@ -146,7 +146,7 @@ enum CandidateKind {
 // history, not permission to create another BG1 runner or execute a rollback.
 const BG1_ENVIRONMENT: &str = "7d8fce354e68595cdc20485f754a892d";
 const BG1_CLASS: &str = "ABCDEF019182FAEB4C756E6170726F43";
-const BG1_V4_RUNNER: &str = "proton-11.0-2c-dcomp-bg1-v4";
+pub(super) const BG1_V4_RUNNER: &str = "proton-11.0-2c-dcomp-bg1-v4";
 const BG1_V4_COMPONENT: &str =
     "1fca37746647a975d80666f75f84c050770820b2c0f7de58352bbf7ed4f40c30";
 
@@ -269,11 +269,52 @@ fn verify_bg1_step(
     )
 }
 
-fn bg1_rollback_directories(root: &Path, environment: &str) -> Result<[Option<(PathBuf, Bg1Transition)>; 3]> {
+// Rollback history is input, not a directory we are authorized to create.
+// Keep the directory descriptor open so a replacement cannot pass the final
+// identity check while the original inode is still in use.
+struct ExistingPrivateDirectory {
+    path: PathBuf,
+    descriptor: File,
+}
+
+impl ExistingPrivateDirectory {
+    fn open(path: &Path) -> Result<Self> {
+        let before = fs::symlink_metadata(path)?;
+        require(path.is_absolute() && before.file_type().is_dir()
+            && before.uid() == unsafe { libc::getuid() }
+            && before.mode() & 0o077 == 0
+            && path.canonicalize()? == path,
+            "bg1_retained_directory_identity")?;
+        let descriptor = OpenOptions::new().read(true)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_DIRECTORY).open(path)?;
+        let selected = Self { path: path.to_owned(), descriptor };
+        selected.verify()?;
+        Ok(selected)
+    }
+
+    fn verify(&self) -> Result<()> {
+        let path = fs::symlink_metadata(&self.path)?;
+        let opened = self.descriptor.metadata()?;
+        require(self.path.canonicalize()? == self.path
+            && path.file_type().is_dir() && opened.is_dir()
+            && path.uid() == unsafe { libc::getuid() }
+            && opened.uid() == unsafe { libc::getuid() }
+            && path.mode() & 0o077 == 0 && opened.mode() & 0o077 == 0
+            && path.dev() == opened.dev() && path.ino() == opened.ino(),
+            "bg1_retained_directory_changed")
+    }
+}
+
+struct Bg1RollbackDirectories {
+    root: ExistingPrivateDirectory,
+    steps: [Option<(ExistingPrivateDirectory, Bg1Transition)>; 3],
+}
+
+fn bg1_rollback_directories(root: &Path, environment: &str) -> Result<Bg1RollbackDirectories> {
     let mut directories = [None, None, None];
-    let rollback = root.join("private-rollback");
+    let rollback = ExistingPrivateDirectory::open(&root.join("private-rollback"))?;
     let mut count = 0;
-    for entry in fs::read_dir(&rollback)? {
+    for entry in fs::read_dir(&rollback.path)? {
         count += 1;
         require(count <= 64, "bg1_retained_rollback_extent")?;
         let path = entry?.path();
@@ -282,17 +323,19 @@ fn bg1_rollback_directories(root: &Path, environment: &str) -> Result<[Option<(P
             || name.starts_with("experimental-runner-routing-") {
             continue;
         }
-        private_dir(&path)?;
+        let selected = ExistingPrivateDirectory::open(&path)?;
         let value: Value = read_json(&path.join("transition.json"))?;
+        selected.verify()?;
         if value.get("environment").and_then(Value::as_str) != Some(environment) {
             continue;
         }
         let transition: Bg1Transition = serde_json::from_value(value)?;
         let index = transition.before_revision.checked_sub(1).ok_or("bg1_retained_revision")? as usize;
         require(index < 3 && directories[index].is_none(), "bg1_retained_rollback_ambiguous")?;
-        directories[index] = Some((path, transition));
+        directories[index] = Some((selected, transition));
     }
-    Ok(directories)
+    rollback.verify()?;
+    Ok(Bg1RollbackDirectories { root: rollback, steps: directories })
 }
 
 fn bg1_component<'a>(runner: &'a Runner, expected_sha256: &str) -> Result<&'a Artifact> {
@@ -354,7 +397,9 @@ fn verify_bg1_history_with(
     let mut directories = bg1_rollback_directories(&m.root, environment)?;
     let mut after = selected.clone();
     for index in (0..3).rev() {
-        let (path, transition) = directories[index].take().ok_or("bg1_retained_rollback_absent")?;
+        let (directory, transition) = directories.steps[index].take().ok_or("bg1_retained_rollback_absent")?;
+        directory.verify()?;
+        let path = &directory.path;
         let step = &steps[index];
         let before: Environment = read_json(&path.join("environment.json"))?;
         let record: onboarding::Record = read_json(&path.join("record.json"))?;
@@ -397,8 +442,10 @@ fn verify_bg1_history_with(
                 && retired.managed_revision.as_ref() == Some(&transition.removed_publication),
             "bg1_retained_publication_binding",
         )?;
+        directory.verify()?;
         after = before;
     }
+    directories.root.verify()?;
     Ok(())
 }
 
@@ -1235,11 +1282,67 @@ mod tests {
         atomic_json(&unrelated.join("transition.json"), &other_environment).unwrap();
         let touch = root.join("experimental-runner-touch-4db060b14388e41103834fc4dfdd023a");
         private_dir(&touch).unwrap();
-        assert!(bg1_rollback_directories(&fixture.m.root, BG1_ENVIRONMENT).unwrap()[2].is_some());
+        assert!(bg1_rollback_directories(&fixture.m.root, BG1_ENVIRONMENT).unwrap().steps[2].is_some());
         let duplicate = root.join(format!("experimental-runner-{}", "c".repeat(32)));
         private_dir(&duplicate).unwrap();
         atomic_json(&duplicate.join("transition.json"), &transition).unwrap();
         assert!(bg1_rollback_directories(&fixture.m.root, BG1_ENVIRONMENT).is_err());
+    }
+
+    #[test]
+    fn retained_history_directory_reads_never_create_or_change_authority() {
+        let fixture = test_fixture::Fixture::new();
+        let root = fixture.m.root.join("private-rollback");
+        assert!(bg1_rollback_directories(&fixture.m.root, BG1_ENVIRONMENT).is_err());
+        assert!(!root.exists());
+
+        let substitute = fixture.m.root.join("other-private-directory");
+        private_dir(&substitute).unwrap();
+        std::os::unix::fs::symlink(&substitute, &root).unwrap();
+        assert!(bg1_rollback_directories(&fixture.m.root, BG1_ENVIRONMENT).is_err());
+        assert_eq!(fs::read_link(&root).unwrap(), substitute);
+        fs::remove_file(&root).unwrap();
+
+        private_dir(&root).unwrap();
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(bg1_rollback_directories(&fixture.m.root, BG1_ENVIRONMENT).is_err());
+        assert_eq!(fs::symlink_metadata(&root).unwrap().mode() & 0o777, 0o755);
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+        let transition_dir = root.join(format!("experimental-runner-{}", "a".repeat(32)));
+        let (transition, _) = installed_v4_transition();
+        private_dir(&transition_dir).unwrap();
+        atomic_json(&transition_dir.join("transition.json"), &transition).unwrap();
+        let original = fs::read(transition_dir.join("transition.json")).unwrap();
+        let held = ExistingPrivateDirectory::open(&transition_dir).unwrap();
+
+        let missing = root.join(format!("experimental-runner-{}", "b".repeat(32)));
+        assert!(ExistingPrivateDirectory::open(&missing).is_err());
+        assert!(!missing.exists());
+
+        let link = root.join(format!("experimental-runner-{}", "c".repeat(32)));
+        std::os::unix::fs::symlink(&transition_dir, &link).unwrap();
+        assert!(ExistingPrivateDirectory::open(&link).is_err());
+        assert!(bg1_rollback_directories(&fixture.m.root, BG1_ENVIRONMENT).is_err());
+        assert_eq!(fs::read_link(&link).unwrap(), transition_dir);
+        fs::remove_file(&link).unwrap();
+
+        let public = root.join(format!("experimental-runner-{}", "d".repeat(32)));
+        private_dir(&public).unwrap();
+        fs::set_permissions(&public, fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(ExistingPrivateDirectory::open(&public).is_err());
+        assert!(bg1_rollback_directories(&fixture.m.root, BG1_ENVIRONMENT).is_err());
+        assert_eq!(fs::symlink_metadata(&public).unwrap().mode() & 0o777, 0o755);
+        assert_eq!(fs::read(transition_dir.join("transition.json")).unwrap(), original);
+
+        // A held directory descriptor makes a path replacement observable even
+        // if the replacement is otherwise private and has the same contents.
+        let moved = root.join("original-held-directory");
+        fs::rename(&transition_dir, &moved).unwrap();
+        private_dir(&transition_dir).unwrap();
+        fs::write(transition_dir.join("transition.json"), &original).unwrap();
+        assert!(held.verify().is_err());
+        assert_eq!(fs::read(moved.join("transition.json")).unwrap(), original);
+        assert_eq!(fs::read(transition_dir.join("transition.json")).unwrap(), original);
     }
 
     #[test]
@@ -1271,11 +1374,15 @@ mod tests {
     #[test]
     fn complete_retained_chain_binds_each_backup_and_current_environment() {
         let fixture = test_fixture::Fixture::new();
-        let environment = fixture.r.environment.id.clone();
+        let environment = "11".repeat(16);
+        let environment_root = fixture.m.root.join("environments").join(&environment);
+        private_dir(&environment_root.join("compatdata/pfx/drive_c")).unwrap();
         let class = fixture.r.metadata.class_id.clone();
         let mut versions = Vec::new();
         for (index, name) in ["standard", "bg1-v1", "bg1-v3", BG1_V4_RUNNER].iter().enumerate() {
             let mut value = fixture.r.environment.clone();
+            value.id = environment.clone();
+            value.root = environment_root.clone();
             value.revision = (index + 1) as u64;
             value.runner.id = (*name).into();
             if index == 3 {
@@ -1286,6 +1393,7 @@ mod tests {
             }
             versions.push(value);
         }
+        atomic_json(&environment_root.join("environment.json"), &versions[3]).unwrap();
         let keys: Vec<_> = versions.iter().map(|value| onboarding::runner_key(&value.runner).unwrap()).collect();
         let steps: [_; 3] = std::array::from_fn(|index| Bg1Step {
             before_revision: (index + 1) as u64,
@@ -1368,6 +1476,91 @@ mod tests {
         let selected = &versions[3];
         let component = selected.runner.files.last().unwrap();
         verify_bg1_history_with(&fixture.m, selected, &environment, &class, BG1_V4_RUNNER, &component.sha256, &steps).unwrap();
+        // Exercise the shared keeper owner with an exact source-owned V4
+        // lineage. The production entry point supplies the pinned verifier;
+        // this fixture supplies the same verifier with fixture-owned keys.
+        let software = catalogue::Software {
+            installer_launch: None, preparation_kit: None, operator_frontend: None,
+            manager: fixture.r.host.clone(), supervisor: fixture.r.host.clone(),
+            ownership: fixture.r.host.clone(), host: fixture.r.host.clone(),
+            source_manifest: fixture.r.host.clone(), source_sha256: fixture.r.host_source_sha256.clone(),
+            native_catalogue: None,
+        };
+        atomic_json(&fixture.m.root.join("software.json"), &software).unwrap();
+        let mut binding: crate::HostBinding = fixture.r.clone().into();
+        binding.environment = selected.clone();
+        let keepers = crate::Keepers::new(Vec::new());
+        let checks = std::sync::atomic::AtomicUsize::new(0);
+        let starts = std::sync::atomic::AtomicUsize::new(0);
+        let gate = |m: &Manager, env: &Environment| {
+            checks.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            verify_bg1_history_with(m, env, &environment, &class, BG1_V4_RUNNER,
+                &component.sha256, &steps)
+        };
+        let start = |_: &catalogue::Software, path: &Path| -> Result<std::process::Child> {
+            starts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let job: crate::SessionSpec = read_json(path)?;
+            atomic_json(&job.lease, &job.report)?;
+            Ok(std::process::Command::new("/bin/sh").args(["-c", "sleep 5"]).spawn()?)
+        };
+        assert_eq!(crate::stage_keeper_with_history(&fixture.m, &software, &binding, &keepers,
+            None, gate, start).unwrap(), crate::KeeperAvailability::Starting);
+        let session_root = selected.root.join("compatdata/pfx/drive_c/bridge/sessions");
+        let session_count = fs::read_dir(&session_root).unwrap().count();
+        let lease_count = fs::read_dir(fixture.m.root.join("runtime/leases")).unwrap().count();
+        {
+            let active = keepers.lock().unwrap();
+            assert_eq!(active.len(), 1);
+            atomic_json(&active[0].report, &json!({"ready": true,
+                "environment": environment})).unwrap();
+        }
+        assert_eq!(crate::stage_keeper_with_history(&fixture.m, &software, &binding, &keepers,
+            None, gate, start).unwrap(), crate::KeeperAvailability::Ready);
+        assert_eq!(checks.load(std::sync::atomic::Ordering::SeqCst), 2);
+
+        let assert_no_new_owner = || {
+            assert!(crate::stage_keeper_with_history(&fixture.m, &software, &binding,
+                &keepers, None, gate, start).is_err());
+            let mut active = keepers.lock().unwrap();
+            assert_eq!(active.len(), 1);
+            assert!(!active[0].retiring);
+            assert!(active[0].child.try_wait().unwrap().is_none());
+            drop(active);
+            assert_eq!(starts.load(std::sync::atomic::Ordering::SeqCst), 1);
+            assert_eq!(fs::read_dir(&session_root).unwrap().count(), session_count);
+            assert_eq!(fs::read_dir(fixture.m.root.join("runtime/leases")).unwrap().count(), lease_count);
+        };
+        let original_transition = fs::read(transitions[2].0.join("transition.json")).unwrap();
+        let mut changed = transitions[2].1.clone();
+        changed.candidate_tree_sha256 = "00".repeat(32);
+        atomic_json(&transitions[2].0.join("transition.json"), &changed).unwrap();
+        assert_no_new_owner();
+        fs::write(transitions[2].0.join("transition.json"), &original_transition).unwrap();
+        let duplicate = rollback.join(format!("experimental-runner-{}", "d".repeat(32)));
+        private_dir(&duplicate).unwrap();
+        fs::write(duplicate.join("transition.json"), &original_transition).unwrap();
+        assert_no_new_owner();
+        fs::remove_dir_all(&duplicate).unwrap();
+        let missing_step = rollback.join("temporarily-missing-step");
+        fs::rename(&transitions[1].0, &missing_step).unwrap();
+        assert_no_new_owner();
+        fs::rename(&missing_step, &transitions[1].0).unwrap();
+        {
+            let mut active = keepers.lock().unwrap();
+            active[0].child.kill().unwrap();
+            active[0].child.wait().unwrap();
+        }
+        let missing = transitions[1].0.join("transition.json");
+        let retained = fs::read(&missing).unwrap();
+        fs::remove_file(&missing).unwrap();
+        assert!(verify_bg1_history_with(&fixture.m, selected, &environment, &class, BG1_V4_RUNNER, &component.sha256, &steps).is_err());
+        assert!(!missing.exists());
+        fs::write(&missing, &retained).unwrap();
+        let absent_step = rollback.join("absent-transition-step");
+        fs::rename(&transitions[1].0, &absent_step).unwrap();
+        assert!(verify_bg1_history_with(&fixture.m, selected, &environment, &class, BG1_V4_RUNNER, &component.sha256, &steps).is_err());
+        assert!(!transitions[1].0.exists());
+        fs::rename(&absent_step, &transitions[1].0).unwrap();
         let mut changed = transitions[2].1.clone();
         changed.candidate_tree_sha256 = "00".repeat(32);
         atomic_json(&transitions[2].0.join("transition.json"), &changed).unwrap();
