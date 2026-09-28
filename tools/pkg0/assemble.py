@@ -16,6 +16,7 @@ import stat
 import tarfile
 
 PACKAGE = "linux-vst-bridge-beta"
+PKGREL = 1
 DEPENDENCIES = ("glibc", "gcc-libs", "python", "systemd", "libx11", "libxcb",
                 "libxkbcommon", "libglvnd", "pipewire", "xdg-desktop-portal")
 REQUIRED = {
@@ -182,6 +183,7 @@ def _build(spec, output, epoch):
         adopted = [{"name": ADOPTED[name], "sha256": files[name]["sha256"],
                     "size": len(file_bytes(files[name]))} for name in ADOPTED]
         adoption = canonical({"schema": 1, "package": PACKAGE, "version": spec["version"],
+                              "pkgrel": PKGREL,
                               "source_head": spec["source_head"],
                               "source_tree": spec["source_tree"],
                               "operator_schema": spec["operator_schema"],
@@ -191,12 +193,13 @@ def _build(spec, output, epoch):
                        "size": len(adoption), "mode": "0444",
                        "kind": "adoption_manifest", "component": PACKAGE})
     manifest = {"schema": 1, "package": PACKAGE, "version": spec["version"],
+                "pkgrel": PKGREL,
                 "source_head": spec["source_head"], "source_tree": spec["source_tree"],
                 "payload_sha256": sha(payload.read_bytes()), "files": roster}
     (output / "RELEASE_MANIFEST.json").write_bytes(canonical(manifest))
     pkgbuild = f'''pkgname={PACKAGE}
 pkgver={spec["version"]}
-pkgrel=1
+pkgrel={PKGREL}
 pkgdesc="Private Linux VST Bridge beta for native Linux DAWs"
 arch=('x86_64')
 url='https://github.com/kasselvania/Linux-VST-bridge'

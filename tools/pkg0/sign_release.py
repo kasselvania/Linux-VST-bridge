@@ -13,6 +13,7 @@ import re
 import shutil
 import subprocess
 from verify_package import verify as verify_package
+from assemble import PKGREL
 
 
 def require(condition, reason):
@@ -68,9 +69,10 @@ def sign(package, manifest, home, fingerprint, key_class, output, structure_only
     require(not output.exists() and not output.is_symlink(), "release output exists")
     data = json.loads(manifest.read_bytes())
     require(data.get("schema") == 1 and data.get("package") == "linux-vst-bridge-beta"
+            and data.get("pkgrel") == PKGREL
             and re.fullmatch(r"[0-9][A-Za-z0-9.]*", data.get("version", "")),
             "release manifest identity")
-    expected_name = f"linux-vst-bridge-beta-{data['version']}-1-x86_64.pkg.tar.zst"
+    expected_name = f"linux-vst-bridge-beta-{data['version']}-{data['pkgrel']}-x86_64.pkg.tar.zst"
     require(package.name == expected_name and manifest.name == "RELEASE_MANIFEST.json",
             "release filename identity")
     package_sha = sha_file(package)

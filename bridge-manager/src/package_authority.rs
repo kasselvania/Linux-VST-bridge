@@ -45,6 +45,7 @@ struct PackageManifest {
     schema: u32,
     package: String,
     version: String,
+    pkgrel: u32,
     source_head: String,
     source_tree: String,
     operator_schema: u32,
@@ -99,7 +100,7 @@ fn read_manifest(inputs: &Inputs, owner: u32) -> Result<(PackageManifest, String
     let manifest: PackageManifest = serde_json::from_slice(&bytes)?;
     require(manifest.schema == 1 && manifest.operator_schema == operator_model::OPERATOR_SCHEMA
         && manifest.package == "linux-vst-bridge-beta"
-        && valid_package_version(&manifest.version)
+        && valid_package_version(&manifest.version) && manifest.pkgrel == 1
         && valid_hex(&manifest.source_head, 40) && valid_hex(&manifest.source_tree, 40)
         && !manifest.external_runtime.id.is_empty()
         && manifest.external_runtime.id.len() <= 128
@@ -161,7 +162,7 @@ fn verify_generation(m: &Manager, current: &Software) -> Result<Generation> {
     require(record.schema == 1 && id(&record)? == dir.file_name().and_then(|n| n.to_str()).unwrap_or(""),
         "package_generation_identity")?;
     require(record.manifest.schema == 1 && record.manifest.package == "linux-vst-bridge-beta"
-        && valid_package_version(&record.manifest.version)
+        && valid_package_version(&record.manifest.version) && record.manifest.pkgrel == 1
         && record.manifest.files.len() == NAMES.len()
         && record.manifest.files.iter().zip(NAMES).all(|(entry, name)| entry.name == name
             && valid_hex(&entry.sha256, 64)), "package_generation_manifest")?;
@@ -542,6 +543,7 @@ mod tests {
         fn manifest(&self) -> PackageManifest {
             PackageManifest {
                 schema: 1, package: "linux-vst-bridge-beta".into(), version: "0.1.0beta1".into(),
+                pkgrel: 1,
                 source_head: "ab".repeat(20), source_tree: "cd".repeat(20),
                 operator_schema: operator_model::OPERATOR_SCHEMA,
                 files: NAMES.iter().map(|name| {

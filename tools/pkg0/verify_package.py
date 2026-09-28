@@ -10,7 +10,7 @@ import re
 import stat
 import subprocess
 import tempfile
-from assemble import DEPENDENCIES
+from assemble import DEPENDENCIES, PKGREL
 
 OPTIONAL_META = {".BUILDINFO": 1024 * 1024, ".MTREE": 4 * 1024 * 1024}
 
@@ -28,7 +28,7 @@ def package_info(path, manifest):
             raise ValueError("package metadata syntax")
         fields.setdefault(key, []).append(value)
     for key, expected in (("pkgname", "linux-vst-bridge-beta"),
-                          ("pkgver", f"{manifest['version']}-1"),
+                          ("pkgver", f"{manifest['version']}-{manifest['pkgrel']}"),
                           ("arch", "x86_64")):
         if fields.get(key) != [expected]:
             raise ValueError(f"package {key} differs")
@@ -48,6 +48,7 @@ def digest(path):
 
 def verify(package, manifest, structure_only=False):
     if (manifest.get("schema") != 1 or manifest.get("package") != "linux-vst-bridge-beta"
+            or manifest.get("pkgrel") != PKGREL
             or not isinstance(manifest.get("version"), str)
             or re.fullmatch(r"[0-9][A-Za-z0-9.]*", manifest["version"]) is None
             or not isinstance(manifest.get("files"), list)

@@ -14,8 +14,8 @@ import verify_package
 
 def package_archive(staged, destination, *, pkginfo=None, extra=()):
     if pkginfo is None:
-        version = json.loads((staged / "RELEASE_MANIFEST.json").read_bytes())["version"]
-        pkginfo = (f"pkgname = linux-vst-bridge-beta\npkgver = {version}-1\narch = x86_64\n"
+        release = json.loads((staged / "RELEASE_MANIFEST.json").read_bytes())
+        pkginfo = (f"pkgname = linux-vst-bridge-beta\npkgver = {release['version']}-{release['pkgrel']}\narch = x86_64\n"
                    + "".join(f"depend = {dep}\n" for dep in sorted(verify_package.DEPENDENCIES)))
     raw = destination.with_suffix(".tar")
     with tarfile.open(raw, "w", format=tarfile.PAX_FORMAT) as target:
@@ -78,6 +78,7 @@ class PackageAssembly(unittest.TestCase):
             self.assertEqual(adoption["operator_schema"], 10)
             self.assertEqual(adoption["package"], "linux-vst-bridge-beta")
             self.assertEqual(adoption["version"], self.spec["version"])
+            self.assertEqual(adoption["pkgrel"], 1)
             self.assertEqual(adoption["external_runtime"], self.spec["external_runtime"])
             self.assertFalse(any("/runtime/" in x for x in names))
             self.assertFalse(any(x.endswith((".rs", ".cpp", ".py")) or ".git" in x for x in names))
@@ -105,6 +106,7 @@ class PackageAssembly(unittest.TestCase):
             ("hook", normal, ((".INSTALL", b"post_install() {}"),)),
             ("name", normal.replace("pkgname = linux-vst-bridge-beta", "pkgname = foreign"), ()),
             ("version", normal.replace(f"pkgver = {version}-1", "pkgver = 99-1"), ()),
+            ("pkgrel", normal.replace(f"pkgver = {version}-1", f"pkgver = {version}-2"), ()),
             ("architecture", normal.replace("arch = x86_64", "arch = aarch64"), ()),
             ("dependencies", normal.replace("depend = glibc\n", ""), ()),
             ("duplicate", normal, ((".PKGINFO", normal.encode()),)),
@@ -117,6 +119,10 @@ class PackageAssembly(unittest.TestCase):
                                           pkginfo=info, extra=extra)
                 with self.assertRaises(ValueError):
                     verify_package.verify(package, manifest, True)
+        bad_release = {**manifest, "pkgrel": 2}
+        package = package_archive(out, self.root / "bad-release.pkg.tar.zst")
+        with self.assertRaisesRegex(ValueError, "release manifest schema"):
+            verify_package.verify(package, bad_release, True)
 
     def test_missing_product_payload_or_runtime_identity_refuses(self):
         for kind in ("profile", "fixture", "license"):
