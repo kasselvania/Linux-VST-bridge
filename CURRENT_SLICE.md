@@ -26,10 +26,10 @@ the Deck. PB0 PR #179 is extraction history and is superseded by this slice.
 Independent source review and a later controlled immutable install precede any
 physical PB0 product claim.
 
-The staged read-only Deck gate at code head `ed914d62ce535ae7a868872992447427fb03ec87`
+The staged read-only Deck gate at code head `6eeb38673be381b2710711ad31f1e44549e73df5`
 preserved every bounded installed metadata and route identity, and projected
 all current product, Setup and FL workspace rows. Its five-run warm overview
-median was **10.514 seconds** (maximum 11.671), and Activity remained above
+median was **10.528 seconds** (maximum 11.688), and Activity remained above
 the under-one-second target. The selected speed claim is therefore **not yet
 complete**. PR #188 remains draft and no PB0 generation has been installed;
 the exact result and next owner are in the [PB0-C0 receipt](evidence/pb0-c0/deck-readonly-2026-09-28.md).
