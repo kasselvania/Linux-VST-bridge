@@ -1,5 +1,5 @@
 //! Source-owned preview of the production manager views with synthetic records.
-//! Usage: OUTPUT.png [WIDTH] [PAGE] [busy|idle|unavailable|cleanup|shared] [light|dark]
+//! Usage: OUTPUT.png [WIDTH] [PAGE] [busy|idle|unavailable|cleanup|shared|guided|guided_new|guided_pending] [light|dark]
 #[path = "../src/client.rs"]
 mod client;
 #[path = "../src/library.rs"]
@@ -76,6 +76,77 @@ fn main() -> eframe::Result {
     };
     let mut snapshot: model::Snapshot =
         serde_json::from_str(include_str!("library-preview.json")).expect("preview fixture");
+    if page == operator::Page::Plugins
+        && matches!(args.get(3).map(String::as_str), Some("guided" | "guided_new" | "guided_pending")) {
+        let mut beam = snapshot.products[0].clone();
+        beam.name = "BEAM 2.3.1".into();
+        beam.version = "2.3.1".into();
+        beam.vendor = "Lunacy Audio".into();
+        beam.role = "effect".into();
+        beam.disposition = "experimental".into();
+        beam.environment = "cd".repeat(16);
+        beam.module_sha256 = "ef".repeat(32);
+        beam.class_id = "01".repeat(16);
+        beam.actions.clear();
+        beam.compatibility = Some(model::CompatibilityWorkflow {
+            phase: model::CompatibilityPhase::AvailableForTest,
+            summary: "Available temporarily in Bitwig. Record only what you observed.".into(),
+            established: vec!["Editor observed".into(), "Controls observed".into(),
+                "Clean close observed".into()],
+            remaining: vec!["Audio".into(), "State recall".into()],
+            current_inspection: Some("aa".repeat(32)),
+            current_candidate: Some("bb".repeat(32)),
+            primary: Some(model::AvailableAction {
+                label: "Record test result".into(),
+                action: model::Action::CompatibilityResult {
+                    candidate: "bb".repeat(32),
+                    expected_current: model::PublicationIdentity {
+                        id: "cc".repeat(16), sha256: "dd".repeat(32),
+                    },
+                    result: model::TestResultKind::Worked, passed: vec![],
+                    failed_area: None, note: String::new(),
+                }, disabled_reason: None,
+            }), alternatives: vec![],
+        });
+        if args.get(3).map(String::as_str) == Some("guided_pending") {
+            beam.compatibility = Some(model::CompatibilityWorkflow {
+                phase: model::CompatibilityPhase::AwaitingRetirement,
+                summary: "Problem recorded. The test configuration is still selected. Close the DAW or complete recovery, then finish this result.".into(),
+                established: vec!["Loaded in the DAW".into()],
+                remaining: vec!["Editor".into(), "Clean close".into()],
+                current_inspection: Some("aa".repeat(32)),
+                current_candidate: Some("bb".repeat(32)),
+                primary: Some(model::AvailableAction {
+                    label: "Finish recording test result".into(),
+                    action: model::Action::CompatibilityFinishResult {
+                        operation: "ee".repeat(16),
+                    },
+                    disabled_reason: Some("Previous instance cleanup is unconfirmed".into()),
+                }), alternatives: vec![],
+            });
+            snapshot.system.cleanup_unconfirmed = true;
+        }
+        let mut bismuth = beam.clone();
+        bismuth.name = "BEAM Bismuth".into();
+        bismuth.class_id = "02".repeat(16);
+        bismuth.disposition = "installed_unqualified".into();
+        bismuth.compatibility = Some(model::CompatibilityWorkflow {
+            phase: model::CompatibilityPhase::NotChecked,
+            summary: "Installed · compatibility not checked".into(),
+            established: vec![], remaining: vec![], current_inspection: None,
+            current_candidate: None,
+            primary: Some(model::AvailableAction {
+                label: "Check compatibility".into(),
+                action: model::Action::CompatibilityCheck {
+                    selection: "ee".repeat(32), audio_layout: None,
+                    recipe: "ff".repeat(32), predecessor: None,
+                }, disabled_reason: None,
+            }), alternatives: vec![],
+        });
+        snapshot.products = if args.get(3).map(String::as_str) == Some("guided_new") {
+            vec![bismuth]
+        } else { vec![beam, bismuth] };
+    }
     if page == operator::Page::Setup {
         let installer = "ab".repeat(32);
         let environment = "cd".repeat(16);
@@ -177,7 +248,7 @@ fn main() -> eframe::Result {
         Some(serde_json::json!({"operation":"preview-operation","state":"running"}));
     match args.get(3).map(String::as_str).unwrap_or("busy") {
         "busy" => {}
-        "idle" => {
+        "idle" | "guided" | "guided_new" | "guided_pending" => {
             snapshot.system.dsp = 0;
             snapshot.active_sessions.retain(|row| row["recent"] == true);
             snapshot.operation = None;

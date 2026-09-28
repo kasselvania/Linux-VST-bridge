@@ -27,6 +27,97 @@ fn bounded<T: serde::de::DeserializeOwned>(p: &Path) -> Result<T> {
 fn root(m: &Manager) -> PathBuf {
     m.root.join("preparation")
 }
+fn guided_check_path(m: &Manager, operation: &str, stage: &str) -> Result<PathBuf> {
+    require(valid_hex(operation, 32), "guided_check_operation")?;
+    require(matches!(stage, "intent" | "inspection" | "candidate" | "completed"),
+        "guided_check_stage")?;
+    Ok(root(m).join("guided-checks").join(operation).join(format!("{stage}.json")))
+}
+pub fn guided_check_stage(m: &Manager, operation: &str, stage: &str) -> Result<Option<Value>> {
+    let path = guided_check_path(m, operation, stage)?;
+    if path.exists() { Ok(Some(bounded(&path)?)) } else { Ok(None) }
+}
+pub fn retain_guided_check_stage(
+    m: &Manager, operation: &str, stage: &str, action: &Value, value: &Value,
+) -> Result<()> {
+    let path = guided_check_path(m, operation, stage)?;
+    let record = serde_json::json!({"schema":1,"operation":operation,"action":action,"value":value});
+    immutable(&path, &record)?;
+    changed(m)
+}
+pub fn guided_checks(m: &Manager, selection: &str) -> Result<Vec<Value>> {
+    let mut rows = vec![];
+    for path in list(&root(m).join("guided-checks"))? {
+        let operation = path.file_name().and_then(|name| name.to_str())
+            .ok_or("guided_check_history_path")?;
+        require(path.is_dir() && valid_hex(operation, 32), "guided_check_history_identity")?;
+        let intent = guided_check_stage(m, operation, "intent")?
+            .ok_or("guided_check_intent_missing")?;
+        require(intent["schema"] == 1 && intent["operation"] == operation
+            && intent["action"]["kind"] == "compatibility_check",
+            "guided_check_history_identity")?;
+        if intent["action"]["selection"] != selection { continue; }
+        let completed = guided_check_stage(m, operation, "completed")?;
+        let inspection = guided_check_stage(m, operation, "inspection")?;
+        let candidate = guided_check_stage(m, operation, "candidate")?;
+        for stage in [&completed, &inspection, &candidate].into_iter().flatten() {
+            require(stage["schema"] == 1 && stage["operation"] == operation
+                && stage["action"] == intent["action"], "guided_check_stage_binding")?;
+        }
+        if let Some(done) = &completed {
+            require(done["value"]["schema"] == 1
+                && done["value"]["operation"] == operation,
+                "guided_check_completion_binding")?;
+        }
+        let row = completed.map_or_else(|| serde_json::json!({
+            "schema":1,"operation":operation,"selection":selection,
+            "stage": if candidate.is_some() { "candidate_retained" }
+                else if inspection.is_some() { "inspection_retained" } else { "started" },
+            "inspection":inspection.as_ref().map(|s| s["value"]["id"].clone()),
+            "candidate":candidate.as_ref().map(|s| s["value"]["id"].clone()),
+            "publication_changed":false,
+        }), |done| done["value"].clone());
+        rows.push(row);
+    }
+    Ok(rows)
+}
+pub fn retain_guided_result(m: &Manager, operation: &str, action: &Value) -> Result<()> {
+    require(valid_hex(operation, 32), "guided_result_operation")?;
+    let value = serde_json::json!({"schema":1,"operation":operation,"action":action});
+    immutable(&root(m).join("guided-results").join(operation).join("intent.json"), &value)?;
+    changed(m)
+}
+pub fn guided_result_intent(m: &Manager, operation: &str) -> Result<Value> {
+    require(valid_hex(operation, 32), "guided_result_operation")?;
+    let value: Value = bounded(&root(m).join("guided-results").join(operation).join("intent.json"))?;
+    require(value["schema"] == 1 && value["operation"] == operation
+        && value["action"]["kind"] == "compatibility_result", "guided_result_intent_binding")?;
+    Ok(value["action"].clone())
+}
+pub fn complete_guided_result(m: &Manager, operation: &str) -> Result<()> {
+    let action = guided_result_intent(m, operation)?;
+    immutable(&root(m).join("guided-results").join(operation).join("completed.json"),
+        &serde_json::json!({"schema":1,"operation":operation,"action":action}))?;
+    changed(m)
+}
+pub fn guided_results(m: &Manager, candidate: &str) -> Result<Vec<Value>> {
+    require(valid_hex(candidate, 64), "guided_result_candidate")?;
+    let mut result = vec![];
+    for path in list(&root(m).join("guided-results"))? {
+        let operation = path.file_name().and_then(|name| name.to_str()).ok_or("guided_result_path")?;
+        let action = guided_result_intent(m, operation)?;
+        if action["candidate"] != candidate { continue; }
+        let completed = path.join("completed.json");
+        if completed.exists() {
+            let marker: Value = bounded(&completed)?;
+            require(marker["schema"] == 1 && marker["operation"] == operation
+                && marker["action"] == action, "guided_result_completion_binding")?;
+        }
+        result.push(serde_json::json!({"operation":operation,"action":action,
+            "completed":completed.exists()}));
+    }
+    Ok(result)
+}
 fn object(m: &Manager, kind: &str, id: &str) -> Result<PathBuf> {
     require(valid_hex(id, 64), "preparation_identity")?;
     Ok(root(m).join(kind).join(id))
@@ -746,6 +837,14 @@ pub fn prepared(
 fn evidence_dir(m: &Manager, id: &str) -> Result<PathBuf> {
     object(m, "observations", id)
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GuidedObservationBatch {
+    schema: u32,
+    candidate: String,
+    operation: String,
+    observations: Vec<Observation>,
+}
 pub fn observations(m: &Manager, c: &Candidate) -> Result<Vec<Observation>> {
     let mut out = vec![];
     // Original observations remain labelled with their original provenance.
@@ -761,8 +860,61 @@ pub fn observations(m: &Manager, c: &Candidate) -> Result<Vec<Observation>> {
         )?;
         out.push(o)
     }
+    for p in list(&object(m, "observation-batches", &c.id()?)?)? {
+        let batch: GuidedObservationBatch = bounded(&p)?;
+        require(batch.schema == 1 && batch.candidate == c.id()?
+            && valid_hex(&batch.operation, 32) && batch.observations.len() <= AREAS.len()
+            && p.file_name().and_then(|name| name.to_str())
+                == Some(format!("{}.json", batch.operation).as_str()),
+            "guided_observation_batch_binding")?;
+        for row in batch.observations {
+            require(row.candidate == batch.candidate && row.operation == batch.operation
+                && row.witness == Witness::OperatorObservation,
+                "guided_observation_binding")?;
+            out.push(row);
+        }
+    }
     out.sort_by_key(|o| (o.ordinal, o.operation.clone()));
     Ok(out)
+}
+pub fn record_guided_observations(
+    m: &Manager,
+    c: &Candidate,
+    operation: &str,
+    entries: &[(Area, TestStatus)],
+    note: &str,
+) -> Result<()> {
+    require(valid_hex(operation, 32) && !entries.is_empty() && entries.len() <= AREAS.len(),
+        "guided_observation_bound")?;
+    detail(note)?;
+    let mut areas = std::collections::BTreeSet::new();
+    for (area, _) in entries {
+        require(areas.insert(format!("{area:?}")), "guided_observation_duplicate_area")?;
+    }
+    let _owner = m.lock("preparation-evidence.lock")?;
+    let path = object(m, "observation-batches", &c.id()?)?.join(format!("{operation}.json"));
+    if path.exists() {
+        let prior: GuidedObservationBatch = bounded(&path)?;
+        require(prior.schema == 1 && prior.candidate == c.id()? && prior.operation == operation
+            && prior.observations.len() == entries.len()
+            && prior.observations.iter().zip(entries).all(|(row, (area, status))|
+                row.area == *area && row.status == *status && row.detail == note),
+            "guided_observation_replay_changed")?;
+        return Ok(());
+    }
+    let first = observations(m, c)?.iter().map(|row| row.ordinal).max().unwrap_or(0)
+        .checked_add(1).ok_or("observation_ordinal")?;
+    let batch = GuidedObservationBatch {
+        schema: 1, candidate: c.id()?, operation: operation.into(),
+        observations: entries.iter().enumerate().map(|(index, (area, status))| Ok(Observation {
+            schema: 1, candidate: c.id()?, operation: operation.into(), area: *area,
+            status: *status, witness: Witness::OperatorObservation, detail: note.into(),
+            recorded_at: crate::observation::now()?,
+            ordinal: first.checked_add(index as u64).ok_or("observation_ordinal")?,
+        })).collect::<Result<Vec<_>>>()?,
+    };
+    immutable(&path, &batch)?;
+    changed(m)
 }
 fn retained_sv1_observations(c: &Candidate, report: &Value) -> Result<Vec<Observation>> {
     let mut out = vec![];
@@ -859,6 +1011,12 @@ pub fn review(
     detail(rationale)?;
     require(valid_hex(operation, 32), "review_operation")?;
     let _owner = m.lock("preparation-evidence.lock")?;
+    if let Some(prior) = decisions(m, c)?.into_iter().find(|decision| decision.operation == operation) {
+        require(prior.choice == choice && prior.rationale == rationale
+            && prior.evidence_sha256 == key(&observations(m, c)?)?,
+            "review_replay_changed")?;
+        return Ok(prior);
+    }
     let ordinal = decisions(m, c)?
         .iter()
         .map(|d| d.ordinal)
@@ -1183,16 +1341,24 @@ fn enable_exact(
     )
 }
 pub fn disable(m: &Manager, c: &Candidate) -> Result<()> {
+    let current = m.registry()?.classes.get(&c.selection.class.id)
+        .and_then(|entry| entry.managed_revision.clone())
+        .ok_or("candidate_not_published")?;
+    disable_exact(m, c, &current)
+}
+/// A guided negative result may only retire the publication that was offered
+/// when the result was captured, including through the final registry lock.
+pub fn disable_exact(m: &Manager, c: &Candidate, expected: &RevisionRef) -> Result<()> {
     let db = m.registry()?;
     let e = db
         .classes
         .get(&c.selection.class.id)
         .ok_or("candidate_not_published")?;
+    require(e.managed_revision.as_ref() == Some(expected),
+        "guided_test_publication_changed")?;
     let r = m.load_revision(
         &c.selection.class.id,
-        e.managed_revision
-            .as_ref()
-            .ok_or("candidate_not_published")?,
+        expected,
     )?;
     require(
         r.profile == c.profile
@@ -1214,9 +1380,7 @@ pub fn disable(m: &Manager, c: &Candidate) -> Result<()> {
             m.rollback_exact_inactive(
                 &r.class_id,
                 &reference.id,
-                e.managed_revision
-                    .as_ref()
-                    .ok_or("candidate_not_published")?,
+                expected,
             )?;
             return Ok(());
         }
@@ -1224,9 +1388,7 @@ pub fn disable(m: &Manager, c: &Candidate) -> Result<()> {
     }
     m.unpublish_exact_inactive(
         &r.class_id,
-        e.managed_revision
-            .as_ref()
-            .ok_or("candidate_not_published")?,
+        expected,
     )
 }
 

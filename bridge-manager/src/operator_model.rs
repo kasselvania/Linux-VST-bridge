@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 /// Manager/frontend wire generation. Durable installer, workspace and operation
 /// records keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 9;
+pub const OPERATOR_SCHEMA: u32 = 10;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AudioLayoutPolicy {
@@ -79,6 +79,29 @@ pub enum Action {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         audio_layout: Option<AudioLayoutPolicy>,
     },
+    CompatibilityCheck {
+        selection: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        audio_layout: Option<AudioLayoutPolicy>,
+        recipe: String,
+        predecessor: Option<String>,
+    },
+    /// Continue the exact retained check using a new request and its original
+    /// immutable inspection/candidate checkpoints.
+    CompatibilityResumeCheck { operation: String },
+    CompatibilityPublishTest {
+        candidate: String,
+        expected_current: Option<PublicationIdentity>,
+    },
+    CompatibilityResult {
+        candidate: String,
+        expected_current: PublicationIdentity,
+        result: TestResultKind,
+        passed: Vec<TestArea>,
+        failed_area: Option<TestArea>,
+        note: String,
+    },
+    CompatibilityFinishResult { operation: String },
     ExperimentalReplace {
         candidate: String,
         expected_current: PublicationIdentity,
@@ -232,7 +255,47 @@ pub struct Product {
     pub limitations: Vec<String>,
     pub history: Vec<History>,
     pub actions: Vec<AvailableAction>,
+    #[serde(default)]
+    pub compatibility: Option<CompatibilityWorkflow>,
     pub details: serde_json::Value,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[serde(rename_all = "snake_case")]
+pub enum TestArea {
+    DawLoad, Midi, Audio, Editor, Parameters, Automation, StateRecall,
+    ProcessingRestart, Retirement,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ProblemCategory {
+    FailedToLoad, BlankEditor, EditorFroze, EditorDisappeared,
+    NoAudio, IncorrectAudio, ControlsUnresponsive, HostCrashed,
+    CleanupIncomplete, Other,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum TestResultKind {
+    Worked,
+    Problem { category: ProblemCategory },
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CompatibilityPhase {
+    NotChecked, CheckBlocked, Checking, CheckFailed, ReadyForTest,
+    AvailableForTest, AwaitingRetirement, TestResultIncomplete, PassedExperimental,
+    NeedsWork, OrdinarySupported, PublicationNeedsAttention, HistoricalOnly,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CompatibilityWorkflow {
+    pub phase: CompatibilityPhase,
+    pub summary: String,
+    pub established: Vec<String>,
+    pub remaining: Vec<String>,
+    pub current_inspection: Option<String>,
+    pub current_candidate: Option<String>,
+    pub primary: Option<AvailableAction>,
+    pub alternatives: Vec<AvailableAction>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -446,6 +509,11 @@ impl Action {
                 | Self::RendererDiscover {}
                 | Self::RendererOpen { .. }
                 | Self::PluginReinspect { .. }
+                | Self::CompatibilityCheck { .. }
+                | Self::CompatibilityResumeCheck { .. }
+                | Self::CompatibilityPublishTest { .. }
+                | Self::CompatibilityResult { result: TestResultKind::Worked, .. }
+                | Self::CompatibilityFinishResult { .. }
                 | Self::ExperimentalReplace { .. }
                 | Self::CandidateWithdraw { .. }
                 | Self::PluginInspect { .. }

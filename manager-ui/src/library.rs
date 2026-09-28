@@ -1,5 +1,5 @@
 //! Presentation over the manager snapshot. No discovery, publication or launch authority.
-use crate::model::{Action, AvailableAction, Product, Snapshot};
+use crate::model::{Action, AvailableAction, CompatibilityPhase, Product, Snapshot};
 use crate::presentation::{self, ProductKey};
 use eframe::egui;
 
@@ -23,6 +23,23 @@ pub fn role(product: &Product) -> &str {
 }
 
 pub fn status(product: &Product) -> (&str, &str) {
+    if let Some(workflow) = &product.compatibility {
+        return match workflow.phase {
+            CompatibilityPhase::NotChecked => ("Compatibility not checked", "unpublished"),
+            CompatibilityPhase::CheckBlocked => ("Check unavailable", "attention"),
+            CompatibilityPhase::Checking => ("Checking compatibility", "unpublished"),
+            CompatibilityPhase::CheckFailed => ("Check needs attention", "attention"),
+            CompatibilityPhase::ReadyForTest => ("Ready for one test", "unpublished"),
+            CompatibilityPhase::AvailableForTest => ("Available experimentally", "published"),
+            CompatibilityPhase::AwaitingRetirement => ("Problem recorded · awaiting retirement", "attention"),
+            CompatibilityPhase::TestResultIncomplete => ("Finish test result", "attention"),
+            CompatibilityPhase::PassedExperimental => ("Passed recorded checks · experimental", "published"),
+            CompatibilityPhase::NeedsWork => ("Needs compatibility work", "attention"),
+            CompatibilityPhase::OrdinarySupported => ("Linux VST3 published", "published"),
+            CompatibilityPhase::PublicationNeedsAttention => ("Publication needs attention", "attention"),
+            CompatibilityPhase::HistoricalOnly => ("Historical configuration", "attention"),
+        };
+    }
     match product.disposition.as_str() {
         "ready" => ("Published to Bitwig", "published"),
         "experimental" => ("Published · experimental", "published"),
@@ -193,6 +210,10 @@ impl Library {
                     .inner_margin(14.0)
                     .show(ui, |ui| {
                         ui.set_min_width((ui.available_width() - 1.0).max(0.0));
+                        let related = related_actions(p, snapshot);
+                        let primary = p.compatibility.as_ref().and_then(|workflow| workflow.primary.clone())
+                            .or_else(|| p.compatibility.is_none().then(||
+                                emphasized_action(p, &related, snapshot.system.inactive_reason())).flatten());
                         ui.horizontal_wrapped(|ui| {
                             ui.label(egui::RichText::new(&p.name).size(19.0).strong());
                             let (label, category) = status(p);
@@ -203,6 +224,17 @@ impl Library {
                             };
                             ui.label(egui::RichText::new(label).color(color));
                         });
+                        if let Some(action) = &primary {
+                            let reason = primary_refusal(action, snapshot.system.inactive_reason());
+                            if let Some(reason) = reason {
+                                ui.add_enabled(false, egui::Button::new(&action.label)
+                                    .min_size(egui::vec2(240.0, 46.0)));
+                                ui.small(reason);
+                            } else { emphasized_button(ui, action, pending, chosen); }
+                        } else if let Some(workflow) = &p.compatibility {
+                            action_buttons(ui, &workflow.alternatives,
+                                snapshot.system.inactive_reason(), pending, chosen);
+                        }
                         ui.label(format!(
                             "{} · {}",
                             role(p),
@@ -212,6 +244,15 @@ impl Library {
                                 &p.version
                             }
                         ));
+                        if let Some(workflow) = &p.compatibility {
+                            ui.label(&workflow.summary);
+                            for established in &workflow.established {
+                                ui.small(format!("✓ {established}"));
+                            }
+                            if !workflow.remaining.is_empty() {
+                                ui.small(format!("Still untested: {}", workflow.remaining.join(", ")));
+                            }
+                        }
                         let instances = presentation::product_activity(snapshot, p);
                         ui.small(instances.detail_label());
                         for failure in &instances.failed_live {
@@ -250,13 +291,9 @@ impl Library {
                         {
                             ui.colored_label(warning_color(ui), reason);
                         }
-                        let related = related_actions(p, snapshot);
-                        let primary =
-                            emphasized_action(p, &related, snapshot.system.inactive_reason());
-                        if let Some(action) = &primary {
-                            emphasized_button(ui, action, pending, chosen);
-                        }
-                        egui::CollapsingHeader::new("Details and manager actions")
+                        egui::CollapsingHeader::new(if p.compatibility.is_some() {
+                            "Technical details and expert actions"
+                        } else { "Details and manager actions" })
                             .open(self.expand_details.then_some(true))
                             .show(ui, |ui| {
                                 let management: Vec<_> = p
@@ -277,6 +314,10 @@ impl Library {
                                     pending,
                                     chosen,
                                 );
+                                if let Some(workflow) = &p.compatibility {
+                                    action_buttons(ui, &workflow.alternatives,
+                                        snapshot.system.inactive_reason(), pending, chosen);
+                                }
                                 details(ui, p);
                             });
                     });
@@ -353,6 +394,14 @@ fn emphasized_action(
         })
         .min_by_key(|(rank, _)| *rank)
         .map(|(_, offer)| offer.clone())
+}
+
+fn primary_refusal<'a>(action: &'a AvailableAction, busy: Option<&'a str>) -> Option<&'a str> {
+    action.disabled_reason.as_deref().or_else(|| {
+        (action.action.requires_inactive()
+            && !matches!(action.action, Action::CompatibilityResult { .. }))
+            .then_some(busy).flatten()
+    })
 }
 
 fn emphasized_button(
@@ -486,8 +535,88 @@ fn visible_refusals(actions: &[AvailableAction], busy: Option<&str>, pending: bo
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::{CompatibilityWorkflow, CompatibilityPhase};
     fn snapshot() -> Snapshot {
         serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap()
+    }
+    #[test]
+    fn ui2_guided_product_keeps_posture_action_and_refusal_visible_at_both_widths() {
+        fn texts(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
+            match shape {
+                egui::epaint::Shape::Text(text) => out.push(text.galley.text().into()),
+                egui::epaint::Shape::Vec(items) => for item in items { texts(item, out); },
+                _ => {}
+            }
+        }
+        let mut snapshot = snapshot();
+        snapshot.products.truncate(1);
+        let product = &mut snapshot.products[0];
+        product.compatibility = Some(CompatibilityWorkflow {
+            phase: CompatibilityPhase::NotChecked,
+            summary: "Installed · compatibility not checked".into(),
+            established: vec![], remaining: vec![], current_inspection: None,
+            current_candidate: None,
+            primary: Some(AvailableAction {
+                label: "Check compatibility".into(),
+                action: Action::CompatibilityCheck {
+                    selection: "aa".repeat(32), audio_layout: None,
+                    recipe: "bb".repeat(32), predecessor: None,
+                },
+                disabled_reason: Some("Close the plug-in or DAW before checking".into()),
+            }), alternatives: vec![],
+        });
+        for width in [960.0, 560.0] {
+            let ctx = egui::Context::default();
+            let mut library = Library::default();
+            let mut chosen = None;
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                ui.set_max_width(width - 32.0);
+                library.show(ui, &snapshot, false, &mut chosen, |_, _| {});
+            });
+            let mut labels = vec![];
+            for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
+            output.textures_delta.clear();
+            for expected in ["Compatibility not checked", "Check compatibility",
+                "Close the plug-in or DAW before checking"] {
+                assert!(labels.iter().any(|line| line.contains(expected)),
+                    "{expected} missing at {width}: {labels:?}");
+            }
+            assert!(chosen.is_none());
+        }
+    }
+
+    #[test]
+    fn ui2_problem_form_remains_openable_while_finish_waits_for_retirement() {
+        let mut snapshot = snapshot();
+        snapshot.products.truncate(1);
+        let product = &mut snapshot.products[0];
+        let candidate = "aa".repeat(32);
+        let expected_current = crate::model::PublicationIdentity {
+            id: "bb".repeat(16), sha256: "cc".repeat(32),
+        };
+        let report = AvailableAction {
+            label: "Record test result".into(),
+            action: Action::CompatibilityResult {
+                candidate: candidate.clone(), expected_current,
+                result: crate::model::TestResultKind::Worked, passed: vec![],
+                failed_area: None, note: String::new(),
+            }, disabled_reason: None,
+        };
+        assert_eq!(primary_refusal(&report, Some("Cleanup unconfirmed")), None);
+        product.compatibility = Some(CompatibilityWorkflow {
+            phase: CompatibilityPhase::AwaitingRetirement,
+            summary: "Problem recorded. Close the DAW, then finish this result.".into(),
+            established: vec![], remaining: vec![], current_inspection: None,
+            current_candidate: Some(candidate),
+            primary: Some(AvailableAction {
+                label: "Finish recording test result".into(),
+                action: Action::CompatibilityFinishResult { operation: "dd".repeat(16) },
+                disabled_reason: Some("Cleanup unconfirmed".into()),
+            }), alternatives: vec![],
+        });
+        assert_eq!(status(product).0, "Problem recorded · awaiting retirement");
+        assert_eq!(primary_refusal(product.compatibility.as_ref().unwrap().primary.as_ref().unwrap(),
+            Some("Cleanup unconfirmed")), Some("Cleanup unconfirmed"));
     }
 
     #[test]

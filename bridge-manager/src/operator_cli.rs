@@ -125,7 +125,7 @@ fn quarantined_product(scan: &inventory::Scan, module_index: usize,
         disposition:if stale.is_some(){"needs_attention"}else{"quarantined"}.into(),
         active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),
         runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256,
-        limitations,history:vec![],actions,
+        limitations,history:vec![],actions,compatibility:None,
         details:json!({"scan":scan.id,"scanner_host_sha256":scan.host.sha256,
             "scanner_source_sha256":scan.host_source_sha256,"current":stale.is_none(),
             "inspection_error":inspection_error,"quarantine_reason":reason,
@@ -556,18 +556,33 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
 }
 #[cfg(test)]
 pub(super) fn snapshot_idle_test(m: &Manager) -> Result<ui::Snapshot> {
-    snapshot_for_operation(m, None, OPERATOR_WAIT, &mut vec![], &|| {
-        serde_json::from_value(json!({
-            "schema": 1,
-            "dsp": 0,
-            "maintenance": 0,
-            "keepers": 0,
-            "cleanup_unconfirmed": false,
-            "owners": [],
-            "limits": {"global_dsp": 6}
-        }))
-        .ok()
-    })
+    snapshot_for_operation(m, None, OPERATOR_WAIT, &mut vec![], &idle_capacity_test)
+}
+#[cfg(test)]
+fn idle_capacity_test() -> Option<CapacityReadback> {
+    serde_json::from_value(json!({
+        "schema": 1, "dsp": 0, "maintenance": 0, "keepers": 0,
+        "cleanup_unconfirmed": false, "owners": [], "limits": {"global_dsp": 6}
+    })).ok()
+}
+#[cfg(test)]
+pub(super) fn test_submit_offered(m: &Manager, action: &ui::Action) -> Result<String> {
+    let snapshot = snapshot_idle_test(m)?;
+    let request = ui::Request { schema: ui::OPERATOR_SCHEMA,
+        state_token: snapshot.state_token.clone(), action: action.clone() };
+    validate(&request, &snapshot)?;
+    launch_queued(m, &request, |_| Ok(true))?.operation.ok_or_else(||
+        "operator_test_operation_missing".into())
+}
+#[cfg(test)]
+pub(super) fn test_run_offered_worker(m: &Manager, operation: &str) -> Result<Value> {
+    worker_with_capacity(m, operation, OPERATOR_WAIT, &idle_capacity_test)?;
+    read_json(&job_dir(m, operation)?.join("result.json"))
+}
+#[cfg(test)]
+pub(super) fn test_finalize_interrupted_worker(m: &Manager, operation: &str) -> Result<Value> {
+    finish_operation(m, operation)?;
+    read_json(&job_dir(m, operation)?.join("result.json"))
 }
 fn acquire_readback(
     m: &Manager,
@@ -694,7 +709,7 @@ fn snapshot_for_operation(
                 None
             },
         ));
-        products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
+        products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,compatibility:None,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
     }
     let catalogue = operator_catalogue(m, &sw, &db)?;
     let managed_bindings = managed_environment_bindings(m, catalogue.as_ref(), &db)?;
@@ -761,12 +776,16 @@ fn snapshot_for_operation(
                     {
                         continue;
                     }
-                    products.push(ui::Product {class_id:class.id,name:class.name,vendor:class.vendor,role:class.role,version:class.version,disposition:if current {"installed_unqualified"} else {"needs_attention"}.into(),active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256.clone(),limitations:vec![stale.unwrap_or("Installed — not yet supported; not published to Bitwig").into()],history:vec![],actions:vec![],details:json!({"scan":scan.id,"observed_at":scan.completed_at,"scanner_host_sha256":scan.host.sha256,"scanner_source_sha256":scan.host_source_sha256,"current":current,"inspection_error":module.inspection_error,"inspection_hint":inspection_hint,"activation_permitted":false})});
+                    products.push(ui::Product {class_id:class.id,name:class.name,vendor:class.vendor,role:class.role,version:class.version,disposition:if current {"installed_unqualified"} else {"needs_attention"}.into(),active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256.clone(),limitations:vec![stale.unwrap_or("Installed — not yet supported; not published to Bitwig").into()],history:vec![],actions:vec![],compatibility:None,details:json!({"scan":scan.id,"observed_at":scan.completed_at,"scanner_host_sha256":scan.host.sha256,"scanner_source_sha256":scan.host_source_sha256,"current":current,"inspection_error":module.inspection_error,"inspection_hint":inspection_hint,"activation_permitted":false})});
                 }
             }
         }
     }
-    preparation_cli::project(m, &sw, &mut products, busy)?;
+    if let Some(operation) = id {
+        preparation_cli::project_for_operation(m, &sw, &mut products, busy, operation)?;
+    } else {
+        preparation_cli::project(m, &sw, &mut products, busy)?;
+    }
     let mut vendor_applications = Vec::new();
     let app = app_directory(m).join("application.json");
     if app.exists() {
@@ -949,6 +968,8 @@ pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
         .chain(snapshot.installer_setups.iter().map(|s| &s.rename))
         .chain(snapshot.onboarding.iter().flat_map(|p| p.actions.iter()))
         .chain(snapshot.products.iter().flat_map(|p| p.actions.iter()))
+        .chain(snapshot.products.iter().flat_map(|p| p.compatibility.iter()
+            .flat_map(|workflow| workflow.primary.iter().chain(workflow.alternatives.iter()))))
         .chain(snapshot.workspaces.iter().flat_map(|w| w.actions.iter()))
         .chain(snapshot.workspaces.iter().flat_map(|w| w.installer_choices.iter()))
         .chain(snapshot.workspaces.iter().flat_map(|w| w.products.iter())
@@ -990,6 +1011,28 @@ fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
 fn job_dir(m: &Manager, id: &str) -> Result<PathBuf> {
     require(valid_hex(id, 32), "operator_operation_identity")?;
     Ok(m.root.join("operator").join(id))
+}
+/// A continuation never revives the original worker. Its exact request and
+/// terminal refusal remain historical authority while a fresh offered request
+/// completes only the missing preparation stages.
+pub(super) fn resumable_check_source(m: &Manager, id: &str, action: &ui::Action) -> Result<bool> {
+    require(matches!(action, ui::Action::CompatibilityCheck { .. }),
+        "guided_check_source_action")?;
+    let dir = job_dir(m, id)?;
+    let original: ui::Request = read_json(&dir.join("request.json"))?;
+    // The installed private UI2 generation used wire 11. Its retained request
+    // can identify an old check; the *new* continuation still enters through
+    // this manager's current schema and fresh offered-action validation.
+    require(matches!(original.schema, 10 | 11) && original.action == *action,
+        "guided_check_source_request_changed")?;
+    let result = optional(&dir.join("result.json"))?;
+    require(result["schema"] == 1 && result["operation"] == id,
+        "guided_check_source_receipt_changed")?;
+    match result["state"].as_str() {
+        Some("refused") => Ok(true),
+        Some("queued" | "waiting" | "running" | "unconfirmed") => Ok(false),
+        _ => Err("guided_check_source_not_interrupted".into()),
+    }
 }
 fn write_operation(m: &Manager, id: &str, value: &Value, make_latest: bool) -> Result<()> {
     let deadline = Instant::now() + Duration::from_secs(5);
@@ -1107,12 +1150,37 @@ fn finish_operation(m: &Manager, id: &str) -> Result<()> {
         }
         Ok(())
     })();
-    let preparation_cleanup = preparation::build::cleanup_work(m, id);
+    let preparation_cleanup = cleanup_preparation_work(m, id);
     // A failed installer readback must not leave the generic worker queued.
     let finalized = finish_operation_with(m, id, |saved| restore_service(m, saved));
     installer_cleanup?;
     preparation_cleanup?;
     finalized
+}
+fn cleanup_preparation_work(m: &Manager, id: &str) -> Result<()> {
+    let fresh = preparation::build::cleanup_work(m, id);
+    let source = (|| {
+        let request: ui::Request = read_json(&job_dir(m, id)?.join("request.json"))?;
+        if let ui::Action::CompatibilityResumeCheck { operation } = request.action {
+            require(matches!(request.schema, 10 | 11) && operation != id,
+                "guided_check_cleanup_request_binding")?;
+            let intent = preparation::guided_check_stage(m, &operation, "intent")?
+                .ok_or("guided_check_cleanup_intent_missing")?;
+            require(intent["schema"] == 1 && intent["operation"] == operation,
+                "guided_check_cleanup_intent_binding")?;
+            let original: ui::Action = serde_json::from_value(intent["action"].clone())?;
+            require(resumable_check_source(m, &operation, &original)?,
+                "guided_check_source_still_running")?;
+            // ExecStopPost runs after this worker cgroup retires. Construction
+            // used the original check's identity, not this fresh request's ID.
+            // Cleanup preserves exact checkpointed/retained native output and
+            // removes partial scratch before another offered continuation.
+            preparation::build::cleanup_work(m, &operation)?;
+        }
+        Ok(())
+    })();
+    fresh?;
+    source
 }
 
 fn finish_operation_with(
@@ -1403,6 +1471,8 @@ fn execute_with_receipt_policy(
             ui::Action::PluginReinspect { .. }
                 | ui::Action::PluginInspect { .. }
                 | ui::Action::PluginPrepare { .. }
+                | ui::Action::CompatibilityCheck { .. }
+                | ui::Action::CompatibilityResumeCheck { .. }
         ) {
             let _environment = m.lock("operator-environment.lock")?;
             suspend(m, owner, None, timeout, waits)?;
@@ -1449,6 +1519,11 @@ fn execute_with_receipt_policy(
         ui::Action::PluginReinspect { .. }
         | ui::Action::PluginInspect { .. }
         | ui::Action::PluginPrepare { .. }
+        | ui::Action::CompatibilityCheck { .. }
+        | ui::Action::CompatibilityResumeCheck { .. }
+        | ui::Action::CompatibilityPublishTest { .. }
+        | ui::Action::CompatibilityResult { .. }
+        | ui::Action::CompatibilityFinishResult { .. }
         | ui::Action::ExperimentalReplace { .. }
         | ui::Action::CandidateWithdraw { .. }
         | ui::Action::ExperimentalEnable { .. }
@@ -1882,8 +1957,10 @@ fn resume_locked(
 fn recovery_request(m: &Manager, saved: &ResumeRecord) -> Result<ui::Action> {
     let request: ui::Request =
         read_json(&job_dir(m, &saved.owner_operation)?.join("request.json"))?;
+    // The installed private UI2 manager retained schema-11 requests. This is
+    // historical readback only; live requests still require operator schema 10.
     require(
-        matches!(request.schema, 5..=ui::OPERATOR_SCHEMA),
+        matches!(request.schema, 5..=11),
         "operator_resume_request_schema",
     )?;
     Ok(request.action)
@@ -1966,6 +2043,12 @@ fn stop_vendor_with(
     resume_locked(m, &saved.owner_operation, restore)
 }
 fn resume_interrupted(m: &Manager) -> Result<()> {
+    resume_interrupted_with(m, |saved| restore_service(m, saved))
+}
+fn resume_interrupted_with(
+    m: &Manager,
+    restore: impl FnOnce(&ResumeRecord) -> Result<()>,
+) -> Result<()> {
     // Only explicit reconciliation can recover a completed prior owner. It
     // cannot steal an active Open/Rescan or adopt an ownerless legacy record.
     let _resume = resume_lock(m)?;
@@ -1986,7 +2069,7 @@ fn resume_interrupted(m: &Manager) -> Result<()> {
             dependency_session::retired(m, &saved.owner_operation)?,
             "dependency_custody_uncertain",
         )?;
-        return resume_locked(m, &saved.owner_operation, |saved| restore_service(m, saved));
+        return resume_locked(m, &saved.owner_operation, restore);
     }
     if matches!(
         recovery_request(m, &saved)?,
@@ -2001,7 +2084,7 @@ fn resume_interrupted(m: &Manager) -> Result<()> {
             renderer_session::retired(m, &saved.owner_operation)?,
             "renderer_custody_still_uncertain",
         )?;
-        return resume_locked(m, &saved.owner_operation, |saved| restore_service(m, saved));
+        return resume_locked(m, &saved.owner_operation, restore);
     }
     require(
         matches!(
@@ -2016,6 +2099,8 @@ fn resume_interrupted(m: &Manager) -> Result<()> {
                 | ui::Action::PluginReinspect { .. }
                 | ui::Action::PluginInspect { .. }
                 | ui::Action::PluginPrepare { .. }
+                | ui::Action::CompatibilityCheck { .. }
+                | ui::Action::CompatibilityResumeCheck { .. }
         ),
         "operator_resume_action_mismatch",
     )?;
@@ -2025,7 +2110,7 @@ fn resume_interrupted(m: &Manager) -> Result<()> {
             && matches!(result["state"].as_str(), Some("completed" | "refused")),
         "operator_resume_owner_not_terminal",
     )?;
-    resume_locked(m, &saved.owner_operation, |saved| restore_service(m, saved))
+    resume_locked(m, &saved.owner_operation, restore)
 }
 fn restore_service(m: &Manager, saved: &ResumeRecord) -> Result<()> {
     require(
@@ -2417,6 +2502,7 @@ pub(super) fn product_receipt(
     m: &Manager,
     selection: &str,
     candidate: Option<&str>,
+    exclude_operation: Option<&str>,
 ) -> Result<Option<Value>> {
     let dir = m.root.join("operator");
     if !dir.exists() {
@@ -2428,7 +2514,7 @@ pub(super) fn product_receipt(
         let Some(id) = p.file_name().and_then(|v| v.to_str()) else {
             continue;
         };
-        if !valid_hex(id, 32) || !p.is_dir() {
+        if !valid_hex(id, 32) || exclude_operation == Some(id) || !p.is_dir() {
             continue;
         }
         let r = optional(&p.join("request.json"))?;
@@ -2928,9 +3014,11 @@ mod tests {
         r.state_token = "previous software or registry".into();
         assert!(validate(&r, &s).is_err());
         r.state_token = "current".into();
-        r.schema = 8;
-        assert_eq!(validate(&r, &s).unwrap_err().to_string(),
-            "operator_schema_mismatch_update_manager_frontend");
+        for old_schema in [8, 9] {
+            r.schema = old_schema;
+            assert_eq!(validate(&r, &s).unwrap_err().to_string(),
+                "operator_schema_mismatch_update_manager_frontend");
+        }
         for malformed in [json!({"schema":"9","state_token":"current","action":{"kind":"capture_disarm"}}),
             json!({"schema":null,"state_token":"current","action":{"kind":"capture_disarm"}})] {
             assert!(serde_json::from_value::<ui::Request>(malformed).is_err());
@@ -2954,8 +3042,8 @@ mod tests {
         assert!(validate(&r, &busy).is_err());
     }
     #[test]
-    fn schema_nine_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 9);
+    fn schema_ten_keeps_exact_old_operation_request_history_readable() {
+        assert_eq!(ui::OPERATOR_SCHEMA, 10);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();
@@ -2970,6 +3058,12 @@ mod tests {
         assert_eq!(recovery_request(&f.m, &saved).unwrap(), old.action);
         assert_eq!(worker_receipt(&f.m, &operation)["state"], "completed");
         assert_eq!(worker_receipt(&f.m, &operation)["schema"], 1);
+        let installed_ui2 = ui::Request { schema: 11, state_token: "installed-state".into(),
+            action: ui::Action::CompatibilityFinishResult { operation: operation.clone() } };
+        atomic_json(&dir.join("request.json"), &installed_ui2).unwrap();
+        assert_eq!(recovery_request(&f.m, &saved).unwrap(), installed_ui2.action);
+        assert_eq!(validate(&installed_ui2, &view("installed-state", action("Finish", installed_ui2.action.clone(), None)))
+            .unwrap_err().to_string(), "operator_schema_mismatch_update_manager_frontend");
     }
     #[test]
     fn workspace_selection_accepts_only_exact_offered_import_and_release_syntax() {
@@ -3343,6 +3437,49 @@ mod tests {
         let _lock = resume_lock(m).unwrap();
         create_resume(m, &saved).unwrap();
         saved
+    }
+    #[test]
+    fn interrupted_compatibility_continuation_restores_service_without_replaying_work() {
+        for terminal in ["completed", "refused"] {
+            let f = test_fixture::Fixture::new();
+            let source = "cd".repeat(16);
+            let owner = queued_test_action(&f.m, ui::Action::CompatibilityResumeCheck {
+                operation: source.clone(),
+            });
+            let saved = saved_test_resume(&f.m, &owner, None);
+            let resume_path = f.m.root.join("operator/resume.json");
+            let resume_before = fs::read(&resume_path).unwrap();
+            atomic_json(&f.m.root.join("registry.json"), &f.m.registry().unwrap()).unwrap();
+            let registry_before = fs::read(f.m.root.join("registry.json")).unwrap();
+            let scratch = f.m.root.join("preparation/work").join(&source).join("scratch");
+            private_dir(scratch.parent().unwrap()).unwrap();
+            fs::write(&scratch, b"cold recovery must not replay preparation").unwrap();
+            assert!(resume_interrupted_with(&f.m, |_| panic!("owner is not terminal"))
+                .unwrap_err().to_string().contains("operator_resume_owner_not_terminal"));
+            assert_eq!(fs::read(&resume_path).unwrap(), resume_before);
+            write_operation(&f.m, &owner,
+                &json!({"schema":1,"operation":owner,"state":terminal}), false).unwrap();
+            let receipt_before = fs::read(job_dir(&f.m, &owner).unwrap().join("result.json")).unwrap();
+            assert_eq!(resume_interrupted_with(&f.m, |_| Err("service unavailable".into()))
+                .unwrap_err().to_string(), "service unavailable");
+            assert_eq!(fs::read(&resume_path).unwrap(), resume_before);
+            let mut restores = 0;
+            resume_interrupted_with(&f.m, |record| {
+                assert_eq!(record.owner_operation, owner);
+                assert_eq!(record.software, saved.software);
+                assert!(record.resume && record.vendor_operation.is_none());
+                restores += 1;
+                Ok(())
+            }).unwrap();
+            assert_eq!(restores, 1);
+            assert!(!resume_path.exists());
+            resume_interrupted_with(&f.m, |_| panic!("already restored")).unwrap();
+            assert_eq!(fs::read(job_dir(&f.m, &owner).unwrap().join("result.json")).unwrap(), receipt_before);
+            assert_eq!(fs::read(&scratch).unwrap(), b"cold recovery must not replay preparation");
+            assert!(!f.m.root.join("preparation/guided-checks").exists());
+            assert!(!f.m.root.join("preparation/candidates").exists());
+            assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry_before);
+        }
     }
     #[test]
     fn delayed_finish_preserves_newer_service_recovery_until_its_owner_restores() {
@@ -3870,6 +4007,35 @@ mod tests {
         assert!(read.system.cleanup_unconfirmed);
         assert!(read.operation.is_none());
     }
+    #[test]
+    fn ui2_problem_capture_is_admitted_during_cleanup_uncertainty_but_finish_is_not() {
+        let f = test_fixture::Fixture::new();
+        let problem = ui::Action::CompatibilityResult {
+            candidate: "ab".repeat(32),
+            expected_current: ui::PublicationIdentity {
+                id: "cd".repeat(16), sha256: "ef".repeat(32),
+            },
+            result: ui::TestResultKind::Problem {
+                category: ui::ProblemCategory::CleanupIncomplete,
+            },
+            passed: vec![], failed_area: None, note: "Cleanup did not complete".into(),
+        };
+        let finish = ui::Action::CompatibilityFinishResult { operation: "12".repeat(16) };
+        let capacity = || serde_json::from_value(json!({
+            "schema":1,"dsp":0,"maintenance":0,"keepers":0,
+            "cleanup_unconfirmed":true,"owners":[],"limits":{"global_dsp":6}
+        })).ok();
+        assert!(!problem.requires_inactive());
+        assert!(require_operator_inactive_with(&f.m, &problem, &capacity,
+            None, Duration::from_millis(100), &mut vec![]).is_ok());
+        assert!(require_operator_inactive_with(&f.m, &problem, &|| None,
+            None, Duration::from_millis(100), &mut vec![]).is_ok());
+        assert!(finish.requires_inactive());
+        assert!(require_operator_inactive_with(&f.m, &finish, &capacity,
+            None, Duration::from_millis(100), &mut vec![]).is_err());
+        assert!(require_operator_inactive_with(&f.m, &finish, &|| None,
+            None, Duration::from_millis(100), &mut vec![]).is_err());
+    }
     fn onboarding_worker_fixture() -> (test_fixture::Fixture, String) {
         use linux_vst_bridge::catalogue::{Catalogue, EnvironmentBinding, OnboardingRuntimePolicy,
             STANDARD_ONBOARDING_RUNNER};
@@ -4077,7 +4243,7 @@ mod tests {
             disposition: "installed_unqualified".into(), active_revision: None, recommended_revision: None,
             environment: environment.clone(), runner: f.r.environment.runner.id.clone(),
             module_sha256: f.r.module.sha256.clone(), limitations: vec![], history: vec![],
-            actions: vec![], details: Value::Null };
+            actions: vec![], compatibility: None, details: Value::Null };
         let found = project(&rows, std::slice::from_ref(&product));
         assert_eq!(found.phase, ui::SetupPhase::DiscoveryComplete);
         assert_eq!(found.discovered.len(), 1);
