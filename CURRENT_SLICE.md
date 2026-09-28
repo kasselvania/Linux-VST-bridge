@@ -9,6 +9,9 @@ product invariants”, “Slice discipline”, “Flatpak and SteamOS rules”, 
 “Third-party and clean-room rules”; `GOVERNANCE.md` “What evidence means”;
 `docs/ARCHITECTURE.md` installed-software and rollback boundaries; and the
 selected [PKG0 contract](docs/PKG0.md).
+The focused source repair is commit `26f5c1dd07bea689cb1e61b40d931a9eab55c228`
+(tree `ec312a58c72afbdc7f47d54bb6b1083d5a8cffd9`); the PR body binds the
+final documentation head/tree. PR #184 remains draft and unmerged.
 
 **One claim:** a fixed installed package with one exact paired manager/frontend
 generation and a complete declared release roster can be verified, copied to
@@ -26,6 +29,10 @@ rollback remain untouched. PKG0 does not install on the Deck, qualify a clean
 CachyOS/Ubuntu/Debian machine, merge private UI1/UI2/BG1/BETA0/RPR0/DIST0 work,
 or claim a releasable Proton closure. Independent source review and PB0-R
 installed-state convergence precede any Deck replacement. PB0 remains draft.
+The repair binds root-owned package reads to one checked descriptor, verifies
+Arch package metadata and removes the install hook, restores missing/stale
+routes for the same generation, and retains the transition journal until the
+effective user-service route has reloaded and matched the selected generation.
 
 ## Completed source-only canonical integration — UI2
 
