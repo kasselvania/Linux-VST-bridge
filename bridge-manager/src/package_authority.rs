@@ -292,8 +292,12 @@ pub(super) fn selected_package_version(m: &Manager, current: &Software) -> Resul
     Ok(Some(verify_generation(m, current)?.manifest.version))
 }
 fn existing_generation_dir(dir: &Path) -> Result<()> {
+    existing_generation_dir_with(dir, || {})
+}
+fn existing_generation_dir_with(dir: &Path, after_open: impl FnOnce()) -> Result<()> {
     let opened = fs::OpenOptions::new().read(true)
         .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW).open(dir)?;
+    after_open();
     let held = opened.metadata()?;
     let path = fs::symlink_metadata(dir)?;
     require(held.is_dir() && path.is_dir() && held.uid() == unsafe { libc::getuid() }
@@ -778,6 +782,23 @@ mod tests {
         assert!(predecessor_plan(&f.base.m, &f.home, manifest, sha).is_err());
         assert!(!generation.exists());
         assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected);
+    }
+
+    #[test]
+    fn replaced_generation_directory_refuses_without_creation() {
+        let f = Fixture::new();
+        let selected = f.base.m.root.join("software/race-generation");
+        let replacement = f.base.m.root.join("software/replacement-generation");
+        let held_name = f.base.m.root.join("software/held-generation");
+        private_dir(&selected).unwrap();
+        private_dir(&replacement).unwrap();
+        let result = existing_generation_dir_with(&selected, || {
+            fs::rename(&selected, &held_name).unwrap();
+            std::os::unix::fs::symlink(&replacement, &selected).unwrap();
+        });
+        assert!(result.is_err());
+        assert!(fs::symlink_metadata(&selected).unwrap().file_type().is_symlink());
+        assert!(held_name.is_dir() && replacement.is_dir());
     }
 
     #[test]

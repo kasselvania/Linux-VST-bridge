@@ -370,9 +370,13 @@ impl Manager {
         source: &str,
         current_profiles: &[Profile],
     ) -> Result<()> {
+        let pb0_started = std::time::Instant::now();
         installed.verify()?;
         registration.host.verify()?;
         validate_set(current_profiles)?;
+        if std::env::var_os("LVB_PB0_TRACE").is_some() {
+            eprintln!("pb0_host artifacts {}ms", pb0_started.elapsed().as_millis());
+        }
         let db = self.registry()?;
         let retained = db.classes.get(&registration.key()).and_then(|e| e.managed_revision.as_ref());
         if registration.key() == crate::pigments::candidate()?.class.class_id
@@ -408,6 +412,9 @@ impl Manager {
                 .collect();
         require(matching.len() == 1, "installed_host_mismatch")?;
         let current = crate::catalogue::current_host(self, installed, source, matching[0])?;
+        if std::env::var_os("LVB_PB0_TRACE").is_some() {
+            eprintln!("pb0_host current_catalogue {}ms", pb0_started.elapsed().as_millis());
+        }
         if let Some(reference) = retained {
             let revision = self.load_revision(&registration.key(), reference)?;
             require(
@@ -424,6 +431,9 @@ impl Manager {
                 Vec::new()
             };
             self.verify_retained_authority(&revision, &roster)?;
+            if std::env::var_os("LVB_PB0_TRACE").is_some() {
+                eprintln!("pb0_host retained {}ms", pb0_started.elapsed().as_millis());
+            }
         } else {
             require(
                 registration.host.sha256 == current.host.sha256
