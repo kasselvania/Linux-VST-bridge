@@ -559,13 +559,15 @@ fn overview_snapshot(m: &Manager) -> Result<ui::Snapshot> {
         &|| live_capacity(m).ok(), false)
 }
 fn overview(m: &Manager) -> Result<ui::InteractiveOverview> {
-    let started = Instant::now();
-    let current = overview_snapshot(m)?;
-    pb0_trace(started, "snapshot");
-    let readiness = readiness::assess(m, &current)?;
-    pb0_trace(started, "readiness");
-    Ok(ui::InteractiveOverview {schema: 1, operator_schema: ui::OPERATOR_SCHEMA,
-        scope: "current_only".into(), current, readiness})
+    linux_vst_bridge::with_readback_digests(|| {
+        let started = Instant::now();
+        let current = overview_snapshot(m)?;
+        pb0_trace(started, "snapshot");
+        let readiness = readiness::assess(m, &current)?;
+        pb0_trace(started, "readiness");
+        Ok(ui::InteractiveOverview {schema: 1, operator_schema: ui::OPERATOR_SCHEMA,
+            scope: "current_only".into(), current, readiness})
+    })
 }
 fn pb0_trace(started: Instant, label: &str) {
     if std::env::var_os("LVB_PB0_TRACE").is_some() {

@@ -463,6 +463,18 @@ impl Operator {
             preview: true,
         }
     }
+    /// Synthetic current-only overview for source previews. It never calls the manager.
+    #[allow(dead_code)]
+    pub fn preview_readiness(snapshot: Snapshot, readiness: ReadinessAssessment,
+        page: Page) -> Self {
+        let mut preview = Self::preview(snapshot.clone(), page);
+        preview.overview = Some(InteractiveOverview {
+            schema: 1, operator_schema: crate::model::OPERATOR_SCHEMA,
+            scope: "current_only".into(), current: snapshot, readiness,
+        });
+        preview.overview_fresh = true;
+        preview
+    }
     fn preparation_details(ui: &mut egui::Ui, v: &serde_json::Value) {
         if v["publication"] == "ordinary" {
             ui.strong("Ordinarily published");
