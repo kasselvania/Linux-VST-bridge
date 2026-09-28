@@ -559,10 +559,18 @@ fn overview_snapshot(m: &Manager) -> Result<ui::Snapshot> {
         &|| live_capacity(m).ok(), false)
 }
 fn overview(m: &Manager) -> Result<ui::InteractiveOverview> {
+    let started = Instant::now();
     let current = overview_snapshot(m)?;
+    pb0_trace(started, "snapshot");
     let readiness = readiness::assess(m, &current)?;
+    pb0_trace(started, "readiness");
     Ok(ui::InteractiveOverview {schema: 1, operator_schema: ui::OPERATOR_SCHEMA,
         scope: "current_only".into(), current, readiness})
+}
+fn pb0_trace(started: Instant, label: &str) {
+    if std::env::var_os("LVB_PB0_TRACE").is_some() {
+        eprintln!("pb0_trace {label} {}ms", started.elapsed().as_millis());
+    }
 }
 #[cfg(test)]
 pub(super) fn snapshot_idle_test(m: &Manager) -> Result<ui::Snapshot> {
@@ -639,6 +647,7 @@ fn snapshot_for_operation_depth(
     capacity_read: &dyn Fn() -> Option<CapacityReadback>,
     deep: bool,
 ) -> Result<ui::Snapshot> {
+    let pb0_started = Instant::now();
     // Bounded wait order: operator serialization -> registry authority.
     let _projection = acquire_readback(m, ui::OperatorLock::Canonical, id, timeout, waits)?;
     // History migration can change the projection token. Complete it before
@@ -672,11 +681,13 @@ fn snapshot_for_operation_depth(
     let owners = capacity::owners(m)?;
     let cap = cap.filter(|c| c.owners == owners);
     let before = token(m)?;
+    if !deep { pb0_trace(pb0_started, "token_before"); }
     let db = m.registry()?;
     drop(registry);
     // Digests, runner verification, systemd and presentation run outside the
     // registry lock. The captured registry is checked again after projection.
     let sw = software(m)?;
+    if !deep { pb0_trace(pb0_started, "software"); }
     let profiles = profiles::installed_profiles()?;
     let canonical = m.project_managed_registry(
         &sw.host,
@@ -684,6 +695,7 @@ fn snapshot_for_operation_depth(
         &profiles,
         &db,
     )?;
+    if !deep { pb0_trace(pb0_started, "managed_registry"); }
     let pending = pending_transactions(m)?;
     let retired = vendor_retired(m)? && onboarding::all_retired(m)?;
     let busy = inactive_reason(cap.as_ref(), retired, pending, false);
@@ -734,6 +746,7 @@ fn snapshot_for_operation_depth(
     let catalogue = operator_catalogue(m, &sw, &db)?;
     let managed_bindings = managed_environment_bindings(m, catalogue.as_ref(), &db)?;
     let environments = environment_projection_from(m, &sw, &managed_bindings, &db, busy)?;
+    if !deep { pb0_trace(pb0_started, "environments"); }
     let mut inventory_environments: Vec<Environment> = managed_bindings.iter()
         .map(|e| e.environment.clone()).collect();
     for retained in onboarding::history_records(m)? {
@@ -808,6 +821,7 @@ fn snapshot_for_operation_depth(
             preparation_cli::project(m, &sw, &mut products, busy)?;
         }
     }
+    if !deep { pb0_trace(pb0_started, "inventory"); }
     let mut vendor_applications = Vec::new();
     let app = app_directory(m).join("application.json");
     if app.exists() {
@@ -908,13 +922,16 @@ fn snapshot_for_operation_depth(
     let live = activity_with_capacity(m, cap.as_ref())?;
     let mut onboarding = onboarding::projection(m, busy)?;
     let (workspaces, workspace_installers) = daw_workspace::projection(m, &onboarding)?;
+    if !deep { pb0_trace(pb0_started, "workspaces"); }
     onboarding.retain(|row| !workspace_installers.contains(&row.installer));
     if let Some(receipt) = &live.operation {
         project_onboarding_failure(m, receipt, &mut onboarding)?;
     }
     let installer_setups = onboarding::setup_projection(m, &onboarding, &products, &workspace_installers)?;
+    if !deep { pb0_trace(pb0_started, "setups"); }
     let recheck = acquire_readback(m, ui::OperatorLock::Registry, id, timeout, waits)?;
     let after = token(m)?;
+    if !deep { pb0_trace(pb0_started, "token_after"); }
     require(
         before == after && owners == capacity::owners(m)?,
         "operator_state_changed_refresh",
@@ -1544,6 +1561,7 @@ fn execute_with_receipt_policy(
     }
     match a {
         ui::Action::SupportExport {} => {
+            drop(projection.take());
             let current = overview(m)?;
             let owner = operation.ok_or("operator_operation_identity")?;
             let original: ui::Request = read_json(&job_dir(m, owner)?.join("request.json"))?;
@@ -3125,6 +3143,37 @@ mod tests {
         assert_eq!(recovery_request(&f.m, &saved).unwrap(), installed_ui2.action);
         assert_eq!(validate(&installed_ui2, &view("installed-state", action("Finish", installed_ui2.action.clone(), None)))
             .unwrap_err().to_string(), "operator_schema_mismatch_update_manager_frontend");
+    }
+    #[test]
+    fn support_export_requires_the_current_overview_offer_and_token() {
+        let f = test_fixture::Fixture::new();
+        let source = f.r.host.path.with_file_name("host-source-manifest.json");
+        fs::write(&source, b"fixture source").unwrap();
+        let sw = Software {
+            installer_launch: None,
+            preparation_kit: None,
+            operator_frontend: None,
+            manager: f.r.host.clone(),
+            supervisor: f.r.host.clone(),
+            ownership: f.r.host.clone(),
+            host: f.r.host.clone(),
+            source_manifest: Artifact { path: source.clone(), sha256: digest(&source).unwrap() },
+            source_sha256: digest(&source).unwrap(),
+            native_catalogue: None,
+        };
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let offered = overview(&f.m).unwrap();
+        assert!(matches!(offered.readiness.support_export_action.action,
+            ui::Action::SupportExport {}));
+        let mut request = ui::Request {schema: ui::OPERATOR_SCHEMA,
+            state_token: offered.current.state_token.clone(),
+            action: ui::Action::SupportExport {}};
+        validate_current_request(&f.m, &request).unwrap();
+        request.state_token = "stale".into();
+        assert!(validate_current_request(&f.m, &request).is_err());
+        request.state_token = offered.current.state_token;
+        request.schema = 11;
+        assert!(validate_current_request(&f.m, &request).is_err());
     }
     #[test]
     fn workspace_selection_accepts_only_exact_offered_import_and_release_syntax() {
