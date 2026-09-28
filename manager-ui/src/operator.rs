@@ -359,6 +359,7 @@ fn imported_destination(snapshot: &Snapshot, installer: &str) -> Option<Page> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum RequestOrigin {
     InitialSnapshot,
+    DetailSnapshot,
     BackgroundActivity,
     SilentPostMutationRefresh,
     ExplicitRefresh,
@@ -373,6 +374,9 @@ impl RequestOrigin {
 
 pub struct Operator {
     snapshot: Option<Snapshot>,
+    overview: Option<InteractiveOverview>,
+    overview_fresh: bool,
+    details_attempted: bool,
     sender: mpsc::Sender<Reply>,
     receiver: mpsc::Receiver<Reply>,
     pending: bool,
@@ -398,9 +402,12 @@ pub struct Operator {
 impl Operator {
     pub fn new(ctx: &egui::Context) -> Self {
         let (sender, receiver) = mpsc::channel();
-        client::send(Query::Snapshot, sender.clone(), ctx.clone());
+        client::send(Query::Overview, sender.clone(), ctx.clone());
         Self {
             snapshot: None,
+            overview: None,
+            overview_fresh: false,
+            details_attempted: false,
             sender,
             receiver,
             pending: true,
@@ -430,6 +437,9 @@ impl Operator {
         let (sender, receiver) = mpsc::channel();
         Self {
             snapshot: Some(snapshot),
+            overview: None,
+            overview_fresh: false,
+            details_attempted: false,
             sender,
             receiver,
             pending: false,
@@ -638,6 +648,19 @@ impl Operator {
         self.background_poll = false;
         self.action_inflight = false;
         match reply {
+            Reply::Overview(bundle) => {
+                if let Some(f) = &mut self.feedback {
+                    f.reconcile_snapshot(&bundle.current);
+                }
+                self.resolve_import_route(&bundle.current);
+                if self.snapshot.as_ref().is_some_and(|old|
+                    old.state_token != bundle.current.state_token) {
+                    self.snapshot = None;
+                    self.details_attempted = false;
+                }
+                self.overview = Some(*bundle);
+                self.overview_fresh = true;
+            }
             Reply::Snapshot(s) => {
                 if s.schema != crate::model::OPERATOR_SCHEMA {
                     self.message = format!("Update the frontend and manager together: operator model {} required",
@@ -647,7 +670,13 @@ impl Operator {
                         f.reconcile_snapshot(&s);
                     }
                     self.resolve_import_route(&s);
+                    if self.overview.as_ref().is_some_and(|old|
+                        old.current.state_token != s.state_token) {
+                        self.overview_fresh = false;
+                        self.refresh_after = true;
+                    }
                     self.snapshot = Some(*s);
+                    self.details_attempted = true;
                     // Initial and post-mutation readback are quiet; a durable
                     // import/action notice is never replaced by polling.
                 }
@@ -681,9 +710,19 @@ impl Operator {
                     {
                         self.refresh_after = true;
                     }
-                    s.system = a.system;
-                    s.capture = a.capture;
-                    s.operation = a.operation;
+                    s.system = a.system.clone();
+                    s.capture = a.capture.clone();
+                    s.operation = a.operation.clone();
+                }
+                if let Some(overview) = &mut self.overview {
+                    if overview.current.system != a.system
+                        || refresh_for_receipt(&overview.current.operation, &a.operation) {
+                        self.overview_fresh = false;
+                        self.refresh_after = true;
+                    }
+                    overview.current.system = a.system;
+                    overview.current.capture = a.capture;
+                    overview.current.operation = a.operation;
                 }
             }
             Reply::Imported(imported) => {
@@ -716,6 +755,10 @@ impl Operator {
                 if let Some(s) = &mut self.snapshot {
                     s.system.service = "capacity unavailable".into();
                 }
+                if let Some(overview) = &mut self.overview {
+                    overview.current.system.service = "capacity unavailable".into();
+                }
+                self.overview_fresh = false;
             }
         }
     }
@@ -816,6 +859,108 @@ fn navigate(
 }
 
 impl Operator {
+    fn readiness_overview(ui: &mut egui::Ui, overview: &InteractiveOverview,
+        fresh: bool, pending: bool, refresh: &mut bool, chosen: &mut Option<Action>) {
+        let assessment = &overview.readiness;
+        ui.heading(match assessment.overall_status {
+            ReadinessOutcome::Ready => "Ready for supported software",
+            ReadinessOutcome::ActionRequired if assessment.products.is_empty() => "Setup incomplete",
+            ReadinessOutcome::ActionRequired => "Action required",
+            ReadinessOutcome::Unsupported => "This configuration is not supported",
+            ReadinessOutcome::Unknown => "Compatibility has not been qualified",
+        });
+        if !fresh {
+            ui.colored_label(warning_color(ui), "Checking current status. Actions are unavailable until readback completes.");
+            return;
+        }
+        if let Some(blocker) = assessment.blockers.first() {
+            ui.label(&blocker.explanation);
+        } else {
+            ui.label("The selected supported configuration has no current setup blocker.");
+        }
+        let ready = assessment.products.iter().filter(|row| row.status == ReadinessOutcome::Ready).count();
+        ui.small(format!("{} of {} managed plug-ins currently ready under this exact support envelope",
+            ready, assessment.products.len()));
+        if let Some(step) = assessment.ordered_steps.first() {
+            ui.strong(&step.title);
+            ui.label(&step.detail);
+            if let Some(action) = &step.action {
+                let enabled = !pending && action.disabled_reason.is_none();
+                if ui.add_enabled(enabled, egui::Button::new(&action.label)
+                    .min_size(egui::vec2(220.0, 44.0))).clicked() {
+                    *chosen = Some(action.action.clone());
+                }
+                if let Some(reason) = &action.disabled_reason { ui.small(reason); }
+            }
+        }
+        if ui.add_enabled(!pending, egui::Button::new("Check again")
+            .min_size(egui::vec2(150.0, 44.0))).clicked() { *refresh = true; }
+        egui::CollapsingHeader::new("Details and support").show(ui, |ui| {
+            for facts in [&assessment.platform, &assessment.daw, &assessment.audio,
+                &assessment.graphics, &assessment.runtime] {
+                for fact in facts {
+                    ui.small(format!("{}: {} · {} · {:?}", fact.name,
+                        fact.value.as_deref().unwrap_or("unknown"), fact.source,
+                        fact.certainty));
+                }
+            }
+            Self::buttons(ui, std::slice::from_ref(&assessment.support_export_action),
+                None, pending, chosen);
+            ui.small("The report is stored locally. No information is uploaded.");
+        });
+    }
+    fn fast_home(ui: &mut egui::Ui, overview: &InteractiveOverview, fresh: bool,
+        pending: bool, page: &mut Page, refresh: &mut bool, chosen: &mut Option<Action>) {
+        Self::readiness_overview(ui, overview, fresh, pending, refresh, chosen);
+        ui.add_space(12.0);
+        ui.heading("Your managed software");
+        for product in &overview.readiness.products {
+            ui.group(|ui| {
+                ui.strong(&product.name);
+                ui.label(match product.status {
+                    ReadinessOutcome::Ready => "Ready",
+                    ReadinessOutcome::ActionRequired => "Action required",
+                    ReadinessOutcome::Unsupported => "This exact build is not supported",
+                    ReadinessOutcome::Unknown => "Compatibility not qualified",
+                });
+                ui.small(&product.reason);
+            });
+        }
+        if overview.readiness.products.is_empty() { ui.label("No managed native plug-ins yet."); }
+        ui.add_space(8.0);
+        if ui.button("Open Setup").clicked() { *page = Page::Setup; }
+        if ui.button("Technical details and history").clicked() { *page = Page::Diagnostics; }
+    }
+    fn fast_setup(ui: &mut egui::Ui, overview: &InteractiveOverview, fresh: bool,
+        pending: bool, controls: (&mut bool, &mut Option<Action>, &mut bool, &mut Page)) {
+        let (refresh, chosen, pick, page) = controls;
+        Self::readiness_overview(ui, overview, fresh, pending, refresh, chosen);
+        ui.separator();
+        ui.heading("Setup");
+        if ui.add_enabled(fresh && !pending, egui::Button::new("Choose Windows installer")
+            .min_size(egui::vec2(240.0, 44.0))).clicked() { *pick = true; }
+        ui.small("Choose an installer for manager custody. Vendor sign-in remains yours.");
+        for setup in &overview.current.installer_setups {
+            ui.group(|ui| {
+                ui.strong(&setup.name);
+                ui.label(&setup.status);
+                if let Some(compatibility) = &setup.compatibility { ui.small(compatibility); }
+                if let Some(primary) = &setup.primary {
+                    Self::buttons(ui, std::slice::from_ref(primary),
+                        (!fresh).then_some("Current manager readback unavailable"), pending, chosen);
+                }
+                if !setup.discovered.is_empty() {
+                    ui.small(format!("{} exact plug-in product(s) discovered", setup.discovered.len()));
+                }
+                Self::buttons(ui, &setup.secondary,
+                    (!fresh).then_some("Current manager readback unavailable"), pending, chosen);
+                Self::buttons(ui, std::slice::from_ref(&setup.rename),
+                    (!fresh).then_some("Current manager readback unavailable"), pending, chosen);
+            });
+        }
+        if overview.current.installer_setups.is_empty() { ui.label("No native plug-in setup is in progress."); }
+        if ui.button("Technical setup history").clicked() { *page = Page::Diagnostics; }
+    }
     fn health_bar(ui: &mut egui::Ui, system: &System) {
         egui::Frame::group(ui.style())
             .fill(ui.visuals().faint_bg_color)
@@ -1687,15 +1832,42 @@ impl eframe::App for Operator {
                 }
             });
             if self.preview { ui.small("LOCAL DESIGN PREVIEW · synthetic records · actions do not execute"); }
-            if let Some(snapshot) = &self.snapshot {
+            if let Some(snapshot) = self.overview.as_ref().map(|o| &o.current)
+                .or(self.snapshot.as_ref()) {
                 Self::health_bar(ui, &snapshot.system);
             }
             navigation(ui, &mut self.page);
             self.request_bar(ui);
             ui.separator();
             egui::ScrollArea::vertical().id_salt(("manager-page", self.page)).show(ui, |ui| {
+                if !self.preview {
+                    if let Some(overview) = &self.overview {
+                        match self.page {
+                            Page::Home => {
+                                Self::fast_home(ui, overview, self.overview_fresh,
+                                    controls_pending, &mut self.page, &mut refresh, &mut chosen);
+                                return;
+                            }
+                            Page::Setup => {
+                                Self::fast_setup(ui, overview, self.overview_fresh,
+                                    controls_pending, (&mut refresh, &mut chosen, &mut pick,
+                                        &mut self.page));
+                                return;
+                            }
+                            _ => {}
+                        }
+                    } else if matches!(self.page, Page::Home | Page::Setup) {
+                        ui.heading(self.page.label());
+                        ui.label("Checking current manager status. Readiness and actions will appear after readback.");
+                        return;
+                    }
+                }
                 let Some(snapshot) = &self.snapshot else {
-                    ui.label("Waiting for the installed manager's canonical readback.");
+                    ui.label("Loading technical details. Home and Setup remain available.");
+                    if self.details_attempted && !self.pending
+                        && ui.button("Try loading details again").clicked() {
+                        self.details_attempted = false;
+                    }
                     return;
                 };
                 let page = self.page;
@@ -1893,7 +2065,8 @@ impl eframe::App for Operator {
         if pick { self.queued_import = true; }
         if refresh { self.explicit_refresh_queued = true; }
         if let Some(a) = chosen {
-            if let Some(s) = &self.snapshot {
+            if let Some(s) = self.overview.as_ref().filter(|_| self.overview_fresh)
+                .map(|o| &o.current).or(self.snapshot.as_ref()) {
                 self.capture_action(Request {
                     schema: crate::model::OPERATOR_SCHEMA,
                     state_token: s.state_token.clone(),
@@ -1911,7 +2084,11 @@ impl eframe::App for Operator {
                 else { RequestOrigin::SilentPostMutationRefresh };
             self.explicit_refresh_queued = false;
             self.refresh_after = false;
-            self.request(Query::Snapshot, origin, ui.ctx());
+            self.request(Query::Overview, origin, ui.ctx());
+        } else if !self.pending && self.snapshot.is_none() && !self.details_attempted
+            && !matches!(self.page, Page::Home | Page::Setup) {
+            self.details_attempted = true;
+            self.request(Query::Snapshot, RequestOrigin::DetailSnapshot, ui.ctx());
         } else if !self.pending && self.last_poll.elapsed() > Duration::from_secs(2) {
             self.request(Query::Activity, RequestOrigin::BackgroundActivity, ui.ctx());
         }
@@ -2477,6 +2654,9 @@ mod tests {
         let (sender, receiver) = mpsc::channel();
         Operator {
             snapshot: None,
+            overview: None,
+            overview_fresh: false,
+            details_attempted: false,
             sender,
             receiver,
             pending: false,

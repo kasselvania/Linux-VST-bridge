@@ -7,6 +7,15 @@ const ENVIRONMENT: &str = "7d8fce354e68595cdc20485f754a892d";
 const BEAM: &str = "ABCDEF019182FAEB4C756E6170726F43";
 const BEAM_FILTER: &str = "ABCDEF019182FAEB4C756E61666C744C";
 
+fn bounded_entries(path: &Path, limit: usize, refusal: &str) -> Result<Vec<fs::DirEntry>> {
+    let mut entries = Vec::new();
+    for entry in fs::read_dir(path)? {
+        require(entries.len() < limit, refusal)?;
+        entries.push(entry?);
+    }
+    Ok(entries)
+}
+
 pub(super) fn run(m: &Manager) -> Result<()> {
     let mut input = Vec::new();
     std::io::stdin().take(64 * 1024 + 1).read_to_end(&mut input)?;
@@ -44,9 +53,7 @@ pub(super) fn run(m: &Manager) -> Result<()> {
         guided_checks += preparation::guided_checks(m, &selection)?.len();
     }
     let mut imported_installers = 0usize;
-    for entry in fs::read_dir(m.root.join("installers"))?.take(129) {
-        require(imported_installers < 128, "pb0_r3_installer_bound")?;
-        let entry = entry?;
+    for entry in bounded_entries(&m.root.join("installers"), 128, "pb0_r3_installer_bound")? {
         let name = entry.file_name().to_string_lossy().into_owned();
         let Some(id) = name.strip_suffix(".json") else { continue };
         if !valid_hex(id, 64) { continue; }
@@ -56,9 +63,7 @@ pub(super) fn run(m: &Manager) -> Result<()> {
     let mut historical_requests = 0usize;
     let mut private_schema_11_requests = 0usize;
     let operator = m.root.join("operator");
-    for entry in fs::read_dir(operator)?.take(2049) {
-        require(historical_requests < 2048, "pb0_r3_operation_bound")?;
-        let entry = entry?;
+    for entry in bounded_entries(&operator, 2048, "pb0_r3_operation_bound")? {
         let name = entry.file_name().to_string_lossy().into_owned();
         if !valid_hex(&name, 32) { continue; }
         require(entry.file_type()?.is_dir(), "pb0_r3_operation_type")?;
@@ -94,4 +99,17 @@ pub(super) fn run(m: &Manager) -> Result<()> {
         "writes": false,
     }))?);
     Ok(())
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn unrelated_entries_count_toward_the_bound() {
+        let f = test_fixture::Fixture::new();
+        let directory = f.outer.join("bounded-audit-entries");
+        fs::create_dir(&directory).unwrap();
+        for n in 0..3 { fs::write(directory.join(format!("unrelated-{n}")), b"").unwrap(); }
+        assert_eq!(bounded_entries(&directory, 3, "overflow").unwrap().len(), 3);
+        assert_eq!(bounded_entries(&directory, 2, "overflow").unwrap_err().to_string(), "overflow");
+    }
 }

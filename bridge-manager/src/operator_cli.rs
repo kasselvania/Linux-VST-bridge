@@ -554,6 +554,16 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
         live_capacity(m).ok()
     })
 }
+fn overview_snapshot(m: &Manager) -> Result<ui::Snapshot> {
+    snapshot_for_operation_depth(m, None, OPERATOR_WAIT, &mut vec![],
+        &|| live_capacity(m).ok(), false)
+}
+fn overview(m: &Manager) -> Result<ui::InteractiveOverview> {
+    let current = overview_snapshot(m)?;
+    let readiness = readiness::assess(m, &current)?;
+    Ok(ui::InteractiveOverview {schema: 1, operator_schema: ui::OPERATOR_SCHEMA,
+        scope: "current_only".into(), current, readiness})
+}
 #[cfg(test)]
 pub(super) fn snapshot_idle_test(m: &Manager) -> Result<ui::Snapshot> {
     snapshot_for_operation(m, None, OPERATOR_WAIT, &mut vec![], &idle_capacity_test)
@@ -619,11 +629,21 @@ fn snapshot_for_operation(
     waits: &mut Vec<ui::LockFacts>,
     capacity_read: &dyn Fn() -> Option<CapacityReadback>,
 ) -> Result<ui::Snapshot> {
+    snapshot_for_operation_depth(m, id, timeout, waits, capacity_read, true)
+}
+fn snapshot_for_operation_depth(
+    m: &Manager,
+    id: Option<&str>,
+    timeout: Duration,
+    waits: &mut Vec<ui::LockFacts>,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>,
+    deep: bool,
+) -> Result<ui::Snapshot> {
     // Bounded wait order: operator serialization -> registry authority.
     let _projection = acquire_readback(m, ui::OperatorLock::Canonical, id, timeout, waits)?;
     // History migration can change the projection token. Complete it before
     // sampling registry/capacity authority; never hash provenance under registry.lock.
-    linux_vst_bridge::preparation::materialize_retained_history(m)?;
+    if deep { linux_vst_bridge::preparation::materialize_retained_history(m)?; }
     // LVC1 itself takes registry.lock in the service. Never request it while
     // holding that lock. Its owner census must still match after acquisition.
     let deadline = Instant::now() + timeout;
@@ -673,7 +693,7 @@ fn snapshot_for_operation(
             .classes
             .get(&p.class_id)
             .ok_or("operator_registry_changed")?;
-        let hist = history(m, &p.class_id, entry)?;
+        let hist = if deep { history(m, &p.class_id, entry)? } else { vec![] };
         let recommended = profiles.iter().find(|r| r.class.class_id == p.class_id);
         let mut actions = Vec::new();
         for h in &hist {
@@ -709,7 +729,7 @@ fn snapshot_for_operation(
                 None
             },
         ));
-        products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,compatibility:None,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
+        products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,compatibility:None,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"environment_valid":p.environment_valid,"environment_revision":p.environment_revision,"runner_valid":p.runner_valid,"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"publication_valid":p.publication_valid,"host_sha256":entry.registration.host.sha256,"host_source_sha256":entry.registration.host_source_sha256,"native_sha256":entry.registration.native.sha256,"qualification":p.qualification,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
     }
     let catalogue = operator_catalogue(m, &sw, &db)?;
     let managed_bindings = managed_environment_bindings(m, catalogue.as_ref(), &db)?;
@@ -781,10 +801,12 @@ fn snapshot_for_operation(
             }
         }
     }
-    if let Some(operation) = id {
-        preparation_cli::project_for_operation(m, &sw, &mut products, busy, operation)?;
-    } else {
-        preparation_cli::project(m, &sw, &mut products, busy)?;
+    if deep {
+        if let Some(operation) = id {
+            preparation_cli::project_for_operation(m, &sw, &mut products, busy, operation)?;
+        } else {
+            preparation_cli::project(m, &sw, &mut products, busy)?;
+        }
     }
     let mut vendor_applications = Vec::new();
     let app = app_directory(m).join("application.json");
@@ -847,17 +869,19 @@ fn snapshot_for_operation(
             ],
         });
     }
-    if let Some(mut app) = renderer_cli::project(m, busy)? {
-        dependency_cli::project(m, &mut app, busy)?;
-        vendor_applications.push(app);
+    if deep {
+        if let Some(mut app) = renderer_cli::project(m, busy)? {
+            dependency_cli::project(m, &mut app, busy)?;
+            vendor_applications.push(app);
+        }
     }
     let mut incidents = Vec::new();
-    let mut paths = crash_capture::incidents(m)?;
-    paths.sort_by_key(|p| {
+    let mut paths = if deep { crash_capture::incidents(m)? } else { vec![] };
+    if deep { paths.sort_by_key(|p| {
         fs::metadata(p.join("status.json"))
             .and_then(|m| m.modified())
             .ok()
-    });
+    }); }
     for path in paths {
         let id = path
             .file_name()
@@ -896,7 +920,8 @@ fn snapshot_for_operation(
         "operator_state_changed_refresh",
     )?;
     drop(recheck);
-    let active_sessions=session_projection(cap.as_ref(),capacity::terminal_summaries(m)?);
+    let active_sessions=if deep { session_projection(cap.as_ref(),capacity::terminal_summaries(m)?) }
+        else { vec![] };
     Ok(ui::Snapshot {
         onboarding,
         installer_setups,
@@ -911,6 +936,7 @@ fn snapshot_for_operation(
         capture: capture_state(m)?,
         recent_incidents: incidents,
         actions: vec![
+            action("Create sanitized support export", ui::Action::SupportExport {}, None),
             action("Disarm crash capture", ui::Action::CaptureDisarm {}, None),
             action(
                 "Reconcile interrupted transaction",
@@ -1008,6 +1034,21 @@ fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
             .unwrap_or("operator_action_disabled"),
     )
 }
+fn validate_current_request(m: &Manager, request: &ui::Request) -> Result<()> {
+    if matches!(request.action, ui::Action::SupportExport {}) {
+        require(request.schema == ui::OPERATOR_SCHEMA,
+            "operator_schema_mismatch_update_manager_frontend")?;
+        let offered = overview(m)?;
+        require(request.state_token == offered.current.state_token
+            && offered.readiness.state_token == offered.current.state_token,
+            "operator_stale_request_refresh")?;
+        let export = &offered.readiness.support_export_action;
+        require(matches!(export.action, ui::Action::SupportExport {})
+            && export.disabled_reason.is_none(), "operator_support_export_not_offered")?;
+        return Ok(());
+    }
+    validate(request, &snapshot(m)?)
+}
 fn job_dir(m: &Manager, id: &str) -> Result<PathBuf> {
     require(valid_hex(id, 32), "operator_operation_identity")?;
     Ok(m.root.join("operator").join(id))
@@ -1023,7 +1064,7 @@ pub(super) fn resumable_check_source(m: &Manager, id: &str, action: &ui::Action)
     // The installed private UI2 generation used wire 11. Its retained request
     // can identify an old check; the *new* continuation still enters through
     // this manager's current schema and fresh offered-action validation.
-    require(matches!(original.schema, 10 | 11) && original.action == *action,
+    require(matches!(original.schema, 10..=12) && original.action == *action,
         "guided_check_source_request_changed")?;
     let result = optional(&dir.join("result.json"))?;
     require(result["schema"] == 1 && result["operation"] == id,
@@ -1162,7 +1203,7 @@ fn cleanup_preparation_work(m: &Manager, id: &str) -> Result<()> {
     let source = (|| {
         let request: ui::Request = read_json(&job_dir(m, id)?.join("request.json"))?;
         if let ui::Action::CompatibilityResumeCheck { operation } = request.action {
-            require(matches!(request.schema, 10 | 11) && operation != id,
+            require(matches!(request.schema, 10..=12) && operation != id,
                 "guided_check_cleanup_request_binding")?;
             let intent = preparation::guided_check_stage(m, &operation, "intent")?
                 .ok_or("guided_check_cleanup_intent_missing")?;
@@ -1269,7 +1310,7 @@ fn dispatch_recorded(
 fn dispatch(m: &Manager, request: ui::Request) -> Result<ui::Receipt> {
     dispatch_recorded(m, &request, |id| {
         let _lock = m.lock("operator-dispatch.lock")?;
-        validate(&request, &snapshot(m)?)?;
+        validate_current_request(m, &request)?;
         let sw = software(m)?;
         sw.manager.verify()?;
         launch_reserved(m, &request, id, |id| {
@@ -1502,6 +1543,16 @@ fn execute_with_receipt_policy(
         });
     }
     match a {
+        ui::Action::SupportExport {} => {
+            let current = overview(m)?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            let original: ui::Request = read_json(&job_dir(m, owner)?.join("request.json"))?;
+            require(original.schema == ui::OPERATOR_SCHEMA
+                && original.action == *a
+                && original.state_token == current.current.state_token,
+                "operator_stale_request_refresh")?;
+            readiness::export(m, &current.current)
+        }
         action @ (ui::Action::WorkspaceSelectInstaller { .. }
         | ui::Action::WorkspaceInstall {}
         | ui::Action::WorkspaceFinishInstall {}
@@ -1958,9 +2009,9 @@ fn recovery_request(m: &Manager, saved: &ResumeRecord) -> Result<ui::Action> {
     let request: ui::Request =
         read_json(&job_dir(m, &saved.owner_operation)?.join("request.json"))?;
     // The installed private UI2 manager retained schema-11 requests. This is
-    // historical readback only; live requests still require operator schema 10.
+    // historical readback only; live requests still require operator schema 12.
     require(
-        matches!(request.schema, 5..=11),
+        matches!(request.schema, 5..=12),
         "operator_resume_request_schema",
     )?;
     Ok(request.action)
@@ -2364,8 +2415,12 @@ fn worker_with_capacity(
         false,
     )?;
     let mut waits = vec![];
-    let validation = snapshot_for_operation(m, Some(id), timeout, &mut waits, capacity_read)
-        .and_then(|snapshot| validate(&request, &snapshot));
+    let validation = if matches!(request.action, ui::Action::SupportExport {}) {
+        validate_current_request(m, &request)
+    } else {
+        snapshot_for_operation(m, Some(id), timeout, &mut waits, capacity_read)
+            .and_then(|snapshot| validate(&request, &snapshot))
+    };
     if let Err(e) = validation {
         let failure = e
             .downcast_ref::<linux_vst_bridge::operator_lock::AcquisitionFailure>()
@@ -2471,6 +2526,12 @@ fn worker_with_capacity(
 }
 pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
     match args {
+        [a] if a == "overview" => println!("{}", serde_json::to_string(&overview(m)?)?),
+        #[cfg(feature = "pb0-c0-audit")]
+        [a] if a == "support-export-preview" => {
+            let current = overview_snapshot(m)?;
+            println!("{}", serde_json::to_string(&readiness::audit_export(m, &current)?)?);
+        }
         [a] if a == "snapshot" => println!("{}", serde_json::to_string(&snapshot(m)?)?),
         [a] if a == "activity" => println!("{}", serde_json::to_string(&activity(m)?)?),
         [a] if a == "request" => {
@@ -3014,12 +3075,12 @@ mod tests {
         r.state_token = "previous software or registry".into();
         assert!(validate(&r, &s).is_err());
         r.state_token = "current".into();
-        for old_schema in [8, 9] {
+        for old_schema in [8, 9, 10, 11] {
             r.schema = old_schema;
             assert_eq!(validate(&r, &s).unwrap_err().to_string(),
                 "operator_schema_mismatch_update_manager_frontend");
         }
-        for malformed in [json!({"schema":"9","state_token":"current","action":{"kind":"capture_disarm"}}),
+        for malformed in [json!({"schema":"12","state_token":"current","action":{"kind":"capture_disarm"}}),
             json!({"schema":null,"state_token":"current","action":{"kind":"capture_disarm"}})] {
             assert!(serde_json::from_value::<ui::Request>(malformed).is_err());
         }
@@ -3042,8 +3103,8 @@ mod tests {
         assert!(validate(&r, &busy).is_err());
     }
     #[test]
-    fn schema_ten_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 10);
+    fn schema_twelve_keeps_exact_old_operation_request_history_readable() {
+        assert_eq!(ui::OPERATOR_SCHEMA, 12);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();

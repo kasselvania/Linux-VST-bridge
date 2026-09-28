@@ -1,5 +1,5 @@
 //! Fixed manager entry point; no shell and no user-supplied executable/arguments.
-use crate::model::{Activity, InstallerImportResult, Receipt, Request, Snapshot};
+use crate::model::{Activity, InstallerImportResult, InteractiveOverview, Receipt, Request, Snapshot};
 use std::{
     io::{Read, Write},
     process::{Command, Stdio},
@@ -7,6 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 pub enum Reply {
+    Overview(Box<InteractiveOverview>),
     Snapshot(Box<Snapshot>),
     Activity(Activity),
     Receipt(Receipt),
@@ -16,6 +17,7 @@ pub enum Reply {
 }
 pub enum Query {
     PickInstaller,
+    Overview,
     Snapshot,
     Activity,
     Action(Request),
@@ -39,6 +41,7 @@ fn call(query: Query) -> Result<Reply, String> {
     };
     let verb = match &query {
         Query::PickInstaller => "import-installer",
+        Query::Overview => "overview",
         Query::Snapshot => "snapshot",
         Query::Activity => "activity",
         Query::Action(_) => "request",
@@ -134,12 +137,28 @@ fn decode_import(data: &[u8]) -> Result<Reply, String> {
 fn decode_reply(query: Query, data: &[u8]) -> Result<Reply, String> {
     let envelope: serde_json::Value =
         serde_json::from_slice(data).map_err(|_| "Invalid manager response")?;
+    if matches!(query, Query::Overview) {
+        if envelope["schema"] != 1 || envelope["operator_schema"] != crate::model::OPERATOR_SCHEMA {
+            return Err(format!("Update the frontend and manager together: operator model {} required",
+                crate::model::OPERATOR_SCHEMA));
+        }
+        let overview: InteractiveOverview = serde_json::from_slice(data)
+            .map_err(|_| "Incompatible manager overview; update the frontend and manager together")?;
+        if overview.scope != "current_only" || overview.current.schema != crate::model::OPERATOR_SCHEMA
+            || overview.readiness.schema != 1
+            || overview.current.state_token != overview.readiness.state_token
+            || overview.current.system != overview.readiness.system {
+            return Err("Inconsistent manager overview; refresh before acting".into());
+        }
+        return Ok(Reply::Overview(Box::new(overview)));
+    }
     if envelope["schema"] != crate::model::OPERATOR_SCHEMA {
         return Err(format!("Update the frontend and manager together: operator model {} required",
             crate::model::OPERATOR_SCHEMA));
     }
     match query {
         Query::PickInstaller => unreachable!(),
+        Query::Overview => unreachable!(),
         Query::Snapshot => {
             serde_json::from_slice::<Snapshot>(data).map(|s| Reply::Snapshot(Box::new(s)))
         }
@@ -173,7 +192,7 @@ fn open_selected(path: &std::path::Path) -> Result<std::fs::File, String> {
 mod tests {
     use super::*;
     #[test]
-    fn schema_ten_frontend_accepts_paired_and_refuses_schema_nine_manager() {
+    fn schema_twelve_frontend_accepts_paired_and_refuses_old_manager() {
         let query = || {
             Query::Action(Request {
                 schema: crate::model::OPERATOR_SCHEMA,
@@ -219,6 +238,8 @@ mod tests {
             serde_json::json!(7),
             serde_json::json!(8),
             serde_json::json!(9),
+            serde_json::json!(10),
+            serde_json::json!(11),
             serde_json::json!("9"),
             serde_json::Value::Null,
         ] {
@@ -228,7 +249,7 @@ mod tests {
                     decode_reply(request, &serde_json::to_vec(&receipt).unwrap())
                         .err()
                         .unwrap()
-                        .contains("operator model 10 required")
+                        .contains("operator model 12 required")
                 );
             }
         }

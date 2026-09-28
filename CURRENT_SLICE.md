@@ -1,5 +1,32 @@
 # Current work selection
 
+## Selected source-only product overview — PB0-C0
+
+PB0-C0 starts from post-PB0-R3 canonical main
+`c920f2eca09bb27e92172b1f32e5899d45d2630b` (tree
+`656049fe96aa9a0685c8326ca5a93058b3b0e08b`). Its basis is
+`AGENTS.md` “Mission”, “Authority order”, “Core product invariants”,
+“Slice discipline”, “Evidence requirements” and “Security and privacy”;
+`GOVERNANCE.md` “What evidence means”; `docs/ARCHITECTURE.md` manager,
+profile and publication ownership; and the completed [PB0-R3 gate](docs/PB0_R3.md).
+
+**One claim:** the paired manager/frontend offers a fast current-state Home and
+Setup overview for the exact Steam Deck, SteamOS and Bitwig fixture, with four
+truthful readiness outcomes, one manager-owned next step and an explicit local
+sanitized support export. The interactive projection excludes deep retained
+history; full Snapshot remains available for Diagnostics on demand. The source
+contract is [PB0-C0](docs/PB0_C0.md).
+
+The current public operator wire generation advances from 10 directly to 12.
+Private installed schema-11 requests remain historical recovery inputs only.
+This branch is source-only plus staged read-only Deck measurement. It does not
+install or select a generation, launch a DAW, change audio settings or mutate
+installed product authority. The private UI2 generation remains selected on
+the Deck. PB0 PR #179 is extraction history and is superseded by this slice.
+Independent source review and a later controlled immutable install precede any
+physical PB0 product claim.
+
+
 ## Selected read-only installed-state gate — PB0-R3
 
 PB0-R3 starts from post-BG1-R0 canonical main

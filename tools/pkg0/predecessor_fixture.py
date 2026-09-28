@@ -86,7 +86,7 @@ def run(repo: Path, pair: Path, host: Path, host_source: Path,
     manifest = {
         "schema": 1, "package": "linux-vst-bridge-beta", "version": version,
         "pkgrel": 1, "source_head": head, "source_tree": tree,
-        "operator_schema": 10,
+        "operator_schema": 12,
         "files": [{"name": name, "sha256": digest(files[name]),
                    "size": len(files[name])} for name in NAMES],
         "external_runtime": {

@@ -246,7 +246,9 @@ fn verify_generation(m: &Manager, current: &Software) -> Result<Generation> {
     let dir = current.manager.path.parent().ok_or("package_generation_path")?;
     require(dir.parent() == Some(m.root.join("software").as_path()),
         "package_generation_path")?;
-    private_dir(dir)?;
+    // Verification and predecessor planning are read-only. In particular an
+    // absent selected generation must never be recreated as a side effect.
+    existing_generation_dir(dir)?;
     require(fs::metadata(dir.join("package-generation.json"))?.permissions().mode() & 0o222 == 0,
         "package_generation_record_writable")?;
     let record: Generation = read_json(&dir.join("package-generation.json"))?;
@@ -283,6 +285,21 @@ fn verify_generation(m: &Manager, current: &Software) -> Result<Generation> {
             "package_generation_catalogue_writable")?;
     }
     Ok(record)
+}
+pub(super) fn selected_package_version(m: &Manager, current: &Software) -> Result<Option<String>> {
+    let Some(dir) = current.manager.path.parent() else { return Ok(None); };
+    if !dir.join("package-generation.json").try_exists()? { return Ok(None); }
+    Ok(Some(verify_generation(m, current)?.manifest.version))
+}
+fn existing_generation_dir(dir: &Path) -> Result<()> {
+    let opened = fs::OpenOptions::new().read(true)
+        .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW).open(dir)?;
+    let held = opened.metadata()?;
+    let path = fs::symlink_metadata(dir)?;
+    require(held.is_dir() && path.is_dir() && held.uid() == unsafe { libc::getuid() }
+        && held.mode() & 0o077 == 0 && held.dev() == path.dev()
+        && held.ino() == path.ino(), "package_generation_directory_changed")?;
+    Ok(())
 }
 fn stage(m: &Manager, inputs: &Inputs, manifest: PackageManifest,
     manifest_sha256: String, predecessor: Option<Software>) -> Result<Software> {
@@ -747,6 +764,20 @@ mod tests {
         let (same, _) = predecessor_plan(&f.base.m, &f.home, manifest, sha).unwrap();
         assert_eq!(id(&same).unwrap(), id(&planned).unwrap());
         assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected_before);
+    }
+
+    #[test]
+    fn missing_selected_generation_is_never_created_by_predecessor_plan() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        let current = f.current();
+        let generation = current.manager.path.parent().unwrap().to_path_buf();
+        let selected = fs::read(f.base.m.root.join("software.json")).unwrap();
+        let (manifest, sha) = read_manifest(&f.inputs, f.owner).unwrap();
+        fs::remove_dir_all(&generation).unwrap();
+        assert!(predecessor_plan(&f.base.m, &f.home, manifest, sha).is_err());
+        assert!(!generation.exists());
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected);
     }
 
     #[test]
