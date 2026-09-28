@@ -3,7 +3,7 @@
 use super::*;
 use linux_vst_bridge::{operator_model as ui, profiles};
 use serde_json::{json, Value};
-use std::{io::Read, process::Stdio, sync::mpsc, thread, time::Duration};
+use std::{io::Read, os::fd::AsRawFd, process::{Child, Stdio}, thread, time::Duration};
 
 const BITWIG: &str = "com.bitwig.BitwigStudio";
 const DECK_MODEL: &str = "Galileo";
@@ -64,7 +64,7 @@ fn bounded_command(program: &str, args: &[&str]) -> Option<String> {
         "uname" => "/usr/bin/uname",
         _ => return None,
     };
-    let mut child = Command::new(executable)
+    let child = Command::new(executable)
         .args(args)
         .env("LC_ALL", "C")
         .env(
@@ -75,36 +75,52 @@ fn bounded_command(program: &str, args: &[&str]) -> Option<String> {
         .stderr(Stdio::null())
         .spawn()
         .ok()?;
-    let stdout = child.stdout.take()?;
-    let (sender, receiver) = mpsc::channel();
-    thread::spawn(move || {
-        let mut bytes = Vec::new();
-        let ok = stdout.take(4097).read_to_end(&mut bytes).is_ok();
-        let value = (ok && bytes.len() <= 4096)
-            .then(|| String::from_utf8(bytes).ok())
-            .flatten();
-        let _ = sender.send(value);
-    });
-    let deadline = Instant::now() + Duration::from_secs(3);
-    let success = loop {
-        if let Ok(Some(status)) = child.try_wait() {
-            break status.success();
+    bounded_child(child, Duration::from_secs(3))
+}
+
+fn bounded_child(mut child: Child, limit: Duration) -> Option<String> {
+    let mut stdout = child.stdout.take()?;
+    let flags = unsafe { libc::fcntl(stdout.as_raw_fd(), libc::F_GETFL) };
+    if flags < 0 || unsafe { libc::fcntl(stdout.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+        let _ = child.kill();
+        let _ = child.wait();
+        return None;
+    }
+    let deadline = Instant::now() + limit;
+    let mut bytes = Vec::new();
+    let mut exited = None;
+    let mut eof = false;
+    loop {
+        let mut chunk = [0u8; 512];
+        loop {
+            match stdout.read(&mut chunk) {
+                Ok(0) => { eof = true; break; }
+                Ok(n) if bytes.len() + n <= 4096 => bytes.extend_from_slice(&chunk[..n]),
+                Ok(_) => { let _ = child.kill(); let _ = child.wait(); return None; }
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
+                Err(_) => { let _ = child.kill(); let _ = child.wait(); return None; }
+            }
         }
+        if exited.is_none() {
+            match child.try_wait() {
+                Ok(status) => exited = status,
+                Err(_) => { let _ = child.kill(); let _ = child.wait(); return None; }
+            }
+        }
+        if eof && exited.is_some() { break; }
         if Instant::now() >= deadline {
+            // A descendant can retain stdout after the fixed helper exits.
+            // Drop the descriptor without leaving a blocked reader thread.
             let _ = child.kill();
             let _ = child.wait();
-            break false;
+            return None;
         }
-        thread::sleep(Duration::from_millis(20));
-    };
-    // A descendant may inherit stdout after the helper exits. Never wait
-    // indefinitely for that pipe; an incomplete collector is unknown.
-    let remaining = deadline.saturating_duration_since(Instant::now());
-    let value = receiver.recv_timeout(remaining).ok().flatten();
-    success
-        .then_some(value)
-        .flatten()
-        .map(|s| s.trim().to_owned())
+        thread::sleep(Duration::from_millis(10));
+    }
+    exited.filter(|status| status.success())
+        .and_then(|_| String::from_utf8(bytes).ok())
+        .map(|text| text.trim().to_owned())
 }
 
 fn key_value(text: &str, key: &str) -> Option<String> {
@@ -1103,6 +1119,19 @@ mod tests {
         assert_eq!(pipewire_setting(graph, "clock.rate"), Some(48000));
         assert_eq!(pipewire_setting(graph, "clock.quantum"), Some(512));
         assert_eq!(pipewire_setting(graph, "device.rate"), None);
+    }
+
+    #[test]
+    fn platform_helper_output_and_inherited_pipe_have_a_bounded_lifetime() {
+        let child = Command::new("/bin/sh").args(["-c", "printf ready"])
+            .stdout(Stdio::piped()).spawn().unwrap();
+        assert_eq!(bounded_child(child, Duration::from_secs(2)).as_deref(), Some("ready"));
+        let child = Command::new("/bin/sh")
+            .args(["-c", "printf ready; sleep 0.3 &"])
+            .stdout(Stdio::piped()).spawn().unwrap();
+        let started = Instant::now();
+        assert!(bounded_child(child, Duration::from_millis(50)).is_none());
+        assert!(started.elapsed() < Duration::from_secs(2));
     }
 
     fn fixture() -> (ui::Snapshot, PlatformReadback) {
