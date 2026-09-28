@@ -1852,7 +1852,7 @@ impl eframe::App for Operator {
             self.request_bar(ui);
             ui.separator();
             egui::ScrollArea::vertical().id_salt(("manager-page", self.page)).show(ui, |ui| {
-                if !self.preview {
+                if self.overview.is_some() || !self.preview {
                     if let Some(overview) = &self.overview {
                         match self.page {
                             Page::Home => {
