@@ -21,7 +21,8 @@ Deck replacement from this audit alone.
 The read-only canary found a selected BG1 V4 Lunacy runner with a pinned native
 command-session component. Public source recognizes its runner policy but lacks
 the exact command-session launch and retirement owner in the installed runtime
-scripts. That is an **independent canonical integration prerequisite**, not a
+scripts, nor the selected BG1 transition/rollback interpretation retained in
+private history. That is an **independent canonical integration prerequisite**, not a
 decoder uncertainty. PB0-R2 remains audit-only at this stop rule; the complete
 canonical readback and package-preservation gates are not claimed. The older
 PB0-R PR #180 is historical audit input and is not merge authority.

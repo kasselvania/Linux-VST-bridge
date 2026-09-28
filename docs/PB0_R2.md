@@ -87,7 +87,10 @@ command-session handling in `bridge-manager/runtime/session.py` or the
 matching remote process-group retirement in
 `bridge-manager/runtime/ownership.py`. The private source diff contains the
 component admission, keeper endpoint, instance launch and exact retirement
-behavior. Merely accepting the component as another runner file would silently
+behavior. Its `experimental_runner.rs` also contains BG1 V4 candidate and
+transition bindings absent from public main; the retained BG1 transition and
+rollback records therefore need an exact owner audit. Merely accepting the
+component as another runner file would silently
 lose the selected runtime's execution and cleanup contract when PKG0 replaces
 the supervisor scripts. This is a **BG1 shared-runtime source-owner gap**.
 
@@ -101,9 +104,10 @@ service restart occurred.
 
 ## Required next integration
 
-Integrate and independently review only the selected BG1 native
-command-session runtime and retirement owner needed by the current runner.
-It must bind the component and runner exactly, preserve all six established
+Integrate and independently review the selected BG1 native command-session
+runtime and retirement owner, plus the exact retained BG1 V4 transition and
+rollback interpretation needed by the current runner. It must bind the
+component and runner exactly, preserve all six established
 publications and the FL workspace, and demonstrate launch and retirement
 under source-owned fixtures. Do not import all private BG1 experiments,
 graphics evidence, RPR0, BETA0 or distribution work. After that integration,
