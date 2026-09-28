@@ -69,6 +69,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-GFX-001](#fc-gfx-001--directcomposition-presentation-capability) | DirectComposition presentation capability | Proton/Wine graphics runner | causal | accepted | Blackhole / Steam Deck | supported | Preserve exact runner; close stale issue #132 disposition separately |
 | [FC-LIFE-001](#fc-life-001--graphical-session-and-keeper-authority) | Graphical-session/keeper authority | Manager/supervisor lifecycle | causal | accepted | Blackhole, Kontakt / Steam Deck; FRAGMENTS / Ubuntu | supported | Gaming Mode transition coverage |
 | [FC-LIFE-002](#fc-life-002--failed-launch-cleanup-and-truthful-recovery-state) | Failed launch cleanup and truthful recovery | Manager ownership/leases/results | causal | deployed | Steam Deck and Ubuntu fixtures | supported-with-workaround | Manager recovery UX |
+| [FC-MIDI-001](#fc-midi-001--recognized-expression-rejected-an-entire-native-input-callback) | Recognized expression rejected an entire native input callback | Native VST3 proxy input admission | causal in source; physical attribution open | source-fixed | Pinned SDK fixture; Push / Deck operator report only | unqualified for Push expression | Build and publish exact proxy successor; physical Push/Bitwig release check |
 | [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | bounded | instrumentation-only | Arturia Deck and FRAGMENTS Ubuntu observations | supported-with-workaround | Pi FN1 attribution and PW1 prewarm source candidate are separate unqualified fixture results |
 | [FC-AUDIO-002](#fc-audio-002--host-block-exceeds-the-selected-bridge-presentation-envelope) | Host block exceeds selected bridge presentation envelope | Proxy setup, selected delay, DAW audio settings | causal | accepted | FRAGMENTS / Ubuntu at Bitwig 512/48 kHz | supported-with-workaround | Actionable requested-versus-supported block message |
 | [FC-CAP-001](#fc-cap-001--capacity-enumeration-versus-lease-retirement-race) | Capacity scan versus lease retirement | Manager capacity ownership | causal | none | AP17 exact fixture | supported-with-workaround | Repair issue #93 |
@@ -784,6 +785,48 @@ No dedicated shared issue yet.
 ### Last reviewed
 
 2026-09-23.
+
+---
+
+## FC-MIDI-001 — Recognized expression rejected an entire native input callback
+
+### Shared boundary
+
+Native VST3 proxy `Processor::process()` input-event admission, before the
+bounded AP8 note transport.
+
+### Understanding
+
+The source mechanism is causal: before MIDI0, poly pressure or note-expression
+value/text took the unsupported-event branch and rejected the entire callback.
+A later note-off in that callback could be lost. The operator reports held
+notes from Push 3 pads through bridged plug-ins, while a raw controller capture
+showed matching note-on/off and recent bridge reports showed callback
+rejections. The exact VST3 event type in those rejected physical callbacks is
+not known, so physical attribution remains open.
+
+### Implementation and coverage
+
+`source-fixed` for valid, admitted callbacks with at most 256 events on bus
+zero: the three recognized expression types are skipped, ordinary notes retain
+order and identity, and the lifecycle report counts one affected callback.
+Pinned SDK tests cover all three branches and unknown-event refusal. This does
+not transport expression or establish MPE, and the currently installed native
+proxy has not been replaced. Invalid callback inputs still refuse.
+
+### User posture and remaining gate
+
+Push 3 note release through the bridge is unqualified. Build an exact native
+proxy successor, publish it through managed publication authority together
+with any paired manager generation, then test note release and clean retirement
+in Bitwig. A manager package by itself does not install the native fix. Keep
+all existing product qualifications scoped to their original controller and
+session evidence.
+
+### Evidence
+
+[MIDI0 source contract](MIDI0_PUSH_NOTE_RELEASE.md) and PR #189. No new
+physical product result is claimed.
 
 ---
 

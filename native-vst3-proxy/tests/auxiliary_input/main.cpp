@@ -9,12 +9,18 @@
 #include <array>
 #include <cassert>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 #include <string>
+#include <unistd.h>
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 static unsigned setups=0,activations=0,closes=0,processes=0;
 static bool input_enabled=true,last_output=false;
+enum class InputCase { Original, MixedExpression, ExpressionOnly, NoteOffOnly };
+static InputCase input_case=InputCase::Original;
 static std::array<float,32> expected_left{},expected_right{};
 static uint64_t expected_silence=3;
 extern "C" {
@@ -32,8 +38,19 @@ uint32_t __wrap_ap4_deactivate(uint64_t){return 0;}
 uint32_t __wrap_ap3_transition(uint64_t,uint32_t){return 0;}
 uint32_t __wrap_ap10_take_results(uint64_t,ap10_results_t*p){static const ap10_results_t empty{};*p=empty;return 0;}
 uint32_t __wrap_if2_process(uint64_t,uint32_t n,const ap8_event_t*e,uint32_t count,const ap10_context_t*,uint64_t silence,const float*l,const float*r,float*ol,float*orr,uint64_t*out,ap7_delivery_t*d,uint64_t entered){
- assert(entered&&count==2&&e[0].kind==0&&e[1].kind==2);
- assert(e[0].offset==(n?7u:0u)&&e[1].offset==(n?11u:0u));
+ assert(entered);
+ if(input_case==InputCase::Original){
+  assert(count==2&&e[0].kind==0&&e[1].kind==2);
+  assert(e[0].offset==(n?7u:0u)&&e[1].offset==(n?11u:0u));
+ }else if(input_case==InputCase::MixedExpression){
+  assert(count==2&&e[0].kind==0&&e[1].kind==1);
+  assert(e[0].offset==7&&e[1].offset==19);
+  assert(e[0].id==1&&e[1].id==1&&e[0].channel==9&&e[1].channel==9);
+ }else if(input_case==InputCase::ExpressionOnly){
+  assert(count==0);
+ }else{
+  assert(count==1&&e[0].kind==1&&e[0].offset==19&&e[0].id==1&&e[0].channel==9);
+ }
  assert(n==0||n==32);
  if(n){assert(silence==expected_silence);for(unsigned i=0;i<n;++i){assert(l[i]==expected_left[i]);assert(r[i]==expected_right[i]);}}
  std::copy_n(l,n,ol);std::copy_n(r,n,orr);*out=silence;*d={};d->delivered_frames=n;++processes;return 0;
@@ -50,6 +67,9 @@ uint32_t __wrap_ap19_process_outputs(uint64_t id,uint32_t n,const ap8_event_t*e,
 uint32_t __wrap_if2_close(uint64_t){++closes;return 0;}
 }
 int main(){
+ char report_path[]="/tmp/lvb-midi0-XXXXXX";int report_fd=mkstemp(report_path);
+ assert(report_fd>=0);assert(close(report_fd)==0);
+ assert(setenv("LVB_AP3_REPORT",report_path,1)==0);
  HostApplication host;auto*p=new AP2::Processor;assert(p->initialize(&host)==kResultOk);
  BusInfo aux{},output{};assert(p->getBusCount(kAudio,kInput)==1);
  assert(p->getBusInfo(kAudio,kInput,0,aux)==kResultOk);
@@ -82,6 +102,28 @@ int main(){
  // Preserve the existing correction of false silence hints without dropping audio.
  ib.silenceFlags=3;run();
  expected_left.fill(0);expected_right.fill(0);expected_silence=3;run();
+ // Push-style note expression can share a block with an ordinary note-off.
+ // The unsupported expressive events must not discard either note event or
+ // make the whole audio callback fail.
+ input_case=InputCase::MixedExpression;notes.clear();parameters.clearQueue();
+ note.noteOn.channel=9;notes.addEvent(note);
+ Event pressure{};pressure.type=Event::kPolyPressureEvent;pressure.sampleOffset=11;
+ pressure.polyPressure={9,60,.7f,1};notes.addEvent(pressure);
+ Event expression{};expression.type=Event::kNoteExpressionValueEvent;expression.sampleOffset=15;
+ expression.noteExpressionValue={1,1,.4};notes.addEvent(expression);
+ std::array<TChar,2> expression_text{u'x',0};
+ Event text_expression{};text_expression.type=Event::kNoteExpressionTextEvent;
+ text_expression.sampleOffset=17;
+ text_expression.noteExpressionText={1,1,1,expression_text.data()};notes.addEvent(text_expression);
+ Event off{};off.type=Event::kNoteOffEvent;off.sampleOffset=19;
+ off.noteOff.channel=9;off.noteOff.pitch=60;off.noteOff.velocity=.2f;
+ off.noteOff.noteId=1;off.noteOff.tuning=0;notes.addEvent(off);run();
+ input_case=InputCase::ExpressionOnly;notes.clear();notes.addEvent(pressure);notes.addEvent(expression);notes.addEvent(text_expression);run();
+ input_case=InputCase::NoteOffOnly;notes.clear();notes.addEvent(off);run();
+ auto before_unknown=processes;off.type=999;notes.clear();notes.addEvent(off);
+ assert(p->process(d)!=kResultOk&&processes==before_unknown);
+ input_case=InputCase::Original;notes.clear();note.noteOn.channel=0;notes.addEvent(note);
+ parameters.addParameterData(0,qi)->addPoint(11,.75,pi);
  // A DAW can supply all declared buses or omit trailing inactive buses. Neither
  // form may touch inactive storage or change the transported sample positions.
  std::array<AudioBusBuffers,32> outputs{};outputs[0]=ob;
@@ -120,5 +162,9 @@ int main(){
  d.numSamples=0;d.numInputs=d.numOutputs=0;d.inputs=d.outputs=nullptr;assert(p->process(d)==kResultOk);
  assert(p->setProcessing(false)==kResultOk);assert(p->setActive(false)==kResultOk);
  assert(p->terminate()==kResultOk);p->release();assert(closes==1);
+ std::ifstream report(report_path);assert(report.good());
+ std::string contents(std::istreambuf_iterator<char>{report},{});
+ assert(contents.find("\"skipped_expression_callbacks\":2")!=std::string::npos);
+ report.close();assert(unlink(report_path)==0);assert(unsetenv("LVB_AP3_REPORT")==0);
  std::puts("AP18 native sole auxiliary samples/silence/guards/events PASS");
 }
