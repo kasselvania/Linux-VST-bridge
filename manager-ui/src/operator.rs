@@ -388,6 +388,8 @@ pub struct Operator {
     queued_action: Option<Request>,
     feedback: Option<RequestFeedback>,
     last_poll: Instant,
+    last_overview: Instant,
+    operation_live: bool,
     message: String,
     library: crate::library::Library,
     refresh_after: bool,
@@ -419,6 +421,8 @@ impl Operator {
             queued_action: None,
             feedback: None,
             last_poll: Instant::now(),
+            last_overview: Instant::now(),
+            operation_live: false,
             message: String::new(),
             library: crate::library::Library::default(),
             refresh_after: false,
@@ -451,6 +455,8 @@ impl Operator {
             queued_action: None,
             feedback: None,
             last_poll: Instant::now(),
+            last_overview: Instant::now(),
+            operation_live: false,
             message: String::new(),
             library: crate::library::Library::default(),
             refresh_after: false,
@@ -470,7 +476,8 @@ impl Operator {
         let mut preview = Self::preview(snapshot.clone(), page);
         preview.overview = Some(InteractiveOverview {
             schema: 1, operator_schema: crate::model::OPERATOR_SCHEMA,
-            scope: "current_only".into(), current: snapshot, readiness,
+            scope: "current_only".into(), current_generation: "preview".into(),
+            current: snapshot, readiness,
         });
         preview.overview_fresh = true;
         preview
@@ -672,6 +679,7 @@ impl Operator {
                 }
                 self.overview = Some(*bundle);
                 self.overview_fresh = true;
+                self.last_overview = Instant::now();
             }
             Reply::Snapshot(s) => {
                 if s.schema != crate::model::OPERATOR_SCHEMA {
@@ -735,6 +743,36 @@ impl Operator {
                     overview.current.system = a.system;
                     overview.current.capture = a.capture;
                     overview.current.operation = a.operation;
+                }
+            }
+            Reply::Pulse(p) => {
+                self.operation_live = p.operation_live;
+                if let Some(op) = &p.operation {
+                    if let Some(feedback) = &mut self.feedback { feedback.observe(op); }
+                }
+                if let Some(overview) = &mut self.overview {
+                    if overview.current_generation != p.current_generation
+                        || p.service_state != "active"
+                        || p.dsp != Some(overview.current.system.dsp)
+                        || p.keepers != Some(overview.current.system.keepers)
+                        || p.maintenance != Some(overview.current.system.maintenance)
+                        || p.pending_transactions != overview.current.system.pending_transactions
+                        || refresh_for_receipt(&overview.current.operation, &p.operation) {
+                        self.overview_fresh = false;
+                        self.refresh_after = true;
+                    }
+                    overview.current.operation = p.operation.clone();
+                }
+                if let Some(snapshot) = &mut self.snapshot {
+                    if p.service_state != "active"
+                        || p.dsp != Some(snapshot.system.dsp)
+                        || p.keepers != Some(snapshot.system.keepers)
+                        || p.maintenance != Some(snapshot.system.maintenance)
+                        || p.pending_transactions != snapshot.system.pending_transactions
+                        || refresh_for_receipt(&snapshot.operation, &p.operation) {
+                        self.refresh_after = true;
+                    }
+                    snapshot.operation = p.operation;
                 }
             }
             Reply::Imported(imported) => {
@@ -929,11 +967,15 @@ impl Operator {
         for product in &overview.readiness.products {
             ui.group(|ui| {
                 ui.strong(&product.name);
-                ui.label(match product.status {
-                    ReadinessOutcome::Ready => "Ready",
-                    ReadinessOutcome::ActionRequired => "Action required",
-                    ReadinessOutcome::Unsupported => "This exact build is not supported",
-                    ReadinessOutcome::Unknown => "Compatibility not qualified",
+                ui.label(match product.installation_health {
+                    InstallationHealth::Healthy => "Current installation: healthy",
+                    InstallationHealth::ActionRequired => "Current installation: needs repair",
+                    InstallationHealth::Unknown => "Current installation: not verified",
+                });
+                ui.label(match product.support_qualification {
+                    SupportQualification::Verified => "Beta support: exact profile verified",
+                    SupportQualification::Unsupported => "Beta support: exact profile withdrawn",
+                    SupportQualification::NotYetQualified => "Beta support: not yet qualified",
                 });
                 ui.small(&product.reason);
             });
@@ -1822,12 +1864,29 @@ impl Operator {
             });
         }
     }
+    fn expire_overview(&mut self) {
+        if self.overview_fresh && self.last_overview.elapsed() >= Duration::from_secs(60) {
+            self.overview_fresh = false;
+            self.refresh_after = true;
+        }
+    }
+    fn repaint_delay(&self) -> Duration {
+        let interval = if self.pending && !self.background_poll {
+            Duration::from_millis(500)
+        } else if self.operation_live {
+            Duration::from_secs(2)
+        } else {
+            Duration::from_secs(10)
+        };
+        interval.saturating_sub(self.last_poll.elapsed()).max(Duration::from_millis(50))
+    }
 }
 impl eframe::App for Operator {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         while let Ok(reply) = self.receiver.try_recv() {
             self.handle_reply(reply);
         }
+        self.expire_overview();
 
         let controls_pending = self.controls_pending();
         let mut refresh = false;
@@ -2101,10 +2160,14 @@ impl eframe::App for Operator {
             && !matches!(self.page, Page::Home | Page::Setup) {
             self.details_attempted = true;
             self.request(Query::Snapshot, RequestOrigin::DetailSnapshot, ui.ctx());
-        } else if !self.pending && self.last_poll.elapsed() > Duration::from_secs(2) {
+        } else if !self.pending && self.page == Page::Activity
+            && self.last_poll.elapsed() > Duration::from_secs(10) {
             self.request(Query::Activity, RequestOrigin::BackgroundActivity, ui.ctx());
+        } else if !self.pending && self.last_poll.elapsed() >
+            Duration::from_secs(if self.operation_live { 2 } else { 10 }) {
+            self.request(Query::Pulse, RequestOrigin::BackgroundActivity, ui.ctx());
         }
-        ui.ctx().request_repaint_after(Duration::from_millis(500));
+        ui.ctx().request_repaint_after(self.repaint_delay());
     }
 }
 fn installer_lines(v: &serde_json::Value) -> Vec<String> {
@@ -2680,6 +2743,8 @@ mod tests {
             queued_action: None,
             feedback: None,
             last_poll: Instant::now(),
+            last_overview: Instant::now(),
+            operation_live: false,
             message: String::new(),
             library: crate::library::Library::default(),
             refresh_after: false,
@@ -2691,6 +2756,25 @@ mod tests {
             focus: RouteFocus::default(),
             preview: false,
         }
+    }
+    #[test]
+    fn current_overview_expires_without_claiming_permanent_ready() {
+        let mut operator = state_fixture();
+        operator.overview_fresh = true;
+        operator.last_overview = Instant::now() - Duration::from_secs(61);
+        operator.expire_overview();
+        assert!(!operator.overview_fresh);
+        assert!(operator.refresh_after);
+    }
+    #[test]
+    fn idle_redraw_does_not_wake_the_frontend_twice_per_second() {
+        let mut operator = state_fixture();
+        assert!(operator.repaint_delay() >= Duration::from_secs(9));
+        operator.operation_live = true;
+        assert!(operator.repaint_delay() <= Duration::from_secs(2));
+        operator.pending = true;
+        operator.origin = Some(RequestOrigin::ExplicitRefresh);
+        assert!(operator.repaint_delay() <= Duration::from_millis(500));
     }
     #[test]
     fn ten_background_polls_are_quiet_and_silent_refresh_keeps_import_notice() {

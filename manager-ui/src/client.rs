@@ -1,5 +1,5 @@
 //! Fixed manager entry point; no shell and no user-supplied executable/arguments.
-use crate::model::{Activity, InstallerImportResult, InteractiveOverview, Receipt, Request, Snapshot};
+use crate::model::{Activity, InstallerImportResult, InteractiveOverview, Pulse, Receipt, Request, Snapshot};
 use std::{
     io::{Read, Write},
     process::{Command, Stdio},
@@ -10,6 +10,7 @@ pub enum Reply {
     Overview(Box<InteractiveOverview>),
     Snapshot(Box<Snapshot>),
     Activity(Activity),
+    Pulse(Pulse),
     Receipt(Receipt),
     Imported(InstallerImportResult),
     Cancelled,
@@ -20,6 +21,7 @@ pub enum Query {
     Overview,
     Snapshot,
     Activity,
+    Pulse,
     Action(Request),
 }
 fn call(query: Query) -> Result<Reply, String> {
@@ -44,6 +46,7 @@ fn call(query: Query) -> Result<Reply, String> {
         Query::Overview => "overview",
         Query::Snapshot => "snapshot",
         Query::Activity => "activity",
+        Query::Pulse => "pulse",
         Query::Action(_) => "request",
     };
     let mut command = Command::new(executable);
@@ -163,6 +166,7 @@ fn decode_reply(query: Query, data: &[u8]) -> Result<Reply, String> {
             serde_json::from_slice::<Snapshot>(data).map(|s| Reply::Snapshot(Box::new(s)))
         }
         Query::Activity => serde_json::from_slice::<Activity>(data).map(Reply::Activity),
+        Query::Pulse => serde_json::from_slice::<Pulse>(data).map(Reply::Pulse),
         Query::Action(_) => serde_json::from_slice::<Receipt>(data).map(Reply::Receipt),
     }
     .map_err(|_| "Incompatible manager response; update the frontend and manager together".into())
@@ -223,6 +227,12 @@ mod tests {
             decode_reply(Query::Activity, &serde_json::to_vec(&activity).unwrap()),
             Ok(Reply::Activity(_))
         ));
+        let pulse = serde_json::json!({"schema":crate::model::OPERATOR_SCHEMA,
+            "service_state":"active","dsp":0,"keepers":2,"maintenance":0,
+            "pending_transactions":0,"current_generation":"exact-generation",
+            "operation":null,"operation_live":false});
+        assert!(matches!(decode_reply(Query::Pulse, &serde_json::to_vec(&pulse).unwrap()),
+            Ok(Reply::Pulse(_))));
         let snapshot = serde_json::json!({
             "schema": crate::model::OPERATOR_SCHEMA, "state_token": "exact-state", "system": system,
             "capture": null, "operation": null, "onboarding": [], "environments": [],
@@ -244,7 +254,7 @@ mod tests {
             serde_json::Value::Null,
         ] {
             receipt["schema"] = schema;
-            for request in [query(), Query::Snapshot, Query::Activity] {
+            for request in [query(), Query::Snapshot, Query::Activity, Query::Pulse] {
                 assert!(
                     decode_reply(request, &serde_json::to_vec(&receipt).unwrap())
                         .err()

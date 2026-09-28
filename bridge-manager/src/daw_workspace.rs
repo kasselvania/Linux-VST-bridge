@@ -2910,6 +2910,53 @@ pub(super) fn projection(
     }], application_installers))
 }
 
+/// Home/Setup current identity only. Workspaces and Diagnostics use the full
+/// projection with installation history and live action admission.
+pub(super) fn current_projection(m: &Manager) -> Result<(Vec<ui::DawWorkspace>, BTreeSet<String>)> {
+    if !record(m).try_exists()? { return Ok((Vec::new(), BTreeSet::new())); }
+    let w = load(m)?;
+    let application_installers = application_installer_ids(&w);
+    let owner_active = w.session_operation.as_ref()
+        .map(|op| unit_active(&unit(op, false)?)).transpose()?.unwrap_or(false);
+    let cleanup = if w.history_recovery_required || w.state == State::CleanupUnconfirmed {
+        "cleanup_unconfirmed"
+    } else if owner_active || w.active_installation_operation.is_some()
+        || w.active_uninstall_operation.is_some()
+        || w.serum2.active_installation_operation.is_some() {
+        "running"
+    } else { "confirmed" };
+    let state = if cleanup == "cleanup_unconfirmed" { "cleanup_unconfirmed" }
+        else if owner_active { "running" }
+        else if w.installed.is_some() { "installed" }
+        else { "uninstalled" };
+    let product = &w.serum2;
+    let product_state = if product.active_installation_operation.is_some() { "installing" }
+        else if product.installed.is_some() { "installed" }
+        else if product.selected_installer.is_some() { "selected" }
+        else { "not_selected" };
+    let current_failure = w.first_failure.clone();
+    Ok((vec![ui::DawWorkspace {
+        id: w.id, name: "FL Studio".into(), state: state.into(),
+        selected_installer: w.selected_installer.sha256,
+        application_installers: application_installers.iter().cloned().collect(),
+        selected_release: w.selected_installer.release,
+        installed_advertised_release: w.installed.as_ref().map(|app| app.installer_advertised_release.clone()),
+        observed_file_version: w.installed.as_ref().and_then(|app| app.observed_file_version.clone()),
+        installed_image_sha256: w.installed.as_ref().map(|app| app.executable.sha256.clone()),
+        active_installation_operation: w.active_installation_operation,
+        cleanup: cleanup.into(), first_useful_failure: current_failure,
+        actions: vec![], installer_choices: vec![],
+        products: vec![ui::DawWorkspaceProduct {
+            id: ui::WorkspaceProductId::Serum2, name: "Serum 2".into(),
+            state: product_state.into(),
+            selected_release: product.selected_installer.as_ref().map(|i| i.release.clone()),
+            module_sha256: product.installed.as_ref().map(|i| i.module.sha256.clone()),
+            current_failure: None, actions: vec![], installer_choices: vec![],
+            details: Value::Null,
+        }], details: Value::Null,
+    }], application_installers))
+}
+
 pub(super) fn execute_action(m: &Manager, action: &ui::Action, operation: &str) -> Result<Value> {
     match action {
         ui::Action::WorkspaceSelectInstaller { installer, release } => {

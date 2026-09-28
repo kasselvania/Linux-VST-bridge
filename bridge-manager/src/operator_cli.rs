@@ -2,6 +2,7 @@
 use super::*;
 use linux_vst_bridge::operator_model as ui;
 use serde_json::{json, Value};
+mod current;
 const ASC: &str = "arturia-software-center";
 const SERVICE: &str = "linux-vst-bridge.service";
 const VENDOR: &str = "linux-vst-bridge-vendor-arturia-software-center.service";
@@ -56,8 +57,11 @@ fn optional(path: &Path) -> Result<Value> {
     }
 }
 fn token(m: &Manager) -> Result<String> {
+    token_with_registry(m, &m.registry()?)
+}
+fn token_with_registry(m: &Manager, registry: &Registry) -> Result<String> {
     Ok(hex(&sha2::Sha256::digest(serde_json::to_vec(
-        &json!({"software":optional(&m.root.join("software.json"))?,"registry":m.registry()?,
+        &json!({"software":optional(&m.root.join("software.json"))?,"registry":registry,
             "preparation":optional(&m.root.join("preparation/revision.json"))?,
             "workspace":optional(&m.root.join("daw-workspaces/fl-studio/workspace.json"))?,
             "terminal_summaries":capacity::terminal_summaries(m)?,
@@ -216,6 +220,17 @@ pub(super) fn pending_transactions(m: &Manager) -> Result<usize> {
 }
 fn activity_with_capacity(m: &Manager, cap: Option<&CapacityReadback>) -> Result<ui::Activity> {
     let pending = pending_transactions(m)?;
+    let stale = stale_transports(cap)?;
+    Ok(ui::Activity {
+        schema: ui::OPERATOR_SCHEMA,
+        system: system_from_capacity(cap, pending, stale),
+        capture: capture_state(m)?,
+        operation: optional(&m.root.join("operator/latest.json"))?
+            .as_object().map(|v| Value::Object(v.clone())),
+        workspace_product_install_ready: daw_workspace::serum2_install_finish_ready(m)?,
+    })
+}
+fn stale_transports(cap: Option<&CapacityReadback>) -> Result<usize> {
     let root = transport_storage::root();
     let mut stale = 0;
     if let Some(cap) = cap {
@@ -233,9 +248,10 @@ fn activity_with_capacity(m: &Manager, cap: Option<&CapacityReadback>) -> Result
             }
         }
     }
-    Ok(ui::Activity {
-        schema: ui::OPERATOR_SCHEMA,
-        system: ui::System {
+    Ok(stale)
+}
+fn system_from_capacity(cap: Option<&CapacityReadback>, pending: usize, stale: usize) -> ui::System {
+    ui::System {
             service: if cap.is_some() {
                 "active"
             } else {
@@ -249,17 +265,51 @@ fn activity_with_capacity(m: &Manager, cap: Option<&CapacityReadback>) -> Result
             pending_transactions: pending,
             stale_transports: stale,
             cleanup_unconfirmed: cap.is_none_or(|c| c.cleanup_unconfirmed),
-        },
-        capture: capture_state(m)?,
-        operation: optional(&m.root.join("operator/latest.json"))?
-            .as_object()
-            .map(|v| Value::Object(v.clone())),
-        workspace_product_install_ready: daw_workspace::serum2_install_finish_ready(m)?,
-    })
+    }
 }
 fn activity(m: &Manager) -> Result<ui::Activity> {
     let cap = live_capacity(m).ok();
     activity_with_capacity(m, cap.as_ref())
+}
+fn pulse_generation(m: &Manager) -> Result<String> {
+    use std::os::unix::fs::MetadataExt;
+    let paths = ["software.json", "registry.json", "preparation/revision.json",
+        "daw-workspaces/fl-studio/workspace.json", "operator/latest.json",
+        "installers", "onboarding", "inventory", "transactions",
+        "runtime/leases", "runtime/owner.sock"];
+    let mut stamps = Vec::with_capacity(paths.len());
+    for relative in paths {
+        match fs::symlink_metadata(m.root.join(relative)) {
+            Ok(meta) => stamps.push(json!([relative,meta.dev(),meta.ino(),meta.len(),
+                meta.mtime(),meta.mtime_nsec(),meta.ctime(),meta.ctime_nsec()])),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound =>
+                stamps.push(json!([relative,"absent"])),
+            Err(e) => return Err(e.into()),
+        }
+    }
+    Ok(hex(&sha2::Sha256::digest(serde_json::to_vec(&stamps)?)))
+}
+fn pulse(m: &Manager) -> Result<ui::Pulse> {
+    // The selected service's full LVC1 capacity response verifies product
+    // envelopes and is deliberately reserved for a fresh overview or action.
+    // Pulse only detects changes. It never certifies cleanup or admits work.
+    let service_state = readiness::service_state();
+    let owners = acquire_readback(m, ui::OperatorLock::Registry, None,
+        Duration::from_millis(200), &mut vec![])
+        .and_then(|_guard| capacity::owners(m)).ok();
+    let pending = pending_transactions(m)?;
+    let operation = optional(&m.root.join("operator/latest.json"))?
+        .as_object().map(|v|Value::Object(v.clone()));
+    let operation_live = operation.as_ref().and_then(|v|v["state"].as_str())
+        .is_some_and(|state|matches!(state,"queued"|"waiting"|"running"));
+    Ok(ui::Pulse {schema:ui::OPERATOR_SCHEMA,
+        service_state:service_state.into(),
+        dsp:owners.as_ref().map(|o|o.iter().filter(|v|v.kind == capacity::Kind::Dsp).count()),
+        keepers:owners.as_ref().map(|o|o.iter().filter(|v|v.kind == capacity::Kind::Keeper).count()),
+        maintenance:owners.as_ref().map(|o|o.iter().filter(|v|matches!(v.kind,
+            capacity::Kind::Inspection | capacity::Kind::VendorAccess)).count()),
+        pending_transactions:pending,
+        current_generation:pulse_generation(m)?,operation,operation_live})
 }
 fn inactive_reason(
     cap: Option<&CapacityReadback>,
@@ -554,16 +604,33 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
         live_capacity(m).ok()
     })
 }
-fn overview_snapshot(m: &Manager) -> Result<ui::Snapshot> {
-    snapshot_for_operation_depth(m, None, OPERATOR_WAIT, &mut vec![],
-        &|| live_capacity(m).ok(), false)
-}
 fn overview(m: &Manager) -> Result<ui::InteractiveOverview> {
     linux_vst_bridge::with_readback_digests(|| {
-        let current = overview_snapshot(m)?;
-        let readiness = readiness::assess(m, &current)?;
+        std::thread::scope(|scope| {
+        let probe = scope.spawn(|| {
+            let started = Instant::now();
+            (readiness::collect(m), started.elapsed().as_millis())
+        });
+        let captured = current::capture(m)?;
+        let (platform, probe_ms) = probe.join().map_err(|_| "platform_probe_failed")?;
+        #[cfg(feature = "pb0-c0-audit")]
+        eprintln!("PB0_PHASE {}",json!({"platform_probes_ms":probe_ms}));
+        #[cfg(not(feature = "pb0-c0-audit"))]
+        let _ = probe_ms;
+        let resolve_at = Instant::now();
+        let readiness = readiness::resolve_captured(&captured.snapshot, &platform,
+            &captured.profiles, &captured.revisions, observation::now()?);
+        #[cfg(feature = "pb0-c0-audit")]
+        eprintln!("PB0_PHASE {}",json!({"readiness_resolution_ms":resolve_at.elapsed().as_millis()}));
+        #[cfg(not(feature = "pb0-c0-audit"))]
+        let _ = resolve_at;
+        captured.recheck(m)?;
+        let generation = captured.current_generation.clone();
+        let current = captured.snapshot;
         Ok(ui::InteractiveOverview {schema: 1, operator_schema: ui::OPERATOR_SCHEMA,
-            scope: "current_only".into(), current, readiness})
+            scope: "current_only".into(),current_generation:generation,
+            current, readiness})
+        })
     })
 }
 #[cfg(test)]
@@ -725,13 +792,13 @@ fn snapshot_for_operation_depth(
             ui::Action::CaptureArm {
                 class_id: p.class_id.clone(),
             },
-            if !p.publication_valid || p.qualification.is_some() {
+            if !p.publication_valid || p.publication != Publication::Published || p.qualification.is_some() {
                 Some("An exact ordinary publication is required")
             } else {
                 None
             },
         ));
-        products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,compatibility:None,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"environment_valid":p.environment_valid,"environment_revision":p.environment_revision,"runner_valid":p.runner_valid,"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"publication_valid":p.publication_valid,"host_sha256":entry.registration.host.sha256,"host_source_sha256":entry.registration.host_source_sha256,"native_sha256":entry.registration.native.sha256,"qualification":p.qualification,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
+        products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid && p.publication == Publication::Published {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,compatibility:None,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"environment_valid":p.environment_valid,"environment_revision":p.environment_revision,"runner_valid":p.runner_valid,"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"publication_valid":p.publication_valid,"publication_selected":p.publication == Publication::Published,"host_sha256":entry.registration.host.sha256,"host_source_sha256":entry.registration.host_source_sha256,"native_sha256":entry.registration.native.sha256,"qualification":p.qualification,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
     }
     let catalogue = operator_catalogue(m, &sw, &db)?;
     let managed_bindings = managed_environment_bindings(m, catalogue.as_ref(), &db)?;
@@ -1037,19 +1104,53 @@ fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
     )
 }
 fn validate_current_request(m: &Manager, request: &ui::Request) -> Result<()> {
-    if matches!(request.action, ui::Action::SupportExport {}) {
-        require(request.schema == ui::OPERATOR_SCHEMA,
-            "operator_schema_mismatch_update_manager_frontend")?;
+    if current_offer_action(&request.action) {
         let offered = overview(m)?;
-        require(request.state_token == offered.current.state_token
-            && offered.readiness.state_token == offered.current.state_token,
-            "operator_stale_request_refresh")?;
-        let export = &offered.readiness.support_export_action;
-        require(matches!(export.action, ui::Action::SupportExport {})
-            && export.disabled_reason.is_none(), "operator_support_export_not_offered")?;
+        validate(request, &offered.current)?;
+        if matches!(request.action, ui::Action::SupportExport {}) {
+            let export = &offered.readiness.support_export_action;
+            require(matches!(export.action, ui::Action::SupportExport {})
+                && export.disabled_reason.is_none(), "operator_support_export_not_offered")?;
+        }
         return Ok(());
     }
     validate(request, &snapshot(m)?)
+}
+fn current_offer_action(action: &ui::Action) -> bool {
+    matches!(action, ui::Action::SupportExport {}
+        | ui::Action::TransactionReconcile {}
+        | ui::Action::InstallerEnvironmentCreate { .. }
+        | ui::Action::InstallerRename { .. }
+        | ui::Action::InstallerNewAttempt { .. }
+        | ui::Action::InstallerStart { .. }
+        | ui::Action::InstallerStartWithPolicy { .. }
+        | ui::Action::InstallerFocus { .. }
+        | ui::Action::InstallerStop { .. }
+        | ui::Action::InstallerScan { .. })
+}
+fn validate_current_worker(m: &Manager, request: &ui::Request, id: &str,
+    timeout: Duration, waits: &mut Vec<ui::LockFacts>,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>) -> Result<()> {
+    require(request.schema == ui::OPERATOR_SCHEMA,
+        "operator_schema_mismatch_update_manager_frontend")?;
+    let _serialization = acquire_readback(m, ui::OperatorLock::Canonical,
+        Some(id), timeout, waits)?;
+    let deadline = Instant::now() + timeout;
+    let mut cap = capacity_read();
+    let mut registry = acquire_readback(m, ui::OperatorLock::Registry,
+        Some(id), deadline.saturating_duration_since(Instant::now()), waits)?;
+    if cap.is_none() {
+        drop(registry);
+        cap = capacity_read();
+        registry = acquire_readback(m, ui::OperatorLock::Registry,
+            Some(id), deadline.saturating_duration_since(Instant::now()), waits)?;
+    }
+    let owners = capacity::owners(m)?;
+    require(cap.as_ref().is_none_or(|read| read.owners == owners),
+        "operator_owners_changed")?;
+    require(request.state_token == token(m)?, "operator_stale_request_refresh")?;
+    drop(registry);
+    Ok(())
 }
 fn job_dir(m: &Manager, id: &str) -> Result<PathBuf> {
     require(valid_hex(id, 32), "operator_operation_identity")?;
@@ -1554,7 +1655,7 @@ fn execute_with_receipt_policy(
                 && original.action == *a
                 && original.state_token == current.current.state_token,
                 "operator_stale_request_refresh")?;
-            readiness::export(m, &current.current)
+            readiness::export(m, &current)
         }
         action @ (ui::Action::WorkspaceSelectInstaller { .. }
         | ui::Action::WorkspaceInstall {}
@@ -2420,6 +2521,10 @@ fn worker_with_capacity(
     let mut waits = vec![];
     let validation = if matches!(request.action, ui::Action::SupportExport {}) {
         validate_current_request(m, &request)
+    } else if current_offer_action(&request.action) {
+        // Admission already bound the exact manager offer. The action owner
+        // performs its target-specific physical check before mutation.
+        validate_current_worker(m, &request, id, timeout, &mut waits, capacity_read)
     } else {
         snapshot_for_operation(m, Some(id), timeout, &mut waits, capacity_read)
             .and_then(|snapshot| validate(&request, &snapshot))
@@ -2529,14 +2634,25 @@ fn worker_with_capacity(
 }
 pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
     match args {
-        [a] if a == "overview" => println!("{}", serde_json::to_string(&overview(m)?)?),
+        [a] if a == "overview" => {
+            let current = overview(m)?;
+            let serialization_at = Instant::now();
+            let encoded = serde_json::to_string(&current)?;
+            #[cfg(feature = "pb0-c0-audit")]
+            eprintln!("PB0_PHASE {}",json!({"serialization_ms":serialization_at.elapsed().as_millis(),
+                "products":current.current.products.len(),"setups":current.current.installer_setups.len()}));
+            #[cfg(not(feature = "pb0-c0-audit"))]
+            let _ = serialization_at;
+            println!("{encoded}");
+        }
         #[cfg(feature = "pb0-c0-audit")]
         [a] if a == "support-export-preview" => {
-            let current = overview_snapshot(m)?;
+            let current = overview(m)?;
             println!("{}", serde_json::to_string(&readiness::audit_export(m, &current)?)?);
         }
         [a] if a == "snapshot" => println!("{}", serde_json::to_string(&snapshot(m)?)?),
         [a] if a == "activity" => println!("{}", serde_json::to_string(&activity(m)?)?),
+        [a] if a == "pulse" => println!("{}", serde_json::to_string(&pulse(m)?)?),
         [a] if a == "request" => {
             let mut bytes = Vec::new();
             std::io::stdin().take(16385).read_to_end(&mut bytes)?;
@@ -3165,8 +3281,9 @@ mod tests {
         let report = result["result"]["file"].as_str()
             .expect("the exact offered export writes a local file");
         let saved: Value = read_json(&f.m.root.join("support-exports").join(report)).unwrap();
-        assert_eq!(saved["schema"], 1);
-        assert!(saved["assessment"]["state_token"].is_string());
+        assert_eq!(saved["schema"], 2);
+        assert!(saved["assessment"].get("state_token").is_none());
+        assert!(saved["assessment"].get("support_export_action").is_none());
     }
     #[test]
     fn workspace_selection_accepts_only_exact_offered_import_and_release_syntax() {
@@ -4255,6 +4372,30 @@ mod tests {
         assert!(rows[0].actions.is_empty());
         let setups = onboarding::setup_projection(&f.m, &rows, &[], &Default::default()).unwrap();
         assert!(setups[0].primary.is_none());
+    }
+    #[test]
+    fn current_setup_offer_receives_durable_ack_without_diagnostics_snapshot() {
+        let (fixture, _) = onboarding_worker_fixture();
+        let service = service_reply(&fixture.m, capacity_json(false,0,0));
+        let current = overview(&fixture.m).unwrap();
+        service.join().unwrap();
+        let offer = current.current.installer_setups[0].primary.as_ref().unwrap();
+        assert!(matches!(offer.action,ui::Action::InstallerEnvironmentCreate {..}));
+        assert!(offer.disabled_reason.is_none());
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:current.current.state_token,action:offer.action.clone()};
+        let service = service_reply(&fixture.m, capacity_json(false,0,0));
+        let started = Instant::now();
+        let receipt = dispatch_recorded(&fixture.m,&request,|id| {
+            validate_current_request(&fixture.m,&request)?;
+            launch_reserved(&fixture.m,&request,id,|_|Ok(true))
+        }).unwrap();
+        let elapsed = started.elapsed();
+        service.join().unwrap();
+        eprintln!("PB0_SOURCE_SETUP_ACK_MS {}",elapsed.as_millis());
+        assert!(receipt.accepted && receipt.operation.is_some());
+        assert!(elapsed < Duration::from_secs(2),"current Setup acknowledgement took {elapsed:?}");
+        assert_eq!(optional(&fixture.m.root.join("operator/latest.json")).unwrap()["state"],"queued");
     }
     #[test]
     fn ui1_rename_requires_exact_offered_installer_and_changes_no_custody_record() {

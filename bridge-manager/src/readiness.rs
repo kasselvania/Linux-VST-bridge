@@ -3,7 +3,7 @@
 use super::*;
 use linux_vst_bridge::{operator_model as ui, profiles};
 use serde_json::{json, Value};
-use std::{io::Read, os::fd::AsRawFd, process::{Child, Stdio}, thread, time::Duration};
+use std::{io::Read, os::{fd::AsRawFd, unix::{fs::FileTypeExt, process::CommandExt}}, process::{Child, Stdio}, thread, time::Duration};
 
 const BITWIG: &str = "com.bitwig.BitwigStudio";
 const DECK_MODEL: &str = "Galileo";
@@ -17,29 +17,40 @@ const BETA_PROFILE_IDS: [&str; 3] = [
     "arturia-pigments",
 ];
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum Probe<T> { Observed(T), Absent, Unavailable, Malformed }
+impl<T> Probe<T> {
+    fn observed(&self) -> Option<&T> {
+        if let Self::Observed(value) = self { Some(value) } else { None }
+    }
+    fn is_absent(&self) -> bool { matches!(self, Self::Absent) }
+}
+impl<T: Clone> Probe<T> {
+    fn value(&self) -> Option<T> { self.observed().cloned() }
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct PlatformReadback {
-    pub arch: Option<String>,
+    pub arch: Probe<String>,
     pub model: Option<String>,
     pub distro: Option<String>,
     pub distro_version: Option<String>,
     pub kernel: Option<String>,
     pub session: Option<String>,
     pub display: Option<String>,
-    pub runtime_dir: bool,
-    pub pipewire_socket: bool,
-    pub jack_available: Option<bool>,
+    pub runtime_dir: Probe<bool>,
+    pub pipewire_socket: Probe<bool>,
+    pub jack_available: Probe<bool>,
     pub pipewire_graph_rate: Option<u32>,
     pub pipewire_quantum: Option<u32>,
     /// Only a trusted live DAW/device adapter may populate these. Idle PB0
     /// collection deliberately leaves them unknown.
     pub device_sample_rate: Option<u32>,
     pub daw_callback_maximum: Option<u32>,
-    pub bitwig_ref: Option<String>,
-    pub bitwig_version: Option<String>,
-    pub bitwig_runtime: Option<String>,
-    pub bitwig_permissions: Option<String>,
-    pub publication_directory: bool,
+    pub bitwig_ref: Probe<String>,
+    pub bitwig_version: Probe<String>,
+    pub bitwig_runtime: Probe<String>,
+    pub bitwig_permissions: Probe<String>,
+    pub publication_directory: Probe<bool>,
 }
 
 fn bounded_file(path: &Path, limit: u64) -> Option<String> {
@@ -54,17 +65,29 @@ fn bounded_file(path: &Path, limit: u64) -> Option<String> {
         .flatten()
 }
 
+fn path_probe(path: &Path, socket: bool) -> Probe<bool> {
+    match std::fs::symlink_metadata(path) {
+        Ok(metadata) if (socket && metadata.file_type().is_socket())
+            || (!socket && metadata.file_type().is_dir()) => Probe::Observed(true),
+        Ok(_) => Probe::Malformed,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Probe::Absent,
+        Err(_) => Probe::Unavailable,
+    }
+}
+
 /// Only fixed, read-only platform verbs. The 3-second deadline and 4-KiB
 /// output limit prevent a broken helper from hanging manager readback.
-fn bounded_command(program: &str, args: &[&str]) -> Option<String> {
+fn bounded_command(program: &str, args: &[&str]) -> Probe<String> {
     let executable = match program {
         "flatpak" => "/usr/bin/flatpak",
         "pw-metadata" => "/usr/bin/pw-metadata",
         "jack_lsp" => "/usr/bin/jack_lsp",
         "uname" => "/usr/bin/uname",
-        _ => return None,
+        "systemctl" => "/usr/bin/systemctl",
+        _ => return Probe::Unavailable,
     };
-    let child = Command::new(executable)
+    let mut command = Command::new(executable);
+    command
         .args(args)
         .env("LC_ALL", "C")
         .env(
@@ -72,19 +95,56 @@ fn bounded_command(program: &str, args: &[&str]) -> Option<String> {
             format!("/run/user/{}", unsafe { libc::getuid() }),
         )
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .ok()?;
+        .stderr(Stdio::null());
+    // Each fixed helper owns a private session. A timed-out parent may have
+    // descendants holding the output pipe; retire the entire owned cohort.
+    unsafe { command.pre_exec(|| {
+        if libc::setsid() < 0 { Err(std::io::Error::last_os_error()) } else { Ok(()) }
+    }); }
+    let child = match command.spawn() {
+        Ok(child) => child,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Probe::Unavailable,
+        Err(_) => return Probe::Unavailable,
+    };
     bounded_child(child, Duration::from_secs(3))
 }
 
-fn bounded_child(mut child: Child, limit: Duration) -> Option<String> {
-    let mut stdout = child.stdout.take()?;
+pub(super) fn service_state() -> &'static str {
+    match bounded_command("systemctl", &["--user", "show", "-p", "ActiveState",
+        "--value", "linux-vst-bridge.service"]) {
+        Probe::Observed(value) if value == "active" => "active",
+        Probe::Observed(value) if matches!(value.as_str(), "inactive" | "failed") => "inactive",
+        _ => "unknown",
+    }
+}
+
+fn retire_helper(child: &mut Child) {
+    // The setsid leader remains unreaped until its owned group is signalled.
+    // A numeric group is never signalled after this owner has been reaped.
+    unsafe { libc::kill(-(child.id() as i32), libc::SIGKILL); }
+    let _ = child.wait();
+}
+#[cfg(target_os = "linux")]
+fn completed_helper(child: &mut Child) -> std::io::Result<Option<std::process::ExitStatus>> {
+    let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+    let result = unsafe { libc::waitid(libc::P_PID, child.id() as libc::id_t, &mut info,
+        libc::WEXITED | libc::WNOHANG | libc::WNOWAIT) };
+    if result < 0 { return Err(std::io::Error::last_os_error()); }
+    if info.si_signo == 0 { return Ok(None); }
+    // WNOWAIT preserves the leader PID and group identity until after all
+    // fixed-helper descendants in that session receive retirement.
+    unsafe { libc::kill(-(child.id() as i32), libc::SIGKILL); }
+    child.wait().map(Some)
+}
+fn bounded_child(mut child: Child, limit: Duration) -> Probe<String> {
+    let Some(mut stdout) = child.stdout.take() else {
+        retire_helper(&mut child);
+        return Probe::Unavailable;
+    };
     let flags = unsafe { libc::fcntl(stdout.as_raw_fd(), libc::F_GETFL) };
     if flags < 0 || unsafe { libc::fcntl(stdout.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
-        let _ = child.kill();
-        let _ = child.wait();
-        return None;
+        retire_helper(&mut child);
+        return Probe::Unavailable;
     }
     let deadline = Instant::now() + limit;
     let mut bytes = Vec::new();
@@ -96,31 +156,36 @@ fn bounded_child(mut child: Child, limit: Duration) -> Option<String> {
             match stdout.read(&mut chunk) {
                 Ok(0) => { eof = true; break; }
                 Ok(n) if bytes.len() + n <= 4096 => bytes.extend_from_slice(&chunk[..n]),
-                Ok(_) => { let _ = child.kill(); let _ = child.wait(); return None; }
+                Ok(_) => { retire_helper(&mut child); return Probe::Malformed; }
                 Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
-                Err(_) => { let _ = child.kill(); let _ = child.wait(); return None; }
+                Err(_) => { retire_helper(&mut child); return Probe::Unavailable; }
             }
         }
-        if exited.is_none() {
-            match child.try_wait() {
+        if eof && exited.is_none() {
+            #[cfg(target_os = "linux")]
+            let completion = completed_helper(&mut child);
+            #[cfg(not(target_os = "linux"))]
+            let completion = child.try_wait();
+            match completion {
                 Ok(status) => exited = status,
-                Err(_) => { let _ = child.kill(); let _ = child.wait(); return None; }
+                Err(_) => { retire_helper(&mut child); return Probe::Unavailable; }
             }
         }
         if eof && exited.is_some() { break; }
         if Instant::now() >= deadline {
             // A descendant can retain stdout after the fixed helper exits.
             // Drop the descriptor without leaving a blocked reader thread.
-            let _ = child.kill();
-            let _ = child.wait();
-            return None;
+            retire_helper(&mut child);
+            return Probe::Unavailable;
         }
         thread::sleep(Duration::from_millis(10));
     }
-    exited.filter(|status| status.success())
-        .and_then(|_| String::from_utf8(bytes).ok())
-        .map(|text| text.trim().to_owned())
+    if !exited.is_some_and(|status| status.success()) { return Probe::Absent; }
+    match String::from_utf8(bytes) {
+        Ok(text) => Probe::Observed(text.trim().to_owned()),
+        Err(_) => Probe::Malformed,
+    }
 }
 
 fn key_value(text: &str, key: &str) -> Option<String> {
@@ -178,7 +243,7 @@ pub(super) fn collect(m: &Manager) -> PlatformReadback {
         });
     // Independent fixed readbacks run together, so one unavailable desktop
     // helper cannot add its full timeout to every other helper's latency.
-    let (info, metadata, bitwig_ref, bitwig_runtime, bitwig_permissions, arch, jack) =
+    let (info, metadata, bitwig_ref, bitwig_runtime, bitwig_permissions, arch, jack, flatpak_list) =
         thread::scope(|scope| {
             let info = scope.spawn(|| bounded_command("flatpak", &["info", BITWIG]));
             let metadata = scope.spawn(|| bounded_command("pw-metadata", &["-n", "settings", "0"]));
@@ -187,21 +252,44 @@ pub(super) fn collect(m: &Manager) -> PlatformReadback {
             let permissions = scope.spawn(|| bounded_command("flatpak", &["info", "--show-permissions", BITWIG]));
             let arch = scope.spawn(|| bounded_command("uname", &["-m"]));
             let jack = scope.spawn(|| bounded_command("jack_lsp", &[]));
-            (info.join().ok().flatten().unwrap_or_default(),
-                metadata.join().ok().flatten().unwrap_or_default(),
-                reference.join().ok().flatten(), runtime.join().ok().flatten(),
-                permissions.join().ok().flatten(), arch.join().ok().flatten(),
-                jack.join().ok().flatten())
+            let flatpak_list = scope.spawn(|| bounded_command("flatpak", &["list", "--app", "--columns=application"]));
+            (info.join().unwrap_or(Probe::Unavailable),
+                metadata.join().unwrap_or(Probe::Unavailable),
+                reference.join().unwrap_or(Probe::Unavailable),
+                runtime.join().unwrap_or(Probe::Unavailable),
+                permissions.join().unwrap_or(Probe::Unavailable),
+                arch.join().unwrap_or(Probe::Unavailable),
+                jack.join().unwrap_or(Probe::Unavailable),
+                flatpak_list.join().unwrap_or(Probe::Unavailable))
         });
     let runtime = PathBuf::from(format!("/run/user/{}", unsafe { libc::getuid() }));
-    let runtime_dir = runtime.is_dir();
-    let version = info.lines().find_map(|line| {
-        line.trim()
-            .strip_prefix("Version:")
-            .map(str::trim)
-            .filter(|value| !value.is_empty() && value.len() <= 64)
-            .map(str::to_owned)
-    });
+    let runtime_dir = path_probe(&runtime, false);
+    let version = match info {
+        Probe::Observed(info) => info.lines().find_map(|line| {
+            line.trim().strip_prefix("Version:").map(str::trim)
+                .filter(|value| !value.is_empty() && value.len() <= 64)
+                .map(str::to_owned)
+        }).map_or(Probe::Malformed, Probe::Observed),
+        Probe::Absent => Probe::Absent,
+        Probe::Unavailable => Probe::Unavailable,
+        Probe::Malformed => Probe::Malformed,
+    };
+    let nonempty = |probe: Probe<String>| match probe {
+        Probe::Observed(value) if !value.is_empty() && value.len() <= 4096 => Probe::Observed(value),
+        Probe::Observed(_) => Probe::Malformed,
+        other => other,
+    };
+    let arch = match nonempty(arch) {
+        Probe::Absent => Probe::Unavailable,
+        other => other,
+    };
+    let bitwig_ref = match bitwig_ref {
+        Probe::Absent => match flatpak_list.observed() {
+            Some(list) if !list.lines().any(|line| line.trim() == BITWIG) => Probe::Absent,
+            _ => Probe::Unavailable,
+        },
+        other => nonempty(other),
+    };
     PlatformReadback {
         arch,
         model: bounded_file(Path::new("/sys/devices/virtual/dmi/id/product_name"), 128)
@@ -215,17 +303,22 @@ pub(super) fn collect(m: &Manager) -> PlatformReadback {
         session: env("XDG_SESSION_TYPE"),
         display,
         runtime_dir,
-        pipewire_socket: runtime.join("pipewire-0").exists(),
-        jack_available: jack.map(|_| true),
-        pipewire_graph_rate: pipewire_setting(&metadata, "clock.rate"),
-        pipewire_quantum: pipewire_setting(&metadata, "clock.quantum"),
+        pipewire_socket: path_probe(&runtime.join("pipewire-0"), true),
+        jack_available: match jack {
+            Probe::Observed(_) => Probe::Observed(true),
+            Probe::Absent => Probe::Absent,
+            Probe::Unavailable => Probe::Unavailable,
+            Probe::Malformed => Probe::Malformed,
+        },
+        pipewire_graph_rate: metadata.observed().and_then(|v| pipewire_setting(v, "clock.rate")),
+        pipewire_quantum: metadata.observed().and_then(|v| pipewire_setting(v, "clock.quantum")),
         device_sample_rate: None,
         daw_callback_maximum: None,
         bitwig_ref,
         bitwig_version: version,
-        bitwig_runtime,
-        bitwig_permissions,
-        publication_directory: m.publications.is_dir(),
+        bitwig_runtime: nonempty(bitwig_runtime),
+        bitwig_permissions: nonempty(bitwig_permissions),
+        publication_directory: path_probe(&m.publications, false),
     }
 }
 
@@ -356,44 +449,41 @@ fn product_facts(product: &ui::Product, at: u64) -> Vec<ui::ReadinessFact> {
                 .map(str::to_owned),
         ),
         valid("Publication verification", "publication_valid"),
+        exact("Publication selected",
+            product.details["publication_selected"].as_bool().map(|selected|
+                if selected {"yes"} else {"no"}.into())),
     ]
 }
 fn matches_deck(p: &PlatformReadback) -> bool {
-    p.arch.as_deref() == Some("x86_64")
+    p.arch.observed().map(String::as_str) == Some("x86_64")
         && p.model.as_deref() == Some(DECK_MODEL)
         && p.distro.as_deref() == Some(DECK_DISTRO)
         && p.distro_version.as_deref() == Some(DECK_VERSION)
-        && p.bitwig_ref.as_deref() == Some(BITWIG_REF)
-        && p.bitwig_version.as_deref() == Some(BITWIG_VERSION)
+        && p.bitwig_ref.observed().map(String::as_str) == Some(BITWIG_REF)
+        && p.bitwig_version.observed().map(String::as_str) == Some(BITWIG_VERSION)
 }
 fn sandbox_path(p: &PlatformReadback) -> Option<bool> {
-    p.bitwig_permissions.as_deref().map(|permissions| {
-        let filesystems = key_value(permissions, "filesystems").unwrap_or_default();
-        let sockets = key_value(permissions, "sockets").unwrap_or_default();
-        p.publication_directory
+    p.bitwig_permissions.observed().and_then(|permissions| {
+        if !permissions.lines().any(|line| line.trim() == "[Context]") { return None; }
+        let filesystems = key_value(permissions, "filesystems")?;
+        let sockets = key_value(permissions, "sockets")?;
+        let publication_directory = match &p.publication_directory {
+            Probe::Observed(value) => *value,
+            Probe::Absent => false,
+            Probe::Unavailable | Probe::Malformed => return None,
+        };
+        Some(publication_directory
             && filesystems.split(';').any(|entry| entry == "host")
-            && sockets.split(';').any(|entry| entry == "x11")
+            && sockets.split(';').any(|entry| entry == "x11"))
     })
 }
 
-/// A reviewed source-owned support envelope, bound again to the exact installed
-/// profile and physical catalogue. It cannot extend support to sibling builds.
-fn accepted_profile(
-    m: &Manager,
-    db: &Registry,
-    installed: &[profiles::Profile],
-    product: &ui::Product,
-) -> std::result::Result<bool, &'static str> {
-    let Some(entry) = db.classes.get(&product.class_id) else {
-        return Ok(false);
-    };
-    let Some(reference) = entry.managed_revision.as_ref() else {
-        return Ok(false);
-    };
-    let revision = m
-        .load_revision(&product.class_id, reference)
-        .map_err(|_| "READINESS_REVISION_UNAVAILABLE")?;
-    Ok(installed.iter().any(|profile| {
+/// A reviewed source-owned support envelope, bound to the revision captured
+/// with the current registry and installed profiles. It cannot extend support
+/// to sibling builds.
+fn accepted_profile_captured(installed: &[profiles::Profile],
+    revision: &publication::Revision, product: &ui::Product) -> bool {
+    installed.iter().any(|profile| {
         BETA_PROFILE_IDS.contains(&profile.id.as_str())
             && revision.profile == *profile
             && profile.claim == profiles::Claim::VerifiedExactFixture
@@ -407,7 +497,19 @@ fn accepted_profile(
             && product.version == profile.class.version
             && product.details["profile"]["id"] == profile.id
             && product.details["profile"]["revision"] == profile.revision
-    }))
+    })
+}
+
+pub(super) fn resolve_captured(snapshot: &ui::Snapshot, p: &PlatformReadback,
+    installed: &[profiles::Profile],
+    revisions: &std::collections::BTreeMap<String,
+        std::result::Result<Option<publication::Revision>, &'static str>>,
+    at: u64) -> ui::ReadinessAssessment {
+    resolve_with(snapshot, p, at, &[], |product| match revisions.get(&product.class_id) {
+        Some(Ok(Some(revision))) => Ok(accepted_profile_captured(installed, revision, product)),
+        Some(Err(code)) => Err(*code),
+        _ => Ok(false),
+    })
 }
 
 fn resolve_with(
@@ -428,10 +530,10 @@ fn resolve_with(
             "Installed compatibility authority could not be verified. Open Diagnostics or create a support export.",
         ));
     }
-    if p.arch.as_deref() != Some("x86_64") {
+    if p.arch.observed().map(String::as_str) != Some("x86_64") {
         blockers.push(issue(
             "architecture",
-            if p.arch.is_some() {
+            if p.arch.observed().is_some() {
                 O::Unsupported
             } else {
                 O::Unknown
@@ -451,7 +553,7 @@ fn resolve_with(
         blockers.push(issue("platform", O::Unknown,
             "This exact distribution, version and hardware combination has not been qualified for these profiles."));
     }
-    if p.bitwig_ref.is_none() {
+    if p.bitwig_ref.is_absent() {
         blockers.push(issue(
             "daw",
             O::ActionRequired,
@@ -462,8 +564,12 @@ fn resolve_with(
             "Use the supported Bitwig Flatpak route, then Check again.",
             None,
         ));
-    } else if p.bitwig_ref.as_deref() != Some(BITWIG_REF)
-        || p.bitwig_version.as_deref() != Some(BITWIG_VERSION)
+    } else if p.bitwig_ref.observed().map(String::as_str).is_none()
+        || p.bitwig_version.observed().map(String::as_str).is_none() {
+        blockers.push(issue("daw", O::Unknown,
+            "Bitwig installation or version could not be observed reliably."));
+    } else if p.bitwig_ref.observed().map(String::as_str) != Some(BITWIG_REF)
+        || p.bitwig_version.observed().map(String::as_str) != Some(BITWIG_VERSION)
     {
         blockers.push(issue(
             "daw",
@@ -503,7 +609,7 @@ fn resolve_with(
             None,
         ));
     }
-    if !p.runtime_dir || !p.pipewire_socket {
+    if p.runtime_dir.is_absent() || p.pipewire_socket.is_absent() {
         blockers.push(issue(
             "audio_ipc",
             O::ActionRequired,
@@ -514,6 +620,10 @@ fn resolve_with(
             "Sign in to the normal desktop session, then Check again.",
             None,
         ));
+    } else if p.runtime_dir.observed() != Some(&true)
+        || p.pipewire_socket.observed() != Some(&true) {
+        blockers.push(issue("audio_ipc", O::Unknown,
+            "The user runtime directory or PipeWire socket could not be verified."));
     }
     if !snapshot.system.capacity_available() {
         blockers.push(issue(
@@ -593,35 +703,46 @@ fn resolve_with(
             .and_then(|result| result.as_ref().err())
             .copied();
         let exact = acceptance.is_some_and(|result| result == Ok(true));
-        let broken = [
+        let current_checks = [
             "module_valid",
             "environment_valid",
             "runner_valid",
             "native_valid",
             "host_valid",
             "publication_valid",
-        ]
-        .iter()
-        .any(|key| product.details[*key] != true);
-        let (status, reason) = if authority_failure.is_some() {
+        ];
+        let health = if product.disposition == "quarantined"
+            || current_checks.iter().any(|key| product.details[*key] == false) {
+            ui::InstallationHealth::ActionRequired
+        } else if current_checks.iter().all(|key| product.details[*key] == true) {
+            ui::InstallationHealth::Healthy
+        } else {
+            ui::InstallationHealth::Unknown
+        };
+        let support = if product.details["profile"]["claim"] == "withdrawn" {
+            ui::SupportQualification::Unsupported
+        } else if exact && has_deck {
+            ui::SupportQualification::Verified
+        } else {
+            ui::SupportQualification::NotYetQualified
+        };
+        let (status, reason) = if product.disposition == "quarantined" {
+            (O::ActionRequired, "The managed scan quarantined this exact module.")
+        } else if health == ui::InstallationHealth::ActionRequired {
+            (O::ActionRequired,
+                "The current module, environment, runner, host, proxy or publication needs repair.")
+        } else if product.details["publication_selected"] == false {
+            (O::ActionRequired,
+                "This product is not currently made available to Bitwig.")
+        } else if authority_failure.is_some() {
             (
                 O::Unknown,
                 "Installed compatibility authority could not be verified for this product.",
             )
-        } else if product.disposition == "quarantined" {
-            (
-                O::ActionRequired,
-                "The managed scan quarantined this exact module.",
-            )
-        } else if !beta_profile {
-            (O::Unknown,"This product has no accepted PB0 support envelope; its existing publication is unchanged.")
-        } else if product.details["profile"]["claim"] == "withdrawn" {
+        } else if support == ui::SupportQualification::Unsupported {
             (O::Unsupported, "This exact profile has been withdrawn.")
-        } else if broken && product.details["profile"].is_object() {
-            (
-                O::ActionRequired,
-                "An exact runtime, module, host, proxy or publication verification failed.",
-            )
+        } else if !beta_profile {
+            (O::Unknown,"This product has no accepted PB0 support envelope; its current installation health is shown separately.")
         } else if exact && product.disposition == "ready" && has_deck {
             (O::Ready,"Exact ordinary Arturia profile and managed artifacts verify on the accepted Deck fixture.")
         } else {
@@ -660,6 +781,8 @@ fn resolve_with(
             module_sha256: product.module_sha256.clone(),
             profile: product.details["profile"]["id"].as_str().map(str::to_owned),
             status,
+            installation_health: health,
+            support_qualification: support,
             reason: reason.into(),
             failure_code: authority_failure.map(str::to_owned).or_else(|| {
                 product.details["refusal"]["code"]
@@ -765,7 +888,7 @@ fn resolve_with(
         overall_status: overall,
         system: snapshot.system.clone(),
         platform: vec![
-            observed("CPU architecture", p.arch.clone(), "uname -m", at),
+            observed("CPU architecture", p.arch.value(), "uname -m", at),
             observed("Hardware model", p.model.clone(), "DMI product name", at),
             observed("Distribution", p.distro.clone(), "/etc/os-release", at),
             observed(
@@ -778,9 +901,9 @@ fn resolve_with(
             required("Qualified distribution", "SteamOS 3.8.16"),
         ],
         daw: vec![
-            observed("DAW Flatpak ref", p.bitwig_ref.clone(), "flatpak info", at),
-            observed("DAW version", p.bitwig_version.clone(), "flatpak info", at),
-            observed("DAW runtime", p.bitwig_runtime.clone(), "flatpak info", at),
+            observed("DAW Flatpak ref", p.bitwig_ref.value(), "flatpak info", at),
+            observed("DAW version", p.bitwig_version.value(), "flatpak info", at),
+            observed("DAW runtime", p.bitwig_runtime.value(), "flatpak info", at),
             observed(
                 "Sandbox publication access",
                 sandbox_path(p).map(|b| if b { "available" } else { "unavailable" }.into()),
@@ -792,21 +915,15 @@ fn resolve_with(
         audio: vec![
             observed(
                 "PipeWire availability",
-                Some(
-                    if p.pipewire_socket {
-                        "available"
-                    } else {
-                        "unavailable"
-                    }
-                    .into(),
-                ),
+                p.pipewire_socket.observed()
+                    .map(|value| if *value { "available" } else { "unavailable" }.into()),
                 "user runtime socket",
                 at,
             ),
             observed(
                 "JACK availability",
-                p.jack_available
-                    .map(|v| if v { "available" } else { "unavailable" }.into()),
+                p.jack_available.observed()
+                    .map(|v| if *v { "available" } else { "unavailable" }.into()),
                 "jack_lsp readback",
                 at,
             ),
@@ -878,27 +995,15 @@ fn resolve_with(
         runtime: vec![
             observed(
                 "User runtime directory",
-                Some(
-                    if p.runtime_dir {
-                        "available"
-                    } else {
-                        "unavailable"
-                    }
-                    .into(),
-                ),
+                p.runtime_dir.observed()
+                    .map(|value| if *value { "available" } else { "unavailable" }.into()),
                 "/run/user/<uid>",
                 at,
             ),
             observed(
                 "PipeWire socket",
-                Some(
-                    if p.pipewire_socket {
-                        "available"
-                    } else {
-                        "unavailable"
-                    }
-                    .into(),
-                ),
+                p.pipewire_socket.observed()
+                    .map(|value| if *value { "available" } else { "unavailable" }.into()),
                 "user runtime directory",
                 at,
             ),
@@ -920,40 +1025,6 @@ fn resolve_with(
     }
 }
 
-pub(super) fn resolve(
-    m: &Manager,
-    snapshot: &ui::Snapshot,
-    p: &PlatformReadback,
-    at: u64,
-) -> ui::ReadinessAssessment {
-    let db = m.registry();
-    let installed = profiles::installed_profiles();
-    let mut authority_failures = Vec::new();
-    if db.is_err() {
-        authority_failures.push("READINESS_REGISTRY_UNAVAILABLE");
-    }
-    if installed.is_err() {
-        authority_failures.push("READINESS_PROFILE_AUTHORITY_UNAVAILABLE");
-    }
-    resolve_with(snapshot, p, at, &authority_failures, |product| {
-        match (db.as_ref(), installed.as_ref()) {
-            (Ok(db), Ok(installed)) => accepted_profile(m, db, installed, product),
-            (Err(_), _) => Err("READINESS_REGISTRY_UNAVAILABLE"),
-            (_, Err(_)) => Err("READINESS_PROFILE_AUTHORITY_UNAVAILABLE"),
-        }
-    })
-}
-
-pub(super) fn assess(m: &Manager, snapshot: &ui::Snapshot) -> Result<ui::ReadinessAssessment> {
-    let platform = collect(m);
-    Ok(resolve(
-        m,
-        snapshot,
-        &platform,
-        linux_vst_bridge::observation::now()?,
-    ))
-}
-
 fn safe_export_text(value: &str) -> String {
     let lower = value.to_ascii_lowercase();
     if value.len() > 160
@@ -969,7 +1040,21 @@ fn safe_export_text(value: &str) -> String {
         value.into()
     }
 }
-fn sanitized(mut assessment: ui::ReadinessAssessment) -> ui::ReadinessAssessment {
+#[derive(serde::Serialize)]
+struct SupportReadiness {
+    schema: u32,
+    observed_at: u64,
+    overall_status: ui::ReadinessOutcome,
+    platform: Vec<ui::ReadinessFact>,
+    daw: Vec<ui::ReadinessFact>,
+    audio: Vec<ui::ReadinessFact>,
+    graphics: Vec<ui::ReadinessFact>,
+    runtime: Vec<ui::ReadinessFact>,
+    products: Vec<ui::ReadinessProduct>,
+    blockers: Vec<ui::ReadinessBlocker>,
+    suggested_step_title: Option<String>,
+}
+fn sanitized(mut assessment: ui::ReadinessAssessment) -> SupportReadiness {
     for facts in [
         &mut assessment.platform,
         &mut assessment.daw,
@@ -993,18 +1078,27 @@ fn sanitized(mut assessment: ui::ReadinessAssessment) -> ui::ReadinessAssessment
     for blocker in &mut assessment.blockers {
         blocker.explanation = safe_export_text(&blocker.explanation);
     }
-    for step in &mut assessment.ordered_steps {
-        step.title = safe_export_text(&step.title);
-        step.detail = safe_export_text(&step.detail);
-        step.action = None; // exact action arguments are not needed by support
+    SupportReadiness {
+        schema: 1,
+        observed_at: assessment.observed_at,
+        overall_status: assessment.overall_status,
+        platform: assessment.platform,
+        daw: assessment.daw,
+        audio: assessment.audio,
+        graphics: assessment.graphics,
+        runtime: assessment.runtime,
+        products: assessment.products,
+        blockers: assessment.blockers,
+        suggested_step_title: assessment.ordered_steps.first()
+            .map(|step| safe_export_text(&step.title)),
     }
-    assessment
 }
 
 /// The export is an allowlist built from the typed assessment. No raw logs,
 /// paths, environment dump, license state, or vendor payload can enter it.
-pub(super) fn export(m: &Manager, snapshot: &ui::Snapshot) -> Result<Value> {
-    let assessment = assess(m, snapshot)?;
+pub(super) fn export(m: &Manager, overview: &ui::InteractiveOverview) -> Result<Value> {
+    let snapshot = &overview.current;
+    let assessment = overview.readiness.clone();
     let refused_step = assessment
         .ordered_steps
         .first()
@@ -1013,22 +1107,23 @@ pub(super) fn export(m: &Manager, snapshot: &ui::Snapshot) -> Result<Value> {
         .map(safe_export_text);
     let assessment = sanitized(assessment);
     let sw: Software = read_json(&m.root.join("software.json"))?;
-    write_export(m, snapshot, assessment, &sw.manager.sha256, refused_step)
+    write_export(m, snapshot, assessment, &sw, refused_step)
 }
 #[cfg(feature = "pb0-c0-audit")]
-pub(super) fn audit_export(m: &Manager, snapshot: &ui::Snapshot) -> Result<Value> {
-    let assessment = sanitized(assess(m, snapshot)?);
+pub(super) fn audit_export(m: &Manager, overview: &ui::InteractiveOverview) -> Result<Value> {
+    let snapshot = &overview.current;
+    let assessment = sanitized(overview.readiness.clone());
     let sw: Software = read_json(&m.root.join("software.json"))?;
-    report_value(m, snapshot, assessment, &sw.manager.sha256, None)
+    report_value(m, snapshot, assessment, &sw, None)
 }
 fn write_export(
     m: &Manager,
     snapshot: &ui::Snapshot,
-    assessment: ui::ReadinessAssessment,
-    manager_sha256: &str,
+    assessment: SupportReadiness,
+    software: &Software,
     refused_step: Option<String>,
 ) -> Result<Value> {
-    let report = report_value(m, snapshot, assessment, manager_sha256, refused_step)?;
+    let report = report_value(m, snapshot, assessment, software, refused_step)?;
     let id = random_id()?;
     let directory = m.root.join("support-exports");
     private_dir(&directory)?;
@@ -1036,12 +1131,8 @@ fn write_export(
     Ok(json!({"export":id,"file":format!("{id}.json"),"result":"saved_locally"}))
 }
 fn report_value(m: &Manager, snapshot: &ui::Snapshot,
-    assessment: ui::ReadinessAssessment, manager_sha256: &str,
+    assessment: SupportReadiness, software: &Software,
     refused_step: Option<String>) -> Result<Value> {
-    let offered_step = assessment
-        .ordered_steps
-        .first()
-        .map(|step| step.title.clone());
     let current_error = assessment
         .blockers
         .iter()
@@ -1059,10 +1150,10 @@ fn report_value(m: &Manager, snapshot: &ui::Snapshot,
                 .first()
                 .map(|blocker| blocker.category.clone())
         });
-    let package_version = if m.root.join("software.json").try_exists()? {
-        let sw: Software = read_json(&m.root.join("software.json"))?;
-        crate::package_authority::selected_package_version(m, &sw)?
-    } else { None };
+    let package_version = crate::package_authority::selected_package_version(m, software)?;
+    let selected_software_generation = software.manager.path.parent()
+        .and_then(|parent| parent.file_name()).and_then(|name| name.to_str())
+        .filter(|id| valid_hex(id, 64)).map(str::to_owned);
     let incident_rows = if snapshot.recent_incidents.is_empty() {
         let mut rows = Vec::new();
         for path in crash_capture::incidents(m)?.into_iter().take(16) {
@@ -1089,12 +1180,13 @@ fn report_value(m: &Manager, snapshot: &ui::Snapshot,
                 .map(safe_export_text).unwrap_or_else(||"unclassified".into())
         })).collect()
     };
-    Ok(json!({"schema":1,"assessment":assessment,
-        "manager_generation":manager_sha256,
+    Ok(json!({"schema":2,"assessment":assessment,
+        "selected_software_generation":selected_software_generation,
+        "manager_sha256":software.manager.sha256,
+        "frontend_sha256":software.operator_frontend.as_ref().map(|a| &a.sha256),
         "package_version":package_version,
         "manager_source_version":env!("CARGO_PKG_VERSION"),
         "transaction_cleanup":snapshot.system,
-        "offered_step":offered_step,
         "refused_step":refused_step,
         "current_error":current_error,
         "incidents":incident_rows}))
@@ -1103,10 +1195,18 @@ fn report_value(m: &Manager, snapshot: &ui::Snapshot,
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn support_software(f: &crate::test_fixture::Fixture) -> Software {
+        let artifact = f.r.host.clone();
+        Software { installer_launch: None, preparation_kit: None,
+            operator_frontend: Some(artifact.clone()), manager: artifact.clone(),
+            supervisor: artifact.clone(), ownership: artifact.clone(),
+            host: artifact.clone(), source_manifest: artifact.clone(),
+            source_sha256: artifact.sha256.clone(), native_catalogue: None }
+    }
 
     #[test]
     fn bounded_platform_parsers_keep_graph_values_separate_from_device_and_host_values() {
-        assert!(bounded_command("sh", &["-c", "true"]).is_none());
+        assert!(matches!(bounded_command("sh", &["-c", "true"]), Probe::Unavailable));
         assert_eq!(local_display_number(":0"), Some(0));
         assert_eq!(local_display_number(":12.0"), Some(12));
         assert_eq!(local_display_number(":0.bad"), None);
@@ -1123,15 +1223,74 @@ mod tests {
 
     #[test]
     fn platform_helper_output_and_inherited_pipe_have_a_bounded_lifetime() {
-        let child = Command::new("/bin/sh").args(["-c", "printf ready"])
-            .stdout(Stdio::piped()).spawn().unwrap();
-        assert_eq!(bounded_child(child, Duration::from_secs(2)).as_deref(), Some("ready"));
-        let child = Command::new("/bin/sh")
-            .args(["-c", "printf ready; sleep 0.3 &"])
-            .stdout(Stdio::piped()).spawn().unwrap();
+        let spawn = |script| {
+            let mut command = Command::new("/bin/sh");
+            command.args(["-c", script]).stdout(Stdio::piped());
+            unsafe { command.pre_exec(|| {
+                if libc::setsid() < 0 { Err(std::io::Error::last_os_error()) } else { Ok(()) }
+            }); }
+            command.spawn().unwrap()
+        };
+        let child = spawn("printf ready");
+        assert_eq!(bounded_child(child, Duration::from_secs(2)), Probe::Observed("ready".into()));
+        let child = spawn("printf ready; sleep 0.3 &");
         let started = Instant::now();
-        assert!(bounded_child(child, Duration::from_millis(50)).is_none());
+        assert_eq!(bounded_child(child, Duration::from_millis(50)), Probe::Unavailable);
         assert!(started.elapsed() < Duration::from_secs(2));
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn timed_out_fixed_helper_retires_its_descendant() {
+        let marker = std::env::temp_dir().join(format!("lvb-probe-{}", random_id().unwrap()));
+        let mut command = Command::new("/bin/sh");
+        command.args(["-c", "sleep 30 & printf '%s' \"$!\" > \"$PID_FILE\"; wait"])
+            .env("PID_FILE", &marker).stdout(Stdio::piped());
+        unsafe { command.pre_exec(|| {
+            if libc::setsid() < 0 { Err(std::io::Error::last_os_error()) } else { Ok(()) }
+        }); }
+        let child = command.spawn().unwrap();
+        let deadline = Instant::now() + Duration::from_secs(1);
+        while !marker.exists() && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(5));
+        }
+        let descendant: i32 = std::fs::read_to_string(&marker).unwrap().parse().unwrap();
+        assert_eq!(bounded_child(child, Duration::from_millis(30)), Probe::Unavailable);
+        let _ = std::fs::remove_file(&marker);
+        let deadline = Instant::now() + Duration::from_secs(1);
+        loop {
+            let live = unsafe { libc::kill(descendant, 0) } == 0;
+            let zombie = std::fs::read_to_string(format!("/proc/{descendant}/stat"))
+                .ok().and_then(|s|s.split_whitespace().nth(2).map(str::to_owned))
+                .is_some_and(|state|state == "Z");
+            if !live || zombie { break; }
+            assert!(Instant::now() < deadline, "fixed-helper descendant survived timeout");
+            thread::sleep(Duration::from_millis(5));
+        }
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn completed_fixed_helper_retires_descendant_that_closed_stdout() {
+        let marker = std::env::temp_dir().join(format!("lvb-probe-{}", random_id().unwrap()));
+        let mut command = Command::new("/bin/sh");
+        command.args(["-c", "sleep 30 >/dev/null & printf '%s' \"$!\" > \"$PID_FILE\"; printf ready"])
+            .env("PID_FILE", &marker).stdout(Stdio::piped());
+        unsafe { command.pre_exec(|| {
+            if libc::setsid() < 0 { Err(std::io::Error::last_os_error()) } else { Ok(()) }
+        }); }
+        let child = command.spawn().unwrap();
+        assert_eq!(bounded_child(child, Duration::from_secs(2)), Probe::Observed("ready".into()));
+        let descendant: i32 = std::fs::read_to_string(&marker).unwrap().parse().unwrap();
+        let _ = std::fs::remove_file(&marker);
+        let deadline = Instant::now() + Duration::from_secs(1);
+        loop {
+            let live = unsafe { libc::kill(descendant, 0) } == 0;
+            let zombie = std::fs::read_to_string(format!("/proc/{descendant}/stat"))
+                .ok().and_then(|s|s.split_whitespace().nth(2).map(str::to_owned))
+                .is_some_and(|state|state == "Z");
+            if !live || zombie { break; }
+            assert!(Instant::now() < deadline, "fixed-helper descendant survived completion");
+            thread::sleep(Duration::from_millis(5));
+        }
     }
 
     fn fixture() -> (ui::Snapshot, PlatformReadback) {
@@ -1159,27 +1318,27 @@ mod tests {
         snapshot.system.stale_transports = 0;
         snapshot.system.cleanup_unconfirmed = false;
         let platform = PlatformReadback {
-            arch: Some("x86_64".into()),
+            arch: Probe::Observed("x86_64".into()),
             model: Some(DECK_MODEL.into()),
             distro: Some(DECK_DISTRO.into()),
             distro_version: Some(DECK_VERSION.into()),
             kernel: Some("6.11".into()),
             session: Some("wayland".into()),
             display: Some("available".into()),
-            runtime_dir: true,
-            pipewire_socket: true,
-            jack_available: Some(true),
+            runtime_dir: Probe::Observed(true),
+            pipewire_socket: Probe::Observed(true),
+            jack_available: Probe::Observed(true),
             pipewire_graph_rate: Some(48000),
             pipewire_quantum: Some(512),
             device_sample_rate: Some(48000),
             daw_callback_maximum: Some(512),
-            bitwig_ref: Some(BITWIG_REF.into()),
-            bitwig_version: Some(BITWIG_VERSION.into()),
-            bitwig_runtime: Some("org.freedesktop.Platform/x86_64/24.08".into()),
-            bitwig_permissions: Some(
+            bitwig_ref: Probe::Observed(BITWIG_REF.into()),
+            bitwig_version: Probe::Observed(BITWIG_VERSION.into()),
+            bitwig_runtime: Probe::Observed("org.freedesktop.Platform/x86_64/24.08".into()),
+            bitwig_permissions: Probe::Observed(
                 "[Context]\nsockets=x11;pulseaudio;\nfilesystems=host;\n".into(),
             ),
-            publication_directory: true,
+            publication_directory: Probe::Observed(true),
         };
         (snapshot, platform)
     }
@@ -1244,22 +1403,37 @@ mod tests {
             ),
             (
                 "wrong architecture",
-                |p| p.arch = Some("aarch64".into()),
+                |p| p.arch = Probe::Observed("aarch64".into()),
                 ui::ReadinessOutcome::Unsupported,
             ),
             (
                 "missing daw",
-                |p| p.bitwig_ref = None,
+                |p| p.bitwig_ref = Probe::Absent,
                 ui::ReadinessOutcome::ActionRequired,
             ),
             (
+                "unavailable daw probe",
+                |p| p.bitwig_ref = Probe::Unavailable,
+                ui::ReadinessOutcome::Unknown,
+            ),
+            (
+                "malformed permissions",
+                |p| p.bitwig_permissions = Probe::Malformed,
+                ui::ReadinessOutcome::Unknown,
+            ),
+            (
+                "incomplete permission observation",
+                |p| p.bitwig_permissions = Probe::Observed("[Context]\nfilesystems=host;".into()),
+                ui::ReadinessOutcome::Unknown,
+            ),
+            (
                 "wrong daw version",
-                |p| p.bitwig_version = Some("7.0".into()),
+                |p| p.bitwig_version = Probe::Observed("7.0".into()),
                 ui::ReadinessOutcome::Unknown,
             ),
             (
                 "sandbox path",
-                |p| p.publication_directory = false,
+                |p| p.publication_directory = Probe::Absent,
                 ui::ReadinessOutcome::ActionRequired,
             ),
             (
@@ -1279,8 +1453,13 @@ mod tests {
             ),
             (
                 "ipc",
-                |p| p.pipewire_socket = false,
+                |p| p.pipewire_socket = Probe::Absent,
                 ui::ReadinessOutcome::ActionRequired,
+            ),
+            (
+                "unavailable ipc observation",
+                |p| p.pipewire_socket = Probe::Unavailable,
+                ui::ReadinessOutcome::Unknown,
             ),
         ];
         for (name, change, expected) in cases {
@@ -1354,6 +1533,20 @@ mod tests {
         assert_eq!(result(&s, &p).overall_status, ui::ReadinessOutcome::Unknown);
     }
     #[test]
+    fn physically_absent_publication_can_be_valid_without_being_ready() {
+        let (mut snapshot, platform) = fixture();
+        snapshot.products[0].disposition = "needs_attention".into();
+        snapshot.products[0].details["publication_selected"] = json!(false);
+        let assessment = result(&snapshot, &platform);
+        assert_eq!(assessment.overall_status, ui::ReadinessOutcome::ActionRequired);
+        assert_eq!(assessment.products[0].status, ui::ReadinessOutcome::ActionRequired);
+        assert_eq!(assessment.products[0].installation_health,
+            ui::InstallationHealth::Healthy);
+        assert_eq!(assessment.products[0].support_qualification,
+            ui::SupportQualification::Verified);
+        assert!(assessment.products[0].reason.contains("not currently made available"));
+    }
+    #[test]
     fn mixed_roster_keeps_product_outcomes_separate_from_machine_readiness() {
         use ui::ReadinessOutcome as O;
         let (mut s, mut p) = fixture();
@@ -1368,6 +1561,15 @@ mod tests {
         assert_eq!(unknown.overall_status, O::Ready);
         assert_eq!(unknown.products[0].status, O::Ready);
         assert_eq!(unknown.products[1].status, O::Unknown);
+        s.products[1].details["module_valid"] = json!(false);
+        let broken_unqualified = result(&s, &p);
+        assert_eq!(broken_unqualified.products[1].status, O::ActionRequired);
+        assert_eq!(broken_unqualified.products[1].installation_health,
+            ui::InstallationHealth::ActionRequired);
+        assert_eq!(broken_unqualified.products[1].support_qualification,
+            ui::SupportQualification::NotYetQualified);
+        assert_eq!(broken_unqualified.overall_status, O::Ready);
+        s.products[1].details["module_valid"] = json!(true);
 
         s.products[1].details["profile"]["id"] = ready.details["profile"]["id"].clone();
         s.products[1].details["profile"]["claim"] = json!("withdrawn");
@@ -1406,12 +1608,13 @@ mod tests {
 
         s.products.retain(|product| product.name == "Another build");
         s.products[0].details["profile"]["id"] = json!("unqualified-profile");
+        s.products[0].details["profile"]["claim"] = json!("verified_exact_fixture");
         let only_unknown = result(&s, &p);
         assert_eq!(only_unknown.overall_status, O::Unknown);
         assert_eq!(only_unknown.products[0].status, O::Unknown);
 
         s.products = vec![ready];
-        p.arch = Some("aarch64".into());
+        p.arch = Probe::Observed("aarch64".into());
         let wrong_arch = result(&s, &p);
         assert_eq!(wrong_arch.overall_status, O::Unsupported);
         assert_ne!(wrong_arch.products[0].status, O::Ready);
@@ -1436,7 +1639,7 @@ mod tests {
         let assessment = resolve_with(&s, &p, 123,
             &["READINESS_REGISTRY_UNAVAILABLE"],
             |_| Err("READINESS_REGISTRY_UNAVAILABLE"));
-        let receipt = write_export(&f.m, &s, sanitized(assessment), &"cd".repeat(32), None)
+        let receipt = write_export(&f.m, &s, sanitized(assessment), &support_software(&f), None)
             .unwrap();
         let report: Value = read_json(&f.m.root.join("support-exports")
             .join(format!("{}.json",receipt["export"].as_str().unwrap()))).unwrap();
@@ -1504,7 +1707,10 @@ mod tests {
             assert!(!raw.contains(secret));
         }
         assert_eq!(sanitized.products[0].name, "[redacted]");
-        assert!(sanitized.ordered_steps[0].action.is_none());
+        assert!(sanitized.suggested_step_title.is_some());
+        assert!(!raw.contains("state_token"));
+        assert!(!raw.contains("support_export_action"));
+        assert!(!raw.contains("\"kind\""));
     }
     #[test]
     fn local_export_is_parseable_and_contains_only_allowlisted_incident_fields() {
@@ -1518,12 +1724,13 @@ mod tests {
             export: None,
         });
         let assessment = sanitized(result(&s, &p));
-        let receipt = write_export(&f.m, &s, assessment, &"cd".repeat(32), None).unwrap();
+        let receipt = write_export(&f.m, &s, assessment, &support_software(&f), None).unwrap();
         let id = receipt["export"].as_str().unwrap();
         let file = f.m.root.join("support-exports").join(format!("{id}.json"));
         let report: Value = read_json(&file).unwrap();
-        assert_eq!(report["schema"], 1);
-        assert_eq!(report["manager_generation"], "cd".repeat(32));
+        assert_eq!(report["schema"], 2);
+        assert_eq!(report["manager_sha256"], f.r.host.sha256);
+        assert_eq!(report["frontend_sha256"], f.r.host.sha256);
         assert_eq!(report["refused_step"], Value::Null);
         assert_eq!(report["current_error"], Value::Null);
         assert_eq!(report["incidents"][0]["category"], "host_exit");
@@ -1531,5 +1738,10 @@ mod tests {
         assert!(!raw.contains("top-secret"));
         assert!(!raw.contains("/home/operator"));
         assert!(!raw.contains("credential"));
+        for forbidden in ["state_token", "support_export_action", "\"kind\"",
+            "\"action\"", "\"disabled_reason\"", "/Users/", "/home/",
+            "compatdata/pfx", "token?", "token="] {
+            assert!(!raw.contains(forbidden), "support export leaked {forbidden}");
+        }
     }
 }

@@ -405,12 +405,35 @@ pub struct InteractiveOverview {
     pub schema: u32,
     pub operator_schema: u32,
     pub scope: String,
+    pub current_generation: String,
     pub current: Snapshot,
     pub readiness: ReadinessAssessment,
+}
+/// Cheap change signal for the ordinary idle frontend. It never grants an
+/// action or certifies product bytes.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Pulse {
+    pub schema: u32,
+    /// A change detector, not a capacity or cleanup-certainty receipt.
+    pub service_state: String,
+    pub dsp: Option<usize>,
+    pub keepers: Option<usize>,
+    pub maintenance: Option<usize>,
+    pub pending_transactions: usize,
+    pub current_generation: String,
+    pub operation: Option<serde_json::Value>,
+    pub operation_live: bool,
 }
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ReadinessOutcome { Ready, ActionRequired, Unsupported, Unknown }
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum InstallationHealth { Healthy, ActionRequired, Unknown }
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SupportQualification { Verified, Unsupported, NotYetQualified }
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum FactCertainty { Observed, ProfileRequired, Inferred, Unknown }
@@ -431,6 +454,8 @@ pub struct ReadinessProduct {
     pub module_sha256: String,
     pub profile: Option<String>,
     pub status: ReadinessOutcome,
+    pub installation_health: InstallationHealth,
+    pub support_qualification: SupportQualification,
     pub reason: String,
     pub failure_code: Option<String>,
     pub facts: Vec<ReadinessFact>,

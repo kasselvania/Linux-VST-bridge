@@ -304,7 +304,12 @@ fn main() -> eframe::Result {
                 products: snapshot.products.iter().map(|p| model::ReadinessProduct {
                     name: p.name.clone(), class_id: p.class_id.clone(),
                     module_sha256: p.module_sha256.clone(), profile: None,
-                    status: product_status, reason: reason.into(), failure_code: None,
+                    status: product_status,
+                    installation_health: model::InstallationHealth::Healthy,
+                    support_qualification: if product_status == O::Ready {
+                        model::SupportQualification::Verified
+                    } else { model::SupportQualification::NotYetQualified },
+                    reason: reason.into(), failure_code: None,
                     facts: vec![],
                 }).collect(),
                 blockers: if outcome == O::Ready { vec![] } else {
