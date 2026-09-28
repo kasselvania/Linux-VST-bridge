@@ -98,11 +98,11 @@ thread_local! {
     static READBACK_DIGESTS: RefCell<Option<HashMap<PathBuf, (DigestFileIdentity, String)>>> =
         const { RefCell::new(None) };
 }
-/// Reuse exact digests only during one read-only projection. The first read
-/// checks the open file identity; a final no-follow pass checks every cached
-/// identity again before the projection can be returned. No cache survives
-/// this call. Mutations and launches retain their ordinary verification.
-pub fn with_readback_digests<T>(readback: impl FnOnce() -> Result<T>) -> Result<T> {
+/// Reuse exact digests only during one read-only projection. Every reuse
+/// reopens the path without following links and matches inode, size, owner,
+/// mode, modification and change times. No cache survives this call. Mutations
+/// and launches never enter this scope and retain their ordinary verification.
+pub fn with_readback_digests<T>(readback: impl FnOnce() -> T) -> T {
     struct Restore(Option<HashMap<PathBuf, (DigestFileIdentity, String)>>);
     impl Drop for Restore {
         fn drop(&mut self) {
@@ -111,29 +111,19 @@ pub fn with_readback_digests<T>(readback: impl FnOnce() -> Result<T>) -> Result<
     }
     let previous = READBACK_DIGESTS.with(|cache| cache.replace(Some(HashMap::new())));
     let _restore = Restore(previous);
-    let value = readback()?;
-    // The projection uses cached bytes only for presentation. Recheck every
-    // cached path at the end so a concurrent replacement cannot be presented
-    // as a verified current artifact. Action admission never uses this scope.
-    READBACK_DIGESTS.with(|cache| -> Result<()> {
-        for (path, (identity, _)) in cache.borrow().as_ref().ok_or("readback_cache_absent")? {
-            let opened = file(path)?;
-            require(DigestFileIdentity::from(&opened.metadata()?) == *identity
-                && DigestFileIdentity::from(&fs::symlink_metadata(path)?) == *identity,
-                "artifact_changed_during_readback")?;
-        }
-        Ok(())
-    })?;
-    Ok(value)
+    readback()
 }
 pub fn digest(p: &Path) -> Result<String> {
-    if let Some(value) = READBACK_DIGESTS.with(|cache| cache.borrow().as_ref()
-        .and_then(|records| records.get(p))
-        .map(|(_, value)| value.clone())) {
-        return Ok(value);
-    }
     let mut f = file(p)?;
     let before = DigestFileIdentity::from(&f.metadata()?);
+    if let Some(value) = READBACK_DIGESTS.with(|cache| cache.borrow().as_ref()
+        .and_then(|records| records.get(p))
+        .filter(|(identity, _)| *identity == before)
+        .map(|(_, value)| value.clone())) {
+        require(DigestFileIdentity::from(&fs::symlink_metadata(p)?) == before,
+            "artifact_changed_during_readback")?;
+        return Ok(value);
+    }
     let mut h = Sha256::new();
     let mut b = [0u8; 65536];
     loop {
@@ -799,12 +789,11 @@ mod tests {
             assert_eq!(READBACK_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 1);
             std::thread::sleep(std::time::Duration::from_millis(2));
             fs::write(&path, b"other").unwrap();
-            assert_eq!(digest(&path).unwrap(), first);
-            Ok(first)
+            assert_ne!(digest(&path).unwrap(), first);
+            first
         });
-        assert!(first.is_err());
         assert!(READBACK_DIGESTS.with(|cache| cache.borrow().is_none()));
-        assert_eq!(digest(&path).unwrap(), hex(&Sha256::digest(b"other")));
+        assert_ne!(digest(&path).unwrap(), first);
         fs::remove_file(&path).unwrap();
         std::os::unix::fs::symlink(f.r.host.path.clone(), &path).unwrap();
         assert!(with_readback_digests(|| digest(&path)).is_err());
