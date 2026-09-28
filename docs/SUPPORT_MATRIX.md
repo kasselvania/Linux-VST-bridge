@@ -31,6 +31,15 @@ proxy, bridge transport, native publication or six-instance DSP claim.
 
 These are exact-fixture claims, not universal vendor support. The 2026-09-23 fleet readback predates both the merged host-retention repair [#149](https://github.com/kasselvania/Linux-VST-bridge/pull/149) and Serum's installed candidate D; its older `needs_attention` and candidate-B fields are **historical**, not silently treated as current. The [candidate-D physical receipt](../evidence/serum-x11-touch-routing/candidate-d-physical.json) includes a current six-publication manager readback for this experiment, not a new six-product physical campaign.
 
+**Push 3 controller mode:** the operator reports held notes on pad release in
+bridged plug-ins. Matching raw note-on/off and recent native callback
+rejections are observed, but the rejected VST3 input event type is not yet
+established. [FC-MIDI-001](FAILURE_CLASSES.md#fc-midi-001--recognized-expression-rejected-an-entire-native-input-callback)
+has a source-only correction for valid mixed-expression callbacks; the
+installed native proxy and publications do not yet contain it. Push 3 note
+release and expression are unqualified for every row below. The existing
+product results remain scoped to their recorded input fixtures.
+
 | Product / exact class | User posture | Accepted profile or selected candidate | Runner/policy | Physically accepted behavior | Current limitations and linked failure classes | Last physical evidence |
 |---|---|---|---|---|---|---|
 | Pure LoFi 1.0.0.6121 · `417274754156495350724C4650726F63` (instrument) | supported | ordinary verified revision 10; [profile](../compatibility/arturia-pure-lofi.json); exact host/source continuity [FC-MGMT-002](FAILURE_CLASSES.md#fc-mgmt-002--exact-verified-hostsource-omitted-across-software-generations) | `proton-11.0-2c-25118279-slr4-4.0.20260805.254769`; default policy | Deck instrument/audio, editor, automation, distinct state and save/reopen, sibling isolation and retirement in the exact Arturia fixture | Recorded gaps and no 256-frame qualification: [FC-AUDIO-001](FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses). Concurrent lease race: [FC-CAP-001](FAILURE_CLASSES.md#fc-cap-001--capacity-enumeration-versus-lease-retirement-race). | [AP17 six-instance/recall result](AP17.md#r1-fixture-completion-and-recovery-result) |

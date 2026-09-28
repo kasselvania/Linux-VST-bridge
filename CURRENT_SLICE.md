@@ -42,6 +42,35 @@ step. PR #188 remains draft and no PB0 generation has been installed.
 Independent source review and a later controlled install still precede a
 physical PB0 product claim; PB1 remains blocked.
 
+MIDI0 was merged into canonical main as
+`0385faaef3251e5c1036741b4e440ec5b66e5133`. This branch includes its
+native proxy source correction. Any installed PB0 successor must also create
+an exact managed native proxy publication from the corrected source; replacing
+only the manager/frontend cannot deploy the note-release repair.
+
+## Completed source-only native note-release correction — MIDI0
+
+MIDI0 starts from canonical main `c920f2eca09bb27e92172b1f32e5899d45d2630b`
+(tree `656049fe96aa9a0685c8326ca5a93058b3b0e08b`). Its basis is
+`AGENTS.md` “Real-time laws”, “Slice discipline” and “Review standard”;
+`GOVERNANCE.md` “What evidence means”; and `docs/ARCHITECTURE.md` §7.5
+“Events and automation”. The exact source contract is in
+[MIDI0 Push note release](docs/MIDI0_PUSH_NOTE_RELEASE.md).
+
+**One bounded claim:** in a valid, admitted callback with at most 256 input
+events on the supported bus, the native proxy skips poly pressure and note
+expression value/text while preserving ordinary note-on and note-off events in
+order. The source-only regression uses the production SDK `Processor::process()`
+boundary; unknown event types and other invalid inputs still refuse. The
+diagnostic counts callbacks containing recognized expression once each. The
+operator's Push 3 held-note report motivates this repair, but the rejected
+physical callback's exact input event type is not established.
+
+The Steam Deck's selected manager, publications, runners, environments and
+workspace remained unchanged during source validation. A physical
+Push/Bitwig check on an exact installed successor with a new managed native
+proxy publication is required before calling the observed held-note bug closed.
+PB0-C0 integrates this source repair without claiming physical acceptance.
 
 ## Completed read-only installed-state gate — PB0-R3
 
