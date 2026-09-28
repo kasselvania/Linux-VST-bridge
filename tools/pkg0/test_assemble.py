@@ -2,12 +2,37 @@
 import hashlib
 import json
 import pathlib
+import io
+import subprocess
 import tarfile
 import tempfile
 import unittest
 
 import assemble
 import verify_package
+
+
+def package_archive(staged, destination, *, pkginfo=None, extra=()):
+    if pkginfo is None:
+        version = json.loads((staged / "RELEASE_MANIFEST.json").read_bytes())["version"]
+        pkginfo = (f"pkgname = linux-vst-bridge-beta\npkgver = {version}-1\narch = x86_64\n"
+                   + "".join(f"depend = {dep}\n" for dep in sorted(verify_package.DEPENDENCIES)))
+    raw = destination.with_suffix(".tar")
+    with tarfile.open(raw, "w", format=tarfile.PAX_FORMAT) as target:
+        for name, data in [(".PKGINFO", pkginfo.encode()),
+                           (".BUILDINFO", b"buildenv = fixture\n"),
+                           (".MTREE", b"fixture metadata\n"), *extra]:
+            entry = tarfile.TarInfo(name)
+            entry.size = len(data)
+            entry.mode = 0o644
+            target.addfile(entry, io.BytesIO(data))
+        with tarfile.open(staged / "payload.tar") as source:
+            for entry in source:
+                target.addfile(entry, source.extractfile(entry) if entry.isfile() else None)
+    with destination.open("wb") as output:
+        subprocess.run(["zstd", "-q", "-c", str(raw)], stdout=output, check=True)
+    raw.unlink()
+    return destination
 
 
 class PackageAssembly(unittest.TestCase):
@@ -51,19 +76,47 @@ class PackageAssembly(unittest.TestCase):
             self.assertEqual(names, {x["destination"] for x in self.files} | {assemble.ADOPTION_MANIFEST})
             adoption = json.loads(tar.extractfile(assemble.ADOPTION_MANIFEST).read())
             self.assertEqual(adoption["operator_schema"], 10)
+            self.assertEqual(adoption["package"], "linux-vst-bridge-beta")
+            self.assertEqual(adoption["version"], self.spec["version"])
             self.assertEqual(adoption["external_runtime"], self.spec["external_runtime"])
             self.assertFalse(any("/runtime/" in x for x in names))
             self.assertFalse(any(x.endswith((".rs", ".cpp", ".py")) or ".git" in x for x in names))
         self.assertIn(manifest["payload_sha256"], (out / "PKGBUILD").read_text())
         self.assertNotIn(str(self.root), (out / "RELEASE_MANIFEST.json").read_text())
-        self.assertEqual(verify_package.verify(out / "payload.tar", manifest, True)["files"], len(self.files) + 1)
+        self.assertFalse((out / "linux-vst-bridge-beta.install").exists())
+        self.assertNotIn("install=", (out / "PKGBUILD").read_text())
+        package = package_archive(out, self.root / "fixture.pkg.tar.zst")
+        self.assertEqual(verify_package.verify(package, manifest, True)["files"], len(self.files) + 1)
 
     def test_release_roster_drift_refuses(self):
         out = self.root / "roster"
         manifest = assemble.build(self.spec, out, 1234567890)
         manifest["files"][0]["sha256"] = "0" * 64
         with self.assertRaisesRegex(ValueError, "package bytes differ"):
-            verify_package.verify(out / "payload.tar", manifest, True)
+            verify_package.verify(package_archive(out, self.root / "drift.pkg.tar.zst"), manifest, True)
+
+    def test_package_metadata_and_install_hook_refusals(self):
+        out = self.root / "metadata"
+        manifest = assemble.build(self.spec, out, 1234567890)
+        version = self.spec["version"]
+        normal = (f"pkgname = linux-vst-bridge-beta\npkgver = {version}-1\narch = x86_64\n"
+                  + "".join(f"depend = {dep}\n" for dep in sorted(verify_package.DEPENDENCIES)))
+        cases = [
+            ("hook", normal, ((".INSTALL", b"post_install() {}"),)),
+            ("name", normal.replace("pkgname = linux-vst-bridge-beta", "pkgname = foreign"), ()),
+            ("version", normal.replace(f"pkgver = {version}-1", "pkgver = 99-1"), ()),
+            ("architecture", normal.replace("arch = x86_64", "arch = aarch64"), ()),
+            ("dependencies", normal.replace("depend = glibc\n", ""), ()),
+            ("duplicate", normal, ((".PKGINFO", normal.encode()),)),
+            ("unexpected", normal, ((".EXTRA", b"x"),)),
+            ("duplicate_optional", normal, ((".MTREE", b"x"),)),
+        ]
+        for name, info, extra in cases:
+            with self.subTest(name=name):
+                package = package_archive(out, self.root / f"{name}.pkg.tar.zst",
+                                          pkginfo=info, extra=extra)
+                with self.assertRaises(ValueError):
+                    verify_package.verify(package, manifest, True)
 
     def test_missing_product_payload_or_runtime_identity_refuses(self):
         for kind in ("profile", "fixture", "license"):

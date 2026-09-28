@@ -224,7 +224,7 @@ pub(super) fn plan(
 fn apply(plan: &Plan, fail_after: Option<usize>) -> Result<()> {
     let Plan { links, files } = plan;
     let mut linked = 0;
-    let mut written = 0;
+    let mut written = Vec::new();
     let mut step = 0;
     let result = (|| -> Result<()> {
         for l in links {
@@ -233,17 +233,20 @@ fn apply(plan: &Plan, fail_after: Option<usize>) -> Result<()> {
             step += 1;
             require(fail_after != Some(step), "setup_injected_failure")?;
         }
-        for f in files {
+        for (index, f) in files.iter().enumerate() {
             require(owned_file(&f.path, None)? == f.before, "setup_file_changed")?;
-            put(&f.path, &f.after)?;
-            written += 1;
+            if f.before.as_deref() != Some(f.after.as_slice()) {
+                put(&f.path, &f.after)?;
+                written.push(index);
+            }
             step += 1;
             require(fail_after != Some(step), "setup_injected_failure")?;
         }
         Ok(())
     })();
     if let Err(error) = result {
-        for f in files[..written].iter().rev() {
+        for index in written.into_iter().rev() {
+            let f = &files[index];
             require(
                 owned_file(&f.path, None)?.as_ref() == Some(&f.after),
                 "setup_rollback_file_changed",
@@ -273,15 +276,20 @@ fn apply(plan: &Plan, fail_after: Option<usize>) -> Result<()> {
 /// The package owner writes this private journal before changing any route.
 /// It is kept on ordinary failure until the exact old or new state is proven.
 pub(super) fn commit_journaled(m: &Manager, home: &Path, installed: &Software,
-    previous: Option<&Software>) -> Result<()> {
+    previous: Option<&Software>, verify_effective: impl Fn(Option<&Software>) -> Result<()>) -> Result<()> {
     let journal = m.root.join("package-transition.json");
     require(!journal.try_exists()?, "package_transition_pending")?;
     let switch = plan(m, home, installed, previous)?;
     switch.validate_paths(m, home)?;
+    if switch.is_after()? {
+        verify_effective(Some(installed))?;
+        return Ok(());
+    }
     atomic_json(&journal, &switch)?;
     match apply(&switch, None) {
         Ok(()) => {
             require(switch.is_after()?, "package_transition_incomplete")?;
+            verify_effective(Some(installed))?;
             fs::remove_file(journal)?;
             Ok(())
         }
@@ -300,7 +308,11 @@ impl Plan {
             &software.preparation_kit].into_iter().flatten() { artifact.verify()?; }
         require(software.source_sha256 == software.source_manifest.sha256,
             "package_transition_host_source")?;
-        if software.native_catalogue.is_some() { software.catalogue(m)?; }
+        if let Some(catalogue) = &software.native_catalogue {
+            software.catalogue(m)?;
+            require(fs::metadata(&catalogue.path)?.permissions().mode() & 0o222 == 0,
+                "package_transition_catalogue_writable")?;
+        }
         Ok(())
     }
     fn validate_paths(&self, m: &Manager, home: &Path) -> Result<()> {
@@ -333,8 +345,9 @@ impl Plan {
         if let Some(before) = &self.files.last().ok_or("package_transition_paths")?.before {
             let old: Software = serde_json::from_slice(before)?;
             Self::verify_software(m, &old)?;
-            require(self.links[0].before.as_ref() == Some(&old.manager.path)
-                && old.operator_frontend.as_ref().map(|a| &a.path) == self.links.get(1).and_then(|l| l.before.as_ref()),
+            require(self.links[0].before.as_ref().is_none_or(|p| p == &old.manager.path)
+                && self.links.get(1).is_none_or(|l| l.before.as_ref().is_none_or(|p|
+                    old.operator_frontend.as_ref().is_some_and(|a| &a.path == p))),
                 "package_transition_software")?;
         }
         Ok(())
@@ -371,7 +384,8 @@ impl Plan {
 
 /// After a crash, finish an entirely applied switch or restore the exact
 /// predecessor. A foreign edit refuses; the journal remains for inspection.
-pub(super) fn recover_journaled(m: &Manager, home: &Path) -> Result<bool> {
+pub(super) fn recover_journaled(m: &Manager, home: &Path,
+    verify_effective: impl Fn(Option<&Software>) -> Result<()>) -> Result<bool> {
     let journal = m.root.join("package-transition.json");
     if !journal.try_exists()? { return Ok(false); }
     let switch: Plan = read_json(&journal)?;
@@ -394,6 +408,13 @@ pub(super) fn recover_journaled(m: &Manager, home: &Path) -> Result<bool> {
         }
     }
     require(switch.is_after()? || switch.is_before()?, "package_transition_recovery_incomplete")?;
+    let chosen = if switch.is_after()? {
+        Some(serde_json::from_slice::<Software>(&switch.files.last().ok_or("package_transition_paths")?.after)?)
+    } else {
+        switch.files.last().ok_or("package_transition_paths")?.before.as_ref()
+            .map(|bytes| serde_json::from_slice::<Software>(bytes)).transpose()?
+    };
+    verify_effective(chosen.as_ref())?;
     fs::remove_file(journal)?;
     Ok(true)
 }

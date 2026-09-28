@@ -16,6 +16,8 @@ import stat
 import tarfile
 
 PACKAGE = "linux-vst-bridge-beta"
+DEPENDENCIES = ("glibc", "gcc-libs", "python", "systemd", "libx11", "libxcb",
+                "libxkbcommon", "libglvnd", "pipewire", "xdg-desktop-portal")
 REQUIRED = {
     "usr/bin/linux-vst-bridge": "manager",
     "usr/bin/linux-audio-compatibility-manager": "frontend",
@@ -179,7 +181,8 @@ def _build(spec, output, epoch):
                            "mode": item["mode"], "kind": item["kind"], "component": item["component"]})
         adopted = [{"name": ADOPTED[name], "sha256": files[name]["sha256"],
                     "size": len(file_bytes(files[name]))} for name in ADOPTED]
-        adoption = canonical({"schema": 1, "source_head": spec["source_head"],
+        adoption = canonical({"schema": 1, "package": PACKAGE, "version": spec["version"],
+                              "source_head": spec["source_head"],
                               "source_tree": spec["source_tree"],
                               "operator_schema": spec["operator_schema"],
                               "files": adopted, "external_runtime": spec["external_runtime"]})
@@ -198,9 +201,8 @@ pkgdesc="Private Linux VST Bridge beta for native Linux DAWs"
 arch=('x86_64')
 url='https://github.com/kasselvania/Linux-VST-bridge'
 license=('LicenseRef-Proprietary')
-depends=('glibc' 'gcc-libs' 'python' 'systemd' 'libx11' 'libxcb' 'libxkbcommon' 'libglvnd' 'pipewire' 'xdg-desktop-portal')
+depends=({' '.join(repr(dependency) for dependency in DEPENDENCIES)})
 options=('!strip' '!debug' '!lto')
-install=linux-vst-bridge-beta.install
 source=('payload.tar')
 sha256sums=('{manifest["payload_sha256"]}')
 package() {{
@@ -208,10 +210,6 @@ package() {{
 }}
 '''
     (output / "PKGBUILD").write_text(pkgbuild)
-    (output / "linux-vst-bridge-beta.install").write_text(
-        'post_install() { echo "Linux VST Bridge package files installed. User adoption remains a separate manager operation."; }\n'
-        'post_upgrade() { echo "Linux VST Bridge package files updated. User software selection was not changed."; }\n'
-        'post_remove() { echo "Package files removed. User software, projects, prefixes and preferences were retained."; }\n')
     return manifest
 
 

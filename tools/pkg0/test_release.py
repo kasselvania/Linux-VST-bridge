@@ -21,7 +21,7 @@ class SignedRelease(unittest.TestCase):
         output = root / "staged"
         assemble.build(fixture.spec, output, 1234567890)
         package = root / "linux-vst-bridge-beta-0.1.0beta1-1-x86_64.pkg.tar.zst"
-        shutil.copyfile(output / "payload.tar", package)
+        test_assemble.package_archive(output, package)
         home = root / "gpg"
         home.mkdir(mode=0o700)
         def gpg(*args):

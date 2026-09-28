@@ -1,15 +1,41 @@
 #!/usr/bin/env python3
 """Compare an Arch binary package with PKG0's exact signed file roster."""
 import argparse
+from collections import Counter
 import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
+import re
 import stat
 import subprocess
 import tempfile
+from assemble import DEPENDENCIES
 
-META = {".BUILDINFO", ".INSTALL", ".MTREE", ".PKGINFO"}
+OPTIONAL_META = {".BUILDINFO": 1024 * 1024, ".MTREE": 4 * 1024 * 1024}
+
+
+def package_info(path, manifest):
+    data = path.read_bytes()
+    fields = {}
+    for line in data.decode("utf-8").splitlines():
+        if not line or line.startswith("#"):
+            continue
+        if " = " not in line:
+            raise ValueError("package metadata syntax")
+        key, value = line.split(" = ", 1)
+        if not key or not value:
+            raise ValueError("package metadata syntax")
+        fields.setdefault(key, []).append(value)
+    for key, expected in (("pkgname", "linux-vst-bridge-beta"),
+                          ("pkgver", f"{manifest['version']}-1"),
+                          ("arch", "x86_64")):
+        if fields.get(key) != [expected]:
+            raise ValueError(f"package {key} differs")
+    if set(fields.get("depend", [])) != set(DEPENDENCIES) or len(fields.get("depend", [])) != len(DEPENDENCIES):
+        raise ValueError("package dependencies differ")
+    if "install" in fields or "installfile" in fields:
+        raise ValueError("package install hook forbidden")
 
 
 def digest(path):
@@ -22,6 +48,8 @@ def digest(path):
 
 def verify(package, manifest, structure_only=False):
     if (manifest.get("schema") != 1 or manifest.get("package") != "linux-vst-bridge-beta"
+            or not isinstance(manifest.get("version"), str)
+            or re.fullmatch(r"[0-9][A-Za-z0-9.]*", manifest["version"]) is None
             or not isinstance(manifest.get("files"), list)
             or not isinstance(manifest.get("source_head"), str)
             or not isinstance(manifest.get("source_tree"), str)):
@@ -30,10 +58,15 @@ def verify(package, manifest, structure_only=False):
     if len(expected) != len(manifest["files"]):
         raise ValueError("duplicate release roster")
     listing = subprocess.check_output(["bsdtar", "-tf", str(package)], text=True).splitlines()
+    counts = Counter(listing)
+    if any(n > 1 for n in counts.values()):
+        raise ValueError("duplicate package archive entry")
+    if counts[".PKGINFO"] != 1 or ".INSTALL" in counts:
+        raise ValueError("package metadata or install hook differs")
     files = set()
     for name in listing:
         p = PurePosixPath(name)
-        if name in META:
+        if name == ".PKGINFO" or name in OPTIONAL_META:
             continue
         if p.is_absolute() or ".." in p.parts or not name.startswith("usr/"):
             raise ValueError("unexpected package path")
@@ -44,6 +77,13 @@ def verify(package, manifest, structure_only=False):
     with tempfile.TemporaryDirectory(prefix="lvb-dist0-verify-") as td:
         root = Path(td)
         subprocess.run(["bsdtar", "-xf", str(package), "-C", str(root), "--no-same-owner"], check=True)
+        for name, limit in {".PKGINFO": 64 * 1024, **OPTIONAL_META}.items():
+            path = root / name
+            if name == ".PKGINFO" or path.exists() or path.is_symlink():
+                md = path.lstat()
+                if not stat.S_ISREG(md.st_mode) or md.st_size > limit:
+                    raise ValueError("package metadata type or extent")
+        package_info(root / ".PKGINFO", manifest)
         for name, row in expected.items():
             path = root / name
             if "target" in row:
