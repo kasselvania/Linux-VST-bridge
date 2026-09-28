@@ -26,8 +26,16 @@ the Deck. PB0 PR #179 is extraction history and is superseded by this slice.
 Independent source review and a later controlled immutable install precede any
 physical PB0 product claim.
 
+The staged read-only Deck gate at code head `ed914d62ce535ae7a868872992447427fb03ec87`
+preserved every bounded installed metadata and route identity, and projected
+all current product, Setup and FL workspace rows. Its five-run warm overview
+median was **10.514 seconds** (maximum 11.671), and Activity remained above
+the under-one-second target. The selected speed claim is therefore **not yet
+complete**. PR #188 remains draft and no PB0 generation has been installed;
+the exact result and next owner are in the [PB0-C0 receipt](evidence/pb0-c0/deck-readonly-2026-09-28.md).
 
-## Selected read-only installed-state gate — PB0-R3
+
+## Completed read-only installed-state gate — PB0-R3
 
 PB0-R3 starts from post-BG1-R0 canonical main
 `62d556cfea57b17b567c5374a7a42b78fa22780c` (tree
@@ -43,10 +51,10 @@ state, verify the selected BG1 V4 history, and compute an exact PKG0 successor
 predecessor plan without changing the installed generation or any managed
 record. The bounded result and limits are in [PB0-R3](docs/PB0_R3.md).
 
-No PB0, PKG0 or manager generation is installed by this slice. The current
-private UI2 generation remains selected on the Deck. PB0 PR #179 remains
-draft and uninstalled; only an independently reviewed complete PB0-R3 gate may
-allow a new PB0 integration on current canonical main.
+No PB0, PKG0 or manager generation was installed by this slice. The current
+private UI2 generation remains selected on the Deck. This completed gate
+allowed a new PB0 integration on canonical main; old PB0 PR #179 was later
+closed as superseded by the current draft PR #188.
 
 ## Completed source-only native command-session owner — BG1-R0
 

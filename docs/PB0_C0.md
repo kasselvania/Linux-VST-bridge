@@ -20,4 +20,10 @@ The local support export requires the manager's currently offered `SupportExport
 
 The staged Deck gate measures at least five warm overview runs, Activity, the separate full diagnostic snapshot, sanitized export construction and before/after installed authority. Target: overview median at most two seconds, no run over five seconds, Activity under one second on the idle fixture. If timing or identity fails, the PR stays source-only and no immutable installation follows. No Proton/runtime, publication, environment, workspace, audio or service route changes are permitted in this slice.
 
+## Staged result and remaining performance owner
+
+The [2026-09-28 read-only Deck receipt](../evidence/pb0-c0/deck-readonly-2026-09-28.md) is bound to source head `ed914d62ce535ae7a868872992447427fb03ec87` and its paired Linux binaries. Five warm overview runs had a 10.514-second median and an 11.671-second maximum. Activity ranged from 1.175 to 1.721 seconds; the separate full Snapshot took 39.242 seconds. All 16 current products, four Setup rows and the FL workspace remained represented, and the one current blocker was unverified Bitwig audio settings. Before/after installed authority and all six routes were identical.
+
+The speed gate failed. The current-only flag skips deep historical projection, but still calls per-class host/candidate verification and costly environment/workspace status readers. The next source correction must make the interactive projection genuinely bounded, sharing verified current facts only where required and leaving historical candidate, installation and diagnostic verification on demand. It must not weaken mutation admission or call an unchecked publication Ready. The observed Activity latency also needs a separate reduction. This branch remains draft and uninstalled until those measured targets pass.
+
 Not claimed: beta release, a completed lawful installer-to-sound journey, automatic audio setting changes, a verified Bitwig callback maximum, new distro support, FL/WD1 qualification, or Deck installation. PB1 remains separate.

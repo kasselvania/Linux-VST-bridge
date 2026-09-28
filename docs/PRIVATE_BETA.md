@@ -28,6 +28,11 @@ PB0 does not treat that manual inspection as canonical proof; PB2 owns a
 supported post-change verification path. PipeWire graph rate is recorded only
 as graph metadata.
 
+The staged PB0-C0 Deck overview reports exactly that `host_audio` action, but
+its measured warm median is 10.514 seconds against a two-second target. The
+paired build is **not installed**, and this source slice cannot yet support a
+fast first-run private-beta claim. See the [bounded read-only receipt](../evidence/pb0-c0/deck-readonly-2026-09-28.md).
+
 The source-owned PB0 resolver binds these rows to exact immutable installed
 profiles and current physical readback. The other selected Deck products have
 their own accepted experimental results in [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md),
