@@ -2,6 +2,7 @@
 //! Package-manager ownership authenticates /usr inputs; the release signature
 //! is checked by the package/release tooling before these files are installed.
 use super::*;
+use std::os::fd::AsRawFd;
 use std::os::unix::fs::MetadataExt;
 
 const PACKAGE_ROOT: &str = "/usr";
@@ -367,10 +368,27 @@ fn systemctl_bounded(args: &[&str], capture: bool) -> Result<Vec<u8>> {
         if let Some(status) = child.try_wait()? {
             require(status.success(), "package_user_service_unavailable")?;
             if !capture { return Ok(Vec::new()); }
+            let mut stdout = child.stdout.take().ok_or("package_user_service_readback")?;
+            let fd = stdout.as_raw_fd();
+            let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+            require(flags >= 0 && unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } >= 0,
+                "package_user_service_readback")?;
             let mut bytes = Vec::new();
-            child.stdout.take().ok_or("package_user_service_readback")?
-                .take(8193).read_to_end(&mut bytes)?;
-            require(bytes.len() <= 8192, "package_user_service_readback")?;
+            let mut ended = false;
+            for _ in 0..100 {
+                let mut buffer = [0u8; 8193];
+                match stdout.read(&mut buffer) {
+                    Ok(0) => { ended = true; break; }
+                    Ok(count) => bytes.extend_from_slice(&buffer[..count]),
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(std::time::Duration::from_millis(10));
+                        continue;
+                    }
+                    Err(error) => return Err(error.into()),
+                }
+                require(bytes.len() <= 8192, "package_user_service_readback")?;
+            }
+            require(ended && bytes.len() <= 8192, "package_user_service_readback")?;
             return Ok(bytes);
         }
         std::thread::sleep(std::time::Duration::from_millis(50));
@@ -458,13 +476,15 @@ mod tests {
         loaded: RefCell<UnitReadback>,
         fail_reload: Cell<bool>,
         fail_show: Cell<bool>,
+        stale_reload: Cell<bool>,
     }
     impl FakeService {
         fn new(home: &Path) -> Self {
             Self { home: home.into(), loaded: RefCell::new(UnitReadback {
                 load: "not-found".into(), active: "inactive".into(),
                 fragment: String::new(), exec: String::new(),
-            }), fail_reload: Cell::new(false), fail_show: Cell::new(false) }
+            }), fail_reload: Cell::new(false), fail_show: Cell::new(false),
+                stale_reload: Cell::new(false) }
         }
     }
     impl ServiceControl for FakeService {
@@ -474,6 +494,7 @@ mod tests {
         }
         fn reload(&self) -> Result<()> {
             require(!self.fail_reload.get(), "package_user_service_reload_failed")?;
+            if self.stale_reload.get() { return Ok(()); }
             let path = self.home.join(".config/systemd/user/linux-vst-bridge.service");
             let next = if path.exists() {
                 let unit = fs::read_to_string(&path)?;
@@ -918,6 +939,13 @@ mod tests {
         let predecessor = f.current();
         assert!(effective_exec_is(&f.service.show().unwrap().exec, &predecessor.manager.path));
         assert_ne!(selected.manager.path, predecessor.manager.path);
+        f.replace("linux-vst-bridge", b"third generation", true);
+        f.service.stale_reload.set(true);
+        assert!(f.adopt().is_err());
+        assert!(f.base.m.root.join("package-transition.json").exists());
+        f.service.stale_reload.set(false);
+        assert!(recover_from(&f.base.m, &f.home, &f.service).unwrap());
+        assert!(effective_exec_is(&f.service.show().unwrap().exec, &f.current().manager.path));
     }
 
     #[cfg(target_os = "linux")]
