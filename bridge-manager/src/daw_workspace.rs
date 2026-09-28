@@ -2032,6 +2032,18 @@ fn session_ready(m: &Manager, w: &Workspace) -> Result<bool> {
     Ok(true)
 }
 
+/// Package replacement does not own this workspace. It only refuses while
+/// the workspace has a live or unresolved operation; no record is rewritten.
+pub(super) fn package_idle(m: &Manager) -> Result<()> {
+    if !record(m).try_exists()? { return Ok(()); }
+    let w = load(m)?;
+    require(session_ready(m, &w)?
+        && w.active_installation_operation.is_none()
+        && w.active_uninstall_operation.is_none()
+        && w.serum2.active_installation_operation.is_none(),
+        "package_workspace_owner_active")
+}
+
 fn check_prerequisites(runtime: &Path, graphical: &str, authority: &Path) -> Result<()> {
     require(
         graphical.starts_with(':') && graphical.len() <= 16,
