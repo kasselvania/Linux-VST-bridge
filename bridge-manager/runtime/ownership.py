@@ -130,6 +130,23 @@ def signal_remote_group(root, owned, signum):
             pass
 
 
+def signal_local_group(root, owned, signum):
+    # The command-service child may outlive its local launch client. Its live
+    # identity must not authorize a signal to the client's recycled PGID.
+    remote = getattr(root, 'lvb_remote_group', None)
+    local_owned = set(owned) - ({remote} if remote is not None else set())
+    local_member = any(
+        (row['pid'], row['start_ticks']) in local_owned
+        and row['pgrp'] == root.pid and row['session'] == root.pid
+        for row in process_identities()
+    ) if root.poll() is not None else True
+    if local_member:
+        try:
+            os.killpg(root.pid, signum)
+        except ProcessLookupError:
+            pass
+
+
 def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]], during_cleanup=None) -> dict[str, Any]:
     # Cleanup ownership is an observed PID/start identity or this root's
     # process group/session, never a stage-shaped string in another command.
@@ -140,11 +157,7 @@ def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]],
     live_owned = {
         (record["pid"], record["start_ticks"]) for record in process_identities()
     } & set(owned)
-    if root.poll() is None or live_owned:
-        try:
-            os.killpg(root.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
+    signal_local_group(root, owned, signal.SIGTERM)
     signal_remote_group(root, owned, signal.SIGTERM)
     while time.monotonic() < deadline - 3:
         if during_cleanup is not None:
@@ -155,11 +168,7 @@ def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]],
         if root.poll() is not None and not live_owned:
             break
         time.sleep(POLL_SECONDS)
-    if root.poll() is None or live_owned:
-        try:
-            os.killpg(root.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+    signal_local_group(root, owned, signal.SIGKILL)
     signal_remote_group(root, owned, signal.SIGKILL)
     try:
         root.wait(timeout=max(0.1, deadline - time.monotonic()))

@@ -1110,8 +1110,14 @@ class NativeProtonSession:
                 raise RuntimeError('native command environment binding')
             identity=ProcessTracker(value['owner_pid']).identity(value['owner_pid'])
             if identity is None or identity[0]!=value['owner_start']:continue
-            report=json.loads(private_file_bytes(pathlib.Path(owner['report']),'native keeper report'))
+            try:
+                report=json.loads(private_file_bytes(pathlib.Path(owner['report']),'native keeper report'))
+            except (ValueError,TypeError) as exc:
+                raise RuntimeError('native keeper report malformed') from exc
+            if not isinstance(report,dict):raise RuntimeError('native keeper report malformed')
             if report.get('ready') is not True:continue
+            if report.get('environment')!=self.reg['environment']['id']:
+                raise RuntimeError('native keeper report environment binding')
             if (directory/'environment.ready').read_bytes()!=(directory.name+'\n').encode():raise RuntimeError('native command keeper readiness')
             endpoint=self.endpoint_for(directory.name)
             private_runtime_root(endpoint.parent)
@@ -1502,8 +1508,8 @@ def keep(spec):
         sel.close()
         if command_session is not None and clean:
             try:command_session.retire_endpoint()
-            except OSError as exc:
-                clean=False;error=(error+'; ' if error else '')+'command endpoint retirement: '+str(exc)
+            except Exception as exc:
+                clean=False;error=(error+'; ' if error else '')+'command endpoint retirement: '+type(exc).__name__+': '+str(exc)[:256]
         private_diagnostics={};private_diagnostic_error=None
         for name,data in diagnostic_tail.items():
             if not data:continue
