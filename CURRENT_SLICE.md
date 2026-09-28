@@ -1,17 +1,46 @@
 # Current work selection
 
-## Selected source-only package authority — PKG0
+## Selected read-only installed-state convergence — PB0-R2
 
-PKG0 begins at public canonical main `1120efa349f84250fc9602503c28ea2fbd6fb8b9`
+PB0-R2 starts from canonical main `a35604781a703f35691bf193c8f301d94a02ed33`
+(tree `189ae05f3b3917b653575add43b17362ee856ec6`), after the normal
+source-only merge of PKG0 PR #184. Its basis is `AGENTS.md` “Keep the
+engineering safeguards” and “Verification and review”, `GOVERNANCE.md`
+“What evidence means”, `docs/ARCHITECTURE.md` installed-software and rollback
+boundaries, and the reviewed UI1, UI2 and PKG0 contracts. The exact owner
+audit and its limitation are in [PB0-R2](docs/PB0_R2.md).
+
+**One claim:** determine whether current public source owns every selected
+durable record and runtime needed to preserve the installed Steam Deck state
+before any replacement. This slice performs read-only inspection only. The
+installed private UI2 manager/frontend and all user-owned publications,
+workspaces, installers, environments, projects, authorizations and rollback
+generations stay untouched. PB0 PR #179 remains draft and cannot proceed to a
+Deck replacement from this audit alone.
+
+The read-only canary found a selected BG1 V4 Lunacy runner with a pinned native
+command-session component. Public source recognizes its runner policy but lacks
+the exact command-session launch and retirement owner in the installed runtime
+scripts, nor the selected BG1 transition/rollback interpretation retained in
+private history. That is an **independent canonical integration prerequisite**, not a
+decoder uncertainty. PB0-R2 remains audit-only at this stop rule; the complete
+canonical readback and package-preservation gates are not claimed. The older
+PB0-R PR #180 is historical audit input and is not merge authority.
+
+## Completed source-only package authority — PKG0
+
+PKG0 began at public canonical main `1120efa349f84250fc9602503c28ea2fbd6fb8b9`
 (tree `1956a0071f626ec7fa0808369b618520549d1825`) after the reviewed UI2
 source merge. Its basis is `AGENTS.md` “Mission”, “Authority order”, “Core
 product invariants”, “Slice discipline”, “Flatpak and SteamOS rules”, and
 “Third-party and clean-room rules”; `GOVERNANCE.md` “What evidence means”;
 `docs/ARCHITECTURE.md` installed-software and rollback boundaries; and the
 selected [PKG0 contract](docs/PKG0.md).
-The focused source repair is commit `4c56e8b5567f4fe72b452d0e30ca97b6254bd8f1`
-(tree `86bc073f65d9a3f892e216a1696e7e08137c97f8`); the PR body binds the
-final documentation head/tree. PR #184 remains draft and unmerged.
+The approved PR #184 head was `c5b7dc2a90719bd090f42ab2e25cc27808717ac1`
+(tree `189ae05f3b3917b653575add43b17362ee856ec6`). It merged normally as
+`a35604781a703f35691bf193c8f301d94a02ed33` with the same tree and parents
+`1120efa349f84250fc9602503c28ea2fbd6fb8b9` and
+`c5b7dc2a90719bd090f42ab2e25cc27808717ac1`.
 
 **One claim:** a fixed installed package with one exact paired manager/frontend
 generation and a complete declared release roster can be verified, copied to
