@@ -10,8 +10,8 @@ a reviewed fixed-path package builder and a first immutable binding proof. It
 explicitly refused an update with a populated catalogue. This public slice adds
 that transition and interruption recovery; those parts require their own review.
 The focused package-authority repair is source commit
-`26f5c1dd07bea689cb1e61b40d931a9eab55c228`, tree
-`ec312a58c72afbdc7f47d54bb6b1083d5a8cffd9`. The PR body records the
+`153a58fd66073c66e84b8c04f9c05f173ae6ea02`, tree
+`f96355d50a6dec193d2b78199956efbbe8c93b8a`. The PR body records the
 final documentation head and tree.
 
 ## Package and user state
@@ -20,8 +20,8 @@ The package builder accepts one declared x86-64 artifact roster and paired
 manager/frontend build head, tree and operator schema. It refuses a mismatched
 build identity, undeclared file, changed digest, source-tree escape, secret-like
 bytes, or bundled Proton/SLR runtime. It produces an exact adoption manifest and
-release roster. The adoption/generation identity includes the package name and
-ordinary version alongside source head/tree. The builder emits no `.INSTALL`
+release roster. The adoption/generation identity includes the package name,
+ordinary version and package release alongside source head/tree. The builder emits no `.INSTALL`
 hook. Before signing, the package verifier requires one exact `.PKGINFO` with
 the declared name, version/release, x86-64 architecture and dependency set; it
 refuses `.INSTALL`, duplicate or unexpected metadata, and changed package
