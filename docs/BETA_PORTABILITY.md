@@ -26,21 +26,24 @@ remaining limits are recorded below.
 
 | System | Package route | Evidence here | Product support claim |
 | --- | --- | --- | --- |
-| SteamOS | Reviewed Arch package source and user-owned PKG0/PKG1 adoption | Source tests only; working Deck unchanged | Existing installed product evidence remains separate |
+| SteamOS 3.8.16 on Steam Deck | Reviewed Arch package source and user-owned PKG0/PKG1 adoption, whose intake is fixed to root-owned `/usr` files | [Read-only Deck check](../evidence/beta-delivery/steamos-package-posture-2026-09-29.md): base protection enabled and package intake absent; working installation unchanged | A protected-base package delivery route is still required before PKG0/PKG1 adoption on this fixture; existing product evidence remains separate |
 | Ubuntu 26.04.1 LTS, amd64 | Deterministic `.deb` from the same release manifest and payload | A clean graphical VM installed an internal-test package, opened the Applications entry, explicitly adopted and activated an immutable generation, reopened after a reboot, and truthfully reported that compatibility was unqualified. The official Bitwig 6.1.1 package installed and reached its user-owned EULA | No customer release, plug-in, audio, GPU, vendor-authorization or Ubuntu compatibility qualification |
-| Debian 13.7, amd64 | Target-specific `.deb` build from the same source and roster | Synthetic package install/dependency check passed. A Debian 13 target build of the current canonical source produced manager/frontend binaries requiring at most GLIBC 2.39 and Python 3.13 bytecode; manager startup reached the expected missing-state refusal | The Ubuntu Python 3.14 bytecode and frontend must not be reused; no complete Debian package, adopted product, audio or graphical qualification |
-| CachyOS 260809 ISO, rolling amd64 | Existing Arch package format from the same roster | Disposable 40 GiB VM reached graphical KDE Plasma 6.7.5 login on Wayland, kernel 7.2.8-1-cachyos. Inert source-owned Arch fixture installed, removed, and reinstalled through pacman; `pacman -Qk` found 17/17 files and the KDE launcher was discoverable. A user-owned marker survived removal and reinstall | No executable launch, adoption, Bitwig, audio or GPU qualification |
+| Debian 13.7, amd64 | Target-specific `.deb` build from the merged portability tree `f281a2e518298f466b2486f3ca7c01a80e84aa28` | [Exact internal-test package receipt](../evidence/beta-portability/debian-internal7-2026-09-29.json): fresh disposable Debian 13.7 container `apt` install; `dpkg -V` clean; Python 3.13 bytecode and dynamic loader dependencies matched; actual frontend opened an Xvfb window at 960×560. | Package/startup evidence only; no clean graphical desktop adoption, Bitwig, plug-in, audio or GPU qualification. The Ubuntu Python 3.14 package must not be reused. |
+| CachyOS 260809 ISO, rolling amd64 | Exact internal-test Arch package from the same reviewed roster, built from earlier source head `b01ae797f68d3f881dae05304777495dabc27fb3` | Disposable graphical KDE Plasma 6.7.5 VM installed the real package as an upgrade from an inert fixture, opened the Applications entry, explicitly adopted a generation and activated the user service. The frontend reopened to an unqualified Home. Removal and reinstall from package absence retained user state; `pacman -Qk` found 33 package files and none missing. | No pristine new-user package transaction, Bitwig, plug-in, audio or GPU qualification; the observed missing-version wording was corrected in later source, not remeasured on this package |
 
 The [CachyOS graphical receipt](../evidence/beta-portability/cachyos-graphical-2026-09-28.json)
-establishes an installed desktop and inert package/launcher fixture only. The
+establishes the earlier desktop and inert package/launcher fixture. The later
+real-binary check established adoption, activation, reopen and remove/reinstall
+on a disposable overlay; its [exact receipt](../evidence/beta-portability/cachyos-internal6-2026-09-29.json)
+also records the misleading missing-version explanation observed on that build. The
 [Ubuntu graphical receipt](../evidence/beta-portability/ubuntu-first-run-2026-09-29.json)
 records the later real-binary internal-test package journey on a clean 40 GiB
 VM overlay. It is separate from the earlier container checks. Package parsing,
 dependency resolution, application launch and truthful first-run diagnosis are
 not first sound. A managed plug-in, audio, editor and project workflow remains
-required before qualifying Ubuntu. Debian still needs a target-specific signed
-package and graphical installation; CachyOS still needs executable package
-first run.
+required before qualifying Ubuntu. Debian still needs a complete graphical
+installation, user adoption and a product workflow; CachyOS still needs Bitwig and an owned
+plug-in workflow.
 The bounded [container receipt](../evidence/beta-portability/portable-containers-2026-09-28.json)
 separates these package facts from product startup.
 The [paired-binary receipt](../evidence/beta-portability/paired-binary-startup-2026-09-28.json)

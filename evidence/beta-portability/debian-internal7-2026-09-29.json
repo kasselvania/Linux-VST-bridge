@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "claim": "Final portability-source Debian 13 package, dependency and graphical startup check in a fresh disposable container; no user adoption or plug-in qualification.",
+  "source_head": "4633d64bd4dcb05a4589b00d9bec193f5056fc60",
+  "source_tree": "f281a2e518298f466b2486f3ca7c01a80e84aa28",
+  "fixture": {
+    "base": "debian:13.7-slim",
+    "image_digest": "debian@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a",
+    "architecture": "amd64",
+    "display": "Xvfb 960x560 under an ordinary non-root user and temporary session bus"
+  },
+  "package": {
+    "name": "linux-vst-bridge-beta",
+    "version": "0.12.0internal7-1",
+    "format": "amd64.deb",
+    "sha256": "74ccf06db5e1b4be968a668009f02d1615d08d7cb4c017dfba43ef7fb5ec7071",
+    "verified_payload_files": 17,
+    "source_built_preparation_kit_sha256": "5d41078f05eea1ec300cfd72f3e8de7e0a9413f3f71b95a5e5b206f651a1fd67",
+    "manager_sha256": "442ae8710e93e5f93c7fd73ba5f7cc8b5e4240feaff4605c9d2c23b5c127fe5e",
+    "frontend_sha256": "6784ff645d166f98a9c5e1d5fa0590dd9360f397205cb685808eebf98c3ebdf8",
+    "declared_python_range": ">=3.13,<3.14",
+    "supervisor_python_magic": "f30d0d0a",
+    "customer_release_signing": "not selected; internal-test package only"
+  },
+  "observations": {
+    "build": "paired manager/frontend and checked-hash Python supervisors built from the exact source tree in a Debian 13 Rust 1.95 target container",
+    "roster_verify": "source-owned PKG0 assembly and Debian package verifier passed",
+    "apt_install": "passed in a fresh debian:13.7-slim container with declared dependencies",
+    "dpkg_verify": "dpkg -V linux-vst-bridge-beta reported no changed packaged file",
+    "python_abi": "both installed supervisors matched Python 3.13 magic and checked-hash flags 3",
+    "dynamic_loader": "ldd on both packaged executables found no missing libraries",
+    "manager_startup": "packaged manager reached expected command usage response",
+    "frontend_startup": "ordinary user process remained live and Xvfb exposed a 960x560 Linux Audio Compatibility Manager window"
+  },
+  "limits": [
+    "This was a clean package/startup container, not a clean graphical Debian installation.",
+    "No selected user generation, user service, Bitwig, vendor authorization, plug-in, audio, hardware latency or physical GPU was exercised.",
+    "The package is an unsigned internal test artifact and is not a customer beta release."
+  ]
+}

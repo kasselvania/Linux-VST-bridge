@@ -1,8 +1,8 @@
 # Current work selection
 
-## Beta delivery: clean-machine portable first run
+## Beta delivery: installed customer journeys
 
-The current portability owner begins from post-PKG1 canonical main
+The portable first-run owner began from post-PKG1 canonical main
 `3dd598fb46a4fd3de909c658b289246e5e24b1f9` and has merged
 post-product-controls main `de70bd29fed59140ff0396cfc1696cf56db7de75`.
 Its one claim is an exact, explicitly adopted package generation that opens
@@ -11,9 +11,24 @@ clean graphical x86 Linux fixture. The [portability contract](docs/BETA_PORTABIL
 and [Ubuntu receipt](evidence/beta-portability/ubuntu-first-run-2026-09-29.json)
 record an internal-test Ubuntu 26.04.1 journey through GUI adoption, service
 activation and reboot. The machine reported compatibility unqualified. This
-is not a customer release, plug-in qualification or audio result. Debian's
-target bytecode/package gate and CachyOS executable first run remain open.
-No Deck installation or publication occurred.
+is not a customer release, plug-in qualification or audio result. The source
+owner merged normally as `13ed1d85e830d581ec297760e04e9f9433bfd671`
+with tree `f281a2e518298f466b2486f3ca7c01a80e84aa28`.
+
+The current beta effort must complete real plug-in and package journeys on
+declared systems. The [read-only SteamOS check](evidence/beta-delivery/steamos-package-posture-2026-09-29.md)
+found base protection enabled and no fixed `/usr` PKG0/PKG1 package intake.
+That is an installation-authority gap for a protected-base Deck successor,
+not a qualification result. The working Deck generation and publications
+remain unchanged. [CachyOS 260809](evidence/beta-portability/cachyos-internal6-2026-09-29.json)
+completed an internal-test package launch, explicit adoption, service
+activation, frontend reopen and package remove/reinstall on a disposable
+graphical VM, using an earlier source head. No Bitwig or plug-in ran there.
+[Debian 13.7](evidence/beta-portability/debian-internal7-2026-09-29.json)
+has a target-package/container-startup result built from the merged
+portability tree `f281a2e518298f466b2486f3ca7c01a80e84aa28`. It has not
+completed graphical desktop adoption. Neither package result is a commercial
+plug-in or audio qualification.
 
 ## Completed source-only current plug-in controls without Diagnostics
 
