@@ -71,6 +71,7 @@ class PackageAssembly(unittest.TestCase):
     def add_kit(self, *, source_commit=None):
         contents = {
             "CMakeLists.txt": b"owned native build",
+            "native-vst3-proxy/CMakeLists.txt": b"owned proxy target",
             "libap2_backend.a": b"!<arch>\n",
             "runtime/host.exe": (self.inputs / "4").read_bytes(),
             "runtime/host-source-manifest.json": (self.inputs / "5").read_bytes(),

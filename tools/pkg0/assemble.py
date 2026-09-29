@@ -105,7 +105,8 @@ def verify_kit(data, source_head, host_sha256, source_sha256):
         if len(names) > 512 or len(names) != len(set(names)) or "recipe.json" not in names:
             raise ValueError("preparation kit roster")
         total = 0
-        fixed = {"recipe.json", "CMakeLists.txt", "cmake/HP0ModernGcc.cmake",
+        fixed = {"recipe.json", "CMakeLists.txt", "native-vst3-proxy/CMakeLists.txt",
+                 "cmake/HP0ModernGcc.cmake",
                  "cmake/HP0Vst3SdkLock.cmake", "libap2_backend.a",
                  "runtime/host.exe", "runtime/host-source-manifest.json",
                  "tools/mf3/native_builder.py", "tools/ap8_descriptor.py"}
