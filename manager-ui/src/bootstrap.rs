@@ -15,10 +15,8 @@ const SYSTEM_MANAGER: &str = "/usr/bin/linux-vst-bridge";
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Entry {
-    Selected,
+    Checking,
     FirstRun,
-    NeedsActivation,
-    Attention(String),
     Ordinary,
 }
 
@@ -36,7 +34,7 @@ fn select_entry(executable: &Path, route_present: bool) -> Entry {
     if executable != Path::new(SYSTEM_FRONTEND) {
         Entry::Ordinary
     } else if route_present {
-        Entry::Selected
+        Entry::Checking
     } else {
         Entry::FirstRun
     }
@@ -48,14 +46,7 @@ pub fn entry() -> Result<Entry, String> {
         return Ok(Entry::Ordinary);
     }
     match std::fs::symlink_metadata(selected_manager()?) {
-        Ok(_) => match activation_status() {
-            Ok("active") => Ok(select_entry(&executable, true)),
-            Ok("inactive") => Ok(Entry::NeedsActivation),
-            Ok(_) => Ok(Entry::Attention(
-                "Package activation status is invalid".into(),
-            )),
-            Err(error) => Ok(Entry::Attention(error)),
-        },
+        Ok(_) => Ok(select_entry(&executable, true)),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             Ok(select_entry(&executable, false))
         }
@@ -274,6 +265,7 @@ pub struct Bootstrap {
     package_adopt_offered: bool,
     adopted: bool,
     attention: bool,
+    check_queued: bool,
 }
 
 impl Bootstrap {
@@ -286,9 +278,19 @@ impl Bootstrap {
             package_adopt_offered: false,
             adopted: false,
             attention: false,
+            check_queued: false,
         }
     }
 
+    pub fn checking() -> Self {
+        Self {
+            check_queued: true,
+            ..Self::new()
+        }
+    }
+
+    /// Source preview of the second first-run step.
+    #[allow(dead_code)]
     pub fn needs_activation() -> Self {
         Self {
             adopted: true,
@@ -306,6 +308,7 @@ impl Bootstrap {
             result: Some(error),
             adopted: false,
             attention: true,
+            check_queued: false,
         }
     }
 
@@ -324,6 +327,10 @@ impl Bootstrap {
 
 impl eframe::App for Bootstrap {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        if self.check_queued {
+            self.check_queued = false;
+            self.submit(Operation::Status, ui.ctx().clone());
+        }
         if let Some(result) = self
             .receiver
             .as_ref()
@@ -432,12 +439,15 @@ mod tests {
         );
         assert_eq!(
             select_entry(Path::new(SYSTEM_FRONTEND), true),
-            Entry::Selected
+            Entry::Checking
         );
         assert_eq!(
             select_entry(Path::new("/tmp/development-frontend"), false),
             Entry::Ordinary
         );
+        let checking = Bootstrap::checking();
+        assert!(checking.check_queued);
+        assert!(checking.running.is_none());
     }
     #[test]
     fn activation_readback_distinguishes_exact_active_inactive_and_invalid() {

@@ -49,12 +49,7 @@ fn main() -> eframe::Result {
         match bootstrap::entry() {
             Ok(bootstrap::Entry::Ordinary) => None,
             Ok(bootstrap::Entry::FirstRun) => Some(bootstrap::Bootstrap::new()),
-            Ok(bootstrap::Entry::NeedsActivation) => Some(bootstrap::Bootstrap::needs_activation()),
-            Ok(bootstrap::Entry::Attention(error)) => Some(bootstrap::Bootstrap::attention(error)),
-            Ok(bootstrap::Entry::Selected) => match bootstrap::launch_selected() {
-                Ok(()) => return Ok(()),
-                Err(error) => Some(bootstrap::Bootstrap::attention(error)),
-            },
+            Ok(bootstrap::Entry::Checking) => Some(bootstrap::Bootstrap::checking()),
             Err(error) => Some(bootstrap::Bootstrap::attention(error)),
         }
     };
