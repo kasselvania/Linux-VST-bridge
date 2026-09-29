@@ -133,7 +133,7 @@ class PackageAssembly(unittest.TestCase):
         self.assertEqual(adoption["files"][-1]["sha256"],
                          next(item for item in self.files if item["kind"] == "preparation_kit")["sha256"])
         package = package_archive(out, self.root / "with-kit.pkg.tar.zst")
-        self.assertEqual(verify_package.verify(package, release, True)["files"], len(self.files) + 1)
+        self.assertEqual(verify_package.verify(package, release, True)["files"], len(self.files) + 2)
 
     def test_package_adoption_manifest_binds_every_selected_artifact(self):
         self.add_kit()

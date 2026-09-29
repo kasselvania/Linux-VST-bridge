@@ -15,14 +15,17 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import re
-import shutil
 import stat
 import sys
 import tarfile
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from pkg0.assemble import REQUIRED, SYSTEM_DESKTOP, SYSTEM_DESKTOP_BYTES  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pkg0"))
+from pkg0.assemble import (REQUIRED, SYSTEM_DESKTOP, SYSTEM_DESKTOP_BYTES,
+                           KIT_DESTINATION, verify_kit, verify_kit_source,
+                           verify_kit_backend)  # noqa: E402
+from verify_package import verify_adoption  # noqa: E402
 
 PACKAGE = "linux-vst-bridge-beta"
 ARCH = "amd64"
@@ -48,7 +51,10 @@ def exact_file(path, limit):
     path = Path(path)
     if not path.is_absolute():
         raise ValueError("package input must be an absolute regular file")
-    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    except OSError as error:
+        raise ValueError("package input must be an absolute regular file") from error
     source = os.fdopen(descriptor, "rb")
     before = os.fstat(source.fileno())
     if not stat.S_ISREG(before.st_mode) or before.st_size > limit:
@@ -177,6 +183,13 @@ def tar_control(manifest, epoch):
     return output.getvalue()
 
 
+def parent_directories(names):
+    parents = set()
+    for name in names:
+        parents.update(str(path) for path in PurePosixPath(name).parents if str(path) != ".")
+    return sorted(parents, key=lambda name: (name.count("/"), name))
+
+
 def ar_member(output, name, source, size, epoch):
     encoded = (f"{name + '/':<16}{epoch:<12}{0:<6}{0:<6}{0o100644:<8}{size:<10}`\n").encode("ascii")
     if len(encoded) != 60:
@@ -206,10 +219,27 @@ def build(staged, output, epoch):
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="lvb-deb-stage-", dir=output.parent) as tmp:
         data = Path(tmp) / "data.tar.gz"
+        rows = {row["destination"]: row for row in manifest["files"]}
         source, before = exact_file(staged / "payload.tar", MAX_PAYLOAD)
         with source, data.open("wb") as target:
             with gzip.GzipFile(fileobj=target, mode="wb", mtime=epoch, filename="") as compressed:
-                shutil.copyfileobj(source, compressed, 1024 * 1024)
+                with tarfile.open(fileobj=compressed, mode="w|", format=tarfile.PAX_FORMAT) as package:
+                    for name in parent_directories(row["destination"] for row in manifest["files"]):
+                        directory = tarfile.TarInfo(name + "/")
+                        directory.type = tarfile.DIRTYPE
+                        directory.mode = 0o755
+                        directory.uid = directory.gid = 0
+                        directory.mtime = epoch
+                        package.addfile(directory)
+                    with tarfile.open(fileobj=source, mode="r:") as payload:
+                        for member in payload:
+                            row = rows[member.name]
+                            item = tarfile.TarInfo(member.name)
+                            item.size = row["size"]
+                            item.mode = int(row["mode"], 8)
+                            item.uid = item.gid = 0
+                            item.mtime = epoch
+                            package.addfile(item, payload.extractfile(member))
             stable(source, before)
         control = tar_control(manifest, epoch)
         temporary = Path(tmp) / output.name
@@ -266,7 +296,9 @@ def ar_entries(package, destination):
         return entries
 
 
-def verify(package, staged):
+def verify(package, staged, source_root=None, rebuild_backend=False):
+    if rebuild_backend and source_root is None:
+        raise ValueError("Debian release backend rebuild requires exact source")
     package = Path(package).absolute()
     manifest, _ = read_manifest(Path(staged).resolve(strict=True) / "RELEASE_MANIFEST.json")
     expected_name = f"{PACKAGE}_{manifest['version']}-{manifest['pkgrel']}_{ARCH}.deb"
@@ -278,25 +310,64 @@ def verify(package, staged):
             raise ValueError("Debian format version")
         with tarfile.open(entries["control.tar.gz"], mode="r:gz") as archive:
             members = archive.getmembers()
-            if len(members) != 1 or members[0].name != "./control" or not members[0].isfile():
+            if (len(members) != 1 or members[0].name != "./control"
+                    or not members[0].isfile() or members[0].size > MAX_CONTROL):
                 raise ValueError("Debian control roster")
             data = archive.extractfile(members[0]).read()
             if data != control_bytes(manifest):
                 raise ValueError("Debian control metadata differs")
         expected = {row["destination"]: row for row in manifest["files"]}
         seen = Counter()
+        directories = Counter()
+        exact_directories = set(parent_directories(expected))
+        adoption = None
+        kit = None
         with tarfile.open(entries["data.tar.gz"], mode="r:gz") as archive:
             for member in archive:
+                if member.isdir():
+                    name = member.name.rstrip("/")
+                    directories[name] += 1
+                    if (name not in exact_directories or directories[name] != 1
+                            or member.mode != 0o755 or member.uid != 0
+                            or member.gid != 0 or member.size != 0):
+                        raise ValueError("Debian directory roster")
+                    continue
                 seen[member.name] += 1
                 if member.name not in expected or seen[member.name] != 1 or not member.isfile():
                     raise ValueError("Debian payload roster")
                 row = expected[member.name]
                 if (member.size != row["size"] or member.mode != int(row["mode"], 8)
-                        or member.uid != 0 or member.gid != 0
-                        or sha_file(archive.extractfile(member)) != row["sha256"]):
+                        or member.uid != 0 or member.gid != 0):
+                    raise ValueError("Debian payload metadata differs")
+                content = archive.extractfile(member)
+                if content is None:
                     raise ValueError("Debian payload differs")
-        if set(seen) != set(expected):
+                if member.name in ("usr/share/linux-vst-bridge/pkg0-manifest.json", KIT_DESTINATION):
+                    data = content.read()
+                    member_sha = hashlib.sha256(data).hexdigest()
+                    if member.name == KIT_DESTINATION:
+                        kit = data
+                    else:
+                        adoption = json.loads(data)
+                else:
+                    member_sha = sha_file(content)
+                if member_sha != row["sha256"]:
+                    raise ValueError("Debian payload differs")
+        if set(seen) != set(expected) or set(directories) != exact_directories:
             raise ValueError("Debian payload incomplete")
+        if not isinstance(adoption, dict):
+            raise ValueError("Debian adoption authority absent")
+        verify_adoption(adoption, manifest, expected)
+        if kit is not None:
+            verify_kit(kit, manifest["source_head"],
+                       expected["usr/lib/linux-vst-bridge/host/bridge-host.exe"]["sha256"],
+                       expected["usr/lib/linux-vst-bridge/host/source-manifest.json"]["sha256"])
+            if source_root is not None:
+                verify_kit_source(kit, source_root, manifest["source_head"], manifest["source_tree"])
+                if rebuild_backend:
+                    verify_kit_backend(kit, source_root)
+        elif source_root is not None:
+            raise ValueError("Debian release preparation kit absent")
     with package.open("rb") as source:
         package_digest = sha_file(source)
     return {"files": len(expected), "package_sha256": package_digest}

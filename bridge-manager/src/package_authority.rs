@@ -651,7 +651,8 @@ fn activate_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Res
     let _package = m.lock("package.lock")?;
     let _setup = m.lock("setup.lock")?;
     let (selected, generation, state) = selected_activation(m, home, service)?;
-    if state.active != "active" {
+    let starting = state.active != "active";
+    if starting {
         preflight(m)?;
         let (checked, checked_generation, checked_state) = selected_activation(m, home, service)?;
         require(checked.manager == selected.manager
@@ -663,6 +664,12 @@ fn activate_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Res
     require(after.manager == selected.manager
         && after_generation.manifest_sha256 == generation.manifest_sha256
         && readback.active == "active", "package_service_did_not_start")?;
+    if starting {
+        for _ in 0..20 {
+            if service.healthy(m).is_ok() { return Ok(()); }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+    }
     service.healthy(m)?;
     Ok(())
 }
@@ -923,6 +930,7 @@ mod tests {
         f.service.fail_start.set(false);
         f.service.fail_health.set(true);
         assert!(activate_from(&f.base.m, &f.home, &f.service).is_err());
+        assert!(activation_status_from(&f.base.m, &f.home, &f.service).is_err());
         assert_eq!(f.service.starts.get(), 1);
         f.service.fail_health.set(false);
         activate_from(&f.base.m, &f.home, &f.service).unwrap();

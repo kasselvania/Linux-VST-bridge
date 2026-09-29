@@ -14,6 +14,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pkg0"))
 import assemble  # noqa: E402
+import test_assemble  # noqa: E402
 import deb  # noqa: E402
 
 
@@ -64,12 +65,36 @@ class DebianPackage(unittest.TestCase):
             contents = deb.ar_entries(self.package, unpack)
             self.assertEqual(list(contents), ["debian-binary", "control.tar.gz", "data.tar.gz"])
             with tarfile.open(contents["data.tar.gz"], mode="r:gz") as archive:
+                members = archive.getmembers()
                 adoption = json.load(archive.extractfile(assemble.ADOPTION_MANIFEST))
                 self.assertEqual(adoption["external_runtime"]["id"], "exact-proton-slr")
-                self.assertFalse(any("proton" in member.name.lower() for member in archive))
+                self.assertFalse(any("proton" in member.name.lower() for member in members))
+                directories = {member.name.rstrip("/") for member in members if member.isdir()}
+                self.assertEqual(directories,
+                                 set(deb.parent_directories(row["destination"]
+                                                            for row in json.loads((self.staged / "RELEASE_MANIFEST.json").read_bytes())["files"])))
         clone = self.root / "repeat" / self.package.name
         deb.build(self.staged, clone, 1_234_567_890)
         self.assertEqual(self.package.read_bytes(), clone.read_bytes())
+
+    def test_pkg1_kit_remains_exact_adoption_authority(self):
+        fixture = test_assemble.PackageAssembly("test_package_kit_is_bound_to_adoption_and_host_pair")
+        fixture.setUp()
+        try:
+            fixture.add_kit()
+            staged = fixture.root / "portable-kit"
+            assemble.build(fixture.spec, staged, 1_234_567_890)
+            package = fixture.root / self.package.name
+            identity = deb.build(staged, package, 1_234_567_890)
+            self.assertEqual(identity["package_sha256"], deb.verify(package, staged)["package_sha256"])
+            with tempfile.TemporaryDirectory() as unpack:
+                entries = deb.ar_entries(package, unpack)
+                with tarfile.open(entries["data.tar.gz"], mode="r:gz") as archive:
+                    adoption = json.load(archive.extractfile(assemble.ADOPTION_MANIFEST))
+                    self.assertEqual(adoption["schema"], 2)
+                    self.assertIn(assemble.KIT_DESTINATION, archive.getnames())
+        finally:
+            fixture.doCleanups()
 
     def test_system_package_manager_parses_exact_metadata_when_available(self):
         self.build()
@@ -138,6 +163,32 @@ class DebianPackage(unittest.TestCase):
                         deb.ar_member(package, member_name, io.BytesIO(body), len(body), 1_234_567_890)
                 with self.assertRaisesRegex(ValueError, "Debian control"):
                     deb.verify(altered, self.staged)
+
+    def test_missing_parent_directory_refuses(self):
+        self.build()
+        with tempfile.TemporaryDirectory() as unpack:
+            entries = deb.ar_entries(self.package, unpack)
+            data_gz = io.BytesIO()
+            with gzip.GzipFile(fileobj=data_gz, mode="wb", mtime=1_234_567_890,
+                               filename="") as compressed:
+                with tarfile.open(fileobj=compressed, mode="w|", format=tarfile.PAX_FORMAT) as target:
+                    with tarfile.open(entries["data.tar.gz"], mode="r:gz") as source:
+                        for member in source:
+                            if member.isdir() and member.name.rstrip("/") == "usr/lib":
+                                continue
+                            target.addfile(member, source.extractfile(member) if member.isfile() else None)
+            altered = self.root / "missing-directory" / self.package.name
+            altered.parent.mkdir()
+            with altered.open("wb") as package:
+                package.write(b"!<arch>\n")
+                for member_name, body in (
+                    ("debian-binary", b"2.0\n"),
+                    ("control.tar.gz", entries["control.tar.gz"].read_bytes()),
+                    ("data.tar.gz", data_gz.getvalue()),
+                ):
+                    deb.ar_member(package, member_name, io.BytesIO(body), len(body), 1_234_567_890)
+            with self.assertRaisesRegex(ValueError, "payload incomplete"):
+                deb.verify(altered, self.staged)
 
     def test_output_name_and_duplicate_build_refuse(self):
         wrong = self.root / "wrong.deb"

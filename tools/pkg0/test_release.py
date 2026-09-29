@@ -40,7 +40,7 @@ class SignedRelease(unittest.TestCase):
         trusted = root / "trusted.asc"
         trusted.write_bytes(gpg("--armor", "--export", fingerprint))
         self.assertEqual(verify_release.verify(bundle, trusted, fingerprint,
-                                               "internal_test", True)["files"], len(fixture.files) + 1)
+                                               "internal_test", True)["files"], len(fixture.files) + 2)
         changed = bundle / "SHA256SUMS"
         changed.chmod(0o644)
         changed.write_text(changed.read_text() + "extra\n")
@@ -70,7 +70,7 @@ class SignedRelease(unittest.TestCase):
         sign_release.sign(kit_package, kit_output / "RELEASE_MANIFEST.json", home,
                           fingerprint, "internal_test", kit_bundle, structure_only=True)
         self.assertEqual(verify_release.verify(kit_bundle, trusted, fingerprint,
-                                               "internal_test", True)["files"], len(fixture.files) + 1)
+                                               "internal_test", True)["files"], len(fixture.files) + 2)
 
 
 if __name__ == "__main__":

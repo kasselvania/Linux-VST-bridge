@@ -16,7 +16,11 @@ import assemble
 
 
 def run(*args):
-    subprocess.run(args, check=True, timeout=240, stdout=subprocess.DEVNULL)
+    result = subprocess.run(args, timeout=900, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, text=True)
+    if result.returncode:
+        raise ValueError("package-manager fixture failed:\n" +
+                         "\n".join(result.stdout.splitlines()[-20:]))
 
 
 def main():
@@ -38,7 +42,7 @@ def main():
     retained = Path("/root/.local/share/linux-vst-bridge/retained-fixture")
     retained.parent.mkdir(parents=True, exist_ok=True)
     retained.write_text("user-owned sentinel\n")
-    run("apt-get", "install", "-y", str(fixture.package))
+    run("apt-get", "install", "-y", "--no-install-recommends", str(fixture.package))
     installed = subprocess.check_output([
         "dpkg-query", "-W", "-f=${Status} ${Version}", "linux-vst-bridge-beta"], text=True).strip()
     if installed != "install ok installed 0.1.0beta1-1":
@@ -60,6 +64,7 @@ def main():
                       "dependencies_resolved": True, "root_owned_desktop": True,
                       "install_hooks": False, "unrelated_user_file_preserved": True,
                       "product_startup": False, "audio": False}, sort_keys=True))
+    fixture.doCleanups()
 
 
 if __name__ == "__main__":

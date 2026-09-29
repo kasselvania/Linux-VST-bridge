@@ -1,0 +1,48 @@
+name: Beta package portability
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/beta-portability.yml'
+      - 'tools/pkg0/**'
+      - 'tools/portable/**'
+      - 'bridge-manager/src/package_authority.rs'
+      - 'bridge-manager/src/main.rs'
+  workflow_dispatch:
+
+jobs:
+  ubuntu-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    container: ubuntu@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78
+    steps:
+      - name: Prepare fixed package tools
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 git gnupg
+      - uses: actions/checkout@v4
+      - name: Package format and internal signature tests
+        run: python3 -m unittest discover -s tools/portable -v
+      - name: Disposable package install and removal
+        env:
+          LVB_DISPOSABLE_CONTAINER: '1'
+          DEBIAN_FRONTEND: noninteractive
+        run: python3 tools/portable/install_fixture.py
+
+  debian-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    container: debian@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c
+    steps:
+      - name: Prepare fixed package tools
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 git gnupg
+      - uses: actions/checkout@v4
+      - name: Package format and internal signature tests
+        run: python3 -m unittest discover -s tools/portable -v
+      - name: Disposable package install and removal
+        env:
+          LVB_DISPOSABLE_CONTAINER: '1'
+          DEBIAN_FRONTEND: noninteractive
+        run: python3 tools/portable/install_fixture.py
