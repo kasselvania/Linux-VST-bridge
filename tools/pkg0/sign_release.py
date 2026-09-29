@@ -85,7 +85,7 @@ def sign(package, manifest, home, fingerprint, key_class, output,
     package_sha = sha_file(package)
     manifest_sha = sha_file(manifest)
     verify_package(package, data, structure_only=structure_only,
-                   source_root=source_root)
+                   source_root=source_root, rebuild_backend=key_class == "release")
     secret_fingerprint(home, fingerprint)
     temporary = output.with_name(output.name + f".stage-{os.getpid()}")
     require(not temporary.exists(), "release stage exists")

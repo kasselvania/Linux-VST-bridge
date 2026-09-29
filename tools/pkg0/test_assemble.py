@@ -4,6 +4,7 @@ import json
 import pathlib
 import io
 import copy
+import shutil
 import subprocess
 import tarfile
 import tempfile
@@ -227,6 +228,19 @@ class PackageAssembly(unittest.TestCase):
         (source / "native-vst3-proxy/source/processor.cpp").write_bytes(b"local drift")
         with self.assertRaisesRegex(ValueError, "source head/tree differs"):
             assemble.verify_kit_source(data.getvalue(), source, head, tree)
+
+    def test_release_backend_rebuild_rejects_stale_static_archive(self):
+        if shutil.which("rustup") is None:
+            self.skipTest("Rust toolchain unavailable")
+        targets = subprocess.check_output(["rustup", "target", "list", "--installed"],
+                                          text=True).splitlines()
+        if "x86_64-unknown-linux-gnu" not in targets:
+            self.skipTest("x86-64 Linux Rust target unavailable")
+        self.add_kit()
+        kit = next(item for item in self.files if item["kind"] == "preparation_kit")
+        with self.assertRaisesRegex(ValueError, "backend source differs"):
+            assemble.verify_kit_backend(pathlib.Path(kit["source"]).read_bytes(),
+                                        pathlib.Path(__file__).resolve().parents[2])
 
     def test_kit_schema_source_and_host_mismatch_refuse(self):
         with self.assertRaisesRegex(ValueError, "required"):

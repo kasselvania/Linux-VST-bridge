@@ -15,10 +15,12 @@ builder and package verifier check the bounded recipe, required native compile
 inputs, exact SDK pins, contained file digests and package host/source
 identities. The verifier binds every selected adoption artifact to the signed
 release roster. Release assembly and release-key signing additionally compare
-the kit's complete source roster and bytes with a clean exact Git head/tree;
-synthetic package fixtures do not prove a real kit compiles. The ordinary-user
-intake reads
-the fixed `/usr` kit through the same checked descriptor rule as the other
+the kit's complete source roster and bytes with a clean exact Git head/tree.
+Before release-key signing, the verifier rebuilds the registered Rust backend
+offline in an isolated target directory and requires it to match the kit's
+static archive byte for byte. Synthetic package fixtures do not prove a real
+kit compiles. The ordinary-user intake reads the fixed `/usr` kit through the
+same checked descriptor rule as the other
 root-owned package inputs. It copies the exact bytes into the immutable user
 software generation and selects that artifact in `software.json`.
 

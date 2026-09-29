@@ -13,9 +13,11 @@ from pathlib import Path, PurePosixPath
 import re
 import secrets
 import shutil
+import signal
 import stat
 import subprocess
 import tarfile
+import tempfile
 import zipfile
 
 PACKAGE = "linux-vst-bridge-beta"
@@ -196,6 +198,47 @@ def verify_kit_source(data, source_root, source_head, source_tree):
             or git("rev-parse", "HEAD^{tree}").decode().strip() != source_tree
             or git("status", "--porcelain")):
         raise ValueError("preparation kit source changed during verification")
+
+
+def verify_kit_backend(data, source_root):
+    """Rebuild the registered backend before a release key signs its archive."""
+    source_root = Path(source_root).resolve(strict=True)
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        expected = sha(archive.read("libap2_backend.a"))
+    compiler = subprocess.check_output(
+        ["rustup", "which", "--toolchain", "stable", "rustc"], text=True).strip()
+    with tempfile.TemporaryDirectory(prefix="lvb-pkg1-backend-") as target:
+        env = {key: os.environ[key] for key in ("PATH", "HOME", "CARGO_HOME", "RUSTUP_HOME")
+               if key in os.environ}
+        env.update({"RUSTC": compiler, "RUSTFLAGS": "-C relocation-model=pic",
+                    "CARGO_TARGET_DIR": target, "CARGO_INCREMENTAL": "0"})
+        process = subprocess.Popen(
+            ["rustup", "run", "stable", "cargo", "build", "--manifest-path",
+             "native-vst3-proxy/backend/Cargo.toml", "--release", "--locked", "--offline",
+             "--target", "x86_64-unknown-linux-gnu", "--features", "registered"],
+            cwd=source_root, env=env, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL, start_new_session=True)
+        try:
+            code = process.wait(timeout=600)
+        except subprocess.TimeoutExpired as error:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait()
+            raise ValueError("preparation kit backend rebuild deadline") from error
+        if code:
+            raise ValueError("preparation kit backend rebuild failed")
+        built = Path(target) / "x86_64-unknown-linux-gnu/release/libap2_backend.a"
+        if not built.is_file() or built.is_symlink() or sha(built.read_bytes()) != expected:
+            raise ValueError("preparation kit backend source differs")
 
 
 def validate(spec):

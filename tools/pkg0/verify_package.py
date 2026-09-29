@@ -11,7 +11,8 @@ import stat
 import subprocess
 import tempfile
 from assemble import (ADOPTED, ADOPTED_WITH_KIT, ADOPTION_MANIFEST, DEPENDENCIES,
-                      KIT_DESTINATION, PKGREL, verify_kit, verify_kit_source)
+                      KIT_DESTINATION, PKGREL, verify_kit, verify_kit_backend,
+                      verify_kit_source)
 
 OPTIONAL_META = {".BUILDINFO": 1024 * 1024, ".MTREE": 4 * 1024 * 1024}
 
@@ -72,7 +73,9 @@ def verify_adoption(adopted, manifest, expected):
         raise ValueError("package adoption artifact roster differs")
 
 
-def verify(package, manifest, structure_only=False, source_root=None):
+def verify(package, manifest, structure_only=False, source_root=None, rebuild_backend=False):
+    if rebuild_backend and source_root is None:
+        raise ValueError("release backend rebuild requires exact source")
     if (manifest.get("schema") != 1 or manifest.get("package") != "linux-vst-bridge-beta"
             or manifest.get("pkgrel") != PKGREL
             or not isinstance(manifest.get("version"), str)
@@ -142,6 +145,10 @@ def verify(package, manifest, structure_only=False, source_root=None):
             if source_root is not None:
                 verify_kit_source(kit_bytes, source_root, manifest["source_head"],
                                   manifest["source_tree"])
+                if rebuild_backend:
+                    verify_kit_backend(kit_bytes, source_root)
+                    verify_kit_source(kit_bytes, source_root, manifest["source_head"],
+                                      manifest["source_tree"])
     return {"package_sha256": digest(package), "files": len(expected),
             "structure_only": structure_only}
 
