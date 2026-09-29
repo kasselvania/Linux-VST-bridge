@@ -48,6 +48,9 @@ pub(super) struct PlatformReadback {
     pub daw_callback_maximum: Option<u32>,
     pub bitwig_ref: Probe<String>,
     pub bitwig_version: Probe<String>,
+    /// Package readback recognizes a native DAW without borrowing the
+    /// separately qualified Bitwig Flatpak profile.
+    pub bitwig_native_version: Probe<String>,
     pub bitwig_runtime: Probe<String>,
     pub bitwig_permissions: Probe<String>,
     pub publication_directory: Probe<bool>,
@@ -80,6 +83,7 @@ fn path_probe(path: &Path, socket: bool) -> Probe<bool> {
 fn bounded_command(program: &str, args: &[&str]) -> Probe<String> {
     let executable = match program {
         "flatpak" => "/usr/bin/flatpak",
+        "dpkg-query" => "/usr/bin/dpkg-query",
         "pw-metadata" => "/usr/bin/pw-metadata",
         "jack_lsp" => "/usr/bin/jack_lsp",
         "uname" => "/usr/bin/uname",
@@ -227,6 +231,30 @@ fn pipewire_setting(text: &str, key: &str) -> Option<u32> {
     })
 }
 
+fn native_bitwig_package(probe: Probe<String>) -> Probe<String> {
+    match probe {
+        Probe::Observed(text) => {
+            let field = |key: &str| text.lines()
+                .find_map(|line| line.strip_prefix(key))
+                .map(str::trim);
+            match (field("Package:"), field("Status:"), field("Architecture:"), field("Version:")) {
+                (Some("bitwig-studio"), Some("install ok installed"), Some("amd64"), Some(version))
+                    if !version.is_empty() && version.len() <= 64
+                        && version.bytes().all(|b| b.is_ascii_alphanumeric()
+                            || matches!(b, b'.' | b'+' | b'-' | b'~' | b':')) =>
+                    Probe::Observed(version.into()),
+                (Some("bitwig-studio"), Some(status), _, _)
+                    if status != "install ok installed" => Probe::Absent,
+                _ => Probe::Malformed,
+            }
+        }
+        // A failed dpkg query does not prove absence: the database or helper
+        // itself may be unavailable. Only a retained package status can do so.
+        Probe::Absent | Probe::Unavailable => Probe::Unavailable,
+        Probe::Malformed => Probe::Malformed,
+    }
+}
+
 fn local_display_number(raw: &str) -> Option<u8> {
     let mut parts = raw.strip_prefix(':')?.split('.');
     let number = parts.next()?;
@@ -260,7 +288,7 @@ pub(super) fn collect(m: &Manager) -> PlatformReadback {
         });
     // Independent fixed readbacks run together, so one unavailable desktop
     // helper cannot add its full timeout to every other helper's latency.
-    let (info, metadata, bitwig_ref, bitwig_runtime, bitwig_permissions, arch, jack, flatpak_list) =
+    let (info, metadata, bitwig_ref, bitwig_runtime, bitwig_permissions, arch, jack, flatpak_list, native_bitwig) =
         thread::scope(|scope| {
             let info = scope.spawn(|| bounded_command("flatpak", &["info", BITWIG]));
             let metadata = scope.spawn(|| bounded_command("pw-metadata", &["-n", "settings", "0"]));
@@ -270,6 +298,11 @@ pub(super) fn collect(m: &Manager) -> PlatformReadback {
             let arch = scope.spawn(|| bounded_command("uname", &["-m"]));
             let jack = scope.spawn(|| bounded_command("jack_lsp", &[]));
             let flatpak_list = scope.spawn(|| bounded_command("flatpak", &["list", "--app", "--columns=application"]));
+            let native_bitwig = scope.spawn(|| match key_value(&os, "ID").as_deref() {
+                Some("ubuntu" | "debian") => native_bitwig_package(
+                    bounded_command("dpkg-query", &["-s", "bitwig-studio"])),
+                _ => Probe::Unavailable,
+            });
             (info.join().unwrap_or(Probe::Unavailable),
                 metadata.join().unwrap_or(Probe::Unavailable),
                 reference.join().unwrap_or(Probe::Unavailable),
@@ -277,7 +310,8 @@ pub(super) fn collect(m: &Manager) -> PlatformReadback {
                 permissions.join().unwrap_or(Probe::Unavailable),
                 arch.join().unwrap_or(Probe::Unavailable),
                 jack.join().unwrap_or(Probe::Unavailable),
-                flatpak_list.join().unwrap_or(Probe::Unavailable))
+                flatpak_list.join().unwrap_or(Probe::Unavailable),
+                native_bitwig.join().unwrap_or(Probe::Unavailable))
         });
     let runtime = PathBuf::from(format!("/run/user/{}", unsafe { libc::getuid() }));
     let runtime_dir = path_probe(&runtime, false);
@@ -333,6 +367,7 @@ pub(super) fn collect(m: &Manager) -> PlatformReadback {
         daw_callback_maximum: None,
         bitwig_ref,
         bitwig_version: version,
+        bitwig_native_version: native_bitwig,
         bitwig_runtime: nonempty(bitwig_runtime),
         bitwig_permissions: nonempty(bitwig_permissions),
         publication_directory: path_probe(&m.publications, false),
@@ -575,7 +610,10 @@ fn resolve_with(
         blockers.push(issue("platform", O::Unknown,
             "This exact distribution, version and hardware combination has not been qualified for these profiles."));
     }
-    if p.bitwig_ref.is_absent() {
+    if p.bitwig_ref.observed().is_none() && p.bitwig_native_version.observed().is_some() {
+        blockers.push(issue("daw", O::Unknown,
+            "The native Bitwig Studio package reports installed, but this DAW package and platform combination has no accepted compatibility profile."));
+    } else if p.bitwig_ref.is_absent() {
         blockers.push(issue(
             "daw",
             O::ActionRequired,
@@ -607,11 +645,13 @@ fn resolve_with(
             steps.push(step("Review Bitwig Flatpak access",
                 "Use the supported application permissions; the manager will not widen the sandbox automatically.", None));
         }
-        None => blockers.push(issue(
-            "publication_path",
-            O::Unknown,
-            "Bitwig sandbox permissions could not be read.",
-        )),
+        None if p.bitwig_ref.observed().is_none()
+            && p.bitwig_native_version.observed().is_some() => {
+            // A native package has no Flatpak permissions. Its publication
+            // route remains unqualified with the native DAW posture above.
+        }
+        None => blockers.push(issue("publication_path", O::Unknown,
+            "Bitwig sandbox permissions could not be read.")),
     }
     if p.display.is_none() || p.session.is_none() {
         blockers.push(issue(
@@ -930,6 +970,8 @@ fn resolve_with(
         daw: vec![
             observed("DAW Flatpak ref", p.bitwig_ref.value(), "flatpak info", at),
             observed("DAW version", p.bitwig_version.value(), "flatpak info", at),
+            observed("Native Bitwig package version", p.bitwig_native_version.value(),
+                "dpkg-query package status", at),
             observed("DAW runtime", p.bitwig_runtime.value(), "flatpak info", at),
             observed(
                 "Sandbox publication access",
@@ -1377,6 +1419,7 @@ mod tests {
             daw_callback_maximum: Some(512),
             bitwig_ref: Probe::Observed(BITWIG_REF.into()),
             bitwig_version: Probe::Observed(BITWIG_VERSION.into()),
+            bitwig_native_version: Probe::Unavailable,
             bitwig_runtime: Probe::Observed("org.freedesktop.Platform/x86_64/24.08".into()),
             bitwig_permissions: Probe::Observed(
                 "[Context]\nsockets=x11;pulseaudio;\nfilesystems=host;\n".into(),
@@ -1429,6 +1472,32 @@ mod tests {
                 .as_deref(),
             Some("48000")
         );
+    }
+    #[test]
+    fn native_bitwig_is_observed_without_inheriting_flatpak_support() {
+        let installed = "Package: bitwig-studio\nStatus: install ok installed\nArchitecture: amd64\nVersion: 6.1.1\n";
+        assert_eq!(native_bitwig_package(Probe::Observed(installed.into())),
+            Probe::Observed("6.1.1".into()));
+        assert!(matches!(native_bitwig_package(Probe::Absent), Probe::Unavailable));
+        assert!(matches!(native_bitwig_package(Probe::Observed(
+            installed.replace("install ok installed", "deinstall ok config-files"))), Probe::Absent));
+        assert!(matches!(native_bitwig_package(Probe::Observed(
+            installed.replace("amd64", "arm64"))), Probe::Malformed));
+        let (snapshot, mut platform) = fixture();
+        platform.bitwig_ref = Probe::Absent;
+        platform.bitwig_version = Probe::Absent;
+        platform.bitwig_runtime = Probe::Absent;
+        platform.bitwig_permissions = Probe::Absent;
+        platform.bitwig_native_version = Probe::Observed("6.1.1".into());
+        let assessment = result(&snapshot, &platform);
+        assert_eq!(assessment.overall_status, ui::ReadinessOutcome::Unknown);
+        assert!(assessment.blockers.iter().any(|b| b.category == "daw"
+            && b.explanation.contains("native Bitwig Studio package reports installed")));
+        assert!(!assessment.ordered_steps.iter().any(|s| s.title.contains("Install or verify Bitwig")));
+        assert!(!assessment.blockers.iter().any(|b| b.category == "publication_path"));
+        assert_eq!(assessment.daw.iter().find(|f| f.name == "Native Bitwig package version")
+            .and_then(|f| f.value.as_deref()), Some("6.1.1"));
+        assert_ne!(assessment.products[0].status, ui::ReadinessOutcome::Ready);
     }
     #[test]
     fn platform_daw_audio_and_graphics_refuse_false_ready() {
