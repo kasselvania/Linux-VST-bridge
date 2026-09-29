@@ -483,6 +483,10 @@ impl Operator {
     pub fn preview_readiness(snapshot: Snapshot, readiness: ReadinessAssessment,
         page: Page) -> Self {
         let mut preview = Self::preview(snapshot.clone(), page);
+        if page == Page::Plugins {
+            // Preview the current-only product view before deep compatibility readback.
+            preview.snapshot = None;
+        }
         preview.overview = Some(InteractiveOverview {
             schema: 1, operator_schema: crate::model::OPERATOR_SCHEMA,
             scope: "current_only".into(), current_generation: "preview".into(),
