@@ -81,10 +81,17 @@ new generation, and rollback never silently chooses an arbitrary older one.
 The paired system frontend has a separate read-only schema-2 bootstrap status
 and an explicit `package-stop-for-repair` command. The latter is offered only
 for a verified selected legacy or package generation whose loaded active user
-unit still executes the exact selected manager, whose repairable routes contain
-no foreign owner, and whose DSP, keeper, maintenance, installer, vendor,
-workspace, transaction and cleanup state is clean. It does not adopt, switch
-or start a generation. Package adoption retains its stopped-service gate.
+unit still executes the exact selected manager and whose repairable routes
+contain no foreign owner. Clean idle keepers may remain; the manager requires
+zero DSP and maintenance ownership, clean cleanup, no pending transaction or
+active installer, vendor, workspace or operator work, and exact agreement
+between the service's keeper census and retained leases. The explicit stop
+holds the registry admission lock through the bounded user-service stop, then
+reconciles only positively retired keeper leases. An interrupted shutdown
+remains a distinct `retirement_pending` posture until exact cleanup is proved;
+it never becomes adoptable merely because the unit reports inactive. This
+action does not adopt, switch or start a generation. Package adoption retains
+its stopped-service gate.
 After adoption, rollback or recovery reaches an exact disk route, the manager
 runs a bounded `systemctl --user daemon-reload` and checks the effective unit
 fragment and `ExecStart` against the selected immutable manager. The transition
