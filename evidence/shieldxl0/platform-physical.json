@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "status": "physical_platform_inventory_recorded",
+  "board": "Raspberry Pi 5 Model B Rev 1.1",
+  "revision": "d04171",
+  "cpu": {
+    "model": "Cortex-A76 r4p1",
+    "cores": 4,
+    "architecture": "aarch64",
+    "byte_order": "little-endian",
+    "extensions": ["fp", "asimd", "aes", "pmull", "sha1", "sha2", "crc32", "atomics", "fphp", "asimdhp", "cpuid", "asimdrdm", "lrcpc", "dcpop", "asimddp"]
+  },
+  "ram_bytes": 8341209088,
+  "os": "Raspberry Pi OS Trixie 2026-09-15",
+  "kernel": "6.18.50+rpt-rpi-v8",
+  "page_size": 4096,
+  "firmware": "ab8a9dde release, built 2026-01-21 13:38:47",
+  "storage": "119.3 GiB microSD; ext4 root on /dev/mmcblk0p2",
+  "audio_stack": "ALSA plus JACK2 1.9.22~dfsg-4",
+  "display": "virtual X11 display used for the separate RPI0 editor lane; no physical HDMI display",
+  "cooling": "none; board open and not enclosed",
+  "overclock": false,
+  "cpu_governor": "ondemand",
+  "observed_clock_range_hz": [1500000000, 2400000000],
+  "package_manifest": {
+    "fixture_path": "/var/lib/shieldxl0/evidence/package-manifest.tsv",
+    "rows": 762,
+    "sha256": "5c3ea637d6bbd96bbae7b2bb8cdbdf7166183440297deb8e7103182b441154d4"
+  },
+  "repositories_sha256": "9c61d9e3ccabe7993988cbe2c996d0b221f68d04596dede52efb17679c72da8a",
+  "boot_services": {
+    "shieldxl-jack@shieldxl.service": "enabled and active",
+    "shieldxl-oled@shieldxl.service": "enabled and active"
+  },
+  "reboot_identity": "pass"
+}

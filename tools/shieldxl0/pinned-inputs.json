@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "captured_at_utc": "2026-09-18T17:00:00Z",
+  "os_image": {
+    "name": "Raspberry Pi OS Lite (64-bit), Debian Trixie",
+    "release": "2026-09-15",
+    "architecture": "arm64",
+    "filename": "2026-09-15-raspios-trixie-arm64-lite.img.xz",
+    "url": "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2026-09-15/2026-09-15-raspios-trixie-arm64-lite.img.xz",
+    "sha256": "cdf4f3bfac35ae947b46e4e767f935453810549779ac3290e05a6754aee627e5",
+    "signature_url": "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2026-09-15/2026-09-15-raspios-trixie-arm64-lite.img.xz.sig",
+    "build_source": {
+      "repository": "https://github.com/RPi-Distro/pi-gen",
+      "commit": "2c235fa703cacb65e0fe0b2ab2fcb23d44dfd268",
+      "stage": "stage2"
+    }
+  },
+  "kernel": {
+    "release": "6.18.50+rpt-rpi-2712",
+    "package": "linux-image-6.18.50+rpt-rpi-2712",
+    "package_version": "1:6.18.50-1+rpt1",
+    "package_url": "https://archive.raspberrypi.com/debian/pool/main/l/linux/linux-image-6.18.50+rpt-rpi-2712_6.18.50-1+rpt1_arm64.deb",
+    "package_sha256": "41a73543781af93f591adddcbf1e2fcc478450784ba2a27be2f07af84ce2bbb6",
+    "page_size_bytes": 16384,
+    "base_dtb": {
+      "path": "usr/lib/modules/6.18.50+rpt-rpi-2712/dtb/broadcom/bcm2712-rpi-5-b.dtb",
+      "sha256": "a5165cb562035f479ea9f5a81cedf7b6596ea32a0598608c4dc3b77ada909c60"
+    },
+    "config_admission": {
+      "CONFIG_ARM64_16K_PAGES": "y",
+      "CONFIG_SND_DESIGNWARE_I2S": "m",
+      "CONFIG_SND_SIMPLE_CARD": "m",
+      "CONFIG_INPUT_GPIO_ROTARY_ENCODER": "m",
+      "CONFIG_KEYBOARD_GPIO": "m",
+      "CONFIG_SPI_SPIDEV": "m",
+      "CONFIG_SND_SOC_CS4270": "not set"
+    }
+  },
+  "rpi0_integration_kernel": {
+    "profile": "rpi0-4k-integration",
+    "release": "6.18.50+rpt-rpi-v8",
+    "package": "linux-image-6.18.50+rpt-rpi-v8",
+    "package_version": "1:6.18.50-1+rpt1",
+    "package_url": "https://archive.raspberrypi.com/debian/pool/main/l/linux/linux-image-6.18.50+rpt-rpi-v8_6.18.50-1+rpt1_arm64.deb",
+    "package_sha256": "8d44827fea22875e0f801252bdbc0f541c03144e970caafa3115bf485ff3c4bd",
+    "headers_package": "linux-headers-6.18.50+rpt-rpi-v8",
+    "headers_package_version": "1:6.18.50-1+rpt1",
+    "headers_package_sha256": "73f6bdca094e4780c38bcff022ac2fab0a754217df697c258273cd9d8019fa8d",
+    "page_size_bytes": 4096,
+    "boot_selector": "kernel=kernel8.img",
+    "base_dtb": {
+      "path": "usr/lib/modules/6.18.50+rpt-rpi-v8/dtb/broadcom/bcm2712-rpi-5-b.dtb",
+      "sha256": "a5165cb562035f479ea9f5a81cedf7b6596ea32a0598608c4dc3b77ada909c60"
+    },
+    "config_sha256": "545260efb824b8999548ce483bce856bb60e72718ced820fbd951c025689c746",
+    "config_admission": {
+      "CONFIG_ARM64_4K_PAGES": "y",
+      "CONFIG_SND_DESIGNWARE_I2S": "m",
+      "CONFIG_SND_SIMPLE_CARD": "m",
+      "CONFIG_SND_SOC_CS4270": "not set"
+    }
+  },
+  "firmware": {
+    "package": "raspi-firmware",
+    "version": "1:1.20260907-1",
+    "eeprom_package": "rpi-eeprom",
+    "eeprom_package_version": "28.31-1"
+  },
+  "prior_art": [
+    {
+      "repository": "https://github.com/okyeron/shieldXL",
+      "commit": "eace215e99e8e0c3cb06dcd029ff14964da433c2",
+      "license": "GPL-3.0",
+      "inspected_files": {
+        "README.md": "bb7d364d22ed8089893dfd68ff49da5fcf42c912cc785c490122f8111f7266d1",
+        "install/boot/config.txt": "b5f413ea5fc7bba0ef0c60c38df3e8319b34fd8f9c420f199b092a92fba4f97a",
+        "install-midi.sh": "98549bbd19943c4cf60dd30e31d1d046549f91d5eabc83b0f8fee7974445e773",
+        "install/systemd/ttymidi0.service": "09f182da85702d8db0de946d52cf7eccd8ab76567312e6db04755cb18b48dd32",
+        "kicad/ShieldXL-M-20230615/norns-shield-210330_1.kicad_sch": "27cf0bcc835ac9ac53b89b6fb855f4273899f0ff520bcadec6895c0ea4db10d7"
+      }
+    },
+    {
+      "repository": "https://github.com/monome/linux",
+      "commit": "458e2253667a09bd01f1d50cc2b4063c14c491ec",
+      "license": "GPL-2.0-only",
+      "inspected_files": {
+        "arch/arm/boot/dts/overlays/monome-snd-4270-overlay.dts": "84bb3120df3abdfcfe98a6a729e72f36c7770abadd39f34d4b420856f450640d",
+        "arch/arm/boot/dts/overlays/norns-buttons-encoders-overlay.dts": "9d4a9a744cbef0f7ada978bbe0ffcd1c538152de3e1f2e02fbbbf3d4aab4de20",
+        "arch/arm/boot/dts/overlays/ssd1322-spi-overlay.dts": "54ca5ff3168d50019ad24d2244f4925360ae2e324c423c61440191b1b8fcc30d",
+        "sound/soc/codecs/cs4270.c": "b480673f7af92296f5fe0fcb3b358096f1596ac03a0ec92e907f9c364b522411"
+      }
+    }
+  ],
+  "upstream_cs4270": {
+    "repository": "https://github.com/torvalds/linux",
+    "tag": "v6.18",
+    "tag_commit": "7d0a66e4bb9081d75c82ec4957c50034cb0ea449",
+    "source_path": "sound/soc/codecs/cs4270.c",
+    "source_sha256": "ec028f382ec93a795d5c6abaf40acb47e9c0ff5eccc0a1de934d581b49bc0029",
+    "binding_path": "Documentation/devicetree/bindings/sound/cirrus,cs4270.yaml",
+    "binding_sha256": "d19dd81a375936e9ddcb7e5f00a2fdaad42d724b3d6124f9a95a7f4dbdb0932d",
+    "license": "GPL-2.0-only"
+  },
+  "adapted_overlay": {
+    "source": "overlays/shieldxl0-overlay.dts",
+    "source_sha256": "25a4feedd593c0d374d29085f5cd5f2d6a1d0a624541248fc17f9f909b903a23",
+    "binary": "overlays/shieldxl0.dtbo",
+    "binary_sha256": "53133944a3f24d51aaf14bce73ea362d8277f6517540e8a2fa824c279b50e592",
+    "compiler": "DTC 1.7.2",
+    "command": "dtc -@ -H epapr -I dts -O dtb -o shieldxl0.dtbo shieldxl0-overlay.dts",
+    "license": "GPL-2.0-only"
+  },
+  "pi5_rp1_adaptation_basis": {
+    "source": "exact files shipped by linux-image-6.18.50+rpt-rpi-2712 1:6.18.50-1+rpt1",
+    "base_dtb_symbols": {
+      "i2s_clk_consumer": "/axi/pcie@1000120000/rp1/i2s@a4000",
+      "i2c_arm": "/axi/pcie@1000120000/rp1/i2c@74000",
+      "rp1_gpio": "/axi/pcie@1000120000/rp1/gpio@d0000",
+      "rp1_spi0": "/axi/pcie@1000120000/rp1/spi@50000"
+    },
+    "packaged_reference_overlays": {
+      "w1-gpio-pi5.dtbo": "3d2372c30a6b5f3d67b7ac8723372a00652f70422bed5c9ca9407ee5cc43343c",
+      "i2s-dac.dtbo": "4f5625af2c88472217448cdc3e04a408535a171e2d987607da02bb824832c43e"
+    }
+  },
+  "image_packages_used_without_addition": {
+    "alsa-utils": "1.2.14-1+rpt1",
+    "binutils": "2.44-3",
+    "build-essential": "12.12",
+    "device-tree-compiler": "1.7.2-2+b1",
+    "gcc": "4:14.2.0-1",
+    "gpiod": "2.2.1-2+deb13u1",
+    "kmod": "34.2-2",
+    "linux-headers-6.18.50+rpt-rpi-2712": "1:6.18.50-1+rpt1",
+    "linux-headers-6.18.50+rpt-rpi-v8": "1:6.18.50-1+rpt1",
+    "linux-headers-rpi-2712": "1:6.18.50-1+rpt1",
+    "linux-image-6.18.50+rpt-rpi-2712": "1:6.18.50-1+rpt1",
+    "linux-image-6.18.50+rpt-rpi-v8": "1:6.18.50-1+rpt1",
+    "make": "4.4.1-2",
+    "python3": "3.13.5-1",
+    "python3-libgpiod": "2.2.1-2+deb13u1",
+    "python3-smbus2": "0.4.3-1",
+    "python3-spidev": "3.6-1+b6"
+  },
+  "packages_added_by_provisioning": {
+    "evtest": {
+      "version": "1:1.35-1+b1",
+      "sha256": "7fee662f317a35b27325b7beaf7c3e82ddabf508b5ab49e39ee83a34343338c4"
+    },
+    "i2c-tools": {
+      "version": "4.4-2",
+      "sha256": "3123635e7da9c00d96daa24be09fda90c2f8e571702e4b515a910ee27b43d062"
+    },
+    "jackd2": {
+      "version": "1.9.22~dfsg-4",
+      "sha256": "9dfd3a8d4edfcb9f63be1c522eae2d187151ba1a77e650630ac990edb5318e2e"
+    },
+    "jack-example-tools": {
+      "version": "4-4",
+      "sha256": "81ea08ad2768cf75dd45ee678f1e9d5580e82642f17867303777b7d727043212"
+    }
+  }
+}

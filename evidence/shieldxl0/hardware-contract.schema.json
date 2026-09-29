@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kasselvania.invalid/linux-vst-bridge/shieldxl0/hardware-contract.schema.json",
+  "title": "SHIELDXL0 Raspberry Pi 5 hardware contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "acceptance_status", "pi", "os", "kernel", "prior_art",
+    "overlays", "audio", "audio_server", "midi", "controls", "oled", "thermal",
+    "provisioning", "known_limitations"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"const": 1},
+    "acceptance_status": {"enum": ["pending_physical_fixture", "accepted", "failed"]},
+    "pi": {
+      "type": "object", "additionalProperties": false,
+      "required": ["required_model", "required_ram_bytes", "model", "revision", "ram_bytes"],
+      "properties": {
+        "required_model": {"const": "Raspberry Pi 5 Model B"},
+        "required_ram_bytes": {"const": 8589934592},
+        "model": {"type": ["string", "null"]},
+        "revision": {"type": ["string", "null"]},
+        "ram_bytes": {"type": ["integer", "null"]}
+      }
+    },
+    "os": {
+      "type": "object", "additionalProperties": false,
+      "required": ["image", "release", "image_sha256", "architecture", "page_size", "repositories", "package_manifest"],
+      "properties": {
+        "image": {"type": "string"}, "release": {"type": "string"}, "image_sha256": {"type": "string"},
+        "architecture": {"type": ["string", "null"]}, "page_size": {"type": ["integer", "null"]},
+        "repositories": {"type": ["array", "null"], "items": {"type": "string"}},
+        "package_manifest": {"type": ["string", "null"]}
+      }
+    },
+    "kernel": {
+      "type": "object", "additionalProperties": false,
+      "required": ["release", "package", "package_version", "firmware_package", "firmware_version", "cs4270_module_sha256"],
+      "properties": {
+        "release": {"type": ["string", "null"]}, "package": {"type": "string"}, "package_version": {"type": "string"},
+        "firmware_package": {"type": "string"}, "firmware_version": {"type": "string"},
+        "cs4270_module_sha256": {"type": ["string", "null"]}
+      }
+    },
+    "prior_art": {"type": "array", "minItems": 2, "items": {"type": "object"}},
+    "overlays": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "audio": {"type": "object"},
+    "audio_server": {"type": "object"},
+    "midi": {"type": "object"},
+    "controls": {"type": "object"},
+    "oled": {"type": "object"},
+    "thermal": {"type": "object"},
+    "provisioning": {"type": "object"},
+    "known_limitations": {"type": "array", "items": {"type": "string"}}
+  }
+}

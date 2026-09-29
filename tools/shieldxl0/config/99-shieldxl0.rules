@@ -1,0 +1,10 @@
+# Stable ShieldXL control identities. Never expose eventN in the integration contract.
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="shieldxl-encoder-1", SYMLINK+="input/shieldxl-encoder-1", GROUP="input", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="shieldxl-encoder-2", SYMLINK+="input/shieldxl-encoder-2", GROUP="input", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="shieldxl-encoder-3", SYMLINK+="input/shieldxl-encoder-3", GROUP="input", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="ShieldXL Button 1", SYMLINK+="input/shieldxl-button-1", GROUP="input", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="ShieldXL Button 2", SYMLINK+="input/shieldxl-button-2", GROUP="input", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="ShieldXL Button 3", SYMLINK+="input/shieldxl-button-3", GROUP="input", MODE="0660", TAG+="uaccess"
+
+# The overlay admits only SPI0 CS0 and disables CS1. GPIO 5/6 are owned by the OLED service.
+SUBSYSTEM=="spidev", KERNEL=="spidev0.0", SYMLINK+="shieldxl-oled-spi", GROUP="spi", MODE="0660", TAG+="uaccess"
