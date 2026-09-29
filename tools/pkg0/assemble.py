@@ -14,6 +14,7 @@ import re
 import secrets
 import shutil
 import stat
+import subprocess
 import tarfile
 import zipfile
 
@@ -47,6 +48,14 @@ ADOPTED_WITH_KIT = {**ADOPTED, KIT_DESTINATION: "preparation-kit.zip"}
 SOURCE_SUFFIXES = {".rs", ".c", ".cc", ".cpp", ".h", ".hpp", ".py"}
 SECRET_MARKERS = (b"-----BEGIN PRIVATE KEY-----", b"-----BEGIN OPENSSH PRIVATE KEY-----",
                   b"github_pat_", b"ghp_")
+KIT_SDK = "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96"
+KIT_SDK_RUNTIME = "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+KIT_SOURCE_ARGS = ("CMakeLists.txt", "cmake/HP0Vst3SdkLock.cmake",
+                   "cmake/HP0ModernGcc.cmake", "native-vst3-proxy",
+                   "vst-state", "tools/mf3/native_builder.py",
+                   "tools/ap8_descriptor.py")
+KIT_GENERATED = {"libap2_backend.a", "runtime/host.exe",
+                 "runtime/host-source-manifest.json"}
 
 
 def canonical(value):
@@ -133,12 +142,18 @@ def verify_kit(data, source_head, host_sha256, source_sha256):
                 or recipe["schema"] != 2 or recipe["source_commit"] != source_head
                 or not isinstance(recipe["files"], dict)
                 or set(recipe["files"]) != set(names) - {"recipe.json"}
-                or not isinstance(recipe["sdk"], str)
-                or not isinstance(recipe["sdk_runtime"], str)):
+                or recipe["sdk"] != KIT_SDK
+                or recipe["sdk_runtime"] != KIT_SDK_RUNTIME):
             raise ValueError("preparation kit recipe")
         required = {"libap2_backend.a", "runtime/host.exe",
                     "runtime/host-source-manifest.json", "tools/mf3/native_builder.py",
-                    "tools/ap8_descriptor.py", "CMakeLists.txt"}
+                    "tools/ap8_descriptor.py", "CMakeLists.txt",
+                    "native-vst3-proxy/CMakeLists.txt",
+                    "native-vst3-proxy/source/processor.cpp",
+                    "native-vst3-proxy/source/factory.cpp",
+                    "native-vst3-proxy/source/processor.h",
+                    "native-vst3-proxy/include/ap2_backend.h",
+                    "vst-state/stream.h"}
         if not required <= set(recipe["files"]):
             raise ValueError("preparation kit required files")
         for name, expected in recipe["files"].items():
@@ -150,6 +165,37 @@ def verify_kit(data, source_head, host_sha256, source_sha256):
         if (recipe["files"]["runtime/host.exe"] != host_sha256
                 or recipe["files"]["runtime/host-source-manifest.json"] != source_sha256):
             raise ValueError("preparation kit host pair")
+
+
+def verify_kit_source(data, source_root, source_head, source_tree):
+    """Bind a releasable kit's complete source roster to one clean Git tree."""
+    source_root = Path(source_root).resolve(strict=True)
+
+    def git(*args):
+        return subprocess.check_output(["git", "-C", str(source_root), *args])
+
+    if (Path(git("rev-parse", "--show-toplevel").decode().strip()) != source_root
+            or git("rev-parse", "HEAD").decode().strip() != source_head
+            or git("rev-parse", "HEAD^{tree}").decode().strip() != source_tree
+            or git("status", "--porcelain")):
+        raise ValueError("preparation kit source head/tree differs")
+    names = {name for name in git("ls-files", "-z", "--", *KIT_SOURCE_ARGS)
+             .decode().split("\0") if name}
+    if len(names) > 512:
+        raise ValueError("preparation kit source roster bound")
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        recipe = json.loads(archive.read("recipe.json"))
+        if set(recipe["files"]) != names | KIT_GENERATED:
+            raise ValueError("preparation kit source roster differs")
+        for name in names:
+            path = source_root / name
+            md = path.lstat()
+            if not stat.S_ISREG(md.st_mode) or path.is_symlink() or archive.read(name) != path.read_bytes():
+                raise ValueError("preparation kit source bytes differ")
+    if (git("rev-parse", "HEAD").decode().strip() != source_head
+            or git("rev-parse", "HEAD^{tree}").decode().strip() != source_tree
+            or git("status", "--porcelain")):
+        raise ValueError("preparation kit source changed during verification")
 
 
 def validate(spec):
@@ -228,7 +274,7 @@ def validate(spec):
     return seen
 
 
-def _build(spec, output, epoch):
+def _build(spec, output, epoch, source_root=None):
     files = validate(spec)
     if output.exists():
         raise ValueError("output already exists")
@@ -242,6 +288,8 @@ def _build(spec, output, epoch):
             data = file_bytes(item)
             if item["kind"] == "preparation_kit":
                 verify_kit(data, spec["source_head"], host_sha256, source_sha256)
+                if source_root is not None:
+                    verify_kit_source(data, source_root, spec["source_head"], spec["source_tree"])
             if item["kind"] in ("manager", "frontend", "proxy") and not data.startswith(b"\x7fELF"):
                 raise ValueError("Linux executable format")
             if item["kind"] in ("windows_host", "fixture") and not data.startswith(b"MZ"):
@@ -288,13 +336,13 @@ package() {{
     return manifest
 
 
-def build(spec, output, epoch):
+def build(spec, output, epoch, source_root=None):
     output = Path(output)
     if output.exists():
         raise ValueError("output already exists")
     temporary = output.with_name(output.name + ".partial-" + secrets.token_hex(8))
     try:
-        manifest = _build(spec, temporary, epoch)
+        manifest = _build(spec, temporary, epoch, source_root)
         temporary.rename(output)
         return manifest
     finally:
@@ -319,7 +367,6 @@ def main():
     p.add_argument("--source", type=Path, required=True)
     a = p.parse_args()
     source = a.source.resolve(strict=True)
-    import subprocess
     head = subprocess.check_output(["git", "-C", str(source), "rev-parse", "HEAD"], text=True).strip()
     tree = subprocess.check_output(["git", "-C", str(source), "rev-parse", "HEAD^{tree}"], text=True).strip()
     if subprocess.check_output(["git", "-C", str(source), "status", "--porcelain"]):
@@ -328,7 +375,7 @@ def main():
     if (spec.get("source_head"), spec.get("source_tree")) != (head, tree):
         raise ValueError("package source head/tree differs")
     epoch = int(subprocess.check_output(["git", "-C", str(source), "show", "-s", "--format=%ct", "HEAD"]).strip())
-    print(json.dumps(build(spec, a.output, epoch), sort_keys=True))
+    print(json.dumps(build(spec, a.output, epoch, source), sort_keys=True))
 
 
 if __name__ == "__main__":

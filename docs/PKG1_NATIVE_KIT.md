@@ -11,8 +11,13 @@ ownership gap: PKG0 carried a native proxy file but retained the previous
 A schema-2 package adopts one fixed `preparation-kit.zip` together with its
 paired manager/frontend and declared host/source pair. The kit is included in
 the signed package roster and the exact root-owned adoption manifest. The
-builder and package verifier check the bounded recipe, source commit, contained
-file digests and package host/source identities. The ordinary-user intake reads
+builder and package verifier check the bounded recipe, required native compile
+inputs, exact SDK pins, contained file digests and package host/source
+identities. The verifier binds every selected adoption artifact to the signed
+release roster. Release assembly and release-key signing additionally compare
+the kit's complete source roster and bytes with a clean exact Git head/tree;
+synthetic package fixtures do not prove a real kit compiles. The ordinary-user
+intake reads
 the fixed `/usr` kit through the same checked descriptor rule as the other
 root-owned package inputs. It copies the exact bytes into the immutable user
 software generation and selects that artifact in `software.json`.
@@ -48,9 +53,13 @@ selected on the Deck during this source-only work.
 ## Verification
 
 Source-owned package tests exercise schema-2 archive assembly and signing
-boundary verification, source/host/kit mismatch refusal, schema-1 history,
+boundary verification, source/host/kit mismatch refusal, missing compile
+inputs, SDK-pin drift, source-tree drift, full adoption-roster mismatches,
+schema-1 history,
 selected-kit identity, same-generation no-op, changed input and retained-byte
 refusal, interrupted switch recovery, populated legacy kit/catalogue rollback,
-and preservation of unrelated records. The Linux root-owned intake fixture
+and preservation of unrelated records. A real source-produced kit must also
+pass a pinned-SDK native build smoke before customer release signing. The Linux
+root-owned intake fixture
 adds an actual root-owned kit, changed-kit and writable-kit cases. Exact test
 counts and hosted check links belong to the PR at its reviewed head.

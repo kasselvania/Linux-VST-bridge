@@ -3,6 +3,7 @@ import hashlib
 import json
 import pathlib
 import io
+import copy
 import subprocess
 import tarfile
 import tempfile
@@ -34,6 +35,28 @@ def package_archive(staged, destination, *, pkginfo=None, extra=()):
         subprocess.run(["zstd", "-q", "-c", str(raw)], stdout=output, check=True)
     raw.unlink()
     return destination
+
+
+def changed_adoption_package(staged, output, mutate):
+    """Keep the outer release roster self-consistent while changing intake authority."""
+    output.mkdir()
+    release = json.loads((staged / "RELEASE_MANIFEST.json").read_bytes())
+    with tarfile.open(staged / "payload.tar") as source, tarfile.open(
+            output / "payload.tar", "w", format=tarfile.PAX_FORMAT) as target:
+        for entry in source:
+            data = source.extractfile(entry).read()
+            if entry.name == assemble.ADOPTION_MANIFEST:
+                adoption = json.loads(data)
+                mutate(adoption)
+                data = assemble.canonical(adoption)
+                entry.size = len(data)
+                row = next(row for row in release["files"]
+                           if row["destination"] == assemble.ADOPTION_MANIFEST)
+                row["sha256"] = hashlib.sha256(data).hexdigest()
+                row["size"] = len(data)
+            target.addfile(entry, io.BytesIO(data))
+    (output / "RELEASE_MANIFEST.json").write_bytes(assemble.canonical(release))
+    return package_archive(output, output / "changed.pkg.tar.zst"), release
 
 
 class PackageAssembly(unittest.TestCase):
@@ -72,6 +95,13 @@ class PackageAssembly(unittest.TestCase):
         contents = {
             "CMakeLists.txt": b"owned native build",
             "native-vst3-proxy/CMakeLists.txt": b"owned proxy target",
+            "native-vst3-proxy/source/processor.cpp": b"owned processor",
+            "native-vst3-proxy/source/factory.cpp": b"owned factory",
+            "native-vst3-proxy/source/processor.h": b"owned processor header",
+            "native-vst3-proxy/include/ap2_backend.h": b"owned backend header",
+            "vst-state/stream.h": b"owned state header",
+            "cmake/HP0ModernGcc.cmake": b"owned compiler policy",
+            "cmake/HP0Vst3SdkLock.cmake": b"owned SDK policy",
             "libap2_backend.a": b"!<arch>\n",
             "runtime/host.exe": (self.inputs / "4").read_bytes(),
             "runtime/host-source-manifest.json": (self.inputs / "5").read_bytes(),
@@ -79,7 +109,7 @@ class PackageAssembly(unittest.TestCase):
             "tools/ap8_descriptor.py": b"owned generator",
         }
         recipe = {"schema": 2, "source_commit": source_commit or self.spec["source_head"],
-                  "sdk": "pinned-sdk", "sdk_runtime": "pinned-runtime",
+                  "sdk": assemble.KIT_SDK, "sdk_runtime": assemble.KIT_SDK_RUNTIME,
                   "files": {name: hashlib.sha256(data).hexdigest()
                             for name, data in contents.items()}}
         archive = io.BytesIO()
@@ -89,6 +119,7 @@ class PackageAssembly(unittest.TestCase):
             target.writestr("recipe.json", json.dumps(recipe))
         self.add_file(assemble.KIT_DESTINATION, "preparation_kit", archive.getvalue(), 106)
         self.spec["schema"] = 2
+        return contents
 
     def test_package_kit_is_bound_to_adoption_and_host_pair(self):
         self.add_kit()
@@ -102,6 +133,100 @@ class PackageAssembly(unittest.TestCase):
                          next(item for item in self.files if item["kind"] == "preparation_kit")["sha256"])
         package = package_archive(out, self.root / "with-kit.pkg.tar.zst")
         self.assertEqual(verify_package.verify(package, release, True)["files"], len(self.files) + 1)
+
+    def test_package_adoption_manifest_binds_every_selected_artifact(self):
+        self.add_kit()
+        out = self.root / "adoption"
+        assemble.build(self.spec, out, 1234567890)
+        changes = {
+            "manager": lambda a: a["files"][0].update(sha256="0" * 64),
+            "kit": lambda a: a["files"][-1].update(sha256="0" * 64),
+            "missing": lambda a: a["files"].pop(1),
+            "duplicate": lambda a: a["files"].append(copy.deepcopy(a["files"][0])),
+            "extra": lambda a: a["files"].append(
+                {"name": "foreign", "sha256": "0" * 64, "size": 1}),
+            "operator": lambda a: a.update(operator_schema=11),
+        }
+        for name, mutate in changes.items():
+            with self.subTest(name=name):
+                package, release = changed_adoption_package(
+                    out, self.root / f"changed-{name}", mutate)
+                with self.assertRaisesRegex(ValueError, "package adoption"):
+                    verify_package.verify(package, release, True)
+
+    def test_incomplete_or_wrong_sdk_kit_refuses(self):
+        self.add_kit()
+        kit = next(item for item in self.files if item["kind"] == "preparation_kit")
+        original = pathlib.Path(kit["source"]).read_bytes()
+        for name, changed in [
+            ("missing_target", lambda files, recipe: (
+                files.pop("native-vst3-proxy/CMakeLists.txt"),
+                recipe["files"].pop("native-vst3-proxy/CMakeLists.txt"))),
+            ("missing_processor", lambda files, recipe: (
+                files.pop("native-vst3-proxy/source/processor.cpp"),
+                recipe["files"].pop("native-vst3-proxy/source/processor.cpp"))),
+            ("wrong_sdk", lambda files, recipe: recipe.update(sdk="other")),
+            ("wrong_runtime", lambda files, recipe: recipe.update(sdk_runtime="other")),
+        ]:
+            with self.subTest(name=name):
+                with zipfile.ZipFile(io.BytesIO(original)) as archive:
+                    files = {key: archive.read(key) for key in archive.namelist()
+                             if key != "recipe.json"}
+                    recipe = json.loads(archive.read("recipe.json"))
+                changed(files, recipe)
+                data = io.BytesIO()
+                with zipfile.ZipFile(data, "w") as archive:
+                    for key, value in files.items():
+                        archive.writestr(key, value)
+                    archive.writestr("recipe.json", json.dumps(recipe))
+                pathlib.Path(kit["source"]).write_bytes(data.getvalue())
+                kit["sha256"] = hashlib.sha256(data.getvalue()).hexdigest()
+                with self.assertRaisesRegex(ValueError, "preparation kit"):
+                    assemble.build(self.spec, self.root / f"bad-{name}", 1234567890)
+
+    def test_source_backed_kit_requires_the_complete_clean_git_tree(self):
+        contents = self.add_kit()
+        source = self.root / "source"
+        for name, data in contents.items():
+            if name in assemble.KIT_GENERATED:
+                continue
+            path = source / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+        subprocess.run(["git", "init", "-q", str(source)], check=True)
+        subprocess.run(["git", "-C", str(source), "add", "."], check=True)
+        subprocess.run(["git", "-C", str(source), "-c", "user.name=Fixture",
+                        "-c", "user.email=fixture@example.invalid", "commit", "-qm",
+                        "source kit"], check=True)
+        head = subprocess.check_output(["git", "-C", str(source), "rev-parse", "HEAD"],
+                                       text=True).strip()
+        tree = subprocess.check_output(["git", "-C", str(source), "rev-parse", "HEAD^{tree}"],
+                                       text=True).strip()
+        kit = next(item for item in self.files if item["kind"] == "preparation_kit")
+        with zipfile.ZipFile(kit["source"]) as archive:
+            recipe = json.loads(archive.read("recipe.json"))
+            files = {name: archive.read(name) for name in recipe["files"]}
+        recipe["source_commit"] = head
+        data = io.BytesIO()
+        with zipfile.ZipFile(data, "w") as archive:
+            for name, value in files.items():
+                archive.writestr(name, value)
+            archive.writestr("recipe.json", json.dumps(recipe))
+        assemble.verify_kit_source(data.getvalue(), source, head, tree)
+        changed = dict(files)
+        changed["native-vst3-proxy/source/processor.cpp"] = b"other processor"
+        recipe["files"]["native-vst3-proxy/source/processor.cpp"] = hashlib.sha256(
+            changed["native-vst3-proxy/source/processor.cpp"]).hexdigest()
+        bad = io.BytesIO()
+        with zipfile.ZipFile(bad, "w") as archive:
+            for name, value in changed.items():
+                archive.writestr(name, value)
+            archive.writestr("recipe.json", json.dumps(recipe))
+        with self.assertRaisesRegex(ValueError, "source bytes differ"):
+            assemble.verify_kit_source(bad.getvalue(), source, head, tree)
+        (source / "native-vst3-proxy/source/processor.cpp").write_bytes(b"local drift")
+        with self.assertRaisesRegex(ValueError, "source head/tree differs"):
+            assemble.verify_kit_source(data.getvalue(), source, head, tree)
 
     def test_kit_schema_source_and_host_mismatch_refuse(self):
         with self.assertRaisesRegex(ValueError, "required"):
