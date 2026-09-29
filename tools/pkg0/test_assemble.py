@@ -73,8 +73,13 @@ class PackageAssembly(unittest.TestCase):
         self.assertEqual(manifest["source_head"], "a" * 40)
         with tarfile.open(out / "payload.tar") as tar:
             names = set(tar.getnames())
-            self.assertEqual(names, {x["destination"] for x in self.files} | {assemble.ADOPTION_MANIFEST})
+            self.assertEqual(names, {x["destination"] for x in self.files}
+                             | {assemble.ADOPTION_MANIFEST, assemble.SYSTEM_DESKTOP})
             adoption = json.loads(tar.extractfile(assemble.ADOPTION_MANIFEST).read())
+            desktop = tar.extractfile(assemble.SYSTEM_DESKTOP).read()
+            self.assertEqual(desktop, assemble.SYSTEM_DESKTOP_BYTES)
+            self.assertIn(b"Exec=/usr/bin/linux-audio-compatibility-manager\n", desktop)
+            self.assertNotIn(b"package-adopt", desktop)
             self.assertEqual(adoption["operator_schema"], 12)
             self.assertEqual(adoption["package"], "linux-vst-bridge-beta")
             self.assertEqual(adoption["version"], self.spec["version"])
@@ -87,7 +92,7 @@ class PackageAssembly(unittest.TestCase):
         self.assertFalse((out / "linux-vst-bridge-beta.install").exists())
         self.assertNotIn("install=", (out / "PKGBUILD").read_text())
         package = package_archive(out, self.root / "fixture.pkg.tar.zst")
-        self.assertEqual(verify_package.verify(package, manifest, True)["files"], len(self.files) + 1)
+        self.assertEqual(verify_package.verify(package, manifest, True)["files"], len(self.files) + 2)
 
     def test_release_roster_drift_refuses(self):
         out = self.root / "roster"

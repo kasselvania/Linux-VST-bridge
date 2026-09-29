@@ -32,6 +32,17 @@ REQUIRED = {
     "usr/share/doc/linux-vst-bridge-beta/COMPLIANCE_MANIFEST.json": "compliance",
 }
 ADOPTION_MANIFEST = "usr/share/linux-vst-bridge/pkg0-manifest.json"
+SYSTEM_DESKTOP = "usr/share/applications/linux-audio-compatibility-manager.desktop"
+SYSTEM_DESKTOP_BYTES = b"""[Desktop Entry]
+Type=Application
+Name=Linux Audio Compatibility Manager
+Comment=Set up and manage supported Windows audio software
+Exec=/usr/bin/linux-audio-compatibility-manager
+Icon=audio-card
+Terminal=false
+Categories=AudioVideo;Audio;
+StartupNotify=true
+"""
 ADOPTED = {
     "usr/bin/linux-vst-bridge": "linux-vst-bridge",
     "usr/bin/linux-audio-compatibility-manager": "linux-audio-compatibility-manager",
@@ -61,7 +72,8 @@ def path_ok(name):
     ):
         raise ValueError("package destination outside controlled usr tree")
     if not (name.startswith("usr/bin/") or name.startswith("usr/lib/linux-vst-bridge/")
-            or name.startswith("usr/share/doc/linux-vst-bridge-beta/")):
+            or name.startswith("usr/share/doc/linux-vst-bridge-beta/")
+            or name == SYSTEM_DESKTOP):
         raise ValueError("package destination not admitted")
     if any(x in name.lower() for x in ("credential", "activation", "private-key", "installer.exe")):
         raise ValueError("sensitive destination name")
@@ -120,7 +132,7 @@ def validate(spec):
             raise ValueError("file input schema")
         name = item["destination"]
         path_ok(name)
-        if name == ADOPTION_MANIFEST or name in seen:
+        if name in (ADOPTION_MANIFEST, SYSTEM_DESKTOP) or name in seen:
             raise ValueError("duplicate or reserved package destination")
         if not re.fullmatch(r"[0-9a-f]{64}", item["sha256"]):
             raise ValueError("file digest syntax")
@@ -192,6 +204,12 @@ def _build(spec, output, epoch):
         roster.append({"destination": ADOPTION_MANIFEST, "sha256": sha(adoption),
                        "size": len(adoption), "mode": "0444",
                        "kind": "adoption_manifest", "component": PACKAGE})
+        # Package installation exposes an explicit first-run UI. Selection of
+        # user-owned software remains a separate, guarded package-adopt action.
+        add_bytes(archive, SYSTEM_DESKTOP, SYSTEM_DESKTOP_BYTES, 0o444, epoch)
+        roster.append({"destination": SYSTEM_DESKTOP, "sha256": sha(SYSTEM_DESKTOP_BYTES),
+                       "size": len(SYSTEM_DESKTOP_BYTES), "mode": "0444",
+                       "kind": "system_desktop", "component": PACKAGE})
     manifest = {"schema": 1, "package": PACKAGE, "version": spec["version"],
                 "pkgrel": PKGREL,
                 "source_head": spec["source_head"], "source_tree": spec["source_tree"],
