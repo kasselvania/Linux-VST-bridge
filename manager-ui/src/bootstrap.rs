@@ -344,7 +344,10 @@ impl eframe::App for Bootstrap {
                         ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                         return;
                     }
-                    Err(error) => self.result = Some(error),
+                    Err(error) => {
+                        self.attention = true;
+                        self.result = Some(error);
+                    }
                 },
                 Ok(Completion::NeedsActivation) => {
                     self.adopted = true;
@@ -357,9 +360,7 @@ impl eframe::App for Bootstrap {
                     self.recovery_offered =
                         exact_refusal(&error, "package_transition_needs_recovery");
                     self.package_adopt_offered = adoption_can_retry(&error);
-                    if self.recovery_offered {
-                        self.attention = true;
-                    }
+                    self.attention = true;
                     self.result = Some(error);
                 }
             }
