@@ -562,11 +562,23 @@ fn resolve_with(
             },
             "This native bridge lane requires x86-64 Linux.",
         ));
-    } else if p.distro.is_none() || p.distro_version.is_none() || p.model.is_none() {
+    } else if p.distro.is_none() {
         blockers.push(issue(
             "platform",
             O::Unknown,
-            "Machine or distribution identity is unavailable.",
+            "Distribution identity could not be observed.",
+        ));
+    } else if p.distro_version.is_none() {
+        blockers.push(issue(
+            "platform",
+            O::Unknown,
+            "This distribution did not report an exact release version. Compatibility on this system has not been qualified.",
+        ));
+    } else if p.model.is_none() {
+        blockers.push(issue(
+            "platform",
+            O::Unknown,
+            "Hardware model could not be observed. The accepted machine profile cannot be verified.",
         ));
     } else if p.distro.as_deref() != Some(DECK_DISTRO)
         || p.distro_version.as_deref() != Some(DECK_VERSION)
@@ -1512,6 +1524,38 @@ mod tests {
             assert_eq!(r.overall_status, expected, "{name}");
             assert_ne!(r.products[0].status, ui::ReadinessOutcome::Ready, "{name}");
         }
+    }
+    #[test]
+    fn rolling_distribution_without_version_is_unqualified_not_unidentified() {
+        let (snapshot, mut platform) = fixture();
+        let os = "ID=cachyos\nBUILD_ID=rolling\n";
+        platform.distro = key_value(os, "ID");
+        platform.distro_version = key_value(os, "VERSION_ID");
+        platform.model = None;
+        let assessment = result(&snapshot, &platform);
+        assert_eq!(assessment.overall_status, ui::ReadinessOutcome::Unknown);
+        let reason = &assessment.blockers.iter()
+            .find(|blocker| blocker.category == "platform").unwrap().explanation;
+        assert!(reason.contains("did not report an exact release version"));
+        assert!(reason.contains("has not been qualified"));
+        assert!(!reason.contains("identity could not be observed"));
+        assert_eq!(assessment.platform.iter().find(|fact| fact.name == "Distribution")
+            .unwrap().value.as_deref(), Some("cachyos"));
+
+        platform.distro = Some(DECK_DISTRO.into());
+        platform.distro_version = Some(DECK_VERSION.into());
+        let missing_model = result(&snapshot, &platform);
+        assert_eq!(missing_model.overall_status, ui::ReadinessOutcome::Unknown);
+        assert!(missing_model.blockers.iter().any(|blocker|
+            blocker.category == "platform"
+                && blocker.explanation.contains("Hardware model could not be observed")));
+
+        platform.distro = None;
+        let missing_distribution = result(&snapshot, &platform);
+        assert_eq!(missing_distribution.overall_status, ui::ReadinessOutcome::Unknown);
+        assert!(missing_distribution.blockers.iter().any(|blocker|
+            blocker.category == "platform"
+                && blocker.explanation.contains("Distribution identity could not be observed")));
     }
     #[test]
     fn exact_artifacts_transactions_cleanup_and_withdrawal_are_not_ready() {
