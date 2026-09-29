@@ -392,13 +392,22 @@ pub fn current_revision(m: &Manager, class: &str) -> Result<Option<Revision>> {
         .transpose()
 }
 pub fn view(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result<View> {
-    let found: Vec<_> = candidates(m, host, source)?
-        .into_iter()
+    let all = candidates(m, host, source)?;
+    view_with_candidates(m, s, host, source, &all)
+}
+
+/// Project several products from one retained candidate census rather than
+/// rereading and materializing the same history for every product card.
+pub fn view_with_candidates(
+    m: &Manager, s: &Selection, host: &Artifact, source: &str, all: &[Candidate],
+) -> Result<View> {
+    let found: Vec<_> = all.iter()
         .filter(|c| {
             c.selection.environment.id == s.environment.id
                 && c.selection.module.sha256 == s.module.sha256
                 && c.selection.class.id == s.class.id
         })
+        .cloned()
         .collect();
     let i = inspection(m, s)?;
     let recommended = i.as_ref().map(Inspection::id).transpose()?;

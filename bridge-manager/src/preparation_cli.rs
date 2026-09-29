@@ -30,9 +30,9 @@ fn project_with_excluded_operation(
     busy: Option<&str>,
     exclude_operation: Option<&str>,
 ) -> Result<()> {
+    let candidates = prep::candidates(m, &sw.host, &sw.source_sha256)?;
     let selections = product_selections(
-        prep::selections(m, &sw.host, &sw.source_sha256)?,
-        prep::candidates(m, &sw.host, &sw.source_sha256)?,
+        prep::selections(m, &sw.host, &sw.source_sha256)?, &candidates,
     )?;
     for s in selections {
         let Some(p) = products.iter_mut().find(|p| {
@@ -42,7 +42,8 @@ fn project_with_excluded_operation(
         }) else {
             continue;
         };
-        let mut v = prep::view(m, &s, &sw.host, &sw.source_sha256)?;
+        let mut v = prep::view_with_candidates(m, &s, &sw.host, &sw.source_sha256,
+            &candidates)?;
         // Ordinary registry readback remains authority; MF3 augments that card.
         let canonical = matches!(p.disposition.as_str(), "ready" | "needs_attention")
             && (v.candidates.is_empty()
@@ -754,7 +755,7 @@ fn finish_guided_result(m: &Manager, sw: &Software, source_operation: &str) -> R
 /// card anchor when no current selection exists; view() retains all generations.
 fn product_selections(
     current: Vec<prep::Selection>,
-    history: Vec<prep::Candidate>,
+    history: &[prep::Candidate],
 ) -> Result<Vec<prep::Selection>> {
     let key = |s: &prep::Selection| {
         (
@@ -770,7 +771,7 @@ fn product_selections(
         }
     }
     for c in history {
-        products.entry(key(&c.selection)).or_insert(c.selection);
+        products.entry(key(&c.selection)).or_insert_with(|| c.selection.clone());
     }
     Ok(products.into_values().collect())
 }
@@ -2867,6 +2868,19 @@ mod tests {
         assert_eq!(products[0].active_revision, Some(18));
     }
     #[test]
+    fn shared_candidate_census_preserves_exact_product_view() {
+        let (f, c) = projection_fixture();
+        prep::record_candidate(&f.m, &c).unwrap();
+        prep::retain_inspection(&f.m, &c.inspection).unwrap();
+        let source = &f.r.host_source_sha256;
+        let all = prep::candidates(&f.m, &f.r.host, source).unwrap();
+        let ordinary = prep::view(&f.m, &c.selection, &f.r.host, source).unwrap();
+        let shared = prep::view_with_candidates(&f.m, &c.selection, &f.r.host, source,
+            &all).unwrap();
+        assert_eq!(serde_json::to_value(ordinary).unwrap(),
+            serde_json::to_value(shared).unwrap());
+    }
+    #[test]
     fn removed_experimental_candidate_does_not_inherit_ordinary_admission_warning() {
         let (f, c) = projection_fixture();
         prep::record_candidate(&f.m, &c).unwrap();
@@ -2970,10 +2984,10 @@ mod tests {
         .unwrap();
         prep::retain_inspection(&f.m, &i2).unwrap();
         assert_eq!(
-            product_selections(vec![s2.clone(), s2.clone()], vec![c.clone(), c.clone()]).unwrap(),
+            product_selections(vec![s2.clone(), s2.clone()], &[c.clone(), c.clone()]).unwrap(),
             vec![s2.clone()]
         );
-        assert!(product_selections(vec![s2.clone(), c.selection.clone()], vec![]).is_err());
+        assert!(product_selections(vec![s2.clone(), c.selection.clone()], &[]).is_err());
         let mut products = vec![projection_product(&c)];
         project(&f.m, &sw, &mut products, None).unwrap();
         assert_eq!(products.len(), 1);
