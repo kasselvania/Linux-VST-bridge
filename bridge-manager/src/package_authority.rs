@@ -10,6 +10,17 @@ const NAMES: [&str; 6] = [
     "linux-vst-bridge", "linux-audio-compatibility-manager", "session.pyc",
     "ownership.pyc", "host.exe", "host-source-manifest.json",
 ];
+const NAMES_WITH_KIT: [&str; 7] = [
+    "linux-vst-bridge", "linux-audio-compatibility-manager", "session.pyc",
+    "ownership.pyc", "host.exe", "host-source-manifest.json", "preparation-kit.zip",
+];
+fn names(schema: u32) -> Result<&'static [&'static str]> {
+    match schema {
+        1 => Ok(&NAMES),
+        2 => Ok(&NAMES_WITH_KIT),
+        _ => Err("package_manifest_schema".into()),
+    }
+}
 
 #[derive(Clone)]
 struct Inputs { root: PathBuf }
@@ -28,6 +39,7 @@ impl Inputs {
             "ownership.pyc" => "lib/linux-vst-bridge/supervisor/ownership.pyc",
             "host.exe" => "lib/linux-vst-bridge/host/bridge-host.exe",
             "host-source-manifest.json" => "lib/linux-vst-bridge/host/source-manifest.json",
+            "preparation-kit.zip" => "lib/linux-vst-bridge/preparation/preparation-kit.zip",
             _ => return Err("package_artifact_name".into()),
         }))
     }
@@ -62,6 +74,8 @@ struct Generation {
     retained_installer_launch: Option<Artifact>,
     retained_preparation_kit: Option<Artifact>,
     catalogue_sha256: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    packaged_preparation_kit_sha256: Option<String>,
 }
 
 fn package_source(path: &Path, owner: u32, max: u64, capture: bool) -> Result<(String, u64, Vec<u8>)> {
@@ -99,15 +113,17 @@ fn read_manifest(inputs: &Inputs, owner: u32) -> Result<(PackageManifest, String
     let (sha, _, bytes) = package_source(&path, owner, 64 * 1024, true)?;
     let manifest: PackageManifest = serde_json::from_slice(&bytes)?;
     validate_manifest_identity(&manifest)?;
-    for (entry, name) in manifest.files.iter().zip(NAMES) {
-        let (actual, size, _) = package_source(&inputs.path(name)?, owner, 128 * 1024 * 1024, false)?;
+    for (entry, name) in manifest.files.iter().zip(names(manifest.schema)?) {
+        let maximum = if *name == "preparation-kit.zip" { 256 } else { 128 } * 1024 * 1024;
+        let (actual, size, _) = package_source(&inputs.path(name)?, owner, maximum, false)?;
         require(actual == entry.sha256 && size == entry.size,
             "package_artifact_changed")?;
     }
     Ok((manifest, sha))
 }
 fn validate_manifest_identity(manifest: &PackageManifest) -> Result<()> {
-    require(manifest.schema == 1 && manifest.operator_schema == operator_model::OPERATOR_SCHEMA
+    let expected = names(manifest.schema)?;
+    require(manifest.operator_schema == operator_model::OPERATOR_SCHEMA
         && manifest.package == "linux-vst-bridge-beta"
         && valid_package_version(&manifest.version) && manifest.pkgrel == 1
         && valid_hex(&manifest.source_head, 40) && valid_hex(&manifest.source_tree, 40)
@@ -115,10 +131,11 @@ fn validate_manifest_identity(manifest: &PackageManifest) -> Result<()> {
         && manifest.external_runtime.id.len() <= 128
         && manifest.external_runtime.id.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
         && valid_hex(&manifest.external_runtime.manifest_sha256, 64)
-        && manifest.files.len() == NAMES.len(), "package_manifest_schema")?;
-    for (entry, name) in manifest.files.iter().zip(NAMES) {
-        require(entry.name == name && valid_hex(&entry.sha256, 64)
-            && entry.size <= 128 * 1024 * 1024,
+        && manifest.files.len() == expected.len(), "package_manifest_schema")?;
+    for (entry, name) in manifest.files.iter().zip(expected) {
+        let maximum = if *name == "preparation-kit.zip" { 256 } else { 128 } * 1024 * 1024;
+        require(entry.name == *name && valid_hex(&entry.sha256, 64)
+            && entry.size <= maximum,
             "package_manifest_roster")?;
     }
     Ok(())
@@ -169,11 +186,17 @@ fn require_retained_host_pair(m: &Manager, old: &Software,
 fn generation_record(manifest: PackageManifest, manifest_sha256: String,
     predecessor: Option<Software>) -> Generation {
     let catalogue = predecessor.as_ref().and_then(|s| s.native_catalogue.as_ref());
+    let packaged_preparation_kit_sha256 = (manifest.schema == 2)
+        .then(|| manifest.files[NAMES.len()].sha256.clone());
     Generation {
-        schema: 1, manifest_sha256, manifest,
+        schema: if packaged_preparation_kit_sha256.is_some() { 2 } else { 1 },
+        manifest_sha256, manifest,
         retained_installer_launch: predecessor.as_ref().and_then(|s| s.installer_launch.clone()),
-        retained_preparation_kit: predecessor.as_ref().and_then(|s| s.preparation_kit.clone()),
+        retained_preparation_kit: if packaged_preparation_kit_sha256.is_some() { None } else {
+            predecessor.as_ref().and_then(|s| s.preparation_kit.clone())
+        },
         catalogue_sha256: catalogue.map(|a| a.sha256.clone()),
+        packaged_preparation_kit_sha256,
         predecessor,
     }
 }
@@ -236,6 +259,8 @@ pub(super) fn audit_predecessor_from_bytes(m: &Manager, home: &Path,
         "retained_catalogue_sha256": record.catalogue_sha256,
         "retained_host_sha256": old.host.sha256,
         "retained_source_sha256": old.source_manifest.sha256,
+        "candidate_preparation_kit_sha256": record.packaged_preparation_kit_sha256,
+        "predecessor_preparation_kit_sha256": old.preparation_kit.as_ref().map(|a| &a.sha256),
         "external_runtime_id": record.manifest.external_runtime.id,
         "external_runtime_manifest_sha256": record.manifest.external_runtime.manifest_sha256,
         "routes": routes,
@@ -252,12 +277,14 @@ fn verify_generation(m: &Manager, current: &Software) -> Result<Generation> {
     require(fs::metadata(dir.join("package-generation.json"))?.permissions().mode() & 0o222 == 0,
         "package_generation_record_writable")?;
     let record: Generation = read_json(&dir.join("package-generation.json"))?;
-    require(record.schema == 1 && id(&record)? == dir.file_name().and_then(|n| n.to_str()).unwrap_or(""),
+    require(matches!((record.schema, record.manifest.schema), (1, 1) | (2, 2))
+        && id(&record)? == dir.file_name().and_then(|n| n.to_str()).unwrap_or(""),
         "package_generation_identity")?;
-    require(record.manifest.schema == 1 && record.manifest.package == "linux-vst-bridge-beta"
+    let expected_names = names(record.manifest.schema)?;
+    require(record.manifest.package == "linux-vst-bridge-beta"
         && valid_package_version(&record.manifest.version) && record.manifest.pkgrel == 1
-        && record.manifest.files.len() == NAMES.len()
-        && record.manifest.files.iter().zip(NAMES).all(|(entry, name)| entry.name == name
+        && record.manifest.files.len() == expected_names.len()
+        && record.manifest.files.iter().zip(expected_names).all(|(entry, name)| entry.name == *name
             && valid_hex(&entry.sha256, 64)), "package_generation_manifest")?;
     let expected = [
         (&current.manager, NAMES[0]),
@@ -271,9 +298,23 @@ fn verify_generation(m: &Manager, current: &Software) -> Result<Generation> {
             "package_generation_artifact_binding")?;
         actual.verify()?;
     }
+    let packaged_kit = if record.schema == 2 {
+        let sha = &record.manifest.files[NAMES.len()].sha256;
+        require(record.packaged_preparation_kit_sha256.as_ref() == Some(sha)
+            && record.retained_preparation_kit.is_none(), "package_generation_kit_binding")?;
+        let kit = Artifact { path: dir.join("preparation-kit.zip"), sha256: sha.clone() };
+        kit.verify()?;
+        require(fs::metadata(&kit.path)?.permissions().mode() & 0o222 == 0,
+            "package_generation_kit_writable")?;
+        Some(kit)
+    } else {
+        require(record.packaged_preparation_kit_sha256.is_none(),
+            "package_generation_kit_binding")?;
+        record.retained_preparation_kit.clone()
+    };
     require(current.source_sha256 == current.source_manifest.sha256
         && current.installer_launch == record.retained_installer_launch
-        && current.preparation_kit == record.retained_preparation_kit
+        && current.preparation_kit == packaged_kit
         && current.native_catalogue.as_ref().map(|a| a.sha256.as_str())
             == record.catalogue_sha256.as_deref(),
         "package_generation_software_binding")?;
@@ -369,7 +410,9 @@ fn stage(m: &Manager, inputs: &Inputs, manifest: PackageManifest,
     } else { None };
     let result = Software {
         installer_launch: record.retained_installer_launch,
-        preparation_kit: record.retained_preparation_kit,
+        preparation_kit: if record.schema == 2 {
+            Some(artifact(&dest, "preparation-kit.zip")?)
+        } else { record.retained_preparation_kit },
         operator_frontend: Some(artifact(&dest, "linux-audio-compatibility-manager")?),
         manager: artifact(&dest, "linux-vst-bridge")?,
         supervisor: artifact(&dest, "session.pyc")?,
@@ -735,12 +778,13 @@ mod tests {
             result
         }
         fn manifest(&self) -> PackageManifest {
+            let schema = if self.inputs.path("preparation-kit.zip").unwrap().exists() { 2 } else { 1 };
             PackageManifest {
-                schema: 1, package: "linux-vst-bridge-beta".into(), version: "0.1.0beta1".into(),
+                schema, package: "linux-vst-bridge-beta".into(), version: "0.1.0beta1".into(),
                 pkgrel: 1,
                 source_head: "ab".repeat(20), source_tree: "cd".repeat(20),
                 operator_schema: operator_model::OPERATOR_SCHEMA,
-                files: NAMES.iter().map(|name| {
+                files: names(schema).unwrap().iter().map(|name| {
                     let path = self.inputs.path(name).unwrap();
                     PackageFile { name: (*name).into(), sha256: digest(&path).unwrap(),
                         size: fs::metadata(path).unwrap().len() }
@@ -761,6 +805,13 @@ mod tests {
             fs::write(&path, data).unwrap();
             fs::set_permissions(&path, fs::Permissions::from_mode(0o444)).unwrap();
             if refresh_manifest { self.write_manifest(); }
+        }
+        fn add_kit(&self, data: &[u8]) {
+            let path = self.inputs.path("preparation-kit.zip").unwrap();
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, data).unwrap();
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o444)).unwrap();
+            self.write_manifest();
         }
         fn current(&self) -> Software { software(&self.base.m).unwrap() }
         fn adopt(&self) -> Result<()> {
@@ -1076,6 +1127,128 @@ mod tests {
     }
 
     #[test]
+    fn packaged_kit_has_exact_generation_ownership_and_rollback() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        let original = f.current();
+        let original_record = original.manager.path.parent().unwrap().join("package-generation.json");
+        let original_record_bytes = fs::read(&original_record).unwrap();
+        assert!(!serde_json::to_value(verify_generation(&f.base.m, &original).unwrap()).unwrap()
+            .as_object().unwrap().contains_key("packaged_preparation_kit_sha256"));
+        f.add_kit(b"source-owned native kit revision two");
+        let (manifest, sha) = read_manifest(&f.inputs, f.owner).unwrap();
+        assert_eq!(manifest.schema, 2);
+        let (planned, _) = predecessor_plan(&f.base.m, &f.home, manifest, sha).unwrap();
+        let selected_before = fs::read(f.base.m.root.join("software.json")).unwrap();
+        assert_eq!(planned.packaged_preparation_kit_sha256.as_deref(),
+            Some(digest(&f.inputs.path("preparation-kit.zip").unwrap()).unwrap().as_str()));
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected_before);
+        assert!(!f.base.m.root.join("software").join(id(&planned).unwrap()).exists());
+
+        f.adopt().unwrap();
+        let selected = f.current();
+        let kit = selected.preparation_kit.as_ref().unwrap();
+        assert_eq!(kit.path, selected.manager.path.parent().unwrap().join("preparation-kit.zip"));
+        assert_eq!(fs::read(&kit.path).unwrap(), b"source-owned native kit revision two");
+        assert_eq!(fs::metadata(&kit.path).unwrap().permissions().mode() & 0o222, 0);
+        assert_eq!(verify_generation(&f.base.m, &selected).unwrap().schema, 2);
+        let selected_bytes = fs::read(f.base.m.root.join("software.json")).unwrap();
+        let selected_record = selected.manager.path.parent().unwrap().join("package-generation.json");
+        let selected_record_bytes = fs::read(&selected_record).unwrap();
+        f.adopt().unwrap();
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected_bytes);
+        assert_eq!(fs::read(&selected_record).unwrap(), selected_record_bytes);
+        rollback_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected_before);
+        assert!(f.current().preparation_kit.is_none());
+        assert_eq!(fs::read(&original_record).unwrap(), original_record_bytes);
+        f.adopt().unwrap();
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected_bytes);
+    }
+
+    #[test]
+    fn packaged_kit_changed_input_or_retained_bytes_refuse() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        f.add_kit(b"kit-one");
+        let before = fs::read(f.base.m.root.join("software.json")).unwrap();
+        f.replace("preparation-kit.zip", b"changed without manifest", false);
+        assert!(f.adopt().is_err());
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), before);
+        f.write_manifest();
+        f.adopt().unwrap();
+        let selected = f.current();
+        let kit = selected.preparation_kit.unwrap();
+        fs::set_permissions(&kit.path, fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(f.adopt().is_err());
+        fs::set_permissions(&kit.path, fs::Permissions::from_mode(0o400)).unwrap();
+        f.adopt().unwrap();
+        fs::set_permissions(&kit.path, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&kit.path, b"changed retained kit").unwrap();
+        fs::set_permissions(&kit.path, fs::Permissions::from_mode(0o400)).unwrap();
+        assert!(f.adopt().is_err());
+    }
+
+    #[test]
+    fn populated_legacy_kit_and_catalogue_remain_exact_rollback_authority() {
+        let (base, _, _, native) = test_fixture::prepared();
+        let home = base.outer.join("home");
+        let f = Fixture { service: FakeService::new(&home), home,
+            inputs: Inputs::under(&base.outer.join("package/usr")),
+            owner: unsafe { libc::getuid() }, base };
+        for name in NAMES {
+            let path = f.inputs.path(name).unwrap();
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, if name == "host.exe" { b"host".as_slice() }
+                else if name == "host-source-manifest.json" { b"fixture host source".as_slice() }
+                else { name.as_bytes() }).unwrap();
+            fs::set_permissions(path, fs::Permissions::from_mode(0o444)).unwrap();
+        }
+        f.write_manifest();
+        f.setup_legacy_with_catalogue(native);
+        let mut old = f.current();
+        let legacy_kit = old.manager.path.parent().unwrap().join("preparation-kit.zip");
+        fs::write(&legacy_kit, b"retained legacy preparation kit").unwrap();
+        fs::set_permissions(&legacy_kit, fs::Permissions::from_mode(0o444)).unwrap();
+        old.preparation_kit = Some(artifact(legacy_kit.parent().unwrap(), "preparation-kit.zip").unwrap());
+        atomic_json(&f.base.m.root.join("software.json"), &old).unwrap();
+        let old_bytes = fs::read(f.base.m.root.join("software.json")).unwrap();
+        let catalogue_bytes = fs::read(&old.native_catalogue.as_ref().unwrap().path).unwrap();
+        let registry_bytes = fs::read(f.base.m.root.join("registry.json")).unwrap();
+        f.add_kit(b"new source-owned native kit");
+        f.adopt().unwrap();
+        let new = f.current();
+        assert_ne!(new.preparation_kit, old.preparation_kit);
+        assert_eq!(fs::read(new.native_catalogue.as_ref().unwrap().path.clone()).unwrap(), catalogue_bytes);
+        assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry_bytes);
+        rollback_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!(serde_json::from_slice::<serde_json::Value>(&fs::read(f.base.m.root.join("software.json")).unwrap()).unwrap(),
+            serde_json::from_slice::<serde_json::Value>(&old_bytes).unwrap());
+        old.preparation_kit.unwrap().verify().unwrap();
+        assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry_bytes);
+    }
+
+    #[test]
+    fn interrupted_kit_selection_restores_exact_predecessor() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        let original = f.current();
+        let old_bytes = fs::read(f.base.m.root.join("software.json")).unwrap();
+        f.add_kit(b"kit for interrupted generation");
+        let (manifest, sha) = read_manifest(&f.inputs, f.owner).unwrap();
+        let successor = stage(&f.base.m, &f.inputs, manifest, sha, Some(original.clone())).unwrap();
+        assert!(successor.preparation_kit.is_some());
+        setup_install::interrupt_journaled_for_test(&f.base.m, &f.home,
+            &successor, Some(&original), false).unwrap();
+        assert!(recover_from(&f.base.m, &f.home, &f.service).unwrap());
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), old_bytes);
+        assert!(f.current().preparation_kit.is_none());
+        f.adopt().unwrap();
+        assert_eq!(f.current().preparation_kit.unwrap().sha256,
+            digest(&f.inputs.path("preparation-kit.zip").unwrap()).unwrap());
+    }
+
+    #[test]
     fn populated_catalogue_and_user_records_survive_update_and_rollback() {
         let (base, _, _, native) = test_fixture::prepared();
         let home = base.outer.join("home");
@@ -1341,6 +1514,8 @@ mod tests {
         assert_eq!(result.is_ok(), expected == "ok", "{result:?}");
         if expected == "ok" {
             assert!(f.current().manager.path.starts_with(f.base.m.root.join("software")));
+            assert_eq!(f.current().preparation_kit.is_some(),
+                std::env::var("PKG0_ROOT_EXPECT_KIT").unwrap() == "yes");
         } else {
             assert!(!f.base.m.root.join("software.json").exists());
         }

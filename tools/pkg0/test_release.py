@@ -34,6 +34,9 @@ class SignedRelease(unittest.TestCase):
         bundle = root / "signed"
         sign_release.sign(package, output / "RELEASE_MANIFEST.json", home, fingerprint,
                           "internal_test", bundle, structure_only=True)
+        with self.assertRaisesRegex(ValueError, "packaged preparation kit"):
+            sign_release.sign(package, output / "RELEASE_MANIFEST.json", home, fingerprint,
+                              "release", root / "old-package-release", source_root=root)
         trusted = root / "trusted.asc"
         trusted.write_bytes(gpg("--armor", "--export", fingerprint))
         self.assertEqual(verify_release.verify(bundle, trusted, fingerprint,
@@ -53,6 +56,21 @@ class SignedRelease(unittest.TestCase):
         signature.write_bytes(b"not a release signature")
         with self.assertRaises(subprocess.CalledProcessError):
             verify_release.verify(bundle, trusted, fingerprint, "internal_test", True)
+
+        fixture.add_kit()
+        kit_output = root / "kit-staged"
+        assemble.build(fixture.spec, kit_output, 1234567890)
+        kit_package = root / "kit-package" / package.name
+        kit_package.parent.mkdir()
+        test_assemble.package_archive(kit_output, kit_package)
+        with self.assertRaisesRegex(ValueError, "source-backed"):
+            sign_release.sign(kit_package, kit_output / "RELEASE_MANIFEST.json", home,
+                              fingerprint, "release", root / "unverified-release")
+        kit_bundle = root / "kit-signed"
+        sign_release.sign(kit_package, kit_output / "RELEASE_MANIFEST.json", home,
+                          fingerprint, "internal_test", kit_bundle, structure_only=True)
+        self.assertEqual(verify_release.verify(kit_bundle, trusted, fingerprint,
+                                               "internal_test", True)["files"], len(fixture.files) + 1)
 
 
 if __name__ == "__main__":

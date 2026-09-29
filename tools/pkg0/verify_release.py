@@ -11,6 +11,7 @@ import re
 import tempfile
 
 from sign_release import gpg, sha_file, verify as verify_signature
+from assemble import KIT_DESTINATION
 from verify_package import verify as verify_package
 
 
@@ -52,6 +53,9 @@ def verify(bundle, trusted_key, fingerprint, key_class="release", structure_only
         for path in (package, manifest, sums):
             verify_signature(home, bundle / (path.name + ".sig"), path, fingerprint)
     roster = json.loads(manifest.read_bytes())
+    if key_class == "release" and not any(
+            row.get("destination") == KIT_DESTINATION for row in roster.get("files", [])):
+        raise ValueError("release preparation kit absent")
     return verify_package(package, roster, structure_only=structure_only)
 
 

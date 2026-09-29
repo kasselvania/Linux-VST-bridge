@@ -13,7 +13,7 @@ import re
 import shutil
 import subprocess
 from verify_package import verify as verify_package
-from assemble import PKGREL
+from assemble import KIT_DESTINATION, PKGREL
 
 
 def require(condition, reason):
@@ -58,11 +58,15 @@ def regular(path):
     require(path.is_file() and not path.is_symlink(), "release input regular file required")
 
 
-def sign(package, manifest, home, fingerprint, key_class, output, structure_only=False):
+def sign(package, manifest, home, fingerprint, key_class, output,
+         structure_only=False, source_root=None):
     fingerprint = fingerprint.upper()
     require(re.fullmatch(r"[0-9A-F]{40}", fingerprint) is not None,
             "signing fingerprint syntax")
     require(key_class in ("internal_test", "release"), "signing key class")
+    if key_class == "release":
+        require(source_root is not None and not structure_only,
+                "release signing requires exact source-backed package verification")
     for path in (package, manifest):
         regular(path)
     require(home.is_dir() and not home.is_symlink(), "isolated GPG home required")
@@ -72,12 +76,16 @@ def sign(package, manifest, home, fingerprint, key_class, output, structure_only
             and data.get("pkgrel") == PKGREL
             and re.fullmatch(r"[0-9][A-Za-z0-9.]*", data.get("version", "")),
             "release manifest identity")
+    if key_class == "release":
+        require(any(row.get("destination") == KIT_DESTINATION for row in data.get("files", [])),
+                "release signing requires packaged preparation kit")
     expected_name = f"linux-vst-bridge-beta-{data['version']}-{data['pkgrel']}-x86_64.pkg.tar.zst"
     require(package.name == expected_name and manifest.name == "RELEASE_MANIFEST.json",
             "release filename identity")
     package_sha = sha_file(package)
     manifest_sha = sha_file(manifest)
-    verify_package(package, data, structure_only=structure_only)
+    verify_package(package, data, structure_only=structure_only,
+                   source_root=source_root, rebuild_backend=key_class == "release")
     secret_fingerprint(home, fingerprint)
     temporary = output.with_name(output.name + f".stage-{os.getpid()}")
     require(not temporary.exists(), "release stage exists")
@@ -125,7 +133,10 @@ if __name__ == "__main__":
     parser.add_argument("--gpg-home", type=Path, required=True)
     parser.add_argument("--fingerprint", required=True)
     parser.add_argument("--key-class", choices=("internal_test", "release"), required=True)
+    parser.add_argument("--source", type=Path,
+                        help="required clean source checkout for release signing")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     print(json.dumps(sign(args.package, args.manifest, args.gpg_home,
-                          args.fingerprint, args.key_class, args.output), sort_keys=True))
+                          args.fingerprint, args.key_class, args.output,
+                          source_root=args.source), sort_keys=True))
