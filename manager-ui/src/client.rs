@@ -1,5 +1,6 @@
 //! Fixed manager entry point; no shell and no user-supplied executable/arguments.
-use crate::model::{Activity, InstallerImportResult, InteractiveOverview, Pulse, Receipt, Request, Snapshot};
+use crate::model::{Activity, CurrentProductDetail, InstallerImportResult, InteractiveOverview, Pulse, Receipt, Request, Snapshot};
+use crate::presentation::ProductKey;
 use std::{
     io::{Read, Write},
     process::{Command, Stdio},
@@ -8,6 +9,7 @@ use std::{
 };
 pub enum Reply {
     Overview(Box<InteractiveOverview>),
+    Product(Box<CurrentProductDetail>),
     Snapshot(Box<Snapshot>),
     Activity(Activity),
     Pulse(Pulse),
@@ -19,6 +21,7 @@ pub enum Reply {
 pub enum Query {
     PickInstaller,
     Overview,
+    Product(ProductKey),
     Snapshot,
     Activity,
     Pulse,
@@ -44,6 +47,7 @@ fn call(query: Query) -> Result<Reply, String> {
     let verb = match &query {
         Query::PickInstaller => "import-installer",
         Query::Overview => "overview",
+        Query::Product(_) => "product",
         Query::Snapshot => "snapshot",
         Query::Activity => "activity",
         Query::Pulse => "pulse",
@@ -54,6 +58,9 @@ fn call(query: Query) -> Result<Reply, String> {
         command.arg(verb).arg(selected.as_ref().ok_or("Installer selection unavailable")?.1.as_str());
     } else {
         command.args(["operator", verb]);
+        if let Query::Product(key) = &query {
+            command.args([&key.environment, &key.module_sha256, &key.class_id]);
+        }
     }
     let mut child = command
         .stdin(selected.map(|(file, _)| Stdio::from(file)).unwrap_or_else(Stdio::piped))
@@ -155,6 +162,22 @@ fn decode_reply(query: Query, data: &[u8]) -> Result<Reply, String> {
         }
         return Ok(Reply::Overview(Box::new(overview)));
     }
+    if let Query::Product(key) = &query {
+        if envelope["schema"] != 1 || envelope["operator_schema"] != crate::model::OPERATOR_SCHEMA {
+            return Err(format!("Update the frontend and manager together: operator model {} required",
+                crate::model::OPERATOR_SCHEMA));
+        }
+        let detail: CurrentProductDetail = serde_json::from_slice(data)
+            .map_err(|_| "Incompatible manager product readback; update the frontend and manager together")?;
+        if detail.state_token.is_empty() || detail.current_generation.is_empty()
+            || ProductKey::from(&detail.product) != *key
+            || detail.environments.iter().any(|environment| environment.id != key.environment)
+            || detail.vendor_applications.iter().any(|application|
+                application.details["environment"].as_str() != Some(key.environment.as_str())) {
+            return Err("Inconsistent manager product readback; refresh before acting".into());
+        }
+        return Ok(Reply::Product(Box::new(detail)));
+    }
     if envelope["schema"] != crate::model::OPERATOR_SCHEMA {
         return Err(format!("Update the frontend and manager together: operator model {} required",
             crate::model::OPERATOR_SCHEMA));
@@ -162,6 +185,7 @@ fn decode_reply(query: Query, data: &[u8]) -> Result<Reply, String> {
     match query {
         Query::PickInstaller => unreachable!(),
         Query::Overview => unreachable!(),
+        Query::Product(_) => unreachable!(),
         Query::Snapshot => {
             serde_json::from_slice::<Snapshot>(data).map(|s| Reply::Snapshot(Box::new(s)))
         }
@@ -195,6 +219,26 @@ fn open_selected(path: &std::path::Path) -> Result<std::fs::File, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn selected_product_readback_requires_exact_paired_identity() {
+        let snapshot: Snapshot = serde_json::from_str(
+            include_str!("../examples/library-preview.json")).unwrap();
+        let product = snapshot.products[0].clone();
+        let key = ProductKey::from(&product);
+        let mut value = serde_json::to_value(CurrentProductDetail {
+            schema: 1, operator_schema: crate::model::OPERATOR_SCHEMA,
+            state_token: snapshot.state_token, current_generation: "exact-generation".into(),
+            product, environments: vec![], vendor_applications: vec![],
+        }).unwrap();
+        assert!(matches!(decode_reply(Query::Product(key.clone()),
+            &serde_json::to_vec(&value).unwrap()), Ok(Reply::Product(_))));
+        value["product"]["class_id"] = "different".into();
+        assert!(decode_reply(Query::Product(key.clone()),
+            &serde_json::to_vec(&value).unwrap()).is_err());
+        value["operator_schema"] = 11.into();
+        assert!(decode_reply(Query::Product(key),
+            &serde_json::to_vec(&value).unwrap()).is_err());
+    }
     #[test]
     fn schema_twelve_frontend_accepts_paired_and_refuses_old_manager() {
         let query = || {
