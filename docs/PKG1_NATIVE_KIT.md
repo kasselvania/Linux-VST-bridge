@@ -23,6 +23,8 @@ kit compiles. The ordinary-user intake reads the fixed `/usr` kit through the
 same checked descriptor rule as the other
 root-owned package inputs. It copies the exact bytes into the immutable user
 software generation and selects that artifact in `software.json`.
+Kit construction and release verification both use Rust 1.95.0, matching the
+paired Linux build, rather than following a moving stable-channel alias.
 
 The generation record binds the kit SHA-256. A same-generation reinstall
 verifies the retained kit without creating a self-predecessor. A new generation

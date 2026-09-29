@@ -5,13 +5,14 @@ No SDK, vendor module, installer, account or preset is included.
 import argparse, hashlib, json, os, pathlib, subprocess, zipfile
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 from native_builder import SDK, SDK_RUNTIME
+RUST_TOOLCHAIN='1.95.0'
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--output',type=pathlib.Path,required=True);p.add_argument('--windows-package',type=pathlib.Path,required=True);a=p.parse_args()
     def git(*args):return subprocess.check_output(['git',*args],cwd=ROOT,text=True).strip()
     if git('status','--porcelain'):raise SystemExit('Commit exact build inputs first')
-    compiler=subprocess.check_output(['rustup','which','--toolchain','stable','rustc'],text=True).strip()
-    subprocess.run(['rustup','run','stable','cargo','build','--manifest-path','native-vst3-proxy/backend/Cargo.toml','--release','--locked','--offline','--target','x86_64-unknown-linux-gnu','--features','registered'],cwd=ROOT,env={**os.environ,'RUSTC':compiler,'RUSTFLAGS':'-C relocation-model=pic'},check=True)
+    compiler=subprocess.check_output(['rustup','which','--toolchain',RUST_TOOLCHAIN,'rustc'],text=True).strip()
+    subprocess.run(['rustup','run',RUST_TOOLCHAIN,'cargo','build','--manifest-path','native-vst3-proxy/backend/Cargo.toml','--release','--locked','--offline','--target','x86_64-unknown-linux-gnu','--features','registered'],cwd=ROOT,env={**os.environ,'RUSTC':compiler,'RUSTFLAGS':'-C relocation-model=pic'},check=True)
     names=git('ls-files','CMakeLists.txt','cmake/HP0Vst3SdkLock.cmake','cmake/HP0ModernGcc.cmake','native-vst3-proxy','vst-state','tools/mf3/native_builder.py','tools/ap8_descriptor.py').splitlines()
     files={name:(ROOT/name).read_bytes() for name in names}
     files['libap2_backend.a']=(ROOT/'native-vst3-proxy/backend/target/x86_64-unknown-linux-gnu/release/libap2_backend.a').read_bytes()
