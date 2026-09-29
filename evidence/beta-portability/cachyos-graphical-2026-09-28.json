@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "claim": "clean graphical CachyOS VM installed and logged in; no bridge package or product test",
+  "claim": "clean graphical CachyOS VM and inert package/desktop discovery only; no product execution",
   "source": "operator-observed parallel disposable VM",
   "iso_build": "260809",
   "iso_sha256": "959f6577f45e25ee9fd8c220fd221b08e4ea79412c7315c0f922dd6d86d5e33c",
@@ -14,7 +14,18 @@
   "desktop": "KDE Plasma 6.7.5",
   "session": "Wayland",
   "graphical_login": "passed",
-  "bridge_package_install": "not_tested",
+  "bridge_package_fixture": {
+    "version": "0.1.0beta1-1",
+    "format": "pkg.tar.zst",
+    "sha256": "a143ab6ebbf87e6810b83995bb58d3a005be9281b1c082f6afa10517e58db17a",
+    "executable_bytes": "inert source-owned stand-ins",
+    "pacman_install": "passed",
+    "pacman_qk": "17 files, 0 missing",
+    "kde_launcher": "Linux Audio Compatibility Manager found by Audio search with intended description",
+    "package_removal": "not_tested_in_this_receipt",
+    "executable_launch": "not_tested",
+    "user_generation_adoption": "not_tested"
+  },
   "manager_launch": "not_tested",
   "bitwig_audio": "not_tested",
   "gpu_performance": "not_tested"

@@ -26,10 +26,10 @@ before claiming a complete graphical journey.
 | SteamOS | Reviewed Arch package source and user-owned PKG0/PKG1 adoption | Source tests only; working Deck unchanged | Existing installed product evidence remains separate |
 | Ubuntu 26.04.1 LTS, amd64 | Deterministic `.deb` from the same release manifest and payload | Disposable synthetic package install, dependency resolution and removal passed; actual paired Linux binaries linked and the manager entered its fixed status command | No adopted product, graphical, Bitwig, plug-in, audio or GPU qualification |
 | Debian 13.7, amd64 | Same `.deb` format and exact dependency declaration | Disposable synthetic package install, dependency resolution and removal passed; actual paired Linux binaries linked and the manager entered its fixed status command | No adopted product, audio or graphical qualification |
-| CachyOS 260809 ISO, rolling amd64 | Existing Arch package format from the same roster | Disposable 40 GiB VM reached graphical KDE Plasma 6.7.5 login on Wayland, kernel 7.2.8-1-cachyos; no bridge package yet | Package and product not qualified |
+| CachyOS 260809 ISO, rolling amd64 | Existing Arch package format from the same roster | Disposable 40 GiB VM reached graphical KDE Plasma 6.7.5 login on Wayland, kernel 7.2.8-1-cachyos. Inert source-owned Arch fixture installed through pacman, `pacman -Qk` found 17/17 files, and the KDE launcher was discoverable | No executable launch, adoption, Bitwig, audio or GPU qualification |
 
 The [CachyOS graphical receipt](../evidence/beta-portability/cachyos-graphical-2026-09-28.json)
-establishes an installed desktop fixture only. The Ubuntu and Debian observations use container images, not graphical clean
+establishes an installed desktop and inert package/launcher fixture only. The Ubuntu and Debian observations use container images, not graphical clean
 machines. Package parsing, dependency resolution and file ownership must not
 be reported as first sound. A clean graphical install and normal frontend
 journey remain required on each declared beta platform.
