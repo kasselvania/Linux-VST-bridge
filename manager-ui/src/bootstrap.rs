@@ -354,6 +354,7 @@ impl eframe::App for Bootstrap {
                 });
                 ui.small("Keep this window open while the package transition completes.");
             } else if self.recovery_offered {
+                ui.label("An earlier setup stopped before it finished. Finish that saved change before opening your Library.");
                 if ui.add_sized([250.0, 48.0], egui::Button::new("Finish interrupted setup")).clicked() {
                     self.submit(Operation::Recover, ui.ctx().clone());
                 }
@@ -374,7 +375,13 @@ impl eframe::App for Bootstrap {
                 self.submit(Operation::Adopt, ui.ctx().clone());
             }
             if let Some(result) = &self.result {
-                ui.colored_label(egui::Color32::YELLOW, result);
+                if self.recovery_offered {
+                    egui::CollapsingHeader::new("Technical reason").show(ui, |ui| {
+                        ui.colored_label(egui::Color32::YELLOW, result);
+                    });
+                } else {
+                    ui.colored_label(egui::Color32::YELLOW, result);
+                }
             }
         });
     }
