@@ -19,6 +19,12 @@ contract is [PB0-C0](docs/PB0_C0.md).
 
 The current public operator wire generation advances from 10 directly to 12.
 Private installed schema-11 requests remain historical recovery inputs only.
+Canonical MIDI0 was integrated into this branch at
+`e42afa14b737b4eac871bbbf93b882e019d06609` (tree
+`6c1ea89dee9dfcdc93ecbb58388537b84ffe7377`); the final submitted PR
+head and tree are recorded in PR #188. The current rereview correction owns
+frontend readback recovery, prompt operation polling, coherent current-input
+capture, and exact publication/performance health.
 This branch is source-only plus staged read-only Deck measurement. It does not
 install or select a generation, launch a DAW, change audio settings or mutate
 installed product authority. The private UI2 generation remains selected on

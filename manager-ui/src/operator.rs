@@ -390,6 +390,9 @@ pub struct Operator {
     last_poll: Instant,
     last_overview: Instant,
     operation_live: bool,
+    prompt_pulse: bool,
+    readback_failures: u32,
+    retry_after: Option<Instant>,
     message: String,
     library: crate::library::Library,
     refresh_after: bool,
@@ -423,6 +426,9 @@ impl Operator {
             last_poll: Instant::now(),
             last_overview: Instant::now(),
             operation_live: false,
+            prompt_pulse: false,
+            readback_failures: 0,
+            retry_after: None,
             message: String::new(),
             library: crate::library::Library::default(),
             refresh_after: false,
@@ -457,6 +463,9 @@ impl Operator {
             last_poll: Instant::now(),
             last_overview: Instant::now(),
             operation_live: false,
+            prompt_pulse: false,
+            readback_failures: 0,
+            retry_after: None,
             message: String::new(),
             library: crate::library::Library::default(),
             refresh_after: false,
@@ -613,6 +622,9 @@ impl Operator {
         self.feedback = Some(RequestFeedback::captured(request.action.clone()));
         self.queued_action = Some(request);
     }
+    fn current_action_snapshot(&self) -> Option<&Snapshot> {
+        self.overview.as_ref().filter(|_| self.overview_fresh).map(|o| &o.current)
+    }
     fn next_action(&mut self) -> Option<Request> {
         if self.pending {
             None
@@ -668,6 +680,8 @@ impl Operator {
         self.action_inflight = false;
         match reply {
             Reply::Overview(bundle) => {
+                self.readback_failures = 0;
+                self.retry_after = None;
                 if let Some(f) = &mut self.feedback {
                     f.reconcile_snapshot(&bundle.current);
                 }
@@ -702,6 +716,10 @@ impl Operator {
                 }
             }
             Reply::Receipt(r) => {
+                if r.accepted {
+                    self.operation_live = true;
+                    self.prompt_pulse = true;
+                }
                 if let Some(f) = &mut self.feedback {
                     f.receipt(&r);
                 }
@@ -746,6 +764,7 @@ impl Operator {
                 }
             }
             Reply::Pulse(p) => {
+                self.prompt_pulse = false;
                 self.operation_live = p.operation_live;
                 if let Some(op) = &p.operation {
                     if let Some(feedback) = &mut self.feedback { feedback.observe(op); }
@@ -757,6 +776,7 @@ impl Operator {
                         || p.keepers != Some(overview.current.system.keepers)
                         || p.maintenance != Some(overview.current.system.maintenance)
                         || p.pending_transactions != overview.current.system.pending_transactions
+                        || p.cleanup_unconfirmed != Some(overview.current.system.cleanup_unconfirmed)
                         || refresh_for_receipt(&overview.current.operation, &p.operation) {
                         self.overview_fresh = false;
                         self.refresh_after = true;
@@ -769,10 +789,14 @@ impl Operator {
                         || p.keepers != Some(snapshot.system.keepers)
                         || p.maintenance != Some(snapshot.system.maintenance)
                         || p.pending_transactions != snapshot.system.pending_transactions
+                        || p.cleanup_unconfirmed != Some(snapshot.system.cleanup_unconfirmed)
                         || refresh_for_receipt(&snapshot.operation, &p.operation) {
                         self.refresh_after = true;
                     }
                     snapshot.operation = p.operation;
+                }
+                if self.overview.is_none() || !self.overview_fresh {
+                    self.refresh_after = true;
                 }
             }
             Reply::Imported(imported) => {
@@ -789,6 +813,14 @@ impl Operator {
                 }
             }
             Reply::Error(e) => {
+                if was_action {
+                    self.prompt_pulse = true;
+                } else {
+                    self.readback_failures = self.readback_failures.saturating_add(1);
+                    let delay = 1_u64 << self.readback_failures.min(5);
+                    self.retry_after = Some(Instant::now() + Duration::from_secs(delay));
+                    self.prompt_pulse = false;
+                }
                 if was_action {
                     if let Some(f) = &mut self.feedback {
                         f.acknowledgment_uncertain = true;
@@ -1871,6 +1903,7 @@ impl Operator {
         }
     }
     fn repaint_delay(&self) -> Duration {
+        if self.prompt_pulse { return Duration::from_millis(50); }
         let interval = if self.pending && !self.background_poll {
             Duration::from_millis(500)
         } else if self.operation_live {
@@ -1889,13 +1922,15 @@ impl eframe::App for Operator {
         self.expire_overview();
 
         let controls_pending = self.controls_pending();
+        let action_controls_pending = controls_pending || (!self.preview && !self.overview_fresh);
         let mut refresh = false;
         let mut pick = false;
         let mut chosen = None;
         egui::CentralPanel::default().show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.heading("Linux VST Bridge");
-                if ui.add_enabled(!controls_pending, egui::Button::new("Refresh").min_size(egui::vec2(92.0, 44.0))).clicked() {
+                let refresh_label = if self.overview_fresh { "Refresh" } else { "Check again" };
+                if ui.add_enabled(!controls_pending, egui::Button::new(refresh_label).min_size(egui::vec2(92.0, 44.0))).clicked() {
                     refresh = true;
                 }
                 if self.pending && self.origin == Some(RequestOrigin::ExplicitRefresh) {
@@ -1944,7 +1979,7 @@ impl eframe::App for Operator {
                 let page = self.page;
                 match page {
                     Page::Home => Self::home(ui, snapshot, &mut self.page, &mut self.library, &mut self.focus),
-                    Page::Plugins => self.library.show(ui, snapshot, controls_pending, &mut chosen, |ui, product| {
+                    Page::Plugins => self.library.show(ui, snapshot, action_controls_pending, &mut chosen, |ui, product| {
                         for limit in &product.limitations { ui.label(limit.replace('_', " ")); }
                         if let Some(preparation) = product.details.get("preparation") { Self::preparation_details(ui, preparation); }
                         if let Some(revision) = product.active_revision {
@@ -1963,12 +1998,12 @@ impl eframe::App for Operator {
                             Self::value(ui, &product.details);
                         });
                     }),
-                    Page::Workspaces => Self::workspaces(ui, snapshot, controls_pending, &mut chosen, &mut pick),
-                    Page::Activity => Self::activity(ui, snapshot, controls_pending, &mut self.page,
+                    Page::Workspaces => Self::workspaces(ui, snapshot, action_controls_pending, &mut chosen, &mut pick),
+                    Page::Activity => Self::activity(ui, snapshot, action_controls_pending, &mut self.page,
                         &mut self.library, &mut self.focus, &mut chosen),
-                    Page::Setup => Self::setup(ui, snapshot, controls_pending, self.feedback.as_ref(),
+                    Page::Setup => Self::setup(ui, snapshot, action_controls_pending, self.feedback.as_ref(),
                         (&mut self.page, &mut self.library, &mut self.focus), &mut chosen, &mut pick),
-                    Page::Diagnostics => Self::diagnostics(ui, snapshot, controls_pending, &mut chosen),
+                    Page::Diagnostics => Self::diagnostics(ui, snapshot, action_controls_pending, &mut chosen),
                 }
             });
         });
@@ -2136,8 +2171,7 @@ impl eframe::App for Operator {
         if pick { self.queued_import = true; }
         if refresh { self.explicit_refresh_queued = true; }
         if let Some(a) = chosen {
-            if let Some(s) = self.overview.as_ref().filter(|_| self.overview_fresh)
-                .map(|o| &o.current).or(self.snapshot.as_ref()) {
+            if let Some(s) = self.current_action_snapshot() {
                 self.capture_action(Request {
                     schema: crate::model::OPERATOR_SCHEMA,
                     state_token: s.state_token.clone(),
@@ -2150,7 +2184,11 @@ impl eframe::App for Operator {
             self.request(Query::PickInstaller, RequestOrigin::InstallerImport, ui.ctx());
         } else if let Some(request) = self.next_action() {
             self.request(Query::Action(request), RequestOrigin::UserAction, ui.ctx());
-        } else if !self.pending && (self.explicit_refresh_queued || self.refresh_after) {
+        } else if !self.pending && self.prompt_pulse {
+            self.prompt_pulse = false;
+            self.request(Query::Pulse, RequestOrigin::BackgroundActivity, ui.ctx());
+        } else if !self.pending && (self.explicit_refresh_queued || self.refresh_after)
+            && (self.explicit_refresh_queued || self.retry_after.is_none_or(|at| Instant::now() >= at)) {
             let origin = if self.explicit_refresh_queued { RequestOrigin::ExplicitRefresh }
                 else { RequestOrigin::SilentPostMutationRefresh };
             self.explicit_refresh_queued = false;
@@ -2164,7 +2202,8 @@ impl eframe::App for Operator {
             && self.last_poll.elapsed() > Duration::from_secs(10) {
             self.request(Query::Activity, RequestOrigin::BackgroundActivity, ui.ctx());
         } else if !self.pending && self.last_poll.elapsed() >
-            Duration::from_secs(if self.operation_live { 2 } else { 10 }) {
+            Duration::from_secs(if self.operation_live { 2 } else { 10 })
+            && self.retry_after.is_none_or(|at| Instant::now() >= at) {
             self.request(Query::Pulse, RequestOrigin::BackgroundActivity, ui.ctx());
         }
         ui.ctx().request_repaint_after(self.repaint_delay());
@@ -2745,6 +2784,9 @@ mod tests {
             last_poll: Instant::now(),
             last_overview: Instant::now(),
             operation_live: false,
+            prompt_pulse: false,
+            readback_failures: 0,
+            retry_after: None,
             message: String::new(),
             library: crate::library::Library::default(),
             refresh_after: false,
@@ -2756,6 +2798,120 @@ mod tests {
             focus: RouteFocus::default(),
             preview: false,
         }
+    }
+    fn overview_fixture() -> InteractiveOverview {
+        let snapshot: Snapshot = serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap();
+        let readiness = ReadinessAssessment {
+            schema:1,state_token:snapshot.state_token.clone(),observed_at:1,
+            overall_status:crate::model::ReadinessOutcome::Unknown,
+            system:snapshot.system.clone(),platform:vec![],daw:vec![],audio:vec![],
+            graphics:vec![],runtime:vec![],products:vec![],blockers:vec![],ordered_steps:vec![],
+            support_export_action:AvailableAction {label:"Export".into(),
+                action:Action::SupportExport {},disabled_reason:None},
+        };
+        InteractiveOverview {schema:1,operator_schema:crate::model::OPERATOR_SCHEMA,
+            scope:"current_only".into(),current_generation:"same".into(),current:snapshot,readiness}
+    }
+    fn pulse_fixture(live: bool) -> crate::model::Pulse {
+        crate::model::Pulse {schema:crate::model::OPERATOR_SCHEMA,service_state:"active".into(),
+            dsp:Some(0),keepers:Some(0),maintenance:Some(0),pending_transactions:0,
+            cleanup_unconfirmed:Some(false),current_generation:"same".into(),
+            operation:None,operation_live:live}
+    }
+    #[test]
+    fn initial_overview_failure_recovers_after_successful_pulse() {
+        let mut operator=state_fixture();
+        operator.origin=Some(RequestOrigin::InitialSnapshot);
+        operator.handle_reply(Reply::Error("temporary readback failure".into()));
+        assert!(!operator.overview_fresh && operator.current_action_snapshot().is_none());
+        assert!(operator.retry_after.is_some_and(|at|at>Instant::now()));
+        operator.origin=Some(RequestOrigin::BackgroundActivity);
+        operator.handle_reply(Reply::Pulse(pulse_fixture(false)));
+        assert!(operator.refresh_after);
+        operator.origin=Some(RequestOrigin::SilentPostMutationRefresh);
+        operator.handle_reply(Reply::Overview(Box::new(overview_fixture())));
+        assert!(operator.overview_fresh && operator.current_action_snapshot().is_some());
+    }
+    #[test]
+    fn unchanged_pulse_recovers_stale_overview_without_resubmitting_action() {
+        let mut operator=state_fixture();
+        operator.overview=Some(overview_fixture());
+        operator.overview_fresh=true;
+        operator.origin=Some(RequestOrigin::BackgroundActivity);
+        operator.handle_reply(Reply::Error("temporary pulse failure".into()));
+        assert!(!operator.overview_fresh && operator.current_action_snapshot().is_none());
+        assert!(!operator.refresh_after);
+        operator.origin=Some(RequestOrigin::BackgroundActivity);
+        operator.handle_reply(Reply::Pulse(pulse_fixture(false)));
+        assert!(operator.refresh_after);
+        assert!(operator.queued_action.is_none());
+    }
+    #[test]
+    fn repeated_readback_errors_have_bounded_retry_and_no_action_authority() {
+        let mut operator=state_fixture();
+        operator.overview=Some(overview_fixture());
+        operator.overview_fresh=true;
+        for _ in 0..12 {
+            operator.origin=Some(RequestOrigin::BackgroundActivity);
+            operator.handle_reply(Reply::Error("still unavailable".into()));
+            assert!(!operator.overview_fresh);
+            assert!(operator.current_action_snapshot().is_none());
+            assert!(!operator.prompt_pulse);
+        }
+        let remaining=operator.retry_after.unwrap().saturating_duration_since(Instant::now());
+        assert!(remaining>=Duration::from_secs(30) && remaining<=Duration::from_secs(32));
+    }
+    #[test]
+    fn successful_pulse_does_not_reset_failing_overview_backoff() {
+        let mut operator=state_fixture();
+        operator.overview=Some(overview_fixture());
+        operator.overview_fresh=false;
+        for expected in 1..=5 {
+            operator.origin=Some(RequestOrigin::SilentPostMutationRefresh);
+            operator.handle_reply(Reply::Error("overview unavailable".into()));
+            let deadline=operator.retry_after.unwrap();
+            assert_eq!(operator.readback_failures,expected);
+            operator.origin=Some(RequestOrigin::BackgroundActivity);
+            operator.handle_reply(Reply::Pulse(pulse_fixture(false)));
+            assert!(operator.refresh_after);
+            assert_eq!(operator.retry_after,Some(deadline));
+            assert_eq!(operator.readback_failures,expected);
+            assert!(operator.current_action_snapshot().is_none());
+        }
+        operator.origin=Some(RequestOrigin::SilentPostMutationRefresh);
+        operator.handle_reply(Reply::Overview(Box::new(overview_fixture())));
+        assert!(operator.overview_fresh);
+        assert_eq!(operator.readback_failures,0);
+        assert!(operator.retry_after.is_none());
+    }
+    #[test]
+    fn accepted_receipt_prompts_pulse_then_terminal_state_returns_to_idle() {
+        let mut operator=state_fixture();
+        operator.origin=Some(RequestOrigin::UserAction);
+        operator.handle_reply(Reply::Receipt(crate::model::Receipt {schema:crate::model::OPERATOR_SCHEMA,
+            accepted:true,operation:Some("ab".repeat(16)),refusal:None}));
+        assert!(operator.operation_live && operator.prompt_pulse && !operator.refresh_after);
+        assert!(operator.repaint_delay()<=Duration::from_millis(50));
+        operator.origin=Some(RequestOrigin::BackgroundActivity);
+        operator.handle_reply(Reply::Pulse(pulse_fixture(true)));
+        assert!(operator.operation_live && !operator.prompt_pulse);
+        assert!(operator.repaint_delay()<=Duration::from_secs(2));
+        operator.origin=Some(RequestOrigin::BackgroundActivity);
+        operator.handle_reply(Reply::Pulse(pulse_fixture(false)));
+        assert!(!operator.operation_live);
+        assert!(operator.repaint_delay()>=Duration::from_secs(9));
+    }
+    #[test]
+    fn unchanged_owners_with_new_cleanup_uncertainty_invalidate_overview() {
+        let mut operator=state_fixture();
+        operator.overview=Some(overview_fixture());
+        operator.overview_fresh=true;
+        let mut pulse=pulse_fixture(false);
+        pulse.cleanup_unconfirmed=Some(true);
+        operator.origin=Some(RequestOrigin::BackgroundActivity);
+        operator.handle_reply(Reply::Pulse(pulse));
+        assert!(!operator.overview_fresh && operator.refresh_after);
+        assert!(operator.current_action_snapshot().is_none());
     }
     #[test]
     fn current_overview_expires_without_claiming_permanent_ready() {

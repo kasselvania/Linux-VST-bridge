@@ -275,7 +275,7 @@ fn pulse_generation(m: &Manager) -> Result<String> {
     use std::os::unix::fs::MetadataExt;
     let paths = ["software.json", "registry.json", "preparation/revision.json",
         "daw-workspaces/fl-studio/workspace.json", "operator/latest.json",
-        "installers", "onboarding", "inventory", "transactions",
+        "installers", "onboarding", "inventory", "transactions", "performance",
         "runtime/leases", "runtime/owner.sock"];
     let mut stamps = Vec::with_capacity(paths.len());
     for relative in paths {
@@ -287,7 +287,28 @@ fn pulse_generation(m: &Manager) -> Result<String> {
             Err(e) => return Err(e.into()),
         }
     }
+    let performance = m.root.join("performance");
+    if performance.is_dir() {
+        let mut entries = fs::read_dir(performance)?.collect::<std::io::Result<Vec<_>>>()?;
+        entries.sort_by_key(std::fs::DirEntry::file_name);
+        for (n, entry) in entries.into_iter().enumerate() {
+            require(n < 4096,"operator_pulse_performance_bound")?;
+            let path = entry.path();
+            let meta = fs::symlink_metadata(&path)?;
+            stamps.push(json!([path.file_name().map(|name|name.to_string_lossy().into_owned()),meta.dev(),meta.ino(),meta.len(),
+                meta.mtime(),meta.mtime_nsec(),meta.ctime(),meta.ctime_nsec()]));
+        }
+    }
     Ok(hex(&sha2::Sha256::digest(serde_json::to_vec(&stamps)?)))
+}
+fn pulse_cleanup(m: &Manager) -> Option<bool> {
+    let mut peer = UnixStream::connect(m.root.join("runtime/owner.sock")).ok()?;
+    peer.set_read_timeout(Some(Duration::from_millis(200))).ok()?;
+    peer.set_write_timeout(Some(Duration::from_millis(200))).ok()?;
+    peer.write_all(b"LVP1\n").ok()?;
+    let mut state = [0_u8;1];
+    peer.read_exact(&mut state).ok()?;
+    match state[0] {0=>Some(false),1=>Some(true),_=>None}
 }
 fn pulse(m: &Manager) -> Result<ui::Pulse> {
     // The selected service's full LVC1 capacity response verifies product
@@ -309,6 +330,7 @@ fn pulse(m: &Manager) -> Result<ui::Pulse> {
         maintenance:owners.as_ref().map(|o|o.iter().filter(|v|matches!(v.kind,
             capacity::Kind::Inspection | capacity::Kind::VendorAccess)).count()),
         pending_transactions:pending,
+        cleanup_unconfirmed:pulse_cleanup(m),
         current_generation:pulse_generation(m)?,operation,operation_live})
 }
 fn inactive_reason(
@@ -3395,6 +3417,58 @@ mod tests {
             peer.write_all(&bytes).unwrap();
         })
     }
+    fn overview_service_reply(m: &Manager, value: Value) -> std::thread::JoinHandle<()> {
+        private_dir(&m.root.join("runtime")).unwrap();
+        let socket=m.root.join("runtime/owner.sock");
+        if socket.exists() {fs::remove_file(&socket).unwrap();}
+        let listener=UnixListener::bind(&socket).unwrap();
+        std::thread::spawn(move || {
+            for expected in [b"LVC1\n",b"LVP1\n",b"LVP1\n"] {
+                let (mut peer,_)=listener.accept().unwrap();
+                let mut greeting=[0;5];
+                peer.read_exact(&mut greeting).unwrap();
+                assert_eq!(&greeting,expected);
+                if expected==b"LVC1\n" {
+                    let bytes=serde_json::to_vec(&value).unwrap();
+                    peer.write_all(&(bytes.len() as u32).to_le_bytes()).unwrap();
+                    peer.write_all(&bytes).unwrap();
+                } else {
+                    peer.write_all(&[0]).unwrap();
+                }
+            }
+        })
+    }
+    #[test]
+    fn pulse_cleanup_tracks_blocked_state_without_owner_change() {
+        let f=test_fixture::Fixture::new();
+        private_dir(&f.m.root.join("runtime")).unwrap();
+        let socket=f.m.root.join("runtime/owner.sock");
+        for blocked in [false,true] {
+            if socket.exists() {fs::remove_file(&socket).unwrap();}
+            let listener=UnixListener::bind(&socket).unwrap();
+            let server=std::thread::spawn(move || {
+                let (mut peer,_)=listener.accept().unwrap();
+                let mut greeting=[0;5];
+                peer.read_exact(&mut greeting).unwrap();
+                assert_eq!(&greeting,b"LVP1\n");
+                peer.write_all(&[u8::from(blocked)]).unwrap();
+            });
+            assert_eq!(pulse_cleanup(&f.m),Some(blocked));
+            server.join().unwrap();
+        }
+    }
+    #[test]
+    fn selected_performance_record_changes_pulse_generation() {
+        let f=test_fixture::Fixture::new();
+        let before=pulse_generation(&f.m).unwrap();
+        let path=f.m.root.join("performance").join(format!("{}.json",f.r.key()));
+        private_dir(path.parent().unwrap()).unwrap();
+        atomic_json(&path,&Performance {schema:1,added_frames:512}).unwrap();
+        let selected=pulse_generation(&f.m).unwrap();
+        assert_ne!(before,selected);
+        atomic_json(&path,&Performance {schema:1,added_frames:256}).unwrap();
+        assert_ne!(selected,pulse_generation(&f.m).unwrap());
+    }
     #[test]
     fn authoritative_blocked_readback_and_unavailable_service_never_claim_safe_cleanup() {
         let f = test_fixture::Fixture::new();
@@ -4376,7 +4450,7 @@ mod tests {
     #[test]
     fn current_setup_offer_receives_durable_ack_without_diagnostics_snapshot() {
         let (fixture, _) = onboarding_worker_fixture();
-        let service = service_reply(&fixture.m, capacity_json(false,0,0));
+        let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
         let current = overview(&fixture.m).unwrap();
         service.join().unwrap();
         let offer = current.current.installer_setups[0].primary.as_ref().unwrap();

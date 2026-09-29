@@ -449,6 +449,9 @@ fn product_facts(product: &ui::Product, at: u64) -> Vec<ui::ReadinessFact> {
                 .map(str::to_owned),
         ),
         valid("Publication verification", "publication_valid"),
+        valid("Completed publication", "publication_complete"),
+        exact("Bridge presentation reserve",product.details["added_frames"].as_u64()
+            .map(|frames|format!("{frames} frames"))),
         exact("Publication selected",
             product.details["publication_selected"].as_bool().map(|selected|
                 if selected {"yes"} else {"no"}.into())),
@@ -494,6 +497,8 @@ fn accepted_profile_captured(installed: &[profiles::Profile],
             && product.details["host_sha256"] == profile.requirements.host_sha256
             && product.details["host_source_sha256"] == profile.requirements.host_source_sha256
             && product.details["native_sha256"] == profile.requirements.native_sha256
+            && product.details["publication_complete"] == true
+            && product.details["added_frames"] == 512
             && product.version == profile.class.version
             && product.details["profile"]["id"] == profile.id
             && product.details["profile"]["revision"] == profile.revision
@@ -710,8 +715,10 @@ fn resolve_with(
             "native_valid",
             "host_valid",
             "publication_valid",
+            "performance_valid",
         ];
         let health = if product.disposition == "quarantined"
+            || product.details["current"] == false
             || current_checks.iter().any(|key| product.details[*key] == false) {
             ui::InstallationHealth::ActionRequired
         } else if current_checks.iter().all(|key| product.details[*key] == true) {
@@ -728,6 +735,9 @@ fn resolve_with(
         };
         let (status, reason) = if product.disposition == "quarantined" {
             (O::ActionRequired, "The managed scan quarantined this exact module.")
+        } else if product.details["current"] == false {
+            (O::ActionRequired,
+                "The installed plug-in inventory is stale. Check Setup for the exact offered refresh or rescan action.")
         } else if health == ui::InstallationHealth::ActionRequired {
             (O::ActionRequired,
                 "The current module, environment, runner, host, proxy or publication needs repair.")
@@ -1309,7 +1319,9 @@ mod tests {
         product.disposition = "ready".into();
         product.details = json!({"profile":{"id":p.id,"revision":p.revision,"claim":"verified_exact_fixture"},
             "module_valid":true,"environment_valid":true,"runner_valid":true,
-            "native_valid":true,"host_valid":true,"publication_valid":true,"qualification":null});
+            "native_valid":true,"host_valid":true,"publication_valid":true,
+            "publication_complete":true,"performance_valid":true,"added_frames":512,
+            "qualification":null});
         snapshot.onboarding.clear();
         snapshot.system.service = "active".into();
         snapshot.system.dsp = 0;
@@ -1480,6 +1492,7 @@ mod tests {
             "native_valid",
             "host_valid",
             "publication_valid",
+            "performance_valid",
         ] {
             let mut s = s.clone();
             s.products[0].details[key] = json!(false);
@@ -1618,6 +1631,61 @@ mod tests {
         let wrong_arch = result(&s, &p);
         assert_eq!(wrong_arch.overall_status, O::Unsupported);
         assert_ne!(wrong_arch.products[0].status, O::Ready);
+    }
+    #[test]
+    fn stale_discovered_product_needs_attention_even_outside_beta_envelope() {
+        use ui::ReadinessOutcome as O;
+        let (mut snapshot, platform)=fixture();
+        let mut discovered=snapshot.products[0].clone();
+        discovered.class_id="ab".repeat(16);
+        discovered.name="Discovered fixture".into();
+        discovered.disposition="installed_unqualified".into();
+        discovered.details=json!({"scan":"cd".repeat(16),"current":true});
+        snapshot.products.push(discovered);
+        let current=result(&snapshot,&platform);
+        assert_eq!(current.products[1].installation_health,ui::InstallationHealth::Unknown);
+        assert_eq!(current.products[1].status,O::Unknown);
+        assert_eq!(current.overall_status,O::Ready);
+        snapshot.products[1].details["current"]=json!(false);
+        snapshot.products[1].disposition="needs_attention".into();
+        let stale=result(&snapshot,&platform);
+        assert_eq!(stale.products[1].installation_health,ui::InstallationHealth::ActionRequired);
+        assert_eq!(stale.products[1].status,O::ActionRequired);
+        assert!(stale.products[1].reason.contains("inventory is stale"));
+        assert_eq!(stale.overall_status,O::Ready);
+        snapshot.products[1].disposition="quarantined".into();
+        let quarantined=result(&snapshot,&platform);
+        assert_eq!(quarantined.products[1].status,O::ActionRequired);
+        assert!(quarantined.products[1].reason.contains("quarantined"));
+    }
+    #[test]
+    fn captured_beta_profile_requires_completed_publication_and_512_reserve() {
+        let (prepared_fixture,mut profile,census,native)=test_fixture::prepared();
+        profile.id="arturia-pure-lofi".into();
+        let revision=publication::Revision {schema:1,id:"ab".repeat(16),
+            class_id:profile.class.class_id.clone(),external_ids:native.external_ids,
+            profile:profile.clone(),profile_sha256:"cd".repeat(32),census,
+            registration:prepared_fixture.r.clone(),performance:Performance::default(),
+            target:prepared_fixture.outer.join("target"),parent:None,transaction:"ef".repeat(16),
+            adopted_legacy:false,qualification:None};
+        let (snapshot,_)=fixture();
+        let mut product=snapshot.products[0].clone();
+        product.class_id=profile.class.class_id.clone();
+        product.version=profile.class.version.clone();
+        product.module_sha256=profile.module_sha256.clone();
+        product.runner=profile.requirements.runner.id.clone();
+        product.details=json!({"profile":{"id":profile.id,"revision":profile.revision},
+            "qualification":null,"environment_revision":profile.requirements.environment_revision,
+            "host_sha256":profile.requirements.host_sha256,
+            "host_source_sha256":profile.requirements.host_source_sha256,
+            "native_sha256":profile.requirements.native_sha256,
+            "publication_complete":true,"added_frames":512});
+        assert!(accepted_profile_captured(std::slice::from_ref(&profile),&revision,&product));
+        product.details["added_frames"]=json!(256);
+        assert!(!accepted_profile_captured(std::slice::from_ref(&profile),&revision,&product));
+        product.details["added_frames"]=json!(512);
+        product.details["publication_complete"]=json!(false);
+        assert!(!accepted_profile_captured(std::slice::from_ref(&profile),&revision,&product));
     }
     #[test]
     fn authority_read_failure_is_distinct_from_unqualified_product() {

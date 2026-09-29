@@ -229,7 +229,7 @@ mod tests {
         ));
         let pulse = serde_json::json!({"schema":crate::model::OPERATOR_SCHEMA,
             "service_state":"active","dsp":0,"keepers":2,"maintenance":0,
-            "pending_transactions":0,"current_generation":"exact-generation",
+            "pending_transactions":0,"cleanup_unconfirmed":false,"current_generation":"exact-generation",
             "operation":null,"operation_live":false});
         assert!(matches!(decode_reply(Query::Pulse, &serde_json::to_vec(&pulse).unwrap()),
             Ok(Reply::Pulse(_))));

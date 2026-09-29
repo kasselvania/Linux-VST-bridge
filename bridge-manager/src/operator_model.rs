@@ -421,6 +421,8 @@ pub struct Pulse {
     pub keepers: Option<usize>,
     pub maintenance: Option<usize>,
     pub pending_transactions: usize,
+    /// Lightweight service change signal; absence invalidates current health.
+    pub cleanup_unconfirmed: Option<bool>,
     pub current_generation: String,
     pub operation: Option<serde_json::Value>,
     pub operation_live: bool,
