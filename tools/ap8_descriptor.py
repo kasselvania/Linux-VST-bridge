@@ -1,12 +1,19 @@
 """Prepare one native descriptor from actual SDK inspection (not a scanner)."""
 import argparse,hashlib,json,pathlib,uuid,math,copy
 def prebuilt_descriptor(records,class_id,module_sha256):
-    """Portable metadata uses SDK-declared defaults, never a user's current preset."""
+    """Use valid SDK defaults; invalid defaults retain exact validated readback.
+
+    Some vendors expose MIDI helpers with default -1 and normalized readback 0.
+    We cannot invent a default for these. Their observed value remains part of
+    the exact match and a different installation value refuses this proxy.
+    """
     records=copy.deepcopy(records)
     for record in records:
         if record.get('state')=='ap8_parameters':
             for parameter in record['parameters']:
-                parameter[6]=parameter[5]
+                value=parameter[5]
+                if isinstance(value,(int,float)) and math.isfinite(value) and 0<=value<=1:
+                    parameter[6]=value
     return generate(records,class_id,module_sha256)
 
 def generate(records,class_id,module_sha256,profile=None):

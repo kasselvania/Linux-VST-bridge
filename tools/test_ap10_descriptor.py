@@ -15,6 +15,15 @@ class Descriptor(unittest.TestCase):
   self.assertEqual(p[6],.9)
   p[5]=.1
   self.assertNotEqual(prebuilt_descriptor(r,'00'*16,'ab'*32),first)
+ def test_invalid_sdk_default_requires_the_exact_valid_observation(self):
+  r=self.records()+[dict(state='ap12_class',class_id='00'*16,name='Test',vendor='Test',version='1',subcategories='Fx',metadata_tier='factory_2')]
+  p=next(x for x in r if x['state']=='ap8_parameters')['parameters'][0]
+  p[5]=-1;p[6]=0
+  first=prebuilt_descriptor(r,'00'*16,'ab'*32)
+  p[6]=.1
+  self.assertNotEqual(prebuilt_descriptor(r,'00'*16,'ab'*32),first)
+  p[6]=None
+  with self.assertRaises(ValueError):prebuilt_descriptor(r,'00'*16,'ab'*32)
  def test_exact_profile_zero_channel_policy(self):
   r=self.records(False)+[dict(state='ap12_class',class_id='00'*16,name='Test',vendor='Test',version='1',subcategories='Instrument|Synth',metadata_tier='factory_2')]
   output=next(x for x in r if x.get('media')==1 and x['direction']==1);output['channels']=0

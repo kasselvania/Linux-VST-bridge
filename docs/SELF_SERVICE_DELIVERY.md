@@ -44,8 +44,11 @@ declared clean source tree, and compares the resulting bytes before signing.
 On the customer's machine, ordinary managed inspection selects an exact
 module SHA-256 and Windows class ID. The kit-owned descriptor generator checks
 the observed buses, parameters, controller association and vendor metadata
-against the shipped descriptor. Presentation defaults use the SDK-declared
-defaults, so a user's current parameter values are not package metadata.
+against the shipped descriptor. Presentation uses valid SDK-declared defaults.
+If the vendor supplies an invalid default, the existing validated readback is
+retained as an exact match requirement; a different value refuses this proxy.
+The Arturia fixtures expose MIDI helpers with default -1 and observed value 0.
+No guessed default or preset substitution is introduced.
 Existing class IDs remain stable across builds. Preparation then copies the
 verified ELF bytes into the managed candidate; it invokes no compiler, Flatpak
 SDK, VST3 SDK or download. An unlisted module or different metadata is refused,
