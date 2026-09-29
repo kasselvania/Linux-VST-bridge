@@ -456,8 +456,14 @@ pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
     append_discovered(m, &sw, &records, &managed_bindings, &db, &mut products, None)?;
     let discovery_at = Instant::now(); phases.push(("inventory_discovery",discovery_at.duration_since(record_at).as_millis()));
     let mut installer_live = BTreeMap::new();
+    let runners = catalogue.as_ref().map(|c| &c.environments);
+    let legacy_default = runners.and_then(|environments| catalogue::OnboardingRuntimePolicy::from_environments(environments).ok().flatten())
+        .and_then(|policy| environments_runner(catalogue.as_ref(), &policy.default_runner_key));
+    let delivered = linux_vst_bridge::runtime_delivery::installed(m)?;
+    let default = delivered.as_ref().map(|runner| -> Result<(String, Runner)> {
+        Ok((catalogue::runner_key(runner)?,runner.clone())) }).transpose()?.or(legacy_default);
     let mut onboarding = onboarding::projection_current(m, None,
-        onboarding::CurrentProjectionInputs {sw:&sw,catalogue:catalogue.as_ref(),
+        onboarding::CurrentProjectionInputs {sw:&sw,default_runner:default.as_ref(),
             registry:&db,records:&records,installers:&installers}, |operation| {
                 let live=onboarding::live(operation)?;
                 installer_live.insert(operation.to_owned(),live);
@@ -488,12 +494,6 @@ pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
     let (workspaces, workspace_installers) = workspace_task.join()
         .map_err(|_| "operator_workspace_probe_failed")??;
     onboarding.retain(|row| !workspace_installers.contains(&row.installer));
-    let runners = catalogue.as_ref().map(|c| &c.environments);
-    let legacy_default = runners.and_then(|environments| catalogue::OnboardingRuntimePolicy::from_environments(environments).ok().flatten())
-        .and_then(|policy| environments_runner(catalogue.as_ref(), &policy.default_runner_key));
-    let delivered = linux_vst_bridge::runtime_delivery::installed(m)?;
-    let default = delivered.as_ref().map(|runner| -> Result<(String, Runner)> {
-        Ok((catalogue::runner_key(runner)?,runner.clone())) }).transpose()?.or(legacy_default);
     let installer_setups = onboarding::setup_projection_current(m, &onboarding, &products,
         &workspace_installers, &records, &installers, default.as_ref())?;
     let workspace_at = Instant::now(); phases.push(("workspace_and_cards",workspace_at.duration_since(joined_at).as_millis()));

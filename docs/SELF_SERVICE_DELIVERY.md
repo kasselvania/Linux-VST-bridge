@@ -43,7 +43,7 @@ declared clean source tree, and compares the resulting bytes before signing.
 
 On the customer's machine, ordinary managed inspection selects an exact
 module SHA-256 and Windows class ID. The kit-owned descriptor generator checks
-the observed buses, parameters, controller association and vendor metadata
+the observed buses, parameters and vendor metadata
 against the shipped descriptor. Presentation uses valid SDK-declared defaults.
 If the vendor supplies an invalid default, the existing validated readback is
 retained as an exact match requirement; a different value refuses this proxy.
@@ -70,7 +70,7 @@ package result and the FRAGMENTS trial journey under `evidence/` as they occur.
 Keep install, authorization, sound, editor, persistence, reboot and recovery
 results separate; leave the beta journey to-do open until all required results
 have been observed.
-# Package selection dependency
+## Package selection dependency
 
 This branch integrates the package-owner, idle-transport and Setup/update
 controls from draft PR #198, head `9402a89aecb4cba95791bf7c4b66316743fb1cb7`.

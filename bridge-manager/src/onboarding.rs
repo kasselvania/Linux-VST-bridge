@@ -595,18 +595,19 @@ fn projection_with_live(
     is_live: impl FnMut(&str) -> Result<bool>,
 ) -> Result<Vec<ui::Onboarding>> {
     let sw = software(m)?;
-    let catalogue = sw.native_catalogue.as_ref().map(|_| sw.catalogue(m)).transpose()?;
+    let installed_runners = runners(m)?;
+    let default = default_runtime(m, &installed_runners)?;
     let registry = m.registry()?;
     let records = history_records(m)?;
     let installers = installer_import::list(m)?;
     projection_current(m, busy, CurrentProjectionInputs {
-        sw: &sw, catalogue: catalogue.as_ref(), registry: &registry,
+        sw: &sw, default_runner: default.as_ref(), registry: &registry,
         records: &records, installers: &installers,
     }, is_live)
 }
 pub(super) struct CurrentProjectionInputs<'a> {
     pub sw: &'a Software,
-    pub catalogue: Option<&'a catalogue::Catalogue>,
+    pub default_runner: Option<&'a (String, Runner)>,
     pub registry: &'a Registry,
     pub records: &'a [Record],
     pub installers: &'a [installer_import::Installer],
@@ -614,11 +615,9 @@ pub(super) struct CurrentProjectionInputs<'a> {
 pub(super) fn projection_current(m: &Manager, busy: Option<&str>,
     inputs: CurrentProjectionInputs<'_>, mut is_live: impl FnMut(&str) -> Result<bool>,
 ) -> Result<Vec<ui::Onboarding>> {
-    let CurrentProjectionInputs { sw, catalogue, registry, records, installers } = inputs;
+    let CurrentProjectionInputs { sw, default_runner, registry, records, installers } = inputs;
     let mut rows = vec![];
-    let runners = runners_from_catalogue(catalogue)?;
-    let default = default_runtime_from_catalogue(catalogue, &runners);
-    let preferred: Vec<_> = default.iter().cloned().collect();
+    let preferred: Vec<_> = default_runner.into_iter().cloned().collect();
     for installer in installers {
         let bound: Vec<_> = records
             .iter()
@@ -845,8 +844,8 @@ fn compatibility_label(existing: bool, runner: Option<&Runner>,
     if !existing {
         return default.map(|_| "Recommended setup: Standard".into());
     }
-    let exact_standard = runner.is_some_and(|runner| default.is_some_and(|(key, _)|
-        runner.id == catalogue::STANDARD_ONBOARDING_RUNNER
+    let exact_standard = runner.is_some_and(|runner| default.is_some_and(|(key, selected)|
+        runner.id == selected.id
             && runner.policy.is_none() && runner.verify().is_ok()
             && runner_key(runner).is_ok_and(|actual| &actual == key)));
     Some(if exact_standard { "Standard · recommended" }
@@ -1220,6 +1219,34 @@ mod tests {
         fs::write(&p, b).unwrap();
         let i = installer_import::import(&f.m, file(&p).unwrap()).unwrap();
         (f, i)
+    }
+    #[test]
+    fn imported_installer_uses_the_verified_delivered_default_without_catalogue() {
+        let (f, installer) = fixture();
+        let a = f.r.host.clone();
+        let sw = Software { manager:a.clone(),supervisor:a.clone(),ownership:a.clone(),host:a.clone(),
+            source_manifest:a.clone(),source_sha256:a.sha256.clone(),operator_frontend:None,
+            native_catalogue:None,preparation_kit:None,installer_launch:None };
+        let registry = f.m.registry().unwrap();
+        let installers = [installer.clone()];
+        let mut runner = f.r.environment.runner.clone();
+        runner.id = linux_vst_bridge::runtime_delivery::ID.into();
+        runner.policy = None;
+        let selected = (runner_key(&runner).unwrap(), runner.clone());
+        let project = |default_runner| projection_current(&f.m, None, CurrentProjectionInputs {
+            sw: &sw, default_runner, registry: &registry, records: &[], installers: &installers,
+        }, |_| Ok(false)).unwrap();
+        assert!(project(None)[0].actions.is_empty());
+        let rows = project(Some(&selected));
+        assert_eq!(rows[0].actions.len(), 1);
+        assert_eq!(rows[0].actions[0].action, ui::Action::InstallerEnvironmentCreate {
+            installer: installer.id, runner: selected.0.clone(),
+        });
+        let setups = setup_projection_current(&f.m, &rows, &[],
+            &Default::default(), &[], &installers, Some(&selected)).unwrap();
+        assert_eq!(setups[0].primary.as_ref().unwrap().action, rows[0].actions[0].action);
+        assert_eq!(compatibility_label(true, Some(&runner), Some(&selected), false).as_deref(),
+            Some("Standard · recommended"));
     }
     #[test]
     fn policy_action_requires_current_verified_pe_adapter() {
