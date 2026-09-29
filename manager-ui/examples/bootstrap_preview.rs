@@ -1,5 +1,5 @@
 //! Source preview of the explicit system-package first-run screen.
-//! Usage: OUTPUT.png [WIDTH] [first|activate|attention]
+//! Usage: OUTPUT.png [WIDTH] [first|legacy|stop|activate|attention]
 #[path = "../src/bootstrap.rs"]
 #[allow(dead_code)]
 mod bootstrap;
@@ -58,6 +58,8 @@ fn main() -> eframe::Result {
         .unwrap_or(960.0);
     let bootstrap = match args.get(2).map(String::as_str).unwrap_or("first") {
         "first" => bootstrap::Bootstrap::new(),
+        "legacy" => bootstrap::Bootstrap::legacy_adoptable_preview(),
+        "stop" => bootstrap::Bootstrap::repair_active_preview(),
         "activate" => bootstrap::Bootstrap::needs_activation(),
         "attention" => bootstrap::Bootstrap::attention("package_transition_needs_recovery".into()),
         other => panic!("unknown state: {other}"),

@@ -78,6 +78,13 @@ selected generation. Package-manager removal removes `/usr` files only;
 user-owned software and data remain. Reinstalling the same verified package can
 adopt the retained generation. A routine package update never auto-selects a
 new generation, and rollback never silently chooses an arbitrary older one.
+The paired system frontend has a separate read-only schema-2 bootstrap status
+and an explicit `package-stop-for-repair` command. The latter is offered only
+for a verified selected legacy or package generation whose loaded active user
+unit still executes the exact selected manager, whose repairable routes contain
+no foreign owner, and whose DSP, keeper, maintenance, installer, vendor,
+workspace, transaction and cleanup state is clean. It does not adopt, switch
+or start a generation. Package adoption retains its stopped-service gate.
 After adoption, rollback or recovery reaches an exact disk route, the manager
 runs a bounded `systemctl --user daemon-reload` and checks the effective unit
 fragment and `ExecStart` against the selected immutable manager. The transition

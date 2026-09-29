@@ -48,7 +48,6 @@ fn main() -> eframe::Result {
     } else {
         match bootstrap::entry() {
             Ok(bootstrap::Entry::Ordinary) => None,
-            Ok(bootstrap::Entry::FirstRun) => Some(bootstrap::Bootstrap::new()),
             Ok(bootstrap::Entry::Checking) => Some(bootstrap::Bootstrap::checking()),
             Err(error) => Some(bootstrap::Bootstrap::attention(error)),
         }

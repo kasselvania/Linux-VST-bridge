@@ -80,6 +80,19 @@ an active matching unit and healthy owner readback. The read-only
 An active exact service is idempotent. The action holds no registry or
 service lock while systemd starts the service.
 
+The fixed system frontend uses the separate read-only
+`package-bootstrap-status` schema-2 posture for first-run buttons. It calls a
+selected generation `legacy_adoptable` only when `software.json`, the original
+`session.py`/`ownership.py` layout, the installed `/usr` package intake and
+the predecessor route plan all verify. A selected package generation with a
+missing or changed generation record is a refusal. For a missing or stale
+package-owned route, `repair_active` requires the loaded unit to execute the
+exact selected manager and clean idle ownership. The explicit
+`package-stop-for-repair` command repeats those checks, stops only that user
+unit under a bounded systemd call and verifies it retired before package
+adoption may repair routes. A foreign route or loaded service remains a
+refusal. Neither status nor page load stops a service.
+
 If installation, adoption, activation or a later package update fails, the
 user-owned software record and package journal retain the exact owner of the
 next recovery. Package rollback remains separate from a native-proxy

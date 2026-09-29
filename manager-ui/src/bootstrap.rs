@@ -16,7 +16,6 @@ const SYSTEM_MANAGER: &str = "/usr/bin/linux-vst-bridge";
 #[derive(Debug, PartialEq, Eq)]
 pub enum Entry {
     Checking,
-    FirstRun,
     Ordinary,
 }
 
@@ -25,18 +24,11 @@ fn selected_frontend() -> Result<PathBuf, String> {
     Ok(PathBuf::from(home).join(".local/bin/linux-audio-compatibility-manager"))
 }
 
-fn selected_manager() -> Result<PathBuf, String> {
-    let home = std::env::var_os("HOME").ok_or("Home directory unavailable")?;
-    Ok(PathBuf::from(home).join(".local/bin/linux-vst-bridge"))
-}
-
-fn select_entry(executable: &Path, route_present: bool) -> Entry {
+fn select_entry(executable: &Path) -> Entry {
     if executable != Path::new(SYSTEM_FRONTEND) {
         Entry::Ordinary
-    } else if route_present {
-        Entry::Checking
     } else {
-        Entry::FirstRun
+        Entry::Checking
     }
 }
 
@@ -45,13 +37,7 @@ pub fn entry() -> Result<Entry, String> {
     if executable != Path::new(SYSTEM_FRONTEND) {
         return Ok(Entry::Ordinary);
     }
-    match std::fs::symlink_metadata(selected_manager()?) {
-        Ok(_) => Ok(select_entry(&executable, true)),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            Ok(select_entry(&executable, false))
-        }
-        Err(_) => Err("Selected manager route could not be inspected".into()),
-    }
+    Ok(select_entry(&executable))
 }
 
 pub fn launch_selected() -> Result<(), String> {
@@ -67,11 +53,12 @@ pub fn launch_selected() -> Result<(), String> {
         .map_err(|_| "Selected application could not be opened".into())
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Operation {
     Adopt,
     Activate,
     Recover,
+    StopForRepair,
     Status,
 }
 
@@ -81,7 +68,8 @@ fn fixed_command(operation: Operation) -> Command {
         Operation::Adopt => "package-adopt",
         Operation::Activate => "package-activate",
         Operation::Recover => "package-recover",
-        Operation::Status => "package-activation-status",
+        Operation::StopForRepair => "package-stop-for-repair",
+        Operation::Status => "package-bootstrap-status",
     });
     command
 }
@@ -200,6 +188,11 @@ fn execute(operation: Operation) -> Result<Vec<u8>, String> {
 enum Completion {
     Selected,
     NeedsActivation,
+    FreshAdoptable,
+    LegacyAdoptable,
+    LegacyActive,
+    RepairActive,
+    RepairInactive,
 }
 
 fn run(operation: Operation) -> Result<Completion, String> {
@@ -214,6 +207,11 @@ fn completed_status(operation: Operation, state: &str) -> Result<Completion, Str
         "active" => Ok(Completion::Selected),
         "inactive" if operation != Operation::Activate => Ok(Completion::NeedsActivation),
         "inactive" => Err("The bridge service did not become active after setup".into()),
+        "fresh_adoptable" => Ok(Completion::FreshAdoptable),
+        "legacy_adoptable" => Ok(Completion::LegacyAdoptable),
+        "legacy_active" => Ok(Completion::LegacyActive),
+        "repair_active" => Ok(Completion::RepairActive),
+        "repair_inactive" => Ok(Completion::RepairInactive),
         _ => Err("Package activation status is invalid".into()),
     }
 }
@@ -237,13 +235,18 @@ fn parse_activation_status(data: &[u8]) -> Result<&'static str, String> {
     }
     let result: ActivationStatus = serde_json::from_slice(data)
         .map_err(|_| "Package activation status is malformed".to_owned())?;
-    if result.schema != 1 || result.package_version.is_empty() || result.package_version.len() > 80
+    if result.schema != 2 || result.package_version.is_empty() || result.package_version.len() > 80
     {
         return Err("Package activation status is incompatible".into());
     }
     match result.state.as_str() {
         "active" => Ok("active"),
         "inactive" => Ok("inactive"),
+        "fresh_adoptable" => Ok("fresh_adoptable"),
+        "legacy_adoptable" => Ok("legacy_adoptable"),
+        "legacy_active" => Ok("legacy_active"),
+        "repair_active" => Ok("repair_active"),
+        "repair_inactive" => Ok("repair_inactive"),
         _ => Err("Package activation status is unknown".into()),
     }
 }
@@ -252,17 +255,14 @@ fn exact_refusal(error: &str, code: &str) -> bool {
     error.trim() == code || error.trim() == format!("Error: {code:?}")
 }
 
-fn adoption_can_retry(error: &str) -> bool {
-    exact_refusal(error, "package_routes_need_repair")
-        || exact_refusal(error, "package_service_effective_route_mismatch")
-}
-
 pub struct Bootstrap {
     receiver: Option<Receiver<Result<Completion, String>>>,
     running: Option<Operation>,
     result: Option<String>,
     recovery_offered: bool,
     package_adopt_offered: bool,
+    stop_offered: bool,
+    legacy_adoptable: bool,
     adopted: bool,
     attention: bool,
     check_queued: bool,
@@ -276,6 +276,8 @@ impl Bootstrap {
             result: None,
             recovery_offered: false,
             package_adopt_offered: false,
+            stop_offered: false,
+            legacy_adoptable: false,
             adopted: false,
             attention: false,
             check_queued: false,
@@ -298,13 +300,28 @@ impl Bootstrap {
         }
     }
 
+    #[allow(dead_code)]
+    pub fn legacy_adoptable_preview() -> Self {
+        let mut screen = Self::new();
+        screen.apply_completion(Ok(Completion::LegacyAdoptable));
+        screen
+    }
+
+    #[allow(dead_code)]
+    pub fn repair_active_preview() -> Self {
+        let mut screen = Self::new();
+        screen.apply_completion(Ok(Completion::RepairActive));
+        screen
+    }
+
     pub fn attention(error: String) -> Self {
-        let package_adopt_offered = adoption_can_retry(&error);
         Self {
             receiver: None,
             running: None,
             recovery_offered: exact_refusal(&error, "package_transition_needs_recovery"),
-            package_adopt_offered,
+            package_adopt_offered: false,
+            stop_offered: false,
+            legacy_adoptable: false,
             result: Some(error),
             adopted: false,
             attention: true,
@@ -323,6 +340,44 @@ impl Bootstrap {
             ctx.request_repaint();
         });
     }
+
+    fn apply_completion(&mut self, result: Result<Completion, String>) -> bool {
+        self.recovery_offered = false;
+        self.package_adopt_offered = false;
+        self.stop_offered = false;
+        self.legacy_adoptable = false;
+        self.adopted = false;
+        self.attention = false;
+        self.result = None;
+        match result {
+            Ok(Completion::Selected) => return true,
+            Ok(Completion::NeedsActivation) => self.adopted = true,
+            Ok(Completion::FreshAdoptable) => {},
+            Ok(Completion::LegacyAdoptable) => {
+                self.package_adopt_offered = true;
+                self.legacy_adoptable = true;
+            }
+            Ok(Completion::LegacyActive) | Ok(Completion::RepairActive) => {
+                self.stop_offered = true;
+            }
+            Ok(Completion::RepairInactive) => self.package_adopt_offered = true,
+            Err(error) => {
+                self.recovery_offered = exact_refusal(&error, "package_transition_needs_recovery");
+                self.attention = true;
+                self.result = Some(error);
+            }
+        }
+        false
+    }
+
+    fn primary_action(&self) -> (Operation, &'static str) {
+        if self.recovery_offered { (Operation::Recover, "Finish interrupted setup") }
+        else if self.stop_offered { (Operation::StopForRepair, "Stop bridge service for setup") }
+        else if self.package_adopt_offered { (Operation::Adopt, "Apply installed package") }
+        else if self.attention { (Operation::Status, "Check again") }
+        else if self.adopted { (Operation::Activate, "Start bridge service") }
+        else { (Operation::Adopt, "Set up application") }
+    }
 }
 
 impl eframe::App for Bootstrap {
@@ -338,8 +393,8 @@ impl eframe::App for Bootstrap {
         {
             self.receiver = None;
             self.running = None;
-            match result {
-                Ok(Completion::Selected) => match launch_selected() {
+            if self.apply_completion(result) {
+                match launch_selected() {
                     Ok(()) => {
                         ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                         return;
@@ -348,60 +403,39 @@ impl eframe::App for Bootstrap {
                         self.attention = true;
                         self.result = Some(error);
                     }
-                },
-                Ok(Completion::NeedsActivation) => {
-                    self.adopted = true;
-                    self.recovery_offered = false;
-                    self.package_adopt_offered = false;
-                    self.attention = false;
-                    self.result = None;
-                }
-                Err(error) => {
-                    self.recovery_offered =
-                        exact_refusal(&error, "package_transition_needs_recovery");
-                    self.package_adopt_offered = adoption_can_retry(&error);
-                    self.attention = true;
-                    self.result = Some(error);
                 }
             }
         }
         egui::CentralPanel::default().show(ui, |ui| {
-            ui.heading("Set up Linux VST Bridge");
-            ui.label("The application package is installed. Set up your private, managed copy before opening your Library.");
+            ui.heading(if self.stop_offered || (self.package_adopt_offered && !self.legacy_adoptable) {
+                "Repair Linux VST Bridge"
+            } else { "Set up Linux VST Bridge" });
+            ui.label(if self.stop_offered || self.package_adopt_offered {
+                "An existing managed installation is selected. The manager will keep its plug-ins and rollback history while checking application routes."
+            } else {
+                "The application package is installed. Set up your private, managed copy before opening your Library."
+            });
             ui.label("The manager checks existing managed plug-ins and installation records before changing application files. Vendor authorization remains yours.");
             if let Some(operation) = self.running {
                 ui.strong(match operation {
                     Operation::Adopt => "Setting up the application…",
                     Operation::Activate => "Starting the bridge service…",
                     Operation::Recover => "Finishing interrupted setup…",
+                    Operation::StopForRepair => "Stopping the idle bridge service…",
                     Operation::Status => "Checking package status…",
                 });
                 ui.small("Keep this window open while the package transition completes.");
-            } else if self.recovery_offered {
-                ui.label("An earlier setup stopped before it finished. Finish that saved change before opening your Library.");
-                if ui.add_sized([250.0, 48.0], egui::Button::new("Finish interrupted setup")).clicked() {
-                    self.submit(Operation::Recover, ui.ctx().clone());
+            } else {
+                if self.recovery_offered { ui.label("An earlier setup stopped before it finished. Finish that saved change before opening your Library."); }
+                else if self.stop_offered { ui.label("Close your DAW first. The manager will confirm there are no active plug-ins or setup tasks, then stop the selected bridge service so its application routes can be repaired."); }
+                else if self.package_adopt_offered && self.legacy_adoptable { ui.label("Your existing managed installation is verified. Apply the installed package to retain it as the rollback predecessor."); }
+                else if self.package_adopt_offered { ui.label("Application routes need attention. Applying the installed package rechecks the exact generation and refuses a route it does not own."); }
+                else if self.attention { ui.label("The selected application needs attention. Its state has not been changed by this screen."); }
+                else if self.adopted { ui.label("Application files and routes are selected. Start the bridge service to finish first-run setup."); }
+                let (operation, label) = self.primary_action();
+                if ui.add_sized([250.0, 48.0], egui::Button::new(label)).clicked() {
+                    self.submit(operation, ui.ctx().clone());
                 }
-            } else if self.package_adopt_offered {
-                ui.label("Application routes need attention. Applying the installed package will recheck the current generation and refuse a route it does not own.");
-                if ui.add_sized([250.0, 48.0], egui::Button::new("Apply installed package")).clicked() {
-                    self.submit(Operation::Adopt, ui.ctx().clone());
-                }
-            } else if self.attention {
-                ui.label("The selected application needs attention. Its state has not been changed by this screen.");
-                if ui.add_sized([250.0, 48.0], egui::Button::new("Check again")).clicked() {
-                    match Command::new(SYSTEM_FRONTEND).spawn() {
-                        Ok(_) => ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close),
-                        Err(_) => self.result = Some("Package launcher could not be reopened".into()),
-                    }
-                }
-            } else if self.adopted {
-                ui.label("Application files and routes are selected. Start the bridge service to finish first-run setup.");
-                if ui.add_sized([250.0, 48.0], egui::Button::new("Start bridge service")).clicked() {
-                    self.submit(Operation::Activate, ui.ctx().clone());
-                }
-            } else if ui.add_sized([250.0, 48.0], egui::Button::new("Set up application")).clicked() {
-                self.submit(Operation::Adopt, ui.ctx().clone());
             }
             if let Some(result) = &self.result {
                 if self.recovery_offered || self.package_adopt_offered {
@@ -425,7 +459,8 @@ mod tests {
             (Operation::Adopt, "package-adopt"),
             (Operation::Activate, "package-activate"),
             (Operation::Recover, "package-recover"),
-            (Operation::Status, "package-activation-status"),
+            (Operation::StopForRepair, "package-stop-for-repair"),
+            (Operation::Status, "package-bootstrap-status"),
         ] {
             let command = fixed_command(operation);
             assert_eq!(command.get_program(), SYSTEM_MANAGER);
@@ -433,17 +468,13 @@ mod tests {
         }
     }
     #[test]
-    fn system_entry_requires_explicit_adoption_only_without_user_route() {
+    fn system_entry_checks_exact_manager_posture_before_offering_a_button() {
         assert_eq!(
-            select_entry(Path::new(SYSTEM_FRONTEND), false),
-            Entry::FirstRun
-        );
-        assert_eq!(
-            select_entry(Path::new(SYSTEM_FRONTEND), true),
+            select_entry(Path::new(SYSTEM_FRONTEND)),
             Entry::Checking
         );
         assert_eq!(
-            select_entry(Path::new("/tmp/development-frontend"), false),
+            select_entry(Path::new("/tmp/development-frontend")),
             Entry::Ordinary
         );
         let checking = Bootstrap::checking();
@@ -452,18 +483,19 @@ mod tests {
     }
     #[test]
     fn activation_readback_distinguishes_exact_active_inactive_and_invalid() {
-        for state in ["active", "inactive"] {
-            let data = serde_json::json!({"schema":1,"state":state,"package_version":"0.1.0"});
+        for state in ["active", "inactive", "fresh_adoptable", "legacy_adoptable",
+            "legacy_active", "repair_active", "repair_inactive"] {
+            let data = serde_json::json!({"schema":2,"state":state,"package_version":"0.1.0"});
             assert_eq!(
                 parse_activation_status(data.to_string().as_bytes()).unwrap(),
                 state
             );
         }
         for value in [
-            serde_json::json!({"schema":2,"state":"active","package_version":"0.1.0"}),
-            serde_json::json!({"schema":1,"state":"unknown","package_version":"0.1.0"}),
-            serde_json::json!({"schema":1,"state":"active","package_version":""}),
-            serde_json::json!({"schema":1,"state":"active","package_version":"0.1.0","extra":true}),
+            serde_json::json!({"schema":1,"state":"active","package_version":"0.1.0"}),
+            serde_json::json!({"schema":2,"state":"unknown","package_version":"0.1.0"}),
+            serde_json::json!({"schema":2,"state":"active","package_version":""}),
+            serde_json::json!({"schema":2,"state":"active","package_version":"0.1.0","extra":true}),
         ] {
             assert!(parse_activation_status(value.to_string().as_bytes()).is_err());
         }
@@ -496,7 +528,7 @@ mod tests {
         assert!(collect_pipe(&mut long, &mut Vec::new(), 2).is_err());
     }
     #[test]
-    fn only_exact_package_refusals_offer_recovery_or_reapplication() {
+    fn only_manager_owned_postures_offer_normal_setup_buttons() {
         for raw in [
             "package_transition_needs_recovery",
             "Error: \"package_transition_needs_recovery\"\n",
@@ -505,21 +537,28 @@ mod tests {
             assert!(screen.recovery_offered);
             assert!(!screen.package_adopt_offered);
         }
-        for raw in [
-            "package_routes_need_repair",
-            "Error: \"package_service_effective_route_mismatch\"\n",
+        for (state, action, label) in [
+            ("fresh_adoptable", Operation::Adopt, "Set up application"),
+            ("legacy_adoptable", Operation::Adopt, "Apply installed package"),
+            ("legacy_active", Operation::StopForRepair, "Stop bridge service for setup"),
+            ("repair_active", Operation::StopForRepair, "Stop bridge service for setup"),
+            ("repair_inactive", Operation::Adopt, "Apply installed package"),
+            ("inactive", Operation::Activate, "Start bridge service"),
         ] {
-            let screen = Bootstrap::attention(raw.into());
-            assert!(screen.package_adopt_offered);
-            assert!(!screen.recovery_offered);
+            let mut screen = Bootstrap::checking();
+            assert!(!screen.apply_completion(completed_status(Operation::Status, state)));
+            assert_eq!(screen.primary_action(), (action, label));
         }
         for raw in [
             "prefix_package_routes_need_repair",
             "package_stop_service_first",
             "Error: \"package_transition_needs_recovery\": stale",
+            "package_routes_need_repair",
+            "Error: \"package_service_effective_route_mismatch\"\n",
         ] {
             let screen = Bootstrap::attention(raw.into());
             assert!(!screen.package_adopt_offered && !screen.recovery_offered);
+            assert_eq!(screen.primary_action(), (Operation::Status, "Check again"));
         }
     }
 }
