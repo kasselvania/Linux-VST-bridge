@@ -156,7 +156,7 @@ def validate(spec):
             "external_runtime", "files"}
     if set(spec) != base or spec["schema"] not in (1, 2):
         raise ValueError("PKG0 input schema")
-    if spec["operator_schema"] != 10:
+    if spec["operator_schema"] != 12:
         raise ValueError("paired operator schema differs")
     external = spec["external_runtime"]
     if (set(external) != {"id", "manifest_sha256"}

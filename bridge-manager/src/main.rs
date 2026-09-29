@@ -8,6 +8,7 @@ mod native_access_runner;
 mod experimental_runner;
 mod vendor_product_cli;
 mod operator_cli;
+mod readiness;
 mod installer_import;
 mod onboarding;
 mod daw_workspace;
@@ -1041,6 +1042,11 @@ fn serve(m: Manager) -> Result<()> {
                     peer.set_write_timeout(Some(Duration::from_secs(1)))?;
                     peer.write_all(&(bytes.len() as u32).to_le_bytes())?;
                     peer.write_all(&bytes)?;return Ok(());
+                }
+                if &greeting[..5]==b"LVP1\n" {
+                    peer.set_write_timeout(Some(Duration::from_millis(200)))?;
+                    peer.write_all(&[u8::from(blocked.load(Ordering::Acquire))])?;
+                    return Ok(());
                 }
                 if let Some(purpose) = inspection_purpose(&greeting[..5]) {
                     let mut size=[0;4];peer.read_exact(&mut size)?;

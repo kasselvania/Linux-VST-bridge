@@ -28,7 +28,8 @@ pub mod ui_observation;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::BTreeMap,
+    cell::RefCell,
+    collections::{BTreeMap, HashMap},
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     os::unix::fs::{symlink, MetadataExt, OpenOptionsExt, PermissionsExt},
@@ -75,8 +76,54 @@ pub fn file(p: &Path) -> Result<File> {
     )?;
     Ok(f)
 }
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct DigestFileIdentity {
+    device: u64,
+    inode: u64,
+    length: u64,
+    mode: u32,
+    uid: u32,
+    mtime: i64,
+    mtime_ns: i64,
+    ctime: i64,
+    ctime_ns: i64,
+}
+impl From<&fs::Metadata> for DigestFileIdentity {
+    fn from(m: &fs::Metadata) -> Self {
+        Self {device:m.dev(), inode:m.ino(), length:m.len(), mode:m.mode(), uid:m.uid(),
+            mtime:m.mtime(), mtime_ns:m.mtime_nsec(), ctime:m.ctime(), ctime_ns:m.ctime_nsec()}
+    }
+}
+thread_local! {
+    static READBACK_DIGESTS: RefCell<Option<HashMap<PathBuf, (DigestFileIdentity, String)>>> =
+        const { RefCell::new(None) };
+}
+/// Reuse exact digests only during one read-only projection. Every reuse
+/// reopens the path without following links and matches inode, size, owner,
+/// mode, modification and change times. No cache survives this call. Mutations
+/// and launches never enter this scope and retain their ordinary verification.
+pub fn with_readback_digests<T>(readback: impl FnOnce() -> T) -> T {
+    struct Restore(Option<HashMap<PathBuf, (DigestFileIdentity, String)>>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            READBACK_DIGESTS.with(|cache| *cache.borrow_mut() = self.0.take());
+        }
+    }
+    let previous = READBACK_DIGESTS.with(|cache| cache.replace(Some(HashMap::new())));
+    let _restore = Restore(previous);
+    readback()
+}
 pub fn digest(p: &Path) -> Result<String> {
     let mut f = file(p)?;
+    let before = DigestFileIdentity::from(&f.metadata()?);
+    if let Some(value) = READBACK_DIGESTS.with(|cache| cache.borrow().as_ref()
+        .and_then(|records| records.get(p))
+        .filter(|(identity, _)| *identity == before)
+        .map(|(_, value)| value.clone())) {
+        require(DigestFileIdentity::from(&fs::symlink_metadata(p)?) == before,
+            "artifact_changed_during_readback")?;
+        return Ok(value);
+    }
     let mut h = Sha256::new();
     let mut b = [0u8; 65536];
     loop {
@@ -86,7 +133,18 @@ pub fn digest(p: &Path) -> Result<String> {
         }
         h.update(&b[..n]);
     }
-    Ok(hex(&h.finalize()))
+    let value = hex(&h.finalize());
+    if READBACK_DIGESTS.with(|cache| cache.borrow().is_some()) {
+        require(DigestFileIdentity::from(&f.metadata()?) == before
+            && DigestFileIdentity::from(&fs::symlink_metadata(p)?) == before,
+            "artifact_changed_during_readback")?;
+        READBACK_DIGESTS.with(|cache| {
+            if let Some(records) = cache.borrow_mut().as_mut() {
+                records.insert(p.to_path_buf(), (before, value.clone()));
+            }
+        });
+    }
+    Ok(value)
 }
 pub fn read_json<T: for<'de> Deserialize<'de>>(p: &Path) -> Result<T> {
     let f = file(p)?;
@@ -720,6 +778,26 @@ impl Manager {
 mod tests {
     use super::*;
     use crate::test_fixture::Fixture;
+    #[test]
+    fn readback_digest_reuse_is_scoped_and_rechecks_file_identity() {
+        let f = Fixture::new();
+        let path = f.outer.join("readback-artifact");
+        fs::write(&path, b"first").unwrap();
+        let first = with_readback_digests(|| {
+            let first = digest(&path).unwrap();
+            assert_eq!(digest(&path).unwrap(), first);
+            assert_eq!(READBACK_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 1);
+            std::thread::sleep(std::time::Duration::from_millis(2));
+            fs::write(&path, b"other").unwrap();
+            assert_ne!(digest(&path).unwrap(), first);
+            first
+        });
+        assert!(READBACK_DIGESTS.with(|cache| cache.borrow().is_none()));
+        assert_ne!(digest(&path).unwrap(), first);
+        fs::remove_file(&path).unwrap();
+        std::os::unix::fs::symlink(f.r.host.path.clone(), &path).unwrap();
+        assert!(with_readback_digests(|| digest(&path)).is_err());
+    }
     #[test]
     fn installed_delay_is_inactive_versioned_and_separate_from_identity() {
         let f = Fixture::new();

@@ -8,6 +8,7 @@ cpi2-test-contract = []
 # Source-owned, non-product read-only convergence probe. Never included in a
 # normal manager/frontend package generation.
 pb0-r3-audit = []
+pb0-c0-audit = []
 [dependencies]
 ap1-native-client = { path = "../native-audio-client" }
 serde = { version = "=1.0.228", features = ["derive"] }
