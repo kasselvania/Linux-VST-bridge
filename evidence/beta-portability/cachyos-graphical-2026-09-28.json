@@ -22,7 +22,9 @@
     "pacman_install": "passed",
     "pacman_qk": "17 files, 0 missing",
     "kde_launcher": "Linux Audio Compatibility Manager found by Audio search with intended description",
-    "package_removal": "not_tested_in_this_receipt",
+    "package_removal": "passed; pacman -Q then reported package absent",
+    "same_fixture_reinstall": "passed; pacman -Qk again found 17 files, 0 missing",
+    "user_owned_marker": "preserved after removal and reinstall by final product-state directory readback",
     "executable_launch": "not_tested",
     "user_generation_adoption": "not_tested"
   },
