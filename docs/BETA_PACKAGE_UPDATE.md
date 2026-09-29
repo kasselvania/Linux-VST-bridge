@@ -57,7 +57,8 @@ artifacts, clean-stop refusal, keeper-retirement delay, exact predecessor
 retention, selected-route readback and independent software rollback. The
 [disposable CachyOS result](../evidence/beta-portability/cachyos-internal10-update-2026-09-29.json)
 proves the ordinary Applications journey through explicit stop, adoption,
-activation and Library reopen. It also retains the preceding refusal that
+activation, Library reopen and a cold reboot/reopen of the selected generation.
+It also retains the preceding refusal that
 identified the idle transport-root error. The old generation remained an exact
 rollback predecessor; rollback was not exercised in that graphical session.
 

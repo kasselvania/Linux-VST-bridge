@@ -35,7 +35,10 @@
     "visible Select installed version action adopted one immutable internal10 generation",
     "visible Start bridge service action activated the selected generation",
     "ordinary Linux Audio Compatibility Manager entry reopened the selected frontend",
-    "guest shut down normally"
+    "guest shut down normally, then cold-started from the same selected disk",
+    "after reboot and login, the normal Applications entry reopened Bridge ready with service ready, DSP 0/6, no stale transports or pending transactions, and cleanup confirmed",
+    "selected user manager package-activation-status after reboot reported active 0.12.0internal10",
+    "guest shut down normally after the cold-restart check"
   ],
   "selected_after": {
     "generation": "e98eeabc3c79a17e2dfd8d5c344e3490d2a851e591473626581c1ef039fce7e6",
@@ -45,6 +48,12 @@
     "service": "active",
     "ui_readback": "service ready; DSP 0/6; install/scan 0; stale transports 0; pending transactions 0; cleanup confirmed",
     "readiness": "compatibility not qualified on this VM"
+  },
+  "cold_reopen": {
+    "selected_version": "0.12.0internal10",
+    "normal_applications_launch": "passed",
+    "service_and_cleanup_readback": "passed",
+    "final_virtual_machine_state": "powered off normally"
   },
   "rollback_predecessor": {
     "generation": "d04fb3a8402a4882ecda4e446c90c03b398f1f72b72b22230d745910a43280e2",
