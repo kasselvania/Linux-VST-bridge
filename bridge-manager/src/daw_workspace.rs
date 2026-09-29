@@ -2917,7 +2917,11 @@ pub(super) fn current_projection(m: &Manager) -> Result<(Vec<ui::DawWorkspace>, 
     let w = load(m)?;
     let application_installers = application_installer_ids(&w);
     let owner_active = w.session_operation.as_ref()
-        .map(|op| unit_active(&unit(op, false)?)).transpose()?.unwrap_or(false);
+        .map(|op| -> Result<bool> {
+            let state = readiness::bounded_user_unit_state(&unit(op, false)?)
+                .map_err(|_| "daw_workspace_unit_readback")?;
+            Ok(state == "active")
+        }).transpose()?.unwrap_or(false);
     let cleanup = if w.history_recovery_required || w.state == State::CleanupUnconfirmed {
         "cleanup_unconfirmed"
     } else if owner_active || w.active_installation_operation.is_some()

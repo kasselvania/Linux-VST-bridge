@@ -469,11 +469,9 @@ pub fn unit(op: &str) -> Result<String> {
     Ok(format!("linux-vst-bridge-installer-{op}.service"))
 }
 pub fn live(op: &str) -> Result<bool> {
-    let out = Command::new("systemctl")
-        .args(["--user", "show", &unit(op)?, "-p", "ActiveState", "--value"])
-        .output()?;
-    require(out.status.success(), "installer_unit_unavailable")?;
-    match std::str::from_utf8(&out.stdout)?.trim() {
+    let state = readiness::bounded_user_unit_state(&unit(op)?)
+        .map_err(|_| "installer_unit_unavailable")?;
+    match state.as_str() {
         "active" | "activating" | "deactivating" | "reloading" => Ok(true),
         "inactive" | "failed" => Ok(false),
         _ => Err("installer_unit_state".into()),

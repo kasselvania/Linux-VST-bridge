@@ -24,7 +24,8 @@ Canonical MIDI0 was integrated into this branch at
 `6c1ea89dee9dfcdc93ecbb58388537b84ffe7377`); the final submitted PR
 head and tree are recorded in PR #188. The current rereview correction owns
 frontend readback recovery, prompt operation polling, coherent current-input
-capture, and exact publication/performance health.
+capture, exact publication/performance health, complete operation liveness,
+and bounded external-state rechecks outside registry authority.
 This branch is source-only plus staged read-only Deck measurement. It does not
 install or select a generation, launch a DAW, change audio settings or mutate
 installed product authority. The private UI2 generation remains selected on
@@ -41,10 +42,11 @@ repair uses a dedicated captured current overview, exact current action offers,
 a cheap adaptive pulse, separate installation health and support qualification,
 typed platform probes, and a support-specific export DTO. The
 [second staged read-only result](evidence/pb0-c0/deck-readonly-repair-2026-09-28.md)
-measured a final-source five-run median of **1.393 seconds** and a maximum of **2.039**;
+measured source `0a399a1` at a five-run median of **1.393 seconds** and a maximum of **2.039**;
 five pulses each took **0.024 seconds**. It retained all 16 products, four
 Setup rows and the FL workspace, with the truthful Bitwig audio verification
-step. PR #188 remains draft and no PB0 generation has been installed.
+step. The final corrected source requires its own read-only Deck repeat before
+merge. PR #188 remains draft and no PB0 generation has been installed.
 Independent source review and a later controlled install still precede a
 physical PB0 product claim; PB1 remains blocked.
 

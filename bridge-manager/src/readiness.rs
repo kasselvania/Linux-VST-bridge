@@ -109,6 +109,23 @@ fn bounded_command(program: &str, args: &[&str]) -> Probe<String> {
     bounded_child(child, Duration::from_secs(3))
 }
 
+/// A fixed, read-only systemd query with the same process-cohort and output
+/// bounds as platform probes. Callers supply only manager-derived unit names.
+pub(super) fn bounded_user_unit_state(unit: &str) -> Result<String> {
+    require(unit.len() <= 128 && unit.starts_with("linux-vst-bridge-")
+        && unit.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.')),
+        "readiness_unit_identity")?;
+    admit_unit_state(bounded_command("systemctl", &["--user", "show", unit,
+        "-p", "ActiveState", "--value"]))
+}
+fn admit_unit_state(probe: Probe<String>) -> Result<String> {
+    match probe {
+        Probe::Observed(state) if matches!(state.as_str(),
+            "active" | "activating" | "deactivating" | "reloading" | "inactive" | "failed") => Ok(state),
+        _ => Err("readiness_unit_state_unavailable".into()),
+    }
+}
+
 pub(super) fn service_state() -> &'static str {
     match bounded_command("systemctl", &["--user", "show", "-p", "ActiveState",
         "--value", "linux-vst-bridge.service"]) {
@@ -1205,6 +1222,20 @@ fn report_value(m: &Manager, snapshot: &ui::Snapshot,
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn bounded_unit_readback_admits_only_known_exact_states() {
+        for state in ["active","activating","deactivating","reloading","inactive","failed"] {
+            assert_eq!(admit_unit_state(Probe::Observed(state.into())).unwrap(),state);
+        }
+        for probe in [Probe::Absent,Probe::Unavailable,Probe::Malformed,
+            Probe::Observed("unknown".into())] {
+            assert!(admit_unit_state(probe).is_err());
+        }
+        for unit in ["other.service","linux-vst-bridge-../escape.service",
+            "linux-vst-bridge-unit with spaces.service"] {
+            assert!(bounded_user_unit_state(unit).is_err());
+        }
+    }
     fn support_software(f: &crate::test_fixture::Fixture) -> Software {
         let artifact = f.r.host.clone();
         Software { installer_launch: None, preparation_kit: None,

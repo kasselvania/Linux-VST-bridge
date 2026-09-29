@@ -140,33 +140,48 @@ pub(super) struct CurrentOverviewContext {
     captured_at: Instant,
 }
 impl CurrentOverviewContext {
-    pub(super) fn recheck(&self, m: &Manager) -> Result<()> {
-        let started = Instant::now();
-        let _guard = acquire_readback(m, ui::OperatorLock::Registry, None,
-            OPERATOR_WAIT, &mut vec![])?;
-        require(self.snapshot.state_token == token(m)?
-            && self.current_generation == pulse_generation(m)?
-            && self.owners == capacity::owners(m)?
-            && self.snapshot.system.pending_transactions == pending_transactions(m)?
-            && self.vendor_retired == vendor_retired(m)?, "operator_state_changed_refresh")?;
+    fn recheck_external(&self, m: &Manager) -> Result<()> {
+        require(self.vendor_retired == vendor_retired(m)?,
+            "operator_vendor_state_changed_refresh")?;
         if let Some(cleanup) = self.cleanup_seen {
-            require(pulse_cleanup(m) == Some(cleanup),"operator_cleanup_state_changed_refresh")?;
+            require(pulse_cleanup(m) == Some(cleanup),
+                "operator_cleanup_state_changed_refresh")?;
         }
         for (operation, live) in &self.installer_live {
-            require(*live == onboarding::live(operation)?,"operator_installer_state_changed_refresh")?;
+            require(*live == onboarding::live(operation)?,
+                "operator_installer_state_changed_refresh")?;
         }
         let (workspaces, _) = daw_workspace::current_projection(m)?;
         require(serde_json::to_value(&workspaces)? == serde_json::to_value(&self.snapshot.workspaces)?,
-            "operator_workspace_state_changed_refresh")?;
-        for (path, before) in &self.watched {
-            require(stamp(path)? == *before,"operator_current_artifact_changed_refresh")?;
+            "operator_workspace_state_changed_refresh")
+    }
+    fn recheck_with(&self, m: &Manager, mut external: impl FnMut() -> Result<()>) -> Result<()> {
+        let started = Instant::now();
+        // Both external observations occur without registry.lock. Manager-owned
+        // bytes and owner records are compared between them under the guard.
+        external()?;
+        {
+            let _guard = acquire_readback(m, ui::OperatorLock::Registry, None,
+                OPERATOR_WAIT, &mut vec![])?;
+            require(self.snapshot.state_token == token(m)?
+                && self.current_generation == pulse_generation(m)?
+                && self.owners == capacity::owners(m)?
+                && self.snapshot.system.pending_transactions == pending_transactions(m)?,
+                "operator_state_changed_refresh")?;
+            for (path, before) in &self.watched {
+                require(stamp(path)? == *before,"operator_current_artifact_changed_refresh")?;
+            }
         }
+        external()?;
         #[cfg(feature = "pb0-c0-audit")]
         eprintln!("PB0_PHASE {}",json!({"token_after_ms":started.elapsed().as_millis(),
             "total_manager_ms":self.captured_at.elapsed().as_millis()}));
         #[cfg(not(feature = "pb0-c0-audit"))]
         let _ = started;
         Ok(())
+    }
+    pub(super) fn recheck(&self, m: &Manager) -> Result<()> {
+        self.recheck_with(m, || self.recheck_external(m))
     }
 }
 
@@ -667,5 +682,34 @@ mod tests {
         fs::remove_file(&publication).unwrap();
         std::os::unix::fs::symlink("other",&publication).unwrap();
         assert!(context.recheck(&fixture.m).is_err());
+    }
+    #[test]
+    fn delayed_external_rechecks_do_not_hold_registry_authority() {
+        let fixture=test_fixture::Fixture::new();
+        let context=context_for_watched(&fixture.m,BTreeMap::new());
+        std::thread::scope(|scope| {
+            let (entered_tx,entered_rx)=std::sync::mpsc::channel();
+            let (release_tx,release_rx)=std::sync::mpsc::channel();
+            let manager=&fixture.m;
+            let context=&context;
+            let worker=scope.spawn(move || {
+                let mut calls=0;
+                context.recheck_with(manager,|| {
+                    calls+=1;
+                    entered_tx.send(calls).unwrap();
+                    release_rx.recv_timeout(Duration::from_secs(2))
+                        .map_err(|_| "external_probe_release_timeout")?;
+                    Ok(())
+                })
+            });
+            for expected in 1..=2 {
+                assert_eq!(entered_rx.recv_timeout(Duration::from_secs(2)).unwrap(),expected);
+                let guard=acquire_readback(&fixture.m,ui::OperatorLock::Registry,None,
+                    Duration::from_millis(200),&mut vec![]).unwrap();
+                drop(guard);
+                release_tx.send(()).unwrap();
+            }
+            worker.join().unwrap().unwrap();
+        });
     }
 }

@@ -27,14 +27,8 @@ fn vendor_state_live(state: &str) -> Result<bool> {
     }
 }
 fn vendor_live() -> Result<bool> {
-    let output = Command::new("systemctl")
-        .args(["--user", "show", VENDOR, "-p", "ActiveState", "--value"])
-        .output()?;
-    require(
-        output.status.success(),
-        "operator_vendor_unit_state_unavailable",
-    )?;
-    vendor_state_live(std::str::from_utf8(&output.stdout)?.trim())
+    vendor_state_live(&readiness::bounded_user_unit_state(VENDOR)
+        .map_err(|_| "operator_vendor_unit_state_unavailable")?)
 }
 fn service(action: &str) -> Result<()> {
     require(
@@ -310,6 +304,9 @@ fn pulse_cleanup(m: &Manager) -> Option<bool> {
     peer.read_exact(&mut state).ok()?;
     match state[0] {0=>Some(false),1=>Some(true),_=>None}
 }
+fn operation_state_live(state: &str) -> bool {
+    matches!(state, "queued" | "waiting" | "running" | "vendor_running")
+}
 fn pulse(m: &Manager) -> Result<ui::Pulse> {
     // The selected service's full LVC1 capacity response verifies product
     // envelopes and is deliberately reserved for a fresh overview or action.
@@ -322,7 +319,7 @@ fn pulse(m: &Manager) -> Result<ui::Pulse> {
     let operation = optional(&m.root.join("operator/latest.json"))?
         .as_object().map(|v|Value::Object(v.clone()));
     let operation_live = operation.as_ref().and_then(|v|v["state"].as_str())
-        .is_some_and(|state|matches!(state,"queued"|"waiting"|"running"));
+        .is_some_and(operation_state_live);
     Ok(ui::Pulse {schema:ui::OPERATOR_SCHEMA,
         service_state:service_state.into(),
         dsp:owners.as_ref().map(|o|o.iter().filter(|v|v.kind == capacity::Kind::Dsp).count()),
@@ -3423,7 +3420,9 @@ mod tests {
         if socket.exists() {fs::remove_file(&socket).unwrap();}
         let listener=UnixListener::bind(&socket).unwrap();
         std::thread::spawn(move || {
-            for expected in [b"LVC1\n",b"LVP1\n",b"LVP1\n"] {
+            // Capture reads cleanup once; the final recheck samples it on
+            // both sides of the short registry-authority section.
+            for expected in [b"LVC1\n",b"LVP1\n",b"LVP1\n",b"LVP1\n"] {
                 let (mut peer,_)=listener.accept().unwrap();
                 let mut greeting=[0;5];
                 peer.read_exact(&mut greeting).unwrap();
@@ -3455,6 +3454,20 @@ mod tests {
             });
             assert_eq!(pulse_cleanup(&f.m),Some(blocked));
             server.join().unwrap();
+        }
+    }
+    #[test]
+    fn pulse_classifies_all_retained_nonterminal_operation_states() {
+        let f=test_fixture::Fixture::new();
+        let latest=f.m.root.join("operator/latest.json");
+        private_dir(latest.parent().unwrap()).unwrap();
+        for (state,expected_live) in [
+            ("queued",true),("waiting",true),("running",true),("vendor_running",true),
+            ("completed",false),("refused",false),
+        ] {
+            atomic_json(&latest,&json!({"schema":1,"operation":"ab".repeat(16),
+                "state":state})).unwrap();
+            assert_eq!(pulse(&f.m).unwrap().operation_live,expected_live,"{state}");
         }
     }
     #[test]
