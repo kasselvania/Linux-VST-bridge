@@ -506,15 +506,35 @@ trait ServiceControl {
     fn show(&self) -> Result<UnitReadback>;
     fn reload(&self) -> Result<()>;
     fn enable_start(&self) -> Result<()>;
+    fn stop(&self) -> Result<()>;
     fn healthy(&self, m: &Manager) -> Result<()>;
+    fn idle(&self, m: &Manager) -> Result<Vec<capacity::Owner>>;
+}
+fn clean_idle_keepers(reply: &serde_json::Value) -> Result<Vec<capacity::Owner>> {
+    require(reply["ok"] == true, "package_service_not_clean_idle")?;
+    let c = &reply["capacity"];
+    let owners: Vec<capacity::Owner> = serde_json::from_value(c["owners"].clone())?;
+    let mut sessions = std::collections::BTreeSet::new();
+    require(c["schema"] == 1 && c["dsp"] == 0 && c["maintenance"] == 0
+        && c["cleanup_unconfirmed"] == false
+        && c["keepers"].as_u64() == Some(owners.len() as u64)
+        && owners.iter().all(|owner| owner.kind == capacity::Kind::Keeper
+            && owner.terminal.is_none()
+            && valid_hex(&owner.session, 32) && valid_hex(&owner.class_id, 32)
+            && sessions.insert(&owner.session)),
+        "package_service_not_clean_idle")?;
+    Ok(owners)
 }
 struct SystemctlService;
 fn systemctl_bounded(args: &[&str], capture: bool) -> Result<Vec<u8>> {
+    systemctl_bounded_for(args, capture, 100)
+}
+fn systemctl_bounded_for(args: &[&str], capture: bool, attempts: usize) -> Result<Vec<u8>> {
     let mut child = Command::new("systemctl").args(args)
         .stdin(std::process::Stdio::null())
         .stdout(if capture { std::process::Stdio::piped() } else { std::process::Stdio::null() })
         .stderr(std::process::Stdio::null()).spawn()?;
-    for _ in 0..100 {
+    for _ in 0..attempts {
         if let Some(status) = child.try_wait()? {
             require(status.success(), "package_user_service_unavailable")?;
             if !capture { return Ok(Vec::new()); }
@@ -562,8 +582,14 @@ impl ServiceControl for SystemctlService {
     fn enable_start(&self) -> Result<()> {
         systemctl_bounded(&["--user", "enable", "--now", "linux-vst-bridge.service"], false).map(|_| ())
     }
+    fn stop(&self) -> Result<()> {
+        systemctl_bounded_for(&["--user", "stop", "linux-vst-bridge.service"], false, 800).map(|_| ())
+    }
     fn healthy(&self, m: &Manager) -> Result<()> {
         require(capacity_reply(m)?["ok"] == true, "package_service_health_unavailable")
+    }
+    fn idle(&self, m: &Manager) -> Result<Vec<capacity::Owner>> {
+        clean_idle_keepers(&capacity_reply(m)?)
     }
 }
 fn parse_unit_readback(text: &str) -> Result<UnitReadback> {
@@ -644,6 +670,186 @@ fn activation_status_from(m: &Manager, home: &Path,
         state: if state.active == "active" { "active" } else { "inactive" },
         package_version: generation.manifest.version })
 }
+/// First-run is a read-only classification. In particular an absent package
+/// record is admitted as legacy only for the older selected helper layout;
+/// a damaged package generation cannot become an adoptable predecessor.
+fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
+    service: &impl ServiceControl) -> Result<ActivationStatus> {
+    require(!m.root.join("package-transition.json").try_exists()?,
+        "package_transition_needs_recovery")?;
+    let Some(selected) = old_software(m)? else {
+        let (manifest, _) = read_manifest(inputs, owner)?;
+        let state = service.show()?;
+        require(state.load == "not-found" && state.active == "inactive"
+            && state.fragment.is_empty() && state.exec.is_empty(),
+            "package_unselected_service_ambiguous")?;
+        return Ok(ActivationStatus { schema: 2, state: "fresh_adoptable",
+            package_version: manifest.version });
+    };
+    let directory = selected.manager.path.parent().ok_or("package_generation_path")?;
+    let record = directory.join("package-generation.json");
+    let legacy = match fs::symlink_metadata(&record) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            require(selected.supervisor.path == directory.join("session.py")
+                && selected.ownership.path == directory.join("ownership.py"),
+                "package_generation_record_missing")?;
+            true
+        }
+        Err(error) => return Err(error.into()),
+        Ok(metadata) => {
+            require(metadata.is_file() && !metadata.file_type().is_symlink()
+                && metadata.uid() == unsafe { libc::getuid() }
+                && metadata.mode() & 0o222 == 0,
+                "package_generation_record_changed")?;
+            false
+        }
+    };
+    let version = if legacy {
+        let (manifest, sha) = read_manifest(inputs, owner)?;
+        require_retained_host_pair(m, &selected, &manifest)?;
+        let _ = predecessor_plan(m, home, manifest.clone(), sha)?;
+        manifest.version
+    } else {
+        verify_generation(m, &selected)?.manifest.version
+    };
+    let routes = setup_install::current_route_statuses(m, home, &selected)?;
+    require(routes.len() == 6, "package_route_plan_shape")?;
+    let routes_exact = routes.iter().all(|route| route.status == "exact");
+    let state = service.show()?;
+    let effective_exact = state.load == "loaded"
+        && state.fragment == home.join(".config/systemd/user/linux-vst-bridge.service")
+            .to_str().ok_or("package_service_path")?
+        && effective_exec_is(&state.exec, &selected.manager.path);
+    let posture = match state.active.as_str() {
+        "active" => {
+            require(effective_exact, "package_active_service_identity_changed")?;
+            if legacy || !routes_exact { stop_gate(m, service)?; }
+            if legacy { "legacy_active" } else if routes_exact { "active" } else { "repair_active" }
+        }
+        "inactive" | "failed" if (state.load == "loaded"
+            && !state.fragment.is_empty() && !state.exec.is_empty())
+            || (state.load == "not-found" && state.active == "inactive"
+                && state.fragment.is_empty() && state.exec.is_empty()) => {
+            let keeper_retirement_pending = {
+                let _registry = m.lock("registry.lock")?;
+                m.require_inactive(None)?;
+                let owners = capacity::owners(m)?;
+                require(owners.iter().all(|owner| owner.kind == capacity::Kind::Keeper),
+                    "package_owner_active")?;
+                !owners.is_empty()
+            };
+            if legacy && keeper_retirement_pending { "legacy_retirement_pending" }
+            else if keeper_retirement_pending { "repair_retirement_pending" }
+            else if legacy { "legacy_adoptable" }
+            else if routes_exact && effective_exact { "inactive" }
+            else { "repair_inactive" }
+        }
+        _ => return Err("package_user_service_ambiguous".into()),
+    };
+    Ok(ActivationStatus { schema: 2, state: posture, package_version: version })
+}
+fn stop_gate(m: &Manager, service: &impl ServiceControl) -> Result<Vec<capacity::Owner>> {
+    let before = service.idle(m)?;
+    let latest = m.root.join("operator/latest.json");
+    if latest.try_exists()? {
+        let operation: serde_json::Value = read_json(&latest)?;
+        require(matches!(operation["state"].as_str(), Some("completed" | "refused")),
+            "package_operator_active_or_ambiguous")?;
+    }
+    let operations = m.root.join("operator");
+    if operations.try_exists()? {
+        let mut count = 0usize;
+        for entry in fs::read_dir(&operations)? {
+            let entry = entry?;
+            count += 1;
+            require(count <= 2048, "package_operator_inventory_bound")?;
+            let name = entry.file_name();
+            let Some(id) = name.to_str() else { return Err("package_operator_identity".into()); };
+            if !valid_hex(id, 32) { continue; }
+            require(entry.file_type()?.is_dir(), "package_operator_identity")?;
+            let operation: serde_json::Value = read_json(&entry.path().join("result.json"))?;
+            require(matches!(operation["state"].as_str(), Some("completed" | "refused"))
+                && operation["operation"] == id, "package_operator_active_or_ambiguous")?;
+        }
+    }
+    {
+        let _registry = m.lock("registry.lock")?;
+        m.require_inactive(None)?;
+        require(capacity::owners(m)? == before, "package_owners_changed")?;
+        require(operator_cli::pending_transactions(m)? == 0,
+            "package_transaction_pending")?;
+    }
+    require(onboarding::all_retired(m)?, "package_installer_owner_active")?;
+    require(operator_cli::vendor_retired(m)?, "package_vendor_owner_active")?;
+    daw_workspace::package_idle(m)?;
+    let transports = transport_storage::root();
+    if transports.try_exists()? {
+        require(fs::read_dir(&transports)?.next().is_none(), "package_stale_transport")?;
+    }
+    let after = service.idle(m)?;
+    require(after == before, "package_owners_changed")?;
+    Ok(after)
+}
+fn stop_selected_service(m: &Manager, home: &Path, selected: &Software,
+    service: &impl ServiceControl,
+    observed_keepers: &[capacity::Owner]) -> Result<()> {
+    // Bounded systemctl stop intentionally runs under the admission lock,
+    // matching operator suspension. Read-only status probes never do this.
+    let _registry = m.lock("registry.lock")?;
+    m.require_inactive(None)?;
+    require(capacity::owners(m)? == observed_keepers, "package_owners_changed")?;
+    require(operator_cli::pending_transactions(m)? == 0,
+        "package_transaction_pending")?;
+    let unit = service.show()?;
+    require(unit.load == "loaded" && unit.active == "active"
+        && unit.fragment == home.join(".config/systemd/user/linux-vst-bridge.service")
+            .to_str().ok_or("package_service_path")?
+        && effective_exec_is(&unit.exec, &selected.manager.path),
+        "package_active_service_identity_changed")?;
+    service.stop()?;
+    // A stopped unit is not enough: each keeper must publish exact clean
+    // retirement before its lease can be removed or adoption offered.
+    require(!reconcile_leases(m)?, "package_cleanup_unconfirmed")?;
+    require(capacity::owners(m)?.is_empty(), "package_owner_active")
+}
+fn stop_for_repair_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
+    service: &impl ServiceControl) -> Result<()> {
+    // The selected service owns service.lock until it stops. Hold package and
+    // setup selection steady without taking service.lock. The final bounded
+    // stop alone holds registry.lock to exclude a new DSP admission.
+    let _package = m.lock("package.lock")?;
+    let _setup = m.lock("setup.lock")?;
+    let status = bootstrap_status_from(m, home, inputs, owner, service)?;
+    require(matches!(status.state, "legacy_active" | "repair_active"
+        | "legacy_adoptable" | "repair_inactive" | "legacy_retirement_pending"
+        | "repair_retirement_pending"), "package_stop_not_offered")?;
+    if matches!(status.state, "legacy_adoptable" | "repair_inactive") { return Ok(()); }
+    if matches!(status.state, "legacy_retirement_pending" | "repair_retirement_pending") {
+        let _registry = m.lock("registry.lock")?;
+        m.require_inactive(None)?;
+        require(!reconcile_leases(m)?, "package_cleanup_unconfirmed")?;
+        require(capacity::owners(m)?.is_empty(), "package_owner_active")?;
+        drop(_registry);
+        let after = bootstrap_status_from(m, home, inputs, owner, service)?;
+        return require(after.package_version == status.package_version
+            && matches!((status.state, after.state),
+                ("legacy_retirement_pending", "legacy_adoptable")
+                | ("repair_retirement_pending", "repair_inactive")
+                | ("repair_retirement_pending", "inactive")),
+            "package_service_did_not_stop_cleanly");
+    }
+    let before = bootstrap_status_from(m, home, inputs, owner, service)?;
+    require(before.state == status.state && before.package_version == status.package_version,
+        "package_stop_state_changed")?;
+    let observed_keepers = service.idle(m)?;
+    let selected = old_software(m)?.ok_or("package_not_installed")?;
+    stop_selected_service(m, home, &selected, service, &observed_keepers)?;
+    let after = bootstrap_status_from(m, home, inputs, owner, service)?;
+    require(after.package_version == status.package_version
+        && matches!((status.state, after.state),
+        ("legacy_active", "legacy_adoptable") | ("repair_active", "repair_inactive")),
+        "package_service_did_not_stop_cleanly")
+}
 fn activate_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Result<()> {
     // A package action gate excludes a concurrent package switch. setup.lock
     // excludes legacy route changes. The service must acquire service.lock on
@@ -690,6 +896,16 @@ pub(super) fn activation_status(m: &Manager) -> Result<()> {
     println!("{}", serde_json::to_string(&activation_status_from(m, &home, &SystemctlService)?)?);
     Ok(())
 }
+pub(super) fn bootstrap_status(m: &Manager) -> Result<()> {
+    let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
+    println!("{}", serde_json::to_string(&bootstrap_status_from(m, &home,
+        &Inputs::system(), 0, &SystemctlService)?)?);
+    Ok(())
+}
+pub(super) fn stop_for_repair(m: &Manager) -> Result<()> {
+    let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
+    stop_for_repair_from(m, &home, &Inputs::system(), 0, &SystemctlService)
+}
 pub(super) fn activate(m: &Manager) -> Result<()> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
     activate_from(m, &home, &SystemctlService)
@@ -708,7 +924,11 @@ mod tests {
         stale_reload: Cell<bool>,
         fail_start: Cell<bool>,
         fail_health: Cell<bool>,
+        fail_idle: Cell<bool>,
+        fail_stop: Cell<bool>,
+        retire_keepers: Cell<bool>,
         starts: Cell<usize>,
+        stops: Cell<usize>,
     }
     impl FakeService {
         fn new(home: &Path) -> Self {
@@ -717,7 +937,9 @@ mod tests {
                 fragment: String::new(), exec: String::new(),
             }), fail_reload: Cell::new(false), fail_show: Cell::new(false),
                 stale_reload: Cell::new(false), fail_start: Cell::new(false),
-                fail_health: Cell::new(false), starts: Cell::new(0) }
+                fail_health: Cell::new(false), fail_idle: Cell::new(false),
+                fail_stop: Cell::new(false), retire_keepers: Cell::new(true),
+                starts: Cell::new(0), stops: Cell::new(0) }
         }
     }
     impl ServiceControl for FakeService {
@@ -755,6 +977,31 @@ mod tests {
         }
         fn healthy(&self, _: &Manager) -> Result<()> {
             require(!self.fail_health.get(), "package_service_health_unavailable")
+        }
+        fn idle(&self, m: &Manager) -> Result<Vec<capacity::Owner>> {
+            require(!self.fail_idle.get(), "package_service_not_clean_idle")?;
+            let _registry = m.lock("registry.lock")?;
+            let owners = capacity::owners(m)?;
+            require(owners.iter().all(|owner| owner.kind == capacity::Kind::Keeper),
+                "package_service_not_clean_idle")?;
+            Ok(owners)
+        }
+        fn stop(&self) -> Result<()> {
+            require(!self.fail_stop.get(), "package_user_service_unavailable")?;
+            require(self.loaded.borrow().active == "active", "package_stop_state_changed")?;
+            self.loaded.borrow_mut().active = "inactive".into();
+            self.stops.set(self.stops.get() + 1);
+            if self.retire_keepers.get() {
+                let leases = self.home.parent().ok_or("test_home")?.join("managed/runtime/leases");
+                if leases.try_exists()? {
+                    for entry in fs::read_dir(leases)? {
+                        let report: PathBuf = read_json(&entry?.path())?;
+                        atomic_json(&report, &serde_json::json!({"ready":false,
+                            "cleanup_confirmed":true}))?;
+                    }
+                }
+            }
+            Ok(())
         }
     }
     struct Fixture {
@@ -829,7 +1076,12 @@ mod tests {
             let dir = m.root.join("software/legacy");
             private_dir(&dir).unwrap();
             for name in NAMES {
-                let path = dir.join(name);
+                let old_name = match name {
+                    "session.pyc" => "session.py",
+                    "ownership.pyc" => "ownership.py",
+                    _ => name,
+                };
+                let path = dir.join(old_name);
                 fs::copy(self.inputs.path(name).unwrap(), &path).unwrap();
                 fs::set_permissions(path, fs::Permissions::from_mode(0o444)).unwrap();
             }
@@ -844,8 +1096,8 @@ mod tests {
                 installer_launch: None, preparation_kit: None,
                 operator_frontend: Some(artifact(&dir, NAMES[1]).unwrap()),
                 manager: artifact(&dir, NAMES[0]).unwrap(),
-                supervisor: artifact(&dir, NAMES[2]).unwrap(),
-                ownership: artifact(&dir, NAMES[3]).unwrap(),
+                supervisor: artifact(&dir, "session.py").unwrap(),
+                ownership: artifact(&dir, "ownership.py").unwrap(),
                 host: artifact(&dir, NAMES[4]).unwrap(),
                 source_manifest: artifact(&dir, NAMES[5]).unwrap(),
                 source_sha256: digest(&dir.join(NAMES[5])).unwrap(),
@@ -855,6 +1107,52 @@ mod tests {
             setup_install::commit(m, &self.home, &old, None, None).unwrap();
             self.service.reload().unwrap();
         }
+    }
+
+    fn owned_lease(f: &Fixture, session: &str, keeper: bool) -> PathBuf {
+        let report = f.base.m.root.join("runtime/results").join(format!(
+            "{}-{session}.json", if keeper { "environment" } else { "windows" }));
+        private_dir(report.parent().unwrap()).unwrap();
+        atomic_json(&report, &serde_json::json!({"ready":true,
+            "environment":f.base.r.environment.id})).unwrap();
+        let owner = f.base.r.environment.root
+            .join("compatdata/pfx/drive_c/bridge/sessions")
+            .join(session).join("owner.json");
+        private_dir(owner.parent().unwrap()).unwrap();
+        atomic_json(&owner, &serde_json::json!({"session":session,"report":report,
+            "keeper":keeper,"inspect":keeper,"vendor_access":false,
+            "registration":{"metadata":{"class_id":f.base.r.metadata.class_id}}})).unwrap();
+        let lease = f.base.m.root.join("runtime/leases").join(format!("{session}.json"));
+        private_dir(lease.parent().unwrap()).unwrap();
+        atomic_json(&lease, &report).unwrap();
+        lease
+    }
+
+    #[test]
+    fn capacity_classifier_accepts_only_clean_exact_keepers() {
+        let keeper = serde_json::json!({"session":"ab".repeat(16),
+            "class_id":"01".repeat(16),"kind":"keeper"});
+        let second = serde_json::json!({"session":"cd".repeat(16),
+            "class_id":"01".repeat(16),"kind":"keeper"});
+        let reply = serde_json::json!({"ok":true,"capacity":{"schema":1,
+            "dsp":0,"maintenance":0,"keepers":2,"cleanup_unconfirmed":false,
+            "owners":[keeper.clone(),second.clone()]}});
+        assert_eq!(clean_idle_keepers(&reply).unwrap().len(), 2);
+        for changed in [
+            serde_json::json!({"capacity":{"schema":1,"dsp":0,"maintenance":0,
+                "keepers":2,"cleanup_unconfirmed":false,"owners":[keeper.clone(),second.clone()]}}),
+            serde_json::json!({"ok":true,"capacity":{"schema":1,"dsp":1,"maintenance":0,
+                "keepers":2,"cleanup_unconfirmed":false,"owners":[keeper.clone(),second.clone()]}}),
+            serde_json::json!({"ok":true,"capacity":{"schema":1,"dsp":0,"maintenance":0,
+                "keepers":1,"cleanup_unconfirmed":false,"owners":[keeper.clone(),second.clone()]}}),
+            serde_json::json!({"ok":true,"capacity":{"schema":1,"dsp":0,"maintenance":0,
+                "keepers":2,"cleanup_unconfirmed":true,"owners":[keeper.clone(),second.clone()]}}),
+            serde_json::json!({"ok":true,"capacity":{"schema":1,"dsp":0,"maintenance":0,
+                "keepers":2,"cleanup_unconfirmed":false,"owners":[keeper.clone(),keeper.clone()]}}),
+            serde_json::json!({"ok":true,"capacity":{"schema":1,"dsp":0,"maintenance":0,
+                "keepers":1,"cleanup_unconfirmed":false,
+                "owners":[{"session":"cd".repeat(16),"class_id":"01".repeat(16),"kind":"dsp"}]}}),
+        ] { assert!(clean_idle_keepers(&changed).is_err()); }
     }
 
     #[test]
@@ -898,6 +1196,212 @@ mod tests {
         assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), software);
         assert_eq!(fs::read(f.base.m.root.join("registry.json")).ok(), registry);
         assert_eq!(fs::read(f.home.join(".config/systemd/user/linux-vst-bridge.service")).unwrap(), unit);
+    }
+
+    #[test]
+    fn first_run_classifies_verified_legacy_and_explicitly_stops_its_idle_service() {
+        let (base, _, _, native) = test_fixture::prepared();
+        let home = base.outer.join("home");
+        let f = Fixture { service: FakeService::new(&home), home,
+            inputs: Inputs::under(&base.outer.join("package/usr")),
+            owner: unsafe { libc::getuid() }, base };
+        for name in NAMES {
+            let path = f.inputs.path(name).unwrap();
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, if name == "host.exe" { b"host".as_slice() }
+                else if name == "host-source-manifest.json" { b"fixture host source".as_slice() }
+                else { name.as_bytes() }).unwrap();
+            fs::set_permissions(path, fs::Permissions::from_mode(0o444)).unwrap();
+        }
+        f.write_manifest();
+        f.setup_legacy_with_catalogue(native);
+        let before = fs::read(f.base.m.root.join("software.json")).unwrap();
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "legacy_adoptable");
+        let manifest = f.inputs.manifest();
+        fs::set_permissions(&manifest, fs::Permissions::from_mode(0o666)).unwrap();
+        assert!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        fs::set_permissions(&manifest, fs::Permissions::from_mode(0o444)).unwrap();
+        f.service.loaded.borrow_mut().active = "active".into();
+        let first_keeper = owned_lease(&f, &"ab".repeat(16), true);
+        let second_keeper = owned_lease(&f, &"cd".repeat(16), true);
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "legacy_active");
+        stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service).unwrap();
+        assert_eq!(f.service.stops.get(), 1);
+        assert!(!first_keeper.exists() && !second_keeper.exists());
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), before);
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "legacy_adoptable");
+        f.adopt().unwrap();
+        let current = f.current();
+        assert!(current.manager.path.parent().unwrap().join("package-generation.json").exists());
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "inactive");
+        let record = verify_generation(&f.base.m, &current).unwrap();
+        assert_eq!(record.predecessor.unwrap().manager.sha256,
+            serde_json::from_slice::<Software>(&before).unwrap().manager.sha256);
+    }
+
+    #[test]
+    fn active_selected_generation_repairs_only_after_explicit_clean_stop() {
+        let f = Fixture::new();
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "fresh_adoptable");
+        f.adopt().unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        let first_keeper = owned_lease(&f, &"ab".repeat(16), true);
+        let second_keeper = owned_lease(&f, &"cd".repeat(16), true);
+        let before = fs::read(f.base.m.root.join("software.json")).unwrap();
+        let route = f.home.join(".local/bin/linux-vst-bridge");
+        fs::remove_file(&route).unwrap();
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "repair_active");
+        f.service.fail_idle.set(true);
+        assert!(stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        assert_eq!(f.service.stops.get(), 0);
+        f.service.fail_idle.set(false);
+        stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service).unwrap();
+        assert_eq!(f.service.stops.get(), 1);
+        assert!(!first_keeper.exists() && !second_keeper.exists());
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "repair_inactive");
+        f.adopt().unwrap();
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), before);
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "inactive");
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "active");
+    }
+
+    #[test]
+    fn stopped_keeper_cleanup_remains_pending_until_exact_positive_retirement() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        let selected = fs::read(f.base.m.root.join("software.json")).unwrap();
+        let route = f.home.join(".local/bin/linux-vst-bridge");
+        fs::remove_file(&route).unwrap();
+        let keeper = owned_lease(&f, &"ab".repeat(16), true);
+        f.service.retire_keepers.set(false);
+        assert!(stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        assert_eq!(f.service.stops.get(), 1);
+        assert!(keeper.exists());
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "repair_retirement_pending");
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected);
+        assert!(!route.exists());
+        assert!(stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        let report: PathBuf = read_json(&keeper).unwrap();
+        atomic_json(&report, &serde_json::json!({"ready":false,
+            "cleanup_confirmed":true})).unwrap();
+        stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap();
+        assert!(!keeper.exists());
+        assert_eq!(f.service.stops.get(), 1);
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "repair_inactive");
+        f.adopt().unwrap();
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected);
+    }
+
+    #[test]
+    fn fresh_dsp_admission_after_idle_readback_refuses_before_service_stop() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        let keeper = owned_lease(&f, &"ab".repeat(16), true);
+        let observed = f.service.idle(&f.base.m).unwrap();
+        assert_eq!(observed.len(), 1);
+        let dsp = owned_lease(&f, &"cd".repeat(16), false);
+        assert!(stop_selected_service(&f.base.m, &f.home, &f.current(),
+            &f.service, &observed).is_err());
+        assert_eq!(f.service.stops.get(), 0);
+        assert_eq!(f.service.loaded.borrow().active, "active");
+        assert!(keeper.exists() && dsp.exists());
+    }
+
+    #[test]
+    fn bootstrap_refuses_broken_generation_foreign_route_and_foreign_live_service() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        let selected = f.current();
+        let record = selected.manager.path.parent().unwrap().join("package-generation.json");
+        fs::remove_file(&record).unwrap();
+        assert!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        assert_eq!(f.service.stops.get(), 0);
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        let route = f.home.join(".local/bin/linux-vst-bridge");
+        fs::remove_file(&route).unwrap();
+        std::os::unix::fs::symlink("/usr/bin/foreign", &route).unwrap();
+        assert!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        assert!(stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        assert_eq!(f.service.stops.get(), 0);
+        fs::remove_file(&route).unwrap();
+        f.service.loaded.borrow_mut().exec =
+            "{ path=/usr/bin/foreign ; argv[]=/usr/bin/foreign serve ; ignore_errors=no }".into();
+        assert!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        assert_eq!(f.service.stops.get(), 0);
+    }
+
+    #[test]
+    fn active_desktop_and_service_route_repairs_are_explicit_and_exact() {
+        for route in ["desktop", "service"] {
+            let f = Fixture::new();
+            f.adopt().unwrap();
+            activate_from(&f.base.m, &f.home, &f.service).unwrap();
+            let path = if route == "desktop" {
+                f.home.join(".local/share/applications/linux-audio-compatibility-manager.desktop")
+            } else { f.home.join(".config/systemd/user/linux-vst-bridge.service") };
+            let before = fs::read(&path).unwrap();
+            if route == "desktop" { fs::remove_file(&path).unwrap(); }
+            else { fs::write(&path, b"[Unit]\nDescription=Linux VST Bridge registered host\n# stale owned unit\n").unwrap(); }
+            assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+                &f.service).unwrap().state, "repair_active", "{route}");
+            assert!(f.adopt().is_err(), "{route}");
+            stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service).unwrap();
+            f.adopt().unwrap();
+            assert_eq!(fs::read(&path).unwrap(), before, "{route}");
+            assert_eq!(f.service.stops.get(), 1, "{route}");
+        }
+    }
+
+    #[test]
+    fn stop_for_repair_refuses_live_operation_without_stopping() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        fs::remove_file(f.home.join(".local/bin/linux-vst-bridge")).unwrap();
+        let latest = f.base.m.root.join("operator/latest.json");
+        fs::create_dir_all(latest.parent().unwrap()).unwrap();
+        atomic_json(&latest, &serde_json::json!({"schema":1,"operation":"ab".repeat(16),
+            "state":"vendor_running"})).unwrap();
+        assert!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        assert!(stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        assert_eq!(f.service.stops.get(), 0);
+        assert_eq!(f.service.loaded.borrow().active, "active");
+        atomic_json(&latest, &serde_json::json!({"schema":1,"operation":"cd".repeat(16),
+            "state":"completed"})).unwrap();
+        let older = f.base.m.root.join("operator").join("ab".repeat(16));
+        fs::create_dir_all(&older).unwrap();
+        atomic_json(&older.join("result.json"), &serde_json::json!({"schema":1,
+            "operation":"ab".repeat(16),"state":"running"})).unwrap();
+        assert!(stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        assert_eq!(f.service.stops.get(), 0);
     }
 
     #[test]
