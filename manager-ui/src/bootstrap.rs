@@ -344,7 +344,7 @@ impl eframe::App for Bootstrap {
         egui::CentralPanel::default().show(ui, |ui| {
             ui.heading("Set up Linux VST Bridge");
             ui.label("The application package is installed. Set up your private, managed copy before opening your Library.");
-            ui.label("Your existing plug-ins, installations and authorizations remain in your account. The manager checks whether setup is safe before changing anything.");
+            ui.label("The manager checks existing managed plug-ins and installation records before changing application files. Vendor authorization remains yours.");
             if let Some(operation) = self.running {
                 ui.strong(match operation {
                     Operation::Adopt => "Setting up the application…",
