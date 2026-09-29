@@ -1478,6 +1478,8 @@ fn main() -> Result<()> {
   Some("package-recover") if args.len()==1=>package_authority::recover(&m).map(|_|()),
   Some("package-activation-status") if args.len()==1=>package_authority::activation_status(&m),
   Some("package-activate") if args.len()==1=>package_authority::activate(&m),
+  Some("package-bootstrap-status") if args.len()==1=>package_authority::bootstrap_status(&m),
+  Some("package-stop-for-repair") if args.len()==1=>package_authority::stop_for_repair(&m),
   #[cfg(feature = "pb0-r3-audit")]
   Some("pb0-r3-audit") if args.len()==1=>pb0_r3_audit::run(&m),
   Some("accept-editor") if args.len()==1=>managed_cli::run_acceptance(&m),

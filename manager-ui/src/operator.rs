@@ -483,6 +483,10 @@ impl Operator {
     pub fn preview_readiness(snapshot: Snapshot, readiness: ReadinessAssessment,
         page: Page) -> Self {
         let mut preview = Self::preview(snapshot.clone(), page);
+        if page == Page::Plugins {
+            // Preview the current-only product view before deep compatibility readback.
+            preview.snapshot = None;
+        }
         preview.overview = Some(InteractiveOverview {
             schema: 1, operator_schema: crate::model::OPERATOR_SCHEMA,
             scope: "current_only".into(), current_generation: "preview".into(),
@@ -940,6 +944,16 @@ fn navigate(
     }
 }
 
+fn show_discovered_products(setup: &InstallerSetup,
+    library: &mut crate::library::Library, page: &mut Page) {
+    library.focus_products(setup.discovered.iter().map(|product| ProductKey {
+        environment: product.environment.clone(),
+        module_sha256: product.module_sha256.clone(),
+        class_id: product.class_id.clone(),
+    }).collect());
+    *page = Page::Plugins;
+}
+
 impl Operator {
     fn readiness_overview(ui: &mut egui::Ui, overview: &InteractiveOverview,
         fresh: bool, pending: bool, refresh: &mut bool, chosen: &mut Option<Action>) {
@@ -1018,15 +1032,32 @@ impl Operator {
         if ui.button("Technical details and history").clicked() { *page = Page::Diagnostics; }
     }
     fn fast_setup(ui: &mut egui::Ui, overview: &InteractiveOverview, fresh: bool,
-        pending: bool, controls: (&mut bool, &mut Option<Action>, &mut bool, &mut Page)) {
-        let (refresh, chosen, pick, page) = controls;
+        pending: bool, controls: (&mut bool, &mut Option<Action>, &mut bool,
+            &mut Page, &mut crate::library::Library, &mut RouteFocus)) {
+        let (refresh, chosen, pick, page, library, focus) = controls;
         Self::readiness_overview(ui, overview, fresh, pending, refresh, chosen);
         ui.separator();
         ui.heading("Setup");
         if ui.add_enabled(fresh && !pending, egui::Button::new("Choose Windows installer")
             .min_size(egui::vec2(240.0, 44.0))).clicked() { *pick = true; }
         ui.small("Choose an installer for manager custody. Vendor sign-in remains yours.");
-        for setup in &overview.current.installer_setups {
+        if focus.setup_installer.is_some() {
+            ui.strong("Showing the selected installer");
+            if ui.add_sized([180.0, 44.0], egui::Button::new("Show all setup")).clicked() {
+                focus.setup_installer = None;
+                focus.setup = None;
+                focus.setup_scroll = false;
+            }
+        }
+        let mut shown = 0;
+        for setup in overview.current.installer_setups.iter().filter(|setup|
+            focus.setup_installer.as_ref().is_none_or(|id| id == &setup.installer)) {
+            shown += 1;
+            if focus.setup_scroll && focus.setup_installer.as_ref() == Some(&setup.installer) {
+                ui.scroll_to_cursor(Some(egui::Align::Center));
+                focus.setup_scroll = false;
+            }
+            ui.push_id(&setup.installer, |ui| {
             ui.group(|ui| {
                 ui.strong(&setup.name);
                 ui.label(&setup.status);
@@ -1037,14 +1068,24 @@ impl Operator {
                 }
                 if !setup.discovered.is_empty() {
                     ui.small(format!("{} exact plug-in product(s) discovered", setup.discovered.len()));
+                    if ui.add_enabled(fresh, egui::Button::new("View discovered plug-ins")
+                        .min_size(egui::vec2(240.0, 44.0))).clicked() {
+                        show_discovered_products(setup, library, page);
+                    }
                 }
                 Self::buttons(ui, &setup.secondary,
                     (!fresh).then_some("Current manager readback unavailable"), pending, chosen);
                 Self::buttons(ui, std::slice::from_ref(&setup.rename),
                     (!fresh).then_some("Current manager readback unavailable"), pending, chosen);
             });
+            });
         }
-        if overview.current.installer_setups.is_empty() { ui.label("No native plug-in setup is in progress."); }
+        if overview.current.installer_setups.is_empty() {
+            ui.label("No native plug-in setup is in progress.");
+        } else if shown == 0 {
+            ui.colored_label(warning_color(ui),
+                "The selected installer is unavailable in this readback. Check again or show all setup.");
+        }
         if ui.button("Technical setup history").clicked() { *page = Page::Diagnostics; }
     }
     fn health_bar(ui: &mut egui::Ui, system: &System) {
@@ -1627,13 +1668,7 @@ impl Operator {
                         }
                         if !setup.discovered.is_empty()
                             && ui.add_sized([240.0, 48.0], egui::Button::new("View plug-in details")).clicked() {
-                            library.focus_products(setup.discovered.iter().map(|product|
-                                crate::presentation::ProductKey {
-                                    environment: product.environment.clone(),
-                                    module_sha256: product.module_sha256.clone(),
-                                    class_id: product.class_id.clone(),
-                                }).collect());
-                            *page = Page::Plugins;
+                            show_discovered_products(setup, library, page);
                         }
                         Self::buttons(ui, &setup.secondary, None, pending, chosen);
                         if ui.add_enabled(!pending, egui::Button::new("Rename")
@@ -1926,6 +1961,7 @@ impl eframe::App for Operator {
         let mut refresh = false;
         let mut pick = false;
         let mut chosen = None;
+        let mut retry_details = false;
         egui::CentralPanel::default().show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.heading("Linux VST Bridge");
@@ -1957,7 +1993,13 @@ impl eframe::App for Operator {
                             Page::Setup => {
                                 Self::fast_setup(ui, overview, self.overview_fresh,
                                     controls_pending, (&mut refresh, &mut chosen, &mut pick,
-                                        &mut self.page));
+                                        &mut self.page, &mut self.library, &mut self.focus));
+                                return;
+                            }
+                            Page::Plugins if self.snapshot.is_none() => {
+                                self.library.show_current(ui, &overview.current,
+                                    self.overview_fresh, self.details_attempted,
+                                    &mut retry_details);
                                 return;
                             }
                             _ => {}
@@ -2168,6 +2210,7 @@ impl eframe::App for Operator {
             ui.ctx().request_repaint_after(Duration::from_millis(500));
             return;
         }
+        if retry_details { self.details_attempted = false; }
         if pick { self.queued_import = true; }
         if refresh { self.explicit_refresh_queued = true; }
         if let Some(a) = chosen {
@@ -3112,6 +3155,76 @@ mod tests {
         output.textures_delta.clear();
         assert!(labels.iter().any(|label| label.contains("Setup needs attention")));
         assert!(labels.iter().any(|label| label.contains("View plug-in details")));
+    }
+    #[test]
+    fn fast_setup_keeps_import_focus_and_routes_exact_discoveries() {
+        fn labels(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
+            match shape {
+                egui::epaint::Shape::Text(text) => out.push(text.galley.text().into()),
+                egui::epaint::Shape::Vec(shapes) => {
+                    for shape in shapes { labels(shape, out); }
+                }
+                _ => {}
+            }
+        }
+        let mut overview = overview_fixture();
+        let exact = overview.current.products[0].clone();
+        let mut other_build = exact.clone();
+        other_build.name = "Other installed build".into();
+        other_build.module_sha256 = "ef".repeat(32);
+        overview.current.products = vec![exact.clone(), other_build];
+        let setup = InstallerSetup {
+            installer:"ab".repeat(32),name:"Selected installer".into(),
+            label_source:"operator_named".into(),byte_size:1024,
+            format:"pe_executable".into(),imported_at:1,
+            phase:crate::model::SetupPhase::DiscoveryComplete,
+            status:"One exact plug-in found".into(),environment:Some(exact.environment.clone()),
+            compatibility:None,
+            discovered:vec![crate::model::DiscoveredProduct {
+                environment:exact.environment.clone(),module_sha256:exact.module_sha256.clone(),
+                class_id:exact.class_id.clone(),name:exact.name.clone(),
+            }],
+            primary:None,secondary:vec![],
+            rename:AvailableAction {label:"Rename".into(),
+                action:Action::InstallerRename {installer:"ab".repeat(32),label:String::new()},
+                disabled_reason:None},history:vec![],
+        };
+        let mut unrelated = setup.clone();
+        unrelated.installer = "cd".repeat(32);
+        unrelated.name = "Unrelated installer".into();
+        overview.current.installer_setups = vec![setup.clone(), unrelated];
+        for width in [960.0, 560.0] {
+            let ctx = egui::Context::default();
+            let mut page = Page::Setup;
+            let mut library = crate::library::Library::default();
+            let mut focus = RouteFocus {setup_installer:Some(setup.installer.clone()),
+                setup_scroll:true,..Default::default()};
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                ui.set_max_width(width-32.0);
+                Operator::fast_setup(ui,&overview,true,false,
+                    (&mut false,&mut None,&mut false,&mut page,&mut library,&mut focus));
+            });
+            let mut text = Vec::new();
+            for clipped in &output.shapes { labels(&clipped.shape,&mut text); }
+            output.textures_delta.clear();
+            assert!(text.iter().any(|line| line == "Selected installer"));
+            assert!(!text.iter().any(|line| line == "Unrelated installer"));
+            assert!(text.iter().any(|line| line == "View discovered plug-ins"));
+            assert!(text.iter().any(|line| line == "Show all setup"));
+            assert!(!focus.setup_scroll);
+            show_discovered_products(&setup,&mut library,&mut page);
+            assert_eq!(page,Page::Plugins);
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                library.show_current(ui,&overview.current,true,false,&mut false);
+            });
+            let mut text = Vec::new();
+            for clipped in &output.shapes { labels(&clipped.shape,&mut text); }
+            output.textures_delta.clear();
+            assert!(text.iter().any(|line| line == "1 of 2 current plug-ins"));
+            assert!(text.iter().any(|line| line == &exact.name));
+            assert!(!text.iter().any(|line| line == "Other installed build"));
+            assert!(text.iter().any(|line| line.contains("compatibility controls")));
+        }
     }
     #[test]
     fn ordinary_and_narrow_navigation_keeps_every_page_touch_reachable() {
