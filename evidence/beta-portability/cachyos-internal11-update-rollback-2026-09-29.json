@@ -1,0 +1,71 @@
+{
+  "claim": "normal Applications update and exact predecessor rollback on a disposable graphical system",
+  "fixture": {
+    "system": "CachyOS 260809 installed graphical VM",
+    "kernel": "7.2.8-1-cachyos",
+    "desktop": "KDE Plasma 6.7.5, Wayland",
+    "hardware": "QEMU/KVM virtual CPU and graphics; no physical audio or GPU qualification",
+    "starting_disk": "disposable child of the retained selected internal10 fixture"
+  },
+  "source": {
+    "head": "f4b21ff9c4f39565bbc380378c3e9f2bac825c92",
+    "tree": "e1c8574764a7caff32de400074893a99612ab679"
+  },
+  "package": {
+    "name": "linux-vst-bridge-beta",
+    "version": "0.12.0internal11-1",
+    "sha256": "cc560de4ed2f87cf82dfd8ca0c53853d3f6e43614ff31661040b3062effba2c5",
+    "release_manifest_sha256": "74390b5c80ce00515296cd17498246b418ac2ad5f1bbb2869617ed3c51849b4c",
+    "full_archive_verification": "passed, 17 declared payload entries",
+    "package_manager_integrity_after_rollback": "33 total files, 0 missing",
+    "signature_posture": "unsigned internal test package; not a customer release"
+  },
+  "paired_artifacts": {
+    "manager_sha256": "3ea5b7f68d0fff971f60f7e7c5b682dcfb8bb42e79a3d4fb80844193a2a5e4a2",
+    "frontend_sha256": "a10167424168aaa64e5b6be5ca082fccb30bca07d83ad22dbea19436a0250d77",
+    "preparation_kit_sha256": "2d77dfb0588c72f7b6b4108cfc5fd46b2b731f07c28189788e329d0467901d4b"
+  },
+  "observed_journey": [
+    "selected internal10 service was active and clean at fixture start",
+    "internal11 installed through pacman while internal10 remained selected",
+    "fixed /usr manager reported update_active for internal11",
+    "Applications opened Linux VST Bridge Setup and Updates",
+    "visible Stop, Select installed version, and Start steps selected one immutable internal11 generation",
+    "after adoption the Setup app offered Start, not immediate rollback",
+    "normal Library reopened selected internal11 and reported Bridge ready, service ready, DSP 0/6, no pending transactions or stale transports, and cleanup confirmed",
+    "Setup app offered Restore previous version for the exact internal10 predecessor",
+    "visible Stop, Restore previous version, and Start steps selected internal10 again",
+    "normal Library reopened selected internal10 and reported the same clean idle service posture",
+    "selected package-activation-status reported active internal10 although the root-owned installed package remained internal11",
+    "pacman integrity readback reported 33 files and 0 missing after rollback",
+    "guest powered off normally"
+  ],
+  "selected_successor_before_rollback": {
+    "generation": "26ee8072686929df725efc1409040d64118ff453130bc8c6cfce916ba81491ea",
+    "version": "0.12.0internal11",
+    "manager_sha256": "3ea5b7f68d0fff971f60f7e7c5b682dcfb8bb42e79a3d4fb80844193a2a5e4a2",
+    "frontend_sha256": "a10167424168aaa64e5b6be5ca082fccb30bca07d83ad22dbea19436a0250d77",
+    "predecessor_generation": "e98eeabc3c79a17e2dfd8d5c344e3490d2a851e591473626581c1ef039fce7e6",
+    "catalogue_equal_to_predecessor": true
+  },
+  "selected_after_rollback": {
+    "generation": "e98eeabc3c79a17e2dfd8d5c344e3490d2a851e591473626581c1ef039fce7e6",
+    "version": "0.12.0internal10",
+    "manager_sha256": "145ba0eab4ab27b3b751c070b468cff00db406ef2ecba16ff827ebc8d545a557",
+    "frontend_sha256": "bfd7bd061823cb9b6b24ef33b2c7d7c00563330488905f77b9b794eb0f5cc2b8",
+    "predecessor_generation": "d04fb3a8402a4882ecda4e446c90c03b398f1f72b72b22230d745910a43280e2",
+    "catalogue_equal_to_predecessor": true,
+    "service": "active",
+    "ui_readback": "Bridge ready; service ready; DSP 0/6; install/scan 0; stale transports 0; pending transactions 0; cleanup confirmed",
+    "readiness": "compatibility unqualified on this VM"
+  },
+  "rollback_separation": "the user-selected software generation returned to internal10 while pacman retained the intact root-owned internal11 package",
+  "final_virtual_machine_state": "powered off normally",
+  "limits": [
+    "No Steam Deck installation or native proxy publication",
+    "No Bitwig or commercial plug-in installation on this VM",
+    "No audio, MIDI, GPU performance, project recall or reboot-after-rollback claim",
+    "No commercial release signing or redistribution claim",
+    "Proton/SLR and VST3 SDK remain external prerequisites"
+  ]
+}

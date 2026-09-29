@@ -1,5 +1,25 @@
 # Current work selection
 
+## Beta delivery: ordinary installed-package update handoff
+
+This source owner begins from canonical main
+`13ed1d85e830d581ec297760e04e9f9433bfd671` (tree
+`f281a2e518298f466b2486f3ca7c01a80e84aa28`). A disposable CachyOS
+260809 update installed a verified internal-test package but the ordinary
+launcher still opened the previously selected frontend and offered no update
+step. The exact failure is retained in [PR #197](https://github.com/kasselvania/Linux-VST-bridge/pull/197).
+
+The current source change makes the fixed system launcher compare the verified
+installed package with the selected immutable generation. When they differ,
+the frontend offers explicit clean stop, adoption and service restart through
+the existing package owner. The predecessor remains available for exact
+rollback. The [update contract](docs/BETA_PACKAGE_UPDATE.md),
+[internal10 update receipt](evidence/beta-portability/cachyos-internal10-update-2026-09-29.json)
+and [internal11 update/rollback receipt](evidence/beta-portability/cachyos-internal11-update-rollback-2026-09-29.json)
+record the graphical package update, cold reopen and exact predecessor
+restoration on disposable CachyOS systems. No Deck generation or native
+publication is changed by this source branch.
+
 ## Beta delivery: clean-machine portable first run
 
 The current portability owner begins from post-PKG1 canonical main
