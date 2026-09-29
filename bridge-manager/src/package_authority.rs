@@ -600,8 +600,19 @@ fn parse_unit_readback(text: &str) -> Result<UnitReadback> {
             && fields.insert(key, value).is_none(), "package_user_service_readback")?;
     }
     let get = |key| fields.get(key).copied().ok_or("package_user_service_readback");
-    Ok(UnitReadback { load: get("LoadState")?.into(), active: get("ActiveState")?.into(),
-        fragment: get("FragmentPath")?.into(), exec: get("ExecStart")?.into() })
+    let load = get("LoadState")?;
+    let active = get("ActiveState")?;
+    let fragment = get("FragmentPath")?;
+    // systemd omits ExecStart altogether for a genuinely absent user unit.
+    // Admit that exact first-adoption readback without allowing a loaded unit
+    // to lose its executable identity.
+    let exec = match fields.get("ExecStart") {
+        Some(value) => *value,
+        None if load == "not-found" && active == "inactive" && fragment.is_empty() => "",
+        None => return Err("package_user_service_readback".into()),
+    };
+    Ok(UnitReadback { load: load.into(), active: active.into(),
+        fragment: fragment.into(), exec: exec.into() })
 }
 fn require_service_stopped(service: &impl ServiceControl) -> Result<()> {
     let state = service.show()?;
@@ -1959,6 +1970,17 @@ mod tests {
     #[test]
     fn service_state_and_effective_reload_are_exact() {
         assert!(parse_unit_readback("LoadState=loaded\nActiveState=inactive\nFragmentPath=/x\nExecStart={ path=/x ; argv[]=/x serve ; ignore_errors=no }\n").is_ok());
+        let absent = parse_unit_readback(
+            "LoadState=not-found\nActiveState=inactive\nFragmentPath=\n").unwrap();
+        assert_eq!(absent.load, "not-found");
+        assert_eq!(absent.active, "inactive");
+        assert!(absent.fragment.is_empty() && absent.exec.is_empty());
+        assert!(parse_unit_readback(
+            "LoadState=not-found\nActiveState=active\nFragmentPath=\n").is_err());
+        assert!(parse_unit_readback(
+            "LoadState=not-found\nActiveState=inactive\nFragmentPath=/x\n").is_err());
+        assert!(parse_unit_readback(
+            "LoadState=loaded\nActiveState=inactive\nFragmentPath=/x\n").is_err());
         assert!(parse_unit_readback("LoadState=loaded\nActiveState=inactive\n").is_err());
         assert!(parse_unit_readback("LoadState=loaded\nLoadState=loaded\nActiveState=inactive\nFragmentPath=/x\nExecStart=/x\n").is_err());
         let f = Fixture::new();
@@ -1976,6 +1998,12 @@ mod tests {
         f.service.fail_show.set(false);
         f.adopt().unwrap();
         assert_eq!(f.service.show().unwrap().load, "loaded");
+        let exact = f.service.show().unwrap();
+        for changed_exec in ["", "{ path=/usr/bin/foreign ; argv[]=/usr/bin/foreign serve ; ignore_errors=no }"] {
+            f.service.loaded.borrow_mut().exec = changed_exec.into();
+            assert!(activation_status_from(&f.base.m, &f.home, &f.service).is_err());
+        }
+        *f.service.loaded.borrow_mut() = exact;
         assert!(require_service_stopped(&f.service).is_ok());
         f.service.loaded.borrow_mut().active = "failed".into();
         assert!(require_service_stopped(&f.service).is_ok());

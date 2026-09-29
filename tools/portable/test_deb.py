@@ -30,6 +30,8 @@ class DebianPackage(unittest.TestCase):
         inputs.mkdir()
         for index, (name, kind) in enumerate(assemble.REQUIRED.items()):
             prefix = b"\x7fELF" if kind in ("manager", "frontend") else b"MZ" if kind == "windows_host" else b""
+            if name in deb.SUPERVISOR_PATHS:
+                prefix = bytes.fromhex("f30d0d0a") + (0).to_bytes(4, "little") + b"fixture0"
             self.add(inputs, name, kind, prefix + f"fixture-{index}".encode())
         self.add(inputs, "usr/lib/linux-vst-bridge/proxy/Test.so", "proxy", b"\x7fELFproxy")
         self.add(inputs, "usr/lib/linux-vst-bridge/self-test/Test.vst3", "fixture", b"MZfixture")
@@ -57,6 +59,23 @@ class DebianPackage(unittest.TestCase):
     def build(self):
         return deb.build(self.staged, self.package, 1_234_567_890)
 
+    def stage_with_python_magics(self, session_magic, ownership_magic, *, flags=0):
+        for row in self.files:
+            magic = (session_magic if row["destination"] == deb.SUPERVISOR_PATHS[0]
+                     else ownership_magic if row["destination"] == deb.SUPERVISOR_PATHS[1]
+                     else None)
+            if magic is not None:
+                data = magic + flags.to_bytes(4, "little") + b"fixture0body"
+                Path(row["source"]).write_bytes(data)
+                row["sha256"] = hashlib.sha256(data).hexdigest()
+        spec = {"schema": 1, "version": "0.1.0beta1", "source_head": "a" * 40,
+                "source_tree": "b" * 40, "operator_schema": 12,
+                "external_runtime": {"id": "exact-proton-slr", "manifest_sha256": "c" * 64},
+                "files": self.files}
+        stage = self.root / "alternate-staged"
+        assemble.build(spec, stage, 1_234_567_890)
+        return stage
+
     def test_exact_deb_and_reproducibility(self):
         identity = self.build()
         self.assertEqual(identity["source_head"], "a" * 40)
@@ -83,6 +102,11 @@ class DebianPackage(unittest.TestCase):
         fixture = test_assemble.PackageAssembly("test_package_kit_is_bound_to_adoption_and_host_pair")
         fixture.setUp()
         try:
+            for row in fixture.files:
+                if row["destination"] in deb.SUPERVISOR_PATHS:
+                    data = bytes.fromhex("f30d0d0a") + (0).to_bytes(4, "little") + b"fixture0body"
+                    Path(row["source"]).write_bytes(data)
+                    row["sha256"] = hashlib.sha256(data).hexdigest()
             fixture.add_kit()
             staged = fixture.root / "portable-kit"
             assemble.build(fixture.spec, staged, 1_234_567_890)
@@ -116,9 +140,43 @@ class DebianPackage(unittest.TestCase):
         self.assertIn("Architecture: amd64\n", detail)
         self.assertIn("Version: 0.1.0beta1-1\n", detail)
         self.assertIn("Depends: libc6 (>= 2.39)", detail)
+        self.assertIn("libxkbcommon-x11-0", detail)
+        self.assertIn("libxcursor1", detail)
+        self.assertIn("libxi6", detail)
+        self.assertIn("python3 (>= 3.13), python3 (<< 3.14)", detail)
         data = subprocess.check_output(["dpkg-deb", "-c", str(self.package)], text=True)
         self.assertIn("usr/share/linux-vst-bridge/pkg0-manifest.json", data)
         self.assertIn("usr/share/applications/linux-audio-compatibility-manager.desktop", data)
+
+    def test_python_314_bytecode_declares_exact_runtime_range(self):
+        stage = self.stage_with_python_magics(bytes.fromhex("2b0e0d0a"),
+                                              bytes.fromhex("2b0e0d0a"))
+        package = self.root / "python314" / self.package.name
+        deb.build(stage, package, 1_234_567_890)
+        self.assertEqual(deb.verify(package, stage)["files"], len(self.files) + 2)
+        with tempfile.TemporaryDirectory() as unpack:
+            entries = deb.ar_entries(package, unpack)
+            with tarfile.open(entries["control.tar.gz"], mode="r:gz") as archive:
+                control = archive.extractfile("./control").read()
+        self.assertIn(b"python3 (>= 3.14), python3 (<< 3.15)", control)
+        self.assertNotIn(b"python3 (>= 3.13)", control)
+
+    def test_mixed_or_unknown_python_bytecode_refuses_before_package_creation(self):
+        for label, session, ownership, flags in (
+            ("mixed", bytes.fromhex("f30d0d0a"), bytes.fromhex("2b0e0d0a"), 0),
+            ("unknown", b"\xff\xff\xff\xff", b"\xff\xff\xff\xff", 0),
+            ("malformed_header", bytes.fromhex("f30d0d0a"), bytes.fromhex("f30d0d0a"), 2),
+        ):
+            with self.subTest(label=label):
+                output = self.root / label / self.package.name
+                with self.assertRaisesRegex(ValueError, "supervisor Python"):
+                    self.stage_with_python_magics(session, ownership, flags=flags)
+                with self.assertRaisesRegex(ValueError, "supervisor Python"):
+                    deb.python_abi({name: magic + flags.to_bytes(4, "little") + bytes(8)
+                                    for name, magic in zip(deb.SUPERVISOR_PATHS,
+                                                           (session, ownership))})
+                self.assertFalse(output.exists())
+                self.assertFalse((self.root / "alternate-staged").exists())
 
     def test_changed_payload_and_manifest_refuse(self):
         payload = self.staged / "payload.tar"
@@ -212,9 +270,14 @@ class DebianPackage(unittest.TestCase):
     def test_control_dependency_and_script_injection_refuse(self):
         self.build()
         for name, control, extra in (
-            ("dependency", deb.control_bytes({"version": "0.1.0beta1", "pkgrel": 1}).replace(
+            ("dependency", deb.control_bytes({"version": "0.1.0beta1", "pkgrel": 1},
+                 deb.PYTHON_ABIS[bytes.fromhex("f30d0d0a")]).replace(
                 b"libc6 (>= 2.39)", b"libc6"), None),
-            ("script", deb.control_bytes({"version": "0.1.0beta1", "pkgrel": 1}), b"exit 0\n"),
+            ("script", deb.control_bytes({"version": "0.1.0beta1", "pkgrel": 1},
+                 deb.PYTHON_ABIS[bytes.fromhex("f30d0d0a")]), b"exit 0\n"),
+            ("python", deb.control_bytes({"version": "0.1.0beta1", "pkgrel": 1},
+                 deb.PYTHON_ABIS[bytes.fromhex("f30d0d0a")]).replace(
+                     b"python3 (>= 3.13), python3 (<< 3.14)", b"python3"), None),
         ):
             with self.subTest(name=name), tempfile.TemporaryDirectory() as unpack:
                 entries = deb.ar_entries(self.package, unpack)

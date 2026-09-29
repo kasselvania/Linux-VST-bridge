@@ -10,14 +10,15 @@ import re
 import stat
 import subprocess
 import tempfile
-from assemble import (ADOPTED, ADOPTED_WITH_KIT, ADOPTION_MANIFEST, DEPENDENCIES,
+from assemble import (ADOPTED, ADOPTED_WITH_KIT, ADOPTION_MANIFEST, SUPERVISOR_PATHS,
                       KIT_DESTINATION, PKGREL, verify_kit, verify_kit_backend,
-                      verify_kit_source, validate_release_roster)
+                      verify_kit_source, validate_release_roster, package_dependencies,
+                      supervisor_python_minor)
 
 OPTIONAL_META = {".BUILDINFO": 1024 * 1024, ".MTREE": 4 * 1024 * 1024}
 
 
-def package_info(path, manifest):
+def package_info(path, manifest, python_minor):
     data = path.read_bytes()
     fields = {}
     for line in data.decode("utf-8").splitlines():
@@ -34,7 +35,8 @@ def package_info(path, manifest):
                           ("arch", "x86_64")):
         if fields.get(key) != [expected]:
             raise ValueError(f"package {key} differs")
-    if set(fields.get("depend", [])) != set(DEPENDENCIES) or len(fields.get("depend", [])) != len(DEPENDENCIES):
+    dependencies = package_dependencies(python_minor)
+    if set(fields.get("depend", [])) != set(dependencies) or len(fields.get("depend", [])) != len(dependencies):
         raise ValueError("package dependencies differ")
     if "install" in fields or "installfile" in fields:
         raise ValueError("package install hook forbidden")
@@ -46,6 +48,11 @@ def digest(path):
         for block in iter(lambda: f.read(1024 * 1024), b""):
             h.update(block)
     return h.hexdigest()
+
+
+def bytecode_header(path):
+    with path.open("rb") as source:
+        return source.read(16)
 
 
 def verify_adoption(adopted, manifest, expected):
@@ -114,7 +121,6 @@ def verify(package, manifest, structure_only=False, source_root=None, rebuild_ba
                 md = path.lstat()
                 if not stat.S_ISREG(md.st_mode) or md.st_size > limit:
                     raise ValueError("package metadata type or extent")
-        package_info(root / ".PKGINFO", manifest)
         for name, row in expected.items():
             path = root / name
             if "target" in row:
@@ -136,6 +142,10 @@ def verify(package, manifest, structure_only=False, source_root=None, rebuild_ba
                 pe = subprocess.check_output(["file", "-b", str(path)], text=True)
                 if "PE32+" not in pe or "x86-64" not in pe:
                     raise ValueError("package PE architecture differs")
+        python_minor = supervisor_python_minor({
+            name: bytecode_header(root / name) for name in SUPERVISOR_PATHS
+        })
+        package_info(root / ".PKGINFO", manifest, python_minor)
         adopted = json.loads((root / ADOPTION_MANIFEST).read_bytes())
         verify_adoption(adopted, manifest, expected)
         if KIT_DESTINATION in expected:

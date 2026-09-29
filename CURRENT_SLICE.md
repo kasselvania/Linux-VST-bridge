@@ -1,8 +1,23 @@
 # Current work selection
 
-## Beta delivery: current plug-in controls without Diagnostics
+## Beta delivery: clean-machine portable first run
 
-The selected source owner begins from post-first-run canonical main
+The current portability owner begins from post-PKG1 canonical main
+`3dd598fb46a4fd3de909c658b289246e5e24b1f9` and has merged
+post-product-controls main `de70bd29fed59140ff0396cfc1696cf56db7de75`.
+Its one claim is an exact, explicitly adopted package generation that opens
+the normal frontend and reports a truthful first-run state on a declared
+clean graphical x86 Linux fixture. The [portability contract](docs/BETA_PORTABILITY.md)
+and [Ubuntu receipt](evidence/beta-portability/ubuntu-first-run-2026-09-29.json)
+record an internal-test Ubuntu 26.04.1 journey through GUI adoption, service
+activation and reboot. The machine reported compatibility unqualified. This
+is not a customer release, plug-in qualification or audio result. Debian's
+target bytecode/package gate and CachyOS executable first run remain open.
+No Deck installation or publication occurred.
+
+## Completed source-only current plug-in controls without Diagnostics
+
+The prior source owner began from post-first-run canonical main
 `6545422c49b0cf3055b9e5f8a7ea0c7c465c4993` (tree
 `b7c99d0458145e4af1c65afefc21883a80a2e06d`). Its one claim is that
 Library can load the exact selected plug-in's current compatibility and
@@ -11,6 +26,7 @@ Snapshot. Admission checks the same current manager offer; the existing
 mutation owner still verifies its exact physical target. See
 [selected-product controls](docs/BETA_PRODUCT_CONTROLS.md) and the
 [staged Deck receipt](evidence/beta-delivery/product-controls-2026-09-28.json).
+It merged as `de70bd29fed59140ff0396cfc1696cf56db7de75`.
 
 The exact fixture is the unchanged Steam Deck Desktop Mode, SteamOS 3.8.16,
 Bitwig 6.1 installation, with Pure LoFi as the ordinary selected product and
@@ -32,9 +48,7 @@ The exact package and evidence boundary is in
 
 This source owner does not select or install a Deck generation, adopt a user
 generation on package installation, bundle Proton/SLR, publish a native proxy,
-or qualify Ubuntu, Debian or CachyOS audio and graphics. The first-run
-frontend and actual installed graphical customer journey require their paired
-integration and physical evidence. The existing Deck generation, products,
+or qualify Ubuntu, Debian or CachyOS audio and graphics. The existing Deck generation, products,
 publications, workspaces and rollback authority remain selected.
 
 ## Completed source-only package-kit authority — PKG1

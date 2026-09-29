@@ -1,5 +1,6 @@
 """Internal-key Debian signature fixture; no customer release key is selected."""
 
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -22,6 +23,11 @@ class SignedDebianRelease(unittest.TestCase):
         fixture = test_assemble.PackageAssembly("test_binary_roster_and_external_runtime_contract")
         fixture.setUp()
         self.addCleanup(fixture.doCleanups)
+        for row in fixture.files:
+            if row["destination"] in deb.SUPERVISOR_PATHS:
+                data = bytes.fromhex("f30d0d0a") + (0).to_bytes(4, "little") + b"fixture0body"
+                Path(row["source"]).write_bytes(data)
+                row["sha256"] = hashlib.sha256(data).hexdigest()
         staged = fixture.root / "staged"
         assemble.build(fixture.spec, staged, 1_234_567_890)
         package = fixture.root / "linux-vst-bridge-beta_0.1.0beta1-1_amd64.deb"
