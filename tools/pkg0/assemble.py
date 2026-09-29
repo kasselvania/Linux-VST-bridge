@@ -72,6 +72,7 @@ SECRET_MARKERS = (b"-----BEGIN PRIVATE KEY-----", b"-----BEGIN OPENSSH PRIVATE K
                   b"github_pat_", b"ghp_")
 KIT_SDK = "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96"
 KIT_SDK_RUNTIME = "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+KIT_RUST_TOOLCHAIN = "1.95.0"
 KIT_SOURCE_ARGS = ("CMakeLists.txt", "cmake/HP0Vst3SdkLock.cmake",
                    "cmake/HP0ModernGcc.cmake", "native-vst3-proxy",
                    "vst-state", "tools/mf3/native_builder.py",
@@ -284,14 +285,14 @@ def verify_kit_backend(data, source_root):
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         expected = sha(archive.read("libap2_backend.a"))
     compiler = subprocess.check_output(
-        ["rustup", "which", "--toolchain", "stable", "rustc"], text=True).strip()
+        ["rustup", "which", "--toolchain", KIT_RUST_TOOLCHAIN, "rustc"], text=True).strip()
     with tempfile.TemporaryDirectory(prefix="lvb-pkg1-backend-") as target:
         env = {key: os.environ[key] for key in ("PATH", "HOME", "CARGO_HOME", "RUSTUP_HOME")
                if key in os.environ}
         env.update({"RUSTC": compiler, "RUSTFLAGS": "-C relocation-model=pic",
                     "CARGO_TARGET_DIR": target, "CARGO_INCREMENTAL": "0"})
         process = subprocess.Popen(
-            ["rustup", "run", "stable", "cargo", "build", "--manifest-path",
+            ["rustup", "run", KIT_RUST_TOOLCHAIN, "cargo", "build", "--manifest-path",
              "native-vst3-proxy/backend/Cargo.toml", "--release", "--locked", "--offline",
              "--target", "x86_64-unknown-linux-gnu", "--features", "registered"],
             cwd=source_root, env=env, stdout=subprocess.DEVNULL,
