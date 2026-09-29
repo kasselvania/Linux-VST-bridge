@@ -736,6 +736,22 @@ fn stop_gate(m: &Manager, service: &impl ServiceControl) -> Result<()> {
         require(matches!(operation["state"].as_str(), Some("completed" | "refused")),
             "package_operator_active_or_ambiguous")?;
     }
+    let operations = m.root.join("operator");
+    if operations.try_exists()? {
+        let mut count = 0usize;
+        for entry in fs::read_dir(&operations)? {
+            let entry = entry?;
+            count += 1;
+            require(count <= 2048, "package_operator_inventory_bound")?;
+            let name = entry.file_name();
+            let Some(id) = name.to_str() else { return Err("package_operator_identity".into()); };
+            if !valid_hex(id, 32) { continue; }
+            require(entry.file_type()?.is_dir(), "package_operator_identity")?;
+            let operation: serde_json::Value = read_json(&entry.path().join("result.json"))?;
+            require(matches!(operation["state"].as_str(), Some("completed" | "refused"))
+                && operation["operation"] == id, "package_operator_active_or_ambiguous")?;
+        }
+    }
     {
         let _registry = m.lock("registry.lock")?;
         m.require_inactive(None)?;
@@ -1198,6 +1214,15 @@ mod tests {
             &f.service).is_err());
         assert_eq!(f.service.stops.get(), 0);
         assert_eq!(f.service.loaded.borrow().active, "active");
+        atomic_json(&latest, &serde_json::json!({"schema":1,"operation":"cd".repeat(16),
+            "state":"completed"})).unwrap();
+        let older = f.base.m.root.join("operator").join("ab".repeat(16));
+        fs::create_dir_all(&older).unwrap();
+        atomic_json(&older.join("result.json"), &serde_json::json!({"schema":1,
+            "operation":"ab".repeat(16),"state":"running"})).unwrap();
+        assert!(stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        assert_eq!(f.service.stops.get(), 0);
     }
 
     #[test]
