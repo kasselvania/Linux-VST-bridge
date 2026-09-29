@@ -144,7 +144,7 @@ fn immutable<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     rename_link(&temp, path, false)?;
     sync(path.parent().ok_or("record_parent")?)
 }
-pub(crate) fn physical(link: &Path) -> Result<Option<PathBuf>> {
+pub fn physical(link: &Path) -> Result<Option<PathBuf>> {
     match fs::symlink_metadata(link) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(e) => Err(e.into()),
@@ -246,7 +246,7 @@ pub fn install_command(link: &Path, candidate: &Path, prior: Option<&Path>) -> R
 impl Manager {
     /// A retained qualification must be a completed exact transaction, not a
     /// candidate directory abandoned before activation.
-    pub(crate) fn verify_completed_publication(
+    pub fn verify_completed_publication(
         &self,
         r: &Revision,
         reference: &RevisionRef,

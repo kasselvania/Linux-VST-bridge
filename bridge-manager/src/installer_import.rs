@@ -319,6 +319,14 @@ pub fn load_record(m: &Manager, id: &str) -> Result<Installer> {
     Ok(r)
 }
 pub fn list(m: &Manager) -> Result<Vec<Installer>> {
+    list_with(m, load)
+}
+/// Current Setup presentation checks immutable record binding and cheap file
+/// posture. The owning action still calls `load` to hash installer bytes.
+pub fn list_records(m: &Manager) -> Result<Vec<Installer>> {
+    list_with(m, load_record)
+}
+fn list_with(m: &Manager, read: fn(&Manager, &str) -> Result<Installer>) -> Result<Vec<Installer>> {
     let dir = m.root.join("installers");
     if !dir.exists() {
         return Ok(vec![]);
@@ -328,7 +336,7 @@ pub fn list(m: &Manager) -> Result<Vec<Installer>> {
         require(n < 512, "installer_inventory_bound")?;
         let p = e?.path();
         if p.extension().is_some_and(|x| x == "json") {
-            out.push(load(
+            out.push(read(
                 m,
                 p.file_stem()
                     .and_then(|s| s.to_str())

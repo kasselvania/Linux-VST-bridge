@@ -1,5 +1,5 @@
 //! Source-owned preview of the production manager views with synthetic records.
-//! Usage: OUTPUT.png [WIDTH] [PAGE] [busy|idle|unavailable|cleanup|shared|guided|guided_new|guided_pending] [light|dark]
+//! Usage: OUTPUT.png [WIDTH] [PAGE] [busy|idle|unavailable|cleanup|shared|guided|guided_new|guided_pending|pb0_ready|pb0_action|pb0_unsupported|pb0_unknown] [light|dark]
 #[path = "../src/client.rs"]
 mod client;
 #[path = "../src/library.rs"]
@@ -248,7 +248,8 @@ fn main() -> eframe::Result {
         Some(serde_json::json!({"operation":"preview-operation","state":"running"}));
     match args.get(3).map(String::as_str).unwrap_or("busy") {
         "busy" => {}
-        "idle" | "guided" | "guided_new" | "guided_pending" => {
+        "idle" | "guided" | "guided_new" | "guided_pending"
+        | "pb0_ready" | "pb0_action" | "pb0_unsupported" | "pb0_unknown" => {
             snapshot.system.dsp = 0;
             snapshot.active_sessions.retain(|row| row["recent"] == true);
             snapshot.operation = None;
@@ -274,6 +275,61 @@ fn main() -> eframe::Result {
         "dark" => egui::Theme::Dark,
         other => panic!("unknown theme: {other}"),
     };
+    let readiness = match args.get(3).map(String::as_str) {
+        Some(mode @ ("pb0_ready" | "pb0_action" | "pb0_unsupported" | "pb0_unknown")) => {
+            use model::ReadinessOutcome as O;
+            let (outcome, reason, step) = match mode {
+                "pb0_ready" => (O::Ready, "Exact supported configuration verified.", None),
+                "pb0_action" => (O::ActionRequired,
+                    "Bitwig audio callback maximum still needs confirmation.",
+                    Some("Check Bitwig audio settings")),
+                "pb0_unsupported" => (O::Unsupported,
+                    "This CPU architecture is outside the accepted x86 Linux profile.", None),
+                _ => (O::Unknown,
+                    "This distribution and DAW combination has not been qualified.", None),
+            };
+            let product_status = if outcome == O::Unsupported { O::Unknown } else { outcome };
+            Some(model::ReadinessAssessment {
+                schema: 1,
+                state_token: snapshot.state_token.clone(),
+                observed_at: 1,
+                overall_status: outcome,
+                system: snapshot.system.clone(),
+                platform: vec![model::ReadinessFact {
+                    name: "System".into(), value: Some("SteamOS 3.8.16".into()),
+                    source: "fixed source preview".into(), observed_at: 1,
+                    certainty: model::FactCertainty::Observed,
+                }],
+                daw: vec![], audio: vec![], graphics: vec![], runtime: vec![],
+                products: snapshot.products.iter().map(|p| model::ReadinessProduct {
+                    name: p.name.clone(), class_id: p.class_id.clone(),
+                    module_sha256: p.module_sha256.clone(), profile: None,
+                    status: product_status,
+                    installation_health: model::InstallationHealth::Healthy,
+                    support_qualification: if product_status == O::Ready {
+                        model::SupportQualification::Verified
+                    } else { model::SupportQualification::NotYetQualified },
+                    reason: reason.into(), failure_code: None,
+                    facts: vec![],
+                }).collect(),
+                blockers: if outcome == O::Ready { vec![] } else {
+                    vec![model::ReadinessBlocker {
+                        category: "preview".into(), status: outcome,
+                        explanation: reason.into(),
+                    }]
+                },
+                ordered_steps: step.into_iter().map(|title| model::ReadinessStep {
+                    title: title.into(), detail: "Verify the value in Bitwig, then Check again.".into(),
+                    action: None,
+                }).collect(),
+                support_export_action: model::AvailableAction {
+                    label: "Create sanitized support export".into(),
+                    action: model::Action::SupportExport {}, disabled_reason: None,
+                },
+            })
+        }
+        _ => None,
+    };
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([width, 720.0])
@@ -290,7 +346,11 @@ fn main() -> eframe::Result {
             style.spacing.item_spacing = egui::vec2(12.0, 12.0);
             cc.egui_ctx.set_global_style(style);
             Ok(Box::new(Preview {
-                operator: operator::Operator::preview(snapshot, page),
+                operator: if let Some(readiness) = readiness {
+                    operator::Operator::preview_readiness(snapshot, readiness, page)
+                } else {
+                    operator::Operator::preview(snapshot, page)
+                },
                 output,
                 frame: 0,
             }))

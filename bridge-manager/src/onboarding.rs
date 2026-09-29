@@ -133,10 +133,12 @@ pub fn runners(m: &Manager) -> Result<Vec<(String, Runner)>> {
             "native_catalogue_absent_run_product_setup")?;
         return Ok(vec![]);
     }
-    let c = sw.catalogue(m)?;
+    runners_from_catalogue(Some(&sw.catalogue(m)?))
+}
+fn runners_from_catalogue(catalogue: Option<&catalogue::Catalogue>) -> Result<Vec<(String, Runner)>> {
     let mut list = vec![];
-    for e in c.environments {
-        let r = e.environment.runner;
+    for e in catalogue.into_iter().flat_map(|c| &c.environments) {
+        let r = e.environment.runner.clone();
         r.verify()?;
         let id = runner_key(&r)?;
         if !list.iter().any(|(key, _)| key == &id) {
@@ -149,12 +151,14 @@ fn default_runtime(m: &Manager, installed: &[(String, Runner)]) -> Result<Option
     let sw = software(m)?;
     let Some(_) = sw.native_catalogue else { return Ok(None) };
     let catalogue = sw.catalogue(m)?;
-    let Some(policy) = catalogue.onboarding_runtime else { return Ok(None) };
-    let selected = installed.iter().find(|(key, runner)|
-        *key == policy.default_runner_key
-            && runner.id == catalogue::STANDARD_ONBOARDING_RUNNER
-            && runner.policy.is_none()).cloned();
-    Ok(selected)
+    Ok(default_runtime_from_catalogue(Some(&catalogue), installed))
+}
+fn default_runtime_from_catalogue(catalogue: Option<&catalogue::Catalogue>,
+    installed: &[(String, Runner)]) -> Option<(String, Runner)> {
+    let policy = catalogue?.onboarding_runtime.as_ref()?;
+    installed.iter().find(|(key, runner)| *key == policy.default_runner_key
+        && runner.id == catalogue::STANDARD_ONBOARDING_RUNNER
+        && runner.policy.is_none()).cloned()
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct FileIdentity {
@@ -465,11 +469,9 @@ pub fn unit(op: &str) -> Result<String> {
     Ok(format!("linux-vst-bridge-installer-{op}.service"))
 }
 pub fn live(op: &str) -> Result<bool> {
-    let out = Command::new("systemctl")
-        .args(["--user", "show", &unit(op)?, "-p", "ActiveState", "--value"])
-        .output()?;
-    require(out.status.success(), "installer_unit_unavailable")?;
-    match std::str::from_utf8(&out.stdout)?.trim() {
+    let state = readiness::bounded_user_unit_state(&unit(op)?)
+        .map_err(|_| "installer_unit_unavailable")?;
+    match state.as_str() {
         "active" | "activating" | "deactivating" | "reloading" => Ok(true),
         "inactive" | "failed" => Ok(false),
         _ => Err("installer_unit_state".into()),
@@ -584,14 +586,34 @@ pub fn projection(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::Onboarding>
 fn projection_with_live(
     m: &Manager,
     busy: Option<&str>,
-    mut is_live: impl FnMut(&str) -> Result<bool>,
+    is_live: impl FnMut(&str) -> Result<bool>,
 ) -> Result<Vec<ui::Onboarding>> {
-    let mut rows = vec![];
-    let runners = runners(m)?;
-    let default = default_runtime(m, &runners)?;
-    let preferred: Vec<_> = default.iter().cloned().collect();
+    let sw = software(m)?;
+    let catalogue = sw.native_catalogue.as_ref().map(|_| sw.catalogue(m)).transpose()?;
+    let registry = m.registry()?;
     let records = history_records(m)?;
-    for installer in installer_import::list(m)? {
+    let installers = installer_import::list(m)?;
+    projection_current(m, busy, CurrentProjectionInputs {
+        sw: &sw, catalogue: catalogue.as_ref(), registry: &registry,
+        records: &records, installers: &installers,
+    }, is_live)
+}
+pub(super) struct CurrentProjectionInputs<'a> {
+    pub sw: &'a Software,
+    pub catalogue: Option<&'a catalogue::Catalogue>,
+    pub registry: &'a Registry,
+    pub records: &'a [Record],
+    pub installers: &'a [installer_import::Installer],
+}
+pub(super) fn projection_current(m: &Manager, busy: Option<&str>,
+    inputs: CurrentProjectionInputs<'_>, mut is_live: impl FnMut(&str) -> Result<bool>,
+) -> Result<Vec<ui::Onboarding>> {
+    let CurrentProjectionInputs { sw, catalogue, registry, records, installers } = inputs;
+    let mut rows = vec![];
+    let runners = runners_from_catalogue(catalogue)?;
+    let default = default_runtime_from_catalogue(catalogue, &runners);
+    let preferred: Vec<_> = default.iter().cloned().collect();
+    for installer in installers {
         let bound: Vec<_> = records
             .iter()
             .filter(|r| r.installer == installer.id)
@@ -622,7 +644,7 @@ fn projection_with_live(
             });
         }
         for r in bound {
-            let managed=m.registry()?.classes.values().any(|e|e.registration.environment.id==r.id);
+            let managed=registry.classes.values().any(|e|e.registration.environment.id==r.id);
             let v = result(m, r)?;
             let mut actions = vec![];
             let mut state = "environment_ready".to_owned();
@@ -690,7 +712,7 @@ fn projection_with_live(
                     disabled_reason: busy.map(Into::into),
                 });
             }
-            if r.installation_operation.is_none() && software(m).is_ok_and(|sw| linux_vst_bridge::installer_policy::eligible_adapter(&installer.format, &sw).is_ok()) {
+            if r.installation_operation.is_none() && linux_vst_bridge::installer_policy::eligible_adapter(&installer.format, sw).is_ok() {
                 actions.push(ui::AvailableAction {
                     label: "Run installer with PowerShell intentionally unavailable".into(),
                     action: ui::Action::InstallerStartWithPolicy { onboarding: r.id.clone(),
@@ -708,13 +730,11 @@ fn projection_with_live(
             };
             if !scan.is_null() && retired(&v) {
                 let parsed: inventory::Scan = serde_json::from_value(scan.clone())?;
-                let sw = software(m)?;
                 state = scan_state(&parsed, &r.environment, &sw.host, &sw.source_sha256).into();
                 human = "Review discovery below. No class has been published to Bitwig";
             }
             if managed {
                 actions.clear();
-                let sw = software(m)?;
                 if retired(&v)
                     && inventory_refresh_required(m, &r.environment, &sw.host, &sw.source_sha256)?
                 {
@@ -844,10 +864,18 @@ pub fn setup_projection(m: &Manager, rows: &[ui::Onboarding], products: &[ui::Pr
     let runners = runners(m)?;
     let default = default_runtime(m, &runners)?;
     let retained = history_records(m)?;
+    let installers = installer_import::list(m)?;
+    setup_projection_current(m, rows, products, workspace_installers,
+        &retained, &installers, default.as_ref())
+}
+pub(super) fn setup_projection_current(m: &Manager, rows: &[ui::Onboarding],
+    products: &[ui::Product], workspace_installers: &std::collections::BTreeSet<String>,
+    retained: &[Record], installers: &[installer_import::Installer],
+    default: Option<&(String, Runner)>) -> Result<Vec<ui::InstallerSetup>> {
     let mut setups = Vec::new();
-    for installer in installer_import::list(m)? {
+    for installer in installers {
         if workspace_installers.contains(&installer.id) { continue; }
-        let presentation = installer_import::presentation(m, &installer)?;
+        let presentation = installer_import::presentation(m, installer)?;
         let history: Vec<_> = rows.iter().filter(|row| row.installer == installer.id).cloned().collect();
         let bound: Vec<_> = history.iter().filter(|row| row.environment.is_some()).collect();
         let leaves: Vec<_> = bound.iter().copied().filter(|row| !bound.iter().any(|other|
@@ -894,15 +922,15 @@ pub fn setup_projection(m: &Manager, rows: &[ui::Onboarding], products: &[ui::Pr
             current.environment.as_ref() == Some(&record.id)
                 && record.installer == installer.id);
         let compatibility = compatibility_label(current.environment.is_some(),
-            selected.map(|record| &record.environment.runner), default.as_ref(), ambiguous);
+            selected.map(|record| &record.environment.runner), default, ambiguous);
         setups.push(ui::InstallerSetup { installer: installer.id.clone(), name: presentation.display_label,
-            label_source: presentation.label_source, byte_size: installer.byte_size, format: installer.format,
+            label_source: presentation.label_source, byte_size: installer.byte_size, format: installer.format.clone(),
             imported_at: installer.created_at, phase, status,
             environment: if ambiguous { None } else { current.environment.clone() },
             compatibility,
             discovered: if ambiguous { Vec::new() } else { discovered }, primary, secondary,
             rename: ui::AvailableAction { label: "Rename".into(),
-                action: ui::Action::InstallerRename { installer: installer.id, label: String::new() },
+                action: ui::Action::InstallerRename { installer: installer.id.clone(), label: String::new() },
                 disabled_reason: None },
             history: history.iter().map(|row| ui::SetupHistoryRef {
                 environment: row.environment.clone(), state: row.state.clone() }).collect() });
