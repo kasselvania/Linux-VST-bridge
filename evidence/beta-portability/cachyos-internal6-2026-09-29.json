@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "claim": "Disposable CachyOS graphical package upgrade, explicit first adoption and service activation, launch/reopen, then package removal and reinstall with retained user state. No Bitwig or audio qualification.",
+  "fixture": {
+    "official_iso_build": "260809",
+    "official_iso_sha256": "959f6577f45e25ee9fd8c220fd221b08e4ea79412c7315c0f922dd6d86d5e33c",
+    "os_id": "cachyos",
+    "os_build_id": "rolling",
+    "kernel": "7.2.8-1-cachyos",
+    "desktop": "KDE Plasma 6.7.5",
+    "session": "Wayland",
+    "python": "3.14.7",
+    "test_disk": "copy-on-write overlay over retained clean graphical installation; original disk unchanged"
+  },
+  "package": {
+    "name": "linux-vst-bridge-beta",
+    "version": "0.12.0internal6-1",
+    "format": "x86_64.pkg.tar.zst",
+    "sha256": "aab2a67e9d72e906afec21c44c132304740e90c0aa0ab9aef9bf1a56cdd59f66",
+    "source_head": "b01ae797f68d3f881dae05304777495dabc27fb3",
+    "source_tree": "7c7d9bcb4a62b2b3973bb850cc50caae8f5743e6",
+    "release_manifest_sha256": "be04a57ae0c3b4a47072c3c3c2ebe2b17e3d1d26a47c52f804a7c672652470b4",
+    "source_built_preparation_kit_sha256": "6edc1c0116dc4a685bb8cd0bfcbfe301fd7428a6c0e1b43083cd0cc10abcc7ae",
+    "signing": "internal test verification only; no customer release-signing claim",
+    "supervisor_python_magic": "2b0e0d0a",
+    "declared_python_range": ">=3.14,<3.15"
+  },
+  "observations": {
+    "initial_package_state": "older inert fixture 0.1.0beta1-1 installed; no selected user software generation",
+    "package_upgrade": "passed from inert fixture to executable internal6; in-guest archive SHA matched",
+    "package_integrity": "pacman -Qk reported 33 total files, 0 missing after upgrade and reinstall",
+    "applications_entry": "Linux Audio Compatibility Manager launched through KDE Applications",
+    "first_run": "explicit Set up application adopted the package, then explicit Start bridge service activated it",
+    "selected_generation": "d04fb3a8402a4882ecda4e446c90c03b398f1f72b72b22230d745910a43280e2",
+    "generation_predecessor": null,
+    "home": "Bridge ready; DSP 0/6, install/scan 0, stale transports 0, pending transactions 0, cleanup confirmed; compatibility not qualified; zero native products and no Bitwig",
+    "close_reopen": "passed through Applications; same selected frontend and unqualified Home without re-adoption",
+    "package_remove_reinstall": "pacman removal made package absent; same archive installed again from package absence; selected Home reopened directly",
+    "retained_user_state": "preexisting empty user-owned marker retained through removal and reinstall; selected generation directory remained present",
+    "shutdown": "CachyOS guest shut down cleanly; disposable QEMU process exited 0",
+    "ubuntu_session": "previously paused Ubuntu VM resumed and responded; no Bitwig terms or account action taken"
+  },
+  "gap": "Home says machine or distribution identity is unavailable although CachyOS identity is present in /etc/os-release. Unqualified outcome is appropriate, but the reason needs correction before CachyOS support is claimed.",
+  "limits": [
+    "First adoption followed an upgrade from an inert package fixture, not a pristine new-user package installation.",
+    "Removal/reinstall used the same retained user generation; no fresh second-user check was performed.",
+    "No Bitwig, plug-in, vendor authorization, audio, latency, physical GPU, or customer release package was tested."
+  ]
+}

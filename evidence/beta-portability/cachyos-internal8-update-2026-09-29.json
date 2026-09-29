@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "claim": "Exact internal-test package update on a disposable CachyOS graphical overlay; ordinary frontend does not offer adoption of the new package generation.",
+  "source_head": "fd637e8acdfaff0ec1231372ea4e00b965bd76f4",
+  "source_tree": "fd10c5f780fb0f5a451425a08a94122bdb2006f4",
+  "fixture": {
+    "os_id": "cachyos",
+    "os_build_id": "rolling",
+    "kernel": "7.2.8-1-cachyos",
+    "desktop": "KDE Plasma 6.7.5 on Wayland",
+    "python": "3.14.7",
+    "disk_posture": "new copy-on-write child over the retained internal6 test overlay; original clean installed disk unchanged"
+  },
+  "package": {
+    "name": "linux-vst-bridge-beta",
+    "version": "0.12.0internal8-1",
+    "format": "x86_64.pkg.tar.zst",
+    "sha256": "723dd2f822a488a85df193677cb1b83dc732895a327040e0d81c0692fc027793",
+    "release_manifest_sha256": "e422f9f1a67a3ce44ad230ed11d51080d3d53c22c5fc29c27e13a987a67e8941",
+    "verified_payload_files": 17,
+    "manager_sha256": "28d04835317933b0e147e89d98a9439f13f9ec8aef65198bf530f0850f69137f",
+    "frontend_sha256": "6784ff645d166f98a9c5e1d5fa0590dd9360f397205cb685808eebf98c3ebdf8",
+    "source_built_preparation_kit_sha256": "19de4408b3f52e0690282d69e31fd87d2b0b7fee8c53e4058109e3ed9437b4a3",
+    "supervisor_python_magic": "2b0e0d0a",
+    "declared_python_range": ">=3.14,<3.15",
+    "customer_release_signing": "not selected; internal-test archive only"
+  },
+  "observations": {
+    "before": "internal6 package 0.12.0internal6-1 installed; selected user service active",
+    "transfer": "in-guest archive SHA-256 matched verified package",
+    "package_update": "pacman upgraded internal6 to internal8; post-update pacman -Qk reported 33 total files, 0 missing",
+    "bootstrap_readback": {
+      "schema": 2,
+      "state": "active",
+      "package_version": "0.12.0internal6"
+    },
+    "ordinary_launcher": "KDE Applications entry opened the previously selected internal6 frontend, which still displayed the earlier unavailable-distribution wording",
+    "adoption": "not submitted; the ordinary frontend offered no update action for the newly installed package",
+    "rollback": "not applicable to this run because no successor user generation was adopted",
+    "shutdown": "CachyOS guest shut down normally; QEMU exited 0; child overlay retained",
+    "ubuntu_session": "Ubuntu QEMU resumed from pause and monitor reported running; pending Bitwig terms were not touched or visually reverified"
+  },
+  "blocking_gap": "A healthy selected package generation causes package-bootstrap-status to report active for the old generation after /usr is updated. The system launcher delegates to the old frontend, so the user cannot explicitly adopt the new package through the ordinary UI.",
+  "limits": [
+    "This is a package update and user-interface failure result, not a new CachyOS compatibility qualification.",
+    "No direct CLI adoption workaround, predecessor rollback, Bitwig, vendor authorization, plug-in, audio or physical GPU test was performed.",
+    "No customer release package or signing claim is made."
+  ]
+}
