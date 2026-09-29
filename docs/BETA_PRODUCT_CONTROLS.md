@@ -38,9 +38,10 @@ offered and a foreign revision refuses.
 
 The staged read-only Deck result is in
 [product-controls-2026-09-28.json](../evidence/beta-delivery/product-controls-2026-09-28.json).
-Pure LoFi's five sequential selected-product calls had a 2.887-second median
-and 4.110-second maximum. One BEAM call took 4.646 seconds and one Serum 2 FX
-call took 3.079 seconds. The established full Diagnostics baseline is roughly
+Pure LoFi's five sequential selected-product calls at repaired source
+`5602fd01a0c3f9903d845b07d6a253cc51d8a56b` had a 3.137-second median
+and 4.104-second maximum. One BEAM call took 4.915 seconds and one Serum 2 FX
+call took 3.166 seconds. The established full Diagnostics baseline is roughly
 35 seconds on this fixture. These are staged CLI readback measurements, not a
 physical frontend interaction or action-acknowledgment timing on the Deck.
 
