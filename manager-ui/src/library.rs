@@ -61,6 +61,10 @@ fn vendor(product: &Product) -> &str {
 }
 
 impl Library {
+    pub fn focused_product(&self) -> Option<&ProductKey> {
+        self.focus.as_deref().and_then(|keys| (keys.len() == 1).then_some(&keys[0]))
+    }
+
     pub fn focus_product(&mut self, key: ProductKey) {
         self.search.clear();
         self.role.clear();
@@ -121,7 +125,11 @@ impl Library {
         }
         ui.heading("Plug-ins");
         if self.focus.is_some() {
-            ui.strong("Showing the selected plug-ins");
+            ui.strong(if self.focused_product().is_some() {
+                "Showing the selected plug-in"
+            } else {
+                "Showing the selected plug-ins"
+            });
             if ui.add_sized([180.0, 44.0], egui::Button::new("Show all plug-ins")).clicked() {
                 self.focus = None;
             }
@@ -156,6 +164,7 @@ impl Library {
                 "No matching plug-ins. Clear the search to see all current products."
             });
         }
+        let mut selected = None;
         for product in products {
             ui.push_id((&product.environment, &product.class_id, &product.module_sha256), |ui| {
                 egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
@@ -164,9 +173,15 @@ impl Library {
                         if product.version.is_empty() { "Version unavailable" } else { &product.version }));
                     if fresh { ui.label(status(product).0); }
                     ui.small("Manager-offered compatibility actions appear after current controls load.");
+                    if fresh && self.focus.is_none()
+                        && ui.add_sized([240.0, 44.0],
+                            egui::Button::new("View compatibility controls")).clicked() {
+                        selected = Some(ProductKey::from(product));
+                    }
                 });
             });
         }
+        if let Some(key) = selected { self.focus_product(key); }
     }
 
     pub fn show(
@@ -184,7 +199,11 @@ impl Library {
         ui.heading("Plug-ins");
         if self.focus.is_some() {
             ui.horizontal_wrapped(|ui| {
-                ui.strong("Showing the selected plug-ins");
+                ui.strong(if self.focused_product().is_some() {
+                    "Showing the selected plug-in"
+                } else {
+                    "Showing the selected plug-ins"
+                });
                 if ui
                     .add_sized([180.0, 42.0], egui::Button::new("Show all plug-ins"))
                     .clicked()
@@ -690,6 +709,20 @@ mod tests {
         assert_eq!(library.products(&snapshot).len(), 1);
         library.role = "effect".into();
         assert!(library.products(&snapshot).is_empty());
+    }
+
+    #[test]
+    fn current_product_selection_uses_exact_identity() {
+        let snapshot = snapshot();
+        let exact = ProductKey::from(&snapshot.products[0]);
+        let other = ProductKey::from(&snapshot.products[1]);
+        let mut library = Library::default();
+        assert_eq!(library.focused_product(), None);
+        library.focus_products(vec![exact.clone(), other]);
+        assert_eq!(library.focused_product(), None);
+        library.focus_product(exact.clone());
+        assert_eq!(library.focused_product(), Some(&exact));
+        assert_eq!(library.products(&snapshot).len(), 1);
     }
 
     #[test]
