@@ -257,11 +257,21 @@ fn parse_activation_status(data: &[u8]) -> Result<&'static str, String> {
     }
 }
 
+fn exact_refusal(error: &str, code: &str) -> bool {
+    error.trim() == code || error.trim() == format!("Error: {code:?}")
+}
+
+fn adoption_can_retry(error: &str) -> bool {
+    exact_refusal(error, "package_routes_need_repair")
+        || exact_refusal(error, "package_service_effective_route_mismatch")
+}
+
 pub struct Bootstrap {
     receiver: Option<Receiver<Result<Completion, String>>>,
     running: Option<Operation>,
     result: Option<String>,
     recovery_offered: bool,
+    package_adopt_offered: bool,
     adopted: bool,
     attention: bool,
 }
@@ -273,6 +283,7 @@ impl Bootstrap {
             running: None,
             result: None,
             recovery_offered: false,
+            package_adopt_offered: false,
             adopted: false,
             attention: false,
         }
@@ -286,10 +297,12 @@ impl Bootstrap {
     }
 
     pub fn attention(error: String) -> Self {
+        let package_adopt_offered = adoption_can_retry(&error);
         Self {
             receiver: None,
             running: None,
-            recovery_offered: error.contains("package_transition_needs_recovery"),
+            recovery_offered: exact_refusal(&error, "package_transition_needs_recovery"),
+            package_adopt_offered,
             result: Some(error),
             adopted: false,
             attention: true,
@@ -329,11 +342,14 @@ impl eframe::App for Bootstrap {
                 Ok(Completion::NeedsActivation) => {
                     self.adopted = true;
                     self.recovery_offered = false;
+                    self.package_adopt_offered = false;
                     self.attention = false;
                     self.result = None;
                 }
                 Err(error) => {
-                    self.recovery_offered = error.contains("package_transition_needs_recovery");
+                    self.recovery_offered =
+                        exact_refusal(&error, "package_transition_needs_recovery");
+                    self.package_adopt_offered = adoption_can_retry(&error);
                     if self.recovery_offered {
                         self.attention = true;
                     }
@@ -358,6 +374,11 @@ impl eframe::App for Bootstrap {
                 if ui.add_sized([250.0, 48.0], egui::Button::new("Finish interrupted setup")).clicked() {
                     self.submit(Operation::Recover, ui.ctx().clone());
                 }
+            } else if self.package_adopt_offered {
+                ui.label("Application routes need attention. Applying the installed package will recheck the current generation and refuse a route it does not own.");
+                if ui.add_sized([250.0, 48.0], egui::Button::new("Apply installed package")).clicked() {
+                    self.submit(Operation::Adopt, ui.ctx().clone());
+                }
             } else if self.attention {
                 ui.label("The selected application needs attention. Its state has not been changed by this screen.");
                 if ui.add_sized([250.0, 48.0], egui::Button::new("Check again")).clicked() {
@@ -375,7 +396,7 @@ impl eframe::App for Bootstrap {
                 self.submit(Operation::Adopt, ui.ctx().clone());
             }
             if let Some(result) = &self.result {
-                if self.recovery_offered {
+                if self.recovery_offered || self.package_adopt_offered {
                     egui::CollapsingHeader::new("Technical reason").show(ui, |ui| {
                         ui.colored_label(egui::Color32::YELLOW, result);
                     });
@@ -462,5 +483,32 @@ mod tests {
         assert_eq!(bytes, b"ok");
         let mut long = Some(std::io::Cursor::new(b"too long".to_vec()));
         assert!(collect_pipe(&mut long, &mut Vec::new(), 2).is_err());
+    }
+    #[test]
+    fn only_exact_package_refusals_offer_recovery_or_reapplication() {
+        for raw in [
+            "package_transition_needs_recovery",
+            "Error: \"package_transition_needs_recovery\"\n",
+        ] {
+            let screen = Bootstrap::attention(raw.into());
+            assert!(screen.recovery_offered);
+            assert!(!screen.package_adopt_offered);
+        }
+        for raw in [
+            "package_routes_need_repair",
+            "Error: \"package_service_effective_route_mismatch\"\n",
+        ] {
+            let screen = Bootstrap::attention(raw.into());
+            assert!(screen.package_adopt_offered);
+            assert!(!screen.recovery_offered);
+        }
+        for raw in [
+            "prefix_package_routes_need_repair",
+            "package_stop_service_first",
+            "Error: \"package_transition_needs_recovery\": stale",
+        ] {
+            let screen = Bootstrap::attention(raw.into());
+            assert!(!screen.package_adopt_offered && !screen.recovery_offered);
+        }
     }
 }
