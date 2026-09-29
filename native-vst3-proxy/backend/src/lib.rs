@@ -17,6 +17,48 @@ mod queue;
 mod queued;
 mod recovery;
 mod state;
+#[cfg(feature = "private-state-authoring")]
+pub const PRIVATE_STATE_CAPACITY: usize = state::HEADER_SIZE + state::LIMIT;
+#[cfg(feature = "private-state-authoring")]
+pub const PRIVATE_STATE_PAYLOAD_LIMIT: usize = state::LIMIT;
+#[cfg(feature = "private-state-authoring")]
+pub fn bind_private_state(
+    reference: &[u8],
+    module_sha256: [u8; 32],
+    payload: &[u8],
+) -> io::Result<Vec<u8>> {
+    use state::{Identity, HEADER_SIZE};
+    if reference.len() < HEADER_SIZE {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "reference state extent"));
+    }
+    let identity = Identity {
+        class: reference[16..32].try_into().unwrap(),
+        module: reference[32..64].try_into().unwrap(),
+    };
+    if identity.module != module_sha256 {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "reference module identity"));
+    }
+    state::bound_payload(Some(identity), reference)?;
+    let result = state::bound_envelope(Some(identity), payload)?;
+    state::bound_payload(Some(identity), &result)?;
+    Ok(result)
+}
+
+#[cfg(all(test, feature = "private-state-authoring"))]
+#[test]
+fn private_state_binder_uses_existing_envelope_validation() {
+    let id = state::Identity { class: [7; 16], module: [9; 32] };
+    let mut payload = vec![0; 16];
+    payload[12] = 2;
+    let reference = state::bound_envelope(Some(id), &payload).unwrap();
+    let bound = bind_private_state(&reference, id.module, &payload).unwrap();
+    assert_eq!(state::bound_payload(Some(id), &bound).unwrap(), payload);
+    assert!(bind_private_state(&reference, [8; 32], &payload).is_err());
+    assert!(bind_private_state(&reference, id.module, &[0; 15]).is_err());
+    let mut corrupted = reference;
+    corrupted[72] ^= 1;
+    assert!(bind_private_state(&corrupted, id.module, &payload).is_err());
+}
 #[cfg(feature = "rpi0")]
 pub mod rpi0;
 use ap1_native_client::{
