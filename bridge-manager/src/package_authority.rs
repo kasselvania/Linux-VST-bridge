@@ -715,13 +715,23 @@ fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
             false
         }
     };
-    let version = if legacy {
-        let (manifest, sha) = read_manifest(inputs, owner)?;
+    let (manifest, sha) = read_manifest(inputs, owner)?;
+    let (version, update_available) = if legacy {
         require_retained_host_pair(m, &selected, &manifest)?;
         let _ = predecessor_plan(m, home, manifest.clone(), sha)?;
-        manifest.version
+        (manifest.version, false)
     } else {
-        verify_generation(m, &selected)?.manifest.version
+        let generation = verify_generation(m, &selected)?;
+        // A healthy selected generation does not imply that the installed
+        // package still contains those bytes. Verify its whole fixed roster
+        // before offering an exact update or opening the selected frontend.
+        if sha == generation.manifest_sha256 {
+            require(manifest == generation.manifest, "package_manifest_changed")?;
+            (generation.manifest.version, false)
+        } else {
+            let _ = predecessor_plan(m, home, manifest.clone(), sha)?;
+            (manifest.version, true)
+        }
     };
     let routes = setup_install::current_route_statuses(m, home, &selected)?;
     require(routes.len() == 6, "package_route_plan_shape")?;
@@ -734,8 +744,10 @@ fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     let posture = match state.active.as_str() {
         "active" => {
             require(effective_exact, "package_active_service_identity_changed")?;
-            if legacy || !routes_exact { stop_gate(m, service)?; }
-            if legacy { "legacy_active" } else if routes_exact { "active" } else { "repair_active" }
+            if legacy || update_available || !routes_exact { stop_gate(m, service)?; }
+            if legacy { "legacy_active" }
+            else if update_available { "update_active" }
+            else if routes_exact { "active" } else { "repair_active" }
         }
         "inactive" | "failed" if (state.load == "loaded"
             && !state.fragment.is_empty() && !state.exec.is_empty())
@@ -750,8 +762,10 @@ fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
                 !owners.is_empty()
             };
             if legacy && keeper_retirement_pending { "legacy_retirement_pending" }
+            else if update_available && keeper_retirement_pending { "update_retirement_pending" }
             else if keeper_retirement_pending { "repair_retirement_pending" }
             else if legacy { "legacy_adoptable" }
+            else if update_available { "update_adoptable" }
             else if routes_exact && effective_exact { "inactive" }
             else { "repair_inactive" }
         }
@@ -830,35 +844,45 @@ fn stop_for_repair_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     // stop alone holds registry.lock to exclude a new DSP admission.
     let _package = m.lock("package.lock")?;
     let _setup = m.lock("setup.lock")?;
+    let (_, package_sha) = read_manifest(inputs, owner)?;
     let status = bootstrap_status_from(m, home, inputs, owner, service)?;
-    require(matches!(status.state, "legacy_active" | "repair_active"
-        | "legacy_adoptable" | "repair_inactive" | "legacy_retirement_pending"
-        | "repair_retirement_pending"), "package_stop_not_offered")?;
-    if matches!(status.state, "legacy_adoptable" | "repair_inactive") { return Ok(()); }
-    if matches!(status.state, "legacy_retirement_pending" | "repair_retirement_pending") {
+    require(matches!(status.state, "legacy_active" | "repair_active" | "update_active"
+        | "legacy_adoptable" | "repair_inactive" | "update_adoptable"
+        | "legacy_retirement_pending" | "repair_retirement_pending"
+        | "update_retirement_pending"), "package_stop_not_offered")?;
+    if matches!(status.state, "legacy_adoptable" | "repair_inactive" | "update_adoptable") { return Ok(()); }
+    if matches!(status.state, "legacy_retirement_pending" | "repair_retirement_pending"
+        | "update_retirement_pending") {
         let _registry = m.lock("registry.lock")?;
         m.require_inactive(None)?;
         require(!reconcile_leases(m)?, "package_cleanup_unconfirmed")?;
         require(capacity::owners(m)?.is_empty(), "package_owner_active")?;
         drop(_registry);
         let after = bootstrap_status_from(m, home, inputs, owner, service)?;
+        require(read_manifest(inputs, owner)?.1 == package_sha,
+            "package_input_changed_during_stop")?;
         return require(after.package_version == status.package_version
             && matches!((status.state, after.state),
                 ("legacy_retirement_pending", "legacy_adoptable")
                 | ("repair_retirement_pending", "repair_inactive")
-                | ("repair_retirement_pending", "inactive")),
+                | ("repair_retirement_pending", "inactive")
+                | ("update_retirement_pending", "update_adoptable")),
             "package_service_did_not_stop_cleanly");
     }
     let before = bootstrap_status_from(m, home, inputs, owner, service)?;
-    require(before.state == status.state && before.package_version == status.package_version,
+    require(read_manifest(inputs, owner)?.1 == package_sha
+        && before.state == status.state && before.package_version == status.package_version,
         "package_stop_state_changed")?;
     let observed_keepers = service.idle(m)?;
     let selected = old_software(m)?.ok_or("package_not_installed")?;
     stop_selected_service(m, home, &selected, service, &observed_keepers)?;
     let after = bootstrap_status_from(m, home, inputs, owner, service)?;
+    require(read_manifest(inputs, owner)?.1 == package_sha,
+        "package_input_changed_during_stop")?;
     require(after.package_version == status.package_version
         && matches!((status.state, after.state),
-        ("legacy_active", "legacy_adoptable") | ("repair_active", "repair_inactive")),
+        ("legacy_active", "legacy_adoptable") | ("repair_active", "repair_inactive")
+        | ("update_active", "update_adoptable")),
         "package_service_did_not_stop_cleanly")
 }
 fn activate_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Result<()> {
@@ -1286,6 +1310,102 @@ mod tests {
         activate_from(&f.base.m, &f.home, &f.service).unwrap();
         assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
             &f.service).unwrap().state, "active");
+    }
+
+    #[test]
+    fn installed_successor_is_offered_and_adopted_only_after_exact_clean_stop() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        let predecessor = f.current();
+        let predecessor_bytes = fs::read(f.base.m.root.join("software.json")).unwrap();
+        let registry = fs::read(f.base.m.root.join("registry.json")).ok();
+        let old_unit = fs::read(f.home.join(".config/systemd/user/linux-vst-bridge.service")).unwrap();
+        f.replace("linux-vst-bridge", b"successor manager", true);
+        f.replace("linux-audio-compatibility-manager", b"successor frontend", true);
+        let mut manifest = f.manifest();
+        manifest.version = "0.2.0beta1".into();
+        atomic_json(&f.inputs.manifest(), &manifest).unwrap();
+        fs::set_permissions(f.inputs.manifest(), fs::Permissions::from_mode(0o444)).unwrap();
+
+        let status = bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap();
+        assert_eq!((status.state, status.package_version.as_str()),
+            ("update_active", "0.2.0beta1"));
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), predecessor_bytes);
+        assert_eq!(fs::read(f.home.join(".config/systemd/user/linux-vst-bridge.service")).unwrap(), old_unit);
+        assert!(f.adopt().is_err());
+        f.service.fail_idle.set(true);
+        assert!(stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        assert_eq!(f.service.stops.get(), 0);
+        f.service.fail_idle.set(false);
+        stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap();
+        assert_eq!(f.service.stops.get(), 1);
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "update_adoptable");
+        f.adopt().unwrap();
+        let successor = f.current();
+        assert_ne!(successor.manager.path.parent(), predecessor.manager.path.parent());
+        assert_eq!(verify_generation(&f.base.m, &successor).unwrap()
+            .predecessor.unwrap().manager, predecessor.manager);
+        assert_eq!(fs::read(f.base.m.root.join("registry.json")).ok(), registry);
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "inactive");
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "active");
+        predecessor.manager.verify().unwrap();
+        successor.manager.verify().unwrap();
+        // A package update and its exact software rollback remain separate
+        // from the still-installed /usr package bytes.
+        stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap_err();
+        f.service.stop().unwrap();
+        rollback_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), predecessor_bytes);
+    }
+
+    #[test]
+    fn changed_installed_package_artifact_refuses_status_without_stopping_service() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        f.replace("linux-audio-compatibility-manager", b"changed without manifest", false);
+        assert!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        assert_eq!(f.service.stops.get(), 0);
+    }
+
+    #[test]
+    fn installed_successor_waits_for_exact_keeper_retirement() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        let predecessor = fs::read(f.base.m.root.join("software.json")).unwrap();
+        f.replace("linux-vst-bridge", b"successor manager", true);
+        let keeper = owned_lease(&f, &"ab".repeat(16), true);
+        f.service.retire_keepers.set(false);
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "update_active");
+        assert!(stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        assert_eq!(f.service.stops.get(), 1);
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "update_retirement_pending");
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), predecessor);
+        assert!(f.adopt().is_err());
+        let report: PathBuf = read_json(&keeper).unwrap();
+        atomic_json(&report, &serde_json::json!({"ready":false,
+            "cleanup_confirmed":true})).unwrap();
+        stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap();
+        assert_eq!(f.service.stops.get(), 1);
+        assert!(!keeper.exists());
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "update_adoptable");
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), predecessor);
     }
 
     #[test]

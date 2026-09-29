@@ -296,6 +296,9 @@ class PackageAssembly(unittest.TestCase):
             desktop = tar.extractfile(assemble.SYSTEM_DESKTOP).read()
             self.assertEqual(desktop, assemble.SYSTEM_DESKTOP_BYTES)
             self.assertIn(b"Exec=/usr/bin/linux-audio-compatibility-manager\n", desktop)
+            self.assertNotEqual(assemble.SYSTEM_DESKTOP,
+                                "usr/share/applications/linux-audio-compatibility-manager.desktop")
+            self.assertIn(b"Name=Linux VST Bridge Setup and Updates\n", desktop)
             self.assertNotIn(b"package-adopt", desktop)
             self.assertEqual(adoption["operator_schema"], 12)
             self.assertEqual(adoption["package"], "linux-vst-bridge-beta")

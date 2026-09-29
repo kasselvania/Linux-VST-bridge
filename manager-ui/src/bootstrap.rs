@@ -191,6 +191,9 @@ enum Completion {
     FreshAdoptable,
     LegacyAdoptable,
     LegacyActive,
+    UpdateActive,
+    UpdateAdoptable,
+    UpdateRetirementPending,
     RepairActive,
     RepairInactive,
     RetirementPending,
@@ -211,6 +214,9 @@ fn completed_status(operation: Operation, state: &str) -> Result<Completion, Str
         "fresh_adoptable" => Ok(Completion::FreshAdoptable),
         "legacy_adoptable" => Ok(Completion::LegacyAdoptable),
         "legacy_active" => Ok(Completion::LegacyActive),
+        "update_active" => Ok(Completion::UpdateActive),
+        "update_adoptable" => Ok(Completion::UpdateAdoptable),
+        "update_retirement_pending" => Ok(Completion::UpdateRetirementPending),
         "repair_active" => Ok(Completion::RepairActive),
         "repair_inactive" => Ok(Completion::RepairInactive),
         "legacy_retirement_pending" | "repair_retirement_pending" =>
@@ -248,6 +254,9 @@ fn parse_activation_status(data: &[u8]) -> Result<&'static str, String> {
         "fresh_adoptable" => Ok("fresh_adoptable"),
         "legacy_adoptable" => Ok("legacy_adoptable"),
         "legacy_active" => Ok("legacy_active"),
+        "update_active" => Ok("update_active"),
+        "update_adoptable" => Ok("update_adoptable"),
+        "update_retirement_pending" => Ok("update_retirement_pending"),
         "repair_active" => Ok("repair_active"),
         "repair_inactive" => Ok("repair_inactive"),
         "legacy_retirement_pending" => Ok("legacy_retirement_pending"),
@@ -269,6 +278,7 @@ pub struct Bootstrap {
     stop_offered: bool,
     retirement_pending: bool,
     legacy_adoptable: bool,
+    update_available: bool,
     adopted: bool,
     attention: bool,
     check_queued: bool,
@@ -285,6 +295,7 @@ impl Bootstrap {
             stop_offered: false,
             retirement_pending: false,
             legacy_adoptable: false,
+            update_available: false,
             adopted: false,
             attention: false,
             check_queued: false,
@@ -330,6 +341,7 @@ impl Bootstrap {
             stop_offered: false,
             retirement_pending: false,
             legacy_adoptable: false,
+            update_available: false,
             result: Some(error),
             adopted: false,
             attention: true,
@@ -355,6 +367,7 @@ impl Bootstrap {
         self.stop_offered = false;
         self.retirement_pending = false;
         self.legacy_adoptable = false;
+        self.update_available = false;
         self.adopted = false;
         self.attention = false;
         self.result = None;
@@ -368,6 +381,19 @@ impl Bootstrap {
             }
             Ok(Completion::LegacyActive) | Ok(Completion::RepairActive) => {
                 self.stop_offered = true;
+            }
+            Ok(Completion::UpdateActive) => {
+                self.stop_offered = true;
+                self.update_available = true;
+            }
+            Ok(Completion::UpdateAdoptable) => {
+                self.package_adopt_offered = true;
+                self.update_available = true;
+            }
+            Ok(Completion::UpdateRetirementPending) => {
+                self.stop_offered = true;
+                self.retirement_pending = true;
+                self.update_available = true;
             }
             Ok(Completion::RetirementPending) => {
                 self.stop_offered = true;
@@ -387,8 +413,11 @@ impl Bootstrap {
         if self.recovery_offered { (Operation::Recover, "Finish interrupted setup") }
         else if self.stop_offered { (Operation::StopForRepair,
             if self.retirement_pending { "Finish bridge shutdown" }
+            else if self.update_available { "Stop bridge service to change version" }
             else { "Stop bridge service for setup" }) }
-        else if self.package_adopt_offered { (Operation::Adopt, "Apply installed package") }
+        else if self.package_adopt_offered { (Operation::Adopt,
+            if self.update_available { "Select installed version" }
+            else { "Apply installed package" }) }
         else if self.attention { (Operation::Status, "Check again") }
         else if self.adopted { (Operation::Activate, "Start bridge service") }
         else { (Operation::Adopt, "Set up application") }
@@ -422,10 +451,14 @@ impl eframe::App for Bootstrap {
             }
         }
         egui::CentralPanel::default().show(ui, |ui| {
-            ui.heading(if self.stop_offered || (self.package_adopt_offered && !self.legacy_adoptable) {
+            ui.heading(if self.update_available {
+                "Switch Linux VST Bridge version"
+            } else if self.stop_offered || (self.package_adopt_offered && !self.legacy_adoptable) {
                 "Repair Linux VST Bridge"
             } else { "Set up Linux VST Bridge" });
-            ui.label(if self.stop_offered || self.package_adopt_offered {
+            ui.label(if self.update_available {
+                "A verified package version differs from your selected application. The current generation remains selected until you switch, and stays available for rollback."
+            } else if self.stop_offered || self.package_adopt_offered {
                 "An existing managed installation is selected. The manager will keep its plug-ins and rollback history while checking application routes."
             } else {
                 "The application package is installed. Set up your private, managed copy before opening your Library."
@@ -443,8 +476,10 @@ impl eframe::App for Bootstrap {
             } else {
                 if self.recovery_offered { ui.label("An earlier setup stopped before it finished. Finish that saved change before opening your Library."); }
                 else if self.stop_offered && self.retirement_pending { ui.label("The bridge service stopped, but its keeper cleanup has not yet been reconciled. Finish the exact shutdown before applying the package. Unconfirmed cleanup will refuse."); }
+                else if self.stop_offered && self.update_available { ui.label("Close your DAW first. The manager will verify clean retirement, then stop the selected bridge service before switching to the installed package."); }
                 else if self.stop_offered { ui.label("Close your DAW first. The manager will confirm there are no active plug-ins or setup tasks, then stop the selected bridge service so its application routes can be repaired."); }
                 else if self.package_adopt_offered && self.legacy_adoptable { ui.label("Your existing managed installation is verified. Apply the installed package to retain it as the rollback predecessor."); }
+                else if self.package_adopt_offered && self.update_available { ui.label("Select the verified installed package. Your current generation and plug-in state remain available for exact rollback."); }
                 else if self.package_adopt_offered { ui.label("Application routes need attention. Applying the installed package rechecks the exact generation and refuses a route it does not own."); }
                 else if self.attention { ui.label("The selected application needs attention. Its state has not been changed by this screen."); }
                 else if self.adopted { ui.label("Application files and routes are selected. Start the bridge service to finish first-run setup."); }
@@ -501,6 +536,7 @@ mod tests {
     fn activation_readback_distinguishes_exact_active_inactive_and_invalid() {
         for state in ["active", "inactive", "fresh_adoptable", "legacy_adoptable",
             "legacy_active", "repair_active", "repair_inactive",
+            "update_active", "update_adoptable", "update_retirement_pending",
             "legacy_retirement_pending", "repair_retirement_pending"] {
             let data = serde_json::json!({"schema":2,"state":state,"package_version":"0.1.0"});
             assert_eq!(
@@ -559,6 +595,9 @@ mod tests {
             ("legacy_adoptable", Operation::Adopt, "Apply installed package"),
             ("legacy_active", Operation::StopForRepair, "Stop bridge service for setup"),
             ("repair_active", Operation::StopForRepair, "Stop bridge service for setup"),
+            ("update_active", Operation::StopForRepair, "Stop bridge service to change version"),
+            ("update_retirement_pending", Operation::StopForRepair, "Finish bridge shutdown"),
+            ("update_adoptable", Operation::Adopt, "Select installed version"),
             ("legacy_retirement_pending", Operation::StopForRepair, "Finish bridge shutdown"),
             ("repair_retirement_pending", Operation::StopForRepair, "Finish bridge shutdown"),
             ("repair_inactive", Operation::Adopt, "Apply installed package"),
@@ -571,6 +610,7 @@ mod tests {
         for (pending, settled) in [
             ("legacy_retirement_pending", "legacy_adoptable"),
             ("repair_retirement_pending", "repair_inactive"),
+            ("update_retirement_pending", "update_adoptable"),
         ] {
             let mut screen = Bootstrap::checking();
             assert!(!screen.apply_completion(completed_status(Operation::Status, pending)));
@@ -579,7 +619,11 @@ mod tests {
             assert!(!screen.apply_completion(
                 completed_status(Operation::StopForRepair, settled)));
             assert_eq!(screen.primary_action(),
-                (Operation::Adopt, "Apply installed package"));
+                (Operation::Adopt, if settled == "update_adoptable" {
+                    "Select installed version"
+                } else {
+                    "Apply installed package"
+                }));
         }
         for raw in [
             "prefix_package_routes_need_repair",
