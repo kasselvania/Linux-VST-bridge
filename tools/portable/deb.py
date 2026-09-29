@@ -34,7 +34,7 @@ MAX_FILES = 100_002
 MAX_CONTROL = 64 * 1024
 DEPENDENCIES = (
     "libc6 (>= 2.39)", "libstdc++6", "python3", "systemd", "libx11-6",
-    "libxcb1", "libxkbcommon0", "libgl1", "libegl1", "pipewire",
+    "libxcb1", "libxkbcommon0", "libxkbcommon-x11-0", "libgl1", "libegl1", "pipewire",
     "xdg-desktop-portal",
 )
 
