@@ -815,8 +815,8 @@ fn stop_selected_service(m: &Manager, home: &Path, selected: &Software,
 fn stop_for_repair_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl) -> Result<()> {
     // The selected service owns service.lock until it stops. Hold package and
-    // setup selection steady, but never wait for systemctl with service.lock or
-    // registry.lock held.
+    // setup selection steady without taking service.lock. The final bounded
+    // stop alone holds registry.lock to exclude a new DSP admission.
     let _package = m.lock("package.lock")?;
     let _setup = m.lock("setup.lock")?;
     let status = bootstrap_status_from(m, home, inputs, owner, service)?;
