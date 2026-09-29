@@ -19,11 +19,16 @@ The current beta effort must complete real plug-in and package journeys on
 declared systems. The [read-only SteamOS check](evidence/beta-delivery/steamos-package-posture-2026-09-29.md)
 found base protection enabled and no fixed `/usr` PKG0/PKG1 package intake.
 That is an installation-authority gap for a protected-base Deck successor,
-not a qualification result. The working Deck generation and publications
-remain unchanged. [CachyOS 260809](evidence/beta-portability/cachyos-internal6-2026-09-29.json)
+not a qualification result. The check submitted no selected-generation or
+publication mutation; it did not take a byte-for-byte before/after inventory.
+[CachyOS 260809](evidence/beta-portability/cachyos-internal6-2026-09-29.json)
 completed an internal-test package launch, explicit adoption, service
 activation, frontend reopen and package remove/reinstall on a disposable
 graphical VM, using an earlier source head. No Bitwig or plug-in ran there.
+An [exact subsequent package update](evidence/beta-portability/cachyos-internal8-update-2026-09-29.json)
+installed cleanly, but the normal launcher still opened the selected older
+generation and offered no update action. No successor adoption was submitted.
+This is a beta update-flow gap, not a CachyOS plug-in result.
 [Debian 13.7](evidence/beta-portability/debian-internal7-2026-09-29.json)
 has a target-package/container-startup result built from the merged
 portability tree `f281a2e518298f466b2486f3ca7c01a80e84aa28`. It has not

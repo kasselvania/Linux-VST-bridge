@@ -23,6 +23,7 @@ this Deck through its declared path. A protected-base delivery route requires
 separate source ownership and review before any installed successor campaign.
 
 This observation does not show whether a system extension would work on this
-SteamOS version or whether a signed user-space package is ready. No package,
-service, software generation, publication, environment, runner, vendor state,
-or route was changed. No DAW or plug-in was launched.
+SteamOS version or whether a signed user-space package is ready. The check
+submitted no package, service, software-generation, publication, environment,
+runner, vendor-state or route mutation. No DAW or plug-in was launched. This
+bounded posture check did not collect a byte-for-byte before/after inventory.
