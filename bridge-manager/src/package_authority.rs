@@ -434,10 +434,7 @@ fn preflight(m: &Manager) -> Result<()> {
     require(onboarding::all_retired(m)?, "package_installer_owner_active")?;
     require(operator_cli::vendor_retired(m)?, "package_vendor_owner_active")?;
     daw_workspace::package_idle(m)?;
-    let transports = transport_storage::root();
-    if transports.try_exists()? {
-        require(fs::read_dir(&transports)?.next().is_none(), "package_stale_transport")?;
-    }
+    transport_storage::require_no_sessions()?;
     Ok(())
 }
 fn with_locks<T>(m: &Manager, work: impl FnOnce() -> Result<T>) -> Result<T> {
@@ -807,10 +804,7 @@ fn stop_gate(m: &Manager, service: &impl ServiceControl) -> Result<Vec<capacity:
     require(onboarding::all_retired(m)?, "package_installer_owner_active")?;
     require(operator_cli::vendor_retired(m)?, "package_vendor_owner_active")?;
     daw_workspace::package_idle(m)?;
-    let transports = transport_storage::root();
-    if transports.try_exists()? {
-        require(fs::read_dir(&transports)?.next().is_none(), "package_stale_transport")?;
-    }
+    transport_storage::require_no_sessions()?;
     let after = service.idle(m)?;
     require(after == before, "package_owners_changed")?;
     Ok(after)

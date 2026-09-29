@@ -34,6 +34,13 @@ package transition refuses. A changed package is called an installed package
 change; the package manager owns whether that change is an upgrade or
 downgrade.
 
+An active service leaves an exact marker and two guarded graphical-denial
+sockets in volatile transport storage even when no plug-in session exists.
+Package preflight now verifies those three entries without creating or
+removing them and refuses every actual session directory or foreign entry.
+The first graphical update attempt exposed the previous all-entries-empty
+check as an authority error; a clean idle service could never pass it.
+
 For an active selected service, the ordinary frontend offers a deliberate
 stop. The existing package owner checks idle DSP, installer, vendor and
 workspace state; pending transactions; cleanup certainty; and exact service
