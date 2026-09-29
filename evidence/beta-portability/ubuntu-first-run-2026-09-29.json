@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "claim": "internal-test package installation and explicit graphical first run on a clean disposable Ubuntu VM",
+  "source": {
+    "head": "e93acf3ceb77f07b10408723bdd0caca42e8b2ef",
+    "tree": "5bec33feb969208b64feb861a7dfc9454cd2856f",
+    "canonical_main_merged": "de70bd29fed59140ff0396cfc1696cf56db7de75"
+  },
+  "machine": {
+    "os": "Ubuntu 26.04.1 LTS amd64",
+    "kernel": "7.0.0-34-generic",
+    "desktop": "GNOME 50.1 Wayland",
+    "disk": "disposable 40 GiB qcow2 overlay over unchanged clean baseline",
+    "iso_sha256": "601e30fbf5d97759367c632e2c33630665039b7e2158fd068403da3ccf1bda1f",
+    "graphics": "QEMU std VGA; no physical GPU claim",
+    "python": "3.14.4; interpreter and packaged supervisor magic both 2b0e0d0a",
+    "initial_state": "no product package, software generation or selected user service"
+  },
+  "package": {
+    "name": "linux-vst-bridge-beta",
+    "version": "0.12.0internal3-1",
+    "format": "deb",
+    "sha256": "0e016b42a367a81fc4e1fa6ba99b750dfe421b56bc16fb5c8e41d72e04643e39",
+    "release_manifest_sha256": "fe9175a5f0b2623e85160d59a93ce0ad40530e27962f0053bae0f1c1507b3fd5",
+    "manager_sha256": "81bf6fa8381a91ae16e100ebab2a85a27f77dee36a82fa780cfa6decbbe0dd95",
+    "frontend_sha256": "4453e45cedf78a1a0eab28e4ba7d561f5a72d6b817924a67b96a12971387bd62",
+    "preparation_kit_sha256": "562b4351f3528f56b24c21e522bca11d56c795d32273e06437a054ba244c0e9c",
+    "file_count": 17,
+    "signature_class": "internal_test",
+    "signer_fingerprint": "FF52542477B868A4A8A181D948086924F046A0A3",
+    "signature_verified_with_separate_trusted_key": true,
+    "customer_release_authorized": false,
+    "complete_third_party_notices": false,
+    "customer_signing_key_selected": false,
+    "proton_slr_bundled": false
+  },
+  "native_proxy_input": {
+    "role": "source-built scratch Pure LoFi MIDI0 proxy inside internal-test package; no managed publication",
+    "sha256": "066ae3d989ecee513a89def5bbdd64ff2e19218dc0dd7caef053f2f55b1d7eb8",
+    "descriptor_sha256": "ab4a98de1447756b8c6aa6f03b8bd54935daca417a670380506b087de5bef499",
+    "inspection_report_sha256": "1605141fbabb982e61a4ec145fc8af5a3396a8cbcb6191d01aca61b93c704dce",
+    "scratch_build_kit_sha256": "33e5f26d54c251432ec240e418412c8729a274b14d5fad66717236620e0aeb1c",
+    "push_note_release_qualified": false
+  },
+  "journey": [
+    "apt resolved the package's exact X11 dependencies and installed root-owned files without adopting a user generation",
+    "dpkg -V found no changed package files",
+    "initial package-bootstrap-status was fresh_adoptable",
+    "the registered GNOME Applications entry opened the Set up application screen",
+    "explicit UI action adopted immutable generation c1bd2c28f223c0b197942a1b740a7fdb9c45c9623d8f9b78d27014b2947091c3",
+    "the next UI screen offered Start bridge service",
+    "explicit UI action enabled and started the selected user service, then delegated to the selected immutable frontend",
+    "Home showed Bridge ready and Compatibility has not been qualified for the Ubuntu machine with zero managed plug-ins",
+    "close and reopen through the registered Applications entry returned to the same ordinary Home posture",
+    "after guest reboot the selected service was enabled and active and the Applications entry opened the selected immutable frontend"
+  ],
+  "persistence": {
+    "managed_metadata_files_compared": 17,
+    "metadata_digest_list_before_and_after_reboot_sha256": "27eef05d741f2500a64514dc359cc3cb2e6b4c200852b078ea6aaf1261e2ca24",
+    "user_symlinks_compared": 3,
+    "symlink_list_before_and_after_reboot_sha256": "75db410e0d04573079aba73609a26cbed7f85b8941461a90b560281b3a002acc",
+    "selected_generation_unchanged": true,
+    "service_enabled_active_after_reboot": true,
+    "dpkg_verify_clean_after_reboot": true
+  },
+  "bitwig": {
+    "source": "official bitwig.com Ubuntu installer endpoint",
+    "version": "6.1.1",
+    "installer_sha256": "1417b447a616e084b538fbc2c16b1e42f2679fb3ab3e7d6e674bff18a4482181",
+    "apt_initial_result": "refused missing declared i386 dependencies because the clean VM had no i386 architecture enabled",
+    "host_action": "enabled i386 package architecture, then apt installed the declared dependencies and Bitwig package",
+    "dpkg_verify_clean": true,
+    "registered_application_launch": "reached vendor End User License Agreement",
+    "eula_accepted": false,
+    "account_login_or_activation": false,
+    "audio_or_plugin_test": "not_tested"
+  },
+  "development_failure_retained": "The preceding internal2 package opened bootstrap status but the graphical frontend refused startup because its X11 keyboard library was undeclared. The corrected internal3 package declared the observed X11 libraries and passed the clean graphical launch.",
+  "nonclaims": [
+    "no customer release or compliance archive",
+    "no qualified Ubuntu compatibility profile",
+    "no Bitwig license acceptance or authorization",
+    "no Windows plug-in installation, discovery, publication, audio or project test",
+    "no physical audio latency or GPU performance qualification",
+    "no Steam Deck mutation"
+  ]
+}

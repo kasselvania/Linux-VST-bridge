@@ -9,30 +9,38 @@ This owner begins at post-PKG1 canonical main
 `GOVERNANCE.md` (What evidence means), `docs/ARCHITECTURE.md` (software
 generation and rollback), and the reviewed [PKG0](PKG0.md) and
 [PKG1](PKG1_NATIVE_KIT.md) package owners.
+The branch later merged post-product-controls main
+`de70bd29fed59140ff0396cfc1696cf56db7de75` before the graphical
+Ubuntu package test.
 
 One exact PKG0/PKG1 payload roster can be placed in an Arch package or an
 amd64 Debian package. A fixed system desktop entry launches the packaged
 frontend. Package installation does not select user software, run a setup
 hook, start a service, create an environment, or change a publication.
 The user explicitly adopts a verified immutable generation, then explicitly
-starts its exact selected user service. The fixed frontend first-run screen
-that presents those actions is separately paired source and is required
-before claiming a complete graphical journey.
+starts its exact selected user service. The paired frontend presents those
+actions in a fixed first-run screen. The actual graphical result and its
+remaining limits are recorded below.
 
 ## Distribution boundary
 
 | System | Package route | Evidence here | Product support claim |
 | --- | --- | --- | --- |
 | SteamOS | Reviewed Arch package source and user-owned PKG0/PKG1 adoption | Source tests only; working Deck unchanged | Existing installed product evidence remains separate |
-| Ubuntu 26.04.1 LTS, amd64 | Deterministic `.deb` from the same release manifest and payload | Disposable synthetic package install, dependency resolution and removal passed; actual paired Linux binaries linked and the manager entered its fixed status command | No adopted product, graphical, Bitwig, plug-in, audio or GPU qualification |
-| Debian 13.7, amd64 | Same `.deb` format and exact dependency declaration | Disposable synthetic package install, dependency resolution and removal passed; actual paired Linux binaries linked and the manager entered its fixed status command | No adopted product, audio or graphical qualification |
+| Ubuntu 26.04.1 LTS, amd64 | Deterministic `.deb` from the same release manifest and payload | A clean graphical VM installed an internal-test package, opened the Applications entry, explicitly adopted and activated an immutable generation, reopened after a reboot, and truthfully reported that compatibility was unqualified. The official Bitwig 6.1.1 package installed and reached its user-owned EULA | No customer release, plug-in, audio, GPU, vendor-authorization or Ubuntu compatibility qualification |
+| Debian 13.7, amd64 | Target-specific `.deb` build from the same source and roster | Synthetic package install/dependency check passed. A Debian 13 target build of the current canonical source produced manager/frontend binaries requiring at most GLIBC 2.39 and Python 3.13 bytecode; manager startup reached the expected missing-state refusal | The Ubuntu Python 3.14 bytecode and frontend must not be reused; no complete Debian package, adopted product, audio or graphical qualification |
 | CachyOS 260809 ISO, rolling amd64 | Existing Arch package format from the same roster | Disposable 40 GiB VM reached graphical KDE Plasma 6.7.5 login on Wayland, kernel 7.2.8-1-cachyos. Inert source-owned Arch fixture installed, removed, and reinstalled through pacman; `pacman -Qk` found 17/17 files and the KDE launcher was discoverable. A user-owned marker survived removal and reinstall | No executable launch, adoption, Bitwig, audio or GPU qualification |
 
 The [CachyOS graphical receipt](../evidence/beta-portability/cachyos-graphical-2026-09-28.json)
-establishes an installed desktop and inert package/launcher fixture only. The Ubuntu and Debian observations use container images, not graphical clean
-machines. Package parsing, dependency resolution and file ownership must not
-be reported as first sound. A clean graphical install and normal frontend
-journey remain required on each declared beta platform.
+establishes an installed desktop and inert package/launcher fixture only. The
+[Ubuntu graphical receipt](../evidence/beta-portability/ubuntu-first-run-2026-09-29.json)
+records the later real-binary internal-test package journey on a clean 40 GiB
+VM overlay. It is separate from the earlier container checks. Package parsing,
+dependency resolution, application launch and truthful first-run diagnosis are
+not first sound. A managed plug-in, audio, editor and project workflow remains
+required before qualifying Ubuntu. Debian still needs a target-specific signed
+package and graphical installation; CachyOS still needs executable package
+first run.
 The bounded [container receipt](../evidence/beta-portability/portable-containers-2026-09-28.json)
 separates these package facts from product startup.
 The [paired-binary receipt](../evidence/beta-portability/paired-binary-startup-2026-09-28.json)
