@@ -1,10 +1,28 @@
 # Current work selection
 
-## Selected source-only package-kit authority — PKG1
+## Beta delivery: portable package and explicit first run
+
+PKG1 merged normally into canonical main as
+`3dd598fb46a4fd3de909c658b289246e5e24b1f9` (tree
+`dd83bae6201060725ac76c0f7fdac34a7e465881`). The current beta
+delivery effort builds from that authority. Its portable-package owner adds
+one fixed system launcher, one Debian-family package format from the exact
+PKG0/PKG1 roster, and an explicit guarded user-service activation step.
+The exact package and evidence boundary is in
+[Beta portability](docs/BETA_PORTABILITY.md).
+
+This source owner does not select or install a Deck generation, adopt a user
+generation on package installation, bundle Proton/SLR, publish a native proxy,
+or qualify Ubuntu, Debian or CachyOS audio and graphics. The first-run
+frontend and actual installed graphical customer journey require their paired
+integration and physical evidence. The existing Deck generation, products,
+publications, workspaces and rollback authority remain selected.
+
+## Completed source-only package-kit authority — PKG1
 
 PKG1 began from post-MIDI0 canonical main
 `0385faaef3251e5c1036741b4e440ec5b66e5133` (tree
-`87f3e9c5ccc446c85db77d17a1d774c748431fa0`) and now merges forward
+`87f3e9c5ccc446c85db77d17a1d774c748431fa0`) and merged forward
 post-PB0-C0 canonical main `4a5b94e9f4c74cc997dba1fc8ed9b08087b8beb2`
 (tree `21c29a264b36d36aaefa0b05b29d5f048d091bd5`). Its basis is
 `AGENTS.md` “Keep the engineering safeguards” and “Verification and review”;
@@ -19,7 +37,7 @@ state for exact rollback. Historical six-file PKG0 generations remain readable.
 Selecting a kit does not create a managed proxy publication; UI2 must prepare
 and test the exact successor candidate separately.
 
-PKG1 is source-only, draft and awaiting independent review. It does not install
+PKG1 was source-only and merged as recorded above. It did not install
 a Deck generation, publish Pure LoFi, launch Bitwig, choose a release signing
 key, or claim the Push 3 held-note symptom is physically resolved. PB0-C0 is
 canonical source but remains uninstalled on the Deck. After PKG1 review and
