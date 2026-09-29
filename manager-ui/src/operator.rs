@@ -359,6 +359,7 @@ fn imported_destination(snapshot: &Snapshot, installer: &str) -> Option<Page> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum RequestOrigin {
     InitialSnapshot,
+    ProductDetail,
     DetailSnapshot,
     BackgroundActivity,
     SilentPostMutationRefresh,
@@ -375,6 +376,8 @@ impl RequestOrigin {
 pub struct Operator {
     snapshot: Option<Snapshot>,
     overview: Option<InteractiveOverview>,
+    product_detail: Option<CurrentProductDetail>,
+    product_attempted: Option<ProductKey>,
     overview_fresh: bool,
     details_attempted: bool,
     sender: mpsc::Sender<Reply>,
@@ -411,6 +414,8 @@ impl Operator {
         Self {
             snapshot: None,
             overview: None,
+            product_detail: None,
+            product_attempted: None,
             overview_fresh: false,
             details_attempted: false,
             sender,
@@ -448,6 +453,8 @@ impl Operator {
         Self {
             snapshot: Some(snapshot),
             overview: None,
+            product_detail: None,
+            product_attempted: None,
             overview_fresh: false,
             details_attempted: false,
             sender,
@@ -629,6 +636,23 @@ impl Operator {
     fn current_action_snapshot(&self) -> Option<&Snapshot> {
         self.overview.as_ref().filter(|_| self.overview_fresh).map(|o| &o.current)
     }
+    fn selected_product_snapshot(&self) -> Option<Snapshot> {
+        let overview = self.overview.as_ref().filter(|_| self.overview_fresh)?;
+        let detail = self.product_detail.as_ref().filter(|detail|
+            detail.state_token == overview.current.state_token
+                && detail.current_generation == overview.current_generation)?;
+        let focus = self.library.focused_product()?;
+        if ProductKey::from(&detail.product) != *focus { return None; }
+        let mut current = overview.current.clone();
+        let mut matches = current.products.iter_mut().filter(|product|
+            ProductKey::from(&**product) == *focus);
+        let product = matches.next()?;
+        *product = detail.product.clone();
+        if matches.next().is_some() { return None; }
+        current.environments = detail.environments.clone();
+        current.vendor_applications = detail.vendor_applications.clone();
+        Some(current)
+    }
     fn next_action(&mut self) -> Option<Request> {
         if self.pending {
             None
@@ -696,8 +720,26 @@ impl Operator {
                     self.details_attempted = false;
                 }
                 self.overview = Some(*bundle);
+                self.product_detail = None;
+                self.product_attempted = None;
                 self.overview_fresh = true;
                 self.last_overview = Instant::now();
+            }
+            Reply::Product(detail) => {
+                if self.overview.as_ref().is_some_and(|overview|
+                    self.overview_fresh
+                        && detail.state_token == overview.current.state_token
+                        && detail.current_generation == overview.current_generation
+                        && overview.current.products.iter().filter(|product|
+                            ProductKey::from(*product) == ProductKey::from(&detail.product))
+                            .count() == 1) {
+                    self.product_detail = Some(*detail);
+                } else {
+                    self.product_detail = None;
+                    self.product_attempted = None;
+                    self.overview_fresh = false;
+                    self.refresh_after = true;
+                }
             }
             Reply::Snapshot(s) => {
                 if s.schema != crate::model::OPERATOR_SCHEMA {
@@ -817,6 +859,10 @@ impl Operator {
                 }
             }
             Reply::Error(e) => {
+                if origin == RequestOrigin::ProductDetail {
+                    self.product_detail = None;
+                    return;
+                }
                 if was_action {
                     self.prompt_pulse = true;
                 } else {
@@ -1937,6 +1983,28 @@ impl Operator {
             self.refresh_after = true;
         }
     }
+    fn product_details(ui: &mut egui::Ui, product: &Product) {
+        for limit in &product.limitations { ui.label(limit.replace('_', " ")); }
+        if let Some(preparation) = product.details.get("preparation") {
+            Self::preparation_details(ui, preparation);
+        }
+        if let Some(revision) = product.active_revision {
+            ui.label(format!("Published revision: {revision} · Recommended: {}",
+                product.recommended_revision.map(|value| value.to_string())
+                    .unwrap_or_else(|| "none".into())));
+        }
+        for history in &product.history {
+            ui.label(format!("Revision {} · {}{}{}", history.revision, history.claim,
+                if history.active { " · active" } else { "" },
+                if history.rollback_allowed && !history.active { " · rollback available" } else { "" }));
+        }
+        egui::CollapsingHeader::new("Technical product details").show(ui, |ui| {
+            ui.label(format!("Status: {}\nClass: {}\nModule SHA-256: {}\nEnvironment: {}\nRunner: {}",
+                product.disposition, product.class_id, product.module_sha256,
+                product.environment, product.runner));
+            Self::value(ui, &product.details);
+        });
+    }
     fn repaint_delay(&self) -> Duration {
         if self.prompt_pulse { return Duration::from_millis(50); }
         let interval = if self.pending && !self.background_poll {
@@ -1962,6 +2030,7 @@ impl eframe::App for Operator {
         let mut pick = false;
         let mut chosen = None;
         let mut retry_details = false;
+        let selected_product_snapshot = self.selected_product_snapshot();
         egui::CentralPanel::default().show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.heading("Linux VST Bridge");
@@ -1996,10 +2065,17 @@ impl eframe::App for Operator {
                                         &mut self.page, &mut self.library, &mut self.focus));
                                 return;
                             }
-                            Page::Plugins if self.snapshot.is_none() => {
-                                self.library.show_current(ui, &overview.current,
-                                    self.overview_fresh, self.details_attempted,
-                                    &mut retry_details);
+                            Page::Plugins => {
+                                if let Some(selected) = &selected_product_snapshot {
+                                    self.library.show(ui, selected, action_controls_pending,
+                                        &mut chosen, Self::product_details);
+                                } else {
+                                    let attempted = self.library.focused_product().is_some_and(|key|
+                                        self.product_attempted.as_ref() == Some(key));
+                                    self.library.show_current(ui, &overview.current,
+                                        self.overview_fresh, attempted && !self.pending,
+                                        &mut retry_details);
+                                }
                                 return;
                             }
                             _ => {}
@@ -2021,25 +2097,8 @@ impl eframe::App for Operator {
                 let page = self.page;
                 match page {
                     Page::Home => Self::home(ui, snapshot, &mut self.page, &mut self.library, &mut self.focus),
-                    Page::Plugins => self.library.show(ui, snapshot, action_controls_pending, &mut chosen, |ui, product| {
-                        for limit in &product.limitations { ui.label(limit.replace('_', " ")); }
-                        if let Some(preparation) = product.details.get("preparation") { Self::preparation_details(ui, preparation); }
-                        if let Some(revision) = product.active_revision {
-                            ui.label(format!("Published revision: {revision} · Recommended: {}",
-                                product.recommended_revision.map(|value| value.to_string()).unwrap_or_else(|| "none".into())));
-                        }
-                        for history in &product.history {
-                            ui.label(format!("Revision {} · {}{}{}", history.revision, history.claim,
-                                if history.active { " · active" } else { "" },
-                                if history.rollback_allowed && !history.active { " · rollback available" } else { "" }));
-                        }
-                        egui::CollapsingHeader::new("Technical product details").show(ui, |ui| {
-                            ui.label(format!("Status: {}\nClass: {}\nModule SHA-256: {}\nEnvironment: {}\nRunner: {}",
-                                product.disposition, product.class_id, product.module_sha256,
-                                product.environment, product.runner));
-                            Self::value(ui, &product.details);
-                        });
-                    }),
+                    Page::Plugins => self.library.show(ui, snapshot,
+                        action_controls_pending, &mut chosen, Self::product_details),
                     Page::Workspaces => Self::workspaces(ui, snapshot, action_controls_pending, &mut chosen, &mut pick),
                     Page::Activity => Self::activity(ui, snapshot, action_controls_pending, &mut self.page,
                         &mut self.library, &mut self.focus, &mut chosen),
@@ -2112,7 +2171,7 @@ impl eframe::App for Operator {
             if submit { chosen = self.installer_rename_form.take(); }
             else if cancel { self.installer_rename_form = None; }
         }
-        let result_inactive_reason = self.snapshot.as_ref()
+        let result_inactive_reason = self.current_action_snapshot().or(self.snapshot.as_ref())
             .map_or(Some("Current manager readback unavailable"), |snapshot|
                 snapshot.system.inactive_reason());
         if let Some(form) = self.product_form.as_mut() {
@@ -2210,7 +2269,10 @@ impl eframe::App for Operator {
             ui.ctx().request_repaint_after(Duration::from_millis(500));
             return;
         }
-        if retry_details { self.details_attempted = false; }
+        if retry_details {
+            if self.page == Page::Plugins { self.product_attempted = None; }
+            else { self.details_attempted = false; }
+        }
         if pick { self.queued_import = true; }
         if refresh { self.explicit_refresh_queued = true; }
         if let Some(a) = chosen {
@@ -2237,8 +2299,15 @@ impl eframe::App for Operator {
             self.explicit_refresh_queued = false;
             self.refresh_after = false;
             self.request(Query::Overview, origin, ui.ctx());
+        } else if !self.pending && self.page == Page::Plugins && self.overview_fresh
+            && self.selected_product_snapshot().is_none()
+            && self.library.focused_product().is_some_and(|key|
+                self.product_attempted.as_ref() != Some(key)) {
+            let key = self.library.focused_product().expect("selected product").clone();
+            self.product_attempted = Some(key.clone());
+            self.request(Query::Product(key), RequestOrigin::ProductDetail, ui.ctx());
         } else if !self.pending && self.snapshot.is_none() && !self.details_attempted
-            && !matches!(self.page, Page::Home | Page::Setup) {
+            && !matches!(self.page, Page::Home | Page::Setup | Page::Plugins) {
             self.details_attempted = true;
             self.request(Query::Snapshot, RequestOrigin::DetailSnapshot, ui.ctx());
         } else if !self.pending && self.page == Page::Activity
@@ -2812,6 +2881,8 @@ mod tests {
         Operator {
             snapshot: None,
             overview: None,
+            product_detail: None,
+            product_attempted: None,
             overview_fresh: false,
             details_attempted: false,
             sender,
@@ -2854,6 +2925,32 @@ mod tests {
         };
         InteractiveOverview {schema:1,operator_schema:crate::model::OPERATOR_SCHEMA,
             scope:"current_only".into(),current_generation:"same".into(),current:snapshot,readiness}
+    }
+    #[test]
+    fn selected_product_controls_require_fresh_matching_overview() {
+        let mut state = state_fixture();
+        let overview = overview_fixture();
+        let product = overview.current.products[0].clone();
+        let key = ProductKey::from(&product);
+        state.library.focus_product(key);
+        state.overview_fresh = true;
+        state.overview = Some(overview.clone());
+        let mut detailed = product;
+        detailed.name = "Exact scoped detail".into();
+        state.product_detail = Some(CurrentProductDetail {
+            schema: 1, operator_schema: crate::model::OPERATOR_SCHEMA,
+            state_token: overview.current.state_token.clone(),
+            current_generation: overview.current_generation.clone(), product: detailed,
+            environments: vec![], vendor_applications: vec![],
+        });
+        let selected = state.selected_product_snapshot().unwrap();
+        assert_eq!(selected.products[0].name, "Exact scoped detail");
+        assert_eq!(selected.products[1].name, overview.current.products[1].name);
+        state.overview.as_mut().unwrap().current.state_token = "changed".into();
+        assert!(state.selected_product_snapshot().is_none());
+        state.overview.as_mut().unwrap().current.state_token = overview.current.state_token;
+        state.overview_fresh = false;
+        assert!(state.selected_product_snapshot().is_none());
     }
     fn pulse_fixture(live: bool) -> crate::model::Pulse {
         crate::model::Pulse {schema:crate::model::OPERATOR_SCHEMA,service_state:"active".into(),

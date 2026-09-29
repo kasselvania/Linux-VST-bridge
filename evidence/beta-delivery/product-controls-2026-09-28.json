@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "fixture": {
+    "machine": "Steam Deck Galileo",
+    "system": "SteamOS 3.8.16 Desktop Mode",
+    "daw": "Bitwig Studio 6.1 Flatpak",
+    "installed_software_generation": "6e4c53bf8533741d0e9423dacca9dd542b7329707c2748769cc495386a100385",
+    "staged_manager_sha256": "93bd0f6c7cd1e77e5e0df232a40f1141300a4f8bc13fa8aa7e8f07a1f38873f0",
+    "staged_source_head": "5602fd01a0c3f9903d845b07d6a253cc51d8a56b",
+    "staged_source_tree": "81e1d992abeefce10eb8e9abc5284f09388acb8d",
+    "staged_only": true
+  },
+  "selected_product_readback": {
+    "method": "five sequential remote CLI calls for Pure LoFi, one each for BEAM and Serum 2 FX; includes SSH process overhead",
+    "operator_schema": 12,
+    "selected_product_schema": 1,
+    "pure_lofi": {
+      "seconds": [4.104, 3.094, 2.703, 3.137, 3.270],
+      "median_seconds": 3.137,
+      "maximum_seconds": 4.104,
+      "current_token_identical_across_reads": true,
+      "current_product_controls": ["rollback to revision 3", "rollback to revision 7", "arm crash capture"],
+      "exact_environment_rescan_offered": true,
+      "related_arturia_software_center_offered": true
+    },
+    "beam": {
+      "seconds": 4.915,
+      "current_product_control_count": 24,
+      "current_environment_count": 1,
+      "publication_posture": "experimental"
+    },
+    "serum_2_fx": {
+      "seconds": 3.166,
+      "current_product_control_count": 0,
+      "current_environment_count": 1
+    },
+    "comparison": "Full staged Diagnostics Snapshot was about 35 seconds on the same unchanged fixture; this is not a paired frontend action timing."
+  },
+  "before_after": {
+    "managed_metadata_count": 4600,
+    "managed_metadata_sha256": "acec615f4366df92b7995553640fddd882800751de6bbb894b872b716d0119a1",
+    "user_route_count": 6,
+    "user_routes_sha256": "3b504a29f5df2e51a71a45e2efde02aa879216f591ed0d12b6978b67e59f4339",
+    "identities_equal": true,
+    "selected_generation_unchanged": true,
+    "service": "active",
+    "dsp": 0,
+    "keepers": 2,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "claim_limits": [
+    "Read-only staged manager CLI, not an installed generation or physical frontend acceptance",
+    "No manager action was submitted on the Deck",
+    "No DAW or plug-in was launched",
+    "No audio, MIDI, editor, project recall, or support qualification was inferred"
+  ]
+}

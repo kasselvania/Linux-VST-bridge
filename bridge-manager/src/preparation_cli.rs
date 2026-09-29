@@ -854,6 +854,47 @@ pub fn is_action(a: &ui::Action) -> bool {
             | ui::Action::CandidatePublishOrdinary { .. }
     )
 }
+/// Resolve a closed preparation action to its exact product before projecting
+/// only that product's current offers. The requested action is still checked
+/// against those offers and physically revalidated by its mutation owner.
+pub(super) fn action_selection(m: &Manager, sw: &Software,
+    action: &ui::Action) -> Result<Option<prep::Selection>> {
+    let selection = match action {
+        ui::Action::PluginInspect { selection, .. }
+        | ui::Action::PluginPrepare { selection, .. }
+        | ui::Action::PluginReinspect { selection, .. }
+        | ui::Action::CompatibilityCheck { selection, .. } =>
+            return prep::select(m, selection, &sw.host, &sw.source_sha256).map(Some),
+        ui::Action::CompatibilityResumeCheck { operation } => {
+            let intent = prep::guided_check_stage(m, operation, "intent")?
+                .ok_or("guided_check_resume_intent_missing")?;
+            let original: ui::Action = serde_json::from_value(intent["action"].clone())?;
+            let ui::Action::CompatibilityCheck { selection, .. } = original else {
+                return Err("guided_check_source_action".into());
+            };
+            return prep::select(m, &selection, &sw.host, &sw.source_sha256).map(Some);
+        }
+        ui::Action::CompatibilityFinishResult { operation } => {
+            let original: ui::Action = serde_json::from_value(
+                prep::guided_result_intent(m, operation)?)?;
+            let ui::Action::CompatibilityResult { candidate, .. } = original else {
+                return Err("guided_result_intent_action".into());
+            };
+            candidate
+        }
+        ui::Action::CompatibilityPublishTest { candidate, .. }
+        | ui::Action::CompatibilityResult { candidate, .. }
+        | ui::Action::ExperimentalReplace { candidate, .. }
+        | ui::Action::CandidateWithdraw { candidate, .. }
+        | ui::Action::ExperimentalEnable { candidate }
+        | ui::Action::ExperimentalDisable { candidate }
+        | ui::Action::CandidateObserve { candidate, .. }
+        | ui::Action::CandidateReview { candidate, .. }
+        | ui::Action::CandidatePublishOrdinary { candidate } => candidate.clone(),
+        _ => return Ok(None),
+    };
+    Ok(Some(prep::candidate(m, &selection, &sw.host, &sw.source_sha256)?.selection))
+}
 pub fn offered(actual: &ui::Action, offer: &ui::Action) -> bool {
     match (actual, offer) {
         (
@@ -1453,9 +1494,9 @@ pub fn failure(action: &ui::Action) -> Option<Value> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
-    fn projection_fixture() -> (test_fixture::Fixture, prep::Candidate) {
+    pub(crate) fn projection_fixture() -> (test_fixture::Fixture, prep::Candidate) {
         projection_fixture_with_role(false)
     }
     fn projection_fixture_with_role(effect: bool) -> (test_fixture::Fixture, prep::Candidate) {
@@ -1738,7 +1779,7 @@ mod tests {
         assert!(spec(&f.m, newer.clone(), true, true, false).is_ok());
         assert!(spec(&f.m, newer, false, false, false).is_err());
     }
-    fn projection_software(c: &prep::Candidate) -> Software {
+    pub(crate) fn projection_software(c: &prep::Candidate) -> Software {
         Software {
             installer_launch: None,
             preparation_kit: None,
