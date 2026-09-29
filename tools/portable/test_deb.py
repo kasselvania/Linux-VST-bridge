@@ -158,6 +158,39 @@ class DebianPackage(unittest.TestCase):
         (self.staged / "RELEASE_MANIFEST.json").write_bytes(assemble.canonical(original))
         self.assertEqual(deb.verify(self.package, self.staged)["files"], len(self.files) + 2)
 
+    def test_extra_command_refuses_with_self_consistent_payload_and_digest(self):
+        self.build()
+        payload = self.staged / "payload.tar"
+        manifest_path = self.staged / "RELEASE_MANIFEST.json"
+        forged = json.loads(manifest_path.read_bytes())
+        body = b"foreign"
+        archive_bytes = io.BytesIO()
+        with tarfile.open(payload, mode="r:") as source, tarfile.open(
+                fileobj=archive_bytes, mode="w", format=tarfile.PAX_FORMAT) as target:
+            for member in source:
+                target.addfile(member, source.extractfile(member))
+            member = tarfile.TarInfo("usr/bin/foreign-command")
+            member.size = len(body)
+            member.mode = 0o444
+            member.uid = member.gid = 0
+            member.mtime = 1_234_567_890
+            target.addfile(member, io.BytesIO(body))
+        forged["files"].append({
+            "destination": member.name, "sha256": hashlib.sha256(body).hexdigest(),
+            "size": len(body), "mode": "0444", "kind": "guide", "component": "fixture"})
+        forged["payload_sha256"] = hashlib.sha256(archive_bytes.getvalue()).hexdigest()
+        payload.write_bytes(archive_bytes.getvalue())
+        manifest_path.write_bytes(assemble.canonical(forged))
+        with self.assertRaisesRegex(ValueError, "file role and destination disagree"):
+            deb.build(self.staged, self.root / "forged" / self.package.name, 1_234_567_890)
+        with self.assertRaisesRegex(ValueError, "file role and destination disagree"):
+            deb.verify(self.package, self.staged)
+        gpg_home = self.root / "gpg-home"
+        gpg_home.mkdir()
+        with self.assertRaisesRegex(ValueError, "file role and destination disagree"):
+            release.sign(self.package, self.staged, gpg_home, "0" * 40,
+                         "internal_test", self.root / "forged-signed")
+
     def test_missing_and_symlinked_input_refuse_without_output(self):
         payload = self.staged / "payload.tar"
         original = self.root / "original.tar"
