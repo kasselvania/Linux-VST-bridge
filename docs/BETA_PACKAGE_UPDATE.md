@@ -23,6 +23,16 @@ Manager** entry, so the latter cannot shadow the updater in the Applications
 menu. The Library entry continues to open the selected version, including
 after rollback; setup and updates remain explicit.
 
+The same Setup entry now offers **Restore previous version** when the selected
+generation and its one retained predecessor are both exact. The fixed
+bootstrap readback uses schema 3 to distinguish this posture from a newly
+installed package. Restoration requires a visible clean stop, the existing
+closed exact-predecessor rollback, and a visible restart. The stopped screen
+also permits restarting the current selected version without restoring.
+After rollback, activation verifies the selected generation even though the
+newer package remains installed under `/usr`; it opens that selected Library
+instead of immediately asking to adopt the newer package again.
+
 ## Authority
 
 `package-bootstrap-status` verifies the fixed installed manifest and its
@@ -61,6 +71,9 @@ activation, Library reopen and a cold reboot/reopen of the selected generation.
 It also retains the preceding refusal that
 identified the idle transport-root error. The old generation remained an exact
 rollback predecessor; rollback was not exercised in that graphical session.
+The new visible restore path has source-owned tests but still requires a
+disposable-system graphical result before this PR can claim a usable rollback
+journey.
 
 ## Limits
 

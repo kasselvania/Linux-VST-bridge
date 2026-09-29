@@ -57,9 +57,11 @@ pub fn launch_selected() -> Result<(), String> {
 enum Operation {
     Adopt,
     Activate,
+    Rollback,
     Recover,
     StopForRepair,
     Status,
+    SelectedStatus,
 }
 
 fn fixed_command(operation: Operation) -> Command {
@@ -67,9 +69,11 @@ fn fixed_command(operation: Operation) -> Command {
     command.arg(match operation {
         Operation::Adopt => "package-adopt",
         Operation::Activate => "package-activate",
+        Operation::Rollback => "package-rollback",
         Operation::Recover => "package-recover",
         Operation::StopForRepair => "package-stop-for-repair",
         Operation::Status => "package-bootstrap-status",
+        Operation::SelectedStatus => "package-activation-status",
     });
     command
 }
@@ -112,7 +116,7 @@ fn collect_pipe<R: Read>(
 fn execute(operation: Operation) -> Result<Vec<u8>, String> {
     let mut child = fixed_command(operation)
         .stdin(Stdio::null())
-        .stdout(if operation == Operation::Status {
+        .stdout(if matches!(operation, Operation::Status | Operation::SelectedStatus) {
             Stdio::piped()
         } else {
             Stdio::null()
@@ -138,7 +142,7 @@ fn execute(operation: Operation) -> Result<Vec<u8>, String> {
     let mut output = Vec::new();
     let mut error = Vec::new();
     let deadline = Instant::now()
-        + Duration::from_secs(if operation == Operation::Status {
+        + Duration::from_secs(if matches!(operation, Operation::Status | Operation::SelectedStatus) {
             10
         } else {
             300
@@ -164,7 +168,7 @@ fn execute(operation: Operation) -> Result<Vec<u8>, String> {
         if Instant::now() >= deadline {
             let _ = child.kill();
             let _ = child.wait();
-            return Err(if operation == Operation::Status {
+            return Err(if matches!(operation, Operation::Status | Operation::SelectedStatus) {
                 "Package status readback timed out; no setup action was submitted".into()
             } else {
                 "Package setup timed out. Reopen the application to inspect or recover its retained transition; no second request was submitted.".into()
@@ -194,16 +198,35 @@ enum Completion {
     UpdateActive,
     UpdateAdoptable,
     UpdateRetirementPending,
+    RollbackActive,
+    RollbackInactive,
+    RollbackRetirementPending,
     RepairActive,
     RepairInactive,
     RetirementPending,
 }
 
+fn confirmation_readback(operation: Operation) -> Operation {
+    if matches!(operation, Operation::Adopt | Operation::Activate | Operation::Rollback) {
+        Operation::SelectedStatus
+    } else {
+        Operation::Status
+    }
+}
+
 fn run(operation: Operation) -> Result<Completion, String> {
-    if operation != Operation::Status {
+    if !matches!(operation, Operation::Status | Operation::SelectedStatus) {
         execute(operation)?;
     }
-    completed_status(operation, activation_status()?)
+    // A completed adoption or rollback may leave a verified predecessor, so
+    // bootstrap status can offer another switch. Finish the current step from
+    // the selected generation's service state instead.
+    let state = match confirmation_readback(operation) {
+        Operation::SelectedStatus => selected_activation_status()?,
+        Operation::Status => activation_status()?,
+        _ => return Err("Package confirmation route is invalid".into()),
+    };
+    completed_status(operation, state)
 }
 
 fn completed_status(operation: Operation, state: &str) -> Result<Completion, String> {
@@ -217,6 +240,9 @@ fn completed_status(operation: Operation, state: &str) -> Result<Completion, Str
         "update_active" => Ok(Completion::UpdateActive),
         "update_adoptable" => Ok(Completion::UpdateAdoptable),
         "update_retirement_pending" => Ok(Completion::UpdateRetirementPending),
+        "rollback_active" => Ok(Completion::RollbackActive),
+        "rollback_inactive" => Ok(Completion::RollbackInactive),
+        "rollback_retirement_pending" => Ok(Completion::RollbackRetirementPending),
         "repair_active" => Ok(Completion::RepairActive),
         "repair_inactive" => Ok(Completion::RepairInactive),
         "legacy_retirement_pending" | "repair_retirement_pending" =>
@@ -238,13 +264,18 @@ fn activation_status() -> Result<&'static str, String> {
     parse_activation_status(&data)
 }
 
+fn selected_activation_status() -> Result<&'static str, String> {
+    let data = execute(Operation::SelectedStatus)?;
+    parse_selected_activation_status(&data)
+}
+
 fn parse_activation_status(data: &[u8]) -> Result<&'static str, String> {
     if data.len() > 4096 {
         return Err("Package activation status exceeded its bound".into());
     }
     let result: ActivationStatus = serde_json::from_slice(data)
         .map_err(|_| "Package activation status is malformed".to_owned())?;
-    if result.schema != 2 || result.package_version.is_empty() || result.package_version.len() > 80
+    if result.schema != 3 || result.package_version.is_empty() || result.package_version.len() > 80
     {
         return Err("Package activation status is incompatible".into());
     }
@@ -257,11 +288,30 @@ fn parse_activation_status(data: &[u8]) -> Result<&'static str, String> {
         "update_active" => Ok("update_active"),
         "update_adoptable" => Ok("update_adoptable"),
         "update_retirement_pending" => Ok("update_retirement_pending"),
+        "rollback_active" => Ok("rollback_active"),
+        "rollback_inactive" => Ok("rollback_inactive"),
+        "rollback_retirement_pending" => Ok("rollback_retirement_pending"),
         "repair_active" => Ok("repair_active"),
         "repair_inactive" => Ok("repair_inactive"),
         "legacy_retirement_pending" => Ok("legacy_retirement_pending"),
         "repair_retirement_pending" => Ok("repair_retirement_pending"),
         _ => Err("Package activation status is unknown".into()),
+    }
+}
+
+fn parse_selected_activation_status(data: &[u8]) -> Result<&'static str, String> {
+    if data.len() > 4096 {
+        return Err("Selected application status exceeded its bound".into());
+    }
+    let result: ActivationStatus = serde_json::from_slice(data)
+        .map_err(|_| "Selected application status is malformed".to_owned())?;
+    if result.schema != 1 || result.package_version.is_empty() || result.package_version.len() > 80 {
+        return Err("Selected application status is incompatible".into());
+    }
+    match result.state.as_str() {
+        "active" => Ok("active"),
+        "inactive" => Ok("inactive"),
+        _ => Err("Selected application status is unknown".into()),
     }
 }
 
@@ -279,6 +329,8 @@ pub struct Bootstrap {
     retirement_pending: bool,
     legacy_adoptable: bool,
     update_available: bool,
+    rollback_available: bool,
+    rollback_stopped: bool,
     adopted: bool,
     attention: bool,
     check_queued: bool,
@@ -296,6 +348,8 @@ impl Bootstrap {
             retirement_pending: false,
             legacy_adoptable: false,
             update_available: false,
+            rollback_available: false,
+            rollback_stopped: false,
             adopted: false,
             attention: false,
             check_queued: false,
@@ -342,6 +396,8 @@ impl Bootstrap {
             retirement_pending: false,
             legacy_adoptable: false,
             update_available: false,
+            rollback_available: false,
+            rollback_stopped: false,
             result: Some(error),
             adopted: false,
             attention: true,
@@ -368,6 +424,8 @@ impl Bootstrap {
         self.retirement_pending = false;
         self.legacy_adoptable = false;
         self.update_available = false;
+        self.rollback_available = false;
+        self.rollback_stopped = false;
         self.adopted = false;
         self.attention = false;
         self.result = None;
@@ -395,6 +453,19 @@ impl Bootstrap {
                 self.retirement_pending = true;
                 self.update_available = true;
             }
+            Ok(Completion::RollbackActive) => {
+                self.stop_offered = true;
+                self.rollback_available = true;
+            }
+            Ok(Completion::RollbackInactive) => {
+                self.rollback_available = true;
+                self.rollback_stopped = true;
+            }
+            Ok(Completion::RollbackRetirementPending) => {
+                self.stop_offered = true;
+                self.retirement_pending = true;
+                self.rollback_available = true;
+            }
             Ok(Completion::RetirementPending) => {
                 self.stop_offered = true;
                 self.retirement_pending = true;
@@ -413,8 +484,10 @@ impl Bootstrap {
         if self.recovery_offered { (Operation::Recover, "Finish interrupted setup") }
         else if self.stop_offered { (Operation::StopForRepair,
             if self.retirement_pending { "Finish bridge shutdown" }
+            else if self.rollback_available { "Stop bridge service to restore previous version" }
             else if self.update_available { "Stop bridge service to change version" }
             else { "Stop bridge service for setup" }) }
+        else if self.rollback_stopped { (Operation::Rollback, "Restore previous version") }
         else if self.package_adopt_offered { (Operation::Adopt,
             if self.update_available { "Select installed version" }
             else { "Apply installed package" }) }
@@ -453,11 +526,15 @@ impl eframe::App for Bootstrap {
         egui::CentralPanel::default().show(ui, |ui| {
             ui.heading(if self.update_available {
                 "Switch Linux VST Bridge version"
+            } else if self.rollback_available {
+                "Restore previous Linux VST Bridge version"
             } else if self.stop_offered || (self.package_adopt_offered && !self.legacy_adoptable) {
                 "Repair Linux VST Bridge"
             } else { "Set up Linux VST Bridge" });
             ui.label(if self.update_available {
                 "A verified package version differs from your selected application. The current generation remains selected until you switch, and stays available for rollback."
+            } else if self.rollback_available {
+                "The selected application has one exact verified predecessor. Restoring it keeps your plug-ins and other user data."
             } else if self.stop_offered || self.package_adopt_offered {
                 "An existing managed installation is selected. The manager will keep its plug-ins and rollback history while checking application routes."
             } else {
@@ -468,16 +545,20 @@ impl eframe::App for Bootstrap {
                 ui.strong(match operation {
                     Operation::Adopt => "Setting up the application…",
                     Operation::Activate => "Starting the bridge service…",
+                    Operation::Rollback => "Restoring the previous application version…",
                     Operation::Recover => "Finishing interrupted setup…",
                     Operation::StopForRepair => "Stopping the idle bridge service…",
                     Operation::Status => "Checking package status…",
+                    Operation::SelectedStatus => "Checking selected application…",
                 });
                 ui.small("Keep this window open while the package transition completes.");
             } else {
                 if self.recovery_offered { ui.label("An earlier setup stopped before it finished. Finish that saved change before opening your Library."); }
                 else if self.stop_offered && self.retirement_pending { ui.label("The bridge service stopped, but its keeper cleanup has not yet been reconciled. Finish the exact shutdown before applying the package. Unconfirmed cleanup will refuse."); }
                 else if self.stop_offered && self.update_available { ui.label("Close your DAW first. The manager will verify clean retirement, then stop the selected bridge service before switching to the installed package."); }
+                else if self.stop_offered && self.rollback_available { ui.label("Close your DAW first. The manager will verify clean retirement before restoring the exact previous application version."); }
                 else if self.stop_offered { ui.label("Close your DAW first. The manager will confirm there are no active plug-ins or setup tasks, then stop the selected bridge service so its application routes can be repaired."); }
+                else if self.rollback_stopped { ui.label("The bridge service is stopped. Restore the exact previous version, or restart the current version without changing it."); }
                 else if self.package_adopt_offered && self.legacy_adoptable { ui.label("Your existing managed installation is verified. Apply the installed package to retain it as the rollback predecessor."); }
                 else if self.package_adopt_offered && self.update_available { ui.label("Select the verified installed package. Your current generation and plug-in state remain available for exact rollback."); }
                 else if self.package_adopt_offered { ui.label("Application routes need attention. Applying the installed package rechecks the exact generation and refuses a route it does not own."); }
@@ -486,6 +567,16 @@ impl eframe::App for Bootstrap {
                 let (operation, label) = self.primary_action();
                 if ui.add_sized([250.0, 48.0], egui::Button::new(label)).clicked() {
                     self.submit(operation, ui.ctx().clone());
+                }
+                if self.rollback_stopped && ui.button("Keep current version and restart").clicked() {
+                    self.submit(Operation::Activate, ui.ctx().clone());
+                }
+                if self.rollback_available && !self.rollback_stopped && !self.retirement_pending
+                    && ui.button("Open current Library").clicked() {
+                    match launch_selected() {
+                        Ok(()) => ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close),
+                        Err(error) => { self.attention = true; self.result = Some(error); }
+                    }
                 }
             }
             if let Some(result) = &self.result {
@@ -509,9 +600,11 @@ mod tests {
         for (operation, verb) in [
             (Operation::Adopt, "package-adopt"),
             (Operation::Activate, "package-activate"),
+            (Operation::Rollback, "package-rollback"),
             (Operation::Recover, "package-recover"),
             (Operation::StopForRepair, "package-stop-for-repair"),
             (Operation::Status, "package-bootstrap-status"),
+            (Operation::SelectedStatus, "package-activation-status"),
         ] {
             let command = fixed_command(operation);
             assert_eq!(command.get_program(), SYSTEM_MANAGER);
@@ -537,24 +630,43 @@ mod tests {
         for state in ["active", "inactive", "fresh_adoptable", "legacy_adoptable",
             "legacy_active", "repair_active", "repair_inactive",
             "update_active", "update_adoptable", "update_retirement_pending",
+            "rollback_active", "rollback_inactive", "rollback_retirement_pending",
             "legacy_retirement_pending", "repair_retirement_pending"] {
-            let data = serde_json::json!({"schema":2,"state":state,"package_version":"0.1.0"});
+            let data = serde_json::json!({"schema":3,"state":state,"package_version":"0.1.0"});
             assert_eq!(
                 parse_activation_status(data.to_string().as_bytes()).unwrap(),
                 state
             );
         }
         for value in [
-            serde_json::json!({"schema":1,"state":"active","package_version":"0.1.0"}),
-            serde_json::json!({"schema":2,"state":"unknown","package_version":"0.1.0"}),
-            serde_json::json!({"schema":2,"state":"active","package_version":""}),
-            serde_json::json!({"schema":2,"state":"active","package_version":"0.1.0","extra":true}),
+            serde_json::json!({"schema":2,"state":"active","package_version":"0.1.0"}),
+            serde_json::json!({"schema":3,"state":"unknown","package_version":"0.1.0"}),
+            serde_json::json!({"schema":3,"state":"active","package_version":""}),
+            serde_json::json!({"schema":3,"state":"active","package_version":"0.1.0","extra":true}),
         ] {
             assert!(parse_activation_status(value.to_string().as_bytes()).is_err());
+        }
+        for state in ["active", "inactive"] {
+            let data = serde_json::json!({"schema":1,"state":state,"package_version":"0.1.0"});
+            assert_eq!(parse_selected_activation_status(data.to_string().as_bytes()).unwrap(),
+                state);
+        }
+        for value in [
+            serde_json::json!({"schema":3,"state":"active","package_version":"0.1.0"}),
+            serde_json::json!({"schema":1,"state":"rollback_active","package_version":"0.1.0"}),
+            serde_json::json!({"schema":1,"state":"active","package_version":"0.1.0","extra":true}),
+        ] {
+            assert!(parse_selected_activation_status(value.to_string().as_bytes()).is_err());
         }
     }
     #[test]
     fn setup_verifies_current_status_before_handoff() {
+        for operation in [Operation::Adopt, Operation::Activate, Operation::Rollback] {
+            assert_eq!(confirmation_readback(operation), Operation::SelectedStatus);
+        }
+        for operation in [Operation::Status, Operation::StopForRepair, Operation::Recover] {
+            assert_eq!(confirmation_readback(operation), Operation::Status);
+        }
         assert_eq!(
             completed_status(Operation::Adopt, "inactive").unwrap(),
             Completion::NeedsActivation
@@ -566,6 +678,10 @@ mod tests {
         assert_eq!(
             completed_status(Operation::Activate, "active").unwrap(),
             Completion::Selected
+        );
+        assert_eq!(
+            completed_status(Operation::Rollback, "inactive").unwrap(),
+            Completion::NeedsActivation
         );
         assert!(completed_status(Operation::Activate, "inactive").is_err());
         assert!(completed_status(Operation::Adopt, "unknown").is_err());
@@ -598,6 +714,11 @@ mod tests {
             ("update_active", Operation::StopForRepair, "Stop bridge service to change version"),
             ("update_retirement_pending", Operation::StopForRepair, "Finish bridge shutdown"),
             ("update_adoptable", Operation::Adopt, "Select installed version"),
+            ("rollback_active", Operation::StopForRepair,
+                "Stop bridge service to restore previous version"),
+            ("rollback_retirement_pending", Operation::StopForRepair,
+                "Finish bridge shutdown"),
+            ("rollback_inactive", Operation::Rollback, "Restore previous version"),
             ("legacy_retirement_pending", Operation::StopForRepair, "Finish bridge shutdown"),
             ("repair_retirement_pending", Operation::StopForRepair, "Finish bridge shutdown"),
             ("repair_inactive", Operation::Adopt, "Apply installed package"),
@@ -611,6 +732,7 @@ mod tests {
             ("legacy_retirement_pending", "legacy_adoptable"),
             ("repair_retirement_pending", "repair_inactive"),
             ("update_retirement_pending", "update_adoptable"),
+            ("rollback_retirement_pending", "rollback_inactive"),
         ] {
             let mut screen = Bootstrap::checking();
             assert!(!screen.apply_completion(completed_status(Operation::Status, pending)));
@@ -619,12 +741,24 @@ mod tests {
             assert!(!screen.apply_completion(
                 completed_status(Operation::StopForRepair, settled)));
             assert_eq!(screen.primary_action(),
-                (Operation::Adopt, if settled == "update_adoptable" {
-                    "Select installed version"
+                if settled == "rollback_inactive" {
+                    (Operation::Rollback, "Restore previous version")
+                } else if settled == "update_adoptable" {
+                    (Operation::Adopt, "Select installed version")
                 } else {
-                    "Apply installed package"
-                }));
+                    (Operation::Adopt, "Apply installed package")
+                });
         }
+        let mut restore = Bootstrap::checking();
+        assert!(!restore.apply_completion(completed_status(Operation::Status,
+            "rollback_active")));
+        assert!(restore.rollback_available && restore.stop_offered);
+        assert!(!restore.apply_completion(completed_status(Operation::StopForRepair,
+            "rollback_inactive")));
+        assert!(restore.rollback_stopped);
+        assert!(!restore.apply_completion(completed_status(Operation::Rollback,
+            "inactive")));
+        assert_eq!(restore.primary_action(), (Operation::Activate, "Start bridge service"));
         for raw in [
             "prefix_package_routes_need_repair",
             "package_stop_service_first",
