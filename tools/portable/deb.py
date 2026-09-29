@@ -33,11 +33,41 @@ MAX_PAYLOAD = 2 * 1024 * 1024 * 1024
 MAX_FILES = 100_002
 MAX_CONTROL = 64 * 1024
 DEPENDENCIES = (
-    "libc6 (>= 2.39)", "libstdc++6", "python3", "systemd", "libx11-6",
+    "libc6 (>= 2.39)", "libstdc++6", "systemd", "libx11-6",
     "libxcb1", "libxkbcommon0", "libxkbcommon-x11-0", "libxcursor1", "libxi6",
     "libgl1", "libegl1", "pipewire",
     "xdg-desktop-portal",
 )
+SUPERVISOR_PATHS = (
+    "usr/lib/linux-vst-bridge/supervisor/session.pyc",
+    "usr/lib/linux-vst-bridge/supervisor/ownership.pyc",
+)
+# Exact CPython bytecode magics observed in the declared Debian 13 and Ubuntu
+# 26.04 targets. A different interpreter requires another reviewed package.
+PYTHON_ABIS = {
+    bytes.fromhex("f30d0d0a"): "python3 (>= 3.13), python3 (<< 3.14)",
+    bytes.fromhex("2b0e0d0a"): "python3 (>= 3.14), python3 (<< 3.15)",
+}
+
+
+def python_abi(headers):
+    if set(headers) != set(SUPERVISOR_PATHS):
+        raise ValueError("supervisor Python ABI missing")
+    magics = set()
+    for header in headers.values():
+        if len(header) != 16 or int.from_bytes(header[4:8], "little") not in (0, 1, 3):
+            raise ValueError("supervisor Python bytecode header")
+        magics.add(header[:4])
+    if len(magics) != 1 or next(iter(magics)) not in PYTHON_ABIS:
+        raise ValueError("supervisor Python ABI mismatch or unsupported")
+    return PYTHON_ABIS[next(iter(magics))]
+
+
+def sha_with_header(source, header):
+    digest = hashlib.sha256(header)
+    for chunk in iter(lambda: source.read(1024 * 1024), b""):
+        digest.update(chunk)
+    return digest.hexdigest()
 
 
 def sha_file(source):
@@ -102,6 +132,7 @@ def verify_payload(path, manifest):
     source, before = exact_file(path, MAX_PAYLOAD)
     expected = {row["destination"]: row for row in manifest["files"]}
     seen = set()
+    supervisor_headers = {}
     with source:
         with tarfile.open(fileobj=source, mode="r:") as archive:
             for member in archive:
@@ -112,7 +143,15 @@ def verify_payload(path, manifest):
                         or member.uid != 0 or member.gid != 0):
                     raise ValueError("payload metadata differs")
                 content = archive.extractfile(member)
-                if content is None or sha_file(content) != row["sha256"]:
+                if content is None:
+                    raise ValueError("payload bytes differ")
+                if member.name in SUPERVISOR_PATHS:
+                    header = content.read(16)
+                    supervisor_headers[member.name] = header
+                    digest = sha_with_header(content, header)
+                else:
+                    digest = sha_file(content)
+                if digest != row["sha256"]:
                     raise ValueError("payload bytes differ")
                 seen.add(member.name)
         if seen != set(expected):
@@ -121,22 +160,23 @@ def verify_payload(path, manifest):
         if sha_file(source) != manifest["payload_sha256"]:
             raise ValueError("payload digest differs")
         stable(source, before)
+    return python_abi(supervisor_headers)
 
 
-def control_bytes(manifest):
+def control_bytes(manifest, supervisor_abi):
     return (f"Package: {PACKAGE}\n"
             f"Version: {manifest['version']}-{manifest['pkgrel']}\n"
             f"Architecture: {ARCH}\n"
             "Maintainer: Linux VST Bridge project\n"
             "Section: sound\n"
             "Priority: optional\n"
-            f"Depends: {', '.join(DEPENDENCIES)}\n"
+            f"Depends: {', '.join((*DEPENDENCIES, supervisor_abi))}\n"
             "Description: Managed Windows audio compatibility for native Linux DAWs\n"
             " Exact private beta build. Proton/SLR is an external verified prerequisite.\n").encode()
 
 
-def tar_control(manifest, epoch):
-    control = control_bytes(manifest)
+def tar_control(manifest, epoch, supervisor_abi):
+    control = control_bytes(manifest, supervisor_abi)
     if len(control) > MAX_CONTROL:
         raise ValueError("control metadata extent")
     output = io.BytesIO()
@@ -180,7 +220,7 @@ def build(staged, output, epoch):
     staged = Path(staged).resolve(strict=True)
     output = Path(output).absolute()
     manifest, raw = read_manifest(staged / "RELEASE_MANIFEST.json")
-    verify_payload(staged / "payload.tar", manifest)
+    supervisor_abi = verify_payload(staged / "payload.tar", manifest)
     expected = f"{PACKAGE}_{manifest['version']}-{manifest['pkgrel']}_{ARCH}.deb"
     if output.name != expected or output.exists() or output.is_symlink():
         raise ValueError("Debian package output identity")
@@ -209,7 +249,7 @@ def build(staged, output, epoch):
                             item.mtime = epoch
                             package.addfile(item, payload.extractfile(member))
             stable(source, before)
-        control = tar_control(manifest, epoch)
+        control = tar_control(manifest, epoch, supervisor_abi)
         temporary = Path(tmp) / output.name
         with temporary.open("wb") as package:
             package.write(b"!<arch>\n")
@@ -282,14 +322,14 @@ def verify(package, staged, source_root=None, rebuild_backend=False):
                     or not members[0].isfile() or members[0].size > MAX_CONTROL):
                 raise ValueError("Debian control roster")
             data = archive.extractfile(members[0]).read()
-            if data != control_bytes(manifest):
-                raise ValueError("Debian control metadata differs")
+            control = data
         expected = {row["destination"]: row for row in manifest["files"]}
         seen = Counter()
         directories = Counter()
         exact_directories = set(parent_directories(expected))
         adoption = None
         kit = None
+        supervisor_headers = {}
         with tarfile.open(entries["data.tar.gz"], mode="r:gz") as archive:
             for member in archive:
                 if member.isdir():
@@ -310,7 +350,11 @@ def verify(package, staged, source_root=None, rebuild_backend=False):
                 content = archive.extractfile(member)
                 if content is None:
                     raise ValueError("Debian payload differs")
-                if member.name in ("usr/share/linux-vst-bridge/pkg0-manifest.json", KIT_DESTINATION):
+                if member.name in SUPERVISOR_PATHS:
+                    header = content.read(16)
+                    supervisor_headers[member.name] = header
+                    member_sha = sha_with_header(content, header)
+                elif member.name in ("usr/share/linux-vst-bridge/pkg0-manifest.json", KIT_DESTINATION):
                     data = content.read()
                     member_sha = hashlib.sha256(data).hexdigest()
                     if member.name == KIT_DESTINATION:
@@ -323,6 +367,8 @@ def verify(package, staged, source_root=None, rebuild_backend=False):
                     raise ValueError("Debian payload differs")
         if set(seen) != set(expected) or set(directories) != exact_directories:
             raise ValueError("Debian payload incomplete")
+        if control != control_bytes(manifest, python_abi(supervisor_headers)):
+            raise ValueError("Debian control metadata differs")
         if not isinstance(adoption, dict):
             raise ValueError("Debian adoption authority absent")
         verify_adoption(adoption, manifest, expected)
