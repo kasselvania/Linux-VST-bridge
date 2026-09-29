@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "claim": "one candidate census reused during deep product projection",
+  "base_source_commit": "7295a3ec3600d6edb151a1f90b861efb13a9eee6",
+  "before_binary_source_commit": "f9d8f5476e810c57cf47064f7302abb84c5fc4eb",
+  "before_binary_sha256": "2f58b0142f44815d53a76fca39e0a0ff4c8f7e6ed35f76bad5058920e3350890",
+  "after_binary_source_commit": "c92c30c38347c2e66bce3cf71c0bcdd62478a52b",
+  "after_binary_sha256": "e176e25e34f39ce0e8577b7140cf15bfd8013fe8113a71097cd8c0468df9d02c",
+  "fixture": "unchanged idle Steam Deck Desktop Mode, selected private UI2 generation",
+  "method": "three alternating sequential read-only deep Snapshot calls per staged, unselected binary; product, Setup, workspace and state-token equality checked on every call",
+  "before_seconds": [40.508, 38.078, 38.203],
+  "after_seconds": [35.091, 35.185, 35.245],
+  "before_median_seconds": 38.203,
+  "after_median_seconds": 35.185,
+  "projection": {
+    "operator_schema": 12,
+    "products": 16,
+    "setups": 4,
+    "workspaces": 1,
+    "product_identity_sha256": "65a3cff0aeec83ce5683d0dd36c609216a62538c833a3cd8479b5c4c22bdaa6a",
+    "setup_identity_sha256": "2ca6a74d25e315449070ae33ec86903eaeb430a1241a75988ce79016fc401ed5",
+    "workspace_identity_sha256": "99f6c72719d001be269062f82186ce2bd21bdfebc284bcf9fe2b1379bc54ca28",
+    "same_on_all_six_calls": true
+  },
+  "before_after_inventory": {
+    "metadata_records": 4600,
+    "metadata_sha256": "acec615f4366df92b7995553640fddd882800751de6bbb894b872b716d0119a1",
+    "route_count": 6,
+    "routes_sha256": "3b504a29f5df2e51a71a45e2efde02aa879216f591ed0d12b6978b67e59f4339",
+    "identical": true
+  },
+  "final_manager": {
+    "service": "active",
+    "keepers": 2,
+    "dsp": 0,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "installed_generation_changed": false,
+  "native_publication_changed": false,
+  "limitation": "Deep Snapshot still takes about 35 seconds. This does not establish fast compatibility controls or an installed customer journey."
+}
