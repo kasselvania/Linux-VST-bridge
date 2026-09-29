@@ -309,6 +309,8 @@ class PackageAssembly(unittest.TestCase):
         self.assertFalse((out / "linux-vst-bridge-beta.install").exists())
         self.assertNotIn("install=", (out / "PKGBUILD").read_text())
         self.assertIn("'python>=3.14' 'python<3.15'", (out / "PKGBUILD").read_text())
+        for dependency in ("libxkbcommon-x11", "libxcursor", "libxi"):
+            self.assertIn(repr(dependency), (out / "PKGBUILD").read_text())
         package = package_archive(out, self.root / "fixture.pkg.tar.zst")
         self.assertEqual(verify_package.verify(package, manifest, True)["files"], len(self.files) + 2)
 
@@ -359,6 +361,7 @@ class PackageAssembly(unittest.TestCase):
             ("pkgrel", normal.replace(f"pkgver = {version}-1", f"pkgver = {version}-2"), ()),
             ("architecture", normal.replace("arch = x86_64", "arch = aarch64"), ()),
             ("dependencies", normal.replace("depend = glibc\n", ""), ()),
+            ("gui_dependency", normal.replace("depend = libxcursor\n", ""), ()),
             ("python_dependency", normal.replace("depend = python>=3.14\n",
                                                   "depend = python>=3.13\n"), ()),
             ("duplicate", normal, ((".PKGINFO", normal.encode()),)),

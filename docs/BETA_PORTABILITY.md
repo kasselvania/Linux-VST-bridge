@@ -60,7 +60,9 @@ adopted as a product generation.
   mixed, malformed or unrecognized bytecode refuses. The installed target's
   Python magic must still be read back before adoption. A rolling-distribution
   package with a different interpreter needs a target-specific build from the
-  same reviewed source, rather than reusing incompatible bytecode.
+  same reviewed source, rather than reusing incompatible bytecode. The Arch
+  dependency roster also declares the XKB X11, Xcursor and Xi GUI loaders
+  observed on clean graphical startup.
 - The package-generated desktop file has a fixed `/usr/bin` frontend target.
   It does not call adoption or start a service.
 - `tools/portable/deb.py` verifies that manifest and payload, builds a

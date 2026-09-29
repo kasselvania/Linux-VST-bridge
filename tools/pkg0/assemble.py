@@ -23,7 +23,8 @@ import zipfile
 PACKAGE = "linux-vst-bridge-beta"
 PKGREL = 1
 DEPENDENCIES = ("glibc", "gcc-libs", "systemd", "libx11", "libxcb",
-                "libxkbcommon", "libglvnd", "pipewire", "xdg-desktop-portal")
+                "libxkbcommon", "libxkbcommon-x11", "libxcursor", "libxi",
+                "libglvnd", "pipewire", "xdg-desktop-portal")
 SUPERVISOR_PATHS = (
     "usr/lib/linux-vst-bridge/supervisor/session.pyc",
     "usr/lib/linux-vst-bridge/supervisor/ownership.pyc",
