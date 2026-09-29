@@ -25,7 +25,7 @@ Canonical MIDI0 was integrated into this branch at
 head and tree are recorded in PR #188. The current rereview correction owns
 frontend readback recovery, prompt operation polling, coherent current-input
 capture, exact publication/performance health, complete operation liveness,
-and bounded external-state rechecks outside registry authority.
+and bounded concurrent external-state rechecks outside registry authority.
 This branch is source-only plus staged read-only Deck measurement. It does not
 install or select a generation, launch a DAW, change audio settings or mutate
 installed product authority. The private UI2 generation remains selected on

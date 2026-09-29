@@ -141,25 +141,70 @@ pub(super) struct CurrentOverviewContext {
 }
 impl CurrentOverviewContext {
     fn recheck_external(&self, m: &Manager) -> Result<()> {
-        require(self.vendor_retired == vendor_retired(m)?,
-            "operator_vendor_state_changed_refresh")?;
-        if let Some(cleanup) = self.cleanup_seen {
-            require(pulse_cleanup(m) == Some(cleanup),
-                "operator_cleanup_state_changed_refresh")?;
-        }
-        for (operation, live) in &self.installer_live {
-            require(*live == onboarding::live(operation)?,
+        // These fixed, bounded service observations are independent. Run at
+        // most four installer cohorts alongside vendor, workspace and cleanup
+        // so a larger retained setup history does not create one thread per
+        // attempt. None of these probes holds registry.lock.
+        std::thread::scope(|scope| -> Result<()> {
+            let vendor = scope.spawn(|| {
+                let at = Instant::now();
+                (vendor_retired(m), at.elapsed().as_millis())
+            });
+            let workspace = scope.spawn(|| {
+                let at = Instant::now();
+                (daw_workspace::current_projection(m), at.elapsed().as_millis())
+            });
+            let cleanup = self.cleanup_seen.map(|_| scope.spawn(|| {
+                let at = Instant::now();
+                (pulse_cleanup(m), at.elapsed().as_millis())
+            }));
+            let installer = scope.spawn(|| {
+                let at = Instant::now();
+                let operations = self.installer_live.keys().cloned().collect::<Vec<_>>();
+                (installer_liveness(&operations), at.elapsed().as_millis())
+            });
+            let (vendor_result, vendor_ms) = vendor.join()
+                .map_err(|_| "operator_vendor_probe_failed")?;
+            let (workspace_result, workspace_ms) = workspace.join()
+                .map_err(|_| "operator_workspace_probe_failed")?;
+            let (cleanup_result, cleanup_ms) = match cleanup {
+                Some(check) => {
+                    let (result, elapsed) = check.join()
+                        .map_err(|_| "operator_cleanup_probe_failed")?;
+                    (result, elapsed)
+                }
+                None => (None, 0),
+            };
+            let (installer_result, installer_ms) = installer.join()
+                .map_err(|_| "operator_installer_probe_failed")?;
+            require(self.vendor_retired == vendor_result?,
+                "operator_vendor_state_changed_refresh")?;
+            if let Some(expected) = self.cleanup_seen {
+                require(cleanup_result == Some(expected),
+                    "operator_cleanup_state_changed_refresh")?;
+            }
+            require(installer_result? == self.installer_live,
                 "operator_installer_state_changed_refresh")?;
-        }
-        let (workspaces, _) = daw_workspace::current_projection(m)?;
-        require(serde_json::to_value(&workspaces)? == serde_json::to_value(&self.snapshot.workspaces)?,
-            "operator_workspace_state_changed_refresh")
+            let (workspaces, _) = workspace_result?;
+            #[cfg(feature = "pb0-c0-audit")]
+            eprintln!("PB0_PHASE {}",json!({"external_vendor_ms":vendor_ms,
+                "external_cleanup_ms":cleanup_ms,"external_installer_ms":installer_ms,
+                "external_workspace_ms":workspace_ms,"installer_cohorts":self.installer_live.len()}));
+            #[cfg(not(feature = "pb0-c0-audit"))]
+            let _ = (vendor_ms, cleanup_ms, installer_ms, workspace_ms);
+            require(serde_json::to_value(&workspaces)? == serde_json::to_value(&self.snapshot.workspaces)?,
+                "operator_workspace_state_changed_refresh")
+        })
     }
     fn recheck_with(&self, m: &Manager, mut external: impl FnMut() -> Result<()>) -> Result<()> {
         let started = Instant::now();
         // Both external observations occur without registry.lock. Manager-owned
         // bytes and owner records are compared between them under the guard.
         external()?;
+        #[cfg(feature = "pb0-c0-audit")]
+        let external_before_ms = started.elapsed().as_millis();
+        #[cfg(feature = "pb0-c0-audit")]
+        let registry_at = Instant::now();
         {
             let _guard = acquire_readback(m, ui::OperatorLock::Registry, None,
                 OPERATOR_WAIT, &mut vec![])?;
@@ -172,9 +217,15 @@ impl CurrentOverviewContext {
                 require(stamp(path)? == *before,"operator_current_artifact_changed_refresh")?;
             }
         }
+        #[cfg(feature = "pb0-c0-audit")]
+        let registry_ms = registry_at.elapsed().as_millis();
+        #[cfg(feature = "pb0-c0-audit")]
+        let external_after_at = Instant::now();
         external()?;
         #[cfg(feature = "pb0-c0-audit")]
         eprintln!("PB0_PHASE {}",json!({"token_after_ms":started.elapsed().as_millis(),
+            "external_before_ms":external_before_ms,"registry_ms":registry_ms,
+            "external_after_ms":external_after_at.elapsed().as_millis(),
             "total_manager_ms":self.captured_at.elapsed().as_millis()}));
         #[cfg(not(feature = "pb0-c0-audit"))]
         let _ = started;
@@ -183,6 +234,27 @@ impl CurrentOverviewContext {
     pub(super) fn recheck(&self, m: &Manager) -> Result<()> {
         self.recheck_with(m, || self.recheck_external(m))
     }
+}
+
+fn installer_liveness(operations: &[String]) -> Result<BTreeMap<String, bool>> {
+    // A fixed four-cohort limit keeps the number of supervised systemctl
+    // helpers bounded while preserving exact per-operation identity.
+    let chunk_size = operations.len().div_ceil(4).max(1);
+    std::thread::scope(|scope| -> Result<BTreeMap<String, bool>> {
+        let checks: Vec<_> = operations.chunks(chunk_size).map(|chunk| scope.spawn(move || {
+            chunk.iter().map(|operation| Ok((operation.clone(), onboarding::live(operation)?)))
+                .collect::<Result<Vec<_>>>()
+        })).collect();
+        let mut states = BTreeMap::new();
+        for check in checks {
+            for (operation, live) in check.join()
+                .map_err(|_| "operator_installer_probe_failed")?? {
+                require(states.insert(operation, live).is_none(),
+                    "operator_installer_probe_duplicate")?;
+            }
+        }
+        Ok(states)
+    })
 }
 
 #[derive(Default)]
@@ -347,6 +419,8 @@ pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
         let started = Instant::now();
         (live_capacity(m).ok(), started.elapsed().as_millis())
     });
+    let cleanup_task = scope.spawn(|| pulse_cleanup(m));
+    let workspace_task = scope.spawn(|| daw_workspace::current_projection(m));
     let before = token_with_registry(m, &db)?;
     let token_at = Instant::now(); phases.push(("token_before",token_at.duration_since(started).as_millis()));
     let sw = software(m)?;
@@ -389,7 +463,8 @@ pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
     // Historical selected services predate LVP1. Their staged readback still
     // uses the full LVC1 capacity result; an installed paired service also
     // supplies the cheap blocked-state recheck.
-    let cleanup_seen = pulse_cleanup(m);
+    let cleanup_seen = cleanup_task.join()
+        .map_err(|_| "operator_cleanup_probe_failed")?;
     if let (Some(cap),Some(signal)) = (cap.as_ref(),cleanup_seen) {
         require(cap.cleanup_unconfirmed == signal,"operator_cleanup_state_changed_refresh")?;
     }
@@ -403,7 +478,8 @@ pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
             }
         }
     }
-    let (workspaces, workspace_installers) = daw_workspace::current_projection(m)?;
+    let (workspaces, workspace_installers) = workspace_task.join()
+        .map_err(|_| "operator_workspace_probe_failed")??;
     onboarding.retain(|row| !workspace_installers.contains(&row.installer));
     let runners = catalogue.as_ref().map(|c| &c.environments);
     let default = runners.and_then(|environments| catalogue::OnboardingRuntimePolicy::from_environments(environments).ok().flatten())

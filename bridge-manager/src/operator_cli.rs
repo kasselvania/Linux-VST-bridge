@@ -3420,21 +3420,26 @@ mod tests {
         if socket.exists() {fs::remove_file(&socket).unwrap();}
         let listener=UnixListener::bind(&socket).unwrap();
         std::thread::spawn(move || {
-            // Capture reads cleanup once; the final recheck samples it on
-            // both sides of the short registry-authority section.
-            for expected in [b"LVC1\n",b"LVP1\n",b"LVP1\n",b"LVP1\n"] {
+            // Capacity and the first cleanup probe run concurrently. The
+            // final recheck samples cleanup on both sides of registry.lock.
+            let mut capacity = 0;
+            let mut pulses = 0;
+            for _ in 0..4 {
                 let (mut peer,_)=listener.accept().unwrap();
                 let mut greeting=[0;5];
                 peer.read_exact(&mut greeting).unwrap();
-                assert_eq!(&greeting,expected);
-                if expected==b"LVC1\n" {
+                if &greeting==b"LVC1\n" {
+                    capacity += 1;
                     let bytes=serde_json::to_vec(&value).unwrap();
                     peer.write_all(&(bytes.len() as u32).to_le_bytes()).unwrap();
                     peer.write_all(&bytes).unwrap();
                 } else {
+                    assert_eq!(&greeting,b"LVP1\n");
+                    pulses += 1;
                     peer.write_all(&[0]).unwrap();
                 }
             }
+            assert_eq!((capacity,pulses),(1,3));
         })
     }
     #[test]
@@ -4471,7 +4476,7 @@ mod tests {
         assert!(offer.disabled_reason.is_none());
         let request = ui::Request {schema:ui::OPERATOR_SCHEMA,
             state_token:current.current.state_token,action:offer.action.clone()};
-        let service = service_reply(&fixture.m, capacity_json(false,0,0));
+        let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
         let started = Instant::now();
         let receipt = dispatch_recorded(&fixture.m,&request,|id| {
             validate_current_request(&fixture.m,&request)?;
