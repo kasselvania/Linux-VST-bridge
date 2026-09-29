@@ -1,5 +1,6 @@
 //! Native frontend. Desktop fixture is explicit and has no management authority.
 use eframe::egui;
+mod bootstrap;
 mod client;
 mod library;
 #[path = "../../bridge-manager/src/operator_model.rs"]
@@ -42,6 +43,21 @@ fn main() -> eframe::Result {
         eprintln!("This frontend accepts no command, path or operation arguments.");
         std::process::exit(64);
     }
+    let bootstrap = if fixture {
+        None
+    } else {
+        match bootstrap::entry() {
+            Ok(bootstrap::Entry::Ordinary) => None,
+            Ok(bootstrap::Entry::FirstRun) => Some(bootstrap::Bootstrap::new()),
+            Ok(bootstrap::Entry::NeedsActivation) => Some(bootstrap::Bootstrap::needs_activation()),
+            Ok(bootstrap::Entry::Attention(error)) => Some(bootstrap::Bootstrap::attention(error)),
+            Ok(bootstrap::Entry::Selected) => match bootstrap::launch_selected() {
+                Ok(()) => return Ok(()),
+                Err(error) => Some(bootstrap::Bootstrap::attention(error)),
+            },
+            Err(error) => Some(bootstrap::Bootstrap::attention(error)),
+        }
+    };
     let options = eframe::NativeOptions {
         renderer: eframe::Renderer::Glow,
         viewport: egui::ViewportBuilder::default()
@@ -62,6 +78,8 @@ fn main() -> eframe::Result {
                     count: 0,
                     text: String::new(),
                 }))
+            } else if let Some(bootstrap) = bootstrap {
+                Ok(Box::new(bootstrap))
             } else {
                 Ok(Box::new(operator::Operator::new(&cc.egui_ctx)))
             }
