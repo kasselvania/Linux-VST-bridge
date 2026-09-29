@@ -14,6 +14,11 @@ import subprocess
 from test_deb import DebianPackage
 import assemble
 
+FIXTURE_PYTHON_MAGIC = {
+    ("ubuntu", "26.04"): bytes.fromhex("2b0e0d0a"),
+    ("debian", "13"): bytes.fromhex("f30d0d0a"),
+}
+
 
 def run(*args):
     result = subprocess.run(args, timeout=900, stdout=subprocess.PIPE,
@@ -32,12 +37,17 @@ def main():
         if "=" in line:
             key, value = line.split("=", 1)
             release[key] = value.strip('"')
-    if (release.get("ID"), release.get("VERSION_ID")) not in (
-        ("ubuntu", "26.04"), ("debian", "13")
-    ) or subprocess.check_output(["dpkg", "--print-architecture"], text=True).strip() != "amd64":
+    target = (release.get("ID"), release.get("VERSION_ID"))
+    if (target not in FIXTURE_PYTHON_MAGIC
+            or subprocess.check_output(["dpkg", "--print-architecture"], text=True).strip() != "amd64"):
         raise ValueError("fixture distribution or architecture differs")
     fixture = DebianPackage()
     fixture.setUp()
+    # The inert package still carries exact target ABI metadata. Build its two
+    # supervisor headers for this declared fixture rather than inheriting the
+    # Debian unit test's 3.13 default on Ubuntu 26.04.
+    magic = FIXTURE_PYTHON_MAGIC[target]
+    fixture.staged = fixture.stage_with_python_magics(magic, magic, flags=3)
     identity = fixture.build()
     retained = Path("/root/.local/share/linux-vst-bridge/retained-fixture")
     retained.parent.mkdir(parents=True, exist_ok=True)
@@ -60,6 +70,7 @@ def main():
     print(json.dumps({"schema": 1, "fixture": "synthetic_package_install_only",
                       "distribution": release["ID"], "version": release["VERSION"],
                       "architecture": "amd64", "package_version": "0.1.0beta1-1",
+                      "supervisor_python_magic": magic.hex(),
                       "package_sha256": identity["package_sha256"],
                       "dependencies_resolved": True, "root_owned_desktop": True,
                       "install_hooks": False, "unrelated_user_file_preserved": True,
