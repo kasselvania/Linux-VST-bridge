@@ -91,7 +91,7 @@ class PackageAssembly(unittest.TestCase):
         self.add_file("usr/lib/linux-vst-bridge/profiles/self-test.json", "profile", b"{}", 103)
         self.add_file("usr/share/doc/linux-vst-bridge-beta/licenses/Bridge.txt", "license", b"license", 104)
         self.spec = {"schema": 1, "version": "0.1.0beta1", "source_head": "a" * 40,
-                     "source_tree": "b" * 40, "operator_schema": 12,
+                     "source_tree": "b" * 40, "operator_schema": 13,
                      "external_runtime": {"id": "exact-proton-slr", "manifest_sha256": "c" * 64},
                      "files": self.files}
 
@@ -297,7 +297,7 @@ class PackageAssembly(unittest.TestCase):
             self.assertEqual(desktop, assemble.SYSTEM_DESKTOP_BYTES)
             self.assertIn(b"Exec=/usr/bin/linux-audio-compatibility-manager\n", desktop)
             self.assertNotIn(b"package-adopt", desktop)
-            self.assertEqual(adoption["operator_schema"], 12)
+            self.assertEqual(adoption["operator_schema"], 13)
             self.assertEqual(adoption["package"], "linux-vst-bridge-beta")
             self.assertEqual(adoption["version"], self.spec["version"])
             self.assertEqual(adoption["pkgrel"], 1)

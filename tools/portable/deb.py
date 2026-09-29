@@ -33,7 +33,7 @@ MAX_PAYLOAD = 2 * 1024 * 1024 * 1024
 MAX_FILES = 100_002
 MAX_CONTROL = 64 * 1024
 DEPENDENCIES = (
-    "libc6 (>= 2.39)", "libstdc++6", "systemd", "libx11-6",
+    "libc6 (>= 2.39)", "libstdc++6", "systemd", "curl", "libx11-6",
     "libxcb1", "libxkbcommon0", "libxkbcommon-x11-0", "libxcursor1", "libxi6",
     "libgl1", "libegl1", "pipewire",
     "xdg-desktop-portal",
@@ -172,7 +172,7 @@ def control_bytes(manifest, supervisor_abi):
             "Priority: optional\n"
             f"Depends: {', '.join((*DEPENDENCIES, supervisor_abi))}\n"
             "Description: Managed Windows audio compatibility for native Linux DAWs\n"
-            " Exact private beta build. Proton/SLR is an external verified prerequisite.\n").encode()
+            " Exact private beta build. Compatibility runtime setup is managed by the application.\n").encode()
 
 
 def tar_control(manifest, epoch, supervisor_abi):

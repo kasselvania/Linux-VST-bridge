@@ -1,5 +1,6 @@
 //! Canonical, inactive-only registration and atomic publication. No SDK or DSP here.
 pub mod preparation;
+pub mod runtime_delivery;
 pub mod acceptance;
 pub mod capacity;
 pub mod transport_storage;
@@ -226,6 +227,7 @@ impl Runner {
         for f in &self.files {
             f.verify()?;
         }
+        runtime_delivery::verify_tree(self)?;
         Ok(())
     }
 }

@@ -23,6 +23,7 @@ fn stamp(path: &Path) -> Result<Option<FileStamp>> {
 fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBuf,Option<FileStamp>>> {
     let mut paths = BTreeSet::new();
     paths.insert(m.root.join("software.json"));
+    paths.insert(linux_vst_bridge::runtime_delivery::record_path(m));
     paths.insert(m.root.join("registry.json"));
     paths.insert(m.root.join("operator/latest.json"));
     paths.insert(m.root.join("daw-workspaces/fl-studio/workspace.json"));
@@ -488,8 +489,11 @@ pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
         .map_err(|_| "operator_workspace_probe_failed")??;
     onboarding.retain(|row| !workspace_installers.contains(&row.installer));
     let runners = catalogue.as_ref().map(|c| &c.environments);
-    let default = runners.and_then(|environments| catalogue::OnboardingRuntimePolicy::from_environments(environments).ok().flatten())
+    let legacy_default = runners.and_then(|environments| catalogue::OnboardingRuntimePolicy::from_environments(environments).ok().flatten())
         .and_then(|policy| environments_runner(catalogue.as_ref(), &policy.default_runner_key));
+    let delivered = linux_vst_bridge::runtime_delivery::installed(m)?;
+    let default = delivered.as_ref().map(|runner| -> Result<(String, Runner)> {
+        Ok((catalogue::runner_key(runner)?,runner.clone())) }).transpose()?.or(legacy_default);
     let installer_setups = onboarding::setup_projection_current(m, &onboarding, &products,
         &workspace_installers, &records, &installers, default.as_ref())?;
     let workspace_at = Instant::now(); phases.push(("workspace_and_cards",workspace_at.duration_since(joined_at).as_millis()));
@@ -501,7 +505,9 @@ pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
     let snapshot = ui::Snapshot {schema:ui::OPERATOR_SCHEMA,state_token:before,system,
         onboarding,installer_setups,environments:vec![],vendor_applications:vec![],products,
         workspaces,active_sessions:vec![],capture:Value::Null,recent_incidents:vec![],
-        actions:vec![action("Create sanitized support export",ui::Action::SupportExport {},None),
+        actions:vec![action("Install compatibility runtime (728 MB download)",ui::Action::RuntimeInstall {},
+            if delivered.is_some() {Some("The selected compatibility runtime is already installed")} else {busy}),
+            action("Create sanitized support export",ui::Action::SupportExport {},None),
             action("Reconcile interrupted transaction",ui::Action::TransactionReconcile {},
                 inactive_reason(cap.as_ref(),retired,pending,true))],
         operation:optional(&m.root.join("operator/latest.json"))?.as_object()

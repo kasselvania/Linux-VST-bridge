@@ -66,7 +66,7 @@ def verify_adoption(adopted, manifest, expected):
             or adopted["pkgrel"] != manifest["pkgrel"]
             or adopted["source_head"] != manifest["source_head"]
             or adopted["source_tree"] != manifest["source_tree"]
-            or adopted["operator_schema"] != 12
+            or adopted["operator_schema"] != 13
             or not isinstance(external, dict)
             or set(external) != {"id", "manifest_sha256"}
             or not isinstance(external["id"], str)

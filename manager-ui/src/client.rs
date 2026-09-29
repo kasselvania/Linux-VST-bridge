@@ -240,7 +240,7 @@ mod tests {
             &serde_json::to_vec(&value).unwrap()).is_err());
     }
     #[test]
-    fn schema_twelve_frontend_accepts_paired_and_refuses_old_manager() {
+    fn current_frontend_accepts_paired_and_refuses_old_manager() {
         let query = || {
             Query::Action(Request {
                 schema: crate::model::OPERATOR_SCHEMA,
@@ -294,6 +294,7 @@ mod tests {
             serde_json::json!(9),
             serde_json::json!(10),
             serde_json::json!(11),
+            serde_json::json!(12),
             serde_json::json!("9"),
             serde_json::Value::Null,
         ] {
@@ -303,7 +304,7 @@ mod tests {
                     decode_reply(request, &serde_json::to_vec(&receipt).unwrap())
                         .err()
                         .unwrap()
-                        .contains("operator model 12 required")
+                        .contains("operator model 13 required")
                 );
             }
         }

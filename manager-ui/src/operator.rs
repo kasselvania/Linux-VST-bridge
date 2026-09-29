@@ -1084,6 +1084,11 @@ impl Operator {
         Self::readiness_overview(ui, overview, fresh, pending, refresh, chosen);
         ui.separator();
         ui.heading("Setup");
+        let runtime_actions: Vec<_> = overview.current.actions.iter()
+            .filter(|offer| matches!(offer.action, Action::RuntimeInstall {})).cloned().collect();
+        Self::buttons(ui, &runtime_actions,
+            (!fresh).then_some("Current manager readback unavailable"), pending, chosen);
+        ui.small("Compatibility runtime setup downloads verified components into this application's storage. Steam and development tools are not required.");
         if ui.add_enabled(fresh && !pending, egui::Button::new("Choose Windows installer")
             .min_size(egui::vec2(240.0, 44.0))).clicked() { *pick = true; }
         ui.small("Choose an installer for manager custody. Vendor sign-in remains yours.");

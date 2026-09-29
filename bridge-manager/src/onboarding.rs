@@ -128,12 +128,16 @@ pub fn runner_key(r: &Runner) -> Result<String> {
 }
 pub fn runners(m: &Manager) -> Result<Vec<(String, Runner)>> {
     let sw = software(m)?;
-    if sw.native_catalogue.is_none() {
+    let mut list = if sw.native_catalogue.is_none() {
         require(crate::frg1::catalogue_free_registry(m, &m.registry()?)?,
             "native_catalogue_absent_run_product_setup")?;
-        return Ok(vec![]);
+        vec![]
+    } else { runners_from_catalogue(Some(&sw.catalogue(m)?))? };
+    if let Some(runner) = linux_vst_bridge::runtime_delivery::installed(m)? {
+        let key = runner_key(&runner)?;
+        if !list.iter().any(|(id, _)| id == &key) { list.push((key, runner)); }
     }
-    runners_from_catalogue(Some(&sw.catalogue(m)?))
+    Ok(list)
 }
 fn runners_from_catalogue(catalogue: Option<&catalogue::Catalogue>) -> Result<Vec<(String, Runner)>> {
     let mut list = vec![];
@@ -148,6 +152,10 @@ fn runners_from_catalogue(catalogue: Option<&catalogue::Catalogue>) -> Result<Ve
     Ok(list)
 }
 fn default_runtime(m: &Manager, installed: &[(String, Runner)]) -> Result<Option<(String, Runner)>> {
+    if let Some(selected) = installed.iter().find(|(_,r)|
+        r.id == linux_vst_bridge::runtime_delivery::ID && r.policy.is_none()) {
+        return Ok(Some(selected.clone()));
+    }
     let sw = software(m)?;
     let Some(_) = sw.native_catalogue else { return Ok(None) };
     let catalogue = sw.catalogue(m)?;
@@ -199,26 +207,24 @@ pub fn prepare_creation(m: &Manager, installer: &str, runner: &str) -> Result<Pr
     let software_path = m.root.join("software.json");
     let software_stamp = FileIdentity::read(&software_path)?;
     let sw = software(m)?;
-    let catalogue = sw
-        .native_catalogue
-        .as_ref()
-        .ok_or("onboarding_runner_catalogue_absent")?;
-    let catalogue_stamp = FileIdentity::read(&catalogue.path)?;
-    let installed = sw.catalogue(m)?;
-    let r = installed
-        .environments
-        .into_iter()
-        .map(|e| e.environment.runner)
-        .find(|r| runner_key(r).is_ok_and(|key| key == runner))
+    let r = runners(m)?.into_iter()
+        .find(|(key, _)| key == runner)
+        .map(|(_,r)|r)
         .ok_or("onboarding_runner_not_installed")?;
     let record_path = m.root.join("installers").join(format!("{installer}.json"));
     let record_stamp = FileIdentity::read(&record_path)?;
     let artifact = installer_import::load_record(m, installer)?;
     let mut files = vec![
         (software_path, software_stamp),
-        (catalogue.path.clone(), catalogue_stamp),
         (record_path, record_stamp),
     ];
+    if let Some(catalogue) = &sw.native_catalogue {
+        files.push((catalogue.path.clone(), FileIdentity::read(&catalogue.path)?));
+    }
+    if r.id == linux_vst_bridge::runtime_delivery::ID {
+        let path = linux_vst_bridge::runtime_delivery::record_path(m);
+        files.push((path.clone(), FileIdentity::read(&path)?));
+    }
     let mut paths = vec![artifact.artifact.path.clone()];
     paths.extend(r.files.iter().map(|a| a.path.clone()));
     files.extend(

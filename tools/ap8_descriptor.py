@@ -1,5 +1,13 @@
 """Prepare one native descriptor from actual SDK inspection (not a scanner)."""
-import argparse,hashlib,json,pathlib,uuid,math
+import argparse,hashlib,json,pathlib,uuid,math,copy
+def prebuilt_descriptor(records,class_id,module_sha256):
+    """Portable metadata uses SDK-declared defaults, never a user's current preset."""
+    records=copy.deepcopy(records)
+    for record in records:
+        if record.get('state')=='ap8_parameters':
+            for parameter in record['parameters']:
+                parameter[6]=parameter[5]
+    return generate(records,class_id,module_sha256)
 
 def generate(records,class_id,module_sha256,profile=None):
     buses=[dict(r) for r in records if r.get('state')=='ap8_bus']

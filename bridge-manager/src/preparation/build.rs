@@ -184,9 +184,9 @@ pub fn stage_runtime(m: &Manager) -> Result<Runtime> {
 kit,out=sys.argv[1:];out=pathlib.Path(out)
 with zipfile.ZipFile(kit) as z:
  assert z.getinfo('recipe.json').file_size<=65536
- recipe=json.loads(z.read('recipe.json'));assert recipe['schema'] in (1,2)
+ recipe=json.loads(z.read('recipe.json'));assert recipe['schema'] in (1,2,3)
  names=[('runtime/host.exe','host.exe'),('runtime/host-source-manifest.json','host-source-manifest.json')]
- if recipe['schema']==2:names += [('tools/mf3/native_builder.py','native_builder.py'),('tools/ap8_descriptor.py','ap8_descriptor.py')]
+ if recipe['schema'] in (2,3):names += [('tools/mf3/native_builder.py','native_builder.py'),('tools/ap8_descriptor.py','ap8_descriptor.py')]
  for key,name in names:
   i=z.getinfo(key);assert not i.is_dir() and i.file_size<=64*1024*1024
   b=z.read(i);assert hashlib.sha256(b).hexdigest()==recipe['files'][key]

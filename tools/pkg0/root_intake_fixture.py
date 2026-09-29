@@ -43,7 +43,7 @@ def fixture(base, case):
         "package": "linux-vst-bridge-beta", "version": "0.1.0beta1",
         "pkgrel": 1,
         "source_head": "a" * 40, "source_tree": "b" * 40,
-        "operator_schema": 12, "files": roster,
+        "operator_schema": 13, "files": roster,
         "external_runtime": {"id": "exact-proton-slr", "manifest_sha256": "c" * 64},
     }, sort_keys=True) + "\n")
     manifest.chmod(0o444)

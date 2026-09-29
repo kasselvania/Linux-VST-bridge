@@ -57,6 +57,7 @@ fn token(m: &Manager) -> Result<String> {
 fn token_with_registry(m: &Manager, registry: &Registry) -> Result<String> {
     Ok(hex(&sha2::Sha256::digest(serde_json::to_vec(
         &json!({"software":optional(&m.root.join("software.json"))?,"registry":registry,
+            "managed_runtime":optional(&linux_vst_bridge::runtime_delivery::record_path(m))?,
             "preparation":optional(&m.root.join("preparation/revision.json"))?,
             "workspace":optional(&m.root.join("daw-workspaces/fl-studio/workspace.json"))?,
             "terminal_summaries":capacity::terminal_summaries(m)?,
@@ -300,7 +301,7 @@ fn pulse_generation(m: &Manager) -> Result<String> {
     let paths = ["software.json", "registry.json", "preparation/revision.json",
         "daw-workspaces/fl-studio/workspace.json", "operator/latest.json",
         "installers", "onboarding", "inventory", "transactions", "performance",
-        "runtime/leases", "runtime/owner.sock"];
+        "runtime/leases", "runtime/owner.sock", "runners/managed-ge-proton11-7-slr4-20260805/runtime.json"];
     let mut stamps = Vec::with_capacity(paths.len());
     for relative in paths {
         match fs::symlink_metadata(m.root.join(relative)) {
@@ -1080,6 +1081,10 @@ fn snapshot_for_operation_depth(
         capture: capture_state(m)?,
         recent_incidents: incidents,
         actions: vec![
+            action("Install compatibility runtime (728 MB download)", ui::Action::RuntimeInstall {},
+                if linux_vst_bridge::runtime_delivery::installed(m)?.is_some() {
+                    Some("The selected compatibility runtime is already installed")
+                } else {busy}),
             action("Create sanitized support export", ui::Action::SupportExport {}, None),
             action("Disarm crash capture", ui::Action::CaptureDisarm {}, None),
             action(
@@ -1254,7 +1259,7 @@ fn scoped_product_action(action: &ui::Action) -> bool {
         | ui::Action::RendererStop { .. })
 }
 fn current_offer_action(action: &ui::Action) -> bool {
-    matches!(action, ui::Action::SupportExport {}
+    matches!(action, ui::Action::RuntimeInstall {} | ui::Action::SupportExport {}
         | ui::Action::TransactionReconcile {}
         | ui::Action::InstallerEnvironmentCreate { .. }
         | ui::Action::InstallerRename { .. }
@@ -1305,7 +1310,7 @@ pub(super) fn resumable_check_source(m: &Manager, id: &str, action: &ui::Action)
     // The installed private UI2 generation used wire 11. Its retained request
     // can identify an old check; the *new* continuation still enters through
     // this manager's current schema and fresh offered-action validation.
-    require(matches!(original.schema, 10..=12) && original.action == *action,
+    require(matches!(original.schema, 10..=13) && original.action == *action,
         "guided_check_source_request_changed")?;
     let result = optional(&dir.join("result.json"))?;
     require(result["schema"] == 1 && result["operation"] == id,
@@ -1444,7 +1449,7 @@ fn cleanup_preparation_work(m: &Manager, id: &str) -> Result<()> {
     let source = (|| {
         let request: ui::Request = read_json(&job_dir(m, id)?.join("request.json"))?;
         if let ui::Action::CompatibilityResumeCheck { operation } = request.action {
-            require(matches!(request.schema, 10..=12) && operation != id,
+            require(matches!(request.schema, 10..=13) && operation != id,
                 "guided_check_cleanup_request_binding")?;
             let intent = preparation::guided_check_stage(m, &operation, "intent")?
                 .ok_or("guided_check_cleanup_intent_missing")?;
@@ -1784,6 +1789,12 @@ fn execute_with_receipt_policy(
         });
     }
     match a {
+        ui::Action::RuntimeInstall {} => {
+            drop(projection.take());
+            let runner = linux_vst_bridge::runtime_delivery::install(m)?;
+            Ok(json!({"runtime":runner.id,"runner_key":catalogue::runner_key(&runner)?,
+                "installed":true,"plugin_support":"not_qualified_by_runtime_installation"}))
+        }
         ui::Action::SupportExport {} => {
             drop(projection.take());
             let current = overview(m)?;
@@ -2253,7 +2264,7 @@ fn recovery_request(m: &Manager, saved: &ResumeRecord) -> Result<ui::Action> {
     // The installed private UI2 manager retained schema-11 requests. This is
     // historical readback only; live requests still require operator schema 12.
     require(
-        matches!(request.schema, 5..=12),
+        matches!(request.schema, 5..=13),
         "operator_resume_request_schema",
     )?;
     Ok(request.action)
@@ -3365,8 +3376,8 @@ mod tests {
         assert!(validate(&r, &busy).is_err());
     }
     #[test]
-    fn schema_twelve_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 12);
+    fn current_schema_keeps_exact_old_operation_request_history_readable() {
+        assert_eq!(ui::OPERATOR_SCHEMA, 13);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();

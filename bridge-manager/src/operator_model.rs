@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 /// Manager/frontend wire generation. Durable installer, workspace and operation
 /// records keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 12;
+pub const OPERATOR_SCHEMA: u32 = 13;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AudioLayoutPolicy {
@@ -44,6 +44,8 @@ pub struct PublicationIdentity {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    /// Explicit fixed-source runtime download; no caller path or URL.
+    RuntimeInstall {},
     /// Explicit local allowlisted support report; no caller-selected path.
     SupportExport {},
     DependencyPrepare {},
@@ -618,7 +620,8 @@ impl Action {
     pub fn requires_inactive(&self) -> bool {
         matches!(
             self,
-            Self::DependencyPrepare {}
+            Self::RuntimeInstall {}
+                | Self::DependencyPrepare {}
                 | Self::RendererDiscover {}
                 | Self::RendererOpen { .. }
                 | Self::PluginReinspect { .. }

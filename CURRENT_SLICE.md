@@ -1,5 +1,22 @@
 # Current work selection
 
+## Selected: self-service runtime and prebuilt proxy delivery
+
+The operator selected implementation of tasks 1 and 2 and testing of task 3 in
+[Self-service beta delivery](docs/SELF_SERVICE_BETA_TODO.md) on 2026-09-29.
+Base commit: `13ed1d85e830d581ec297760e04e9f9433bfd671`.
+One primary claim: the delivered package supplies its own exact compatibility
+runtime and supported prebuilt proxies, and the normal managed installation
+journey can use them without customer-installed Proton or development SDKs.
+Use the disposable Ubuntu 26.04.1 x86-64 fixture first. Existing Deck/Pi
+installations and user-owned environments remain under their existing custody.
+Scope includes package construction/intake, runtime ownership, native
+preparation/publication, normal frontend setup and focused acceptance tests.
+Preserve exact identities, vendor-owned authorization, predecessor artifacts,
+RT behavior and failures. Record notices for the exact redistributed contents.
+Tasks 4 and 5 remain follow-on; no universal platform or plug-in support claim.
+Record actual sound/editor/recall/reboot/recovery outcomes and any open gap.
+
 ## Beta delivery: clean-machine portable first run
 
 The current portability owner begins from post-PKG1 canonical main
