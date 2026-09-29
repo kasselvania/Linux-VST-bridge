@@ -426,7 +426,8 @@ def verify_kit_backend(data, source_root):
                     if archive.read('licenses/'+(component or 'vst3sdk')+'.txt') != (sdk/component/'LICENSE.txt').read_bytes():
                         raise ValueError('prebuilt SDK license differs')
                 for number, proxy in enumerate(prebuilt_index["proxies"]):
-                    header=Path(target)/(str(number)+".h")
+                    metadata=Path(target)/("descriptor-"+str(number));metadata.mkdir()
+                    header=metadata/"ap8_descriptor.h"
                     header.write_bytes(archive.read(proxy["descriptor"]))
                     build=Path(target)/("proxy-"+str(number))
                     subprocess.run(["cmake","-S",str(source_root),"-B",str(build),"-G","Ninja",

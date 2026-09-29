@@ -56,7 +56,8 @@ def main():
             records=json.loads(pathlib.Path(entry['inspection']).read_text())['records']
             descriptor=prebuilt_descriptor(records,*key).encode()
             stem='prebuilt/'+key[0]+'-'+key[1]
-            header=temp/(str(n)+'.h');header.write_bytes(descriptor)
+            metadata=temp/('descriptor-'+str(n));metadata.mkdir()
+            header=metadata/'ap8_descriptor.h';header.write_bytes(descriptor)
             native=compile_proxy(ROOT,a.sdk,backend,header,temp/str(n))
             files[stem+'.h']=descriptor;files[stem+'.so']=native
             proxies.append(dict(class_id=key[0],module_sha256=key[1],file=stem+'.so',
