@@ -177,7 +177,9 @@ impl Library {
                         if product.version.is_empty() { "Version unavailable" } else { &product.version }));
                     if fresh { ui.label(status(product).0); }
                     ui.small("Manager-offered compatibility actions appear after current controls load.");
-                    if fresh && self.focus.is_none()
+                    // A Setup discovery may focus several exact classes. Each
+                    // row must still let the user select one current detail.
+                    if fresh && self.focused_product().is_none()
                         && ui.add_sized([240.0, 44.0],
                             egui::Button::new("View compatibility controls")).clicked() {
                         selected = Some(ProductKey::from(product));
@@ -726,6 +728,34 @@ mod tests {
         assert_eq!(library.focused_product(), None);
         library.focus_product(exact.clone());
         assert_eq!(library.focused_product(), Some(&exact));
+        assert_eq!(library.products(&snapshot).len(), 1);
+    }
+
+    #[test]
+    fn multi_class_setup_route_offers_each_exact_product_detail() {
+        fn texts(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
+            match shape {
+                egui::epaint::Shape::Text(text) => out.push(text.galley.text().into()),
+                egui::epaint::Shape::Vec(items) => for item in items { texts(item, out); },
+                _ => {}
+            }
+        }
+        let snapshot = snapshot();
+        let first = ProductKey::from(&snapshot.products[0]);
+        let second = ProductKey::from(&snapshot.products[1]);
+        let mut library = Library::default();
+        library.focus_products(vec![first.clone(), second.clone()]);
+        assert!(library.focused_product().is_none());
+        let ctx = egui::Context::default();
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            library.show_current(ui, &snapshot, true, false, &mut false);
+        });
+        let mut labels = vec![];
+        for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
+        output.textures_delta.clear();
+        assert_eq!(labels.iter().filter(|line| line.as_str() == "View compatibility controls").count(), 2);
+        library.focus_product(second.clone());
+        assert_eq!(library.focused_product(), Some(&second));
         assert_eq!(library.products(&snapshot).len(), 1);
     }
 

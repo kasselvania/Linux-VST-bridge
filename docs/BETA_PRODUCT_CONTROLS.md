@@ -15,6 +15,8 @@ one exact product, its exact environment and related vendor application. The
 frontend accepts it only when the selected environment, module digest and
 class match, and only while its token and generation match a fresh Overview.
 An expired or changed Overview cannot authorize a product action.
+When Setup discovers several exact classes, each row still offers a route to
+select one class and load its controls.
 
 The manager derives the selected controls from the current readback, exact
 registered publication and rollback ancestry, and that product's UI2
@@ -22,7 +24,9 @@ preparation history. It does not project every other candidate or product
 history. Existing environment rescan and vendor controls remain visible when
 bound to the selected environment. A foreign rollback revision is never
 offered. An empty class is permitted only as the exact quarantined inventory
-identity used by the existing manager model.
+identity used by the existing manager model. Its Retry offer is disabled when
+that environment is not currently managed; it cannot lead the user into a
+service-suspending operation that the scan owner must then refuse.
 
 Request admission matches the currently offered closed action and fresh state
 token. The worker and the existing action owner retain target-specific

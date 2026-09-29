@@ -545,6 +545,21 @@ fn managed_rescan_binding_from(
     }
     Ok(Some(env.clone()))
 }
+fn quarantined_retry_disabled(m: &Manager,
+    bindings: &[linux_vst_bridge::catalogue::EnvironmentBinding],
+    registry: &Registry, environment: &Environment) -> Result<Option<&'static str>> {
+    if !bindings.iter().any(|binding| binding.environment.id == environment.id) {
+        return Ok(Some("This environment is not currently managed"));
+    }
+    match managed_rescan_binding_from(m, bindings, registry, &environment.id)? {
+        Some(current) => {
+            require(current == *environment,
+                "operator_managed_environment_binding_conflict")?;
+            Ok(None)
+        }
+        None => Ok(Some("This environment is not currently managed")),
+    }
+}
 fn managed_rescan_binding(
     m: &Manager,
     catalogue: Option<&linux_vst_bridge::catalogue::Catalogue>,
@@ -946,18 +961,7 @@ fn snapshot_for_operation_depth(
         }
     }
     for env in &inventory_environments {
-        let retry_disabled = if managed_bindings.iter()
-            .any(|binding| binding.environment.id == env.id) {
-            match managed_rescan_binding_from(m, &managed_bindings, &db, &env.id)? {
-                Some(current) => {
-                    require(current == *env, "operator_managed_environment_binding_conflict")?;
-                    None
-                }
-                None => Some("This environment is not currently managed"),
-            }
-        } else {
-            Some("This environment is not currently managed")
-        };
+        let retry_disabled = quarantined_retry_disabled(m, &managed_bindings, &db, env)?;
         let path = m.root.join("inventory").join(format!("{}.json", env.id));
         if path.exists() {
             let scan: inventory::Scan = read_json(&path)?;

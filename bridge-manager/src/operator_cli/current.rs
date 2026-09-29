@@ -370,6 +370,7 @@ fn current_products(m: &Manager, db: &Registry, sw: &Software,
 }
 
 fn append_discovered(m: &Manager, sw: &Software, records: &[onboarding::Record],
+    bindings: &[linux_vst_bridge::catalogue::EnvironmentBinding], db: &Registry,
     products: &mut Vec<ui::Product>, busy: Option<&str>) -> Result<()> {
     let mut seen = BTreeSet::new();
     for record in records {
@@ -383,7 +384,10 @@ fn append_discovered(m: &Manager, sw: &Software, records: &[onboarding::Record],
             let stale = inventory::stale_reason(&module, &scan.environment, &scan.host,
                 &scan.host_source_sha256, &record.environment, &sw.host, &sw.source_sha256);
             if module.quarantine_reason.is_some() {
-                products.push(quarantined_product(&scan,index,module,stale,busy,None)?);
+                let retry_disabled = quarantined_retry_disabled(m, bindings, db,
+                    &record.environment)?;
+                products.push(quarantined_product(&scan,index,module,stale,busy,
+                    retry_disabled)?);
                 continue;
             }
             for class in module.classes {
@@ -447,7 +451,8 @@ pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
     let owner_at = Instant::now(); phases.push(("current_owners",owner_at.duration_since(product_at).as_millis()));
     let installers = installer_import::list_records(m)?;
     let record_at = Instant::now(); phases.push(("setup_records",record_at.duration_since(owner_at).as_millis()));
-    append_discovered(m, &sw, &records, &mut products, None)?;
+    let managed_bindings = managed_environment_bindings(m, catalogue.as_ref(), &db)?;
+    append_discovered(m, &sw, &records, &managed_bindings, &db, &mut products, None)?;
     let discovery_at = Instant::now(); phases.push(("inventory_discovery",discovery_at.duration_since(record_at).as_millis()));
     let mut installer_live = BTreeMap::new();
     let mut onboarding = onboarding::projection_current(m, None,
@@ -519,6 +524,40 @@ fn environments_runner(catalogue: Option<&catalogue::Catalogue>, key: &str) -> O
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn onboarding_only_quarantine_cannot_offer_managed_retry() {
+        let fixture=test_fixture::Fixture::new();
+        let m=&fixture.m;
+        let env=fixture.r.environment.clone();
+        let sw=Software {installer_launch:None,preparation_kit:None,
+            operator_frontend:None,manager:fixture.r.host.clone(),
+            supervisor:fixture.r.host.clone(),ownership:fixture.r.host.clone(),
+            host:fixture.r.host.clone(),source_manifest:Artifact {
+                path:fixture.r.host.path.with_file_name("host-source-manifest.json"),
+                sha256:fixture.r.host_source_sha256.clone()},
+            source_sha256:fixture.r.host_source_sha256.clone(),native_catalogue:None};
+        let scan=inventory::Scan {schema:1,id:"aa".repeat(16),environment:env.clone(),
+            host:sw.host.clone(),host_source_sha256:sw.source_sha256.clone(),
+            completed_at:1,changes:inventory::Changes::default(),
+            modules:vec![inventory::Module {artifact:fixture.r.module.clone(),
+                classes:vec![],report:fixture.r.host.clone(),inspection_error:None,
+                quarantine_reason:Some("inventory_factory_absent".into())}]};
+        let inventory=m.root.join("inventory");
+        private_dir(&inventory).unwrap();
+        atomic_json(&inventory.join(format!("{}.json",env.id)),&scan).unwrap();
+        let record=onboarding::Record {schema:1,id:env.id.clone(),
+            installer:"bb".repeat(16),environment:env,created_at:1,
+            creation_operation:"cc".repeat(16),installation_operation:None,
+            published:false,previous_attempt:None};
+        let db=m.registry().unwrap();
+        let bindings=managed_environment_bindings(m,None,&db).unwrap();
+        assert!(bindings.is_empty());
+        let mut products=vec![];
+        append_discovered(m,&sw,&[record],&bindings,&db,&mut products,None).unwrap();
+        assert_eq!(products.len(),1);
+        assert_eq!(products[0].actions[0].disabled_reason.as_deref(),
+            Some("This environment is not currently managed"));
+    }
     fn context_for_watched(m:&Manager, watched:BTreeMap<PathBuf,Option<FileStamp>>)
         -> CurrentOverviewContext {
         let pending=pending_transactions(m).unwrap();
