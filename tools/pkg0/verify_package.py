@@ -10,7 +10,9 @@ import re
 import stat
 import subprocess
 import tempfile
-from assemble import DEPENDENCIES, PKGREL
+from assemble import (ADOPTED, ADOPTED_WITH_KIT, ADOPTION_MANIFEST, DEPENDENCIES,
+                      KIT_DESTINATION, PKGREL, verify_kit, verify_kit_backend,
+                      verify_kit_source)
 
 OPTIONAL_META = {".BUILDINFO": 1024 * 1024, ".MTREE": 4 * 1024 * 1024}
 
@@ -46,7 +48,34 @@ def digest(path):
     return h.hexdigest()
 
 
-def verify(package, manifest, structure_only=False):
+def verify_adoption(adopted, manifest, expected):
+    names = ADOPTED_WITH_KIT if KIT_DESTINATION in expected else ADOPTED
+    external = adopted.get("external_runtime")
+    if (set(adopted) != {"schema", "package", "version", "pkgrel", "source_head",
+                        "source_tree", "operator_schema", "files", "external_runtime"}
+            or adopted["schema"] != (2 if KIT_DESTINATION in expected else 1)
+            or adopted["package"] != manifest["package"]
+            or adopted["version"] != manifest["version"]
+            or adopted["pkgrel"] != manifest["pkgrel"]
+            or adopted["source_head"] != manifest["source_head"]
+            or adopted["source_tree"] != manifest["source_tree"]
+            or adopted["operator_schema"] != 12
+            or not isinstance(external, dict)
+            or set(external) != {"id", "manifest_sha256"}
+            or not isinstance(external["id"], str)
+            or re.fullmatch(r"[A-Za-z0-9_-]{1,128}", external["id"]) is None
+            or not isinstance(external["manifest_sha256"], str)
+            or re.fullmatch(r"[0-9a-f]{64}", external["manifest_sha256"]) is None):
+        raise ValueError("package adoption identity differs")
+    roster = [{"name": adopted_name, "sha256": expected[path]["sha256"],
+               "size": expected[path]["size"]} for path, adopted_name in names.items()]
+    if adopted["files"] != roster:
+        raise ValueError("package adoption artifact roster differs")
+
+
+def verify(package, manifest, structure_only=False, source_root=None, rebuild_backend=False):
+    if rebuild_backend and source_root is None:
+        raise ValueError("release backend rebuild requires exact source")
     if (manifest.get("schema") != 1 or manifest.get("package") != "linux-vst-bridge-beta"
             or manifest.get("pkgrel") != PKGREL
             or not isinstance(manifest.get("version"), str)
@@ -106,6 +135,20 @@ def verify(package, manifest, structure_only=False):
                 pe = subprocess.check_output(["file", "-b", str(path)], text=True)
                 if "PE32+" not in pe or "x86-64" not in pe:
                     raise ValueError("package PE architecture differs")
+        adopted = json.loads((root / ADOPTION_MANIFEST).read_bytes())
+        verify_adoption(adopted, manifest, expected)
+        if KIT_DESTINATION in expected:
+            kit_bytes = (root / KIT_DESTINATION).read_bytes()
+            verify_kit(kit_bytes, manifest["source_head"],
+                       expected["usr/lib/linux-vst-bridge/host/bridge-host.exe"]["sha256"],
+                       expected["usr/lib/linux-vst-bridge/host/source-manifest.json"]["sha256"])
+            if source_root is not None:
+                verify_kit_source(kit_bytes, source_root, manifest["source_head"],
+                                  manifest["source_tree"])
+                if rebuild_backend:
+                    verify_kit_backend(kit_bytes, source_root)
+                    verify_kit_source(kit_bytes, source_root, manifest["source_head"],
+                                      manifest["source_tree"])
     return {"package_sha256": digest(package), "files": len(expected),
             "structure_only": structure_only}
 

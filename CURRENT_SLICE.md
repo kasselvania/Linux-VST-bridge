@@ -1,60 +1,53 @@
 # Current work selection
 
-## Selected source-only product overview — PB0-C0
+## Selected source-only package-kit authority — PKG1
 
-PB0-C0 starts from post-PB0-R3 canonical main
-`c920f2eca09bb27e92172b1f32e5899d45d2630b` (tree
-`656049fe96aa9a0685c8326ca5a93058b3b0e08b`). Its basis is
-`AGENTS.md` “Mission”, “Authority order”, “Core product invariants”,
-“Slice discipline”, “Evidence requirements” and “Security and privacy”;
-`GOVERNANCE.md` “What evidence means”; `docs/ARCHITECTURE.md` manager,
-profile and publication ownership; and the completed [PB0-R3 gate](docs/PB0_R3.md).
+PKG1 began from post-MIDI0 canonical main
+`0385faaef3251e5c1036741b4e440ec5b66e5133` (tree
+`87f3e9c5ccc446c85db77d17a1d774c748431fa0`) and now merges forward
+post-PB0-C0 canonical main `4a5b94e9f4c74cc997dba1fc8ed9b08087b8beb2`
+(tree `21c29a264b36d36aaefa0b05b29d5f048d091bd5`). Its basis is
+`AGENTS.md` “Keep the engineering safeguards” and “Verification and review”;
+`GOVERNANCE.md` “What evidence means”; and `docs/ARCHITECTURE.md`
+installed-software and rollback boundaries. The focused contract is in
+[PKG1 native kit adoption](docs/PKG1_NATIVE_KIT.md).
 
-**One claim:** the paired manager/frontend offers a fast current-state Home and
-Setup overview for the exact Steam Deck, SteamOS and Bitwig fixture, with four
-truthful readiness outcomes, one manager-owned next step and an explicit local
-sanitized support export. The interactive projection excludes deep retained
-history; full Snapshot remains available for Diagnostics on demand. The source
-contract is [PB0-C0](docs/PB0_C0.md).
+**One claim:** a verified package may select one exact source-owned native
+preparation kit in the same immutable software generation as its paired
+manager/frontend, while retaining the previously selected kit and all product
+state for exact rollback. Historical six-file PKG0 generations remain readable.
+Selecting a kit does not create a managed proxy publication; UI2 must prepare
+and test the exact successor candidate separately.
 
-The current public operator wire generation advances from 10 directly to 12.
-Private installed schema-11 requests remain historical recovery inputs only.
-Canonical MIDI0 was integrated into this branch at
-`e42afa14b737b4eac871bbbf93b882e019d06609` (tree
-`6c1ea89dee9dfcdc93ecbb58388537b84ffe7377`); the final submitted PR
-head and tree are recorded in PR #188. The current rereview correction owns
-frontend readback recovery, prompt operation polling, coherent current-input
-capture, exact publication/performance health, complete operation liveness,
-and bounded concurrent external-state rechecks outside registry authority.
-This branch is source-only plus staged read-only Deck measurement. It does not
-install or select a generation, launch a DAW, change audio settings or mutate
-installed product authority. The private UI2 generation remains selected on
-the Deck. PB0 PR #179 is extraction history and is superseded by this slice.
-Independent source review and a later controlled immutable install precede any
-physical PB0 product claim.
+PKG1 is source-only, draft and awaiting independent review. It does not install
+a Deck generation, publish Pure LoFi, launch Bitwig, choose a release signing
+key, or claim the Push 3 held-note symptom is physically resolved. PB0-C0 is
+canonical source but remains uninstalled on the Deck. After PKG1 review and
+merge, RC0 may integrate the paired schema-12 manager/frontend, this exact kit
+and a separate Pure LoFi MIDI0 publication under one controlled release train.
 
-The first staged read-only Deck gate at code head
-`6eeb38673be381b2710711ad31f1e44549e73df5` preserved installed
-metadata/routes and projected all current rows, but its warm overview median
-was **10.528 seconds**. That failure remains in the
-[first receipt](evidence/pb0-c0/deck-readonly-2026-09-28.md). The focused
-repair uses a dedicated captured current overview, exact current action offers,
-a cheap adaptive pulse, separate installation health and support qualification,
-typed platform probes, and a support-specific export DTO. The
-[second staged read-only result](evidence/pb0-c0/deck-readonly-repair-2026-09-28.md)
-measured source `0a399a1` at a five-run median of **1.393 seconds** and a maximum of **2.039**;
-five pulses each took **0.024 seconds**. It retained all 16 products, four
-Setup rows and the FL workspace, with the truthful Bitwig audio verification
-step. The final corrected source requires its own read-only Deck repeat before
-merge. PR #188 remains draft and no PB0 generation has been installed.
-Independent source review and a later controlled install still precede a
-physical PB0 product claim; PB1 remains blocked.
+## Completed source-only product overview — PB0-C0
 
-MIDI0 was merged into canonical main as
-`0385faaef3251e5c1036741b4e440ec5b66e5133`. This branch includes its
-native proxy source correction. Any installed PB0 successor must also create
-an exact managed native proxy publication from the corrected source; replacing
-only the manager/frontend cannot deploy the note-release repair.
+PB0-C0 normally merged into canonical main as
+`4a5b94e9f4c74cc997dba1fc8ed9b08087b8beb2` with tree
+`21c29a264b36d36aaefa0b05b29d5f048d091bd5`. Its one claim is a fast
+current-state Home and Setup overview for the exact Steam Deck, SteamOS and
+Bitwig fixture, with four truthful readiness outcomes, one bounded next step
+and an explicit sanitized local support export. The interactive path excludes
+deep history; full Snapshot remains a separate Diagnostics route. The source
+contract and earlier evidence are in [PB0-C0](docs/PB0_C0.md).
+
+The public manager/frontend wire generation is schema 12; private schema-11
+requests remain narrow historical recovery inputs. The final exact-head staged
+read-only Deck gate recorded five ordinary release Overviews at a 1.569-second
+median and 2.205-second maximum, and five Pulses at no more than 0.248 seconds.
+All 16 products, four Setup rows and one FL workspace remained represented.
+The 4,600-record manager metadata inventory and six routes were identical
+before and after. The installed private UI2 generation remains selected; no PB0
+generation was installed. The exact receipt and source identity are retained in
+[PR #188](https://github.com/kasselvania/Linux-VST-bridge/pull/188). PB1 remains
+outside the selected release train.
+
 
 ## Completed source-only native note-release correction — MIDI0
 
@@ -78,7 +71,10 @@ The Steam Deck's selected manager, publications, runners, environments and
 workspace remained unchanged during source validation. A physical
 Push/Bitwig check on an exact installed successor with a new managed native
 proxy publication is required before calling the observed held-note bug closed.
-PB0-C0 integrates this source repair without claiming physical acceptance.
+MIDI0 merged normally into canonical main as
+`0385faaef3251e5c1036741b4e440ec5b66e5133` with reviewed tree
+`87f3e9c5ccc446c85db77d17a1d774c748431fa0`. PB0-C0 includes that
+source repair without claiming physical Push or audio acceptance.
 
 ## Completed read-only installed-state gate — PB0-R3
 
