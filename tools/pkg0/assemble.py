@@ -37,6 +37,17 @@ REQUIRED = {
     "usr/share/doc/linux-vst-bridge-beta/COMPLIANCE_MANIFEST.json": "compliance",
 }
 ADOPTION_MANIFEST = "usr/share/linux-vst-bridge/pkg0-manifest.json"
+SYSTEM_DESKTOP = "usr/share/applications/linux-audio-compatibility-manager.desktop"
+SYSTEM_DESKTOP_BYTES = b"""[Desktop Entry]
+Type=Application
+Name=Linux Audio Compatibility Manager
+Comment=Set up and manage supported Windows audio software
+Exec=/usr/bin/linux-audio-compatibility-manager
+Icon=audio-card
+Terminal=false
+Categories=AudioVideo;Audio;
+StartupNotify=true
+"""
 KIT_DESTINATION = "usr/lib/linux-vst-bridge/preparation/preparation-kit.zip"
 ADOPTED = {
     "usr/bin/linux-vst-bridge": "linux-vst-bridge",
@@ -48,6 +59,15 @@ ADOPTED = {
 }
 ADOPTED_WITH_KIT = {**ADOPTED, KIT_DESTINATION: "preparation-kit.zip"}
 SOURCE_SUFFIXES = {".rs", ".c", ".cc", ".cpp", ".h", ".hpp", ".py"}
+EXECUTABLE_KINDS = {"manager", "frontend", "proxy"}
+OPTIONAL_PREFIXES = {
+    "proxy": "usr/lib/linux-vst-bridge/proxy/",
+    "preparation_kit": "usr/lib/linux-vst-bridge/preparation/",
+    "fixture": "usr/lib/linux-vst-bridge/self-test/",
+    "fixture_resource": "usr/lib/linux-vst-bridge/self-test/",
+    "profile": "usr/lib/linux-vst-bridge/profiles/",
+    "license": "usr/share/doc/linux-vst-bridge-beta/licenses/",
+}
 SECRET_MARKERS = (b"-----BEGIN PRIVATE KEY-----", b"-----BEGIN OPENSSH PRIVATE KEY-----",
                   b"github_pat_", b"ghp_")
 KIT_SDK = "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96"
@@ -76,10 +96,68 @@ def path_ok(name):
     ):
         raise ValueError("package destination outside controlled usr tree")
     if not (name.startswith("usr/bin/") or name.startswith("usr/lib/linux-vst-bridge/")
-            or name.startswith("usr/share/doc/linux-vst-bridge-beta/")):
+            or name.startswith("usr/share/doc/linux-vst-bridge-beta/")
+            or name in (SYSTEM_DESKTOP, ADOPTION_MANIFEST)):
         raise ValueError("package destination not admitted")
     if any(x in name.lower() for x in ("credential", "activation", "private-key", "installer.exe")):
         raise ValueError("sensitive destination name")
+
+
+def validate_file_role(name, kind, mode, component, *, generated=False):
+    """One destination/role law for builder inputs and retained release rosters."""
+    path_ok(name)
+    if (not isinstance(kind, str) or not isinstance(mode, str)
+            or not isinstance(component, str)
+            or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+_-]{0,80}", component) is None
+            or mode != ("0555" if kind in EXECUTABLE_KINDS else "0444")):
+        raise ValueError("file mode, role or component")
+    if name in (ADOPTION_MANIFEST, SYSTEM_DESKTOP):
+        expected = "adoption_manifest" if name == ADOPTION_MANIFEST else "system_desktop"
+        if not generated or kind != expected or component != PACKAGE:
+            raise ValueError("generated package authority differs")
+    elif kind in ("adoption_manifest", "system_desktop"):
+        raise ValueError("generated package authority destination differs")
+    elif name in REQUIRED:
+        if REQUIRED[name] != kind:
+            raise ValueError("required package role")
+    else:
+        prefix = OPTIONAL_PREFIXES.get(kind)
+        if prefix is None or not name.startswith(prefix):
+            raise ValueError("file role and destination disagree")
+    if kind == "preparation_kit" and name != KIT_DESTINATION:
+        raise ValueError("preparation kit destination")
+    if kind != "license" and PurePosixPath(name).suffix in SOURCE_SUFFIXES:
+        raise ValueError("proprietary source in binary package")
+
+
+def validate_release_roster(manifest):
+    """Refuse a signable manifest that the PKG0 builder could never produce."""
+    rows = manifest.get("files")
+    if not isinstance(rows, list) or not 1 <= len(rows) <= 100002:
+        raise ValueError("release file count")
+    seen = {}
+    for row in rows:
+        if (not isinstance(row, dict)
+                or set(row) != {"destination", "sha256", "size", "mode", "kind", "component"}
+                or not isinstance(row["destination"], str)
+                or not isinstance(row["sha256"], str)
+                or re.fullmatch(r"[0-9a-f]{64}", row["sha256"]) is None
+                or type(row["size"]) is not int or not 0 <= row["size"] <= 2_000_000_000):
+            raise ValueError("release file row")
+        name = row["destination"]
+        if name in seen:
+            raise ValueError("duplicate release roster")
+        validate_file_role(name, row["kind"], row["mode"], row["component"], generated=True)
+        seen[name] = row
+    if not (set(REQUIRED) | {ADOPTION_MANIFEST, SYSTEM_DESKTOP}) <= set(seen):
+        raise ValueError("required package roster absent")
+    for kind in ("proxy", "fixture", "profile", "license"):
+        if not any(row["kind"] == kind for row in rows):
+            raise ValueError("required package component absent")
+    desktop = seen[SYSTEM_DESKTOP]
+    if desktop["sha256"] != sha(SYSTEM_DESKTOP_BYTES) or desktop["size"] != len(SYSTEM_DESKTOP_BYTES):
+        raise ValueError("system desktop identity differs")
+    return seen
 
 
 def source_file(raw):
@@ -270,37 +348,11 @@ def validate(spec):
         if set(item) != expected:
             raise ValueError("file input schema")
         name = item["destination"]
-        path_ok(name)
-        if name == ADOPTION_MANIFEST or name in seen:
+        if name in (ADOPTION_MANIFEST, SYSTEM_DESKTOP) or name in seen:
             raise ValueError("duplicate or reserved package destination")
         if not re.fullmatch(r"[0-9a-f]{64}", item["sha256"]):
             raise ValueError("file digest syntax")
-        if item["mode"] not in ("0444", "0555") or item["kind"] not in (
-            "manager", "frontend", "supervisor", "ownership", "windows_host",
-            "host_source", "proxy", "fixture", "preparation_kit",
-            "fixture_resource",
-            "profile", "guide", "notices", "sbom", "compliance", "license"
-        ):
-            raise ValueError("file mode or role")
-        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+_-]{0,80}", item["component"]):
-            raise ValueError("component identity")
-        if name in REQUIRED and REQUIRED[name] != item["kind"]:
-            raise ValueError("required package role")
-        if name not in REQUIRED:
-            prefix = {
-                "proxy": "usr/lib/linux-vst-bridge/proxy/",
-                "preparation_kit": "usr/lib/linux-vst-bridge/preparation/",
-                "fixture": "usr/lib/linux-vst-bridge/self-test/",
-                "fixture_resource": "usr/lib/linux-vst-bridge/self-test/",
-                "profile": "usr/lib/linux-vst-bridge/profiles/",
-                "license": "usr/share/doc/linux-vst-bridge-beta/licenses/",
-            }.get(item["kind"])
-            if prefix is None or not name.startswith(prefix):
-                raise ValueError("file role and destination disagree")
-        if item["kind"] == "preparation_kit" and (name != KIT_DESTINATION or item["mode"] != "0444"):
-            raise ValueError("preparation kit destination or mode")
-        if item["kind"] != "license" and PurePosixPath(name).suffix in SOURCE_SUFFIXES:
-            raise ValueError("proprietary source in binary package")
+        validate_file_role(name, item["kind"], item["mode"], item["component"])
         seen[name] = item
     if any(name not in seen for name in REQUIRED):
         raise ValueError("required binary/document missing")
@@ -355,10 +407,17 @@ def _build(spec, output, epoch, source_root=None):
         roster.append({"destination": ADOPTION_MANIFEST, "sha256": sha(adoption),
                        "size": len(adoption), "mode": "0444",
                        "kind": "adoption_manifest", "component": PACKAGE})
+        # Package installation exposes an explicit first-run UI. Selection of
+        # user-owned software remains a separate, guarded package-adopt action.
+        add_bytes(archive, SYSTEM_DESKTOP, SYSTEM_DESKTOP_BYTES, 0o444, epoch)
+        roster.append({"destination": SYSTEM_DESKTOP, "sha256": sha(SYSTEM_DESKTOP_BYTES),
+                       "size": len(SYSTEM_DESKTOP_BYTES), "mode": "0444",
+                       "kind": "system_desktop", "component": PACKAGE})
     manifest = {"schema": 1, "package": PACKAGE, "version": spec["version"],
                 "pkgrel": PKGREL,
                 "source_head": spec["source_head"], "source_tree": spec["source_tree"],
                 "payload_sha256": sha(payload.read_bytes()), "files": roster}
+    validate_release_roster(manifest)
     (output / "RELEASE_MANIFEST.json").write_bytes(canonical(manifest))
     pkgbuild = f'''pkgname={PACKAGE}
 pkgver={spec["version"]}

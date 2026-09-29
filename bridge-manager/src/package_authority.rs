@@ -441,6 +441,7 @@ fn preflight(m: &Manager) -> Result<()> {
     Ok(())
 }
 fn with_locks<T>(m: &Manager, work: impl FnOnce() -> Result<T>) -> Result<T> {
+    let _package = m.lock("package.lock")?;
     let _service = m.lock("service.lock")?;
     let _setup = m.lock("setup.lock")?;
     let _registry = m.lock("registry.lock")?;
@@ -504,6 +505,8 @@ struct UnitReadback { load: String, active: String, fragment: String, exec: Stri
 trait ServiceControl {
     fn show(&self) -> Result<UnitReadback>;
     fn reload(&self) -> Result<()>;
+    fn enable_start(&self) -> Result<()>;
+    fn healthy(&self, m: &Manager) -> Result<()>;
 }
 struct SystemctlService;
 fn systemctl_bounded(args: &[&str], capture: bool) -> Result<Vec<u8>> {
@@ -556,6 +559,12 @@ impl ServiceControl for SystemctlService {
     fn reload(&self) -> Result<()> {
         systemctl_bounded(&["--user", "daemon-reload"], false).map(|_| ())
     }
+    fn enable_start(&self) -> Result<()> {
+        systemctl_bounded(&["--user", "enable", "--now", "linux-vst-bridge.service"], false).map(|_| ())
+    }
+    fn healthy(&self, m: &Manager) -> Result<()> {
+        require(capacity_reply(m)?["ok"] == true, "package_service_health_unavailable")
+    }
 }
 fn parse_unit_readback(text: &str) -> Result<UnitReadback> {
     let mut fields = std::collections::BTreeMap::new();
@@ -600,6 +609,70 @@ fn reload_and_verify(service: &impl ServiceControl, home: &Path,
             "package_service_effective_route_mismatch"),
     }
 }
+#[derive(Serialize)]
+struct ActivationStatus {
+    schema: u32,
+    state: &'static str,
+    package_version: String,
+}
+fn selected_activation(m: &Manager, home: &Path,
+    service: &impl ServiceControl) -> Result<(Software, Generation, UnitReadback)> {
+    require(!m.root.join("package-transition.json").try_exists()?,
+        "package_transition_needs_recovery")?;
+    let selected = old_software(m)?.ok_or("package_not_installed")?;
+    let generation = verify_generation(m, &selected)?;
+    let routes = setup_install::current_route_statuses(m, home, &selected)?;
+    require(routes.len() == 6 && routes.iter().all(|route| route.status == "exact"),
+        "package_routes_need_repair")?;
+    let state = service.show()?;
+    require(state.load == "loaded"
+        && state.fragment == home.join(".config/systemd/user/linux-vst-bridge.service")
+            .to_str().ok_or("package_service_path")?
+        && effective_exec_is(&state.exec, &selected.manager.path)
+        && matches!(state.active.as_str(), "inactive" | "failed" | "active"),
+        "package_service_effective_route_mismatch")?;
+    Ok((selected, generation, state))
+}
+fn activation_status_from(m: &Manager, home: &Path,
+    service: &impl ServiceControl) -> Result<ActivationStatus> {
+    let (selected, generation, state) = selected_activation(m, home, service)?;
+    if state.active == "active" { service.healthy(m)?; }
+    let (again, second, after) = selected_activation(m, home, service)?;
+    require(selected.manager == again.manager && generation.manifest_sha256 == second.manifest_sha256
+        && state.active == after.active, "package_activation_status_changed")?;
+    Ok(ActivationStatus { schema: 1,
+        state: if state.active == "active" { "active" } else { "inactive" },
+        package_version: generation.manifest.version })
+}
+fn activate_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Result<()> {
+    // A package action gate excludes a concurrent package switch. setup.lock
+    // excludes legacy route changes. The service must acquire service.lock on
+    // startup, so neither service.lock nor registry.lock spans systemctl.
+    let _package = m.lock("package.lock")?;
+    let _setup = m.lock("setup.lock")?;
+    let (selected, generation, state) = selected_activation(m, home, service)?;
+    let starting = state.active != "active";
+    if starting {
+        preflight(m)?;
+        let (checked, checked_generation, checked_state) = selected_activation(m, home, service)?;
+        require(checked.manager == selected.manager
+            && checked_generation.manifest_sha256 == generation.manifest_sha256
+            && checked_state.active != "active", "package_activation_state_changed")?;
+        service.enable_start()?;
+    }
+    let (after, after_generation, readback) = selected_activation(m, home, service)?;
+    require(after.manager == selected.manager
+        && after_generation.manifest_sha256 == generation.manifest_sha256
+        && readback.active == "active", "package_service_did_not_start")?;
+    if starting {
+        for _ in 0..20 {
+            if service.healthy(m).is_ok() { return Ok(()); }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+    }
+    service.healthy(m)?;
+    Ok(())
+}
 pub(super) fn adopt(m: &Manager) -> Result<()> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
     adopt_from(m, &home, &Inputs::system(), 0, &SystemctlService)
@@ -611,6 +684,15 @@ pub(super) fn rollback(m: &Manager) -> Result<()> {
 pub(super) fn recover(m: &Manager) -> Result<bool> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
     recover_from(m, &home, &SystemctlService)
+}
+pub(super) fn activation_status(m: &Manager) -> Result<()> {
+    let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
+    println!("{}", serde_json::to_string(&activation_status_from(m, &home, &SystemctlService)?)?);
+    Ok(())
+}
+pub(super) fn activate(m: &Manager) -> Result<()> {
+    let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
+    activate_from(m, &home, &SystemctlService)
 }
 
 #[cfg(test)]
@@ -624,6 +706,9 @@ mod tests {
         fail_reload: Cell<bool>,
         fail_show: Cell<bool>,
         stale_reload: Cell<bool>,
+        fail_start: Cell<bool>,
+        fail_health: Cell<bool>,
+        starts: Cell<usize>,
     }
     impl FakeService {
         fn new(home: &Path) -> Self {
@@ -631,7 +716,8 @@ mod tests {
                 load: "not-found".into(), active: "inactive".into(),
                 fragment: String::new(), exec: String::new(),
             }), fail_reload: Cell::new(false), fail_show: Cell::new(false),
-                stale_reload: Cell::new(false) }
+                stale_reload: Cell::new(false), fail_start: Cell::new(false),
+                fail_health: Cell::new(false), starts: Cell::new(0) }
         }
     }
     impl ServiceControl for FakeService {
@@ -657,6 +743,18 @@ mod tests {
             };
             *self.loaded.borrow_mut() = next;
             Ok(())
+        }
+        fn enable_start(&self) -> Result<()> {
+            require(!self.fail_start.get(), "package_user_service_unavailable")?;
+            let mut state = self.loaded.borrow_mut();
+            require(state.load == "loaded" && matches!(state.active.as_str(), "inactive" | "failed"),
+                "package_service_effective_route_mismatch")?;
+            state.active = "active".into();
+            self.starts.set(self.starts.get() + 1);
+            Ok(())
+        }
+        fn healthy(&self, _: &Manager) -> Result<()> {
+            require(!self.fail_health.get(), "package_service_health_unavailable")
         }
     }
     struct Fixture {
@@ -779,6 +877,80 @@ mod tests {
         assert_eq!(fs::read_link(f.home.join(".local/bin/linux-vst-bridge")).unwrap(), first.manager.path);
         assert_eq!(fs::read_link(f.home.join(".local/bin/linux-audio-compatibility-manager")).unwrap(), first.operator_frontend.unwrap().path);
         second.manager.verify().unwrap();
+    }
+
+    #[test]
+    fn explicit_activation_requires_exact_selected_routes_and_is_idempotent() {
+        let f = Fixture::new();
+        assert!(activation_status_from(&f.base.m, &f.home, &f.service).is_err());
+        f.adopt().unwrap();
+        let software = fs::read(f.base.m.root.join("software.json")).unwrap();
+        let registry = fs::read(f.base.m.root.join("registry.json")).ok();
+        let unit = fs::read(f.home.join(".config/systemd/user/linux-vst-bridge.service")).unwrap();
+        let status = activation_status_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!((status.schema, status.state, status.package_version.as_str()),
+                   (1, "inactive", "0.1.0beta1"));
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!(activation_status_from(&f.base.m, &f.home, &f.service).unwrap().state,
+                   "active");
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!(f.service.starts.get(), 1);
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), software);
+        assert_eq!(fs::read(f.base.m.root.join("registry.json")).ok(), registry);
+        assert_eq!(fs::read(f.home.join(".config/systemd/user/linux-vst-bridge.service")).unwrap(), unit);
+    }
+
+    #[test]
+    fn activation_refuses_foreign_route_unavailable_bus_and_changed_exec() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        f.service.fail_show.set(true);
+        assert!(activation_status_from(&f.base.m, &f.home, &f.service).is_err());
+        assert!(activate_from(&f.base.m, &f.home, &f.service).is_err());
+        f.service.fail_show.set(false);
+        f.service.loaded.borrow_mut().exec =
+            "{ path=/usr/bin/foreign ; argv[]=/usr/bin/foreign serve ; ignore_errors=no }".into();
+        assert!(activate_from(&f.base.m, &f.home, &f.service).is_err());
+        f.service.reload().unwrap();
+        let desktop = f.home.join(".local/share/applications/linux-audio-compatibility-manager.desktop");
+        fs::write(&desktop, b"foreign desktop\n").unwrap();
+        assert!(activation_status_from(&f.base.m, &f.home, &f.service).is_err());
+        assert!(activate_from(&f.base.m, &f.home, &f.service).is_err());
+        assert_eq!(f.service.starts.get(), 0);
+    }
+
+    #[test]
+    fn failed_start_and_health_readback_do_not_claim_activation() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        f.service.fail_start.set(true);
+        assert!(activate_from(&f.base.m, &f.home, &f.service).is_err());
+        assert_eq!(activation_status_from(&f.base.m, &f.home, &f.service).unwrap().state,
+                   "inactive");
+        f.service.fail_start.set(false);
+        f.service.fail_health.set(true);
+        assert!(activate_from(&f.base.m, &f.home, &f.service).is_err());
+        assert!(activation_status_from(&f.base.m, &f.home, &f.service).is_err());
+        assert_eq!(f.service.starts.get(), 1);
+        f.service.fail_health.set(false);
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!(f.service.starts.get(), 1);
+    }
+
+    #[test]
+    fn activation_refuses_pending_or_uncertain_owner_before_start() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        let pending = f.base.m.root.join("transactions/a.pending.json");
+        fs::create_dir_all(pending.parent().unwrap()).unwrap();
+        fs::write(&pending, b"{}").unwrap();
+        assert!(activate_from(&f.base.m, &f.home, &f.service).is_err());
+        assert_eq!(f.service.starts.get(), 0);
+        fs::remove_file(pending).unwrap();
+        let lease = f.base.m.root.join("runtime/leases/").join("ab".repeat(16) + ".json");
+        fs::write(&lease, b"\"/tmp/unknown-report.json\"").unwrap();
+        assert!(activate_from(&f.base.m, &f.home, &f.service).is_err());
+        assert_eq!(f.service.starts.get(), 0);
     }
 
     #[test]

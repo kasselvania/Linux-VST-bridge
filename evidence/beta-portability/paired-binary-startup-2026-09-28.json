@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "claim": "actual paired Linux binaries link and enter fixed manager status command in disposable amd64 Ubuntu and Debian containers",
+  "source_head": "421e84e864accd1612857318d92e7d9c5c90b5bf",
+  "source_tree": "6dbd2f23d7087298a3db416afab89f9920944703",
+  "artifact_workflow": "AP12 registered owner run 36523262967, wd1-linux-artifacts",
+  "manager_sha256": "2f58b0142f44815d53a76fca39e0a0ff4c8f7e6ed35f76bad5058920e3350890",
+  "frontend_sha256": "b6bc6dad73a10657f019699d02fe36715fee2baab84c3e3a1753c00c2fd7e4cd",
+  "systems": [
+    {
+      "image": "ubuntu@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78",
+      "os_release": "ubuntu 26.04",
+      "architecture": "amd64",
+      "declared_dependencies_installed": true,
+      "manager_unresolved_dynamic_libraries": 0,
+      "frontend_unresolved_dynamic_libraries": 0,
+      "manager_package_activation_status": "expected package_not_installed refusal in fresh HOME"
+    },
+    {
+      "image": "debian@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c",
+      "os_release": "debian 13",
+      "architecture": "amd64",
+      "declared_dependencies_installed": true,
+      "manager_unresolved_dynamic_libraries": 0,
+      "frontend_unresolved_dynamic_libraries": 0,
+      "manager_package_activation_status": "expected package_not_installed refusal in fresh HOME"
+    }
+  ],
+  "real_package_adoption": "not_tested",
+  "graphical_frontend_launch": "not_tested",
+  "bitwig_audio": "not_tested",
+  "installed_steam_deck_changed": false
+}

@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "claim": "synthetic_package_install_dependency_and_removal_only",
+  "source_base": "3dd598fb46a4fd3de909c658b289246e5e24b1f9",
+  "source_base_tree": "dd83bae6201060725ac76c0f7fdac34a7e465881",
+  "package": {
+    "name": "linux-vst-bridge-beta",
+    "version": "0.1.0beta1-1",
+    "format": "deb",
+    "sha256": "1a20319fc0f6b1fc65cfc18a1ad236832419649640fd84ea96f0d777f64dbb28",
+    "fixture_bytes": "inert manager/frontend/host/proxy test bytes; package schema 1",
+    "customer_release": false,
+    "customer_signing_key_selected": false
+  },
+  "systems": [
+    {
+      "distribution": "Ubuntu",
+      "version": "26.04.1 LTS",
+      "architecture": "amd64",
+      "image": "ubuntu@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78",
+      "package_install": "passed",
+      "declared_dependencies_resolved": true,
+      "root_owned_system_desktop": true,
+      "implicit_install_hook": false,
+      "package_removal": "passed",
+      "unrelated_user_sentinel_preserved": true,
+      "product_binary_startup": "not_tested",
+      "graphical_journey": "not_tested",
+      "audio": "not_tested"
+    },
+    {
+      "distribution": "Debian",
+      "version": "13.7 image, 13 (trixie) os-release",
+      "architecture": "amd64",
+      "image": "debian@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c",
+      "package_install": "passed",
+      "declared_dependencies_resolved": true,
+      "root_owned_system_desktop": true,
+      "implicit_install_hook": false,
+      "package_removal": "passed",
+      "unrelated_user_sentinel_preserved": true,
+      "product_binary_startup": "not_tested",
+      "graphical_journey": "not_tested",
+      "audio": "not_tested"
+    }
+  ],
+  "cachyos": {
+    "package_format": "shared Arch PKG0 source",
+    "clean_install_and_product_startup": "not_tested_in_this_receipt"
+  },
+  "development_failure": "Initial Debian data archive omitted parent directory entries; dpkg refused to create host.exe.dpkg-new. The corrected archive declares and verifies exact parent directories, and fresh Ubuntu/Debian package installs passed.",
+  "installed_steam_deck_changed": false
+}
