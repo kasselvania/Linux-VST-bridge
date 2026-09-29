@@ -1,5 +1,24 @@
 # Current work selection
 
+## Beta delivery: current plug-in controls without Diagnostics
+
+The selected source owner begins from post-first-run canonical main
+`6545422c49b0cf3055b9e5f8a7ea0c7c465c4993` (tree
+`b7c99d0458145e4af1c65afefc21883a80a2e06d`). Its one claim is that
+Library can load the exact selected plug-in's current compatibility and
+manager controls without waiting for the full historical Diagnostics
+Snapshot. Admission checks the same current manager offer; the existing
+mutation owner still verifies its exact physical target. See
+[selected-product controls](docs/BETA_PRODUCT_CONTROLS.md) and the
+[staged Deck receipt](evidence/beta-delivery/product-controls-2026-09-28.json).
+
+The exact fixture is the unchanged Steam Deck Desktop Mode, SteamOS 3.8.16,
+Bitwig 6.1 installation, with Pure LoFi as the ordinary selected product and
+BEAM/Serum 2 FX as experimental and effect readback checks. This source-only
+change does not install a manager, publish a proxy, run Bitwig, qualify the
+Push 3 note-release fix, or claim an Ubuntu/CachyOS musical workflow. The
+installed private UI2 generation and all six user routes remain selected.
+
 ## Beta delivery: portable package and explicit first run
 
 PKG1 merged normally into canonical main as

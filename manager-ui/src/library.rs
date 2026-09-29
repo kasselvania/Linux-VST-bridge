@@ -145,7 +145,11 @@ impl Library {
                 *retry_details = true;
             }
         } else {
-            ui.label("Loading compatibility controls and technical history. Product details remain visible while this completes.");
+            ui.label(if self.focused_product().is_some() {
+                "Loading this plug-in's current compatibility controls…"
+            } else {
+                "Select a plug-in to see its current compatibility controls."
+            });
         }
         ui.add(egui::TextEdit::singleline(&mut self.search)
             .hint_text("Search name, vendor, type or version")

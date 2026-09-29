@@ -409,6 +409,19 @@ pub struct InteractiveOverview {
     pub current: Snapshot,
     pub readiness: ReadinessAssessment,
 }
+/// One current product with its exact manager-offered compatibility controls.
+/// Deep histories for unrelated products remain in the Diagnostics snapshot.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CurrentProductDetail {
+    pub schema: u32,
+    pub operator_schema: u32,
+    pub state_token: String,
+    pub current_generation: String,
+    pub product: Product,
+    pub environments: Vec<Environment>,
+    pub vendor_applications: Vec<VendorApplication>,
+}
 /// Cheap change signal for the ordinary idle frontend. It never grants an
 /// action or certifies product bytes.
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -128,6 +128,7 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
 
 pub(super) struct CurrentOverviewContext {
     pub snapshot: ui::Snapshot,
+    pub busy: Option<&'static str>,
     pub profiles: Vec<profiles::Profile>,
     pub revisions: CurrentRevisions,
     pub current_generation: String,
@@ -500,7 +501,7 @@ pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
                 inactive_reason(cap.as_ref(),retired,pending,true))],
         operation:optional(&m.root.join("operator/latest.json"))?.as_object()
             .map(|v|Value::Object(v.clone()))};
-    Ok(CurrentOverviewContext {snapshot,profiles,revisions,owners,watched,current_generation,
+    Ok(CurrentOverviewContext {snapshot,busy,profiles,revisions,owners,watched,current_generation,
         installer_live,vendor_retired:vendor,cleanup_seen,
         #[cfg(feature = "pb0-c0-audit")]
         captured_at:started})
@@ -528,7 +529,7 @@ mod tests {
                 installer_setups:vec![],environments:vec![],vendor_applications:vec![],
                 products:vec![],workspaces,active_sessions:vec![],capture:Value::Null,
                 recent_incidents:vec![],actions:vec![],operation:None},
-            profiles:vec![],revisions:BTreeMap::new(),
+            busy:None,profiles:vec![],revisions:BTreeMap::new(),
             current_generation:pulse_generation(m).unwrap(),
             owners:capacity::owners(m).unwrap(),watched,installer_live:BTreeMap::new(),
             vendor_retired:vendor_retired(m).unwrap(),cleanup_seen:None,
@@ -746,7 +747,7 @@ mod tests {
             installer_setups:vec![],environments:vec![],vendor_applications:vec![],
             products:vec![],workspaces:vec![],active_sessions:vec![],
             capture:Value::Null,recent_incidents:vec![],actions:vec![],operation:None};
-        let context = CurrentOverviewContext {snapshot,profiles:vec![],
+        let context = CurrentOverviewContext {snapshot,busy:None,profiles:vec![],
             revisions:BTreeMap::new(),current_generation:pulse_generation(&fixture.m).unwrap(),
             owners:vec![],watched,installer_live:BTreeMap::new(),vendor_retired:true,cleanup_seen:None,
             #[cfg(feature = "pb0-c0-audit")]

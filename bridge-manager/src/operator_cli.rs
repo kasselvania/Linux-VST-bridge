@@ -1,6 +1,7 @@
 //! MF1: closed operator requests dispatched to existing canonical owners.
 use super::*;
 use linux_vst_bridge::operator_model as ui;
+use linux_vst_bridge::renderer_application as renderer;
 use serde_json::{json, Value};
 mod current;
 const ASC: &str = "arturia-software-center";
@@ -131,6 +132,35 @@ fn quarantined_product(scan: &inventory::Scan, module_index: usize,
 }
 fn app_directory(m: &Manager) -> PathBuf {
     m.root.join("vendor-applications").join(ASC)
+}
+fn asc_projection(m: &Manager, busy: Option<&str>) -> Result<Option<ui::VendorApplication>> {
+    let app = app_directory(m).join("application.json");
+    if !app.exists() { return Ok(None); }
+    let a: vendor_application::Application = read_json(&app)?;
+    let live = vendor_live()?;
+    let valid = a.verify(&m.root).is_ok();
+    let reason = if !valid {
+        Some("Registered ASC executable or environment changed")
+    } else { busy };
+    Ok(Some(ui::VendorApplication {
+        details: json!({"environment":a.environment.id}),
+        id: ASC.into(), name: "Arturia Software Center".into(),
+        version: a.observed_installer_version,
+        state: if live { "running" } else if vendor_retired(m)? {
+            "closed"
+        } else { "cleanup_unconfirmed" }.into(),
+        actions: vec![
+            action("Open ASC", ui::Action::VendorApplicationOpen {
+                application: ASC.into(),
+            }, if live { Some("ASC is already running") } else { reason }),
+            action("Focus ASC", ui::Action::VendorApplicationFocus {
+                application: ASC.into(),
+            }, if live { None } else { Some("ASC is not running") }),
+            action("Stop owned ASC session", ui::Action::VendorApplicationStop {
+                application: ASC.into(),
+            }, if live { None } else { Some("ASC is not running") }),
+        ],
+    }))
 }
 pub(super) fn vendor_retired(m: &Manager) -> Result<bool> {
     if !renderer_cli::all_retired(m)? || !dependency_cli::all_retired(m)? {
@@ -652,6 +682,88 @@ fn overview(m: &Manager) -> Result<ui::InteractiveOverview> {
         })
     })
 }
+fn product_detail(m: &Manager, environment: &str, module: &str,
+    class: &str) -> Result<ui::CurrentProductDetail> {
+    require(valid_product_environment(environment) && valid_hex(module, 64)
+        && (class.is_empty() || valid_hex(class, 32)), "operator_product_identity")?;
+    let captured = current::capture(m)?;
+    let sw = software(m)?;
+    let db = m.registry()?;
+    let product = project_current_product(m, &captured, &sw, &db, environment, module, class)?;
+    let (environments, vendor_applications) = scoped_product_context(m, &sw, &db,
+        environment, captured.busy)?;
+    captured.recheck(m)?;
+    Ok(ui::CurrentProductDetail {schema:1,operator_schema:ui::OPERATOR_SCHEMA,
+        state_token:captured.snapshot.state_token,
+        current_generation:captured.current_generation,product,environments,
+        vendor_applications})
+}
+fn valid_product_environment(id: &str) -> bool {
+    valid_hex(id, 32) || (id.len() == 36 && id.bytes().enumerate().all(|(index, byte)| {
+        if matches!(index, 8 | 13 | 18 | 23) {
+            byte == b'-'
+        } else {
+            byte.is_ascii_hexdigit()
+        }
+    }))
+}
+fn project_current_product(m: &Manager, captured: &current::CurrentOverviewContext,
+    sw: &Software, db: &Registry,
+    environment: &str, module: &str, class: &str) -> Result<ui::Product> {
+    let mut matching = captured.snapshot.products.iter().filter(|product|
+        product.environment == environment && product.module_sha256 == module
+            && product.class_id == class);
+    let mut product = matching.next().ok_or("operator_product_not_current")?.clone();
+    require(matching.next().is_none(), "operator_product_ambiguous")?;
+    if let Some(entry) = db.classes.get(class).filter(|entry|
+        entry.registration.environment.id == environment
+            && entry.registration.module.sha256 == module) {
+        product.history = history(m, class, entry)?;
+        for prior in &product.history {
+            if prior.rollback_allowed && !prior.active {
+                product.actions.push(action(&format!("Roll back to revision {}",prior.revision),
+                    ui::Action::OrdinaryRollback {class_id:class.into(),
+                        publication:prior.publication.clone()}, captured.busy));
+            }
+        }
+        if captured.profiles.iter().any(|profile|
+            profile.class.class_id == class && Some(profile.revision) != product.active_revision) {
+            product.actions.push(action("Restore recommended revision",
+                ui::Action::OrdinaryRestoreRecommended {class_id:class.into()}, captured.busy));
+        }
+        product.actions.push(action("Arm crash capture for next launch",
+            ui::Action::CaptureArm {class_id:class.into()},
+            if product.details["publication_valid"] != true
+                || product.details["publication_selected"] != true
+                || !product.details["qualification"].is_null() {
+                Some("An exact ordinary publication is required")
+            } else { None }));
+    }
+    preparation_cli::project(m, sw,
+        std::slice::from_mut(&mut product), captured.busy)?;
+    Ok(product)
+}
+fn scoped_product_context(m: &Manager, sw: &Software, db: &Registry,
+    environment: &str, busy: Option<&str>)
+    -> Result<(Vec<ui::Environment>,Vec<ui::VendorApplication>)> {
+    let catalogue = operator_catalogue(m, sw, db)?;
+    let bindings = managed_environment_bindings(m, catalogue.as_ref(), db)?;
+    let exact = bindings.into_iter().filter(|binding|
+        binding.environment.id == environment).collect::<Vec<_>>();
+    let environments = environment_projection_from(m, sw, &exact, db, busy)?;
+    let arturia = app_directory(m).join("application.json");
+    let mut vendor_applications = if arturia.exists()
+        && read_json::<vendor_application::Application>(&arturia)?.environment.id == environment {
+        asc_projection(m, busy)?.into_iter().collect::<Vec<_>>()
+    } else { vec![] };
+    if environment == renderer::ENVIRONMENT {
+        if let Some(mut app) = renderer_cli::project(m, busy)? {
+            dependency_cli::project(m, &mut app, busy)?;
+            vendor_applications.push(app);
+        }
+    }
+    Ok((environments,vendor_applications))
+}
 #[cfg(test)]
 pub(super) fn snapshot_idle_test(m: &Manager) -> Result<ui::Snapshot> {
     snapshot_for_operation(m, None, OPERATOR_WAIT, &mut vec![], &idle_capacity_test)
@@ -896,67 +1008,7 @@ fn snapshot_for_operation_depth(
             preparation_cli::project(m, &sw, &mut products, busy)?;
         }
     }
-    let mut vendor_applications = Vec::new();
-    let app = app_directory(m).join("application.json");
-    if app.exists() {
-        let a: vendor_application::Application = read_json(&app)?;
-        let live = vendor_live()?;
-        let valid = a.verify(&m.root).is_ok();
-        let reason = if !valid {
-            Some("Registered ASC executable or environment changed")
-        } else {
-            busy
-        };
-        vendor_applications.push(ui::VendorApplication {
-            details: json!({"environment":a.environment.id}),
-            id: ASC.into(),
-            name: "Arturia Software Center".into(),
-            version: a.observed_installer_version,
-            state: if live {
-                "running"
-            } else if vendor_retired(m)? {
-                "closed"
-            } else {
-                "cleanup_unconfirmed"
-            }
-            .into(),
-            actions: vec![
-                action(
-                    "Open ASC",
-                    ui::Action::VendorApplicationOpen {
-                        application: ASC.into(),
-                    },
-                    if live {
-                        Some("ASC is already running")
-                    } else {
-                        reason
-                    },
-                ),
-                action(
-                    "Focus ASC",
-                    ui::Action::VendorApplicationFocus {
-                        application: ASC.into(),
-                    },
-                    if !live {
-                        Some("ASC is not running")
-                    } else {
-                        None
-                    },
-                ),
-                action(
-                    "Stop owned ASC session",
-                    ui::Action::VendorApplicationStop {
-                        application: ASC.into(),
-                    },
-                    if !live {
-                        Some("ASC is not running")
-                    } else {
-                        None
-                    },
-                ),
-            ],
-        });
-    }
+    let mut vendor_applications = asc_projection(m, busy)?.into_iter().collect::<Vec<_>>();
     if deep {
         if let Some(mut app) = renderer_cli::project(m, busy)? {
             dependency_cli::project(m, &mut app, busy)?;
@@ -1123,6 +1175,8 @@ fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
     )
 }
 fn validate_current_request(m: &Manager, request: &ui::Request) -> Result<()> {
+    require(request.schema == ui::OPERATOR_SCHEMA,
+        "operator_schema_mismatch_update_manager_frontend")?;
     if current_offer_action(&request.action) {
         let offered = overview(m)?;
         validate(request, &offered.current)?;
@@ -1133,7 +1187,67 @@ fn validate_current_request(m: &Manager, request: &ui::Request) -> Result<()> {
         }
         return Ok(());
     }
+    if preparation_cli::is_action(&request.action) {
+        let captured = current::capture(m)?;
+        let sw = software(m)?;
+        let db = m.registry()?;
+        let selection = preparation_cli::action_selection(m, &sw,
+            &request.action)?.ok_or("operator_product_action_identity")?;
+        let product = project_current_product(m, &captured, &sw, &db, &selection.environment.id,
+            &selection.module.sha256, &selection.class.id)?;
+        captured.recheck(m)?;
+        let mut offered = captured.snapshot;
+        offered.products = vec![product];
+        return validate(request, &offered);
+    }
+    if scoped_product_action(&request.action) {
+        let captured = current::capture(m)?;
+        let sw = software(m)?;
+        let db = m.registry()?;
+        let mut offered = captured.snapshot.clone();
+        match &request.action {
+            ui::Action::OrdinaryRollback { class_id, .. }
+            | ui::Action::OrdinaryRestoreRecommended { class_id }
+            | ui::Action::CaptureArm { class_id } => {
+                let entry = db.classes.get(class_id).ok_or("operator_product_not_current")?;
+                offered.products = vec![project_current_product(m, &captured, &sw, &db,
+                    &entry.registration.environment.id, &entry.registration.module.sha256,
+                    class_id)?];
+            }
+            ui::Action::EnvironmentRescan { environment } => {
+                require(valid_product_environment(environment), "operator_product_identity")?;
+                offered.environments = scoped_product_context(m, &sw, &db,
+                    environment, captured.busy)?.0;
+            }
+            ui::Action::VendorApplicationOpen { application }
+            | ui::Action::VendorApplicationFocus { application }
+            | ui::Action::VendorApplicationStop { application } if application == ASC => {
+                offered.vendor_applications = asc_projection(m, captured.busy)?
+                    .into_iter().collect();
+            }
+            ui::Action::RendererOpen { .. } | ui::Action::RendererFocus { .. }
+            | ui::Action::RendererStop { .. } => {
+                offered.vendor_applications = scoped_product_context(m, &sw, &db,
+                    renderer::ENVIRONMENT, captured.busy)?.1;
+            }
+            _ => return Err("operator_product_action_identity".into()),
+        }
+        captured.recheck(m)?;
+        return validate(request, &offered);
+    }
     validate(request, &snapshot(m)?)
+}
+fn scoped_product_action(action: &ui::Action) -> bool {
+    matches!(action, ui::Action::OrdinaryRollback { .. }
+        | ui::Action::OrdinaryRestoreRecommended { .. }
+        | ui::Action::CaptureArm { .. }
+        | ui::Action::EnvironmentRescan { .. }
+        | ui::Action::VendorApplicationOpen { .. }
+        | ui::Action::VendorApplicationFocus { .. }
+        | ui::Action::VendorApplicationStop { .. }
+        | ui::Action::RendererOpen { .. }
+        | ui::Action::RendererFocus { .. }
+        | ui::Action::RendererStop { .. })
 }
 fn current_offer_action(action: &ui::Action) -> bool {
     matches!(action, ui::Action::SupportExport {}
@@ -1145,7 +1259,8 @@ fn current_offer_action(action: &ui::Action) -> bool {
         | ui::Action::InstallerStartWithPolicy { .. }
         | ui::Action::InstallerFocus { .. }
         | ui::Action::InstallerStop { .. }
-        | ui::Action::InstallerScan { .. })
+        | ui::Action::InstallerScan { .. }
+        | ui::Action::QuarantinedModuleRetry { .. })
 }
 fn validate_current_worker(m: &Manager, request: &ui::Request, id: &str,
     timeout: Duration, waits: &mut Vec<ui::LockFacts>,
@@ -2540,7 +2655,9 @@ fn worker_with_capacity(
     let mut waits = vec![];
     let validation = if matches!(request.action, ui::Action::SupportExport {}) {
         validate_current_request(m, &request)
-    } else if current_offer_action(&request.action) {
+    } else if current_offer_action(&request.action)
+        || preparation_cli::is_action(&request.action)
+        || scoped_product_action(&request.action) {
         // Admission already bound the exact manager offer. The action owner
         // performs its target-specific physical check before mutation.
         validate_current_worker(m, &request, id, timeout, &mut waits, capacity_read)
@@ -2663,6 +2780,9 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
             #[cfg(not(feature = "pb0-c0-audit"))]
             let _ = serialization_at;
             println!("{encoded}");
+        }
+        [a, environment, module, class] if a == "product" => {
+            println!("{}",serde_json::to_string(&product_detail(m,environment,module,class)?)?);
         }
         #[cfg(feature = "pb0-c0-audit")]
         [a] if a == "support-export-preview" => {
@@ -4488,6 +4608,133 @@ mod tests {
         assert!(receipt.accepted && receipt.operation.is_some());
         assert!(elapsed < Duration::from_secs(2),"current Setup acknowledgement took {elapsed:?}");
         assert_eq!(optional(&fixture.m.root.join("operator/latest.json")).unwrap()["state"],"queued");
+    }
+    #[test]
+    fn product_environment_accepts_retained_uuid_and_hex_identities() {
+        assert!(valid_product_environment(
+            "1de8d28b-d98b-4a41-8462-c07cca8e1609"));
+        assert!(valid_product_environment(
+            "7d8fce354e68595cdc20485f754a892d"));
+        assert!(!valid_product_environment("1de8d28b/../record.json"));
+        assert!(!valid_product_environment(
+            "1de8d28b-d98b-4a41-8462-c07cca8e160z"));
+    }
+    #[test]
+    fn current_product_offer_receives_durable_ack_without_diagnostics_snapshot() {
+        let (fixture, candidate) = preparation_cli::tests::projection_fixture();
+        atomic_json(&fixture.m.root.join("software.json"),
+            &preparation_cli::tests::projection_software(&candidate)).unwrap();
+        let selection = &candidate.selection;
+        let mut installer_bytes=vec![0;1024];
+        installer_bytes[..2].copy_from_slice(b"MZ");
+        installer_bytes[60]=128;
+        installer_bytes[128..132].copy_from_slice(b"PE\0\0");
+        installer_bytes[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        installer_bytes[148]=2;
+        installer_bytes[150]=2;
+        installer_bytes[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+        let installer_path=fixture.outer.join("product-installer.exe");
+        fs::write(&installer_path,installer_bytes).unwrap();
+        let installer=installer_import::import(&fixture.m,file(&installer_path).unwrap()).unwrap();
+        let directory=onboarding::directory(&fixture.m,&selection.environment.id).unwrap();
+        private_dir(&directory).unwrap();
+        atomic_json(&directory.join("record.json"),&onboarding::Record {schema:1,
+            id:selection.environment.id.clone(),installer:installer.id,
+            environment:selection.environment.clone(),created_at:1,
+            creation_operation:"cd".repeat(16),installation_operation:None,
+            published:false,previous_attempt:None}).unwrap();
+        let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
+        let detail = product_detail(&fixture.m, &selection.environment.id,
+            &selection.module.sha256, &selection.class.id).unwrap();
+        service.join().unwrap();
+        assert_eq!(detail.schema, 1);
+        assert_eq!(detail.operator_schema, ui::OPERATOR_SCHEMA);
+        assert_eq!(detail.product.environment, selection.environment.id);
+        assert!(detail.product.compatibility.is_some());
+        let offered = detail.product.actions.iter().find(|offer|
+            matches!(offer.action, ui::Action::PluginReinspect { .. })).unwrap();
+        assert!(offered.disabled_reason.is_none());
+        let mut wrong = offered.action.clone();
+        if let ui::Action::PluginReinspect { audio_layout, .. } = &mut wrong {
+            *audio_layout = Some(profiles::AudioLayoutPolicy::StereoMainPair);
+        }
+        let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
+        let refused = validate_current_request(&fixture.m,&ui::Request {
+            schema:ui::OPERATOR_SCHEMA,state_token:detail.state_token.clone(),action:wrong,
+        }).unwrap_err();
+        service.join().unwrap();
+        assert_eq!(refused.to_string(),"operator_action_not_available");
+        let mut request = ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:detail.state_token,action:offered.action.clone()};
+        let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
+        let started = Instant::now();
+        let receipt = dispatch_recorded(&fixture.m,&request,|id| {
+            validate_current_request(&fixture.m,&request)?;
+            launch_reserved(&fixture.m,&request,id,|_|Ok(true))
+        }).unwrap();
+        let elapsed = started.elapsed();
+        service.join().unwrap();
+        assert!(receipt.accepted && receipt.operation.is_some());
+        assert!(elapsed < Duration::from_secs(2),
+            "current product acknowledgement took {elapsed:?}");
+        assert_eq!(optional(&fixture.m.root.join("operator/latest.json")).unwrap()["state"],"queued");
+        request.state_token = "stale".into();
+        let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
+        assert_eq!(validate_current_request(&fixture.m,&request).unwrap_err().to_string(),
+            "operator_stale_request_refresh");
+        service.join().unwrap();
+        request.schema = 11;
+        assert_eq!(validate_current_request(&fixture.m,&request).unwrap_err().to_string(),
+            "operator_schema_mismatch_update_manager_frontend");
+    }
+    #[test]
+    fn scoped_ordinary_product_keeps_exact_rollback_offer() {
+        let (fixture, mut profile, census, native) = test_fixture::prepared();
+        let registration = observation::derive(&profile, &census, &native).unwrap();
+        let class = registration.key();
+        let first = fixture.m.managed_publish(&profile, &census, registration.clone(),
+            &census.host, &census.host_source_sha256, None).unwrap();
+        profile.revision += 1;
+        fixture.m.managed_publish(&profile, &census, registration.clone(),
+            &census.host, &census.host_source_sha256, None).unwrap();
+        let catalogue = linux_vst_bridge::catalogue::Catalogue {schema:3,natives:vec![native],
+            environments:vec![census.environment],hosts:vec![],onboarding_runtime:None};
+        let catalogue_path = fixture.m.root.join("software/native-catalogue.json");
+        atomic_json(&catalogue_path,&catalogue).unwrap();
+        let source_path = fixture.r.host.path.with_file_name("host-source-manifest.json");
+        let software = Software {installer_launch:None,preparation_kit:None,
+            operator_frontend:None,manager:fixture.r.host.clone(),
+            supervisor:fixture.r.host.clone(),ownership:fixture.r.host.clone(),
+            host:fixture.r.host.clone(),source_manifest:Artifact {
+                path:source_path,sha256:fixture.r.host_source_sha256.clone()},
+            source_sha256:fixture.r.host_source_sha256.clone(),
+            native_catalogue:Some(Artifact {sha256:digest(&catalogue_path).unwrap(),
+                path:catalogue_path})};
+        atomic_json(&fixture.m.root.join("software.json"),&software).unwrap();
+        let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
+        let detail = product_detail(&fixture.m, &registration.environment.id,
+            &registration.module.sha256, &class).unwrap();
+        service.join().unwrap();
+        let rollback = detail.product.actions.iter().find(|offer|
+            matches!(&offer.action, ui::Action::OrdinaryRollback { publication, .. }
+                if publication == &first.id)).unwrap();
+        assert!(rollback.disabled_reason.is_none());
+        assert!(detail.product.history.iter().any(|entry|
+            entry.publication == first.id && entry.rollback_allowed));
+        assert_eq!(detail.environments.len(),1);
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:detail.state_token,action:rollback.action.clone()};
+        let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
+        validate_current_request(&fixture.m,&request).unwrap();
+        service.join().unwrap();
+        let mut wrong = request;
+        if let ui::Action::OrdinaryRollback {publication,..} = &mut wrong.action {
+            *publication = "ff".repeat(16);
+        }
+        let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
+        assert_eq!(validate_current_request(&fixture.m,&wrong).unwrap_err().to_string(),
+            "operator_action_not_available");
+        service.join().unwrap();
     }
     #[test]
     fn ui1_rename_requires_exact_offered_installer_and_changes_no_custody_record() {
