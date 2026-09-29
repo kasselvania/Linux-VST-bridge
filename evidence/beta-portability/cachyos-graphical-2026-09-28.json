@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "claim": "clean graphical CachyOS VM installed and logged in; no bridge package or product test",
+  "source": "operator-observed parallel disposable VM",
+  "iso_build": "260809",
+  "iso_sha256": "959f6577f45e25ee9fd8c220fd221b08e4ea79412c7315c0f922dd6d86d5e33c",
+  "disk": "new empty 40 GiB qcow2",
+  "os_release": {
+    "id": "cachyos",
+    "id_like": "arch",
+    "build_id": "rolling"
+  },
+  "kernel": "7.2.8-1-cachyos",
+  "desktop": "KDE Plasma 6.7.5",
+  "session": "Wayland",
+  "graphical_login": "passed",
+  "bridge_package_install": "not_tested",
+  "manager_launch": "not_tested",
+  "bitwig_audio": "not_tested",
+  "gpu_performance": "not_tested"
+}
