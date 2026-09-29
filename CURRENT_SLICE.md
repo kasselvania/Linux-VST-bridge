@@ -13,9 +13,10 @@ The current source change makes the fixed system launcher compare the verified
 installed package with the selected immutable generation. When they differ,
 the frontend offers explicit clean stop, adoption and service restart through
 the existing package owner. The predecessor remains available for exact
-rollback. The [update contract](docs/BETA_PACKAGE_UPDATE.md) separates source
-tests from the still-required graphical package-update result. No Deck
-generation or native publication is changed by this source branch.
+rollback. The [update contract](docs/BETA_PACKAGE_UPDATE.md) and
+[disposable CachyOS receipt](evidence/beta-portability/cachyos-internal10-update-2026-09-29.json)
+record the actual graphical package-update result. No Deck generation or
+native publication is changed by this source branch.
 
 ## Beta delivery: clean-machine portable first run
 

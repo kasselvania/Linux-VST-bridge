@@ -1,0 +1,64 @@
+{
+  "claim": "normal Applications update handoff from one selected immutable package generation to another",
+  "fixture": {
+    "system": "CachyOS 260809 installed graphical VM",
+    "kernel": "7.2.8-1-cachyos",
+    "desktop": "KDE Plasma 6.7.5, Wayland",
+    "hardware": "QEMU/KVM virtual CPU, virtual graphics; no physical audio or GPU qualification",
+    "starting_disk": "fresh child of the retained internal6 graphical fixture"
+  },
+  "source": {
+    "head": "d9bbbaea18c7f9b18ba13ba5701b98b7624347fa",
+    "tree": "7b87cebd32181cb6533ccdb457ea6d16fdaf24a3"
+  },
+  "package": {
+    "name": "linux-vst-bridge-beta",
+    "version": "0.12.0internal10-1",
+    "sha256": "90112615fccd854c995cc18830fa302b474a9562d6d6d6b30a51be1c89b6b655",
+    "release_manifest_sha256": "6ec214fc22e22e5121f6ca370e0915b164e3dca03ba688fb5ed7f5e9216fd3ba",
+    "full_archive_verification": "passed, 17 declared payload files",
+    "package_manager_integrity": "33 total files, 0 missing",
+    "signature_posture": "unsigned internal test package; not a customer release"
+  },
+  "retained_failure": {
+    "first_attempt": "internal8 installed but the selected internal6 launcher gave no update action; retained in PR #197",
+    "second_attempt": "internal9 reached the new package-intake check but refused package_stale_transport because the idle service retains its marker and two guarded sockets",
+    "second_attempt_disposition": "no adoption or rollback submitted; internal6 service remained active; VM shut down normally",
+    "repair": "read-only exact idle-root verification accepts only the marker and two non-listening guarded sockets; actual or foreign session entries still refuse"
+  },
+  "observed_journey": [
+    "internal6 selected and active before package update",
+    "internal10 installed with pacman; installed package and selected user generation remained distinct",
+    "new /usr manager reported update_active for internal10",
+    "Applications search opened Linux VST Bridge Setup and Updates, not the old user-owned Library launcher",
+    "visible Stop bridge service to change version action stopped the idle selected service",
+    "visible Select installed version action adopted one immutable internal10 generation",
+    "visible Start bridge service action activated the selected generation",
+    "ordinary Linux Audio Compatibility Manager entry reopened the selected frontend",
+    "guest shut down normally"
+  ],
+  "selected_after": {
+    "generation": "e98eeabc3c79a17e2dfd8d5c344e3490d2a851e591473626581c1ef039fce7e6",
+    "version": "0.12.0internal10",
+    "manager_sha256": "145ba0eab4ab27b3b751c070b468cff00db406ef2ecba16ff827ebc8d545a557",
+    "frontend_sha256": "bfd7bd061823cb9b6b24ef33b2c7d7c00563330488905f77b9b794eb0f5cc2b8",
+    "service": "active",
+    "ui_readback": "service ready; DSP 0/6; install/scan 0; stale transports 0; pending transactions 0; cleanup confirmed",
+    "readiness": "compatibility not qualified on this VM"
+  },
+  "rollback_predecessor": {
+    "generation": "d04fb3a8402a4882ecda4e446c90c03b398f1f72b72b22230d745910a43280e2",
+    "manager_sha256": "f800393d2ab229c9479c3a32b4867a9eb8340e606fee1f495e3d1a082fb384b3",
+    "frontend_sha256": "e80112907599ae5f90e2700dc1827bca139580eff0ef2033d50914e52113d0f9",
+    "preparation_kit_sha256": "6edc1c0116dc4a685bb8cd0bfcbfe301fd7428a6c0e1b43083cd0cc10abcc7ae",
+    "catalogue_unchanged": true,
+    "rollback_executed": false
+  },
+  "limits": [
+    "No Steam Deck installation or native proxy publication",
+    "No Bitwig or commercial plug-in installation on this VM",
+    "No audio, MIDI, GPU performance, project recall or physical rollback claim",
+    "Proton/SLR and VST3 SDK remain external prerequisites",
+    "Existing Pure LoFi proxy bytes in the internal package were not selected or tested here"
+  ]
+}

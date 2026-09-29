@@ -55,8 +55,11 @@ frontend only after the selected generation is active.
 The source tests cover active and stopped package changes, changed package
 artifacts, clean-stop refusal, keeper-retirement delay, exact predecessor
 retention, selected-route readback and independent software rollback. The
-graphical fixture must additionally prove the ordinary Applications journey;
-a CLI-only adoption does not close the original failure.
+[disposable CachyOS result](../evidence/beta-portability/cachyos-internal10-update-2026-09-29.json)
+proves the ordinary Applications journey through explicit stop, adoption,
+activation and Library reopen. It also retains the preceding refusal that
+identified the idle transport-root error. The old generation remained an exact
+rollback predecessor; rollback was not exercised in that graphical session.
 
 ## Limits
 
