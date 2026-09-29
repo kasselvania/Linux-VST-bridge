@@ -117,6 +117,8 @@ class DebianPackage(unittest.TestCase):
         self.assertIn("Version: 0.1.0beta1-1\n", detail)
         self.assertIn("Depends: libc6 (>= 2.39)", detail)
         self.assertIn("libxkbcommon-x11-0", detail)
+        self.assertIn("libxcursor1", detail)
+        self.assertIn("libxi6", detail)
         data = subprocess.check_output(["dpkg-deb", "-c", str(self.package)], text=True)
         self.assertIn("usr/share/linux-vst-bridge/pkg0-manifest.json", data)
         self.assertIn("usr/share/applications/linux-audio-compatibility-manager.desktop", data)
