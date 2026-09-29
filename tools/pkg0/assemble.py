@@ -22,8 +22,41 @@ import zipfile
 
 PACKAGE = "linux-vst-bridge-beta"
 PKGREL = 1
-DEPENDENCIES = ("glibc", "gcc-libs", "python", "systemd", "libx11", "libxcb",
+DEPENDENCIES = ("glibc", "gcc-libs", "systemd", "libx11", "libxcb",
                 "libxkbcommon", "libglvnd", "pipewire", "xdg-desktop-portal")
+SUPERVISOR_PATHS = (
+    "usr/lib/linux-vst-bridge/supervisor/session.pyc",
+    "usr/lib/linux-vst-bridge/supervisor/ownership.pyc",
+)
+# Exact CPython bytecode magics for the declared Debian 13 and Ubuntu 26.04
+# build targets. Arch intake must declare the same interpreter ABI as its
+# packaged supervisors; a rolling host cannot infer that from plain `python`.
+PYTHON_MINOR_BY_MAGIC = {
+    bytes.fromhex("f30d0d0a"): "3.13",
+    bytes.fromhex("2b0e0d0a"): "3.14",
+}
+
+
+def supervisor_python_minor(headers):
+    if set(headers) != set(SUPERVISOR_PATHS):
+        raise ValueError("supervisor Python ABI missing")
+    magics = set()
+    for header in headers.values():
+        if len(header) != 16 or int.from_bytes(header[4:8], "little") not in (0, 1, 3):
+            raise ValueError("supervisor Python bytecode header")
+        magics.add(header[:4])
+    if len(magics) != 1 or next(iter(magics)) not in PYTHON_MINOR_BY_MAGIC:
+        raise ValueError("supervisor Python ABI mismatch or unsupported")
+    return PYTHON_MINOR_BY_MAGIC[next(iter(magics))]
+
+
+def package_dependencies(python_minor):
+    if python_minor not in PYTHON_MINOR_BY_MAGIC.values():
+        raise ValueError("unsupported package Python ABI")
+    major, minor = (int(part) for part in python_minor.split("."))
+    return (*DEPENDENCIES, f"python>={major}.{minor}", f"python<{major}.{minor + 1}")
+
+
 REQUIRED = {
     "usr/bin/linux-vst-bridge": "manager",
     "usr/bin/linux-audio-compatibility-manager": "frontend",
@@ -377,6 +410,7 @@ def _build(spec, output, epoch, source_root=None):
     output.mkdir(parents=True, mode=0o700)
     payload = output / "payload.tar"
     roster = []
+    supervisor_headers = {}
     with tarfile.open(payload, "w", format=tarfile.PAX_FORMAT) as archive:
         host_sha256 = files["usr/lib/linux-vst-bridge/host/bridge-host.exe"]["sha256"]
         source_sha256 = files["usr/lib/linux-vst-bridge/host/source-manifest.json"]["sha256"]
@@ -392,6 +426,8 @@ def _build(spec, output, epoch, source_root=None):
                 raise ValueError("Windows executable format")
             if item["kind"] in ("supervisor", "ownership") and not name.endswith(".pyc"):
                 raise ValueError("supervisor bytecode required")
+            if name in SUPERVISOR_PATHS:
+                supervisor_headers[name] = data[:16]
             add_bytes(archive, name, data, int(item["mode"], 8), epoch)
             roster.append({"destination": name, "sha256": sha(data), "size": len(data),
                            "mode": item["mode"], "kind": item["kind"], "component": item["component"]})
@@ -419,6 +455,7 @@ def _build(spec, output, epoch, source_root=None):
                 "source_head": spec["source_head"], "source_tree": spec["source_tree"],
                 "payload_sha256": sha(payload.read_bytes()), "files": roster}
     validate_release_roster(manifest)
+    python_minor = supervisor_python_minor(supervisor_headers)
     (output / "RELEASE_MANIFEST.json").write_bytes(canonical(manifest))
     pkgbuild = f'''pkgname={PACKAGE}
 pkgver={spec["version"]}
@@ -427,7 +464,7 @@ pkgdesc="Private Linux VST Bridge beta for native Linux DAWs"
 arch=('x86_64')
 url='https://github.com/kasselvania/Linux-VST-bridge'
 license=('LicenseRef-Proprietary')
-depends=({' '.join(repr(dependency) for dependency in DEPENDENCIES)})
+depends=({' '.join(repr(dependency) for dependency in package_dependencies(python_minor))})
 options=('!strip' '!debug' '!lto')
 source=('payload.tar')
 sha256sums=('{manifest["payload_sha256"]}')

@@ -168,12 +168,15 @@ class DebianPackage(unittest.TestCase):
             ("malformed_header", bytes.fromhex("f30d0d0a"), bytes.fromhex("f30d0d0a"), 2),
         ):
             with self.subTest(label=label):
-                stage = self.stage_with_python_magics(session, ownership, flags=flags)
                 output = self.root / label / self.package.name
                 with self.assertRaisesRegex(ValueError, "supervisor Python"):
-                    deb.build(stage, output, 1_234_567_890)
+                    self.stage_with_python_magics(session, ownership, flags=flags)
+                with self.assertRaisesRegex(ValueError, "supervisor Python"):
+                    deb.python_abi({name: magic + flags.to_bytes(4, "little") + bytes(8)
+                                    for name, magic in zip(deb.SUPERVISOR_PATHS,
+                                                           (session, ownership))})
                 self.assertFalse(output.exists())
-                shutil.rmtree(stage)
+                self.assertFalse((self.root / "alternate-staged").exists())
 
     def test_changed_payload_and_manifest_refuse(self):
         payload = self.staged / "payload.tar"

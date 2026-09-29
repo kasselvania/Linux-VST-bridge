@@ -54,16 +54,23 @@ adopted as a product generation.
 
 - `tools/pkg0/assemble.py` owns the exact file roster, paired manager/frontend
   source generation, PKG1 preparation kit, external Proton/SLR identity, and
-  `RELEASE_MANIFEST.json`.
+  `RELEASE_MANIFEST.json`. Arch assembly reads both exact packaged supervisor
+  bytecode headers and declares a bounded matching `python` minor range in
+  `PKGBUILD`. The Arch package verifier requires the same range in `.PKGINFO`;
+  mixed, malformed or unrecognized bytecode refuses. The installed target's
+  Python magic must still be read back before adoption. A rolling-distribution
+  package with a different interpreter needs a target-specific build from the
+  same reviewed source, rather than reusing incompatible bytecode.
 - The package-generated desktop file has a fixed `/usr/bin` frontend target.
   It does not call adoption or start a service.
 - `tools/portable/deb.py` verifies that manifest and payload, builds a
   deterministic Debian archive, adds only necessary root-owned parent
   directories, and verifies its complete control and data rosters. It refuses
-  maintainer scripts and changed dependencies. Its build, verify and signing
-  paths use PKG0's shared destination, role, component, mode, generated-file
-  and preparation-kit roster law; an extra command cannot be signed as a
-  document. It does not add a second
+  maintainer scripts and changed dependencies, including the declared Python
+  minor range derived from both packaged supervisor headers. Its build,
+  verify and signing paths use PKG0's shared destination, role, component,
+  mode, generated-file and preparation-kit roster law; an extra command
+  cannot be signed as a document. It does not add a second
   compatibility or software-state authority.
 - `tools/portable/release.py` signs a Debian bundle only with an externally
   supplied key. A `release` signature requires the PKG1 kit, exact clean
@@ -73,6 +80,12 @@ adopted as a product generation.
   customer release authority. No product release key is selected here.
 - Proton/SLR remains an externally installed, exactly verified prerequisite.
   No package in this owner redistributes it, a vendor plug-in, or a license.
+- The PKG1 preparation kit contains first-party proxy sources and its exact
+  host/backend authority. Proxy construction still requires the pinned VST3 SDK
+  checkout and `org.freedesktop.Sdk//25.08` on the target. The current package
+  does not install or supply either prerequisite. Clean-machine first sound is
+  blocked until their lawful installation and verification become a reviewed
+  customer path; manually seeding a development cache is not acceptance.
 
 ## First-run service boundary
 

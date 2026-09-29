@@ -15,11 +15,19 @@ import assemble
 import verify_package
 
 
+def staged_python_minor(staged):
+    with tarfile.open(staged / "payload.tar") as archive:
+        headers = {name: archive.extractfile(name).read(16)
+                   for name in assemble.SUPERVISOR_PATHS}
+    return assemble.supervisor_python_minor(headers)
+
+
 def package_archive(staged, destination, *, pkginfo=None, extra=()):
     if pkginfo is None:
         release = json.loads((staged / "RELEASE_MANIFEST.json").read_bytes())
         pkginfo = (f"pkgname = linux-vst-bridge-beta\npkgver = {release['version']}-{release['pkgrel']}\narch = x86_64\n"
-                   + "".join(f"depend = {dep}\n" for dep in sorted(verify_package.DEPENDENCIES)))
+                   + "".join(f"depend = {dep}\n" for dep in sorted(
+                       assemble.package_dependencies(staged_python_minor(staged)))))
     raw = destination.with_suffix(".tar")
     with tarfile.open(raw, "w", format=tarfile.PAX_FORMAT) as target:
         for name, data in [(".PKGINFO", pkginfo.encode()),
@@ -69,7 +77,12 @@ class PackageAssembly(unittest.TestCase):
         self.inputs.mkdir()
         self.files = []
         for n, (name, kind) in enumerate(assemble.REQUIRED.items()):
-            data = b"\x7fELF" + bytes(20) if kind in ("manager", "frontend") else b"MZ" + bytes(20) if kind == "windows_host" else f"test-{kind}".encode()
+            if kind in ("supervisor", "ownership"):
+                data = bytes.fromhex("2b0e0d0a") + bytes(12) + f"test-{kind}".encode()
+            else:
+                data = (b"\x7fELF" + bytes(20) if kind in ("manager", "frontend")
+                        else b"MZ" + bytes(20) if kind == "windows_host"
+                        else f"test-{kind}".encode())
             self.add_file(name, kind, data, n)
         self.add_file("usr/lib/linux-vst-bridge/proxy/SelfTest.so", "proxy", b"\x7fELF" + bytes(20), 101)
         self.add_file("usr/lib/linux-vst-bridge/self-test/SelfTest.vst3", "fixture", b"MZ" + bytes(20), 102)
@@ -91,6 +104,13 @@ class PackageAssembly(unittest.TestCase):
         if kind in ("manager", "frontend"):
             item.update(build_head="a" * 40, build_tree="b" * 40)
         self.files.append(item)
+
+    def set_supervisor_header(self, kind, magic, *, flags=0):
+        item = next(row for row in self.files if row["kind"] == kind)
+        path = pathlib.Path(item["source"])
+        data = magic + flags.to_bytes(4, "little") + bytes(8) + b"test-bytecode"
+        path.write_bytes(data)
+        item["sha256"] = hashlib.sha256(data).hexdigest()
 
     def add_kit(self, *, source_commit=None):
         contents = {
@@ -288,8 +308,35 @@ class PackageAssembly(unittest.TestCase):
         self.assertNotIn(str(self.root), (out / "RELEASE_MANIFEST.json").read_text())
         self.assertFalse((out / "linux-vst-bridge-beta.install").exists())
         self.assertNotIn("install=", (out / "PKGBUILD").read_text())
+        self.assertIn("'python>=3.14' 'python<3.15'", (out / "PKGBUILD").read_text())
         package = package_archive(out, self.root / "fixture.pkg.tar.zst")
         self.assertEqual(verify_package.verify(package, manifest, True)["files"], len(self.files) + 2)
+
+    def test_python_313_bytecode_binds_arch_dependency_range(self):
+        for kind in ("supervisor", "ownership"):
+            self.set_supervisor_header(kind, bytes.fromhex("f30d0d0a"))
+        out = self.root / "python313"
+        manifest = assemble.build(self.spec, out, 1234567890)
+        pkgbuild = (out / "PKGBUILD").read_text()
+        self.assertIn("'python>=3.13' 'python<3.14'", pkgbuild)
+        self.assertNotIn("python>=3.14", pkgbuild)
+        package = package_archive(out, self.root / "python313.pkg.tar.zst")
+        self.assertEqual(verify_package.verify(package, manifest, True)["files"], len(self.files) + 2)
+
+    def test_mixed_unknown_or_malformed_supervisor_bytecode_refuses(self):
+        cases = (
+            ("mixed", bytes.fromhex("f30d0d0a"), bytes.fromhex("2b0e0d0a"), 0),
+            ("unknown", bytes.fromhex("ffffffff"), bytes.fromhex("ffffffff"), 0),
+            ("malformed", bytes.fromhex("2b0e0d0a"), bytes.fromhex("2b0e0d0a"), 2),
+        )
+        for label, session, ownership, flags in cases:
+            with self.subTest(label=label):
+                self.set_supervisor_header("supervisor", session, flags=flags)
+                self.set_supervisor_header("ownership", ownership)
+                output = self.root / f"bad-python-{label}"
+                with self.assertRaisesRegex(ValueError, "supervisor Python"):
+                    assemble.build(self.spec, output, 1234567890)
+                self.assertFalse(output.exists())
 
     def test_release_roster_drift_refuses(self):
         out = self.root / "roster"
@@ -303,7 +350,8 @@ class PackageAssembly(unittest.TestCase):
         manifest = assemble.build(self.spec, out, 1234567890)
         version = self.spec["version"]
         normal = (f"pkgname = linux-vst-bridge-beta\npkgver = {version}-1\narch = x86_64\n"
-                  + "".join(f"depend = {dep}\n" for dep in sorted(verify_package.DEPENDENCIES)))
+                  + "".join(f"depend = {dep}\n" for dep in sorted(
+                      assemble.package_dependencies(staged_python_minor(out)))))
         cases = [
             ("hook", normal, ((".INSTALL", b"post_install() {}"),)),
             ("name", normal.replace("pkgname = linux-vst-bridge-beta", "pkgname = foreign"), ()),
@@ -311,6 +359,8 @@ class PackageAssembly(unittest.TestCase):
             ("pkgrel", normal.replace(f"pkgver = {version}-1", f"pkgver = {version}-2"), ()),
             ("architecture", normal.replace("arch = x86_64", "arch = aarch64"), ()),
             ("dependencies", normal.replace("depend = glibc\n", ""), ()),
+            ("python_dependency", normal.replace("depend = python>=3.14\n",
+                                                  "depend = python>=3.13\n"), ()),
             ("duplicate", normal, ((".PKGINFO", normal.encode()),)),
             ("unexpected", normal, ((".EXTRA", b"x"),)),
             ("duplicate_optional", normal, ((".MTREE", b"x"),)),
