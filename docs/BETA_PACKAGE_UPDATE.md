@@ -65,15 +65,16 @@ frontend only after the selected generation is active.
 The source tests cover active and stopped package changes, changed package
 artifacts, clean-stop refusal, keeper-retirement delay, exact predecessor
 retention, selected-route readback and independent software rollback. The
-[disposable CachyOS result](../evidence/beta-portability/cachyos-internal10-update-2026-09-29.json)
-proves the ordinary Applications journey through explicit stop, adoption,
-activation, Library reopen and a cold reboot/reopen of the selected generation.
-It also retains the preceding refusal that
-identified the idle transport-root error. The old generation remained an exact
-rollback predecessor; rollback was not exercised in that graphical session.
-The new visible restore path has source-owned tests but still requires a
-disposable-system graphical result before this PR can claim a usable rollback
-journey.
+[internal10 disposable CachyOS result](../evidence/beta-portability/cachyos-internal10-update-2026-09-29.json)
+proves update, activation and cold reboot/reopen. It retains the preceding
+idle transport-root refusal. The later
+[internal11 disposable CachyOS result](../evidence/beta-portability/cachyos-internal11-update-rollback-2026-09-29.json)
+proves the ordinary Applications update and visible restore journey. The
+selected software returned to exact internal10 with a clean active service;
+the root-owned internal11 package remained installed and passed the package
+manager's integrity check. The selected catalogue stayed equal to its exact
+predecessor across both transitions. The VM powered off normally. These are
+disposable-system results; no Deck software or publication changed.
 
 ## Limits
 
