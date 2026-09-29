@@ -15,6 +15,13 @@ is not a customer release, plug-in qualification or audio result. Debian's
 target bytecode/package gate and CachyOS executable first run remain open.
 No Deck installation or publication occurred.
 
+A later disposable Ubuntu probe found that QEMU had supplied no audio card.
+Adding a virtual HDA device made Bitwig 6.1.1's System Out selectable. A
+staged, unselected manager now recognizes the native Bitwig package without
+borrowing the qualified SteamOS/Flatpak profile. The [bounded receipt](evidence/beta-portability/ubuntu-native-bitwig-audio-2026-09-29.json)
+retains the readback and remaining first-sound gaps. It establishes neither
+audible bridge audio nor Ubuntu plug-in support.
+
 ## Completed source-only current plug-in controls without Diagnostics
 
 The prior source owner began from post-first-run canonical main

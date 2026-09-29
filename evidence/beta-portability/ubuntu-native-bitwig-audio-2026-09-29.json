@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "fixture": "disposable Ubuntu 26.04.1 graphical VM, Bitwig Studio 6.1.1 native package in demo mode",
+  "claim": "virtual audio-device enumeration and read-only native-DAW readiness recognition",
+  "source_code_commit": "1e0fc02e8a54ee95391fbc497956912d5cd6f000",
+  "staged_manager_sha256": "c89419c68201d7474e7ea7be6eaf40e75eaec745813115aec88d726633015067",
+  "selected_package_version": "0.12.0internal3",
+  "qemu_change": {
+    "before": "no emulated sound card; PipeWire exposed Dummy Output and Bitwig's audio device list was empty",
+    "after": "ICH9 Intel HDA with an analog duplex codec; QEMU audio backend none",
+    "audio_options": ["-audiodev none,id=audio0", "-device ich9-intel-hda", "-device hda-duplex,audiodev=audio0"],
+    "guest_reboot": "completed on the same disposable disk overlay",
+    "host_audio_output": "discarded by the QEMU none backend"
+  },
+  "guest_audio_readback": {
+    "alsa_card": "HDA Intel, Generic Analog",
+    "pipewire_sink": "Built-in Audio Analog Stereo",
+    "pipewire_graph_rate_hz": 48000,
+    "pipewire_graph_quantum_frames": 1024,
+    "bitwig_selected_device": "System Out",
+    "bitwig_audio_settings": "Automatic sample rate; displayed 1024 samples / 21.33 ms block",
+    "pipewire_bitwig_client": "present",
+    "pipewire_audio_stream": "not observed in the bounded idle/empty-project readback",
+    "audible_output": "not established"
+  },
+  "staged_readonly_overview": {
+    "overall": "unknown",
+    "native_bitwig_package_version": "6.1.1",
+    "native_package_fact_certainty": "observed from dpkg-query package status",
+    "daw_reason": "native package reports installed; exact DAW package and platform combination has no accepted compatibility profile",
+    "primary_step": "Review exact compatibility",
+    "products": 0,
+    "setup_rows": 0
+  },
+  "preservation": {
+    "selected_manager_replaced": false,
+    "selected_service_state_before_and_after": "active",
+    "software_json_sha256_before_and_after": "d5ac3f75405014985a569681454d6f40f18d25fdc8f9284f6b28fbbbaf58286c",
+    "deck_changed": false
+  },
+  "remaining_first_sound_gaps": [
+    "no verified external Proton/SLR runtime selected on the clean VM",
+    "no native catalogue or standard onboarding runner on the clean VM",
+    "no pinned VST3 SDK or Flatpak SDK customer installation path",
+    "no user-owned vendor installer or authorized plug-in on the clean VM",
+    "no managed native proxy, DAW publication, bridged audio or project-recall result"
+  ],
+  "nonclaims": [
+    "not an Ubuntu compatibility qualification",
+    "not physical audio or GPU evidence",
+    "not a bridge audio, MIDI, editor or state test",
+    "not a customer release package"
+  ]
+}

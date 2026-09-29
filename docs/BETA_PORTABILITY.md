@@ -27,7 +27,7 @@ remaining limits are recorded below.
 | System | Package route | Evidence here | Product support claim |
 | --- | --- | --- | --- |
 | SteamOS | Reviewed Arch package source and user-owned PKG0/PKG1 adoption | Source tests only; working Deck unchanged | Existing installed product evidence remains separate |
-| Ubuntu 26.04.1 LTS, amd64 | Deterministic `.deb` from the same release manifest and payload | A clean graphical VM installed an internal-test package, opened the Applications entry, explicitly adopted and activated an immutable generation, reopened after a reboot, and truthfully reported that compatibility was unqualified. The official Bitwig 6.1.1 package installed and reached its user-owned EULA | No customer release, plug-in, audio, GPU, vendor-authorization or Ubuntu compatibility qualification |
+| Ubuntu 26.04.1 LTS, amd64 | Deterministic `.deb` from the same release manifest and payload | A clean graphical VM installed an internal-test package, opened the Applications entry, explicitly adopted and activated an immutable generation, and reopened after a reboot. The native Bitwig 6.1.1 package reached demo mode. A virtual HDA device made Bitwig's System Out selectable; staged current source then observed the native DAW package while keeping compatibility unqualified. | No customer release, plug-in, audible audio, GPU, vendor-authorization or Ubuntu compatibility qualification |
 | Debian 13.7, amd64 | Target-specific `.deb` build from the same source and roster | Synthetic package install/dependency check passed. A Debian 13 target build of the current canonical source produced manager/frontend binaries requiring at most GLIBC 2.39 and Python 3.13 bytecode; manager startup reached the expected missing-state refusal | The Ubuntu Python 3.14 bytecode and frontend must not be reused; no complete Debian package, adopted product, audio or graphical qualification |
 | CachyOS 260809 ISO, rolling amd64 | Existing Arch package format from the same roster | Disposable 40 GiB VM reached graphical KDE Plasma 6.7.5 login on Wayland, kernel 7.2.8-1-cachyos. Inert source-owned Arch fixture installed, removed, and reinstalled through pacman; `pacman -Qk` found 17/17 files and the KDE launcher was discoverable. A user-owned marker survived removal and reinstall | No executable launch, adoption, Bitwig, audio or GPU qualification |
 
@@ -41,6 +41,12 @@ not first sound. A managed plug-in, audio, editor and project workflow remains
 required before qualifying Ubuntu. Debian still needs a target-specific signed
 package and graphical installation; CachyOS still needs executable package
 first run.
+The later [native Bitwig and virtual-audio receipt](../evidence/beta-portability/ubuntu-native-bitwig-audio-2026-09-29.json)
+records the VM hardware correction and staged read-only manager result. The
+QEMU audio backend discards output; a selectable device and PipeWire client do
+not establish an audible stream. Native Bitwig package status is an observed
+fact, while the exact Ubuntu/native-DAW combination remains unqualified.
+
 The bounded [container receipt](../evidence/beta-portability/portable-containers-2026-09-28.json)
 separates these package facts from product startup.
 The [paired-binary receipt](../evidence/beta-portability/paired-binary-startup-2026-09-28.json)
