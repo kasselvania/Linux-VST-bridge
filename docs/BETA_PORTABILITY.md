@@ -45,7 +45,10 @@ separates these package facts from product startup.
 - `tools/portable/deb.py` verifies that manifest and payload, builds a
   deterministic Debian archive, adds only necessary root-owned parent
   directories, and verifies its complete control and data rosters. It refuses
-  maintainer scripts and changed dependencies. It does not add a second
+  maintainer scripts and changed dependencies. Its build, verify and signing
+  paths use PKG0's shared destination, role, component, mode, generated-file
+  and preparation-kit roster law; an extra command cannot be signed as a
+  document. It does not add a second
   compatibility or software-state authority.
 - `tools/portable/release.py` signs a Debian bundle only with an externally
   supplied key. A `release` signature requires the PKG1 kit, exact clean

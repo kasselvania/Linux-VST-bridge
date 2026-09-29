@@ -1,6 +1,7 @@
 """Debian package-format tests over PKG0's actual declared payload shape."""
 
 import hashlib
+import copy
 import gzip
 import io
 import json
@@ -16,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pkg0"))
 import assemble  # noqa: E402
 import test_assemble  # noqa: E402
 import deb  # noqa: E402
+import release  # noqa: E402
 
 
 class DebianPackage(unittest.TestCase):
@@ -93,6 +95,15 @@ class DebianPackage(unittest.TestCase):
                     adoption = json.load(archive.extractfile(assemble.ADOPTION_MANIFEST))
                     self.assertEqual(adoption["schema"], 2)
                     self.assertIn(assemble.KIT_DESTINATION, archive.getnames())
+            release_manifest = staged / "RELEASE_MANIFEST.json"
+            original = release_manifest.read_bytes()
+            forged = json.loads(original)
+            next(row for row in forged["files"] if row["kind"] == "preparation_kit")["destination"] = (
+                "usr/lib/linux-vst-bridge/preparation/other-kit.zip")
+            release_manifest.write_bytes(assemble.canonical(forged))
+            with self.assertRaisesRegex(ValueError, "preparation kit destination"):
+                deb.verify(package, staged)
+            release_manifest.write_bytes(original)
         finally:
             fixture.doCleanups()
 
@@ -115,6 +126,37 @@ class DebianPackage(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "payload digest differs"):
             self.build()
         self.assertFalse(self.package.exists())
+
+    def test_forged_release_roles_refuse_build_verify_and_sign(self):
+        self.build()
+        original = json.loads((self.staged / "RELEASE_MANIFEST.json").read_bytes())
+        forged = [
+            ("extra command", lambda rows: rows.append({
+                "destination": "usr/bin/foreign-command", "sha256": "d" * 64,
+                "size": 7, "mode": "0444", "kind": "guide", "component": "fixture"})),
+            ("required role", lambda rows: next(row for row in rows if row["kind"] == "manager").update(
+                kind="guide", mode="0444")),
+            ("generated component", lambda rows: next(row for row in rows if row["kind"] == "system_desktop").update(
+                component="fixture")),
+            ("executable mode", lambda rows: next(row for row in rows if row["kind"] == "proxy").update(
+                mode="0444")),
+        ]
+        gpg_home = self.root / "gpg-home"
+        gpg_home.mkdir()
+        for label, mutate in forged:
+            with self.subTest(label=label):
+                manifest = copy.deepcopy(original)
+                mutate(manifest["files"])
+                (self.staged / "RELEASE_MANIFEST.json").write_bytes(assemble.canonical(manifest))
+                with self.assertRaises(ValueError):
+                    deb.build(self.staged, self.root / "new" / self.package.name, 1_234_567_890)
+                with self.assertRaises(ValueError):
+                    deb.verify(self.package, self.staged)
+                with self.assertRaises(ValueError):
+                    release.sign(self.package, self.staged, gpg_home, "0" * 40,
+                                 "internal_test", self.root / "forged-signed")
+        (self.staged / "RELEASE_MANIFEST.json").write_bytes(assemble.canonical(original))
+        self.assertEqual(deb.verify(self.package, self.staged)["files"], len(self.files) + 2)
 
     def test_missing_and_symlinked_input_refuse_without_output(self):
         payload = self.staged / "payload.tar"

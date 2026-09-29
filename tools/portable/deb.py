@@ -22,16 +22,15 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pkg0"))
-from pkg0.assemble import (REQUIRED, SYSTEM_DESKTOP, SYSTEM_DESKTOP_BYTES,
-                           KIT_DESTINATION, verify_kit, verify_kit_source,
-                           verify_kit_backend)  # noqa: E402
+from pkg0.assemble import (KIT_DESTINATION, verify_kit, verify_kit_source,
+                           verify_kit_backend, validate_release_roster)  # noqa: E402
 from verify_package import verify_adoption  # noqa: E402
 
 PACKAGE = "linux-vst-bridge-beta"
 ARCH = "amd64"
 MAX_MANIFEST = 16 * 1024 * 1024
 MAX_PAYLOAD = 2 * 1024 * 1024 * 1024
-MAX_FILES = 100_000
+MAX_FILES = 100_002
 MAX_CONTROL = 64 * 1024
 DEPENDENCIES = (
     "libc6 (>= 2.39)", "libstdc++6", "python3", "systemd", "libx11-6",
@@ -92,41 +91,9 @@ def read_manifest(path):
             or not isinstance(manifest["files"], list)
             or not 1 <= len(manifest["files"]) <= MAX_FILES):
         raise ValueError("release manifest identity")
-    names = set()
-    total_size = 0
-    for row in manifest["files"]:
-        if (set(row) != {"destination", "sha256", "size", "mode", "kind", "component"}
-                or not isinstance(row["destination"], str)
-                or not isinstance(row["sha256"], str)
-                or not re.fullmatch(r"[0-9a-f]{64}", row["sha256"])
-                or not isinstance(row["size"], int) or not 0 <= row["size"] <= MAX_PAYLOAD
-                or row["mode"] not in ("0444", "0555")
-                or not isinstance(row["kind"], str)
-                or not isinstance(row["component"], str)):
-            raise ValueError("release file row")
-        name = row["destination"]
-        posix = PurePosixPath(name)
-        if (name in names or str(posix) != name or posix.is_absolute()
-                or not name.startswith("usr/")
-                or any(part in ("", ".", "..") for part in posix.parts)):
-            raise ValueError("release destination")
-        names.add(name)
-        total_size += row["size"]
-        if total_size > MAX_PAYLOAD:
-            raise ValueError("release payload extent")
-    if "usr/share/linux-vst-bridge/pkg0-manifest.json" not in names:
-        raise ValueError("PKG0 adoption authority absent")
-    rows = {row["destination"]: row for row in manifest["files"]}
-    if (any(rows.get(name, {}).get("kind") != kind for name, kind in REQUIRED.items())
-            or not any(row["kind"] == "proxy" for row in manifest["files"])
-            or not any(row["kind"] == "profile" for row in manifest["files"])
-            or rows.get(SYSTEM_DESKTOP) != {
-                "destination": SYSTEM_DESKTOP,
-                "sha256": hashlib.sha256(SYSTEM_DESKTOP_BYTES).hexdigest(),
-                "size": len(SYSTEM_DESKTOP_BYTES), "mode": "0444",
-                "kind": "system_desktop", "component": PACKAGE,
-            }):
-        raise ValueError("portable package product or first-run roster")
+    validate_release_roster(manifest)
+    if sum(row["size"] for row in manifest["files"]) > MAX_PAYLOAD:
+        raise ValueError("release payload extent")
     return manifest, raw
 
 

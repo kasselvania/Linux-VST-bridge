@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 from assemble import (ADOPTED, ADOPTED_WITH_KIT, ADOPTION_MANIFEST, DEPENDENCIES,
                       KIT_DESTINATION, PKGREL, verify_kit, verify_kit_backend,
-                      verify_kit_source)
+                      verify_kit_source, validate_release_roster)
 
 OPTIONAL_META = {".BUILDINFO": 1024 * 1024, ".MTREE": 4 * 1024 * 1024}
 
@@ -84,6 +84,7 @@ def verify(package, manifest, structure_only=False, source_root=None, rebuild_ba
             or not isinstance(manifest.get("source_head"), str)
             or not isinstance(manifest.get("source_tree"), str)):
         raise ValueError("release manifest schema")
+    validate_release_roster(manifest)
     expected = {row["destination"]: row for row in manifest["files"]}
     if len(expected) != len(manifest["files"]):
         raise ValueError("duplicate release roster")
