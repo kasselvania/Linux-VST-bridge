@@ -71,15 +71,16 @@ REQUIRED = {
     "usr/share/doc/linux-vst-bridge-beta/COMPLIANCE_MANIFEST.json": "compliance",
 }
 ADOPTION_MANIFEST = "usr/share/linux-vst-bridge/pkg0-manifest.json"
-SYSTEM_DESKTOP = "usr/share/applications/linux-audio-compatibility-manager.desktop"
+SYSTEM_DESKTOP = "usr/share/applications/linux-vst-bridge-setup.desktop"
 SYSTEM_DESKTOP_BYTES = b"""[Desktop Entry]
 Type=Application
-Name=Linux Audio Compatibility Manager
-Comment=Set up and manage supported Windows audio software
+Name=Linux VST Bridge Setup and Updates
+Comment=Set up or update the managed audio application
 Exec=/usr/bin/linux-audio-compatibility-manager
 Icon=audio-card
 Terminal=false
 Categories=AudioVideo;Audio;
+Keywords=Linux Audio Compatibility Manager;Bridge;Update;
 StartupNotify=true
 """
 KIT_DESTINATION = "usr/lib/linux-vst-bridge/preparation/preparation-kit.zip"

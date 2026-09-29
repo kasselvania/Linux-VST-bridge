@@ -223,6 +223,11 @@ fn initialize_graphical_denial(root: &Path, name: &str) -> Result<()> {
         }
         Err(error) => return Err(error.into()),
     }
+    verify_graphical_denial(root, name)
+}
+
+fn verify_graphical_denial(root: &Path, name: &str) -> Result<()> {
+    let path = root.join(name);
     let before = fs::symlink_metadata(&path)?;
     require(
         before.file_type().is_socket()
@@ -251,6 +256,54 @@ fn initialize_graphical_denial(root: &Path, name: &str) -> Result<()> {
             ) == (after.dev(), after.ino(), after.ctime(), after.ctime_nsec()),
         "graphical_denial_replaced",
     )
+}
+
+/// A package transition may proceed only when the volatile transport root
+/// contains its exact persistent marker and denial sockets, with no session.
+/// This inspection never initializes or repairs the root.
+pub fn require_no_sessions() -> Result<()> {
+    let path = root();
+    match fs::symlink_metadata(&path) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.into()),
+        Ok(_) => require_no_sessions_at(&path),
+    }
+}
+
+fn require_no_sessions_at(path: &Path) -> Result<()> {
+    let before = private(path)?;
+    memory_filesystem(path)?;
+    let marker = path.join("storage-v1");
+    let mut source = file(&marker)?;
+    let first = source.metadata()?;
+    require(first.mode() & 0o077 == 0 && first.len() == MARKER.len() as u64,
+        "transport_root_foreign")?;
+    let mut bytes = [0u8; MARKER.len()];
+    source.read_exact(&mut bytes)?;
+    let last = source.metadata()?;
+    let named = fs::symlink_metadata(&marker)?;
+    require(bytes == MARKER && named.is_file() && !named.file_type().is_symlink()
+        && (first.dev(), first.ino(), first.len(), first.mtime(), first.mtime_nsec(),
+            first.ctime(), first.ctime_nsec())
+            == (last.dev(), last.ino(), last.len(), last.mtime(), last.mtime_nsec(),
+                last.ctime(), last.ctime_nsec())
+        && (first.dev(), first.ino()) == (named.dev(), named.ino()),
+        "transport_root_foreign")?;
+    for name in GRAPHICAL_DENIAL_SOCKETS {
+        verify_graphical_denial(path, name)?;
+    }
+    let mut count = 0;
+    for entry in fs::read_dir(path)? {
+        let entry = entry?;
+        count += 1;
+        require(count <= 3 && matches!(entry.file_name().to_str(),
+            Some("storage-v1" | ".lvb-denied-dbus" | ".lvb-denied-wayland")),
+            "package_stale_transport")?;
+    }
+    require(count == 3, "transport_root_foreign")?;
+    let after = private(path)?;
+    require((before.dev(), before.ino()) == (after.dev(), after.ino()),
+        "transport_directory_replaced")
 }
 
 pub fn create(session: &str) -> Result<(PathBuf, MemoryTransport)> {
@@ -439,6 +492,29 @@ mod tests {
         fs::write(r.join("storage-v1"), b"foreign").unwrap();
         assert!(create_at(&r, &"cd".repeat(16)).is_err());
         assert!(p.exists());
+        fs::remove_dir_all(r).unwrap();
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn package_idle_readback_accepts_only_exact_static_transport_entries() {
+        let r = PathBuf::from("/dev/shm")
+            .join(format!("package-transport-{}", random_id().unwrap()));
+        require_no_sessions_at(&r).unwrap_err();
+        assert!(!r.exists());
+        initialize_at(&r).unwrap();
+        require_no_sessions_at(&r).unwrap();
+        let session = "cd".repeat(16);
+        let (directory, _) = create_at(&r, &session).unwrap();
+        assert!(require_no_sessions_at(&r).unwrap_err().to_string()
+            .contains("package_stale_transport"));
+        fs::remove_dir(&directory).unwrap();
+        require_no_sessions_at(&r).unwrap();
+        fs::write(r.join("storage-v1"), b"foreign").unwrap();
+        assert!(require_no_sessions_at(&r).is_err());
+        fs::write(r.join("storage-v1"), MARKER).unwrap();
+        fs::remove_file(r.join(GRAPHICAL_DENIAL_SOCKETS[0])).unwrap();
+        assert!(require_no_sessions_at(&r).is_err());
+        assert!(!r.join(GRAPHICAL_DENIAL_SOCKETS[0]).exists());
         fs::remove_dir_all(r).unwrap();
     }
     #[cfg(target_os = "linux")]

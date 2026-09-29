@@ -1768,7 +1768,7 @@ mod tests {
             .blockers
             .iter()
             .any(|b| b.category == "vendor_action"));
-        assert_eq!(s.schema, 12);
+        assert_eq!(s.schema, ui::OPERATOR_SCHEMA);
         let raw = serde_json::to_value(&s).unwrap();
         assert!(raw.get("readiness").is_none());
         assert!(s

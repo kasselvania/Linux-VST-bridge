@@ -70,3 +70,12 @@ package result and the FRAGMENTS trial journey under `evidence/` as they occur.
 Keep install, authorization, sound, editor, persistence, reboot and recovery
 results separate; leave the beta journey to-do open until all required results
 have been observed.
+# Package selection dependency
+
+This branch integrates the package-owner, idle-transport and Setup/update
+controls from draft PR #198, head `9402a89aecb4cba95791bf7c4b66316743fb1cb7`.
+Those controls let an installed successor replace the selected application
+through the normal frontend while preserving its exact predecessor. The
+original CachyOS observations are not Ubuntu test results. This closes the
+package-selection dependency for the delivery test; task 5 still includes
+coordinated runner, plug-in and project recovery.
