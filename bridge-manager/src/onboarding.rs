@@ -447,7 +447,8 @@ fn require_new_attempt(v: &Value, linked: bool) -> Result<()> {
         require(t["durable_installation"] != "installed", "installed_attempt_requires_first_launch_review")?;
         require(
             matches!(t["durable_installation"].as_str(), Some("not_installed" | "partial_installation"))
-                || (t["durable_installation"]=="unavailable" && failed_before_installer(v)),
+                || (matches!(t["durable_installation"].as_str(),Some("unavailable" | "indeterminate"))
+                    && failed_before_installer(v)),
             "previous_installation_outcome_unresolved",
         )?;
     } else {
@@ -1332,6 +1333,10 @@ mod tests {
             "transaction":{"outcome":"completed","durable_installation":"unavailable",
                 "first_failure":{"phase":"prefix_initialization"}}});
         assert!(require_new_attempt(&receipt,false).is_ok());
+        let mut indeterminate=receipt.clone();
+        indeterminate["transaction"]["durable_installation"]=json!("indeterminate");
+        assert!(require_new_attempt(&indeterminate,false).is_ok());
+        assert_eq!(indeterminate["transaction"]["durable_installation"],"indeterminate");
         assert_eq!(receipt["transaction"]["durable_installation"],"unavailable");
         assert!(require_new_attempt(&receipt,true).is_err());
         for (field,value) in [("cleanup_confirmed",json!(false)),("owned_live",json!(1))] {

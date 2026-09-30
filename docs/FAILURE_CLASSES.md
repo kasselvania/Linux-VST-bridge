@@ -1363,8 +1363,9 @@ and a cold frontend timeout; that partial result is retained.
 ### User posture
 
 resolved at setup admission on internal16; package update status then timed out
-on internal17 with a retained failed environment. The retirement correction
-is in source; installed retest and commercial execution remain open.
+on internal17 with a retained failed environment. Internal18 installed the
+retirement correction and completed ordinary update, selection and activation;
+Bootstrap status took 1.322 seconds. Commercial execution remains open.
 
 ### Fix chain and product coverage
 
@@ -1382,6 +1383,8 @@ is in source; installed retest and commercial execution remain open.
   Its correction reads exact custody and correlated retirement reports without
   requiring intact executable bytes. Launch admission keeps full verification.
   Focused damaged-runtime, unknown-cleanup and foreign-operation tests passed.
+  Internal18 installed this fix; Bootstrap status took 1.322 seconds and the
+  normal package switch and activation completed, retaining internal16.
 - Physical result: installer import and the setup refusal were observed through
   the normal app on Ubuntu 26.04.1. No plug-in execution or audio result.
 
@@ -1422,7 +1425,13 @@ The original durable-outcome report is preserved; no vendor state is inferred.
 ### Fix chain, coverage and remaining gate
 
 - Source: focused lifetime-lock extraction and isolated-retry refusal tests.
-- Build/installed: correction not yet installed; internal16 remains selected.
+- Build/installed: internal18 at `06a33e49` selected and active; ordinary Setup
+  acquired the distinct corrected runtime through Setup in 303.67 seconds,
+  with 16,911 verified entries and the exact lock mode 0600. Earlier runtime/
+  environment records remain retained. Corrected runtime execution is open.
+  The retry message lacked its button because the retained durable outcome is
+  indeterminate; the narrow pre-target failure rule now covers that value,
+  with the original report preserved. Installed recovery retest remains open.
 - Observed result: normal launch attempted on Ubuntu 26.04.1; cleanup confirmed,
   zero owned live processes. Arturia's window was never reached.
 - Remaining: install the corrected generation and acquire its distinct runtime

@@ -73,8 +73,10 @@
     "The delivered Continue action was offered and invoked. Canonical-lock admission refused after 10 seconds before mutation; the runtime readback traversed and hashed the whole runtime. Added a prior-verification observation cache outside the immutable runner. Read-only projections require exact file metadata; execution ignores this cache. Cold cache preparation runs before projection locks. Internal15 build/testing continues; the refused attempt remains retained.",
     "Internal15 was selected through Setup and Updates and started. Its cold status check exceeded the frontend wait; a subsequent installed Overview took 13.014 seconds. Source inspection found bounded JSON parsing used an unbuffered reader. Buffered the same size-limited reader; internal16 is being rebuilt for the ordinary setup retest.",
     "Internal16 selected and activated through ordinary Setup and Updates. Two installed status checks completed in 0.557 and 0.564 seconds. Normal Continue setup operation 982514730e739c6c85f2f0e7c6df830c completed environment_ready in 43.272 seconds and offered Run installer. Runtime/installer execution test now running.",
-    "Corrected exact empty SLR lifetime-lock mode to 0600 in a distinct delivered runtime identity ending -r2. Payload digests, roster and executable permissions remain checked. Added ordinary isolated retry interpretation for a fully retired, observed prefix initialization failure before target launch; original unavailable durable-outcome receipt remains unchanged. Source tests/build retest in progress.",
-    "Internal17 built and root package installed, but ordinary Bootstrap status timed out before any user selection or runtime download. Retirement checks were coupled to execution-byte verification. Separated that owner check from launch admission; focused tests preserve active/foreign/missing receipt refusal and permit confirmed retirement with damaged runner bytes. Internal18 retest in progress."
+    "Corrected exact empty SLR lifetime-lock mode to 0600 in a distinct delivered runtime identity ending -r2. Payload digests, roster and executable permissions remain checked. Added ordinary isolated retry interpretation for a fully retired, observed prefix initialization failure before target launch; original durable-outcome receipt remains unchanged. Source tests/build retest in progress.",
+    "Internal17 built and root package installed, but ordinary Bootstrap status timed out before any user selection or runtime download. Retirement checks were coupled to execution-byte verification. Separated that owner check from launch admission; focused tests preserve active/foreign/missing receipt refusal and permit confirmed retirement with damaged runner bytes. Internal18 retest in progress.",
+    "Internal18 installed, selected and activated through normal Setup and Updates. The formerly timed-out Bootstrap status completed in 1.322 seconds and reported rollback_active. Ordinary RuntimeInstall operation 03f880be7874b14aa1600645a7f31855 is acquiring the distinct -r2 runtime; old runtime/environment records retained.",
+    "Internal18 acquired -r2 through normal Setup in 303.67 seconds. The retry explanation appeared but no button: the retained result reports durable installation indeterminate, while the narrow prefix-failure interpretation admitted only unavailable. Extended it to indeterminate only with the same positive pre-target failure and retirement proof. The prior result remains unchanged; internal19 retest in progress."
   ],
   "source_verification": {
     "library_tests": "173 passed after buffered bounded JSON readback at 823cff4f",
@@ -90,7 +92,9 @@
     "native_linux": "Two proxy builds and package-time byte-for-byte source rebuild verification passed",
     "limits": "These source/build checks do not establish commercial audio, activation, editor or project recall.",
     "runtime_delivery_after_lock_fix": "5 passed",
-    "onboarding_after_prefix_retry_fix": "18 passed"
+    "onboarding_after_prefix_retry_fix": "18 passed",
+    "onboarding_after_retirement_fix": "19 passed",
+    "package_owner_after_retirement_fix": "37 passed"
   },
   "preserved": "No Deck/Pi software, publications, runtime or licensed environment was changed. No proprietary installer/module or authorization material is committed. Internal-test package only; customer signing and complete release obligations remain task 4.",
   "failed_setup_request": {
@@ -135,28 +139,42 @@
       "normal_frontend_selection_and_activation": "observed",
       "predecessor_retained": true,
       "previous_runtime_preserved": true
+    },
+    {
+      "version": "0.12.0internal16-1",
+      "source_head": "823cff4f8f06cf8536954855ecc11d5d85d0f4a8",
+      "source_tree": "0543570448372ee79b95e2d1b1b3cf4d433415e0",
+      "deb_sha256": "eb9ffa1ec4ec25bf5f3a996fbed64c018532fbcc8151dc96d8cb985e23238dd3",
+      "manager_sha256": "79f416d042cbc846aa07887060b53b1f1fe7fbebc189df406bf6e0c02ab0279a",
+      "frontend_sha256": "5801abcbb780997487cd0a724ee1d1c2b786c54128cb863d2932f555cc3c69be",
+      "kit_sha256": "35d076fb70a3b2e95d884f0695eaee93ff6a5ccc750e1cd106bb04db72838f37",
+      "normal_frontend_selection_and_activation": "observed",
+      "predecessor_retained": true,
+      "previous_runtime_preserved": true,
+      "installed_overview_seconds": [
+        0.557,
+        0.564
+      ],
+      "overview_seconds_service_active_with_retained_failed_environment": [
+        1.215,
+        1.4
+      ],
+      "installed_overview_seconds_context": "Immediately after normal package selection, before service start; separate active-service timings retained below."
     }
   ],
   "selected_successor": {
-    "version": "0.12.0internal16-1",
-    "source_head": "823cff4f8f06cf8536954855ecc11d5d85d0f4a8",
-    "source_tree": "0543570448372ee79b95e2d1b1b3cf4d433415e0",
-    "deb_sha256": "eb9ffa1ec4ec25bf5f3a996fbed64c018532fbcc8151dc96d8cb985e23238dd3",
-    "manager_sha256": "79f416d042cbc846aa07887060b53b1f1fe7fbebc189df406bf6e0c02ab0279a",
+    "version": "0.12.0internal18-1",
+    "source_head": "06a33e492243d0a4e3302abdc6b7f8f19a5d1e66",
+    "source_tree": "cb1dbf133b7f952f508c3fac1d9156bfd044ae47",
+    "deb_sha256": "760a06e501ae69fcced7f46131db2bca5b7699963a5e5886fe3bac147b65a842",
+    "manager_sha256": "ea24a575223c2385e0b01a80b299cd3079e7910cc0a64693d00129c5a3e999ce",
     "frontend_sha256": "5801abcbb780997487cd0a724ee1d1c2b786c54128cb863d2932f555cc3c69be",
-    "kit_sha256": "35d076fb70a3b2e95d884f0695eaee93ff6a5ccc750e1cd106bb04db72838f37",
+    "kit_sha256": "16b7a115549b46daa1bb9dc97b40b00a5e90c52a11e3a208fe8b3d9e33c3f94e",
     "normal_frontend_selection_and_activation": "observed",
     "predecessor_retained": true,
-    "previous_runtime_preserved": true,
-    "installed_overview_seconds": [
-      0.557,
-      0.564
-    ],
-    "overview_seconds_service_active_with_retained_failed_environment": [
-      1.215,
-      1.4
-    ],
-    "installed_overview_seconds_context": "Immediately after normal package selection, before service start; separate active-service timings retained below."
+    "previous_runtime_and_failed_environment_preserved": true,
+    "installed_package_bootstrap_status_seconds": 1.322,
+    "bootstrap_state": "rollback_active"
   },
   "environment_creation": {
     "operation": "982514730e739c6c85f2f0e7c6df830c",
@@ -179,7 +197,7 @@
     "prefix_exit": 1,
     "cleanup_confirmed": true,
     "owned_live": 0,
-    "durable_installation": "unavailable",
+    "durable_installation": "indeterminate",
     "vendor_window_seen": false,
     "sanitized_private_diagnostic": "pressure-vessel-wrap: E: openat(<managed-runtime>/SteamLinuxRuntime_4/steamrt4_platform_4.0.20260805.254769/files/.ref): Permission denied",
     "interpretation": "Runtime extraction made the exact empty lifetime-lock file read-only. Startup failed before vendor target launch. The old runtime and environment remain retained; no manual permission repair."
@@ -192,5 +210,18 @@
     "observed_frontend_message": "Package status readback timed out; no setup action was submitted",
     "interpretation": "Package retirement preflight loaded execution-verified onboarding records and rehashed the failed environment runtime. No package switch submitted.",
     "source_correction": "Check bound history and operation-correlated retirement receipts independently of executable bytes; launch admission still uses full execution verification."
+  },
+  "runtime_acquisition_r2": {
+    "package_version": "0.12.0internal18-1",
+    "operation": "03f880be7874b14aa1600645a7f31855",
+    "result": "completed; installed=true; plug-in support not qualified by runtime installation",
+    "runtime_id": "managed-ge-proton11-7-slr4-20260805-r2",
+    "runner_key": "8464e5509c46f741766cb8157fbeaa00571cc5d80792c93b1a5d4069a3be76ae",
+    "duration_seconds_from_file_mtimes": 303.67,
+    "tree_entries": 16911,
+    "lifetime_lock_mode": "0600",
+    "fresh_upstream_download": true,
+    "maintainer_permission_repair": false,
+    "prior_runtime_preserved": true
   }
 }

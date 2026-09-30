@@ -75,7 +75,11 @@ results remain open. The 43.272-second creation job
 temporarily made status unavailable; this is not a broad UI performance claim.
 Internal17 package update status then timed out before selection; installer
 retirement was coupled to runtime byte hashing. The owner-check correction is
-in source, pending installed retest.
+installed in internal18: Bootstrap status took 1.322 seconds and normal update
+and activation completed. The app acquired the distinct corrected runtime in 303.67 seconds;
+commercial execution is still open. Its isolated-retry message lacked a button
+for the retained indeterminate durable outcome. The narrow pre-target recovery
+correction is in source, pending the installed retest.
 Neither the Deck 1.0.0 result nor the Ubuntu-lab 1.3.1 workaround qualifies
 this new delivered runtime. The VM had an earlier test package but no plug-in,
 runtime or copied authorization. It is not a pristine OS-first-install result.
