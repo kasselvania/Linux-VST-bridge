@@ -315,6 +315,95 @@
     "manual_repair": false,
     "retained_installed_environment": true,
     "source_correction": "Distinct -r3 delivery uses canonical platform file modes 0644/0755 inside private 0700 directories; exact lock remains 0600, full byte/digest/mode checks remain. Prior runtimes/environments unchanged.",
-    "installed_retest": "pending"
+    "installed_retest": "Distinct -r3 on internal20 passed vendor installation, post-install Overview and normal discovery on a fresh application account; earlier -r2 retained unchanged"
+  },
+  "fresh_account_retest": {
+    "fixture": "Same Ubuntu 26.04.1 VM; separate owned nonprivileged desktop user with fresh application storage; not a pristine operating-system install",
+    "uid": 1001,
+    "prior_user_runtime_and_installed_trial": "Retained unchanged for failure diagnosis; no copied prefix, authorization or runtime",
+    "baseline_managed_storage_exists": false,
+    "baseline_native_vst3_exists": false,
+    "system_commands_present": {
+      "wine": false,
+      "proton": false,
+      "steam": false,
+      "g++": false,
+      "cmake": false,
+      "ninja": false,
+      "flatpak": false,
+      "curl": true
+    },
+    "system_package": "0.12.0internal20-1",
+    "source_head": "9eb5135c8889188b647e15f09029b38c609e469b",
+    "source_tree": "eb15ba41890c6f55c39d73a7566252d9632c6c39",
+    "deb_sha256": "bba28ffc0ccea8f17b62013eb030a88e374e4bee1a923de73348f04fe1a4ddc8",
+    "manager_sha256": "ea42ee6cb495e4f76d9c3b8155b4f75da58576176563b932fd0cbe1fd80f6595",
+    "kit_sha256": "1c2b07cb742f39aa2d166964cc234309c336f74d8276ba593d1a2f2b646ae01c",
+    "normal_first_run": "Passed through Applications > Set up application > Start bridge service; manager Home and Setup opened with truthful unqualified compatibility",
+    "runtime_acquisition": {
+      "operation": "e94339918fe09ddda3ff7a996c8e8558",
+      "runtime_id": "managed-ge-proton11-7-slr4-20260805-r3",
+      "runner_key": "64acbeb625f3a6753adc22ff17d68e2c8d5fa620641039ba9cec4a2d62c0202f",
+      "normal_frontend_action": "Install compatibility runtime",
+      "fresh_upstream_download": true,
+      "maintainer_seeded_runtime": false,
+      "installed": true,
+      "duration_seconds_from_file_mtimes": 281.718,
+      "tree_entries": 16911,
+      "lifetime_lock_mode": "0600"
+    },
+    "commercial_installation": {
+      "operation": "b75c8e3cd979ca558a2a6a4a37e4ef3f",
+      "onboarding": "3f62a18b0d784cb0b9fd5dad94cce834",
+      "normal_frontend_action": "Run installer",
+      "eula_confirmation": "Same exact official installer and agreement already expressly confirmed by the operator; accepted in the fresh GUI",
+      "selected_components": [
+        "VST3 64-bit",
+        "Resources",
+        "Arturia Software Center",
+        "ThirdParty Resources"
+      ],
+      "vendor_completion_screen": true,
+      "state": "completed",
+      "raw_exit": 0,
+      "owned_live": 0,
+      "cleanup_confirmed": true,
+      "transaction_outcome": "installed",
+      "durable_installation": "installed",
+      "first_failure": null,
+      "trial_usability": "not yet observed"
+    },
+    "post_install_runtime_readback": {
+      "normal_frontend": "Bridge ready; installer retired with durable installation; Find installed plug-ins offered",
+      "overview_exit": 0,
+      "overview_seconds": 4.129,
+      "runtime_permission_repair": false
+    },
+    "discovery": {
+      "operation": "6915e5e6018dd27fba3ed69de3cf7126",
+      "scan": "1d19a282975dce76fd1043e1b96657bc",
+      "normal_frontend_action": "Find installed plug-ins",
+      "state": "completed",
+      "modules": 1,
+      "activation_permitted": false,
+      "visible_product": "Efx FRAGMENTS 1.0.0.2925; Installed - not published",
+      "module_sha256": "edb358f124bd35290dc2597e68c2d7f1f4061d5cf650a008f097c463fc6aef89",
+      "class_id": "41727475415649536772616E50726F63",
+      "same_version_different_retained_deck_bytes": true,
+      "sdk_metadata": "evidence/self-service-delivery/fragments-1.0.0.2925-official-sdk-metadata.json",
+      "sdk_metadata_sha256": "e1dea6786ebdcb93094fd4077557f891edf365be2aa0d9c8bd7b3bb96326cca5",
+      "inspection_raw_exit": -15,
+      "inspection_gated": true,
+      "inspection_cleanup_confirmed": true,
+      "inspection_transport_retired": true
+    },
+    "product_controls_refusal": {
+      "visible_result": "Current product status is unavailable. Check again on Home before acting.",
+      "direct_product_readback_exit": 0,
+      "direct_product_readback_seconds": 28.11,
+      "cause": "Current capture used runtime byte observations, but subsequent product/preparation/scoped environment readback left that scope and performed execution-mode hashing.",
+      "source_correction": "Scope all read-only product projection and current-offer admission under the existing validated byte-observation policy; mutation/execution owner retains full verification.",
+      "installed_retest": "pending"
+    }
   }
 }

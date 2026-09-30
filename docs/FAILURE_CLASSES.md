@@ -76,7 +76,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-MGMT-001](#fc-mgmt-001--managed-inventory-refresh-authority) | Managed inventory freshness and refresh | Manager catalogue/registry/onboarding | causal | accepted | Blackhole, Kontakt / Deck; FRAGMENTS / Ubuntu | supported | Preserve one canonical refresh route |
 | [FC-MGMT-002](#fc-mgmt-002--exact-verified-hostsource-omitted-across-software-generations) | Exact verified host/source omitted across generations | Software catalogue, profile/candidate and publication | causal | accepted | Pure LoFi, FRAGMENTS, Serum / Deck | supported | Preserve required exact pairs in every new generation |
 | [FC-PLAT-001](#fc-plat-001--nativewindows-transport-requires-shared-private-loopback) | Native/Windows transport needs shared loopback | Platform namespace adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Regression gate for new adapters |
-| [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | source correction for platform modes | Ubuntu internal19 installed trial, subsequent integrity refusal | blocked at discovery | Retest distinct runtime with canonical platform modes |
+| [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | source correction for platform modes | Ubuntu internal20 fresh account installed and discovered trial | resolved at installed discovery | Native publication and usability remain open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | installed | Ubuntu internal16 environment creation completed | resolved at setup admission | Commercial execution test remains open |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
@@ -1388,6 +1388,16 @@ Bootstrap status took 1.322 seconds. Commercial execution remains open.
 - Physical result: installer import and the setup refusal were observed through
   the normal app on Ubuntu 26.04.1. No plug-in execution or audio result.
 
+### Scoped product readback follow-up
+
+Internal20 discovered FRAGMENTS, but its product controls exceeded the frontend
+deadline. Direct product readback completed in 28.110 seconds. The capture used
+validated runtime observations; subsequent preparation and scoped environment
+projections left that readback scope and rehashed runtime bytes. Source now
+extends the same observation scope over the complete read-only product response
+and current-offer validation. The queued mutation/execution owner remains
+outside that scope and performs full verification. Installed retest is pending.
+
 ### Claim limit and remaining gate
 
 The setup admission retest passed. Prove actual runtime execution and retain
@@ -1456,8 +1466,11 @@ inside private 0700 directories. Exact byte, mode, owner and roster verification
 remains; other runtime components remain 0400/0500 and the lifetime lock 0600.
 The regression exercises hard-link chmod and rejects changed bytes through
 that shared inode. All six runtime tests passed. Earlier runtime/environment
-artifacts remain unchanged; installed -r3 retest is pending. No scan, native
-publication, trial usability, sound or persistence result is claimed.
+artifacts remain unchanged. Internal20 on a fresh application account acquired
+-r3 normally, installed the official vendor product with exit 0 and confirmed
+cleanup, passed post-install Overview in 4.129 seconds and discovered the exact
+FRAGMENTS class. No trial usability, native publication, sound or persistence
+result is claimed.
 
 [Ubuntu delivery result](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json),
 [PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200),

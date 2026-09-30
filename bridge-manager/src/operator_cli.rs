@@ -701,6 +701,14 @@ fn overview(m: &Manager) -> Result<ui::InteractiveOverview> {
 }
 fn product_detail(m: &Manager, environment: &str, module: &str,
     class: &str) -> Result<ui::CurrentProductDetail> {
+    // The entire product projection is readback, including scoped environment
+    // and preparation context after capture. Launch/worker verification remains
+    // outside this scope and hashes every runtime byte.
+    linux_vst_bridge::with_readback_digests(||
+        product_detail_readonly(m, environment, module, class))
+}
+fn product_detail_readonly(m: &Manager, environment: &str, module: &str,
+    class: &str) -> Result<ui::CurrentProductDetail> {
     require(valid_product_environment(environment) && valid_hex(module, 64)
         && (class.is_empty() || valid_hex(class, 32)), "operator_product_identity")?;
     let captured = current::capture(m)?;
@@ -1197,6 +1205,11 @@ fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
     )
 }
 fn validate_current_request(m: &Manager, request: &ui::Request) -> Result<()> {
+    // Offer admission observes current identities; it does not execute them.
+    // The separately queued mutation owner performs full execution verification.
+    linux_vst_bridge::with_readback_digests(|| validate_current_request_readonly(m, request))
+}
+fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Result<()> {
     require(request.schema == ui::OPERATOR_SCHEMA,
         "operator_schema_mismatch_update_manager_frontend")?;
     if current_offer_action(&request.action) {

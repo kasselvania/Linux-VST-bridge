@@ -87,8 +87,12 @@ and confirmed cleanup. The following status readback refused runtime mode drift:
 6,708 upstream platform files were chmod-normalized through hard-linked copies,
 while all 13,070 regular files retained their expected bytes. The distinct -r3
 source correction uses canonical platform modes inside private directories;
-installed retest is pending. Trial usability, publication, sound, editor and
-persistence remain open.
+internal20 fresh-account retest acquired it normally, completed vendor
+installation, passed post-install Overview in 4.129 seconds and discovered the
+exact class. Actual module bytes differ from the retained Deck fixture despite
+the same version label. Product controls then timed out (direct readback 28.110
+seconds); the shared readback scope correction awaits installed retest. Trial
+usability, publication, sound, editor and persistence remain open.
 Neither the Deck 1.0.0 result nor the Ubuntu-lab 1.3.1 workaround qualifies
 this new delivered runtime. The VM had an earlier test package but no plug-in,
 runtime or copied authorization. It is not a pristine OS-first-install result.
