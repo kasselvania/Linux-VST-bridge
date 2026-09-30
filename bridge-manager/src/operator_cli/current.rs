@@ -410,6 +410,10 @@ fn append_discovered(m: &Manager, sw: &Software, records: &[onboarding::Record],
 }
 
 pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
+    linux_vst_bridge::runtime_delivery::prepare_readback(m)?;
+    linux_vst_bridge::with_readback_digests(|| capture_readonly(m))
+}
+fn capture_readonly(m: &Manager) -> Result<CurrentOverviewContext> {
     let started = Instant::now();
     let mut phases = Vec::new();
     let _serialization = acquire_readback(m, ui::OperatorLock::Canonical, None,

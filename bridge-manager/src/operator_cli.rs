@@ -855,6 +855,18 @@ fn snapshot_for_operation_depth(
     capacity_read: &dyn Fn() -> Option<CapacityReadback>,
     deep: bool,
 ) -> Result<ui::Snapshot> {
+    linux_vst_bridge::runtime_delivery::prepare_readback(m)?;
+    linux_vst_bridge::with_readback_digests(||
+        snapshot_readonly_depth(m,id,timeout,waits,capacity_read,deep))
+}
+fn snapshot_readonly_depth(
+    m: &Manager,
+    id: Option<&str>,
+    timeout: Duration,
+    waits: &mut Vec<ui::LockFacts>,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>,
+    deep: bool,
+) -> Result<ui::Snapshot> {
     // Bounded wait order: operator serialization -> registry authority.
     let _projection = acquire_readback(m, ui::OperatorLock::Canonical, id, timeout, waits)?;
     // History migration can change the projection token. Complete it before

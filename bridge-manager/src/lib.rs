@@ -77,7 +77,8 @@ pub fn file(p: &Path) -> Result<File> {
     )?;
     Ok(f)
 }
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 struct DigestFileIdentity {
     device: u64,
     inode: u64,
@@ -113,6 +114,9 @@ pub fn with_readback_digests<T>(readback: impl FnOnce() -> T) -> T {
     let previous = READBACK_DIGESTS.with(|cache| cache.replace(Some(HashMap::new())));
     let _restore = Restore(previous);
     readback()
+}
+fn readback_digests_active() -> bool {
+    READBACK_DIGESTS.with(|cache| cache.borrow().is_some())
 }
 pub fn digest(p: &Path) -> Result<String> {
     let mut f = file(p)?;

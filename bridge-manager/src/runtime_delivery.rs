@@ -1,7 +1,7 @@
 //! Product-owned runtime acquisition. No Steam installation or caller-selected URL.
 //! Runs only on the control plane through an explicit operator setup action.
 use super::*;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Component;
 use std::os::unix::fs::DirBuilderExt;
 use std::process::{Command, Stdio};
@@ -43,6 +43,42 @@ struct TreeEntry {
     path: PathBuf, sha256: Option<String>, target: Option<PathBuf>,
     size: u64, mode: u32, directory: bool,
 }
+/// An observation cache, never launch authority. Only a completed full byte
+/// verification writes it; readback matches every file's inode and change times.
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct VerifiedTree {
+    schema: u32, manifest_sha256: String, files: BTreeMap<PathBuf, DigestFileIdentity>,
+}
+fn cache_path(manifest: &Artifact) -> Result<PathBuf> {
+    require(valid_hex(&manifest.sha256,64), "managed_runtime_manifest_digest")?;
+    let runtime = manifest.path.parent().ok_or("managed_runtime_parent")?;
+    Ok(runtime.parent().ok_or("managed_runtime_cache_parent")?
+        .join(format!(".readback-{}.json",manifest.sha256)))
+}
+fn cached_tree(manifest: &Artifact) -> Option<VerifiedTree> {
+    let path = cache_path(manifest).ok()?;
+    let f = file(&path).ok()?;
+    if f.metadata().ok()?.mode() & 0o077 != 0 { return None; }
+    let cached: VerifiedTree = read_json(&path).ok()?;
+    (cached.schema==1 && cached.manifest_sha256==manifest.sha256
+        && !cached.files.is_empty() && cached.files.len()<=40000).then_some(cached)
+}
+/// Warm a missing observation cache before taking projection/registry locks.
+/// This changes only cached observations, never the runtime or its identity.
+pub fn prepare_readback(m: &Manager) -> Result<()> {
+    let path = record_path(m);
+    if !path.try_exists()? { return Ok(()); }
+    let record: Record = read_json(&path)?;
+    let manifest = record.runner.files.iter().find(|a|
+        a.path.file_name().is_some_and(|name| name==TREE))
+        .ok_or("managed_runtime_tree_missing")?;
+    if cached_tree(manifest).is_none() {
+        let runner = installed(m)?.ok_or("managed_runtime_install_missing")?;
+        verify_tree_mode(&runner,false)?;
+    }
+    Ok(())
+}
 pub fn record_path(m: &Manager) -> PathBuf { m.root.join("runners").join(ID).join("runtime.json") }
 pub fn installed(m: &Manager) -> Result<Option<Runner>> {
     let path = record_path(m);
@@ -59,9 +95,13 @@ pub fn installed(m: &Manager) -> Result<Option<Runner>> {
     record.runner.verify()?;
     Ok(Some(record.runner))
 }
-/// Full byte/tree validation for install and launch. Routine readback can reuse
-/// the existing per-projection digest cache; no verification occurs in DSP.
+/// Install and launch hash every byte. Read-only projections may reuse a prior
+/// byte observation only for unchanged file metadata. All calls check the exact
+/// tree, ownership, modes and symlink targets. No verification occurs in DSP.
 pub fn verify_tree(runner: &Runner) -> Result<()> {
+    verify_tree_mode(runner,readback_digests_active())
+}
+fn verify_tree_mode(runner: &Runner, readback: bool) -> Result<()> {
     let Some(manifest) = runner.files.iter().find(|a|
         a.path.file_name().is_some_and(|name| name == TREE)) else { return Ok(()); };
     require(file(&manifest.path)?.metadata()?.len() <= 16 * 1024 * 1024,
@@ -70,6 +110,9 @@ pub fn verify_tree(runner: &Runner) -> Result<()> {
     let base = manifest.path.parent().ok_or("managed_runtime_parent")?;
     require(!rows.is_empty() && rows.len() <= 40000, "managed_runtime_tree_count")?;
     let mut seen = BTreeSet::new();
+    let cached = cached_tree(manifest);
+    let mut verified = VerifiedTree { schema:1, manifest_sha256:manifest.sha256.clone(),
+        files:BTreeMap::new() };
     for row in rows {
         safe_path(&row.path)?;
         require(seen.insert(row.path.clone()), "managed_runtime_tree_duplicate")?;
@@ -86,14 +129,23 @@ pub fn verify_tree(runner: &Runner) -> Result<()> {
         } else {
             require(meta.is_file() && meta.len() == row.size && meta.mode() & 0o777 == row.mode,
                 "managed_runtime_file_changed")?;
-            require(row.sha256.as_deref() == Some(digest(&path)?.as_str()),
-                "managed_runtime_file_changed")?;
+            let identity = DigestFileIdentity::from(&meta);
+            if !readback || cached.as_ref().and_then(|c|c.files.get(&row.path))!=Some(&identity) {
+                require(row.sha256.as_deref() == Some(digest(&path)?.as_str()),
+                    "managed_runtime_file_changed")?;
+                require(DigestFileIdentity::from(&fs::symlink_metadata(&path)?)==identity,
+                    "managed_runtime_file_changed_during_verification")?;
+            }
+            verified.files.insert(row.path,identity);
         }
     }
     let actual = inventory(base)?;
     let actual: BTreeSet<_> = actual.into_iter().filter(|(p,_)|
         p != Path::new(TREE) && p != Path::new("runtime.json")).map(|(p,_)|p).collect();
     require(actual == seen, "managed_runtime_roster_changed")?;
+    if !readback && cached.as_ref()!=Some(&verified) {
+        atomic_json(&cache_path(manifest)?,&verified)?;
+    }
     Ok(())
 }
 fn inventory(base: &Path) -> Result<Vec<(PathBuf, bool)>> {
@@ -303,12 +355,25 @@ mod tests {
             entry_point:stage.join("GE/proton"),policy:None,
             files:vec![Artifact {path:stage.join(TREE),sha256:digest(&stage.join(TREE)).unwrap()}]};
         verify_tree(&runner).unwrap();
+        assert!(cached_tree(&runner.files[0]).is_some());
+        with_readback_digests(|| {
+            verify_tree(&runner).unwrap();
+            assert!(READBACK_DIGESTS.with(|cache|cache.borrow().as_ref().unwrap().is_empty()),
+                "unchanged cached readback must not hash runtime payloads");
+        });
         fs::write(stage.join("GE/injected.dll"),b"extra").unwrap();
-        assert!(verify_tree(&runner).unwrap_err().to_string().contains("roster_changed"));
+        assert!(with_readback_digests(||verify_tree(&runner)).unwrap_err().to_string().contains("roster_changed"));
         fs::remove_file(stage.join("GE/injected.dll")).unwrap();
         fs::set_permissions(stage.join("GE/proton"),fs::Permissions::from_mode(0o700)).unwrap();
         fs::write(stage.join("GE/proton"),b"modified").unwrap();
         fs::set_permissions(stage.join("GE/proton"),fs::Permissions::from_mode(0o500)).unwrap();
+        assert!(with_readback_digests(||verify_tree(&runner)).unwrap_err().to_string().contains("file_changed"));
+        // Even a forged observation stamp cannot authorize launch: the ordinary
+        // verification path ignores cached payload observations and reads bytes.
+        let mut forged = cached_tree(&runner.files[0]).unwrap();
+        forged.files.insert(PathBuf::from("GE/proton"),
+            DigestFileIdentity::from(&fs::symlink_metadata(stage.join("GE/proton")).unwrap()));
+        atomic_json(&cache_path(&runner.files[0]).unwrap(),&forged).unwrap();
         assert!(verify_tree(&runner).unwrap_err().to_string().contains("file_changed"));
     }
     #[test]

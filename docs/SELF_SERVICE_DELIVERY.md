@@ -26,6 +26,14 @@ No caller-selected URL, executable recipe or ambient latest version is accepted.
 An incomplete installation cannot become a runner. Repeating successful setup
 returns that exact runner. Existing environments keep their original runners.
 
+Install and execution admission verify all runtime bytes. Read-only projections
+reuse a completed byte observation only while every file's device, inode, size,
+owner, mode, modification time and change time match. They still enumerate the
+exact tree and verify symlinks and critical artifacts. The observation cache
+lives outside the immutable runtime and cannot authorize execution. Missing or
+invalid caches fall back to byte verification; a cold cache is prepared before
+projection locks. This avoids repeated multi-gigabyte reads under manager locks.
+
 The project downloads upstream artifacts to the user's machine; this change
 does not publish a rehosted runtime or establish all obligations for a future
 customer release. Customer signing, complete notices/SBOM and any later runtime
