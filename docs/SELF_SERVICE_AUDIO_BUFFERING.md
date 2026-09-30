@@ -81,5 +81,18 @@ sealed kit binds the exact module, class and native bytes to that capacity.
 512-frame history remains readable. The owner regression exercises explicit
 selection, successor replacement, retained admission and catalogue ownership;
 an older or absent kit refuses the larger snapshot. All 37 preparation tests
-and warnings-denied all-target Clippy pass. The installed internal30 retest is
-pending; this source result does not establish commercial editor retirement.
+and warnings-denied all-target Clippy pass; all eight CI checks passed at source
+`3429349438624d04a9d30e46ba42433c0f4a27d0`.
+
+Internal30 selected that exact package through normal stop/select/start controls
+and admitted the retained 1024-frame publication. Cold live preview refused
+`admission_service_busy`; the ordinary inserted instance subsequently loaded
+without manual Reload Plug-in. The exact accessibility policy completed three
+editor close/reopen cycles and normal instance retirement. A fresh demo instance
+also closed/reopened its editor, produced altered stereo output through the
+active effect, and retired with host/transport cleanup confirmed. Both terminal
+observations report editor stage 217, no editor failure or exception, and no
+terminal instance fault. Whole-session missing-frame counters remain nonzero;
+startup responsiveness, dropout-free audio, state/project recall and ordinary
+installer recovery remain unqualified. The larger-buffer admission result does
+not promote the separate accessibility candidate to ordinary support.

@@ -20,6 +20,18 @@ prefixes, installers, environment owners and other products are unchanged.
 This policy disables Windows UI Automation/screen-reader integration for that
 vendor host. VST parameter automation is a separate interface.
 
+Internal29 prepared and explicitly replaced the publication with this policy,
+but a separate retained-buffering verifier refused DAW admission before a
+Windows DSP host existed. Internal30 delivered that bounded admission repair.
+The retained official trial then completed three normal editor close/reopen
+cycles on one instance and normal instance retirement. A fresh demo instance
+completed another close/reopen cycle, captured altered stereo audio afterwards,
+and retired normally. Both supervised terminal observations recorded editor
+stage 217, failure/exception zero and confirmed host/transport cleanup. This is
+a bounded installed commercial result for the exact declared policy; it does
+not correct or redistribute the faulting DLL, qualify screen-reader use, or
+establish vendor-family support, recall or dropout-free audio.
+
 A separate runtime correction checks null provider/output arguments before
 dereferencing them and returns `E_INVALIDARG`. It changes no vendor binary,
 authorization logic, valid-provider handling or bridge exception containment.

@@ -76,7 +76,8 @@ Wine UI Automation, with the vendor caller unproved. The
 [exact preparation policy and isolated Wine correction](RUNTIME_UIA_GUARD.md)
 retain separate evidence. The delivered default DLL crashes the null-provider
 reference; two isolated corrected builds pass it. Commercial testing of the
-new preparation policy and normal live installer recovery are pending.
+new preparation policy had not yet run in that generation. Normal live
+installer recovery remains open.
 Preparation still took several minutes and is not a responsiveness qualification.
 
 Internal29 selected the exact accessibility policy through managed preparation
@@ -84,8 +85,27 @@ and normal replacement, preserving the environment, runtime and predecessor
 publication. Its replacement snapshot retained 1024 frames; the old admission
 verifier still required 512 and refused before a Windows DSP session existed.
 The bounded publication repair now verifies the larger snapshot against exact
-prebuilt capacity. Its 37 preparation tests and all-target Clippy pass; installed
-internal30 audio/editor and recovery checks remain necessary.
+prebuilt capacity. Its 37 preparation tests, all-target Clippy and eight CI
+checks pass. Internal30 selected the exact successor through normal package
+controls and admitted the retained publication. Cold live preview refused
+`admission_service_busy`; the ordinary inserted instance then loaded without
+manual Reload Plug-in. Its editor completed three normal close/reopen cycles
+and instance retirement. A fresh demo instance completed another close/reopen,
+captured altered stereo audio afterwards, and retired with host/transport
+cleanup confirmed and no editor exception. The earlier demo had reached its
+vendor time limit before its audio capture, so that capture is not a processed
+audio pass. A full homelab disk also paused the VM during later removal; resuming
+the VM after space became available is infrastructure recovery, not a bridge
+recovery pass.
+
+The internal30 first-party installer hold test exposed the remaining recovery
+gap: the manager returned exact Focus/Stop offers, but frontend controls remained
+disabled while capacity status was unavailable. The process completed naturally
+with confirmed cleanup; normal GUI Stop was not demonstrated. That observation
+has no established failure attribution and is not a vendor-installer or window
+focus qualification. Existing-product reinspection/replacement also still
+required expert controls. Preparation/startup responsiveness and missing-frame
+audio behavior remain unqualified.
 
 State capture remains refused (SDK result 1, zero bytes). [Arturia's demo
 policy](https://support.arturia.com/hc/en-us/articles/5671785160732-Demo-versions-What-should-I-know)
@@ -94,5 +114,5 @@ but its exact cause is unproven. Guest demo disables
 project save/export; an eligible official Bitwig trial can exercise persistence
 without a paid license, but vendor state must also work. No account, paid
 activation, fabricated state or licensing bypass was used. Save/reopen,
-reboot/recall, normal editor retirement and ordinary recovery remain task-3
+reboot/recall and ordinary recovery remain task-3
 gaps. Tasks 3–5 remain open for their complete stated outcomes.

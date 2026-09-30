@@ -1284,7 +1284,7 @@
       "existing_publication_changed": false,
       "ordinary_or_vendor_family_support_claim": false,
       "source_preparation_tests_passed": 36,
-      "installed_retest": "internal29: exact policy prepared and published; DAW admission refused before Windows DSP/editor"
+      "installed_retest": "internal30: three editor close/reopen cycles and retirement; fresh demo close/reopen, processed audio and retirement; both cleanup confirmed with editor failure/exception zero"
     },
     "package_internal29": {
       "source_head": "9bc837b09b69ca3b4e30926cf4e62e8ea47994b6",
@@ -1354,7 +1354,233 @@
       "source_regression": "actual explicit select-delay, successor replacement and catalogue-free/retained admission; old or absent kit refuses; predecessor 512 remains readable",
       "preparation_tests_passed": 37,
       "all_targets_clippy": "passed, warnings denied",
-      "installed_retest": "pending internal30"
+      "installed_retest": "internal30: exact retained 1024-frame publication admitted and real commercial demo audio/editor exercised; cold preview service-busy refusal retained"
+    },
+    "package_internal30": {
+      "source_head": "3429349438624d04a9d30e46ba42433c0f4a27d0",
+      "source_tree": "1b51dfa292881cabb27b24c464357c7befc407eb",
+      "canonical_release_sha256": "52db5e31ce3129f11e7b998b0a05bdb49cf4964b60f7f9a267794ae316428ad9",
+      "version": "0.12.0internal30-1",
+      "deb_sha256": "a00cc8ce9dc80c7f3f3a621f1cf5c265cc6f8687b7b3f4b7cf5f7751914cdd50",
+      "frontend_sha256": "6776a4b01a5e5343174bcbf41b5e20de623f0900ce267b15c7e2a29e1f7f4e8b",
+      "manager_sha256": "e9e0650a13f4fc45ac51333985c407ea2708d462325f369ef04f7f33f65e6242",
+      "windows_host_sha256": "a90de3ca2f7360e8c9477184acb8224ebf394d4e46cf00fd905892002a79cd13",
+      "host_source_sha256": "dc54a88d5e5bfb0074cc13460b0d0b2d6147fd3930d3c538e82416bae9448873",
+      "preparation_kit_sha256": "61db87e3afa8e8383c898db34ffa8641d438afbfde06c056f0be24e92920d0e6",
+      "prebuilt_entries": 3,
+      "native_trial_sha256": "bbee707e64e9cfb96b58762aadde125c096779f9c165bfb9c4b6bc9623e9ba41",
+      "system_install_exit": 0,
+      "normal_user_selection": "passed through Stop / Select installed version / Start",
+      "windows_host_and_native_unchanged_from_internal29": true,
+      "existing_bound_runtime_unchanged": true,
+      "selected_storage_generation": "2854478d4e7ea03d6777152836c9448166f2f3a70e398ffe0851b9656eea7f21",
+      "retained_storage_generations": [
+        "e89c6c197ac5e834eebcc30b00e8554f8e2a5380d1e7246760c5485bdcd8cd4e",
+        "3d298c051daaa7d4cbe731a8b31192372cd6425e61b3e72c48fedee56191f70e",
+        "d6b235d4f99582eae0e1b183d46580bf5394d23c5703eef809705c1e1b761a2f"
+      ],
+      "service_manager_digest_matches": true,
+      "publication_preserved": {
+        "id": "de4e0fa11692349fd5378e995f4f7434",
+        "sha256": "954f51c06538ed993e11005f01d0c00e410d5deadc127364652316fb4ae3261d"
+      },
+      "service_gui": "Bridge ready, DSP 0/6, install/scan 0, cleanup confirmed"
+    },
+    "installer_live_control_retest_internal30": {
+      "fixture": "First-party windowless bounded hold process; no vendor installer, account or installation claim",
+      "source": "tools/mf2/bootstrap_ready.cpp",
+      "source_sha256": "4f415a632e3a41a941e89bc5a3fa42c9909b56f0655d528b75822a3c49bf6427",
+      "compile_definition": "MF2_BOOTSTRAP_HOLD",
+      "hold_ms": 180000,
+      "installer_sha256": "8304b19eaef030e31d9b31e970a688af4c9dab8ca206c1f57986ba58cc522932",
+      "sdk_digest": "sha256:6c1789cad862fd8ed9d46d71bbf8752bb7cb2336ab5e9680c0f0e3e7c88d77f1",
+      "normal_chooser_imported": true,
+      "environment_operation": "2f500bb5d916aa537bbe7be8f8c600ef",
+      "onboarding_id": "f73166086024cf3d63d7f93c827f15f0",
+      "normal_gui_start_operation": "70b3c65a1a902b99617f850d5e3d4a2c",
+      "during_live_owner_overview": "succeeded; exact Focus installer and Stop installer offers had no disabled reason",
+      "during_live_capacity_projection": "capacity unavailable; cleanup unconfirmed",
+      "during_live_frontend": "waiting for current request or manager readback; recovery controls observed disabled",
+      "natural_cohort_retirement_ns": 199738671389,
+      "raw_exit": 0,
+      "cleanup_confirmed": true,
+      "owned_live": 0,
+      "normal_gui_stop_pass": false,
+      "window_focus_claim": false,
+      "result": "Natural completion and positive cleanup; live GUI recovery remains open.",
+      "failure_attribution": "unresolved: rendered controls were disabled while full capacity status was unavailable; remote-view/session behavior also interfered. Owner overview successfully returned exact recovery offers.",
+      "no_frontend_or_capacity_repair_claim": true
+    },
+    "daw_demo_internal30": {
+      "fixture": "same retained official FRAGMENTS trial environment in Bitwig 6.1.1 guest demo",
+      "publication_revision_id": "de4e0fa11692349fd5378e995f4f7434",
+      "dsp_session": "458789a6ee6c791606303b22388dce27",
+      "environment": "3920068b3951d6710eef144c5a3a3fa5",
+      "initial_live_preview_result": "setupProcessing result 1; admission_service_busy and subsequent Broken pipe; no new commercial terminal result",
+      "ordinary_insert_result": "loaded after chooser OK; exposed parameters and official DEMO Ocean Sweep editor",
+      "manual_reload_used": false,
+      "declared_disable_windows_accessibility": true,
+      "observed_editor_close_reopen_cycles": 3,
+      "same_dsp_session_retained_after_second_close": true,
+      "new_terminal_fault_after_second_close": false,
+      "prior_process_probe_limit": "launcher/helper PIDs from cmdline matching do not identify the final mapped host; no stable PID or effective final-host override claim from that early probe",
+      "audio_after_reopen": {
+        "first_attempt": {
+          "frames": 1200000,
+          "rate": 48000,
+          "channels": 2,
+          "pcm_sha256": "58db5d87ffe2173badb59360da4e636ae85862569d4aae0097c7083cabf9763a",
+          "file_sha256": "9502674aee4aef493d3ba25efca48347841a959d95006fc1e9f7452cdae71002",
+          "peak": 0,
+          "rms": 0,
+          "nonzero_samples": 0,
+          "result": "silent; later GUI showed transport past clip, not an established DSP failure"
+        },
+        "rewound_attempt": {
+          "frames": 1200000,
+          "rate": 48000,
+          "channels": 2,
+          "pcm_sha256": "f081deeaf94a1ff710eaafa49c99c35aa8f693b6daac1c1a9da891cda8792fcb",
+          "file_sha256": "ced4dae545ed1f989237dcbb337d097f1e0bbab0f2935eee17e4f3c3bd690a91",
+          "peak": 0.047943115234375,
+          "rms": 0.010057108918796277,
+          "nonzero_samples": 278648,
+          "recorder_exit": 1,
+          "result": "nonzero output, but vendor displayed demo time limit reached; not a processed-audio pass"
+        },
+        "vendor_demo_time_limit_bypassed": false
+      },
+      "state_or_project_persistence_claim": false,
+      "normal_final_editor_close": "passed; expired demo notice retained without activation or bypass",
+      "normal_instance_removal": "Bitwig Delete, visible VST3 state refusal; GUI continuation on explicitly disposable test instance",
+      "terminal_observation": {
+        "error": null,
+        "raw_exit": -15,
+        "gated": true,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "editor": {
+          "closed": 1,
+          "failure": 0,
+          "open": 0,
+          "view_stage": 217,
+          "open_stage": 100,
+          "exception_code": 0
+        },
+        "terminal_instance_present": false,
+        "native": {
+          "admitted_frames": 87643136,
+          "missing_frames": 18548480,
+          "gaps": 9981,
+          "expired_frames": 18548480,
+          "delivered_frames": 69093632,
+          "priming_frames": 1024
+        },
+        "counter_period": "whole active/idle session including demo expiry, desktop locks and infrastructure pause; not capture-only or dropout-free evidence"
+      },
+      "infrastructure_interruption": {
+        "observed": "homelab root filesystem had zero available space; QEMU monitor reported paused (io-error), guest GUI and SSH stopped progressing",
+        "scope": "disposable test VM and first-party reference build storage",
+        "retained_build_copy": {
+          "inventory_sha256": "498a8922e9a464f3e5b3d80ae6a44838e9b8fc532459bf1f52e76f8497bcb816",
+          "entries": 22376,
+          "file_bytes": 877145423,
+          "all_files_and_links_verified_before_source_removal": true,
+          "second_build_tree_unchanged": true
+        },
+        "recovery": "space became available; QEMU resumed to running without guest reboot; ordinary Bitwig removal then completed",
+        "large_space_reclamation_attribution": "not established; do not attribute all returned space to this task relocation",
+        "product_recovery_pass": false,
+        "credentials_or_vendor_authorization_changed": false
+      },
+      "fresh_demo_audio_retest": {
+        "session": "3581eb2f387105500c71dab5768727b2",
+        "environment": "3920068b3951d6710eef144c5a3a3fa5",
+        "module_sha256": "edb358f124bd35290dc2597e68c2d7f1f4061d5cf650a008f097c463fc6aef89",
+        "class_id": "41727475415649536772616E50726F63",
+        "declared_disable_windows_accessibility": true,
+        "normal_load": "Bitwig chooser selection and OK; loaded without manual Reload Plug-in; warm follow-on, not cold-start qualification",
+        "vendor_mode": "official DEMO; Ocean Sweep rendered; no demo-expired notice during successful capture",
+        "editor_close_reopen_cycles": 1,
+        "audio_captured_after_reopen": true,
+        "final_editor_close": "passed",
+        "input": "same first-party lvb-demo-test-tone.wav; unchanged clip, 110 BPM, audio track -10 dB, master 0 dB",
+        "processed_capture": {
+          "rate": 48000,
+          "channels": 2,
+          "sample_width": 2,
+          "frames": 1200000,
+          "recorder_exit": 1,
+          "peak": 0.14007568359375,
+          "rms": 0.017251355648948096,
+          "nonzero_samples": 1385320,
+          "pcm_sha256": "e63bd00dd080f1022d8b76c1f0fc02922123b6c3fb6020fe116abff802e63187",
+          "file_sha256": "8f6a903a6597ead87b689aa9b43474a17e14c8d09a18dc9aea3717917ca4f346"
+        },
+        "dry_comparison": {
+          "route": "same project and settings after normal effect removal; both captures started from rewound transport",
+          "rate": 48000,
+          "channels": 2,
+          "sample_width": 2,
+          "frames": 1200000,
+          "recorder_exit": 1,
+          "peak": 0.047943115234375,
+          "rms": 0.017367931167097235,
+          "nonzero_samples": 835134,
+          "pcm_sha256": "2bacdd36e8071e689eced5285786c37f51964a27212dea6fcc8655537e1e81fb",
+          "file_sha256": "0c418efa76bbd96eebc68099117314c28b4413e0a8767dd6dbf64b306e0f61f2"
+        },
+        "capture_result": "nonzero altered stereo output after editor reopen; peak and PCM differ from current dry comparison",
+        "normal_removal": "Bitwig Delete; VST3 state saving refused; confirmed continuation only for disposable instance",
+        "terminal_observation": {
+          "error": null,
+          "raw_exit": -15,
+          "gated": true,
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "editor": {
+            "closed": 1,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 217,
+            "open_stage": 100,
+            "exception_code": 0
+          },
+          "terminal_instance_present": false,
+          "native": {
+            "admitted_frames": 22839296,
+            "missing_frames": 2587904,
+            "gaps": 1792,
+            "expired_frames": 2587904,
+            "delivered_frames": 20250368,
+            "priming_frames": 1024
+          },
+          "counter_period": "whole active/idle session, not capture-only"
+        },
+        "physical_DAC_claim": false,
+        "dropout_free_claim": false,
+        "state_or_project_recall_claim": false,
+        "license_or_demo_bypass": false
+      },
+      "nonclaims": [
+        "responsive cold startup",
+        "dropout-free audio",
+        "physical DAC",
+        "screen-reader integration",
+        "state/project recall",
+        "reboot/recall",
+        "normal installer recovery",
+        "ordinary product or vendor-family qualification"
+      ],
+      "final_public_readback": {
+        "operator_overview_exit": 0,
+        "selected_manager_file_sha256": "e9e0650a13f4fc45ac51333985c407ea2708d462325f369ef04f7f33f65e6242",
+        "live_dsp_leases": 0,
+        "both_sessions_cleanup_confirmed": true,
+        "both_transports_retired": true,
+        "playback_stopped": true,
+        "remote_viewer_original_scaling_restored": true
+      }
     }
   },
   "current_source_validation": {
@@ -1385,6 +1611,15 @@
     "publication_buffering_tests": {
       "passed": 37,
       "all_targets_clippy": "passed, warnings denied"
+    },
+    "publication_buffering_source_head": "3429349438624d04a9d30e46ba42433c0f4a27d0",
+    "publication_buffering_ci": "8 of 8 passed",
+    "publication_buffering_ci_runs": {
+      "owner_manager_frontend_artifacts": 36728419751,
+      "windows_host": 36728419761,
+      "native_results": 36728419913,
+      "ubuntu_debian_packages": 36728419754,
+      "proof_policy": 36728419752
     }
   }
 }

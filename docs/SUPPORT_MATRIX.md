@@ -76,8 +76,8 @@ was captured at 48 kHz stereo, with a waveform different from the dry reference.
 Normal editor close reproduced the removal-stage access violation; cleanup
 was confirmed. The shared host frame-detach order was corrected, but internal28
 reproduced the same crash twice. The faulting Wine UI Automation instruction
-dereferences a null provider; its vendor caller is unproved. Audio quality, responsive startup,
-editor retirement, state, project recall and usability remain unqualified.
+dereferences a null provider; its vendor caller is unproved. Audio quality,
+responsive startup, state, project recall and usability remain unqualified.
 
 Internal27's new clean user account completed normal package/runtime Setup
 and reached the official trial installer Finish screen. Its cohort remained
@@ -89,8 +89,18 @@ controls while retaining that account's environment and runtime. Normal scan
 identified the exact trial module without quarantine, and normal preparation
 supplied and experimentally published the prebuilt proxy. Internal28 rendered
 the DEMO editor and captured processed stereo output; normal close failed twice
-with the corrected host. The exact process accessibility policy has a source
-repair; its commercial test and live installer recovery remain pending. The
+with the corrected host. Internal29 prepared and explicitly replaced the exact
+process accessibility candidate, but refused retained 1024-frame admission
+before a Windows DSP session existed. Internal30 selected the bounded admission
+repair through normal package controls. Cold preview reported service busy;
+ordinary insertion loaded without manual reload. One instance completed three
+editor close/reopen cycles; a fresh demo instance completed another cycle and
+captured altered stereo audio after reopening. Both retired normally with
+editor stage 217, no editor exception and confirmed host/transport cleanup.
+The profile remains a review candidate with Windows screen-reader integration
+unavailable. These bounded results do not create an ordinary Ubuntu support row
+or cure the underlying DLL. The first-party live installer hold test completed
+naturally, but normal GUI Stop remained unproved; recovery is still open. The
 [isolated Wine guard](RUNTIME_UIA_GUARD.md) passed its invalid-provider reference,
 without a commercial compatibility or delivered runtime claim. See
 [FC-LIFE-002](FAILURE_CLASSES.md#fc-life-002--failed-launch-cleanup-and-truthful-recovery-state).

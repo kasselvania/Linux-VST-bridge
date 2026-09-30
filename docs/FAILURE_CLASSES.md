@@ -79,7 +79,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-MGMT-004](#fc-mgmt-004--managed-publication-is-mistaken-for-a-static-catalogue-fixture) | Managed publication is mistaken for a static catalogue fixture | Catalogue/publication ownership | causal | installed | Ubuntu internal22 normal status and product controls passed | resolved at publication readback | DAW use remains untested |
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
-| [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal | bounded | source-fixed host-order correction; vendor result pending | Official FRAGMENTS 1.0.0 trial / Ubuntu internal25 and internal26 | unqualified | Build/test SDK-order correction and ordinary close/reopen |
+| [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
 ---
@@ -1659,18 +1659,31 @@ independent output passed in another fresh reference prefix. Neither reference
 establishes commercial editor behavior or delivery of a patched runtime.
 See [construction and policy boundaries](RUNTIME_UIA_GUARD.md).
 
+Internal29 prepared and explicitly replaced the exact policy candidate, but a
+separate retained-buffering guard refused admission before a Windows DSP host
+existed. Internal30 delivered that admission correction. The ordinary inserted
+instance completed three normal editor close/reopen cycles and final close,
+then retired through Bitwig. A fresh demo instance also completed close/reopen,
+captured altered stereo audio afterwards, closed again and retired. Both
+terminal observations recorded stage 217, editor failure/exception zero and
+confirmed host/transport cleanup, without a terminal instance fault. No patched
+DLL was adopted. These positive policy results preserve the prior failed
+default-accessibility fixtures and the exact screen-reader limitation.
+
 ### User posture and next gate
 
-Unqualified. Exercise the exact preparation policy through ordinary
-close/reopen and instance retirement; preserve the original failed result.
-Do not apply an Ubuntu result to the separately accepted Deck fixture.
+Review candidate with bounded installed close/reopen and retirement results.
+State/project recall, audio quality, startup responsiveness and ordinary
+installer recovery remain unqualified. Do not apply this exact Ubuntu policy
+result to the separately accepted Deck fixture or another module/runtime.
 
 ### Evidence
 
 [Installed result](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json),
 `fresh_account_retest.daw_demo_retest_internal25`, `daw_demo_retest_internal26`,
-and `clean_account_host_retest_internal27.daw_demo_internal28`; draft [PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200).
-Last reviewed: 2026-09-29.
+and `clean_account_host_retest_internal27.daw_demo_internal28` / `daw_demo_internal30`;
+draft [PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200).
+Last reviewed: 2026-09-30.
 
 ## Maintenance rules
 

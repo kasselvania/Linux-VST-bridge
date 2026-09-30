@@ -27,6 +27,12 @@ retain its screen-reader limitation and candidate claim level. The isolated
 Wine guard remains a construction/reference proof until separately delivered
 and commercially retested. No existing bound runner is edited or replaced.
 
+Internal30 has exercised the retained larger-buffer publication and exact
+accessibility policy in the delivered Ubuntu package: normal insertion,
+editor close/reopen, processed audio and normal instance cleanup. Cold preview,
+state/project persistence, responsiveness and ordinary installer recovery remain
+open. Tasks 1 and 2 are bounded Ubuntu delivery results; task 3 is not complete.
+
 ## Beta delivery: clean-machine portable first run
 
 The current portability owner begins from post-PKG1 canonical main
