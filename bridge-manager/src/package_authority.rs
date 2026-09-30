@@ -25,7 +25,14 @@ fn names(schema: u32) -> Result<&'static [&'static str]> {
 #[derive(Clone)]
 struct Inputs { root: PathBuf }
 impl Inputs {
-    fn system() -> Self { Self { root: PathBuf::from(PACKAGE_ROOT) } }
+    fn installed() -> Result<(Self, u32)> {
+        let executable = std::env::current_exe()?;
+        let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
+        match linux_vst_bridge::portable_package::input_root(&executable, &home)? {
+            Some(root) => Ok((Self {root}, unsafe{libc::getuid()})),
+            None => Ok((Self {root:PathBuf::from(PACKAGE_ROOT)}, 0)),
+        }
+    }
     #[cfg(test)]
     fn under(root: &Path) -> Self { Self { root: root.to_path_buf() } }
     fn manifest(&self) -> PathBuf {
@@ -996,7 +1003,8 @@ fn activate_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Res
 }
 pub(super) fn adopt(m: &Manager) -> Result<()> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
-    adopt_from(m, &home, &Inputs::system(), 0, &SystemctlService)
+    let (inputs, owner) = Inputs::installed()?;
+    adopt_from(m, &home, &inputs, owner, &SystemctlService)
 }
 pub(super) fn rollback(m: &Manager) -> Result<()> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
@@ -1013,13 +1021,15 @@ pub(super) fn activation_status(m: &Manager) -> Result<()> {
 }
 pub(super) fn bootstrap_status(m: &Manager) -> Result<()> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
+    let (inputs, owner) = Inputs::installed()?;
     println!("{}", serde_json::to_string(&bootstrap_status_from(m, &home,
-        &Inputs::system(), 0, &SystemctlService)?)?);
+        &inputs, owner, &SystemctlService)?)?);
     Ok(())
 }
 pub(super) fn stop_for_repair(m: &Manager) -> Result<()> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
-    stop_for_repair_from(m, &home, &Inputs::system(), 0, &SystemctlService)
+    let (inputs, owner) = Inputs::installed()?;
+    stop_for_repair_from(m, &home, &inputs, owner, &SystemctlService)
 }
 pub(super) fn activate(m: &Manager) -> Result<()> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);

@@ -6,6 +6,7 @@ Package assembly independently verifies the source, component hashes and roster.
 """
 from pathlib import Path
 import argparse,datetime,hashlib,json,re,shutil,subprocess,py_compile,zipfile
+from rust_notices import capture as capture_rust_notices
 parser=argparse.ArgumentParser()
 parser.add_argument('--build-root',type=Path,required=True)
 parser.add_argument('--source',type=Path,default=Path(__file__).resolve().parents[2])
@@ -47,9 +48,13 @@ if a.reference_directory is not None:
  rows.append(('usr/lib/linux-vst-bridge/self-test/LVB_REFERENCE_MANIFEST.json','LVB_REFERENCE_MANIFEST.json','fixture_resource'))
  (p/'START_HERE.html').write_text((p/'START_HERE.html').read_text()+'<p>First-party development fixtures are included under /usr/lib/linux-vst-bridge/self-test. Import LVB_Reference_Plugins_1_0_0.exe through Setup for the stateful instrument/effect journey. The Recovery installer deliberately holds a window for Focus/Stop; Partial deliberately holds after installing the instrument. These fixtures require no vendor sign-in and do not qualify commercial software.</p>')
  (p/'THIRD_PARTY_NOTICES.txt').write_text((p/'THIRD_PARTY_NOTICES.txt').read_text()+'The additional LVB Reference instrument, effect and three installers are first-party test instrumentation. Their exact modules, including the MIT SDK boundary, are inventoried by digest.\n')
-rows += [('usr/share/doc/linux-vst-bridge-beta/licenses/'+name,name,'license') for name in ('LVB-Proprietary.txt','vst3sdk.txt','base.txt','pluginterfaces.txt','public.sdk.txt')]
+rust_packages=capture_rust_notices(s,p)
+rows += [('usr/share/doc/linux-vst-bridge-beta/licenses/'+name,name,'license') for name in ('LVB-Proprietary.txt','vst3sdk.txt','base.txt','pluginterfaces.txt','public.sdk.txt','Rust-Dependency-Notices.txt','Rust-Dependency-Inventory.json')]
+(p/'THIRD_PARTY_NOTICES.txt').write_text((p/'THIRD_PARTY_NOTICES.txt').read_text()+'Resolved Rust release dependencies, including the signature verifier, are inventoried by exact registry archive digest with upstream license declarations and full license texts in licenses/Rust-Dependency-Inventory.json and licenses/Rust-Dependency-Notices.txt. Development-only dependencies are excluded. This inventory does not select customer release authority.\n')
 rows += [('usr/share/doc/linux-vst-bridge-beta/'+name,name,kind) for name,kind in [('START_HERE.html','guide'),('THIRD_PARTY_NOTICES.txt','notices'),('COMPLIANCE_MANIFEST.json','compliance')]]
 sbom=dict(spdxVersion='SPDX-2.3',dataLicense='CC0-1.0',SPDXID='SPDXRef-DOCUMENT',name='Internal self-service test inventory',documentNamespace='https://github.com/kasselvania/Linux-VST-bridge/spdx/internal/'+head,creationInfo={'created':datetime.datetime.fromtimestamp(a.epoch,datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),'creators':['Tool: internal test inventory']},files=[dict(SPDXID='SPDXRef-File-'+str(n),fileName='/'+dest,checksums=[{'algorithm':'SHA256','checksumValue':sha((p/name).read_bytes())}],licenseConcluded='NOASSERTION',copyrightText='NOASSERTION') for n,(dest,name,kind) in enumerate(rows,1)])
+sbom['packages']=[dict(SPDXID='SPDXRef-Rust-'+str(n),name=item['name'],versionInfo=item['version'],downloadLocation='https://crates.io/api/v1/crates/'+item['name']+'/'+item['version']+'/download',filesAnalyzed=False,licenseDeclared=item['license_declared'],licenseConcluded='NOASSERTION',copyrightText='NOASSERTION',checksums=[dict(algorithm='SHA256',checksumValue=item['registry_archive_sha256'])]) for n,item in enumerate(rust_packages,1)]
+sbom['relationships']=[dict(spdxElementId='SPDXRef-DOCUMENT',relationshipType='DESCRIBES',relatedSpdxElement=pkg['SPDXID']) for pkg in sbom['packages']]
 (p/'SBOM.spdx.json').write_text(json.dumps(sbom,sort_keys=True));rows.append(('usr/share/doc/linux-vst-bridge-beta/SBOM.spdx.json','SBOM.spdx.json','sbom'))
 files=[]
 for dest,name,kind in rows:

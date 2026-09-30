@@ -151,6 +151,20 @@ process termination or state edits. This is populated software restoration,
 not saved-project recall. See
 [FC-MGMT-002](FAILURE_CLASSES.md#integrated-retained-proxy-capability-follow-up).
 
+[Internal34](../evidence/self-service-delivery/ubuntu-internal34-development.json)
+selected normally on that populated Ubuntu account and Home passed with the
+retained FRAGMENTS registration. Normal Setup imported the packaged root-owned
+Recovery installer, stopped its held exact operation while capacity readback was
+unavailable, confirmed retirement and offered a fresh isolated retry. Discovery
+found both reference products; the effect was prepared and published
+experimentally through ordinary controls. Zero maintainer repairs occurred in
+that recovery journey. Focus and DAW use/recall remain unproved. Completion was
+still labelled partial because the detector omitted `.vst3` witnesses and required
+a registered application executable; the source successor corrects that shared
+detector. A separate unknown helper exit 1 remains unattributed. Signed protected
+user-space delivery and visible existing-product update/recovery controls now
+have source checks, not installed SteamOS or multi-distro qualification.
+
 The original clean-machine journey uses the same official trial media on that
 Ubuntu 26.04.1 VM with Bitwig 6.1.1. Its posture is **unqualified**. Internal13
 completed normal package selection, service activation and acquisition of

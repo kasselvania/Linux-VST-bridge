@@ -149,3 +149,12 @@ not contain that binary. Missing or changed retained inputs still refuse. The
 old coherent executable set and customer state remain independent from the
 new kit used to prepare successors. See FC-MGMT-002; a passing source test does
 not repair the failed installed candidate.
+
+The internal34 installed successor passed ordinary populated selection and Home
+on Ubuntu. Visible held-installer Stop, exact retirement, isolated retry,
+discovery and reference-effect publication also passed through the frontend;
+completion classification, Focus and musical recall remain open in the retained
+[receipt](../evidence/self-service-delivery/ubuntu-internal34-development.json).
+The signed [user-space package route](USER_SPACE_PACKAGE.md) now stages canonical
+package inputs and exposes the same Setup/update controls without protected-system
+writes. Its source checks do not establish a SteamOS delivery result.

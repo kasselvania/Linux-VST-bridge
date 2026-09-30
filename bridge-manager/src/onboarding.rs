@@ -898,8 +898,14 @@ fn setup_primary(actions: &[ui::AvailableAction], next: SetupNext) -> Option<ui:
         SetupNext::Scan => matches!(a.action, ui::Action::InstallerScan { .. }),
         SetupNext::Retry => matches!(a.action, ui::Action::InstallerNewAttempt { .. }),
         SetupNext::None => false,
-    }).cloned().map(|mut offer| { if matches!(offer.action, ui::Action::InstallerScan { .. }) {
-        offer.label = "Find installed plug-ins".into(); } offer })
+    }).cloned().map(|mut offer| {
+        match offer.action {
+            ui::Action::InstallerScan { .. } => offer.label = "Find installed plug-ins".into(),
+            ui::Action::InstallerNewAttempt { .. } => offer.label = "Retry installation".into(),
+            _ => {},
+        }
+        offer
+    })
 }
 
 pub fn setup_projection(m: &Manager, rows: &[ui::Onboarding], products: &[ui::Product],
@@ -1073,6 +1079,7 @@ mod tests {
             let primary = setup_primary(&row.actions, choice).unwrap();
             assert_eq!(primary.action, if choice == SetupNext::Scan { scan.action.clone() } else { retry.action.clone() });
             if choice == SetupNext::Scan { assert_eq!(primary.label, "Find installed plug-ins"); }
+            else { assert_eq!(primary.label, "Retry installation"); }
             row.actions.clear();
             assert!(setup_primary(&row.actions, choice).is_none(), "no invented {state} action");
         }

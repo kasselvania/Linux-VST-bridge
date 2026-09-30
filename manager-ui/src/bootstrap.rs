@@ -34,6 +34,11 @@ fn select_entry(executable: &Path) -> Entry {
 
 pub fn entry() -> Result<Entry, String> {
     let executable = std::env::current_exe().map_err(|_| "Frontend identity unavailable")?;
+    let home = PathBuf::from(std::env::var_os("HOME").ok_or("Home directory unavailable")?);
+    if linux_vst_bridge::portable_package::input_root(&executable, &home)
+        .map_err(|e| e.to_string())?.is_some() {
+        return Ok(Entry::Checking);
+    }
     if executable != Path::new(SYSTEM_FRONTEND) {
         return Ok(Entry::Ordinary);
     }
@@ -44,7 +49,8 @@ pub fn launch_selected() -> Result<(), String> {
     let frontend = selected_frontend()?;
     let target = std::fs::canonicalize(&frontend)
         .map_err(|_| "Selected application route is unavailable".to_owned())?;
-    if target == Path::new(SYSTEM_FRONTEND) {
+    if target == Path::new(SYSTEM_FRONTEND)
+        || std::env::current_exe().is_ok_and(|executable|executable==target) {
         return Err("Selected application route points back to the package launcher".into());
     }
     Command::new(frontend)
@@ -64,8 +70,13 @@ enum Operation {
     SelectedStatus,
 }
 
-fn fixed_command(operation: Operation) -> Command {
-    let mut command = Command::new(SYSTEM_MANAGER);
+fn fixed_command(operation: Operation) -> Result<Command, String> {
+    let executable = std::env::current_exe().map_err(|_| "Frontend identity unavailable")?;
+    let home = PathBuf::from(std::env::var_os("HOME").ok_or("Home directory unavailable")?);
+    let manager = linux_vst_bridge::portable_package::input_root(&executable,&home)
+        .map_err(|e|e.to_string())?.map(|root|root.join("bin/linux-vst-bridge"))
+        .unwrap_or_else(|| PathBuf::from(SYSTEM_MANAGER));
+    let mut command = Command::new(manager);
     command.arg(match operation {
         Operation::Adopt => "package-adopt",
         Operation::Activate => "package-activate",
@@ -75,7 +86,7 @@ fn fixed_command(operation: Operation) -> Command {
         Operation::Status => "package-bootstrap-status",
         Operation::SelectedStatus => "package-activation-status",
     });
-    command
+    Ok(command)
 }
 
 fn nonblocking(fd: i32) -> Result<(), String> {
@@ -114,7 +125,7 @@ fn collect_pipe<R: Read>(
 }
 
 fn execute(operation: Operation) -> Result<Vec<u8>, String> {
-    let mut child = fixed_command(operation)
+    let mut child = fixed_command(operation)?
         .stdin(Stdio::null())
         .stdout(if matches!(operation, Operation::Status | Operation::SelectedStatus) {
             Stdio::piped()
@@ -606,7 +617,7 @@ mod tests {
             (Operation::Status, "package-bootstrap-status"),
             (Operation::SelectedStatus, "package-activation-status"),
         ] {
-            let command = fixed_command(operation);
+            let command = fixed_command(operation).unwrap();
             assert_eq!(command.get_program(), SYSTEM_MANAGER);
             assert_eq!(command.get_args().collect::<Vec<_>>(), vec![verb]);
         }

@@ -2726,7 +2726,11 @@ fn rescan_environment_locked(
             "prior_report_sha256":retry.report_sha256}))}))
 }
 fn worker(m: &Manager, id: &str) -> Result<()> {
-    worker_with_capacity(m, id, OPERATOR_WAIT, &|| live_capacity(m).ok())
+    // One operation reads each exact runtime artifact afresh, then reuses only
+    // its own byte observations while the complete file identity is unchanged.
+    // No persisted readback cache grants permission to run an installer.
+    linux_vst_bridge::with_launch_verification(||
+        worker_with_capacity(m, id, OPERATOR_WAIT, &|| live_capacity(m).ok()))
 }
 fn worker_with_capacity(
     m: &Manager,

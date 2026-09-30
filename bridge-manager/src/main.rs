@@ -1629,6 +1629,13 @@ fn main() -> Result<()> {
   Some("package-activate") if args.len()==1=>package_authority::activate(&m),
   Some("package-bootstrap-status") if args.len()==1=>package_authority::bootstrap_status(&m),
   Some("package-stop-for-repair") if args.len()==1=>package_authority::stop_for_repair(&m),
+  Some("package-user-inspect") if args.len()==2=>{
+    let mut bundle=portable_package::Bundle::open(Path::new(&args[1]),portable_package::Trust::compiled()?)?;
+    bundle.verify_payload()?;
+    println!("{}",serde_json::to_string(&serde_json::json!({"schema":1,"format":"native_user_installer",
+      "key_class":bundle.key_class(),"release":bundle.release(),"staged":false,"selected":false}))?);
+    Ok(())
+  },
   #[cfg(feature = "pb0-r3-audit")]
   Some("pb0-r3-audit") if args.len()==1=>pb0_r3_audit::run(&m),
   Some("accept-editor") if args.len()==1=>managed_cli::run_acceptance(&m),

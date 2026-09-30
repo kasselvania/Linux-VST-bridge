@@ -297,6 +297,7 @@ impl Library {
                         let primary = p.compatibility.as_ref().and_then(|workflow| workflow.primary.clone())
                             .or_else(|| p.compatibility.is_none().then(||
                                 emphasized_action(p, &related, snapshot.system.inactive_reason())).flatten());
+                        let management = ordinary_actions(p, &related, primary.as_ref());
                         ui.horizontal_wrapped(|ui| {
                             ui.label(egui::RichText::new(&p.name).size(19.0).strong());
                             let (label, category) = status(p);
@@ -318,6 +319,7 @@ impl Library {
                             action_buttons(ui, &workflow.alternatives,
                                 snapshot.system.inactive_reason(), pending, chosen);
                         }
+                        action_buttons(ui, &management, snapshot.system.inactive_reason(), pending, chosen);
                         let buffering: Vec<_> = p.actions.iter().filter(|offer|
                             matches!(offer.action, Action::BufferingSet { .. })).cloned().collect();
                         if !buffering.is_empty() {
@@ -386,12 +388,13 @@ impl Library {
                         } else { "Details and manager actions" })
                             .open(self.expand_details.then_some(true))
                             .show(ui, |ui| {
-                                let management: Vec<_> = p
+                                let expert: Vec<_> = p
                                     .actions
                                     .iter()
                                     .chain(related.iter())
                                     .filter(|action| {
-                                        !matches!(action.action, Action::BufferingSet { .. }) && primary
+                                        !matches!(action.action, Action::BufferingSet { .. })
+                                            && !management.iter().any(|shown|shown.action==action.action) && primary
                                             .as_ref()
                                             .is_none_or(|primary| primary.action != action.action)
                                     })
@@ -399,7 +402,7 @@ impl Library {
                                     .collect();
                                 action_buttons(
                                     ui,
-                                    &management,
+                                    &expert,
                                     snapshot.system.inactive_reason(),
                                     pending,
                                     chosen,
@@ -435,6 +438,32 @@ pub fn diagnostics(
                 if s.capture["armed"]==true { for action in &s.actions { if matches!(action.action,Action::CaptureDisarm{}) { action_buttons(ui,std::slice::from_ref(action),busy,pending,chosen); } } }
                 if let Some(op)=&s.operation{egui::CollapsingHeader::new("Last operation receipt").show(ui,|ui|ui.add(egui::Label::new(egui::RichText::new(serde_json::to_string_pretty(op).unwrap_or_default()).monospace()).wrap()));}
                 });
+}
+
+/// Show only manager-offered actions. Visibility supplies no new authority;
+/// disabled reasons, freshness and exact request validation still apply.
+fn ordinary_actions(product:&Product, related:&[AvailableAction],
+    primary:Option<&AvailableAction>) -> Vec<AvailableAction> {
+    let installed_publication=product.active_revision.is_some()
+        || matches!(product.disposition.as_str(),"ready"|"experimental"|"another_configuration");
+    let mut actions=Vec::new();
+    for offer in product.actions.iter().chain(related) {
+        let show=match offer.action {
+            Action::PluginReinspect{..}|Action::PluginPrepare{..} => installed_publication,
+            Action::ExperimentalReplace{..}|Action::OrdinaryRollback{..}
+                |Action::OrdinaryRestoreRecommended{..}|Action::ExperimentalDisable{..}
+                |Action::CandidateWithdraw{..}|Action::QuarantinedModuleRetry{..}
+                |Action::EnvironmentRescan{..}|Action::VendorApplicationFocus{..}
+                |Action::VendorApplicationOpen{..}|Action::RendererOpen{..}
+                |Action::RendererFocus{..} => true,
+            _ => false,
+        };
+        if show && primary.is_none_or(|p|p.action!=offer.action)
+            && !actions.iter().any(|shown:&AvailableAction|shown.action==offer.action) {
+            actions.push(offer.clone());
+        }
+    }
+    actions
 }
 
 fn routine_rank(action: &Action) -> Option<u8> {
@@ -707,6 +736,51 @@ mod tests {
         assert_eq!(status(product).0, "Problem recorded · awaiting retirement");
         assert_eq!(primary_refusal(product.compatibility.as_ref().unwrap().primary.as_ref().unwrap(),
             Some("Cleanup unconfirmed")), Some("Cleanup unconfirmed"));
+    }
+
+    #[test]
+    fn existing_guided_product_exposes_update_and_rollback_without_expert_panel() {
+        fn texts(shape:&egui::epaint::Shape,out:&mut Vec<String>) {
+            match shape {
+                egui::epaint::Shape::Text(text)=>out.push(text.galley.text().into()),
+                egui::epaint::Shape::Vec(items)=>for item in items {texts(item,out);},
+                _=>{}
+            }
+        }
+        let mut snapshot=snapshot();snapshot.products.truncate(1);
+        snapshot.environments.clear();snapshot.vendor_applications.clear();
+        let p=&mut snapshot.products[0];p.active_revision=Some(7);
+        p.compatibility=Some(CompatibilityWorkflow {
+            phase:CompatibilityPhase::OrdinarySupported,summary:"Published".into(),
+            established:vec![],remaining:vec![],current_inspection:None,current_candidate:None,
+            primary:None,alternatives:vec![],
+        });
+        p.actions=vec![
+            AvailableAction{label:"Check compatibility again".into(),
+                action:Action::PluginReinspect{selection:"aa".repeat(32),audio_layout:None},
+                disabled_reason:None},
+            AvailableAction{label:"Prepare a test bridge update".into(),
+                action:Action::PluginPrepare{selection:"aa".repeat(32),inspection:"bb".repeat(32),
+                    recipe:"cc".repeat(32),predecessor:None},
+                disabled_reason:Some("Installed module changed; rescan first".into())},
+            AvailableAction{label:"Roll back to revision 6".into(),
+                action:Action::OrdinaryRollback{class_id:p.class_id.clone(),publication:"dd".repeat(16)},
+                disabled_reason:None},
+        ];
+        for width in [960.0,560.0] {
+            let ctx=egui::Context::default();let mut library=Library::default();let mut chosen=None;
+            let mut output=ctx.run_ui(egui::RawInput::default(),|ui| {
+                ui.set_max_width(width-32.0);
+                library.show(ui,&snapshot,false,&mut chosen,|_,_|{});
+            });
+            let mut labels=vec![];for clipped in &output.shapes {texts(&clipped.shape,&mut labels);}
+            output.textures_delta.clear();
+            for expected in ["Check compatibility again","Prepare a test bridge update",
+                "Roll back to revision 6","Installed module changed; rescan first"] {
+                assert!(labels.iter().any(|s|s.contains(expected)),"{expected} absent at {width}");
+            }
+            assert!(!library.expand_details);assert!(chosen.is_none());
+        }
     }
 
     #[test]

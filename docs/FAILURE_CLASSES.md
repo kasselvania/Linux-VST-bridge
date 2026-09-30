@@ -1282,7 +1282,24 @@ restored internal32, its running frontend and identical software/registry hashes
 without state edits or manual process termination. Home again showed Bridge
 ready / compatibility unqualified. See the
 [internal33 development receipt](../evidence/self-service-delivery/ubuntu-internal33-development.json).
-Installed correction and project recall remain to be tested.
+The fixed internal34 successor selected on the same populated Ubuntu account;
+Home reported Bridge ready with the existing FRAGMENTS registration unchanged.
+It imported the root-owned first-party Recovery installer through Setup. Visible
+Stop cancelled the exact held operation while general capacity was unavailable,
+confirmed zero remaining owned processes, then the same card offered a fresh
+isolated retry. That attempt discovered both reference products and published
+the reference effect through ordinary controls. Focus, DAW recall and the full
+recovery matrix remain open. The installer still reported partial installation:
+its detector ignored `.vst3` files and required a registered `.exe`. The source
+successor captures exact changed PE plug-in images without claiming completeness,
+authorization or first use. A separate unknown descendant exit 1 remains retained
+and unattributed. See [internal34](../evidence/self-service-delivery/ubuntu-internal34-development.json).
+
+The following signed user-space package route stages verified PKG0 inputs without
+changing the selected installation or protected operating system. Source tests
+cover invalid signatures, mismatched bytes, links, low disk and Python mismatch;
+the real SteamOS staging/update/rollback journey is still required. See
+[user-space delivery](USER_SPACE_PACKAGE.md).
 
 ### Claim limit
 

@@ -19,3 +19,4 @@ sha1 = "=0.10.6"
 tar = "=0.4.46"
 flate2 = "=1.1.10"
 xz2 = { version = "=0.1.7", features = ["static"] }
+ed25519-dalek = { version = "=2.2.0", default-features = false, features = ["std"] }

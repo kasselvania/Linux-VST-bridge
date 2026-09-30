@@ -76,9 +76,9 @@ fn project_with_excluded_operation(
         p.actions.push(offer(
             match (&v.recommended_inspection, &current_layout) {
                 (Some(_), Some(profiles::AudioLayoutPolicy::StereoMainPair)) => {
-                    "Refresh stereo inspection"
+                    "Check stereo compatibility again"
                 }
-                (Some(_), None) => "Refresh preliminary inspection",
+                (Some(_), None) => "Check compatibility again",
                 (None, _) => "Check compatibility",
             }
             .into(),
@@ -116,7 +116,7 @@ fn project_with_excluded_operation(
             );
             if let Ok(kit) = kit {
                 p.actions.push(offer(
-                    "Prepare a test candidate for this inspection and recipe".into(),
+                    "Prepare a test bridge update".into(),
                     ui::Action::PluginPrepare {
                         selection: v.selection.clone(),
                         inspection: inspection.clone(),

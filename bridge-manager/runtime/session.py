@@ -1751,7 +1751,7 @@ class InstallerWitnesses:
                 if count>8192 or time.monotonic()>deadline:out['incomplete'].append('file_count_or_time_bound');break
                 for name in sorted(files):
                     p=pathlib.Path(directory)/name;suffix=p.suffix.lower()
-                    if suffix not in ('.exe','.dll','.msi','.log'):continue
+                    if suffix not in ('.exe','.dll','.vst3','.msi','.log'):continue
                     try:
                         m=p.lstat()
                         if not stat.S_ISREG(m.st_mode):continue
@@ -1808,7 +1808,11 @@ class InstallerWitnesses:
             location=after['uninstall'][key].get('InstallLocation','').replace('\\','/').rstrip('/')
             if not location.lower().startswith('c:/'):continue
             relative=location[3:].lower()+'/'
-            images=[p for p in delta['files']['added']+delta['files']['changed'] if p.lower().startswith(relative) and p.lower().endswith('.exe') and after['files'][p].get('sha256') and after['files'][p].get('format')=='pe_executable']
+            # A registered Windows audio product may contain only plug-in DLLs,
+            # including single-file or bundled VST3 modules. Its exact changed
+            # PE image is an installation witness, never factory/audio/license
+            # or installation-completeness authority.
+            images=[p for p in delta['files']['added']+delta['files']['changed'] if p.lower().startswith(relative) and p.lower().endswith(('.exe','.dll','.vst3')) and after['files'][p].get('sha256') and after['files'][p].get('format')=='pe_executable']
             if images:registrations.append({'registration':key,'images':images})
         changed=any(delta[k][change] for k in ('files','uninstall','services') for change in ('added','changed','removed'))
         return {'delta':delta,'application_registrations':registrations,
