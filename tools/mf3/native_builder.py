@@ -40,11 +40,12 @@ def prebuilt(request, generator, archive, recipe):
         index_bytes=z.read('prebuilt/index.json')
         assert digest(index_bytes)==recipe['files']['prebuilt/index.json']
         index=json.loads(index_bytes)
-        assert index['schema']==1 and 1<=len(index['proxies'])<=64
+        assert index['schema'] in (1,2) and 1<=len(index['proxies'])<=64
         matches=[p for p in index['proxies'] if p['class_id'].upper()==request['class_id'].upper()
             and p['module_sha256']==request['module_sha256']]
         if len(matches)!=1:raise ValueError('prebuilt_proxy_unavailable_for_exact_plugin_build')
         selected=matches[0]
+        if index['schema']==2:assert selected['maximum_bridge_frames']==1024
         records=json.loads(pathlib.Path(request['inspection']).read_text())['records']
         descriptor=generator(records,request['class_id'],request['module_sha256'])
         if digest(descriptor.encode())!=selected['descriptor_sha256']:

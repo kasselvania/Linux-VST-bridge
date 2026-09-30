@@ -24,6 +24,37 @@ pub fn recipe(m: &Manager) -> Result<Artifact> {
     kit.verify()?;
     Ok(kit)
 }
+/// The selected kit must bind this exact native binary as well as module/class.
+/// An older proxy cannot acquire a larger envelope from a newer manager alone.
+pub fn maximum_bridge_frames(m: &Manager, r: &Registration) -> Result<Option<u32>> {
+    let software: crate::catalogue::Software = read_json(&m.root.join("software.json"))?;
+    if software.preparation_kit.is_none() {
+        return Ok(None);
+    }
+    let kit = recipe(m)?;
+    r.native.verify()?;
+    let request = serde_json::json!({"kit":kit.path,"class_id":r.metadata.class_id,
+        "module_sha256":r.module.sha256,"native_sha256":r.native.sha256});
+    let mut child = Command::new("python3")
+        .args(["-I", "-c", include_str!("../../../tools/mf3/prebuilt_info.py")])
+        .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn()?;
+    child.stdin.take().ok_or("prebuilt_info_stdin")?.write_all(&serde_json::to_vec(&request)?)?;
+    let deadline = Instant::now() + Duration::from_secs(3);
+    let status = loop {
+        if let Some(status) = child.try_wait()? { break status; }
+        if Instant::now() >= deadline {
+            child.kill()?; child.wait()?;
+            return Err("prebuilt_info_deadline".into());
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    let mut bytes = Vec::new();
+    child.stdout.take().ok_or("prebuilt_info_stdout")?.take(33).read_to_end(&mut bytes)?;
+    require(status.success() && bytes.len() <= 32, "prebuilt_info_invalid")?;
+    let maximum: Option<u32> = serde_json::from_slice(&bytes)?;
+    require(maximum.is_none_or(|n| matches!(n, 512 | 1024)), "prebuilt_info_envelope")?;
+    Ok(maximum)
+}
 pub fn construct(
     m: &Manager,
     s: Selection,

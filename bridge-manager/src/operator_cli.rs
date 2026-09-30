@@ -763,10 +763,29 @@ fn project_current_product(m: &Manager, captured: &current::CurrentOverviewConte
                 || !product.details["qualification"].is_null() {
                 Some("An exact ordinary publication is required")
             } else { None }));
+        buffering_actions(m, &entry.registration, &mut product.actions, captured.busy);
     }
     preparation_cli::project(m, sw,
         std::slice::from_mut(&mut product), captured.busy)?;
     Ok(product)
+}
+fn buffering_actions(m: &Manager, registration: &Registration,
+    actions: &mut Vec<ui::AvailableAction>, busy: Option<&str>) {
+    let current = m.performance(&registration.metadata.class_id).ok().map(|p|p.added_frames);
+    if current != Some(512) {
+        actions.push(action("Restore 512-frame bridge buffering",
+            ui::Action::BufferingSet {class_id:registration.metadata.class_id.clone(), added_frames:512}, busy));
+    }
+    if current != Some(1024) {
+        let capacity = preparation::build::maximum_bridge_frames(m, registration);
+        let reason = match capacity {
+            Ok(Some(1024)) => busy,
+            Ok(_) => return,
+            Err(_) => Some("Installed proxy buffering capability could not be verified. Check compatibility first."),
+        };
+        actions.push(action("Use 1024-frame bridge buffering for testing",
+            ui::Action::BufferingSet {class_id:registration.metadata.class_id.clone(), added_frames:1024}, reason));
+    }
 }
 fn scoped_product_context(m: &Manager, sw: &Software, db: &Registry,
     environment: &str, busy: Option<&str>)
@@ -933,6 +952,7 @@ fn snapshot_readonly_depth(
         let hist = if deep { history(m, &p.class_id, entry)? } else { vec![] };
         let recommended = profiles.iter().find(|r| r.class.class_id == p.class_id);
         let mut actions = Vec::new();
+        buffering_actions(m, &entry.registration, &mut actions, busy);
         for h in &hist {
             if h.rollback_allowed && !h.active {
                 actions.push(action(
@@ -1243,6 +1263,7 @@ fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Resu
         match &request.action {
             ui::Action::OrdinaryRollback { class_id, .. }
             | ui::Action::OrdinaryRestoreRecommended { class_id }
+            | ui::Action::BufferingSet { class_id, .. }
             | ui::Action::CaptureArm { class_id } => {
                 let entry = db.classes.get(class_id).ok_or("operator_product_not_current")?;
                 offered.products = vec![project_current_product(m, &captured, &sw, &db,
@@ -1275,6 +1296,7 @@ fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Resu
 fn scoped_product_action(action: &ui::Action) -> bool {
     matches!(action, ui::Action::OrdinaryRollback { .. }
         | ui::Action::OrdinaryRestoreRecommended { .. }
+        | ui::Action::BufferingSet { .. }
         | ui::Action::CaptureArm { .. }
         | ui::Action::EnvironmentRescan { .. }
         | ui::Action::VendorApplicationOpen { .. }
@@ -1336,7 +1358,7 @@ pub(super) fn resumable_check_source(m: &Manager, id: &str, action: &ui::Action)
     // The installed private UI2 generation used wire 11. Its retained request
     // can identify an old check; the *new* continuation still enters through
     // this manager's current schema and fresh offered-action validation.
-    require(matches!(original.schema, 10..=13) && original.action == *action,
+    require(matches!(original.schema, 10..=ui::OPERATOR_SCHEMA) && original.action == *action,
         "guided_check_source_request_changed")?;
     let result = optional(&dir.join("result.json"))?;
     require(result["schema"] == 1 && result["operation"] == id,
@@ -1475,7 +1497,7 @@ fn cleanup_preparation_work(m: &Manager, id: &str) -> Result<()> {
     let source = (|| {
         let request: ui::Request = read_json(&job_dir(m, id)?.join("request.json"))?;
         if let ui::Action::CompatibilityResumeCheck { operation } = request.action {
-            require(matches!(request.schema, 10..=13) && operation != id,
+            require(matches!(request.schema, 10..=ui::OPERATOR_SCHEMA) && operation != id,
                 "guided_check_cleanup_request_binding")?;
             let intent = preparation::guided_check_stage(m, &operation, "intent")?
                 .ok_or("guided_check_cleanup_intent_missing")?;
@@ -1961,6 +1983,12 @@ fn execute_with_receipt_policy(
             managed_cli::restore_recommended(m, class_id)?;
             Ok(json!({"restored":true}))
         }
+        ui::Action::BufferingSet { class_id, added_frames } => {
+            require(matches!(added_frames, 512 | 1024), "operator_buffering_value")?;
+            m.select_delay(class_id, *added_frames)?;
+            Ok(json!({"added_bridge_frames":added_frames,"applies_to":"next_activation",
+                "compatibility_qualified":false}))
+        }
         ui::Action::IncidentExport { incident } => {
             require(valid_hex(incident, 32), "operator_incident_identity")?;
             let value = optional(
@@ -2290,7 +2318,7 @@ fn recovery_request(m: &Manager, saved: &ResumeRecord) -> Result<ui::Action> {
     // The installed private UI2 manager retained schema-11 requests. This is
     // historical readback only; live requests still require operator schema 12.
     require(
-        matches!(request.schema, 5..=13),
+        matches!(request.schema, 5..=ui::OPERATOR_SCHEMA),
         "operator_resume_request_schema",
     )?;
     Ok(request.action)
@@ -3403,7 +3431,7 @@ mod tests {
     }
     #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 13);
+        assert_eq!(ui::OPERATOR_SCHEMA, 14);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();

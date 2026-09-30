@@ -16,6 +16,10 @@ Preserve exact identities, vendor-owned authorization, predecessor artifacts,
 RT behavior and failures. Record notices for the exact redistributed contents.
 Tasks 4 and 5 remain follow-on; no universal platform or plug-in support claim.
 Record actual sound/editor/recall/reboot/recovery outcomes and any open gap.
+The installed 1024/512 host-block refusal also selects the generic explicit
+[larger-buffer configuration](docs/SELF_SERVICE_AUDIO_BUFFERING.md) repair.
+It preserves the default and historical support envelopes; exercise the exact
+successor through normal delivery and product controls.
 
 ## Beta delivery: clean-machine portable first run
 

@@ -59,6 +59,14 @@ Blackhole, Kontakt, Pigments, Pure LoFi and Serum 2 have **no accepted Ubuntu pr
 
 The [self-service delivery test](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json)
 uses official Efx FRAGMENTS 1.0.0.2925 trial media on a separate disposable
+Ubuntu fixture. Its continued audio-configuration check retained 1024 samples
+with native PipeWire even after explicit 48 kHz and a visible 512 edit; ALSA
+reported the device busy and JACK had no server. Source now provides a generic
+[explicit 1024-frame testing configuration](SELF_SERVICE_AUDIO_BUFFERING.md)
+for matching successor proxies, with the existing default and historical
+support claims retained. The successor's installed audio test is pending.
+
+The original clean-machine journey uses the same official trial media on that
 Ubuntu 26.04.1 VM with Bitwig 6.1.1. Its posture is **unqualified**. Internal13
 completed normal package selection, service activation and acquisition of
 `managed-ge-proton11-7-slr4-20260805` without preinstalled Wine, Proton or Steam.

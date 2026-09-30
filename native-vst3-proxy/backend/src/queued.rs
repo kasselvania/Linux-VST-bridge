@@ -1916,7 +1916,7 @@ pub unsafe extern "C" fn ap19_process_outputs(
     out_flags:*mut u64,delivery:*mut Delivery,entered_ns:u64,
 )->u32 {
     if count as usize>MAX_EVENTS || (count>0&&events.is_null()) || context.is_null()
-        || outputs.is_null() || channels<2 || channels>64 || channels%2!=0 {return 1;}
+        || outputs.is_null() || !(2..=64).contains(&channels) || !channels.is_multiple_of(2) {return 1;}
     let outputs=std::slice::from_raw_parts(outputs,channels as usize);
     let events=if count==0 {&[]} else {std::slice::from_raw_parts(events,count as usize)};
     process_events(id,n,f64::NAN,flags,left,right,outputs[0],outputs[1],out_flags,delivery,
@@ -2070,7 +2070,7 @@ mod tests {
             callback.process_outputs(&shared,request,&mut main,&pointers,0).unwrap();
             if block>=4 {
                 assert_eq!(main[0],[block as f32-4.;CAP]);
-                for ch in 0..62 {assert_eq!(extra[ch],[100.+ch as f32+block as f32-4.;CAP]);}
+                for (ch, plane) in extra.iter().enumerate() {assert_eq!(*plane,[100.+ch as f32+block as f32-4.;CAP]);}
             } else {assert!(extra.iter().flatten().all(|x|*x==0.));}
             let request=shared.requests.pop().unwrap();
             let mut completion=Completion::from(request);
@@ -2089,47 +2089,49 @@ mod tests {
 
     #[test]
     fn setup_abi_delivers_complete_multi_output_contract() {
-        let shared = Arc::new(Shared::new());
-        shared.state_capable.store(true, Ordering::Release);
-        let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
-            shared: shared.clone(), callback: UnsafeCell::new(Callback::new()),
-            busy: AtomicBool::new(false), worker: None, report: None,
-            max: 512, recovery_blocked: false, installed_delay: Some(512),
-            minor: 12, setup: None,
-        })).unwrap().unwrap();
-        let mut contract = 34u32.to_le_bytes().to_vec();
-        for (media, direction, index, channels) in (0u32..32)
-            .map(|i| (0u32, 1u32, i, 2u32))
-            .chain([(1, 0, 0, 16), (1, 1, 0, 16)]) {
-            for value in [media, direction, index, channels, 0, u32::from(index == 0)] {
-                contract.extend(value.to_le_bytes());
-            }
-            contract.extend((if media == 0 { 3u64 } else { 0 }).to_le_bytes());
-        }
-        let expected = contract.clone();
-        let peer = thread::spawn(move || {
-            let until = Instant::now() + Duration::from_secs(3);
-            loop {
-                if let Some(c) = shared.control.lock().unwrap().as_mut() {
-                    assert_eq!(c.op, 20);
-                    assert_eq!(&c.bytes[24..], expected);
-                    let mut reply = vec![0; 16];
-                    reply[8] = 1;
-                    c.result = Some(Ok(reply));
-                    break;
+        for maximum in [512, 1024] {
+            let shared = Arc::new(Shared::new());
+            shared.state_capable.store(true, Ordering::Release);
+            let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
+                shared: shared.clone(), callback: UnsafeCell::new(Callback::new()),
+                busy: AtomicBool::new(false), worker: None, report: None,
+                max: maximum as usize, recovery_blocked: false, installed_delay: Some(maximum),
+                minor: 12, setup: None,
+            })).unwrap().unwrap();
+            let mut contract = 34u32.to_le_bytes().to_vec();
+            for (media, direction, index, channels) in (0u32..32)
+                .map(|i| (0u32, 1u32, i, 2u32))
+                .chain([(1, 0, 0, 16), (1, 1, 0, 16)]) {
+                for value in [media, direction, index, channels, 0, u32::from(index == 0)] {
+                    contract.extend(value.to_le_bytes());
                 }
-                assert!(Instant::now() < until, "setup ABI did not deliver bus contract");
-                thread::yield_now();
+                contract.extend((if media == 0 { 3u64 } else { 0 }).to_le_bytes());
             }
-        });
-        let mut traits = [0u32; 3];
-        assert_eq!(unsafe { ap10_setup(id, 512, 0, 48000., contract.as_ptr(),
-            contract.len() as u32, 1, traits.as_mut_ptr()) }, 0);
-        assert_eq!(traits, [512, 0, 0]);
-        peer.join().unwrap();
-        assert_eq!(unsafe { ap10_setup(id, 512, 0, 48000., contract.as_ptr(),
-            crate::performance::MAX_BUS_CONTRACT_BYTES + 1, 1, traits.as_mut_ptr()) }, 1);
-        INSTANCES.remove(id, |_| ()).unwrap();
+            let expected = contract.clone();
+            let peer = thread::spawn(move || {
+                let until = Instant::now() + Duration::from_secs(3);
+                loop {
+                    if let Some(c) = shared.control.lock().unwrap().as_mut() {
+                        assert_eq!(c.op, 20);
+                        assert_eq!(&c.bytes[24..], expected);
+                        let mut reply = vec![0; 16];
+                        reply[8] = 1;
+                        c.result = Some(Ok(reply));
+                        break;
+                    }
+                    assert!(Instant::now() < until, "setup ABI did not deliver bus contract");
+                    thread::yield_now();
+                }
+            });
+            let mut traits = [0u32; 3];
+            assert_eq!(unsafe { ap10_setup(id, maximum, 0, 48000., contract.as_ptr(),
+                contract.len() as u32, 1, traits.as_mut_ptr()) }, 0);
+            assert_eq!(traits, [maximum, 0, 0]);
+            peer.join().unwrap();
+            assert_eq!(unsafe { ap10_setup(id, maximum, 0, 48000., contract.as_ptr(),
+                crate::performance::MAX_BUS_CONTRACT_BYTES + 1, 1, traits.as_mut_ptr()) }, 1);
+            INSTANCES.remove(id, |_| ()).unwrap();
+        }
     }
     #[test]
     fn gui_abi_rejects_short_prefix_before_forming_full_message() {
@@ -2149,7 +2151,7 @@ mod tests {
     fn parent_callbacks_preserve_exact_one_and_two_proxy_delay() {
         // The consumer runs only after the complete parent host callback. A
         // 512-frame parent must not acquire an artificial wait between chunks.
-        for (maximum, delay) in [(512, 512), (256, 512), (256, 256), (128, 256)] {
+        for (maximum, delay) in [(1024, 1024), (512, 1024), (512, 512), (256, 512), (256, 256), (128, 256)] {
             let mut ids = Vec::new();
             let mut peers = Vec::new();
             for _ in 0..2 {

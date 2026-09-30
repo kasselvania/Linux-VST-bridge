@@ -319,11 +319,13 @@ def verify_prebuilt_kit(data, source_head, host_sha256, source_sha256):
         if recipe["files"]["runtime/host.exe"]!=host_sha256 or recipe["files"]["runtime/host-source-manifest.json"]!=source_sha256:
             raise ValueError("prebuilt kit host pair")
         index=json.loads(archive.read("prebuilt/index.json"))
-        if set(index)!={"schema","proxies","native_sources"} or index["schema"]!=1 or not 1<=len(index["proxies"])<=64:
+        if set(index)!={"schema","proxies","native_sources"} or index["schema"] not in (1,2) or not 1<=len(index["proxies"])<=64:
             raise ValueError("prebuilt proxy index")
         selected=set();expected_names=set(fixed)
         for proxy in index["proxies"]:
-            if set(proxy)!={"class_id","module_sha256","file","descriptor","descriptor_sha256","native_sha256"}:
+            fields={"class_id","module_sha256","file","descriptor","descriptor_sha256","native_sha256"}
+            if index["schema"]==2:fields.add("maximum_bridge_frames")
+            if set(proxy)!=fields or index["schema"]==2 and proxy["maximum_bridge_frames"]!=1024:
                 raise ValueError("prebuilt proxy row")
             key=(proxy["class_id"],proxy["module_sha256"])
             if key in selected or re.fullmatch(r"[0-9A-F]{32}",key[0]) is None or re.fullmatch(r"[0-9a-f]{64}",key[1]) is None:
@@ -356,7 +358,7 @@ def verify_kit_source(data, source_root, source_head, source_tree):
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         recipe = json.loads(archive.read("recipe.json"))
         if recipe["schema"]==3:
-            native_names={name for name in git("ls-files","-z","--",*KIT_SOURCE_ARGS[:5]).decode().split("\0") if name}
+            native_names={name for name in git("ls-files","-z","--",*KIT_SOURCE_ARGS[:5],"native-audio-client").decode().split("\0") if name}
             index=json.loads(archive.read("prebuilt/index.json"))
             if index["native_sources"]!={name:sha((source_root/name).read_bytes()) for name in native_names}:
                 raise ValueError("prebuilt native source differs")
@@ -446,7 +448,7 @@ def validate(spec):
             "external_runtime", "files"}
     if set(spec) != base or spec["schema"] not in (1, 2):
         raise ValueError("PKG0 input schema")
-    if spec["operator_schema"] != 13:
+    if spec["operator_schema"] != 14:
         raise ValueError("paired operator schema differs")
     external = spec["external_runtime"]
     if (set(external) != {"id", "manifest_sha256"}

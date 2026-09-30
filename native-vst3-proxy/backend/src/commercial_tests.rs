@@ -468,9 +468,13 @@ fn protocol_13_transports_every_output_plane_and_rejects_last_plane_overrun() {
         remote.join().unwrap();
         if corrupt {assert!(result.is_err());} else {
             let (main,flags)=result.unwrap();assert_eq!(flags,0);
-            for ch in 0..64 {for i in 0..17 {
-                let value=if ch<2 {f32::from_bits(main[ch][i+1])} else {session.mapping.as_ref().unwrap().extra[ch-2][i]};
-                assert_eq!(value,ch as f32+i as f32/32.);
+            for (ch, plane) in main.iter().enumerate() {for i in 0..17 {
+                assert_eq!(f32::from_bits(plane[i+1]),ch as f32+i as f32/32.);
+            }}
+            let extra=&session.mapping.as_ref().unwrap().extra;
+            assert_eq!(extra.len(),62);
+            for (ch, plane) in extra.iter().enumerate() {for (i, value) in plane[..17].iter().enumerate() {
+                assert_eq!(*value,(ch+2) as f32+i as f32/32.);
             }}
         }
         drop(session);std::fs::remove_file(path).unwrap();

@@ -318,6 +318,13 @@ impl Library {
                             action_buttons(ui, &workflow.alternatives,
                                 snapshot.system.inactive_reason(), pending, chosen);
                         }
+                        let buffering: Vec<_> = p.actions.iter().filter(|offer|
+                            matches!(offer.action, Action::BufferingSet { .. })).cloned().collect();
+                        if !buffering.is_empty() {
+                            ui.label("Bridge audio buffering");
+                            ui.small("1024 frames allows larger host blocks and adds 21.33 ms at 48 kHz. This configuration remains unqualified until tested.");
+                            action_buttons(ui, &buffering, snapshot.system.inactive_reason(), pending, chosen);
+                        }
                         ui.label(format!(
                             "{} · {}",
                             role(p),
@@ -384,7 +391,7 @@ impl Library {
                                     .iter()
                                     .chain(related.iter())
                                     .filter(|action| {
-                                        primary
+                                        !matches!(action.action, Action::BufferingSet { .. }) && primary
                                             .as_ref()
                                             .is_none_or(|primary| primary.action != action.action)
                                     })

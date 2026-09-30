@@ -213,7 +213,7 @@ fn connect_once(root: &Path, greeting: &[u8], deadline: Option<Instant>) -> io::
         let delay = delay
             .parse::<u32>()
             .map_err(|_| invalid("installed delay encoding"))?;
-        need(matches!(delay, 256 | 512), "unsupported installed delay")?;
+        need(matches!(delay, 256 | 512 | 1024), "unsupported installed delay")?;
         (Some(delay), path)
     } else {
         (None, directory)

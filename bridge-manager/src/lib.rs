@@ -329,8 +329,8 @@ impl Default for Performance {
 impl Performance {
     pub fn verify(&self) -> Result<()> {
         require(
-            self.schema == 1 && matches!(self.added_frames, 256 | 512),
-            "unsupported performance schema or delay (use 256 or 512 frames)",
+            self.schema == 1 && matches!(self.added_frames, 256 | 512 | 1024),
+            "unsupported performance schema or delay (use 256, 512 or 1024 frames)",
         )
     }
 }
@@ -529,14 +529,20 @@ impl Manager {
         };
         value.verify()?;
         require(valid_hex(key, 32), "class ID syntax")?;
+        let key = key.to_uppercase();
+        let verified = if frames == 1024 {
+            let registration = self.registry()?.classes.get(&key)
+                .ok_or("class not registered")?.registration.clone();
+            require(preparation::build::maximum_bridge_frames(self, &registration)? == Some(1024),
+                "The selected proxy does not support 1024-frame buffering. Check compatibility with the current package first.")?;
+            Some(registration)
+        } else { None };
         // Admission holds this same lock until its lease is published. No
         // instance can race a preference change into its startup binding.
         let _lock = self.lock("registry.lock")?;
-        let key = key.to_uppercase();
-        require(
-            self.registry()?.classes.contains_key(&key),
-            "class not registered",
-        )?;
+        let registry = self.registry()?;
+        let entry = registry.classes.get(&key).ok_or("class not registered")?;
+        require(verified.is_none_or(|r| r == entry.registration), "buffering_target_changed")?;
         let leases = self.root.join("runtime/leases");
         if leases.try_exists()? {
             for entry in fs::read_dir(leases)? {
@@ -831,6 +837,9 @@ mod tests {
         assert_eq!(f.m.performance(&key).unwrap().added_frames, 256);
         assert_eq!(before, f.m.resolve(&f.identity()).unwrap());
         assert!(f.m.select_delay(&key, 128).is_err());
+        // A new manager cannot enlarge a legacy proxy through the internal CLI.
+        assert!(f.m.select_delay(&key, 1024).is_err());
+        assert_eq!(f.m.performance(&key).unwrap().added_frames, 256);
         private_dir(&f.m.root.join("runtime/leases")).unwrap();
         let lease = f.m.root.join("runtime/leases/active.json");
         atomic_json(

@@ -6,7 +6,7 @@ from ap8_descriptor import prebuilt_descriptor
 from native_builder import SDK,SDK_RUNTIME
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 SOURCES=('CMakeLists.txt','cmake/HP0Vst3SdkLock.cmake','cmake/HP0ModernGcc.cmake',
-         'native-vst3-proxy','vst-state')
+         'native-vst3-proxy','vst-state','native-audio-client')
 def sha(data):return hashlib.sha256(data).hexdigest()
 def git(*args):return subprocess.check_output(['git','-C',str(ROOT),*args],text=True).strip()
 def source_roster():
@@ -61,8 +61,9 @@ def main():
             native=compile_proxy(ROOT,a.sdk,backend,header,temp/str(n))
             files[stem+'.h']=descriptor;files[stem+'.so']=native
             proxies.append(dict(class_id=key[0],module_sha256=key[1],file=stem+'.so',
-                descriptor=stem+'.h',descriptor_sha256=sha(descriptor),native_sha256=sha(native)))
-    index=dict(schema=1,proxies=proxies,native_sources=source_roster())
+                descriptor=stem+'.h',descriptor_sha256=sha(descriptor),native_sha256=sha(native),
+                maximum_bridge_frames=1024))
+    index=dict(schema=2,proxies=proxies,native_sources=source_roster())
     files['prebuilt/index.json']=json.dumps(index,sort_keys=True,separators=(',',':')).encode()
     recipe=dict(schema=3,source_commit=git('rev-parse','HEAD'),sdk=SDK,sdk_runtime=SDK_RUNTIME,
         files={name:sha(data) for name,data in files.items()})

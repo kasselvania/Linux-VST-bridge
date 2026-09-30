@@ -304,7 +304,7 @@ mod tests {
                     decode_reply(request, &serde_json::to_vec(&receipt).unwrap())
                         .err()
                         .unwrap()
-                        .contains("operator model 13 required")
+                        .contains("operator model 14 required")
                 );
             }
         }

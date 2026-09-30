@@ -61,10 +61,13 @@ for paid activation. Demo mode disables save/export; an eligible official trial
 can test persistence without a paid license. Trial usability, sound, editor and
 persistence remain open. Tasks 3–5 remain open for their complete stated outcomes.
 
-The next task-3 work is concrete: expose the existing supervised vendor-editor
-journey in normal product controls for the exact installed trial; identify and
-resolve its state-capture refusal without inventing state; and deliver or guide
-an effective supported DAW block configuration. Retest activation, trial editor
-and processing before proceeding to persistence. Paid licenses are not required
-for every disposable test. Do not count an internal command-line editor as the
-self-service journey.
+The continued task-3 check confirmed that explicit 48 kHz and a visible numeric
+512 edit still revert to 1024 with Bitwig's native PipeWire backend. ALSA found
+the device busy and JACK had no server; PipeWire was restored. No plug-in was
+loaded during these configuration checks. A generic explicit
+[1024-frame bridge buffering option](SELF_SERVICE_AUDIO_BUFFERING.md) is now in
+source for exact matching successor proxies, with unchanged defaults and
+truthful latency. Installed testing is next. Retest activation and normal DAW
+editor access before deciding whether a separate vendor-editor action is
+necessary. State capture must never be fabricated. Paid licenses are not
+required for every disposable test.

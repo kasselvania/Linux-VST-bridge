@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 /// Manager/frontend wire generation. Durable installer, workspace and operation
 /// records keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 13;
+pub const OPERATOR_SCHEMA: u32 = 14;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AudioLayoutPolicy {
@@ -189,6 +189,10 @@ pub enum Action {
     },
     OrdinaryRestoreRecommended {
         class_id: String,
+    },
+    BufferingSet {
+        class_id: String,
+        added_frames: u32,
     },
     TransactionReconcile {},
     CaptureArm {
@@ -647,6 +651,7 @@ impl Action {
                 | Self::QuarantinedModuleRetry { .. }
                 | Self::OrdinaryRollback { .. }
                 | Self::OrdinaryRestoreRecommended { .. }
+                | Self::BufferingSet { .. }
                 | Self::TransactionReconcile {}
         )
     }

@@ -92,8 +92,8 @@ mod bus_tests {
     }
 }
 pub fn validate_delay(max: u32, delay: u32) -> io::Result<()> {
-    let selected = matches!(delay, 256 | 512)
-        || (cfg!(feature = "rpi0") && matches!(delay, 1024 | 2048));
+    let selected = matches!(delay, 256 | 512 | 1024)
+        || (cfg!(feature = "rpi0") && delay == 2048);
     need((1..=1024).contains(&max) && selected && delay >= max,
         "selected bridge delay cannot cover the negotiated host maximum")
 }
@@ -159,6 +159,10 @@ mod tests {
         assert!(validate_delay(256, 512).is_ok());
         assert!(validate_delay(512, 512).is_ok());
         assert!(validate_delay(513, 512).is_err());
+        assert!(validate_delay(1024, 1024).is_ok());
+        assert!(validate_delay(513, 1024).is_ok());
+        assert!(validate_delay(1025, 1024).is_err());
+        assert_eq!(validate_delay(1024, 2048).is_ok(), cfg!(feature = "rpi0"));
         assert!(validate_delay(0, 512).is_err());
     }
     #[test]

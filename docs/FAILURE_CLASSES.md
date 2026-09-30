@@ -985,6 +985,16 @@ This does not qualify 1024-frame host blocks, 256 bridge frames, other sample ra
 
 ### Delivered-runtime demo follow-up
 
+The continued disposable check selected explicit 48 kHz and visibly entered
+512, but Bitwig 6.1.1 native PipeWire reverted to 1024. ALSA reported the device
+busy; JACK had no server. The original PipeWire backend was restored. This
+rules out those ordinary settings as a completed repair on this fixture.
+Source now adds a generic explicit 1024-frame testing preference, available
+only for the exact matching prebuilt successor that declares the larger
+envelope. Defaults and historical support claims remain unchanged. See
+[delivered host-block configuration](SELF_SERVICE_AUDIO_BUFFERING.md). Built
+artifact and installed DAW result are still pending for this successor.
+
 Internal23 on the fresh Ubuntu application account requested 1024 samples at
 48 kHz against a selected 512-frame bridge. Bitwig's numeric 512 edit was visible
 but reverted to 1024, confirmed in native lifecycle readback. No effective 512
