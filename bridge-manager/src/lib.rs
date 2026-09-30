@@ -154,7 +154,7 @@ pub fn digest(p: &Path) -> Result<String> {
 pub fn read_json<T: for<'de> Deserialize<'de>>(p: &Path) -> Result<T> {
     let f = file(p)?;
     require(f.metadata()?.len() <= 8 * 1024 * 1024, "JSON size limit")?;
-    Ok(serde_json::from_reader(f.take(8 * 1024 * 1024 + 1))?)
+    Ok(serde_json::from_reader(std::io::BufReader::new(f).take(8 * 1024 * 1024 + 1))?)
 }
 pub fn atomic_json<T: Serialize>(p: &Path, data: &T) -> Result<()> {
     let temp = p.with_extension(format!("tmp-{}", random_id()?));
