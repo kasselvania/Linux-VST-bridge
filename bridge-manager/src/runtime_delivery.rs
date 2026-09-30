@@ -97,8 +97,10 @@ pub fn installed(m: &Manager) -> Result<Option<Runner>> {
     record.runner.verify()?;
     Ok(Some(record.runner))
 }
-/// Install and launch hash every byte. Read-only projections may reuse a prior
-/// byte observation only for unchanged file metadata. All calls check the exact
+/// Install and each launch admission hash every byte. Repeated checks within
+/// one admission reuse its freshly hashed, unchanged file identities. Read-only
+/// projections may reuse prior byte observations for unchanged file metadata.
+/// All calls check the exact
 /// tree, ownership, modes and symlink targets. No verification occurs in DSP.
 pub fn verify_tree(runner: &Runner) -> Result<()> {
     verify_tree_mode(runner,readback_digests_active())
@@ -374,9 +376,29 @@ mod tests {
         assert!(cached_tree(&runner.files[0]).is_some());
         with_readback_digests(|| {
             verify_tree(&runner).unwrap();
-            assert!(READBACK_DIGESTS.with(|cache|cache.borrow().as_ref().unwrap().is_empty()),
+            assert!(SCOPED_DIGESTS.with(|cache|cache.borrow().as_ref().unwrap().is_empty()),
                 "unchanged cached readback must not hash runtime payloads");
         });
+        // Execution ignores the persisted readback cache and a surrounding
+        // readback scope. Only bytes read in this fresh admission are reusable.
+        with_readback_digests(|| with_launch_verification(|| {
+            assert!(!readback_digests_active());
+            verify_tree(&runner).unwrap();
+            assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()),1);
+            verify_tree(&runner).unwrap();
+            assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()),1);
+            let payload=stage.join("GE/proton");
+            fs::set_permissions(&payload,fs::Permissions::from_mode(0o700)).unwrap();
+            fs::write(&payload,b"modified").unwrap();
+            fs::set_permissions(&payload,fs::Permissions::from_mode(0o500)).unwrap();
+            assert!(verify_tree(&runner).unwrap_err().to_string().contains("file_changed"));
+            fs::set_permissions(&payload,fs::Permissions::from_mode(0o700)).unwrap();
+            fs::write(&payload,b"original").unwrap();
+            fs::set_permissions(&payload,fs::Permissions::from_mode(0o500)).unwrap();
+            verify_tree(&runner).unwrap();
+            with_readback_digests(|| assert!(!readback_digests_active()));
+        }));
+        assert!(SCOPED_DIGESTS.with(|cache|cache.borrow().is_none()));
         fs::write(stage.join("GE/injected.dll"),b"extra").unwrap();
         assert!(with_readback_digests(||verify_tree(&runner)).unwrap_err().to_string().contains("roster_changed"));
         fs::remove_file(stage.join("GE/injected.dll")).unwrap();
@@ -391,6 +413,7 @@ mod tests {
             DigestFileIdentity::from(&fs::symlink_metadata(stage.join("GE/proton")).unwrap()));
         atomic_json(&cache_path(&runner.files[0]).unwrap(),&forged).unwrap();
         assert!(verify_tree(&runner).unwrap_err().to_string().contains("file_changed"));
+        assert!(with_launch_verification(||verify_tree(&runner)).unwrap_err().to_string().contains("file_changed"));
     }
     #[test]
     fn lifetime_lock_is_exact_empty_and_write_openable() {

@@ -78,7 +78,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-PLAT-001](#fc-plat-001--nativewindows-transport-requires-shared-private-loopback) | Native/Windows transport needs shared loopback | Platform namespace adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Regression gate for new adapters |
 | [FC-MGMT-004](#fc-mgmt-004--managed-publication-is-mistaken-for-a-static-catalogue-fixture) | Managed publication is mistaken for a static catalogue fixture | Catalogue/publication ownership | causal | installed | Ubuntu internal22 normal status and product controls passed | resolved at publication readback | DAW use remains untested |
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
-| [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | installed | Ubuntu internal16 environment creation completed | resolved at setup admission | Preserve execution verification; DAW use remains open |
+| [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | installed for status; native-admission correction in source | Ubuntu internal22 DAW load timed out before host creation | resolved at setup/status; native load failed | Retest fresh admission verification |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
 ---
@@ -1414,6 +1414,24 @@ not a sandbox, authorization flow or compatibility qualification.
 [PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200).
 Last reviewed: 2026-09-29.
 
+### Native admission follow-up on the delivered runtime
+
+Internal22 guest-demo Bitwig recognized the published FRAGMENTS proxy but its
+first instance failed after 69.783 seconds with setupProcessing kResultFalse.
+No Windows session or memory transport was created. The manager later reported
+Broken pipe. Native admission's retained-authority path repeats full runtime
+byte hashing before it can stage an environment keeper, exceeding the existing
+65-second native admission envelope. This is a launch validation gap, separate
+from status-cache behavior and from Windows plug-in processing.
+
+The correction scopes freshly computed hashes to one native admission. Every
+new admission hashes all runtime bytes; repeated checks reopen and revalidate
+exact file identities before reuse. No persisted observation cache authorizes
+execution, including nested readback calls. The scope ends before DSP supervisor
+launch; deadlines, keeper policy, security posture and DSP are unchanged.
+Regression tests reject changed bytes during the same scope and forged runtime
+observation stamps. Installed retest is pending.
+
 ## FC-PLAT-002 — Delivered runtime lifetime lock cannot be opened
 
 ### Shared boundary and understanding
@@ -1501,8 +1519,9 @@ The source regression covers publication, removal and negative identity and
 completion outcomes. Internal22 passed normal successor selection and service
 activation, retaining internal21; Overview passed in 2.198 seconds and product
 readback in 5.413 seconds. Normal controls show Available experimentally and
-untested DAW capabilities. Exact native bytes and publication remained intact. The Bitwig first-run EULA
-is a separate user confirmation gate. Sound, editor and persistence remain open.
+untested DAW capabilities. Exact native bytes and publication remained intact. Bitwig's separate agreement is now accepted and guest demo mode opened. The
+first DAW load failed during admission before a Windows host session existed;
+sound, editor and persistence remain open.
 
 [Ubuntu delivery result](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json),
 [PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200).

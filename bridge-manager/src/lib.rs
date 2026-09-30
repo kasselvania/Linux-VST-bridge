@@ -29,7 +29,7 @@ pub mod ui_observation;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::{BTreeMap, HashMap},
     fs::{self, File, OpenOptions},
     io::{Read, Write},
@@ -97,36 +97,52 @@ impl From<&fs::Metadata> for DigestFileIdentity {
     }
 }
 thread_local! {
-    static READBACK_DIGESTS: RefCell<Option<HashMap<PathBuf, (DigestFileIdentity, String)>>> =
+    static SCOPED_DIGESTS: RefCell<Option<HashMap<PathBuf, (DigestFileIdentity, String)>>> =
         const { RefCell::new(None) };
+    static FULL_BYTE_VERIFICATION: Cell<bool> = const { Cell::new(false) };
 }
 /// Reuse exact digests only during one read-only projection. Every reuse
 /// reopens the path without following links and matches inode, size, owner,
-/// mode, modification and change times. No cache survives this call. Mutations
-/// and launches never enter this scope and retain their ordinary verification.
+/// mode, modification and change times. No cache survives this call.
 pub fn with_readback_digests<T>(readback: impl FnOnce() -> T) -> T {
+    with_scoped_digests(readback)
+}
+/// One native admission hashes every runtime byte afresh. Repeated authority
+/// checks in that same admission reuse only bytes already read in this scope,
+/// after reopening and matching the complete file identity. Persisted runtime
+/// observations cannot authorize execution, even in a nested readback scope.
+pub fn with_launch_verification<T>(admission: impl FnOnce() -> T) -> T {
+    struct Restore(bool);
+    impl Drop for Restore {
+        fn drop(&mut self) { FULL_BYTE_VERIFICATION.with(|mode| mode.set(self.0)); }
+    }
+    let _restore = Restore(FULL_BYTE_VERIFICATION.with(|mode| mode.replace(true)));
+    with_scoped_digests(admission)
+}
+fn with_scoped_digests<T>(readback: impl FnOnce() -> T) -> T {
     struct Restore(Option<HashMap<PathBuf, (DigestFileIdentity, String)>>);
     impl Drop for Restore {
         fn drop(&mut self) {
-            READBACK_DIGESTS.with(|cache| *cache.borrow_mut() = self.0.take());
+            SCOPED_DIGESTS.with(|cache| *cache.borrow_mut() = self.0.take());
         }
     }
-    let previous = READBACK_DIGESTS.with(|cache| cache.replace(Some(HashMap::new())));
+    let previous = SCOPED_DIGESTS.with(|cache| cache.replace(Some(HashMap::new())));
     let _restore = Restore(previous);
     readback()
 }
 fn readback_digests_active() -> bool {
-    READBACK_DIGESTS.with(|cache| cache.borrow().is_some())
+    SCOPED_DIGESTS.with(|cache| cache.borrow().is_some())
+        && !FULL_BYTE_VERIFICATION.with(Cell::get)
 }
 pub fn digest(p: &Path) -> Result<String> {
     let mut f = file(p)?;
     let before = DigestFileIdentity::from(&f.metadata()?);
-    if let Some(value) = READBACK_DIGESTS.with(|cache| cache.borrow().as_ref()
+    if let Some(value) = SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref()
         .and_then(|records| records.get(p))
         .filter(|(identity, _)| *identity == before)
         .map(|(_, value)| value.clone())) {
         require(DigestFileIdentity::from(&fs::symlink_metadata(p)?) == before,
-            "artifact_changed_during_readback")?;
+            "artifact_changed_during_verification")?;
         return Ok(value);
     }
     let mut h = Sha256::new();
@@ -139,11 +155,11 @@ pub fn digest(p: &Path) -> Result<String> {
         h.update(&b[..n]);
     }
     let value = hex(&h.finalize());
-    if READBACK_DIGESTS.with(|cache| cache.borrow().is_some()) {
+    if SCOPED_DIGESTS.with(|cache| cache.borrow().is_some()) {
         require(DigestFileIdentity::from(&f.metadata()?) == before
             && DigestFileIdentity::from(&fs::symlink_metadata(p)?) == before,
-            "artifact_changed_during_readback")?;
-        READBACK_DIGESTS.with(|cache| {
+            "artifact_changed_during_verification")?;
+        SCOPED_DIGESTS.with(|cache| {
             if let Some(records) = cache.borrow_mut().as_mut() {
                 records.insert(p.to_path_buf(), (before, value.clone()));
             }
@@ -792,13 +808,13 @@ mod tests {
         let first = with_readback_digests(|| {
             let first = digest(&path).unwrap();
             assert_eq!(digest(&path).unwrap(), first);
-            assert_eq!(READBACK_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 1);
+            assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 1);
             std::thread::sleep(std::time::Duration::from_millis(2));
             fs::write(&path, b"other").unwrap();
             assert_ne!(digest(&path).unwrap(), first);
             first
         });
-        assert!(READBACK_DIGESTS.with(|cache| cache.borrow().is_none()));
+        assert!(SCOPED_DIGESTS.with(|cache| cache.borrow().is_none()));
         assert_ne!(digest(&path).unwrap(), first);
         fs::remove_file(&path).unwrap();
         std::os::unix::fs::symlink(f.r.host.path.clone(), &path).unwrap();

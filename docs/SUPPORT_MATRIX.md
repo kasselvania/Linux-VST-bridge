@@ -101,7 +101,12 @@ internal22 installed the generic exact-preparation correction through normal
 successor selection, retaining internal21. Overview passed in 2.198 seconds and
 product readback in 5.413 seconds; normal controls show Available experimentally,
 with exact native bytes and publication preserved. Fresh-account
-Bitwig first run displayed its separate EULA, awaiting operator confirmation.
+Bitwig's EULA was confirmed and accepted; guest demo mode opened without paid
+activation. Its scanner recognizes FRAGMENTS, but first instance load failed
+after 69.783 seconds before a Windows session or memory transport existed.
+Native admission repeats runtime byte validation through ownership checks;
+fresh per-admission hash reuse awaits installed retest. Demo mode disables
+save/export; official trial activation requires an eligible account.
 Trial usability, sound, editor and persistence remain open.
 Neither the Deck 1.0.0 result nor the Ubuntu-lab 1.3.1 workaround qualifies
 this new delivered runtime. The VM had an earlier test package but no plug-in,

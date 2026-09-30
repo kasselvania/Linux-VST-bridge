@@ -62,11 +62,11 @@
     "prebuilt_preparation_and_publication": "Passed through normal Check compatibility and Make available for testing on internal21: exact packaged native bytes, no compiler/SDK, managed experimental publication. Plug-in usability not yet observed.",
     "sound": "not yet observed",
     "editor": "not yet observed",
-    "save_reopen": "not yet observed; Bitwig demo mode must be resolved",
+    "save_reopen": "Unavailable in guest demo mode: Bitwig explicitly disables saving/export. Official 30-day trial requires an eligible account; no paid license used.",
     "reboot_reopen": "not yet observed",
     "recovery": "Narrow pre-target prefix failure recovery passed through normal New isolated attempt; broader plug-in recovery not yet observed",
     "environment_creation": "Passed on internal16, isolated retry on internal19 and fresh application environment on internal20",
-    "daw_first_run": "Fresh application account launched native Bitwig 6.1.1 from Applications; separate displayed Bitwig EULA confirmation requested; not yet accepted"
+    "daw_first_run": "Operator confirmed displayed Bitwig 6.1.1 EULA; accepted in GUI, then Welcome > Run in Demo Mode > Continue. Native DAW opened without account/paid-license activation."
   },
   "iteration": [
     "Internal12 built and installed; the prior selected application opened because main lacked the normal successor offer. Integrated draft PR198 controls explicitly, then built and selected internal13 through its frontend.",
@@ -500,6 +500,31 @@
       "selected_manager_matches_package": true,
       "predecessor_version": "0.12.0internal21",
       "predecessor_manager_retained": true
+    },
+    "daw_demo_test": {
+      "package": "0.12.0internal22-1",
+      "bitwig": "6.1.1 native Linux",
+      "eula": "Operator expressly confirmed actual displayed Bitwig agreement; accepted",
+      "activation": "Guest demo mode; no paid license or account activation",
+      "official_trial_policy": "https://www.bitwig.com/support/shop_license_activation/bitwig-studio-trial-48/",
+      "trial_account_required": true,
+      "trial_activated": false,
+      "save_export_available": false,
+      "normal_native_scan": "Efx FRAGMENTS (VST 3) listed in Bitwig Plug-ins and browser",
+      "normal_load_action": "Browser Efx FRAGMENTS double-click into disposable Audio 2 track",
+      "load_started_guest_utc": "2026-09-30 03:55:09.812",
+      "load_failed_guest_utc": "2026-09-30 03:56:19.595",
+      "daw_result": "could_not_load_plugin; setupProcessing returned kResultFalse; initial state unavailable",
+      "daw_warning": "Plug-in host is not responding after roughly 31 seconds",
+      "bridge_result": "Broken pipe (OS error 32) at 03:56:35 guest UTC",
+      "windows_session_created": false,
+      "windows_host_started": false,
+      "transport_storage_created": false,
+      "service_remained_active": true,
+      "source_correction": "Fresh full-byte verification scope for one native admission, reusing only hashes computed in that same scope after exact file-identity readback. Persisted readback cache cannot authorize execution. Admission/runtime deadlines unchanged.",
+      "installed_retest": "pending",
+      "sound": "not observed",
+      "editor": "not observed"
     }
   }
 }

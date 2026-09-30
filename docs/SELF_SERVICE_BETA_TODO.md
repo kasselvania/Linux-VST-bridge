@@ -46,5 +46,10 @@ readback timeout; its installed correction passed in 2.173 seconds. The
 actual official module differs from the retained Deck bytes; prebuilt matching
 must preserve that distinction. Exact test publication completed, then exposed
 a separate catalogue ownership gap in normal status; its installed internal22
-correction passed normal Home and product controls. Bitwig first run awaits confirmation of its
-separate agreement. Trial usability, sound, editor and persistence remain open. Tasks 3–5 remain open for their complete stated outcomes.
+correction passed normal Home and product controls. Bitwig's separate agreement was confirmed and accepted; guest demo mode opened
+without an account or paid license. Native scanning recognized FRAGMENTS, but
+its first DAW load failed before a Windows session was created. Repeated runtime
+verification through launch ownership exceeds the startup envelope; a fresh
+per-admission verification scope awaits installed retest. Demo mode disables
+save/export; the official 30-day trial needs an eligible account. Trial usability,
+sound, editor and persistence remain open. Tasks 3–5 remain open for their complete stated outcomes.

@@ -1111,7 +1111,7 @@ fn serve(m: Manager) -> Result<()> {
                 let mut request=[0u8;16];
                 if version3 {peer.read_exact(&mut request)?;require(request!=[0;16],"admission request identity")?;}
                 peer.set_write_timeout(Some(Duration::from_secs(5)))?;
-                let prepared=(|| -> Result<_> {
+                let prepared=with_launch_verification(|| -> Result<_> {
                     let class=hex(&greeting[5..21]).to_uppercase();
                     let _reservation=match capacity::reserve(&m,&limits,Some(&class),blocked.load(Ordering::Acquire)) {
                         Ok(reservation)=>reservation,
@@ -1161,7 +1161,7 @@ fn serve(m: Manager) -> Result<()> {
                     let admission = PendingAdmission::new(job.lease.clone(),blocked.clone());
                     atomic_json(&job.lease, &job.report)?;
                     Ok((r,performance,job,path,admission,storage,graphical_session))
-                })();
+                });
                 let (r,performance,job,path,mut admission,mut storage,graphical_session)=match prepared {
                     Ok(value)=>value,
                     Err(e)=>{
