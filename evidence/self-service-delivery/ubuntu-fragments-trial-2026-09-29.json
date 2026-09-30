@@ -763,6 +763,115 @@
       "usability_qualified": false,
       "project_save_reopen": "not exercised; Bitwig guest demo disables save/export",
       "physical_audio_output": "not claimed; VM backend discards physical output"
+    },
+    "package_internal26": {
+      "version": "0.12.0internal26-1",
+      "source_head": "d944a1b1407bf8be5e2ff3754ef8c35deddc2389",
+      "source_tree": "d18e42eba4702e85b9b6cb5c7a1f47293ac96b7e",
+      "deb_sha256": "3537d6dbd80fccc6108c0a9a56bcf395b8bfeea8d9e39034d4ea8ab7e2881494",
+      "canonical_sha256": "fbb7e8192be15db403136701441ff666b2719c4e83973c5e0be599d8dfb5fe5b",
+      "manager_sha256": "6ee15d0492af08498c52928299421b081afbf6635bea959c862a9643856d97c2",
+      "frontend_sha256": "6776a4b01a5e5343174bcbf41b5e20de623f0900ce267b15c7e2a29e1f7f4e8b",
+      "kit_sha256": "ce3af6c5f85901b9fa1065864f5befffaf2e33a5f398695c1d20dab441e7e6e3",
+      "package_assembly": "passed including independent rebuild and exact-byte comparison of all three prebuilt proxies",
+      "system_install": "passed",
+      "normal_successor_selection": "Bitwig closed; package Setup launcher Stop bridge service to change version, Select installed version, Start bridge service; each completed",
+      "selected_manager_frontend_kit_match_package": true,
+      "native_sha256": "bbee707e64e9cfb96b58762aadde125c096779f9c165bfb9c4b6bc9623e9ba41",
+      "native_publication": "same exact previously published native bytes preserved",
+      "performance_configuration": {
+        "schema": 1,
+        "added_frames": 1024
+      },
+      "before_daw_load": {
+        "gui_readiness": "Bridge ready; service ready; DSP 0/6; Install/scan 0; stale transports 0; pending transactions 0; cleanup confirmed",
+        "leases_present": []
+      },
+      "source_verification": {
+        "keeper_tests_passed": 14,
+        "runtime_integrity_tests_passed": 6,
+        "all_target_clippy": "passed with warnings denied",
+        "diff_check": "passed"
+      }
+    },
+    "dry_audio_capture": {
+      "source": "original generated test tone placed in Bitwig Audio2; no bridge device in this dry run",
+      "capture": "PipeWire System Out monitor",
+      "rate": 48000,
+      "channels": 2,
+      "frames": 1200000,
+      "peak": 0.047943115234375,
+      "rms": 0.017370526338934527,
+      "nonzero_samples": 837188,
+      "pcm_sha256": "8d6e5f2d85f7802d3b23016029dc6344d2a9e2b04ba9e1aa05b5ac365af34b2d",
+      "recorder_exit": 1,
+      "recorder_sample_count_completed": true,
+      "physical_speaker_output": false
+    },
+    "daw_demo_retest_internal26": {
+      "package": "0.12.0internal26-1",
+      "source_head": "d944a1b1407bf8be5e2ff3754ef8c35deddc2389",
+      "native_sha256": "bbee707e64e9cfb96b58762aadde125c096779f9c165bfb9c4b6bc9623e9ba41",
+      "cold_attempt": {
+        "precondition": "service restarted through normal package Setup; no runtime leases; no Windows DSP instance",
+        "started_utc": "2026-09-30T07:26:40.781Z",
+        "finished_utc": "2026-09-30T07:27:53.221Z",
+        "elapsed_seconds": 72.44,
+        "daw_result": "loaded without a manual Reload Plug-in",
+        "windows_session": "d3a0c4ce9f1c4d3f407a73ffa23315c8",
+        "host_maximum": 1024,
+        "transport_maximum": 256,
+        "sample_rate": 48000,
+        "selected_bridge_frames": 1024,
+        "vendor_frames": 192,
+        "reported_total_frames": 1216,
+        "editor": "visible and rendered official DEMO; no account or license supplied",
+        "state_capture": "SDK result 1; zero bytes; no fabricated state",
+        "inspection_keeper_transition_retested": false
+      },
+      "processed_audio_capture": {
+        "source": "original generated test tone in Audio2 through the active FRAGMENTS device; track -10 dB, master 0 dB",
+        "capture": "PipeWire System Out sink monitor",
+        "started_utc": "2026-09-30T07:29:57.386528Z",
+        "finished_utc": "2026-09-30T07:30:22.439877Z",
+        "rate": 48000,
+        "channels": 2,
+        "frames": 1200000,
+        "peak": 0.11700439453125,
+        "rms": 0.016819205958342055,
+        "nonzero_samples": 1583764,
+        "pcm_sha256": "285ab7ec699ba69efd879fd96b0b728968c4ba4173628d839b6c50a7730e2205",
+        "recorder_exit": 1,
+        "recorder_sample_count_completed": true,
+        "dry_reference": "fresh_account_retest.dry_audio_capture",
+        "waveform_differs_from_dry": true,
+        "physical_speaker_output": false,
+        "audio_quality_qualified": false
+      },
+      "editor_close_failure": {
+        "action": "normal title-bar close after playback stopped",
+        "view_stage": 212,
+        "boundary": "IPlugView removed call",
+        "windows_exception_code": "c0000005",
+        "windows_exit": 5,
+        "processed_transport_blocks": 105348,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "normal_sdk_retirement": false
+      },
+      "complete_session_timing": {
+        "frames": 26970112,
+        "blocks": 26338,
+        "callback_rejections": 0,
+        "underrun_frames": 2536960,
+        "underrun_gaps": 1845,
+        "delivered_frames": 24432128,
+        "scope": "whole session including idle/UI periods; no dropout-free audio claim"
+      },
+      "daw_close": "state save refusal retained; proceeded only for the owned disposable demo project",
+      "project_save_reopen": "not exercised; guest demo disables save/export and vendor state capture is refused",
+      "usability_qualified": false,
+      "source_followup": "Detach the host IPlugFrame before vendor removed(), following Steinberg editorhost; test ordinary close/reopen, refusal and retained/process-scoped retirement. Does not yet attribute or fix the observed access violation."
     }
   }
 }

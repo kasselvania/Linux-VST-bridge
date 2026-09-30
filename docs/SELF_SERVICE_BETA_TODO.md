@@ -31,43 +31,27 @@ complete the commercial journey. Preserve partial observations and failures;
 check a task only when its stated outcome has actually been demonstrated.
 
 Current progress is retained in the [Ubuntu delivery test](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json).
-Task 1 passed on the stated Ubuntu fixture: normal upstream acquisition,
-official vendor installation and SDK discovery on the application-owned -r3
-runtime, without preinstalled Wine, Proton, Steam or development tools. This
-does not qualify every platform or plug-in. Task 2
-has implementation and independently verified Linux builds of three exact
-proxy entries. Normal compatibility checking prepared the official trial
-module by copying matching packaged bytes on a machine without development
-tools; normal Make available for testing completed exact managed publication.
-It remains explicitly unqualified and experimental until task 3 establishes use.
-Task 3 completed official vendor installation and discovery on the corrected
-runtime in a fresh application account. Product controls exposed a further
-readback timeout; its installed correction passed in 2.173 seconds. The
-actual official module differs from the retained Deck bytes; prebuilt matching
-must preserve that distinction. Exact test publication completed, then exposed
-a separate catalogue ownership gap in normal status; its installed internal22
-correction passed normal Home and product controls. Bitwig's separate agreement was confirmed and accepted; guest demo mode opened
-without an account or paid license. Native scanning recognized FRAGMENTS, but
-its first DAW load failed before a Windows session was created. Internal23 installed fresh per-admission full-byte verification and reached the
-exact Windows module and shared transport. DAW activation still failed after
-70.481 seconds: the vendor refused initial state capture (SDK result 1), and
-Bitwig actually requested 1024 samples at 48 kHz against the selected 512-frame
-bridge limit. Entering 512 in Audio settings reverted to 1024; no effective
-configuration change is claimed. No audio callbacks or editor opens occurred;
-Windows host and transport retired cleanly. The normal exact product controls
-have no vendor-editor action before native activation, so the official trial
-choice could not be reached. These are delivery/integration gaps, not a demand
-for paid activation. Demo mode disables save/export; an eligible official trial
-can test persistence without a paid license. Trial usability, sound, editor and
-persistence remain open. Tasks 3–5 remain open for their complete stated outcomes.
+Task 1 passed on the declared Ubuntu fixture: normal verified upstream
+acquisition, official vendor installation and discovery on the application-owned
+-r3 runtime, without preinstalled Wine, Proton, Steam or development tools.
+Task 2 passed exact prebuilt preparation and experimental publication through
+normal product controls. Three exact proxy entries were independently rebuilt
+and compared; the official trial module remains distinct from the Deck bytes.
+Neither result qualifies another platform or arbitrary plug-ins.
 
-The continued task-3 check confirmed that explicit 48 kHz and a visible numeric
-512 edit still revert to 1024 with Bitwig's native PipeWire backend. ALSA found
-the device busy and JACK had no server; PipeWire was restored. No plug-in was
-loaded during these configuration checks. A generic explicit
-[1024-frame bridge buffering option](SELF_SERVICE_AUDIO_BUFFERING.md) is now in
-source for exact matching successor proxies, with unchanged defaults and
-truthful latency. Installed testing is next. Retest activation and normal DAW
-editor access before deciding whether a separate vendor-editor action is
-necessary. State capture must never be fabricated. Paid licenses are not
-required for every disposable test.
+Task 3 reached real installed use in internal26: Bitwig 6.1.1 guest demo loaded
+FRAGMENTS from an idle bridge without a manual reload, rendered the vendor DEMO
+editor, and captured stereo output through the active effect at 48 kHz. The
+explicit 1024-frame testing configuration reports 1216 total frames including
+192 vendor frames; historical support/default settings are unchanged. Startup
+took 72.440 seconds and the session had missing output frames, so responsive or
+dropout-free use is not claimed. Normal editor close crashed in removed(), with
+confirmed host/transport cleanup. The shared host's frame-detach order is now
+corrected in source and requires its exact built commercial retest.
+
+State capture remains refused (SDK result 1, zero bytes). Guest demo disables
+project save/export; an eligible official Bitwig trial can exercise persistence
+without a paid license, but vendor state must also work. No account, paid
+activation, fabricated state or licensing bypass was used. Save/reopen,
+reboot/recall, normal editor retirement and ordinary recovery remain task-3
+gaps. Tasks 3–5 remain open for their complete stated outcomes.

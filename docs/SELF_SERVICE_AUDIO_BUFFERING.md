@@ -58,4 +58,10 @@ The next startup correction keeps the final keeper/history recheck inside the
 same fresh-byte admission scope as preparation. It still reopens and matches
 every exact file identity, and still hashes all runtime bytes on a new
 admission. No saved status cache authorizes execution; no timeout or real-time
-behavior changes. An installed cold-load retest is required.
+behavior changes. Internal26 loaded from an idle service without a manual
+reload, rendered the official demo editor and captured output through the
+active effect. Complete DAW load took 72.440 seconds, so startup responsiveness
+is unqualified. Normal close reproduced the removed() access violation, with
+positive containment. The shared host now clears IPlugFrame before removed(),
+matching the SDK editorhost; build and commercial close/reopen checks remain
+necessary. Vendor state capture and demo project persistence remain open.

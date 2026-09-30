@@ -69,9 +69,14 @@ publication and 1024-frame selection. Cold activation timed out while its
 keeper started; ordinary Reload Plug-in subsequently loaded and rendered the
 vendor DEMO editor. Actual setup accepted 1024/48000 with 1216 total latency
 frames. Initial state remained refused and closing the editor crashed during
-its removal, with confirmed host/transport cleanup. Audio through, project
-recall and usability remain unqualified. The final startup identity recheck
-now shares the preparation's fresh-byte scope; its installed retest is pending.
+its removal, with confirmed host/transport cleanup. Internal26 installed the
+scoped startup recheck and loaded from an idle service without a manual reload
+in 72.440 seconds. Its demo editor rendered and output through the active effect
+was captured at 48 kHz stereo, with a waveform different from the dry reference.
+Normal editor close reproduced the removal-stage access violation; cleanup
+was confirmed. The shared host frame-detach order is now corrected in source;
+its new commercial result is pending. Audio quality, responsive startup,
+editor retirement, state, project recall and usability remain unqualified.
 
 The original clean-machine journey uses the same official trial media on that
 Ubuntu 26.04.1 VM with Bitwig 6.1.1. Its posture is **unqualified**. Internal13
