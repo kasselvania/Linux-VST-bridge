@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "date": "2026-09-30",
+  "classification": "installed_development_observations_not_beta_qualification",
+  "candidate": {
+    "version": "0.12.0internal31-1",
+    "source_head": "0c392f93aaba52ac9a611d30cafeeaee5838e707",
+    "source_tree": "3135eb1d13294d485562bc0d42c44e05e443cab0",
+    "deb_sha256": "13dbe448b8cae317341fdb0bd0e866451c541f61052bfe5ffac176bc1e6b6303",
+    "release_manifest_sha256": "30c6b904ad673dca9b580da0bae797bec721b27bfce346173a3d13e6e548d53f",
+    "manager_sha256": "20cb19a35d8f9f2873e2dccc6325290efafccccdfb67764b7575cfe55349aa7e",
+    "frontend_sha256": "e4d0ebcecdefab510ba44cf2a963b43e74e6c07a29a3c025533d8c14bd3aa90a",
+    "kit_sha256": "e64f4a2698e95585d7e63f8aed881e9890f718f654f862e001ba15d1ab333785",
+    "windows_host_sha256": "a90de3ca2f7360e8c9477184acb8224ebf394d4e46cf00fd905892002a79cd13",
+    "customer_release": false
+  },
+  "platform": {"distro": "Ubuntu 26.04.1", "architecture": "x86_64", "session": "GNOME Wayland", "virtual_machine": true, "audio_sink": "discarded_virtual_output"},
+  "populated_selection": {
+    "frontend_route": "normal_setup_updates_stop_select_start",
+    "same_account": true,
+    "published_classes": 1,
+    "registry_preserved": true,
+    "predecessor_retained": true,
+    "selected_generation": "8e4f2877ff51b7afd2928de377ef1e350c95f8a1f161efc6624b67fff5a38552",
+    "running_frontend_digest_matched_selection": true,
+    "changed_host_transition": "not_exercised",
+    "project_recall_or_rollback": "not_exercised"
+  },
+  "readback_sample": {"overview_ms": 2728, "exit": 0, "source": "installed_operator_overview", "latency_claim": "single_development_sample"},
+  "recovery": {
+    "short_runtime_fixture": {
+      "installer_sha256": "45d5b9d348152f3d59c1f09be40609ab4a9066e2e6750da6d799c152dd2efcaf",
+      "environment": "0ff110df5ce475b7c80d945f04d5ac9f",
+      "operation": "5e8ad53e3a8150568c53d649dcfd6462",
+      "route": "normal_import_continue_run",
+      "state": "completed", "cleanup_confirmed": true, "owned_live": 0,
+      "raw_exit": 0, "durable_installation": "not_installed", "retry_offered": true,
+      "stop_claim": false
+    },
+    "held_fixture": {
+      "installer_sha256": "8304b19eaef030e31d9b31e970a688af4c9dab8ca206c1f57986ba58cc522932",
+      "environment": "2db5cf6dfcfbadc1aac4f4d0c33ea976",
+      "previous_attempt": "f73166086024cf3d63d7f93c827f15f0",
+      "creation_operation": "673e8b94755626c1c94c0185f9bf9232",
+      "installation_operation": "9a2e9e782def09241e9df0cbc834ce7a",
+      "route": "normal_import_existing_card_new_isolated_attempt_run",
+      "observed_running": true,
+      "capacity_readiness_unavailable_while_running": true,
+      "visible_focus": true,
+      "focus_request": "f674adf897d73aa6c8ec093870d35aa4",
+      "focus_result": "installer_focus_refused",
+      "focus_limit": "headless_console_fixture_has_no_installer_window",
+      "stop_request": "not_successfully_exercised",
+      "retirement": "natural_completion",
+      "required_controls_below_fold": true,
+      "remote_input_limit": "scaled_view_and_moving_scroll_position_obstructed_targeting",
+      "gui_stop_pass": false,
+      "complete_recovery_pass": false
+    }
+  },
+  "nonclaims": ["fresh_install_qualification", "changed_host_populated_update", "rollback_project_recall", "cold_load_or_steady_audio", "gui_stop", "commercial_save_reopen", "physical_audio", "CachyOS_plugin_journey", "SteamOS_successor_installation"],
+  "deck": "working_selection_unchanged_commercial_recall_authorized_for_safe_staged_followup"
+}

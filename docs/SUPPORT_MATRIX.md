@@ -114,6 +114,15 @@ installed recovery, steady processing and recall remain unqualified until their
 delivered candidate runs. Existing Deck commercial recall was selected by the
 operator; its working installation remains unchanged.
 
+[Internal31 development observations](../evidence/self-service-delivery/ubuntu-internal31-development.json)
+add normal same-account package selection with retained FRAGMENTS registration,
+but do not establish changed-host migration or project recall. The headless hold
+completed naturally; GUI Stop is still unproved. The following frontend source
+correction brings the selected card ahead of acquisition controls and explicitly
+refuses expired offers. Its 81 tests include rendered fresh/expired Stop clicks
+with unavailable capacity. First-party instrument/effect and windowed installer
+fixtures are source-only until built and exercised through the installed path.
+
 The original clean-machine journey uses the same official trial media on that
 Ubuntu 26.04.1 VM with Bitwig 6.1.1. Its posture is **unqualified**. Internal13
 completed normal package selection, service activation and acquisition of

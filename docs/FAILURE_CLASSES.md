@@ -792,6 +792,17 @@ a silent refresh. Source tests cover damaged runtime, stale/dead/foreign targets
 and stable inactive pulses. No installed GUI Stop/Retry pass follows from these
 source results; the delivered frontend retest remains required.
 
+Internal31 was installed and selected on the populated Ubuntu account through
+normal package controls, retaining FRAGMENTS registration. Its headless hold
+reached the live Setup card during unavailable capacity readback. Focus refused
+because that fixture has no window; Stop was not successfully exercised before
+natural retirement. Selected actions were below the viewport. The next source
+correction prioritizes that card and explicitly disables expired offers in the
+fast Setup view; a rendered click test permits fresh Stop without capacity and
+refuses stale Stop. All 81 frontend tests pass. A first-party windowed installer
+with a deliberate hold/partial-install hold is now source instrumentation;
+installed Stop/Retry/discovery remains required.
+
 The old installed UI required an exact supervisor stop outside the GUI. It
 completed in 2.804 seconds: cancellation, outer exit -15, zero owned live
 processes, confirmed cleanup and durable files classified installed. This is

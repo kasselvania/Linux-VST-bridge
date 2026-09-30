@@ -25,12 +25,25 @@ Selected by the operator on 2026-09-29. Source basis: main
   proxy updates and exact rollback while preserving projects, state and vendor
   authorization. Recovery must be available in the application.
 
-The current assignment implements 1 and 2 and tests 3. Tasks 4 and 5 remain
-tracked follow-on work. A source test, package launch or SDK example does not
+The operator expanded the assignment on 2026-09-30 to the
+[integrated beta delivery effort](INTEGRATED_BETA_DELIVERY.md). Tasks 3–5 are
+part of the same delivery outcome, including the implementation needed to
+finish them. Tasks 1–2 retain their bounded Ubuntu results. A source test,
+package launch or SDK example does not
 complete the commercial journey. Preserve partial observations and failures;
 check a task only when its stated outcome has actually been demonstrated.
 
 Current progress is retained in the [Ubuntu delivery test](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json).
+The [internal31 development observations](../evidence/self-service-delivery/ubuntu-internal31-development.json)
+retain same-account normal package selection and unchanged FRAGMENTS
+registration. Its headless hold ended naturally before GUI Stop was successfully
+exercised. That result does not close recovery. The next frontend correction
+moves the selected Setup card above acquisition controls and refuses expired
+offers while allowing fresh exact controls without capacity readiness. Its 81
+frontend tests pass; installed recovery remains open. First-party stateful
+instrument/effect installers are being assembled for repeatable delivered tests.
+Commercial recall uses the existing licensed Deck installation after safe
+staging, as selected by the operator; its working selection is unchanged.
 Task 1 passed on the declared Ubuntu fixture: normal verified upstream
 acquisition, official vendor installation and discovery on the application-owned
 -r3 runtime, without preinstalled Wine, Proton, Steam or development tools.

@@ -199,8 +199,12 @@ impl RequestFeedback {
                 "Launch acknowledgment is uncertain. Use the exact Stop / reconcile control; no launch was resubmitted.".into()
             }
             Some("vendor_running") => {
-                self.release_after_snapshot = true;
-                "Vendor operation is running. Refreshing its controls…".into()
+                if self.blocking {
+                    self.release_after_snapshot = true;
+                    "Vendor operation is running. Refreshing its controls…".into()
+                } else {
+                    "The operation is supervised and running. Use its exact Focus or Stop control below.".into()
+                }
             }
             Some("queued" | "running") => {
                 "This operation is in progress. Do not click again.".into()
@@ -1100,24 +1104,20 @@ impl Operator {
         pending: bool, controls: (&mut bool, &mut Option<Action>, &mut bool,
             &mut Page, &mut crate::library::Library, &mut RouteFocus)) {
         let (refresh, chosen, pick, page, library, focus) = controls;
-        Self::readiness_overview(ui, overview, fresh, pending, refresh, chosen);
-        ui.separator();
+        // Fresh exact-operation offers can control a running installer when
+        // DSP capacity is unavailable. An expired projection grants no action.
+        let pending = pending || !fresh;
+        let _ = refresh; // Home owns the full readiness assessment.
         ui.heading("Setup");
-        let runtime_actions: Vec<_> = overview.current.actions.iter()
-            .filter(|offer| matches!(offer.action, Action::RuntimeInstall {})).cloned().collect();
-        Self::buttons(ui, &runtime_actions,
-            (!fresh).then_some("Current manager readback unavailable"), pending, chosen);
-        ui.small("Compatibility runtime setup downloads verified components into this application's storage. Steam and development tools are not required.");
-        if ui.add_enabled(fresh && !pending, egui::Button::new("Choose Windows installer")
-            .min_size(egui::vec2(240.0, 44.0))).clicked() { *pick = true; }
-        ui.small("Choose an installer for manager custody. Vendor sign-in remains yours.");
         if focus.setup_installer.is_some() {
-            ui.strong("Showing the selected installer");
-            if ui.add_sized([180.0, 44.0], egui::Button::new("Show all setup")).clicked() {
-                focus.setup_installer = None;
-                focus.setup = None;
-                focus.setup_scroll = false;
-            }
+            ui.horizontal_wrapped(|ui| {
+                ui.strong("Showing the selected installer");
+                if ui.add_sized([180.0, 44.0], egui::Button::new("Show all setup")).clicked() {
+                    focus.setup_installer = None;
+                    focus.setup = None;
+                    focus.setup_scroll = false;
+                }
+            });
         }
         let mut shown = 0;
         for setup in overview.current.installer_setups.iter().filter(|setup|
@@ -1156,6 +1156,22 @@ impl Operator {
             ui.colored_label(warning_color(ui),
                 "The selected installer is unavailable in this readback. Check again or show all setup.");
         }
+        ui.separator();
+        ui.strong("Add a plug-in");
+        let runtime_actions: Vec<_> = overview.current.actions.iter()
+            .filter(|offer| matches!(offer.action, Action::RuntimeInstall {}))
+            .cloned().collect();
+        if !runtime_actions.is_empty() {
+            egui::CollapsingHeader::new("Compatibility runtime")
+                .default_open(overview.current.installer_setups.is_empty()).show(ui, |ui| {
+                Self::buttons(ui, &runtime_actions,
+                    (!fresh).then_some("Current manager readback unavailable"), pending, chosen);
+                ui.small("The manager downloads its verified compatibility runtime. Steam and development tools are not required.");
+            });
+        }
+        if ui.add_enabled(fresh && !pending, egui::Button::new("Choose Windows installer")
+            .min_size(egui::vec2(240.0, 44.0))).clicked() { *pick = true; }
+        ui.small("Choose an installer for manager custody. Vendor sign-in remains yours.");
         if ui.button("Technical setup history").clicked() { *page = Page::Diagnostics; }
     }
     fn health_bar(ui: &mut egui::Ui, system: &System) {
@@ -1726,7 +1742,8 @@ impl Operator {
                             ui.small(compatibility);
                         }
                         if let Some(offer) = &setup.primary {
-                            let reason = offer.disabled_reason.as_deref().or(busy);
+                            let reason = offer.disabled_reason.as_deref()
+                                .or(offer.action.requires_inactive().then_some(busy).flatten());
                             let response = ui.add_enabled(!pending && reason.is_none(),
                                 egui::Button::new(egui::RichText::new(&offer.label).strong())
                                     .min_size(egui::vec2(240.0, 48.0)));
@@ -3394,6 +3411,60 @@ mod tests {
             assert!(text.iter().any(|line| line == &exact.name));
             assert!(!text.iter().any(|line| line == "Other installed build"));
             assert!(text.iter().any(|line| line.contains("compatibility controls")));
+        }
+    }
+    #[test]
+    fn selected_setup_stop_is_visible_and_clickable_without_capacity_readiness() {
+        fn stop_position(shape: &egui::epaint::Shape) -> Option<egui::Pos2> {
+            match shape {
+                egui::epaint::Shape::Text(text) if text.galley.text() == "Stop installer" =>
+                    Some(text.pos + text.galley.size() * 0.5),
+                egui::epaint::Shape::Vec(shapes) => shapes.iter().find_map(stop_position),
+                _ => None,
+            }
+        }
+        for fresh in [true, false] {
+            let mut overview = overview_fixture();
+            let running = running_snapshot("11");
+            overview.current.system = running.system;
+            let target = running.onboarding[0].actions[0].clone();
+            let setup = InstallerSetup {
+                installer:"bb".repeat(32),name:"Held installer".into(),
+                label_source:"imported_filename".into(),byte_size:1024,
+                format:"pe_executable".into(),imported_at:1,
+                phase:crate::model::SetupPhase::InstallerRunning,
+                status:"Complete the vendor installer or stop this installation.".into(),
+                environment:Some("aa".repeat(16)),compatibility:None,discovered:vec![],
+                primary:Some(AvailableAction {label:"Focus installer".into(),
+                    action:Action::InstallerFocus {onboarding:"aa".repeat(16),operation:"11".into()},disabled_reason:None}),
+                secondary:vec![target.clone()],rename:AvailableAction {label:"Rename".into(),
+                    action:Action::InstallerRename {installer:"bb".repeat(32),label:String::new()},disabled_reason:None},history:vec![],
+            };
+            overview.current.installer_setups = vec![setup.clone()];
+            let ctx = egui::Context::default();
+            let mut focus = RouteFocus {setup_installer:Some(setup.installer),..Default::default()};
+            let mut point = egui::Pos2::ZERO;
+            let mut chosen = None;
+            for pressed in [None, Some(true), Some(false)] {
+                let events = pressed.map(|pressed| vec![egui::Event::PointerMoved(point),
+                    egui::Event::PointerButton {pos:point,button:egui::PointerButton::Primary,
+                        pressed,modifiers:egui::Modifiers::NONE}]).unwrap_or_default();
+                let mut output = ctx.run_ui(egui::RawInput {events,..Default::default()}, |ui| {
+                    ui.set_max_width(1200.0);
+                    // Reserve the real application's header, health, navigation
+                    // and request area. Recovery must fit a normal 800px screen.
+                    ui.add_space(410.0);
+                    Operator::fast_setup(ui,&overview,fresh,false,
+                        (&mut false,&mut chosen,&mut false,&mut Page::Setup,
+                            &mut crate::library::Library::default(),&mut focus));
+                });
+                if pressed.is_none() {
+                    point = output.shapes.iter().find_map(|shape|stop_position(&shape.shape)).unwrap();
+                    assert!(point.y < 800.0,"Stop below the ordinary viewport: {point:?}");
+                }
+                output.textures_delta.clear();
+            }
+            assert_eq!(chosen, fresh.then_some(target.action));
         }
     }
     #[test]
