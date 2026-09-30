@@ -31,7 +31,9 @@ complete the commercial journey. Preserve partial observations and failures;
 check a task only when its stated outcome has actually been demonstrated.
 
 Current progress is retained in the [Ubuntu delivery test](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json).
-Task 1 has implementation and an installed runtime-download result. Task 2
+Task 1 has implementation, normal runtime acquisition and an observed official
+vendor-installer window on the delivered runtime. Task 2
 has implementation and verified Linux builds of both packaged proxies.
-Task 3 is running; commercial execution, publication, sound and persistence
+Task 3 has reached the official installer agreement; trial usability,
+publication, sound and persistence
 are still open. The checkboxes remain open for their complete stated outcomes.

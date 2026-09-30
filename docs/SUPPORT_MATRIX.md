@@ -63,23 +63,26 @@ Ubuntu 26.04.1 VM with Bitwig 6.1.1. Its posture is **unqualified**. Internal13
 completed normal package selection, service activation and acquisition of
 `managed-ge-proton11-7-slr4-20260805` without preinstalled Wine, Proton or Steam.
 The package contains verified prebuilt FRAGMENTS/Pure LoFi proxies; commercial
-runtime execution, publication, sound, editor and persistence remain open.
+publication, sound, editor and persistence remain open.
 The internal14 Continue attempt was refused before environment creation by
 [FC-MGMT-003](FAILURE_CLASSES.md#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission).
 Internal16 installed the correction: status checks took 0.557 and 0.564 seconds,
 and ordinary Continue setup completed environment creation. Run installer then failed during prefix initialization at the read-only
 SLR lifetime lock, with cleanup confirmed:
 [FC-PLAT-002](FAILURE_CLASSES.md#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened).
-A distinct runtime correction is in source; vendor execution and commercial
-results remain open. The 43.272-second creation job
+A distinct runtime correction has reached the official installer in internal19;
+commercial results remain open. The 43.272-second creation job
 temporarily made status unavailable; this is not a broad UI performance claim.
 Internal17 package update status then timed out before selection; installer
 retirement was coupled to runtime byte hashing. The owner-check correction is
 installed in internal18: Bootstrap status took 1.322 seconds and normal update
-and activation completed. The app acquired the distinct corrected runtime in 303.67 seconds;
-commercial execution is still open. Its isolated-retry message lacked a button
-for the retained indeterminate durable outcome. The narrow pre-target recovery
-correction is in source, pending the installed retest.
+and activation completed. The app acquired the distinct corrected runtime in
+303.67 seconds. Its isolated-retry message lacked a button
+for the retained indeterminate durable outcome. Internal19 installed the narrow
+pre-target recovery correction: normal New isolated attempt completed in
+118.289 seconds, retaining the failed attempt. Ordinary Run installer initialized
+the new prefix successfully and displayed Arturia's license agreement. Agreement
+acceptance, trial usability, publication, sound, editor and persistence remain open.
 Neither the Deck 1.0.0 result nor the Ubuntu-lab 1.3.1 workaround qualifies
 this new delivered runtime. The VM had an earlier test package but no plug-in,
 runtime or copied authorization. It is not a pristine OS-first-install result.

@@ -76,7 +76,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-MGMT-001](#fc-mgmt-001--managed-inventory-refresh-authority) | Managed inventory freshness and refresh | Manager catalogue/registry/onboarding | causal | accepted | Blackhole, Kontakt / Deck; FRAGMENTS / Ubuntu | supported | Preserve one canonical refresh route |
 | [FC-MGMT-002](#fc-mgmt-002--exact-verified-hostsource-omitted-across-software-generations) | Exact verified host/source omitted across generations | Software catalogue, profile/candidate and publication | causal | accepted | Pure LoFi, FRAGMENTS, Serum / Deck | supported | Preserve required exact pairs in every new generation |
 | [FC-PLAT-001](#fc-plat-001--nativewindows-transport-requires-shared-private-loopback) | Native/Windows transport needs shared loopback | Platform namespace adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Regression gate for new adapters |
-| [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime lifetime lock read-only | Runtime extraction/pressure-vessel | causal | source-fixed | Ubuntu internal16, before vendor launch | blocked | Install distinct corrected runtime and retry |
+| [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime lifetime lock read-only | Runtime extraction/pressure-vessel | causal | installed | Ubuntu internal19, official installer EULA | commercial journey open | Complete vendor installation and plug-in journey |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | installed | Ubuntu internal16 environment creation completed | resolved at setup admission | Commercial execution test remains open |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
@@ -1425,18 +1425,20 @@ The original durable-outcome report is preserved; no vendor state is inferred.
 ### Fix chain, coverage and remaining gate
 
 - Source: focused lifetime-lock extraction and isolated-retry refusal tests.
-- Build/installed: internal18 at `06a33e49` selected and active; ordinary Setup
-  acquired the distinct corrected runtime through Setup in 303.67 seconds,
-  with 16,911 verified entries and the exact lock mode 0600. Earlier runtime/
-  environment records remain retained. Corrected runtime execution is open.
-  The retry message lacked its button because the retained durable outcome is
-  indeterminate; the narrow pre-target failure rule now covers that value,
-  with the original report preserved. Installed recovery retest remains open.
-- Observed result: normal launch attempted on Ubuntu 26.04.1; cleanup confirmed,
-  zero owned live processes. Arturia's window was never reached.
-- Remaining: install the corrected generation and acquire its distinct runtime
-  through Setup, then retry the ordinary commercial journey. No sound, editor,
-  activation, persistence or customer release claim.
+- Build/installed: internal18 at `06a33e49` acquired the distinct corrected
+  runtime through ordinary Setup in 303.67 seconds: 16,911 verified entries and
+  the exact lock mode 0600. Earlier runtime/environment records remain retained.
+  Its retry message lacked a button for the indeterminate durable outcome;
+  internal19 at `8e6dfea9` installed the narrow pre-target recovery correction.
+- Observed recovery: normal New isolated attempt completed in 118.289 seconds,
+  retaining and linking the failed attempt. Ordinary Run installer completed
+  prefix initialization with exit 0, observed the exact target SHA and displayed
+  the official Arturia Efx FRAGMENTS 1.0.0 license agreement. No security
+  protection was disabled and no runtime permission repair was performed.
+- Remaining: agreement acceptance awaits operator confirmation at the actual
+  screen. Vendor installation, trial usability, publication, sound, editor,
+  persistence and customer release remain open. Startup resolution is not
+  plug-in compatibility qualification.
 
 [Ubuntu delivery result](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json),
 [PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200),

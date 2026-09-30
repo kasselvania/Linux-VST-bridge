@@ -54,18 +54,18 @@
   },
   "journey": {
     "package_install": "passed",
-    "normal_package_selection_and_activation": "passed for internal13, internal14, internal15, internal16",
-    "runtime_download_install": "passed for internal13",
-    "runtime_execution": "attempted; prefix initialization failed at lifetime-lock open before vendor launch",
-    "installer_import_and_execution": "Official media imported through frontend; exact custody SHA verified. Runtime launch failed before vendor target execution.",
+    "normal_package_selection_and_activation": "passed through internal19; prior selected generation retained",
+    "runtime_download_install": "passed for original runtime and distinct -r2 through normal Setup",
+    "runtime_execution": "-r2 prefix initialization exit 0; exact vendor target observed; official installer EULA displayed",
+    "installer_import_and_execution": "Official media imported through frontend; exact custody SHA verified. Ordinary Run installer reached Arturia license agreement; acceptance pending operator confirmation.",
     "vendor_trial_authorization": "not yet observed",
     "prebuilt_preparation_and_publication": "not yet observed",
     "sound": "not yet observed",
     "editor": "not yet observed",
     "save_reopen": "not yet observed; Bitwig demo mode must be resolved",
     "reboot_reopen": "not yet observed",
-    "recovery": "not yet observed",
-    "environment_creation": "passed for internal16 through ordinary Continue setup"
+    "recovery": "Narrow pre-target prefix failure recovery passed through normal New isolated attempt; broader plug-in recovery not yet observed",
+    "environment_creation": "passed for internal16; isolated retry passed for internal19 with new environment bound to -r2"
   },
   "iteration": [
     "Internal12 built and installed; the prior selected application opened because main lacked the normal successor offer. Integrated draft PR198 controls explicitly, then built and selected internal13 through its frontend.",
@@ -76,7 +76,8 @@
     "Corrected exact empty SLR lifetime-lock mode to 0600 in a distinct delivered runtime identity ending -r2. Payload digests, roster and executable permissions remain checked. Added ordinary isolated retry interpretation for a fully retired, observed prefix initialization failure before target launch; original durable-outcome receipt remains unchanged. Source tests/build retest in progress.",
     "Internal17 built and root package installed, but ordinary Bootstrap status timed out before any user selection or runtime download. Retirement checks were coupled to execution-byte verification. Separated that owner check from launch admission; focused tests preserve active/foreign/missing receipt refusal and permit confirmed retirement with damaged runner bytes. Internal18 retest in progress.",
     "Internal18 installed, selected and activated through normal Setup and Updates. The formerly timed-out Bootstrap status completed in 1.322 seconds and reported rollback_active. Ordinary RuntimeInstall operation 03f880be7874b14aa1600645a7f31855 is acquiring the distinct -r2 runtime; old runtime/environment records retained.",
-    "Internal18 acquired -r2 through normal Setup in 303.67 seconds. The retry explanation appeared but no button: the retained result reports durable installation indeterminate, while the narrow prefix-failure interpretation admitted only unavailable. Extended it to indeterminate only with the same positive pre-target failure and retirement proof. The prior result remains unchanged; internal19 retest in progress."
+    "Internal18 acquired -r2 through normal Setup in 303.67 seconds. The retry explanation appeared but no button: the retained result reports durable installation indeterminate, while the narrow prefix-failure interpretation admitted only unavailable. Extended it to indeterminate only with the same positive pre-target failure and retirement proof. The prior result remains unchanged; internal19 retest in progress.",
+    "Internal19 selected and activated through normal Setup and Updates, retaining internal18. Normal New isolated attempt completed environment_ready in 118.289 seconds, linked to the untouched failed attempt and bound to -r2. Ordinary Run installer completed prefix initialization with exit 0 and observed the exact vendor target; official Arturia License Agreement displayed. Acceptance awaits operator confirmation."
   ],
   "source_verification": {
     "library_tests": "173 passed after buffered bounded JSON readback at 823cff4f",
@@ -92,7 +93,7 @@
     "native_linux": "Two proxy builds and package-time byte-for-byte source rebuild verification passed",
     "limits": "These source/build checks do not establish commercial audio, activation, editor or project recall.",
     "runtime_delivery_after_lock_fix": "5 passed",
-    "onboarding_after_prefix_retry_fix": "18 passed",
+    "onboarding_after_prefix_retry_fix": "19 passed after indeterminate pre-target correction",
     "onboarding_after_retirement_fix": "19 passed",
     "package_owner_after_retirement_fix": "37 passed"
   },
@@ -160,21 +161,33 @@
         1.4
       ],
       "installed_overview_seconds_context": "Immediately after normal package selection, before service start; separate active-service timings retained below."
+    },
+    {
+      "version": "0.12.0internal18-1",
+      "source_head": "06a33e492243d0a4e3302abdc6b7f8f19a5d1e66",
+      "source_tree": "cb1dbf133b7f952f508c3fac1d9156bfd044ae47",
+      "deb_sha256": "760a06e501ae69fcced7f46131db2bca5b7699963a5e5886fe3bac147b65a842",
+      "manager_sha256": "ea24a575223c2385e0b01a80b299cd3079e7910cc0a64693d00129c5a3e999ce",
+      "frontend_sha256": "5801abcbb780997487cd0a724ee1d1c2b786c54128cb863d2932f555cc3c69be",
+      "kit_sha256": "16b7a115549b46daa1bb9dc97b40b00a5e90c52a11e3a208fe8b3d9e33c3f94e",
+      "normal_frontend_selection_and_activation": "observed",
+      "predecessor_retained": true,
+      "previous_runtime_and_failed_environment_preserved": true,
+      "installed_package_bootstrap_status_seconds": 1.322,
+      "bootstrap_state": "rollback_active"
     }
   ],
   "selected_successor": {
-    "version": "0.12.0internal18-1",
-    "source_head": "06a33e492243d0a4e3302abdc6b7f8f19a5d1e66",
-    "source_tree": "cb1dbf133b7f952f508c3fac1d9156bfd044ae47",
-    "deb_sha256": "760a06e501ae69fcced7f46131db2bca5b7699963a5e5886fe3bac147b65a842",
-    "manager_sha256": "ea24a575223c2385e0b01a80b299cd3079e7910cc0a64693d00129c5a3e999ce",
+    "version": "0.12.0internal19-1",
+    "source_head": "8e6dfea99985b15a08f23c09c88d5c171ef677ae",
+    "source_tree": "10ca425b2aa230ff54b12ae3baef1eb8c87fea86",
+    "deb_sha256": "ac23986ea8ccc24ddfe7641ccccf2232ba7dd081853c002b9552889e1120791c",
+    "manager_sha256": "cba55260d8271cd3ea9021944179177adebbf8906ae0ab793dc2640aa59e5a64",
     "frontend_sha256": "5801abcbb780997487cd0a724ee1d1c2b786c54128cb863d2932f555cc3c69be",
-    "kit_sha256": "16b7a115549b46daa1bb9dc97b40b00a5e90c52a11e3a208fe8b3d9e33c3f94e",
+    "kit_sha256": "0fe990056b5feb2a5d2737b3a67990d2927407008fc652fd591b4895cd32d350",
     "normal_frontend_selection_and_activation": "observed",
     "predecessor_retained": true,
-    "previous_runtime_and_failed_environment_preserved": true,
-    "installed_package_bootstrap_status_seconds": 1.322,
-    "bootstrap_state": "rollback_active"
+    "previous_runtime_and_failed_environment_preserved": true
   },
   "environment_creation": {
     "operation": "982514730e739c6c85f2f0e7c6df830c",
@@ -223,5 +236,37 @@
     "fresh_upstream_download": true,
     "maintainer_permission_repair": false,
     "prior_runtime_preserved": true
+  },
+  "isolated_retry": {
+    "package_version": "0.12.0internal19-1",
+    "operation": "564c0d0f252807cfa13a28a79def98fb",
+    "onboarding": "922761038cc1ab698bacacfbc11d3b18",
+    "previous_attempt": "b13e350f83b1daf0edb4cb4d1d45bbdc",
+    "runtime_id": "managed-ge-proton11-7-slr4-20260805-r2",
+    "normal_frontend_action": "New isolated attempt",
+    "result": "completed; environment_ready; published=false",
+    "duration_seconds_from_file_mtimes": 118.289,
+    "canonical_admission_wait_us": 31,
+    "registry_admission_wait_us": 26,
+    "transient_ui": "Status temporarily unavailable during creation; operation remained in progress, then completed and offered Run installer.",
+    "original_receipt_unchanged": true
+  },
+  "runtime_execution_r2": {
+    "package_version": "0.12.0internal19-1",
+    "operation": "6604e86a1af2348700adc8123b708ab4",
+    "onboarding": "922761038cc1ab698bacacfbc11d3b18",
+    "runtime_id": "managed-ge-proton11-7-slr4-20260805-r2",
+    "normal_frontend_action": "Run installer",
+    "operator_state": "vendor_running",
+    "prefix_initialization_exit": 0,
+    "target_observation": "observed",
+    "target_sha256": "b9b15be251a707ed6f6490ae410712d81ff6f579b54fb76c9c77c6ff01c74ddc",
+    "target_observed_ns_since_supervisor_start": 17237118956,
+    "startup_dropped_stages": 0,
+    "startup_first_problem": null,
+    "visible_window": "Setup - Efx FRAGMENTS 1.0.0; License Agreement",
+    "eula_accepted": false,
+    "confirmation": "Requested at actual agreement screen; pending",
+    "security_protections_disabled": false
   }
 }
