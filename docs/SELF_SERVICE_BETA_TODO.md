@@ -49,7 +49,28 @@ dropout-free use is not claimed. Normal editor close crashed in removed(), with
 confirmed host/transport cleanup. The shared host's frame-detach order is now
 corrected in source and requires its exact built commercial retest.
 
-State capture remains refused (SDK result 1, zero bytes). Guest demo disables
+Internal27 includes that Windows host correction. Its Windows CI and three
+independent native proxy comparisons passed, and the system package installed.
+Normal selection on the populated account refused
+`package_existing_product_host_pair_changed`, preserving internal26 and its
+publication. The existing account with no registry or native catalogue selected
+internal27 through normal package controls for a focused host retest. That
+account retains earlier failed onboarding attempts; it is not another clean
+account qualification. Safe migration of a changed host remains a task-5 gap.
+
+A new clean user account then adopted internal27 and acquired its runtime
+through normal Setup, without copied environments or authorization. The
+official installer reached Finish but did not retire its process cohort.
+Manager progress-file stamp checks also hid live recovery controls. An exact
+supervisor cancellation preserved installed files and confirmed cleanup;
+this is not a normal recovery pass. The shared readback correction passes
+focused source checks; its built/installed test and the corrected host's
+commercial editor test remain pending.
+
+State capture remains refused (SDK result 1, zero bytes). [Arturia's demo
+policy](https://support.arturia.com/hc/en-us/articles/5671785160732-Demo-versions-What-should-I-know)
+disables save/load features; the refusal is consistent with that restriction,
+but its exact cause is unproven. Guest demo disables
 project save/export; an eligible official Bitwig trial can exercise persistence
 without a paid license, but vendor state must also work. No account, paid
 activation, fabricated state or licensing bypass was used. Save/reopen,

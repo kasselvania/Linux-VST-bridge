@@ -142,6 +142,16 @@ pub(super) struct CurrentOverviewContext {
     captured_at: Instant,
 }
 impl CurrentOverviewContext {
+    fn live_installer_progress_paths(&self, m: &Manager) -> BTreeMap<PathBuf,PathBuf> {
+        self.snapshot.onboarding.iter().filter_map(|row| {
+            let environment = row.environment.as_ref()?;
+            let operation = row.details["installation"]["operation"].as_str()?;
+            if self.installer_live.get(operation) != Some(&true) { return None; }
+            let directory = m.root.join("onboarding").join(environment);
+            let report = directory.join(format!("{operation}-result.json"));
+            Some((directory,report))
+        }).collect()
+    }
     fn recheck_external(&self, m: &Manager) -> Result<()> {
         // These fixed, bounded service observations are independent. Run at
         // most four installer cohorts alongside vendor, workspace and cleanup
@@ -215,8 +225,22 @@ impl CurrentOverviewContext {
                 && self.owners == capacity::owners(m)?
                 && self.snapshot.system.pending_transactions == pending_transactions(m)?,
                 "operator_state_changed_refresh")?;
+            let progress = self.live_installer_progress_paths(m);
             for (path, before) in &self.watched {
-                require(stamp(path)? == *before,"operator_current_artifact_changed_refresh")?;
+                // An active supervisor atomically replaces its progress report.
+                // Those bytes cannot authorize installation or retirement:
+                // the row offers only exact Focus/Stop, and both external
+                // rechecks require the same operation to remain live. Keep
+                // record.json and every other authority input fully watched.
+                if progress.values().any(|report| report == path) { continue; }
+                let after = stamp(path)?;
+                let unchanged = if progress.contains_key(path) {
+                    // Report replacement also changes the containing directory.
+                    // Preserve its identity/type/mode, not progress-write times.
+                    before.zip(after).is_some_and(|(a,b)|
+                        (a.device,a.inode,a.mode) == (b.device,b.inode,b.mode))
+                } else { after == *before };
+                require(unchanged,"operator_current_artifact_changed_refresh")?;
             }
         }
         #[cfg(feature = "pb0-c0-audit")]
@@ -780,6 +804,45 @@ mod tests {
                 if path == &vendor {fs::remove_dir(path.parent().unwrap()).unwrap();}
             }
         }
+        // A live installer needs recovery controls while reports and private
+        // diagnostics change. Its stable record and directory custody still
+        // bind the exact operation; a retired report keeps the full byte watch.
+        let mut live=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
+        live.installer_live.insert(operation.clone(),true);
+        live.snapshot.onboarding.push(ui::Onboarding {failure:None,
+            installer:installer.id.clone(),name:"Fixture".into(),byte_size:9,
+            format:"pe_executable".into(),environment:Some(environment_id.clone()),
+            state:"running".into(),required_human_action:"Use exact Stop".into(),
+            details:json!({"installation":{"operation":operation}}),actions:vec![]});
+        atomic_json(&result,&json!({"schema":2,"operation":operation,
+            "state":"running","owned_live":2,"cleanup_confirmed":false})).unwrap();
+        live.recheck_with(m,||Ok(())).unwrap();
+        atomic_json(&result,&json!({"schema":2,"operation":operation,
+            "state":"running","owned_live":7,"cleanup_confirmed":false})).unwrap();
+        let private_report=onboarding_dir.join("diagnostic.private.json");
+        atomic_json(&private_report,&json!({"progress":1})).unwrap();
+        live.recheck_with(m,||Ok(())).unwrap();
+        // The real external recheck cannot accept our simulated live unit.
+        assert!(live.recheck(m).is_err());
+        live.installer_live.insert(operation.clone(),false);
+        assert!(live.recheck_with(m,||Ok(())).is_err());
+        live.installer_live.insert(operation.clone(),true);
+        let original_record=fs::read(&onboarding_record).unwrap();
+        let mut changed:Value=serde_json::from_slice(&original_record).unwrap();
+        changed["installation_operation"]="90".repeat(16).into();
+        atomic_json(&onboarding_record,&changed).unwrap();
+        assert!(live.recheck_with(m,||Ok(())).is_err());
+        fs::write(&onboarding_record,&original_record).unwrap();
+        // Recapture after restoring the record so only directory replacement
+        // changes custody, even when its record/result files keep their inodes.
+        live.watched=watch_paths(m,&sw,&db).unwrap();
+        let moved=onboarding_dir.with_extension("retained");
+        fs::rename(&onboarding_dir,&moved).unwrap();
+        private_dir(&onboarding_dir).unwrap();
+        for name in ["record.json".into(),format!("{operation}-result.json")] {
+            fs::rename(moved.join(&name),onboarding_dir.join(&name)).unwrap();
+        }
+        assert!(live.recheck_with(m,||Ok(())).is_err());
     }
     #[test]
     fn current_recheck_refuses_revision_and_publication_drift_before_ready() {

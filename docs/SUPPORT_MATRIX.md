@@ -78,6 +78,15 @@ was confirmed. The shared host frame-detach order is now corrected in source;
 its new commercial result is pending. Audio quality, responsive startup,
 editor retirement, state, project recall and usability remain unqualified.
 
+Internal27's new clean user account completed normal package/runtime Setup
+and reached the official trial installer Finish screen. Its cohort remained
+live, while progress-report stamp checks hid Focus/Stop. Exact supervisor
+cancellation outside the GUI confirmed cleanup and installed durable files;
+this is not self-service recovery or a successful installer exit. The shared
+readback correction passes source checks; its installed test and the new
+Windows host's commercial editor test remain pending. See
+[FC-LIFE-002](FAILURE_CLASSES.md#fc-life-002--failed-launch-cleanup-and-truthful-recovery-state).
+
 The original clean-machine journey uses the same official trial media on that
 Ubuntu 26.04.1 VM with Bitwig 6.1.1. Its posture is **unqualified**. Internal13
 completed normal package selection, service activation and acquisition of

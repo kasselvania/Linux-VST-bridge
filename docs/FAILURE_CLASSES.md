@@ -766,6 +766,29 @@ Process exit alone was mistaken for clean retirement; abrupt or timed-out termin
 
 Steam Deck managed products and Ubuntu FRAGMENTS bring-up.
 
+### Live installer recovery follow-up
+
+The new clean Ubuntu account on internal27 reached the official FRAGMENTS
+trial's Finish screen, but its exact installer cohort remained live with 15
+processes. Overview failed in 7.614 seconds with
+`operator_current_artifact_changed_refresh`, hiding the normal Focus/Stop
+controls. The supervisor rewrites even identical progress JSON every half
+second, changing both the report inode and its directory timestamps.
+
+Current readback now permits progress-report replacement for an exact live
+installer. The operation's record and containing directory identity remain
+bound, and both external probes require the same operation to remain live.
+These progress bytes do not authorize installation, scanning or retirement;
+the live row offers exact Focus/Stop. Retired results retain the full stamp
+watch. Seven focused current-readback tests and all-target Clippy passed.
+Built/installed recovery verification is pending.
+
+The old installed UI required an exact supervisor stop outside the GUI. It
+completed in 2.804 seconds: cancellation, outer exit -15, zero owned live
+processes, confirmed cleanup and durable files classified installed. This is
+an engineering recovery, not a self-service recovery pass. The vendor hang's
+cause remains unproved and its earlier result is retained.
+
 ### Claim limit
 
 Abrupt power-loss recovery with active owners is not universally automatic.
@@ -1609,6 +1632,13 @@ A refused frame detach retains the exact parent/view and prevents removal or
 release. The production SDK fixture asserts this order, refusal and positive
 retry, alongside ordinary and retained editor cycles. This source correction
 does not yet establish the cause or resolution of the commercial crash.
+
+The corrected Windows host passed CI and was included in internal27 with
+independently compared native proxies. The populated account refused normal
+package selection because its required host/source pair changed; internal26
+remained selected. The account with no registry/catalogue selected internal27
+through normal controls for the focused commercial retest. This does not
+establish a safe migration of existing published products.
 
 ### User posture and next gate
 

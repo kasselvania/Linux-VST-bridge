@@ -872,6 +872,177 @@
       "project_save_reopen": "not exercised; guest demo disables save/export and vendor state capture is refused",
       "usability_qualified": false,
       "source_followup": "Detach the host IPlugFrame before vendor removed(), following Steinberg editorhost; test ordinary close/reopen, refusal and retained/process-scoped retirement. Does not yet attribute or fix the observed access violation."
+    },
+    "package_internal27": {
+      "version": "0.12.0internal27-1",
+      "source_head": "6eb79fa48facfeacf9cb77d179ed2a45f505dfd2",
+      "source_tree": "b5fb982f5609c07e829ea029b7b9dde8058b226b",
+      "deb_sha256": "a4011f61804732b6881f863d1b23c4d7255ca6b312d558b6d9262fd2d5697973",
+      "release_manifest_sha256": "60d6e681d31738c46abee39570ca15a71078e39c61753f1dc3c0e9deedb35386",
+      "manager_sha256": "6ee15d0492af08498c52928299421b081afbf6635bea959c862a9643856d97c2",
+      "frontend_sha256": "6776a4b01a5e5343174bcbf41b5e20de623f0900ce267b15c7e2a29e1f7f4e8b",
+      "windows_host_sha256": "a90de3ca2f7360e8c9477184acb8224ebf394d4e46cf00fd905892002a79cd13",
+      "host_source_manifest_sha256": "dc54a88d5e5bfb0074cc13460b0d0b2d6147fd3930d3c538e82416bae9448873",
+      "kit_sha256": "443a9fa0ec7a0942eb05168821ef6245b73496ea1c7b14693a0119260fe75987",
+      "windows_ci": {
+        "run_id": 36685208213,
+        "result": "success",
+        "actual_ci_checkout": "3d83b18e5ff437a03bf643f8c9678c880bee9844",
+        "tree_equals_declared_source_tree": true,
+        "first_party_source_digests_compared": 58,
+        "artifact_id": 11082664176
+      },
+      "native_proxy_entries_independently_rebuilt_and_compared": 3,
+      "system_install_exit": 0,
+      "normal_gui_adoption": {
+        "result": "refused",
+        "error": "package_existing_product_host_pair_changed",
+        "selected_user_generation_remains": "0.12.0internal26-1",
+        "existing_publication_preserved": true
+      },
+      "claim": "The changed host was built and system-installed but not selected for the populated fresh-account fixture; a safe host migration is a separate update gap."
+    }
+  },
+  "focused_host_order_retest_internal27": {
+    "fixture": "original disposable account on the same Ubuntu 26.04.1 VM; earlier runtime/onboarding failures retained; not a second clean-account proof",
+    "baseline_registry_exists": false,
+    "baseline_native_catalogue_present": false,
+    "normal_gui_package_selection": "succeeded",
+    "selected_generation": "bf695e20ea1c66cd6f7e0ae86dff14cb4cf4f713d38a6bdd0dd3c35537346666",
+    "selected_windows_host_sha256": "a90de3ca2f7360e8c9477184acb8224ebf394d4e46cf00fd905892002a79cd13",
+    "selected_host_source_manifest_sha256": "dc54a88d5e5bfb0074cc13460b0d0b2d6147fd3930d3c538e82416bae9448873",
+    "normal_gui_service_start": "succeeded",
+    "commercial_result": "not_run_in_this_account",
+    "runtime_installation": {
+      "normal_gui_result": "completed",
+      "operation": "f5c3562e9987ad552cbe664c1867a6f3",
+      "runner": "managed-ge-proton11-7-slr4-20260805-r3",
+      "tree_sha256": "c4190a4a184e8ff3721b7495e01db0d0de09c0eaf3ffd42b87b516c077c4e7ef"
+    },
+    "normal_reimport_result": "existing installed attempt shown; its environment retains runtime r2 and no new isolated attempt is offered for a durable installation"
+  },
+  "commercial_demo_limitations": {
+    "official_source": "https://support.arturia.com/hc/en-us/articles/5671785160732-Demo-versions-What-should-I-know",
+    "documented_demo_limits": [
+      "20-minute periods",
+      "import/export disabled",
+      "save/load features disabled"
+    ],
+    "state_refusal_cause": "Observed SDK result 1 and zero bytes are consistent with the documented demo restriction; exact causation is unproven. No bypass or fabricated state is authorized."
+  },
+  "clean_account_host_retest_internal27": {
+    "fixture": "new disposable UID 1002 account on the same Ubuntu VM; clean user state, existing system package",
+    "baseline_managed_storage_exists": false,
+    "baseline_native_catalogue_exists": false,
+    "copied_vendor_state_or_authorization": false,
+    "input_files": "same official downloaded installer and first-party generated test tone only",
+    "commercial_result": "installer reached vendor Finish; process cohort required exact supervisor cancellation; scanning/editor retest pending",
+    "system_commands_present": {
+      "wine": false,
+      "proton": false,
+      "steam": false,
+      "g++": false,
+      "clang++": false,
+      "cmake": false
+    },
+    "baseline_native_vst3_exists": false,
+    "sign_in": "succeeded after explicit keyboard modifier handling in the remote viewer; OS credential unchanged",
+    "normal_first_run": {
+      "package_adoption": "succeeded",
+      "generation": "d6b235d4f99582eae0e1b183d46580bf5394d23c5703eef809705c1e1b761a2f",
+      "service_start": "succeeded",
+      "readiness": "compatibility not yet qualified; no managed plug-ins"
+    },
+    "runtime_installation": {
+      "normal_gui_result": "completed",
+      "operation": "ed160152c71b232254d58da8a432c006",
+      "runner": "managed-ge-proton11-7-slr4-20260805-r3",
+      "preseeded_runtime": false,
+      "tree_sha256": "c4190a4a184e8ff3721b7495e01db0d0de09c0eaf3ffd42b87b516c077c4e7ef",
+      "record_mode": "0400"
+    },
+    "bitwig": {
+      "version": "6.1.1",
+      "mode": "guest demo",
+      "agreement": "same agreement explicitly authorized by the operator",
+      "vendor_account_or_paid_activation_used": false,
+      "normal_audio_backend": "PipeWire",
+      "normal_audio_sink": "System Out",
+      "default_block_samples": 1024,
+      "default_effective_sample_rate": 48000,
+      "audio_settings_changed": false
+    },
+    "dry_audio_capture": {
+      "method": "PipeWire System Out sink monitor during normal Bitwig project playback",
+      "recorder_exit": 1,
+      "header_and_sample_count_complete": true,
+      "frames": 1200000,
+      "rate": 48000,
+      "channels": 2,
+      "format": "s16",
+      "peak": 0.047943115234375,
+      "rms": 0.017370526338934527,
+      "nonzero_samples": 837188,
+      "pcm_sha256": "4a55ad34d8e54d0760f5321f719d3b67b05566dd13a28f556a611919d4790d28",
+      "vendor_processing": false,
+      "physical_output": false
+    },
+    "environment_creation": {
+      "normal_gui_result": "completed",
+      "operation": "91c8a77117ec7686fd678fdd67d0ef11",
+      "environment": "3920068b3951d6710eef144c5a3a3fa5",
+      "runner": "managed-ge-proton11-7-slr4-20260805-r3",
+      "vendor_state_copied": false
+    },
+    "vendor_installer": {
+      "operation": "e332e85002736275c8c0c634235a5cd3",
+      "normal_gui_launch": true,
+      "official_media_sha256": "b9b15be251a707ed6f6490ae410712d81ff6f579b54fb76c9c77c6ff01c74ddc",
+      "agreement": "same vendor EULA explicitly accepted by the operator",
+      "components": [
+        "VST3",
+        "Resources",
+        "Arturia Software Center",
+        "Third party resources"
+      ],
+      "unselected_components": [
+        "VST2",
+        "AAX"
+      ],
+      "vendor_finish_screen_observed": true,
+      "process_completion_after_finish": false,
+      "before_stop_utc": "2026-09-30T09:24:52Z",
+      "before_stop_state": "running",
+      "before_stop_outer_exit": null,
+      "before_stop_owned_live": 15,
+      "before_stop_cleanup_confirmed": false,
+      "before_stop_first_problem": null,
+      "launch_binding": null,
+      "stop_method": "exact owned systemd supervisor stop; installed manager GUI controls unavailable",
+      "stop_exit": 0,
+      "stop_seconds": 2.804,
+      "final_utc": "2026-09-30T09:24:54Z",
+      "final_state": "cancelled",
+      "final_outer_exit": -15,
+      "final_owned_live": 0,
+      "final_cleanup_confirmed": true,
+      "durable_installation": "installed",
+      "vendor_authorization_or_paid_license_used": false,
+      "normal_self_service_recovery_pass": false
+    },
+    "live_installer_readback_failure": {
+      "selected_package": "internal27",
+      "overview_exit": 1,
+      "overview_seconds": 7.614,
+      "reason": "operator_current_artifact_changed_refresh",
+      "unchanged_json_rewritten": true,
+      "report_inode_changed": true,
+      "containing_directory_stamp_changed": true,
+      "mechanism": "active progress is rewritten every half-second; stamp watch rejects current readback despite stable exact operation ownership",
+      "source_correction": "observe live progress without using its byte stamp as installation/retirement authority; preserve exact live-operation probes, record and directory identity checks",
+      "focused_current_tests_passed": 7,
+      "all_target_clippy": "passed",
+      "built_or_installed_correction": "pending"
     }
   }
 }
