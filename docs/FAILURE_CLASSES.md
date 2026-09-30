@@ -1362,7 +1362,9 @@ and a cold frontend timeout; that partial result is retained.
 
 ### User posture
 
-resolved at setup admission on internal16; commercial execution remains open.
+resolved at setup admission on internal16; package update status then timed out
+on internal17 with a retained failed environment. The retirement correction
+is in source; installed retest and commercial execution remain open.
 
 ### Fix chain and product coverage
 
@@ -1375,6 +1377,11 @@ resolved at setup admission on internal16; commercial execution remains open.
   setup completed in 43.272 seconds with environment_ready. Earlier failed and
   slow attempts remain retained. The long creation job temporarily made status
   unavailable; this is not a broad responsive-UI qualification.
+- Follow-up: internal17 system package installed, but Bootstrap status timed out
+  before user selection. `all_retired` had loaded execution-verified records.
+  Its correction reads exact custody and correlated retirement reports without
+  requiring intact executable bytes. Launch admission keeps full verification.
+  Focused damaged-runtime, unknown-cleanup and foreign-operation tests passed.
 - Physical result: installer import and the setup refusal were observed through
   the normal app on Ubuntu 26.04.1. No plug-in execution or audio result.
 

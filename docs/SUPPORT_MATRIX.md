@@ -73,6 +73,9 @@ SLR lifetime lock, with cleanup confirmed:
 A distinct runtime correction is in source; vendor execution and commercial
 results remain open. The 43.272-second creation job
 temporarily made status unavailable; this is not a broad UI performance claim.
+Internal17 package update status then timed out before selection; installer
+retirement was coupled to runtime byte hashing. The owner-check correction is
+in source, pending installed retest.
 Neither the Deck 1.0.0 result nor the Ubuntu-lab 1.3.1 workaround qualifies
 this new delivered runtime. The VM had an earlier test package but no plug-in,
 runtime or copied authorization. It is not a pristine OS-first-install result.

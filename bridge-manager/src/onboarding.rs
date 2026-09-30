@@ -117,7 +117,9 @@ pub fn history_records(m: &Manager) -> Result<Vec<Record>> {
         if !valid_hex(id,32){continue}
         let r:Record=read_json(&path.join("record.json"))?;
         require(r.schema==1 && r.id==id && r.environment.id==id && r.environment.root==m.root.join("environments").join(id)
-           && read_json::<Environment>(&r.environment.root.join("environment.json"))?==r.environment,
+           && read_json::<Environment>(&r.environment.root.join("environment.json"))?==r.environment
+           && valid_hex(&r.creation_operation,32)
+           && r.installation_operation.as_ref().is_none_or(|op|valid_hex(op,32)),
            "onboarding_history_binding")?;
         out.push(r);
     }
@@ -478,7 +480,11 @@ pub fn mark_dead(m: &Manager, r: &Record) -> Result<()> {
     Ok(())
 }
 pub fn all_retired(m: &Manager) -> Result<bool> {
-    for r in records(m)? {
+    // Retirement is receipt/resource custody, not admission to run a binary.
+    // An intact runner is not required to stop or replace a broken installation.
+    let protected: std::collections::BTreeSet<_> = m.registry()?.classes.values()
+        .map(|e|e.registration.environment.id.clone()).collect();
+    for r in history_records(m)?.into_iter().filter(|r|!protected.contains(&r.id)) {
         if r.installation_operation.is_some() && !retired(&result(m, &r)?) {
             return Ok(false);
         }
@@ -1299,6 +1305,24 @@ mod tests {
         sw.installer_launch=None;atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
         // Ordinary Start remains offered even when policy is ineligible.
         assert!(projection(&f.m,None).unwrap().iter().flat_map(|r| &r.actions).any(|a| matches!(a.action,ui::Action::InstallerStart{..})));
+    }
+    #[test]
+    fn retirement_checks_custody_even_when_runner_bytes_are_damaged() {
+        let (f, installer)=fixture();
+        let created=create_exact(&f.m,&installer,f.r.environment.runner.clone(),&"ab".repeat(16),
+            &f.m.lock("registry.lock").unwrap(),None).unwrap();
+        let id=created["onboarding"].as_str().unwrap();let op="cd".repeat(16);
+        reserve(&f.m,id,&op).unwrap();
+        let report=directory(&f.m,id).unwrap().join(format!("{op}-result.json"));
+        let receipt=json!({"schema":2,"operation":op,"state":"failed","owned_live":0,"cleanup_confirmed":true});
+        atomic_json(&report,&receipt).unwrap();
+        fs::write(&f.r.environment.runner.proton,b"damaged").unwrap();
+        assert!(load(&f.m,id).is_err()); // launch admission still refuses
+        assert!(all_retired(&f.m).unwrap());
+        let mut pending=receipt.clone();pending["cleanup_confirmed"]=json!(false);
+        atomic_json(&report,&pending).unwrap();assert!(!all_retired(&f.m).unwrap());
+        pending=receipt;pending["operation"]=json!("ef".repeat(16));
+        atomic_json(&report,&pending).unwrap();assert!(all_retired(&f.m).is_err());
     }
     #[test]
     fn confirmed_prefix_failure_offers_isolated_retry_without_rewriting_receipt() {

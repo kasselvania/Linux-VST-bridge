@@ -73,11 +73,12 @@
     "The delivered Continue action was offered and invoked. Canonical-lock admission refused after 10 seconds before mutation; the runtime readback traversed and hashed the whole runtime. Added a prior-verification observation cache outside the immutable runner. Read-only projections require exact file metadata; execution ignores this cache. Cold cache preparation runs before projection locks. Internal15 build/testing continues; the refused attempt remains retained.",
     "Internal15 was selected through Setup and Updates and started. Its cold status check exceeded the frontend wait; a subsequent installed Overview took 13.014 seconds. Source inspection found bounded JSON parsing used an unbuffered reader. Buffered the same size-limited reader; internal16 is being rebuilt for the ordinary setup retest.",
     "Internal16 selected and activated through ordinary Setup and Updates. Two installed status checks completed in 0.557 and 0.564 seconds. Normal Continue setup operation 982514730e739c6c85f2f0e7c6df830c completed environment_ready in 43.272 seconds and offered Run installer. Runtime/installer execution test now running.",
-    "Corrected exact empty SLR lifetime-lock mode to 0600 in a distinct delivered runtime identity ending -r2. Payload digests, roster and executable permissions remain checked. Added ordinary isolated retry interpretation for a fully retired, observed prefix initialization failure before target launch; original unavailable durable-outcome receipt remains unchanged. Source tests/build retest in progress."
+    "Corrected exact empty SLR lifetime-lock mode to 0600 in a distinct delivered runtime identity ending -r2. Payload digests, roster and executable permissions remain checked. Added ordinary isolated retry interpretation for a fully retired, observed prefix initialization failure before target launch; original unavailable durable-outcome receipt remains unchanged. Source tests/build retest in progress.",
+    "Internal17 built and root package installed, but ordinary Bootstrap status timed out before any user selection or runtime download. Retirement checks were coupled to execution-byte verification. Separated that owner check from launch admission; focused tests preserve active/foreign/missing receipt refusal and permit confirmed retirement with damaged runner bytes. Internal18 retest in progress."
   ],
   "source_verification": {
     "library_tests": "173 passed after buffered bounded JSON readback at 823cff4f",
-    "manager_binary_serial": "253 passed, 1 ignored at c99d64da source",
+    "manager_binary_serial": "254 passed, 1 ignored at c58cf6cc after lifetime-lock and isolated-retry corrections",
     "earlier_parallel_manager_run": "Two Python SIGTERM timing fixtures failed at a 50ms startup threshold; targeted serial reruns and the full serial run passed. A stale readiness schema assertion was corrected to the shared constant.",
     "frontend_tests": "79 passed; package bootstrap focused 6 passed after integration",
     "onboarding_after_default_fix": "20 passed",
@@ -87,7 +88,9 @@
     "deb_package": "13 tests; 1 skipped for unavailable signing helper",
     "clippy": "Manager and frontend all targets, warnings denied, passed",
     "native_linux": "Two proxy builds and package-time byte-for-byte source rebuild verification passed",
-    "limits": "These source/build checks do not establish commercial audio, activation, editor or project recall."
+    "limits": "These source/build checks do not establish commercial audio, activation, editor or project recall.",
+    "runtime_delivery_after_lock_fix": "5 passed",
+    "onboarding_after_prefix_retry_fix": "18 passed"
   },
   "preserved": "No Deck/Pi software, publications, runtime or licensed environment was changed. No proprietary installer/module or authorization material is committed. Internal-test package only; customer signing and complete release obligations remain task 4.",
   "failed_setup_request": {
@@ -148,7 +151,12 @@
     "installed_overview_seconds": [
       0.557,
       0.564
-    ]
+    ],
+    "overview_seconds_service_active_with_retained_failed_environment": [
+      1.215,
+      1.4
+    ],
+    "installed_overview_seconds_context": "Immediately after normal package selection, before service start; separate active-service timings retained below."
   },
   "environment_creation": {
     "operation": "982514730e739c6c85f2f0e7c6df830c",
@@ -175,5 +183,14 @@
     "vendor_window_seen": false,
     "sanitized_private_diagnostic": "pressure-vessel-wrap: E: openat(<managed-runtime>/SteamLinuxRuntime_4/steamrt4_platform_4.0.20260805.254769/files/.ref): Permission denied",
     "interpretation": "Runtime extraction made the exact empty lifetime-lock file read-only. Startup failed before vendor target launch. The old runtime and environment remain retained; no manual permission repair."
+  },
+  "failed_update_status": {
+    "installed_system_package": "0.12.0internal17-1",
+    "selected_user_package": "0.12.0internal16",
+    "source_head": "c58cf6cc4b5658109610165cd690aee9f40e344c",
+    "deb_sha256": "40fc5b95957fe2d32a04845ffd30a45b08aa1670c0ea02233af606a940314aad",
+    "observed_frontend_message": "Package status readback timed out; no setup action was submitted",
+    "interpretation": "Package retirement preflight loaded execution-verified onboarding records and rehashed the failed environment runtime. No package switch submitted.",
+    "source_correction": "Check bound history and operation-correlated retirement receipts independently of executable bytes; launch admission still uses full execution verification."
   }
 }
