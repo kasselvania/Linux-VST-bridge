@@ -57,7 +57,7 @@
     "normal_package_selection_and_activation": "passed through internal19; prior selected generation retained",
     "runtime_download_install": "passed for original runtime and distinct -r2 through normal Setup",
     "runtime_execution": "-r2 prefix initialization exit 0; exact vendor target observed; official installer EULA displayed",
-    "installer_import_and_execution": "Official media imported through frontend; exact custody SHA verified. Ordinary Run installer reached Arturia license agreement; acceptance pending operator confirmation.",
+    "installer_import_and_execution": "Passed: exact official installer, operator-confirmed EULA, VST3 with required resources, manager state completed/installed, exit 0 and clean retirement. Further discovery refused by runtime integrity after upstream mode normalization.",
     "vendor_trial_authorization": "not yet observed",
     "prebuilt_preparation_and_publication": "not yet observed",
     "sound": "not yet observed",
@@ -95,7 +95,8 @@
     "runtime_delivery_after_lock_fix": "5 passed",
     "onboarding_after_prefix_retry_fix": "19 passed after indeterminate pre-target correction",
     "onboarding_after_retirement_fix": "19 passed",
-    "package_owner_after_retirement_fix": "37 passed"
+    "package_owner_after_retirement_fix": "37 passed",
+    "runtime_delivery_after_platform_modes_fix": "6 passed"
   },
   "preserved": "No Deck/Pi software, publications, runtime or licensed environment was changed. No proprietary installer/module or authorization material is committed. Internal-test package only; customer signing and complete release obligations remain task 4.",
   "failed_setup_request": {
@@ -265,8 +266,55 @@
     "startup_dropped_stages": 0,
     "startup_first_problem": null,
     "visible_window": "Setup - Efx FRAGMENTS 1.0.0; License Agreement",
-    "eula_accepted": false,
-    "confirmation": "Requested at actual agreement screen; pending",
+    "eula_accepted": true,
+    "confirmation": "Operator explicitly confirmed acceptance at the actual displayed agreement screen on 2026-09-29; accepted through GUI",
     "security_protections_disabled": false
+  },
+  "commercial_installation": {
+    "package_version": "0.12.0internal19-1",
+    "operation": "6604e86a1af2348700adc8123b708ab4",
+    "onboarding": "922761038cc1ab698bacacfbc11d3b18",
+    "eula_confirmation": "Operator expressly confirmed at displayed agreement screen",
+    "selected_components": [
+      "VST3 64-bit",
+      "Resources",
+      "Arturia Software Center",
+      "ThirdParty Resources"
+    ],
+    "vendor_completion_screen": true,
+    "state": "completed",
+    "raw_exit": 0,
+    "owned_live": 0,
+    "cleanup_confirmed": true,
+    "transaction_outcome": "installed",
+    "durable_installation": "installed",
+    "first_failure": null,
+    "trial_usability": "not yet observed"
+  },
+  "post_install_runtime_refusal": {
+    "installed_package": "0.12.0internal19-1",
+    "runtime_id": "managed-ge-proton11-7-slr4-20260805-r2",
+    "overview_error": "managed_runtime_file_changed",
+    "overview_seconds": 0.606,
+    "changed_modes": [
+      {
+        "expected": "0400",
+        "actual": "0644",
+        "count": 6274
+      },
+      {
+        "expected": "0500",
+        "actual": "0755",
+        "count": 434
+      }
+    ],
+    "regular_files_checked": 13070,
+    "changed_byte_files": 0,
+    "diagnostic_byte_check_seconds": 11.215,
+    "cause": "pressure-vessel hard-links platform files into its mutable sysroot and normalizes their shared inode modes. The delivered 0400/0500 platform modes conflict with this upstream operation.",
+    "manual_repair": false,
+    "retained_installed_environment": true,
+    "source_correction": "Distinct -r3 delivery uses canonical platform file modes 0644/0755 inside private 0700 directories; exact lock remains 0600, full byte/digest/mode checks remain. Prior runtimes/environments unchanged.",
+    "installed_retest": "pending"
   }
 }

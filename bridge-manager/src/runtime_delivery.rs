@@ -7,7 +7,8 @@ use std::os::unix::fs::DirBuilderExt;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-pub const ID: &str = "managed-ge-proton11-7-slr4-20260805-r2";
+pub const ID: &str = "managed-ge-proton11-7-slr4-20260805-r3";
+const PLATFORM_FILES: &str = "SteamLinuxRuntime_4/steamrt4_platform_4.0.20260805.254769/files";
 const LIFETIME_LOCK: &str = "SteamLinuxRuntime_4/steamrt4_platform_4.0.20260805.254769/files/.ref";
 const GE: &str = "GE-Proton11-7-x86_64";
 const SLR: &str = "SteamLinuxRuntime_4";
@@ -184,12 +185,16 @@ fn safe_link(path: &Path, target: &Path) -> Result<()> {
     }
     Ok(())
 }
-/// Pressure-vessel opens this exact empty lifetime lock read/write. Its bytes
-/// remain pinned to empty; no executable or general runtime path is writable.
+/// Pressure-vessel hard-links its platform payload, then normalizes the shared
+/// inode to 0644/0755 while constructing a mutable sysroot. Use those canonical
+/// modes inside the private runtime directory; verify bytes at every admission.
+/// The separate exact empty lifetime lock must remain write-openable.
 fn payload_mode(path: &Path, size: u64, upstream_mode: u32) -> Result<u32> {
     if path == Path::new(LIFETIME_LOCK) {
         require(size == 0, "runtime_lifetime_lock_nonempty")?;
         Ok(0o600)
+    } else if path.starts_with(PLATFORM_FILES) {
+        Ok(if upstream_mode & 0o111 != 0 { 0o755 } else { 0o644 })
     } else {
         Ok(if upstream_mode & 0o111 != 0 { 0o500 } else { 0o400 })
     }
@@ -300,7 +305,7 @@ pub fn install(m: &Manager) -> Result<Runner> {
             files.push(Artifact {path:dest.join(relative), sha256:digest(&stage.join(relative))?});
         }
         let runner = Runner {id:ID.into(),
-            version:"GE-Proton11-7; SLR 4.0.20260805.254769; managed download v2".into(),
+            version:"GE-Proton11-7; SLR 4.0.20260805.254769; managed download v3".into(),
             proton:dest.join(GE).join("proton"), entry_point:dest.join(SLR).join("_v2-entry-point"),
             files, policy:None};
         atomic_json(&stage.join("runtime.json"), &Record {schema:1,id:ID.into(),
@@ -388,7 +393,7 @@ mod tests {
         assert!(verify_tree(&runner).unwrap_err().to_string().contains("file_changed"));
     }
     #[test]
-    fn only_exact_empty_lifetime_lock_is_write_openable() {
+    fn lifetime_lock_is_exact_empty_and_write_openable() {
         let tmp=Scratch::new();
         let stage=tmp.0.join("stage");fs::DirBuilder::new().mode(0o700).create(&stage).unwrap();
         let (archive,mut spec)=tmp.archive(&[(LIFETIME_LOCK,b"")]);spec.root=SLR.into();
@@ -399,6 +404,34 @@ mod tests {
         assert_eq!(payload_mode(Path::new("GE/.ref"),0,0o644).unwrap(),0o400);
         assert_eq!(payload_mode(Path::new("GE/proton"),0,0o755).unwrap(),0o500);
         assert!(payload_mode(Path::new(LIFETIME_LOCK),1,0o644).is_err());
+    }
+    #[test]
+    fn platform_hard_link_normalization_preserves_verified_source() {
+        let tmp=Scratch::new();
+        let stage=tmp.0.join("stage");fs::DirBuilder::new().mode(0o700).create(&stage).unwrap();
+        let relative=format!("{PLATFORM_FILES}/bin/reference");
+        let (archive,mut spec)=tmp.archive(&[(&relative,b"original")]);spec.root=SLR.into();
+        let mut rows=unpack(&archive,&spec,&stage).unwrap();
+        assert_eq!(rows[0].mode,0o755);
+        assert_eq!(payload_mode(Path::new(&format!("{PLATFORM_FILES}/lib/data")),1,0o644).unwrap(),0o644);
+        for (path,directory) in inventory(&stage).unwrap() {
+            if directory { rows.push(TreeEntry {path,sha256:None,target:None,size:0,mode:0o700,directory:true}); }
+        }
+        atomic_json(&stage.join(TREE),&rows).unwrap();
+        let source=stage.join(relative);
+        let runner=Runner {id:ID.into(),version:"test".into(),proton:source.clone(),
+            entry_point:source.clone(),policy:None,
+            files:vec![Artifact {path:stage.join(TREE),sha256:digest(&stage.join(TREE)).unwrap()}]};
+        verify_tree(&runner).unwrap();
+        let linked=tmp.0.join("mutable-reference");
+        fs::hard_link(&source,&linked).unwrap();
+        // The upstream copy normalizes the shared inode, not a separate file.
+        fs::set_permissions(&linked,fs::Permissions::from_mode(0o755)).unwrap();
+        assert_eq!(fs::metadata(&source).unwrap().ino(),fs::metadata(&linked).unwrap().ino());
+        verify_tree(&runner).unwrap();
+        fs::write(&linked,b"modified").unwrap();
+        assert!(with_readback_digests(||verify_tree(&runner)).unwrap_err().to_string().contains("file_changed"));
+        assert!(verify_tree(&runner).unwrap_err().to_string().contains("file_changed"));
     }
     #[test]
     fn archive_paths_and_links_cannot_escape() {

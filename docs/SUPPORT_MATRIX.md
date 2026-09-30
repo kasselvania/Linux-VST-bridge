@@ -82,7 +82,13 @@ for the retained indeterminate durable outcome. Internal19 installed the narrow
 pre-target recovery correction: normal New isolated attempt completed in
 118.289 seconds, retaining the failed attempt. Ordinary Run installer initialized
 the new prefix successfully and displayed Arturia's license agreement. Agreement
-acceptance, trial usability, publication, sound, editor and persistence remain open.
+was subsequently confirmed by the operator. Installation completed with exit 0
+and confirmed cleanup. The following status readback refused runtime mode drift:
+6,708 upstream platform files were chmod-normalized through hard-linked copies,
+while all 13,070 regular files retained their expected bytes. The distinct -r3
+source correction uses canonical platform modes inside private directories;
+installed retest is pending. Trial usability, publication, sound, editor and
+persistence remain open.
 Neither the Deck 1.0.0 result nor the Ubuntu-lab 1.3.1 workaround qualifies
 this new delivered runtime. The VM had an earlier test package but no plug-in,
 runtime or copied authorization. It is not a pristine OS-first-install result.

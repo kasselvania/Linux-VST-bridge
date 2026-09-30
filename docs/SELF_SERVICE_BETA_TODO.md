@@ -34,6 +34,6 @@ Current progress is retained in the [Ubuntu delivery test](../evidence/self-serv
 Task 1 has implementation, normal runtime acquisition and an observed official
 vendor-installer window on the delivered runtime. Task 2
 has implementation and verified Linux builds of both packaged proxies.
-Task 3 has reached the official installer agreement; trial usability,
-publication, sound and persistence
-are still open. The checkboxes remain open for their complete stated outcomes.
+Task 3 completed official vendor installation but found upstream runtime mode
+drift blocking discovery. The source correction awaits installed retest; trial
+usability, publication, sound and persistence remain open. The checkboxes remain open for their complete stated outcomes.

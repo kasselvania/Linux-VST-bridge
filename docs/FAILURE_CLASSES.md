@@ -76,7 +76,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-MGMT-001](#fc-mgmt-001--managed-inventory-refresh-authority) | Managed inventory freshness and refresh | Manager catalogue/registry/onboarding | causal | accepted | Blackhole, Kontakt / Deck; FRAGMENTS / Ubuntu | supported | Preserve one canonical refresh route |
 | [FC-MGMT-002](#fc-mgmt-002--exact-verified-hostsource-omitted-across-software-generations) | Exact verified host/source omitted across generations | Software catalogue, profile/candidate and publication | causal | accepted | Pure LoFi, FRAGMENTS, Serum / Deck | supported | Preserve required exact pairs in every new generation |
 | [FC-PLAT-001](#fc-plat-001--nativewindows-transport-requires-shared-private-loopback) | Native/Windows transport needs shared loopback | Platform namespace adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Regression gate for new adapters |
-| [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime lifetime lock read-only | Runtime extraction/pressure-vessel | causal | installed | Ubuntu internal19, official installer EULA | commercial journey open | Complete vendor installation and plug-in journey |
+| [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | source correction for platform modes | Ubuntu internal19 installed trial, subsequent integrity refusal | blocked at discovery | Retest distinct runtime with canonical platform modes |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | installed | Ubuntu internal16 environment creation completed | resolved at setup admission | Commercial execution test remains open |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
@@ -1416,6 +1416,7 @@ Source correction: the exact empty lock receives mode 0600; all other regular
 files remain 0400/0500. Its empty digest and size still require verification.
 The corrected runtime identity is `managed-ge-proton11-7-slr4-20260805-r2`.
 Existing runtimes/environments are retained, never rewritten in place.
+Revision -r3 below addresses a subsequently observed platform-mode conflict.
 
 A fully retired receipt that positively records prefix initialization failure
 before target launch may offer a new isolated attempt. A target launch, dropped
@@ -1435,10 +1436,28 @@ The original durable-outcome report is preserved; no vendor state is inferred.
   prefix initialization with exit 0, observed the exact target SHA and displayed
   the official Arturia Efx FRAGMENTS 1.0.0 license agreement. No security
   protection was disabled and no runtime permission repair was performed.
-- Remaining: agreement acceptance awaits operator confirmation at the actual
-  screen. Vendor installation, trial usability, publication, sound, editor,
-  persistence and customer release remain open. Startup resolution is not
-  plug-in compatibility qualification.
+- This startup result did not qualify plug-in compatibility. The operator later
+  confirmed the agreement and installation completed; the next shared failure
+  and its remaining gates are retained below.
+
+### Post-install platform-mode failure
+
+The operator confirmed the agreement; the official installer completed with
+exit 0, installed durable outcome, zero owned live processes and confirmed
+cleanup. The following Overview refused `managed_runtime_file_changed`.
+Read-only diagnosis checked all 13,070 regular runtime files: no changed bytes,
+but 6,274 platform files changed 0400 to 0644 and 434 changed 0500 to 0755.
+Upstream `pv_runtime_create_copy` hard-links the platform payload into a mutable
+sysroot and calls mtree application with chmod normalization. This is another
+conflict in the extraction permission policy, not an Arturia licensing failure.
+
+Source revision -r3 gives platform payloads their canonical 0644/0755 modes
+inside private 0700 directories. Exact byte, mode, owner and roster verification
+remains; other runtime components remain 0400/0500 and the lifetime lock 0600.
+The regression exercises hard-link chmod and rejects changed bytes through
+that shared inode. All six runtime tests passed. Earlier runtime/environment
+artifacts remain unchanged; installed -r3 retest is pending. No scan, native
+publication, trial usability, sound or persistence result is claimed.
 
 [Ubuntu delivery result](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json),
 [PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200),

@@ -17,13 +17,17 @@ are not used to acquire or locate it. Curl is a declared package dependency.
 | GE-Proton11-7, x86-64 | [GE release](https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/GE-Proton11-7) | `c5448b76a230384e2d7bc6beb5ccb97bafb7e2c3b6c527cb03a1a546bbcb00a0` |
 | Steam Linux Runtime 4, 4.0.20260805.254769 | [Valve archive](https://repo.steampowered.com/steamrt4/images/4.0.20260805.254769/SteamLinuxRuntime_4.tar.xz) | `3226d8234e7c0542ee767837832bfb1dad5e5e2dc944ec97eb221b437f6b9349` |
 
-The corrected runner identity is `managed-ge-proton11-7-slr4-20260805-r2`. Its complete
+The corrected runner identity is `managed-ge-proton11-7-slr4-20260805-r3`. Its complete
 regular-file digests, symlink targets and directory roster are retained and
 verified by the runtime owner. The exact zero-byte SLR lifetime lock is mode
 0600 because pressure-vessel opens it read/write; its size and empty digest
-remain verified. Other files are mode 0400/0500. The earlier revision is
-retained without changing environments bound to it. This correction follows
-the observed launch error and upstream [runtime lock](https://gitlab.steamos.cloud/steamrt/steam-runtime-tools/-/blob/main/pressure-vessel/runtime.c) and
+remain verified. SLR platform files use canonical mode 0644/0755: pressure-vessel
+hard-links those files into a mutable sysroot and normalizes their shared inode
+modes. Every containing runtime directory remains private mode 0700; GE and
+other support files remain 0400/0500. Full admission checks still verify the
+exact bytes, owner, modes and roster. Earlier revisions are retained without
+changing environments bound to them. This correction follows
+the observed launch error, post-install mode drift and upstream [runtime lock](https://gitlab.steamos.cloud/steamrt/steam-runtime-tools/-/blob/main/pressure-vessel/runtime.c) and
 [file-lock implementation](https://gitlab.steamos.cloud/steamrt/steam-runtime-tools/-/blob/main/steam-runtime-tools/file-lock.c).
 Acquisition preserves upstream license and
 notice files. Archives with changed bytes, duplicate names, paths outside their
@@ -36,7 +40,7 @@ Install and execution admission verify all runtime bytes. Read-only projections
 reuse a completed byte observation only while every file's device, inode, size,
 owner, mode, modification time and change time match. They still enumerate the
 exact tree and verify symlinks and critical artifacts. The observation cache
-lives outside the immutable runtime and cannot authorize execution. Missing or
+lives outside the runtime installation and cannot authorize execution. Missing or
 invalid caches fall back to byte verification; a cold cache is prepared before
 projection locks. This avoids repeated multi-gigabyte reads under manager locks.
 
