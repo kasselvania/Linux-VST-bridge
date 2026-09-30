@@ -54,18 +54,19 @@
   },
   "journey": {
     "package_install": "passed",
-    "normal_package_selection_and_activation": "passed through internal19; prior selected generation retained",
-    "runtime_download_install": "passed for original runtime and distinct -r2 through normal Setup",
-    "runtime_execution": "-r2 prefix initialization exit 0; exact vendor target observed; official installer EULA displayed",
-    "installer_import_and_execution": "Passed: exact official installer, operator-confirmed EULA, VST3 with required resources, manager state completed/installed, exit 0 and clean retirement. Further discovery refused by runtime integrity after upstream mode normalization.",
+    "normal_package_selection_and_activation": "Passed through internal20 on a fresh application account; original user and predecessors retained",
+    "runtime_download_install": "Passed for distinct -r3 through normal Setup on fresh application account, without preinstalled Wine/Proton/Steam/SDKs",
+    "runtime_execution": "-r3 ran the official vendor installer to exit 0 with durable installed result and confirmed retirement; SDK discovery completed",
+    "installer_import_and_execution": "Passed on internal19 and internal20: exact official installer, operator-confirmed EULA, VST3 and required resources, exit 0, clean retirement. Internal19 runtime mode failure retained; distinct -r3 passed post-install readback/discovery on internal20.",
     "vendor_trial_authorization": "not yet observed",
-    "prebuilt_preparation_and_publication": "not yet observed",
+    "prebuilt_preparation_and_publication": "Passed through normal Check compatibility and Make available for testing on internal21: exact packaged native bytes, no compiler/SDK, managed experimental publication. Plug-in usability not yet observed.",
     "sound": "not yet observed",
     "editor": "not yet observed",
     "save_reopen": "not yet observed; Bitwig demo mode must be resolved",
     "reboot_reopen": "not yet observed",
     "recovery": "Narrow pre-target prefix failure recovery passed through normal New isolated attempt; broader plug-in recovery not yet observed",
-    "environment_creation": "passed for internal16; isolated retry passed for internal19 with new environment bound to -r2"
+    "environment_creation": "Passed on internal16, isolated retry on internal19 and fresh application environment on internal20",
+    "daw_first_run": "Fresh application account launched native Bitwig 6.1.1 from Applications; separate displayed Bitwig EULA confirmation requested; not yet accepted"
   },
   "iteration": [
     "Internal12 built and installed; the prior selected application opened because main lacked the normal successor offer. Integrated draft PR198 controls explicitly, then built and selected internal13 through its frontend.",
@@ -403,6 +404,75 @@
       "direct_product_readback_seconds": 28.11,
       "cause": "Current capture used runtime byte observations, but subsequent product/preparation/scoped environment readback left that scope and performed execution-mode hashing.",
       "source_correction": "Scope all read-only product projection and current-offer admission under the existing validated byte-observation policy; mutation/execution owner retains full verification.",
+      "installed_retest": {
+        "package": "0.12.0internal21-1",
+        "normal_frontend": "FRAGMENTS compatibility controls loaded and Check compatibility was enabled",
+        "product_readback_exit": 0,
+        "product_readback_seconds": 2.173,
+        "full_execution_verification_retained": true
+      }
+    },
+    "successor_build": {
+      "version": "0.12.0internal21-1",
+      "source_head": "82ed27d2feab412474f40bc0bb070116de26c98a",
+      "source_tree": "92dbf8bde19c89a1859d026aaac2ea74c383605a",
+      "deb_sha256": "cfb7e3c8723eea8514b10b9aaaae5c1934105663b58eb8a05cd3b40c97711854",
+      "canonical_sha256": "e02a9227518b0b18e5915fe08df83ab5db1478a31226a23da423436b65d090f7",
+      "manager_sha256": "1c9ec41eae3dcc5471c18e23defd8c3832e9e1ba3c73bdb92a4780a4ce1d1f37",
+      "kit_sha256": "2618022c611b7e6ec61bd434b15aea0a20949f0bc6bea42e99d9df7a114eca87",
+      "proxies": 3,
+      "package_assembly": "Independent backend/native rebuild and byte comparisons passed for all three exact entries",
+      "system_install": "passed; selected-user successor adoption pending",
+      "selected_and_activated": "Passed through Applications > Stop bridge service > Select installed version > Start bridge service; previous generation retained"
+    },
+    "prebuilt_preparation": {
+      "normal_frontend_action": "Check compatibility",
+      "operation": "7f2bfb029dfb60005d2a7b6562d535d6",
+      "state": "completed",
+      "stage": "candidate_ready",
+      "duration_seconds_from_file_mtimes": 317.803,
+      "inspection": "6803bbb21413d265fc40834eaaf50e16394e1467bd7428664eac678c8cacee8f",
+      "candidate": "855156903c28a1b4dde76a00dc03da367f3a3f36fbcf021ae501382097aa3add",
+      "artifact_reused": false,
+      "publication_changed": false,
+      "native_sha256": "91f66d23e78730d152a9429b4e44f7f081f71539ca7a2a540958a1b0f0d9263d",
+      "descriptor_sha256": "06d9dc90d0a77d7776c025cb1e53947aae85ebc40d61a9a2d5e2b61b5b400ce9",
+      "module_sha256": "edb358f124bd35290dc2597e68c2d7f1f4061d5cf650a008f097c463fc6aef89",
+      "external_ids": [
+        "96bd361810b3568a9671700732903d6e",
+        "d3181e9d37e75871ba5ffbcae0775861"
+      ],
+      "post_preparation_product_readback_seconds": 2.901,
+      "normal_frontend_next_action": "Make available for testing",
+      "customer_compiler_or_sdk_installed": false,
+      "long_operation_ui_limitation": "Current status temporarily unavailable during preparation; no responsive long-job UI claim",
+      "delivery": "prebuilt",
+      "prebuilt_index_sha256": "a9ab5e2ec196bd5915b72809e27ba0208f252888e4fc912f0b6001a1d8730185",
+      "native_matches_packaged_entry": true
+    },
+    "test_publication": {
+      "normal_frontend_action": "Make available for testing",
+      "operation": "af89881bd09bf5fc48d9785cc3f4bdb9",
+      "state": "completed",
+      "duration_seconds_from_file_mtimes": 152.646,
+      "candidate": "855156903c28a1b4dde76a00dc03da367f3a3f36fbcf021ae501382097aa3add",
+      "publication_id": "e305d6a35f53df617e4e83d069ecf869",
+      "publication_sha256": "7acf188af06a9f067803e3c388a25558c14999f71b6df47a9a70a83ffe263ebc",
+      "experimental": true,
+      "ordinary": false,
+      "native_sha256": "91f66d23e78730d152a9429b4e44f7f081f71539ca7a2a540958a1b0f0d9263d",
+      "native_elf": true,
+      "published_vst3_symlink": "LVB_41727475415649536772616E50726F63.vst3",
+      "runner_id": "managed-ge-proton11-7-slr4-20260805-r3",
+      "trial_usability": "not yet observed"
+    },
+    "post_publication_readback_refusal": {
+      "package": "0.12.0internal21-1",
+      "overview_exit": 1,
+      "overview_seconds": 0.292,
+      "error": "OS code 2: No such file or directory",
+      "cause": "Without a static native catalogue, operator/setup/onboarding delegated nonempty registry authority only to the legacy sealed FRG1 fixture. The normal managed-preparation publication was not recognized.",
+      "source_correction": "Catalogue owner first verifies exact preparation-owned revision, candidate-derived registration, committed transaction and published/removed physical disposition; sealed FRG1 remains a separate historical fallback. Unknown, changed, pending or uncommitted entries refuse.",
       "installed_retest": "pending"
     }
   }

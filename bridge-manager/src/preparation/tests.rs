@@ -71,6 +71,28 @@ fn fixture() -> (Fixture, Candidate) {
     (f, c)
 }
 #[test]
+fn managed_publication_needs_no_static_catalogue_but_keeps_exact_authority() {
+    let (f, c) = fixture();
+    retain_inspection(&f.m, &c.inspection).unwrap();
+    record_candidate(&f.m, &c).unwrap();
+    let reference = enable(&f.m, &c, false).unwrap();
+    assert!(crate::catalogue::catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
+    let mut foreign = f.m.registry().unwrap();
+    foreign.classes.get_mut(&c.selection.class.id).unwrap().registration.native.sha256 = "ff".repeat(32);
+    assert!(catalogue_free_registry(&f.m, &foreign).is_err());
+    let mut legacy = f.m.registry().unwrap();
+    legacy.classes.get_mut(&c.selection.class.id).unwrap().managed_revision = None;
+    assert!(!catalogue_free_registry(&f.m, &legacy).unwrap());
+    let revision = f.m.load_revision(&c.selection.class.id, &reference).unwrap();
+    let completion = f.m.root.join("transactions").join(format!("{}.result.json",revision.transaction));
+    let saved = completion.with_extension("saved");
+    fs::rename(&completion, &saved).unwrap();
+    assert!(catalogue_free_registry(&f.m, &f.m.registry().unwrap()).is_err());
+    fs::rename(&saved, &completion).unwrap();
+    disable(&f.m, &c).unwrap();
+    assert!(crate::catalogue::catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
+}
+#[test]
 fn touch_carry_forward_keeps_factory_and_selected_class_without_claiming_a_new_scan() {
     let (fixture, before) = fixture();
     let mut after = before.selection.environment.clone();

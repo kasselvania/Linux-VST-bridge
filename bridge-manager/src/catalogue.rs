@@ -293,12 +293,21 @@ impl Catalogue {
     }
 }
 
+/// A managed generated publication supplies its own exact native authority.
+/// Keep the historical sealed FRG1 contract separate from that generic owner.
+pub fn catalogue_free_registry(m: &Manager, registry: &Registry) -> Result<bool> {
+    if crate::preparation::catalogue_free_registry(m, registry)? {
+        return Ok(true);
+    }
+    crate::frg1::catalogue_free_registry(m, registry)
+}
+
 /// AP14 adopts only already managed, verified generated artifacts. Setup is an
 /// inactive product operation; neither playback nor managed publication needs
 /// the original generator checkout/build path after this copy.
 pub fn setup_adoption(m: &Manager, profiles: &[Profile]) -> Result<Option<Catalogue>> {
     let registry = m.registry()?;
-    if crate::frg1::catalogue_free_registry(m, &registry)? {
+    if catalogue_free_registry(m, &registry)? {
         return Ok(None);
     }
     Ok(Some(adoption(m, profiles)?))

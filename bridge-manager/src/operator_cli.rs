@@ -642,12 +642,12 @@ fn environment_projection_from(
 }
 // A fresh product install has no native catalogue until a managed native
 // publication exists. An empty registry can bootstrap the first inventory;
-// afterward only the exact sealed FRG1 publication/restoration remains valid
-// without an ordinary catalogue.
+// Exact managed preparation owns new publications without a static catalogue;
+// the separate sealed FRG1 fixture retains its historical authority.
 fn operator_catalogue(m: &Manager, sw: &Software, registry: &Registry)
     -> Result<Option<linux_vst_bridge::catalogue::Catalogue>> {
     if sw.native_catalogue.is_none() {
-        require(linux_vst_bridge::frg1::catalogue_free_registry(m, registry)?,
+        require(linux_vst_bridge::catalogue::catalogue_free_registry(m, registry)?,
             "native_catalogue_absent_run_product_setup")?;
         Ok(None)
     } else {

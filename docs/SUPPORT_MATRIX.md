@@ -91,8 +91,15 @@ internal20 fresh-account retest acquired it normally, completed vendor
 installation, passed post-install Overview in 4.129 seconds and discovered the
 exact class. Actual module bytes differ from the retained Deck fixture despite
 the same version label. Product controls then timed out (direct readback 28.110
-seconds); the shared readback scope correction awaits installed retest. Trial
-usability, publication, sound, editor and persistence remain open.
+seconds); internal21 installed the shared readback correction and product controls
+passed in 2.173 seconds. Normal compatibility checking completed in 317.803
+seconds and prepared the exact packaged trial proxy. Normal Make available
+for testing completed the exact managed experimental publication in 152.646
+seconds. Subsequent Overview hit the catalogue ownership gap
+[FC-MGMT-004](FAILURE_CLASSES.md#fc-mgmt-004--managed-publication-is-mistaken-for-a-static-catalogue-fixture);
+the generic exact-preparation correction awaits installed retest. Fresh-account
+Bitwig first run displayed its separate EULA, awaiting operator confirmation.
+Trial usability, sound, editor and persistence remain open.
 Neither the Deck 1.0.0 result nor the Ubuntu-lab 1.3.1 workaround qualifies
 this new delivered runtime. The VM had an earlier test package but no plug-in,
 runtime or copied authorization. It is not a pristine OS-first-install result.

@@ -1227,7 +1227,7 @@ pub(crate) fn check_publication(m: &Manager, p: &Profile, r: &Registration) -> R
     expected.native.path = r.native.path.clone();
     require(expected == *r, "candidate_registration_changed")
 }
-pub(crate) fn retained(m: &Manager, r: &Revision) -> Result<()> {
+fn verify_retained_revision(m: &Manager, r: &Revision) -> Result<()> {
     check_publication(m, &r.profile, &r.registration)?;
     require(
         r.performance.added_frames == 512 && r.external_ids == external_ids(&r.class_id)?,
@@ -1239,6 +1239,31 @@ pub(crate) fn retained(m: &Manager, r: &Revision) -> Result<()> {
             || (r.profile.claim == Claim::VerifiedExactFixture && r.qualification.is_none()),
         "candidate_authority_kind",
     )?;
+    Ok(())
+}
+/// Managed preparation owns its exact generated publication independently of
+/// the static catalogue shipped for previously qualified fixtures. A completed
+/// transaction and the physical selected/removed disposition remain required.
+pub(crate) fn catalogue_free_registry(m: &Manager, registry: &Registry) -> Result<bool> {
+    for (class, entry) in &registry.classes {
+        let Some(reference) = &entry.managed_revision else { return Ok(false); };
+        let revision = m.load_revision(class, reference)?;
+        if !owns_profile(m, &revision.profile)? { return Ok(false); }
+        verify_retained_revision(m, &revision)?;
+        require(revision.registration == entry.registration
+            && !m.publication_pending(class)?, "candidate_catalogue_free_identity")?;
+        m.verify_completed_publication(&revision, reference)?;
+        let physical = physical(&m.link(class))?;
+        require(match entry.publication {
+            Publication::Published => physical == Some(revision.target),
+            Publication::Removed => physical.is_none(),
+            Publication::Pending => false,
+        }, "candidate_catalogue_free_publication")?;
+    }
+    Ok(true)
+}
+pub(crate) fn retained(m: &Manager, r: &Revision) -> Result<()> {
+    verify_retained_revision(m, r)?;
     let db = m.registry()?;
     let e = db
         .classes

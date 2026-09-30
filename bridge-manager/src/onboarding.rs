@@ -131,7 +131,7 @@ pub fn runner_key(r: &Runner) -> Result<String> {
 pub fn runners(m: &Manager) -> Result<Vec<(String, Runner)>> {
     let sw = software(m)?;
     let mut list = if sw.native_catalogue.is_none() {
-        require(crate::frg1::catalogue_free_registry(m, &m.registry()?)?,
+        require(catalogue::catalogue_free_registry(m, &m.registry()?)?,
             "native_catalogue_absent_run_product_setup")?;
         vec![]
     } else { runners_from_catalogue(Some(&sw.catalogue(m)?))? };

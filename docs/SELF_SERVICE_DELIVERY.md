@@ -73,6 +73,14 @@ SDK, VST3 SDK or download. An unlisted module or different metadata is refused,
 with no source-build fallback. A subsequent kit can add a specifically tested
 build; an existing project must never silently receive another class/build.
 
+The internal21 test kit retains the Pure LoFi fixture and original Deck
+FRAGMENTS entry, and adds the exact module produced by official FRAGMENTS
+1.0.0.2925 installer media (`edb358f1…`). Its
+[allow-listed SDK census](../evidence/self-service-delivery/fragments-1.0.0.2925-official-sdk-metadata.json)
+comes from normal installed discovery on internal20. A shared version label
+does not substitute for the module digest. This census defines the native
+presentation, not an audio or vendor-authorization qualification.
+
 Historical schema 2 kits remain readable for existing installations. Their
 compiler prerequisites do not describe the new schema 3 installation route.
 Prebuilt delivery does not imply every plug-in is supported: the exact shipped
