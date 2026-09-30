@@ -102,6 +102,59 @@ fn managed_publication_needs_no_static_catalogue_but_keeps_exact_authority() {
     assert!(crate::catalogue::catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
 }
 #[test]
+fn successor_publication_keeps_explicit_buffering_and_requires_exact_proxy_capacity() {
+    let (f, c) = fixture();
+    retain_inspection(&f.m, &c.inspection).unwrap();
+    record_candidate(&f.m, &c).unwrap();
+    let original = enable(&f.m, &c, false).unwrap();
+    fn kit(f: &Fixture, c: &Candidate, schema: u32) -> Artifact {
+        let path = f.m.root.join("software").join(format!("envelope-{schema}.zip"));
+        private_dir(path.parent().unwrap()).unwrap();
+        let row = json!({"class_id":c.selection.class.id,"module_sha256":c.selection.module.sha256,
+            "native_sha256":c.native.artifact.sha256,"file":"prebuilt/proxy.so",
+            "maximum_bridge_frames":1024});
+        let index = json!({"schema":schema,"proxies":[row]}).to_string();
+        let status = std::process::Command::new("python3").args(["-I", "-c", r#"
+import hashlib,json,sys,zipfile
+index=sys.argv[2].encode()
+with zipfile.ZipFile(sys.argv[1],'w') as archive:
+ archive.writestr('prebuilt/index.json',index)
+ archive.writestr('recipe.json',json.dumps({'schema':3,'files':{
+  'prebuilt/index.json':hashlib.sha256(index).hexdigest(),'prebuilt/proxy.so':sys.argv[3]}}))
+"#]).arg(&path).arg(index).arg(&c.native.artifact.sha256).status().unwrap();
+        assert!(status.success());
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        Artifact {sha256:digest(&path).unwrap(),path}
+    }
+    let mut software = crate::catalogue::Software {
+        installer_launch: None, preparation_kit: None,
+        manager: c.host.clone(), operator_frontend: None,
+        supervisor: c.host.clone(), ownership: c.host.clone(), host: c.host.clone(),
+        source_manifest: c.source_manifest.clone(),
+        source_sha256: c.source_manifest.sha256.clone(), native_catalogue: None,
+    };
+    software.preparation_kit = Some(kit(&f, &c, 2));
+    atomic_json(&f.m.root.join("software.json"), &software).unwrap();
+    f.m.select_delay(&c.selection.class.id, 1024).unwrap();
+    let next = prepared(c.selection.clone(), c.inspection.clone(), c.native.clone(),
+        c.host.clone(), c.source_manifest.clone(), software.preparation_kit.as_ref().unwrap().sha256.clone()).unwrap();
+    record_candidate(&f.m, &next).unwrap();
+    let reference = replace(&f.m, &next, &original).unwrap();
+    let revision = f.m.load_revision(&c.selection.class.id, &reference).unwrap();
+    assert_eq!(revision.performance.added_frames, 1024);
+    retained(&f.m, &revision).unwrap();
+    assert!(catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
+    // An older exact kit or absent capability cannot authorize this snapshot.
+    software.preparation_kit = Some(kit(&f, &c, 1));
+    atomic_json(&f.m.root.join("software.json"), &software).unwrap();
+    assert!(retained(&f.m, &revision).unwrap_err().to_string().contains("candidate_runtime_contract"));
+    software.preparation_kit = None;
+    atomic_json(&f.m.root.join("software.json"), &software).unwrap();
+    assert!(retained(&f.m, &revision).is_err());
+    let prior = f.m.load_revision(&c.selection.class.id, &original).unwrap();
+    verify_retained_revision(&f.m, &prior).unwrap();
+}
+#[test]
 fn touch_carry_forward_keeps_factory_and_selected_class_without_claiming_a_new_scan() {
     let (fixture, before) = fixture();
     let mut after = before.selection.environment.clone();

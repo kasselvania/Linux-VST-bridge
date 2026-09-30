@@ -1259,7 +1259,19 @@
         "byte_reproducible_claim": false,
         "managed_runtime_adopted": false,
         "vendor_test_passed": false
-      }
+      },
+      "reference_harness_cleanup": {
+        "failure": "managed_runtime_roster_changed",
+        "cause": "baseline reference test generated Python bytecode caches in original runtime tree",
+        "extra_entries": 16,
+        "retained_separately": true,
+        "all_original_sealed_rows_verified": 16911,
+        "runtime_manifest_changed": false,
+        "runtime_files_changed": false,
+        "roster_restored": true,
+        "product_recovery_claim": false
+      },
+      "reference_units_remaining": false
     },
     "preparation_accessibility_correction": {
       "source_data": "compatibility/preparation-accessibility.json",
@@ -1272,7 +1284,77 @@
       "existing_publication_changed": false,
       "ordinary_or_vendor_family_support_claim": false,
       "source_preparation_tests_passed": 36,
-      "installed_retest": "pending"
+      "installed_retest": "internal29: exact policy prepared and published; DAW admission refused before Windows DSP/editor"
+    },
+    "package_internal29": {
+      "source_head": "9bc837b09b69ca3b4e30926cf4e62e8ea47994b6",
+      "source_tree": "a39a80242f0258c7ca8e5c4db6f4ffae534ab60f",
+      "version": "0.12.0internal29-1",
+      "deb_sha256": "9997c5cec9fd4f322ae8157cc8bfb81ca6029e5d0f1dad9dde8075c38ac7e3ca",
+      "canonical_release_sha256": "239a007ebe7509231897ba8640b883fde025bbf614bdd5e059db910493dc448c",
+      "manager_sha256": "581b73eb6fa9849f673a36000f35442c09fa72193e3234a3a1181d2ec434d7e3",
+      "frontend_sha256": "6776a4b01a5e5343174bcbf41b5e20de623f0900ce267b15c7e2a29e1f7f4e8b",
+      "windows_host_sha256": "a90de3ca2f7360e8c9477184acb8224ebf394d4e46cf00fd905892002a79cd13",
+      "host_source_manifest_sha256": "dc54a88d5e5bfb0074cc13460b0d0b2d6147fd3930d3c538e82416bae9448873",
+      "preparation_kit_sha256": "99d6d64fec3dab3060f88f4e1410e32a67f23c5caa30aa649f9aa7d303002398",
+      "prebuilt_entries": 3,
+      "native_trial_sha256": "bbee707e64e9cfb96b58762aadde125c096779f9c165bfb9c4b6bc9623e9ba41",
+      "system_install_exit": 0,
+      "normal_user_selection": "passed through Stop / Select installed version / Start",
+      "selected_storage_generation": "e89c6c197ac5e834eebcc30b00e8554f8e2a5380d1e7246760c5485bdcd8cd4e",
+      "retained_storage_generations": [
+        "3d298c051daaa7d4cbe731a8b31192372cd6425e61b3e72c48fedee56191f70e",
+        "d6b235d4f99582eae0e1b183d46580bf5394d23c5703eef809705c1e1b761a2f"
+      ],
+      "service_gui": "Bridge ready, DSP 0/6, install/scan 0, cleanup confirmed"
+    },
+    "preparation_internal29": {
+      "inspection_operation": "d6fb49de481588e4ace8b4554af5bd40",
+      "inspection_windows_session": "a24843b65b521207dcc490e360f53ab5",
+      "inspection_report_sha256": "dd6a3f0eb4c40a710391f2ca767d7032b7db82fec8b6ba2effd30081e720c90b",
+      "inspection_error": null,
+      "inspection_cleanup_confirmed": true,
+      "preparation_operation": "31177b0f73acdd45d78cd432d71f6352",
+      "candidate_id": "202e3aab7be0d29d2794f743cd81c282eb5e26d976f1a80c85f61e93f3d0c5e8",
+      "profile_id": "managed.28c8565ecb77b97ccad24e776b21e88789b0328607070c511f3d0a93ba8b3c05",
+      "accessibility": "disabled_for_vendor_process",
+      "claim": "review_candidate",
+      "native_sha256": "bbee707e64e9cfb96b58762aadde125c096779f9c165bfb9c4b6bc9623e9ba41",
+      "exact_physical_native_matches": true,
+      "normal_product_controls": true,
+      "existing_publication_reinspection_and_preparation_required_expert_actions": true,
+      "publication_operation": "1baba7a7752b12a22fd11343eaaab0fd",
+      "publication_revision_id": "de4e0fa11692349fd5378e995f4f7434",
+      "publication_revision_sha256": "954f51c06538ed993e11005f01d0c00e410d5deadc127364652316fb4ae3261d",
+      "publication_replacement_completed": true,
+      "snapshot_added_frames": 1024,
+      "registration_disable_windows_accessibility": true,
+      "ordinary_support_claim": false
+    },
+    "daw_admission_internal29": {
+      "attempts": [
+        "cold live preview",
+        "normal inserted instance",
+        "normal Reload Plug-in"
+      ],
+      "bitwig_result": "Could not load plug-in; setupProcessing result 1",
+      "manager_service_failure": "candidate_runtime_contract",
+      "service_manager_digest_matches_installed_package": true,
+      "new_windows_dsp_session": false,
+      "vendor_editor_or_audio_result": false,
+      "cause": "Retained-revision verifier required exactly 512 although normal replacement retained the explicitly selected 1024-frame configuration.",
+      "earlier_keeper_starting_attribution": "superseded: retained keeper incident was from internal28; current attempts refused at publication contract verification",
+      "operating_system_settings_changed": false
+    },
+    "publication_buffering_correction": {
+      "source_owner": "preparation::verify_retained_revision",
+      "default_and_historical_512_preserved": true,
+      "1024_requires_exact_selected_kit_module_class_native_capacity": true,
+      "runtime_or_native_bytes_changed": false,
+      "source_regression": "actual explicit select-delay, successor replacement and catalogue-free/retained admission; old or absent kit refuses; predecessor 512 remains readable",
+      "preparation_tests_passed": 37,
+      "all_targets_clippy": "passed, warnings denied",
+      "installed_retest": "pending internal30"
     }
   },
   "current_source_validation": {
@@ -1297,6 +1379,12 @@
       "passed": 36,
       "scope": "managed preparation, exact identities, predecessor preservation and unsupported-policy refusal"
     },
-    "accessibility_all_targets_clippy": "passed, warnings denied"
+    "accessibility_all_targets_clippy": "passed, warnings denied",
+    "accessibility_source_head": "9bc837b09b69ca3b4e30926cf4e62e8ea47994b6",
+    "accessibility_ci": "8 of 8 passed",
+    "publication_buffering_tests": {
+      "passed": 37,
+      "all_targets_clippy": "passed, warnings denied"
+    }
   }
 }

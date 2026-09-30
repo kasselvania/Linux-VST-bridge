@@ -79,6 +79,14 @@ reference; two isolated corrected builds pass it. Commercial testing of the
 new preparation policy and normal live installer recovery are pending.
 Preparation still took several minutes and is not a responsiveness qualification.
 
+Internal29 selected the exact accessibility policy through managed preparation
+and normal replacement, preserving the environment, runtime and predecessor
+publication. Its replacement snapshot retained 1024 frames; the old admission
+verifier still required 512 and refused before a Windows DSP session existed.
+The bounded publication repair now verifies the larger snapshot against exact
+prebuilt capacity. Its 37 preparation tests and all-target Clippy pass; installed
+internal30 audio/editor and recovery checks remain necessary.
+
 State capture remains refused (SDK result 1, zero bytes). [Arturia's demo
 policy](https://support.arturia.com/hc/en-us/articles/5671785160732-Demo-versions-What-should-I-know)
 disables save/load features; the refusal is consistent with that restriction,

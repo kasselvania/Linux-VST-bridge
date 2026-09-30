@@ -65,3 +65,21 @@ is unqualified. Normal close reproduced the removed() access violation, with
 positive containment. The shared host now clears IPlugFrame before removed(),
 matching the SDK editorhost; build and commercial close/reopen checks remain
 necessary. Vendor state capture and demo project persistence remain open.
+
+Internal28 delivered that host order and captured processed stereo audio, but
+two ordinary editor closes reproduced the same Wine UI Automation fault.
+Internal29 prepared and published the exact process accessibility policy in
+[the separate correction](RUNTIME_UIA_GUARD.md). That replacement retained the
+already selected 1024-frame preference in its immutable publication revision.
+The old retained-revision verifier nevertheless required 512, so all three
+normal Bitwig load attempts refused `candidate_runtime_contract` before a
+Windows DSP session or editor existed. The earlier keeper-starting attribution
+does not apply to these attempts.
+
+The shared admission repair accepts a 1024-frame snapshot only when the selected
+sealed kit binds the exact module, class and native bytes to that capacity.
+512-frame history remains readable. The owner regression exercises explicit
+selection, successor replacement, retained admission and catalogue ownership;
+an older or absent kit refuses the larger snapshot. All 37 preparation tests
+and warnings-denied all-target Clippy pass. The installed internal30 retest is
+pending; this source result does not establish commercial editor retirement.
