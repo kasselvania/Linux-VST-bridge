@@ -155,6 +155,82 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
     verify_retained_revision(&f.m, &prior).unwrap();
 }
 #[test]
+fn populated_kit_update_retains_exact_published_proxy_capacity() {
+    let (f, c) = fixture();
+    retain_inspection(&f.m, &c.inspection).unwrap();
+    record_candidate(&f.m, &c).unwrap();
+    let original = enable(&f.m, &c, false).unwrap();
+    fn kit(f: &Fixture, c: &Candidate, name: &str, successor: bool) -> Artifact {
+        let path = f.m.root.join("software").join(format!("capacity-{name}.zip"));
+        private_dir(path.parent().unwrap()).unwrap();
+        let status = std::process::Command::new("python3").args(["-I", "-c", r#"
+import hashlib,json,pathlib,sys,zipfile
+out,host,source,native,klass,module,successor=sys.argv[1:]
+proxy=b'successor proxy fixture' if successor=='true' else pathlib.Path(native).read_bytes()
+digest=lambda data:hashlib.sha256(data).hexdigest()
+index={'schema':2,'proxies':[{'class_id':klass,'module_sha256':module,
+ 'native_sha256':digest(proxy),'file':'prebuilt/proxy.so','maximum_bridge_frames':1024}]}
+files={'prebuilt/index.json':json.dumps(index).encode(),'prebuilt/proxy.so':proxy,
+ 'runtime/host.exe':pathlib.Path(host).read_bytes(),
+ 'runtime/host-source-manifest.json':pathlib.Path(source).read_bytes(),
+ 'tools/mf3/native_builder.py':b'# test instrumentation',
+ 'tools/ap8_descriptor.py':b'# test instrumentation'}
+with zipfile.ZipFile(out,'w') as archive:
+ for key,data in files.items():archive.writestr(key,data)
+ archive.writestr('recipe.json',json.dumps({'schema':3,'files':{key:digest(data) for key,data in files.items()}}))
+"#]).arg(&path).arg(&c.host.path).arg(&c.source_manifest.path)
+            .arg(&c.native.artifact.path).arg(&c.selection.class.id)
+            .arg(&c.selection.module.sha256).arg(successor.to_string()).status().unwrap();
+        assert!(status.success());
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        Artifact {sha256:digest(&path).unwrap(),path}
+    }
+    let old_kit = kit(&f, &c, "old", false);
+    let mut software = crate::catalogue::Software {
+        installer_launch: None, preparation_kit: Some(old_kit.clone()),
+        manager: c.host.clone(), operator_frontend: None,
+        supervisor: c.host.clone(), ownership: c.host.clone(), host: c.host.clone(),
+        source_manifest: c.source_manifest.clone(),
+        source_sha256: c.source_manifest.sha256.clone(), native_catalogue: None,
+    };
+    atomic_json(&f.m.root.join("software.json"), &software).unwrap();
+    f.m.select_delay(&c.selection.class.id, 1024).unwrap();
+    let runtime = build::stage_runtime(&f.m).unwrap();
+    let mut inspection = c.inspection.clone();
+    inspection.host = runtime.host.clone();
+    inspection.source_manifest = runtime.source_manifest.clone();
+    let retained_candidate = prepared(c.selection.clone(), inspection, c.native.clone(),
+        runtime.host, runtime.source_manifest, old_kit.sha256.clone()).unwrap();
+    retain_inspection(&f.m, &retained_candidate.inspection).unwrap();
+    record_candidate(&f.m, &retained_candidate).unwrap();
+    let reference = replace(&f.m, &retained_candidate, &original).unwrap();
+    let revision = f.m.load_revision(&c.selection.class.id, &reference).unwrap();
+    assert_eq!(revision.performance.added_frames, 1024);
+    let registry_before = fs::read(f.m.root.join("registry.json")).unwrap();
+    software.preparation_kit = Some(kit(&f, &c, "new", true));
+    atomic_json(&f.m.root.join("software.json"), &software).unwrap();
+    retained(&f.m, &revision).unwrap();
+    assert!(catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
+    f.m.select_delay(&c.selection.class.id, 512).unwrap();
+    f.m.select_delay(&c.selection.class.id, 1024).unwrap();
+    assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry_before);
+    let mut foreign = revision.registration.clone();
+    foreign.module.sha256 = "ff".repeat(32);
+    assert_eq!(build::maximum_bridge_frames(&f.m, &foreign).unwrap(), None);
+    software.preparation_kit = None;
+    atomic_json(&f.m.root.join("software.json"), &software).unwrap();
+    retained(&f.m, &revision).unwrap();
+    let record = f.m.root.join("software/preparation-kits")
+        .join(&old_kit.sha256).join("runtime.json");
+    let saved = fs::read(&record).unwrap();
+    fs::remove_file(&record).unwrap();
+    assert!(retained(&f.m, &revision).is_err());
+    immutable(&record, &serde_json::from_slice::<build::Runtime>(&saved).unwrap()).unwrap();
+    fs::set_permissions(&old_kit.path, fs::Permissions::from_mode(0o600)).unwrap();
+    fs::write(&old_kit.path, b"changed retained recipe").unwrap();
+    assert!(retained(&f.m, &revision).is_err());
+}
+#[test]
 fn touch_carry_forward_keeps_factory_and_selected_class_without_claiming_a_new_scan() {
     let (fixture, before) = fixture();
     let mut after = before.selection.environment.clone();

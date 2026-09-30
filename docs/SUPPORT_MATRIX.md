@@ -139,6 +139,18 @@ declared priming; 19 backend tests pass with zero callback allocations across
 1,100 blocks. These changes are absent from internal32 and establish no
 installed startup, steady-audio or physical repair claim.
 
+Internal33 delivered those changes and selected normally on the populated
+Ubuntu account, but Home refused `candidate_runtime_contract`: the successor
+kit was incorrectly used to validate the old exact proxy's 1024-frame capacity.
+The next source correction retains that capability through the publication's
+own verified recipe; 37 preparation tests and 264 manager binary tests pass,
+with two existing tests ignored. Internal33 is failed, not an installed repair
+or beta qualification. Its normal frontend rollback restored internal32 with
+identical software/registry hashes and a usable Home screen, without manual
+process termination or state edits. This is populated software restoration,
+not saved-project recall. See
+[FC-MGMT-002](FAILURE_CLASSES.md#integrated-retained-proxy-capability-follow-up).
+
 The original clean-machine journey uses the same official trial media on that
 Ubuntu 26.04.1 VM with Bitwig 6.1.1. Its posture is **unqualified**. Internal13
 completed normal package selection, service activation and acquisition of

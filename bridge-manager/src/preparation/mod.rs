@@ -1234,6 +1234,9 @@ pub fn session_binding(
     Ok(true)
 }
 pub(crate) fn check_publication(m: &Manager, p: &Profile, r: &Registration) -> Result<()> {
+    publication_candidate(m, p, r).map(|_| ())
+}
+fn publication_candidate(m: &Manager, p: &Profile, r: &Registration) -> Result<Candidate> {
     let c = for_profile(m, p)?.ok_or("candidate_preparation_required")?;
     verify_retained_candidate(m, &c)?;
     let mut expected = crate::observation::derive_for(
@@ -1247,7 +1250,8 @@ pub(crate) fn check_publication(m: &Manager, p: &Profile, r: &Registration) -> R
         },
     )?;
     expected.native.path = r.native.path.clone();
-    require(expected == *r, "candidate_registration_changed")
+    require(expected == *r, "candidate_registration_changed")?;
+    Ok(c)
 }
 fn verify_retained_revision(m: &Manager, r: &Revision) -> Result<()> {
     check_publication(m, &r.profile, &r.registration)?;

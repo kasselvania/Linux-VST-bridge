@@ -139,3 +139,13 @@ through the normal frontend while preserving its exact predecessor. The
 original CachyOS observations are not Ubuntu test results. This closes the
 package-selection dependency for the delivery test; task 5 still includes
 coordinated runner, plug-in and project recovery.
+
+Internal33 exposed a further populated-account requirement: a new proxy kit
+cannot replace the capacity authority of an older exact publication. Its Home
+readback refused `candidate_runtime_contract` after successful package selection.
+The source correction checks the old publication's exact candidate, retained
+runtime recipe and indexed module/class/native digest when the current kit does
+not contain that binary. Missing or changed retained inputs still refuse. The
+old coherent executable set and customer state remain independent from the
+new kit used to prepare successors. See FC-MGMT-002; a passing source test does
+not repair the failed installed candidate.

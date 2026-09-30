@@ -1259,6 +1259,31 @@ A new software generation retained only its default Windows host/source pair, om
 
 Pure LoFi and Efx FRAGMENTS / Steam Deck: the prior mismatch and later product use are observed. Serum 2 / Steam Deck: first package refusal and corrected candidate-C publication are retained. Ubuntu FRAGMENTS uses separate platform authority and is not inferred from these Deck results.
 
+### Integrated retained-proxy capability follow-up
+
+Internal33 selected a changed native kit on the populated Ubuntu account while
+retaining the original FRAGMENTS registration. Home then refused
+`candidate_runtime_contract`. The 1024-frame publication check consulted only
+the successor kit; its changed native digest could not prove the older proxy's
+capacity. Host-pair retention alone does not retain every publication capability.
+This is a new measured boundary; it does not assign that cause to older host
+reports. Internal33 is a failed development candidate.
+
+The source correction follows the exact published candidate's retained recipe
+when the selected kit does not describe that proxy. The publication, original
+runtime/host/source binding, immutable kit digest and module/class/native index
+must all match. It neither searches arbitrary kit directories nor enlarges a
+proxy based on a new manager. The regression changes the selected kit, retains
+the old publication and 1024-frame selection, and rejects foreign targets,
+missing retained runtime and changed recipe bytes. All 37 preparation tests and
+264 manager binary tests pass (two existing tests ignored); all-target Clippy
+passes. The actual ordinary Stop → Restore previous version → Start route
+restored internal32, its running frontend and identical software/registry hashes
+without state edits or manual process termination. Home again showed Bridge
+ready / compatibility unqualified. See the
+[internal33 development receipt](../evidence/self-service-delivery/ubuntu-internal33-development.json).
+Installed correction and project recall remain to be tested.
+
 ### Claim limit
 
 Retain only immutable host/source pairs already required by exact verified profile or candidate authority. This is not permission to admit arbitrary historical hosts, rescan to mask the mismatch, or substitute a different plug-in build.

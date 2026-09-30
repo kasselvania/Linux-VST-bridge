@@ -24,15 +24,32 @@ pub fn recipe(m: &Manager) -> Result<Artifact> {
     kit.verify()?;
     Ok(kit)
 }
-/// The selected kit must bind this exact native binary as well as module/class.
+/// A verified kit must bind this exact native binary as well as module/class.
 /// An older proxy cannot acquire a larger envelope from a newer manager alone.
 pub fn maximum_bridge_frames(m: &Manager, r: &Registration) -> Result<Option<u32>> {
     let software: crate::catalogue::Software = read_json(&m.root.join("software.json"))?;
-    if software.preparation_kit.is_none() {
-        return Ok(None);
-    }
-    let kit = recipe(m)?;
     r.native.verify()?;
+    if software.preparation_kit.is_some() {
+        let maximum = maximum_from_kit(&recipe(m)?, r)?;
+        if maximum.is_some() { return Ok(maximum); }
+    }
+    // A changed kit describes its own proxies, not the capacity of a retained
+    // publication. Follow that publication's exact candidate recipe, never an
+    // ambient kit search or the successor's module/class match alone.
+    let registry = m.registry()?;
+    let Some(entry) = registry.classes.get(&r.metadata.class_id)
+        .filter(|entry| entry.registration == *r) else { return Ok(None); };
+    let Some(reference) = &entry.managed_revision else { return Ok(None); };
+    let revision = m.load_revision(&r.metadata.class_id, reference)?;
+    let candidate = super::publication_candidate(m, &revision.profile, r)?;
+    if !valid_hex(&candidate.recipe_sha256, 64) { return Ok(None); }
+    let retained = existing_runtime(m, &candidate.recipe_sha256)?;
+    require(candidate.host == retained.host && candidate.source_manifest == retained.source_manifest,
+        "candidate_runtime_changed")?;
+    maximum_from_kit(&retained.kit, r)
+}
+fn maximum_from_kit(kit: &Artifact, r: &Registration) -> Result<Option<u32>> {
+    kit.verify()?;
     let request = serde_json::json!({"kit":kit.path,"class_id":r.metadata.class_id,
         "module_sha256":r.module.sha256,"native_sha256":r.native.sha256});
     let mut child = Command::new("python3")
