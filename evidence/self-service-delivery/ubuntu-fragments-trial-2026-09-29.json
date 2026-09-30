@@ -1,0 +1,100 @@
+{
+  "schema": 1,
+  "claim": "Delivered runtime and prebuilt proxy commercial journey; partial observations",
+  "fixture": {
+    "distro": "Ubuntu 26.04.1 LTS",
+    "kernel": "7.0.0-34-generic",
+    "architecture": "x86_64",
+    "desktop": "GNOME, observed through the VM display",
+    "bitwig": "6.1.1 native Debian package, demo mode",
+    "cpu_count": 2,
+    "memory_gib": 4,
+    "baseline": "Disposable VM with earlier internal-test bridge package; zero managed plug-ins, no runtime or copied authorization. This is an upgrade test on a runtime/plugin-clean fixture, not a pristine operating-system first install.",
+    "physical_audio": "QEMU discards the virtual device output. Selecting this device does not prove audible processing."
+  },
+  "runtime_acquisition": {
+    "package_version": "0.12.0internal13-1",
+    "source_head": "1cea502d9629db29d64da90f45b46548855301bf",
+    "source_tree": "410cb50cafea5f75a5af36c4ea597fe5793bf559",
+    "deb_sha256": "a1b480dc018cd8fc9423dfe2b43a44cce52dc4a90f744f71d49cd4833ce4d208",
+    "manager_sha256": "d2a7fe22e3e76fef63578eb1275ac94b42562841f7c28c7c7c54ef6b75b0b28c",
+    "frontend_sha256": "5801abcbb780997487cd0a724ee1d1c2b786c54128cb863d2932f555cc3c69be",
+    "runtime_id": "managed-ge-proton11-7-slr4-20260805",
+    "runner_key": "5e197950eb1005e02cd85135a0b3e96b146a982fcdf5895c546372560b6c1845",
+    "action": "Normal Applications launcher, idle-service stop, Select installed version, Start bridge service, Setup, Install compatibility runtime (728 MB download)",
+    "predecessor_retained": true,
+    "result": "completed; installed=true; plug-in support explicitly not qualified by runtime installation",
+    "duration_seconds_from_request_and_result_file_mtimes": 348.77,
+    "runtime_tree_entries": 16911,
+    "fresh_download": true,
+    "maintainer_seeded_runtime": false,
+    "external_commands_present": {
+      "wine": false,
+      "proton": false,
+      "steam": false,
+      "g++": false,
+      "cmake": false,
+      "ninja": false,
+      "flatpak": false,
+      "curl": true
+    },
+    "status_read_seconds": 19.067,
+    "status_read_limit": "One successful installed Overview; full runtime hashing is slow on this VM. A concurrent GUI readback temporarily reported unavailable. No responsive-UI qualification."
+  },
+  "commercial_installer": {
+    "product": "Arturia Efx FRAGMENTS",
+    "version": "1.0.0.2925",
+    "license_channel": "Official trial selected by operator; no copied activation",
+    "url": "https://dl.arturia.net/products/efx-fragments/soft/Efx_FRAGMENTS__1_0_0_2925.exe",
+    "sha256": "b9b15be251a707ed6f6490ae410712d81ff6f579b54fb76c9c77c6ff01c74ddc",
+    "size": 83679008,
+    "expected_module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+    "class_id": "41727475415649536772616E50726F63",
+    "expected_metadata_provenance": "Sanitized SDK metadata from the unchanged Deck fixture; not qualification of this Ubuntu runner"
+  },
+  "journey": {
+    "package_install": "passed",
+    "normal_package_selection_and_activation": "passed for internal13",
+    "runtime_download_install": "passed for internal13",
+    "runtime_execution": "not yet observed",
+    "installer_import_and_execution": "not yet observed",
+    "vendor_trial_authorization": "not yet observed",
+    "prebuilt_preparation_and_publication": "not yet observed",
+    "sound": "not yet observed",
+    "editor": "not yet observed",
+    "save_reopen": "not yet observed; Bitwig demo mode must be resolved",
+    "reboot_reopen": "not yet observed",
+    "recovery": "not yet observed"
+  },
+  "iteration": [
+    "Internal12 built and installed; the prior selected application opened because main lacked the normal successor offer. Integrated draft PR198 controls explicitly, then built and selected internal13 through its frontend.",
+    "Source inspection found that fresh installer continuation still selected only the legacy catalogue default. Corrected to use the verified delivered default; focused regression and onboarding tests passed. Internal14 was rebuilt and installed; selected and activated through the normal frontend, retaining internal13 and the runtime acquired by its ordinary Setup action. Commercial testing continues."
+  ],
+  "source_verification": {
+    "library_tests": "173 passed",
+    "manager_binary_serial": "252 passed, 1 ignored at internal13 source",
+    "earlier_parallel_manager_run": "Two Python SIGTERM timing fixtures failed at a 50ms startup threshold; targeted serial reruns and the full serial run passed. A stale readiness schema assertion was corrected to the shared constant.",
+    "frontend_tests": "79 passed; package bootstrap focused 6 passed after integration",
+    "onboarding_after_default_fix": "20 passed",
+    "prebuilt_python": "10 passed",
+    "descriptor_python": "11 passed",
+    "package_assembly": "19 passed",
+    "deb_package": "13 tests; 1 skipped for unavailable signing helper",
+    "clippy": "Manager and frontend all targets, warnings denied, passed",
+    "native_linux": "Two proxy builds and package-time byte-for-byte source rebuild verification passed",
+    "limits": "These source/build checks do not establish commercial audio, activation, editor or project recall."
+  },
+  "preserved": "No Deck/Pi software, publications, runtime or licensed environment was changed. No proprietary installer/module or authorization material is committed. Internal-test package only; customer signing and complete release obligations remain task 4.",
+  "selected_successor": {
+    "version": "0.12.0internal14-1",
+    "source_head": "4ef687f709dead8cfd17173b129c806f18c7ba3b",
+    "source_tree": "c74faec2c05d415fa0afaff616be3375d5048345",
+    "deb_sha256": "c0a8e0655631d29f43a3292cd947990961d98c6f41064c820c37575691de914d",
+    "manager_sha256": "11dda05c819d30d41ca38b8ba2c9d1fed835c37e860fb630ae78e09ab2a2e7af",
+    "frontend_sha256": "5801abcbb780997487cd0a724ee1d1c2b786c54128cb863d2932f555cc3c69be",
+    "kit_sha256": "74fadb0a77280311074bbd281b396cc35c6788ebd326e1b7e1bbc613cac37150",
+    "normal_frontend_selection_and_activation": "observed",
+    "predecessor_retained": true,
+    "previous_runtime_preserved": true
+  }
+}

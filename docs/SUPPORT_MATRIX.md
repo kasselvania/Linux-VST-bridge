@@ -57,6 +57,17 @@ product results remain scoped to their recorded input fixtures.
 
 Blackhole, Kontakt, Pigments, Pure LoFi and Serum 2 have **no accepted Ubuntu product row**. Deck results do not transfer to Ubuntu. The Raspberry Pi standalone experiment is a separate appliance claim, not a native-DAW support row here.
 
+The [self-service delivery test](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json)
+uses official Efx FRAGMENTS 1.0.0.2925 trial media on a separate disposable
+Ubuntu 26.04.1 VM with Bitwig 6.1.1. Its posture is **unqualified**. Internal13
+completed normal package selection, service activation and acquisition of
+`managed-ge-proton11-7-slr4-20260805` without preinstalled Wine, Proton or Steam.
+The package contains verified prebuilt FRAGMENTS/Pure LoFi proxies; commercial
+runtime execution, publication, sound, editor and persistence remain open.
+Neither the Deck 1.0.0 result nor the Ubuntu-lab 1.3.1 workaround qualifies
+this new delivered runtime. The VM had an earlier test package but no plug-in,
+runtime or copied authorization. It is not a pristine OS-first-install result.
+
 ## Shared capacity posture
 
 For the accepted AP17 Steam Deck fixture:
