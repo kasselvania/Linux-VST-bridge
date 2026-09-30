@@ -1160,9 +1160,24 @@ fn serve(m: Manager) -> Result<()> {
                     atomic_json(&path, &job)?;
                     let admission = PendingAdmission::new(job.lease.clone(),blocked.clone());
                     atomic_json(&job.lease, &job.report)?;
-                    Ok((r,performance,job,path,admission,storage,graphical_session))
+                    // Recheck after all fallible preparation in this same
+                    // fresh-byte verification scope. Reopening every file
+                    // still checks its full identity; leaving the scope here
+                    // would hash the complete runtime again before delivery.
+                    let keeper=stage_keeper(&m,&s,&r,&keepers,Some(&graphical_session))?;
+                    if keeper!=KeeperAvailability::Ready {
+                        if let Err(incident)=retain_keeper_incident(&m,&keepers,keeper,request,
+                            &r.metadata.class_id,&r.environment.id) {
+                            eprintln!("admission incident unavailable: {incident}");
+                        }
+                        return Err(match keeper {
+                            KeeperAvailability::Failed=>capacity::Refusal::BindingInvalid,
+                            _=>capacity::Refusal::ServiceBusy,
+                        }.into());
+                    }
+                    Ok((r,performance,job,path,admission,storage))
                 });
-                let (r,performance,job,path,mut admission,mut storage,graphical_session)=match prepared {
+                let (r,performance,job,path,mut admission,mut storage)=match prepared {
                     Ok(value)=>value,
                     Err(e)=>{
                         if version3 {
@@ -1173,26 +1188,6 @@ fn serve(m: Manager) -> Result<()> {
                         return Err(e);
                     }
                 };
-                // Recheck the exact keeper generation after all fallible
-                // preparation and immediately before exposing transport or a
-                // binding. Clean retirement is retried; uncertain retirement
-                // remains a hard refusal.
-                let keeper=stage_keeper(&m,&s,&r,&keepers,Some(&graphical_session))?;
-                if keeper!=KeeperAvailability::Ready {
-                    if let Err(incident)=retain_keeper_incident(&m,&keepers,keeper,request,
-                        &r.metadata.class_id,&r.environment.id) {
-                        eprintln!("admission incident unavailable: {incident}");
-                    }
-                    let reason=match keeper {
-                        KeeperAvailability::Failed=>capacity::Refusal::BindingInvalid,
-                        _=>capacity::Refusal::ServiceBusy,
-                    };
-                    if version3 {
-                        startup_reply(&mut peer,&ap1_native_client::admission::refused(
-                            request,reason))?;
-                    }
-                    return Err(reason.into());
-                }
                 // Deliver the private binding inside the native greeting deadline.
                 // Cold Wine startup then uses the existing bounded transport accept.
                 let reply = if version3 {

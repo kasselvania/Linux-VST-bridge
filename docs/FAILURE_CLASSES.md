@@ -78,7 +78,8 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-PLAT-001](#fc-plat-001--nativewindows-transport-requires-shared-private-loopback) | Native/Windows transport needs shared loopback | Platform namespace adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Regression gate for new adapters |
 | [FC-MGMT-004](#fc-mgmt-004--managed-publication-is-mistaken-for-a-static-catalogue-fixture) | Managed publication is mistaken for a static catalogue fixture | Catalogue/publication ownership | causal | installed | Ubuntu internal22 normal status and product controls passed | resolved at publication readback | DAW use remains untested |
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
-| [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | installed | Ubuntu internal23 reached Windows host/shared transport | resolved at setup/status and host admission; DAW activation failed | Trial state/editor and supported block configuration |
+| [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | source-fixed follow-up | Ubuntu internal25 warm load/editor; cold load timed out | unqualified | Installed cold load with the final recheck in the fresh-byte scope |
+| [FC-UI-007](#fc-ui-007--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal | bounded | none | Official FRAGMENTS 1.0.0 trial / Ubuntu internal25 | unqualified | Exact editor lifetime correction and normal close/reopen test |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
 ---
@@ -1536,6 +1537,17 @@ result is claimed.
 [upstream file-lock implementation](https://gitlab.steamos.cloud/steamrt/steam-runtime-tools/-/blob/main/steam-runtime-tools/file-lock.c).
 Last reviewed: 2026-09-29.
 
+### Final native-admission recheck
+
+Internal25's cold attempt again expired before DSP while the keeper started.
+A warm ordinary reload loaded in 38.029 seconds and rendered the vendor DEMO
+editor with the installed 1024-frame configuration. The final keeper/history
+recheck was outside the fresh-byte preparation scope and reread the complete
+runtime. The follow-up moves that exact final recheck inside the scope, after
+all fallible preparation and before exposure. File identities are rechecked;
+new admissions still read every runtime byte. The installed cold retest is
+pending. The subsequent editor-removal failure is FC-UI-007, not this class.
+
 ## FC-MGMT-004 — Managed publication is mistaken for a static catalogue fixture
 
 Internal21 completed normal prebuilt preparation and managed test publication
@@ -1561,6 +1573,38 @@ sound, editor and persistence remain open.
 
 [Ubuntu delivery result](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json),
 [PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200).
+Last reviewed: 2026-09-29.
+
+## FC-UI-007 — Vendor editor removal crashes the Windows host
+
+### Shared boundary and understanding
+
+Windows host `IPlugView::removed()`; bounded. This identifies the failed SDK
+call, not whether the underlying defect belongs to the host, vendor or runner.
+
+### Fix chain and coverage
+
+No correction is claimed. Ubuntu 26.04.1, Bitwig 6.1.1 guest demo, internal25,
+official Efx FRAGMENTS 1.0.0.2925 trial module
+`edb358f124bd35290dc2597e68c2d7f1f4061d5cf650a008f097c463fc6aef89`,
+class `41727475415649536772616E50726F63`, application-owned runtime r3 and
+native proxy `bbee707e64e9cfb96b58762aadde125c096779f9c165bfb9c4b6bc9623e9ba41`.
+The normal warm reload rendered the vendor DEMO editor. Closing its title-bar
+window reached view stage 212, raised Windows access violation `c0000005`
+and ended the supervised Windows host with exit 5. The native side reported a
+terminal instance failure after 8620 transport blocks. Input was silent; this
+does not establish audio through. Host and transport cleanup were confirmed.
+
+### User posture and next gate
+
+Unqualified. Exercise a declared editor lifetime correction through ordinary
+close/reopen and instance retirement; preserve the original failed result.
+Do not apply an Ubuntu result to the separately accepted Deck fixture.
+
+### Evidence
+
+[Installed result](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json),
+`fresh_account_retest.daw_demo_retest_internal25`; draft [PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200).
 Last reviewed: 2026-09-29.
 
 ## Maintenance rules

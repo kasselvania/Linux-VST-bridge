@@ -606,6 +606,163 @@
       "sound": "Not observed; no processing callbacks",
       "save_reopen": "Unavailable in Bitwig guest demo; eligible account trial remains an option without a paid license",
       "claim": "Fresh per-admission verification reached Windows host and shared transport on delivered runtime; successful DAW activation, trial use, sound and editor remain open"
+    },
+    "host_audio_configuration_check": {
+      "bitwig": "6.1.1 native Linux guest demo",
+      "paid_license_used": false,
+      "plugin_loaded_during_configuration_checks": false,
+      "pipewire": {
+        "device": "System Out",
+        "sample_rate": 48000,
+        "numeric_512_entry": "visibly entered; reverted to effective 1024",
+        "maximum_frames": 1024
+      },
+      "alsa": "device or resource busy",
+      "jack": "no running JACK server",
+      "restored": "PipeWire System Out at explicit 48000 Hz; effective 1024 frames",
+      "conclusion": "Shared native host-block envelope; no vendor-specific audio cause attributed"
+    },
+    "package_internal24": {
+      "version": "0.12.0internal24-1",
+      "source_head": "cdefb6864a24575c5954b0abbc93eb7fa128a0ca",
+      "source_tree": "e143f6bfd5e50ee4e7b552b5c48421871b5cf1b5",
+      "deb_sha256": "17cc0645fd3cbbaf8c7fc7ec7145809df64fef9eb55ab3f09c6d233d2ac31a89",
+      "canonical_sha256": "5fecc3443715aa544d732122b50584460e38e2e311522fc1dce4146856938952",
+      "manager_sha256": "29ce0e6ecc03bdee7e7ac18254343e0d0773cad002384bfb4ee86a57eabb175d",
+      "frontend_sha256": "db73470eb5f708b09f86674d6bb8cf5620aa72818717f34e5aaf036851a6f13a",
+      "kit_sha256": "9787b329152c0e9df6c44cfc77f5a9ca14e310766b3c60c18ef0d5ebbc6fdb6f",
+      "package_assembly": "Independent backend/native rebuild and all three comparisons passed",
+      "system_install": "passed",
+      "normal_successor_selection": "Stop idle service > Select installed version > Start bridge service; normal Home ready, same exact installed product",
+      "selected_manager_matches_package": true,
+      "predecessor_version": "0.12.0internal23",
+      "publication_and_native_bytes": "Unchanged exact publication e305d6a35f53df617e4e83d069ecf869 and native 91f66d23e78730d152a9429b4e44f7f081f71539ca7a2a540958a1b0f0d9263d",
+      "performance_configuration": "Default 512 remains selected; no successor proxy or 1024 selection yet",
+      "daw_load_attempted": false,
+      "ui_observation": "Periodic 60-second overview expiration removed the product controls during navigation. Concurrent read-only diagnostic calls also produced one canonical lock timeout; they were finished before sequential retest.",
+      "source_correction": "Retain the same exact product card across periodic refresh, disable actions until fresh status, discard on changed token/generation",
+      "installed_ui_retest": "pending successor internal25"
+    },
+    "buffering_source_verification": {
+      "backend": "77 passed, 1 ignored, serial because finite global instance registry is shared",
+      "manager_operator": "71 passed, 1 ignored",
+      "legacy_proxy_buffering_guard": "1 passed; old proxy cannot inherit 1024 capacity from manager alone",
+      "native_admission": "2 passed",
+      "ui_library": "12 passed",
+      "ui_client": "4 passed",
+      "ui_operator_after_refresh_correction": "50 passed",
+      "mf3_python": "13 passed",
+      "package_assembly_python": "19 passed",
+      "clippy": "manager/frontend/backend strict all-target checks passed",
+      "limits": "Source/instrumentation results; no installed vendor audio, editor or persistence claim"
+    },
+    "package_internal25": {
+      "version": "0.12.0internal25-1",
+      "source_head": "0f2321188c0da5636abe753f4e1ea05fc379d9e7",
+      "source_tree": "c05bc517f2f83070a7833a18da31ce7b71d5a1f6",
+      "deb_sha256": "6c374824aa30474df966024ff77dba9d17c6129e2731fc29ed230a550610ecfb",
+      "canonical_sha256": "0e9f1302f5d379a1fc8d0051cd9e68cda13903e7d8bfa252d80c2428dd8db356",
+      "manager_sha256": "29ce0e6ecc03bdee7e7ac18254343e0d0773cad002384bfb4ee86a57eabb175d",
+      "frontend_sha256": "6776a4b01a5e5343174bcbf41b5e20de623f0900ce267b15c7e2a29e1f7f4e8b",
+      "kit_sha256": "b6020f814abca477149b168b285453a752caf728a0c7c226ffc0a5f5bf246fc8",
+      "package_assembly": "Three packaged native proxies independently rebuilt and compared",
+      "system_install": "passed",
+      "normal_successor_selection": "Stop idle bridge > Select installed version > Start bridge service",
+      "selected_manager_frontend_kit_match_package": true,
+      "ui_refresh_navigation": "Product card survived periodic status refresh with disabled actions until fresh status returned; expert drawer and Check compatibility remained reachable",
+      "compatibility_inspection": {
+        "operation": "60a009751e22a295a928bdd6fed750a6",
+        "state": "completed",
+        "controller": "combined",
+        "publication_changed": false
+      },
+      "successor_preparation": {
+        "operation": "b76b742693bfebefb5be74b51739ec3a",
+        "state": "completed",
+        "candidate": "857805ebe5bcca10e21980f9bc39120f61d13afa080ca7147984025f8b1b25bb",
+        "native_sha256": "bbee707e64e9cfb96b58762aadde125c096779f9c165bfb9c4b6bc9623e9ba41",
+        "descriptor_sha256": "06d9dc90d0a77d7776c025cb1e53947aae85ebc40d61a9a2d5e2b61b5b400ce9",
+        "publication_changed": false,
+        "artifact_reused": false,
+        "build_route": "Exact module/class/metadata match copied from the verified packaged prebuilt index; no customer compilation"
+      },
+      "test_publication": {
+        "operation": "47f2d8dfc8e603d510a545e8f15952fa",
+        "state": "completed",
+        "normal_ui_action": "Replace it with this test configuration",
+        "expected_predecessor": "e305d6a35f53df617e4e83d069ecf869",
+        "publication": {
+          "id": "3f1758184f330aa45899f8fef62a9b58",
+          "sha256": "058de6c3884dc722d8e4d57fc02e3983d8ce370a1782ac8f1fbcd4a84b1473fd"
+        },
+        "experimental": true,
+        "ordinary": false,
+        "predecessor_revision_retained": true
+      },
+      "buffering_selection": {
+        "operation": "4a981e68b69a587eea1bd9e3456d627d",
+        "state": "completed",
+        "normal_ui_action": "Use 1024-frame bridge buffering for testing",
+        "added_bridge_frames": 1024,
+        "applies_to": "next_activation",
+        "compatibility_qualified": false,
+        "selected_native_digest_matches": true,
+        "normal_restore_512_button_visible": true
+      }
+    },
+    "daw_demo_retest_internal25": {
+      "package": "0.12.0internal25-1",
+      "native_sha256": "bbee707e64e9cfb96b58762aadde125c096779f9c165bfb9c4b6bc9623e9ba41",
+      "host_audio": {
+        "backend": "PipeWire",
+        "sample_rate": 48000,
+        "effective_frames": 1024
+      },
+      "cold_attempt": {
+        "started_utc": "2026-09-30T06:14:15.744Z",
+        "finished_utc": "2026-09-30T06:15:21.370Z",
+        "elapsed_seconds": 65.626,
+        "daw_result": "setupProcessing kResultFalse",
+        "admission_source": "keeper_starting",
+        "keeper_session": "d081c88270bf421b0cfb9449d88ebd1a",
+        "keeper_later_ready": true,
+        "windows_dsp_session_created": false,
+        "native_processing_report_created": false
+      },
+      "warm_retry": {
+        "action": "Bitwig Reload Plug-in on the same failed disposable device",
+        "started_utc": "2026-09-30T06:28:24.196Z",
+        "finished_utc": "2026-09-30T06:29:02.225Z",
+        "elapsed_seconds": 38.029,
+        "daw_result": "loaded",
+        "windows_session": "53a53f322be6629a9b24a07a4c7f0c82",
+        "host_maximum": 1024,
+        "transport_maximum": 256,
+        "selected_bridge_frames": 1024,
+        "vendor_frames": 192,
+        "reported_total_frames": 1216,
+        "sample_rate": 48000,
+        "editor": "visible and rendered",
+        "vendor_authorization_posture": "DEMO displayed in official vendor editor; no account or license supplied",
+        "state_capture": "SDK result 1; zero bytes; no fabricated state"
+      },
+      "editor_close_failure": {
+        "action": "close vendor window using its title-bar close button",
+        "view_stage": 212,
+        "boundary": "IPlugView removed call",
+        "windows_exception_code": "c0000005",
+        "windows_exit": 5,
+        "processed_transport_blocks_before_failure": 8620,
+        "audio_input_was_silent": true,
+        "windows_host_error": "Windows host exited without successful close",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "audio_through_not_yet_tested": true
+      },
+      "source_followup": "Keep the final keeper/history identity recheck inside the same fresh-byte admission scope; every new admission still hashes runtime bytes; no persisted observations authorize launch.",
+      "usability_qualified": false,
+      "project_save_reopen": "not exercised; Bitwig guest demo disables save/export",
+      "physical_audio_output": "not claimed; VM backend discards physical output"
     }
   }
 }

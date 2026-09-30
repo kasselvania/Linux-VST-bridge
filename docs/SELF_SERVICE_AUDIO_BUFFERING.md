@@ -41,3 +41,21 @@ status refresh. The frontend now retains the exact matching product card while
 refreshing, with actions disabled until fresh readback completes. An unchanged
 state token and generation preserve the card; a changed identity discards it.
 This is display continuity, not additional action authority.
+
+Internal25 completed the normal package selection, inspection, prebuilt
+preparation, experimental publication and explicit 1024-frame selection. The
+cold Bitwig load failed after 65.626 seconds while its keeper was starting.
+A subsequent ordinary Reload Plug-in loaded in 38.029 seconds and rendered the
+official vendor's DEMO editor. The actual processing setup accepted host
+maximum 1024 at 48 kHz, with 1024 bridge frames and 192 vendor frames (1216
+total). This proves the installed buffering boundary, not sound or usability.
+Closing the vendor window crashed in `IPlugView::removed()`; the Windows host
+and transport retired with confirmed cleanup. Initial state capture remained
+refused with SDK result 1 and zero bytes. Guest Bitwig demo disables project
+save/export. These gaps remain distinct.
+
+The next startup correction keeps the final keeper/history recheck inside the
+same fresh-byte admission scope as preparation. It still reopens and matches
+every exact file identity, and still hashes all runtime bytes on a new
+admission. No saved status cache authorizes execution; no timeout or real-time
+behavior changes. An installed cold-load retest is required.

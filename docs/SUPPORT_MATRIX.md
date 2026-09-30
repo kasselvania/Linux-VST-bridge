@@ -64,7 +64,14 @@ with native PipeWire even after explicit 48 kHz and a visible 512 edit; ALSA
 reported the device busy and JACK had no server. Source now provides a generic
 [explicit 1024-frame testing configuration](SELF_SERVICE_AUDIO_BUFFERING.md)
 for matching successor proxies, with the existing default and historical
-support claims retained. The successor's installed audio test is pending.
+support claims retained. Internal25 completed normal selection, preparation,
+publication and 1024-frame selection. Cold activation timed out while its
+keeper started; ordinary Reload Plug-in subsequently loaded and rendered the
+vendor DEMO editor. Actual setup accepted 1024/48000 with 1216 total latency
+frames. Initial state remained refused and closing the editor crashed during
+its removal, with confirmed host/transport cleanup. Audio through, project
+recall and usability remain unqualified. The final startup identity recheck
+now shares the preparation's fresh-byte scope; its installed retest is pending.
 
 The original clean-machine journey uses the same official trial media on that
 Ubuntu 26.04.1 VM with Bitwig 6.1.1. Its posture is **unqualified**. Internal13
