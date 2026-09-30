@@ -7,7 +7,8 @@ use std::os::unix::fs::DirBuilderExt;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-pub const ID: &str = "managed-ge-proton11-7-slr4-20260805";
+pub const ID: &str = "managed-ge-proton11-7-slr4-20260805-r2";
+const LIFETIME_LOCK: &str = "SteamLinuxRuntime_4/steamrt4_platform_4.0.20260805.254769/files/.ref";
 const GE: &str = "GE-Proton11-7-x86_64";
 const SLR: &str = "SteamLinuxRuntime_4";
 const TREE: &str = "runtime-tree.json";
@@ -183,6 +184,16 @@ fn safe_link(path: &Path, target: &Path) -> Result<()> {
     }
     Ok(())
 }
+/// Pressure-vessel opens this exact empty lifetime lock read/write. Its bytes
+/// remain pinned to empty; no executable or general runtime path is writable.
+fn payload_mode(path: &Path, size: u64, upstream_mode: u32) -> Result<u32> {
+    if path == Path::new(LIFETIME_LOCK) {
+        require(size == 0, "runtime_lifetime_lock_nonempty")?;
+        Ok(0o600)
+    } else {
+        Ok(if upstream_mode & 0o111 != 0 { 0o500 } else { 0o400 })
+    }
+}
 fn unpack(input: &Path, spec: &Download, stage: &Path) -> Result<Vec<TreeEntry>> {
     require(file(input)?.metadata()?.len() == spec.size && digest(input)? == spec.sha256,
         "runtime_download_changed")?;
@@ -223,7 +234,7 @@ fn unpack(input: &Path, spec: &Download, stage: &Path) -> Result<Vec<TreeEntry>>
             let mut output = OpenOptions::new().create_new(true).write(true).mode(0o600).open(&out)?;
             require(std::io::copy(&mut item, &mut output)? == size, "runtime_archive_truncated")?;
             output.sync_all()?;
-            let mode = if item.header().mode()? & 0o111 != 0 { 0o500 } else { 0o400 };
+            let mode = payload_mode(&path, size, item.header().mode()?)?;
             fs::set_permissions(&out, fs::Permissions::from_mode(mode))?;
             rows.push(TreeEntry {path, sha256:Some(digest(&out)?), target:None, size, mode, directory:false});
         } else { return Err("runtime_archive_entry_type".into()); }
@@ -289,7 +300,7 @@ pub fn install(m: &Manager) -> Result<Runner> {
             files.push(Artifact {path:dest.join(relative), sha256:digest(&stage.join(relative))?});
         }
         let runner = Runner {id:ID.into(),
-            version:"GE-Proton11-7; SLR 4.0.20260805.254769; managed download v1".into(),
+            version:"GE-Proton11-7; SLR 4.0.20260805.254769; managed download v2".into(),
             proton:dest.join(GE).join("proton"), entry_point:dest.join(SLR).join("_v2-entry-point"),
             files, policy:None};
         atomic_json(&stage.join("runtime.json"), &Record {schema:1,id:ID.into(),
@@ -375,6 +386,19 @@ mod tests {
             DigestFileIdentity::from(&fs::symlink_metadata(stage.join("GE/proton")).unwrap()));
         atomic_json(&cache_path(&runner.files[0]).unwrap(),&forged).unwrap();
         assert!(verify_tree(&runner).unwrap_err().to_string().contains("file_changed"));
+    }
+    #[test]
+    fn only_exact_empty_lifetime_lock_is_write_openable() {
+        let tmp=Scratch::new();
+        let stage=tmp.0.join("stage");fs::DirBuilder::new().mode(0o700).create(&stage).unwrap();
+        let (archive,mut spec)=tmp.archive(&[(LIFETIME_LOCK,b"")]);spec.root=SLR.into();
+        let rows=unpack(&archive,&spec,&stage).unwrap();
+        assert_eq!(rows[0].mode,0o600);
+        assert_eq!(rows[0].sha256.as_deref(),Some(hex(&Sha256::digest(b"")).as_str()));
+        OpenOptions::new().read(true).write(true).open(stage.join(LIFETIME_LOCK)).unwrap();
+        assert_eq!(payload_mode(Path::new("GE/.ref"),0,0o644).unwrap(),0o400);
+        assert_eq!(payload_mode(Path::new("GE/proton"),0,0o755).unwrap(),0o500);
+        assert!(payload_mode(Path::new(LIFETIME_LOCK),1,0o644).is_err());
     }
     #[test]
     fn archive_paths_and_links_cannot_escape() {

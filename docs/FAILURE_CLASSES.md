@@ -76,6 +76,8 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-MGMT-001](#fc-mgmt-001--managed-inventory-refresh-authority) | Managed inventory freshness and refresh | Manager catalogue/registry/onboarding | causal | accepted | Blackhole, Kontakt / Deck; FRAGMENTS / Ubuntu | supported | Preserve one canonical refresh route |
 | [FC-MGMT-002](#fc-mgmt-002--exact-verified-hostsource-omitted-across-software-generations) | Exact verified host/source omitted across generations | Software catalogue, profile/candidate and publication | causal | accepted | Pure LoFi, FRAGMENTS, Serum / Deck | supported | Preserve required exact pairs in every new generation |
 | [FC-PLAT-001](#fc-plat-001--nativewindows-transport-requires-shared-private-loopback) | Native/Windows transport needs shared loopback | Platform namespace adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Regression gate for new adapters |
+| [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime lifetime lock read-only | Runtime extraction/pressure-vessel | causal | source-fixed | Ubuntu internal16, before vendor launch | blocked | Install distinct corrected runtime and retry |
+| [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | installed | Ubuntu internal16 environment creation completed | resolved at setup admission | Commercial execution test remains open |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
 ---
@@ -1327,6 +1329,104 @@ None; accepted platform law.
 2026-09-23.
 
 ---
+
+## FC-MGMT-003 — Whole-runtime hashing blocks bounded setup admission
+
+### Shared boundary
+
+Runtime identity/integrity verification versus manager status projection and
+action serialization. This is independent of the selected vendor installer.
+
+### Understanding
+
+causal
+
+The disposable Ubuntu delivery fixture recorded a 19.067-second installed
+Overview and a 10.000114-second canonical-lock timeout for Continue setup.
+The request was refused before environment creation or installer launch.
+Readback traversed and hashed the entire newly delivered runtime under
+projection serialization. This does not reattribute older manager failures.
+
+### Implementation
+
+source-fixed
+
+`c99d64da` keeps a completed byte-observation cache outside the immutable
+runtime. Projections check exact per-file device/inode/size/owner/mode and
+modification/change times, directory roster and symlink targets. Missing or
+invalid caches require byte verification before projection locks. Execution
+ignores the persistent observation cache and verifies runtime bytes.
+`823cff4f` also buffers the existing size-limited JSON reader. Internal15
+installed the cache correction but still recorded 13.014-second warm status
+and a cold frontend timeout; that partial result is retained.
+
+### User posture
+
+resolved at setup admission on internal16; commercial execution remains open.
+
+### Fix chain and product coverage
+
+- Source: `c99d64da`; focused changed-file, added-file and forged-cache launch
+  refusal checks passed. Full serial manager checks passed (253, one ignored).
+- Build/candidate: internal16 at `823cff4f`; package-time native rebuild checks
+  passed.
+- Installed generation: internal16 selected and activated normally; internal15
+  retained. Two installed Overviews took 0.557 and 0.564 seconds. Normal Continue
+  setup completed in 43.272 seconds with environment_ready. Earlier failed and
+  slow attempts remain retained. The long creation job temporarily made status
+  unavailable; this is not a broad responsive-UI qualification.
+- Physical result: installer import and the setup refusal were observed through
+  the normal app on Ubuntu 26.04.1. No plug-in execution or audio result.
+
+### Claim limit and remaining gate
+
+The setup admission retest passed. Prove actual runtime execution and retain
+commercial outcomes separately. This cache is a performance observation,
+not a sandbox, authorization flow or compatibility qualification.
+
+### Evidence and tracking
+
+[Ubuntu delivery result](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json),
+[PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200).
+Last reviewed: 2026-09-29.
+
+## FC-PLAT-002 — Delivered runtime lifetime lock cannot be opened
+
+### Shared boundary and understanding
+
+Causal runtime extraction/pressure-vessel startup failure, before vendor launch.
+Internal16's normal Run installer exited during prefix initialization with status
+1. The retained diagnostic identifies permission denied at the exact zero-byte
+SLR platform `files/.ref`. The extractor had set it to mode 0400. Upstream opens
+this lifetime lock read/write; this is not an Arturia activation or editor failure.
+
+### Implementation and user posture
+
+Source correction: the exact empty lock receives mode 0600; all other regular
+files remain 0400/0500. Its empty digest and size still require verification.
+The corrected runtime identity is `managed-ge-proton11-7-slr4-20260805-r2`.
+Existing runtimes/environments are retained, never rewritten in place.
+
+A fully retired receipt that positively records prefix initialization failure
+before target launch may offer a new isolated attempt. A target launch, dropped
+stages, unresolved cleanup or installed result still refuses that recovery.
+The original durable-outcome report is preserved; no vendor state is inferred.
+
+### Fix chain, coverage and remaining gate
+
+- Source: focused lifetime-lock extraction and isolated-retry refusal tests.
+- Build/installed: correction not yet installed; internal16 remains selected.
+- Observed result: normal launch attempted on Ubuntu 26.04.1; cleanup confirmed,
+  zero owned live processes. Arturia's window was never reached.
+- Remaining: install the corrected generation and acquire its distinct runtime
+  through Setup, then retry the ordinary commercial journey. No sound, editor,
+  activation, persistence or customer release claim.
+
+[Ubuntu delivery result](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json),
+[PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200),
+[upstream runtime lock](https://gitlab.steamos.cloud/steamrt/steam-runtime-tools/-/blob/main/pressure-vessel/runtime.c),
+[upstream file-lock implementation](https://gitlab.steamos.cloud/steamrt/steam-runtime-tools/-/blob/main/steam-runtime-tools/file-lock.c).
+Last reviewed: 2026-09-29.
 
 ## Maintenance rules
 

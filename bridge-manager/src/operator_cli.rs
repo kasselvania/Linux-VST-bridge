@@ -301,9 +301,10 @@ fn pulse_generation(m: &Manager) -> Result<String> {
     let paths = ["software.json", "registry.json", "preparation/revision.json",
         "daw-workspaces/fl-studio/workspace.json", "operator/latest.json",
         "installers", "onboarding", "inventory", "transactions", "performance",
-        "runtime/leases", "runtime/owner.sock", "runners/managed-ge-proton11-7-slr4-20260805/runtime.json"];
+        "runtime/leases", "runtime/owner.sock"];
+    let runtime_record = format!("runners/{}/runtime.json", linux_vst_bridge::runtime_delivery::ID);
     let mut stamps = Vec::with_capacity(paths.len());
-    for relative in paths {
+    for relative in paths.into_iter().chain(std::iter::once(runtime_record.as_str())) {
         match fs::symlink_metadata(m.root.join(relative)) {
             Ok(meta) => stamps.push(json!([relative,meta.dev(),meta.ino(),meta.len(),
                 meta.mtime(),meta.mtime_nsec(),meta.ctime(),meta.ctime_nsec()])),

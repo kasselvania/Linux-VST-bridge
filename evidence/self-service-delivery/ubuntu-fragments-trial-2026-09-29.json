@@ -54,25 +54,30 @@
   },
   "journey": {
     "package_install": "passed",
-    "normal_package_selection_and_activation": "passed for internal13",
+    "normal_package_selection_and_activation": "passed for internal13, internal14, internal15, internal16",
     "runtime_download_install": "passed for internal13",
-    "runtime_execution": "not yet observed",
-    "installer_import_and_execution": "not yet observed",
+    "runtime_execution": "attempted; prefix initialization failed at lifetime-lock open before vendor launch",
+    "installer_import_and_execution": "Official media imported through frontend; exact custody SHA verified. Runtime launch failed before vendor target execution.",
     "vendor_trial_authorization": "not yet observed",
     "prebuilt_preparation_and_publication": "not yet observed",
     "sound": "not yet observed",
     "editor": "not yet observed",
     "save_reopen": "not yet observed; Bitwig demo mode must be resolved",
     "reboot_reopen": "not yet observed",
-    "recovery": "not yet observed"
+    "recovery": "not yet observed",
+    "environment_creation": "passed for internal16 through ordinary Continue setup"
   },
   "iteration": [
     "Internal12 built and installed; the prior selected application opened because main lacked the normal successor offer. Integrated draft PR198 controls explicitly, then built and selected internal13 through its frontend.",
-    "Source inspection found that fresh installer continuation still selected only the legacy catalogue default. Corrected to use the verified delivered default; focused regression and onboarding tests passed. Internal14 was rebuilt and installed; selected and activated through the normal frontend, retaining internal13 and the runtime acquired by its ordinary Setup action. Commercial testing continues."
+    "Source inspection found that fresh installer continuation still selected only the legacy catalogue default. Corrected to use the verified delivered default; focused regression and onboarding tests passed. Internal14 was rebuilt and installed; selected and activated through the normal frontend, retaining internal13 and the runtime acquired by its ordinary Setup action. Commercial testing continues.",
+    "The delivered Continue action was offered and invoked. Canonical-lock admission refused after 10 seconds before mutation; the runtime readback traversed and hashed the whole runtime. Added a prior-verification observation cache outside the immutable runner. Read-only projections require exact file metadata; execution ignores this cache. Cold cache preparation runs before projection locks. Internal15 build/testing continues; the refused attempt remains retained.",
+    "Internal15 was selected through Setup and Updates and started. Its cold status check exceeded the frontend wait; a subsequent installed Overview took 13.014 seconds. Source inspection found bounded JSON parsing used an unbuffered reader. Buffered the same size-limited reader; internal16 is being rebuilt for the ordinary setup retest.",
+    "Internal16 selected and activated through ordinary Setup and Updates. Two installed status checks completed in 0.557 and 0.564 seconds. Normal Continue setup operation 982514730e739c6c85f2f0e7c6df830c completed environment_ready in 43.272 seconds and offered Run installer. Runtime/installer execution test now running.",
+    "Corrected exact empty SLR lifetime-lock mode to 0600 in a distinct delivered runtime identity ending -r2. Payload digests, roster and executable permissions remain checked. Added ordinary isolated retry interpretation for a fully retired, observed prefix initialization failure before target launch; original unavailable durable-outcome receipt remains unchanged. Source tests/build retest in progress."
   ],
   "source_verification": {
-    "library_tests": "173 passed",
-    "manager_binary_serial": "252 passed, 1 ignored at internal13 source",
+    "library_tests": "173 passed after buffered bounded JSON readback at 823cff4f",
+    "manager_binary_serial": "253 passed, 1 ignored at c99d64da source",
     "earlier_parallel_manager_run": "Two Python SIGTERM timing fixtures failed at a 50ms startup threshold; targeted serial reruns and the full serial run passed. A stale readiness schema assertion was corrected to the shared constant.",
     "frontend_tests": "79 passed; package bootstrap focused 6 passed after integration",
     "onboarding_after_default_fix": "20 passed",
@@ -85,16 +90,90 @@
     "limits": "These source/build checks do not establish commercial audio, activation, editor or project recall."
   },
   "preserved": "No Deck/Pi software, publications, runtime or licensed environment was changed. No proprietary installer/module or authorization material is committed. Internal-test package only; customer signing and complete release obligations remain task 4.",
-  "selected_successor": {
-    "version": "0.12.0internal14-1",
+  "failed_setup_request": {
     "source_head": "4ef687f709dead8cfd17173b129c806f18c7ba3b",
-    "source_tree": "c74faec2c05d415fa0afaff616be3375d5048345",
-    "deb_sha256": "c0a8e0655631d29f43a3292cd947990961d98c6f41064c820c37575691de914d",
-    "manager_sha256": "11dda05c819d30d41ca38b8ba2c9d1fed835c37e860fb630ae78e09ab2a2e7af",
+    "package_version": "0.12.0internal14",
+    "operation": "b600492e3c4a2cc36bd0952d645645bb",
+    "result": "refused",
+    "reason": "Manager busy validating state. Environment creation did not start; installer was not launched. Retry after canonical state is healthy.",
+    "lock": "operator-canonical.lock",
+    "outcome": "timeout",
+    "timeout_ms": 10000,
+    "elapsed_wait_us": 10000114,
+    "attempts": 940,
+    "environment_records": 0,
+    "classification": "Shared runtime readback cost held projection serialization past action admission wait; not a vendor installer or plug-in failure."
+  },
+  "readback_iteration": {
+    "package_version": "0.12.0internal15",
+    "source_head": "c99d64da396c25f705acddd2e1c496d1fc81cae5",
+    "source_tree": "a4f319a4153f467f07c5131e765a0451f6e64c16",
+    "deb_sha256": "3664e5270f84e949f9991ac2ae465341cf889df37804889ffacd1403bde2d232",
+    "normal_selection_activation": "observed; internal14 retained",
+    "cache_files": 1,
+    "cached_regular_files": 13070,
+    "cache_size_bytes": 3199692,
+    "overview_seconds": [
+      52.049,
+      13.014
+    ],
+    "observed_ui": "First readback timed out; subsequent status available. No environment creation attempted with this iteration.",
+    "interpretation": "Runtime observation caching reduced repeated hashing but unbuffered JSON parsing kept status slow; not a responsive setup pass."
+  },
+  "selected_successor_history": [
+    {
+      "version": "0.12.0internal14-1",
+      "source_head": "4ef687f709dead8cfd17173b129c806f18c7ba3b",
+      "source_tree": "c74faec2c05d415fa0afaff616be3375d5048345",
+      "deb_sha256": "c0a8e0655631d29f43a3292cd947990961d98c6f41064c820c37575691de914d",
+      "manager_sha256": "11dda05c819d30d41ca38b8ba2c9d1fed835c37e860fb630ae78e09ab2a2e7af",
+      "frontend_sha256": "5801abcbb780997487cd0a724ee1d1c2b786c54128cb863d2932f555cc3c69be",
+      "kit_sha256": "74fadb0a77280311074bbd281b396cc35c6788ebd326e1b7e1bbc613cac37150",
+      "normal_frontend_selection_and_activation": "observed",
+      "predecessor_retained": true,
+      "previous_runtime_preserved": true
+    }
+  ],
+  "selected_successor": {
+    "version": "0.12.0internal16-1",
+    "source_head": "823cff4f8f06cf8536954855ecc11d5d85d0f4a8",
+    "source_tree": "0543570448372ee79b95e2d1b1b3cf4d433415e0",
+    "deb_sha256": "eb9ffa1ec4ec25bf5f3a996fbed64c018532fbcc8151dc96d8cb985e23238dd3",
+    "manager_sha256": "79f416d042cbc846aa07887060b53b1f1fe7fbebc189df406bf6e0c02ab0279a",
     "frontend_sha256": "5801abcbb780997487cd0a724ee1d1c2b786c54128cb863d2932f555cc3c69be",
-    "kit_sha256": "74fadb0a77280311074bbd281b396cc35c6788ebd326e1b7e1bbc613cac37150",
+    "kit_sha256": "35d076fb70a3b2e95d884f0695eaee93ff6a5ccc750e1cd106bb04db72838f37",
     "normal_frontend_selection_and_activation": "observed",
     "predecessor_retained": true,
-    "previous_runtime_preserved": true
+    "previous_runtime_preserved": true,
+    "installed_overview_seconds": [
+      0.557,
+      0.564
+    ]
+  },
+  "environment_creation": {
+    "operation": "982514730e739c6c85f2f0e7c6df830c",
+    "onboarding": "b13e350f83b1daf0edb4cb4d1d45bbdc",
+    "normal_frontend_action": "Continue setup, recommended Standard runtime",
+    "result": "completed; environment_ready; published=false",
+    "duration_seconds_from_file_mtimes": 43.272,
+    "canonical_admission_wait_us": 40,
+    "registry_admission_wait_us": 18,
+    "transient_ui": "Status temporarily unavailable during the long creation job; operation remained in progress, then completed and offered Run installer."
+  },
+  "failed_runtime_start": {
+    "package_version": "0.12.0internal16",
+    "source_head": "823cff4f8f06cf8536954855ecc11d5d85d0f4a8",
+    "operation": "2b8629935b36d8b7ceb1ddc34b7e8568",
+    "onboarding": "b13e350f83b1daf0edb4cb4d1d45bbdc",
+    "result_state": "failed",
+    "error": "installer_owner_RuntimeError",
+    "first_problem": "prefix_initialization_failed",
+    "prefix_exit": 1,
+    "cleanup_confirmed": true,
+    "owned_live": 0,
+    "durable_installation": "unavailable",
+    "vendor_window_seen": false,
+    "sanitized_private_diagnostic": "pressure-vessel-wrap: E: openat(<managed-runtime>/SteamLinuxRuntime_4/steamrt4_platform_4.0.20260805.254769/files/.ref): Permission denied",
+    "interpretation": "Runtime extraction made the exact empty lifetime-lock file read-only. Startup failed before vendor target launch. The old runtime and environment remain retained; no manual permission repair."
   }
 }

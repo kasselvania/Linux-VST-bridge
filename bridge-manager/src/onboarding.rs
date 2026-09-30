@@ -421,6 +421,20 @@ pub fn retired(v: &Value) -> bool {
             Some("completed" | "failed" | "cancelled")
         )
 }
+/// A retained supervisor failure before the vendor launch is a safe reason for
+/// a new isolated attempt. It does not rewrite the prior durable-outcome report.
+fn failed_before_installer(v: &Value) -> bool {
+    let startup=&v["startup"];
+    v["schema"]==2 && v["state"]=="failed" && retired(v)
+        && startup["first_problem"]["code"]=="prefix_initialization_failed"
+        && v["transaction"]["first_failure"]["phase"]=="prefix_initialization"
+        && startup["target"].is_null() && startup["dropped_stages"]==0
+        && startup["stages"].as_array().is_some_and(|stages|
+            stages.iter().any(|s| s["stage"]=="prefix_initialization_exit"
+                && s["exit"].as_i64().is_some_and(|n|n!=0))
+            && !stages.iter().any(|s| matches!(s["stage"].as_str(),
+                Some("target_runner_launch_requested" | "target_runner_started" | "target_image_observed"))))
+}
 fn require_new_attempt(v: &Value, linked: bool) -> Result<()> {
     require(retired(v), "previous_attempt_not_terminal_and_retired")?;
     if let Some(t) = v.get("transaction") {
@@ -430,7 +444,8 @@ fn require_new_attempt(v: &Value, linked: bool) -> Result<()> {
         )?;
         require(t["durable_installation"] != "installed", "installed_attempt_requires_first_launch_review")?;
         require(
-            matches!(t["durable_installation"].as_str(), Some("not_installed" | "partial_installation")),
+            matches!(t["durable_installation"].as_str(), Some("not_installed" | "partial_installation"))
+                || (t["durable_installation"]=="unavailable" && failed_before_installer(v)),
             "previous_installation_outcome_unresolved",
         )?;
     } else {
@@ -816,6 +831,8 @@ fn setup_posture(current: &ui::Onboarding, ambiguous: bool, discovered: usize)
                 "The installer reported a problem, but durable installation files may exist. Review its result, then find installed plug-ins if offered.".into(), SetupNext::Scan),
             Some("not_installed") => (Phase::SetupNeedsAttention,
                 "The installer did not leave a durable installation. Review the result before starting another exact attempt.".into(), SetupNext::Retry),
+            _ if failed_before_installer(installation) => (Phase::SetupNeedsAttention,
+                "The runtime failed before the vendor installer started. Start a new isolated attempt with the current runtime.".into(), SetupNext::Retry),
             _ => (Phase::SetupNeedsAttention,
                 "The installer retired, but its durable installation outcome is not confirmed. Review exact history before continuing.".into(), SetupNext::None),
         };
@@ -1282,6 +1299,31 @@ mod tests {
         sw.installer_launch=None;atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
         // Ordinary Start remains offered even when policy is ineligible.
         assert!(projection(&f.m,None).unwrap().iter().flat_map(|r| &r.actions).any(|a| matches!(a.action,ui::Action::InstallerStart{..})));
+    }
+    #[test]
+    fn confirmed_prefix_failure_offers_isolated_retry_without_rewriting_receipt() {
+        let receipt=json!({"schema":2,"state":"failed","cleanup_confirmed":true,"owned_live":0,
+            "startup":{"first_problem":{"code":"prefix_initialization_failed"},"target":null,
+                "dropped_stages":0,"stages":[{"stage":"prefix_initialization_exit","exit":1}]},
+            "transaction":{"outcome":"completed","durable_installation":"unavailable",
+                "first_failure":{"phase":"prefix_initialization"}}});
+        assert!(require_new_attempt(&receipt,false).is_ok());
+        assert_eq!(receipt["transaction"]["durable_installation"],"unavailable");
+        assert!(require_new_attempt(&receipt,true).is_err());
+        for (field,value) in [("cleanup_confirmed",json!(false)),("owned_live",json!(1))] {
+            let mut changed=receipt.clone();changed[field]=value;
+            assert!(require_new_attempt(&changed,false).is_err());
+        }
+        for key in ["target_runner_launch_requested","target_runner_started","target_image_observed"] {
+            let mut changed=receipt.clone();changed["startup"]["stages"].as_array_mut().unwrap().push(json!({"stage":key}));
+            assert!(require_new_attempt(&changed,false).is_err());
+        }
+        let mut changed=receipt.clone();changed["startup"]["dropped_stages"]=json!(1);
+        assert!(require_new_attempt(&changed,false).is_err());
+        changed=receipt.clone();changed["transaction"]["durable_installation"]=json!("installed");
+        assert!(require_new_attempt(&changed,false).is_err());
+        changed=receipt.clone();changed["startup"]["first_problem"]["code"]=json!("target_runner_failed");
+        assert!(require_new_attempt(&changed,false).is_err());
     }
     #[test]
     fn terminal_durable_outcome_controls_projection_and_guarded_new_attempt() {

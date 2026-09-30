@@ -64,6 +64,15 @@ completed normal package selection, service activation and acquisition of
 `managed-ge-proton11-7-slr4-20260805` without preinstalled Wine, Proton or Steam.
 The package contains verified prebuilt FRAGMENTS/Pure LoFi proxies; commercial
 runtime execution, publication, sound, editor and persistence remain open.
+The internal14 Continue attempt was refused before environment creation by
+[FC-MGMT-003](FAILURE_CLASSES.md#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission).
+Internal16 installed the correction: status checks took 0.557 and 0.564 seconds,
+and ordinary Continue setup completed environment creation. Run installer then failed during prefix initialization at the read-only
+SLR lifetime lock, with cleanup confirmed:
+[FC-PLAT-002](FAILURE_CLASSES.md#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened).
+A distinct runtime correction is in source; vendor execution and commercial
+results remain open. The 43.272-second creation job
+temporarily made status unavailable; this is not a broad UI performance claim.
 Neither the Deck 1.0.0 result nor the Ubuntu-lab 1.3.1 workaround qualifies
 this new delivered runtime. The VM had an earlier test package but no plug-in,
 runtime or copied authorization. It is not a pristine OS-first-install result.
