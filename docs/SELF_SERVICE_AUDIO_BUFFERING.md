@@ -35,3 +35,9 @@ This source repair must be exercised through normal package selection,
 compatibility checking, publication and product controls before an installed
 audio result is claimed. Vendor state refusal remains inspectable; no state is
 fabricated and no trial or license restriction is bypassed.
+
+The installed successor also exposed interrupted navigation during periodic
+status refresh. The frontend now retains the exact matching product card while
+refreshing, with actions disabled until fresh readback completes. An unchanged
+state token and generation preserve the card; a changed identity discards it.
+This is display continuity, not additional action authority.

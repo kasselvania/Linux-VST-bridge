@@ -637,7 +637,9 @@ impl Operator {
         self.overview.as_ref().filter(|_| self.overview_fresh).map(|o| &o.current)
     }
     fn selected_product_snapshot(&self) -> Option<Snapshot> {
-        let overview = self.overview.as_ref().filter(|_| self.overview_fresh)?;
+        // Retain the exact card during status refresh so navigation does not
+        // collapse. Freshness still controls action admission separately.
+        let overview = self.overview.as_ref()?;
         let detail = self.product_detail.as_ref().filter(|detail|
             detail.state_token == overview.current.state_token
                 && detail.current_generation == overview.current_generation)?;
@@ -720,8 +722,10 @@ impl Operator {
                     self.details_attempted = false;
                 }
                 self.overview = Some(*bundle);
-                self.product_detail = None;
-                self.product_attempted = None;
+                if self.selected_product_snapshot().is_none() {
+                    self.product_detail = None;
+                    self.product_attempted = None;
+                }
                 self.overview_fresh = true;
                 self.last_overview = Instant::now();
             }
@@ -2072,6 +2076,10 @@ impl eframe::App for Operator {
                             }
                             Page::Plugins => {
                                 if let Some(selected) = &selected_product_snapshot {
+                                    if !self.overview_fresh {
+                                        ui.colored_label(warning_color(ui),
+                                            "Refreshing current status. Actions remain unavailable until readback completes.");
+                                    }
                                     self.library.show(ui, selected, action_controls_pending,
                                         &mut chosen, Self::product_details);
                                 } else {
@@ -2932,7 +2940,7 @@ mod tests {
             scope:"current_only".into(),current_generation:"same".into(),current:snapshot,readiness}
     }
     #[test]
-    fn selected_product_controls_require_fresh_matching_overview() {
+    fn retained_product_card_requires_matching_identity_and_fresh_actions() {
         let mut state = state_fixture();
         let overview = overview_fixture();
         let product = overview.current.products[0].clone();
@@ -2955,6 +2963,18 @@ mod tests {
         assert!(state.selected_product_snapshot().is_none());
         state.overview.as_mut().unwrap().current.state_token = overview.current.state_token;
         state.overview_fresh = false;
+        assert!(state.selected_product_snapshot().is_some());
+        assert!(state.current_action_snapshot().is_none());
+        state.origin = Some(RequestOrigin::SilentPostMutationRefresh);
+        state.handle_reply(Reply::Overview(Box::new(overview_fixture())));
+        assert_eq!(state.selected_product_snapshot().unwrap().products[0].name,
+            "Exact scoped detail");
+        assert!(state.current_action_snapshot().is_some());
+        let mut changed = overview_fixture();
+        changed.current.state_token = "changed".into();
+        state.origin = Some(RequestOrigin::SilentPostMutationRefresh);
+        state.handle_reply(Reply::Overview(Box::new(changed)));
+        assert!(state.product_detail.is_none());
         assert!(state.selected_product_snapshot().is_none());
     }
     fn pulse_fixture(live: bool) -> crate::model::Pulse {
