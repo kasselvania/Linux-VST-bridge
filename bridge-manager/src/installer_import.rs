@@ -83,7 +83,7 @@ pub fn rename(m: &Manager, sha: &str, label: &str) -> Result<Presentation> {
     atomic_json(&presentation_path(m, sha), &value)?;
     Ok(value)
 }
-fn stamp(m: &fs::Metadata) -> (u64, u64, u64, i64, i64, i64, i64) {
+fn stamp(m: &fs::Metadata) -> (u64, u64, u64, i64, i64, i64, i64, u32, u32) {
     (
         m.dev(),
         m.ino(),
@@ -92,6 +92,8 @@ fn stamp(m: &fs::Metadata) -> (u64, u64, u64, i64, i64, i64, i64) {
         m.mtime_nsec(),
         m.ctime(),
         m.ctime_nsec(),
+        m.uid(),
+        m.mode(),
     )
 }
 fn kind(f: &mut fs::File, size: u64) -> Result<&'static str> {
@@ -181,10 +183,10 @@ fn import_with(
     let flags = unsafe { libc::fcntl(source.as_raw_fd(), libc::F_GETFL) };
     require(
         before.is_file()
-            && before.uid() == unsafe { libc::getuid() }
+            && installer_source::accepted_owner(before.uid(), before.mode(), unsafe { libc::getuid() })
             && flags >= 0
             && flags & libc::O_ACCMODE == libc::O_RDONLY,
-        "installer_requires_owned_readonly_regular_descriptor",
+        "installer_requires_operator_or_protected_system_readonly_regular_descriptor",
     )?;
     require(
         (512..=bound).contains(&before.len()),
@@ -522,5 +524,18 @@ mod tests {
             .open(&fifo)
             .unwrap();
         assert!(import(&f.m, descriptor).is_err());
+    }
+
+    #[test]
+    fn source_permission_change_during_copy_refuses_without_partial_artifacts() {
+        let f = test_fixture::Fixture::new();
+        let source = f.outer.join("installer.exe");
+        fs::write(&source, pe()).unwrap();
+        fs::set_permissions(&source, fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(import_with(&f.m, file(&source).unwrap(), u64::MAX, MAX_BYTES, |_| {
+            fs::set_permissions(&source, fs::Permissions::from_mode(0o644))?;
+            Ok(())
+        }).is_err());
+        assert!(fs::read_dir(f.m.root.join("installers")).unwrap().next().is_none());
     }
 }

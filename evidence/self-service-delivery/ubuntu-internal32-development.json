@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "date": "2026-09-30",
+  "classification": "installed_development_observations_not_beta_qualification",
+  "candidate": {
+    "version": "0.12.0internal32-1",
+    "source_head": "bef71fdb66d60932e9aec214c31a54d45c871374",
+    "source_tree": "3419bae14ed4feb99a70bfbd159bdc7786ce8029",
+    "deb_sha256": "9837a9ddc82bd087036bd2271fbe8cdb3dc9cc8dc5e79af4903572d7383e05ec",
+    "release_manifest_sha256": "f6546b65ff04266a5bef1d5b638324719c93e77b54eec6eff4d7600b80322d0e",
+    "payload_sha256": "ff1ffbf41184f27442a9b0ec6ca579b2ee135d0beca6417894e97047ca9eb140",
+    "frontend_sha256": "4dd62b1056e5b14537949d0ac2c0cdc140d48f58849dd241b1ed506fab6ad25f",
+    "windows_host_sha256": "a90de3ca2f7360e8c9477184acb8224ebf394d4e46cf00fd905892002a79cd13",
+    "host_source_sha256": "f21af06cbaa2f942119aa50d9ca757e303d6f4507c2d7abbd81cada21bfd1626",
+    "customer_release": false
+  },
+  "platform": {
+    "distro": "Ubuntu 26.04.1",
+    "architecture": "x86_64",
+    "session": "GNOME Wayland",
+    "virtual_machine": true,
+    "audio_sink": "discarded_virtual_output"
+  },
+  "reference_build": {
+    "windows_ci_run": 36777101465,
+    "sdk_state_parameter_automation_sample_audio_tests": "passed",
+    "production_host_class_census": "passed",
+    "matching_prebuilt_proxies": 2,
+    "packaged_reference_installers": 3,
+    "package_roster_files": 27,
+    "qualifies_commercial_software": false
+  },
+  "populated_selection": {
+    "frontend_route": "normal_setup_updates_stop_select_start",
+    "same_account": true,
+    "published_classes": 1,
+    "registry_preserved": true,
+    "registry_sha256": "a695845500cdaddc3f50d6548db0500be85a00ac116e1db9581467776b099a81",
+    "predecessor_retained": true,
+    "selected_generation": "4213657a3f89c8792a55edd9baf21f59231d956e1570763b4fa60a810a6bdd14",
+    "running_frontend_digest_matched_selection": true,
+    "changed_host_source_pair_transition": "exercised_preserving_existing_registration",
+    "changed_windows_host_bytes": "not_exercised",
+    "saved_project_or_rollback": "not_exercised"
+  },
+  "recovery": {
+    "reference_import": {
+      "route": "normal_setup_file_chooser_select_system_packaged_recovery_installer",
+      "installer_sha256": "7501664f57916380b1425eb24447d0db742b8d5714583c8861a3260eb2bd825f",
+      "result": "refused",
+      "visible_reason": "Choose an owned regular installer file",
+      "source_owner": "root",
+      "installer_launched": false,
+      "gui_stop_pass": false,
+      "retry_discovery_pass": false,
+      "required_repair": "frontend_and_importer_explicit_protected_system_source_intake"
+    }
+  },
+  "readback_sample": {
+    "overview_ms": 6051,
+    "exit": 0,
+    "keepers": 0,
+    "dsp_used": 0,
+    "dsp_ceiling": 6,
+    "source": "installed_operator_overview",
+    "latency_claim": "single_development_sample"
+  },
+  "nonclaims": [
+    "fresh_install_qualification",
+    "changed_host_bytes_populated_update",
+    "rollback_project_recall",
+    "cold_warm_qualification",
+    "steady_audio",
+    "gui_stop",
+    "first_party_DAW_recall",
+    "commercial_save_reopen",
+    "physical_audio",
+    "CachyOS_plugin_journey",
+    "SteamOS_successor_installation"
+  ],
+  "deck": {
+    "working_selection": "unchanged",
+    "commercial_recall": "authorized_for_safe_staged_followup",
+    "target_packaging_gap": "Ubuntu_CPython_3.14_bytecode_does_not_run_on_Deck_CPython_3.13_5"
+  }
+}

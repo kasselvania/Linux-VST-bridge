@@ -139,6 +139,11 @@ struct Shared {
     // Callback writes counters only; the transport publishes them through the
     // existing independent status lane. No callback mapping or diagnostic I/O.
     delivery_totals: [AtomicU64; 6],
+    // The callback classifies the entire host block once, against a successful
+    // Windows setProcessing acknowledgement for that exact epoch. Counters
+    // remain separate from terminal/queue snapshots and never perform I/O.
+    processing_ready_epoch: AtomicU64,
+    delivery_phases: [[AtomicU64; 6]; 2],
     first_context_ready: AtomicBool,
     first_epoch: AtomicU64,
     first_worker_op: AtomicU64,
@@ -181,6 +186,8 @@ impl Shared {
             worker_position: AtomicU64::new(0),
             service_us_max: AtomicU64::new(0),
             delivery_totals: std::array::from_fn(|_| AtomicU64::new(0)),
+            processing_ready_epoch: AtomicU64::new(0),
+            delivery_phases: std::array::from_fn(|_| std::array::from_fn(|_| AtomicU64::new(0))),
             first_context_ready: AtomicBool::new(false),
             first_epoch: AtomicU64::new(0),
             first_worker_op: AtomicU64::new(0),
@@ -521,6 +528,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
     let mut previous_control = [0u64; 4];
     let mut deferred = None;
     let mut terminal_context = None;
+    let mut phases = PhaseRecords::default();
     if let Some(status) = &mut session.fault_status {
         status.generation = s.generation;
     }
@@ -571,6 +579,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                             }
                             20 => session.configure(c.bytes.clone()),
                             14 => session.transition(14).map(|_| {
+                                s.processing_ready_epoch.store(0, Ordering::Release);
+                                phases.record(&s, "deactivated", session.epoch);
                                 s.ack.store(15, Ordering::Release);
                                 vec![]
                             }),
@@ -696,6 +706,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                 }
                 START | STOP => {
                     session.transition_epoch(item.kind as u16, item.epoch)?;
+                    s.processing_ready_epoch.store(if item.kind == START { item.epoch } else { 0 }, Ordering::Release);
+                    phases.record(&s, if item.kind == START { "processing_ready" } else { "processing_stopped" }, item.epoch);
                     s.ack.store(
                         ((item.epoch) << 8) | u64::from(item.kind + 1),
                         Ordering::Release,
@@ -703,6 +715,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                 }
                 DEACTIVATE => {
                     session.transition(14)?;
+                    s.processing_ready_epoch.store(0, Ordering::Release);
+                    phases.record(&s, "deactivated", session.epoch);
                     s.ack.store(15, Ordering::Release);
                 }
                 CLOSE => return Ok(()),
@@ -710,6 +724,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
             }
         }
     })();
+    s.processing_ready_epoch.store(0, Ordering::Release);
+    phases.record(&s, if run.is_ok() { "closing" } else { "failed" }, session.epoch);
     if let Err(ref error) = run {
         // Ordinary Close returns Ok. Cancellation during teardown is not a
         // new terminal incident unless the worker already holds a fault.
@@ -755,6 +771,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
         }
     }
     let owner = session.owner.take();
+    let retired_epoch = session.epoch;
     if let Err(error) = session.close() {
         s.fail(WORKER, u64::MAX);
         if let Ok(mut d) = s.detail.lock() {
@@ -771,7 +788,56 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
     if let Some(owner) = owner {
         s.retired.store(owner.finish().is_ok(), Ordering::Release);
     }
+    // Write phase measurements only after processing and ownership retirement.
+    // Even a slow diagnostic disk cannot delay steady-state audio delivery.
+    if let Some(path) = &report {
+        phases.write(path);
+        crate::preview::append_report(path, phase_text(&PhaseRecord::read(&s,
+            if s.retired.load(Ordering::Acquire) { "retired" } else { "retirement_unconfirmed" },
+            retired_epoch), phases.omitted).as_bytes());
+    }
     s.ack.store(6, Ordering::Release);
+}
+#[derive(Clone, Copy)]
+struct PhaseRecord {
+    phase: &'static str,
+    epoch: u64,
+    monotonic_ns: u64,
+    delivery: [[u64; 6]; 2],
+}
+impl PhaseRecord {
+    const EMPTY: Self = Self { phase: "", epoch: 0, monotonic_ns: 0, delivery: [[0; 6]; 2] };
+    fn read(s: &Shared, phase: &'static str, epoch: u64) -> Self {
+        Self { phase, epoch, monotonic_ns: crate::observer::monotonic_ns(),
+            delivery: std::array::from_fn(|p| std::array::from_fn(|i|
+                s.delivery_phases[p][i].load(Ordering::Acquire))) }
+    }
+}
+struct PhaseRecords { records: [PhaseRecord; 128], length: usize, omitted: u64 }
+impl Default for PhaseRecords {
+    fn default() -> Self { Self { records: [PhaseRecord::EMPTY; 128], length: 0, omitted: 0 } }
+}
+impl PhaseRecords {
+    fn record(&mut self, s: &Shared, phase: &'static str, epoch: u64) {
+        if self.length == self.records.len() { self.omitted += 1; return; }
+        self.records[self.length] = PhaseRecord::read(s, phase, epoch);
+        self.length += 1;
+    }
+    fn write(&self, path: &std::path::Path) {
+        for record in &self.records[..self.length] {
+            crate::preview::append_report(path, phase_text(record, self.omitted).as_bytes());
+        }
+    }
+}
+fn phase_text(record: &PhaseRecord, omitted: u64) -> String {
+    let counters = |d: [u64; 6]| format!(
+        "{{\"admitted_frames\":{},\"missing_frames\":{},\"gaps\":{},\"expired_frames\":{},\"delivered_frames\":{},\"priming_frames\":{}}}",
+        d[0], d[1], d[2], d[3], d[4], d[5]);
+    format!("{{\"event\":\"ap7_audio_phase\",\"schema\":1,\"phase\":\"{}\",\"epoch\":{},\"monotonic_ns\":{},\"startup\":{},\"processing\":{},\"omitted_phase_markers\":{}}}\n",
+        record.phase, record.epoch, record.monotonic_ns, counters(record.delivery[0]), counters(record.delivery[1]), omitted)
+}
+fn processing_phase(epoch: u64, acknowledged_epoch: u64) -> usize {
+    usize::from(epoch != 0 && acknowledged_epoch == epoch)
 }
 fn progress_text(s: &Shared) -> String {
     let ready = s.first_context_ready.load(Ordering::Acquire);
@@ -1500,6 +1566,8 @@ unsafe fn process_events(
     }
     let entered_ns = if entered_ns == 0 { crate::observer::monotonic_ns() } else { entered_ns };
     let mut total = Delivery::default();
+    let phase = processing_phase((*l.callback.get()).epoch,
+        l.shared.processing_ready_epoch.load(Ordering::Acquire));
     let mut combined = channel_mask(2+extra.len());
     let mut offset = 0;
     loop {
@@ -1548,6 +1616,12 @@ unsafe fn process_events(
     }
     *out_flags = combined;
     for (counter, delta) in l.shared.delivery_totals.iter().zip([
+        n as u64, total.missing_frames, total.gaps, total.expired_frames,
+        total.delivered_frames, total.priming_frames,
+    ]) {
+        counter.store(counter.load(Ordering::Relaxed) + delta, Ordering::Release);
+    }
+    for (counter, delta) in l.shared.delivery_phases[phase].iter().zip([
         n as u64, total.missing_frames, total.gaps, total.expired_frames,
         total.delivered_frames, total.priming_frames,
     ]) {
@@ -2229,12 +2303,17 @@ mod tests {
         shared.requests.pop().unwrap();
         let mut total=0; let mut maximum=0; let mut first=0;
         for block in 0..1100 {
+            // An acknowledgement for another epoch cannot classify this block
+            // as processing. First two blocks precede the exact readiness.
+            if block == 1 { shared.processing_ready_epoch.store(2, Ordering::Release); }
+            if block == 2 { shared.processing_ready_epoch.store(1, Ordering::Release); }
             let mut flags=0; let mut d=Delivery::default();
             let before=faults();
-            let rc=unsafe { ap10_process(id,512,std::ptr::null(),0,
+            let (rc, allocations)=crate::allocation_test::measure(|| unsafe { ap10_process(id,512,std::ptr::null(),0,
                 &crate::context::Context::default(),3,input.as_ptr(),input.as_ptr(),
-                output[0].as_mut_ptr(),output[1].as_mut_ptr(),&mut flags,&mut d) };
+                output[0].as_mut_ptr(),output[1].as_mut_ptr(),&mut flags,&mut d) });
             let delta=faults()-before;
+            assert_eq!(allocations, [0; 3], "phase attribution allocated/reallocated/freed in the callback");
             assert_eq!(rc,0); total+=delta; maximum=maximum.max(delta);if block==0 {first=delta;}
             // Same parent 512-frame host block: both chunks have already been
             // admitted before its off-thread consumer can return completions.
@@ -2244,6 +2323,19 @@ mod tests {
             }
         }
         eprintln!("AP13 parent512 callback minor faults: first={first} total={total} max={maximum}");
+        assert_eq!(processing_phase(0, 0), 0, "unstarted epochs cannot report processing readiness");
+        assert_eq!(shared.delivery_phases[0][0].load(Ordering::Acquire), 1024);
+        assert_eq!(shared.delivery_phases[1][0].load(Ordering::Acquire), 1098*512);
+        for i in 0..6 {
+            assert_eq!(shared.delivery_totals[i].load(Ordering::Acquire),
+                shared.delivery_phases[0][i].load(Ordering::Acquire)+shared.delivery_phases[1][i].load(Ordering::Acquire));
+        }
+        let mut phases = PhaseRecords::default();
+        phases.record(&shared, "processing_stopped", 1);
+        assert_eq!(phases.records[0].delivery[0][0], 1024);
+        for _ in 0..129 { phases.record(&shared, "processing_stopped", 1); }
+        assert_eq!(phases.length, 128);
+        assert_eq!(phases.omitted, 2);
         INSTANCES.remove(id, |_| ()).unwrap();
         // A host's fresh callback thread can fault in its code/stack on the
         // first invocation (12 pages in the unoptimized CI host). It is not

@@ -203,6 +203,9 @@ pub fn send(query: Query, sender: Sender<Reply>, ctx: eframe::egui::Context) {
     });
 }
 
+#[path = "../../bridge-manager/src/installer_source.rs"]
+mod installer_source;
+
 fn open_selected(path: &std::path::Path) -> Result<std::fs::File, String> {
     use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
     let f = std::fs::OpenOptions::new()
@@ -211,8 +214,10 @@ fn open_selected(path: &std::path::Path) -> Result<std::fs::File, String> {
         .open(path)
         .map_err(|_| "Choose a regular local installer file; links are not accepted")?;
     let md = f.metadata().map_err(|_| "Cannot read selected file")?;
-    if !md.is_file() || md.uid() != unsafe { libc::getuid() } {
-        return Err("Choose an owned regular installer file".into());
+    if !md.is_file()
+        || !installer_source::accepted_owner(md.uid(), md.mode(), unsafe { libc::getuid() })
+    {
+        return Err("Choose a regular installer owned by you or protected by the system".into());
     }
     Ok(f)
 }

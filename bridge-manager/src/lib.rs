@@ -107,7 +107,7 @@ thread_local! {
 pub fn with_readback_digests<T>(readback: impl FnOnce() -> T) -> T {
     with_scoped_digests(readback)
 }
-/// One native admission hashes every runtime byte afresh. Repeated authority
+/// An isolated launch hashes every runtime byte afresh. Repeated authority
 /// checks in that same admission reuse only bytes already read in this scope,
 /// after reopening and matching the complete file identity. Persisted runtime
 /// observations cannot authorize execution, even in a nested readback scope.
@@ -118,6 +118,68 @@ pub fn with_launch_verification<T>(admission: impl FnOnce() -> T) -> T {
     }
     let _restore = Restore(FULL_BYTE_VERIFICATION.with(|mode| mode.replace(true)));
     with_scoped_digests(admission)
+}
+
+/// Process-owned byte observations shared by one running manager's launch
+/// preparation. Unlike the persisted readback cache, these entries can only
+/// originate from bytes this process read. Every reuse still reopens and checks
+/// the complete file identity; a changed file is hashed again and validated by
+/// its ordinary owner. Never put this cache or its mutex on an audio path.
+#[derive(Default)]
+pub struct LaunchVerification {
+    records: std::sync::Mutex<HashMap<PathBuf, (DigestFileIdentity, String)>>,
+}
+pub struct LaunchSnapshot(HashMap<PathBuf, (DigestFileIdentity, String)>);
+impl LaunchVerification {
+    /// Serialize shared byte preparation only. Process creation, keeper waiting
+    /// and processing admission occur after this lock has been released.
+    pub fn prepare<T>(&self, deadline: std::time::Instant,
+        prepare: impl FnOnce() -> Result<T>) -> Result<(T, LaunchSnapshot)> {
+        let mut records = loop {
+            match self.records.try_lock() {
+                Ok(records) => break records,
+                Err(std::sync::TryLockError::Poisoned(_)) => return Err("launch_verification_poisoned".into()),
+                Err(std::sync::TryLockError::WouldBlock) => {
+                    let now = std::time::Instant::now();
+                    require(now < deadline, "launch_verification_deadline")?;
+                    std::thread::sleep(std::time::Duration::from_millis(10).min(deadline-now));
+                }
+            }
+        };
+        require(std::time::Instant::now() < deadline, "launch_verification_deadline")?;
+        let snapshot = LaunchSnapshot(records.clone());
+        let (result, observed) = snapshot.run(|| {
+            let result = prepare();
+            let observed = SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().clone());
+            (result, observed)
+        });
+        let value = result?;
+        require(std::time::Instant::now() < deadline, "launch_verification_deadline")?;
+        require(observed.len() <= 200_000, "launch_verification_extent")?;
+        *records = observed.clone();
+        Ok((value, LaunchSnapshot(observed)))
+    }
+}
+impl LaunchSnapshot {
+    /// Recheck exact observations throughout this admission, without retaining
+    /// the shared preparation lock or allowing a disk readback cache to launch.
+    pub fn run<T>(&self, admission: impl FnOnce() -> T) -> T {
+        struct Restore {
+            records: Option<HashMap<PathBuf, (DigestFileIdentity, String)>>,
+            full: bool,
+        }
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                SCOPED_DIGESTS.with(|cache| *cache.borrow_mut() = self.records.take());
+                FULL_BYTE_VERIFICATION.with(|mode| mode.set(self.full));
+            }
+        }
+        let _restore = Restore {
+            records: SCOPED_DIGESTS.with(|cache| cache.replace(Some(self.0.clone()))),
+            full: FULL_BYTE_VERIFICATION.with(|mode| mode.replace(true)),
+        };
+        admission()
+    }
 }
 fn with_scoped_digests<T>(readback: impl FnOnce() -> T) -> T {
     struct Restore(Option<HashMap<PathBuf, (DigestFileIdentity, String)>>);
@@ -806,6 +868,49 @@ impl Manager {
 mod tests {
     use super::*;
     use crate::test_fixture::Fixture;
+    #[test]
+    fn shared_launch_observations_recheck_mutation_and_restore_scopes() {
+        let f = Fixture::new();
+        let path = f.outer.join("launch-artifact");
+        fs::write(&path, b"first").unwrap();
+        let shared = LaunchVerification::default();
+        let deadline = || std::time::Instant::now()+std::time::Duration::from_secs(2);
+        let (first, snapshot) = shared.prepare(deadline(), || digest(&path)).unwrap();
+        assert_eq!(shared.records.lock().unwrap().len(), 1);
+        assert_eq!(snapshot.run(|| digest(&path)).unwrap(), first);
+        assert!(SCOPED_DIGESTS.with(|cache| cache.borrow().is_none()));
+        // Replacing same-sized bytes must invalidate a process-owned observation.
+        fs::write(&path, b"other").unwrap();
+        let changed = snapshot.run(|| digest(&path)).unwrap();
+        assert_ne!(changed, first);
+        assert_ne!(shared.prepare(deadline(), || digest(&path)).unwrap().0, first);
+        let before = shared.records.lock().unwrap().clone();
+        assert!(shared.prepare::<()>(deadline(), || {
+            digest(&f.r.host.path)?;
+            Err("deliberate preparation refusal".into())
+        }).is_err());
+        assert_eq!(*shared.records.lock().unwrap(), before, "failed preparation may not publish new observations");
+        fs::remove_file(&path).unwrap();
+        std::os::unix::fs::symlink(&f.r.host.path, &path).unwrap();
+        assert!(snapshot.run(|| digest(&path)).is_err());
+        with_readback_digests(|| {
+            snapshot.run(|| assert!(!readback_digests_active()));
+            assert!(readback_digests_active());
+        });
+    }
+    #[test]
+    fn shared_launch_preparation_wait_has_a_deadline() {
+        let shared = std::sync::Arc::new(LaunchVerification::default());
+        let held = shared.records.lock().unwrap();
+        let waiting = shared.clone();
+        let thread = std::thread::spawn(move || waiting.prepare(
+            std::time::Instant::now()+std::time::Duration::from_millis(20), || Ok(()))
+            .err().unwrap().to_string());
+        assert_eq!(thread.join().unwrap(), "launch_verification_deadline");
+        drop(held);
+        assert!(shared.prepare(std::time::Instant::now()-std::time::Duration::from_millis(1),
+            || Ok(())).is_err());
+    }
     #[test]
     fn readback_digest_reuse_is_scoped_and_rechecks_file_identity() {
         let f = Fixture::new();

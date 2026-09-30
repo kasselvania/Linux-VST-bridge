@@ -43,13 +43,40 @@ exact tree and verify symlinks and critical artifacts. The observation cache
 lives outside the runtime installation and cannot authorize execution. Missing or
 invalid caches fall back to byte verification; a cold cache is prepared before
 projection locks. This avoids repeated multi-gigabyte reads under manager locks.
-Native admission has a fresh full-byte verification scope: repeated checks may
+Earlier native admission used an isolated full-byte verification scope: repeated checks may
 reuse only hashes computed in that scope after exact reopened file identities
 match. Persisted observation stamps cannot authorize launch, including nested
 readback calls; the scope ends before DSP supervisor launch. Installed internal23
 reached the Windows module and shared transport, but DAW activation failed at
 subsequent state/setup boundaries. See the retained test; no audio/editor or
 trial-usability claim follows from successful admission.
+
+The integrated source successor shares byte preparation across native requests
+within one manager process. Only successful verification of actual bytes can
+populate that private cache; persisted observation stamps never seed it. Every
+reuse reopens files without following links and checks device, inode, size, mode,
+owner, modification/change times and the exact runtime roster. Changed identities
+force hashing and the ordinary exact-digest comparison. A bounded preparation
+lock is released before keeper, process and DSP work. A new manager prepares
+again; background preparation does not make a plug-in processing-ready. Focused
+tests reject changed bytes, poisoned disk observations, symlinks, failed
+preparation and expired waits. This correction is source-tested and is absent
+from installed internal32; its startup performance remains to be measured.
+
+Internal31's ordinary cold FRAGMENTS live preview was accepted without Reload
+in 44.610 seconds: binding verification 24.586 seconds, keeper ready at 44.202.
+This exceeds the declared 30-second target. The editor subsequently opened;
+complete vendor initialization and repeated/steady-audio acceptance were not
+measured by that admission trace.
+
+Explicit installer selection accepts an operator-owned regular file or a
+root-owned regular file without group/other write permission. The frontend opens
+read-only without following links; the importer checks its descriptor, file
+format/size, available space and unchanged identity including owner/mode while
+copying and hashing. Execution still uses the private, immutable imported copy,
+not the source path. Internal32 refused its own system-packaged reference
+installer under the older operator-only check; this source correction must be
+retested through the delivered frontend.
 
 The project downloads upstream artifacts to the user's machine; this change
 does not publish a rehosted runtime or establish all obligations for a future

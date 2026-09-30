@@ -121,7 +121,23 @@ completed naturally; GUI Stop is still unproved. The following frontend source
 correction brings the selected card ahead of acquisition controls and explicitly
 refuses expired offers. Its 81 tests include rendered fresh/expired Stop clicks
 with unavailable capacity. First-party instrument/effect and windowed installer
-fixtures are source-only until built and exercised through the installed path.
+fixtures passed their production Windows SDK state/parameter/automation/audio
+tests in CI run 36777101465 and are delivered with exact matching proxies in
+[internal32](../evidence/self-service-delivery/ubuntu-internal32-development.json).
+Normal populated Stop → Select → Start retained the existing FRAGMENTS
+registration; host source identity changed but Windows host bytes did not.
+Normal import of the packaged Recovery installer failed its root-ownership
+check. Installed fixture operation, GUI Stop/Retry/discovery and DAW recall
+remain open. The subsequent source correction admits protected system sources
+into private imported custody and rejects unsafe foreign/writable inputs.
+
+Internal31's cold live preview accepted without Reload in 44.610 seconds,
+exceeding the 30-second target. The source successor shares manager-owned byte
+preparation; changed bytes, symlinks, failed preparation and disk-cache authority
+still refuse. Separate audio phase counters retain startup/processing and
+declared priming; 19 backend tests pass with zero callback allocations across
+1,100 blocks. These changes are absent from internal32 and establish no
+installed startup, steady-audio or physical repair claim.
 
 The original clean-machine journey uses the same official trial media on that
 Ubuntu 26.04.1 VM with Bitwig 6.1.1. Its posture is **unqualified**. Internal13

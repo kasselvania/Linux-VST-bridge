@@ -101,6 +101,26 @@ space, and unavailable services. Preserve the working predecessor and show an
 actionable result. Hypervisor/viewer failures invalidate affected measurements;
 customer disk exhaustion is a product recovery case.
 
+## Audio phase measurement
+
+The source successor keeps whole-session counters and separately counts startup
+and processing delivery. A callback is processing only when the worker has
+acknowledged START for that exact current epoch; classification occurs once at
+the host-block boundary. Each group records admitted, missing, gap, expired,
+delivered and declared priming frames. Priming stays visible, and unexplained
+missing frames after readiness still fail the declared workload. No late choice
+of a favorable measurement window is allowed.
+
+The callback adds one readiness load and six fixed atomic counter updates; the
+production callback test measured zero allocations, reallocations and frees
+over 1,100 host blocks. The control worker retains up to 128 fixed phase records
+and counts omitted records explicitly. It writes those records after processing
+ends, followed by retired or retirement-unconfirmed status. Intermediate atomic
+observations are independent, not a simultaneous queue snapshot; final totals
+and confirmed retirement determine acceptance. All 19 queued-backend tests pass.
+This is source instrumentation, absent from internal32. Earlier unphased runs
+are not retroactively described as clean processing.
+
 ## Delivery and reporting
 
 Produce installable candidate artifacts and version/component manifest;

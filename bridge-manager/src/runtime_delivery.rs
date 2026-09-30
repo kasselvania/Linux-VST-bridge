@@ -414,6 +414,11 @@ mod tests {
         atomic_json(&cache_path(&runner.files[0]).unwrap(),&forged).unwrap();
         assert!(verify_tree(&runner).unwrap_err().to_string().contains("file_changed"));
         assert!(with_launch_verification(||verify_tree(&runner)).unwrap_err().to_string().contains("file_changed"));
+        let shared = LaunchVerification::default();
+        assert!(shared.prepare(Instant::now()+Duration::from_secs(2),
+            || verify_tree(&runner)).err().unwrap().to_string().contains("file_changed"));
+        assert!(shared.records.lock().unwrap().is_empty(),
+            "a forged persisted observation cannot populate process launch authority");
     }
     #[test]
     fn lifetime_lock_is_exact_empty_and_write_openable() {

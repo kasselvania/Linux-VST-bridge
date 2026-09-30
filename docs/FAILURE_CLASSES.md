@@ -803,6 +803,15 @@ refuses stale Stop. All 81 frontend tests pass. A first-party windowed installer
 with a deliberate hold/partial-install hold is now source instrumentation;
 installed Stop/Retry/discovery remains required.
 
+Internal32 delivers the windowed fixture and both stateful reference modules.
+The populated Stop → Select → Start package route retained the exact FRAGMENTS
+registration. Normal Add Windows installer then refused the root-owned packaged
+Recovery installer with “Choose an owned regular installer file.” No installer
+ran and no Stop pass follows. The shared source-file eligibility correction
+permits explicitly selected root-owned files without group/other write access;
+read-only descriptor checks, private custody, hashing and source-change refusal
+remain mandatory. The fixed delivered GUI journey is still required.
+
 The old installed UI required an exact supervisor stop outside the GUI. It
 completed in 2.804 seconds: cancellation, outer exit -15, zero owned live
 processes, confirmed cleanup and durable files classified installed. This is
@@ -942,6 +951,14 @@ unresolved.
 - **Pi source candidate:** PW1 [exact default-state evidence](../evidence/pw1/serum-default-prewarm-2026-09-25.md) records a fresh FN1 baseline with the 1,280-frame first-note gap and three final candidate runs with zero missing frames, exact second state readback and clean retirement. The cold 43 ms call moved into bounded startup. No installed-generation or general support claim follows.
 
 ### Product coverage
+
+The integrated source successor adds startup/processing counters keyed to an
+exact successful START epoch. Its callback uses fixed atomic counters only;
+the worker retains bounded phase records and writes after processing/retirement.
+All 19 queued-backend tests pass, including 1,100 production callback blocks
+with zero allocation/reallocation/free calls, wrong-epoch refusal and whole-total
+reconciliation. This is instrumentation, not an audio-gap repair. Internal32
+does not contain it; no installed or physical dropout-free claim follows.
 
 Arturia Deck sessions and FRAGMENTS Ubuntu sessions contain retained gap counters. Functional use is accepted; dropout-free operation is not claimed.
 The separate Pi standalone Serum source candidate is unqualified for musical
@@ -1523,7 +1540,14 @@ The wait retains the existing bounded startup budget; failures and actual
 capacity limits remain explicit. Control-worker phase records separate binding
 verification, keeper preparation, transport and supervisor readiness. Source
 tests establish reservation release, repeated admission, refusal and deadline
-behavior. Installed cold/warm measurements and steady audio remain pending.
+behavior. Internal31's ordinary cold live preview was accepted without Reload
+in 44.610 seconds: verification 24.586 seconds and keeper readiness at 44.202.
+This exceeds the 30-second responsiveness target; complete vendor initialization
+and steady audio were not measured. The next source correction shares verified
+byte preparation within one manager process, reopens/checks exact identities,
+refuses stale/changed bytes and disk-cache authority, and releases its bounded
+preparation lock before keeper/DSP work. Focused tests pass. It is absent from
+internal32; repeated installed cold/warm measurements remain pending.
 
 ## FC-PLAT-002 — Delivered runtime lifetime lock cannot be opened
 

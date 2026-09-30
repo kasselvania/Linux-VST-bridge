@@ -10,6 +10,7 @@ mod vendor_product_cli;
 mod operator_cli;
 mod readiness;
 mod installer_import;
+mod installer_source;
 mod onboarding;
 mod daw_workspace;
 mod preparation_cli;
@@ -1081,6 +1082,19 @@ fn serve(m: Manager) -> Result<()> {
     }
     let listener = UnixListener::bind(address)?;
     let manager = Arc::new(m);
+    let launch_verification = Arc::new(LaunchVerification::default());
+    // Warm the owned runtime outside the interactive request and registry
+    // locks. The listener still serves setup/recovery while bytes are read.
+    // A concurrent native request shares this bounded preparation; it does
+    // not start an independent multi-gigabyte verification race.
+    let warm_manager = manager.clone();
+    let warm_verification = launch_verification.clone();
+    let _runtime_preparation = std::thread::spawn(move || {
+        let result = warm_verification.prepare(
+            Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS),
+            || runtime_delivery::installed(&warm_manager).map(|_| ()));
+        if result.is_err() { eprintln!("owned runtime preparation unavailable; launch will verify its exact binding"); }
+    });
     // A service restart cannot turn missing cleanup into a fresh admission.
     // Clean reports retire their leases; uncertain ones remain inspectable.
     let blocked = Arc::new(AtomicBool::new(reconcile_leases(&manager)?));
@@ -1113,6 +1127,7 @@ fn serve(m: Manager) -> Result<()> {
         let s = s.clone();
         let blocked = blocked.clone();
         let keepers = keepers.clone();
+        let launch_verification = launch_verification.clone();
         let limits = limits.clone();
         let workers = workers.clone();
         workers.fetch_add(1, Ordering::AcqRel);
@@ -1225,14 +1240,18 @@ fn serve(m: Manager) -> Result<()> {
                 // Leave room for the four-second supervisor handshake within
                 // the existing 65-second native admission budget.
                 let keeper_deadline=startup.started+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS);
-                let prepared=with_launch_verification(|| -> Result<_> {
-                    // Full byte verification happens before the exclusive
-                    // registry reservation. It is repeated under reservation
-                    // using only the same fresh scope's identity-checked digests.
-                    let registration = m.resolve(&greeting[5..])?;
-                    experimental_runner::verify_selected_bg1_history(&m, &registration.environment)?;
-                    m.verify_served_host(&registration, &s.host, &s.source_sha256, &profiles::installed_profiles()?)?;
-                    let execution=package_authority::paired_components(&m,&s,&registration)?;
+                let prepared=(|| -> Result<_> {
+                    let ((registration, execution), verified)=launch_verification.prepare(keeper_deadline, || {
+                        let registration = m.resolve(&greeting[5..])?;
+                        experimental_runner::verify_selected_bg1_history(&m, &registration.environment)?;
+                        m.verify_served_host(&registration, &s.host, &s.source_sha256, &profiles::installed_profiles()?)?;
+                        let execution=package_authority::paired_components(&m,&s,&registration)?;
+                        Ok((registration, execution))
+                    })?;
+                    // Shared byte preparation is complete. All keeper and DSP
+                    // work proceeds independently, rechecking those observations
+                    // in this exact admission before exposing the binding.
+                    verified.run(|| -> Result<_> {
                     let full_registration = registration.clone();
                     let r: HostBinding = registration.into();
                     let performance = m.performance(&r.metadata.class_id)?;
@@ -1307,7 +1326,8 @@ fn serve(m: Manager) -> Result<()> {
                     }
                     startup.phase("transport_prepared");
                     Ok((execution,r,performance,job,path,admission,storage))
-                });
+                    })
+                })();
                 let (execution,r,performance,job,path,mut admission,mut storage)=match prepared {
                     Ok(value)=>value,
                     Err(e)=>{
