@@ -1232,6 +1232,9 @@ fn validate_current_request(m: &Manager, request: &ui::Request) -> Result<()> {
 fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Result<()> {
     require(request.schema == ui::OPERATOR_SCHEMA,
         "operator_schema_mismatch_update_manager_frontend")?;
+    if installer_control(&request.action).is_some() {
+        return validate_installer_control_with(m, request, onboarding::live);
+    }
     if current_offer_action(&request.action) {
         let offered = overview(m)?;
         validate(request, &offered.current)?;
@@ -1319,6 +1322,25 @@ fn current_offer_action(action: &ui::Action) -> bool {
         | ui::Action::InstallerScan { .. }
         | ui::Action::QuarantinedModuleRetry { .. })
 }
+fn installer_control(action: &ui::Action) -> Option<(&str, &str)> {
+    match action {
+        ui::Action::InstallerFocus { onboarding, operation }
+        | ui::Action::InstallerStop { onboarding, operation } => Some((onboarding, operation)),
+        _ => None,
+    }
+}
+fn validate_installer_control_with(m: &Manager, request: &ui::Request,
+    is_live: impl FnOnce(&str) -> Result<bool>) -> Result<()> {
+    require(request.schema == ui::OPERATOR_SCHEMA,
+        "operator_schema_mismatch_update_manager_frontend")?;
+    let (id, operation) = installer_control(&request.action)
+        .ok_or("installer_control_action")?;
+    let _ownership = m.lock("onboarding.lock")?;
+    require(request.state_token == token(m)?, "operator_stale_request_refresh")?;
+    let record = onboarding::control_record(m, id)?;
+    require(record.installation_operation.as_deref() == Some(operation)
+        && valid_hex(operation, 32) && is_live(operation)?, "installer_control_owner")
+}
 fn validate_current_worker(m: &Manager, request: &ui::Request, id: &str,
     timeout: Duration, waits: &mut Vec<ui::LockFacts>,
     capacity_read: &dyn Fn() -> Option<CapacityReadback>) -> Result<()> {
@@ -1326,6 +1348,11 @@ fn validate_current_worker(m: &Manager, request: &ui::Request, id: &str,
         "operator_schema_mismatch_update_manager_frontend")?;
     let _serialization = acquire_readback(m, ui::OperatorLock::Canonical,
         Some(id), timeout, waits)?;
+    // Recovery controls recheck this exact owned cohort. A suspended DSP
+    // service cannot grant new-work capacity, and is not needed to stop it.
+    if installer_control(&request.action).is_some() {
+        return validate_installer_control_with(m, request, onboarding::live);
+    }
     let deadline = Instant::now() + timeout;
     let mut cap = capacity_read();
     let mut registry = acquire_readback(m, ui::OperatorLock::Registry,
@@ -4603,6 +4630,35 @@ mod tests {
         };
         let receipt = launch_queued(&f.m, &request, |_| Ok(true)).unwrap();
         (f, receipt.operation.unwrap())
+    }
+    #[test]
+    fn installer_controls_use_current_owned_operation_without_runtime_admission() {
+        let (f, creation) = onboarding_worker_fixture();
+        let create: ui::Request = read_json(&job_dir(&f.m, &creation).unwrap()
+            .join("request.json")).unwrap();
+        let result = execute_with_receipt_policy(&f.m, &create.action, Some(&creation),
+            &|| capacity_fixture(&f.m), OPERATOR_WAIT, &mut vec![]).unwrap();
+        let id = result["onboarding"].as_str().unwrap();
+        let operation = "ab".repeat(16);
+        let record = onboarding::reserve(&f.m, id, &operation).unwrap();
+        let mut request = ui::Request { schema: ui::OPERATOR_SCHEMA,
+            state_token: token(&f.m).unwrap(), action: ui::Action::InstallerStop {
+                onboarding: id.into(), operation: operation.clone() } };
+        // Recovery owns no binary launch. A damaged runner cannot prevent
+        // stopping the still-owned installer or confer new-work authority.
+        fs::write(&record.environment.runner.entry_point, b"damaged runtime").unwrap();
+        assert!(onboarding::load(&f.m, id).is_err());
+        validate_installer_control_with(&f.m, &request, |op| {
+            assert_eq!(op, operation); Ok(true)
+        }).unwrap();
+        assert!(validate_installer_control_with(&f.m, &request, |_| Ok(false)).is_err());
+        assert!(validate_installer_control_with(&f.m, &request, |_| Err("unit unavailable".into())).is_err());
+        request.action = ui::Action::InstallerFocus {
+            onboarding: id.into(), operation: "ef".repeat(16) };
+        assert!(validate_installer_control_with(&f.m, &request, |_| Ok(true)).is_err());
+        request.action = ui::Action::InstallerStop { onboarding: id.into(), operation };
+        request.state_token = "stale".into();
+        assert!(validate_installer_control_with(&f.m, &request, |_| Ok(true)).is_err());
     }
     #[test]
     #[ignore = "opt-in snapshot latency measurement"]

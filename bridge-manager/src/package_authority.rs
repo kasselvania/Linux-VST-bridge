@@ -176,29 +176,98 @@ fn old_software(m: &Manager) -> Result<Option<Software>> {
 }
 fn require_retained_host_pair(m: &Manager, old: &Software,
     manifest: &PackageManifest) -> Result<()> {
-    if old.native_catalogue.is_some() || !m.registry()?.classes.is_empty() {
-        require(old.host.sha256 == manifest.files[4].sha256
-            && old.source_manifest.sha256 == manifest.files[5].sha256,
-            "package_existing_product_host_pair_changed")?;
+    if old.host.sha256 != manifest.files[4].sha256
+        || old.source_manifest.sha256 != manifest.files[5].sha256 {
+        // New preparation uses the successor's pair. Existing publications
+        // retain the exact supervisor/ownership/host set that served them.
+        for entry in m.registry()?.classes.values() {
+            if entry.publication == Publication::Published {
+                paired_components(m, old, &entry.registration)?;
+            }
+        }
     }
     Ok(())
 }
-fn generation_record(manifest: PackageManifest, manifest_sha256: String,
-    predecessor: Option<Software>) -> Generation {
-    let catalogue = predecessor.as_ref().and_then(|s| s.native_catalogue.as_ref());
+fn retained_catalogue(m: &Manager, predecessor: Option<&Software>,
+    manifest: &PackageManifest) -> Result<Option<Vec<u8>>> {
+    let Some(old) = predecessor else { return Ok(None) };
+    let Some(artifact) = &old.native_catalogue else { return Ok(None) };
+    artifact.verify()?;
+    let bytes = fs::read(&artifact.path)?;
+    if old.host.sha256 == manifest.files[4].sha256
+        && old.source_manifest.sha256 == manifest.files[5].sha256 {
+        return Ok(Some(bytes));
+    }
+    let mut catalogue = old.catalogue(m)?;
+    let retained = catalogue::HostArtifact {
+        host: old.host.clone(), source_manifest: old.source_manifest.clone() };
+    if !catalogue.hosts.iter().any(|host| host.host.sha256 == retained.host.sha256
+        && host.source_manifest.sha256 == retained.source_manifest.sha256) {
+        catalogue.hosts.push(retained);
+    }
+    catalogue.schema = catalogue.schema.max(2);
+    catalogue.hosts.retain(|host| host.host.sha256 != manifest.files[4].sha256
+        || host.source_manifest.sha256 != manifest.files[5].sha256);
+    catalogue.validate(&m.root)?;
+    Ok(Some(serde_json::to_vec(&catalogue)?))
+}
+fn generation_record(m: &Manager, manifest: PackageManifest, manifest_sha256: String,
+    predecessor: Option<Software>) -> Result<Generation> {
+    let catalogue = retained_catalogue(m, predecessor.as_ref(), &manifest)?;
     let packaged_preparation_kit_sha256 = (manifest.schema == 2)
         .then(|| manifest.files[NAMES.len()].sha256.clone());
-    Generation {
+    Ok(Generation {
         schema: if packaged_preparation_kit_sha256.is_some() { 2 } else { 1 },
         manifest_sha256, manifest,
         retained_installer_launch: predecessor.as_ref().and_then(|s| s.installer_launch.clone()),
         retained_preparation_kit: if packaged_preparation_kit_sha256.is_some() { None } else {
             predecessor.as_ref().and_then(|s| s.preparation_kit.clone())
         },
-        catalogue_sha256: catalogue.map(|a| a.sha256.clone()),
+        catalogue_sha256: catalogue.map(|bytes| hex(&sha2::Sha256::digest(bytes))),
         packaged_preparation_kit_sha256,
         predecessor,
+    })
+}
+
+/// Resolve a publication's complete retained execution set. A changed
+/// package never silently pairs its new supervisor with an older host.
+pub(super) fn paired_components(m: &Manager, selected: &Software,
+    registration: &Registration) -> Result<Software> {
+    paired_host_components(m, selected, &registration.host, &registration.host_source_sha256)
+}
+pub(super) fn paired_host_components(m: &Manager, selected: &Software,
+    host: &Artifact, source_sha256: &str) -> Result<Software> {
+    let mut candidate = selected.clone();
+    let mut seen = std::collections::BTreeSet::new();
+    let mut supplemental = None;
+    for depth in 0..32 {
+        verify_software_identity(m, &candidate)?;
+        if candidate.host.sha256 == host.sha256 && candidate.source_sha256 == source_sha256 {
+            return Ok(candidate);
+        }
+        // A copied catalogue preserves discovery authority, not permission to
+        // combine a successor supervisor with an older host. Prefer the actual
+        // predecessor set. A supplemental host belongs to the oldest retained
+        // set that introduced it, including pre-package fixture installations.
+        if let Some(retained) = candidate.native_catalogue.as_ref()
+            .map(|_| candidate.catalogue(m)).transpose()?.and_then(|catalogue|
+                catalogue.hosts.into_iter().find(|entry|
+                    entry.host.sha256 == host.sha256
+                        && entry.source_manifest.sha256 == source_sha256)) {
+            let mut set = candidate.clone();
+            set.host = retained.host;
+            set.source_manifest = retained.source_manifest;
+            set.source_sha256 = set.source_manifest.sha256.clone();
+            supplemental = Some(set);
+        }
+        require(seen.insert(candidate.manager.path.clone()), "package_predecessor_cycle")?;
+        let dir = candidate.manager.path.parent().ok_or("package_generation_path")?;
+        if !dir.join("package-generation.json").try_exists()? { break; }
+        let Some(predecessor) = verify_generation(m, &candidate)?.predecessor else { break; };
+        require(depth < 31, "package_predecessor_bound")?;
+        candidate = predecessor;
     }
+    supplemental.ok_or_else(|| "publication_component_generation_unavailable".into())
 }
 
 /// A read-only predecessor decision. The caller separately verifies the
@@ -221,7 +290,7 @@ fn predecessor_plan(m: &Manager, home: &Path, manifest: PackageManifest,
             return Ok((selected, routes));
         }
     }
-    let record = generation_record(manifest, manifest_sha256, Some(old.clone()));
+    let record = generation_record(m, manifest, manifest_sha256, Some(old.clone()))?;
     let planned_id = id(&record)?;
     require(old.manager.path.parent().and_then(|p| p.file_name())
         .and_then(|p| p.to_str()) != Some(planned_id.as_str()),
@@ -348,9 +417,8 @@ fn existing_generation_dir_with(dir: &Path, after_open: impl FnOnce()) -> Result
 }
 fn stage(m: &Manager, inputs: &Inputs, manifest: PackageManifest,
     manifest_sha256: String, predecessor: Option<Software>) -> Result<Software> {
-    let catalogue = predecessor.as_ref().and_then(|s| s.native_catalogue.clone());
-    if let Some(a) = &catalogue { a.verify()?; }
-    let record = generation_record(manifest, manifest_sha256, predecessor);
+    let catalogue = retained_catalogue(m, predecessor.as_ref(), &manifest)?;
+    let record = generation_record(m, manifest, manifest_sha256, predecessor)?;
     let generation = id(&record)?;
     let base = m.root.join("software");
     let dest = base.join(&generation);
@@ -374,10 +442,11 @@ fn stage(m: &Manager, inputs: &Inputs, manifest: PackageManifest,
                     if matches!(file.name.as_str(), "linux-vst-bridge" | "linux-audio-compatibility-manager") {0o500} else {0o400}))?;
                 fs::File::open(target)?.sync_all()?;
             }
-            if let Some(a) = &catalogue {
+            if let Some(bytes) = &catalogue {
                 let target = scratch.join("native-catalogue.json");
-                fs::copy(&a.path, &target)?;
-                require(digest(&target)? == a.sha256, "package_catalogue_copy_changed")?;
+                fs::write(&target, bytes)?;
+                require(Some(digest(&target)?) == record.catalogue_sha256,
+                    "package_catalogue_copy_changed")?;
                 fs::set_permissions(&target, fs::Permissions::from_mode(0o400))?;
                 fs::File::open(target)?.sync_all()?;
             }
@@ -1703,7 +1772,7 @@ mod tests {
     }
 
     #[test]
-    fn predecessor_plan_classifies_missing_owned_routes_and_refuses_foreign_or_changed_host() {
+    fn predecessor_plan_classifies_owned_routes_and_plans_changed_host() {
         let f = Fixture::new();
         f.adopt().unwrap();
         let (manifest, sha) = read_manifest(&f.inputs, f.owner).unwrap();
@@ -1727,7 +1796,9 @@ mod tests {
         fs::write(&unit, original).unwrap();
         let mut changed_host = manifest;
         changed_host.files[4].sha256 = "ab".repeat(32);
-        assert!(predecessor_plan(&f.base.m, &f.home, changed_host, sha).is_err());
+        let changed_sha = hex(&sha2::Sha256::digest(serde_json::to_vec(&changed_host).unwrap()));
+        let (planned, _) = predecessor_plan(&f.base.m, &f.home, changed_host, changed_sha).unwrap();
+        assert_eq!(planned.predecessor.unwrap().host, f.current().host);
     }
 
     #[test]
@@ -1984,15 +2055,55 @@ mod tests {
         assert_eq!(fs::read(next.native_catalogue.as_ref().unwrap().path.clone()).unwrap(), catalogue_bytes);
         assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry_bytes);
         for (path, bytes) in &retained { assert_eq!(&fs::read(path).unwrap(), bytes); }
-        let selected = fs::read(f.base.m.root.join("software.json")).unwrap();
-        f.replace("host.exe", b"different host cannot inherit existing catalogue", true);
-        assert!(f.adopt().is_err());
-        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected);
+        f.replace("host.exe", b"successor host", true);
+        f.replace("host-source-manifest.json", b"successor host source", true);
+        f.replace("session.pyc", b"successor supervisor", true);
+        f.replace("ownership.pyc", b"successor ownership", true);
+        f.adopt().unwrap();
+        let changed = f.current();
+        assert_ne!(changed.host.sha256, next.host.sha256);
+        let execution = paired_components(&f.base.m, &changed, &f.base.r).unwrap();
+        assert_eq!(execution.host, next.host);
+        assert_eq!(execution.supervisor, next.supervisor);
+        assert_eq!(execution.ownership, next.ownership);
+        assert_ne!(execution.supervisor, changed.supervisor);
+        assert_eq!(changed.catalogue(&f.base.m).unwrap().hosts[0].host, next.host);
+        assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry_bytes);
+        for (path, bytes) in &retained { assert_eq!(&fs::read(path).unwrap(), bytes); }
+        // Projects created after an update belong to the customer as well.
+        let later = f.base.m.root.join("projects/later.bwproject");
+        fs::write(&later, b"later music").unwrap();
+        rollback_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!(f.current().supervisor, next.supervisor);
+        assert_eq!(fs::read(later).unwrap(), b"later music");
         rollback_from(&f.base.m, &f.home, &f.service).unwrap();
         assert_eq!(f.current().manager.sha256, first.manager.sha256);
         assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry_bytes);
         for (path, bytes) in &retained { assert_eq!(&fs::read(path).unwrap(), bytes); }
         old.native_catalogue.unwrap().verify().unwrap();
+    }
+
+    #[test]
+    fn retained_execution_refuses_missing_pair_and_tampered_predecessor() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        let old = f.current();
+        let mut registration = f.base.r.clone();
+        registration.host = old.host.clone();
+        registration.host_source_sha256 = old.source_sha256.clone();
+        f.replace("host.exe", b"successor host", true);
+        f.replace("host-source-manifest.json", b"successor source", true);
+        f.replace("session.pyc", b"successor supervisor", true);
+        f.adopt().unwrap();
+        let next = f.current();
+        assert_eq!(paired_components(&f.base.m, &next, &registration).unwrap().supervisor, old.supervisor);
+        let mut unavailable = registration.clone();
+        unavailable.host.sha256 = "fe".repeat(32);
+        assert!(paired_components(&f.base.m, &next, &unavailable).is_err());
+        fs::set_permissions(&old.supervisor.path, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&old.supervisor.path, b"tampered supervisor").unwrap();
+        assert!(paired_components(&f.base.m, &next, &registration).is_err());
+        assert_eq!(f.current().host, next.host);
     }
 
     #[test]

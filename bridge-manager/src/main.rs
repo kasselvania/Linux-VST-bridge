@@ -57,6 +57,65 @@ const KEEPER_OWNER_STARTUP_SECONDS: u64 = 60;
 const KEEPER_MANAGER_RETIRE_SECONDS: u64 = 62;
 const KEEPER_ADMISSION_SECONDS: u64 = 65;
 
+// Startup work runs on a control worker. Waiting for the shared environment
+// owner releases the registry reservation, so scans and status requests cannot
+// be serialized behind cold Wine initialization. Every retry rechecks capacity
+// and exact publication authority before a DSP lease can become visible.
+fn wait_for_keeper<R>(deadline: Instant, mut reserve: impl FnMut() -> Result<R>,
+    mut stage: impl FnMut() -> Result<KeeperAvailability>,
+    mut pause: impl FnMut(Duration)) -> Result<R> {
+    loop {
+        if Instant::now() >= deadline { return Err(capacity::Refusal::ServiceBusy.into()); }
+        match reserve() {
+            Ok(reservation) => match stage()? {
+                KeeperAvailability::Ready => return Ok(reservation),
+                KeeperAvailability::Failed => return Err(capacity::Refusal::BindingInvalid.into()),
+                KeeperAvailability::Starting | KeeperAvailability::Retiring => drop(reservation),
+            },
+            Err(error) if error.downcast_ref::<capacity::Refusal>()
+                == Some(&capacity::Refusal::ServiceBusy) => {},
+            Err(error) => return Err(error),
+        }
+        pause(Duration::from_millis(20).min(deadline.saturating_duration_since(Instant::now())));
+    }
+}
+
+struct NativeStartup<'a> {
+    manager: &'a Manager,
+    request: [u8; 16],
+    class: String,
+    started: Instant,
+    phases: Vec<(&'static str, u64)>,
+    finished: bool,
+}
+impl<'a> NativeStartup<'a> {
+    fn new(manager: &'a Manager, request: [u8; 16], class: String) -> Self {
+        Self { manager, request, class, started: Instant::now(),
+            phases: vec![("request_received", 0)], finished: false }
+    }
+    fn phase(&mut self, name: &'static str) {
+        if self.phases.len()<16 {
+            self.phases.push((name, self.started.elapsed().as_millis() as u64));
+        }
+    }
+    fn finish(&mut self, outcome: &'static str) {
+        self.finished = true;
+        let directory = self.manager.root.join("runtime/native-startup");
+        let retained = (|| -> Result<()> {
+            private_dir(&directory)?;
+            atomic_json(&directory.join(format!("{}.json", self.class.to_ascii_lowercase())),
+                &serde_json::json!({"schema":1,"class_id":self.class,
+                    "request":hex(&self.request),"observed_at":observation::now()?,
+                    "outcome":outcome,"phases":self.phases,
+                    "total_ms":self.started.elapsed().as_millis() as u64}))
+        })();
+        if retained.is_err() { eprintln!("native startup measurement unavailable"); }
+    }
+}
+impl Drop for NativeStartup<'_> {
+    fn drop(&mut self) { if !self.finished { self.finish("refused"); } }
+}
+
 fn retain_admission_incident(m:&Manager,source:&str,request:Option<[u8;16]>,
     class_id:Option<&str>,environment:Option<&str>,keeper_session:Option<&str>)->Result<()> {
     require(matches!(source,"registry_busy"|"worker_ceiling"|"keeper_starting"|
@@ -256,6 +315,51 @@ fn exact_inspection_greetings_share_admission_and_dispatch() {
     for invalid in [b"LVQ7\n".as_slice(), b"LVQ6", b"lvq6\n", b"LVQ6\nextra"] {
         assert_eq!(inspection_purpose(invalid), None);
     }
+}
+
+#[test]
+fn cold_keeper_wait_releases_reservation_and_rechecks_each_attempt() {
+    use std::cell::Cell;
+    struct Reservation<'a>(&'a Cell<bool>);
+    impl Drop for Reservation<'_> { fn drop(&mut self) { self.0.set(false); } }
+    let held=Cell::new(false);
+    let stages=Cell::new(0);
+    let pauses=Cell::new(0);
+    let reservation=wait_for_keeper(Instant::now()+Duration::from_secs(1),|| {
+        assert!(!held.replace(true));
+        Ok(Reservation(&held))
+    },|| {
+        assert!(held.get());
+        stages.set(stages.get()+1);
+        Ok(if stages.get()<3 {KeeperAvailability::Starting} else {KeeperAvailability::Ready})
+    }, |_| {
+        assert!(!held.get());
+        pauses.set(pauses.get()+1);
+    }).unwrap();
+    assert!(held.get());
+    assert_eq!((stages.get(),pauses.get()),(3,2));
+    drop(reservation);
+    assert!(!held.get());
+}
+
+#[test]
+fn keeper_wait_retries_only_busy_and_never_hides_failure_or_deadline() {
+    let mut reservations=0;
+    let mut pauses=0;
+    wait_for_keeper(Instant::now()+Duration::from_secs(1),|| {
+        reservations+=1;
+        if reservations==1 {Err(capacity::Refusal::ServiceBusy.into())} else {Ok(())}
+    },|| Ok(KeeperAvailability::Ready),|_| pauses+=1).unwrap();
+    assert_eq!((reservations,pauses),(2,1));
+    let error=wait_for_keeper(Instant::now()+Duration::from_secs(1),
+        || Ok(()),|| Ok(KeeperAvailability::Failed),|_| panic!("failed keeper retry")).unwrap_err();
+    assert_eq!(error.downcast_ref::<capacity::Refusal>(),Some(&capacity::Refusal::BindingInvalid));
+    let error=wait_for_keeper::<()>(Instant::now(),|| panic!("expired reservation"),
+        || panic!("expired preparation"),|_| panic!("expired pause")).unwrap_err();
+    assert_eq!(error.downcast_ref::<capacity::Refusal>(),Some(&capacity::Refusal::ServiceBusy));
+    assert!(wait_for_keeper::<()>(Instant::now()+Duration::from_secs(1),
+        || Err("capacity unavailable".into()),|| panic!("no admission"),
+        |_| panic!("non-busy retry")).is_err());
 }
 fn software(m: &Manager) -> Result<Software> {
     let s: Software = read_json(&m.root.join("software.json"))?;
@@ -589,7 +693,9 @@ fn spec(
     if onboarding_home {
         if keeper {
             let current:Software=read_json(&m.root.join("software.json"))?;
-            require(r.host==current.host && r.host_source_sha256==current.source_sha256,"keeper_software_binding_changed")?;
+            let paired=if r.host==current.host && r.host_source_sha256==current.source_sha256 {current}
+                else {package_authority::paired_host_components(m,&current,&r.host,&r.host_source_sha256)?};
+            require(r.host==paired.host && r.host_source_sha256==paired.source_sha256,"keeper_software_binding_changed")?;
             require(onboarding::history_records(m)?.iter().any(|h|h.environment==r.environment),"keeper_environment_binding_changed")?;
         } else if inspect && onboarding::history_records(m)?.iter().any(|h|h.environment==r.environment) {
             // The maintenance inspector is independently installed and may be
@@ -1027,7 +1133,8 @@ fn serve(m: Manager) -> Result<()> {
                         let r=entry.registration;
                         if environments.insert(r.environment.id.clone()) {
                             r.verify(&m.root)?;
-                            ensure_keeper(&m,&s,&r.into(),&keepers)?;
+                            let execution=package_authority::paired_components(&m,&s,&r)?;
+                            ensure_keeper(&m,&execution,&r.into(),&keepers)?;
                         }
                     }
                     peer.write_all(b"LVE1 ready\n")?;return Ok(());
@@ -1059,11 +1166,12 @@ fn serve(m: Manager) -> Result<()> {
                         Some(purpose) => qualification_binding(&m, request, purpose)?,
                         None => inspection_binding(&m, request)?,
                     };
-                    ensure_keeper(&m,&s,&r,&keepers)?;
+                    let execution=package_authority::paired_host_components(&m,&s,&r.host,&r.host_source_sha256)?;
+                    ensure_keeper(&m,&execution,&r,&keepers)?;
                     let (mut job,path)=spec(&m,r,true,false,false)?;
                     let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
                     job.shared_inspection=true;atomic_json(&path,&job)?;
-                    let mut child=spawn(&s,&path,None)?;
+                    let mut child=spawn(&execution,&path,None)?;
                     if let Err(readiness)=supervisor_ready(&mut child,&job.session,
                         Duration::from_secs(4)) {
                         retire_unready_supervisor(&mut child,&path)?;
@@ -1086,11 +1194,12 @@ fn serve(m: Manager) -> Result<()> {
                     let _admission=capacity::reserve(&m,&limits,None,blocked.load(Ordering::Acquire))?;
                     m.require_inactive(None)?;
                     let r=inspection_binding(&m,serde_json::from_slice(&bytes)?)?;
-                    ensure_keeper(&m,&s,&r,&keepers)?;
+                    let execution=package_authority::paired_host_components(&m,&s,&r.host,&r.host_source_sha256)?;
+                    ensure_keeper(&m,&execution,&r,&keepers)?;
                     let (mut job,path)=spec(&m,r,false,false,false)?;
                     job.vendor_access=true;atomic_json(&path,&job)?;
                     let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
-                    let mut child=spawn(&s,&path,None)?;
+                    let mut child=spawn(&execution,&path,None)?;
                     if let Err(readiness)=supervisor_ready(&mut child,&job.session,
                         Duration::from_secs(4)) {
                         retire_unready_supervisor(&mut child,&path)?;
@@ -1111,23 +1220,19 @@ fn serve(m: Manager) -> Result<()> {
                 let mut request=[0u8;16];
                 if version3 {peer.read_exact(&mut request)?;require(request!=[0;16],"admission request identity")?;}
                 peer.set_write_timeout(Some(Duration::from_secs(5)))?;
+                let class=hex(&greeting[5..21]).to_uppercase();
+                let mut startup=NativeStartup::new(&m,request,class.clone());
+                // Leave room for the four-second supervisor handshake within
+                // the existing 65-second native admission budget.
+                let keeper_deadline=startup.started+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS);
                 let prepared=with_launch_verification(|| -> Result<_> {
-                    let class=hex(&greeting[5..21]).to_uppercase();
-                    let _reservation=match capacity::reserve(&m,&limits,Some(&class),blocked.load(Ordering::Acquire)) {
-                        Ok(reservation)=>reservation,
-                        Err(error)=>{
-                            if error.downcast_ref::<capacity::Refusal>()==Some(&capacity::Refusal::ServiceBusy) {
-                                if let Err(incident)=retain_admission_incident(&m,"registry_busy",
-                                    Some(request),Some(&class),None,None) {
-                                    eprintln!("admission incident unavailable: {incident}");
-                                }
-                            }
-                            return Err(error);
-                        }
-                    };
+                    // Full byte verification happens before the exclusive
+                    // registry reservation. It is repeated under reservation
+                    // using only the same fresh scope's identity-checked digests.
                     let registration = m.resolve(&greeting[5..])?;
                     experimental_runner::verify_selected_bg1_history(&m, &registration.environment)?;
                     m.verify_served_host(&registration, &s.host, &s.source_sha256, &profiles::installed_profiles()?)?;
+                    let execution=package_authority::paired_components(&m,&s,&registration)?;
                     let full_registration = registration.clone();
                     let r: HostBinding = registration.into();
                     let performance = m.performance(&r.metadata.class_id)?;
@@ -1138,17 +1243,42 @@ fn serve(m: Manager) -> Result<()> {
                     // not assumed to be the host's shared memory mount.
                     transport_storage::visible_to_peer(&peer, &transport_storage::root())?;
                     let graphical_session=transport_storage::graphical_session(&peer)?;
-                    let keeper=stage_keeper(&m,&s,&r,&keepers,Some(&graphical_session))?;
-                    if keeper!=KeeperAvailability::Ready {
-                        if let Err(incident)=retain_keeper_incident(&m,&keepers,keeper,request,
-                            &r.metadata.class_id,&r.environment.id) {
-                            eprintln!("admission incident unavailable: {incident}");
-                        }
-                        return Err(match keeper {
-                            KeeperAvailability::Failed=>capacity::Refusal::BindingInvalid,
-                            _=>capacity::Refusal::ServiceBusy,
-                        }.into());
-                    }
+                    startup.phase("binding_verified");
+                    let mut observed=None;
+                    let _reservation=wait_for_keeper(keeper_deadline,
+                        || capacity::reserve(&m,&limits,Some(&class),blocked.load(Ordering::Acquire)),
+                        || {
+                            let registry=m.registry()?;
+                            require(registry.classes.get(&class).is_some_and(|entry|
+                                entry.publication==Publication::Published
+                                    && entry.registration==full_registration),
+                                "publication_changed_during_startup")?;
+                            require(m.performance(&class)?==performance,"performance_changed_during_startup")?;
+                            let mut keeper=if observed==Some(KeeperAvailability::Starting) {
+                                let mut active=keepers.lock().map_err(|_|"environment ownership lock poisoned")?;
+                                observe_keeper(&r.environment.id,&mut active)?.unwrap_or(KeeperAvailability::Retiring)
+                            } else {
+                                stage_keeper(&m,&execution,&r,&keepers,Some(&graphical_session))?
+                            };
+                            if keeper==KeeperAvailability::Ready {
+                                require(m.resolve(&greeting[5..])?==full_registration,
+                                    "publication_changed_during_startup")?;
+                                keeper=stage_keeper(&m,&execution,&r,&keepers,Some(&graphical_session))?;
+                            }
+                            if observed!=Some(keeper) {
+                                if keeper!=KeeperAvailability::Ready {
+                                    let _=retain_keeper_incident(&m,&keepers,keeper,request,&class,&r.environment.id);
+                                    startup.phase(match keeper {
+                                        KeeperAvailability::Starting=>"keeper_starting",
+                                        KeeperAvailability::Retiring=>"keeper_retiring",
+                                        _=>"keeper_failed",
+                                    });
+                                }
+                                observed=Some(keeper);
+                            }
+                            Ok(keeper)
+                        },std::thread::sleep)?;
+                    startup.phase("keeper_ready");
                     let (mut job, path) = spec(&m, r.clone(), false, false, false)?;
                     let storage = transport_storage::PendingTransport::new(&job.session)?;
                     job.directory = storage.directory.clone();
@@ -1164,7 +1294,7 @@ fn serve(m: Manager) -> Result<()> {
                     // fresh-byte verification scope. Reopening every file
                     // still checks its full identity; leaving the scope here
                     // would hash the complete runtime again before delivery.
-                    let keeper=stage_keeper(&m,&s,&r,&keepers,Some(&graphical_session))?;
+                    let keeper=stage_keeper(&m,&execution,&r,&keepers,Some(&graphical_session))?;
                     if keeper!=KeeperAvailability::Ready {
                         if let Err(incident)=retain_keeper_incident(&m,&keepers,keeper,request,
                             &r.metadata.class_id,&r.environment.id) {
@@ -1175,9 +1305,10 @@ fn serve(m: Manager) -> Result<()> {
                             _=>capacity::Refusal::ServiceBusy,
                         }.into());
                     }
-                    Ok((r,performance,job,path,admission,storage))
+                    startup.phase("transport_prepared");
+                    Ok((execution,r,performance,job,path,admission,storage))
                 });
-                let (r,performance,job,path,mut admission,mut storage)=match prepared {
+                let (execution,r,performance,job,path,mut admission,mut storage)=match prepared {
                     Ok(value)=>value,
                     Err(e)=>{
                         if version3 {
@@ -1208,7 +1339,7 @@ fn serve(m: Manager) -> Result<()> {
                 // is not ownership: the exact supervisor must first validate
                 // its immutable inputs and graphical peer and install its
                 // outer finalizer.
-                let mut child=spawn(&s,&path,Some(peer.try_clone()?))?;
+                let mut child=spawn(&execution,&path,Some(peer.try_clone()?))?;
                 if let Err(readiness) = supervisor_ready(
                     &mut child,
                     &job.session,
@@ -1227,9 +1358,12 @@ fn serve(m: Manager) -> Result<()> {
                     cleanup?;
                     return Err(readiness);
                 }
+                startup.phase("supervisor_ready");
                 admission.expose();
                 storage.expose();
                 let delivery=startup_reply(&mut peer,&reply);
+                startup.phase("binding_delivered");
+                startup.finish(if delivery.is_ok() {"accepted"} else {"delivery_failed"});
                 drop(peer);
                 finish_supervised_delivery(SupervisorDelivery{manager:&m,
                     class_id:&r.metadata.class_id,report:&job.report,

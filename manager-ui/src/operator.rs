@@ -373,6 +373,24 @@ impl RequestOrigin {
     }
 }
 
+fn pulse_posture_changed(previous: &crate::model::Pulse, current: &crate::model::Pulse) -> bool {
+    previous.current_generation != current.current_generation
+        || previous.service_state != current.service_state
+        || previous.dsp != current.dsp
+        || previous.keepers != current.keepers
+        || previous.maintenance != current.maintenance
+        || previous.pending_transactions != current.pending_transactions
+        || previous.cleanup_unconfirmed != current.cleanup_unconfirmed
+}
+fn pulse_system_changed(pulse: &crate::model::Pulse, system: &System) -> bool {
+    pulse.service_state != "active"
+        || pulse.dsp != Some(system.dsp)
+        || pulse.keepers != Some(system.keepers)
+        || pulse.maintenance != Some(system.maintenance)
+        || pulse.pending_transactions != system.pending_transactions
+        || pulse.cleanup_unconfirmed != Some(system.cleanup_unconfirmed)
+}
+
 pub struct Operator {
     snapshot: Option<Snapshot>,
     overview: Option<InteractiveOverview>,
@@ -394,6 +412,7 @@ pub struct Operator {
     last_overview: Instant,
     operation_live: bool,
     prompt_pulse: bool,
+    last_pulse: Option<crate::model::Pulse>,
     readback_failures: u32,
     retry_after: Option<Instant>,
     message: String,
@@ -432,6 +451,7 @@ impl Operator {
             last_overview: Instant::now(),
             operation_live: false,
             prompt_pulse: false,
+            last_pulse: None,
             readback_failures: 0,
             retry_after: None,
             message: String::new(),
@@ -471,6 +491,7 @@ impl Operator {
             last_overview: Instant::now(),
             operation_live: false,
             prompt_pulse: false,
+            last_pulse: None,
             readback_failures: 0,
             retry_after: None,
             message: String::new(),
@@ -627,7 +648,8 @@ impl Operator {
         self.queued_action.is_some()
             || self.queued_import
             || self.feedback.as_ref().is_some_and(|f| f.blocking)
-            || (self.pending && !self.background_poll)
+            || (self.pending && !self.background_poll
+                && self.origin != Some(RequestOrigin::SilentPostMutationRefresh))
     }
     fn capture_action(&mut self, request: Request) {
         self.feedback = Some(RequestFeedback::captured(request.action.clone()));
@@ -819,14 +841,11 @@ impl Operator {
                 if let Some(op) = &p.operation {
                     if let Some(feedback) = &mut self.feedback { feedback.observe(op); }
                 }
+                let changed = self.last_pulse.as_ref().map(|previous|
+                    pulse_posture_changed(previous, &p));
                 if let Some(overview) = &mut self.overview {
                     if overview.current_generation != p.current_generation
-                        || p.service_state != "active"
-                        || p.dsp != Some(overview.current.system.dsp)
-                        || p.keepers != Some(overview.current.system.keepers)
-                        || p.maintenance != Some(overview.current.system.maintenance)
-                        || p.pending_transactions != overview.current.system.pending_transactions
-                        || p.cleanup_unconfirmed != Some(overview.current.system.cleanup_unconfirmed)
+                        || changed.unwrap_or_else(|| pulse_system_changed(&p, &overview.current.system))
                         || refresh_for_receipt(&overview.current.operation, &p.operation) {
                         self.overview_fresh = false;
                         self.refresh_after = true;
@@ -834,17 +853,13 @@ impl Operator {
                     overview.current.operation = p.operation.clone();
                 }
                 if let Some(snapshot) = &mut self.snapshot {
-                    if p.service_state != "active"
-                        || p.dsp != Some(snapshot.system.dsp)
-                        || p.keepers != Some(snapshot.system.keepers)
-                        || p.maintenance != Some(snapshot.system.maintenance)
-                        || p.pending_transactions != snapshot.system.pending_transactions
-                        || p.cleanup_unconfirmed != Some(snapshot.system.cleanup_unconfirmed)
+                    if changed.unwrap_or_else(|| pulse_system_changed(&p, &snapshot.system))
                         || refresh_for_receipt(&snapshot.operation, &p.operation) {
                         self.refresh_after = true;
                     }
-                    snapshot.operation = p.operation;
+                    snapshot.operation = p.operation.clone();
                 }
+                self.last_pulse = Some(p);
                 if self.overview.is_none() || !self.overview_fresh {
                     self.refresh_after = true;
                 }
@@ -2912,6 +2927,7 @@ mod tests {
             last_overview: Instant::now(),
             operation_live: false,
             prompt_pulse: false,
+            last_pulse: None,
             readback_failures: 0,
             retry_after: None,
             message: String::new(),
@@ -2982,6 +2998,38 @@ mod tests {
             dsp:Some(0),keepers:Some(0),maintenance:Some(0),pending_transactions:0,
             cleanup_unconfirmed:Some(false),current_generation:"same".into(),
             operation:None,operation_live:live}
+    }
+    #[test]
+    fn suspended_service_does_not_repeatedly_disable_owned_installer_controls() {
+        let mut operator = state_fixture();
+        let mut overview = overview_fixture();
+        overview.current = running_snapshot("current-op");
+        overview.current.system.service = "capacity unavailable".into();
+        let mut pulse = pulse_fixture(true);
+        pulse.service_state = "inactive".into();
+        pulse.cleanup_unconfirmed = None;
+        operator.overview = Some(overview.clone());
+        operator.overview_fresh = true;
+        operator.origin = Some(RequestOrigin::BackgroundActivity);
+        operator.handle_reply(Reply::Pulse(pulse.clone()));
+        assert!(!operator.overview_fresh);
+        operator.origin = Some(RequestOrigin::SilentPostMutationRefresh);
+        operator.handle_reply(Reply::Overview(Box::new(overview)));
+        for _ in 0..3 {
+            operator.origin = Some(RequestOrigin::BackgroundActivity);
+            operator.handle_reply(Reply::Pulse(pulse.clone()));
+            assert!(operator.current_action_snapshot().is_some());
+        }
+        operator.pending = true;
+        operator.origin = Some(RequestOrigin::SilentPostMutationRefresh);
+        assert!(!operator.controls_pending());
+        operator.origin = Some(RequestOrigin::UserAction);
+        assert!(operator.controls_pending());
+        operator.pending = false;
+        operator.origin = Some(RequestOrigin::BackgroundActivity);
+        pulse.service_state = "active".into();
+        operator.handle_reply(Reply::Pulse(pulse));
+        assert!(operator.current_action_snapshot().is_none());
     }
     #[test]
     fn initial_overview_failure_recovers_after_successful_pulse() {

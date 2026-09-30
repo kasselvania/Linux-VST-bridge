@@ -784,6 +784,14 @@ watch. Seven focused current-readback tests and all-target Clippy passed.
 Internal28 was built, installed and selected through normal product controls.
 Live installer recovery verification is pending.
 
+The integrated successor separates exact Installer Focus/Stop admission from
+runtime verification and global DSP capacity. It retains current operation,
+environment and live-unit checks. The frontend no longer invalidates a fresh
+Overview for every unchanged unavailable-service pulse or disables controls for
+a silent refresh. Source tests cover damaged runtime, stale/dead/foreign targets
+and stable inactive pulses. No installed GUI Stop/Retry pass follows from these
+source results; the delivered frontend retest remains required.
+
 The old installed UI required an exact supervisor stop outside the GUI. It
 completed in 2.804 seconds: cancellation, outer exit -15, zero owned live
 processes, confirmed cleanup and durable files classified installed. This is
@@ -1492,6 +1500,19 @@ access mechanism is not a delivered self-service action. Windows-host and
 transport retirement was positively confirmed; zero callback frames were
 processed. Retest the trial-access, exact state and supported block boundaries
 separately; the earlier Ubuntu-lab workaround does not qualify this runtime.
+
+### Integrated startup follow-up
+
+Internal30's retained cold refusal identifies `keeper_starting`. That proves
+the observed refusal phase, not a universal cause of prior slow launches. The
+integrated successor performs fresh immutable-byte verification before taking
+registry admission, joins the existing environment keeper, releases admission
+while waiting, and rechecks publication/performance before exposing a lease.
+The wait retains the existing bounded startup budget; failures and actual
+capacity limits remain explicit. Control-worker phase records separate binding
+verification, keeper preparation, transport and supervisor readiness. Source
+tests establish reservation release, repeated admission, refusal and deadline
+behavior. Installed cold/warm measurements and steady audio remain pending.
 
 ## FC-PLAT-002 — Delivered runtime lifetime lock cannot be opened
 

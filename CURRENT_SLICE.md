@@ -1,6 +1,25 @@
 # Current work selection
 
-## Selected: self-service runtime and prebuilt proxy delivery
+## Selected: integrated self-service beta delivery
+
+The operator selected the integrated delivery assignment and its refinements on
+2026-09-30. Base: `ca95d1541a41a1aa7497a58752e26fc1f893b237`, tree
+`28c295cc0d8b45c8e0504c7ec0c88e56d65781b9`.
+Primary claim: one declared installed candidate completes the ordinary musician
+journey for the exact qualified catalogue on Ubuntu and CachyOS, including
+installer recovery, predictable first use, project recall, populated update and
+rollback, with zero maintainer repairs in passing journeys.
+The acceptance contract, workloads, release requirements and platform boundaries
+are in [Integrated beta delivery](docs/INTEGRATED_BETA_DELIVERY.md).
+Implement the necessary connections in this effort; do not seek a new scope
+decision for each routine repair or treat component results as a completed beta.
+Preserve application-owned runtime acquisition, prebuilt proxies, immutable
+publications, paired components, vendor state and exact predecessors.
+SteamOS delivery belongs to this effort. The working Deck remains selected until
+a staged candidate and verified populated migration justify its controlled
+update. No unrelated Deck/Pi installation or user project may be replaced.
+
+## Retained predecessor: runtime and prebuilt proxy delivery
 
 The operator selected implementation of tasks 1 and 2 and testing of task 3 in
 [Self-service beta delivery](docs/SELF_SERVICE_BETA_TODO.md) on 2026-09-29.
@@ -14,7 +33,8 @@ Scope includes package construction/intake, runtime ownership, native
 preparation/publication, normal frontend setup and focused acceptance tests.
 Preserve exact identities, vendor-owned authorization, predecessor artifacts,
 RT behavior and failures. Record notices for the exact redistributed contents.
-Tasks 4 and 5 remain follow-on; no universal platform or plug-in support claim.
+Tasks 4 and 5 now belong to the integrated assignment above. No universal
+platform or plug-in support claim follows from these predecessor results.
 Record actual sound/editor/recall/reboot/recovery outcomes and any open gap.
 The installed 1024/512 host-block refusal also selects the generic explicit
 [larger-buffer configuration](docs/SELF_SERVICE_AUDIO_BUFFERING.md) repair.

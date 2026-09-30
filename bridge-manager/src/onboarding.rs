@@ -21,7 +21,7 @@ pub fn directory(m: &Manager, id: &str) -> Result<PathBuf> {
     require(valid_hex(id, 32), "onboarding_identity")?;
     Ok(m.root.join("onboarding").join(id))
 }
-fn load_record(m: &Manager, id: &str) -> Result<Record> {
+fn load_record_binding(m: &Manager, id: &str) -> Result<Record> {
     let r: Record = read_json(&directory(m, id)?.join("record.json"))?;
     require(
         r.schema == 1
@@ -51,9 +51,21 @@ fn load_record(m: &Manager, id: &str) -> Result<Record> {
             "onboarding_previous_binding",
         )?;
     }
+    Ok(r)
+}
+fn load_record(m: &Manager, id: &str) -> Result<Record> {
+    let r = load_record_binding(m, id)?;
     installer_import::load(m, &r.installer)?;
     r.environment.runner.verify()?;
     Ok(r)
+}
+/// Existing operation custody remains usable when installation inputs or the
+/// compatibility runtime are unavailable. This grants no execution admission.
+pub fn control_record(m: &Manager, id: &str) -> Result<Record> {
+    let record = load_record_binding(m, id)?;
+    require(!m.registry()?.classes.values().any(|entry|
+        entry.registration.environment.id == id), "onboarding_environment_qualified")?;
+    Ok(record)
 }
 fn load_bound(m: &Manager, id: &str) -> Result<(Record, bool)> {
     let r = load_record(m, id)?;
@@ -566,7 +578,8 @@ pub fn launch(m: &Manager, r: &Record, policy: Option<linux_vst_bridge::installe
     Ok(())
 }
 pub fn focus(m: &Manager, id: &str, op: &str) -> Result<Value> {
-    let r = load(m, id)?;
+    let _ownership = m.lock("onboarding.lock")?;
+    let r = control_record(m, id)?;
     require(
         r.installation_operation.as_deref() == Some(op) && live(op)?,
         "installer_focus_owner",
@@ -592,7 +605,8 @@ pub fn focus(m: &Manager, id: &str, op: &str) -> Result<Value> {
     }
 }
 pub fn stop(m: &Manager, id: &str, op: &str) -> Result<Value> {
-    let r = load(m, id)?;
+    let _ownership = m.lock("onboarding.lock")?;
+    let r = control_record(m, id)?;
     require(
         r.installation_operation.as_deref() == Some(op),
         "installer_stop_owner",

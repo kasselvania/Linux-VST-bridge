@@ -105,6 +105,15 @@ naturally, but normal GUI Stop remained unproved; recovery is still open. The
 without a commercial compatibility or delivered runtime claim. See
 [FC-LIFE-002](FAILURE_CLASSES.md#fc-life-002--failed-launch-cleanup-and-truthful-recovery-state).
 
+The integrated successor has source corrections for target-specific installer
+controls, bounded shared keeper preparation without holding registry admission,
+and retained execution components across changed-host package updates. Startup
+phase records identify verification, keeper readiness, transport preparation and
+supervisor delivery. Source tests establish those boundaries; Ubuntu/CachyOS
+installed recovery, steady processing and recall remain unqualified until their
+delivered candidate runs. Existing Deck commercial recall was selected by the
+operator; its working installation remains unchanged.
+
 The original clean-machine journey uses the same official trial media on that
 Ubuntu 26.04.1 VM with Bitwig 6.1.1. Its posture is **unqualified**. Internal13
 completed normal package selection, service activation and acquisition of
