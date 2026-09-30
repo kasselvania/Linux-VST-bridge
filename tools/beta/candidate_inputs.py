@@ -12,6 +12,7 @@ parser.add_argument('--source',type=Path,default=Path(__file__).resolve().parent
 parser.add_argument('--windows-package',type=Path,required=True)
 parser.add_argument('--kit',type=Path,required=True)
 parser.add_argument('--fixture',type=Path,required=True)
+parser.add_argument('--reference-directory',type=Path)
 parser.add_argument('--version',required=True)
 parser.add_argument('--epoch',type=int,required=True)
 a=parser.parse_args()
@@ -33,6 +34,19 @@ with zipfile.ZipFile(a.kit) as z:
 (p/'THIRD_PARTY_NOTICES.txt').write_text('INTERNAL TEST ONLY\nVST3 SDK 3.8.1 MIT notices are retained as separate license files and in preparation-kit.zip. Fixed GE-Proton11-7 and Valve SLR 4.0.20260805.254769 are acquired directly from upstream through explicit setup; all upstream files and notices are preserved. No runtime, proprietary installer, commercial plug-in, license material or preset is redistributed in this package. Complete customer SBOM/notices and customer signing are still unselected. The included open test module is first-party AP10 instrumentation.\n')
 (p/'COMPLIANCE_MANIFEST.json').write_text(json.dumps(dict(schema=1,classification='internal_test_only',package_version=version,source_head=head,release_authorized=False,third_party_notice_archive_complete=False,customer_signing_key_selected=False,external_proton_slr_required=False,vendor_plugins_or_licenses_included=False,physical_plugin_or_audio_claim=False),sort_keys=True))
 rows=[('usr/bin/linux-vst-bridge','linux-vst-bridge','manager'),('usr/bin/linux-audio-compatibility-manager','linux-audio-compatibility-manager','frontend'),('usr/lib/linux-vst-bridge/supervisor/session.pyc','session.pyc','supervisor'),('usr/lib/linux-vst-bridge/supervisor/ownership.pyc','ownership.pyc','ownership'),('usr/lib/linux-vst-bridge/host/bridge-host.exe','host.exe','windows_host'),('usr/lib/linux-vst-bridge/host/source-manifest.json','host-source-manifest.json','host_source'),('usr/lib/linux-vst-bridge/preparation/preparation-kit.zip','preparation-kit.zip','preparation_kit'),('usr/lib/linux-vst-bridge/proxy/PureLoFi.so','proxy.so','proxy'),('usr/lib/linux-vst-bridge/self-test/ap10-return-fixture.vst3','fixture.vst3','fixture'),('usr/lib/linux-vst-bridge/profiles/arturia-pure-lofi.json','profile.json','profile')]
+if a.reference_directory is not None:
+ reference=json.loads((a.reference_directory/'LVB_REFERENCE_MANIFEST.json').read_text())
+ expected={'LVB_Reference_Plugins_1_0_0.exe','LVB_Reference_Recovery_1_0_0.exe','LVB_Reference_Partial_1_0_0.exe','lvb-reference-instrument.vst3','lvb-reference-effect.vst3'}
+ assert reference['schema']==1 and reference['classification']=='first_party_test_instrumentation' and reference['version']=='1.0.0'
+ assert len(reference['files'])==5 and {r['file'] for r in reference['files']}==expected
+ for row in reference['files']:
+  name=row['file'];data=(a.reference_directory/name).read_bytes()
+  assert data.startswith(b'MZ') and sha(data)==row['sha256']
+  (p/name).write_bytes(data);rows.append(('usr/lib/linux-vst-bridge/self-test/'+name,name,'fixture'))
+ (p/'LVB_REFERENCE_MANIFEST.json').write_text(json.dumps(reference,sort_keys=True))
+ rows.append(('usr/lib/linux-vst-bridge/self-test/LVB_REFERENCE_MANIFEST.json','LVB_REFERENCE_MANIFEST.json','fixture_resource'))
+ (p/'START_HERE.html').write_text((p/'START_HERE.html').read_text()+'<p>First-party development fixtures are included under /usr/lib/linux-vst-bridge/self-test. Import LVB_Reference_Plugins_1_0_0.exe through Setup for the stateful instrument/effect journey. The Recovery installer deliberately holds a window for Focus/Stop; Partial deliberately holds after installing the instrument. These fixtures require no vendor sign-in and do not qualify commercial software.</p>')
+ (p/'THIRD_PARTY_NOTICES.txt').write_text((p/'THIRD_PARTY_NOTICES.txt').read_text()+'The additional LVB Reference instrument, effect and three installers are first-party test instrumentation. Their exact modules, including the MIT SDK boundary, are inventoried by digest.\n')
 rows += [('usr/share/doc/linux-vst-bridge-beta/licenses/'+name,name,'license') for name in ('LVB-Proprietary.txt','vst3sdk.txt','base.txt','pluginterfaces.txt','public.sdk.txt')]
 rows += [('usr/share/doc/linux-vst-bridge-beta/'+name,name,kind) for name,kind in [('START_HERE.html','guide'),('THIRD_PARTY_NOTICES.txt','notices'),('COMPLIANCE_MANIFEST.json','compliance')]]
 sbom=dict(spdxVersion='SPDX-2.3',dataLicense='CC0-1.0',SPDXID='SPDXRef-DOCUMENT',name='Internal self-service test inventory',documentNamespace='https://github.com/kasselvania/Linux-VST-bridge/spdx/internal/'+head,creationInfo={'created':datetime.datetime.fromtimestamp(a.epoch,datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),'creators':['Tool: internal test inventory']},files=[dict(SPDXID='SPDXRef-File-'+str(n),fileName='/'+dest,checksums=[{'algorithm':'SHA256','checksumValue':sha((p/name).read_bytes())}],licenseConcluded='NOASSERTION',copyrightText='NOASSERTION') for n,(dest,name,kind) in enumerate(rows,1)])
