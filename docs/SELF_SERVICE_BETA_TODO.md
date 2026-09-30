@@ -63,9 +63,21 @@ through normal Setup, without copied environments or authorization. The
 official installer reached Finish but did not retire its process cohort.
 Manager progress-file stamp checks also hid live recovery controls. An exact
 supervisor cancellation preserved installed files and confirmed cleanup;
-this is not a normal recovery pass. The shared readback correction passes
-focused source checks; its built/installed test and the corrected host's
-commercial editor test remain pending.
+this is not a normal recovery pass. Internal28 includes the shared readback
+correction and was selected through normal stop/select/start controls on the
+new account, retaining its environment and runtime. Normal discovery found
+the exact trial module with no inspection error or quarantine. Its compatibility
+controls loaded and normal preparation supplied the exact prebuilt proxy.
+Internal28 completed normal experimental publication and 1024-frame selection.
+Bitwig guest demo rendered the vendor editor and captured processed stereo
+output. Closing the editor reproduced the crash twice with the corrected host;
+frame detach did not resolve it. The fault is a null provider dereference in
+Wine UI Automation, with the vendor caller unproved. The
+[exact preparation policy and isolated Wine correction](RUNTIME_UIA_GUARD.md)
+retain separate evidence. The delivered default DLL crashes the null-provider
+reference; two isolated corrected builds pass it. Commercial testing of the
+new preparation policy and normal live installer recovery are pending.
+Preparation still took several minutes and is not a responsiveness qualification.
 
 State capture remains refused (SDK result 1, zero bytes). [Arturia's demo
 policy](https://support.arturia.com/hc/en-us/articles/5671785160732-Demo-versions-What-should-I-know)

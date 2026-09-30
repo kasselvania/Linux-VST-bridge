@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "rules": [
+    {
+      "module_sha256": "edb358f124bd35290dc2597e68c2d7f1f4061d5cf650a008f097c463fc6aef89",
+      "class_id": "41727475415649536772616E50726F63",
+      "runner_id": "managed-ge-proton11-7-slr4-20260805-r3",
+      "runner_version": "GE-Proton11-7; SLR 4.0.20260805.254769; managed download v3",
+      "proton_sha256": "c0fe398829c78c82b26d39c20fbeb6b28d1e46941723962d794d7e5f67d402be",
+      "entry_point_sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+      "uiautomationcore_sha256": "d4362453451e01c937fba7272e1644164ef2498a861216b00696161fe43dbdcb",
+      "accessibility": "disabled_for_vendor_process",
+      "evidence": "evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json"
+    }
+  ]
+}

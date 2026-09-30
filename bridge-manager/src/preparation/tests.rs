@@ -1,7 +1,7 @@
 use super::*;
 use crate::test_fixture::{inspection_report, prepared_accessibility, snapshot, Fixture};
 use serde_json::json;
-fn fixture() -> (Fixture, Candidate) {
+pub(super) fn fixture() -> (Fixture, Candidate) {
     let (mut f, _, mut census, native) = prepared_accessibility(false);
     f.m.unpublish(&f.r.key()).unwrap();
     atomic_json(&f.m.root.join("registry.json"), &Registry::default()).unwrap();
@@ -69,6 +69,15 @@ fn fixture() -> (Fixture, Candidate) {
     };
     let c = prepared(s, i, native, f.r.host.clone(), manifest, "aa".repeat(32)).unwrap();
     (f, c)
+}
+#[test]
+fn unknown_candidate_cannot_acquire_a_process_accessibility_override() {
+    let (f, mut candidate) = fixture();
+    candidate.profile.capabilities.accessibility = Accessibility::DisabledForVendorProcess;
+    candidate.profile.limitations.push(Limitation::WindowsAccessibilityUnavailable);
+    candidate.profile.evidence.push("evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json".into());
+    assert!(verify_retained_candidate(&f.m, &candidate).unwrap_err().to_string()
+        .contains("candidate_policy_requires_explicit_support"));
 }
 #[test]
 fn managed_publication_needs_no_static_catalogue_but_keeps_exact_authority() {

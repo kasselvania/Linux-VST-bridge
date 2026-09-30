@@ -781,7 +781,8 @@ bound, and both external probes require the same operation to remain live.
 These progress bytes do not authorize installation, scanning or retirement;
 the live row offers exact Focus/Stop. Retired results retain the full stamp
 watch. Seven focused current-readback tests and all-target Clippy passed.
-Built/installed recovery verification is pending.
+Internal28 was built, installed and selected through normal product controls.
+Live installer recovery verification is pending.
 
 The old installed UI required an exact supervisor stop outside the GUI. It
 completed in 2.804 seconds: cancellation, outer exit -15, zero owned live
@@ -1640,16 +1641,35 @@ remained selected. The account with no registry/catalogue selected internal27
 through normal controls for the focused commercial retest. This does not
 establish a safe migration of existing published products.
 
+Internal28 completed normal preparation/publication and captured processed
+stereo output, then reproduced the same editor-close failure twice with the
+corrected host. Same-process mappings and the bounded editor fault header
+locate the fault in Wine `uiautomationcore.dll`, `create_uia_node_from_elprov`
++0x18 (RVA 0x7988), with a null first argument and zero access address. The
+vendor caller remains unproved. This is a runtime invalid-provider defect;
+frame detach did not fix the observed commercial failure.
+
+The existing AP11/AP12 process-scoped accessibility policy was missing from
+new managed preparation. Source now declares it for the exact measured
+FRAGMENTS module/class and runtime, includes its Windows screen-reader
+limitation, and preserves the review-candidate claim and predecessor.
+The isolated LGPL Wine guard also passes the direct null-provider reference:
+delivered DLL exit 5 at the same RVA, corrected DLL exit 0. The saved builder's
+independent output passed in another fresh reference prefix. Neither reference
+establishes commercial editor behavior or delivery of a patched runtime.
+See [construction and policy boundaries](RUNTIME_UIA_GUARD.md).
+
 ### User posture and next gate
 
-Unqualified. Exercise a declared editor lifetime correction through ordinary
+Unqualified. Exercise the exact preparation policy through ordinary
 close/reopen and instance retirement; preserve the original failed result.
 Do not apply an Ubuntu result to the separately accepted Deck fixture.
 
 ### Evidence
 
 [Installed result](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json),
-`fresh_account_retest.daw_demo_retest_internal25` and `daw_demo_retest_internal26`; draft [PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200).
+`fresh_account_retest.daw_demo_retest_internal25`, `daw_demo_retest_internal26`,
+and `clean_account_host_retest_internal27.daw_demo_internal28`; draft [PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200).
 Last reviewed: 2026-09-29.
 
 ## Maintenance rules

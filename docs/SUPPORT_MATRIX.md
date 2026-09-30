@@ -74,8 +74,9 @@ scoped startup recheck and loaded from an idle service without a manual reload
 in 72.440 seconds. Its demo editor rendered and output through the active effect
 was captured at 48 kHz stereo, with a waveform different from the dry reference.
 Normal editor close reproduced the removal-stage access violation; cleanup
-was confirmed. The shared host frame-detach order is now corrected in source;
-its new commercial result is pending. Audio quality, responsive startup,
+was confirmed. The shared host frame-detach order was corrected, but internal28
+reproduced the same crash twice. The faulting Wine UI Automation instruction
+dereferences a null provider; its vendor caller is unproved. Audio quality, responsive startup,
 editor retirement, state, project recall and usability remain unqualified.
 
 Internal27's new clean user account completed normal package/runtime Setup
@@ -83,8 +84,15 @@ and reached the official trial installer Finish screen. Its cohort remained
 live, while progress-report stamp checks hid Focus/Stop. Exact supervisor
 cancellation outside the GUI confirmed cleanup and installed durable files;
 this is not self-service recovery or a successful installer exit. The shared
-readback correction passes source checks; its installed test and the new
-Windows host's commercial editor test remain pending. See
+readback correction is now delivered in internal28, selected through normal
+controls while retaining that account's environment and runtime. Normal scan
+identified the exact trial module without quarantine, and normal preparation
+supplied and experimentally published the prebuilt proxy. Internal28 rendered
+the DEMO editor and captured processed stereo output; normal close failed twice
+with the corrected host. The exact process accessibility policy has a source
+repair; its commercial test and live installer recovery remain pending. The
+[isolated Wine guard](RUNTIME_UIA_GUARD.md) passed its invalid-provider reference,
+without a commercial compatibility or delivered runtime claim. See
 [FC-LIFE-002](FAILURE_CLASSES.md#fc-life-002--failed-launch-cleanup-and-truthful-recovery-state).
 
 The original clean-machine journey uses the same official trial media on that

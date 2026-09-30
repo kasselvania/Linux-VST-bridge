@@ -1,6 +1,7 @@
 //! MF3: canonical selection, immutable preparation and explicit local review.
 //! No frontend path, process, profile or compiler authority enters this owner.
 pub mod build;
+mod accessibility;
 mod history;
 mod model;
 use crate::{
@@ -707,7 +708,17 @@ pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
             && c.profile.class.class_id == c.selection.class.id,
         "candidate_binding",
     )?;
+    if c.profile.capabilities.accessibility != Accessibility::WindowsDefault {
+        let (selected, evidence) = accessibility::selected(&c.selection)?;
+        require(c.origin == Origin::ManagedPreparation
+            && c.profile.capabilities.accessibility == selected
+            && selected == Accessibility::DisabledForVendorProcess
+            && c.profile.limitations.contains(&Limitation::WindowsAccessibilityUnavailable)
+            && evidence.as_ref().is_some_and(|reference| c.profile.evidence.contains(reference)),
+            "candidate_policy_requires_explicit_support")?;
+    }
     let expected_compatibility = Compatibility {
+        disable_windows_accessibility: c.profile.capabilities.accessibility == Accessibility::DisabledForVendorProcess,
         audio_layout: c.inspection.audio_layout.clone(),
         ..Compatibility::default()
     };
@@ -781,13 +792,24 @@ pub fn prepared(
     )?;
     let raw: Value = bounded(&i.report.path)?;
     require(raw["error"].is_null(), "inspection_failed")?;
-    let limitations=vec![Limitation::DirectEditorUnderQualification,
+    let (accessibility, accessibility_evidence) = accessibility::selected(&s)?;
+    let mut limitations=vec![Limitation::DirectEditorUnderQualification,
         Limitation::Unqualified256,Limitation::DetachedFocusRefusal];
+    if accessibility == Accessibility::DisabledForVendorProcess {
+        limitations.push(Limitation::WindowsAccessibilityUnavailable);
+    }
+    let mut evidence = vec!["docs/MF3.md".into()];
+    if let Some(reference) = accessibility_evidence { evidence.push(reference); }
+    let identity = if accessibility == Accessibility::WindowsDefault {
+        key(&(&s, &i, &native, &host, &manifest, &recipe))?
+    } else {
+        key(&(&s, &i, &native, &host, &manifest, &recipe, &accessibility))?
+    };
     let profile = Profile {
         schema: 1,
         id: format!(
             "managed.{}",
-            key(&(&s, &i, &native, &host, &manifest, &recipe))?
+            identity
         ),
         revision: 1,
         claim: Claim::ReviewCandidate,
@@ -806,7 +828,7 @@ pub fn prepared(
             descriptor_sha256: native.descriptor_sha256.clone(),
         },
         capabilities: Capabilities {
-            accessibility: Accessibility::WindowsDefault,
+            accessibility,
             editor: Editor::DetachedDirectVendorLifecycle,
             state: State::ConcurrentReadOnlyCaptureV12,
             precision: Precision::Float32Only,
@@ -817,7 +839,7 @@ pub fn prepared(
             audio_layout: i.audio_layout.clone(),
         },
         limitations,
-        evidence: vec!["docs/MF3.md".into()],
+        evidence,
     };
     profile.validate()?;
     Ok(Candidate {

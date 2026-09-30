@@ -20,6 +20,12 @@ The installed 1024/512 host-block refusal also selects the generic explicit
 [larger-buffer configuration](docs/SELF_SERVICE_AUDIO_BUFFERING.md) repair.
 It preserves the default and historical support envelopes; exercise the exact
 successor through normal delivery and product controls.
+The measured UI Automation null-provider removal fault also selects the exact
+[preparation accessibility policy and isolated runtime correction](docs/RUNTIME_UIA_GUARD.md).
+Apply the existing declared process policy to the measured module/runtime only;
+retain its screen-reader limitation and candidate claim level. The isolated
+Wine guard remains a construction/reference proof until separately delivered
+and commercially retested. No existing bound runner is edited or replaced.
 
 ## Beta delivery: clean-machine portable first run
 
