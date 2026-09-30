@@ -54,11 +54,11 @@
   },
   "journey": {
     "package_install": "passed",
-    "normal_package_selection_and_activation": "Passed through internal22 on fresh application account; internal21 retained as predecessor; original user retained",
+    "normal_package_selection_and_activation": "Passed through internal23 on fresh application account; internal22 retained as predecessor; original user retained",
     "runtime_download_install": "Passed for distinct -r3 through normal Setup on fresh application account, without preinstalled Wine/Proton/Steam/SDKs",
-    "runtime_execution": "-r3 ran the official vendor installer to exit 0 with durable installed result and confirmed retirement; SDK discovery completed",
+    "runtime_execution": "-r3 ran official vendor installer and SDK discovery; internal23 native DAW admission started exact Windows module and shared memory mapping, then failed setup/state before processing",
     "installer_import_and_execution": "Passed on internal19 and internal20: exact official installer, operator-confirmed EULA, VST3 and required resources, exit 0, clean retirement. Internal19 runtime mode failure retained; distinct -r3 passed post-install readback/discovery on internal20.",
-    "vendor_trial_authorization": "not yet observed",
+    "vendor_trial_authorization": "Not observed; no vendor editor/access action offered for exact managed trial before DAW activation",
     "prebuilt_preparation_and_publication": "Passed through normal Check compatibility and Make available for testing on internal21: exact packaged native bytes, no compiler/SDK, managed experimental publication. Plug-in usability not yet observed.",
     "sound": "not yet observed",
     "editor": "not yet observed",
@@ -78,7 +78,8 @@
     "Internal17 built and root package installed, but ordinary Bootstrap status timed out before any user selection or runtime download. Retirement checks were coupled to execution-byte verification. Separated that owner check from launch admission; focused tests preserve active/foreign/missing receipt refusal and permit confirmed retirement with damaged runner bytes. Internal18 retest in progress.",
     "Internal18 installed, selected and activated through normal Setup and Updates. The formerly timed-out Bootstrap status completed in 1.322 seconds and reported rollback_active. Ordinary RuntimeInstall operation 03f880be7874b14aa1600645a7f31855 is acquiring the distinct -r2 runtime; old runtime/environment records retained.",
     "Internal18 acquired -r2 through normal Setup in 303.67 seconds. The retry explanation appeared but no button: the retained result reports durable installation indeterminate, while the narrow prefix-failure interpretation admitted only unavailable. Extended it to indeterminate only with the same positive pre-target failure and retirement proof. The prior result remains unchanged; internal19 retest in progress.",
-    "Internal19 selected and activated through normal Setup and Updates, retaining internal18. Normal New isolated attempt completed environment_ready in 118.289 seconds, linked to the untouched failed attempt and bound to -r2. Ordinary Run installer completed prefix initialization with exit 0 and observed the exact vendor target; official Arturia License Agreement displayed. Acceptance awaits operator confirmation."
+    "Internal19 selected and activated through normal Setup and Updates, retaining internal18. Normal New isolated attempt completed environment_ready in 118.289 seconds, linked to the untouched failed attempt and bound to -r2. Ordinary Run installer completed prefix initialization with exit 0 and observed the exact vendor target; official Arturia License Agreement displayed. Acceptance awaits operator confirmation.",
+    "Internal23 built, installed, selected and activated normally, retaining internal22. Fresh scoped full-byte verification reached the exact Windows host/module and shared transport during native Bitwig demo load. Load still failed after 70.481 seconds: vendor initial state capture returned SDK result 1, and the actual 1024/48000 request exceeds the selected 512-frame presentation. No callbacks/editor opens; positive clean host/transport retirement. Normal exact product projection has no trial-editor action before native activation. No paid license or vendor activation state copied. Task 3 remains failed/partial, not qualified."
   ],
   "source_verification": {
     "library_tests": "173 passed after buffered bounded JSON readback at 823cff4f",
@@ -522,9 +523,89 @@
       "transport_storage_created": false,
       "service_remained_active": true,
       "source_correction": "Fresh full-byte verification scope for one native admission, reusing only hashes computed in that same scope after exact file-identity readback. Persisted readback cache cannot authorize execution. Admission/runtime deadlines unchanged.",
-      "installed_retest": "pending",
+      "installed_retest": "Completed on internal23: Windows module and shared memory mapped; DAW load still failed. See daw_demo_retest_internal23.",
       "sound": "not observed",
       "editor": "not observed"
+    },
+    "package_internal23": {
+      "version": "0.12.0internal23-1",
+      "source_head": "f74fbbb9513da1e829db45c01ccedbff8665cfe8",
+      "source_tree": "900328791e6aedf0f3420a3c713219673173e33e",
+      "deb_sha256": "98c31a1a0fdddc3f8c719c42ebd616598d67b38e1071e701be578cf79b781faf",
+      "canonical_sha256": "0ad202ca65084d825ae24a0bfb3bc67b9dc7f79f450b6534128eb316ed7a9f64",
+      "manager_sha256": "f67c21d3343d8e901224a8b7010a3084fed66a1732d9642949df609404f5be6c",
+      "kit_sha256": "011417d1fcf8b4be15a74e03bb9d705e64baabd0c46cefd98ea08674373b1ea2",
+      "package_assembly": "Independent backend/native rebuild and all three comparisons passed",
+      "system_install": "passed",
+      "normal_successor_selection": "Stop bridge > Select installed version > Start bridge service; normal Home showed ready and exact installed product",
+      "selected_manager_matches_package": true,
+      "predecessor_version": "0.12.0internal22",
+      "predecessor_manager_retained": true,
+      "publication_and_native_bytes": "Unchanged exact publication e305d6a35f53df617e4e83d069ecf869 and native 91f66d23e78730d152a9429b4e44f7f081f71539ca7a2a540958a1b0f0d9263d"
+    },
+    "daw_demo_retest_internal23": {
+      "bitwig": "6.1.1 native Linux; normal Welcome > Run in Demo Mode > Continue",
+      "paid_license_used": false,
+      "account_activation": false,
+      "load_started_guest_utc": "2026-09-30 04:23:02.707",
+      "load_failed_guest_utc": "2026-09-30 04:24:13.188",
+      "load_duration_seconds": 70.481,
+      "daw_result": "could_not_load_plugin; setupProcessing kResultFalse; initial state unavailable",
+      "normal_load_action": "Browser Efx FRAGMENTS double-click into disposable New 2 Audio 2 track",
+      "keeper_session": "198c899b1582b5dd8aa9946ca71a8dd6",
+      "keeper_result": {
+        "ready": true
+      },
+      "keeper_starting_refusal_guest_utc": "2026-09-30 04:23:30",
+      "windows_session": "c1ed490a85ec31578c97e29d89749b17",
+      "windows_module_started": true,
+      "shared_memory_mapping": {
+        "mapping_count": 1,
+        "connection_count": 1,
+        "mapping_witness": true
+      },
+      "initial_state": {
+        "capture_available": false,
+        "sdk_result": 1,
+        "bytes": 0,
+        "writes": 0,
+        "stream_failed": false,
+        "subsequent_save_refusals": 2,
+        "native_error": "save refused: operation=16 stage=1 SDK result=1",
+        "cause": "Unattributed; vendor trial choice/authorization usability has not been observed"
+      },
+      "actual_native_processing_request": {
+        "maximum_frames": 1024,
+        "sample_rate": 48000,
+        "mode": 0
+      },
+      "selected_bridge_delay_frames": 512,
+      "audio_configuration": "PipeWire System Out. Numeric 512 entry was visibly entered but Bitwig reverted to 1024 / 21.33 ms; backend confirms 1024 / 48000. No effective 512 setting claimed.",
+      "callback_result": {
+        "processed": 0,
+        "frames": 0,
+        "blocks": 0,
+        "callback_rejections": 0,
+        "delivered_frames": 0
+      },
+      "editor_result": {
+        "opens": 0,
+        "closes": 0,
+        "failure": 0
+      },
+      "retirement": {
+        "gated": true,
+        "raw_exit": -15,
+        "error": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true
+      },
+      "normal_vendor_trial_access": "Exact product projection offers no vendor editor/access action before native activation. Trial window and official demo choice not reached. No command-line-only editor used as a self-service result.",
+      "reload_attempt": "No second load occurred; a click on the failed device text did not invoke Reload. No warm retry claim.",
+      "cleanup": "Bitwig closed normally; disposable unsaved demo project discarded; selected package, plug-in, runtime, publication and predecessor retained",
+      "sound": "Not observed; no processing callbacks",
+      "save_reopen": "Unavailable in Bitwig guest demo; eligible account trial remains an option without a paid license",
+      "claim": "Fresh per-admission verification reached Windows host and shared transport on delivered runtime; successful DAW activation, trial use, sound and editor remain open"
     }
   }
 }

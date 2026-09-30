@@ -78,7 +78,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-PLAT-001](#fc-plat-001--nativewindows-transport-requires-shared-private-loopback) | Native/Windows transport needs shared loopback | Platform namespace adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Regression gate for new adapters |
 | [FC-MGMT-004](#fc-mgmt-004--managed-publication-is-mistaken-for-a-static-catalogue-fixture) | Managed publication is mistaken for a static catalogue fixture | Catalogue/publication ownership | causal | installed | Ubuntu internal22 normal status and product controls passed | resolved at publication readback | DAW use remains untested |
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
-| [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | installed for status; native-admission correction in source | Ubuntu internal22 DAW load timed out before host creation | resolved at setup/status; native load failed | Retest fresh admission verification |
+| [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | installed | Ubuntu internal23 reached Windows host/shared transport | resolved at setup/status and host admission; DAW activation failed | Trial state/editor and supported block configuration |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
 ---
@@ -983,6 +983,17 @@ FRAGMENTS 1.3.1.6566 / Ubuntu: the 1024-frame refusal was observed; the exact 51
 
 This does not qualify 1024-frame host blocks, 256 bridge frames, other sample rates, or arbitrary DAW configurations. It is separate from residual in-session deadline misses in FC-AUDIO-001.
 
+### Delivered-runtime demo follow-up
+
+Internal23 on the fresh Ubuntu application account requested 1024 samples at
+48 kHz against a selected 512-frame bridge. Bitwig's numeric 512 edit was visible
+but reverted to 1024, confirmed in native lifecycle readback. No effective 512
+configuration, processing callback or editor open is claimed. This is a
+self-service configuration gap in the delivered journey. The same attempt also
+observed an independent vendor initial-state refusal, documented under
+FC-MGMT-003's installed follow-up. No new audio-delay or RT implementation is
+introduced by runtime delivery.
+
 ### Related failure classes
 
 FC-AUDIO-001, FC-LIFE-002.
@@ -1430,7 +1441,22 @@ exact file identities before reuse. No persisted observation cache authorizes
 execution, including nested readback calls. The scope ends before DSP supervisor
 launch; deadlines, keeper policy, security posture and DSP are unchanged.
 Regression tests reject changed bytes during the same scope and forged runtime
-observation stamps. Installed retest is pending.
+observation stamps. Internal23 was independently built and normally selected
+and activated, preserving internal22. The native load reached exact Windows
+module session `c1ed490a85ec31578c97e29d89749b17` and one witnessed shared-memory
+mapping/connection. This closes the earlier before-host boundary on this one
+fixture; it does not establish successful DAW activation. Load still failed
+after 70.481 seconds, with no processing or editor opens. Initial vendor state
+capture returned SDK result 1 and zero bytes/writes, with no stream failure;
+subsequent state requests were explicitly refused. Its cause is not established
+and must not be relabeled as licensing or bypassed with fabricated state. The
+actual request was 1024/48000 against 512 selected frames (FC-AUDIO-002). Normal
+product controls have no action to open this installed trial editor before DAW
+activation. The official vendor trial choice was not reached. A command-line
+access mechanism is not a delivered self-service action. Windows-host and
+transport retirement was positively confirmed; zero callback frames were
+processed. Retest the trial-access, exact state and supported block boundaries
+separately; the earlier Ubuntu-lab workaround does not qualify this runtime.
 
 ## FC-PLAT-002 — Delivered runtime lifetime lock cannot be opened
 

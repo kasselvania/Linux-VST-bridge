@@ -43,6 +43,13 @@ exact tree and verify symlinks and critical artifacts. The observation cache
 lives outside the runtime installation and cannot authorize execution. Missing or
 invalid caches fall back to byte verification; a cold cache is prepared before
 projection locks. This avoids repeated multi-gigabyte reads under manager locks.
+Native admission has a fresh full-byte verification scope: repeated checks may
+reuse only hashes computed in that scope after exact reopened file identities
+match. Persisted observation stamps cannot authorize launch, including nested
+readback calls; the scope ends before DSP supervisor launch. Installed internal23
+reached the Windows module and shared transport, but DAW activation failed at
+subsequent state/setup boundaries. See the retained test; no audio/editor or
+trial-usability claim follows from successful admission.
 
 The project downloads upstream artifacts to the user's machine; this change
 does not publish a rehosted runtime or establish all obligations for a future

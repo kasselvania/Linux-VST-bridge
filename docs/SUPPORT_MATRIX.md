@@ -105,9 +105,16 @@ Bitwig's EULA was confirmed and accepted; guest demo mode opened without paid
 activation. Its scanner recognizes FRAGMENTS, but first instance load failed
 after 69.783 seconds before a Windows session or memory transport existed.
 Native admission repeats runtime byte validation through ownership checks;
-fresh per-admission hash reuse awaits installed retest. Demo mode disables
-save/export; official trial activation requires an eligible account.
-Trial usability, sound, editor and persistence remain open.
+internal23 installed fresh per-admission verification and reached the Windows
+module and shared memory transport. Load nevertheless failed after 70.481
+seconds. Initial state capture returned vendor SDK result 1 with zero bytes;
+actual processing request was 1024/48000 against a selected 512-frame bridge
+delay. Bitwig reverted numeric 512 entry to 1024. No callbacks or editor opens
+occurred; host and transport retired positively and cleanly. Normal product
+controls offer no vendor editor/access action before native activation. Official
+trial choice and usability were not reached. Demo mode disables save/export;
+official trial activation requires an eligible account, without paid licensing.
+Sound, editor and persistence remain open.
 Neither the Deck 1.0.0 result nor the Ubuntu-lab 1.3.1 workaround qualifies
 this new delivered runtime. The VM had an earlier test package but no plug-in,
 runtime or copied authorization. It is not a pristine OS-first-install result.

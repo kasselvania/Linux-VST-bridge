@@ -48,8 +48,23 @@ must preserve that distinction. Exact test publication completed, then exposed
 a separate catalogue ownership gap in normal status; its installed internal22
 correction passed normal Home and product controls. Bitwig's separate agreement was confirmed and accepted; guest demo mode opened
 without an account or paid license. Native scanning recognized FRAGMENTS, but
-its first DAW load failed before a Windows session was created. Repeated runtime
-verification through launch ownership exceeds the startup envelope; a fresh
-per-admission verification scope awaits installed retest. Demo mode disables
-save/export; the official 30-day trial needs an eligible account. Trial usability,
-sound, editor and persistence remain open. Tasks 3–5 remain open for their complete stated outcomes.
+its first DAW load failed before a Windows session was created. Internal23 installed fresh per-admission full-byte verification and reached the
+exact Windows module and shared transport. DAW activation still failed after
+70.481 seconds: the vendor refused initial state capture (SDK result 1), and
+Bitwig actually requested 1024 samples at 48 kHz against the selected 512-frame
+bridge limit. Entering 512 in Audio settings reverted to 1024; no effective
+configuration change is claimed. No audio callbacks or editor opens occurred;
+Windows host and transport retired cleanly. The normal exact product controls
+have no vendor-editor action before native activation, so the official trial
+choice could not be reached. These are delivery/integration gaps, not a demand
+for paid activation. Demo mode disables save/export; an eligible official trial
+can test persistence without a paid license. Trial usability, sound, editor and
+persistence remain open. Tasks 3–5 remain open for their complete stated outcomes.
+
+The next task-3 work is concrete: expose the existing supervised vendor-editor
+journey in normal product controls for the exact installed trial; identify and
+resolve its state-capture refusal without inventing state; and deliver or guide
+an effective supported DAW block configuration. Retest activation, trial editor
+and processing before proceeding to persistence. Paid licenses are not required
+for every disposable test. Do not count an internal command-line editor as the
+self-service journey.
