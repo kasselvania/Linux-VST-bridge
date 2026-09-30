@@ -97,7 +97,10 @@ seconds and prepared the exact packaged trial proxy. Normal Make available
 for testing completed the exact managed experimental publication in 152.646
 seconds. Subsequent Overview hit the catalogue ownership gap
 [FC-MGMT-004](FAILURE_CLASSES.md#fc-mgmt-004--managed-publication-is-mistaken-for-a-static-catalogue-fixture);
-the generic exact-preparation correction awaits installed retest. Fresh-account
+internal22 installed the generic exact-preparation correction through normal
+successor selection, retaining internal21. Overview passed in 2.198 seconds and
+product readback in 5.413 seconds; normal controls show Available experimentally,
+with exact native bytes and publication preserved. Fresh-account
 Bitwig first run displayed its separate EULA, awaiting operator confirmation.
 Trial usability, sound, editor and persistence remain open.
 Neither the Deck 1.0.0 result nor the Ubuntu-lab 1.3.1 workaround qualifies

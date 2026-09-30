@@ -45,6 +45,6 @@ runtime in a fresh application account. Product controls exposed a further
 readback timeout; its installed correction passed in 2.173 seconds. The
 actual official module differs from the retained Deck bytes; prebuilt matching
 must preserve that distinction. Exact test publication completed, then exposed
-a separate catalogue ownership gap in normal status; its shared source
-correction awaits installed retest. Bitwig first run awaits confirmation of its
+a separate catalogue ownership gap in normal status; its installed internal22
+correction passed normal Home and product controls. Bitwig first run awaits confirmation of its
 separate agreement. Trial usability, sound, editor and persistence remain open. Tasks 3–5 remain open for their complete stated outcomes.

@@ -76,9 +76,9 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-MGMT-001](#fc-mgmt-001--managed-inventory-refresh-authority) | Managed inventory freshness and refresh | Manager catalogue/registry/onboarding | causal | accepted | Blackhole, Kontakt / Deck; FRAGMENTS / Ubuntu | supported | Preserve one canonical refresh route |
 | [FC-MGMT-002](#fc-mgmt-002--exact-verified-hostsource-omitted-across-software-generations) | Exact verified host/source omitted across generations | Software catalogue, profile/candidate and publication | causal | accepted | Pure LoFi, FRAGMENTS, Serum / Deck | supported | Preserve required exact pairs in every new generation |
 | [FC-PLAT-001](#fc-plat-001--nativewindows-transport-requires-shared-private-loopback) | Native/Windows transport needs shared loopback | Platform namespace adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Regression gate for new adapters |
-| [FC-MGMT-004](#fc-mgmt-004--managed-publication-is-mistaken-for-a-static-catalogue-fixture) | Managed publication is mistaken for a static catalogue fixture | Catalogue/publication ownership | causal | source correction | Ubuntu internal21 publication committed; Overview refused | status unavailable after publication | Retest generic exact preparation authority |
-| [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | source correction for platform modes | Ubuntu internal20 fresh account installed and discovered trial | resolved at installed discovery | Native publication and usability remain open |
-| [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | installed | Ubuntu internal16 environment creation completed | resolved at setup admission | Commercial execution test remains open |
+| [FC-MGMT-004](#fc-mgmt-004--managed-publication-is-mistaken-for-a-static-catalogue-fixture) | Managed publication is mistaken for a static catalogue fixture | Catalogue/publication ownership | causal | installed | Ubuntu internal22 normal status and product controls passed | resolved at publication readback | DAW use remains untested |
+| [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
+| [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | installed | Ubuntu internal16 environment creation completed | resolved at setup admission | Preserve execution verification; DAW use remains open |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
 ---
@@ -1498,8 +1498,11 @@ catalogue is invented. Unknown legacy entries, changed registration, missing
 completion and pending or foreign links refuse. The historical FRG1 contract
 remains separate. Setup, operator readback and onboarding use that shared owner.
 The source regression covers publication, removal and negative identity and
-completion outcomes; installed retest is pending. The Bitwig first-run EULA is
-a separate user confirmation gate. Sound, editor and persistence remain open.
+completion outcomes. Internal22 passed normal successor selection and service
+activation, retaining internal21; Overview passed in 2.198 seconds and product
+readback in 5.413 seconds. Normal controls show Available experimentally and
+untested DAW capabilities. Exact native bytes and publication remained intact. The Bitwig first-run EULA
+is a separate user confirmation gate. Sound, editor and persistence remain open.
 
 [Ubuntu delivery result](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json),
 [PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200).

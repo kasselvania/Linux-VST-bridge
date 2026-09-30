@@ -54,7 +54,7 @@
   },
   "journey": {
     "package_install": "passed",
-    "normal_package_selection_and_activation": "Passed through internal20 on a fresh application account; original user and predecessors retained",
+    "normal_package_selection_and_activation": "Passed through internal22 on fresh application account; internal21 retained as predecessor; original user retained",
     "runtime_download_install": "Passed for distinct -r3 through normal Setup on fresh application account, without preinstalled Wine/Proton/Steam/SDKs",
     "runtime_execution": "-r3 ran the official vendor installer to exit 0 with durable installed result and confirmed retirement; SDK discovery completed",
     "installer_import_and_execution": "Passed on internal19 and internal20: exact official installer, operator-confirmed EULA, VST3 and required resources, exit 0, clean retirement. Internal19 runtime mode failure retained; distinct -r3 passed post-install readback/discovery on internal20.",
@@ -422,7 +422,7 @@
       "kit_sha256": "2618022c611b7e6ec61bd434b15aea0a20949f0bc6bea42e99d9df7a114eca87",
       "proxies": 3,
       "package_assembly": "Independent backend/native rebuild and byte comparisons passed for all three exact entries",
-      "system_install": "passed; selected-user successor adoption pending",
+      "system_install": "passed; normal selected-user successor adoption and activation passed",
       "selected_and_activated": "Passed through Applications > Stop bridge service > Select installed version > Start bridge service; previous generation retained"
     },
     "prebuilt_preparation": {
@@ -473,7 +473,33 @@
       "error": "OS code 2: No such file or directory",
       "cause": "Without a static native catalogue, operator/setup/onboarding delegated nonempty registry authority only to the legacy sealed FRG1 fixture. The normal managed-preparation publication was not recognized.",
       "source_correction": "Catalogue owner first verifies exact preparation-owned revision, candidate-derived registration, committed transaction and published/removed physical disposition; sealed FRG1 remains a separate historical fallback. Unknown, changed, pending or uncommitted entries refuse.",
-      "installed_retest": "pending"
+      "installed_retest": {
+        "package": "0.12.0internal22-1",
+        "overview_exit": 0,
+        "overview_seconds": 2.198,
+        "product_exit": 0,
+        "product_seconds": 5.413,
+        "normal_home": "Bridge ready; service ready; cleanup confirmed; managed installation healthy",
+        "normal_product_controls": "Available experimentally; Record test result; DAW load/audio/editor/state/restart/retirement explicitly untested",
+        "static_catalogue_seeded": false,
+        "native_bytes_and_publication_preserved": true
+      }
+    },
+    "catalogue_successor_build": {
+      "version": "0.12.0internal22-1",
+      "source_head": "641ed209b661d39504bc965c39e4177e11ceef29",
+      "source_tree": "3eae2a2f84274f7903aae86864f650da3dee5a2a",
+      "deb_sha256": "72c0be5f05715dfca0ce0a55e7eedc97d14116184e9772ac3be1f58a8f9d976b",
+      "canonical_sha256": "c21a686a2bfa8f340907c2a8939df9d282540ba78255e58681bc49f7d50bab99",
+      "manager_sha256": "38671cc81ca2d20a62397799d197e13b402458a2553e3e844652bd4c322cdc3f",
+      "kit_sha256": "caade15655223e57febd8070cd9c682b759c8568878ba1a13e4b999002225ec9",
+      "proxies": 3,
+      "package_assembly": "Independent native/backend rebuild and all three byte comparisons passed",
+      "system_install": "passed",
+      "normal_successor_selection": "Applications > Stop bridge service > Select installed version > Start bridge service",
+      "selected_manager_matches_package": true,
+      "predecessor_version": "0.12.0internal21",
+      "predecessor_manager_retained": true
     }
   }
 }
