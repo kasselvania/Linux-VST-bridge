@@ -131,6 +131,7 @@ struct Shared {
     control: std::sync::Mutex<Option<Control>>,
     pending_control: AtomicBool,
     state_capable: AtomicBool,
+    curve_state_revision: AtomicU64,
     observer: Option<Arc<crate::observer::Shared>>,
     worker_op: AtomicU64,
     worker_epoch: AtomicU64,
@@ -180,6 +181,7 @@ impl Shared {
             control: std::sync::Mutex::new(None),
             pending_control: AtomicBool::new(false),
             state_capable: AtomicBool::new(false),
+            curve_state_revision: AtomicU64::new(0),
             observer: None,
             worker_op: AtomicU64::new(0),
             worker_epoch: AtomicU64::new(0),
@@ -261,8 +263,10 @@ pub struct Delivery {
 struct Callback {
     curve_plan: crate::parameter_curves::Plan,
     curve_carry: crate::parameter_curves::Carry,
+    curve_values: crate::parameter_curves::Values,
     curve_continuation: Option<crate::context::Context>,
     curve_gui_revision: u64,
+    curve_state_revision: u64,
     host_call: u64,
     delay: u64,
     epoch: u64,
@@ -287,8 +291,10 @@ impl Callback {
         Self {
             curve_plan: crate::parameter_curves::Plan::empty(),
             curve_carry: crate::parameter_curves::Carry::empty(),
+            curve_values: crate::parameter_curves::Values::empty(),
             curve_continuation: None,
             curve_gui_revision: 0,
+            curve_state_revision: 0,
             host_call: 0,
             delay: DELAY,
             epoch: 0,
@@ -306,6 +312,7 @@ impl Callback {
     }
     fn clear_audio(&mut self, s: &Shared) {
         self.curve_carry = crate::parameter_curves::Carry::empty();
+        self.curve_values.invalidate();
         self.curve_continuation = None;
         if self.have {s.release_output(&self.current); self.have=false;}
         while let Some(a)=self.audio.pop_front() {s.release_output(&a);}
@@ -313,6 +320,16 @@ impl Callback {
             let Some(c)=s.results.pop() else {break;};
             s.release_output(&c.audio);
         }
+    }
+    // Recovery replaces the transport, not the exact SDK parameter census.
+    // Move its preconfigured storage and discard values from the failed peer.
+    fn replacement(&mut self) -> Self {
+        let mut next = Self::new();
+        next.delay = self.delay;
+        next.curve_values = std::mem::replace(
+            &mut self.curve_values, crate::parameter_curves::Values::empty());
+        next.curve_values.invalidate();
+        next
     }
     fn transition(&mut self, s: &Shared, op: u32) -> u32 {
         if s.fault.load(Ordering::Acquire) != 0 {
@@ -1146,9 +1163,7 @@ pub unsafe extern "C" fn ap6_recover(
             l.shared = shared;
             l.worker = Some(t);
             l.report = report;
-            let delay = l.callback.get_mut().delay;
-            l.callback = UnsafeCell::new(Callback::new());
-            l.callback.get_mut().delay = delay;
+            l.callback = UnsafeCell::new(l.callback.get_mut().replacement());
             l.recovery_blocked = false;
             std::ptr::copy_nonoverlapping(snapshot.bytes.as_ptr(), out, snapshot.bytes.len());
             *size = snapshot.bytes.len() as u32;
@@ -1205,6 +1220,11 @@ unsafe fn control(id: u64, op: u32, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
         if c.is_some() {
             return Err(invalid("state operation already pending"));
         }
+        if op == 18 {
+            let revision = s.curve_state_revision.load(Ordering::Relaxed)
+                .checked_add(1).ok_or_else(|| invalid("parameter state revision exhausted"))?;
+            s.curve_state_revision.store(revision, Ordering::Release);
+        }
         *c = Some(Control {
             barrier,
             op,
@@ -1252,6 +1272,19 @@ pub unsafe extern "C" fn ap9_setup(
         out,
         std::ptr::null_mut(),
     )
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap22_curve_parameters(id: u64, ids: *const u32, count: u32) -> u32 {
+    crate::ffi(|| {
+        if count > 8192 || (count > 0 && ids.is_null()) { return 1; }
+        let Some(l) = INSTANCES.lease(id) else { return 1; };
+        let Some(_guard) = Guard::acquire(&l) else { return 3; };
+        let callback = &mut *l.callback.get();
+        if callback.running || callback.epoch != 0 || l.shared.fault.load(Ordering::Acquire) != 0 { return 2; }
+        let ids = if count == 0 { &[] } else { std::slice::from_raw_parts(ids, count as usize) };
+        if callback.curve_values.configure(ids).is_err() { return 1; }
+        0
+    }) as u32
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap10_setup(
@@ -1570,6 +1603,10 @@ unsafe fn process_events(
         return CONTAINED_TERMINAL;
     }
     let callback = &mut *l.callback.get();
+    let gui_revision = l.shared.gui.as_ref().map_or(0, |gui| gui.revision_cursor());
+    let gui_unchanged = gui_revision == callback.curve_gui_revision;
+    let state_revision = l.shared.curve_state_revision.load(Ordering::Acquire);
+    let state_unchanged = state_revision == callback.curve_state_revision;
     let continuation = callback.curve_continuation.is_some_and(|expected| {
         expected.present == context.present && (context.present == 0 ||
             expected.rate == context.rate && expected.state & 0x21006 == context.state & 0x21006 &&
@@ -1577,12 +1614,19 @@ unsafe fn process_events(
             (context.state & 0x20000 == 0 || expected.continuous == context.continuous) &&
             (context.state & 0x1004 != 0x1004 ||
                 expected.cycle_start == context.cycle_start && expected.cycle_end == context.cycle_end))
-    }) && l.shared.gui.as_ref().map_or(0, |gui| gui.revision_cursor()) == callback.curve_gui_revision;
+    }) && gui_unchanged && state_unchanged;
     if !continuation { callback.curve_carry.count = 0; }
-    if callback.curve_plan.prepare(events, n, &callback.curve_carry).is_err() {
+    // A transport seek discards the future endpoint but does not change the
+    // parameter value established by the previous accepted processing block.
+    // An external edit does change it; require a new explicit/observed anchor.
+    if !gui_unchanged || !state_unchanged {
+        callback.curve_values.invalidate(); callback.curve_gui_revision = gui_revision;
+        callback.curve_state_revision = state_revision;
+    }
+    if callback.curve_plan.prepare(events, n, &callback.curve_carry, &callback.curve_values).is_err() {
         // Unknown implicit curve baseline or synthesized queue capacity. Never
         // guess a descriptor default or partly admit an otherwise invalid plan.
-        return if detailed { 0x106 } else { 1 };
+        return if detailed { PARAMETER_CURVE_UNAVAILABLE } else { 1 };
     }
     {
         let callback = &mut *l.callback.get();
@@ -1641,6 +1685,7 @@ unsafe fn process_events(
     callback.curve_carry.events[..callback.curve_carry.count]
         .copy_from_slice(&callback.curve_plan.next.events[..callback.curve_carry.count]);
     callback.curve_continuation = (n > 0).then(|| context.chunk(n).unwrap());
+    callback.curve_values.commit(&callback.curve_plan.last);
     for (counter, delta) in l.shared.delivery_totals.iter().zip([
         n as u64, total.missing_frames, total.gaps, total.expired_frames,
         total.delivered_frames, total.priming_frames,
@@ -1927,6 +1972,8 @@ pub unsafe extern "C" fn ap10_process(
 }
 // Native C ABI extension; no Windows wire or packet layout change.
 const CONTAINED_TERMINAL: u32 = 0x106;
+// A refused input cannot authorize terminal silence or dead-instance custody.
+const PARAMETER_CURVE_UNAVAILABLE: u32 = 0x107;
 #[no_mangle]
 pub unsafe extern "C" fn ap13_process(
     id: u64,
@@ -2432,6 +2479,28 @@ mod tests {
             .unwrap();
     }
     #[test]
+    fn recovery_keeps_exact_parameter_census_but_discards_failed_peer_values() {
+        use crate::parameter_curves::Carry;
+        let point = |id, offset, value| Event { id, offset, value, kind: 2, ..Event::default() };
+        let mut callback = Callback::new();
+        callback.delay = 512;
+        callback.curve_values.configure(&[7, 99]).unwrap();
+        callback.curve_plan.prepare(&[point(7, 0, 0.3)], 512,
+            &Carry::empty(), &callback.curve_values).unwrap();
+        callback.curve_values.commit(&callback.curve_plan.last);
+        callback.curve_plan.prepare(&[point(7, 512, 0.6)], 512,
+            &Carry::empty(), &callback.curve_values).unwrap();
+        let mut next = callback.replacement();
+        assert_eq!(next.delay, 512);
+        assert!(next.curve_values.configure(&[7, 99]).is_err());
+        assert!(next.curve_plan.prepare(&[point(7, 512, 0.6)], 512,
+            &Carry::empty(), &next.curve_values).is_err());
+        assert!(next.curve_plan.prepare(&[point(123, 0, 0.6)], 512,
+            &Carry::empty(), &next.curve_values).is_err());
+        next.curve_plan.prepare(&[point(99, 0, 0.4)], 512,
+            &Carry::empty(), &next.curve_values).unwrap();
+    }
+    #[test]
     fn production_curve_endpoint_carry_respects_edits_seeks_stop_and_capacity() {
         use crate::parameter_curves::Carry;
         use crate::gui::{Gui, Message};
@@ -2443,12 +2512,15 @@ mod tests {
         shared.state_capable.store(true, Ordering::Relaxed);
         shared.identity = Some(state::Identity { class: [1; 16], module: [2; 32] });
         let shared = Arc::new(shared);
-        let mut callback = Callback::new();
-        assert_eq!(callback.transition(&shared, START), 0);
+        let callback = Callback::new();
         let id = INSTANCES.insert(|| Ok::<_, ()>(Live { shared: shared.clone(),
             callback: UnsafeCell::new(callback), busy: AtomicBool::new(false), worker: None,
             report: None, max: 1024, recovery_blocked: false, installed_delay: None,
             minor: 7, setup: None })).unwrap().unwrap();
+        assert_eq!(unsafe { ap22_curve_parameters(id,[7].as_ptr(),1) },0);
+        assert_eq!(unsafe { ap22_curve_parameters(id,[7].as_ptr(),1) },1);
+        assert_eq!(unsafe { ap3_transition(id,START) },0);
+        assert_eq!(unsafe { ap22_curve_parameters(id,[7].as_ptr(),1) },2);
         assert_eq!(shared.requests.pop().unwrap().kind, START);
         let input = [0.; 1024];
         let mut left = [0.; 1024];
@@ -2484,8 +2556,26 @@ mod tests {
         for _ in 0..2 { shared.requests.pop().unwrap(); }
         assert_eq!(run(512, 42, &[], &mut left, &mut right, &mut flags, &mut delivery), 0);
         for _ in 0..2 { assert_eq!(shared.requests.pop().unwrap().event_count, 0); }
+        let previous = 0.2 + 0.4 * 511. / 512.;
+        let (result, allocations) = crate::allocation_test::measure(|| run(512, 554,
+            &[point(512, 0.6)], &mut left, &mut right, &mut flags, &mut delivery));
+        assert_eq!(result, 0); assert_eq!(allocations, [0; 3]);
+        for start in [0, 256] {
+            let item = shared.requests.pop().unwrap();
+            for event in &item.events[..item.event_count as usize] {
+                assert!(event.valid(256));
+                let value = previous + (0.6 - previous) * (start + event.offset as usize + 1) as f64 / 513.;
+                assert!((event.value - value).abs() < 1e-14);
+            }
+        }
+        assert_eq!(gui.send(&mut Message { kind: 3, id: 7, value: 0.8, ..Default::default() }), 0);
         let before = shared.requests.published();
-        assert_eq!(run(512, 554, &[point(512, 0.6)], &mut left, &mut right, &mut flags, &mut delivery), 0x106);
+        let refused = unsafe { if2_process(id, 512, [point(512, 0.6)].as_ptr(), 1,
+            &crate::context::Context { present: 1, state: 2, rate: 48000., project: 1066, ..Default::default() },
+            0, input.as_ptr(), input.as_ptr(), left.as_mut_ptr(), right.as_mut_ptr(), &mut flags, &mut delivery, 1) };
+        assert_eq!(refused, PARAMETER_CURVE_UNAVAILABLE);
+        assert_ne!(refused, CONTAINED_TERMINAL);
+        assert_eq!(if2_terminal_status(id), 0);
         assert_eq!(shared.requests.published(), before);
         let lease = INSTANCES.lease(id).unwrap();
         let callback = unsafe { &mut *lease.callback.get() };

@@ -10,6 +10,73 @@ use ap1_native_client::{
 };
 
 const CHUNKS: usize = 1024 / CAP;
+// Match the admitted SDK parameter census. Allocate/configure on instance
+// preparation, then use bounded binary lookups and generation invalidation.
+const PARAMETERS: usize = 8192;
+struct KnownValue {
+    id: u32,
+    generation: u64,
+    value: f64,
+}
+pub(crate) struct Values {
+    entries: Vec<KnownValue>,
+    generation: u64,
+    configured: bool,
+}
+impl Values {
+    pub fn empty() -> Self {
+        Self {
+            entries: Vec::new(),
+            generation: 1,
+            configured: false,
+        }
+    }
+    pub fn configure(&mut self, ids: &[u32]) -> Result<(), ()> {
+        if self.configured || ids.len() > PARAMETERS {
+            return Err(());
+        }
+        let mut entries: Vec<_> = ids
+            .iter()
+            .map(|&id| KnownValue {
+                id,
+                generation: 0,
+                value: 0.,
+            })
+            .collect();
+        entries.sort_unstable_by_key(|entry| entry.id);
+        if entries.windows(2).any(|pair| pair[0].id == pair[1].id) {
+            return Err(());
+        }
+        self.entries = entries;
+        self.configured = true;
+        Ok(())
+    }
+    fn index(&self, id: u32) -> Option<usize> {
+        self.entries
+            .binary_search_by_key(&id, |entry| entry.id)
+            .ok()
+    }
+    fn get(&self, id: u32) -> Option<f64> {
+        let entry = &self.entries[self.index(id)?];
+        (self.generation != 0 && entry.generation == self.generation).then_some(entry.value)
+    }
+    pub fn invalidate(&mut self) {
+        // Exhaustion disables inference rather than reusing an old generation.
+        self.generation = if self.generation == 0 {
+            0
+        } else {
+            self.generation.checked_add(1).unwrap_or(0)
+        };
+    }
+    pub fn commit(&mut self, values: &Carry) {
+        for point in &values.events[..values.count] {
+            if let Some(index) = self.index(point.id) {
+                self.entries[index].generation = self.generation;
+                self.entries[index].value = point.value;
+            }
+        }
+    }
+}
 #[derive(Clone, Copy)]
 pub(crate) struct Carry {
     pub events: [Event; MAX_EVENTS],
@@ -56,30 +123,33 @@ impl Block {
 pub(crate) struct Plan {
     pub blocks: [Block; CHUNKS],
     pub next: Carry,
+    pub last: Carry,
     points: [Event; MAX_EVENTS + 1],
     ids: [u32; MAX_EVENTS],
 }
-fn value_at(points: &[Event], position: usize) -> Option<f64> {
+fn value_at(points: &[Event], position: usize, previous: Option<f64>) -> Option<f64> {
     // Keep repeated points in source order. The final point at a position wins;
     // between positions the SDK defines a linear segment, not a step event.
-    let mut left = None;
+    // The SDK's implicit previous point is at -1, not at the first sample.
+    let mut left = previous.map(|value| (-1i64, value));
     for point in points {
         if point.offset as usize <= position {
-            left = Some(*point);
+            left = Some((i64::from(point.offset), point.value));
             continue;
         }
-        let left = left?;
+        let (offset, value) = left?;
         let fraction =
-            (position - left.offset as usize) as f64 / f64::from(point.offset - left.offset);
-        return Some(left.value + (point.value - left.value) * fraction);
+            (position as i64 - offset) as f64 / (i64::from(point.offset) - offset) as f64;
+        return Some(value + (point.value - value) * fraction);
     }
-    left.map(|point| point.value)
+    left.map(|(_, value)| value)
 }
 impl Plan {
     pub fn empty() -> Self {
         Self {
             blocks: std::array::from_fn(|_| Block::empty()),
             next: Carry::empty(),
+            last: Carry::empty(),
             points: [Event::default(); MAX_EVENTS + 1],
             ids: [0; MAX_EVENTS],
         }
@@ -87,10 +157,16 @@ impl Plan {
     #[cfg(test)]
     pub fn build(events: &[Event], frames: usize, carry: &Carry) -> Result<Self, ()> {
         let mut plan = Self::empty();
-        plan.prepare(events, frames, carry)?;
+        plan.prepare(events, frames, carry, &Values::empty())?;
         Ok(plan)
     }
-    pub fn prepare(&mut self, events: &[Event], frames: usize, carry: &Carry) -> Result<(), ()> {
+    pub fn prepare(
+        &mut self,
+        events: &[Event],
+        frames: usize,
+        carry: &Carry,
+        previous: &Values,
+    ) -> Result<(), ()> {
         if frames > 1024 || events.len() > MAX_EVENTS || carry.count > MAX_EVENTS {
             return Err(());
         }
@@ -98,6 +174,7 @@ impl Plan {
             block.count = 0;
         }
         self.next.count = 0;
+        self.last.count = 0;
         let chunks = frames.max(1).div_ceil(CAP);
         let mut ids_count = 0;
         for event in events.iter().chain(&carry.events[..carry.count]) {
@@ -117,6 +194,10 @@ impl Plan {
             }
         }
         for &id in &self.ids[..ids_count] {
+            if previous.configured && previous.index(id).is_none() {
+                return Err(());
+            }
+            let baseline = previous.get(id);
             let points = &mut self.points;
             let mut length = 0;
             // A current explicit start replaces the predecessor's future anchor.
@@ -151,7 +232,7 @@ impl Plan {
                     && points.iter().any(|p| p.offset as usize > start)
                     && !points.iter().any(|p| p.offset as usize == start)
                 {
-                    let value = value_at(points, start).ok_or(())?;
+                    let value = value_at(points, start, baseline).ok_or(())?;
                     block.push(
                         Event {
                             offset: start as u32,
@@ -177,7 +258,7 @@ impl Plan {
                 {
                     // No descriptor default or guessed current value supplies a
                     // missing left anchor. Refuse before admitting any block.
-                    let value = value_at(points, end - 1).ok_or(())?;
+                    let value = value_at(points, end - 1, baseline).ok_or(())?;
                     block.push(
                         Event {
                             offset: (end - 1) as u32,
@@ -192,6 +273,16 @@ impl Plan {
                 }
             }
             if frames > 0 {
+                if let Some(value) = value_at(points, frames - 1, baseline) {
+                    self.last.events[self.last.count] = Event {
+                        offset: 0,
+                        kind: PARAMETER,
+                        id,
+                        value,
+                        ..Event::default()
+                    };
+                    self.last.count += 1;
+                }
                 if let Some(point) = points.last().filter(|p| p.offset as usize == frames) {
                     if self.next.count == MAX_EVENTS {
                         return Err(());
@@ -202,6 +293,9 @@ impl Plan {
                     };
                     self.next.count += 1;
                 }
+            } else if let Some(point) = points.last() {
+                self.last.events[self.last.count] = *point;
+                self.last.count += 1;
             }
         }
         Ok(())
@@ -235,8 +329,8 @@ mod tests {
             let slice = &block.events[..block.count];
             assert!(slice.iter().all(|e| e.valid(CAP)));
             for sample in 0..CAP {
-                let expected = value_at(&points, chunk * CAP + sample).unwrap();
-                let actual = value_at(slice, sample).unwrap();
+                let expected = value_at(&points, chunk * CAP + sample, None).unwrap();
+                let actual = value_at(slice, sample, None).unwrap();
                 assert!(
                     (actual - expected).abs() < 1e-14,
                     "chunk {chunk} sample {sample}"
@@ -255,6 +349,84 @@ mod tests {
             &replacement.blocks[0].events[..replacement.blocks[0].count],
             &[point(0, 7, 0.9)]
         );
+    }
+    #[test]
+    fn implicit_previous_sample_preserves_a_sparse_curve_and_never_uses_metadata_defaults() {
+        let mut previous = Values::empty();
+        previous.configure(&[7]).unwrap();
+        let mut plan = Plan::empty();
+        assert!(plan
+            .prepare(&[point(511, 7, 0.9)], 512, &Carry::empty(), &previous)
+            .is_err());
+        plan.prepare(
+            &[point(0, 7, 0.2), point(255, 7, 0.8)],
+            256,
+            &Carry::empty(),
+            &previous,
+        )
+        .unwrap();
+        previous.commit(&plan.last);
+        let points = [point(511, 7, 0.9)];
+        let (result, allocations) = crate::allocation_test::measure(|| {
+            plan.prepare(&points, 512, &Carry::empty(), &previous)
+        });
+        assert_eq!(result, Ok(()));
+        assert_eq!(allocations, [0; 3]);
+        let mut vendor_previous = 0.8;
+        for (chunk, block) in plan.blocks[..2].iter().enumerate() {
+            let points = &block.events[..block.count];
+            for sample in 0..CAP {
+                let expected = 0.8 + 0.1 * (chunk * CAP + sample + 1) as f64 / 512.;
+                assert!(
+                    (value_at(points, sample, Some(vendor_previous)).unwrap() - expected).abs()
+                        < 1e-14
+                );
+            }
+            vendor_previous = value_at(points, CAP - 1, Some(vendor_previous)).unwrap();
+        }
+        previous.commit(&plan.last);
+        assert_eq!(previous.get(7), Some(0.9));
+        previous.invalidate();
+        assert!(plan
+            .prepare(&points, 512, &Carry::empty(), &previous)
+            .is_err());
+        plan.prepare(&[point(0, 7, 0.4)], 0, &Carry::empty(), &previous)
+            .unwrap();
+        previous.commit(&plan.last);
+        assert_eq!(previous.get(7), Some(0.4));
+    }
+    #[test]
+    fn exact_metadata_table_has_no_values_until_accepted_input_and_invalidates_in_constant_space() {
+        let ids: Vec<_> = (0..8192).rev().collect();
+        let mut values = Values::empty();
+        values.configure(&ids).unwrap();
+        assert!(values.configure(&ids).is_err());
+        for id in [0, 4095, 8191] {
+            assert_eq!(values.get(id), None);
+        }
+        let mut update = Carry::empty();
+        update.count = 3;
+        for (i, id) in [0, 4095, 8191].into_iter().enumerate() {
+            update.events[i] = point(0, id, 0.625);
+        }
+        let (_, allocations) = crate::allocation_test::measure(|| values.commit(&update));
+        assert_eq!(allocations, [0; 3]);
+        for id in [0, 4095, 8191] {
+            assert_eq!(values.get(id), Some(0.625));
+        }
+        let (_, allocations) = crate::allocation_test::measure(|| values.invalidate());
+        assert_eq!(allocations, [0; 3]);
+        for id in [0, 4095, 8191] {
+            assert_eq!(values.get(id), None);
+        }
+        values.generation = u64::MAX;
+        values.invalidate();
+        values.commit(&update);
+        assert_eq!(values.get(0), None);
+        values.invalidate();
+        assert_eq!(values.get(0), None);
+        assert!(Values::empty().configure(&[7, 7]).is_err());
+        assert!(Values::empty().configure(&vec![7; 8193]).is_err());
     }
     #[test]
     fn implicit_vendor_segment_is_kept_but_unknown_split_baseline_is_refused() {

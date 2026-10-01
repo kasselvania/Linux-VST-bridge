@@ -18,6 +18,14 @@ dropout repair or an accepted support change. See
 [FC-AUDIO-001](FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses)
 and the [retained diagnostic](../evidence/self-service-delivery/internal43-audio-priority-diagnostic.json).
 
+Internal44's populated Ubuntu reference project also failed: both references
+had processing-phase gaps and the effect refused state after false terminal
+silence. The original project stayed unchanged and normal quit confirmed owner
+cleanup. A source correction separates the colliding result codes and preserves
+accepted curve baselines across seeks; installed recall/audio remain unqualified.
+See [FC-AUTO-001](FAILURE_CLASSES.md#fc-auto-001--automation-refusal-collides-with-terminal-silence)
+and the [exact failed journey](../evidence/self-service-delivery/internal44-populated-reference-automation-failure.json).
+
 ## Managed Windows DAW / Steam Deck Desktop Mode
 
 This lane is separate from the native Bitwig VST3 bridge below. It has no Linux

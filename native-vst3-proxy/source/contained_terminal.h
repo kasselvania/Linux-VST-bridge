@@ -4,6 +4,7 @@
 // result authorizes local silence only after complete terminal custody; no
 // Windows queue or result packet is submitted/delivered in that state.
 namespace IF2 { inline constexpr uint32_t contained = 0x106; }
+static_assert(IF2::contained != AP10::parameter_curve_unavailable);
 extern "C" {
 // Bounded atomic classification; zero does not assert that the peer is healthy.
 uint32_t if2_terminal_status(uint64_t);

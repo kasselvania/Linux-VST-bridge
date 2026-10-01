@@ -201,6 +201,13 @@ bool Processor::stateSession() {
     phase_ = Failed;
     return false;
   }
+#ifdef AP8_PREVIEW
+  std::array<uint32_t,std::size(AP8::parameters)> ids{};
+  for(size_t i=0;i<ids.size();++i)ids[i]=AP8::parameters[i].id;
+  if(ap22_curve_parameters(handle_,ids.data(),uint32_t(ids.size()))) {
+    phase_=Failed;report();return false;
+  }
+#endif
   return true;
 }
 namespace {
@@ -1017,7 +1024,7 @@ tresult PLUGIN_API Processor::terminate() {
         "\"invalid_event\":{\"kind\":%u,\"id\":%u,\"offset\":%u,"
         "\"channel\":%d,\"pitch\":%d,\"value\":%.17g,\"tuning\":%.9g,"
         "\"reserved\":%u,\"nonfinite_fields\":%u}}\n",
-        f.code, f.frames, f.code == 0x106 ? "parameter_curve_anchor_or_capacity_unavailable" : "input_admission_refused",
+        f.code, f.frames, f.code == AP10::parameter_curve_unavailable ? "parameter_curve_anchor_or_capacity_unavailable" : "input_admission_refused",
         (unsigned long long)f.input_flags, f.context_state,
         std::isfinite(f.rate) ? f.rate : 0.,
         std::isfinite(f.cycle_start) ? f.cycle_start : 0.,

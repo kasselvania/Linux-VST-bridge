@@ -81,6 +81,7 @@ void verify(EventList& sink, uint32_t count) {
 extern "C" {
 uint32_t __wrap_if2_terminal_status(uint64_t){return terminal_result ? 1 : 0;}
 uint32_t __wrap_ap9_open(const uint8_t*,uint64_t* h) {*h=1;return 0;}
+uint32_t __wrap_ap22_curve_parameters(uint64_t,const uint32_t*,uint32_t){return 0;}
 uint32_t __wrap_ap5_report_path(uint64_t,uint8_t* p,uint32_t n) {if(n)*p=0;return 0;}
 uint32_t __wrap_ap10_setup(uint64_t,uint32_t,uint32_t,double,const uint8_t*,uint32_t,uint32_t,uint32_t* traits) {
  traits[0]=512;traits[1]=traits[2]=0;return 0;

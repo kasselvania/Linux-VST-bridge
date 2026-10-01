@@ -216,7 +216,7 @@ observed zero allocations, reallocations and frees. Windows transport and note
 offset validation remain strictly inside their respective block extents.
 
 An implicit curve crossing a chunk boundary needs an actual left anchor. The
-successor refuses an unavailable baseline before admitting any chunk (0x106);
+successor refuses an unavailable baseline before admitting any chunk (0x107);
 descriptor defaults cannot stand in for current vendor state. This remains a
 declared capability limit, not universal automation support. Interior points,
 jumps, repeated positions, endpoint values, overflow and zero-frame flush have
@@ -226,6 +226,34 @@ this translation alone cannot qualify its audio. The
 also preserves the separate DAW startup crash, cache rescan and failed Deck
 service-restoration result. A coherent installed successor must repeat those
 journeys.
+
+Internal44 completed the effect's normal Check compatibility, Prepare and
+Replace controls on the populated Ubuntu account. Ardour's normal rescan and
+reopen loaded both references and restored their visible automation. Processing
+still missed 4,352 effect frames and 7,168 instrument frames; the effect then
+reported contained silence and refused state. Normal DAW quit confirmed owner
+cleanup, and the original project stayed unchanged. The failed snapshot is not
+recall evidence. The [installed receipt](../evidence/self-service-delivery/internal44-populated-reference-automation-failure.json)
+retains those outcomes and separates the SDK's false terminal label from the
+Windows owner's normal termination.
+
+Source review found the automation refusal's 0x106 collision with IF2's terminal
+result. The successor reserves 0x107 for a curve refusal and tests that it cannot
+claim successful terminal silence. It configures the exact SDK parameter IDs
+once before processing (8,192 maximum), with no inferred initial values. Accepted
+last-sample values supply the SDK's implicit previous point at position -1,
+including after a transport seek; a future endpoint remains a different fact.
+GUI edits, state restore, Stop/restart and recovery invalidate those values.
+Recovery retains the exact parameter census. No descriptor defaults or opaque
+vendor-state interpretation seed the cache. The [official parameter queue contract](https://steinbergmedia.github.io/vst3_doc/vstinterfaces/classSteinberg_1_1Vst_1_1IParamValueQueue.html)
+is the basis for that interpolation.
+
+The successor passes 86 macOS and 87 Linux registered Rust tests with one
+Windows-fixture test ignored on each platform, all-target Clippy, and nine native
+SDK/X11 tests. Sparse curves and the production entry point retain zero callback
+allocations/reallocations/frees. These are source regressions; the fresh installed
+candidate must still prove recall and audio. Internal45 retains the collision and
+is unqualified. None of these repairs resolves the separate missing-frame failure.
 
 Produce installable candidate artifacts and version/component manifest;
 authenticated distribution, required notices/SBOM and customer install/update/
