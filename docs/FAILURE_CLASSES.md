@@ -1295,6 +1295,27 @@ successor captures exact changed PE plug-in images without claiming completeness
 authorization or first use. A separate unknown descendant exit 1 remains retained
 and unattributed. See [internal34](../evidence/self-service-delivery/ubuntu-internal34-development.json).
 
+Internal36's signed native installer staged on Ubuntu and SteamOS through the
+ordinary file browser and installer. On the populated Ubuntu account, visible
+Stop → Select → Start selected the successor and retained all three published
+registrations. SteamOS staging preserved the selected software and registry
+digests exactly and changed no protected-system files. Its Setup preflight
+refused `publication_component_generation_unavailable`: the selected preparation
+kit already owned the 5fa090 host/source pair used by four publications, but
+pair resolution consulted only the default host and static catalogue. The Deck's
+working generation remains selected. This is a measured migration gap, not lost
+module bytes or a license problem.
+
+The source correction follows only the exact immutable kit selected by a
+software generation and its verified staged preparation runtime. It preserves
+that generation's supervisor/ownership pair through subsequent package
+predecessors, without searching arbitrary historical kit directories. The
+regression covers a changed default host, supervisor, ownership and preparation
+kit, and refuses missing runtime, changed host bytes and mismatched source.
+All 39 package-authority tests pass on macOS. The delivered correction and
+commercial project recall still require installed verification. See the
+[internal36 receipt](../evidence/self-service-delivery/internal36-installed-delivery.json).
+
 The following signed user-space package route stages verified PKG0 inputs without
 changing the selected installation or protected operating system. Source tests
 cover invalid signatures, mismatched bytes, links, low disk and Python mismatch;

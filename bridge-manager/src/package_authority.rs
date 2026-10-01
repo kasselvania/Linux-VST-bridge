@@ -267,6 +267,26 @@ pub(super) fn paired_host_components(m: &Manager, selected: &Software,
             set.source_sha256 = set.source_manifest.sha256.clone();
             supplemental = Some(set);
         }
+        // Managed preparation hosts are selected by the immutable kit, not
+        // necessarily listed in the static fixture catalogue. Follow only this
+        // generation's exact kit and its verified staged runtime. Arbitrary
+        // historical preparation directories provide no execution authority.
+        if let Some(kit) = &candidate.preparation_kit {
+            require(valid_hex(&kit.sha256, 64), "preparation_kit_identity")?;
+            let record = m.root.join("software/preparation-kits")
+                .join(&kit.sha256).join("runtime.json");
+            if record.try_exists()? {
+                let runtime = linux_vst_bridge::preparation::build::existing_runtime(m, &kit.sha256)?;
+                if runtime.host.sha256 == host.sha256
+                    && runtime.source_manifest.sha256 == source_sha256 {
+                    let mut set = candidate.clone();
+                    set.host = runtime.host;
+                    set.source_manifest = runtime.source_manifest;
+                    set.source_sha256 = set.source_manifest.sha256.clone();
+                    supplemental = Some(set);
+                }
+            }
+        }
         require(seen.insert(candidate.manager.path.clone()), "package_predecessor_cycle")?;
         let dir = candidate.manager.path.parent().ok_or("package_generation_path")?;
         if !dir.join("package-generation.json").try_exists()? { break; }
@@ -2112,6 +2132,59 @@ mod tests {
         assert!(paired_components(&f.base.m, &next, &unavailable).is_err());
         fs::set_permissions(&old.supervisor.path, fs::Permissions::from_mode(0o600)).unwrap();
         fs::write(&old.supervisor.path, b"tampered supervisor").unwrap();
+        assert!(paired_components(&f.base.m, &next, &registration).is_err());
+        assert_eq!(f.current().host, next.host);
+    }
+
+    #[test]
+    fn retained_preparation_pair_keeps_its_original_components_across_package_update() {
+        let f = Fixture::new();
+        f.add_kit(b"original selected preparation kit");
+        f.adopt().unwrap();
+        let old = f.current();
+        let kit = old.preparation_kit.clone().unwrap();
+        let dir = f.base.m.root.join("software/preparation-kits").join(&kit.sha256);
+        private_dir(&dir).unwrap();
+        for (name, bytes) in [("host.exe", b"prepared host".as_slice()),
+            ("host-source-manifest.json", b"prepared host source".as_slice())] {
+            fs::write(dir.join(name), bytes).unwrap();
+            fs::set_permissions(dir.join(name), fs::Permissions::from_mode(0o444)).unwrap();
+        }
+        let runtime = linux_vst_bridge::preparation::build::Runtime { kit,
+            host: artifact(&dir, "host.exe").unwrap(),
+            source_manifest: artifact(&dir, "host-source-manifest.json").unwrap(),
+            builder: None, generator: None };
+        atomic_json(&dir.join("runtime.json"), &runtime).unwrap();
+        fs::set_permissions(dir.join("runtime.json"), fs::Permissions::from_mode(0o444)).unwrap();
+        let mut registration = f.base.r.clone();
+        registration.host = runtime.host.clone();
+        registration.host_source_sha256 = runtime.source_manifest.sha256.clone();
+        let execution = paired_components(&f.base.m, &old, &registration).unwrap();
+        assert_eq!(execution.supervisor, old.supervisor);
+        assert_eq!(execution.host, runtime.host);
+        assert!(old.native_catalogue.is_none());
+
+        f.replace("host.exe", b"successor host", true);
+        f.replace("host-source-manifest.json", b"successor source", true);
+        f.replace("session.pyc", b"successor supervisor", true);
+        f.replace("ownership.pyc", b"successor ownership", true);
+        f.replace("preparation-kit.zip", b"successor preparation kit", true);
+        f.adopt().unwrap();
+        let next = f.current();
+        let retained = paired_components(&f.base.m, &next, &registration).unwrap();
+        assert_eq!(retained.supervisor, old.supervisor);
+        assert_eq!(retained.ownership, old.ownership);
+        assert_eq!(retained.host, runtime.host);
+        assert_ne!(retained.supervisor, next.supervisor);
+        let mut foreign = registration.clone();
+        foreign.host_source_sha256 = "fe".repeat(32);
+        assert!(paired_components(&f.base.m, &next, &foreign).is_err());
+        let record = dir.join("runtime.json");
+        fs::rename(&record, dir.join("runtime.saved")).unwrap();
+        assert!(paired_components(&f.base.m, &next, &registration).is_err());
+        fs::rename(dir.join("runtime.saved"), &record).unwrap();
+        fs::set_permissions(&runtime.host.path, fs::Permissions::from_mode(0o644)).unwrap();
+        fs::write(&runtime.host.path, b"changed prepared host").unwrap();
         assert!(paired_components(&f.base.m, &next, &registration).is_err());
         assert_eq!(f.current().host, next.host);
     }

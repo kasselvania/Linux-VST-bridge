@@ -56,8 +56,17 @@ commit. Package inventory retains these URLs and text digests; no latest branch
 is substituted. The SPDX inventory records upstream declarations without inventing
 a concluded license. Runtime acquisition preserves upstream notices separately.
 
+Internal36's native file-browser installer staged on Ubuntu and SteamOS without
+changing selected software or protected-system files. Ubuntu's ordinary
+Stop/Select/Start route selected the successor on the same populated account and
+retained its plug-in registrations. The Deck preflight refused a missing
+execution-pair projection for an already selected preparation kit; its working
+version remains selected. This failed transition is retained in the
+[installed development receipt](../evidence/self-service-delivery/internal36-installed-delivery.json).
+Neither result establishes musical recall or hardware audio.
+
 Source tests cover signature/class/key/payload changes, unsafe paths, duplicate
 members, symlink substitution, low disk, Python mismatch, preserving selected
 software and later-created projects across two staged versions. These are source
-results. SteamOS staging, populated selection, saved-project update/rollback and
+results. SteamOS populated selection, saved-project update/rollback and
 physical audio still require installed results before this route is qualified.

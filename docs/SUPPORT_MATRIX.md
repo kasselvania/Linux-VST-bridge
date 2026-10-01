@@ -163,7 +163,19 @@ still labelled partial because the detector omitted `.vst3` witnesses and requir
 a registered application executable; the source successor corrects that shared
 detector. A separate unknown helper exit 1 remains unattributed. Signed protected
 user-space delivery and visible existing-product update/recovery controls now
-have source checks, not installed SteamOS or multi-distro qualification.
+have source checks, not multi-distro musical qualification.
+
+[Internal36](../evidence/self-service-delivery/internal36-installed-delivery.json)
+staged through the native installer on Ubuntu and SteamOS. Ubuntu's ordinary
+same-account Stop → Select → Start retained all three publications and reported
+Bridge ready. SteamOS staging preserved its selected software/registry digests
+and eight publications, but Setup refused a missing execution-set projection
+for the selected preparation kit's host. The successor source retains that
+verified preparation pairing across package predecessors; 39 package-authority
+tests and strict manager Clippy pass on macOS. The correction has not been
+delivered to the Deck yet. Saved-project recall, populated musical update/rollback
+and hardware audio remain unqualified; [FC-MGMT-002](FAILURE_CLASSES.md#integrated-retained-proxy-capability-follow-up)
+retains this failed migration separately from earlier host-catalogue omissions.
 
 The original clean-machine journey uses the same official trial media on that
 Ubuntu 26.04.1 VM with Bitwig 6.1.1. Its posture is **unqualified**. Internal13
