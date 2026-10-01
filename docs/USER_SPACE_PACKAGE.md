@@ -82,7 +82,23 @@ identities verified. It can then receive normal selected-service status and an
 explicit Start after rollback. A missing modern record still refuses. The
 status labels it `retained-installation`, never inventing a package version or
 writing a generation record. Forty package-authority tests and strict manager
-Clippy passed on macOS; the installed successor remains to be retested.
+Clippy passed on macOS. Internal38 retested normal Stop/Restore/Start on the
+populated Deck: the retained installation restarted and reopened the same project
+with the exact saved plug-in state and captured stereo signal. The predecessor's
+Library readback timed out, so the complete usability journey remains failed.
+The new manager was then selected again through Setup. See the
+[internal38 receipt](../evidence/self-service-delivery/internal38-installed-delivery.json).
+No native publication was replaced and no reboot/audio qualification follows.
+
+The same installed run exposed a preparation gap after a successful current-host
+inventory refresh: preparation excluded retained UUID environment identifiers.
+The source correction uses the same direct-child location, exact environment
+record and current scanner identities as publication, without renaming the
+environment or rewriting vendor state. Its regression covers preparation and
+publication with the retained identifier, unchanged environment contents, stale
+scanner refusal and escaped-location refusal. All 38 preparation tests and strict
+manager Clippy passed on macOS; the ordinary installed proxy transition remains
+to be retested on the next candidate.
 
 Source tests cover signature/class/key/payload changes, unsafe paths, duplicate
 members, symlink substitution, low disk, Python mismatch, preserving selected

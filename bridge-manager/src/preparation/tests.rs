@@ -2,15 +2,17 @@ use super::*;
 use crate::test_fixture::{inspection_report, prepared_accessibility, snapshot, Fixture};
 use serde_json::json;
 pub(super) fn fixture() -> (Fixture, Candidate) {
+    fixture_with_environment(&"13".repeat(16))
+}
+fn fixture_with_environment(id: &str) -> (Fixture, Candidate) {
     let (mut f, _, mut census, native) = prepared_accessibility(false);
     f.m.unpublish(&f.r.key()).unwrap();
     atomic_json(&f.m.root.join("registry.json"), &Registry::default()).unwrap();
     let old = f.r.environment.root.clone();
-    let id = "13".repeat(16);
-    let envroot = f.m.root.join("environments").join(&id);
+    let envroot = f.m.root.join("environments").join(id);
     fs::rename(&old, &envroot).unwrap();
     f.r.module.path = envroot.join(f.r.module.path.strip_prefix(&old).unwrap());
-    f.r.environment.id = id;
+    f.r.environment.id = id.into();
     f.r.environment.root = envroot;
     atomic_json(
         &f.r.environment.root.join("environment.json"),
@@ -69,6 +71,32 @@ pub(super) fn fixture() -> (Fixture, Candidate) {
     };
     let c = prepared(s, i, native, f.r.host.clone(), manifest, "aa".repeat(32)).unwrap();
     (f, c)
+}
+#[test]
+fn retained_uuid_environment_can_prepare_from_current_exact_inventory() {
+    let (f, c) = fixture_with_environment("11111111-1111-4111-8111-111111111111");
+    let before = snapshot(&f.r.environment.root);
+    let current = select(&f.m, &c.selection.id().unwrap(), &f.r.host,
+        &f.r.host_source_sha256).unwrap();
+    assert_eq!(current, c.selection);
+    verify_selection(&f.m, &current, &f.r.host, &f.r.host_source_sha256).unwrap();
+    retain_inspection(&f.m, &c.inspection).unwrap();
+    record_candidate(&f.m, &c).unwrap();
+    let reference = enable(&f.m, &c, false).unwrap();
+    let published = f.m.load_revision(&c.selection.class.id, &reference).unwrap();
+    assert_eq!(published.registration.environment, f.r.environment);
+    assert_eq!(snapshot(&f.r.environment.root), before);
+    // A current source/host census is still required; preserving the identifier
+    // grants no authority to use stale scanner evidence or another location.
+    assert!(select(&f.m, &current.id().unwrap(), &f.r.host, &"ff".repeat(32)).is_err());
+    let mut wrong = current.clone();
+    wrong.environment.id = "../11111111-1111-4111-8111-111111111111".into();
+    assert!(verify_selection_data(&f.m, &wrong, &f.r.host,
+        &f.r.host_source_sha256).is_err());
+    wrong = current.clone();
+    wrong.environment.root = f.m.root.join("outside").join(&wrong.environment.id);
+    assert!(verify_selection_data(&f.m, &wrong, &f.r.host,
+        &f.r.host_source_sha256).is_err());
 }
 #[test]
 fn unknown_candidate_cannot_acquire_a_process_accessibility_override() {

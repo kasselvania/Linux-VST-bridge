@@ -195,6 +195,18 @@ fn immutable_bytes_staged(
     let _ = fs::remove_file(&tmp);
     result
 }
+// Environment identifiers are opaque. Retained installations use UUIDs while
+// managed installer environments use compact identifiers. The record and exact
+// direct-child location supply authority, as in Registration::verify; spelling
+// must not exclude an existing installation from preparing an update.
+fn environment_location(m: &Manager, environment: &Environment) -> bool {
+    let parent = m.root.join("environments");
+    environment.revision > 0
+        && !environment.id.is_empty()
+        && environment.root.parent() == Some(parent.as_path())
+        && environment.root.file_name().and_then(|name| name.to_str())
+            == Some(environment.id.as_str())
+}
 /// Factory and environment identities, never a friendly-name dispatch table.
 pub fn selections(m: &Manager, host: &Artifact, source: &str) -> Result<Vec<Selection>> {
     let mut out = vec![];
@@ -212,7 +224,7 @@ pub fn selections(m: &Manager, host: &Artifact, source: &str) -> Result<Vec<Sele
             .join("environments")
             .join(&scan.environment.id)
             .join("environment.json");
-        if !valid_hex(&scan.environment.id, 32)
+        if !environment_location(m, &scan.environment)
             || scan.environment.root != envpath.parent().unwrap()
             || bounded::<Environment>(&envpath)? != scan.environment
         {
@@ -272,8 +284,7 @@ fn verify_selection_data(m: &Manager, s: &Selection, host: &Artifact, source: &s
         "preparation_scanner_changed",
     )?;
     require(
-        valid_hex(&s.environment.id, 32)
-            && s.environment.root == m.root.join("environments").join(&s.environment.id),
+        environment_location(m, &s.environment),
         "preparation_environment_location",
     )?;
     require(
