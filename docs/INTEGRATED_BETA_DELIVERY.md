@@ -248,6 +248,11 @@ Recovery retains the exact parameter census. No descriptor defaults or opaque
 vendor-state interpretation seed the cache. The [official parameter queue contract](https://steinbergmedia.github.io/vst3_doc/vstinterfaces/classSteinberg_1_1Vst_1_1IParamValueQueue.html)
 is the basis for that interpolation.
 
+The extension's `ap22_backend.h` is native-only. The pinned Windows host's
+shared AP10 header and exact source pair stay unchanged. The first assembler
+refused the shared-header edit before producing a package; the separated header
+then passed the same nine SDK/X11 tests. No Windows host was rebuilt or swapped.
+
 The successor passes 86 macOS and 87 Linux registered Rust tests with one
 Windows-fixture test ignored on each platform, all-target Clippy, and nine native
 SDK/X11 tests. Sparse curves and the production entry point retain zero callback

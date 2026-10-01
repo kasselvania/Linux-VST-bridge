@@ -474,7 +474,8 @@
     "development_failures": [
       "first Linux compile missed unsafe on a test-only transition call; corrected",
       "test-display package missing in builder; installed xvfb in builder only",
-      "new SDK regression shared double state with an older test; isolated into its own test process"
+      "new SDK regression shared double state with an older test; isolated into its own test process",
+      "first package assembly refused shared AP10 header changes; moved extension into native-only ap22_backend.h, restored the exact pinned header, and repeated all nine SDK/X11 tests successfully"
     ],
     "windows_host_changed": false,
     "runtime_changed": false

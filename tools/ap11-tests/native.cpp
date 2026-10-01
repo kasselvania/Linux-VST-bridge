@@ -419,7 +419,7 @@ void curve_refusal_regression() {
   inputs.channelBuffers32=in;outputs.channelBuffers32=out;
   ProcessData data{};data.processMode=kRealtime;data.symbolicSampleSize=kSample32;
   data.numSamples=128;data.numInputs=data.numOutputs=1;data.inputs=&inputs;data.outputs=&outputs;
-  process_refusal=AP10::parameter_curve_unavailable;
+  process_refusal=AP22::parameter_curve_unavailable;
   check(processor.process(data)==kResultFalse,"a curve refusal is not successful terminal silence");
   check(processor.process(data)==kResultFalse,"a refused live instance cannot claim continuing terminal processing");
   check(__wrap_if2_terminal_status(1)==0,"curve refusal has no terminal custody");
