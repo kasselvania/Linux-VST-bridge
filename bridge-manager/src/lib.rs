@@ -103,8 +103,12 @@ thread_local! {
 }
 /// Reuse exact digests only during one read-only projection. Every reuse
 /// reopens the path without following links and matches inode, size, owner,
-/// mode, modification and change times. No cache survives this call.
+/// mode, modification and change times. Nested projections share the same
+/// observations; no cache survives the outermost projection.
 pub fn with_readback_digests<T>(readback: impl FnOnce() -> T) -> T {
+    if SCOPED_DIGESTS.with(|cache| cache.borrow().is_some()) {
+        return readback();
+    }
     with_scoped_digests(readback)
 }
 /// An isolated launch hashes every runtime byte afresh. Repeated authority
@@ -930,6 +934,38 @@ mod tests {
         fs::remove_file(&path).unwrap();
         std::os::unix::fs::symlink(f.r.host.path.clone(), &path).unwrap();
         assert!(with_readback_digests(|| digest(&path)).is_err());
+    }
+    #[test]
+    fn nested_readbacks_retain_observations_without_lending_them_to_launch() {
+        let f = Fixture::new();
+        let first = f.outer.join("first-observation");
+        let second = f.outer.join("second-observation");
+        fs::write(&first, b"first").unwrap();
+        fs::write(&second, b"other").unwrap();
+        with_readback_digests(|| {
+            let original = digest(&first).unwrap();
+            with_readback_digests(|| {
+                assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 1);
+                assert_eq!(digest(&first).unwrap(), original);
+                digest(&second).unwrap();
+                fs::write(&first, b"later").unwrap();
+                assert_ne!(digest(&first).unwrap(), original);
+            });
+            assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 2);
+            // An admission starts a fresh byte scope, even inside readback.
+            with_launch_verification(|| {
+                assert!(!readback_digests_active());
+                assert!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().is_empty()));
+                digest(&second).unwrap();
+                with_readback_digests(|| {
+                    assert!(!readback_digests_active());
+                    assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 1);
+                });
+            });
+            assert!(readback_digests_active());
+            assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 2);
+        });
+        assert!(SCOPED_DIGESTS.with(|cache| cache.borrow().is_none()));
     }
     #[test]
     fn installed_delay_is_inactive_versioned_and_separate_from_identity() {

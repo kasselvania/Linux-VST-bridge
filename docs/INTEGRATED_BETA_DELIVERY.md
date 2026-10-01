@@ -171,6 +171,30 @@ registration refuse readiness. The deadline remains bounded. This source
 correction requires the next delivered frontend retest; it does not establish
 the unique cause of all prior startup or audio failures.
 
+Internal43 reopened the licensed Deck project copy and processed the musical
+loop. Its whole processing-ready lifetimes still failed audio acceptance:
+Pure LoFi lost 39,680 frames and FRAGMENTS lost 6,912. An exact, temporary
+RTKit scheduling experiment promoted the four owned delivery/audio workers,
+then normal project closure retired all workers and the diagnostic flag was
+removed. FRAGMENTS retained another 512 missing frames after promotion. Pure
+LoFi's first-32 trace retention was already exhausted, and the scheduling policy
+was not sampled again during the later interval. Neither improvement nor a
+scheduler-only cause is established. The
+[diagnostic receipt](../evidence/self-service-delivery/internal43-audio-priority-diagnostic.json)
+preserves those limits, phase counters, exact instance identities, state-operation
+hashes and unchanged original project. Manual promotion is development work;
+it cannot qualify a zero-intervention product journey.
+
+Nested current/product projections were also discarding their outer request's
+digest observations. They now retain the same process-local observations for
+that request; every reuse still reopens and compares complete file identity.
+An execution admission starts a fresh byte scope and cannot borrow readback
+observations. The regression covers nested reuse, same-size mutation and fresh
+launch isolation. The Linux library run passed 196 tests and refused one
+historical-profile fixture owned by a different build user; that test then
+passed against a correctly owned copy. All-target Clippy passes. Installed
+response-time and frontend recovery acceptance remain required.
+
 The internal40 reference effect's input witness captured a parameter point at
 offset 1024 in a 1024-frame host block during saved automation. The prior bridge
 treated this curve endpoint as an invalid sample and permanently refused later
