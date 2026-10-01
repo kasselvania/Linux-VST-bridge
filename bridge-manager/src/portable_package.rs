@@ -92,9 +92,9 @@ fn allowed(row: &ReleaseFile) -> bool {
         && hexadecimal(&row.sha256,64) && row.size <= PAYLOAD_MAX
         && !row.component.is_empty() && row.component.len() <= 128
 }
-fn signed_release(bytes: &[u8], signature: &[u8], trust: &Trust) -> Result<Release> {
+fn signed_release(bytes: &[u8], signature: &[u8], base_sha256:&[u8;32], trust: &Trust) -> Result<Release> {
     require(bytes.len() <= MANIFEST_MAX as usize && signature.len() == 64, "user_package_signature_extent")?;
-    let message = [DOMAIN, trust.class.as_bytes(), b"\0", bytes].concat();
+    let message = [DOMAIN, trust.class.as_bytes(), b"\0", base_sha256.as_slice(), bytes].concat();
     trust.key.verify_strict(&message, &Signature::from_slice(signature)?)?;
     let release: Release = serde_json::from_slice(bytes)?;
     require(release.schema == 1 && release.package == "linux-vst-bridge-beta"
@@ -130,7 +130,7 @@ fn signed_release(bytes: &[u8], signature: &[u8], trust: &Trust) -> Result<Relea
 
 pub struct Bundle {
     file: fs::File, identity: crate::DigestFileIdentity, offset: u64, length: u64,
-    manifest: Vec<u8>, signature: Vec<u8>, release: Release, trust: Trust,
+    manifest: Vec<u8>, signature: Vec<u8>, base_sha256:[u8;32], release: Release, trust: Trust,
 }
 impl Bundle {
     pub fn open(path: &Path, trust: Trust) -> Result<Self> {
@@ -144,15 +144,28 @@ impl Bundle {
         require(&footer[..8] == FOOTER, "user_package_bundle_footer")?;
         let number = |offset| u64::from_le_bytes(footer[offset..offset+8].try_into().unwrap());
         let (offset, manifest_len, signature_len, length) = (number(8),number(16),number(24),number(32));
-        require(manifest_len <= MANIFEST_MAX && signature_len == 64 && length <= PAYLOAD_MAX
+        require((4..=256*1024*1024).contains(&offset)
+            && manifest_len <= MANIFEST_MAX && signature_len == 64 && length <= PAYLOAD_MAX
             && offset.checked_add(manifest_len).and_then(|n|n.checked_add(64))
                 .and_then(|n|n.checked_add(length)).and_then(|n|n.checked_add(40)) == Some(size),
             "user_package_bundle_extent")?;
         f.seek(SeekFrom::Start(offset))?;
         let mut manifest = vec![0;manifest_len as usize]; f.read_exact(&mut manifest)?;
         let mut signature = vec![0;64]; f.read_exact(&mut signature)?;
-        let release = signed_release(&manifest,&signature,&trust)?;
-        Ok(Self {file:f,identity,offset:offset+manifest_len+64,length,manifest,signature,release,trust})
+        f.seek(SeekFrom::Start(0))?;
+        let mut magic=[0;4];f.read_exact(&mut magic)?;
+        require(magic==*b"\x7fELF","user_package_installer_format")?;
+        f.seek(SeekFrom::Start(0))?;
+        let mut hash=Sha256::new();let mut remaining=offset;let mut block=[0;65536];
+        while remaining!=0 {
+            let bound=block.len().min(remaining as usize);f.read_exact(&mut block[..bound])?;
+            hash.update(&block[..bound]);remaining-=bound as u64;
+        }
+        let base_sha256=hash.finalize().into();
+        let release = signed_release(&manifest,&signature,&base_sha256,&trust)?;
+        require(crate::DigestFileIdentity::from(&f.metadata()?)==identity,
+            "user_package_bundle_changed")?;
+        Ok(Self {file:f,identity,offset:offset+manifest_len+64,length,manifest,signature,base_sha256,release,trust})
     }
     pub fn release(&self) -> &Release { &self.release }
     pub fn key_class(&self) -> &str { &self.trust.class }
@@ -206,7 +219,8 @@ impl Bundle {
         let result = self.extract(&staged).and_then(|()| {
             fs::write(staged.join("RELEASE_MANIFEST.json"),&self.manifest)?;
             fs::write(staged.join("RELEASE_MANIFEST.ed25519"),&self.signature)?;
-            for name in ["RELEASE_MANIFEST.json","RELEASE_MANIFEST.ed25519"] {
+            fs::write(staged.join("INSTALLER_BASE.sha256"),hex(&self.base_sha256))?;
+            for name in ["RELEASE_MANIFEST.json","RELEASE_MANIFEST.ed25519","INSTALLER_BASE.sha256"] {
                 fs::set_permissions(staged.join(name),fs::Permissions::from_mode(0o444))?;
                 file(&staged.join(name))?.sync_all()?;
             }
@@ -265,9 +279,17 @@ pub fn verify_directory(root:&Path, trust:&Trust) -> Result<Release> {
         "user_package_directory_identity")?;
     let bytes=verified_bytes(&root.join("RELEASE_MANIFEST.json"),MANIFEST_MAX)?;
     let signature=verified_bytes(&root.join("RELEASE_MANIFEST.ed25519"),64)?;
-    let release=signed_release(&bytes,&signature,trust)?;
+    let base=verified_bytes(&root.join("INSTALLER_BASE.sha256"),64)?;
+    let base=std::str::from_utf8(&base)?;
+    require(hexadecimal(base,64),"user_package_installer_identity")?;
+    let mut base_sha256=[0;32];
+    for (i,byte) in base_sha256.iter_mut().enumerate() {
+        *byte=u8::from_str_radix(&base[i*2..i*2+2],16)?;
+    }
+    let release=signed_release(&bytes,&signature,&base_sha256,trust)?;
     let mut expected: BTreeSet<_> = release.files.iter().map(|r|PathBuf::from(&r.destination)).collect();
     expected.insert("RELEASE_MANIFEST.json".into());expected.insert("RELEASE_MANIFEST.ed25519".into());
+    expected.insert("INSTALLER_BASE.sha256".into());
     let mut todo=vec![root.to_path_buf()];let mut visited=0usize;
     while let Some(directory)=todo.pop() {
         let metadata=fs::symlink_metadata(&directory)?;
@@ -429,10 +451,11 @@ mod tests {
             let manifest=serde_json::to_vec(&Release{schema:1,package:"linux-vst-bridge-beta".into(),
                 version:version.into(),pkgrel:1,source_head:"ab".repeat(20),source_tree:"cd".repeat(20),
                 payload_sha256:hex(&Sha256::digest(&payload)),files:self.rows.iter().map(|(row,_)|row.clone()).collect()}).unwrap();
-            let message=[DOMAIN,b"internal_test",b"\0",manifest.as_slice()].concat();
+            let base=b"\x7fELF source-owned test; never executed";
+            let base_sha256=Sha256::digest(base);
+            let message=[DOMAIN,b"internal_test",b"\0",&base_sha256[..],manifest.as_slice()].concat();
             let signature=self.key.sign(&message).to_bytes();
             let path=self.home.join(format!("installer-{version}"));
-            let base=b"ELF source-owned test; never executed";
             let bytes=[base.as_slice(),manifest.as_slice(),signature.as_slice(),payload.as_slice(),
                 FOOTER.as_slice(),&(base.len() as u64).to_le_bytes(),&(manifest.len() as u64).to_le_bytes(),
                 &64u64.to_le_bytes(),&(payload.len() as u64).to_le_bytes()].concat();
@@ -470,6 +493,10 @@ mod tests {
         assert!(Bundle::open(&path,Trust::new(f.key.verifying_key().to_bytes(),"release").unwrap()).is_err());
         let mut bytes=fs::read(&path).unwrap();bytes[60]^=1;fs::write(&path,&bytes).unwrap();
         assert!(Bundle::open(&path,f.trust()).is_err());
+        // The unchanged signed payload cannot authorize a substituted launcher.
+        let path=f.bundle("1.0");let mut bytes=fs::read(&path).unwrap();
+        bytes[5]^=1;fs::write(&path,bytes).unwrap();
+        assert!(Bundle::open(&path,f.trust()).is_err());f.unchanged(&old);
         let path=f.bundle("1.0");let bundle=Bundle::open(&path,f.trust()).unwrap();
         let mut bytes=fs::read(&path).unwrap();bytes[bundle.offset as usize+100]^=1;fs::write(&path,bytes).unwrap();
         let mut bundle=Bundle::open(&path,f.trust()).unwrap();

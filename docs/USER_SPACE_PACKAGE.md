@@ -11,7 +11,8 @@ Software rollback does not restore customer projects or vendor state.
 The builder compiles a separately selected Ed25519 public key and key class into
 the installer, packaged manager and packaged frontend. A key inside a download
 cannot authorize that download. The signature covers the domain
-`Linux VST Bridge user package v1`, key class and exact release manifest; the
+`Linux VST Bridge user package v1`, key class, installer executable SHA-256 and
+exact release manifest; the
 manifest binds the complete payload and component roster by SHA-256. The builder
 retains its private key outside the repository and artifacts.
 
@@ -25,6 +26,7 @@ The ELF trailer contains manifest, signature, canonical tar payload and a fixed
 40-byte extent footer. Intake enforces bounded extents, exact regular-file roles,
 paths, sizes, modes, digests, owner and complete directory roster. Links, duplicate
 or undeclared files, changed source files and writable staged components refuse.
+Replacing the launcher while retaining a valid signed payload also refuses.
 Extraction uses private staging, new-file writes, a per-user intake lock and atomic
 directory promotion. Insufficient free space removes only this installer's
 unfinished staging directory and leaves the selected application intact.

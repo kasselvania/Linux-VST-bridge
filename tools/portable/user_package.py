@@ -3,7 +3,7 @@
 
 The private signing key stays outside the source tree and package. The verifier
 uses the public key compiled into the installer/manager, never a bundled key.
-Ed25519 wire signature: domain + key class + NUL + exact release manifest.
+Ed25519 wire signature: domain + key class + NUL + installer SHA-256 + manifest.
 """
 import argparse
 import hashlib
@@ -68,7 +68,8 @@ def package(installer, staged, private_key, public_key, key_class, output):
         if public != bytes.fromhex("302a300506032b6570032100") + bytes.fromhex(public_key):
             raise ValueError("private signer differs from separately supplied public key")
         message = temporary / "message"
-        message.write_bytes(DOMAIN + key_class.encode() + b"\0" + manifest_bytes)
+        message.write_bytes(DOMAIN + key_class.encode() + b"\0"
+                            + hashlib.sha256(base).digest() + manifest_bytes)
         signature = temporary / "signature"
         subprocess.run(["openssl", "pkeyutl", "-sign", "-rawin", "-inkey", str(private_key),
                         "-in", str(message), "-out", str(signature)],

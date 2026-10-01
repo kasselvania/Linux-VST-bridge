@@ -57,7 +57,8 @@ class UserPackage(unittest.TestCase):
         self.assertEqual(identity["key_class"], "internal_test")
         self.assertEqual((self.root / "candidate.run").stat().st_mode & 0o777, 0o555)
         message = self.root / "message"
-        message.write_bytes(user_package.DOMAIN + b"internal_test\0" + manifest)
+        message.write_bytes(user_package.DOMAIN + b"internal_test\0"
+                            + hashlib.sha256(data[:offset]).digest() + manifest)
         signed = self.root / "signature"
         signed.write_bytes(signature)
         subprocess.run(["openssl", "pkeyutl", "-verify", "-rawin", "-inkey", str(self.key),
