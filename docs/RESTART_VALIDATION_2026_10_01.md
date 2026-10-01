@@ -218,6 +218,28 @@ forward were stopped. No resource cap was expanded.
 
 ## Qualification remains one installed outcome
 
+Internal51 is frozen at `e9107f4685182cc6de4390beddb4b2044c342622`
+(tree `0db6eaa643200f10f809903a9cb748f88f15f37e`). Both platform installers
+are retained with their component identities in
+`internal51-component-manifest.json`. All checks at that head are green,
+including all ten actual native tests. This does not establish installed
+acceptance.
+
+Before selecting internal51, resource preparation found an enabled guest swap
+file and 345 tasks in the existing fixture user's session. The guest user slice
+was bounded to one core, 2.5 GiB RAM, zero swap and 256 tasks; the outer VM
+retained one core, 4 GiB RAM, zero additional swap and 256 QEMU-container tasks.
+These are distinct process boundaries. Guest swap was disabled across reboot.
+The 256-task guest limit refused further forks. A lighter desktop package was
+prepared from Ubuntu's official repository, but its subsequent session did not
+establish a working graphical baseline within that limit. No product test ran.
+
+The retained preparation receipt records that constraint, the request to raise
+only the guest user task limit to 512, and normal shutdown of the guest. No
+increase was made while approval was pending. Both builders, both test VMs and
+the viewer are off; no paused guest retains RAM. Internal51 remains unselected
+on Ubuntu, and its installed regressions remain pending.
+
 Routine regressions use the stateful first-party instrument/effect and the
 production manager, supervisor, native proxy and Windows host. Include state
 capture before processing and while processing: the official IComponent
