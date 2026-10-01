@@ -496,6 +496,13 @@ pub struct Manager {
     pub root: PathBuf,
     pub publications: PathBuf,
 }
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LeaseOwner {
+    schema: u32,
+    temporary_owner: PathBuf,
+    owner: serde_json::Value,
+}
 pub struct Lock {
     file: File,
     root: PathBuf,
@@ -517,6 +524,70 @@ impl Drop for Lock {
     }
 }
 impl Manager {
+    fn lease_owner_location(&self, sid: &str, report: &Path, owner: &serde_json::Value)
+        -> Result<PathBuf> {
+        require(valid_hex(sid, 32)
+            && report.parent() == Some(self.root.join("runtime/results").as_path())
+            && owner["session"].as_str() == Some(sid)
+            && owner["report"].as_str() == report.to_str()
+            && owner["lease"].as_str() == self.root.join("runtime/leases")
+                .join(format!("{sid}.json")).to_str(), "lease_identity")?;
+        let environment = &owner["registration"]["environment"];
+        let root = PathBuf::from(environment["root"].as_str().ok_or("lease_identity")?);
+        require(root.parent() == Some(self.root.join("environments").as_path())
+            && root.file_name().and_then(|v| v.to_str()) == environment["id"].as_str(),
+            "lease_identity")?;
+        Ok(root.join("compatdata/pfx/drive_c/bridge/sessions").join(sid).join("owner.json"))
+    }
+    /// Caller holds registry.lock. Retain exact ownership before publishing its
+    /// lease; a supervisor may remove its Windows session view before Rust reaps it.
+    pub fn retain_lease_owner(&self, path: &Path) -> Result<()> {
+        let owner: serde_json::Value = read_json(path)?;
+        let sid = owner["session"].as_str().ok_or("lease_identity")?;
+        let report = PathBuf::from(owner["report"].as_str().ok_or("lease_identity")?);
+        require(self.lease_owner_location(sid, &report, &owner)? == path, "lease_identity")?;
+        let directory = self.root.join("runtime/lease-owners");
+        private_dir(&directory)?;
+        let destination = directory.join(format!("{sid}.json"));
+        if destination.try_exists()? {
+            let existing: LeaseOwner = read_json(&destination)?;
+            return require(existing.schema == 1 && existing.temporary_owner == path
+                && existing.owner == owner, "lease_owner_changed");
+        }
+        atomic_json(&destination, &LeaseOwner { schema:1, temporary_owner:path.into(), owner })
+    }
+    /// Caller holds registry.lock. The manager record remains authoritative
+    /// until lease release. Legacy leases retain their original exact lookup.
+    pub fn lease_owner(&self, sid: &str, report: &Path)
+        -> Result<(serde_json::Value, PathBuf)> {
+        require(valid_hex(sid, 32)
+            && report.parent() == Some(self.root.join("runtime/results").as_path()),
+            "lease_identity")?;
+        let retained = self.root.join("runtime/lease-owners").join(format!("{sid}.json"));
+        if retained.try_exists()? {
+            let record: LeaseOwner = read_json(&retained)?;
+            require(record.schema == 1
+                && self.lease_owner_location(sid, report, &record.owner)? == record.temporary_owner,
+                "lease_identity")?;
+            return Ok((record.owner, record.temporary_owner));
+        }
+        let envs = fs::read_dir(self.root.join("environments"))?
+            .take(129).map(|e| e.map(|e| e.path()))
+            .collect::<std::io::Result<Vec<_>>>()?;
+        require(envs.len() <= 128, "active_lease_unresolved")?;
+        let mut found = None;
+        for env in envs {
+            let path = env.join("compatdata/pfx/drive_c/bridge/sessions").join(sid).join("owner.json");
+            if path.try_exists()? {
+                require(found.is_none(), "duplicate_lease_identity")?;
+                found = Some((read_json::<serde_json::Value>(&path)?, path));
+            }
+        }
+        let (owner, path) = found.ok_or("active_lease_unresolved")?;
+        require(owner["session"].as_str() == Some(sid)
+            && owner["report"].as_str() == report.to_str(), "lease_identity")?;
+        Ok((owner, path))
+    }
     /// Must be called while holding registry.lock, the same lock as admission.
     pub fn require_inactive(&self, class: Option<&str>) -> Result<()> {
         let leases = self.root.join("runtime/leases");
@@ -535,19 +606,7 @@ impl Manager {
                 .and_then(|s| s.to_str())
                 .ok_or("lease_identity")?;
             require(valid_hex(sid, 32), "active_lease_unresolved")?;
-            let mut owner = None;
-            for env in fs::read_dir(self.root.join("environments"))? {
-                let spec = env?
-                    .path()
-                    .join("compatdata/pfx/drive_c/bridge/sessions")
-                    .join(sid)
-                    .join("owner.json");
-                if spec.try_exists()? {
-                    require(owner.is_none(), "duplicate_lease_identity")?;
-                    owner = Some(read_json::<serde_json::Value>(&spec)?);
-                }
-            }
-            let owner = owner.ok_or("active_lease_unresolved")?;
+            let (owner, _) = self.lease_owner(sid, &report)?;
             require(
                 owner["session"].as_str() == Some(sid)
                     && owner["report"].as_str() == report.to_str(),

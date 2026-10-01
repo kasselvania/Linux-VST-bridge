@@ -88,6 +88,22 @@ fn verify_recovery_binding(m: &Manager, selected: &Software,
         "service_recovery_components_changed")
 }
 
+fn stage_recovery_keeper(m: &Manager, execution: &Software, registration: &Registration,
+    keepers: &Keepers, ready_owners: &mut std::collections::BTreeMap<String, String>)
+    -> Result<KeeperAvailability> {
+    require_recovery_registration(m, registration)?;
+    let binding: HostBinding = registration.clone().into();
+    let readiness = stage_keeper(m, execution, &binding, keepers, None)?;
+    if readiness == KeeperAvailability::Ready {
+        let session = keeper_session(keepers, &registration.environment.id)?
+            .ok_or("ready_keeper_ownership_missing")?;
+        let expected = ready_owners.entry(registration.environment.id.clone())
+            .or_insert_with(|| session.clone());
+        require(*expected == session, "service_recovery_owner_changed")?;
+    }
+    Ok(readiness)
+}
+
 fn restore_recovery_bindings<R>(
     bindings: &[(Registration, Software)], deadline: Instant,
     mut reserve: impl FnMut() -> Result<R>,
@@ -103,12 +119,24 @@ fn restore_recovery_bindings<R>(
         if stage(registration, execution)? == KeeperAvailability::Failed {
             return Err(capacity::Refusal::BindingInvalid.into());
         }
-        verify(registration, execution)?;
     }
     for (registration, execution) in bindings {
         let _admission = wait_for_keeper(deadline, &mut reserve,
             || stage(registration, execution), &mut pause)?;
+    }
+    // Upstream startup creates hard links into its mutable runtime copy. Full
+    // byte verification belongs after every owned keeper is ready, outside
+    // registry ownership; neither a timestamp nor a busy readback is readiness.
+    for (registration, execution) in bindings {
+        require(Instant::now() < deadline, "service_recovery_deadline")?;
         verify(registration, execution)?;
+    }
+    // Take fresh authority after verification. The stage callback rechecks the
+    // exact registration and owner; any changed/starting owner refuses the ack.
+    let _admission = reserve()?;
+    for (registration, execution) in bindings {
+        require(stage(registration, execution)? == KeeperAvailability::Ready,
+            "service_recovery_owner_changed")?;
     }
     require(Instant::now() < deadline, "service_recovery_deadline")
 }
@@ -792,7 +820,7 @@ fn spec(
     atomic_json(&path, &s)?;
     Ok((s, path))
 }
-fn spawn(s: &Software, path: &Path, peer: Option<UnixStream>) -> Result<Child> {
+fn spawn(m: &Manager, s: &Software, path: &Path, peer: Option<UnixStream>) -> Result<Child> {
     s.supervisor.verify()?;
     s.ownership.verify()?;
     let bound_peer = peer.is_some();
@@ -803,6 +831,7 @@ fn spawn(s: &Software, path: &Path, peer: Option<UnixStream>) -> Result<Child> {
     };
     let job: SessionSpec = read_json(path)?;
     record_lease_generation(&job)?;
+    m.retain_lease_owner(path)?;
     atomic_json(&job.lease, &job.report)?;
     let child = Command::new("/usr/bin/python3")
         .arg(&s.supervisor.path)
@@ -1009,7 +1038,7 @@ fn stage_keeper(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keepers,
     graphical_session:Option<&transport_storage::GraphicalSession>)
     -> Result<KeeperAvailability> {
     stage_keeper_with_history(m,s,r,keepers,graphical_session,
-        experimental_runner::verify_selected_bg1_history,|software,path|spawn(software,path,None))
+        experimental_runner::verify_selected_bg1_history,|software,path|spawn(m,software,path,None))
 }
 
 fn stage_keeper_with_history(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keepers,
@@ -1175,6 +1204,8 @@ fn finish_supervised_delivery(context:SupervisorDelivery<'_>,delivery:Result<()>
         // that additional projection could not be written.
         let terminal=capacity::retain_terminal_summary(context.manager,context.session,
             context.class_id,context.report);
+        let (_registry, _) = context.manager.lock_bounded(operator_model::OperatorLock::Registry,
+            operator_model::LockPurpose::ServiceRecovery, None, Duration::from_secs(2))?;
         admission.complete(context.session,status.success(),&disposition,context.transport)?;
         terminal
     })();
@@ -1297,15 +1328,20 @@ fn serve(m: Manager) -> Result<()> {
                     let (bindings,verified)=prepare_recovery_bindings(&m,&s,
                         registrations,&launch_verification,deadline)?;
                     return verified.run(|| {
+                        let mut ready_owners=std::collections::BTreeMap::new();
                         restore_recovery_bindings(&bindings, deadline,
                                 || capacity::reserve_maintenance_until(&m,&limits,
                                     || blocked.load(Ordering::Acquire),deadline),
                                 |registration, execution| {
-                                    require_recovery_registration(&m,registration)?;
-                                    let binding:HostBinding=registration.clone().into();
-                                    stage_keeper(&m,execution,&binding,&keepers,None)
-                                }, |registration, execution|
-                                    verify_recovery_binding(&m,&s,registration,execution),
+                                    stage_recovery_keeper(&m,execution,registration,&keepers,&mut ready_owners)
+                                }, |registration, execution| {
+                                    // Commit fresh observations after upstream
+                                    // preparation, without holding registry
+                                    // ownership or reusing a persisted cache.
+                                    launch_verification.prepare(deadline, ||
+                                        verify_recovery_binding(&m,&s,registration,execution))?;
+                                    Ok(())
+                                },
                                 std::thread::sleep)?;
                         peer.set_write_timeout(Some(Duration::from_secs(1)))?;
                         peer.write_all(b"LVE1 ready\n")?;
@@ -1357,7 +1393,7 @@ fn serve(m: Manager) -> Result<()> {
                     let (mut job,path)=spec(&m,r,true,false,false)?;
                     let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
                     job.shared_inspection=true;atomic_json(&path,&job)?;
-                    let mut child=spawn(&execution,&path,None)?;
+                    let mut child=spawn(&m,&execution,&path,None)?;
                     if let Err(readiness)=supervisor_ready(&mut child,&job.session,
                         Duration::from_secs(4)) {
                         retire_unready_supervisor(&mut child,&path)?;
@@ -1367,6 +1403,8 @@ fn serve(m: Manager) -> Result<()> {
                     drop(_admission);
                     let status=child.wait()?;
                     let mut disposition=String::new();if let Some(stdout)=child.stdout.take(){stdout.take(128).read_to_string(&mut disposition)?;}
+                    let (_registry, _) = m.lock_bounded(operator_model::OperatorLock::Registry,
+                        operator_model::LockPurpose::ServiceRecovery, None, Duration::from_secs(2))?;
                     pending.complete(&job.session,status.success(),&disposition,None)?;
                     let reply=serde_json::to_vec(&job.report)?;
                     require(reply.len()<=4096,"inspection_reply_bound")?;
@@ -1398,7 +1436,7 @@ fn serve(m: Manager) -> Result<()> {
                     let (mut job,path)=spec(&m,r,false,false,false)?;
                     job.vendor_access=true;atomic_json(&path,&job)?;
                     let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
-                    let mut child=spawn(&execution,&path,None)?;
+                    let mut child=spawn(&m,&execution,&path,None)?;
                     if let Err(readiness)=supervisor_ready(&mut child,&job.session,
                         Duration::from_secs(4)) {
                         retire_unready_supervisor(&mut child,&path)?;
@@ -1409,6 +1447,8 @@ fn serve(m: Manager) -> Result<()> {
                     let _=peer.write_all(format!("Vendor access {}: editor only; no DAW audio or project recall. Close its window to finish.\n",job.session).as_bytes());
                     let status=child.wait()?;
                     let mut disposition=String::new();if let Some(stdout)=child.stdout.take(){stdout.take(128).read_to_string(&mut disposition)?;}
+                    let (_registry, _) = m.lock_bounded(operator_model::OperatorLock::Registry,
+                        operator_model::LockPurpose::ServiceRecovery, None, Duration::from_secs(2))?;
                     pending.complete(&job.session,status.success(),&disposition,None)?;
                     peer.write_all(b"Vendor access retired.\n")?;return Ok(());
                 }
@@ -1448,7 +1488,7 @@ fn serve(m: Manager) -> Result<()> {
                     let graphical_session=transport_storage::graphical_session(&peer)?;
                     startup.phase("binding_verified");
                     let mut observed=None;
-                    let _reservation=wait_for_keeper(keeper_deadline,
+                    let reservation=wait_for_keeper(keeper_deadline,
                         || capacity::reserve(&m,&limits,Some(&class),blocked.load(Ordering::Acquire)),
                         || {
                             let registry=m.registry()?;
@@ -1464,8 +1504,6 @@ fn serve(m: Manager) -> Result<()> {
                                 stage_keeper(&m,&execution,&r,&keepers,Some(&graphical_session))?
                             };
                             if keeper==KeeperAvailability::Ready {
-                                require(m.resolve(&greeting[5..])?==full_registration,
-                                    "publication_changed_during_startup")?;
                                 keeper=stage_keeper(&m,&execution,&r,&keepers,Some(&graphical_session))?;
                             }
                             if observed!=Some(keeper) {
@@ -1482,6 +1520,36 @@ fn serve(m: Manager) -> Result<()> {
                             Ok(keeper)
                         },std::thread::sleep)?;
                     startup.phase("keeper_ready");
+                    let ready_keeper_session=keeper_session(&keepers,&r.environment.id)?
+                        .ok_or("ready_keeper_ownership_missing")?;
+                    drop(reservation);
+                    // Runtime-copy preparation may invalidate file observations.
+                    // Reverify exact bytes only after readiness, without the
+                    // registry reservation, and publish the fresh process-owned
+                    // observations so the next load need not redo this work.
+                    let (_, ready_verified)=launch_verification.prepare(keeper_deadline, || {
+                        require(m.resolve(&greeting[5..])?==full_registration,
+                            "publication_changed_during_startup")?;
+                        require(package_authority::paired_components(&m,&s,&full_registration)?==execution,
+                            "publication_components_changed_during_startup")
+                    })?;
+                    startup.phase("ready_binding_verified");
+                    ready_verified.run(|| {
+                    let _reservation=wait_for_keeper(keeper_deadline,
+                        || capacity::reserve(&m,&limits,Some(&class),blocked.load(Ordering::Acquire)),
+                        || {
+                            let registry=m.registry()?;
+                            require(registry.classes.get(&class).is_some_and(|entry|
+                                entry.publication==Publication::Published
+                                    && entry.registration==full_registration),
+                                "publication_changed_during_startup")?;
+                            require(m.performance(&class)?==performance,
+                                "performance_changed_during_startup")?;
+                            require(keeper_session(&keepers,&r.environment.id)?.as_ref()
+                                ==Some(&ready_keeper_session),
+                                "keeper_changed_during_verification")?;
+                            stage_keeper(&m,&execution,&r,&keepers,Some(&graphical_session))
+                        },std::thread::sleep)?;
                     let (mut job, path) = spec(&m, r.clone(), false, false, false)?;
                     let storage = transport_storage::PendingTransport::new(&job.session)?;
                     job.directory = storage.directory.clone();
@@ -1492,6 +1560,7 @@ fn serve(m: Manager) -> Result<()> {
                         .unwrap_or_else(|e| { eprintln!("CA1 capture unavailable: {e}"); None });
                     atomic_json(&path, &job)?;
                     let admission = PendingAdmission::new(job.lease.clone(),blocked.clone());
+                    m.retain_lease_owner(&path)?;
                     atomic_json(&job.lease, &job.report)?;
                     // Recheck after all fallible preparation in this same
                     // fresh-byte verification scope. Reopening every file
@@ -1510,6 +1579,7 @@ fn serve(m: Manager) -> Result<()> {
                     }
                     startup.phase("transport_prepared");
                     Ok((execution,r,performance,job,path,admission,storage))
+                    })
                     })
                 })();
                 let (execution,r,performance,job,path,mut admission,mut storage)=match prepared {
@@ -1543,7 +1613,7 @@ fn serve(m: Manager) -> Result<()> {
                 // is not ownership: the exact supervisor must first validate
                 // its immutable inputs and graphical peer and install its
                 // outer finalizer.
-                let mut child=spawn(&execution,&path,Some(peer.try_clone()?))?;
+                let mut child=spawn(&m,&execution,&path,Some(peer.try_clone()?))?;
                 if let Err(readiness) = supervisor_ready(
                     &mut child,
                     &job.session,
@@ -1750,7 +1820,7 @@ fn inspect(m: &Manager, path: &Path) -> Result<()> {
     let r = inspection_binding(m, read_json(path)?)?;
     let sw = software(m)?;
     let (job, path) = spec(m, r, true, false, false)?;
-    let status = spawn(&sw, &path, None)?.wait()?;
+    let status = spawn(m,&sw, &path, None)?.wait()?;
     println!("{}", job.report.display());
     finish_inspection(m, &job, status)
 }
@@ -1987,6 +2057,58 @@ mod tests {
             }).unwrap();
         assert_eq!(rounds.get(),2);
         assert_eq!(confirmed.borrow().len(),2,"every environment must actually report ready");
+    }
+    #[test]
+    fn recovery_acknowledgment_cannot_inherit_a_replacement_keeper_generation() {
+        let (f,_,_,_)=test_fixture::prepared();
+        let registration=f.m.registry().unwrap().classes[&f.r.key()].registration.clone();
+        let software=recovery_software(&f);
+        let (first,report,lease)=fixture_keeper(&f,"exec sleep 1");
+        let keepers=Mutex::new(vec![first]);
+        let mut ready_owners=std::collections::BTreeMap::new();
+        let _registry=f.m.lock("registry.lock").unwrap();
+        atomic_json(&report,&serde_json::json!({"environment":registration.environment.id,"ready":true})).unwrap();
+        assert_eq!(stage_recovery_keeper(&f.m,&software,&registration,&keepers,&mut ready_owners).unwrap(),
+            KeeperAvailability::Ready);
+        {
+            let mut active=keepers.lock().unwrap();
+            active[0].retiring=true;
+            assert!(active[0].child.wait().unwrap().success());
+            atomic_json(&report,&serde_json::json!({"ready":false,"cleanup_confirmed":true})).unwrap();
+            assert_eq!(observe_keeper(&registration.environment.id,&mut active).unwrap(),None);
+            assert!(!lease.exists());
+            let (next,next_report,_)=fixture_keeper(&f,"exec sleep 1");
+            atomic_json(&next_report,&serde_json::json!({"environment":registration.environment.id,"ready":true})).unwrap();
+            active.push(next);
+        }
+        assert_eq!(stage_recovery_keeper(&f.m,&software,&registration,&keepers,&mut ready_owners)
+            .unwrap_err().to_string(),"service_recovery_owner_changed");
+        let mut active=keepers.lock().unwrap();
+        assert!(active[0].lease.exists(),"refusal cannot release a replacement owner");
+        active[0].retiring=true;
+        assert!(active[0].child.wait().unwrap().success());
+        atomic_json(&active[0].report,&serde_json::json!({"ready":false,"cleanup_confirmed":true})).unwrap();
+        assert_eq!(observe_keeper(&registration.environment.id,&mut active).unwrap(),None);
+    }
+    #[test]
+    fn recovery_verification_releases_registry_and_refuses_changed_readiness() {
+        let (f,_,_,_)=test_fixture::prepared();
+        let bindings=vec![(f.r.clone(),recovery_software(&f))];
+        let verified=std::cell::Cell::new(false);
+        let deadline=Instant::now()+Duration::from_secs(1);
+        let result=restore_recovery_bindings(&bindings,deadline,
+            || f.m.lock("registry.lock"), |_,_| {
+                Ok(if verified.get() {KeeperAvailability::Starting} else {KeeperAvailability::Ready})
+            }, |_,_| {
+                // An independent readback must acquire the actual registry
+                // while full verification is running, then final authority
+                // must refuse the readiness change before acknowledging LVE1.
+                let _readback=f.m.lock("registry.lock")?;
+                verified.set(true);
+                Ok(())
+            }, |_| panic!("ready owner cannot require a startup pause"));
+        assert_eq!(result.unwrap_err().to_string(),"service_recovery_owner_changed");
+        assert!(verified.get());
     }
     #[test]
     fn service_recovery_never_confirms_a_failed_or_changed_binding() {

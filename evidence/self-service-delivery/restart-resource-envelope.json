@@ -1,0 +1,111 @@
+{
+  "cachyos_interrupted_operation": {
+    "lease_count": 0,
+    "operations": [
+      {
+        "operation": "0b0ff41e7ddd665c0e8d8de5c41cd0f7",
+        "reason": null,
+        "state": "vendor_running"
+      },
+      {
+        "operation": "4ad29983cb4962c8ccd92b5da3e8d37c",
+        "reason": null,
+        "state": "completed"
+      }
+    ],
+    "resume_pending": true
+  },
+  "extra_swap_per_container": 0,
+  "harness": {
+    "guest_cpus": 1,
+    "guest_memory_mib": 3072,
+    "original_stopped_harness_retained": true,
+    "same_account_disk_firmware_and_port_bindings": true
+  },
+  "idle_builders": "paused; no active build",
+  "idle_viewers": {
+    "additional_swap_bytes": 0,
+    "cpu_cores": 0.1,
+    "memory_bytes": 134217728,
+    "pids": 32,
+    "state": "stopped"
+  },
+  "limits": [
+    {
+      "cgroup": {
+        "cpu.max": "100000 100000",
+        "memory.max": "4294967296",
+        "memory.swap.max": "0",
+        "pids.max": "256"
+      },
+      "cpu_cores": 1,
+      "memory_bytes": 4294967296,
+      "pids": 256,
+      "role": "ubuntu_vm",
+      "state": "paused",
+      "total_memory_plus_swap_bytes": 4294967296
+    },
+    {
+      "cgroup": {
+        "cpu.max": "100000 100000",
+        "memory.max": "4294967296",
+        "memory.swap.max": "0",
+        "pids.max": "256"
+      },
+      "cpu_cores": 1,
+      "memory_bytes": 4294967296,
+      "pids": 256,
+      "role": "cachyos_vm",
+      "state": "paused",
+      "total_memory_plus_swap_bytes": 4294967296
+    },
+    {
+      "cgroup": {
+        "cpu.max": "100000 100000",
+        "memory.max": "2684354560",
+        "memory.swap.max": "0",
+        "pids.max": "256"
+      },
+      "cpu_cores": 1,
+      "memory_bytes": 2684354560,
+      "pids": 256,
+      "role": "steamos_builder",
+      "state": "paused",
+      "total_memory_plus_swap_bytes": 2684354560
+    },
+    {
+      "cgroup": {
+        "cpu.max": "100000 100000",
+        "memory.max": "2684354560",
+        "memory.swap.max": "0",
+        "pids.max": "256"
+      },
+      "cpu_cores": 1,
+      "memory_bytes": 2684354560,
+      "pids": 256,
+      "role": "ubuntu_builder",
+      "state": "paused",
+      "total_memory_plus_swap_bytes": 2684354560
+    }
+  ],
+  "maximum_active_vm_or_build": 1,
+  "preceding_cpu_policy": {
+    "audio_measurement_configuration": "retain quota in fixture receipt; no inference to uncapped hardware",
+    "cpu_cap_cores": 1,
+    "cpu_shares": 128,
+    "host_cores": 4,
+    "maximum_active_vm_or_build": 1,
+    "reason": "operator requested reduced CPU consumption"
+  },
+  "preceding_infrastructure_interruption": {
+    "actor": "not established",
+    "affected_measurements": "Ubuntu instrument compatibility timing and CachyOS second cancellation timing interrupted",
+    "cachyos": "paused",
+    "observed_at": "2026-10-01 20:02:54 UTC",
+    "ubuntu": "paused"
+  },
+  "schema": 1,
+  "source_head": "0a31b79d5d119d311d0f5652afe8a5d4eb320207",
+  "ubuntu_project_sha256": "2a0d5d63278946fc51a714603943d619b9d99bfabaccd1ec06164f42ffd62390",
+  "vm_shutdown": "both normal shutdowns exited 0 without OOM"
+}

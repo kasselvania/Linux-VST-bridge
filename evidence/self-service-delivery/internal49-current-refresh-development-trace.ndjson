@@ -1,0 +1,141 @@
+{"capacity_traffic": true, "claim": "installed_development_regression_not_frontend_qualification", "elapsed_ms": 70.397, "environment": "3920068b3951d6710eef144c5a3a3fa5", "event": "fixture", "host_sha256": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b", "manager_sha256": "94bc8ea49968326cd9297f5971e079e8ae455afef2c40de36e6ece395ea9fdfc", "utc": "2026-10-01T20:43:37.350698+00:00"}
+{"elapsed_ms": 112.546, "event": "snapshot_begin", "utc": "2026-10-01T20:43:37.392836+00:00"}
+{"elapsed_ms": 116.282, "event": "lock_owners", "owners": [], "sampling_interval_ms": 100, "utc": "2026-10-01T20:43:37.396571+00:00"}
+{"elapsed_ms": 23015.885, "event": "snapshot_received", "utc": "2026-10-01T20:44:00.296176+00:00"}
+{"elapsed_ms": 23016.481, "event": "request_begin", "utc": "2026-10-01T20:44:00.296769+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 20.639, "elapsed_ms": 23037.1, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:00.317387+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 39.426, "elapsed_ms": 24076.74, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:01.357026+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 36.971, "elapsed_ms": 25113.858, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:02.394144+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 37.599, "elapsed_ms": 26151.67, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:03.431955+00:00"}
+{"elapsed_ms": 27164.582, "event": "lock_owners", "owners": [{"lock": "registry.lock", "pid": 2963}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:44:04.444871+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 37.616, "elapsed_ms": 27189.491, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:04.469777+00:00"}
+{"elapsed_ms": 27266.576, "event": "lock_owners", "owners": [], "sampling_interval_ms": 100, "utc": "2026-10-01T20:44:04.546867+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 37.067, "elapsed_ms": 28226.725, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:05.507010+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 38.793, "elapsed_ms": 29265.738, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:06.546024+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 37.07, "elapsed_ms": 30303.718, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:07.584003+00:00"}
+{"elapsed_ms": 31315.586, "event": "lock_owners", "owners": [{"lock": "registry.lock", "pid": 2963}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:44:08.595876+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 38.906, "elapsed_ms": 31342.768, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:08.623054+00:00"}
+{"elapsed_ms": 31417.597, "event": "lock_owners", "owners": [], "sampling_interval_ms": 100, "utc": "2026-10-01T20:44:08.697887+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 39.476, "elapsed_ms": 32382.613, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:09.662899+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 37.649, "elapsed_ms": 33420.397, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:10.700683+00:00"}
+{"accepted": true, "elapsed_ms": 33506.745, "event": "request_acknowledged", "operation": "dc36f51a17c8818f6abac324946e715b", "refusal_code": null, "utc": "2026-10-01T20:44:10.787034+00:00"}
+{"elapsed_ms": 33507.013, "event": "operation_state", "operation": "dc36f51a17c8818f6abac324946e715b", "reason_code": null, "state": "queued", "utc": "2026-10-01T20:44:10.787299+00:00"}
+{"elapsed_ms": 33607.869, "event": "operation_state", "operation": "dc36f51a17c8818f6abac324946e715b", "reason_code": null, "state": "running", "utc": "2026-10-01T20:44:10.888159+00:00"}
+{"elapsed_ms": 33644.116, "event": "lock_owners", "owners": [{"lock": "registry.lock", "pid": 2963}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:44:10.924407+00:00"}
+{"elapsed_ms": 33745.586, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}, {"lock": "registry.lock", "pid": 5689}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:44:11.025875+00:00"}
+{"elapsed_ms": 33846.197, "event": "resume_owner", "operation": "dc36f51a17c8818f6abac324946e715b", "prior_service_active": true, "utc": "2026-10-01T20:44:11.126486+00:00"}
+{"elapsed_ms": 33949.041, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "registry.lock", "pid": 5689}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:44:11.229330+00:00"}
+{"duration_ms": 0.127, "elapsed_ms": 34421.092, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:11.701378+00:00"}
+{"duration_ms": 0.111, "elapsed_ms": 35421.81, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:12.702096+00:00"}
+{"duration_ms": 0.096, "elapsed_ms": 36422.152, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:13.702438+00:00"}
+{"duration_ms": 0.09, "elapsed_ms": 37422.413, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:14.702699+00:00"}
+{"duration_ms": 0.098, "elapsed_ms": 38422.658, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:15.702944+00:00"}
+{"duration_ms": 0.077, "elapsed_ms": 39423.623, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:16.703909+00:00"}
+{"duration_ms": 0.103, "elapsed_ms": 40423.866, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:17.704152+00:00"}
+{"duration_ms": 0.119, "elapsed_ms": 41424.142, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:18.704428+00:00"}
+{"duration_ms": 0.123, "elapsed_ms": 42424.441, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:19.704727+00:00"}
+{"duration_ms": 0.095, "elapsed_ms": 43424.658, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:20.704944+00:00"}
+{"duration_ms": 0.129, "elapsed_ms": 44425.697, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:21.705983+00:00"}
+{"duration_ms": 0.112, "elapsed_ms": 45426.682, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:22.706967+00:00"}
+{"duration_ms": 0.092, "elapsed_ms": 46426.924, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:23.707210+00:00"}
+{"duration_ms": 0.092, "elapsed_ms": 47427.252, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:24.707538+00:00"}
+{"duration_ms": 0.148, "elapsed_ms": 48427.561, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:25.707847+00:00"}
+{"duration_ms": 0.106, "elapsed_ms": 49427.888, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:26.708173+00:00"}
+{"duration_ms": 0.1, "elapsed_ms": 50428.137, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:27.708423+00:00"}
+{"duration_ms": 0.099, "elapsed_ms": 51428.389, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:28.708675+00:00"}
+{"duration_ms": 0.095, "elapsed_ms": 52428.644, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:29.708930+00:00"}
+{"duration_ms": 0.101, "elapsed_ms": 53428.896, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:30.709181+00:00"}
+{"duration_ms": 0.068, "elapsed_ms": 54429.097, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:31.709382+00:00"}
+{"duration_ms": 0.088, "elapsed_ms": 55429.328, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:32.709614+00:00"}
+{"elapsed_ms": 55733.756, "event": "generation_created", "file_mtime_ns": 1790887472911350466, "session": "9b9cbcf2bbbba10c0222234583bda571", "utc": "2026-10-01T20:44:33.014046+00:00"}
+{"duration_ms": 0.106, "elapsed_ms": 56429.584, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:33.709869+00:00"}
+{"duration_ms": 0.269, "elapsed_ms": 57430.947, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:34.711238+00:00"}
+{"duration_ms": 0.261, "elapsed_ms": 58431.706, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:35.711992+00:00"}
+{"duration_ms": 0.139, "elapsed_ms": 59432.541, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:36.712828+00:00"}
+{"duration_ms": 0.072, "elapsed_ms": 60432.751, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:37.713036+00:00"}
+{"duration_ms": 0.095, "elapsed_ms": 61432.983, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:38.713269+00:00"}
+{"duration_ms": 0.097, "elapsed_ms": 62433.402, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:39.713688+00:00"}
+{"duration_ms": 0.125, "elapsed_ms": 63433.69, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:40.713976+00:00"}
+{"duration_ms": 0.098, "elapsed_ms": 64436.765, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:41.717051+00:00"}
+{"duration_ms": 0.131, "elapsed_ms": 65437.503, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:42.717789+00:00"}
+{"duration_ms": 0.168, "elapsed_ms": 66438.936, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:43.719224+00:00"}
+{"duration_ms": 0.086, "elapsed_ms": 67439.417, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:44.719702+00:00"}
+{"duration_ms": 0.276, "elapsed_ms": 68440.009, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:45.720299+00:00"}
+{"duration_ms": 0.259, "elapsed_ms": 69440.629, "event": "capacity_unavailable", "utc": "2026-10-01T20:44:46.720918+00:00"}
+{"elapsed_ms": 70116.71, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:44:47.397011+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 67.293, "elapsed_ms": 70508.163, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:47.788449+00:00"}
+{"elapsed_ms": 71534.076, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}, {"lock": "registry.lock", "pid": 5961}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:44:48.814366+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 33.676, "elapsed_ms": 71541.996, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:48.822281+00:00"}
+{"elapsed_ms": 71635.426, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:44:48.915716+00:00"}
+{"elapsed_ms": 72550.163, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}, {"lock": "registry.lock", "pid": 5961}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:44:49.830454+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 29.196, "elapsed_ms": 72571.336, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:49.851622+00:00"}
+{"elapsed_ms": 72651.74, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:44:49.932030+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 46.133, "elapsed_ms": 73617.611, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:50.897897+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 38.715, "elapsed_ms": 74657.268, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:51.937554+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 34.165, "elapsed_ms": 75691.597, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:52.971883+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 30.381, "elapsed_ms": 76722.114, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:54.002400+00:00"}
+{"elapsed_ms": 77738.115, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}, {"lock": "registry.lock", "pid": 5961}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:44:55.018405+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 45.043, "elapsed_ms": 77767.606, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:55.047892+00:00"}
+{"elapsed_ms": 77839.591, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:44:55.119881+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 38.088, "elapsed_ms": 78805.842, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:56.086127+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 28.396, "elapsed_ms": 79834.387, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:57.114673+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 41.045, "elapsed_ms": 80876.612, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:58.156898+00:00"}
+{"elapsed_ms": 81895.605, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}, {"lock": "registry.lock", "pid": 5961}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:44:59.175896+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 44.191, "elapsed_ms": 81921.804, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:44:59.202090+00:00"}
+{"elapsed_ms": 81996.826, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:44:59.277116+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 43.262, "elapsed_ms": 82965.702, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:45:00.245988+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 24.3, "elapsed_ms": 83990.168, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:45:01.270454+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 37.276, "elapsed_ms": 85027.593, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:45:02.307879+00:00"}
+{"elapsed_ms": 86054.596, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}, {"lock": "registry.lock", "pid": 5961}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:03.334886+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 32.953, "elapsed_ms": 86060.687, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:45:03.340973+00:00"}
+{"elapsed_ms": 86156.052, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:03.436343+00:00"}
+{"elapsed_ms": 87099.584, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}, {"lock": "registry.lock", "pid": 5961}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:04.379874+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 41.282, "elapsed_ms": 87102.117, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:45:04.382402+00:00"}
+{"elapsed_ms": 87200.443, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:04.480733+00:00"}
+{"elapsed_ms": 88112.579, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}, {"lock": "registry.lock", "pid": 5961}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:05.392868+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 38.918, "elapsed_ms": 88141.18, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:45:05.421466+00:00"}
+{"elapsed_ms": 88214.189, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:05.494479+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 52.185, "elapsed_ms": 89193.547, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:45:06.473834+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 38.045, "elapsed_ms": 90232.608, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:45:07.512894+00:00"}
+{"elapsed_ms": 91259.62, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}, {"lock": "registry.lock", "pid": 5961}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:08.539911+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 38.991, "elapsed_ms": 91271.752, "event": "capacity", "keepers": 0, "maintenance": 0, "utc": "2026-10-01T20:45:08.552038+00:00"}
+{"elapsed_ms": 91361.577, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:08.641866+00:00"}
+{"elapsed_ms": 91968.962, "event": "generation_created", "file_mtime_ns": 1790887509226629687, "session": "34ef271c09b64d8096c890bc1c24820e", "utc": "2026-10-01T20:45:09.249251+00:00"}
+{"elapsed_ms": 91969.437, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}, {"lock": "registry.lock", "pid": 5961}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:09.249723+00:00"}
+{"elapsed_ms": 92070.292, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:09.350582+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 58.775, "elapsed_ms": 92330.681, "event": "capacity", "keepers": 1, "maintenance": 0, "utc": "2026-10-01T20:45:09.610967+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 24.64, "elapsed_ms": 93355.577, "event": "capacity", "keepers": 1, "maintenance": 0, "utc": "2026-10-01T20:45:10.635864+00:00"}
+{"elapsed_ms": 94404.675, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}, {"lock": "registry.lock", "pid": 5961}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:11.684965+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 60.05, "elapsed_ms": 94415.828, "event": "capacity", "keepers": 1, "maintenance": 0, "utc": "2026-10-01T20:45:11.696114+00:00"}
+{"elapsed_ms": 94507.583, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:11.787872+00:00"}
+{"elapsed_ms": 95417.845, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}, {"lock": "registry.lock", "pid": 5961}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:12.698135+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 42.88, "elapsed_ms": 95459.354, "event": "capacity", "keepers": 1, "maintenance": 0, "utc": "2026-10-01T20:45:12.739640+00:00"}
+{"elapsed_ms": 95519.112, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:12.799402+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 73.369, "elapsed_ms": 96532.861, "event": "capacity", "keepers": 1, "maintenance": 0, "utc": "2026-10-01T20:45:13.813147+00:00"}
+{"cleanup_confirmed": null, "elapsed_ms": 96941.598, "error_code": null, "event": "keeper_report", "file_mtime_ns": 1790887514177668042, "ready": true, "session": "34ef271c09b64d8096c890bc1c24820e", "utc": "2026-10-01T20:45:14.221888+00:00"}
+{"elapsed_ms": 96942.657, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}, {"lock": "registry.lock", "pid": 5961}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:14.222945+00:00"}
+{"duration_ms": 2001.755, "elapsed_ms": 99535.14, "event": "capacity_unavailable", "utc": "2026-10-01T20:45:16.815426+00:00"}
+{"duration_ms": 2002.927, "elapsed_ms": 102538.317, "event": "capacity_unavailable", "utc": "2026-10-01T20:45:19.818603+00:00"}
+{"elapsed_ms": 104484.66, "event": "generation_created", "file_mtime_ns": 1790887521739726621, "session": "c81c00e5b65bdad438e2ab84e4483787", "utc": "2026-10-01T20:45:21.764950+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 1008.309, "elapsed_ms": 104546.859, "event": "capacity", "keepers": 2, "maintenance": 0, "utc": "2026-10-01T20:45:21.827145+00:00"}
+{"elapsed_ms": 104590.447, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:21.870736+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 40.298, "elapsed_ms": 105588.032, "event": "capacity", "keepers": 2, "maintenance": 0, "utc": "2026-10-01T20:45:22.868317+00:00"}
+{"elapsed_ms": 105829.595, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}, {"lock": "registry.lock", "pid": 5961}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:23.109884+00:00"}
+{"elapsed_ms": 105931.055, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:23.211344+00:00"}
+{"elapsed_ms": 106642.939, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}, {"lock": "registry.lock", "pid": 5961}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:23.923229+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 67.498, "elapsed_ms": 106655.877, "event": "capacity", "keepers": 2, "maintenance": 0, "utc": "2026-10-01T20:45:23.936162+00:00"}
+{"elapsed_ms": 106745.212, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:24.025502+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 43.275, "elapsed_ms": 107699.404, "event": "capacity", "keepers": 2, "maintenance": 0, "utc": "2026-10-01T20:45:24.979689+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 44.535, "elapsed_ms": 108744.098, "event": "capacity", "keepers": 2, "maintenance": 0, "utc": "2026-10-01T20:45:26.024384+00:00"}
+{"elapsed_ms": 109786.415, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}, {"lock": "registry.lock", "pid": 5961}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:27.066704+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 55.668, "elapsed_ms": 109799.925, "event": "capacity", "keepers": 2, "maintenance": 0, "utc": "2026-10-01T20:45:27.080211+00:00"}
+{"elapsed_ms": 109887.233, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:27.167523+00:00"}
+{"cleanup_confirmed": null, "elapsed_ms": 110089.156, "error_code": null, "event": "keeper_report", "file_mtime_ns": 1790887527324282838, "ready": true, "session": "c81c00e5b65bdad438e2ab84e4483787", "utc": "2026-10-01T20:45:27.369444+00:00"}
+{"elapsed_ms": 110090.593, "event": "lock_owners", "owners": [{"lock": "operator-environment.lock", "pid": 5689}, {"lock": "operator-resume.lock", "pid": 5689}, {"lock": "registry.lock", "pid": 5961}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:27.370881+00:00"}
+{"duration_ms": 2002.123, "elapsed_ms": 112802.671, "event": "capacity_unavailable", "utc": "2026-10-01T20:45:30.082957+00:00"}
+{"duration_ms": 2000.584, "elapsed_ms": 115803.468, "event": "capacity_unavailable", "utc": "2026-10-01T20:45:33.083753+00:00"}
+{"elapsed_ms": 118134.329, "event": "resume_owner", "operation": null, "prior_service_active": null, "utc": "2026-10-01T20:45:35.414621+00:00"}
+{"elapsed_ms": 118135.868, "event": "lock_owners", "owners": [{"lock": "registry.lock", "pid": 5961}], "sampling_interval_ms": 100, "utc": "2026-10-01T20:45:35.416157+00:00"}
+{"elapsed_ms": 118162.912, "event": "operation_state", "operation": "dc36f51a17c8818f6abac324946e715b", "reason_code": null, "state": "completed", "utc": "2026-10-01T20:45:35.443202+00:00"}
+{"cleanup_unconfirmed": false, "dsp": 0, "duration_ms": 1380.416, "elapsed_ms": 118184.042, "event": "capacity", "keepers": 2, "maintenance": 0, "utc": "2026-10-01T20:45:35.464327+00:00"}
+{"capacity": {"cleanup_unconfirmed": false, "dsp": 0, "keepers": 2, "maintenance": 0}, "elapsed_ms": 118209.509, "event": "final", "operation": "dc36f51a17c8818f6abac324946e715b", "resume_pending": false, "state": "completed", "utc": "2026-10-01T20:45:35.489837+00:00"}

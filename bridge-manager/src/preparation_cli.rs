@@ -1016,7 +1016,7 @@ fn inspect_unretained(
         admission,
     )?;
     let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
-    let child = spawn(sw, &path, None)?;
+    let child = spawn(m, sw, &path, None)?;
     vendor_product_cli::finish_scan(child, &job, &path, pending)?;
     require(
         observation::ModuleStamp::read(&s.module.path)? == stamp,

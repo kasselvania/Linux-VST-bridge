@@ -2705,7 +2705,7 @@ fn rescan_environment_locked(
             PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
         #[cfg(test)]
         SCAN_SPAWN_COUNT.with(|count| count.set(count.get() + 1));
-        let child = spawn(&sw, &path, None)?;
+        let child = spawn(m, &sw, &path, None)?;
         vendor_product_cli::finish_scan(child, &job, &path, pending)?;
         module.verify()?;
         require(

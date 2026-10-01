@@ -523,11 +523,6 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
     if paths.is_empty() {
         return Ok(Vec::new());
     }
-    let envs = fs::read_dir(m.root.join("environments"))?
-        .take(129)
-        .map(|e| e.map(|e| e.path()))
-        .collect::<std::io::Result<Vec<_>>>()?;
-    require(envs.len() <= 128, "active_lease_unresolved")?;
     let mut result = Vec::new();
     for lease in paths {
         let sid = lease
@@ -543,18 +538,7 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
             report.parent() == Some(m.root.join("runtime/results").as_path()),
             "lease_identity",
         )?;
-        let mut found = None;
-        for env in &envs {
-            let p = env
-                .join("compatdata/pfx/drive_c/bridge/sessions")
-                .join(sid)
-                .join("owner.json");
-            if p.try_exists()? {
-                require(found.is_none(), "duplicate_lease_identity")?;
-                found = Some((read_json::<serde_json::Value>(&p)?, p));
-            }
-        }
-        let (o, owner_path) = found.ok_or("active_lease_unresolved")?;
+        let (o, owner_path) = m.lease_owner(sid, &report)?;
         require(
             o["session"].as_str() == Some(sid) && o["report"].as_str() == report.to_str(),
             "lease_identity",
@@ -1089,6 +1073,75 @@ mod tests {
         })).unwrap();
         retain_terminal_summary(&f.m,&session,&class,&report).unwrap();
         assert!(terminal_summaries(&f.m).unwrap().is_empty());
+    }
+    #[test]
+    fn manager_ownership_survives_supervisor_directory_retirement() {
+        let f = Fixture::new();
+        let class = limits().classes[0].class_id.clone();
+        let lease = lease(&f, &class, Kind::Dsp);
+        let sid = lease.file_stem().unwrap().to_str().unwrap();
+        let report: PathBuf = read_json(&lease).unwrap();
+        let temporary = f.r.environment.root
+            .join("compatdata/pfx/drive_c/bridge/sessions").join(sid).join("owner.json");
+        let mut owner: serde_json::Value = read_json(&temporary).unwrap();
+        owner["lease"] = serde_json::to_value(&lease).unwrap();
+        owner["registration"]["environment"] = serde_json::to_value(&f.r.environment).unwrap();
+        atomic_json(&temporary, &owner).unwrap();
+        {
+            let _registry = f.m.lock("registry.lock").unwrap();
+            f.m.retain_lease_owner(&temporary).unwrap();
+            f.m.retain_lease_owner(&temporary).unwrap();
+        }
+        // Reproduce the actual installed ordering: the supervisor has removed
+        // its Windows session view and reported cleanup, but Rust owns the lease.
+        fs::remove_dir_all(temporary.parent().unwrap()).unwrap();
+        atomic_json(&report, &serde_json::json!({"session":sid,
+            "cleanup_confirmed":true,"transport_retired":true})).unwrap();
+        let restarted = Manager { root:f.m.root.clone(), publications:f.m.publications.clone() };
+        let _registry = restarted.lock("registry.lock").unwrap();
+        let observed = owners(&restarted).unwrap();
+        assert_eq!(observed.len(), 1);
+        assert_eq!(observed[0].kind, Kind::Dsp);
+        assert_eq!(observed[0].class_id, class);
+        assert_eq!(restarted.require_inactive(None).unwrap_err().to_string(), "active_device_lease");
+        // Only the manager's exact release makes this capacity free.
+        fs::remove_file(&lease).unwrap();
+        assert!(owners(&restarted).unwrap().is_empty());
+        restarted.require_inactive(None).unwrap();
+    }
+    #[test]
+    fn missing_legacy_owner_and_changed_retained_binding_never_count_as_free() {
+        let f = Fixture::new();
+        let class = limits().classes[0].class_id.clone();
+        let lease = lease(&f, &class, Kind::Dsp);
+        let sid = lease.file_stem().unwrap().to_str().unwrap();
+        let report: PathBuf = read_json(&lease).unwrap();
+        let temporary = f.r.environment.root
+            .join("compatdata/pfx/drive_c/bridge/sessions").join(sid).join("owner.json");
+        let mut owner: serde_json::Value = read_json(&temporary).unwrap();
+        owner["lease"] = serde_json::to_value(&lease).unwrap();
+        owner["registration"]["environment"] = serde_json::to_value(&f.r.environment).unwrap();
+        atomic_json(&temporary, &owner).unwrap();
+        let _registry = f.m.lock("registry.lock").unwrap();
+        f.m.retain_lease_owner(&temporary).unwrap();
+        let retained = f.m.root.join("runtime/lease-owners").join(format!("{sid}.json"));
+        let original: serde_json::Value = read_json(&retained).unwrap();
+        for changed in [serde_json::json!({"schema":2}),
+            serde_json::json!({"owner":{"report":f.m.root.join("runtime/results/other.json")}}),
+            serde_json::json!({"temporary_owner":f.m.root.join("outside/owner.json")})] {
+            let mut bad = original.clone();
+            for (key, value) in changed.as_object().unwrap() {
+                if key == "owner" { bad["owner"]["report"] = value["report"].clone(); }
+                else { bad[key] = value.clone(); }
+            }
+            atomic_json(&retained, &bad).unwrap();
+            assert!(owners(&f.m).is_err());
+            assert!(f.m.require_inactive(None).is_err());
+        }
+        fs::remove_file(&retained).unwrap();
+        fs::remove_dir_all(temporary.parent().unwrap()).unwrap();
+        atomic_json(&report, &serde_json::json!({"cleanup_confirmed":true,"transport_retired":true})).unwrap();
+        assert_eq!(owners(&f.m).unwrap_err().to_string(), "active_lease_unresolved");
     }
     #[test]
     fn durable_ownership_survives_service_reconstruction_and_exact_release() {

@@ -147,7 +147,7 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
     };
     let (job, path) = spec(m, r, true, true, false)?;
     let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
-    let child = spawn(&sw, &path, None)?;
+    let child = spawn(m, &sw, &path, None)?;
     finish_scan(child, &job, &path, pending)?;
     module.verify()?;
     require(
