@@ -440,8 +440,10 @@ pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
 fn capture_readonly(m: &Manager) -> Result<CurrentOverviewContext> {
     let started = Instant::now();
     let mut phases = Vec::new();
-    let _serialization = acquire_readback(m, ui::OperatorLock::Canonical, None,
-        OPERATOR_WAIT, &mut vec![])?;
+    // Status is an observation, not a serialized user operation. Capture the
+    // registry/owners together, then perform expensive and external probes
+    // without action ownership. The caller rechecks exact tokens, file stamps,
+    // owners and external state before exposing any offered action.
     let _registry_guard = acquire_readback(m, ui::OperatorLock::Registry, None,
         OPERATOR_WAIT, &mut vec![])?;
     let owners = capacity::owners(m)?;
@@ -558,6 +560,30 @@ fn environments_runner(catalogue: Option<&catalogue::Catalogue>, key: &str) -> O
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn status_readback_does_not_wait_for_user_action_serialization() {
+        let fixture = test_fixture::Fixture::new();
+        let m = &fixture.m;
+        let source = fixture.r.host.path.with_file_name("host-source-manifest.json");
+        fs::write(&source, b"fixture source").unwrap();
+        let source_sha256 = digest(&source).unwrap();
+        let sw = Software {
+            installer_launch: None, preparation_kit: None, operator_frontend: None,
+            manager: fixture.r.host.clone(), supervisor: fixture.r.host.clone(),
+            ownership: fixture.r.host.clone(), host: fixture.r.host.clone(),
+            source_manifest: Artifact { path: source.clone(), sha256: source_sha256.clone() },
+            source_sha256, native_catalogue: None,
+        };
+        atomic_json(&m.root.join("software.json"), &sw).unwrap();
+        // A user operation owns serialization while status captures and
+        // rechecks its independent registry and artifact observations.
+        let _action = canonical_lock(m).unwrap();
+        let captured = capture(m).unwrap();
+        captured.recheck(m).unwrap();
+        fs::write(&source, b"changed source").unwrap();
+        assert!(captured.recheck(m).is_err());
+        assert!(capture(m).is_err());
+    }
     #[test]
     fn onboarding_only_quarantine_cannot_offer_managed_retry() {
         let fixture=test_fixture::Fixture::new();

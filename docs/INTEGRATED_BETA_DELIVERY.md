@@ -123,6 +123,35 @@ are not retroactively described as clean processing.
 
 ## Delivery and reporting
 
+Internal42 selected coherent Pure LoFi and FRAGMENTS successors on the populated
+licensed Deck through ordinary check/prepare/apply controls. The original saved
+project reopened after a normal reboot, both editors completed three close/reopen
+cycles during playback, and a separate updated project copy saved and reopened.
+The original project digest stayed unchanged. Vendor state is recaptured after
+restore; the new Pure LoFi readback is not byte-identical to its saved capture.
+Visible preset, parameters, automation and musical behavior remain the recall
+checks. These results do not establish universal state fidelity or update rollback.
+
+The same fixed candidate failed audio acceptance at 48 kHz / 512 host frames:
+Pure LoFi retained 13,056 missing processing frames in 35 gaps; FRAGMENTS retained
+3,328 in eight gaps. Both startup phases show only the declared 512-frame priming,
+and both owners confirmed retirement. Counters cover the complete processing-ready
+lifetime, including transport-idle/editor time; the ten-minute musical loop is a
+subset. Queue/reply delay and ordinary thread scheduling were observed, without
+establishing a unique scheduler cause. Viewer recovery was infrastructure work,
+so no cold launch latency qualification follows from that run.
+
+Ubuntu42's ordinary reference-effect check refused before inspection at the
+canonical action lock, preserving its installation. A later observation saw an
+overview hold that lock for at least 5.1 seconds; the original refusal's holder
+was not retained. The source correction keeps status observation off user-action
+serialization while preserving registry/owner capture and exact final freshness
+checks. Its regression succeeds with the action lock held and still refuses
+changed watched source. The affected operator tests pass (74 passed, one ignored),
+as does Clippy. Installed successor acceptance remains required. The
+[installed receipt](../evidence/self-service-delivery/internal42-populated-recall-and-deadline-failure.json)
+retains package manifests, publication predecessors, recall, phases and failures.
+
 The internal40 reference effect's input witness captured a parameter point at
 offset 1024 in a 1024-frame host block during saved automation. The prior bridge
 treated this curve endpoint as an invalid sample and permanently refused later

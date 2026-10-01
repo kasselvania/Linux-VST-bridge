@@ -3533,13 +3533,28 @@ mod tests {
         let f = test_fixture::Fixture::new();
         let source = f.r.host.path.with_file_name("host-source-manifest.json");
         fs::write(&source, b"fixture source").unwrap();
+        // Exercise a valid retained installation, including its exact helper
+        // layout and immutable paired frontend. Missing modern package records
+        // must not be treated as legacy just to produce a successful export.
+        let helper = |name: &str| {
+            let path = f.r.host.path.with_file_name(name);
+            fs::write(&path, name.as_bytes()).unwrap();
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+            Artifact { sha256: digest(&path).unwrap(), path }
+        };
+        let supervisor = helper("session.py");
+        let ownership = helper("ownership.py");
+        let frontend = helper("frontend");
+        for path in [&f.r.host.path, &source] {
+            fs::set_permissions(path, fs::Permissions::from_mode(0o400)).unwrap();
+        }
         let sw = Software {
             installer_launch: None,
             preparation_kit: None,
-            operator_frontend: None,
+            operator_frontend: Some(frontend),
             manager: f.r.host.clone(),
-            supervisor: f.r.host.clone(),
-            ownership: f.r.host.clone(),
+            supervisor,
+            ownership,
             host: f.r.host.clone(),
             source_manifest: Artifact { path: source.clone(), sha256: digest(&source).unwrap() },
             source_sha256: digest(&source).unwrap(),
@@ -3560,7 +3575,7 @@ mod tests {
         assert!(validate_current_request(&f.m, &request).is_err());
         let operation = test_submit_offered(&f.m, &ui::Action::SupportExport {}).unwrap();
         let result = test_run_offered_worker(&f.m, &operation).unwrap();
-        assert_eq!(result["state"], "completed");
+        assert_eq!(result["state"], "completed", "{result}");
         let report = result["result"]["file"].as_str()
             .expect("the exact offered export writes a local file");
         let saved: Value = read_json(&f.m.root.join("support-exports").join(report)).unwrap();

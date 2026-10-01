@@ -43,7 +43,13 @@ offers while allowing fresh exact controls without capacity readiness. Its 81
 frontend tests pass; installed recovery remains open. First-party stateful
 instrument/effect installers are being assembled for repeatable delivered tests.
 Commercial recall uses the existing licensed Deck installation after safe
-staging, as selected by the operator; its working selection is unchanged.
+staging, as selected by the operator. Internal42 selected exact paired successors
+through normal product controls while retaining predecessors. The original
+project survived reboot/reopen; a separate updated project copy saved and reopened.
+Both editors completed three playback close/reopen cycles, but both plug-ins'
+processing lifetimes contain unexplained missing frames. Populated rollback and
+the remaining acceptance repetitions are still open. See the
+[internal42 receipt](../evidence/self-service-delivery/internal42-populated-recall-and-deadline-failure.json).
 Task 1 passed on the declared Ubuntu fixture: normal verified upstream
 acquisition, official vendor installation and discovery on the application-owned
 -r3 runtime, without preinstalled Wine, Proton, Steam or development tools.
