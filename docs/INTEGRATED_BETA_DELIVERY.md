@@ -281,7 +281,42 @@ cached detail. The manager/frontend wire generation is 15; candidate assembly
 reads its declaration from the exact source instead of retaining a hardcoded
 generation. The 84 frontend tests, 74 operator tests (one opt-in test ignored),
 and both all-target Clippy checks pass. This correction is not yet installed;
-internal46's musical run continues on its unchanged schema-14 package.
+internal46 remains a failed schema-14 installed candidate.
+
+The next source successor replaces the current product's 256-frame splitting
+and numeric curve reconstruction with one whole DAW processing block. Protocol
+minor 14 and mapping generation 3 admit at most 1024 frames and keep the
+incoming parameter queues, their original sample offsets and processing context
+unchanged. The Windows plug-in supplies its implicit previous value, including
+after GUI edits, state restore and seeks. No descriptor default or cached bridge
+value substitutes for vendor state. Historical protocol fixtures retain the
+legacy planner, explicitly excluded from the current product path.
+
+This changes the paired native/Windows transport. The matching Windows host and
+prebuilt proxies must be rebuilt and delivered together; older selected
+publications and rollback sets remain immutable. The fixed queue has 512
+descriptors, retaining the previous 524,288-frame ceiling. All mapping planes,
+result storage and Windows processing buffers are allocated before activation.
+Windows multi-output buffers live in owner storage rather than exceeding the
+default thread stack. Notes still require offsets inside their block; an exact
+DAW parameter endpoint is preserved rather than silently clamped.
+
+Source checks pass: 11 native-client tests, 87 macOS backend tests, 88 Linux
+registered backend tests (one opt-in Windows fixture ignored in each backend
+run), warnings-denied all-target Clippy, and ten native SDK/X11 tests. The actual
+processing entry point preserves whole 1008/1024-frame calls and a zero-frame
+flush after GUI, state and seek changes with zero allocations, reallocations or
+frees. A production decoder/SDK-queue regression exercises vendor-owned implicit
+values and refuses mismatched protocol/layout and out-of-bounds notes. These
+are source results. Windows CI, fixed-candidate installation, audio, save/reopen,
+reboot and populated rollback are still required before accepting the repair.
+
+CachyOS fixture access was recovered on its cleanly stopped disposable child
+with private disk/firmware backups. Only the existing test account's password
+and password-change date were rotated; account identity, permissions and other
+accounts were retained, and the parent disk digest was unchanged. GUI access
+verification remains in progress. This engineering fixture repair is separate
+from a self-service product qualification run.
 
 Produce installable candidate artifacts and version/component manifest;
 authenticated distribution, required notices/SBOM and customer install/update/

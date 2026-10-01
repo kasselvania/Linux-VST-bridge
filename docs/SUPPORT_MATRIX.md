@@ -36,7 +36,13 @@ confirmed normal retirement and the original project stayed unchanged.
 The [receipt](../evidence/self-service-delivery/internal46-populated-reference-failure.json)
 retains those facts, the delivered components and the CachyOS access blocker.
 The corrected header/product capacity projection is source-only, with paired
-operator schema 15. No commercial or multi-platform beta claim follows.
+operator schema 15. A further source-only successor carries a whole DAW block
+through paired protocol 14/mapping 3, preserving incoming queues and vendor-owned
+implicit values. Installed automation, recall and dropout-free audio remain
+blocked until the matching candidate repeats those workflows. The disposable
+CachyOS account has been recovered offline with backups and an unchanged parent
+digest; its ordinary sign-in is still being verified. No commercial or
+multi-platform beta claim follows.
 
 ## Managed Windows DAW / Steam Deck Desktop Mode
 

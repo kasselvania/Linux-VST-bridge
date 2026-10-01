@@ -41,7 +41,7 @@ pub fn status(product: &Product) -> (&str, &str) {
         };
     }
     match product.disposition.as_str() {
-        "ready" => ("Published to Bitwig", "published"),
+        "ready" => ("Published", "published"),
         "experimental" => ("Published · experimental", "published"),
         "another_configuration" => ("Another configuration published", "attention"),
         "prepared" => ("Prepared · not published", "unpublished"),
@@ -242,7 +242,7 @@ impl Library {
                 });
             egui::ComboBox::from_id_salt("library-status")
                 .selected_text(match self.status.as_str() {
-                    "published" => "Published to Bitwig",
+                    "published" => "Published",
                     "unpublished" => "Not published",
                     "attention" => "Needs attention",
                     _ => "All statuses",
@@ -250,7 +250,7 @@ impl Library {
                 .show_ui(ui, |ui| {
                     for (value, label) in [
                         ("", "All statuses"),
-                        ("published", "Published to Bitwig"),
+                        ("published", "Published"),
                         ("unpublished", "Not published"),
                         ("attention", "Needs attention"),
                     ] {

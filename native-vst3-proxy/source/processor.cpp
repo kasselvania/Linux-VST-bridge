@@ -31,6 +31,13 @@ using namespace Steinberg::Vst;
 static_assert(std::size(AP8::buses)<=AP18Buses::max_buses);
 #endif
 namespace {
+uint32_t transportMaximum(int32_t maximum) {
+#ifdef AP8_PREVIEW
+  return static_cast<uint32_t>(maximum);
+#else
+  return static_cast<uint32_t>(std::min(maximum,256));
+#endif
+}
 struct Guard {
   std::atomic_flag &flag;
   bool held;
@@ -201,13 +208,6 @@ bool Processor::stateSession() {
     phase_ = Failed;
     return false;
   }
-#ifdef AP8_PREVIEW
-  std::array<uint32_t,std::size(AP8::parameters)> ids{};
-  for(size_t i=0;i<ids.size();++i)ids[i]=AP8::parameters[i].id;
-  if(ap22_curve_parameters(handle_,ids.data(),uint32_t(ids.size()))) {
-    phase_=Failed;report();return false;
-  }
-#endif
   return true;
 }
 namespace {
@@ -516,7 +516,7 @@ tresult Processor::recover(uint64_t revision) {
     gain_ = restored; // existing reference validator; recovery transports opaque bytes
     phase_ = Deactivated;
     if (want_active_) {
-      if (ap4_activate(handle_, static_cast<uint32_t>(std::min(maximum_,256)), static_cast<uint32_t>(process_mode_))) {
+      if (ap4_activate(handle_, transportMaximum(maximum_), static_cast<uint32_t>(process_mode_))) {
         phase_ = Failed; snapshotStatus("Recovered state but activation failed"); return kResultFalse;
       }
       phase_ = Active;
@@ -680,7 +680,7 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
       return kResultFalse;
     if (preview_
             ? (!stateSession() ||
-               ap4_activate(handle_, static_cast<uint32_t>(std::min(maximum_,256)),
+               ap4_activate(handle_, transportMaximum(maximum_),
                             static_cast<uint32_t>(process_mode_)))
             : (queued_ ? ap3_open(static_cast<uint32_t>(maximum_), &handle_)
                        : ap2_open(static_cast<uint32_t>(maximum_), &handle_))) {

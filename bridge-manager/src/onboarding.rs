@@ -772,7 +772,7 @@ pub(super) fn projection_current(m: &Manager, busy: Option<&str>,
             if !scan.is_null() && retired(&v) {
                 let parsed: inventory::Scan = serde_json::from_value(scan.clone())?;
                 state = scan_state(&parsed, &r.environment, &sw.host, &sw.source_sha256).into();
-                human = "Review discovery below. No class has been published to Bitwig";
+                human = "Review discovery below. No class has been published";
             }
             if managed {
                 actions.clear();

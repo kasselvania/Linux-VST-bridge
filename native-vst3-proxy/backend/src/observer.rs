@@ -1,7 +1,7 @@
 //! Optional reference work has its own consumer. The transport only makes a
 //! bounded copy into an SPSC queue; it never waits for observation or a reader.
 use crate::{queue::Queue, queued::Observation, state::Witness};
-use ap1_native_client::CAP;
+use ap1_native_client::BLOCK_CAP as CAP;
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
     Arc, Mutex,

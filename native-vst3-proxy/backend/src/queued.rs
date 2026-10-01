@@ -4,7 +4,7 @@
 use crate::{binding, queue::Queue, retain, state, Session};
 use ap1_native_client::{
     events::{Event, MAX_EVENTS},
-    invalid, CAP, ERROR,
+    invalid, BLOCK_CAP as CAP, CAP as LEGACY_CAP, ERROR,
 };
 use std::{
     cell::UnsafeCell,
@@ -17,7 +17,9 @@ use std::{
     time::{Duration, Instant},
 };
 pub const DELAY: u64 = 1024;
-pub const DESCRIPTORS: usize = 2048;
+// The mapping-3 block is four times the old transport extent. Keep the
+// admitted sample capacity bounded at the prior 524,288-frame ceiling.
+pub const DESCRIPTORS: usize = 512;
 const START: u32 = 10;
 const STOP: u32 = 12;
 const DEACTIVATE: u32 = 14;
@@ -1125,7 +1127,7 @@ pub unsafe extern "C" fn ap6_recover(
             } else {
                 crate::preview::report_path(binding.session)
             });
-            let mut session = Session::open(binding, l.max.min(CAP), l.minor)?;
+            let mut session = Session::open(binding, l.max.min(if l.minor == 14 { CAP } else { LEGACY_CAP }), l.minor)?;
             session.identity = l.shared.identity;
             if let Err(error) = session.component_state(Some(payload)).and_then(|_| {
                 if let Some(setup) = &l.setup {
@@ -1335,7 +1337,8 @@ unsafe fn setup(
             } else {
                 crate::performance::selected_delay(maximum)?
             };
-            let mut bytes = crate::performance::wire(maximum, mode, rate)?;
+            let minor = INSTANCES.lease(id).ok_or_else(|| invalid("setup instance absent"))?.minor;
+            let mut bytes = crate::performance::wire_version(maximum, mode, rate, minor == 14)?;
             if !io.is_empty() {
                 bytes[20..24]
                     .copy_from_slice(&(if notifications { 3u32 } else { 1u32 }).to_le_bytes());
@@ -1357,7 +1360,7 @@ unsafe fn setup(
                 callback.delay=u64::from(delay);l.max=maximum as usize;
                 l.setup=Some(bytes);
                 if let Some(path)=&l.report {
-                    crate::preview::append_report(path,format!("{{\"event\":\"ap9_setup\",\"host_maximum\":{maximum},\"transport_maximum\":{},\"sample_rate\":{rate},\"bridge_frames\":{delay},\"vendor_frames\":{vendor},\"total_frames\":{total},\"vendor_precision_bits\":{}}}\n",maximum.min(256),ap1_native_client::get(&reply[8..12])).as_bytes());
+                    crate::preview::append_report(path,format!("{{\"event\":\"ap9_setup\",\"protocol_minor\":{minor},\"host_maximum\":{maximum},\"transport_maximum\":{},\"sample_rate\":{rate},\"bridge_frames\":{delay},\"vendor_frames\":{vendor},\"total_frames\":{total},\"vendor_precision_bits\":{}}}\n",if minor == 14 {maximum} else {maximum.min(256)},ap1_native_client::get(&reply[8..12])).as_bytes());
                 }
                 Ok(())
             }).map_err(|_|invalid("setup instance ownership"))??;
@@ -1602,6 +1605,11 @@ unsafe fn process_events(
     if contain_terminal && l.shared.terminal_latched.load(Ordering::Acquire) {
         return CONTAINED_TERMINAL;
     }
+    let whole_block = l.minor == 14;
+    // The current product transports the DAW's queue unchanged. Its vendor
+    // processor owns implicit parameter values, including after state/GUI
+    // changes and transport seeks. Curve reconstruction is legacy-only.
+    if !whole_block {
     let callback = &mut *l.callback.get();
     let gui_revision = l.shared.gui.as_ref().map_or(0, |gui| gui.revision_cursor());
     let gui_unchanged = gui_revision == callback.curve_gui_revision;
@@ -1628,6 +1636,7 @@ unsafe fn process_events(
         // guess a descriptor default or partly admit an otherwise invalid plan.
         return if detailed { PARAMETER_CURVE_UNAVAILABLE } else { 1 };
     }
+    }
     {
         let callback = &mut *l.callback.get();
         callback.returned.window(callback.position, n);
@@ -1641,16 +1650,21 @@ unsafe fn process_events(
     let mut combined = channel_mask(2+extra.len());
     let mut offset = 0;
     loop {
-        let count = (n - offset).min(CAP);
+        let count = (n - offset).min(if whole_block { CAP } else { LEGACY_CAP });
         let mut item = Item::control(AUDIO, 0);
         item.n = count as u32;
         item.parent = [(*l.callback.get()).host_call, n as u64, offset as u64, entered_ns];
         item.context = context.chunk(offset).unwrap();
         item.flags = flags;
         item.gain = if offset == 0 { gain } else { f64::NAN };
-        let block = &(*l.callback.get()).curve_plan.blocks[offset / CAP];
-        item.events[..block.count].copy_from_slice(&block.events[..block.count]);
-        item.event_count = block.count as u32;
+        if whole_block {
+            item.events[..events.len()].copy_from_slice(events);
+            item.event_count = events.len() as u32;
+        } else {
+            let block = &(*l.callback.get()).curve_plan.blocks[offset / LEGACY_CAP];
+            item.events[..block.count].copy_from_slice(&block.events[..block.count]);
+            item.event_count = block.count as u32;
+        }
         for (ch, p) in [left, right].into_iter().enumerate() {
             item.data[ch][..count]
                 .copy_from_slice(std::slice::from_raw_parts(p.add(offset), count));
@@ -1680,12 +1694,14 @@ unsafe fn process_events(
         }
     }
     *out_flags = combined;
+    if !whole_block {
     let callback = &mut *l.callback.get();
     callback.curve_carry.count = callback.curve_plan.next.count;
     callback.curve_carry.events[..callback.curve_carry.count]
         .copy_from_slice(&callback.curve_plan.next.events[..callback.curve_carry.count]);
     callback.curve_continuation = (n > 0).then(|| context.chunk(n).unwrap());
     callback.curve_values.commit(&callback.curve_plan.last);
+    }
     for (counter, delta) in l.shared.delivery_totals.iter().zip([
         n as u64, total.missing_frames, total.gaps, total.expired_frames,
         total.delivered_frames, total.priming_frames,
@@ -1892,7 +1908,7 @@ pub unsafe extern "C" fn ap9_open(identity: *const u8, handle: *mut u64) -> u32 
     open(
         256,
         handle,
-        if identity.is_some() { 13 } else { 6 },
+        if identity.is_some() { 14 } else { 6 },
         identity,
     )
 }
@@ -2202,6 +2218,59 @@ pub unsafe extern "C" fn ap10_fail_results(id: u64) -> u32 {
 mod tests {
     use super::*;
     #[test]
+    fn whole_daw_block_preserves_sparse_queues_after_gui_state_and_seek_without_allocating() {
+        let _registry_owner = crate::registry_test();
+        let path = std::env::temp_dir().join(format!("whole-block-{}", u128::from_le_bytes(
+            ap1_native_client::mapping::random().unwrap())));
+        let gui = Arc::new(crate::gui::Gui::create(&path, [14; 16]).unwrap());
+        let mut shared = Shared::new();
+        shared.gui = Some(gui.clone());
+        shared.identity = Some(state::Identity { class: [14; 16], module: [15; 32] });
+        shared.state_capable.store(true, Ordering::Release);
+        let shared = Arc::new(shared);
+        let id = INSTANCES.insert(|| Ok::<_, ()>(Live { shared: shared.clone(),
+            callback: UnsafeCell::new(Callback::new()), busy: AtomicBool::new(false),
+            worker: None, report: None, max: 1024, recovery_blocked: false,
+            installed_delay: Some(1024), minor: 14, setup: None })).unwrap().unwrap();
+        assert_eq!(unsafe { ap3_transition(id, START) }, 0);
+        shared.requests.pop().unwrap();
+        let input = [0.25; 1024]; let mut output = [[0.; 1024]; 2];
+        let mut flags = 0; let mut delivery = Delivery::default();
+        // No bridge parameter values are established. The vendor owns the
+        // implicit -1 value; even an exact end anchor passes through unchanged.
+        for (call, n, project) in [(1, 1008, 500), (2, 1024, 1508), (3, 1008, 42), (4, 0, 42)] {
+            assert_eq!(gui.send(&mut crate::gui::Message { kind: 3, id: 7, value: 0.8,
+                ..Default::default() }), 0);
+            shared.curve_state_revision.store(call, Ordering::Release);
+            let events = [Event { offset: n, kind: 2, id: 7, value: 0.6, ..Default::default() },
+                Event { offset: n.saturating_sub(1), kind: 2, id: 99, value: 0.25, ..Default::default() }];
+            let context = crate::context::Context { present: 1, rate: 48000., state: 0x21006,
+                project, continuous: call as i64 * 1024, cycle_start: 0.125, cycle_end: 0.5,
+                ..Default::default() };
+            let before = shared.requests.published();
+            let (rc, allocations) = crate::allocation_test::measure(|| unsafe { if2_process(id, n,
+                events.as_ptr(), 2, &context, 0, input.as_ptr(), input.as_ptr(),
+                output[0].as_mut_ptr(), output[1].as_mut_ptr(), &mut flags, &mut delivery, call * 1000) });
+            assert_eq!(rc, 0); assert_eq!(allocations, [0; 3]);
+            assert_eq!(shared.requests.published(), before + 1);
+            let request = shared.requests.pop().unwrap();
+            assert_eq!(request.n, n); assert_eq!(request.parent, [call, n as u64, 0, call * 1000]);
+            assert_eq!(request.event_count, 2); assert_eq!(request.events[..2], events);
+            assert_eq!(request.context.encode(), context.encode());
+            assert_eq!(request.data[0][..n as usize], input[..n as usize]);
+            assert!(shared.requests.pop().is_none());
+        }
+        let before = shared.requests.published();
+        let bad = Event { kind: 0, offset: 1008, value: 0.5, pitch: 60, ..Default::default() };
+        let (rc, allocations) = crate::allocation_test::measure(|| unsafe { if2_process(id, 1008,
+            &bad, 1, &crate::context::Context::default(), 0, input.as_ptr(), input.as_ptr(),
+            output[0].as_mut_ptr(), output[1].as_mut_ptr(), &mut flags, &mut delivery, 9000) });
+        assert_eq!(rc, 0x102); assert_eq!(allocations, [0; 3]);
+        assert_eq!(shared.requests.published(), before); assert_eq!(if2_terminal_status(id), 0);
+        assert_eq!(unsafe { ap3_transition(id, STOP) }, 0);
+        INSTANCES.remove(id, |_| ()).unwrap(); std::fs::remove_file(path).unwrap();
+    }
+    #[test]
     fn all_output_planes_share_timeline_and_release_on_stop() {
         let shared=Shared::new();
         shared.extra.set(crate::output_pool::Pool::new(62,DESCRIPTORS)).ok().unwrap();
@@ -2215,9 +2284,9 @@ mod tests {
         for block in 0..8 {
             let mut request=Item::control(AUDIO,0);request.n=CAP as u32;
             callback.process_outputs(&shared,request,&mut main,&pointers,0).unwrap();
-            if block>=4 {
-                assert_eq!(main[0],[block as f32-4.;CAP]);
-                for (ch, plane) in extra.iter().enumerate() {assert_eq!(*plane,[100.+ch as f32+block as f32-4.;CAP]);}
+            if block>=1 {
+                assert_eq!(main[0],[block as f32-1.;CAP]);
+                for (ch, plane) in extra.iter().enumerate() {assert_eq!(*plane,[100.+ch as f32+block as f32-1.;CAP]);}
             } else {assert!(extra.iter().flatten().all(|x|*x==0.));}
             let request=shared.requests.pop().unwrap();
             let mut completion=Completion::from(request);
@@ -2236,6 +2305,7 @@ mod tests {
 
     #[test]
     fn setup_abi_delivers_complete_multi_output_contract() {
+        let _registry_owner = crate::registry_test();
         for maximum in [512, 1024] {
             let shared = Arc::new(Shared::new());
             shared.state_capable.store(true, Ordering::Release);
@@ -2296,6 +2366,7 @@ mod tests {
     }
     #[test]
     fn parent_callbacks_preserve_exact_one_and_two_proxy_delay() {
+        let _registry_owner = crate::registry_test();
         // The consumer runs only after the complete parent host callback. A
         // 512-frame parent must not acquire an artificial wait between chunks.
         for (maximum, delay) in [(1024, 1024), (512, 1024), (512, 512), (256, 512), (256, 256), (128, 256)] {
@@ -2354,6 +2425,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn parent_host_blocks_do_not_repeatedly_fault_in_queue_storage() {
+        let _registry_owner = crate::registry_test();
         // Exercise every queue slot through the real chunking callback. Query
         // thread-local counters in this host consumer, never in process().
         #[repr(C)] struct Usage { times: [i64; 4], counters: [i64; 14] }
@@ -2418,6 +2490,7 @@ mod tests {
     }
     #[test]
     fn acknowledged_setup_is_retained_for_recovery() {
+        let _registry_owner = crate::registry_test();
         let shared = Arc::new(Shared::new());
         shared.state_capable.store(true, Ordering::Release);
         let id = INSTANCES
@@ -2502,6 +2575,7 @@ mod tests {
     }
     #[test]
     fn production_curve_endpoint_carry_respects_edits_seeks_stop_and_capacity() {
+        let _registry_owner = crate::registry_test();
         use crate::parameter_curves::Carry;
         use crate::gui::{Gui, Message};
         let path = std::env::temp_dir().join(format!("lvb-curves-{}", u128::from_le_bytes(
@@ -2588,6 +2662,7 @@ mod tests {
     }
     #[test]
     fn large_host_blocks_preserve_notes_and_parameter_offsets() {
+        let _registry_owner = crate::registry_test();
         let mut shared = Shared::new();
         shared.state_capable.store(true, Ordering::Relaxed);
         shared.identity = Some(state::Identity {
@@ -2780,8 +2855,10 @@ mod tests {
         for offset in [0, 256] {
             let item = shared.requests.pop().unwrap();
             assert_eq!(item.context.project, 100 + offset);
-            assert_eq!(item.data[0], [0.25; CAP]);
-            assert_eq!(item.data[1], [-0.5; CAP]);
+            assert_eq!(item.data[0][..LEGACY_CAP], [0.25; LEGACY_CAP]);
+            assert!(item.data[0][LEGACY_CAP..].iter().all(|v| *v == 0.));
+            assert_eq!(item.data[1][..LEGACY_CAP], [-0.5; LEGACY_CAP]);
+            assert!(item.data[1][LEGACY_CAP..].iter().all(|v| *v == 0.));
             assert_eq!(item.event_count, if offset == 0 { 3 } else { 2 });
             assert_eq!(item.events[0].offset, if offset == 0 { 7 } else { 0 });
             assert_eq!(item.events[item.event_count as usize - 1].offset, 255);
@@ -2817,7 +2894,7 @@ mod tests {
                 let f = receive_version(&mut remote, 5, 4).unwrap();
                 let payload = if f.kind == 3 {
                     assert_eq!(ap1_native_client::get(&f.payload[40..48]), processed * 256);
-                    let mut bytes = [0u8; CAP * 4];
+                    let mut bytes = [0u8; LEGACY_CAP * 4];
                     for ch in 0..2 {
                         file.read_exact_at(&mut bytes, (INPUT + ch * STRIDE + 4) as u64)
                             .unwrap();
@@ -2911,7 +2988,7 @@ mod tests {
         for n in 0..128 {
             callback.process(&shared, item, &mut output).unwrap();
             assert_eq!(callback.delivery.missing_frames, 0);
-            assert_eq!(output, [[if n < 4 { 0. } else { 0.125 }; CAP]; 2]);
+            for plane in &output { assert_eq!(plane[..256], [if n < 4 { 0. } else { 0.125 }; 256]); }
             let end = Instant::now() + Duration::from_secs(2);
             while shared.processed.load(Ordering::Acquire) <= n {
                 assert!(Instant::now() < end, "observer stalled actual transport");
@@ -2933,6 +3010,7 @@ mod tests {
     }
     #[test]
     fn terminal_peer_exit_reaches_bounded_query_after_mapping_unlink() {
+        let _registry_owner = crate::registry_test();
         use ap1_native_client::{ClientState,Slot};
         let dir=std::env::temp_dir().join(format!("if1-worker-{}",u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())));
         std::fs::create_dir(&dir).unwrap();
@@ -2968,6 +3046,7 @@ mod tests {
     }
     #[test]
     fn contained_terminal_keeps_validation_and_never_admits_more_work() {
+        let _registry_owner = crate::registry_test();
         use std::os::unix::fs::FileExt;
         // Simulate each external committed producer, then exercise the actual
         // public native ABI. Only the non-RT query reads the complete mapping.
@@ -3029,6 +3108,7 @@ mod tests {
     }
     #[test]
     fn correlated_save_refusal_keeps_worker_audio_snapshot_and_sibling() {
+        let _registry_owner = crate::registry_test();
         use ap1_native_client::{
             endpoint::{receive_version, send_version},
             mapping::Mapping,
@@ -3300,6 +3380,7 @@ mod tests {
     }
     #[test]
     fn stalled_gui_and_stale_generation_do_not_hold_audio_delivery() {
+        let _registry_owner = crate::registry_test();
         let path = std::env::temp_dir().join(format!(
             "ap11-queued-{}-{}",
             std::process::id(),
@@ -3352,7 +3433,7 @@ mod tests {
         for i in 0..64 {
             cb.process(&shared, request, &mut out).unwrap();
             assert_eq!(cb.delivery.missing_frames, 0);
-            assert_eq!(out, [[if i < 2 { 0. } else { 0.125 }; CAP]; 2]);
+            for plane in &out { assert_eq!(plane[..256], [if i < 2 { 0. } else { 0.125 }; 256]); }
             while let Some(mut admitted) = shared.requests.pop() {
                 if admitted.kind == AUDIO {
                     assert!(admitted.gui_revision > 0);
@@ -3463,7 +3544,7 @@ mod tests {
         pump(&s);
         cb.process(&s, request, &mut out).unwrap();
         assert_eq!(cb.delivery.expired_frames, 768);
-        assert_eq!(out, [[0.125; CAP]; 2]);
+        for plane in &out { assert_eq!(plane[..256], [0.125; 256]); }
         assert_eq!(cb.delivery.missing_frames, 0);
         assert_eq!(cb.epoch, 1);
     }
@@ -3549,7 +3630,7 @@ mod tests {
             pump(&s);
         }
         cb.process(&s, r, &mut out).unwrap();
-        assert_eq!(out, [[0.125; CAP]; 2]);
+        for plane in &out { assert_eq!(plane[..256], [0.125; 256]); }
         assert_eq!(cb.epoch, 2);
     }
     #[test]

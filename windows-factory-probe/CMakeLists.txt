@@ -134,6 +134,13 @@ target_compile_options(ap18-bus-census-tests PRIVATE /UNDEBUG /W4 /permissive- /
 target_link_libraries(ap18-bus-census-tests PRIVATE sdk sdk_hosting)
 set_target_properties(ap18-bus-census-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
 
+add_executable(ap18-whole-block-tests ../tools/ap18-tests/whole_block.cpp)
+target_include_directories(ap18-whole-block-tests PRIVATE source "${WF0_VST3_SDK_ROOT}")
+target_compile_definitions(ap18-whole-block-tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(ap18-whole-block-tests PRIVATE /UNDEBUG /W4 /permissive- /EHsc)
+target_link_libraries(ap18-whole-block-tests PRIVATE sdk sdk_hosting)
+set_target_properties(ap18-whole-block-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
 add_executable(ap18-lc1-session ../tools/ap18-tests/lc1_session.cpp source/mapped_processing.cpp source/offline_processing.cpp source/component_instance_session.cpp)
 target_include_directories(ap18-lc1-session PRIVATE source include "${WF0_VST3_SDK_ROOT}")
 target_compile_definitions(ap18-lc1-session PRIVATE LVB_LC1_TEST UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)

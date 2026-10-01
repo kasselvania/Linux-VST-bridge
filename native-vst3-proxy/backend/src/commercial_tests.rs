@@ -441,46 +441,52 @@ fn asynchronous_capture_correlates_failures_without_fabricating_a_completed_save
 }
 
 #[test]
-fn protocol_13_transports_every_output_plane_and_rejects_last_plane_overrun() {
+fn full_mapping_generations_preserve_events_and_every_output_plane_with_overrun_refusal() {
+    for (minor, frames) in [(13, 17), (14, 1024), (14, 1008), (14, 0)] {
     for corrupt in [false,true] {
         let path=std::env::temp_dir().join(format!("multi-output-{:x}",u128::from_le_bytes(mapping::random().unwrap())));
-        let mut mapping=Mapping::with_channels(&path,64).unwrap();mapping.output_channels=64;
+        let mut mapping=Mapping::with_layout(&path,64,minor == 14).unwrap();mapping.output_channels=64;
+        let output=mapping.output; let stride=mapping.stride;
+        let inputs=if minor==14 { vec![events::Event {kind:events::PARAMETER,offset:frames as u32,id:7,value:0.6,..Default::default()}] } else {vec![]};
+        let expected=inputs.clone();
         let file=std::fs::OpenOptions::new().read(true).write(true).open(&path).unwrap();
         let listener=std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let socket=TcpStream::connect(listener.local_addr().unwrap()).unwrap();
         let (mut peer,_)=listener.accept().unwrap();
         let remote=thread::spawn(move||{
-            let f=receive_version(&mut peer,5,13).unwrap();assert_eq!(f.kind,PROCESS);
+            let f=receive_version(&mut peer,5,minor).unwrap();assert_eq!(f.kind,PROCESS);
+            assert_eq!(get(&f.payload[..4]),frames as u64);
+            assert_eq!(events::decode_for_block(&f.payload[48..f.payload.len()-104],frames,minor==14).unwrap(),expected);
             for ch in 0..64 {
-                let samples:Vec<_>=(0..17).flat_map(|i|(ch as f32+i as f32/32.).to_le_bytes()).collect();
-                file.write_all_at(&samples,(OUTPUT+ch*STRIDE+4) as u64).unwrap();
+                let samples:Vec<_>=(0..frames).flat_map(|i|(ch as f32+i as f32/32.).to_le_bytes()).collect();
+                file.write_all_at(&samples,(output+ch*stride+4) as u64).unwrap();
             }
-            if corrupt {file.write_all_at(&0u32.to_le_bytes(),(OUTPUT+63*STRIDE+STRIDE-4) as u64).unwrap();}
-            let mut payload=vec![0;72];put(&mut payload[..4],17);put(&mut payload[4..8],OUTPUT as u64);
+            if corrupt {file.write_all_at(&0u32.to_le_bytes(),(output+63*stride+stride-4) as u64).unwrap();}
+            let mut payload=vec![0;72];put(&mut payload[..4],frames as u64);put(&mut payload[4..8],output as u64);
             payload[16..32].copy_from_slice(&f.payload[32..48]);
-            send_version(&mut peer,&Frame{kind:DONE,session:f.session,sequence:f.sequence,payload},5,13).unwrap();
+            send_version(&mut peer,&Frame{kind:DONE,session:f.session,sequence:f.sequence,payload},5,minor).unwrap();
         });
         let mut session=Session{gui:None,gui_revision:0,mapping:Some(mapping),mailbox:None,mailbox_enabled:false,
             capture:None,fault_status:None,notices:(0,0),returned:Default::default(),processing:ProcessingScratch::new(),socket,
-            state:ClientState{session:[19;16],next:1,slot:Slot::Writable},phase:11,max:CAP,minor:13,
+            state:ClientState{session:[19;16],next:1,slot:Slot::Writable},phase:11,max:BLOCK_CAP,minor,
             epoch:1,position:0,witness:None,identity:None,trace:Default::default(),sample_rate:48000,armed:false,owner:None};
-        let zero=[0.;17];let result=session.process_events(17,f64::NAN,3,[&zero,&zero],&[],Default::default());
+        let zero=[0.;BLOCK_CAP];let result=session.process_events(frames,f64::NAN,3,[&zero,&zero],&inputs,Default::default());
         remote.join().unwrap();
         if corrupt {assert!(result.is_err());} else {
             let (main,flags)=result.unwrap();assert_eq!(flags,0);
-            for (ch, plane) in main.iter().enumerate() {for i in 0..17 {
+            for (ch, plane) in main.iter().enumerate() {for i in 0..frames {
                 assert_eq!(f32::from_bits(plane[i+1]),ch as f32+i as f32/32.);
             }}
             let extra=&session.mapping.as_ref().unwrap().extra;
             assert_eq!(extra.len(),62);
-            for (ch, plane) in extra.iter().enumerate() {for (i, value) in plane[..17].iter().enumerate() {
+            for (ch, plane) in extra.iter().enumerate() {for (i, value) in plane[..frames].iter().enumerate() {
                 assert_eq!(*value,(ch+2) as f32+i as f32/32.);
             }}
         }
         drop(session);std::fs::remove_file(path).unwrap();
     }
+    }
 }
-
 #[test]
 fn production_processing_reuses_maximum_request_and_reply_storage() {
     use ap1_native_client::events::{Event, MAX_EVENTS, NOTE_ON, PARAMETER};

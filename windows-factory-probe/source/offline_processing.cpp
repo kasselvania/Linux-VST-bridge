@@ -15,6 +15,7 @@
 #include <thread>
 #include <string>
 #include <exception>
+#include <memory>
 #include <stdexcept>
 
 namespace linux_vst_bridge::wf0 {
@@ -22,7 +23,7 @@ namespace {
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 constexpr int frames = 16;
-constexpr int capacity = 256;
+constexpr int capacity = ap1::block_capacity;
 constexpr uint32 guard = 0x4b123456;
 constexpr uint32 sentinel = 0x7fc12345;
 struct Block {
@@ -67,7 +68,11 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     if(external&&external->bus_layout())layout=*external->bus_layout();
     uint32_t maximum=external?capacity:frames;
     const auto owner = std::this_thread::get_id();
-    std::array<Block,3> blocks;
+    // The full multi-output buffers are owned and allocated before activation.
+    // Keeping them off the Windows owner stack also avoids its default 1 MiB
+    // stack ceiling; processing only borrows this fixed storage.
+    auto storage = std::make_unique<std::array<Block,3>>();
+    auto& blocks = *storage;
     // All buffers and SDK parameter queues are allocated/populated on the owner
     // thread before activation. Each process call receives a separate block.
     for (int b=0;b<3;++b) {

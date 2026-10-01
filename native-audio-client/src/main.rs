@@ -57,8 +57,8 @@ fn run(stage: &mut &'static str) -> io::Result<()> {
         let mut poison = [POISON; CAP + 2];
         poison[0] = GUARD;
         poison[CAP + 1] = GUARD;
-        for ch in 0..2 {
-            mapping.write_plane(INPUT, ch, &input[ch])?;
+        for (ch, plane) in input.iter().enumerate() {
+            mapping.write_plane(INPUT, ch, plane)?;
             mapping.write_plane(OUTPUT, ch, &poison)?;
         }
         barrier();

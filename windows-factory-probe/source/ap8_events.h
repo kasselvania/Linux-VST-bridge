@@ -6,14 +6,14 @@
 namespace linux_vst_bridge::wf0 {
 constexpr size_t event_capacity=256;
 struct InputEvent { uint32_t offset=0,kind=0,id=0;int16_t channel=0,pitch=0;double value=0;float tuning=0; };
-inline size_t decode_events(const std::vector<uint8_t>& p,std::array<InputEvent,event_capacity>& out,uint32_t frames,size_t suffix=0){
+inline size_t decode_events(const std::vector<uint8_t>& p,std::array<InputEvent,event_capacity>& out,uint32_t frames,size_t suffix=0,bool whole_block=false){
  using namespace ap1;
  require(p.size()>=56,"event request header");auto n=get(p.data()+48,4);
  require(n<=event_capacity&&get(p.data()+52,4)==0&&p.size()==56+32*n+suffix,"event request extent/reserved");
  for(size_t i=0;i<n;++i){const auto*b=p.data()+56+32*i;auto&e=out[i];
   e.offset=uint32_t(get(b,4));e.kind=uint32_t(get(b+4,4));e.id=uint32_t(get(b+8,4));
   e.channel=int16_t(get(b+12,2));e.pitch=int16_t(get(b+14,2));std::memcpy(&e.value,b+16,8);std::memcpy(&e.tuning,b+24,4);
-  require(e.offset<(frames?frames:1)&&e.kind<=2&&get(b+28,4)==0&&std::isfinite(e.value)&&e.value>=0&&e.value<=1,"event values");
+  require((whole_block&&e.kind==2?e.offset<=frames:e.offset<(frames?frames:1))&&e.kind<=2&&get(b+28,4)==0&&std::isfinite(e.value)&&e.value>=0&&e.value<=1,"event values");
   require(e.kind==2?(e.channel==0&&e.pitch==0&&e.tuning==0):(frames&&e.channel>=0&&e.channel<16&&e.pitch>=0&&e.pitch<128&&std::isfinite(e.tuning)),"note extent");
  }return size_t(n);
 }
@@ -28,7 +28,7 @@ public:
  std::array<Steinberg::Vst::Event,event_capacity> values{};Steinberg::int32 count=0;
  Steinberg::int32 PLUGIN_API getEventCount()override{return count;}
  Steinberg::tresult PLUGIN_API getEvent(Steinberg::int32 i,Steinberg::Vst::Event&e)override {if(i<0||i>=count)return Steinberg::kInvalidArgument;e=values[size_t(i)];return Steinberg::kResultOk;}
- Steinberg::tresult PLUGIN_API addEvent(Steinberg::Vst::Event&e)override {if(count>=event_capacity)return Steinberg::kResultFalse;values[size_t(count++)]=e;return Steinberg::kResultOk;}
+ Steinberg::tresult PLUGIN_API addEvent(Steinberg::Vst::Event&e)override {if(size_t(count)>=event_capacity)return Steinberg::kResultFalse;values[size_t(count++)]=e;return Steinberg::kResultOk;}
 };
 class Points final:public Steinberg::Vst::IParamValueQueue {
 public:

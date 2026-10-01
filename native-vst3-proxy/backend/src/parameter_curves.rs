@@ -1,4 +1,6 @@
-//! Translate SDK automation curves into bounded transport blocks.
+//! Legacy protocol <=13 only: bounded transport curve reconstruction.
+//! Current commercial protocol 14 carries whole DAW blocks and never uses
+//! this inferred-value path. Retained binaries and rollback are unchanged.
 //!
 //! A host's point at `frames` is a curve anchor, never a note/sample event.
 //! Preserve the curve at each transport boundary; do not clamp that anchor's

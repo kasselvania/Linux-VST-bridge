@@ -424,7 +424,7 @@ fn append_discovered(m: &Manager, sw: &Software, records: &[onboarding::Record],
                     disposition:if stale.is_none() {"installed_unqualified"} else {"needs_attention"}.into(),
                     active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),
                     runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256.clone(),
-                    limitations:vec![stale.unwrap_or("Installed but not published to Bitwig").into()],
+                    limitations:vec![stale.unwrap_or("Installed but not published").into()],
                     history:vec![],actions:vec![],compatibility:None,
                     details:json!({"scan":scan.id,"current":stale.is_none(),"observed_at":scan.completed_at}) });
             }

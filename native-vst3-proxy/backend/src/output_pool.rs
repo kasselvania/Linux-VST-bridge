@@ -2,7 +2,7 @@
 //! callback until its final sample is consumed or discarded. Slot reuse is
 //! explicitly released; the realtime side never allocates or frees storage.
 use crate::queue::preallocated;
-use ap1_native_client::CAP;
+use ap1_native_client::BLOCK_CAP as CAP;
 use std::{cell::UnsafeCell, sync::atomic::{AtomicBool, Ordering}};
 pub(crate) const NONE: usize = usize::MAX;
 pub(crate) struct Pool {

@@ -17,8 +17,13 @@ activation reads the selected value. Vendor state and stable class IDs remain
 separate from this preference.
 
 The native proxy accepts a maximum of at most 1024 samples only when the
-selected delay covers it. Audio still uses preallocated storage and bounded
-256-frame transport chunks. The native SDK boundary reports actual vendor
+selected delay covers it. The current source successor uses protocol minor 14
+and mapping generation 3 to carry one complete DAW callback, at most 1024
+frames, through preallocated storage to one Windows processing call. Incoming
+parameter queues and context keep their original offsets and values. The
+plug-in owns its implicit preceding parameter value; the bridge does not
+reconstruct or seed that value. Historical protocol versions retain their
+256-frame transport for declared legacy fixtures. The native SDK boundary reports actual vendor
 latency plus the selected bridge delay. 1024 bridge frames adds 21.33 ms at
 48 kHz; it does not become the historical qualified 512-frame configuration.
 The setup owner verifies the reported delay, and one/two chained proxy tests
@@ -27,9 +32,11 @@ callback performs configuration, allocation or manager work.
 
 Prebuilt index schema 2 declares each exact proxy's maximum bridge buffering.
 Index schema 1 remains readable with its old 512-frame limit. The manager and
-frontend use operator schema 14; retained request history keeps its original
+frontend source uses operator schema 15; internal46 retains schema 14 and its
+older transport. Retained request history keeps its original
 schema. Restore 512 before selecting an older proxy that lacks the larger
-envelope. Package-wide cross-generation rollback remains task 5.
+envelope. Package-wide populated update and rollback remain required installed
+acceptance in the integrated delivery assignment.
 
 This source repair must be exercised through normal package selection,
 compatibility checking, publication and product controls before an installed

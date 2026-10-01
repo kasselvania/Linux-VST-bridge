@@ -48,12 +48,15 @@ pub fn encode(events: &[Event], frames: usize) -> io::Result<Vec<u8>> {
     Ok(bytes)
 }
 pub fn encode_into(events: &[Event], frames: usize, bytes: &mut Vec<u8>) -> io::Result<()> {
+    encode_for_block(events, frames, bytes, false)
+}
+pub fn encode_for_block(events: &[Event], frames: usize, bytes: &mut Vec<u8>, whole_block: bool) -> io::Result<()> {
     need(events.len() <= MAX_EVENTS, "event capacity")?;
     let start = bytes.len();
     bytes.resize(start + 8 + EVENT_BYTES * events.len(), 0);
     put(&mut bytes[start..start + 4], events.len() as u64);
     for (e, b) in events.iter().zip(bytes[start + 8..].chunks_exact_mut(EVENT_BYTES)) {
-        need(e.valid(frames), "event value/extent")?;
+        need(if whole_block { e.valid_host(frames) } else { e.valid(frames) }, "event value/extent")?;
         put(&mut b[..4], e.offset as u64);
         put(&mut b[4..8], e.kind as u64);
         put(&mut b[8..12], e.id as u64);
@@ -65,6 +68,9 @@ pub fn encode_into(events: &[Event], frames: usize, bytes: &mut Vec<u8>) -> io::
     Ok(())
 }
 pub fn decode(bytes: &[u8], frames: usize) -> io::Result<Vec<Event>> {
+    decode_for_block(bytes, frames, false)
+}
+pub fn decode_for_block(bytes: &[u8], frames: usize, whole_block: bool) -> io::Result<Vec<Event>> {
     need(bytes.len() >= 8, "event header")?;
     let n = get(&bytes[..4]) as usize;
     need(
@@ -84,7 +90,7 @@ pub fn decode(bytes: &[u8], frames: usize) -> io::Result<Vec<Event>> {
                 tuning: f32::from_le_bytes(b[24..28].try_into().unwrap()),
                 reserved: get(&b[28..32]) as u32,
             };
-            if e.valid(frames) {
+            if if whole_block { e.valid_host(frames) } else { e.valid(frames) } {
                 Ok(e)
             } else {
                 Err(invalid("event value/extent"))

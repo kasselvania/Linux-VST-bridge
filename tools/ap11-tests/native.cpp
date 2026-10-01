@@ -27,6 +27,7 @@ uint64_t generation = 7, revision = 1;
 double dsp = .5;
 uint32_t save_code=0, state_calls=0;
 uint32_t process_refusal=0;
+uint32_t configured_maximum=0, activated_maximum=0;
 if1_terminal_t terminal_record{};
 std::thread::id owner = std::this_thread::get_id();
 struct Host final : HostApplication,
@@ -169,13 +170,14 @@ uint32_t __wrap_ap5_report_path(uint64_t, uint8_t *p, uint32_t n) {
     *p = 0;
   return 0;
 }
-uint32_t __wrap_ap10_setup(uint64_t, uint32_t, uint32_t, double,
+uint32_t __wrap_ap10_setup(uint64_t, uint32_t maximum, uint32_t, double,
                            const uint8_t *, uint32_t, uint32_t, uint32_t *t) {
-  t[0] = 512;
+  configured_maximum = maximum;
+  t[0] = std::max(512u,maximum);
   t[1] = t[2] = 0;
   return 0;
 }
-uint32_t __wrap_ap4_activate(uint64_t, uint32_t, uint32_t) { return 0; }
+uint32_t __wrap_ap4_activate(uint64_t, uint32_t maximum, uint32_t) { activated_maximum=maximum;return 0; }
 uint32_t __wrap_ap4_deactivate(uint64_t) { return 0; }
 uint32_t __wrap_ap3_transition(uint64_t, uint32_t) { return 0; }
 uint32_t __wrap_if2_close(uint64_t) {
@@ -452,11 +454,13 @@ int main(int argc,char** argv) {
   check(processor->connect(c) == kResultOk &&
             c->connect(processor.get()) == kResultOk && caps == 7,
         "production connection and generation capabilities");
-  ProcessSetup setup{kRealtime, kSample32, 128, 48000};
+  ProcessSetup setup{kRealtime, kSample32, 1024, 48000};
   check(processor->setupProcessing(setup) == kResultOk &&
             processor->setActive(true) == kResultOk &&
             processor->setProcessing(true) == kResultOk,
         "start processing");
+  check(configured_maximum==1024 && activated_maximum==1024,
+        "production SDK setup and activation preserve the whole DAW maximum");
   check(state_calls==0&&commands.size()==1&&commands[0].kind==AP11::Refresh&&commands[0].flags==0,"fresh native bootstrap requires no opaque saving or restart");
   commands.clear();
   auto refusedToken = c->allocateEditorView();
