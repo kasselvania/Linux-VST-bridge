@@ -290,6 +290,24 @@ Neither the Deck 1.0.0 result nor the Ubuntu-lab 1.3.1 workaround qualifies
 this new delivered runtime. The VM had an earlier test package but no plug-in,
 runtime or copied authorization. It is not a pristine OS-first-install result.
 
+## Restarted delivery candidate
+
+Internal51 was selected through the normal Ubuntu installer and Setup on the
+existing populated account. Both reference publications now select the paired
+whole-block Windows host; the instrument replacement used production operator
+authority as development instrumentation. The original Ardour project stayed
+unchanged. None of this qualifies its previously failed musical baseline.
+
+| Fixture | Status | Current result | Remaining |
+| --- | --- | --- | --- |
+| Ubuntu 26.04.1 / Openbox X11 / internal51 | limited restoration proof; failed musical regression | Exact two-environment restoration passed with controlled three-second registry contention under the approved 512-task guest cap. The SDK effect then failed before processing because the native desktop's private home-directory Xauthority had no runtime alias. | Installed validation of the source correction, both reference roles, DAW project recall/reboot and populated rollback. |
+| Ubuntu 26.04.1 / GNOME Wayland / internal51 | failed at declared resource budget | The service panicked on denied thread creation at 512 tasks; cleanup was confirmed. | Installed thread-denial recovery and a declared graphical workload that fits the fixed budget. |
+| CachyOS / licensed Deck / internal51 successor | not tested in this restart | Earlier platform and hardware results above remain bounded to their recorded generations. | Same fixed successor's full workflows; protected-system-compatible Deck migration and exact predecessor preservation. |
+
+The [restart record](RESTART_VALIDATION_2026_10_01.md) retains exact failures and
+the pending corrections. Neither startup acknowledgment nor an SDK consumer
+establishes a complete musician journey or physical audio performance.
+
 ## Shared capacity posture
 
 For the accepted AP17 Steam Deck fixture:

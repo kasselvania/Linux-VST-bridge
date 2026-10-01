@@ -689,6 +689,17 @@ Prelaunch keeper admission could fail after graphical-session replacement or whe
 
 Host-private Xauthority/Wayland/D-Bus paths, missing denial mount sources, and overlong denial paths broke exact identity and mounting. The accepted boundary uses authenticated aliases where identity matches and existing private non-listening denial sockets otherwise.
 
+Internal51 exposed a separate native-desktop gap in the same boundary:
+Openbox/X11 supplied the private home-directory authentication file, but the
+supervisor searched only the user runtime directory for an exact copy. Its
+keeper refused before readiness, with `host Xauthority exact alias unavailable`;
+no DSP was admitted. [The installed failure](../evidence/self-service-delivery/internal51-sdk-lifecycle-failure.json)
+is retained. The source successor accepts the authenticated peer's exact
+host-visible private file only when file identity and complete bytes match,
+retaining the checked alias route for a private namespace. Installed validation
+of this successor remains pending; previous bounded physical results stay as
+recorded.
+
 ### Fix chain
 
 - **Source correction:** manager/supervisor keeper and graphical-authority path in the accepted canonical product, documented by [PLUGIN_RELIABILITY_FOLLOWUP](PLUGIN_RELIABILITY_FOLLOWUP.md).

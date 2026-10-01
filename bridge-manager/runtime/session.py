@@ -56,6 +56,10 @@ def private_file_bytes(path,label):
             raise RuntimeError(label+' changed')
         with os.fdopen(descriptor,'rb',closefd=False) as source:data=source.read(1024*1024+1)
         if len(data)!=before.st_size:raise RuntimeError(label+' changed')
+        after=os.fstat(descriptor);named=path.lstat()
+        identity=lambda m:(m.st_dev,m.st_ino,m.st_uid,m.st_mode,m.st_size,m.st_mtime_ns,m.st_ctime_ns)
+        if identity(before)!=identity(after) or identity(after)!=identity(named):
+            raise RuntimeError(label+' changed')
     finally:os.close(descriptor)
     return data
 
@@ -71,7 +75,18 @@ def private_runtime_root(runtime_root):
         raise RuntimeError('host graphical runtime is not private')
 
 def host_xauthority(proc,value,runtime_root):
-    source=private_file_bytes(peer_absolute(proc,value,'Xauthority'),'Xauthority')
+    peer_path=peer_absolute(proc,value,'Xauthority')
+    source=private_file_bytes(peer_path,'Xauthority')
+    # A native host's selected file can already be visible at that exact path.
+    # A sandbox's path may name another file on the host: require the same
+    # actual private file before using it, otherwise resolve its exact alias.
+    direct=pathlib.Path(value)
+    try:
+        data=private_file_bytes(direct,'host Xauthority')
+        peer_identity=peer_path.lstat();host_identity=direct.lstat()
+        if ((peer_identity.st_dev,peer_identity.st_ino)==(host_identity.st_dev,host_identity.st_ino)
+            and data==source):return str(direct)
+    except (FileNotFoundError,PermissionError,RuntimeError):pass
     private_runtime_root(runtime_root)
     try:candidates=list(runtime_root.iterdir())
     except FileNotFoundError:raise RuntimeError('host Xauthority directory unavailable')

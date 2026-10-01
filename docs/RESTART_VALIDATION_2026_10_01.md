@@ -234,11 +234,65 @@ The 256-task guest limit refused further forks. A lighter desktop package was
 prepared from Ubuntu's official repository, but its subsequent session did not
 establish a working graphical baseline within that limit. No product test ran.
 
-The retained preparation receipt records that constraint, the request to raise
-only the guest user task limit to 512, and normal shutdown of the guest. No
-increase was made while approval was pending. Both builders, both test VMs and
-the viewer are off; no paused guest retains RAM. Internal51 remains unselected
-on Ubuntu, and its installed regressions remain pending.
+The retained preparation receipt records that constraint and normal shutdown.
+The operator subsequently approved raising only the guest user task limit to
+512. CPU, RAM and RAM-plus-swap limits remain unchanged; the outer QEMU task
+limit remains 256. Internal51 was selected through normal package and Setup
+controls on the existing Ubuntu account, with the original project unchanged.
+
+The first restoration reproduction on GNOME reached 512 tasks and recorded 15
+new task-limit denials. The service's main thread panicked on OS thread creation
+error 11, exited with status 101, and closed the readiness crossing. Both owned
+keepers retained positive cleanup. This is a measured resource-exhaustion
+failure, preserved in [the GNOME result](../evidence/self-service-delivery/internal51-gnome-contention-failure.json),
+not attribution of the historical internal49 refusal.
+
+The same account then used a declared Openbox/X11 development desktop. GDM and
+its original configuration remain recoverable. LightDM and Xorg are fixture
+tools installed from Ubuntu's repository, not product prerequisites. This
+baseline brought idle task use below 200 without changing any cap. The same
+fixed internal51 source passed the three-second contention reproduction: both
+keeper generations reported Ready, then LVE1 acknowledged readiness after
+43.307 seconds. Peak task use was 354, with no new guest task-limit or OOM
+events. [The exact trace and limits](../evidence/self-service-delivery/internal51-openbox-contention.json)
+retain its development-only claim. Outer memory-limit reclamation was observed
+afterward; no before/after counter was retained for that timed run, so no
+zero-pressure claim is made.
+
+Normal production operator authority replaced the reference instrument's
+predecessor with its already-prepared host/proxy pair. This was a development
+operator run, not frontend qualification. The full SDK suite then failed at
+the effect's first state capture, before DSP admission. The supervisor's exact
+refusal was `host Xauthority exact alias unavailable`; the generic native
+reply was `admission_binding_invalid`. The native desktop supplied its private
+home-directory authentication file, while the implementation searched only the
+runtime directory for a copy. The [failed installed result](../evidence/self-service-delivery/internal51-sdk-lifecycle-failure.json)
+retains that distinction and the absence of audio or state acceptance.
+
+The source successor verifies the peer-selected host-visible private file as
+the same actual file before using its path. A private mount namespace still
+requires the existing exact authenticated alias; no ambient authentication or
+session bus is substituted. Source filesystem cases cover the native file,
+different-inode copy, symlink and previous namespace/denial paths. X.Org's
+[authentication contract](https://www.x.org/guide/communication/) permits the
+selected file or the home-directory default; a runtime-directory-only search
+was an implementation restriction.
+
+The same successor uses fallible thread creation for runtime preparation and
+request workers. A failed request-worker spawn retains an inspectable service
+incident and returns the existing bounded, unclassified refusal without
+exposing a session. Rust's [thread creation interface](https://doc.rust-lang.org/std/thread/struct.Builder.html)
+returns the OS error instead of panicking. The installed fault driver lowers
+only the owned service's temporary task cap to one, requires repeated bounded
+refusals with the same live manager, and restores its exact previous limit.
+Installed successor validation is required; source checks do not establish it.
+
+The bounded source run passed all 14 graphical filesystem cases and 282 manager
+binary tests, with two existing optional tests ignored. All-target Clippy passed
+with warnings denied. The one-core, 2.5-GiB, no-swap, 256-task builder recorded
+no task-limit, memory-limit or OOM events. The [source-check receipt](../evidence/self-service-delivery/internal52-source-correction-checks.json)
+retains the exact changed file digests; the successor's installed run remains
+pending.
 
 Routine regressions use the stateful first-party instrument/effect and the
 production manager, supervisor, native proxy and Windows host. Include state

@@ -41,6 +41,13 @@ vendor diagnostic text is omitted; only its byte count and digest are retained.
 A failed probe or test-owned timeout remains failed. Test-process destruction
 alone never confirms product retirement.
 
+`trace_worker_exhaustion.py` is an installed, idle-service fault check. It
+temporarily lowers only the owned service's task cap to one and requires three
+bounded worker refusals without a manager restart or admission. It restores
+the exact prior service limit and restarts that idle service in cleanup; the
+enclosing CPU, RAM, swap and task budget remains unchanged. It is not a GUI
+recovery pass or proof about a playing customer project.
+
 Verify CPU, RAM, combined RAM/swap and task caps before execution. Run one VM
 or builder at a time and shut down inactive guests normally. These checks do
 not replace actual DAW project save/reopen, reboot, frontend recovery, populated

@@ -202,7 +202,7 @@ impl Drop for NativeStartup<'_> {
 
 fn retain_admission_incident(m:&Manager,source:&str,request:Option<[u8;16]>,
     class_id:Option<&str>,environment:Option<&str>,keeper_session:Option<&str>)->Result<()> {
-    require(matches!(source,"registry_busy"|"worker_ceiling"|"keeper_starting"|
+    require(matches!(source,"registry_busy"|"worker_ceiling"|"worker_unavailable"|"keeper_starting"|
         "keeper_retiring"|"keeper_failed"),"admission incident class")?;
     if let Some(class_id)=class_id {require(valid_hex(class_id,32),"admission incident identity")?;}
     if let Some(keeper_session)=keeper_session {require(valid_hex(keeper_session,32),"admission incident identity")?;}
@@ -253,6 +253,21 @@ fn retain_keeper_incident(m:&Manager,keepers:&Keepers,status:KeeperAvailability,
 }
 
 type Keepers = Mutex<Vec<KeeperOwner>>;
+fn refuse_unclassified_worker(manager: &Manager, peer: Option<&mut UnixStream>, source: &str) {
+    // No worker exists to authenticate/classify this request. Retain a service
+    // incident and grant no session; the same bounded refusal covers the
+    // configured worker ceiling and an actual OS thread-creation failure.
+    if let Err(error) = retain_admission_incident(manager, source, None, None, None, None) {
+        eprintln!("admission incident unavailable: {error}");
+    }
+    if let Some(peer) = peer {
+        if peer.set_write_timeout(Some(Duration::from_millis(100))).is_ok() {
+            let _ = startup_reply(peer,
+                &ap1_native_client::admission::refused([0; 16], capacity::Refusal::ServiceBusy));
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct SessionSpec {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -1257,12 +1272,15 @@ fn serve(m: Manager) -> Result<()> {
     // not start an independent multi-gigabyte verification race.
     let warm_manager = manager.clone();
     let warm_verification = launch_verification.clone();
-    let _runtime_preparation = std::thread::spawn(move || {
+    let _runtime_preparation = std::thread::Builder::new().spawn(move || {
         let result = warm_verification.prepare(
             Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS),
             || runtime_delivery::installed(&warm_manager).map(|_| ()));
         if result.is_err() { eprintln!("owned runtime preparation unavailable; launch will verify its exact binding"); }
     });
+    if let Err(error) = &_runtime_preparation {
+        eprintln!("owned runtime preparation worker unavailable: {error}");
+    }
     // A service restart cannot turn missing cleanup into a fresh admission.
     // Clean reports retire their leases; uncertain ones remain inspectable.
     let blocked = Arc::new(AtomicBool::new(reconcile_leases(&manager)?));
@@ -1276,21 +1294,13 @@ fn serve(m: Manager) -> Result<()> {
         if threads.len() >= limits.service_workers {
             // Classification itself is unavailable. This bounded zero-token
             // refusal cannot convey a session or acknowledge a stale request.
-            if let Err(error)=retain_admission_incident(&manager,"worker_ceiling",None,
-                None,None,None) {
-                eprintln!("admission incident unavailable: {error}");
-            }
-            if peer
-                .set_write_timeout(Some(Duration::from_millis(100)))
-                .is_ok()
-            {
-                let _ = startup_reply(
-                    &mut peer,
-                    &ap1_native_client::admission::refused([0; 16], capacity::Refusal::ServiceBusy),
-                );
-            }
+            refuse_unclassified_worker(&manager, Some(&mut peer), "worker_ceiling");
             continue;
         }
+        // Keep a control-plane descriptor for refusal if the OS cannot create
+        // the worker. Failure to duplicate it still grants no execution and
+        // must not stop the service's already-owned sessions.
+        let mut refusal_peer = peer.try_clone().ok();
         let m = manager.clone();
         let s = s.clone();
         let blocked = blocked.clone();
@@ -1300,7 +1310,7 @@ fn serve(m: Manager) -> Result<()> {
         let workers = workers.clone();
         workers.fetch_add(1, Ordering::AcqRel);
         let worker_count = WorkerCount(workers.clone());
-        threads.push(std::thread::spawn(move || {
+        let launched = std::thread::Builder::new().spawn(move || {
             let _worker_count=worker_count;
             let outcome = (|| -> Result<()> {
                 peer.set_read_timeout(Some(Duration::from_secs(5)))?;
@@ -1648,7 +1658,16 @@ fn serve(m: Manager) -> Result<()> {
             if let Err(e) = outcome {
                 eprintln!("Bridge instance: {e}");
             }
-        }));
+        });
+        match launched {
+            Ok(thread) => threads.push(thread),
+            Err(error) => {
+                eprintln!("bridge request worker unavailable: {error}");
+                // The unlaunched closure drops its WorkerCount and peer; no
+                // owner or admission can be exposed from this failed spawn.
+                refuse_unclassified_worker(&manager, refusal_peer.as_mut(), "worker_unavailable");
+            }
+        }
     }
     Ok(())
 }

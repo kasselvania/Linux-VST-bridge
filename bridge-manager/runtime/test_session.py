@@ -29,6 +29,50 @@ def graphical_denial_fixture(root):
 
 
 class GraphicalSessionTests(unittest.TestCase):
+    def direct_authority_fixture(self,root,shared_inode):
+        proc,peer,runtime,bound,bus,wayland,denial=self.graphical_fixture(root)
+        (runtime/'xauth_fixture').unlink()
+        native=root.resolve()/'home/.Xauthority';native.parent.mkdir()
+        native.write_bytes(b'native-private-fixture');native.chmod(0o600)
+        visible=peer/'root'/native.relative_to('/')
+        visible.parent.mkdir(parents=True)
+        if shared_inode:os.link(native,visible)
+        else:visible.write_bytes(native.read_bytes());visible.chmod(0o600)
+        bound['xauthority']=str(native)
+        environment=(peer/'environ').read_bytes().replace(
+            b'XAUTHORITY=/run/flatpak/Xauthority',b'XAUTHORITY='+os.fsencode(native))
+        (peer/'environ').write_bytes(environment)
+        return proc,runtime,bound,bus,wayland,denial,native
+
+    def test_native_private_authority_uses_the_same_host_file_without_a_runtime_alias(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            proc,runtime,bound,bus,wayland,denial,native=self.direct_authority_fixture(pathlib.Path(tmp),True)
+            try:
+                with patch.object(session,'validate_runtime',return_value=denial):
+                    result=session.graphical_environment(bound,proc,runtime)
+                self.assertEqual(result['XAUTHORITY'],str(native))
+                self.assertEqual(list(runtime.iterdir()),[])
+            finally:bus.close();wayland.close()
+
+    def test_same_bytes_at_a_different_host_file_do_not_grant_direct_authority(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            proc,runtime,bound,bus,wayland,denial,native=self.direct_authority_fixture(pathlib.Path(tmp),False)
+            try:
+                with patch.object(session,'validate_runtime',return_value=denial):
+                    with self.assertRaisesRegex(RuntimeError,'exact alias unavailable'):
+                        session.graphical_environment(bound,proc,runtime)
+            finally:bus.close();wayland.close()
+
+    def test_host_authority_symlink_does_not_grant_direct_authority(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            proc,runtime,bound,bus,wayland,denial,native=self.direct_authority_fixture(pathlib.Path(tmp),False)
+            try:
+                target=native.with_name('actual');native.rename(target);native.symlink_to(target)
+                with patch.object(session,'validate_runtime',return_value=denial):
+                    with self.assertRaisesRegex(RuntimeError,'exact alias unavailable'):
+                        session.graphical_environment(bound,proc,runtime)
+            finally:bus.close();wayland.close()
+
     def graphical_fixture(self,root):
         root=root.resolve()
         sid='0123456789abcdef0123456789abcdef'

@@ -1,0 +1,100 @@
+{"event": "fixture", "elapsed_ms": 108.74, "utc": "2026-10-01T23:25:59.202650+00:00", "manager_sha256": "dc9fc5c0b47ad542f79739c249a71c96e20534e6d3fb9dd0e9b126dcb93a200c", "host_sha256": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b", "environment": "e5dc20a0b6003f4d3755e05cf53f48e3", "capacity_traffic": true, "claim": "installed_development_regression_not_frontend_qualification"}
+{"event": "idle_service_restart_begin", "elapsed_ms": 229.905, "utc": "2026-10-01T23:25:59.323802+00:00", "claim": "development_test_arrangement"}
+{"event": "lock_owners", "elapsed_ms": 238.067, "utc": "2026-10-01T23:25:59.331963+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "idle_service_restart_returned", "elapsed_ms": 276.784, "utc": "2026-10-01T23:25:59.370683+00:00"}
+{"event": "capacity_unavailable", "elapsed_ms": 278.905, "utc": "2026-10-01T23:25:59.372797+00:00", "duration_ms": 0.821}
+{"event": "registry_contention_acquired", "elapsed_ms": 693.182, "utc": "2026-10-01T23:25:59.787079+00:00", "duration_ms": 3000, "claim": "controlled_negative_arrangement_not_original_failure_attribution"}
+{"event": "restoration_request_begin", "elapsed_ms": 693.762, "utc": "2026-10-01T23:25:59.787655+00:00"}
+{"event": "lock_owners", "elapsed_ms": 756.079, "utc": "2026-10-01T23:25:59.849977+00:00", "owners": [{"lock": "registry.lock", "pid": 10910}], "sampling_interval_ms": 100}
+{"event": "capacity_unavailable", "elapsed_ms": 3286.9, "utc": "2026-10-01T23:26:02.380792+00:00", "duration_ms": 2007.851}
+{"event": "registry_contention_released", "elapsed_ms": 3695.998, "utc": "2026-10-01T23:26:02.789896+00:00"}
+{"event": "lock_owners", "elapsed_ms": 3757.531, "utc": "2026-10-01T23:26:02.851427+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 4370.918, "utc": "2026-10-01T23:26:03.464811+00:00", "duration_ms": 83.85, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 5407.898, "utc": "2026-10-01T23:26:04.501796+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 5445.953, "utc": "2026-10-01T23:26:04.539846+00:00", "duration_ms": 74.885, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 5512.491, "utc": "2026-10-01T23:26:04.606389+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 6477.086, "utc": "2026-10-01T23:26:05.570978+00:00", "duration_ms": 30.969, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "capacity", "elapsed_ms": 7514.906, "utc": "2026-10-01T23:26:06.608798+00:00", "duration_ms": 37.523, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "capacity", "elapsed_ms": 8551.034, "utc": "2026-10-01T23:26:07.644927+00:00", "duration_ms": 35.975, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "capacity", "elapsed_ms": 9586.973, "utc": "2026-10-01T23:26:08.680865+00:00", "duration_ms": 35.786, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 10606.556, "utc": "2026-10-01T23:26:09.700454+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 10622.213, "utc": "2026-10-01T23:26:09.716105+00:00", "duration_ms": 35.015, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 10708.23, "utc": "2026-10-01T23:26:09.802128+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "lock_owners", "elapsed_ms": 11643.46, "utc": "2026-10-01T23:26:10.737356+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 11654.128, "utc": "2026-10-01T23:26:10.748020+00:00", "duration_ms": 31.5, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 11744.308, "utc": "2026-10-01T23:26:10.838205+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "lock_owners", "elapsed_ms": 12660.758, "utc": "2026-10-01T23:26:11.754654+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 12683.909, "utc": "2026-10-01T23:26:11.777802+00:00", "duration_ms": 29.58, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 12761.754, "utc": "2026-10-01T23:26:11.855651+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 13717.632, "utc": "2026-10-01T23:26:12.811536+00:00", "duration_ms": 33.567, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "capacity", "elapsed_ms": 14749.515, "utc": "2026-10-01T23:26:13.843407+00:00", "duration_ms": 31.454, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "capacity", "elapsed_ms": 15790.018, "utc": "2026-10-01T23:26:14.883910+00:00", "duration_ms": 40.326, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 16835.257, "utc": "2026-10-01T23:26:15.929157+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 16839.3, "utc": "2026-10-01T23:26:15.933192+00:00", "duration_ms": 48.84, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 16936.872, "utc": "2026-10-01T23:26:16.030769+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "lock_owners", "elapsed_ms": 17850.882, "utc": "2026-10-01T23:26:16.944780+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 17877.152, "utc": "2026-10-01T23:26:16.971045+00:00", "duration_ms": 37.289, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 17953.447, "utc": "2026-10-01T23:26:17.047346+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 18907.644, "utc": "2026-10-01T23:26:18.001537+00:00", "duration_ms": 30.336, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "capacity", "elapsed_ms": 19946.907, "utc": "2026-10-01T23:26:19.040799+00:00", "duration_ms": 39.111, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "capacity", "elapsed_ms": 20986.198, "utc": "2026-10-01T23:26:20.080090+00:00", "duration_ms": 39.092, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 22017.876, "utc": "2026-10-01T23:26:21.111774+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 22027.373, "utc": "2026-10-01T23:26:21.121266+00:00", "duration_ms": 41.014, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 22120.922, "utc": "2026-10-01T23:26:21.214823+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "lock_owners", "elapsed_ms": 23036.892, "utc": "2026-10-01T23:26:22.130790+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 23066.913, "utc": "2026-10-01T23:26:22.160805+00:00", "duration_ms": 39.368, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 23137.754, "utc": "2026-10-01T23:26:22.231652+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "lock_owners", "elapsed_ms": 23647.197, "utc": "2026-10-01T23:26:22.741107+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "generation_created", "elapsed_ms": 23747.655, "utc": "2026-10-01T23:26:22.841552+00:00", "session": "b044c77839d023a6cf0133dbb5688f96", "file_mtime_ns": 1790897182741557182}
+{"event": "generation_created", "elapsed_ms": 23849.429, "utc": "2026-10-01T23:26:22.943326+00:00", "session": "a1e9c9b79d6949a24267c3370201c7c4", "file_mtime_ns": 1790897182881557996}
+{"event": "lock_owners", "elapsed_ms": 23953.184, "utc": "2026-10-01T23:26:23.047081+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "lock_owners", "elapsed_ms": 24156.886, "utc": "2026-10-01T23:26:23.250783+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 24189.762, "utc": "2026-10-01T23:26:23.283654+00:00", "duration_ms": 122.695, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 24258.217, "utc": "2026-10-01T23:26:23.352114+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 25252.941, "utc": "2026-10-01T23:26:24.346834+00:00", "duration_ms": 62.982, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 25575.889, "utc": "2026-10-01T23:26:24.669786+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "lock_owners", "elapsed_ms": 25677.881, "utc": "2026-10-01T23:26:24.771778+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "lock_owners", "elapsed_ms": 26081.419, "utc": "2026-10-01T23:26:25.175316+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "lock_owners", "elapsed_ms": 26182.703, "utc": "2026-10-01T23:26:25.276601+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "lock_owners", "elapsed_ms": 26284.982, "utc": "2026-10-01T23:26:25.378880+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 26298.712, "utc": "2026-10-01T23:26:25.392604+00:00", "duration_ms": 45.541, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 26385.904, "utc": "2026-10-01T23:26:25.479801+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "lock_owners", "elapsed_ms": 27304.124, "utc": "2026-10-01T23:26:26.398021+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 27396.49, "utc": "2026-10-01T23:26:26.490382+00:00", "duration_ms": 96.33, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 27405.901, "utc": "2026-10-01T23:26:26.499799+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 28415.685, "utc": "2026-10-01T23:26:27.509578+00:00", "duration_ms": 18.92, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 29440.08, "utc": "2026-10-01T23:26:28.533982+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 29535.709, "utc": "2026-10-01T23:26:28.629601+00:00", "duration_ms": 119.77, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 29643.366, "utc": "2026-10-01T23:26:28.737262+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "lock_owners", "elapsed_ms": 30557.547, "utc": "2026-10-01T23:26:29.651443+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 30598.933, "utc": "2026-10-01T23:26:29.692825+00:00", "duration_ms": 63.036, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 30658.836, "utc": "2026-10-01T23:26:29.752733+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 31663.754, "utc": "2026-10-01T23:26:30.757647+00:00", "duration_ms": 64.679, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 32691.743, "utc": "2026-10-01T23:26:31.785638+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 32709.46, "utc": "2026-10-01T23:26:31.803351+00:00", "duration_ms": 45.533, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 32792.931, "utc": "2026-10-01T23:26:31.886828+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "keeper_report", "elapsed_ms": 33809.382, "utc": "2026-10-01T23:26:32.903279+00:00", "session": "b044c77839d023a6cf0133dbb5688f96", "file_mtime_ns": 1790897192871030405, "ready": true, "cleanup_confirmed": null, "error_code": null}
+{"event": "lock_owners", "elapsed_ms": 33810.546, "utc": "2026-10-01T23:26:32.904439+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 33836.191, "utc": "2026-10-01T23:26:32.930083+00:00", "duration_ms": 126.586, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "keeper_report", "elapsed_ms": 33911.863, "utc": "2026-10-01T23:26:33.005760+00:00", "session": "a1e9c9b79d6949a24267c3370201c7c4", "file_mtime_ns": 1790897192908176848, "ready": true, "cleanup_confirmed": null, "error_code": null}
+{"event": "lock_owners", "elapsed_ms": 33912.431, "utc": "2026-10-01T23:26:33.006324+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "lock_owners", "elapsed_ms": 34934.892, "utc": "2026-10-01T23:26:34.028788+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 34938.887, "utc": "2026-10-01T23:26:34.032778+00:00", "duration_ms": 102.51, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 35036.984, "utc": "2026-10-01T23:26:34.130881+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "lock_owners", "elapsed_ms": 35954.728, "utc": "2026-10-01T23:26:35.048625+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 36043.032, "utc": "2026-10-01T23:26:35.136924+00:00", "duration_ms": 104.007, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 36056.738, "utc": "2026-10-01T23:26:35.150636+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "lock_owners", "elapsed_ms": 37106.442, "utc": "2026-10-01T23:26:36.200343+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 37142.19, "utc": "2026-10-01T23:26:36.236082+00:00", "duration_ms": 99.006, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 37208.431, "utc": "2026-10-01T23:26:36.302330+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 38188.816, "utc": "2026-10-01T23:26:37.282731+00:00", "duration_ms": 46.51, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "capacity", "elapsed_ms": 39233.916, "utc": "2026-10-01T23:26:38.327808+00:00", "duration_ms": 44.91, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 40261.679, "utc": "2026-10-01T23:26:39.355575+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 40277.511, "utc": "2026-10-01T23:26:39.371403+00:00", "duration_ms": 43.457, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 40363.679, "utc": "2026-10-01T23:26:39.457577+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 41339.132, "utc": "2026-10-01T23:26:40.433023+00:00", "duration_ms": 60.274, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "capacity", "elapsed_ms": 42382.197, "utc": "2026-10-01T23:26:41.476088+00:00", "duration_ms": 42.933, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "capacity", "elapsed_ms": 43402.159, "utc": "2026-10-01T23:26:42.496052+00:00", "duration_ms": 19.807, "dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "restoration_acknowledgment", "elapsed_ms": 44001.028, "utc": "2026-10-01T23:26:43.094930+00:00", "exact_ready": true}
+{"event": "lock_owners", "elapsed_ms": 44021.897, "utc": "2026-10-01T23:26:43.115795+00:00", "owners": [{"lock": "registry.lock", "pid": 10923}], "sampling_interval_ms": 100}
+{"event": "final", "elapsed_ms": 44028.916, "utc": "2026-10-01T23:26:43.122815+00:00", "state": "completed", "resume_pending": false, "capacity": {"dsp": 0, "keepers": 2, "maintenance": 0, "cleanup_unconfirmed": false}, "claim": "production_restoration_crossing_not_operator_or_frontend_pass"}
