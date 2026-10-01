@@ -11,6 +11,7 @@ mod observer;
 mod input_observation;
 mod output_pool;
 mod performance;
+mod parameter_curves;
 mod preview;
 mod process_results;
 mod queue;

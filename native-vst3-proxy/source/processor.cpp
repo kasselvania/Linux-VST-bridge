@@ -907,7 +907,9 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
         for (uint32_t i = 0; i < event_count; ++i) {
           const auto& e = events[i];
           const bool note = e.kind == 0 || e.kind == 1;
-          const bool valid = e.offset < uint32_t(std::max(d.numSamples, 1)) &&
+          const bool extent = e.kind == 2 ? e.offset <= uint32_t(d.numSamples)
+                                         : e.offset < uint32_t(std::max(d.numSamples, 1));
+          const bool valid = extent &&
               std::isfinite(e.value) && e.value >= 0. && e.value <= 1. &&
               e.reserved == 0 &&
               (note ? d.numSamples > 0 && e.channel >= 0 && e.channel < 16 &&
@@ -1008,13 +1010,15 @@ tresult PLUGIN_API Processor::terminate() {
     char text[768];
     const auto n = std::snprintf(text, sizeof(text),
         "{\"event\":\"ap10_admission_failure\",\"code\":%u,\"frames\":%d,"
+        "\"reason\":\"%s\","
         "\"input_flags\":%llu,\"context_state\":%u,\"rate\":%.17g,"
         "\"cycle_start\":%.17g,\"cycle_end\":%.17g,\"nonfinite_fields\":%u,"
         "\"event_count\":%u,\"invalid_event_index\":%u,"
         "\"invalid_event\":{\"kind\":%u,\"id\":%u,\"offset\":%u,"
         "\"channel\":%d,\"pitch\":%d,\"value\":%.17g,\"tuning\":%.9g,"
         "\"reserved\":%u,\"nonfinite_fields\":%u}}\n",
-        f.code, f.frames, (unsigned long long)f.input_flags, f.context_state,
+        f.code, f.frames, f.code == 0x106 ? "parameter_curve_anchor_or_capacity_unavailable" : "input_admission_refused",
+        (unsigned long long)f.input_flags, f.context_state,
         std::isfinite(f.rate) ? f.rate : 0.,
         std::isfinite(f.cycle_start) ? f.cycle_start : 0.,
         std::isfinite(f.cycle_end) ? f.cycle_end : 0.,

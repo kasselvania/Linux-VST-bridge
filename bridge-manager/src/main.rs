@@ -56,7 +56,6 @@ enum KeeperAvailability { Starting, Retiring, Ready, Failed }
 
 const KEEPER_OWNER_STARTUP_SECONDS: u64 = 60;
 const KEEPER_MANAGER_RETIRE_SECONDS: u64 = 62;
-const KEEPER_ADMISSION_SECONDS: u64 = 65;
 
 // Startup work runs on a control worker. Waiting for the shared environment
 // owner releases the registry reservation, so scans and status requests cannot
@@ -254,11 +253,11 @@ impl Drop for PendingAdmission {
         }
     }
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 struct ClassSelection {
     class_id: String,
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 struct HostBinding {
     metadata: ClassSelection,
     environment: Environment,
@@ -281,7 +280,7 @@ impl From<Registration> for HostBinding {
         }
     }
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct InspectionRequest {
     environment_id: String,
@@ -918,18 +917,6 @@ fn stage_keeper_with_history(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keep
     Ok(KeeperAvailability::Starting)
 }
 
-fn ensure_keeper(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keepers)->Result<()> {
-    let deadline=Instant::now()+Duration::from_secs(KEEPER_ADMISSION_SECONDS);
-    loop {
-        match stage_keeper(m,s,r,keepers,None)? {
-            KeeperAvailability::Ready=>return Ok(()),
-            KeeperAvailability::Failed=>return Err("environment keeper failed".into()),
-            KeeperAvailability::Starting|KeeperAvailability::Retiring=>{}
-        }
-        if Instant::now()>=deadline {return Err("environment startup deadline".into())}
-        std::thread::sleep(Duration::from_millis(20));
-    }
-}
 // Worker admission and DSP ownership are separate. Full musical capacity still
 // leaves bounded classifier capacity for truthful refusals and status.
 struct WorkerCount(Arc<AtomicUsize>);
@@ -1141,16 +1128,34 @@ fn serve(m: Manager) -> Result<()> {
                 if &greeting[..5]==b"LVE1\n" {
                     // MF1 resumes keeper ownership after exclusive vendor work.
                     // Selection comes only from current registered environments.
-                    let _admission=capacity::reserve(&m,&limits,None,blocked.load(Ordering::Acquire))?;
-                    m.require_inactive(None)?;
-                    let mut environments=std::collections::BTreeSet::new();
-                    for entry in m.registry()?.classes.into_values() {
-                        let r=entry.registration;
-                        if environments.insert(r.environment.id.clone()) {
-                            r.verify(&m.root)?;
-                            let execution=package_authority::paired_components(&m,&s,&r)?;
-                            ensure_keeper(&m,&execution,&r.into(),&keepers)?;
-                        }
+                    let registrations={
+                        let _admission=capacity::reserve_maintenance(&m,&limits,
+                            || blocked.load(Ordering::Acquire))?;
+                        m.require_inactive(None)?;
+                        let mut environments=std::collections::BTreeSet::new();
+                        m.registry()?.classes.into_values().map(|entry|entry.registration)
+                            .filter(|r|environments.insert(r.environment.id.clone()))
+                            .collect::<Vec<_>>()
+                    };
+                    let deadline=Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS);
+                    for registration in registrations {
+                        registration.verify(&m.root)?;
+                        let execution=package_authority::paired_components(&m,&s,&registration)?;
+                        let binding:HostBinding=registration.clone().into();
+                        // Keep the same bounded startup coordination as native
+                        // admission. Cold keeper initialization releases the
+                        // registry between attempts so the ordinary frontend
+                        // can still obtain fresh progress/recovery authority.
+                        let _admission=wait_for_keeper(deadline,
+                            || capacity::reserve_maintenance(&m,&limits,
+                                || blocked.load(Ordering::Acquire)),
+                            || {
+                                m.require_inactive(None)?;
+                                require(m.registry()?.classes.get(&registration.metadata.class_id)
+                                    .is_some_and(|entry|entry.registration==registration),
+                                    "service_recovery_registration_changed")?;
+                                stage_keeper(&m,&execution,&binding,&keepers,None)
+                            }, std::thread::sleep)?;
                     }
                     peer.write_all(b"LVE1 ready\n")?;return Ok(());
                 }
@@ -1174,15 +1179,28 @@ fn serve(m: Manager) -> Result<()> {
                     let mut size=[0;4];peer.read_exact(&mut size)?;
                     let size=u32::from_le_bytes(size) as usize;require(size<=65536,"inspection_request_bound")?;
                     let mut bytes=vec![0;size];peer.read_exact(&mut bytes)?;
-                    let _admission=capacity::reserve(&m,&limits,None,blocked.load(Ordering::Acquire))?;
-                    m.require_inactive(None)?;
-                    let request=serde_json::from_slice(&bytes)?;
-                    let r = match purpose {
-                        Some(purpose) => qualification_binding(&m, request, purpose)?,
-                        None => inspection_binding(&m, request)?,
+                    let request:InspectionRequest=serde_json::from_slice(&bytes)?;
+                    let select=|| match purpose {
+                        Some(purpose) => qualification_binding(&m, request.clone(), purpose),
+                        None => inspection_binding(&m, request.clone()),
                     };
-                    let execution=package_authority::paired_host_components(&m,&s,&r.host,&r.host_source_sha256)?;
-                    ensure_keeper(&m,&execution,&r,&keepers)?;
+                    let (r,execution)={
+                        let _admission=capacity::reserve_maintenance(&m,&limits,
+                            || blocked.load(Ordering::Acquire))?;
+                        m.require_inactive(None)?;
+                        let r=select()?;
+                        let execution=package_authority::paired_host_components(&m,&s,&r.host,&r.host_source_sha256)?;
+                        (r,execution)
+                    };
+                    let _admission=wait_for_keeper(
+                        Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS),
+                        || capacity::reserve_maintenance(&m,&limits,
+                            || blocked.load(Ordering::Acquire)),
+                        || {
+                            m.require_inactive(None)?;
+                            require(select()?==r,"inspection_binding_changed")?;
+                            stage_keeper(&m,&execution,&r,&keepers,None)
+                        },std::thread::sleep)?;
                     let (mut job,path)=spec(&m,r,true,false,false)?;
                     let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
                     job.shared_inspection=true;atomic_json(&path,&job)?;
@@ -1206,11 +1224,24 @@ fn serve(m: Manager) -> Result<()> {
                     let mut size=[0;4];peer.read_exact(&mut size)?;
                     let size=u32::from_le_bytes(size) as usize;require(size<=65536,"vendor access request bound")?;
                     let mut bytes=vec![0;size];peer.read_exact(&mut bytes)?;
-                    let _admission=capacity::reserve(&m,&limits,None,blocked.load(Ordering::Acquire))?;
-                    m.require_inactive(None)?;
-                    let r=inspection_binding(&m,serde_json::from_slice(&bytes)?)?;
-                    let execution=package_authority::paired_host_components(&m,&s,&r.host,&r.host_source_sha256)?;
-                    ensure_keeper(&m,&execution,&r,&keepers)?;
+                    let request:InspectionRequest=serde_json::from_slice(&bytes)?;
+                    let (r,execution)={
+                        let _admission=capacity::reserve_maintenance(&m,&limits,
+                            || blocked.load(Ordering::Acquire))?;
+                        m.require_inactive(None)?;
+                        let r=inspection_binding(&m,request.clone())?;
+                        let execution=package_authority::paired_host_components(&m,&s,&r.host,&r.host_source_sha256)?;
+                        (r,execution)
+                    };
+                    let _admission=wait_for_keeper(
+                        Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS),
+                        || capacity::reserve_maintenance(&m,&limits,
+                            || blocked.load(Ordering::Acquire)),
+                        || {
+                            m.require_inactive(None)?;
+                            require(inspection_binding(&m,request.clone())?==r,"vendor_access_binding_changed")?;
+                            stage_keeper(&m,&execution,&r,&keepers,None)
+                        },std::thread::sleep)?;
                     let (mut job,path)=spec(&m,r,false,false,false)?;
                     job.vendor_access=true;atomic_json(&path,&job)?;
                     let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
@@ -1795,9 +1826,11 @@ mod tests {
         let keepers=Keepers::new(Vec::new());
         let sessions=binding.environment.root.join("compatdata/pfx/drive_c/bridge/sessions");
         assert!(stage_keeper(&f.m,&software,&binding,&keepers,None).is_err());
-        // Inspection and vendor access both call ensure_keeper. Their common
-        // owner must refuse before an instance or keeper can be materialized.
-        assert!(ensure_keeper(&f.m,&software,&binding,&keepers).is_err());
+        // Inspection and vendor access use the same fresh startup coordinator.
+        // Its owner must refuse before an instance or keeper is materialized.
+        assert!(wait_for_keeper(Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS),
+            || Ok(()), || stage_keeper(&f.m,&software,&binding,&keepers,None),
+            std::thread::sleep).is_err());
         assert!(!sessions.exists());
         assert!(!f.m.root.join("runtime/leases").exists());
         assert!(keepers.lock().unwrap().is_empty());
@@ -1894,7 +1927,6 @@ mod tests {
         assert_eq!(job.keeper_startup_seconds,Some(KEEPER_OWNER_STARTUP_SECONDS));
         assert_eq!(job.runner_key.as_deref(), Some(catalogue::runner_key(&f.r.environment.runner).unwrap().as_str()));
         assert_eq!(KEEPER_MANAGER_RETIRE_SECONDS,KEEPER_OWNER_STARTUP_SECONDS+2);
-        assert_eq!(KEEPER_ADMISSION_SECONDS,KEEPER_MANAGER_RETIRE_SECONDS+3);
     }
     #[test]
     fn missing_candidate_onboarding_cannot_fall_back_to_operator_home() {

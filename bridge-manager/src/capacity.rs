@@ -676,6 +676,33 @@ pub fn reserve(m: &Manager, limits: &Limits, class: Option<&str>, blocked: bool)
             e
         }
     })?;
+    validate_reservation(m, limits, class)?;
+    Ok(lock)
+}
+
+/// Service recovery and inspection are control-plane work. Brief fresh
+/// readback contention must not close their connection as an apparent plug-in
+/// failure. This wait grants no authority: owners and cleanup are checked only
+/// after the exact registry guard has been acquired. Native DSP admission keeps
+/// the fail-fast crossing above.
+pub fn reserve_maintenance(
+    m: &Manager, limits: &Limits, blocked: impl Fn() -> bool,
+) -> Result<Lock> {
+    reserve_maintenance_with_wait(m, limits, blocked, std::time::Duration::from_secs(2))
+}
+fn reserve_maintenance_with_wait(
+    m: &Manager, limits: &Limits, blocked: impl Fn() -> bool, wait: std::time::Duration,
+) -> Result<Lock> {
+    if blocked() { return Err(Refusal::CleanupUnconfirmed.into()); }
+    let (lock, _) = m.lock_bounded(
+        operator_model::OperatorLock::Registry,
+        operator_model::LockPurpose::ServiceRecovery, None, wait,
+    )?;
+    if blocked() { return Err(Refusal::CleanupUnconfirmed.into()); }
+    validate_reservation(m, limits, None)?;
+    Ok(lock)
+}
+fn validate_reservation(m: &Manager, limits: &Limits, class: Option<&str>) -> Result<()> {
     let records = owners(m).map_err(|_| Refusal::CleanupUnconfirmed)?;
     let managed = if let Some(class)=class.filter(|class|!limits.classes.iter().any(|c|c.class_id==*class)) {
         let db=m.registry()?;
@@ -685,7 +712,7 @@ pub fn reserve(m: &Manager, limits: &Limits, class: Option<&str>, blocked: bool)
         } else {false}
     }else{false};
     check_selected(&records, limits, class,managed)?;
-    Ok(lock)
+    Ok(())
 }
 
 #[cfg(test)]
@@ -740,6 +767,65 @@ mod tests {
         private_dir(path.parent().unwrap()).unwrap();
         atomic_json(&path, &report).unwrap();
         path
+    }
+    #[test]
+    fn maintenance_wait_observes_new_owner_before_granting_authority() {
+        let f = Fixture::new();
+        let held = f.m.lock("registry.lock").unwrap();
+        std::thread::scope(|scope| {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let m = &f.m;
+            let reader = scope.spawn(move || {
+                tx.send(()).unwrap();
+                reason(reserve_maintenance(m, &limits(), || false))
+            });
+            rx.recv().unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(40));
+            lease(&f, &limits().classes[0].class_id, Kind::Dsp);
+            drop(held);
+            assert_eq!(reader.join().unwrap(), Refusal::MaintenanceActive.code());
+        });
+    }
+    #[test]
+    fn maintenance_wait_rechecks_cleanup_and_has_a_bound() {
+        let f = Fixture::new();
+        let held = f.m.lock("registry.lock").unwrap();
+        let blocked = std::sync::atomic::AtomicBool::new(false);
+        std::thread::scope(|scope| {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let m = &f.m;
+            let blocked = &blocked;
+            let reader = scope.spawn(move || {
+                tx.send(()).unwrap();
+                reason(reserve_maintenance(m, &limits(), ||
+                    blocked.load(std::sync::atomic::Ordering::Acquire)))
+            });
+            rx.recv().unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(40));
+            blocked.store(true, std::sync::atomic::Ordering::Release);
+            drop(held);
+            assert_eq!(reader.join().unwrap(), Refusal::CleanupUnconfirmed.code());
+        });
+        let _held = f.m.lock("registry.lock").unwrap();
+        let error = reserve_maintenance_with_wait(&f.m, &limits(), || false,
+            std::time::Duration::from_millis(20)).err().unwrap();
+        let failure = error.downcast_ref::<operator_lock::AcquisitionFailure>().unwrap();
+        assert_eq!(failure.facts.outcome, operator_model::LockOutcome::Timeout);
+        assert_eq!(failure.facts.purpose, operator_model::LockPurpose::ServiceRecovery);
+        assert!(matches!(reserve(&f.m, &limits(), None, false).err().unwrap()
+            .downcast_ref::<Refusal>(), Some(Refusal::ServiceBusy)));
+    }
+    #[test]
+    fn maintenance_wait_returns_a_real_guard_and_refuses_broken_ownership() {
+        let f = Fixture::new();
+        let held = reserve_maintenance(&f.m, &limits(), || false).unwrap();
+        held.require_registry(&f.m).unwrap();
+        assert!(reserve(&f.m, &limits(), None, false).is_err());
+        drop(held);
+        private_dir(&f.m.root.join("runtime/leases")).unwrap();
+        fs::write(f.m.root.join("runtime/leases/broken.json"), b"invalid").unwrap();
+        assert_eq!(reason(reserve_maintenance(&f.m, &limits(), || false)),
+            Refusal::CleanupUnconfirmed.code());
     }
     #[test]
     fn status_waits_for_contention_and_reads_new_owners() {

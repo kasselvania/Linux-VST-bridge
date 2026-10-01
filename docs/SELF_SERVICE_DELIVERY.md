@@ -158,3 +158,18 @@ completion classification, Focus and musical recall remain open in the retained
 The signed [user-space package route](USER_SPACE_PACKAGE.md) now stages canonical
 package inputs and exposes the same Setup/update controls without protected-system
 writes. Its source checks do not establish a SteamOS delivery result.
+
+After changing a published proxy, close the DAW and use its ordinary plug-in
+discovery/update scan before reopening an existing project. Ardour 9's cached
+index can omit an Updated module until Plugin Manager → Discover New/Updated
+runs. Do not save a project containing missing/inactive placeholders over the
+working project. Internal40's first reopen failed this step; subsequent ordinary
+discovery restored the unchanged project for development reproduction. This is
+an update instruction, not a passed update/recall qualification.
+
+Internal41's Pure LoFi inspection completed, but restoring the manager service
+failed and the visible result attributed that failure to inspection. The source
+successor preserves the completed result and identifies service restoration as
+the failed stage. Restoration, inspection and vendor access now release registry
+ownership during cold keeper initialization and obtain fresh exact authority on
+each retry. Installed ordinary progress/recovery still needs retesting.

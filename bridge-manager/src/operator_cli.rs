@@ -7,6 +7,27 @@ mod current;
 const ASC: &str = "arturia-software-center";
 const SERVICE: &str = "linux-vst-bridge.service";
 const VENDOR: &str = "linux-vst-bridge-vendor-arturia-software-center.service";
+#[derive(Debug)]
+struct ServiceRestorationFailure {
+    reason: String,
+    completed_action: Value,
+}
+impl std::fmt::Display for ServiceRestorationFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Service restoration after completed preparation: {}", self.reason)
+    }
+}
+impl std::error::Error for ServiceRestorationFailure {}
+fn preparation_failure(action: &ui::Action, error: &(dyn std::error::Error + 'static)) -> Option<Value> {
+    if let Some(failure) = error.downcast_ref::<ServiceRestorationFailure>() {
+        Some(json!({"schema":1,"layer":"manager_control_plane",
+            "attempted_stage":"service_restoration","result":"refused",
+            "completed_action":failure.completed_action,
+            "installation_preserved":true,"prior_publication_provenance_preserved":true,
+            "automatic_retry":false,
+            "recovery":"Resume the exact retained operation through the ordinary recovery control. Completed preparation remains retained."}))
+    } else { preparation_cli::failure(action) }
+}
 #[cfg(test)]
 thread_local! {
     static SCAN_SPAWN_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
@@ -1850,7 +1871,11 @@ fn execute_with_receipt_policy(
             });
             let cleanup = resume_owned(m, owner);
             let value = result?;
-            cleanup?;
+            if let Err(error) = cleanup {
+                return Err(ServiceRestorationFailure {
+                    reason:error.to_string(), completed_action:value,
+                }.into());
+            }
             return Ok(value);
         }
         return preparation_cli::execute(m, a, owner, || {
@@ -2863,7 +2888,7 @@ fn worker_with_capacity(
             } else {
                 format!("Operator action: {e}").chars().take(512).collect()
             };
-            json!({"schema":1,"operation":id,"state":"refused","reason":reason,"failure":failure,"preparation_failure":preparation_cli::failure(&request.action),"lock_waits":waits})
+            json!({"schema":1,"operation":id,"state":"refused","reason":reason,"failure":failure,"preparation_failure":preparation_failure(&request.action,e.as_ref()),"lock_waits":waits})
         }
     };
     write_operation(m, id, &value, false)
@@ -2953,6 +2978,25 @@ pub(super) fn product_receipt(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn completed_inspection_is_not_relabelled_by_service_restoration_failure() {
+        let action = ui::Action::PluginReinspect {
+            selection: "01".repeat(32), audio_layout: None,
+        };
+        let completed = json!({"selection":"exact","inspection":"complete",
+            "publication_changed":false});
+        let error = ServiceRestorationFailure {
+            reason:"owned service restoration unavailable".into(),
+            completed_action:completed.clone(),
+        };
+        let failure = preparation_failure(&action, &error).unwrap();
+        assert_eq!(failure["attempted_stage"], "service_restoration");
+        assert_eq!(failure["completed_action"], completed);
+        assert_eq!(failure["automatic_retry"], false);
+        let inspection_error:Box<dyn std::error::Error> = "inspection refused".into();
+        assert_eq!(preparation_failure(&action, inspection_error.as_ref()).unwrap()
+            ["attempted_stage"], "preliminary_inspection");
+    }
     #[cfg(feature = "cpi2-test-contract")]
     use linux_vst_bridge::{catalogue::EnvironmentBinding, observation::Census, profiles::{Accessibility, Claim, Editor, Family, Limitation, Role}};
     #[test]

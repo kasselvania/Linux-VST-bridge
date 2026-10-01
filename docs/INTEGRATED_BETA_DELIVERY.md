@@ -123,6 +123,28 @@ are not retroactively described as clean processing.
 
 ## Delivery and reporting
 
+The internal40 reference effect's input witness captured a parameter point at
+offset 1024 in a 1024-frame host block during saved automation. The prior bridge
+treated this curve endpoint as an invalid sample and permanently refused later
+callbacks. The Rust successor preserves linear segments at each 256-frame
+transport boundary and carries the exact future endpoint to the next continuous
+callback. A new explicit start, GUI edit, seek or Stop takes precedence. Native
+instance storage is prepared before activation; the production callback test
+observed zero allocations, reallocations and frees. Windows transport and note
+offset validation remain strictly inside their respective block extents.
+
+An implicit curve crossing a chunk boundary needs an actual left anchor. The
+successor refuses an unavailable baseline before admitting any chunk (0x106);
+descriptor defaults cannot stand in for current vendor state. This remains a
+declared capability limit, not universal automation support. Interior points,
+jumps, repeated positions, endpoint values, overflow and zero-frame flush have
+source checks. Internal40 retained processing-phase gaps before the refusal;
+this translation alone cannot qualify its audio. The
+[installed failure and source receipt](../evidence/self-service-delivery/internal40-41-recovery-and-automation.json)
+also preserves the separate DAW startup crash, cache rescan and failed Deck
+service-restoration result. A coherent installed successor must repeat those
+journeys.
+
 Produce installable candidate artifacts and version/component manifest;
 authenticated distribution, required notices/SBOM and customer install/update/
 rollback/support instructions; exact platform × plug-in passed/limited/failed/

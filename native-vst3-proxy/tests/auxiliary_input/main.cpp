@@ -20,7 +20,7 @@ using namespace Steinberg;
 using namespace Steinberg::Vst;
 static unsigned setups=0,activations=0,closes=0,processes=0;
 static bool input_enabled=true,last_output=false;
-enum class InputCase { Original, MixedExpression, ExpressionOnly, NoteOffOnly, InvalidParameterExtent };
+enum class InputCase { Original, MixedExpression, ExpressionOnly, NoteOffOnly, EndpointCurve, InvalidParameterExtent };
 static InputCase input_case=InputCase::Original;
 static std::array<float,32> expected_left{},expected_right{};
 static uint64_t expected_silence=3;
@@ -41,8 +41,14 @@ uint32_t __wrap_ap10_take_results(uint64_t,ap10_results_t*p){static const ap10_r
 uint32_t __wrap_if2_process(uint64_t,uint32_t n,const ap8_event_t*e,uint32_t count,const ap10_context_t*,uint64_t silence,const float*l,const float*r,float*ol,float*orr,uint64_t*out,ap7_delivery_t*d,uint64_t entered){
  assert(entered);
  if(input_case==InputCase::InvalidParameterExtent){
-  assert(n==32&&count==1&&e[0].kind==2&&e[0].id==0&&e[0].offset==32&&e[0].value==.75);
+  assert(n==32&&count==1&&e[0].kind==2&&e[0].id==0&&e[0].offset==33&&e[0].value==.75);
   return 0x102;
+ }
+ if(input_case==InputCase::EndpointCurve){
+  assert(n==32&&count==2&&e[0].kind==2&&e[1].kind==2);
+  assert(e[0].id==0&&e[1].id==0&&e[0].offset==0&&e[1].offset==32);
+  assert(e[0].value==.25&&e[1].value==.75);
+  std::copy_n(l,n,ol);std::copy_n(r,n,orr);*out=silence;*d={};d->delivered_frames=n;++processes;return 0;
  }
  if(input_case==InputCase::Original){
   assert(count==2&&e[0].kind==0&&e[1].kind==2);
@@ -171,8 +177,16 @@ int main(){
  auto audit_begin=reinterpret_cast<void(*)()>(dlsym(RTLD_DEFAULT,"ap3_audit_begin"));
  auto audit_end=reinterpret_cast<uint64_t(*)()>(dlsym(RTLD_DEFAULT,"ap3_audit_end"));
  assert(audit_begin&&audit_end);
+ // The SDK boundary preserves a legitimate linear-curve endpoint for the
+ // Rust owner to segment. It does not shift the endpoint onto sample 31.
+ input_case=InputCase::EndpointCurve;notes.clear();parameters.clearQueue();
+ auto* curve=parameters.addParameterData(0,qi);
+ curve->addPoint(0,.25,pi);curve->addPoint(32,.75,pi);
+ d.numSamples=32;d.numInputs=1;d.numOutputs=32;d.inputs=&ib;d.outputs=outputs.data();
+ audit_begin();auto admitted=p->process(d);auto curve_effects=audit_end();
+ assert(admitted==kResultOk&&curve_effects==0);
  input_case=InputCase::InvalidParameterExtent;notes.clear();parameters.clearQueue();
- parameters.addParameterData(0,qi)->addPoint(32,.75,pi);
+ parameters.addParameterData(0,qi)->addPoint(33,.75,pi);
  d.numSamples=32;d.numInputs=1;d.numOutputs=32;d.inputs=&ib;d.outputs=outputs.data();
  audit_begin();auto refused=p->process(d);auto effects=audit_end();
  assert(refused!=kResultOk&&effects==0);
@@ -183,7 +197,7 @@ int main(){
  std::string contents(std::istreambuf_iterator<char>{report},{});
  assert(contents.find("\"skipped_expression_callbacks\":2")!=std::string::npos);
  assert(contents.find("\"event\":\"ap10_admission_failure\",\"code\":258,\"frames\":32")!=std::string::npos);
- assert(contents.find("\"event_count\":1,\"invalid_event_index\":0,\"invalid_event\":{\"kind\":2,\"id\":0,\"offset\":32")!=std::string::npos);
+ assert(contents.find("\"event_count\":1,\"invalid_event_index\":0,\"invalid_event\":{\"kind\":2,\"id\":0,\"offset\":33")!=std::string::npos);
  report.close();assert(unlink(report_path)==0);assert(unsetenv("LVB_AP3_REPORT")==0);
  std::puts("AP18 native sole auxiliary samples/silence/guards/events PASS");
 }

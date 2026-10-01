@@ -21,11 +21,12 @@ pub struct Event {
 }
 impl Event {
     pub fn valid(&self, frames: usize) -> bool {
-        frames <= CAP && self.valid_host(frames)
+        frames <= CAP && (self.offset as usize) < frames.max(1) && self.valid_host(frames)
     }
     pub fn valid_host(&self, frames: usize) -> bool {
         frames <= 1024
-            && (self.offset as usize) < frames.max(1)
+            && (if self.kind == PARAMETER { (self.offset as usize) <= frames }
+                else { (self.offset as usize) < frames.max(1) })
             && self.value.is_finite()
             && (0.0..=1.0).contains(&self.value)
             && self.reserved == 0
@@ -147,5 +148,11 @@ mod tests {
             ..Event::default()
         };
         assert!(encode(&[flush], 0).is_ok());
+        let anchor = Event { offset: 128, ..flush };
+        assert!(anchor.valid_host(128));
+        assert!(!anchor.valid(128));
+        assert!(encode(&[anchor], 128).is_err());
+        assert!(!Event { offset: 129, ..anchor }.valid_host(128));
+        assert!(!Event { offset: 128, ..events[0] }.valid_host(128));
     }
 }

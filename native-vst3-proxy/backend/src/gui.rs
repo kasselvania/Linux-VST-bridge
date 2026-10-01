@@ -151,6 +151,9 @@ impl Gui {
             n
         }
     }
+    pub fn revision_cursor(&self) -> u64 {
+        self.word(96).load(Ordering::Acquire)
+    }
     pub fn shutdown(&self) {
         self.flag(104).store(1, Ordering::Release);
     }

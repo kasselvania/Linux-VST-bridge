@@ -259,6 +259,10 @@ pub struct Delivery {
     pub priming_frames: u64,
 }
 struct Callback {
+    curve_plan: crate::parameter_curves::Plan,
+    curve_carry: crate::parameter_curves::Carry,
+    curve_continuation: Option<crate::context::Context>,
+    curve_gui_revision: u64,
     host_call: u64,
     delay: u64,
     epoch: u64,
@@ -281,6 +285,10 @@ impl Callback {
         }
         audio.clear();
         Self {
+            curve_plan: crate::parameter_curves::Plan::empty(),
+            curve_carry: crate::parameter_curves::Carry::empty(),
+            curve_continuation: None,
+            curve_gui_revision: 0,
             host_call: 0,
             delay: DELAY,
             epoch: 0,
@@ -297,6 +305,8 @@ impl Callback {
         }
     }
     fn clear_audio(&mut self, s: &Shared) {
+        self.curve_carry = crate::parameter_curves::Carry::empty();
+        self.curve_continuation = None;
         if self.have {s.release_output(&self.current); self.have=false;}
         while let Some(a)=self.audio.pop_front() {s.release_output(&a);}
         for _ in 0..DESCRIPTORS {
@@ -362,6 +372,7 @@ impl Callback {
             .any(|e| e.kind == 2)
         {
             request.gui_revision = s.gui.as_ref().map_or(0, |gui| gui.revision());
+            self.curve_gui_revision = s.gui.as_ref().map_or(0, |_| request.gui_revision + 1);
         }
         if !s.requests.push(request) {
             s.fail(OVERFLOW, self.position);
@@ -1558,6 +1569,21 @@ unsafe fn process_events(
     if contain_terminal && l.shared.terminal_latched.load(Ordering::Acquire) {
         return CONTAINED_TERMINAL;
     }
+    let callback = &mut *l.callback.get();
+    let continuation = callback.curve_continuation.is_some_and(|expected| {
+        expected.present == context.present && (context.present == 0 ||
+            expected.rate == context.rate && expected.state & 0x21006 == context.state & 0x21006 &&
+            expected.project == context.project &&
+            (context.state & 0x20000 == 0 || expected.continuous == context.continuous) &&
+            (context.state & 0x1004 != 0x1004 ||
+                expected.cycle_start == context.cycle_start && expected.cycle_end == context.cycle_end))
+    }) && l.shared.gui.as_ref().map_or(0, |gui| gui.revision_cursor()) == callback.curve_gui_revision;
+    if !continuation { callback.curve_carry.count = 0; }
+    if callback.curve_plan.prepare(events, n, &callback.curve_carry).is_err() {
+        // Unknown implicit curve baseline or synthesized queue capacity. Never
+        // guess a descriptor default or partly admit an otherwise invalid plan.
+        return if detailed { 0x106 } else { 1 };
+    }
     {
         let callback = &mut *l.callback.get();
         callback.returned.window(callback.position, n);
@@ -1578,14 +1604,9 @@ unsafe fn process_events(
         item.context = context.chunk(offset).unwrap();
         item.flags = flags;
         item.gain = if offset == 0 { gain } else { f64::NAN };
-        for e in events {
-            if n == 0 || e.offset as usize >= offset && (e.offset as usize) < offset + count {
-                let mut local = *e;
-                local.offset -= offset as u32;
-                item.events[item.event_count as usize] = local;
-                item.event_count += 1;
-            }
-        }
+        let block = &(*l.callback.get()).curve_plan.blocks[offset / CAP];
+        item.events[..block.count].copy_from_slice(&block.events[..block.count]);
+        item.event_count = block.count as u32;
         for (ch, p) in [left, right].into_iter().enumerate() {
             item.data[ch][..count]
                 .copy_from_slice(std::slice::from_raw_parts(p.add(offset), count));
@@ -1615,6 +1636,11 @@ unsafe fn process_events(
         }
     }
     *out_flags = combined;
+    let callback = &mut *l.callback.get();
+    callback.curve_carry.count = callback.curve_plan.next.count;
+    callback.curve_carry.events[..callback.curve_carry.count]
+        .copy_from_slice(&callback.curve_plan.next.events[..callback.curve_carry.count]);
+    callback.curve_continuation = (n > 0).then(|| context.chunk(n).unwrap());
     for (counter, delta) in l.shared.delivery_totals.iter().zip([
         n as u64, total.missing_frames, total.gaps, total.expired_frames,
         total.delivered_frames, total.priming_frames,
@@ -2406,6 +2432,71 @@ mod tests {
             .unwrap();
     }
     #[test]
+    fn production_curve_endpoint_carry_respects_edits_seeks_stop_and_capacity() {
+        use crate::parameter_curves::Carry;
+        use crate::gui::{Gui, Message};
+        let path = std::env::temp_dir().join(format!("lvb-curves-{}", u128::from_le_bytes(
+            ap1_native_client::mapping::random().unwrap())));
+        let gui = Arc::new(Gui::create(&path, [7; 16]).unwrap());
+        let mut shared = Shared::new();
+        shared.gui = Some(gui.clone());
+        shared.state_capable.store(true, Ordering::Relaxed);
+        shared.identity = Some(state::Identity { class: [1; 16], module: [2; 32] });
+        let shared = Arc::new(shared);
+        let mut callback = Callback::new();
+        assert_eq!(callback.transition(&shared, START), 0);
+        let id = INSTANCES.insert(|| Ok::<_, ()>(Live { shared: shared.clone(),
+            callback: UnsafeCell::new(callback), busy: AtomicBool::new(false), worker: None,
+            report: None, max: 1024, recovery_blocked: false, installed_delay: None,
+            minor: 7, setup: None })).unwrap().unwrap();
+        assert_eq!(shared.requests.pop().unwrap().kind, START);
+        let input = [0.; 1024];
+        let mut left = [0.; 1024];
+        let mut right = [0.; 1024];
+        let mut flags = 0;
+        let mut delivery = Delivery::default();
+        let point = |offset, value| Event { offset, kind: 2, id: 7, value, ..Event::default() };
+        let run = |n, project, events: &[Event], left: &mut [f32; 1024], right: &mut [f32; 1024], flags: &mut u64,
+            delivery: &mut Delivery| unsafe { ap10_process(id, n, events.as_ptr(), events.len() as u32,
+            &crate::context::Context { present: 1, state: 2, rate: 48000., project, ..Default::default() },
+            0, input.as_ptr(), input.as_ptr(), left.as_mut_ptr(), right.as_mut_ptr(), flags, delivery) };
+        let (result, allocations) = crate::allocation_test::measure(|| run(1024, 500,
+            &[point(0, 0.125), point(1024, 0.75)], &mut left, &mut right, &mut flags, &mut delivery));
+        assert_eq!(result, 0); assert_eq!(allocations, [0; 3]);
+        for start in [0, 256, 512, 768] {
+            let item = shared.requests.pop().unwrap();
+            assert_eq!(item.event_count, 2);
+            for event in &item.events[..2] {
+                assert!(event.valid(256));
+                assert!((event.value - (0.125 + 0.625 * (start + event.offset) as f64 / 1024.)).abs() < 1e-14);
+            }
+        }
+        assert_eq!(run(512, 1524, &[], &mut left, &mut right, &mut flags, &mut delivery), 0);
+        let first = shared.requests.pop().unwrap();
+        assert_eq!(first.event_count, 1); assert_eq!(first.events[0], point(0, 0.75));
+        assert_eq!(shared.requests.pop().unwrap().event_count, 0);
+        assert_eq!(run(512, 2036, &[point(0, 0.3), point(512, 0.7)], &mut left, &mut right, &mut flags, &mut delivery), 0);
+        for _ in 0..2 { shared.requests.pop().unwrap(); }
+        assert_eq!(gui.send(&mut Message { kind: 3, id: 7, value: 0.8, ..Default::default() }), 0);
+        assert_eq!(run(512, 2548, &[], &mut left, &mut right, &mut flags, &mut delivery), 0);
+        for _ in 0..2 { assert_eq!(shared.requests.pop().unwrap().event_count, 0); }
+        assert_eq!(run(512, 3060, &[point(0, 0.2), point(512, 0.6)], &mut left, &mut right, &mut flags, &mut delivery), 0);
+        for _ in 0..2 { shared.requests.pop().unwrap(); }
+        assert_eq!(run(512, 42, &[], &mut left, &mut right, &mut flags, &mut delivery), 0);
+        for _ in 0..2 { assert_eq!(shared.requests.pop().unwrap().event_count, 0); }
+        let before = shared.requests.published();
+        assert_eq!(run(512, 554, &[point(512, 0.6)], &mut left, &mut right, &mut flags, &mut delivery), 0x106);
+        assert_eq!(shared.requests.published(), before);
+        let lease = INSTANCES.lease(id).unwrap();
+        let callback = unsafe { &mut *lease.callback.get() };
+        callback.curve_carry = Carry::empty(); callback.curve_carry.count = 1;
+        callback.curve_carry.events[0] = point(0, 0.9);
+        assert_eq!(callback.transition(&shared, STOP), 0);
+        assert_eq!(callback.curve_carry.count, 0); assert!(callback.curve_continuation.is_none());
+        drop(lease); INSTANCES.remove(id, |_| ()).unwrap();
+        std::fs::remove_file(path).unwrap();
+    }
+    #[test]
     fn large_host_blocks_preserve_notes_and_parameter_offsets() {
         let mut shared = Shared::new();
         shared.state_capable.store(true, Ordering::Relaxed);
@@ -2448,6 +2539,13 @@ mod tests {
                 ..Default::default()
             },
             Event {
+                offset: 0,
+                kind: 2,
+                id: 900,
+                value: 0.25,
+                ..Default::default()
+            },
+            Event {
                 offset: 511,
                 kind: 2,
                 id: 900,
@@ -2469,7 +2567,7 @@ mod tests {
                     id,
                     1024,
                     events.as_ptr(),
-                    3,
+                    events.len() as u32,
                     input.as_ptr(),
                     input.as_ptr(),
                     left.as_mut_ptr(),
@@ -2494,7 +2592,8 @@ mod tests {
                 observed.push(e);
             }
         }
-        assert_eq!(observed, events);
+        assert_eq!(observed, [events[0], events[1], Event { offset: 255, ..events[1] },
+            Event { offset: 256, ..events[1] }, events[2], events[3]]);
         let count = shared.requests.published();
         let bad = Event {
             offset: 1024,
@@ -2575,7 +2674,7 @@ mod tests {
                     id,
                     512,
                     events.as_ptr(),
-                    2,
+                    3,
                     &valid_context,
                     0,
                     left.as_ptr(),
@@ -2593,8 +2692,9 @@ mod tests {
             assert_eq!(item.context.project, 100 + offset);
             assert_eq!(item.data[0], [0.25; CAP]);
             assert_eq!(item.data[1], [-0.5; CAP]);
-            assert_eq!(item.event_count, 1);
-            assert_eq!(item.events[0].offset, if offset == 0 { 7 } else { 255 });
+            assert_eq!(item.event_count, if offset == 0 { 3 } else { 2 });
+            assert_eq!(item.events[0].offset, if offset == 0 { 7 } else { 0 });
+            assert_eq!(item.events[item.event_count as usize - 1].offset, 255);
         }
         INSTANCES.remove(id, |_| ()).unwrap();
     }
