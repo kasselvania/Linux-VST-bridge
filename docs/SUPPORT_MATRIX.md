@@ -111,8 +111,15 @@ and retained execution components across changed-host package updates. Startup
 phase records identify verification, keeper readiness, transport preparation and
 supervisor delivery. Source tests establish those boundaries; Ubuntu/CachyOS
 installed recovery, steady processing and recall remain unqualified until their
-delivered candidate runs. Existing Deck commercial recall was selected by the
-operator; its working installation remains unchanged.
+delivered candidate runs. Deck internal38 exercised a controlled manager update
+and predecessor restoration with the owned Pure LoFi/FRAGMENTS project, exact
+state readback and captured signal. Its native host/proxy publications remain
+predecessors; changed-host migration and reboot acceptance are still open. See
+[the installed internal38 receipt](../evidence/self-service-delivery/internal38-installed-delivery.json).
+An abandoned standalone inspection subsequently blocked update and required
+maintainer retirement; its run remains failed. The source ownership correction
+and tests are [retained separately](../evidence/self-service-delivery/inspection-lock-refusal-2026-10-01.json)
+and are not included in internal39.
 
 [Internal31 development observations](../evidence/self-service-delivery/ubuntu-internal31-development.json)
 add normal same-account package selection with retained FRAGMENTS registration,

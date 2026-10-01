@@ -1568,6 +1568,16 @@ fn inspect(m: &Manager, path: &Path) -> Result<()> {
     let (job, path) = spec(m, r, true, false, false)?;
     let status = spawn(&sw, &path, None)?.wait()?;
     println!("{}", job.report.display());
+    finish_inspection(m, &job, status)
+}
+fn finish_inspection(m: &Manager, job: &SessionSpec, status: ExitStatus) -> Result<()> {
+    // A refused prelaunch still has an owned reservation. Retire it through
+    // the existing positive receipt rule before reporting the inspection error.
+    {
+        let _registry = m.lock("registry.lock")?;
+        let _unresolved = reconcile_leases(m)?;
+        require(!job.lease.try_exists()?, "inspection cleanup unconfirmed")?;
+    }
     require(status.success(), "inspection cleanup failed")?;
     let result: serde_json::Value = read_json(&job.report)?;
     require(
@@ -2129,6 +2139,52 @@ mod tests {
         }
         let failure = after_spawn(lease.clone(), blocked.clone());
         assert!(failure.is_err() && blocked.load(Ordering::Acquire) && lease.exists());
+    }
+    #[test]
+    #[cfg(target_os="linux")]
+    fn real_inspection_lock_refusal_releases_reservation_but_retains_failure() {
+        let f = test_fixture::Fixture::new();
+        let (job, path) = spec(&f.m, f.r.clone().into(), true, false, false).unwrap();
+        let marker = f.r.environment.root.join("retained-vendor-state");
+        fs::write(&marker, b"untouched").unwrap();
+        let keeper = fs::OpenOptions::new().read(true).write(true).create(true)
+            .truncate(false).open(f.r.environment.root.join("operation.lock")).unwrap();
+        assert_eq!(unsafe { libc::flock(keeper.as_raw_fd(), libc::LOCK_SH | libc::LOCK_NB) }, 0);
+        let bin = f.outer.join("fixture-bin");
+        private_dir(&bin).unwrap();
+        let systemctl = bin.join("systemctl");
+        fs::write(&systemctl, b"#!/bin/sh\nprintf 'DISPLAY=:fixture\\n'\n").unwrap();
+        fs::set_permissions(&systemctl, fs::Permissions::from_mode(0o500)).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        let script = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("runtime/session.py");
+        let status = Command::new("python3").arg(script).arg(&path)
+            .env("PATH", format!("{}:{}", bin.display(), std::env::var("PATH").unwrap()))
+            .stdout(Stdio::null()).stderr(Stdio::null()).status().unwrap();
+        assert!(status.success()); // Exact retirement does not make inspection successful.
+        assert!(finish_inspection(&f.m, &job, status).unwrap_err().to_string()
+            .contains("inspection failed"));
+        let result: serde_json::Value = read_json(&job.report).unwrap();
+        assert!(result["error"].as_str().unwrap().contains("BlockingIOError"));
+        assert!(!job.directory.exists() && !job.lease.exists());
+        assert!(job.report.with_extension("ownership.json").exists());
+        assert!(capacity::owners(&f.m).unwrap().is_empty());
+        assert_eq!(fs::read(marker).unwrap(), b"untouched");
+    }
+    #[test]
+    fn successful_inspection_exit_cannot_release_an_unconfirmed_reservation() {
+        let f = test_fixture::Fixture::new();
+        let (job, _) = spec(&f.m, f.r.clone().into(), true, false, false).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        atomic_json(&job.report, &serde_json::json!({
+            "ownership_schema":1,"error":null,"cleanup_confirmed":true,"transport_retired":true
+        })).unwrap();
+        atomic_json(&job.report.with_extension("ownership.json"), &serde_json::json!({
+            "session":"wrong","cleanup_confirmed":true,"transport_retired":true
+        })).unwrap();
+        let status = Command::new("/bin/sh").args(["-c", "exit 0"]).status().unwrap();
+        assert!(finish_inspection(&f.m, &job, status).unwrap_err().to_string()
+            .contains("inspection cleanup unconfirmed"));
+        assert!(job.directory.exists() && job.lease.exists());
     }
     #[test]
     fn restart_requires_positive_prior_cleanup() {

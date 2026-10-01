@@ -1192,18 +1192,26 @@ def native_command_child(args):
 def run(spec,peer=None):
     session_preflight(spec)
     stop_requested=[False]
+    operation=None
     def before_owner_stop(*_):
         stop_requested[0]=True
     signal.signal(signal.SIGTERM,before_owner_stop);signal.signal(signal.SIGINT,before_owner_stop)
     try:
         print('LVO0 '+spec['session']+' ready',flush=True)
         if stop_requested[0]:raise InterruptedError('supervisor interrupted after readiness')
+        # Lock refusal is still a prelaunch owner failure. No Windows child
+        # exists yet, so the same finalizer must retain the refusal and retire
+        # this exact reservation instead of leaving a missing receipt behind.
+        operation=(pathlib.Path(spec['registration']['environment']['root'])/'operation.lock').open('a+b')
+        fcntl.flock(operation,operation_lock_mode(spec)|fcntl.LOCK_NB)
         return run_owned(spec,peer,stop_requested)
     except Exception as error:
         # Ordinary setup errors after LVO0 are all owned by the same finalizer.
         # Do not let a missing LVO1 poison an
         # exposed lease merely because the Windows root was never created.
         return prelaunch_owned_failure(spec,peer,error)
+    finally:
+        if operation is not None:operation.close()
 
 def run_owned(spec,peer,stop_requested):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
@@ -4429,12 +4437,11 @@ if __name__=='__main__':
     if sys.argv[1]=='--install':sys.exit(0 if install(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
     if sys.argv[1]=='--vendor-application':sys.exit(0 if vendor_application(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
     spec=json.loads(pathlib.Path(sys.argv[1]).read_text());peer=None if spec['inspect'] or spec.get('vendor_access') else socket.socket(fileno=0)
-    operation=(pathlib.Path(spec['registration']['environment']['root'])/'operation.lock').open('a+b')
-    # Standalone setup inspection is exclusive: it may start Wine services and
-    # must never become their transient owner underneath a live audio instance.
-    mode=operation_lock_mode(spec)
-    fcntl.flock(operation,mode|fcntl.LOCK_NB)
+    operation=None
     try:
+        if spec.get('keeper'):
+            operation=(pathlib.Path(spec['registration']['environment']['root'])/'operation.lock').open('a+b')
+            fcntl.flock(operation,operation_lock_mode(spec)|fcntl.LOCK_NB)
         outcome=keep(spec) if spec.get('keeper') else run(spec,peer)
         complete=outcome['cleanup_confirmed'] and (spec.get('keeper') or outcome.get('transport_retired',False))
         # This is an owner result, not the vendor launcher's exit status.
@@ -4442,5 +4449,5 @@ if __name__=='__main__':
         if outcome.get('reporting_error'):print('Bridge reporting failure: '+outcome['reporting_error'],file=sys.stderr)
         sys.exit(0 if complete else 2)
     finally:
-        operation.close()
+        if operation is not None:operation.close()
         if peer is not None:peer.close()

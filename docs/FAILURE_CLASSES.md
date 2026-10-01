@@ -768,6 +768,22 @@ Steam Deck managed products and Ubuntu FRAGMENTS bring-up.
 
 ### Live installer recovery follow-up
 
+The integrated delivery run also found an unstarted standalone inspection whose
+exclusive environment lock refused while a retained keeper held its shared
+lock. Acquisition occurred before the prelaunch finalizer, leaving a lease with
+no result or retirement receipt. The ordinary UI had no recovery offer for this
+abandoned raw CLI inspection and package transition remained blocked. The
+source successor brings lock acquisition inside the exact prelaunch finalizer;
+the inspection caller then applies canonical positive-receipt reconciliation
+under the registry lock before reporting the retained failure. A successful
+process exit with a wrong receipt still refuses. Fourteen Linux ownership/census
+tests, 71 supervisor tests under a reaping harness, nine Rust inspection tests
+including a real Python lock refusal, and strict all-target Clippy passed.
+The selected internal38 required a controlled maintainer retirement using its
+existing finalizer and exact positive receipt; that run remains failed. This
+correction is not in internal39 and requires successor delivery. See the
+[inspection failure and source checks](../evidence/self-service-delivery/inspection-lock-refusal-2026-10-01.json).
+
 The new clean Ubuntu account on internal27 reached the official FRAGMENTS
 trial's Finish screen, but its exact installer cohort remained live with 15
 processes. Overview failed in 7.614 seconds with

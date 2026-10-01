@@ -1447,6 +1447,44 @@ class KeeperDiagnosticsTests(SupervisorFixture,unittest.TestCase):
 
 @unittest.skipUnless(sys.platform.startswith('linux'),'Linux supervisor ownership boundary')
 class SupervisorOwnershipBoundaryTests(SupervisorFixture,unittest.TestCase):
+    def test_exclusive_inspection_lock_refusal_retires_only_its_unstarted_owner(self):
+        import fcntl
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);spec,durable=self.fixture(root)
+            spec.update(inspect=True,binding_sent=False)
+            vendor=root/'vendor-state';vendor.write_bytes(b'retained')
+            with (root/'operation.lock').open('a+b') as keeper:
+                fcntl.flock(keeper,fcntl.LOCK_SH|fcntl.LOCK_NB)
+                with patch.object(session,'environment',return_value=os.environ.copy()), \
+                     patch.object(session.subprocess,'Popen') as launch, \
+                     contextlib.redirect_stdout(io.StringIO()):
+                    result=session.run(spec)
+                launch.assert_not_called()
+                self.assertTrue(result['cleanup_confirmed'] and result['transport_retired'])
+                self.assertIn('BlockingIOError',result['error'])
+                self.assertFalse(durable.exists())
+                self.assertEqual(vendor.read_bytes(),b'retained')
+                receipt=json.loads(pathlib.Path(spec['report']).with_suffix('.ownership.json').read_text())
+                self.assertEqual(receipt['session'],spec['session'])
+                self.assertTrue(receipt['cleanup_confirmed'] and receipt['transport_retired'])
+                with (root/'operation.lock').open('a+b') as contender:
+                    with self.assertRaises(BlockingIOError):
+                        fcntl.flock(contender,fcntl.LOCK_EX|fcntl.LOCK_NB)
+
+    def test_coordinated_inspection_keeps_its_declared_shared_lock(self):
+        import fcntl
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);spec,_=self.fixture(root)
+            spec.update(inspect=True,shared_inspection=True,binding_sent=False)
+            with (root/'operation.lock').open('a+b') as keeper:
+                fcntl.flock(keeper,fcntl.LOCK_SH|fcntl.LOCK_NB)
+                with patch.object(session,'environment',return_value=os.environ.copy()), \
+                     patch.object(session,'run_owned',return_value={'cleanup_confirmed':True}) as owned, \
+                     contextlib.redirect_stdout(io.StringIO()):
+                    result=session.run(spec)
+                owned.assert_called_once()
+                self.assertTrue(result['cleanup_confirmed'])
+
 
     def native_finish(self,native,durable,observed):
         try:
