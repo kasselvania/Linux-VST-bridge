@@ -809,7 +809,7 @@ fn publication_action(
             },
         ),
         "another_configuration" => (
-            "Apply test bridge update".into(),
+            String::from("Apply test bridge update"),
             ui::Action::ExperimentalReplace {
                 candidate: id.into(),
                 expected_current: publication_identity(current?),
