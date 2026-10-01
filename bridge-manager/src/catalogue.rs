@@ -31,7 +31,7 @@ pub fn verify_host_path(path: &Path) -> Result<()> {
 }
 
 /// Existing immutable software record, shared by setup and ordinary admission.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Software {
     #[serde(default, skip_serializing_if = "Option::is_none")]

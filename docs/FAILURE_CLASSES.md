@@ -1316,6 +1316,20 @@ All 39 package-authority tests pass on macOS. The delivered correction and
 commercial project recall still require installed verification. See the
 [internal36 receipt](../evidence/self-service-delivery/internal36-installed-delivery.json).
 
+Internal37's delivered correction selected the populated Deck successor without
+changing its eight publications. A licensed Bitwig project with Pure LoFi and
+FRAGMENTS reopened with meaningful state and automation and produced a captured
+signal. Its native proxies remained the predecessor binaries. The subsequent
+normal rollback restored exact software and preserved registry/project digests,
+but final activation readback required a package version record absent from the
+verified legacy installation. Setup could not offer Start, leaving the service
+inactive. The update/rollback journey failed. The source successor reuses the
+exact verified legacy classification for selected status and explicit restart,
+refuses missing modern records, and compares the full selected component set
+before and after activation. Forty package-authority tests passed; installed
+restart and repeat musical acceptance remain open. See the
+[internal37 receipt](../evidence/self-service-delivery/internal37-installed-delivery.json).
+
 The following signed user-space package route stages verified PKG0 inputs without
 changing the selected installation or protected operating system. Source tests
 cover invalid signatures, mismatched bytes, links, low disk and Python mismatch;

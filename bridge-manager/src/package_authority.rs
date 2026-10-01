@@ -424,9 +424,30 @@ fn verify_generation(m: &Manager, current: &Software) -> Result<Generation> {
     Ok(record)
 }
 pub(super) fn selected_package_version(m: &Manager, current: &Software) -> Result<Option<String>> {
-    let Some(dir) = current.manager.path.parent() else { return Ok(None); };
-    if !dir.join("package-generation.json").try_exists()? { return Ok(None); }
-    Ok(Some(verify_generation(m, current)?.manifest.version))
+    Ok(selected_generation(m, current)?.map(|record| record.manifest.version))
+}
+fn selected_generation(m: &Manager, current: &Software) -> Result<Option<Generation>> {
+    let dir = current.manager.path.parent().ok_or("package_generation_path")?;
+    match fs::symlink_metadata(dir.join("package-generation.json")) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            // Only the retained pre-package helper layout has no package record.
+            // A missing or damaged modern record must never become legacy.
+            require(current.supervisor.path == dir.join("session.py")
+                && current.ownership.path == dir.join("ownership.py"),
+                "package_generation_record_missing")?;
+            existing_generation_dir(dir)?;
+            verify_software_identity(m, current)?;
+            Ok(None)
+        }
+        Err(error) => Err(error.into()),
+        Ok(metadata) => {
+            require(metadata.is_file() && !metadata.file_type().is_symlink()
+                && metadata.uid() == unsafe { libc::getuid() }
+                && metadata.mode() & 0o222 == 0,
+                "package_generation_record_changed")?;
+            Ok(Some(verify_generation(m, current)?))
+        }
+    }
 }
 fn existing_generation_dir(dir: &Path) -> Result<()> {
     existing_generation_dir_with(dir, || {})
@@ -746,11 +767,12 @@ struct ActivationStatus {
     package_version: String,
 }
 fn selected_activation(m: &Manager, home: &Path,
-    service: &impl ServiceControl) -> Result<(Software, Generation, UnitReadback)> {
+    service: &impl ServiceControl) -> Result<(Software, String, UnitReadback)> {
     require(!m.root.join("package-transition.json").try_exists()?,
         "package_transition_needs_recovery")?;
     let selected = old_software(m)?.ok_or("package_not_installed")?;
-    let generation = verify_generation(m, &selected)?;
+    let version = selected_generation(m, &selected)?.map(|record| record.manifest.version)
+        .unwrap_or_else(|| "retained-installation".into());
     let routes = setup_install::current_route_statuses(m, home, &selected)?;
     require(routes.len() == 6 && routes.iter().all(|route| route.status == "exact"),
         "package_routes_need_repair")?;
@@ -761,18 +783,18 @@ fn selected_activation(m: &Manager, home: &Path,
         && effective_exec_is(&state.exec, &selected.manager.path)
         && matches!(state.active.as_str(), "inactive" | "failed" | "active"),
         "package_service_effective_route_mismatch")?;
-    Ok((selected, generation, state))
+    Ok((selected, version, state))
 }
 fn activation_status_from(m: &Manager, home: &Path,
     service: &impl ServiceControl) -> Result<ActivationStatus> {
-    let (selected, generation, state) = selected_activation(m, home, service)?;
+    let (selected, version, state) = selected_activation(m, home, service)?;
     if state.active == "active" { service.healthy(m)?; }
     let (again, second, after) = selected_activation(m, home, service)?;
-    require(selected.manager == again.manager && generation.manifest_sha256 == second.manifest_sha256
+    require(selected == again && version == second
         && state.active == after.active, "package_activation_status_changed")?;
     Ok(ActivationStatus { schema: 1,
         state: if state.active == "active" { "active" } else { "inactive" },
-        package_version: generation.manifest.version })
+        package_version: version })
 }
 /// First-run is a read-only classification. In particular an absent package
 /// record is admitted as legacy only for the older selected helper layout;
@@ -790,31 +812,15 @@ fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
         return Ok(ActivationStatus { schema: 3, state: "fresh_adoptable",
             package_version: manifest.version });
     };
-    let directory = selected.manager.path.parent().ok_or("package_generation_path")?;
-    let record = directory.join("package-generation.json");
-    let legacy = match fs::symlink_metadata(&record) {
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            require(selected.supervisor.path == directory.join("session.py")
-                && selected.ownership.path == directory.join("ownership.py"),
-                "package_generation_record_missing")?;
-            true
-        }
-        Err(error) => return Err(error.into()),
-        Ok(metadata) => {
-            require(metadata.is_file() && !metadata.file_type().is_symlink()
-                && metadata.uid() == unsafe { libc::getuid() }
-                && metadata.mode() & 0o222 == 0,
-                "package_generation_record_changed")?;
-            false
-        }
-    };
+    let generation = selected_generation(m, &selected)?;
+    let legacy = generation.is_none();
     let (manifest, sha) = read_manifest(inputs, owner)?;
     let (version, update_available, rollback_available) = if legacy {
         require_retained_host_pair(m, &selected, &manifest)?;
         let _ = predecessor_plan(m, home, manifest.clone(), sha)?;
         (manifest.version, false, false)
     } else {
-        let generation = verify_generation(m, &selected)?;
+        let generation = generation.ok_or("package_generation_record_missing")?;
         let rollback_available = if let Some(predecessor) = &generation.predecessor {
             verify_software_identity(m, predecessor)?;
             true
@@ -998,19 +1004,17 @@ fn activate_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Res
     // startup, so neither service.lock nor registry.lock spans systemctl.
     let _package = m.lock("package.lock")?;
     let _setup = m.lock("setup.lock")?;
-    let (selected, generation, state) = selected_activation(m, home, service)?;
+    let (selected, version, state) = selected_activation(m, home, service)?;
     let starting = state.active != "active";
     if starting {
         preflight(m)?;
-        let (checked, checked_generation, checked_state) = selected_activation(m, home, service)?;
-        require(checked.manager == selected.manager
-            && checked_generation.manifest_sha256 == generation.manifest_sha256
+        let (checked, checked_version, checked_state) = selected_activation(m, home, service)?;
+        require(checked == selected && checked_version == version
             && checked_state.active != "active", "package_activation_state_changed")?;
         service.enable_start()?;
     }
-    let (after, after_generation, readback) = selected_activation(m, home, service)?;
-    require(after.manager == selected.manager
-        && after_generation.manifest_sha256 == generation.manifest_sha256
+    let (after, after_version, readback) = selected_activation(m, home, service)?;
+    require(after == selected && after_version == version
         && readback.active == "active", "package_service_did_not_start")?;
     if starting {
         for _ in 0..20 {
@@ -1715,6 +1719,21 @@ mod tests {
     }
 
     #[test]
+    fn missing_modern_generation_record_cannot_authorize_legacy_restart() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        let before = fs::read(f.base.m.root.join("software.json")).unwrap();
+        let current = f.current();
+        fs::remove_file(current.manager.path.parent().unwrap()
+            .join("package-generation.json")).unwrap();
+        assert!(selected_package_version(&f.base.m, &current).is_err());
+        assert!(activation_status_from(&f.base.m, &f.home, &f.service).is_err());
+        assert!(activate_from(&f.base.m, &f.home, &f.service).is_err());
+        assert_eq!(f.service.starts.get(), 0);
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), before);
+    }
+
+    #[test]
     fn activation_refuses_pending_or_uncertain_owner_before_start() {
         let f = Fixture::new();
         f.adopt().unwrap();
@@ -2011,8 +2030,27 @@ mod tests {
         rollback_from(&f.base.m, &f.home, &f.service).unwrap();
         assert_eq!(serde_json::from_slice::<serde_json::Value>(&fs::read(f.base.m.root.join("software.json")).unwrap()).unwrap(),
             serde_json::from_slice::<serde_json::Value>(&old_bytes).unwrap());
-        old.preparation_kit.unwrap().verify().unwrap();
+        old.preparation_kit.as_ref().unwrap().verify().unwrap();
         assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry_bytes);
+        let record = old.manager.path.parent().unwrap().join("package-generation.json");
+        assert!(!record.exists());
+        let restored_bytes = fs::read(f.base.m.root.join("software.json")).unwrap();
+        let status = activation_status_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!(status.state, "inactive");
+        assert_eq!(status.package_version, "retained-installation");
+        assert_eq!(selected_package_version(&f.base.m, &old).unwrap(), None);
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!(activation_status_from(&f.base.m, &f.home, &f.service).unwrap().state,
+            "active");
+        assert_eq!(f.service.starts.get(), 1);
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), restored_bytes);
+        assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry_bytes);
+        assert!(!record.exists());
+        f.service.loaded.borrow_mut().active = "inactive".into();
+        fs::write(&record, b"{}").unwrap();
+        fs::set_permissions(&record, fs::Permissions::from_mode(0o400)).unwrap();
+        assert!(activate_from(&f.base.m, &f.home, &f.service).is_err());
+        assert_eq!(f.service.starts.get(), 1);
     }
 
     #[test]

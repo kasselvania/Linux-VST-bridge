@@ -65,6 +65,25 @@ version remains selected. This failed transition is retained in the
 [installed development receipt](../evidence/self-service-delivery/internal36-installed-delivery.json).
 Neither result establishes musical recall or hardware audio.
 
+Internal37 completed the same populated Deck selection through ordinary Setup.
+The separately saved Bitwig project reopened with its Pure LoFi and FRAGMENTS
+settings, MIDI and automation intact and produced a captured stereo signal.
+The native proxies were retained; this does not qualify successor audio changes.
+Visible restoration returned the exact old application, registry and project,
+but Setup then failed because selected activation required a version record that
+the retained pre-package installation never had. The service remained inactive;
+the full update/rollback journey failed. See the
+[internal37 receipt](../evidence/self-service-delivery/internal37-installed-delivery.json).
+
+The source successor shares one verified legacy classification between setup
+and activation. Only the exact retained `session.py` / `ownership.py` layout may
+lack a package record, with its private generation and all selected component
+identities verified. It can then receive normal selected-service status and an
+explicit Start after rollback. A missing modern record still refuses. The
+status labels it `retained-installation`, never inventing a package version or
+writing a generation record. Forty package-authority tests and strict manager
+Clippy passed on macOS; the installed successor remains to be retested.
+
 Source tests cover signature/class/key/payload changes, unsafe paths, duplicate
 members, symlink substitution, low disk, Python mismatch, preserving selected
 software and later-created projects across two staged versions. These are source

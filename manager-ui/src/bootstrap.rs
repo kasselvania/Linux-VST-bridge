@@ -573,7 +573,7 @@ impl eframe::App for Bootstrap {
                 else if self.package_adopt_offered && self.legacy_adoptable { ui.label("Your existing managed installation is verified. Apply the installed package to retain it as the rollback predecessor."); }
                 else if self.package_adopt_offered && self.update_available { ui.label("Select the verified installed package. Your current generation and plug-in state remain available for exact rollback."); }
                 else if self.package_adopt_offered { ui.label("Application routes need attention. Applying the installed package rechecks the exact generation and refuses a route it does not own."); }
-                else if self.attention { ui.label("The selected application needs attention. Its state has not been changed by this screen."); }
+                else if self.attention { ui.label("Setup needs attention. Check again to confirm the current application and next step."); }
                 else if self.adopted { ui.label("Application files and routes are selected. Start the bridge service to finish first-run setup."); }
                 let (operation, label) = self.primary_action();
                 if ui.add_sized([250.0, 48.0], egui::Button::new(label)).clicked() {
