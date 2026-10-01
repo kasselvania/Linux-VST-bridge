@@ -195,6 +195,16 @@ historical-profile fixture owned by a different build user; that test then
 passed against a correctly owned copy. All-target Clippy passes. Installed
 response-time and frontend recovery acceptance remain required.
 
+The next native diagnostic retains the first 16 and most recent 16 gap traces,
+counting displaced records explicitly, and includes the exact mailbox reply's
+Windows timing with each correlated gap. This avoids losing every later failure
+when early misses exhaust the bounded history. Storage and the existing file
+and line limits remain bounded; observation stays outside the audio callback.
+The 83 native library tests pass with one Windows-fixture test ignored when run
+serially, and all-target Clippy passes. An earlier concurrent test run retained
+three `Full` refusals from tests sharing the production instance table. This
+diagnostic is not an audio repair and is absent from internal44.
+
 The internal40 reference effect's input witness captured a parameter point at
 offset 1024 in a 1024-frame host block during saved automation. The prior bridge
 treated this curve endpoint as an invalid sample and permanently refused later

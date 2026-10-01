@@ -1001,6 +1001,17 @@ The separate Pi standalone Serum source candidate is unqualified for musical
 use. FN1 retains the first-note gap; PW1 removes it only in the named
 default-state fixture under an opt-in startup sequence.
 
+Deck internal43 still failed: Pure LoFi retained 39,680 missing processing
+frames and FRAGMENTS 6,912. Temporary exact-worker scheduling promotion did not
+establish a fix; FRAGMENTS retained 512 more missing frames afterwards. Later
+policy readback was absent and Pure LoFi's early trace capacity was exhausted.
+The next native diagnostic preserves the first 16 and most recent 16 gaps and
+each correlated mailbox reply's Windows timing, with displaced coverage counted.
+All 83 serial native-library tests and Clippy pass, with one Windows-fixture
+test ignored. It changes observation only and is not installed in internal44.
+See the [internal43 diagnostic](../evidence/self-service-delivery/internal43-audio-priority-diagnostic.json)
+and [integrated delivery status](INTEGRATED_BETA_DELIVERY.md).
+
 ### Claim limit
 
 Counters are not automatically audible-dropout evidence. Elapsed Windows

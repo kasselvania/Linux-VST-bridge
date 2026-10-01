@@ -11,6 +11,13 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+The integrated internal43 Deck audio diagnostic still failed its declared
+processing workload. The next source diagnostic keeps bounded early and recent
+gaps with the exact Windows mailbox timing; it is observation work, not a
+dropout repair or an accepted support change. See
+[FC-AUDIO-001](FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses)
+and the [retained diagnostic](../evidence/self-service-delivery/internal43-audio-priority-diagnostic.json).
+
 ## Managed Windows DAW / Steam Deck Desktop Mode
 
 This lane is separate from the native Bitwig VST3 bridge below. It has no Linux
