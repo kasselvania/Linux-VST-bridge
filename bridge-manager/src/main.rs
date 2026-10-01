@@ -777,6 +777,7 @@ fn spawn(s: &Software, path: &Path, peer: Option<UnixStream>) -> Result<Child> {
         Stdio::null()
     };
     let job: SessionSpec = read_json(path)?;
+    record_lease_generation(&job)?;
     atomic_json(&job.lease, &job.report)?;
     let child = Command::new("/usr/bin/python3")
         .arg(&s.supervisor.path)
@@ -790,13 +791,86 @@ fn spawn(s: &Software, path: &Path, peer: Option<UnixStream>) -> Result<Child> {
     }
     Ok(child?)
 }
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LeaseGeneration {
+    schema: u32,
+    session: String,
+    report: PathBuf,
+    kernel_boot: String,
+    basis: LeaseGenerationBasis,
+}
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum LeaseGenerationBasis { BeforeLaunch, StoppedServiceObservation }
+fn valid_kernel_boot(value: &str) -> bool {
+    value.len() == 36 && value.bytes().enumerate().all(|(index, byte)| {
+        if matches!(index, 8 | 13 | 18 | 23) { byte == b'-' }
+        else { byte.is_ascii_digit() || matches!(byte, b'a'..=b'f') }
+    })
+}
+fn kernel_boot() -> Result<Option<String>> {
+    #[cfg(target_os = "linux")]
+    {
+        let boot = fs::read_to_string("/proc/sys/kernel/random/boot_id")?.trim().to_owned();
+        require(valid_kernel_boot(&boot), "kernel_generation_identity")?;
+        Ok(Some(boot))
+    }
+    #[cfg(not(target_os = "linux"))]
+    { Ok(None) }
+}
+fn record_lease_generation(job: &SessionSpec) -> Result<()> {
+    let boot = kernel_boot()?.ok_or("session_requires_linux_kernel_identity")?;
+    let runtime = job.lease.parent().and_then(Path::parent).ok_or("lease_generation_path")?;
+    require(job.lease == runtime.join("leases").join(format!("{}.json", job.session))
+        && job.report.parent() == Some(runtime.join("results").as_path())
+        && valid_hex(&job.session, 32), "lease_generation_binding")?;
+    let directory = runtime.join("lease-generations");
+    private_dir(&directory)?;
+    let path = directory.join(format!("{}.json", job.session));
+    require(!path.try_exists()?, "lease_generation_already_owned")?;
+    // Persist the kernel lifetime before a lease or process can exist. A later
+    // manager may prove interruption without recycling a PID or inventing a
+    // successful plug-in result. Historical leases receive no inferred boot.
+    atomic_json(&path, &LeaseGeneration {schema:1, session:job.session.clone(),
+        report:job.report.clone(), kernel_boot:boot, basis:LeaseGenerationBasis::BeforeLaunch})
+}
+// Caller has stopped the exact selected service and holds registry.lock. This
+// is a current observation, never an inference about a historical launch. Only
+// a subsequent kernel restart can retire these unresolved keeper leases.
+fn observe_stopped_leases(m: &Manager, boot: Option<&str>) -> Result<bool> {
+    let Some(boot) = boot else { return Ok(false); };
+    require(valid_kernel_boot(boot), "kernel_generation_identity")?;
+    let owners = capacity::owners(m)?;
+    require(owners.iter().all(|owner| owner.kind == capacity::Kind::Keeper),
+        "package_owner_active")?;
+    let directory = m.root.join("runtime/lease-generations");
+    private_dir(&directory)?;
+    for owner in &owners {
+        let lease = m.root.join("runtime/leases").join(format!("{}.json", owner.session));
+        let report: PathBuf = read_json(&lease)?;
+        let path = directory.join(format!("{}.json", owner.session));
+        if !path.try_exists()? {
+            atomic_json(&path, &LeaseGeneration { schema:1, session:owner.session.clone(),
+                report, kernel_boot:boot.into(), basis:LeaseGenerationBasis::StoppedServiceObservation })?;
+        }
+    }
+    Ok(!owners.is_empty())
+}
 fn reconcile_leases(m: &Manager) -> Result<bool> {
+    reconcile_leases_in_kernel(m, kernel_boot()?.as_deref())
+}
+fn reconcile_leases_in_kernel(m: &Manager, boot: Option<&str>) -> Result<bool> {
+    require(boot.is_none_or(valid_kernel_boot), "kernel_generation_identity")?;
     let directory = m.root.join("runtime/leases");
     private_dir(&directory)?;
     let mut unconfirmed = false;
     for entry in fs::read_dir(directory)? {
         let path = entry?.path();
         let report: PathBuf = read_json(&path)?;
+        let session = path.file_stem().and_then(|name| name.to_str()).ok_or("lease_session_identity")?;
+        require(valid_hex(session, 32) && path.file_name().and_then(|name| name.to_str())
+            == Some(format!("{session}.json").as_str()), "lease_session_identity")?;
         require(
             report.parent() == Some(m.root.join("runtime/results").as_path()),
             "lease report outside owned results",
@@ -822,7 +896,27 @@ fn reconcile_leases(m: &Manager) -> Result<bool> {
         };
         match proof {
             Ok(r) if r["cleanup_confirmed"] == true => fs::remove_file(path)?,
-            _ => unconfirmed = true,
+            _ => {
+                let generation_path = m.root.join("runtime/lease-generations")
+                    .join(format!("{session}.json"));
+                if generation_path.try_exists()? {
+                    let generation: LeaseGeneration = read_json(&generation_path)?;
+                    require(generation.schema == 1 && generation.session == session
+                        && generation.report == report && valid_kernel_boot(&generation.kernel_boot),
+                        "lease_generation_binding")?;
+                    if boot.is_some_and(|current| current != generation.kernel_boot) {
+                        let interrupted = generation_path.with_extension("interrupted.json");
+                        atomic_json(&interrupted, &serde_json::json!({"schema":1,
+                            "session":session,"retirement_basis":"kernel_generation_ended",
+                            "observation_basis":generation.basis,
+                            "cleanup_confirmed":true,"transport_retired":true,
+                            "successful_session":false}))?;
+                        fs::remove_file(path)?;
+                        continue;
+                    }
+                }
+                unconfirmed = true;
+            },
         }
     }
     Ok(unconfirmed)
@@ -2312,6 +2406,113 @@ mod tests {
         assert!(job.directory.exists() && job.lease.exists());
     }
     #[test]
+    fn kernel_restart_retires_bound_leases_and_preserves_failed_result() {
+        let f = test_fixture::Fixture::new();
+        let (job, _) = spec(&f.m, f.r.clone().into(), true, false, false).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        let result = serde_json::json!({"ready":true,"cleanup_confirmed":false,
+            "error":"interrupted before retirement","plugin_state":"not captured"});
+        atomic_json(&job.report, &result).unwrap();
+        let original = fs::read(&job.report).unwrap();
+        let generations = f.m.root.join("runtime/lease-generations");
+        private_dir(&generations).unwrap();
+        let path = generations.join(format!("{}.json", job.session));
+        atomic_json(&path, &LeaseGeneration {schema:1,session:job.session.clone(),
+            report:job.report.clone(),kernel_boot:"11111111-1111-1111-1111-111111111111".into(),
+            basis:LeaseGenerationBasis::BeforeLaunch}).unwrap();
+        assert!(reconcile_leases_in_kernel(&f.m,
+            Some("11111111-1111-1111-1111-111111111111")).unwrap());
+        assert!(job.lease.exists());
+        assert!(reconcile_leases_in_kernel(&f.m, None).unwrap());
+        assert!(job.lease.exists());
+        assert!(!reconcile_leases_in_kernel(&f.m,
+            Some("22222222-2222-2222-2222-222222222222")).unwrap());
+        assert!(!job.lease.exists());
+        assert_eq!(fs::read(&job.report).unwrap(), original);
+        let receipt: serde_json::Value = read_json(&path.with_extension("interrupted.json")).unwrap();
+        assert_eq!(receipt["session"], job.session);
+        assert_eq!(receipt["retirement_basis"], "kernel_generation_ended");
+        assert_eq!(receipt["successful_session"], false);
+    }
+    #[test]
+    fn kernel_restart_cannot_infer_legacy_ownership_or_accept_wrong_binding() {
+        let f = test_fixture::Fixture::new();
+        let (job, _) = spec(&f.m, f.r.clone().into(), true, false, false).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        let current = Some("22222222-2222-2222-2222-222222222222");
+        assert!(reconcile_leases_in_kernel(&f.m, current).unwrap());
+        assert!(job.lease.exists());
+        let directory = f.m.root.join("runtime/lease-generations");
+        private_dir(&directory).unwrap();
+        let path = directory.join(format!("{}.json", job.session));
+        for (session, report, boot) in [
+            ("wrong".to_owned(), job.report.clone(), "11111111-1111-1111-1111-111111111111"),
+            (job.session.clone(), job.report.with_extension("other.json"), "11111111-1111-1111-1111-111111111111"),
+            (job.session.clone(), job.report.clone(), "invalid"),
+        ] {
+            atomic_json(&path, &LeaseGeneration {schema:1,session,report,kernel_boot:boot.into(),
+                basis:LeaseGenerationBasis::BeforeLaunch}).unwrap();
+            assert!(reconcile_leases_in_kernel(&f.m, current).is_err());
+            assert!(job.lease.exists());
+            assert!(!path.with_extension("interrupted.json").exists());
+        }
+    }
+    #[test]
+    #[cfg(target_os="linux")]
+    fn launch_generation_precedes_spawn_and_cannot_be_replaced() {
+        let f = test_fixture::Fixture::new();
+        let (job, _) = spec(&f.m, f.r.clone().into(), true, false, false).unwrap();
+        assert!(!job.lease.exists());
+        record_lease_generation(&job).unwrap();
+        let path = f.m.root.join("runtime/lease-generations").join(format!("{}.json", job.session));
+        let original = fs::read(&path).unwrap();
+        let generation: LeaseGeneration = read_json(&path).unwrap();
+        assert_eq!(generation.kernel_boot, kernel_boot().unwrap().unwrap());
+        assert!(record_lease_generation(&job).is_err());
+        assert_eq!(fs::read(&path).unwrap(), original);
+        assert!(!job.lease.exists());
+    }
+    #[test]
+    fn stopped_legacy_keeper_needs_a_subsequent_restart_without_inferred_launch() {
+        let f = test_fixture::Fixture::new();
+        let (job, _) = spec(&f.m, f.r.clone().into(), true, false, true).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        atomic_json(&job.report, &serde_json::json!({"ready":true,"cleanup_confirmed":false})).unwrap();
+        let result = fs::read(&job.report).unwrap();
+        let boot = "11111111-1111-1111-1111-111111111111";
+        assert!(!observe_stopped_leases(&f.m, None).unwrap());
+        assert!(observe_stopped_leases(&f.m, Some("invalid")).is_err());
+        assert!(observe_stopped_leases(&f.m, Some(boot)).unwrap());
+        let path = f.m.root.join("runtime/lease-generations").join(format!("{}.json", job.session));
+        let observed = fs::read(&path).unwrap();
+        let record: serde_json::Value = read_json(&path).unwrap();
+        assert_eq!(record["basis"], "stopped_service_observation");
+        assert!(reconcile_leases_in_kernel(&f.m, Some(boot)).unwrap());
+        assert!(job.lease.exists());
+        // Repeated recovery must not move the recorded observation to a newer
+        // kernel or change the failed result into a successful session.
+        assert!(observe_stopped_leases(&f.m,
+            Some("22222222-2222-2222-2222-222222222222")).unwrap());
+        assert_eq!(fs::read(&path).unwrap(), observed);
+        assert!(!reconcile_leases_in_kernel(&f.m,
+            Some("22222222-2222-2222-2222-222222222222")).unwrap());
+        assert!(!job.lease.exists());
+        assert_eq!(fs::read(&job.report).unwrap(), result);
+        let retired: serde_json::Value = read_json(&path.with_extension("interrupted.json")).unwrap();
+        assert_eq!(retired["observation_basis"], "stopped_service_observation");
+        assert_eq!(retired["successful_session"], false);
+    }
+    #[test]
+    fn stopped_observation_cannot_adopt_an_active_instance() {
+        let f = test_fixture::Fixture::new();
+        let (job, _) = spec(&f.m, f.r.clone().into(), false, false, false).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        assert!(observe_stopped_leases(&f.m,
+            Some("11111111-1111-1111-1111-111111111111")).is_err());
+        assert!(!f.m.root.join("runtime/lease-generations").exists());
+        assert!(job.lease.exists());
+    }
+    #[test]
     fn restart_requires_positive_prior_cleanup() {
         unsafe {
             libc::umask(0o077);
@@ -2324,7 +2525,8 @@ mod tests {
         private_dir(&m.root.join("runtime/results")).unwrap();
         private_dir(&m.root.join("runtime/leases")).unwrap();
         let report = m.root.join("runtime/results/one.json");
-        let lease = m.root.join("runtime/leases/one.json");
+        let session = "01".repeat(16);
+        let lease = m.root.join("runtime/leases").join(format!("{session}.json"));
         atomic_json(&lease, &report).unwrap();
         assert!(reconcile_leases(&m).unwrap());
         assert!(lease.exists());
@@ -2344,7 +2546,7 @@ mod tests {
         let receipt = report.with_extension("ownership.json");
         atomic_json(&receipt,&serde_json::json!({"session":"wrong","cleanup_confirmed":true,"transport_retired":true})).unwrap();
         assert!(reconcile_leases(&m).unwrap());
-        atomic_json(&receipt,&serde_json::json!({"session":"one","cleanup_confirmed":true,"transport_retired":true,"reporting_error":"disk refusal"})).unwrap();
+        atomic_json(&receipt,&serde_json::json!({"session":session,"cleanup_confirmed":true,"transport_retired":true,"reporting_error":"disk refusal"})).unwrap();
         fs::remove_file(&report).unwrap();
         assert!(!reconcile_leases(&m).unwrap());
         assert!(!lease.exists());

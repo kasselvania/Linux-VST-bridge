@@ -624,13 +624,16 @@ trait ServiceControl {
     fn healthy(&self, m: &Manager) -> Result<()>;
     fn idle(&self, m: &Manager) -> Result<Vec<capacity::Owner>>;
 }
-fn clean_idle_keepers(reply: &serde_json::Value) -> Result<Vec<capacity::Owner>> {
+fn stoppable_keepers(reply: &serde_json::Value) -> Result<Vec<capacity::Owner>> {
     require(reply["ok"] == true, "package_service_not_clean_idle")?;
     let c = &reply["capacity"];
     let owners: Vec<capacity::Owner> = serde_json::from_value(c["owners"].clone())?;
     let mut sessions = std::collections::BTreeSet::new();
     require(c["schema"] == 1 && c["dsp"] == 0 && c["maintenance"] == 0
-        && c["cleanup_unconfirmed"] == false
+        // Unconfirmed retirement blocks adoption, not stopping the exact
+        // selected service. DSP, maintenance, transactions and other owners
+        // still prohibit this idle-service stop.
+        && c["cleanup_unconfirmed"].is_boolean()
         && c["keepers"].as_u64() == Some(owners.len() as u64)
         && owners.iter().all(|owner| owner.kind == capacity::Kind::Keeper
             && owner.terminal.is_none()
@@ -703,7 +706,7 @@ impl ServiceControl for SystemctlService {
         require(capacity_reply(m)?["ok"] == true, "package_service_health_unavailable")
     }
     fn idle(&self, m: &Manager) -> Result<Vec<capacity::Owner>> {
-        clean_idle_keepers(&capacity_reply(m)?)
+        stoppable_keepers(&capacity_reply(m)?)
     }
 }
 fn parse_unit_readback(text: &str) -> Result<UnitReadback> {
@@ -862,6 +865,7 @@ fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
                 && state.fragment.is_empty() && state.exec.is_empty()) => {
             let keeper_retirement_pending = {
                 let _registry = m.lock("registry.lock")?;
+                let _unconfirmed = reconcile_leases(m)?;
                 m.require_inactive(None)?;
                 let owners = capacity::owners(m)?;
                 require(owners.iter().all(|owner| owner.kind == capacity::Kind::Keeper),
@@ -940,10 +944,20 @@ fn stop_selected_service(m: &Manager, home: &Path, selected: &Software,
         && effective_exec_is(&unit.exec, &selected.manager.path),
         "package_active_service_identity_changed")?;
     service.stop()?;
-    // A stopped unit is not enough: each keeper must publish exact clean
-    // retirement before its lease can be removed or adoption offered.
-    require(!reconcile_leases(m)?, "package_cleanup_unconfirmed")?;
+    // A stopped unit is not enough: each keeper needs exact retirement proof
+    // before its lease can be removed or adoption offered.
+    reconcile_stopped_service(m, service)?;
     require(capacity::owners(m)?.is_empty(), "package_owner_active")
+}
+fn reconcile_stopped_service(m: &Manager, service: &impl ServiceControl) -> Result<()> {
+    require_service_stopped(service)?;
+    if reconcile_leases(m)? {
+        if observe_stopped_leases(m, kernel_boot()?.as_deref())? {
+            return Err("package_restart_required".into());
+        }
+        return Err("package_cleanup_unconfirmed".into());
+    }
+    Ok(())
 }
 fn stop_for_repair_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl) -> Result<()> {
@@ -966,7 +980,7 @@ fn stop_for_repair_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
         | "update_retirement_pending" | "rollback_retirement_pending") {
         let _registry = m.lock("registry.lock")?;
         m.require_inactive(None)?;
-        require(!reconcile_leases(m)?, "package_cleanup_unconfirmed")?;
+        reconcile_stopped_service(m, service)?;
         require(capacity::owners(m)?.is_empty(), "package_owner_active")?;
         drop(_registry);
         let after = bootstrap_status_from(m, home, inputs, owner, service)?;
@@ -1278,7 +1292,7 @@ mod tests {
     }
 
     #[test]
-    fn capacity_classifier_accepts_only_clean_exact_keepers() {
+    fn capacity_classifier_accepts_only_exact_stoppable_keepers() {
         let keeper = serde_json::json!({"session":"ab".repeat(16),
             "class_id":"01".repeat(16),"kind":"keeper"});
         let second = serde_json::json!({"session":"cd".repeat(16),
@@ -1286,7 +1300,10 @@ mod tests {
         let reply = serde_json::json!({"ok":true,"capacity":{"schema":1,
             "dsp":0,"maintenance":0,"keepers":2,"cleanup_unconfirmed":false,
             "owners":[keeper.clone(),second.clone()]}});
-        assert_eq!(clean_idle_keepers(&reply).unwrap().len(), 2);
+        assert_eq!(stoppable_keepers(&reply).unwrap().len(), 2);
+        let mut interrupted = reply.clone();
+        interrupted["capacity"]["cleanup_unconfirmed"] = true.into();
+        assert_eq!(stoppable_keepers(&interrupted).unwrap().len(), 2);
         for changed in [
             serde_json::json!({"capacity":{"schema":1,"dsp":0,"maintenance":0,
                 "keepers":2,"cleanup_unconfirmed":false,"owners":[keeper.clone(),second.clone()]}}),
@@ -1295,13 +1312,13 @@ mod tests {
             serde_json::json!({"ok":true,"capacity":{"schema":1,"dsp":0,"maintenance":0,
                 "keepers":1,"cleanup_unconfirmed":false,"owners":[keeper.clone(),second.clone()]}}),
             serde_json::json!({"ok":true,"capacity":{"schema":1,"dsp":0,"maintenance":0,
-                "keepers":2,"cleanup_unconfirmed":true,"owners":[keeper.clone(),second.clone()]}}),
+                "keepers":2,"cleanup_unconfirmed":"unknown","owners":[keeper.clone(),second.clone()]}}),
             serde_json::json!({"ok":true,"capacity":{"schema":1,"dsp":0,"maintenance":0,
                 "keepers":2,"cleanup_unconfirmed":false,"owners":[keeper.clone(),keeper.clone()]}}),
             serde_json::json!({"ok":true,"capacity":{"schema":1,"dsp":0,"maintenance":0,
                 "keepers":1,"cleanup_unconfirmed":false,
                 "owners":[{"session":"cd".repeat(16),"class_id":"01".repeat(16),"kind":"dsp"}]}}),
-        ] { assert!(clean_idle_keepers(&changed).is_err()); }
+        ] { assert!(stoppable_keepers(&changed).is_err()); }
     }
 
     #[test]
@@ -1552,6 +1569,42 @@ mod tests {
         assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
             &f.service).unwrap().state, "update_adoptable");
         assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), predecessor);
+    }
+
+    #[test]
+    #[cfg(target_os="linux")]
+    fn interrupted_keeper_restart_observation_preserves_populated_predecessor() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        let selected = fs::read(f.base.m.root.join("software.json")).unwrap();
+        f.replace("linux-vst-bridge", b"successor manager", true);
+        let session = "ab".repeat(16);
+        let lease = owned_lease(&f, &session, true);
+        let report: PathBuf = read_json(&lease).unwrap();
+        let original = fs::read(&report).unwrap();
+        let generation = f.base.m.root.join("runtime/lease-generations")
+            .join(format!("{session}.json"));
+        // A running service cannot acquire restart observation authority.
+        assert!(reconcile_stopped_service(&f.base.m, &f.service).is_err());
+        assert!(!generation.exists());
+        f.service.retire_keepers.set(false);
+        assert_eq!(stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap_err().to_string(), "package_restart_required");
+        let record: serde_json::Value = read_json(&generation).unwrap();
+        assert_eq!(record["basis"], "stopped_service_observation");
+        assert!(lease.exists());
+        assert!(f.adopt().is_err());
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected);
+        let other_boot = if record["kernel_boot"] == "11111111-1111-1111-1111-111111111111" {
+            "22222222-2222-2222-2222-222222222222"
+        } else { "11111111-1111-1111-1111-111111111111" };
+        assert!(!reconcile_leases_in_kernel(&f.base.m, Some(other_boot)).unwrap());
+        assert!(!lease.exists());
+        assert_eq!(fs::read(&report).unwrap(), original);
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "update_adoptable");
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected);
     }
 
     #[test]

@@ -311,6 +311,37 @@ values and refuses mismatched protocol/layout and out-of-bounds notes. These
 are source results. Windows CI, fixed-candidate installation, audio, save/reopen,
 reboot and populated rollback are still required before accepting the repair.
 
+The matching Windows build passed its whole-block processing regression and
+produced host digest `a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b`.
+Internal48 assembled schema-15 manager/frontend packages and seven exact prebuilt
+entries from source `e2ac76aa07bcda208c7794810a83d6bf83cbea3d`. CachyOS's ordinary
+frontend installed, stopped its idle predecessor, selected the successor and
+started the service with zero DSP/maintenance/keeper owners. Runtime acquisition
+and its musical workflow remain untested.
+
+Ubuntu's populated internal48 update failed in Setup before selecting the
+successor: `package_service_not_clean_idle`. Its two keeper leases survived an
+abrupt hypervisor OOM/restart without positive retirement receipts. Fresh capacity
+showed zero DSP/maintenance, two keepers and unconfirmed cleanup. The original
+saved project remained unchanged. No leases were manually deleted or marked
+successful. The [candidate and interruption receipt](../evidence/self-service-delivery/internal48-candidate-and-interrupted-update.json)
+retains exact release rosters and installer identities. Internal48 has no new
+Ubuntu musical or recall result and remains a failed qualification candidate.
+
+The source successor separates permission to stop an exact idle service from
+permission to adopt a package. Fresh exact owner, unit, route and transaction
+checks remain; unresolved retirement still blocks adoption. Each newly launched
+session records its kernel lifetime before creating a lease or process. A later
+kernel lifetime retires the exact lease with an explicit interruption receipt;
+it never changes the original failed result or fabricates saved plug-in state.
+
+Historical leases have no inferred launch lifetime. After the exact idle service
+has stopped, the recovery owner may record their current observation and ask the
+user to restart. Only a subsequent kernel restart supplies retirement proof.
+Same-kernel recovery, malformed or conflicting identities and active DSP owners
+remain blocked. Setup explains the restart and retains projects, vendor state and
+the selected application. Installed acceptance of this successor remains required.
+
 CachyOS fixture access was recovered on its cleanly stopped disposable child
 with private disk/firmware backups. Only the existing test account's password
 and password-change date were rotated; account identity, permissions and other

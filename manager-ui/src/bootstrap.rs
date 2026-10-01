@@ -485,7 +485,9 @@ impl Bootstrap {
             Err(error) => {
                 self.recovery_offered = exact_refusal(&error, "package_transition_needs_recovery");
                 self.attention = true;
-                self.result = Some(error);
+                self.result = Some(if exact_refusal(&error, "package_restart_required") {
+                    "The bridge service is stopped, but an interrupted session could not confirm its shutdown. Restart this computer, then reopen Setup to continue. Your projects, installed plug-ins and current application version are retained.".into()
+                } else { error });
             }
         }
         false
@@ -606,6 +608,15 @@ impl eframe::App for Bootstrap {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn interrupted_shutdown_explains_restart_without_offering_adoption() {
+        let mut screen = Bootstrap::new();
+        assert!(!screen.apply_completion(Err("Error: \"package_restart_required\"\n".into())));
+        assert_eq!(screen.primary_action(), (Operation::Status, "Check again"));
+        assert!(!screen.package_adopt_offered && !screen.stop_offered && !screen.adopted);
+        assert!(screen.result.as_deref().unwrap().contains("Restart this computer"));
+        assert!(screen.result.as_deref().unwrap().contains("retained"));
+    }
     #[test]
     fn first_run_commands_have_only_fixed_package_owner_and_closed_verb() {
         for (operation, verb) in [

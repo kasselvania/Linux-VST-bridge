@@ -6,7 +6,9 @@
   "credential_rotated": true,
   "existing_account_uid": 1000,
   "graphical_recovery_not_product_acceptance": true,
-  "last_graphical_observation": "black_display_after_idle_session_shortcut",
+  "host_forwarding": "localhost_only",
+  "last_graphical_observation": "normal_internal48_frontend_selected_and_service_started",
+  "later_clean_shutdown": "normal_poweroff_exit_0",
   "normal_graphical_login": "passed",
   "only_account_fields_changed": [
     "password_hash",
@@ -15,10 +17,11 @@
   "other_accounts_and_shadow_permissions_preserved": true,
   "parent_disk_sha256": "f6549185053e434ab22aef2f9d69c677c4f73990f4e4084e9ff7a752d8ba60e6",
   "parent_preserved": true,
+  "private_firewall_rule": "allow_tcp_22_only_from_host_private_container_gateway",
   "product_qualification_claim": false,
   "schema": 1,
   "ssh_service_observed": "active",
-  "ssh_transport": "host_forward_target_corrected_banner_readback_still_unavailable",
+  "ssh_transport": "passed_private_vm_connection",
   "user_authorized": true,
   "viewer_input_requires_explicit_shift_modifiers": true
 }
