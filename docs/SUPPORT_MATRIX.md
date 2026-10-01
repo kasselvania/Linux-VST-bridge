@@ -121,6 +121,18 @@ maintainer retirement; its run remains failed. The source ownership correction
 and tests are [retained separately](../evidence/self-service-delivery/inspection-lock-refusal-2026-10-01.json)
 and are not included in internal39.
 
+Internal39 then completed ordinary changed-host/proxy replacement for both
+Pure LoFi and FRAGMENTS on the populated licensed Deck account. The unchanged
+project restored both exact opaque states and produced captured stereo output.
+The new preparation profiles omitted the predecessors' exact accessibility
+policy; normal Pure LoFi editor close failed at removal stage 212. Both active
+processing phases also retain unexplained missing frames. The journey is failed,
+with reboot and repeat qualification still open. Normal Restore controls returned
+both exact predecessors; the same project restored state, played and reopened
+Pure LoFi's editor. See [the failed internal39 update and normal rollback](../evidence/self-service-delivery/internal39-deck-paired-update.json).
+The [bounded policy correction](RUNTIME_UIA_GUARD.md) is source-only until its
+successor is delivered and exercised.
+
 [Internal31 development observations](../evidence/self-service-delivery/ubuntu-internal31-development.json)
 add normal same-account package selection with retained FRAGMENTS registration,
 but do not establish changed-host migration or project recall. The headless hold

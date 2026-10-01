@@ -67,28 +67,29 @@ mod tests {
     use super::*;
     #[test]
     fn declared_policy_matches_exact_module_class_and_runtime_only() {
-        let rule = rules().unwrap().rules.remove(0);
-        let (_fixture, candidate) = crate::preparation::tests::fixture();
-        let mut selection = candidate.selection;
-        selection.module.sha256 = rule.module_sha256.clone();
-        selection.class.id = rule.class_id.clone();
-        let runner = &mut selection.environment.runner;
-        runner.id = rule.runner_id.clone();
-        runner.version = rule.runner_version.clone();
-        runner.files = vec![Artifact { path: runner.proton.clone(), sha256: rule.proton_sha256.clone() },
-            Artifact { path: runner.entry_point.clone(), sha256: rule.entry_point_sha256.clone() }];
-        assert!(rule.matches(&selection));
-        let dll = selection.environment.runner.proton.parent().unwrap()
-            .join("files/lib/wine/x86_64-windows/uiautomationcore.dll");
-        fs::create_dir_all(dll.parent().unwrap()).unwrap();
-        fs::write(&dll, b"different runtime DLL").unwrap();
-        assert!(selected(&selection).is_err(), "a matching name cannot authorize another DLL");
-        let mut changed = selection.clone(); changed.module.sha256 = "00".repeat(32);
-        assert!(!rule.matches(&changed));
-        changed = selection.clone(); changed.class.id = "00".repeat(16); assert!(!rule.matches(&changed));
-        changed = selection.clone(); changed.environment.runner.version.push_str(" successor"); assert!(!rule.matches(&changed));
-        changed = selection.clone(); changed.environment.runner.files[0].sha256 = "00".repeat(32); assert!(!rule.matches(&changed));
-        changed = selection; changed.environment.runner.id.push_str(" successor"); assert!(!rule.matches(&changed));
-        assert_eq!(selected(&changed).unwrap(), (Accessibility::WindowsDefault, None));
+        for rule in rules().unwrap().rules {
+            let (_fixture, candidate) = crate::preparation::tests::fixture();
+            let mut selection = candidate.selection;
+            selection.module.sha256 = rule.module_sha256.clone();
+            selection.class.id = rule.class_id.clone();
+            let runner = &mut selection.environment.runner;
+            runner.id = rule.runner_id.clone();
+            runner.version = rule.runner_version.clone();
+            runner.files = vec![Artifact { path: runner.proton.clone(), sha256: rule.proton_sha256.clone() },
+                Artifact { path: runner.entry_point.clone(), sha256: rule.entry_point_sha256.clone() }];
+            assert!(rule.matches(&selection));
+            let dll = selection.environment.runner.proton.parent().unwrap()
+                .join("files/lib/wine/x86_64-windows/uiautomationcore.dll");
+            fs::create_dir_all(dll.parent().unwrap()).unwrap();
+            fs::write(&dll, b"different runtime DLL").unwrap();
+            assert!(selected(&selection).is_err(), "a matching name cannot authorize another DLL");
+            let mut changed = selection.clone(); changed.module.sha256 = "00".repeat(32);
+            assert!(!rule.matches(&changed));
+            changed = selection.clone(); changed.class.id = "00".repeat(16); assert!(!rule.matches(&changed));
+            changed = selection.clone(); changed.environment.runner.version.push_str(" successor"); assert!(!rule.matches(&changed));
+            changed = selection.clone(); changed.environment.runner.files[0].sha256 = "00".repeat(32); assert!(!rule.matches(&changed));
+            changed = selection; changed.environment.runner.id.push_str(" successor"); assert!(!rule.matches(&changed));
+            assert_eq!(selected(&changed).unwrap(), (Accessibility::WindowsDefault, None));
+        }
     }
 }

@@ -11,6 +11,28 @@
       "uiautomationcore_sha256": "d4362453451e01c937fba7272e1644164ef2498a861216b00696161fe43dbdcb",
       "accessibility": "disabled_for_vendor_process",
       "evidence": "evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json"
+    },
+    {
+      "runner_id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+      "runner_version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+      "proton_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+      "entry_point_sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+      "uiautomationcore_sha256": "33a195f56bd5a84ace582ef480db2e272f21856df6437843eda406af295c6049",
+      "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+      "class_id": "417274754156495350724C4650726F63",
+      "accessibility": "disabled_for_vendor_process",
+      "evidence": "evidence/AP12/delivery-cause-and-repair.json"
+    },
+    {
+      "runner_id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+      "runner_version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+      "proton_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+      "entry_point_sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+      "uiautomationcore_sha256": "33a195f56bd5a84ace582ef480db2e272f21856df6437843eda406af295c6049",
+      "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+      "class_id": "41727475415649536772616E50726F63",
+      "accessibility": "disabled_for_vendor_process",
+      "evidence": "evidence/AP12/delivery-cause-and-repair.json"
     }
   ]
 }

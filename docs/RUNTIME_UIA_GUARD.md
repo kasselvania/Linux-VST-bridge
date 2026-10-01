@@ -20,6 +20,24 @@ prefixes, installers, environment owners and other products are unchanged.
 This policy disables Windows UI Automation/screen-reader integration for that
 vendor host. VST parameter automation is a separate interface.
 
+Internal39's populated Deck update prepared new host/proxy pairs for Pure LoFi
+1.0.0.6121 and FRAGMENTS 1.0.0.2925, but reverted their declared process policy
+to Windows-default accessibility. The exact selected predecessors disable it.
+The updated project restored both opaque states and produced captured output;
+normal Pure LoFi editor close then failed at removal stage 212 with access
+violation `c0000005`. The current fault header identifies that boundary, without
+a new instruction-to-DLL mapping or vendor-caller attribution. Its processing
+phase also retains missing frames, so the run is failed for musical acceptance.
+
+Preparation now includes the existing bounded policy for those two exact Deck
+module/class pairs and pinned runner, entry scripts and UI Automation DLL.
+The [AP12 causal comparison](../evidence/AP12/delivery-cause-and-repair.json) and
+[musical pair](../evidence/AP12/musical-pair-reboot-removal.json) are its retained
+basis; live readback confirmed the same bytes. Unknown module or runtime builds
+remain Windows-default. Proposed profiles remain review candidates with Windows
+screen-reader integration unavailable. This source correction is absent from
+internal39 and needs delivered close/reopen and retirement testing.
+
 Internal29 prepared and explicitly replaced the publication with this policy,
 but a separate retained-buffering verifier refused DAW admission before a
 Windows DSP host existed. Internal30 delivered that bounded admission repair.
