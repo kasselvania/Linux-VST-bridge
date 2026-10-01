@@ -405,6 +405,9 @@ mod tests {
         fn new()->Self {
             let home=std::env::temp_dir().join(format!("lvb-user-package-{}",random_id().unwrap()));
             directory(&home).unwrap();
+            // macOS exposes its temporary root through /var -> /private/var.
+            // Supply the same canonical home identity required of real intake.
+            let home=fs::canonicalize(home).unwrap();
             let output=Command::new("/usr/bin/python3").args(["-I","-S","-c",
                 "import importlib.util,sys;sys.stdout.buffer.write(importlib.util.MAGIC_NUMBER)"])
                 .output().unwrap();assert!(output.status.success());

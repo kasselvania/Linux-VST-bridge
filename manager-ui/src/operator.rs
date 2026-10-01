@@ -146,10 +146,7 @@ impl RequestFeedback {
         self.terminal = !r.accepted;
         self.release_after_snapshot = !r.accepted;
         self.text = if r.accepted {
-            format!(
-                "Request accepted · {}. Waiting for its result.",
-                r.operation.as_deref().unwrap_or("identity unavailable")
-            )
+            "Request accepted. Waiting for its result.".into()
         } else {
             format!(
                 "This request was refused: {}",
@@ -206,9 +203,18 @@ impl RequestFeedback {
                     "The operation is supervised and running. Use its exact Focus or Stop control below.".into()
                 }
             }
-            Some("queued" | "running") => {
-                "This operation is in progress. Do not click again.".into()
-            }
+            Some("queued") => "This operation is queued. Do not click again.".into(),
+            Some("running") => match &self.action {
+                Action::RuntimeInstall {} =>
+                    "Downloading and preparing the compatibility runtime. This may take several minutes.".into(),
+                Action::EnvironmentRescan { .. } =>
+                    "Checking the installed products. The bridge will resume when this finishes.".into(),
+                Action::CompatibilityCheck { .. } | Action::CompatibilityResumeCheck { .. } =>
+                    "Checking this plug-in and preparing its matching bridge.".into(),
+                Action::PluginPrepare { .. } => "Preparing this plug-in's matching bridge.".into(),
+                Action::CompatibilityPublishTest { .. } => "Selecting this plug-in's prepared bridge.".into(),
+                _ => "This operation is in progress. Do not click again.".into(),
+            },
             _ => return,
         };
     }
@@ -4224,6 +4230,29 @@ mod tests {
         assert_eq!(o.next_action().unwrap().action, create_request().action);
         assert!(o.next_action().is_none());
         assert!(o.controls_pending());
+    }
+    #[test]
+    fn long_setup_feedback_names_only_the_exact_running_operation() {
+        let mut feedback=RequestFeedback::captured(Action::RuntimeInstall {});
+        feedback.operation=Some("current".into());
+        feedback.observe(&serde_json::json!({"operation":"other","state":"running"}));
+        assert!(feedback.text.contains("Click received"));
+        feedback.observe(&serde_json::json!({"operation":"current","state":"queued"}));
+        assert!(feedback.text.contains("queued"));
+        assert!(!feedback.text.contains("Downloading"));
+        feedback.observe(&serde_json::json!({"operation":"current","state":"running"}));
+        assert!(feedback.text.contains("Downloading and preparing"));
+        assert!(feedback.blocking);
+        feedback.observe(&serde_json::json!({"operation":"current","state":"completed"}));
+        assert!(feedback.terminal);
+        assert!(!feedback.text.contains("Downloading"));
+        feedback.observe(&serde_json::json!({"operation":"current","state":"running"}));
+        assert!(!feedback.text.contains("Downloading"),"terminal work cannot become running again");
+        let mut feedback=RequestFeedback::captured(Action::EnvironmentRescan {environment:"ab".repeat(16)});
+        feedback.operation=Some("scan".into());
+        feedback.observe(&serde_json::json!({"operation":"scan","state":"running"}));
+        assert!(feedback.text.contains("Checking the installed products"));
+        assert!(!feedback.text.contains("Downloading"));
     }
     #[test]
     fn guided_check_keeps_the_offered_identity_and_queues_once() {

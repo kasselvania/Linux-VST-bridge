@@ -340,7 +340,37 @@ has stopped, the recovery owner may record their current observation and ask the
 user to restart. Only a subsequent kernel restart supplies retirement proof.
 Same-kernel recovery, malformed or conflicting identities and active DSP owners
 remain blocked. Setup explains the restart and retains projects, vendor state and
-the selected application. Installed acceptance of this successor remains required.
+the selected application. Internal49 exercised this path through the normal
+Ubuntu installer, Setup and operating-system restart on the existing account.
+Two exact interruption receipts confirmed retirement without marking either
+session successful. The original project digest remained unchanged, and Setup
+selected and started internal49 without manual lease changes or process kills.
+
+Internal49 is still a failed qualification candidate: its subsequent ordinary
+inventory refresh persisted current discovery but refused service resume before
+all registered environments were ready. The second environment became ready
+13 seconds after the refusal; later product-owned recovery restored the service.
+No musical, persistence or rollback pass is inferred from that recovery.
+
+On CachyOS, the same Ubuntu variant acquired and verified its pinned runtime
+through Setup without installed Wine, Proton or Steam. One held first-party
+installer cancellation worked while global readiness was unavailable: the
+ordinary Stop control retired the exact operation, confirmed zero live owned
+processes, reported no durable installation, and offered Retry on the same card.
+The second repetition, completed installation and musical journey remain pending.
+The [internal49 progress receipt](../evidence/self-service-delivery/internal49-delivery-progress.json)
+retains both release rosters, installed readbacks and screenshots.
+
+The source successor stages every exact environment before waiting for any
+single environment's readiness, using one overall recovery deadline and fresh
+ownership readback after lock acquisition. Readiness is acknowledged only after
+every binding reports Ready and its registration/components still match.
+It also names running setup operations in frontend feedback without inventing
+download percentages or phases. All 193 manager-library, 274 manager-binary and
+86 frontend tests pass, with one opt-in binary test ignored; both all-target
+Clippy runs pass with warnings denied. Installed successor acceptance remains
+required. The [source regression receipt](../evidence/self-service-delivery/multi-environment-resume-regressions.json)
+keeps that limitation explicit.
 
 CachyOS fixture access was recovered on its cleanly stopped disposable child
 with private disk/firmware backups. Only the existing test account's password

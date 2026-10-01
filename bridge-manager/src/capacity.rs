@@ -690,6 +690,16 @@ pub fn reserve_maintenance(
 ) -> Result<Lock> {
     reserve_maintenance_with_wait(m, limits, blocked, std::time::Duration::from_secs(2))
 }
+/// Recovery has one overall deadline. Its initial and subsequent reservations
+/// may wait for fresh readback, but cannot extend that deadline or reuse owners.
+pub fn reserve_maintenance_until(
+    m: &Manager, limits: &Limits, blocked: impl Fn() -> bool,
+    deadline: std::time::Instant,
+) -> Result<Lock> {
+    let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+    if remaining.is_zero() { return Err(Refusal::ServiceBusy.into()); }
+    reserve_maintenance_with_wait(m, limits, blocked, remaining.min(std::time::Duration::from_secs(60)))
+}
 fn reserve_maintenance_with_wait(
     m: &Manager, limits: &Limits, blocked: impl Fn() -> bool, wait: std::time::Duration,
 ) -> Result<Lock> {
@@ -826,6 +836,33 @@ mod tests {
         fs::write(f.m.root.join("runtime/leases/broken.json"), b"invalid").unwrap();
         assert_eq!(reason(reserve_maintenance(&f.m, &limits(), || false)),
             Refusal::CleanupUnconfirmed.code());
+    }
+    #[test]
+    fn recovery_reservation_uses_remaining_budget_and_rechecks_cleanup() {
+        let f=Fixture::new();
+        let blocked=std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let held=f.m.lock("registry.lock").unwrap();
+        let changed=blocked.clone();
+        let owner=std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(30));
+            changed.store(true,std::sync::atomic::Ordering::Release);
+            drop(held);
+        });
+        let error=reserve_maintenance_until(&f.m,&limits(),
+            || blocked.load(std::sync::atomic::Ordering::Acquire),
+            std::time::Instant::now()+std::time::Duration::from_secs(1)).err().unwrap();
+        owner.join().unwrap();
+        assert_eq!(error.downcast_ref::<Refusal>(),Some(&Refusal::CleanupUnconfirmed));
+        assert_eq!(reason(reserve_maintenance_until(&f.m,&limits(),|| false,
+            std::time::Instant::now())),Refusal::ServiceBusy.code());
+        let held=f.m.lock("registry.lock").unwrap();
+        let started=std::time::Instant::now();
+        let error=reserve_maintenance_until(&f.m,&limits(),|| false,
+            started+std::time::Duration::from_millis(20)).err().unwrap();
+        assert!(started.elapsed()<std::time::Duration::from_secs(1));
+        assert_eq!(error.downcast_ref::<operator_lock::AcquisitionFailure>().unwrap()
+            .facts.outcome,operator_model::LockOutcome::Timeout);
+        drop(held);
     }
     #[test]
     fn status_waits_for_contention_and_reads_new_owners() {

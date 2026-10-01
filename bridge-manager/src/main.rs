@@ -88,6 +88,31 @@ fn verify_recovery_binding(m: &Manager, selected: &Software,
         "service_recovery_components_changed")
 }
 
+fn restore_recovery_bindings<R>(
+    bindings: &[(Registration, Software)], deadline: Instant,
+    mut reserve: impl FnMut() -> Result<R>,
+    mut stage: impl FnMut(&Registration, &Software) -> Result<KeeperAvailability>,
+    mut verify: impl FnMut(&Registration, &Software) -> Result<()>,
+    mut pause: impl FnMut(Duration),
+) -> Result<()> {
+    // Start each exact environment before waiting for any one Wine startup.
+    // Starting is retained ownership, never a readiness acknowledgment.
+    for (registration, execution) in bindings {
+        require(Instant::now() < deadline, "service_recovery_deadline")?;
+        let _admission = reserve()?;
+        if stage(registration, execution)? == KeeperAvailability::Failed {
+            return Err(capacity::Refusal::BindingInvalid.into());
+        }
+        verify(registration, execution)?;
+    }
+    for (registration, execution) in bindings {
+        let _admission = wait_for_keeper(deadline, &mut reserve,
+            || stage(registration, execution), &mut pause)?;
+        verify(registration, execution)?;
+    }
+    require(Instant::now() < deadline, "service_recovery_deadline")
+}
+
 // Startup work runs on a control worker. Waiting for the shared environment
 // owner releases the registry reservation, so scans and status requests cannot
 // be serialized behind cold Wine initialization. Every retry rechecks capacity
@@ -1255,8 +1280,8 @@ fn serve(m: Manager) -> Result<()> {
                     // Selection comes only from current registered environments.
                     let deadline=Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS);
                     let registrations={
-                        let _admission=capacity::reserve_maintenance(&m,&limits,
-                            || blocked.load(Ordering::Acquire))?;
+                        let _admission=capacity::reserve_maintenance_until(&m,&limits,
+                            || blocked.load(Ordering::Acquire),deadline)?;
                         m.require_inactive(None)?;
                         let mut environments=std::collections::BTreeSet::new();
                         m.registry()?.classes.into_values().map(|entry|entry.registration)
@@ -1272,18 +1297,16 @@ fn serve(m: Manager) -> Result<()> {
                     let (bindings,verified)=prepare_recovery_bindings(&m,&s,
                         registrations,&launch_verification,deadline)?;
                     return verified.run(|| {
-                        for (registration,execution) in bindings {
-                            let binding:HostBinding=registration.clone().into();
-                            let _admission=wait_for_keeper(deadline,
-                                || capacity::reserve_maintenance(&m,&limits,
-                                    || blocked.load(Ordering::Acquire)),
-                                || {
-                                    require_recovery_registration(&m,&registration)?;
-                                    stage_keeper(&m,&execution,&binding,&keepers,None)
-                                }, std::thread::sleep)?;
-                            verify_recovery_binding(&m,&s,&registration,&execution)?;
-                        }
-                        require(Instant::now()<deadline,"service_recovery_deadline")?;
+                        restore_recovery_bindings(&bindings, deadline,
+                                || capacity::reserve_maintenance_until(&m,&limits,
+                                    || blocked.load(Ordering::Acquire),deadline),
+                                |registration, execution| {
+                                    require_recovery_registration(&m,registration)?;
+                                    let binding:HostBinding=registration.clone().into();
+                                    stage_keeper(&m,execution,&binding,&keepers,None)
+                                }, |registration, execution|
+                                    verify_recovery_binding(&m,&s,registration,execution),
+                                std::thread::sleep)?;
                         peer.set_write_timeout(Some(Duration::from_secs(1)))?;
                         peer.write_all(b"LVE1 ready\n")?;
                         Ok(())
@@ -1937,6 +1960,50 @@ mod tests {
         assert_eq!(snapshot.run(|| require_recovery_registration(&f.m, &registration))
             .unwrap_err().to_string(), "service_recovery_registration_changed");
         assert!(!f.m.root.join("runtime/leases").exists());
+    }
+    #[test]
+    fn service_recovery_starts_both_environments_before_waiting_and_confirms_each() {
+        use std::cell::RefCell;
+        let (f,_,_,_)=test_fixture::prepared();
+        let software=recovery_software(&f);
+        let first=f.r.clone();
+        let mut second=first.clone();
+        second.environment.id="55".repeat(16);
+        let bindings=vec![(first,software.clone()),(second,software)];
+        let started=RefCell::new(std::collections::BTreeSet::new());
+        let rounds=std::cell::Cell::new(0);
+        let confirmed=RefCell::new(Vec::new());
+        restore_recovery_bindings(&bindings,Instant::now()+Duration::from_secs(1),
+            || Ok(()), |registration,_| {
+                started.borrow_mut().insert(registration.environment.id.clone());
+                Ok(if rounds.get()>=2 {KeeperAvailability::Ready} else {KeeperAvailability::Starting})
+            }, |registration,_| {
+                if rounds.get()>=2 {confirmed.borrow_mut().push(registration.environment.id.clone());}
+                Ok(())
+            }, |_| {
+                assert_eq!(started.borrow().len(),2,
+                    "one environment cannot consume the next environment's startup budget");
+                rounds.set(rounds.get()+1);
+            }).unwrap();
+        assert_eq!(rounds.get(),2);
+        assert_eq!(confirmed.borrow().len(),2,"every environment must actually report ready");
+    }
+    #[test]
+    fn service_recovery_never_confirms_a_failed_or_changed_binding() {
+        let (f,_,_,_)=test_fixture::prepared();
+        let bindings=vec![(f.r.clone(),recovery_software(&f))];
+        let error=restore_recovery_bindings(&bindings,Instant::now()+Duration::from_secs(1),
+            || Ok(()), |_,_| Ok(KeeperAvailability::Failed),
+            |_,_| panic!("failed environment confirmed"), |_| panic!("failed environment retried")).unwrap_err();
+        assert_eq!(error.downcast_ref::<capacity::Refusal>(),Some(&capacity::Refusal::BindingInvalid));
+        let error=restore_recovery_bindings(&bindings,Instant::now()+Duration::from_secs(1),
+            || Ok(()), |_,_| Ok(KeeperAvailability::Ready),
+            |_,_| Err("service_recovery_components_changed".into()),
+            |_| panic!("changed binding retried")).unwrap_err();
+        assert_eq!(error.to_string(),"service_recovery_components_changed");
+        assert!(restore_recovery_bindings::<()>(&bindings,Instant::now(),
+            || panic!("expired reservation"), |_,_| panic!("expired staging"),
+            |_,_| panic!("expired confirmation"), |_| panic!("expired wait")).is_err());
     }
     fn fixture_keeper(f:&test_fixture::Fixture,command:&str)->(KeeperOwner,PathBuf,PathBuf) {
         let report=f.outer.join(format!("keeper-{}.json",random_id().unwrap()));
