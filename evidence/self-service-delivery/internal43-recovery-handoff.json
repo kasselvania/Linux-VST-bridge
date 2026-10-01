@@ -1,0 +1,556 @@
+{
+  "schema": 1,
+  "claim": "Internal43 populated application update and Ubuntu service-restoration failure",
+  "candidate_complete": false,
+  "customer_release": false,
+  "source": {
+    "head": "f99db00277313b673fbc2f9bd7eb4334ef1ba54e",
+    "tree": "ce8e5da6593087d8361d88de558f7aa1bc70e3a7",
+    "epoch": 1790850588
+  },
+  "packages": {
+    "ubuntu": {
+      "filename": "Linux-VST-Bridge-0.12.0internal43-ubuntu.install",
+      "sha256": "728f039f3392209f2d56967395a125db437d00d3919da2ae5ef56288b0d320a4",
+      "bytes": 58016261,
+      "manifest_sha256": "1865675d395329e95a591b6346abd0fde89c9c2f7a79ad048a8b81d6f2562c07",
+      "key_class": "internal_test",
+      "release": {
+        "files": [
+          {
+            "component": "self-service-frontend",
+            "destination": "usr/bin/linux-audio-compatibility-manager",
+            "kind": "frontend",
+            "mode": "0555",
+            "sha256": "d3850c6ba6c47a8d1efbfe7c7b2febd1345a08b2adb0d09abe5d28a84dcd22c5",
+            "size": 13624104
+          },
+          {
+            "component": "self-service-manager",
+            "destination": "usr/bin/linux-vst-bridge",
+            "kind": "manager",
+            "mode": "0555",
+            "sha256": "a736d774984dccabf7cbb2bbe93e5bf43327a13070da007e5a17d3ba7851ef48",
+            "size": 11206400
+          },
+          {
+            "component": "self-service-windows_host",
+            "destination": "usr/lib/linux-vst-bridge/host/bridge-host.exe",
+            "kind": "windows_host",
+            "mode": "0444",
+            "sha256": "a90de3ca2f7360e8c9477184acb8224ebf394d4e46cf00fd905892002a79cd13",
+            "size": 969216
+          },
+          {
+            "component": "self-service-host_source",
+            "destination": "usr/lib/linux-vst-bridge/host/source-manifest.json",
+            "kind": "host_source",
+            "mode": "0444",
+            "sha256": "f21af06cbaa2f942119aa50d9ca757e303d6f4507c2d7abbd81cada21bfd1626",
+            "size": 6911
+          },
+          {
+            "component": "self-service-preparation_kit",
+            "destination": "usr/lib/linux-vst-bridge/preparation/preparation-kit.zip",
+            "kind": "preparation_kit",
+            "mode": "0444",
+            "sha256": "6003a5115a1885162f4450684ff389350fd38719d991128d7adef580d3bfcb05",
+            "size": 12299801
+          },
+          {
+            "component": "self-service-profile",
+            "destination": "usr/lib/linux-vst-bridge/profiles/arturia-pure-lofi.json",
+            "kind": "profile",
+            "mode": "0444",
+            "sha256": "711147ac392dff977ed8ecb52349f7080d8678556c131531376785717990a3df",
+            "size": 4785
+          },
+          {
+            "component": "self-service-proxy",
+            "destination": "usr/lib/linux-vst-bridge/proxy/PureLoFi.so",
+            "kind": "proxy",
+            "mode": "0555",
+            "sha256": "da866f6c8450e983866b06ad84c4091312b9a6ebedff52025fcd1c2c05acfd09",
+            "size": 2126632
+          },
+          {
+            "component": "self-service-fixture_resource",
+            "destination": "usr/lib/linux-vst-bridge/self-test/LVB_REFERENCE_MANIFEST.json",
+            "kind": "fixture_resource",
+            "mode": "0444",
+            "sha256": "e00d3a44f75144857574f2e0c732fab2032a0931116bf63d22ffa7b31b986495",
+            "size": 843
+          },
+          {
+            "component": "self-service-fixture",
+            "destination": "usr/lib/linux-vst-bridge/self-test/LVB_Reference_Partial_1_0_0.exe",
+            "kind": "fixture",
+            "mode": "0444",
+            "sha256": "c4a65a49a5d3ce532e33dc4132ec7db674e0b2558bbcf3c21c3490d8d8bbfaba",
+            "size": 788480
+          },
+          {
+            "component": "self-service-fixture",
+            "destination": "usr/lib/linux-vst-bridge/self-test/LVB_Reference_Plugins_1_0_0.exe",
+            "kind": "fixture",
+            "mode": "0444",
+            "sha256": "0910f3665fcacbe43801cbc3355c725013a1d217cfb68e46f669f24efc52490b",
+            "size": 787968
+          },
+          {
+            "component": "self-service-fixture",
+            "destination": "usr/lib/linux-vst-bridge/self-test/LVB_Reference_Recovery_1_0_0.exe",
+            "kind": "fixture",
+            "mode": "0444",
+            "sha256": "7501664f57916380b1425eb24447d0db742b8d5714583c8861a3260eb2bd825f",
+            "size": 787968
+          },
+          {
+            "component": "self-service-fixture",
+            "destination": "usr/lib/linux-vst-bridge/self-test/ap10-return-fixture.vst3",
+            "kind": "fixture",
+            "mode": "0444",
+            "sha256": "218ca87b3fa5acdb3844efd2cb3ed837620f37cbb2043c850471fc16e7c7496d",
+            "size": 263168
+          },
+          {
+            "component": "self-service-fixture",
+            "destination": "usr/lib/linux-vst-bridge/self-test/lvb-reference-effect.vst3",
+            "kind": "fixture",
+            "mode": "0444",
+            "sha256": "b3498eb5c8d6d440259b04a9c9b7699ab72f4f64eb31f45167f0341d3d1e719f",
+            "size": 254976
+          },
+          {
+            "component": "self-service-fixture",
+            "destination": "usr/lib/linux-vst-bridge/self-test/lvb-reference-instrument.vst3",
+            "kind": "fixture",
+            "mode": "0444",
+            "sha256": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+            "size": 265216
+          },
+          {
+            "component": "self-service-ownership",
+            "destination": "usr/lib/linux-vst-bridge/supervisor/ownership.pyc",
+            "kind": "ownership",
+            "mode": "0444",
+            "sha256": "25412f5002bd2fe6d77e8603b17a9953adc310259e11bb51a6c9f9a97c544ffe",
+            "size": 50551
+          },
+          {
+            "component": "self-service-supervisor",
+            "destination": "usr/lib/linux-vst-bridge/supervisor/session.pyc",
+            "kind": "supervisor",
+            "mode": "0444",
+            "sha256": "b0e67006b939bf09a76934f62c3a13dddfa71cb5859cc50fcf6ef6e0d1cb2c31",
+            "size": 538984
+          },
+          {
+            "component": "self-service-compliance",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/COMPLIANCE_MANIFEST.json",
+            "kind": "compliance",
+            "mode": "0444",
+            "sha256": "f442d6cdd809cd53dfef7bba1293224a794123faf02c1a4121391b3b636efc0a",
+            "size": 392
+          },
+          {
+            "component": "self-service-sbom",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/SBOM.spdx.json",
+            "kind": "sbom",
+            "mode": "0444",
+            "sha256": "569076f6e31d9b19cc7f1e5aaffd2bce6fa758b06854c52da9f4f72c2e9ee729",
+            "size": 115639
+          },
+          {
+            "component": "self-service-guide",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/START_HERE.html",
+            "kind": "guide",
+            "mode": "0444",
+            "sha256": "8e8ff936c9ceb2c811f49767db26f61b1b0f4828a951ad9efe0f6a51982cb1ab",
+            "size": 1067
+          },
+          {
+            "component": "self-service-notices",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/THIRD_PARTY_NOTICES.txt",
+            "kind": "notices",
+            "mode": "0444",
+            "sha256": "7e8669f508f1e6fe8d99c5d8be483a3b74bd65f4faf1750a327cbf868e6fa9a5",
+            "size": 1082
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/LVB-Proprietary.txt",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "80ac11a0aa8deaffed9a5e77530689023ddce03d574389b33c7d243ec79cf6e3",
+            "size": 1075
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/Rust-Dependency-Inventory.json",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "ed4a714ce78242c152aec6723df54e20a53c66c21ad89478d7f1ce4d1afd9113",
+            "size": 126094
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/Rust-Dependency-Notices.txt",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "ccf6c5918e86f9b76487cb3f557dae71082a9f8c06f951e05f160b9382608ab6",
+            "size": 2159009
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/base.txt",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "e86d79e19e4a33ebc442d2e0d083887dfc75a2a8de9fe17eeddedb84810ad74e",
+            "size": 1094
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/pluginterfaces.txt",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "e86d79e19e4a33ebc442d2e0d083887dfc75a2a8de9fe17eeddedb84810ad74e",
+            "size": 1094
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/public.sdk.txt",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "e86d79e19e4a33ebc442d2e0d083887dfc75a2a8de9fe17eeddedb84810ad74e",
+            "size": 1094
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/vst3sdk.txt",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "e86d79e19e4a33ebc442d2e0d083887dfc75a2a8de9fe17eeddedb84810ad74e",
+            "size": 1094
+          },
+          {
+            "component": "linux-vst-bridge-beta",
+            "destination": "usr/share/linux-vst-bridge/pkg0-manifest.json",
+            "kind": "adoption_manifest",
+            "mode": "0444",
+            "sha256": "7601ea4fffb752aef8f1c2d63bf5cabdfb8baa594b5306cb134b63b5b6a9e7b8",
+            "size": 1226
+          },
+          {
+            "component": "linux-vst-bridge-beta",
+            "destination": "usr/share/applications/linux-vst-bridge-setup.desktop",
+            "kind": "system_desktop",
+            "mode": "0444",
+            "sha256": "7e1dd033a73b6814ef2be0a5632f11e115bfd6484a9e336a5ed0ff6688f1538e",
+            "size": 313
+          }
+        ],
+        "package": "linux-vst-bridge-beta",
+        "payload_sha256": "46ff6e181523f75512c5ac3b5fbf5e6f73f8ea77849ac2f4e9aaefa4cd9ab939",
+        "pkgrel": 1,
+        "schema": 1,
+        "source_head": "f99db00277313b673fbc2f9bd7eb4334ef1ba54e",
+        "source_tree": "ce8e5da6593087d8361d88de558f7aa1bc70e3a7",
+        "version": "0.12.0internal43"
+      }
+    },
+    "steamos": {
+      "filename": "Linux-VST-Bridge-0.12.0internal43-steamos.install",
+      "sha256": "f4d2e0b18d550081ae04013a14b6415b6194dd2017a585fb7aa431aa908679ae",
+      "bytes": 57962541,
+      "manifest_sha256": "ff2297b173c412e1b5bcbc6ad630eea7a992f89506a9b80b4d4be0a83ab02782",
+      "key_class": "internal_test",
+      "manager_sha256": "0bfe90a649f343daa53dde33832f14cf9ebe148878eb346b48b271944d868ca2"
+    }
+  },
+  "ubuntu": {
+    "fixture": "Retained Ubuntu 26.04.1 x86-64 disposable VM, existing test account",
+    "frontend_actions": [
+      "Install application files",
+      "Open Setup",
+      "Stop bridge service to change version",
+      "Select installed version",
+      "Start bridge service",
+      "Plug-ins: select LVB Reference Effect",
+      "Check compatibility"
+    ],
+    "selected_readback": {
+      "software_sha256": "89ecae8794e10c175b103852a145eb578947a74ae8b8d284dc2276452248809b",
+      "generation": "c46028fa3366f89cd71a40c305e6705375982d67779b07cdbc991a9b32f3c017",
+      "manager_sha256": "a736d774984dccabf7cbb2bbe93e5bf43327a13070da007e5a17d3ba7851ef48",
+      "frontend_sha256": "d3850c6ba6c47a8d1efbfe7c7b2febd1345a08b2adb0d09abe5d28a84dcd22c5",
+      "project_sha256": "2a0d5d63278946fc51a714603943d619b9d99bfabaccd1ec06164f42ffd62390",
+      "registry_sha256": "1e36421fdfb1f61b3485cc0fbb69fe1bf5c87548aad5994db179c991b98e59d2",
+      "service": "active",
+      "manifest": null
+    },
+    "operation": {
+      "failure": null,
+      "lock_waits": [
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 28,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "operator-canonical.lock",
+          "operation": "81101d0fea44199464ffeea7715ee720",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "action_serialization",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 22,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "81101d0fea44199464ffeea7715ee720",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 9962
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 26,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "operator-canonical.lock",
+          "operation": "81101d0fea44199464ffeea7715ee720",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "action_serialization",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 23,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "81101d0fea44199464ffeea7715ee720",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 11,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "81101d0fea44199464ffeea7715ee720",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 17,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "81101d0fea44199464ffeea7715ee720",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 10000
+        }
+      ],
+      "operation": "81101d0fea44199464ffeea7715ee720",
+      "preparation_failure": {
+        "attempted_stage": "service_restoration",
+        "automatic_retry": false,
+        "completed_action": {
+          "controller": {
+            "class_id": "4C564242455441314546465800000002",
+            "kind": "separate"
+          },
+          "guarantee": false,
+          "inspection": "complete",
+          "publication_changed": false,
+          "selection": "62b9a2236b215049c9ea9b3a0fbcaa935635bf2b32e2eb5564236a15aaa86cfe"
+        },
+        "installation_preserved": true,
+        "layer": "manager_control_plane",
+        "prior_publication_provenance_preserved": true,
+        "recovery": "Resume the exact retained operation through the ordinary recovery control. Completed preparation remains retained.",
+        "result": "refused",
+        "schema": 1
+      },
+      "reason": "Operator action: Service restoration after completed preparation: Resource temporarily unavailable (os error 11)",
+      "schema": 1,
+      "state": "refused"
+    },
+    "elapsed_request_to_result_s": 124.38272285461426,
+    "recovery_observation": {
+      "operation": "81101d0fea44199464ffeea7715ee720",
+      "resume_pending": false,
+      "file_times": {
+        "request.json": 1790854648.0672376,
+        "result.json": 1790854772.4499605
+      },
+      "latest_environment_owners": [
+        {
+          "file": "environment-0cb47f11e9d85cf4eb1c7652ee7736b0.json",
+          "modified": 1790854828.281112,
+          "ready": true,
+          "cleanup_confirmed": null,
+          "phase": null,
+          "session": null,
+          "keeper": null
+        },
+        {
+          "file": "environment-b1638cdac0060f5eb00bfefc34152a0d.json",
+          "modified": 1790854759.6061485,
+          "ready": true,
+          "cleanup_confirmed": null,
+          "phase": null,
+          "session": null,
+          "keeper": null
+        },
+        {
+          "file": "environment-982279bbcbf2fd60f2c22dad615ea5f8.json",
+          "modified": 1790846406.1652558,
+          "ready": false,
+          "cleanup_confirmed": true,
+          "phase": null,
+          "session": null,
+          "keeper": null
+        },
+        {
+          "file": "environment-fa592a94f82d3d1a984168b368fbf20e.json",
+          "modified": 1790846406.1542556,
+          "ready": false,
+          "cleanup_confirmed": true,
+          "phase": null,
+          "session": null,
+          "keeper": null
+        },
+        {
+          "file": "environment-ac6140a174c8f1c47041396d7a1aadb8.json",
+          "modified": 1790840415.7946224,
+          "ready": false,
+          "cleanup_confirmed": true,
+          "phase": null,
+          "session": null,
+          "keeper": null
+        },
+        {
+          "file": "environment-fe5ee2a2accc0a31395a6b7cf9e2d1ec.json",
+          "modified": 1790839416.891238,
+          "ready": false,
+          "cleanup_confirmed": true,
+          "phase": null,
+          "session": null,
+          "keeper": null
+        }
+      ],
+      "journal": [
+        {
+          "time_us": "1790854782951373",
+          "message": "Bridge instance: admission_service_busy"
+        }
+      ]
+    },
+    "interpretation": {
+      "action_serialization": "Both canonical acquisitions succeeded immediately in one attempt, at 28 and 26 microseconds.",
+      "inspection": "Completed exact preliminary inspection; existing publication preserved.",
+      "restoration": "Failed: caller timed out waiting for the keeper restoration reply at 70 seconds. Later service finalization restored keeper readiness. Original refused result retained.",
+      "runtime_reverification": "Source LVE1 restoration did not use the service-owned LaunchVerification shared by startup warm-up and native admission. Each registration reverified the same runtime independently.",
+      "root_cause_limit": "Repeated verification is a concrete source defect on this path. This retained run did not measure each hash stage, so it does not establish that verification alone explains every second of delay.",
+      "qualification": "Not a complete frontend recovery or publication acceptance pass."
+    },
+    "maintainer_repairs_to_accepted_request": 0,
+    "qualification_pass": false
+  },
+  "deck": {
+    "fixture": "Existing licensed Deck installation, SteamOS protected system, writable user installation",
+    "frontend_actions": [
+      "Launch verified internal43 installer from Downloads",
+      "Install application files",
+      "Open Setup",
+      "Stop bridge service to change version",
+      "Select installed version",
+      "Start bridge service"
+    ],
+    "selected_readback": {
+      "software_sha256": "19f51315238ca4979e5453d332635f9198c711299bc2dbfbbfda7fce9ac11a8b",
+      "generation": "3459f5c5be2552bf6a197244ed665689bc3b86a9195ba0f16d50d383702977fa",
+      "manager_sha256": "0bfe90a649f343daa53dde33832f14cf9ebe148878eb346b48b271944d868ca2",
+      "registry_sha256": "be86e50288ecab6f5d4c41079ba4a65ee35bde71cad7b4beb13aef900060fadf",
+      "service_state": "active",
+      "publications": {
+        "41727475415649536772616E50726F63": {
+          "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+          "native_sha256": "5e3abcd8e3f83d74b20581ab8f282ec766d20bd0978f9a12eb915dc5e142d99a",
+          "host_sha256": "a90de3ca2f7360e8c9477184acb8224ebf394d4e46cf00fd905892002a79cd13",
+          "publication": "Published",
+          "managed_revision": {
+            "id": "547c9b1663724f33c98a34e0ff618753",
+            "sha256": "c84e5c16e607f3a8ddc8c6b667fb7cebe71805ff57a1738b5c034126cd614d22"
+          }
+        }
+      },
+      "projects": {
+        "LVB Beta Delivery Recall.bwproject": {
+          "bytes": 86855,
+          "sha256": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376"
+        },
+        "LVB Beta Delivery Recall internal42.bwproject": {
+          "bytes": 86141,
+          "sha256": "3f67cc4feb3f10bef8ac4db047e59b283e63b15320a3e638b9d6e422865f993c"
+        }
+      }
+    },
+    "original_project_unchanged": true,
+    "updated_project_copy_unchanged": true,
+    "registry_unchanged": true,
+    "recall_after_internal43_update": "not tested in this receipt",
+    "rollback": "not tested",
+    "maintainer_repairs_during_application_update": 0,
+    "product_audio_qualification": "failed in retained internal42 runs; manager update does not change host/proxy audio bytes",
+    "protected_root_unlocked": false
+  },
+  "correction": {
+    "state": "source checks passed; installed successor still required",
+    "boundary": "Manager control worker; no audio callback or vendor module modification",
+    "behavior": "Share service-owned launch byte preparation during keeper restoration, release registry reservation during preparation, recheck exact registration, module/native/runtime bytes and coherent execution set before readiness; retain the existing bounded restoration deadline.",
+    "negative_checks": [
+      "Changed module after shared preparation must refuse readiness",
+      "Removed registered class after preparation must refuse readiness",
+      "No preparation mutation, publication, leases or vendor state changes"
+    ],
+    "validation": {
+      "manager_binary": {
+        "passed": 268,
+        "failed": 0,
+        "ignored": 1,
+        "test_threads": 1
+      },
+      "targeted_service_recovery": {
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0
+      },
+      "all_targets_clippy": "passed with warnings denied",
+      "fixture_correction": "Two support-export fixtures now use the actual immutable legacy session.py/ownership.py layout. Production package-generation authority remains unchanged."
+    }
+  },
+  "remaining": [
+    "Delivered restoration retest",
+    "Reference effect publication and project recall",
+    "Audio acceptance at declared latency",
+    "Populated project rollback",
+    "Ubuntu and CachyOS commercial catalogue",
+    "Authenticated customer release"
+  ]
+}

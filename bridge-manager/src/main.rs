@@ -57,6 +57,37 @@ enum KeeperAvailability { Starting, Retiring, Ready, Failed }
 const KEEPER_OWNER_STARTUP_SECONDS: u64 = 60;
 const KEEPER_MANAGER_RETIRE_SECONDS: u64 = 62;
 
+fn prepare_recovery_bindings(
+    m: &Manager,
+    software: &Software,
+    registrations: Vec<Registration>,
+    verification: &LaunchVerification,
+    deadline: Instant,
+) -> Result<(Vec<(Registration, Software)>, LaunchSnapshot)> {
+    verification.prepare(deadline, || {
+        registrations.into_iter().map(|registration| {
+            registration.verify(&m.root)?;
+            let execution = package_authority::paired_components(m, software, &registration)?;
+            Ok((registration, execution))
+        }).collect()
+    })
+}
+
+fn require_recovery_registration(m: &Manager, registration: &Registration) -> Result<()> {
+    m.require_inactive(None)?;
+    require(m.registry()?.classes.get(&registration.metadata.class_id)
+        .is_some_and(|entry| entry.registration == *registration),
+        "service_recovery_registration_changed")
+}
+
+fn verify_recovery_binding(m: &Manager, selected: &Software,
+    registration: &Registration, execution: &Software) -> Result<()> {
+    require_recovery_registration(m, registration)?;
+    registration.verify(&m.root)?;
+    require(package_authority::paired_components(m, selected, registration)? == *execution,
+        "service_recovery_components_changed")
+}
+
 // Startup work runs on a control worker. Waiting for the shared environment
 // owner releases the registry reservation, so scans and status requests cannot
 // be serialized behind cold Wine initialization. Every retry rechecks capacity
@@ -1128,6 +1159,7 @@ fn serve(m: Manager) -> Result<()> {
                 if &greeting[..5]==b"LVE1\n" {
                     // MF1 resumes keeper ownership after exclusive vendor work.
                     // Selection comes only from current registered environments.
+                    let deadline=Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS);
                     let registrations={
                         let _admission=capacity::reserve_maintenance(&m,&limits,
                             || blocked.load(Ordering::Acquire))?;
@@ -1137,27 +1169,31 @@ fn serve(m: Manager) -> Result<()> {
                             .filter(|r|environments.insert(r.environment.id.clone()))
                             .collect::<Vec<_>>()
                     };
-                    let deadline=Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS);
-                    for registration in registrations {
-                        registration.verify(&m.root)?;
-                        let execution=package_authority::paired_components(&m,&s,&registration)?;
-                        let binding:HostBinding=registration.clone().into();
-                        // Keep the same bounded startup coordination as native
-                        // admission. Cold keeper initialization releases the
-                        // registry between attempts so the ordinary frontend
-                        // can still obtain fresh progress/recovery authority.
-                        let _admission=wait_for_keeper(deadline,
-                            || capacity::reserve_maintenance(&m,&limits,
-                                || blocked.load(Ordering::Acquire)),
-                            || {
-                                m.require_inactive(None)?;
-                                require(m.registry()?.classes.get(&registration.metadata.class_id)
-                                    .is_some_and(|entry|entry.registration==registration),
-                                    "service_recovery_registration_changed")?;
-                                stage_keeper(&m,&execution,&binding,&keepers,None)
-                            }, std::thread::sleep)?;
-                    }
-                    peer.write_all(b"LVE1 ready\n")?;return Ok(());
+                    // Restoration launches the same exact environments as native
+                    // admission. Share this process's byte preparation with its
+                    // startup warm-up; never hash the entire runtime independently
+                    // for every registration or keeper-stage retry. Preparation
+                    // owns no registry reservation, and its snapshot reopens and
+                    // rechecks file identity throughout the subsequent launch.
+                    let (bindings,verified)=prepare_recovery_bindings(&m,&s,
+                        registrations,&launch_verification,deadline)?;
+                    return verified.run(|| {
+                        for (registration,execution) in bindings {
+                            let binding:HostBinding=registration.clone().into();
+                            let _admission=wait_for_keeper(deadline,
+                                || capacity::reserve_maintenance(&m,&limits,
+                                    || blocked.load(Ordering::Acquire)),
+                                || {
+                                    require_recovery_registration(&m,&registration)?;
+                                    stage_keeper(&m,&execution,&binding,&keepers,None)
+                                }, std::thread::sleep)?;
+                            verify_recovery_binding(&m,&s,&registration,&execution)?;
+                        }
+                        require(Instant::now()<deadline,"service_recovery_deadline")?;
+                        peer.set_write_timeout(Some(Duration::from_secs(1)))?;
+                        peer.write_all(b"LVE1 ready\n")?;
+                        Ok(())
+                    });
                 }
                 if &greeting[..5]==b"LVC1\n" {
                     let value=match capacity::status(&m,limits.clone(),workers.load(Ordering::Acquire),blocked.load(Ordering::Acquire)) {
@@ -1751,6 +1787,63 @@ fn status(m: &Manager) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    fn recovery_software(f: &test_fixture::Fixture) -> Software {
+        let source_path = f.r.host.path.with_file_name("host-source-manifest.json");
+        let source = Artifact { sha256: digest(&source_path).unwrap(), path: source_path };
+        for artifact in [&f.r.host, &source] {
+            fs::set_permissions(&artifact.path, fs::Permissions::from_mode(0o500)).unwrap();
+        }
+        Software {
+            installer_launch: None, preparation_kit: None,
+            operator_frontend: Some(f.r.host.clone()),
+            manager: f.r.host.clone(), supervisor: f.r.host.clone(),
+            ownership: f.r.host.clone(), host: f.r.host.clone(),
+            source_sha256: source.sha256.clone(), source_manifest: source,
+            native_catalogue: None,
+        }
+    }
+    #[test]
+    fn service_recovery_shares_launch_preparation_but_rejects_changed_bytes() {
+        let (f, _, _, _) = test_fixture::prepared();
+        let software = recovery_software(&f);
+        let shared = LaunchVerification::default();
+        let registration = f.m.registry().unwrap().classes[&f.r.key()].registration.clone();
+        let deadline = || Instant::now() + Duration::from_secs(2);
+        // The service's startup preparation and restoration use one process's
+        // observations, while retaining the exact historical execution pair.
+        shared.prepare(deadline(), || f.r.environment.runner.verify()).unwrap();
+        let (bindings, snapshot) = prepare_recovery_bindings(&f.m, &software,
+            vec![registration.clone()], &shared, deadline()).unwrap();
+        assert_eq!(bindings.len(), 1);
+        assert_eq!(bindings[0].1.host, f.r.host);
+        snapshot.run(|| verify_recovery_binding(&f.m, &software, &registration,
+            &bindings[0].1)).unwrap();
+        let before = test_fixture::snapshot(&f.m.root);
+        fs::write(&f.r.module.path, b"changed bytes").unwrap();
+        assert!(snapshot.run(|| verify_recovery_binding(&f.m, &software, &registration,
+            &bindings[0].1)).is_err());
+        assert!(prepare_recovery_bindings(&f.m, &software,
+            vec![registration], &shared, deadline()).is_err());
+        fs::write(&f.r.module.path, b"vendor module").unwrap();
+        assert_eq!(test_fixture::snapshot(&f.m.root), before,
+            "preparation cannot publish, launch, or write environment state");
+    }
+    #[test]
+    fn service_recovery_rechecks_registration_after_shared_preparation() {
+        let (f, _, _, _) = test_fixture::prepared();
+        let software = recovery_software(&f);
+        let shared = LaunchVerification::default();
+        let registration = f.m.registry().unwrap().classes[&f.r.key()].registration.clone();
+        let (_, snapshot) = prepare_recovery_bindings(&f.m, &software,
+            vec![registration.clone()], &shared, Instant::now() + Duration::from_secs(2)).unwrap();
+        snapshot.run(|| require_recovery_registration(&f.m, &registration)).unwrap();
+        let mut registry = f.m.registry().unwrap();
+        registry.classes.remove(&f.r.key());
+        atomic_json(&f.m.root.join("registry.json"), &registry).unwrap();
+        assert_eq!(snapshot.run(|| require_recovery_registration(&f.m, &registration))
+            .unwrap_err().to_string(), "service_recovery_registration_changed");
+        assert!(!f.m.root.join("runtime/leases").exists());
+    }
     fn fixture_keeper(f:&test_fixture::Fixture,command:&str)->(KeeperOwner,PathBuf,PathBuf) {
         let report=f.outer.join(format!("keeper-{}.json",random_id().unwrap()));
         let lease=f.outer.join(format!("keeper-{}.lease",random_id().unwrap()));

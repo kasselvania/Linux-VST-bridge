@@ -2550,7 +2550,8 @@ fn restore_service(m: &Manager, saved: &ResumeRecord) -> Result<()> {
         peer.set_write_timeout(Some(Duration::from_secs(2)))?;
         peer.write_all(b"LVE1\n")?;
         let mut receipt = [0; 11];
-        peer.read_exact(&mut receipt)?;
+        peer.read_exact(&mut receipt).map_err(|error|
+            format!("operator_keeper_resume_readback: {error}"))?;
         require(
             &receipt == b"LVE1 ready\n",
             "operator_keeper_resume_unconfirmed",

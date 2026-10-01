@@ -58,6 +58,16 @@ normal product controls. Three exact proxy entries were independently rebuilt
 and compared; the official trial module remains distinct from the Deck bytes.
 Neither result qualifies another platform or arbitrary plug-ins.
 
+Internal43 completed the ordinary Ubuntu reference-effect preliminary inspection
+without the earlier action-lock refusal, then failed the service-restoration
+reply deadline. Its completed inspection and old publication remained retained;
+later finalization restored the service. The source successor shares service
+startup's exact runtime preparation and rechecks registration/components before
+readiness. Delivered recovery acceptance remains open. Internal43 also completed
+normal Deck application version selection with unchanged registry and fixture
+project digests. That manager update does not qualify audio, recall or rollback.
+See the [internal43 receipt](../evidence/self-service-delivery/internal43-recovery-handoff.json).
+
 Task 3 reached real installed use in internal26: Bitwig 6.1.1 guest demo loaded
 FRAGMENTS from an idle bridge without a manual reload, rendered the vendor DEMO
 editor, and captured stereo output through the active effect at 48 kHz. The

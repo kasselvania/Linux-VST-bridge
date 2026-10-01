@@ -152,6 +152,25 @@ as does Clippy. Installed successor acceptance remains required. The
 [installed receipt](../evidence/self-service-delivery/internal42-populated-recall-and-deadline-failure.json)
 retains package manifests, publication predecessors, recall, phases and failures.
 
+Internal43's ordinary Ubuntu reference-effect check acquired both canonical
+locks immediately (28 and 26 microseconds) and completed preliminary inspection.
+It then failed service restoration at the caller's 70-second reply timeout.
+The service finalizer later restored readiness, while the refused request stayed
+retained. That is a failed first restoration, not a completed customer journey.
+The [internal43 receipt](../evidence/self-service-delivery/internal43-recovery-handoff.json)
+also records normal populated application selection on the Deck, with the
+registry and both original and updated-copy project digests unchanged. Project
+recall after that manager update and rollback are not qualified by this receipt.
+
+The restoration path was independently re-verifying the same runtime for each
+registered environment while service startup verified it concurrently. The
+successor uses the same process-owned launch preparation as native admission.
+Preparation owns no registry reservation; subsequent readiness rechecks exact
+registration, file identities and the retained execution pair. Changed bytes or
+registration refuse readiness. The deadline remains bounded. This source
+correction requires the next delivered frontend retest; it does not establish
+the unique cause of all prior startup or audio failures.
+
 The internal40 reference effect's input witness captured a parameter point at
 offset 1024 in a 1024-frame host block during saved automation. The prior bridge
 treated this curve endpoint as an invalid sample and permanently refused later

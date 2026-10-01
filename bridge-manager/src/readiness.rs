@@ -1238,9 +1238,20 @@ mod tests {
     }
     fn support_software(f: &crate::test_fixture::Fixture) -> Software {
         let artifact = f.r.host.clone();
+        // A support export uses an actual retained software layout. Synthetic
+        // aliases for the helpers cannot stand in for a missing package record.
+        let helper = |name: &str| {
+            let path = artifact.path.with_file_name(name);
+            fs::write(&path, name.as_bytes()).unwrap();
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+            Artifact { sha256: digest(&path).unwrap(), path }
+        };
+        let supervisor = helper("session.py");
+        let ownership = helper("ownership.py");
+        fs::set_permissions(&artifact.path, fs::Permissions::from_mode(0o400)).unwrap();
         Software { installer_launch: None, preparation_kit: None,
             operator_frontend: Some(artifact.clone()), manager: artifact.clone(),
-            supervisor: artifact.clone(), ownership: artifact.clone(),
+            supervisor, ownership,
             host: artifact.clone(), source_manifest: artifact.clone(),
             source_sha256: artifact.sha256.clone(), native_catalogue: None }
     }
