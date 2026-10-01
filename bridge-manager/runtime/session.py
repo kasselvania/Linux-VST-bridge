@@ -94,6 +94,28 @@ def host_socket(proc,value,candidate,label):
     if host!=source:return None
     return str(candidate)
 
+DBUS_ADDRESS_BYTES=b'-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_/.*\\'
+def dbus_path_address(value):
+    # One filesystem socket remains the supported authority. The standard
+    # optional server GUID identifies that same address, not another endpoint.
+    if not value.startswith('unix:') or ';' in value:raise RuntimeError('DBus address unsupported')
+    fields={}
+    for field in value[5:].split(','):
+        key,separator,encoded=field.partition('=')
+        if (not separator or key not in ('path','guid') or key in fields
+            or not re.fullmatch(r'(?:[-0-9A-Za-z_/.*\\]|%[0-9a-fA-F]{2})+',encoded)):
+            raise RuntimeError('DBus address unsupported')
+        fields[key]=os.fsdecode(re.sub(rb'%([0-9a-fA-F]{2})',
+            lambda match:bytes.fromhex(match[1].decode('ascii')),encoded.encode('ascii')))
+    if 'path' not in fields or '\0' in fields['path']:raise RuntimeError('DBus address unsupported')
+    guid=fields.get('guid')
+    if guid is not None and not re.fullmatch('[0-9a-fA-F]{32}',guid):raise RuntimeError('DBus address unsupported')
+    return fields['path'],guid
+
+def dbus_address(endpoint,guid):
+    encoded=''.join(chr(byte) if byte in DBUS_ADDRESS_BYTES else f'%{byte:02x}' for byte in os.fsencode(endpoint))
+    return 'unix:path='+encoded+('' if guid is None else ',guid='+guid)
+
 GRAPHICAL_DENIAL_NAMES={'dbus':'.lvb-denied-dbus','wayland':'.lvb-denied-wayland'}
 def denied_graphical_endpoint(name):
     if name not in GRAPHICAL_DENIAL_NAMES:raise RuntimeError('graphical denial binding invalid')
@@ -144,11 +166,9 @@ def graphical_environment(graphical,proc_root=pathlib.Path('/proc'),runtime_root
             if source=='xauthority':
                 result[target]=host_xauthority(proc,value,runtime_root)
             elif source=='dbus_session_bus_address':
-                prefix='unix:path='
-                if not value.startswith(prefix) or ',' in value:
-                    raise RuntimeError('DBus address unsupported')
-                endpoint=host_socket(proc,value[len(prefix):],runtime_root/'bus','DBus endpoint')
-                result[target]=prefix+(endpoint if endpoint is not None else denied_graphical_endpoint('dbus'))
+                path,guid=dbus_path_address(value)
+                endpoint=host_socket(proc,path,runtime_root/'bus','DBus endpoint')
+                result[target]=dbus_address(endpoint if endpoint is not None else denied_graphical_endpoint('dbus'),guid)
             elif source=='wayland_display':
                 wayland=pathlib.PurePosixPath(value)
                 if wayland.is_absolute():endpoint=value

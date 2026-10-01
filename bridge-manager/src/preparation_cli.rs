@@ -472,7 +472,7 @@ fn guided_projection(
                 ui::Action::CompatibilityPublishTest { candidate: row.id.clone(), expected_current }, busy));
             }
             (Phase::ReadyForTest, if ordinary_current {
-                "An ordinarily supported configuration is currently selected. This test configuration cannot replace it through the guided flow."
+                "Your current working bridge remains selected. Apply the test bridge update to try this configuration; the current revision is retained for rollback."
             } else if publication == "another_configuration" {
                 "A different configuration is selected. Replacing it for a test requires your explicit choice."
             } else { "Compatibility check completed. An immutable test configuration is ready." }.into())
@@ -809,10 +809,7 @@ fn publication_action(
             },
         ),
         "another_configuration" => (
-            format!(
-                "Replace current revision {} with this candidate",
-                current?.id
-            ),
+            "Apply test bridge update".into(),
             ui::Action::ExperimentalReplace {
                 candidate: id.into(),
                 expected_current: publication_identity(current?),

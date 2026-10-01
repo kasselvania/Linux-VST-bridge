@@ -784,6 +784,17 @@ existing finalizer and exact positive receipt; that run remains failed. This
 correction is not in internal39 and requires successor delivery. See the
 [inspection failure and source checks](../evidence/self-service-delivery/inspection-lock-refusal-2026-10-01.json).
 
+An internal39 Ubuntu project reopen also failed before host launch because the
+desktop's authenticated session-bus address included the standard optional
+server GUID. The supervisor rejected every comma, including this supported
+D-Bus syntax. The source successor parses one filesystem socket address and its
+optional GUID, preserves that server identity, and retains exact peer-generation
+and device/inode checks. Unknown transports, ambiguous fields and malformed
+escaping still refuse; an unmappable peer socket never falls back to the host
+bus. Twelve Linux tests include a real `/proc` peer and socket connection.
+This correction is not installed in internal39; the reopen remains failed.
+See the [startup and input receipt](../evidence/self-service-delivery/native-input-and-graphical-startup-2026-10-01.json).
+
 The new clean Ubuntu account on internal27 reached the official FRAGMENTS
 trial's Finish screen, but its exact installer cohort remained live with 15
 processes. Overview failed in 7.614 seconds with
@@ -977,6 +988,15 @@ reconciliation. This is instrumentation, not an audio-gap repair. Internal32
 does not contain it; no installed or physical dropout-free claim follows.
 
 Arturia Deck sessions and FRAGMENTS Ubuntu sessions contain retained gap counters. Functional use is accepted; dropout-free operation is not claimed.
+The internal36 Ardour reference instrument/effect run now retains explicit
+processing-phase misses: 599,294 frames for the instrument and 303,104 for the
+effect. Its ten-second output capture is all zero. The effect separately
+refused input events with code 258; the exact rejected event was absent from
+that generation's report. A source diagnostic retains the first bounded invalid
+event without callback allocation, I/O or changing admission. Three native
+SDK tests pass, including the real preloaded callback audit. This is attribution
+instrumentation, not a repair or a passed musical session; the causal audio
+work remains open. See the [retained phase and failure receipt](../evidence/self-service-delivery/native-input-and-graphical-startup-2026-10-01.json).
 The separate Pi standalone Serum source candidate is unqualified for musical
 use. FN1 retains the first-note gap; PW1 removes it only in the named
 default-state fixture under an opt-in startup sequence.
