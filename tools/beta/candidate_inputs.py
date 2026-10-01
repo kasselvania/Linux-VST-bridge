@@ -5,7 +5,9 @@ Build-side only. Private fixture/SDK locations never enter the component manifes
 Package assembly independently verifies the source, component hashes and roster.
 """
 from pathlib import Path
-import argparse,datetime,hashlib,json,re,shutil,subprocess,py_compile,zipfile
+import argparse,datetime,hashlib,json,re,shutil,subprocess,py_compile,zipfile,sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'pkg0'))
+from assemble import declared_operator_schema
 from rust_notices import capture as capture_rust_notices
 parser=argparse.ArgumentParser()
 parser.add_argument('--build-root',type=Path,required=True)
@@ -24,10 +26,7 @@ sha=lambda data:hashlib.sha256(data).hexdigest()
 git=lambda *a:subprocess.check_output(['git','-C',str(s),*a],text=True).strip()
 head,tree=git('rev-parse','HEAD'),git('rev-parse','HEAD^{tree}')
 assert not git('status','--porcelain'), 'Commit the exact candidate inputs first'
-operator_schema_match=re.search(r'^pub const OPERATOR_SCHEMA: u32 = ([0-9]+);$',
- (s/'bridge-manager/src/operator_model.rs').read_text(),re.MULTILINE)
-assert operator_schema_match, 'Missing declared manager/frontend wire generation'
-operator_schema=int(operator_schema_match.group(1))
+operator_schema=declared_operator_schema(s)
 copies={s/'bridge-manager/target/x86_64-unknown-linux-gnu/release/linux-vst-bridge':'linux-vst-bridge',s/'manager-ui/target/x86_64-unknown-linux-gnu/release/linux-audio-compatibility-manager':'linux-audio-compatibility-manager',a.windows_package/'wf0-factory-probe.exe':'host.exe',a.windows_package/'host-source-manifest.json':'host-source-manifest.json',a.kit:'preparation-kit.zip',s/'compatibility/arturia-pure-lofi.json':'profile.json',s/'COPYRIGHT.md':'LVB-Proprietary.txt',a.fixture:'fixture.vst3'}
 for source,name in copies.items():shutil.copyfile(source,p/name)
 for name in ('session','ownership'):

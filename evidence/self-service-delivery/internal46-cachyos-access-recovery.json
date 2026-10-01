@@ -1,0 +1,24 @@
+{
+  "baseline": "no_managed_plugins",
+  "child_disk_and_firmware_backed_up": true,
+  "child_shutdown": "clean_exit_0",
+  "classification": "disposable_fixture_access_recovery",
+  "credential_rotated": true,
+  "existing_account_uid": 1000,
+  "graphical_recovery_not_product_acceptance": true,
+  "last_graphical_observation": "black_display_after_idle_session_shortcut",
+  "normal_graphical_login": "passed",
+  "only_account_fields_changed": [
+    "password_hash",
+    "password_change_date"
+  ],
+  "other_accounts_and_shadow_permissions_preserved": true,
+  "parent_disk_sha256": "f6549185053e434ab22aef2f9d69c677c4f73990f4e4084e9ff7a752d8ba60e6",
+  "parent_preserved": true,
+  "product_qualification_claim": false,
+  "schema": 1,
+  "ssh_service_observed": "active",
+  "ssh_transport": "host_forward_target_corrected_banner_readback_still_unavailable",
+  "user_authorized": true,
+  "viewer_input_requires_explicit_shift_modifiers": true
+}

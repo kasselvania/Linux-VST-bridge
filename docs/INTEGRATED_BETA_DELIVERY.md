@@ -314,8 +314,7 @@ reboot and populated rollback are still required before accepting the repair.
 CachyOS fixture access was recovered on its cleanly stopped disposable child
 with private disk/firmware backups. Only the existing test account's password
 and password-change date were rotated; account identity, permissions and other
-accounts were retained, and the parent disk digest was unchanged. GUI access
-verification remains in progress. This engineering fixture repair is separate
+accounts were retained, and the parent disk digest was unchanged. Normal GUI sign-in passed. This engineering fixture repair is separate
 from a self-service product qualification run.
 
 Produce installable candidate artifacts and version/component manifest;

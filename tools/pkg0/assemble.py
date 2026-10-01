@@ -116,6 +116,19 @@ KIT_GENERATED = {"libap2_backend.a", "runtime/host.exe",
                  "runtime/host-source-manifest.json"}
 
 
+def parse_operator_schema(source):
+    matches = re.findall(r"^pub const OPERATOR_SCHEMA: u32 = ([0-9]+);$",
+                         source, re.MULTILINE)
+    if len(matches) != 1 or not 1 <= int(matches[0]) <= 0xffffffff:
+        raise ValueError("declared operator schema missing or invalid")
+    return int(matches[0])
+
+
+def declared_operator_schema(source_root=None):
+    root = Path(source_root) if source_root is not None else Path(__file__).resolve().parents[2]
+    return parse_operator_schema((root / "bridge-manager/src/operator_model.rs").read_text())
+
+
 def canonical(value):
     return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
 
@@ -443,12 +456,13 @@ def verify_kit_backend(data, source_root):
                         raise ValueError("prebuilt native rebuild differs")
 
 
-def validate(spec):
+def validate(spec, source_root=None):
     base = {"schema", "version", "source_head", "source_tree", "operator_schema",
             "external_runtime", "files"}
     if set(spec) != base or spec["schema"] not in (1, 2):
         raise ValueError("PKG0 input schema")
-    if spec["operator_schema"] != 14:
+    if (type(spec["operator_schema"]) is not int
+            or spec["operator_schema"] != declared_operator_schema(source_root)):
         raise ValueError("paired operator schema differs")
     external = spec["external_runtime"]
     if (set(external) != {"id", "manifest_sha256"}
@@ -494,7 +508,7 @@ def validate(spec):
 
 
 def _build(spec, output, epoch, source_root=None):
-    files = validate(spec)
+    files = validate(spec, source_root)
     if output.exists():
         raise ValueError("output already exists")
     output.mkdir(parents=True, mode=0o700)

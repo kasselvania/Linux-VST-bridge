@@ -371,7 +371,6 @@ def verify(package, staged, source_root=None, rebuild_backend=False):
             raise ValueError("Debian control metadata differs")
         if not isinstance(adoption, dict):
             raise ValueError("Debian adoption authority absent")
-        verify_adoption(adoption, manifest, expected)
         if kit is not None:
             verify_kit(kit, manifest["source_head"],
                        expected["usr/lib/linux-vst-bridge/host/bridge-host.exe"]["sha256"],
@@ -382,6 +381,7 @@ def verify(package, staged, source_root=None, rebuild_backend=False):
                     verify_kit_backend(kit, source_root)
         elif source_root is not None:
             raise ValueError("Debian release preparation kit absent")
+        verify_adoption(adoption, manifest, expected, source_root)
     with package.open("rb") as source:
         package_digest = sha_file(source)
     return {"files": len(expected), "package_sha256": package_digest}

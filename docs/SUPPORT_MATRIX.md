@@ -41,7 +41,7 @@ through paired protocol 14/mapping 3, preserving incoming queues and vendor-owne
 implicit values. Installed automation, recall and dropout-free audio remain
 blocked until the matching candidate repeats those workflows. The disposable
 CachyOS account has been recovered offline with backups and an unchanged parent
-digest; its ordinary sign-in is still being verified. No commercial or
+digest; ordinary GUI sign-in passed. No commercial or
 multi-platform beta claim follows.
 
 ## Managed Windows DAW / Steam Deck Desktop Mode

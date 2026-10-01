@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from assemble import declared_operator_schema
 
 ROOT = Path(__file__).resolve().parents[2]
 FILES = {
@@ -43,7 +44,7 @@ def fixture(base, case):
         "package": "linux-vst-bridge-beta", "version": "0.1.0beta1",
         "pkgrel": 1,
         "source_head": "a" * 40, "source_tree": "b" * 40,
-        "operator_schema": 14, "files": roster,
+        "operator_schema": declared_operator_schema(ROOT), "files": roster,
         "external_runtime": {"id": "exact-proton-slr", "manifest_sha256": "c" * 64},
     }, sort_keys=True) + "\n")
     manifest.chmod(0o444)
