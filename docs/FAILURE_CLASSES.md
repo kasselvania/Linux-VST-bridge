@@ -72,7 +72,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-MIDI-001](#fc-midi-001--recognized-expression-rejected-an-entire-native-input-callback) | Recognized expression rejected an entire native input callback | Native VST3 proxy input admission | causal in source; physical attribution open | source-fixed | Pinned SDK fixture; Push / Deck operator report only | unqualified for Push expression | Build and publish exact proxy successor; physical Push/Bitwig release check |
 | [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | bounded | instrumentation-only | Arturia Deck and FRAGMENTS Ubuntu observations | supported-with-workaround | Pi FN1 attribution and PW1 prewarm source candidate are separate unqualified fixture results |
 | [FC-AUDIO-002](#fc-audio-002--host-block-exceeds-the-selected-bridge-presentation-envelope) | Host block exceeds selected bridge presentation envelope | Proxy setup, selected delay, DAW audio settings | causal | accepted | FRAGMENTS / Ubuntu at Bitwig 512/48 kHz | supported-with-workaround | Actionable requested-versus-supported block message |
-| [FC-AUTO-001](#fc-auto-001--automation-refusal-collides-with-terminal-silence) | Automation refusal collides with terminal silence | Native curve admission / SDK result interpretation | causal in source; exact installed input unretained | source-fixed | Ubuntu reference effect failed; production SDK regression passes | blocked for the failed saved-automation journey | Deliver successor and repeat recall; audio gaps remain separate |
+| [FC-AUTO-001](#fc-auto-001--automation-refusal-collides-with-terminal-silence) | Automation refusal collides with terminal silence | Native curve admission / SDK result interpretation | causal collision; sparse-curve capability still incomplete | deployed collision correction | Ubuntu reference effect now explicitly refuses 0x107; state still fails | blocked for the failed saved-automation journey | Preserve the DAW curve contract and repeat recall; audio gaps remain separate |
 | [FC-CAP-001](#fc-cap-001--capacity-enumeration-versus-lease-retirement-race) | Capacity scan versus lease retirement | Manager capacity ownership | causal | none | AP17 exact fixture | supported-with-workaround | Repair issue #93 |
 | [FC-MGMT-001](#fc-mgmt-001--managed-inventory-refresh-authority) | Managed inventory freshness and refresh | Manager catalogue/registry/onboarding | causal | accepted | Blackhole, Kontakt / Deck; FRAGMENTS / Ubuntu | supported | Preserve one canonical refresh route |
 | [FC-MGMT-002](#fc-mgmt-002--exact-verified-hostsource-omitted-across-software-generations) | Exact verified host/source omitted across generations | Software catalogue, profile/candidate and publication | causal | accepted | Pure LoFi, FRAGMENTS, Serum / Deck | supported | Preserve required exact pairs in every new generation |
@@ -1886,7 +1886,15 @@ recovery retains the exact census. Unknown baselines still refuse rather than
 substitute metadata defaults. Actual processing entry-point regressions retain
 zero allocations, reallocations and frees.
 
-Implementation is **source-fixed**, not installed or accepted. Native Rust,
+The result-code correction is **deployed** in internal46, but the musical
+capability is not accepted. The effect returned `0x107` on a 1008-frame callback
+with two input events, then refused state. No false IF2 terminal-silence success
+was retained. The exact parameter points and invalidation origin are absent;
+the report does not prove a particular GUI event caused the missing anchor.
+The [internal46 receipt](../evidence/self-service-delivery/internal46-populated-reference-failure.json)
+preserves its failed snapshot, processing gaps and confirmed owner retirement.
+
+Native Rust,
 SDK and X11 regressions passed, as recorded in the
 [installed failure and source receipt](../evidence/self-service-delivery/internal44-populated-reference-automation-failure.json).
 The coherent successor must repeat saved automation, state and reopening.

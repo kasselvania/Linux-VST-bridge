@@ -26,6 +26,18 @@ accepted curve baselines across seeks; installed recall/audio remain unqualified
 See [FC-AUTO-001](FAILURE_CLASSES.md#fc-auto-001--automation-refusal-collides-with-terminal-silence)
 and the [exact failed journey](../evidence/self-service-delivery/internal44-populated-reference-automation-failure.json).
 
+Internal46 updated both Ubuntu reference publications through ordinary controls
+and a normal Ardour rescan. Its fixed-build musical run **failed**. The effect
+returned the distinct `0x107` curve refusal on a 1008-frame callback, latched
+failed processing and refused state capture. The new snapshot retains the old
+effect chunk and is not recall evidence. The instrument retained 433,637 missing
+processing frames in 380 gaps; the effect retained 11,776 in 15. Both owners
+confirmed normal retirement and the original project stayed unchanged.
+The [receipt](../evidence/self-service-delivery/internal46-populated-reference-failure.json)
+retains those facts, the delivered components and the CachyOS access blocker.
+The corrected header/product capacity projection is source-only, with paired
+operator schema 15. No commercial or multi-platform beta claim follows.
+
 ## Managed Windows DAW / Steam Deck Desktop Mode
 
 This lane is separate from the native Bitwig VST3 bridge below. It has no Linux

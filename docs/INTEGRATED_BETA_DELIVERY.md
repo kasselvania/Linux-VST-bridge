@@ -260,6 +260,29 @@ allocations/reallocations/frees. These are source regressions; the fresh install
 candidate must still prove recall and audio. Internal45 retains the collision and
 is unqualified. None of these repairs resolves the separate missing-frame failure.
 
+Internal46 delivered and selected both reference successors through normal
+Check, Prepare and Replace controls on the populated Ubuntu account. Ardour's
+ordinary rescan/reopen loaded both. A loop ran for more than ten minutes, but
+the effect's `0x107` refusal stopped its processing and state capture. The new
+snapshot retained its previous effect chunk; file creation is not a recall pass.
+The instrument lost 433,637 processing frames in 380 gaps and the effect lost
+11,776 in 15. Both owners confirmed normal retirement, with the original
+project unchanged. The [failed fixed-candidate receipt](../evidence/self-service-delivery/internal46-populated-reference-failure.json)
+also retains the absence of detailed Windows per-gap timing and CachyOS's
+unchanged authentication/access blocker. These remain product and fixture gaps,
+not a complete installed journey.
+
+The internal46 Ubuntu controls also showed an older "Bridge ready" header
+beside a newer product offer with unavailable capacity. The source successor
+includes capacity from the same manager capture in product detail and uses it
+for both the selected controls and health display. Expired readback cannot
+retain a ready claim. A new overview with different capacity invalidates the
+cached detail. The manager/frontend wire generation is 15; candidate assembly
+reads its declaration from the exact source instead of retaining a hardcoded
+generation. The 84 frontend tests, 74 operator tests (one opt-in test ignored),
+and both all-target Clippy checks pass. This correction is not yet installed;
+internal46's musical run continues on its unchanged schema-14 package.
+
 Produce installable candidate artifacts and version/component manifest;
 authenticated distribution, required notices/SBOM and customer install/update/
 rollback/support instructions; exact platform × plug-in passed/limited/failed/

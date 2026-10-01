@@ -679,7 +679,22 @@ impl Operator {
         if matches.next().is_some() { return None; }
         current.environments = detail.environments.clone();
         current.vendor_applications = detail.vendor_applications.clone();
+        current.system = detail.system.clone();
         Some(current)
+    }
+    fn current_health_system(&self) -> Option<&System> {
+        if !self.overview_fresh { return None; }
+        let overview = self.overview.as_ref()?;
+        if self.page == Page::Plugins {
+            if let Some(detail) = self.product_detail.as_ref().filter(|detail|
+                detail.state_token == overview.current.state_token
+                    && detail.current_generation == overview.current_generation
+                    && self.library.focused_product().is_some_and(|focus|
+                        ProductKey::from(&detail.product) == *focus)) {
+                return Some(&detail.system);
+            }
+        }
+        Some(&overview.current.system)
     }
     fn next_action(&mut self) -> Option<Request> {
         if self.pending {
@@ -748,7 +763,10 @@ impl Operator {
                     self.details_attempted = false;
                 }
                 self.overview = Some(*bundle);
-                if self.selected_product_snapshot().is_none() {
+                if self.selected_product_snapshot().is_none()
+                    || self.product_detail.as_ref().is_some_and(|detail|
+                        self.overview.as_ref().is_some_and(|overview|
+                            detail.system != overview.current.system)) {
                     self.product_detail = None;
                     self.product_attempted = None;
                 }
@@ -1174,12 +1192,18 @@ impl Operator {
         ui.small("Choose an installer for manager custody. Vendor sign-in remains yours.");
         if ui.button("Technical setup history").clicked() { *page = Page::Diagnostics; }
     }
-    fn health_bar(ui: &mut egui::Ui, system: &System) {
+    fn health_bar(ui: &mut egui::Ui, system: Option<&System>) {
         egui::Frame::group(ui.style())
             .fill(ui.visuals().faint_bg_color)
             .show(ui, |ui| {
                 ui.set_min_width((ui.available_width() - 1.0).max(0.0));
                 ui.spacing_mut().item_spacing.y = 3.0;
+                let Some(system) = system else {
+                    ui.label(egui::RichText::new("Bridge status unavailable")
+                        .size(17.0).strong().color(warning_color(ui)));
+                    ui.small("Checking current status. Previous capacity and cleanup are unconfirmed.");
+                    return;
+                };
                 let state = presentation::health(system);
                 let color = if matches!(
                     state,
@@ -2084,10 +2108,7 @@ impl eframe::App for Operator {
                 }
             });
             if self.preview { ui.small("LOCAL DESIGN PREVIEW · synthetic records · actions do not execute"); }
-            if let Some(snapshot) = self.overview.as_ref().map(|o| &o.current)
-                .or(self.snapshot.as_ref()) {
-                Self::health_bar(ui, &snapshot.system);
-            }
+            Self::health_bar(ui, self.current_health_system());
             navigation(ui, &mut self.page);
             self.request_bar(ui);
             ui.separator();
@@ -2216,9 +2237,8 @@ impl eframe::App for Operator {
             if submit { chosen = self.installer_rename_form.take(); }
             else if cancel { self.installer_rename_form = None; }
         }
-        let result_inactive_reason = self.current_action_snapshot().or(self.snapshot.as_ref())
-            .map_or(Some("Current manager readback unavailable"), |snapshot|
-                snapshot.system.inactive_reason());
+        let result_inactive_reason = self.current_health_system()
+            .map_or(Some("Current manager readback unavailable"), System::inactive_reason);
         if let Some(form) = self.product_form.as_mut() {
             let mut submit = false;
             let mut cancel = false;
@@ -2987,6 +3007,7 @@ mod tests {
             schema: 1, operator_schema: crate::model::OPERATOR_SCHEMA,
             state_token: overview.current.state_token.clone(),
             current_generation: overview.current_generation.clone(), product: detailed,
+            system: overview.current.system.clone(),
             environments: vec![], vendor_applications: vec![],
         });
         let selected = state.selected_product_snapshot().unwrap();
@@ -3015,6 +3036,37 @@ mod tests {
             dsp:Some(0),keepers:Some(0),maintenance:Some(0),pending_transactions:0,
             cleanup_unconfirmed:Some(false),current_generation:"same".into(),
             operation:None,operation_live:live}
+    }
+    #[test]
+    fn product_controls_and_header_use_the_same_capacity_capture() {
+        let mut state = state_fixture();
+        let overview = overview_fixture();
+        let product = overview.current.products[0].clone();
+        state.library.focus_product(ProductKey::from(&product));
+        state.page = Page::Plugins;
+        state.overview_fresh = true;
+        state.overview = Some(overview.clone());
+        let mut unavailable = overview.current.system.clone();
+        unavailable.service = "capacity unavailable".into();
+        state.origin = Some(RequestOrigin::ProductDetail);
+        state.handle_reply(Reply::Product(Box::new(CurrentProductDetail {
+            schema: 1, operator_schema: crate::model::OPERATOR_SCHEMA,
+            state_token: overview.current.state_token.clone(),
+            current_generation: overview.current_generation.clone(),
+            system: unavailable.clone(), product, environments: vec![],
+            vendor_applications: vec![],
+        })));
+        assert_eq!(state.current_health_system(), Some(&unavailable));
+        assert_eq!(state.selected_product_snapshot().unwrap().system, unavailable);
+        assert_eq!(presentation::health(state.current_health_system().unwrap()),
+            presentation::Health::Unavailable);
+        state.overview_fresh = false;
+        assert!(state.current_health_system().is_none());
+        assert!(state.current_action_snapshot().is_none());
+        state.origin = Some(RequestOrigin::SilentPostMutationRefresh);
+        state.handle_reply(Reply::Overview(Box::new(overview.clone())));
+        assert!(state.product_detail.is_none());
+        assert_eq!(state.current_health_system(), Some(&overview.current.system));
     }
     #[test]
     fn suspended_service_does_not_repeatedly_disable_owned_installer_controls() {

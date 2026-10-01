@@ -24,6 +24,10 @@ sha=lambda data:hashlib.sha256(data).hexdigest()
 git=lambda *a:subprocess.check_output(['git','-C',str(s),*a],text=True).strip()
 head,tree=git('rev-parse','HEAD'),git('rev-parse','HEAD^{tree}')
 assert not git('status','--porcelain'), 'Commit the exact candidate inputs first'
+operator_schema_match=re.search(r'^pub const OPERATOR_SCHEMA: u32 = ([0-9]+);$',
+ (s/'bridge-manager/src/operator_model.rs').read_text(),re.MULTILINE)
+assert operator_schema_match, 'Missing declared manager/frontend wire generation'
+operator_schema=int(operator_schema_match.group(1))
 copies={s/'bridge-manager/target/x86_64-unknown-linux-gnu/release/linux-vst-bridge':'linux-vst-bridge',s/'manager-ui/target/x86_64-unknown-linux-gnu/release/linux-audio-compatibility-manager':'linux-audio-compatibility-manager',a.windows_package/'wf0-factory-probe.exe':'host.exe',a.windows_package/'host-source-manifest.json':'host-source-manifest.json',a.kit:'preparation-kit.zip',s/'compatibility/arturia-pure-lofi.json':'profile.json',s/'COPYRIGHT.md':'LVB-Proprietary.txt',a.fixture:'fixture.vst3'}
 for source,name in copies.items():shutil.copyfile(source,p/name)
 for name in ('session','ownership'):
@@ -61,6 +65,6 @@ for dest,name,kind in rows:
  item=dict(destination=dest,source=str(p/name),sha256=sha((p/name).read_bytes()),kind=kind,component='self-service-'+kind,mode='0555' if kind in ('manager','frontend','proxy') else '0444')
  if kind in ('manager','frontend'):item.update(build_head=head,build_tree=tree)
  files.append(item)
-spec=dict(schema=2,version=version,source_head=head,source_tree=tree,operator_schema=14,external_runtime={'id':'managed-ge-proton11-7-slr4-20260805-r3','manifest_sha256':sha(b'c5448b76a230384e2d7bc6beb5ccb97bafb7e2c3b6c527cb03a1a546bbcb00a0\n3226d8234e7c0542ee767837832bfb1dad5e5e2dc944ec97eb221b437f6b9349\n')},files=files)
+spec=dict(schema=2,version=version,source_head=head,source_tree=tree,operator_schema=operator_schema,external_runtime={'id':'managed-ge-proton11-7-slr4-20260805-r3','manifest_sha256':sha(b'c5448b76a230384e2d7bc6beb5ccb97bafb7e2c3b6c527cb03a1a546bbcb00a0\n3226d8234e7c0542ee767837832bfb1dad5e5e2dc944ec97eb221b437f6b9349\n')},files=files)
 (b/('package-spec-'+version+'.json')).write_text(json.dumps(spec,sort_keys=True,indent=2))
 print(json.dumps({'head':head,'tree':tree,'files':len(files),'proxies':len(index['proxies'])}))

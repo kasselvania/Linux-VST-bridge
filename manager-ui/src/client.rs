@@ -233,6 +233,7 @@ mod tests {
         let mut value = serde_json::to_value(CurrentProductDetail {
             schema: 1, operator_schema: crate::model::OPERATOR_SCHEMA,
             state_token: snapshot.state_token, current_generation: "exact-generation".into(),
+            system: snapshot.system,
             product, environments: vec![], vendor_applications: vec![],
         }).unwrap();
         assert!(matches!(decode_reply(Query::Product(key.clone()),
@@ -300,6 +301,7 @@ mod tests {
             serde_json::json!(10),
             serde_json::json!(11),
             serde_json::json!(12),
+            serde_json::json!(14),
             serde_json::json!("9"),
             serde_json::Value::Null,
         ] {
@@ -309,7 +311,7 @@ mod tests {
                     decode_reply(request, &serde_json::to_vec(&receipt).unwrap())
                         .err()
                         .unwrap()
-                        .contains("operator model 14 required")
+                        .contains(&format!("operator model {} required", crate::model::OPERATOR_SCHEMA))
                 );
             }
         }

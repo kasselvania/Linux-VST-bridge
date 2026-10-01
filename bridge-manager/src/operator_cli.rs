@@ -741,7 +741,8 @@ fn product_detail_readonly(m: &Manager, environment: &str, module: &str,
     captured.recheck(m)?;
     Ok(ui::CurrentProductDetail {schema:1,operator_schema:ui::OPERATOR_SCHEMA,
         state_token:captured.snapshot.state_token,
-        current_generation:captured.current_generation,product,environments,
+        current_generation:captured.current_generation,system:captured.snapshot.system,
+        product,environments,
         vendor_applications})
 }
 fn valid_product_environment(id: &str) -> bool {
@@ -3507,7 +3508,7 @@ mod tests {
     }
     #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 14);
+        assert_eq!(ui::OPERATOR_SCHEMA, 15);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();
@@ -4838,6 +4839,7 @@ mod tests {
         service.join().unwrap();
         assert_eq!(detail.schema, 1);
         assert_eq!(detail.operator_schema, ui::OPERATOR_SCHEMA);
+        assert!(detail.system.capacity_available());
         assert_eq!(detail.product.environment, selection.environment.id);
         assert!(detail.product.compatibility.is_some());
         let offered = detail.product.actions.iter().find(|offer|
@@ -4875,6 +4877,14 @@ mod tests {
         request.schema = 11;
         assert_eq!(validate_current_request(&fixture.m,&request).unwrap_err().to_string(),
             "operator_schema_mismatch_update_manager_frontend");
+        // A missing service is a fresh, different capture even when product
+        // and generation identities have not changed.
+        let unavailable = product_detail(&fixture.m, &selection.environment.id,
+            &selection.module.sha256, &selection.class.id).unwrap();
+        assert!(!unavailable.system.capacity_available());
+        let refused = unavailable.product.actions.iter().find(|offer|
+            matches!(offer.action, ui::Action::PluginReinspect { .. })).unwrap();
+        assert!(refused.disabled_reason.as_deref().unwrap().contains("unavailable"));
     }
     #[test]
     fn scoped_ordinary_product_keeps_exact_rollback_offer() {

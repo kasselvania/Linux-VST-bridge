@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "key_class": "internal_test",
+  "release_authorized": false,
+  "source": {
+    "head": "b8eb7fec48f9bbd7b8ec148269ea5829b9a62575",
+    "tree": "7a8f80d179f3be1e24429f81ed81cb7c30746198"
+  },
+  "targets": {
+    "steamos": {
+      "version": "0.12.0internal46",
+      "payload_sha256": "af7b7fbafadbbd186004f4ed4af2616d07b795e15151c666617bac6468887b6c",
+      "release_manifest_sha256": "868078023f6a39de005594130f7ced0211e861062da3ff20398ebf36211d7e2f",
+      "installer_sha256": "28928f668c6dade7deea44e90af8ca847cf06b25038d8a1042b09eecd0ac5d3e",
+      "deb_sha256": "da2f8713382ef63cdaeaf22517d16e1efdfc2a0f9050bf6efa8d0c99fa076ce3",
+      "components": {
+        "frontend": "3eed27e6bfa839940ab9d63c5017c92b40e72b22e3a4ec729a95fd17b6e2fe6f",
+        "manager": "eea5403f9b5f0363706021bbbc6b559aa580221e82a9e67805cd49cd607baac1",
+        "windows_host": "a90de3ca2f7360e8c9477184acb8224ebf394d4e46cf00fd905892002a79cd13",
+        "host_source": "f21af06cbaa2f942119aa50d9ca757e303d6f4507c2d7abbd81cada21bfd1626",
+        "preparation_kit": "8e0e4f8ddd2981347940011cef9255f0e6cc6dee3791725b4ff9828cb5ac0685",
+        "ownership": "63b03e1a3d4c184e002c3c384494c761a97da1f634e7bf5280e5933214835148",
+        "supervisor": "fc4bf5c03254861813a65bb9086788774e2c7d6a3ccd68df3d9d3389273e8027",
+        "compliance": "d9ec280039782ef5e94ac6973286c24e8bd501f220759601f50bcdc503eef3b0"
+      }
+    },
+    "ubuntu": {
+      "version": "0.12.0internal46",
+      "payload_sha256": "e430a1822f5205f6ab4f464a363540e8a7aee948c606ab028419144512f137fe",
+      "release_manifest_sha256": "6e22042bb2346ec1b5341b3fdb37eb4373ac7d6da5fa161558f46ff0e01ef08e",
+      "installer_sha256": "3f0fdd8211e466c439bb90200678cbcc032dbee8c523f3679ae67e3e318825f4",
+      "deb_sha256": "cb8104874ebfbd2c16222e5d82f4e0c226dfafeaf664c04d2843c2a3f5d9a3e4",
+      "components": {
+        "frontend": "636516808f3386d5bbf89e9748a938e0ae678a867dd9cf8407e16f634c1c0661",
+        "manager": "1987ab4427798abf26096dc141b9e50acabe358c0a82ae0060629a94d9fec1d1",
+        "windows_host": "a90de3ca2f7360e8c9477184acb8224ebf394d4e46cf00fd905892002a79cd13",
+        "host_source": "f21af06cbaa2f942119aa50d9ca757e303d6f4507c2d7abbd81cada21bfd1626",
+        "preparation_kit": "8e0e4f8ddd2981347940011cef9255f0e6cc6dee3791725b4ff9828cb5ac0685",
+        "ownership": "25412f5002bd2fe6d77e8603b17a9953adc310259e11bb51a6c9f9a97c544ffe",
+        "supervisor": "b0e67006b939bf09a76934f62c3a13dddfa71cb5859cc50fcf6ef6e0d1cb2c31",
+        "compliance": "d9ec280039782ef5e94ac6973286c24e8bd501f220759601f50bcdc503eef3b0"
+      }
+    }
+  }
+}
