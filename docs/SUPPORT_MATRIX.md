@@ -29,7 +29,11 @@ See the [failure and attribution](RESTART_VALIDATION_2026_10_01.md#internal55-re
 Internal55 also passed one partial-install Stop: the instrument-only state was
 preserved, every installer process retired and the service returned. Setup then
 hid the backend's valid isolated retry beside discovery. That projection gap is
-reproduced by a regression; its successor still requires installed qualification.
+reproduced by a regression. Internal56's ordinary Ubuntu package selection
+preserved the registry, three DAW snapshots and previous components. Its installed
+Setup exposed retry, and two fresh partial-stop repetitions confirmed retirement,
+preserved partial files and restored service without maintainer repair. Other
+recovery cases, platforms and the complete beta remain unqualified.
 See [FC-MGMT-005](FAILURE_CLASSES.md#fc-mgmt-005--partial-installation-retry-omitted-from-setup).
 
 The integrated internal43 Deck audio diagnostic still failed its declared

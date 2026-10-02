@@ -67,7 +67,21 @@ change installation, cleanup or environment ownership. See
 The old projection fails the exercised regression; the corrected manager binary
 suite passes 285 tests (two optional fixtures ignored), and all-target Clippy
 passes with warnings denied. See the [source validation](../evidence/self-service-delivery/partial-retry-source-validation.json).
-Installed successor testing and the remaining recovery cases are still required.
+Internal56 freezes source `9f963bcf5fc676d099982dee25e688e7f83fe489`, tree
+`9bba0162c4006e29dd8923baa0e22991ede76a0f`. All five exact-source CI workflows
+passed, including ten executed native tests. Ordinary Ubuntu Install, Stop,
+Select and Start selected the verified package. Registry, three DAW snapshots
+and previous components were independently verified unchanged.
+
+Installed Setup now offers the exact isolated retry beside discovery. Two
+successive fresh attempts each reached the instrument-only partial hold; visible
+Stop retired all owned processes, preserved partial files, restored the service
+and cleared pending recovery. Setup again displayed discovery and retry. Neither
+run needed a maintainer repair. See the
+[installed recovery record](../evidence/self-service-delivery/internal56-installed-partial-recovery.json)
+and [component manifest](../evidence/self-service-delivery/internal56-component-manifest.json).
+Other recovery cases, complete platform workflows and audio qualification remain
+open; this is still an internal-test package.
 
 ## Internal55 installed recovery and diagnostic regressions
 

@@ -78,6 +78,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-MGMT-002](#fc-mgmt-002--exact-verified-hostsource-omitted-across-software-generations) | Exact verified host/source omitted across generations | Software catalogue, profile/candidate and publication | causal | accepted | Pure LoFi, FRAGMENTS, Serum / Deck | supported | Preserve required exact pairs in every new generation |
 | [FC-PLAT-001](#fc-plat-001--nativewindows-transport-requires-shared-private-loopback) | Native/Windows transport needs shared loopback | Platform namespace adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Regression gate for new adapters |
 | [FC-MGMT-004](#fc-mgmt-004--managed-publication-is-mistaken-for-a-static-catalogue-fixture) | Managed publication is mistaken for a static catalogue fixture | Catalogue/publication ownership | causal | installed | Ubuntu internal22 normal status and product controls passed | resolved at publication readback | DAW use remains untested |
+| [FC-MGMT-005](#fc-mgmt-005--partial-installation-retry-omitted-from-setup) | Partial installation retry omitted from Setup | Existing installer offers to Setup projection | causal | installed | Ubuntu internal56: two partial-stop and isolated-retry repetitions | resolved for the recorded partial retry | Remaining recovery cases and platform qualification |
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
@@ -2061,5 +2062,10 @@ retirement and new-attempt admission remain with their existing owner.
 
 The installed failure and successful partial-stop subset are retained in
 [the internal55 record](../evidence/self-service-delivery/internal55-partial-stop-hidden-retry.json).
-The regression fails against the old projection. Source validation and installed
-successor qualification are separate; the complete recovery matrix remains open.
+The regression fails against the old projection. Internal56 then exposed the
+exact retry through installed Setup. Two fresh attempts passed partial Stop,
+positive retirement and service restoration, preserving the prior partial
+attempts. Setup offered discovery and another isolated retry after each. The
+[installed record](../evidence/self-service-delivery/internal56-installed-partial-recovery.json)
+binds the source, package selection and operation identities. The complete
+recovery matrix and other platforms remain open.
