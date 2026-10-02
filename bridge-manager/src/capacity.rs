@@ -573,6 +573,16 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
                         == Some(format!("environment-{sid}.json").as_str()),
                 "lease_identity",
             )?;
+            // A retained keeper lease is not a healthy capacity owner after
+            // its exact finalizer explicitly disputes cleanup. This durable
+            // fact also survives a service restart; an in-memory DSP guard
+            // alone cannot authorize the readback or another reservation.
+            if report.try_exists()? {
+                let result: serde_json::Value = read_json(&report)?;
+                if result["ready"] == false && result["cleanup_confirmed"] == false {
+                    return Err(Refusal::CleanupUnconfirmed.into());
+                }
+            }
             Kind::Keeper
         } else {
             require(
@@ -1199,6 +1209,24 @@ mod tests {
             reason(reserve(&f.m, &p, Some(a), false)),
             Refusal::CleanupUnconfirmed.code()
         );
+    }
+    #[test]
+    fn exact_failed_keeper_report_blocks_readback_and_admission_after_reconstruction() {
+        let f = Fixture::new();
+        let p = limits();
+        let a = &p.classes[0].class_id;
+        let retained = lease(&f, a, Kind::Keeper);
+        let report: PathBuf = read_json(&retained).unwrap();
+        atomic_json(&report, &serde_json::json!({"ready":false,"cleanup_confirmed":false})).unwrap();
+        let restarted = Manager { root:f.m.root.clone(), publications:f.m.publications.clone() };
+        let failure=status(&restarted,p.clone(),1,false).unwrap_err();
+        assert_eq!(failure.downcast_ref::<Refusal>(),Some(&Refusal::CleanupUnconfirmed));
+        assert_eq!(reason(reserve(&restarted,&p,Some(a),false)),Refusal::CleanupUnconfirmed.code());
+        assert!(retained.exists());
+        // A positive final report alone still does not remove the owner lease.
+        atomic_json(&report, &serde_json::json!({"ready":false,"cleanup_confirmed":true})).unwrap();
+        assert_eq!(owners(&restarted).unwrap().len(),1);
+        assert!(retained.exists());
     }
     #[test]
     fn concurrent_reservations_cannot_check_then_over_admit() {

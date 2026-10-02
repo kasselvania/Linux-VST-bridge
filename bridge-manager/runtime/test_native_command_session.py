@@ -1,5 +1,5 @@
 """Native shared-runtime custody: real Linux children, plus admission negatives."""
-import hashlib,json,os,pathlib,signal,socket,subprocess,sys,tempfile,threading,time,unittest
+import hashlib,importlib.util,json,os,pathlib,py_compile,signal,socket,subprocess,sys,tempfile,threading,time,unittest
 from unittest.mock import Mock,patch
 from types import SimpleNamespace
 import session as s
@@ -106,19 +106,56 @@ class SelectionTests(unittest.TestCase):
   with self.assertRaisesRegex(RuntimeError,'keeper identity'):s.NativeProtonSession.endpoint_for('../arbitrary')
  def test_private_command_endpoint_preserves_graphical_denial(self):
   self.declare();n=s.NativeProtonSession.selected(self.spec)
-  endpoint=self.root/'ipc'/'keeper'/'s';env={'DBUS_SESSION_BUS_ADDRESS':'unix:path=/denied','PATH':'/usr/bin:/bin'}
+  endpoint=self.root/'cache'/'app'/'commands'/'keeper'/'s';env={'DBUS_SESSION_BUS_ADDRESS':'unix:path=/denied','PATH':'/usr/bin:/bin'}
   with patch.object(n,'endpoint_for',return_value=endpoint):
    command,actual=n.keeper_launch(['entry','--verb=run','--','proton','runinprefix'],env)
   self.assertEqual(actual,env)
   self.assertIn('--socket='+str(endpoint),command)
   self.assertNotIn('--session',command);self.assertNotIn('--exec-fallback',command)
   n.retire_endpoint()
+ def test_fresh_cache_is_private_and_only_the_owned_directory_is_retired(self):
+  self.declare();n=s.NativeProtonSession.selected(self.spec)
+  endpoint=self.root/'cache'/'app'/'commands'/'keeper'/'s'
+  with patch.object(n,'endpoint_for',return_value=endpoint):
+   n.keeper_launch(['entry','--verb=run','--','proton'],{})
+  for directory in (endpoint.parents[2],endpoint.parents[1],endpoint.parent):
+   self.assertEqual(directory.stat().st_mode & 0o777,0o700)
+  n.retire_endpoint();self.assertFalse(endpoint.parent.exists())
+  self.assertTrue(endpoint.parents[1].exists())
+ def test_refused_creation_never_claims_or_retires_an_existing_directory(self):
+  self.declare();n=s.NativeProtonSession.selected(self.spec)
+  endpoint=self.root/'cache'/'app'/'commands'/'keeper'/'s'
+  endpoint.parent.mkdir(parents=True,mode=0o700)
+  for directory in (endpoint.parents[2],endpoint.parents[1]):directory.chmod(0o700)
+  marker=endpoint.parent/'foreign';marker.write_bytes(b'preserve')
+  with patch.object(n,'endpoint_for',return_value=endpoint):
+   with self.assertRaises(FileExistsError):n.keeper_launch(['entry','--verb=run','--','proton'],{})
+  self.assertIsNone(n.endpoint);n.retire_endpoint()
+  self.assertEqual(marker.read_bytes(),b'preserve')
+ def test_fresh_cache_popen_refusal_reaches_the_real_keeper_finalizer(self):
+  self.declare();n=s.NativeProtonSession.selected(self.spec)
+  endpoint=self.root/'cache'/'app'/'commands'/'keeper'/'s'
+  self.spec.update(directory=str(self.root),report=str(self.root/'result.json'))
+  self.spec['registration']['host']={'path':str(self.root/'host'),'sha256':'0'*64}
+  with patch.object(s.NativeProtonSession,'selected',return_value=n), \
+       patch.object(n,'endpoint_for',return_value=endpoint),patch.object(s,'verify'), \
+       patch.object(s,'environment',return_value={}),patch.object(s,'managed_home'), \
+       patch.object(s,'transport_environment'),patch.object(s.signal,'signal'), \
+       patch.object(s.subprocess,'Popen',side_effect=OSError('deliberate launch refusal')) as launch:
+   self.assertEqual(s.keep(self.spec),{'cleanup_confirmed':True})
+  launch.assert_called_once()
+  result=json.loads(pathlib.Path(self.spec['report']).read_text())
+  self.assertIs(result['ready'],False);self.assertIs(result['cleanup_confirmed'],True)
+  self.assertEqual(result['error'],'deliberate launch refusal')
+  self.assertFalse(endpoint.parent.exists())
  def test_endpoint_extent_and_private_owner_posture_refuse(self):
   self.declare();n=s.NativeProtonSession.selected(self.spec)
   long_endpoint=self.root/('x'*96)/'s'
   with patch.object(n,'endpoint_for',return_value=long_endpoint):
    with self.assertRaisesRegex(RuntimeError,'socket path extent'):n.keeper_launch(['entry','--verb=run','--','proton'],{})
-  directory=self.root/'public'/('d'*32);directory.parent.mkdir(mode=0o700);directory.parent.chmod(0o777)
+  self.assertIsNone(n.endpoint);n.retire_endpoint()
+  directory=self.root/'cache'/'app'/'public'/('d'*32);directory.parent.mkdir(parents=True,mode=0o700)
+  directory.parents[1].chmod(0o700);directory.parent.chmod(0o777)
   with patch.object(n,'endpoint_for',return_value=directory/'s'):
    try:
     with self.assertRaises(RuntimeError):n.keeper_launch(['entry','--verb=run','--','proton'],{})
@@ -213,6 +250,7 @@ class SelectionTests(unittest.TestCase):
   self.declare();n=s.NativeProtonSession.selected(self.spec)
   endpoint=self.root/'command-session'/'s';endpoint.parent.mkdir(mode=0o700)
   listener=socket.socket(socket.AF_UNIX);listener.bind(str(endpoint));n.endpoint=endpoint;n.socket_identity=s.socket_identity(endpoint,'test endpoint')
+  n.endpoint_directory_identity=(endpoint.parent.stat().st_dev,endpoint.parent.stat().st_ino)
   descriptor=self.root/'command-session.json';n.descriptor=descriptor;n.descriptor_value={'schema':1,'keeper':self.spec['session']}
   descriptor.write_text(json.dumps(n.descriptor_value));descriptor.chmod(0o600)
   try:
@@ -231,6 +269,7 @@ class SelectionTests(unittest.TestCase):
   self.spec['directory']=str(directory);n=s.NativeProtonSession.selected(self.spec)
   endpoint=self.root/'command-session'/'s';endpoint.parent.mkdir(mode=0o700)
   listener=socket.socket(socket.AF_UNIX);listener.bind(str(endpoint));n.endpoint=endpoint
+  n.endpoint_directory_identity=(endpoint.parent.stat().st_dev,endpoint.parent.stat().st_ino)
   try:
    previous_umask=os.umask(0o077)
    try:
@@ -254,6 +293,7 @@ class SelectionTests(unittest.TestCase):
   endpoint=self.root/'command-session'/'s';endpoint.parent.mkdir(mode=0o700)
   listener=socket.socket(socket.AF_UNIX);listener.bind(str(endpoint))
   command_session.endpoint=endpoint
+  command_session.endpoint_directory_identity=(endpoint.parent.stat().st_dev,endpoint.parent.stat().st_ino)
   command_session.socket_identity=s.socket_identity(endpoint,'native command endpoint')
   descriptor=directory/'command-session.json';command_session.descriptor=descriptor
   command_session.descriptor_value={'schema':1,'keeper':self.spec['session'],'owner_pid':123,
@@ -310,6 +350,31 @@ class SelectionTests(unittest.TestCase):
  def test_keeper_finalizer_retains_disputed_socket_and_reports_uncertain_cleanup(self):
   self.keeper_finalizer_with_drift('endpoint')
 
+ def test_replaced_exclusive_directory_is_never_removed(self):
+  self.declare();n=s.NativeProtonSession.selected(self.spec)
+  endpoint=self.root/'cache'/'app'/'commands'/'keeper'/'s'
+  with patch.object(n,'endpoint_for',return_value=endpoint):
+   n.keeper_launch(['entry','--verb=run','--','proton'],{})
+  endpoint.parent.rename(endpoint.parent.with_name('retained'))
+  endpoint.parent.mkdir(mode=0o700)
+  with self.assertRaisesRegex(RuntimeError,'directory changed'):n.retire_endpoint()
+  self.assertTrue(endpoint.parent.exists())
+
+ def test_compiled_parent_sends_isolated_text_without_host_bytecode_path(self):
+  compiled=self.root/'session.pyc';py_compile.compile(s.__file__,cfile=str(compiled),doraise=True)
+  module_spec=importlib.util.spec_from_file_location('compiled_native_session',compiled)
+  packaged=importlib.util.module_from_spec(module_spec);module_spec.loader.exec_module(packaged)
+  self.declare();n=packaged.NativeProtonSession.selected(self.spec)
+  with patch.object(n,'find_keeper'),patch.object(packaged.subprocess,'Popen') as launch:
+   n.endpoint=self.root/'s'
+   n.spawn(['entry','--verb=run','--','/usr/bin/proton','runinprefix'],{})
+  n.close();command=launch.call_args.args[0]
+  index=command.index('/usr/bin/python3')
+  self.assertEqual(command[index+1:index+3],['-I','-c'])
+  self.assertEqual(command[index+3],packaged.NATIVE_COMMAND_CHILD)
+  self.assertNotIn(str(compiled),command)
+  self.assertEqual(command[-3:],['--','/usr/bin/proton','runinprefix'])
+
 
 class CleanupGroupAuthorityTests(unittest.TestCase):
  @staticmethod
@@ -355,7 +420,7 @@ class CleanupGroupAuthorityTests(unittest.TestCase):
 class KernelCustodyTests(unittest.TestCase):
  def helper(self,target):
   parent,child=socket.socketpair();nonce='c'*64
-  p=subprocess.Popen([sys.executable,str(pathlib.Path(s.__file__).resolve()),'--native-command-child',str(child.fileno()),nonce,'--',*target],
+  p=subprocess.Popen([sys.executable,'-I','-c',s.NATIVE_COMMAND_CHILD,str(child.fileno()),nonce,'--',*target],
     pass_fds=(child.fileno(),),start_new_session=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
   child.close();return p,parent,nonce
  def test_disconnect_before_acknowledgement_never_executes_target(self):

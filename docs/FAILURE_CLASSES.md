@@ -1697,8 +1697,9 @@ refuses stale/changed bytes and disk-cache authority, and releases its bounded
 preparation lock before keeper/DSP work. Focused tests pass. It is absent from
 internal32; repeated installed cold/warm measurements remain pending.
 
-Internal52's installed SDK suite passed both reference roles but warm state
-access remained 11.367–24.806 seconds. Retained phases place 8.070–8.599 seconds
+Internal52's installed SDK suite passed both reference roles. First state access
+took 24.806 seconds; the remaining fifteen warm launches took 11.367–12.674
+seconds. Retained phases place 8.070–8.599 seconds
 in initial binding verification and about three milliseconds in ready-keeper
 admission. A separate read-only probe observed 6,799 runtime file identities
 change and 1.46 GB of manager reads across two successful launches. The acquired
@@ -1713,6 +1714,20 @@ verification. The differential selection test refuses the old absence and all
 32 command-owner tests pass against the correction. Installed startup and
 retirement validation is still required. The [warm-delay receipt](../evidence/self-service-delivery/internal52-warm-verification-delay.json)
 preserves observations, inference and nonclaims separately.
+
+Internal53 passed normal package selection but failed its first installed state
+capture before Windows processing. Its command keeper assumed a cache parent
+existed and claimed the endpoint before exclusive creation; finalization then
+disputed a nonexistent directory. A separate actual runtime probe also proves
+that the host-compiled supervisor bytecode cannot load in runtime Python 3.13.5.
+The connected source correction creates/verifies private roots, claims and
+retires only its exact directory, and sends a fixed isolated text bootstrap
+through the unchanged inherited-fd/kernel-identity handshake. Exact failed keeper
+reports now refuse capacity instead of projecting available work. Frozen53
+fails both fresh-cache finalizer reproductions; 37 corrected owner tests and an
+actual pinned command-service/client interface test pass. Installed successor
+audio/state/retirement and complete frontend qualification remain pending. See
+[failed53](../evidence/self-service-delivery/internal53-runtime-owner-failure.json).
 
 ## FC-PLAT-002 — Delivered runtime lifetime lock cannot be opened
 

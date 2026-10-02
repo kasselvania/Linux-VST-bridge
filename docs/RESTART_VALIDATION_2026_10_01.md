@@ -340,8 +340,9 @@ limits are retained in `internal52-component-manifest.json`,
 passed, including all ten native tests in
 [run 36942534945](https://github.com/kasselvania/Linux-VST-bridge/actions/runs/36942534945).
 
-Warm state access remains limited: the sixteen launches took 11.367–24.806
-seconds, exceeding the prospective five-second warm target. Retained manager
+State access remains limited: the first launch took 24.806 seconds and the
+remaining fifteen warm launches took 11.367–12.674 seconds, exceeding the
+prospective five-second warm target. Retained manager
 phases place 8.070–8.599 seconds before binding verification, with an already
 ready keeper taking about three milliseconds. A separate two-launch, read-only
 sampling probe passed functional processing and retirement, observed 6,799
@@ -364,8 +365,54 @@ installed runner file, prefix or licensing identity. Unknown runners keep their
 prior route; missing or changed manifests/tools refuse. The exact packaged
 command tools' help interfaces confirm the socket, variable and descriptor
 forwarding contract. The new selection regression fails against frozen52 and
-passes against the correction; all 32 command-session tests pass, including
-actual Linux process-group custody. Installed validation remains required.
+passes against the correction; all 32 command-session tests passed, including
+actual Linux process-group custody. These source results did not qualify the
+packaged child boundary.
+
+## Internal53 installed owner failure and connected correction
+
+Fixed source `201b914b45a9c17a63b275e5b5dba28139675489`, tree
+`608ee099ee5776572122069522b38ee70d60e73d`, passed normal installer intake and
+Setup Stop/Select/Start on the populated account. All six selected components
+matched the immutable package. All eight GitHub checks passed, including ten
+actual native tests. Its first installed SDK effect state capture then failed
+before any Windows DSP or audio admission. This candidate failed qualification;
+the valid internal52 results remain separate.
+
+The exact keeper report proves a missing application cache parent. The owner
+assigned its endpoint before creating the exclusive directory, so finalization
+attempted to remove a nonexistent path and persisted unconfirmed cleanup. Fresh
+capacity incorrectly remained available because its in-memory DSP cleanup guard
+did not include that retained failed keeper report. The failed lease, report,
+original project and source are preserved. No directory was manually created
+and no lease/report was edited to advance the run.
+
+A separate isolated probe of the actual selected supervisor inside the actual
+pinned runtime returned `RuntimeError: Bad magic number in .pyc file`: runtime
+Python 3.13.5 has bytecode magic `f30d0d0a`, while the host-built supervisor has
+`2b0e0d0a`. This is a second measured boundary defect, not a guess about the
+initial cache failure. The first instrumentation attempt had an inaccessible
+working directory and was corrected only in the private probe.
+
+The connected correction claims a directory only after exclusive creation,
+creates/verifies its private application roots, and retires only the exact owned
+directory. It replaces the cross-interpreter supervisor invocation with one
+fixed isolated text bootstrap preserving the nonce, kernel identity and exec
+handshake. A retained keeper report explicitly disputing cleanup now refuses
+capacity/admission instead of projecting available capacity.
+
+Both fresh-cache finalizer reproductions fail against frozen53. All 37 corrected
+command-owner tests pass in the capped Linux guest, including compiled-parent
+argv and actual kernel custody. The actual pinned command service/client also
+executed the text bootstrap in runtime Python 3.13.5 with the same kernel
+identity across exec and positive process cleanup, in 3.940 seconds. No new guest
+task, memory or OOM events occurred. These are development source/interface
+results. After restoring the repository-relative fixtures omitted from the
+first private test copy, all 344 runtime tests passed without skips in 32.343
+seconds; guest task/memory events remained unchanged. Product source did not
+change for that test-copy correction. Installed Windows processing and DAW qualification of the successor
+remain required. The [failed53 receipt](../evidence/self-service-delivery/internal53-runtime-owner-failure.json)
+retains the exact failure and the independent runtime observations.
 
 Final acceptance uses one fixed delivered candidate through installation,
 publication, automation, meaningful saving, close/reopen, reboot/reopen,

@@ -4,7 +4,6 @@
   "source_head": "2446836aa8d75033d85bf9c4636c780aaf818130",
   "claim": "installed development regression with unresolved warm responsiveness",
   "warm_state_access_ms": [
-    24806,
     12674,
     11388,
     11686,
@@ -199,5 +198,25 @@
       "No historical internal49 cause is inferred from this warm-start measurement."
     ]
   },
-  "proposed_repair": "Derive the closed command tool pair from the acquired runner's exact pinned tree; reuse the existing live keeper custody route. Do not edit the installed runner or licensing prefix."
+  "proposed_repair": "Derive the closed command tool pair from the acquired runner's exact pinned tree; reuse the existing live keeper custody route. Do not edit the installed runner or licensing prefix.",
+  "launch_order_state_access_ms": [
+    24806,
+    12674,
+    11388,
+    11686,
+    11485,
+    11616,
+    11735,
+    12101,
+    11764,
+    11367,
+    12167,
+    11700,
+    11518,
+    11423,
+    11511,
+    11490
+  ],
+  "first_state_access_ms": 24806,
+  "timing_classification_correction": "Earlier field grouped all sixteen launches as warm; first launch is separate, and later fifteen warm observations are unchanged."
 }

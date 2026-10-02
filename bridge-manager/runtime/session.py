@@ -1034,6 +1034,32 @@ def prelaunch_owned_failure(spec,peer,error):
     atomic(report.with_suffix('.ownership.json'),receipt)
     return outcome
 
+# Only this fixed bootstrap crosses into the runtime's Python interpreter.
+# Packaged supervisor bytecode belongs to the host interpreter. The bootstrap
+# imports no product module and transfers kernel custody before the target exec.
+NATIVE_COMMAND_CHILD = r'''
+import json,os,pathlib,re,socket,sys
+args=sys.argv[1:]
+if (len(args)<4 or args[2]!='--' or not re.fullmatch('[0-9a-f]{64}',args[1])
+        or not pathlib.Path(args[3]).is_absolute()):
+    raise RuntimeError('native command child arguments')
+channel=socket.socket(fileno=int(args[0]));channel.settimeout(5)
+pid=os.getpid()
+if os.getpgrp()!=pid:os.setsid()
+with open('/proc/self/stat',encoding='utf-8') as source:raw=source.read()
+actual,separator,_=raw.partition(' (');fields=raw.rsplit(')',1)[1].split()
+if not separator or int(actual)!=pid:raise RuntimeError('native command child absent')
+channel.sendall((json.dumps({'nonce':args[1],'pid':pid,'start':int(fields[19])})+'\n').encode())
+acknowledgement=bytearray()
+while b'\n' not in acknowledgement and len(acknowledgement)<128:
+    part=channel.recv(128-len(acknowledgement))
+    if not part:break
+    acknowledgement.extend(part)
+if acknowledgement!=(args[1]+'\n').encode():raise RuntimeError('native command child not admitted')
+channel.close()
+os.execv(args[3],args[3:])
+'''
+
 # Native instances share their keeper's initialized Proton namespace. Selection
 # is an immutable runner component; the manager still owns the one environment
 # keeper and the existing per-instance lease. No audio callback enters this code.
@@ -1049,7 +1075,7 @@ class NativeProtonSession:
         self.canonical_runner_key=spec.get('runner_key')
         if not isinstance(self.canonical_runner_key,str) or not re.fullmatch('[0-9a-f]{64}',self.canonical_runner_key):
             raise RuntimeError('native command canonical runner key absent')
-        self.component=component;self.endpoint=None;self.control=None
+        self.component=component;self.endpoint=None;self.endpoint_directory_identity=None;self.control=None
         self.remote_identity=None;self.started=False;self.client=None;self.service=None
         base=pathlib.Path(self.runner['entry_point']).parent/'pressure-vessel/bin'
         self.client=base/'steam-runtime-launch-client';self.service=base.parent/'libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service'
@@ -1124,11 +1150,23 @@ class NativeProtonSession:
     def keeper_launch(self,cmd,env):
         # This is private bridge IPC. The plug-in retains the caller's exact
         # graphical bus denial; no desktop session bus is used for launch.
-        self.endpoint=self.endpoint_for(self.spec['session'])
-        self.endpoint.parent.parent.mkdir(mode=0o700,exist_ok=True)
-        private_runtime_root(self.endpoint.parent.parent)
-        if len(os.fsencode(self.endpoint))>100:raise RuntimeError('native command socket path extent')
-        self.endpoint.parent.mkdir(mode=0o700)
+        endpoint=self.endpoint_for(self.spec['session'])
+        if len(os.fsencode(endpoint))>100:raise RuntimeError('native command socket path extent')
+        # The shared cache may be public; the application and command roots
+        # must be private. Create each level with its own explicit mode rather
+        # than assuming another feature has already created these parents.
+        cache=endpoint.parents[3];cache.mkdir(mode=0o700,exist_ok=True)
+        metadata=cache.lstat()
+        if not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid!=os.getuid():
+            raise RuntimeError('native command cache ownership differs')
+        for directory in (endpoint.parents[2],endpoint.parents[1]):
+            directory.mkdir(mode=0o700,exist_ok=True);private_runtime_root(directory)
+        endpoint.parent.mkdir(mode=0o700)
+        # No exclusive directory was owned before mkdir succeeded. A refusal
+        # must never make the finalizer retire a nonexistent or foreign path.
+        self.endpoint=endpoint
+        metadata=endpoint.parent.lstat()
+        self.endpoint_directory_identity=(metadata.st_dev,metadata.st_ino)
         return cmd[:3]+[str(self.service),'--socket='+str(self.endpoint),
             '--stop-on-exit','--stop-on-parent-exit','--']+cmd[3:],env
     def service_ready(self):
@@ -1153,6 +1191,9 @@ class NativeProtonSession:
         if self.endpoint is not None:
             # Only our exclusive directory, after positive process retirement.
             private_runtime_root(self.endpoint.parent)
+            metadata=self.endpoint.parent.lstat()
+            if (metadata.st_dev,metadata.st_ino)!=self.endpoint_directory_identity:
+                raise RuntimeError('native command directory changed before retirement')
             if self.endpoint.exists():
                 if socket_identity(self.endpoint,'native command endpoint')!=getattr(self,'socket_identity',None):
                     raise RuntimeError('native command endpoint changed before retirement')
@@ -1203,7 +1244,7 @@ class NativeProtonSession:
         self.nonce=os.urandom(32).hex()
         command=[str(self.client),'--socket='+str(self.endpoint),'--directory='+str(pathlib.Path(self.reg['environment']['root'])/'home'),
             *['--pass-env='+key for key in self.FORWARD],'--forward-fd='+str(child.fileno()),'--',
-            '/usr/bin/python3',str(pathlib.Path(__file__).resolve()),'--native-command-child',str(child.fileno()),self.nonce,'--',*cmd[3:]]
+            '/usr/bin/python3','-I','-c',NATIVE_COMMAND_CHILD,str(child.fileno()),self.nonce,'--',*cmd[3:]]
         try:
             root=subprocess.Popen(command,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
                 start_new_session=True,bufsize=0,pass_fds=(child.fileno(),))
@@ -1236,27 +1277,6 @@ class NativeProtonSession:
         self.control.close();self.control=None
     def close(self):
         if self.control is not None:self.control.close();self.control=None
-
-
-def native_command_child(args):
-    # An inherited socket, not vendor stdout, transfers kernel process custody
-    # before exec. The Windows program never receives this descriptor.
-    if (len(args)<4 or args[2]!='--' or not re.fullmatch('[0-9a-f]{64}',args[1])
-            or not pathlib.Path(args[3]).is_absolute()):raise RuntimeError('native command child arguments')
-    channel=socket.socket(fileno=int(args[0]));channel.settimeout(5)
-    pid=os.getpid()
-    if os.getpgrp()!=pid:os.setsid()
-    identity=ProcessTracker(pid).identity(pid)
-    if identity is None:raise RuntimeError('native command child absent')
-    channel.sendall((json.dumps({'nonce':args[1],'pid':pid,'start':identity[0]})+'\n').encode())
-    acknowledgement=bytearray()
-    while b'\n' not in acknowledgement and len(acknowledgement)<128:
-        part=channel.recv(128-len(acknowledgement))
-        if not part:break
-        acknowledgement.extend(part)
-    if acknowledgement!=(args[1]+'\n').encode():raise RuntimeError('native command child not admitted')
-    channel.close()
-    os.execv(args[3],args[3:])
 
 
 def run(spec,peer=None):
@@ -4503,7 +4523,6 @@ def vendor_application(spec):
 
 if __name__=='__main__':
     os.umask(0o077)
-    if sys.argv[1]=='--native-command-child':native_command_child(sys.argv[2:]);sys.exit(1)
     if sys.argv[1]=='--install':sys.exit(0 if install(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
     if sys.argv[1]=='--vendor-application':sys.exit(0 if vendor_application(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
     spec=json.loads(pathlib.Path(sys.argv[1]).read_text());peer=None if spec['inspect'] or spec.get('vendor_access') else socket.socket(fileno=0)
