@@ -159,10 +159,11 @@ struct Shared {
     first_results: [AtomicU64; 2],
 }
 impl Shared {
-    fn publish_result(&self, value: Completion) -> bool {
-        if !self.results.push(value) { return false; }
+    fn publish_result(&self, value: Completion) -> Option<Instant> {
+        if !self.results.push(value) { return None; }
+        let published = Instant::now();
         self.completion.notify();
-        true
+        Some(published)
     }
     fn new() -> Self {
         Self {
@@ -835,7 +836,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                             completion.audio.extra_slot=slot;
                         }
                     }
-                    if publish && !s.publish_result(completion) {
+                    let published = if publish { s.publish_result(completion) } else { None };
+                    if publish && published.is_none() {
                         s.release_output(&completion.audio);
                         s.fail(OVERFLOW, item.position);
                         return Err(invalid("completed output capacity"));
@@ -843,7 +845,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                     session.trace.queued = item.queued;
                     session.trace.parent = item.parent;
                     session.trace.previous_control = previous_control;
-                    session.trace.published = publish.then(Instant::now);
+                    session.trace.published = published;
                     // Only a bounded copy after output publication. The next request
                     // never waits for comparison, hashing or report readers.
                     if let Some(observer) = &mut session.witness {
@@ -2541,7 +2543,7 @@ mod tests {
         assert_eq!(callback.completion_wait_misses, 1);
         assert_eq!(shared.fault.load(Ordering::Acquire), 0);
         shared.requests.pop().unwrap();
-        assert!(shared.publish_result(late.into()));
+        assert!(shared.publish_result(late.into()).is_some());
         shared.pending_control.store(true, Ordering::Release);
         let waits = callback.completion_waits;
         callback.process_outputs_until(&shared, request, &mut output, &[], 0,
@@ -2585,7 +2587,7 @@ mod tests {
                 // A measured Deck request needed about 2 ms, but the DAW
                 // presented it after only 1.34 ms. Sample delay is not pacing.
                 thread::sleep(Duration::from_millis(2));
-                assert!(peer.publish_result(Completion::from(item)));
+                assert!(peer.publish_result(Completion::from(item)).is_some());
             }
         });
         let mut missing = 0;
