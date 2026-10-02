@@ -26,6 +26,8 @@ uint32_t gui_fault = 0, caps = 0, closes = 0, refused_sends = 0;
 uint64_t generation = 7, revision = 1;
 double dsp = .5;
 uint32_t save_code=0, state_calls=0;
+uint32_t process_refusal=0;
+uint32_t configured_maximum=0, activated_maximum=0;
 if1_terminal_t terminal_record{};
 std::thread::id owner = std::this_thread::get_id();
 struct Host final : HostApplication,
@@ -158,18 +160,24 @@ uint32_t __wrap_ap9_open(const uint8_t *, uint64_t *out) {
   *out = 1;
   return 0;
 }
+uint32_t __wrap_ap22_curve_parameters(uint64_t,const uint32_t* ids,uint32_t count) {
+  check(count==std::size(AP8::parameters),"exact SDK parameter census configured");
+  for(uint32_t i=0;i<count;++i)check(ids[i]==AP8::parameters[i].id,"exact SDK parameter ID");
+  return 0;
+}
 uint32_t __wrap_ap5_report_path(uint64_t, uint8_t *p, uint32_t n) {
   if (n)
     *p = 0;
   return 0;
 }
-uint32_t __wrap_ap10_setup(uint64_t, uint32_t, uint32_t, double,
+uint32_t __wrap_ap10_setup(uint64_t, uint32_t maximum, uint32_t, double,
                            const uint8_t *, uint32_t, uint32_t, uint32_t *t) {
-  t[0] = 512;
+  configured_maximum = maximum;
+  t[0] = std::max(512u,maximum);
   t[1] = t[2] = 0;
   return 0;
 }
-uint32_t __wrap_ap4_activate(uint64_t, uint32_t, uint32_t) { return 0; }
+uint32_t __wrap_ap4_activate(uint64_t, uint32_t maximum, uint32_t) { activated_maximum=maximum;return 0; }
 uint32_t __wrap_ap4_deactivate(uint64_t) { return 0; }
 uint32_t __wrap_ap3_transition(uint64_t, uint32_t) { return 0; }
 uint32_t __wrap_if2_close(uint64_t) {
@@ -235,6 +243,7 @@ uint32_t __wrap_if2_process(uint64_t, uint32_t n, const ap8_event_t *e,
                              uint64_t *silence, ap7_delivery_t *delivery, uint64_t entered_ns) {
   check(entered_ns != 0, "native callback entry is propagated");
   if(IF1::valid(terminal_record))return IF2::contained;
+  if(process_refusal)return process_refusal;
   check(n == 0, "stopped flush is zero frames");
   for (uint32_t i = 0; i < count; ++i)
     if (e[i].kind == 2) {
@@ -396,8 +405,39 @@ void contained_host_survival_regression() {
   check(host.timers.empty(),"IF2 no retained editor timer");
   terminal_record={};
 }
-int main(int argc,char**) {
-  if(argc>1){contained_host_survival_regression();return 0;}
+void curve_refusal_regression() {
+  events.clear();commands.clear();gui_fault=0;terminal_record={};
+  Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
+  host.processor=&processor;host.controller=controller;
+  auto* context=static_cast<IHostApplication*>(&host);
+  check(processor.initialize(context)==kResultOk && controller->initialize(context)==kResultOk,"curve refusal initialize");
+  controller->setComponentHandler(static_cast<IComponentHandler*>(&host));
+  processor.connect(controller);controller->connect(&processor);
+  ProcessSetup setup{kRealtime,kSample32,128,48000};
+  check(processor.setupProcessing(setup)==kResultOk && processor.setActive(true)==kResultOk && processor.setProcessing(true)==kResultOk,"curve refusal start");
+  std::array<float,128> inputL{},inputR{},left{},right{};
+  float* in[]={inputL.data(),inputR.data()};float* out[]={left.data(),right.data()};
+  AudioBusBuffers inputs{},outputs{};inputs.numChannels=outputs.numChannels=2;
+  inputs.channelBuffers32=in;outputs.channelBuffers32=out;
+  ProcessData data{};data.processMode=kRealtime;data.symbolicSampleSize=kSample32;
+  data.numSamples=128;data.numInputs=data.numOutputs=1;data.inputs=&inputs;data.outputs=&outputs;
+  process_refusal=AP22::parameter_curve_unavailable;
+  check(processor.process(data)==kResultFalse,"a curve refusal is not successful terminal silence");
+  check(processor.process(data)==kResultFalse,"a refused live instance cannot claim continuing terminal processing");
+  check(__wrap_if2_terminal_status(1)==0,"curve refusal has no terminal custody");
+  LVBState::Stream stream;const auto before=state_calls;
+  check(processor.getState(&stream)==kResultFalse && state_calls==before,"refused state is not fabricated");
+  process_refusal=0;
+  processor.setProcessing(false);processor.setActive(false);
+  controller->disconnect(&processor);processor.disconnect(controller);
+  controller->terminate();controller->release();processor.terminate();
+}
+int main(int argc,char** argv) {
+  if(argc>1){
+    if(!std::strcmp(argv[1],"--curve-refusal"))curve_refusal_regression();
+    else contained_host_survival_regression();
+    return 0;
+  }
   lifecycle_identity_regression();
   Host host;
   auto processor = std::make_unique<AP2::Processor>();
@@ -414,11 +454,13 @@ int main(int argc,char**) {
   check(processor->connect(c) == kResultOk &&
             c->connect(processor.get()) == kResultOk && caps == 7,
         "production connection and generation capabilities");
-  ProcessSetup setup{kRealtime, kSample32, 128, 48000};
+  ProcessSetup setup{kRealtime, kSample32, 1024, 48000};
   check(processor->setupProcessing(setup) == kResultOk &&
             processor->setActive(true) == kResultOk &&
             processor->setProcessing(true) == kResultOk,
         "start processing");
+  check(configured_maximum==1024 && activated_maximum==1024,
+        "production SDK setup and activation preserve the whole DAW maximum");
   check(state_calls==0&&commands.size()==1&&commands[0].kind==AP11::Refresh&&commands[0].flags==0,"fresh native bootstrap requires no opaque saving or restart");
   commands.clear();
   auto refusedToken = c->allocateEditorView();

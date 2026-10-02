@@ -8,10 +8,14 @@ use std::{
 };
 pub(crate) const MAX_BUSES: usize = 56;
 pub(crate) const MAX_BUS_CONTRACT_BYTES: u32 = (4 + 32 * MAX_BUSES) as u32;
+#[cfg(test)]
 pub fn wire(max: u32, mode: u32, rate: f64) -> io::Result<Vec<u8>> {
+    wire_version(max, mode, rate, false)
+}
+pub fn wire_version(max: u32, mode: u32, rate: f64, whole_block: bool) -> io::Result<Vec<u8>> {
     need((1..=1024).contains(&max), "host maximum outside 1..1024")?;
     let mut bytes = Vec::with_capacity(24);
-    bytes.extend_from_slice(&max.min(256).to_le_bytes());
+    bytes.extend_from_slice(&(if whole_block {max} else {max.min(256)}).to_le_bytes());
     bytes.extend_from_slice(&mode.to_le_bytes());
     bytes.extend_from_slice(&rate.to_le_bytes());
     bytes.extend_from_slice(&[0; 8]);
@@ -42,7 +46,7 @@ pub fn validate_wire(b: &[u8]) -> io::Result<()> {
     }
     let rate = f64::from_le_bytes(b[8..16].try_into().unwrap());
     need(
-        (1..=256).contains(&get(&b[..4]))
+        (1..=1024).contains(&get(&b[..4]))
             && matches!(get(&b[4..8]), 0 | 2)
             && [44100., 48000., 88200., 96000., 192000.].contains(&rate)
             && matches!(get(&b[16..20]), 0 | 2 | 3)
@@ -92,8 +96,8 @@ mod bus_tests {
     }
 }
 pub fn validate_delay(max: u32, delay: u32) -> io::Result<()> {
-    let selected = matches!(delay, 256 | 512)
-        || (cfg!(feature = "rpi0") && matches!(delay, 1024 | 2048));
+    let selected = matches!(delay, 256 | 512 | 1024)
+        || (cfg!(feature = "rpi0") && delay == 2048);
     need((1..=1024).contains(&max) && selected && delay >= max,
         "selected bridge delay cannot cover the negotiated host maximum")
 }
@@ -159,6 +163,10 @@ mod tests {
         assert!(validate_delay(256, 512).is_ok());
         assert!(validate_delay(512, 512).is_ok());
         assert!(validate_delay(513, 512).is_err());
+        assert!(validate_delay(1024, 1024).is_ok());
+        assert!(validate_delay(513, 1024).is_ok());
+        assert!(validate_delay(1025, 1024).is_err());
+        assert_eq!(validate_delay(1024, 2048).is_ok(), cfg!(feature = "rpi0"));
         assert!(validate_delay(0, 512).is_err());
     }
     #[test]

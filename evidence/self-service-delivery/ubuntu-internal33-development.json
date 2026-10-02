@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "date": "2026-09-30",
+  "classification": "failed_installed_development_candidate_with_visible_rollback",
+  "candidate": {
+    "version": "0.12.0internal33-1",
+    "source_head": "d7aabce04ef13ad7e0118f9412c9d015a82de617",
+    "source_tree": "07cf30326d90e4babd779a379af093829976ca0a",
+    "deb_sha256": "ecc989dd4417ca46a17ccba4ed95db65ed5073b60c689f241aab1b73282a91a3",
+    "release_manifest_sha256": "fc76dd78f6cfc9d5953b31b3aeb4b463f92e3b07d283cbd33c535264c183472c",
+    "payload_sha256": "baa46cc8c79e00a2d8b89e2b9197a2e01b48870ecce8d5416873417df6fb9f97",
+    "kit_sha256": "0f7c1527da3004ea30d332a4256ae62ad15bfd89f31449989c2516a9237082d7",
+    "manager_sha256": "b37149fba1e49450958fee74b304df867ff6cadb182282cbdc5063c15f19ba28",
+    "frontend_sha256": "eb4818f78e498837329388a6f872a11f27d4d13011e174570e2daad7da310032",
+    "customer_release": false
+  },
+  "platform": {
+    "distro": "Ubuntu 26.04.1",
+    "architecture": "x86_64",
+    "session": "GNOME Wayland",
+    "virtual_machine": true
+  },
+  "populated_update": {
+    "route": "normal_setup_updates_stop_select_start",
+    "selected_generation": "659d841d1c433fbe391c436d9df431d151c3bd94b2f92d00c097c07fc0617442",
+    "registry_preserved": true,
+    "home_result": "refused",
+    "visible_error": "candidate_runtime_contract",
+    "boundary": "successor_kit_cannot_validate_retained_proxy_capacity",
+    "qualification_pass": false
+  },
+  "rollback": {
+    "route": "normal_setup_updates_stop_restore_previous_start",
+    "maintainer_repairs_during_restoration": 0,
+    "restored_generation": "4213657a3f89c8792a55edd9baf21f59231d956e1570763b4fa60a810a6bdd14",
+    "restored_manager_sha256": "20cb19a35d8f9f2873e2dccc6325290efafccccdfb67764b7575cfe55349aa7e",
+    "restored_frontend_sha256": "4dd62b1056e5b14537949d0ac2c0cdc140d48f58849dd241b1ed506fab6ad25f",
+    "running_frontend_matched_selection": true,
+    "service": "active",
+    "home": "bridge_ready_compatibility_unqualified",
+    "registry_sha256_before_and_after": "a695845500cdaddc3f50d6548db0500be85a00ac116e1db9581467776b099a81",
+    "software_json_sha256_before_and_after": "2c81bcbd9e2a3f2cefe32ccc431d6f99dc0e8d8dddab613a93b241b8df67434a",
+    "manual_state_edits": false,
+    "manual_process_termination": false,
+    "project_recall_tested": false
+  },
+  "held_installer_journey": "not_reached_after_home_refusal",
+  "new_startup_and_audio_measurements": "not_reached",
+  "nonclaims": [
+    "beta_qualification",
+    "saved_project_update_rollback",
+    "changed_host_PE_transition",
+    "fixed_installer_import_installed_pass",
+    "gui_installer_stop_retry",
+    "cold_warm_load_qualification",
+    "steady_audio",
+    "commercial_recall",
+    "CachyOS_journey",
+    "SteamOS_successor_installation"
+  ],
+  "deck": "working_selection_unchanged"
+}

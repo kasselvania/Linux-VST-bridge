@@ -15,6 +15,40 @@ The implementation basis is the installed private UI2 source `8bf70de6b442bcac40
 
 This code does no audio-callback work and exposes no manager action accepting a caller command, executable, endpoint, PID, process group, runner or environment.
 
+## Acquired-runtime delivery extension
+
+The integrated delivery successor also selects this same owner for the exact
+`managed-ge-proton11-7-slr4-20260805-r3` runner. Its verified `runtime-tree.json`
+already pins the command client and launcher service. The supervisor derives
+only those two fixed paths and digests from that declared manifest, checks the
+exact entry-point layout, and independently verifies both tools. No component
+is written into an existing runtime and no prefix identity changes. An unknown
+runner, nonshared operation or undeclared ambient marker cannot select this
+extension. Missing, duplicated or changed manifests/tools refuse; a missing live
+keeper never falls back to another container. BG1's existing marker and retained
+history contract remain independent. See the installed52 delay and source
+regression in [restart validation](RESTART_VALIDATION_2026_10_01.md).
+
+Internal53's installed attempt exposed two delivery defects in that reused
+owner. Keeper creation assumed the application cache parent existed and claimed
+its endpoint before exclusive creation; finalization consequently disputed a
+directory that never existed. The packaged child launch also sent host Python
+bytecode into runtime Python 3.13.5, which rejected it with `Bad magic number`.
+The corrected owner creates and verifies the private application/command roots,
+claims only a successfully created exclusive directory, and rechecks its inode
+before removal. Existing or disputed paths are preserved. A precreation refusal
+has no endpoint to retire.
+
+Only a fixed, isolated Python text bootstrap crosses the runtime boundary. It
+imports no supervisor or ownership module, reports its kernel PID/start identity
+on the inherited descriptor, requires the existing nonce acknowledgment within
+five seconds, closes that descriptor, then executes the exact selected command.
+The parent keeps its existing live-keeper, graphical-context, socket and process
+group checks. Actual pinned client/service forwarding and bootstrap execution
+passed in the acquired runtime with positive process retirement. This is a
+runtime interface test, not a Windows plug-in or DAW result. No startup, audio or
+retirement bound changed.
+
 ## Retained transition and rollback meaning
 
 The Deck's read-only PB0-R2 record set contains three completed Lunacy transitions: standard runner revision 1 to BG1 V1 revision 2, V1 to V3 revision 3, and V3 to V4 revision 4. The public read-only verifier binds each archived before-environment, onboarding record, removed-publication registry backup, prepared transition and completed result to its exact revision, runner key, manifest, tree, predecessor candidate and vanilla BEAM class. It also requires the current V4 runner's one pinned command component. Ambiguous duplicate rollback records refuse. The rollback root and transition directories must already exist, belong to the current user, be private and have stable canonical non-symlink identities throughout inspection. Missing or disputed directories refuse without being created or repaired. This check runs at the keeper boundary before V4 keeper creation **or reuse**; unrelated standard, DComp and touch runners retain their existing behavior.

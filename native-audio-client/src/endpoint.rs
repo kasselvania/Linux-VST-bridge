@@ -55,19 +55,22 @@ impl Prepared {
         Self::with_channels(path, session, 2)
     }
     pub fn with_channels(path: &Path, session: [u8; 16], channels: usize) -> io::Result<Self> {
-        let mut mapping = Mapping::with_channels(&path.join("ap1.audio"), channels)?;
+        Self::with_layout(path, session, channels, false)
+    }
+    pub fn with_layout(path: &Path, session: [u8; 16], channels: usize, whole_block: bool) -> io::Result<Self> {
+        let mut mapping = Mapping::with_layout(&path.join("ap1.audio"), channels, whole_block)?;
         let capability = random::<32>()?;
         let witness = u64::from_le_bytes(random::<8>()?);
         let mut header = [0; 64];
         for (o, v) in [
             (0, 0x4d315041),
-            (4, if channels == 2 { 1 } else { 2 }),
-            (8, CAP as u64),
+            (4, mapping.version as u64),
+            (8, mapping.capacity as u64),
             (12, channels as u64),
             (16, mapping.bytes as u64),
             (20, INPUT as u64),
-            (24, OUTPUT as u64),
-            (28, STRIDE as u64),
+            (24, mapping.output as u64),
+            (28, mapping.stride as u64),
         ] {
             put(&mut header[o..o + 4], v);
         }
@@ -113,6 +116,7 @@ impl Prepared {
             witness,
             session,
         } = self;
+        need((minor == 14) == (mapping.version == 3), "protocol/mapping generation differs")?;
         let until = Instant::now() + Duration::from_secs(180);
         let mut socket: TcpStream = loop {
             alive()?;
@@ -145,7 +149,7 @@ impl Prepared {
         }
         need(
             difference == 0
-                && get(&hello.payload[32..36]) == CAP as u64
+                && get(&hello.payload[32..36]) == mapping.capacity as u64
                 && get(&hello.payload[36..40]) == mapping.bytes as u64,
             "Hello authentication/layout",
         )?;

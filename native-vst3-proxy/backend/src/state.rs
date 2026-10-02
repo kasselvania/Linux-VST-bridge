@@ -369,12 +369,12 @@ impl Witness {
         }
         Ok(())
     }
-    pub fn compare(
+    pub fn compare<const N: usize>(
         &mut self,
         n: usize,
         gain: f64,
         input: [&[f32]; 2],
-        output: &[[u32; CAP + 2]; 2],
+        output: &[[u32; N]; 2],
     ) -> io::Result<()> {
         need(
             self.ready,

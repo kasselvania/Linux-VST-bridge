@@ -1,7 +1,7 @@
 //! Optional reference work has its own consumer. The transport only makes a
 //! bounded copy into an SPSC queue; it never waits for observation or a reader.
 use crate::{queue::Queue, queued::Observation, state::Witness};
-use ap1_native_client::CAP;
+use ap1_native_client::BLOCK_CAP as CAP;
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
     Arc, Mutex,
@@ -9,6 +9,8 @@ use std::sync::{
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 const CAPACITY: usize = 64;
+const GAP_TRACES: usize = 32;
+const FIRST_GAP_TRACES: usize = GAP_TRACES / 2;
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Trace {
     pub epoch: u64,
@@ -299,7 +301,7 @@ impl Consumer {
             unchecked: 0,
             reader_skips: 0,
             recent: std::collections::VecDeque::with_capacity(CAPACITY),
-            gaps: Vec::with_capacity(32),
+            gaps: Vec::with_capacity(GAP_TRACES),
             timing: Default::default(),
             delivery: Vec::with_capacity(96),
             clock: delivery_enabled().then(ClockSample::sample),
@@ -324,12 +326,16 @@ impl Consumer {
                 self.following = 64;
                 self.captured = true;
             }
-            if self.gaps.len() < 32 {
-                let t = self.recent.iter().find(|t| covers(**t, g)).copied();
-                self.gaps.push((g, t));
-            } else {
+            if self.gaps.len() == GAP_TRACES {
+                // Keep the first half and the most recent half. Long sessions
+                // must not lose every later failure after early misses fill
+                // the report. This consumer is outside the callback; capacity
+                // stays fixed and each displaced trace is counted explicitly.
+                self.gaps.remove(FIRST_GAP_TRACES);
                 s.gap_drops.fetch_add(1, Ordering::Relaxed);
             }
+            let t = self.recent.iter().find(|t| covers(**t, g)).copied();
+            self.gaps.push((g, t));
         }
         let job = s.jobs.pop();
         if let Some(job) = job {
@@ -491,11 +497,15 @@ pub fn report_text(s: &Shared) -> String {
                 g.epoch, g.position, g.frames, clock.at(Some(g.at)), points, g.parent);
         }
         if let Some(t) = t {
-            let _ = writeln!(text, "{{\"event\":\"ap7_gap_request\",\"epoch\":{},\"gap_position\":{},\"gap_frames\":{},\"request_position\":{},\"request_frames\":{},\"sequence\":{},\"output_published\":{},\"queue_us\":{},\"prepare_us\":{},\"send_us\":{},\"reply_us\":{},\"validation_us\":{},\"publication_us\":{},\"publication_after_gap_us\":{},\"admission_to_gap_us\":{}}}",
+            // The mailbox already returns timing for this exact request. Keep
+            // it with the gap rather than depend on independently capped
+            // Windows history. Windows QPC and Linux clocks remain distinct.
+            let process_ns = t.process_ns.map_or_else(|| "null".to_owned(), |ns| ns.to_string());
+            let _ = writeln!(text, "{{\"event\":\"ap7_gap_request\",\"epoch\":{},\"gap_position\":{},\"gap_frames\":{},\"request_position\":{},\"request_frames\":{},\"sequence\":{},\"output_published\":{},\"queue_us\":{},\"prepare_us\":{},\"send_us\":{},\"reply_us\":{},\"validation_us\":{},\"publication_us\":{},\"publication_after_gap_us\":{},\"admission_to_gap_us\":{},\"windows_process_ns\":{},\"windows_reply\":{:?}}}",
                 g.epoch, g.position, g.frames, t.position, t.frames, t.sequence, t.published.is_some(),
                 micros(t.queued,t.started), micros(t.started,t.prepared), micros(t.prepared,t.sent),
                 micros(t.sent,t.replied), micros(t.replied,t.validated), micros(t.validated,t.published),
-                micros(Some(g.at),t.published), micros(t.queued,Some(g.at)));
+                micros(Some(g.at),t.published), micros(t.queued,Some(g.at)), process_ns, t.windows);
         } else {
             let _ = writeln!(text, "{{\"event\":\"ap7_gap_request\",\"epoch\":{},\"gap_position\":{},\"gap_frames\":{},\"request_trace_missing\":true}}", g.epoch, g.position, g.frames);
         }
@@ -600,12 +610,18 @@ mod tests {
                     replied: Some(now),
                     validated: Some(now),
                     published: Some(now),
+                    windows: [u64::MAX; 15],
+                    process_ns: (sequence != 0).then_some(u64::MAX),
                     ..Default::default()
                 }),
             ));
         }
         let text = report_text(&shared);
         assert!(text.len() > 2048);
+        assert!(text.lines().all(|line| line.len() < 2048));
+        assert!(text.contains("\"windows_reply\":[18446744073709551615"));
+        assert_eq!(text.matches("\"windows_process_ns\":null").count(), 1);
+        assert_eq!(text.matches("\"windows_process_ns\":18446744073709551615").count(), 7);
         let dir = std::env::temp_dir().join(format!("ap8-jsonl-{}", std::process::id()));
         std::fs::create_dir(&dir).unwrap();
         let path = dir.join("report.jsonl");
@@ -621,6 +637,44 @@ mod tests {
         }
         assert!(std::fs::metadata(&path).unwrap().len() <= 131072);
         std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[test]
+    fn long_session_keeps_first_and_recent_gaps_with_their_exact_reply() {
+        let shared = Shared::new();
+        let mut consumer = Consumer::new();
+        consumer.clock = Some(ClockSample::sample());
+        let mut producer = Observer {
+            shared: shared.clone(), sequence: 0, thread: None,
+        };
+        let now = Instant::now();
+        for sequence in 0..70 {
+            assert!(shared.gaps.push(Gap {
+                epoch: 1, position: sequence * 128, frames: 128,
+                at: now, parent: [0; 4],
+            }));
+            producer.audio(0, f64::NAN, [&[], &[]], [[0; CAP + 2]; 2], Trace {
+                epoch: 1, sequence, position: sequence * 128, frames: 128,
+                windows: [sequence; 15], ..Default::default()
+            });
+            assert!(consumer.step(&shared));
+            assert!(consumer.gaps.len() <= GAP_TRACES);
+            assert_eq!(consumer.gaps.capacity(), GAP_TRACES);
+        }
+        let report = shared.report.lock().unwrap();
+        let sequences: Vec<_> = report.traces.iter().map(|(gap, trace)| {
+            let trace = trace.unwrap();
+            assert_eq!(gap.position, trace.position);
+            assert_eq!(trace.windows, [trace.sequence; 15]);
+            trace.sequence
+        }).collect();
+        assert_eq!(sequences, (0..16).chain(54..70).collect::<Vec<_>>());
+        assert_eq!(shared.gap_drops.load(Ordering::Relaxed), 38);
+        assert_eq!(shared.dropped.load(Ordering::Relaxed), 0);
+        drop(report);
+        let text = report_text(&shared);
+        assert_eq!(text.matches("ap7_gap_request").count(), GAP_TRACES);
+        assert_eq!(text.matches("\"windows_reply\":[69,").count(), 1);
+        assert!(text.contains("\"unretained_gap_traces\":38"));
     }
     #[test]
     fn paused_consumer_and_reader_drop_only_observation_coverage() {

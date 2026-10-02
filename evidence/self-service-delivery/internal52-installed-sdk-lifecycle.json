@@ -1,0 +1,1751 @@
+{
+  "schema": 1,
+  "candidate": {
+    "event": "candidate",
+    "utc": "2026-10-02T00:10:58.708011+00:00",
+    "monotonic_ns": 813840051958,
+    "manager_sha256": "b9039ef4fcd3ee5b28373135ddbf061fc8c17276508d887cb3f59b7acea31aad",
+    "windows_host_sha256": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b",
+    "sdk_consumer_sha256": "6c69be82b9f33f6217840c78edb4cfda8c10f105dd35c6d02909b59c75faef31",
+    "audit_sha256": "43a2b739e319156242064686517e1b2be7a1c48669f5b9c3befea18b0d5c92ab",
+    "claim": "installed_development_regression",
+    "real_daw_project_claim": false
+  },
+  "source_head": "2446836aa8d75033d85bf9c4636c780aaf818130",
+  "claim": "installed_SDK_instrument_effect_processing_state_automation_retirement",
+  "result": "passed",
+  "real_daw_project_claim": false,
+  "frontend_publication_claim": false,
+  "maintainer_repairs": 0,
+  "selected_publications": "retained coherent host47/proxies from internal51",
+  "record_recall_pairs_per_role": 4,
+  "consumers": 16,
+  "processing_admitted_frames": 7817280,
+  "processing_missing_frames": 0,
+  "declared_processing_priming_frames": 64,
+  "declared_startup_priming_frames": 16320,
+  "compared_stereo_samples": 15667200,
+  "maximum_callback_ns": 1109994,
+  "maximum_initialized_state_ms": 24806,
+  "outer_resource_before": {
+    "cpu.max": "100000 100000",
+    "memory.max": "4294967296",
+    "memory.swap.max": "0",
+    "pids.max": "256",
+    "pids.current": "32",
+    "pids.events": "max 0",
+    "memory.current": "3128401920",
+    "memory.events": "low 0\nhigh 0\nmax 2593\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+  },
+  "outer_resource_after": {
+    "cpu.max": "100000 100000",
+    "memory.max": "4294967296",
+    "memory.swap.max": "0",
+    "pids.max": "256",
+    "pids.current": "16",
+    "pids.events": "max 0",
+    "memory.current": "3843305472",
+    "memory.events": "low 0\nhigh 0\nmax 3038\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+  },
+  "resource": {
+    "exit_code": 0,
+    "duration_ms": 369747.023,
+    "before": {
+      "cpu.max": "100000 100000",
+      "memory.max": "2684354560",
+      "memory.swap.max": "0",
+      "pids.max": "512",
+      "pids.current": "350",
+      "pids.events": "max 4",
+      "memory.current": "1979367424",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+    },
+    "after": {
+      "cpu.max": "100000 100000",
+      "memory.max": "2684354560",
+      "memory.swap.max": "0",
+      "pids.max": "512",
+      "pids.current": "354",
+      "pids.events": "max 4",
+      "memory.current": "1865084928",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+    },
+    "peak_user_tasks": 372,
+    "peak_user_memory_bytes": 2008346624,
+    "stderr_bytes": 0,
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "publications": [
+    {
+      "event": "publication",
+      "utc": "2026-10-02T00:10:58.800066+00:00",
+      "monotonic_ns": 813928926351,
+      "role": "effect",
+      "class_id": "4C564242455441314546465800000001",
+      "module_sha256": "b3498eb5c8d6d440259b04a9c9b7699ab72f4f64eb31f45167f0341d3d1e719f",
+      "native_sha256": "d8c254accf04c0e8092b18876ed6573bdc7e9be41e870043746bcfefcf22faf4",
+      "added_frames": 1024
+    },
+    {
+      "event": "publication",
+      "utc": "2026-10-02T00:14:10.618999+00:00",
+      "monotonic_ns": 1005747860706,
+      "role": "instrument",
+      "class_id": "4C56424245544131494E535400000001",
+      "module_sha256": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+      "native_sha256": "9109472240fca35ca269b169a208ae83fb34e59dda64494572e52b80c30fd2cd",
+      "added_frames": 1024
+    }
+  ],
+  "runs": [
+    {
+      "utc": "2026-10-02T00:11:34.201732+00:00",
+      "role": "effect",
+      "pair": 1,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 35319.724,
+      "exit_code": 0,
+      "dsp_retirement": [
+        {
+          "session": "7004db6947131489fe4e3118fc13c136",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "host_events": [
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 24806
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 24854
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 1
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 168876,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "final_native_phase": {
+        "session": "7004db6947131489fe4e3118fc13c136",
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 1,
+        "monotonic_ns": 849176104966,
+        "omitted_phase_markers": 0,
+        "startup": {
+          "admitted_frames": 1024,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 1024
+        },
+        "processing": {
+          "admitted_frames": 490496,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 490496,
+          "priming_frames": 0
+        }
+      }
+    },
+    {
+      "utc": "2026-10-02T00:11:57.434000+00:00",
+      "role": "effect",
+      "pair": 1,
+      "mode": "recall",
+      "frames": 1024,
+      "duration_ms": 23205.244,
+      "exit_code": 0,
+      "dsp_retirement": [
+        {
+          "session": "2147abe82a4910f9937c13fa17b87c1f",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "host_events": [
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 12674
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 12725
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 6
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 139396,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "final_native_phase": {
+        "session": "2147abe82a4910f9937c13fa17b87c1f",
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 1,
+        "monotonic_ns": 872378942760,
+        "omitted_phase_markers": 0,
+        "startup": {
+          "admitted_frames": 1024,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 1024
+        },
+        "processing": {
+          "admitted_frames": 490496,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 490496,
+          "priming_frames": 0
+        }
+      }
+    },
+    {
+      "utc": "2026-10-02T00:12:19.359672+00:00",
+      "role": "effect",
+      "pair": 2,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 21904.028,
+      "exit_code": 0,
+      "dsp_retirement": [
+        {
+          "session": "4cc6d21fa934e83e092043b7b93dafd0",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "host_events": [
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 11388
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 11438
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 39682,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "final_native_phase": {
+        "session": "4cc6d21fa934e83e092043b7b93dafd0",
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 1,
+        "monotonic_ns": 894334237817,
+        "omitted_phase_markers": 0,
+        "startup": {
+          "admitted_frames": 1024,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 1024
+        },
+        "processing": {
+          "admitted_frames": 490496,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 490496,
+          "priming_frames": 0
+        }
+      }
+    },
+    {
+      "utc": "2026-10-02T00:12:41.622613+00:00",
+      "role": "effect",
+      "pair": 2,
+      "mode": "recall",
+      "frames": 1024,
+      "duration_ms": 22232.601,
+      "exit_code": 0,
+      "dsp_retirement": [
+        {
+          "session": "a36403a9d883b1d2acc881980787e0d6",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": -15
+        }
+      ],
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "host_events": [
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 11686
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 11732
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 229577,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "final_native_phase": {
+        "session": "a36403a9d883b1d2acc881980787e0d6",
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 1,
+        "monotonic_ns": 916599916552,
+        "omitted_phase_markers": 0,
+        "startup": {
+          "admitted_frames": 1024,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 1024
+        },
+        "processing": {
+          "admitted_frames": 490496,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 490496,
+          "priming_frames": 0
+        }
+      }
+    },
+    {
+      "utc": "2026-10-02T00:13:03.769830+00:00",
+      "role": "effect",
+      "pair": 3,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 22116.055,
+      "exit_code": 0,
+      "dsp_retirement": [
+        {
+          "session": "1dc295f0b31a1ac8a64e5d08c98ece6a",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": -15
+        }
+      ],
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "host_events": [
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 11485
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 11533
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 359493,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "final_native_phase": {
+        "session": "1dc295f0b31a1ac8a64e5d08c98ece6a",
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 1,
+        "monotonic_ns": 938706709137,
+        "omitted_phase_markers": 0,
+        "startup": {
+          "admitted_frames": 1024,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 1024
+        },
+        "processing": {
+          "admitted_frames": 490496,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 490496,
+          "priming_frames": 0
+        }
+      }
+    },
+    {
+      "utc": "2026-10-02T00:13:25.918634+00:00",
+      "role": "effect",
+      "pair": 3,
+      "mode": "recall",
+      "frames": 1024,
+      "duration_ms": 22122.733,
+      "exit_code": 0,
+      "dsp_retirement": [
+        {
+          "session": "7020c08fa6629664d2f024441111d981",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "host_events": [
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 11616
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 11660
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 3
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 38185,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "final_native_phase": {
+        "session": "7020c08fa6629664d2f024441111d981",
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 1,
+        "monotonic_ns": 960889086122,
+        "omitted_phase_markers": 0,
+        "startup": {
+          "admitted_frames": 1024,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 1024
+        },
+        "processing": {
+          "admitted_frames": 490496,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 490496,
+          "priming_frames": 0
+        }
+      }
+    },
+    {
+      "utc": "2026-10-02T00:13:48.028552+00:00",
+      "role": "effect",
+      "pair": 4,
+      "mode": "record",
+      "frames": 1008,
+      "duration_ms": 22088.849,
+      "exit_code": 0,
+      "dsp_retirement": [
+        {
+          "session": "55a8e09d86988ec4bf7a6d5a12677f19",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "host_events": [
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 11735
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 11779
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1008,
+          "blocks": 480,
+          "compared_samples": 967680,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 965632,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 55661,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "final_native_phase": {
+        "session": "55a8e09d86988ec4bf7a6d5a12677f19",
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 1,
+        "monotonic_ns": 982999762380,
+        "omitted_phase_markers": 0,
+        "startup": {
+          "admitted_frames": 1008,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 1008
+        },
+        "processing": {
+          "admitted_frames": 482832,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 482816,
+          "priming_frames": 16
+        }
+      }
+    },
+    {
+      "utc": "2026-10-02T00:14:10.603400+00:00",
+      "role": "effect",
+      "pair": 4,
+      "mode": "recall",
+      "frames": 1008,
+      "duration_ms": 22553.983,
+      "exit_code": 0,
+      "dsp_retirement": [
+        {
+          "session": "3eaa40e60ebeb4301bbc6f6ebbf285ba",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "host_events": [
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 12101
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 12146
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1008,
+          "blocks": 480,
+          "compared_samples": 967680,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 965632,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 286628,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "final_native_phase": {
+        "session": "3eaa40e60ebeb4301bbc6f6ebbf285ba",
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 1,
+        "monotonic_ns": 1005577409156,
+        "omitted_phase_markers": 0,
+        "startup": {
+          "admitted_frames": 1008,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 1008
+        },
+        "processing": {
+          "admitted_frames": 482832,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 482816,
+          "priming_frames": 16
+        }
+      }
+    },
+    {
+      "utc": "2026-10-02T00:14:32.984710+00:00",
+      "role": "instrument",
+      "pair": 1,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 22337.196,
+      "exit_code": 0,
+      "dsp_retirement": [
+        {
+          "session": "26963658aa04034aef53a114f3811595",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": -15
+        }
+      ],
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "host_events": [
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 11764
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 11809
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 710726,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 174501,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "final_native_phase": {
+        "session": "26963658aa04034aef53a114f3811595",
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 1,
+        "monotonic_ns": 1027942111749,
+        "omitted_phase_markers": 0,
+        "startup": {
+          "admitted_frames": 1024,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 1024
+        },
+        "processing": {
+          "admitted_frames": 490496,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 490496,
+          "priming_frames": 0
+        }
+      }
+    },
+    {
+      "utc": "2026-10-02T00:14:54.877205+00:00",
+      "role": "instrument",
+      "pair": 1,
+      "mode": "recall",
+      "frames": 1024,
+      "duration_ms": 21870.997,
+      "exit_code": 0,
+      "dsp_retirement": [
+        {
+          "session": "9ec514d1806f1f9c461dbbe6b7be5a9c",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "host_events": [
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 11367
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 11414
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 710726,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 170748,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "final_native_phase": {
+        "session": "9ec514d1806f1f9c461dbbe6b7be5a9c",
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 1,
+        "monotonic_ns": 1049852256528,
+        "omitted_phase_markers": 0,
+        "startup": {
+          "admitted_frames": 1024,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 1024
+        },
+        "processing": {
+          "admitted_frames": 490496,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 490496,
+          "priming_frames": 0
+        }
+      }
+    },
+    {
+      "utc": "2026-10-02T00:15:17.645564+00:00",
+      "role": "instrument",
+      "pair": 2,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 22744.491,
+      "exit_code": 0,
+      "dsp_retirement": [
+        {
+          "session": "47ca27b039c862dc37502275892a81d1",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": -15
+        }
+      ],
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "host_events": [
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 12167
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 12210
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 710726,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 139703,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "final_native_phase": {
+        "session": "47ca27b039c862dc37502275892a81d1",
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 1,
+        "monotonic_ns": 1072594031167,
+        "omitted_phase_markers": 0,
+        "startup": {
+          "admitted_frames": 1024,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 1024
+        },
+        "processing": {
+          "admitted_frames": 490496,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 490496,
+          "priming_frames": 0
+        }
+      }
+    },
+    {
+      "utc": "2026-10-02T00:15:39.961592+00:00",
+      "role": "instrument",
+      "pair": 2,
+      "mode": "recall",
+      "frames": 1024,
+      "duration_ms": 22291.915,
+      "exit_code": 0,
+      "dsp_retirement": [
+        {
+          "session": "67875aea248bbf70fd13a770f1cb4651",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": -15
+        }
+      ],
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "host_events": [
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 11700
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 11745
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 9
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 710726,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 1109994,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "final_native_phase": {
+        "session": "67875aea248bbf70fd13a770f1cb4651",
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 1,
+        "monotonic_ns": 1094901532463,
+        "omitted_phase_markers": 0,
+        "startup": {
+          "admitted_frames": 1024,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 1024
+        },
+        "processing": {
+          "admitted_frames": 490496,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 490496,
+          "priming_frames": 0
+        }
+      }
+    },
+    {
+      "utc": "2026-10-02T00:16:02.089899+00:00",
+      "role": "instrument",
+      "pair": 3,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 22106.785,
+      "exit_code": 0,
+      "dsp_retirement": [
+        {
+          "session": "1917b00fd2172c7d6f4d855095dd67c5",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": -15
+        }
+      ],
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "host_events": [
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 11518
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 11589
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 710726,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 166278,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "final_native_phase": {
+        "session": "1917b00fd2172c7d6f4d855095dd67c5",
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 1,
+        "monotonic_ns": 1117062123931,
+        "omitted_phase_markers": 0,
+        "startup": {
+          "admitted_frames": 1024,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 1024
+        },
+        "processing": {
+          "admitted_frames": 490496,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 490496,
+          "priming_frames": 0
+        }
+      }
+    },
+    {
+      "utc": "2026-10-02T00:16:24.104176+00:00",
+      "role": "instrument",
+      "pair": 3,
+      "mode": "recall",
+      "frames": 1024,
+      "duration_ms": 21993.096,
+      "exit_code": 0,
+      "dsp_retirement": [
+        {
+          "session": "bd45ac32573a278c1e95786bcbf1b21e",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": -15
+        }
+      ],
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "host_events": [
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 11423
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 11469
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 710726,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 171461,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "final_native_phase": {
+        "session": "bd45ac32573a278c1e95786bcbf1b21e",
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 1,
+        "monotonic_ns": 1139066142184,
+        "omitted_phase_markers": 0,
+        "startup": {
+          "admitted_frames": 1024,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 1024
+        },
+        "processing": {
+          "admitted_frames": 490496,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 490496,
+          "priming_frames": 0
+        }
+      }
+    },
+    {
+      "utc": "2026-10-02T00:16:46.052471+00:00",
+      "role": "instrument",
+      "pair": 4,
+      "mode": "record",
+      "frames": 1008,
+      "duration_ms": 21925.665,
+      "exit_code": 0,
+      "dsp_retirement": [
+        {
+          "session": "cba2643f9f1a8d4352ac749bf908c9ef",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": -15
+        }
+      ],
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "host_events": [
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 11511
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 11557
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1008,
+          "blocks": 480,
+          "compared_samples": 967680,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 699622,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 114983,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "final_native_phase": {
+        "session": "cba2643f9f1a8d4352ac749bf908c9ef",
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 1,
+        "monotonic_ns": 1161001694441,
+        "omitted_phase_markers": 0,
+        "startup": {
+          "admitted_frames": 1008,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 1008
+        },
+        "processing": {
+          "admitted_frames": 482832,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 482816,
+          "priming_frames": 16
+        }
+      }
+    },
+    {
+      "utc": "2026-10-02T00:17:07.968741+00:00",
+      "role": "instrument",
+      "pair": 4,
+      "mode": "recall",
+      "frames": 1008,
+      "duration_ms": 21894.782,
+      "exit_code": 0,
+      "dsp_retirement": [
+        {
+          "session": "8f6b29dd0bd19c2aeefb836b31153ec1",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": -15
+        }
+      ],
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "host_events": [
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 11490
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 11539
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1008,
+          "blocks": 480,
+          "compared_samples": 967680,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 699622,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 36023,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "final_native_phase": {
+        "session": "8f6b29dd0bd19c2aeefb836b31153ec1",
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 1,
+        "monotonic_ns": 1182937659171,
+        "omitted_phase_markers": 0,
+        "startup": {
+          "admitted_frames": 1008,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 1008
+        },
+        "processing": {
+          "admitted_frames": 482832,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 482816,
+          "priming_frames": 16
+        }
+      }
+    }
+  ],
+  "state_roundtrips": [
+    {
+      "event": "state_roundtrip",
+      "utc": "2026-10-02T00:11:57.434508+00:00",
+      "monotonic_ns": 872563360429,
+      "role": "effect",
+      "pair": 1,
+      "frames": 1024,
+      "component_sha256": "ab4e53698877d62cb0ebe6b44c32384e7b08ea5e7a940505a8e213fb9eab5014",
+      "controller_sha256": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+    },
+    {
+      "event": "state_roundtrip",
+      "utc": "2026-10-02T00:12:41.622957+00:00",
+      "monotonic_ns": 916751809215,
+      "role": "effect",
+      "pair": 2,
+      "frames": 1024,
+      "component_sha256": "ab4e53698877d62cb0ebe6b44c32384e7b08ea5e7a940505a8e213fb9eab5014",
+      "controller_sha256": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+    },
+    {
+      "event": "state_roundtrip",
+      "utc": "2026-10-02T00:13:25.919023+00:00",
+      "monotonic_ns": 961047875581,
+      "role": "effect",
+      "pair": 3,
+      "frames": 1024,
+      "component_sha256": "ab4e53698877d62cb0ebe6b44c32384e7b08ea5e7a940505a8e213fb9eab5014",
+      "controller_sha256": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+    },
+    {
+      "event": "state_roundtrip",
+      "utc": "2026-10-02T00:14:10.603881+00:00",
+      "monotonic_ns": 1005732734031,
+      "role": "effect",
+      "pair": 4,
+      "frames": 1008,
+      "component_sha256": "ab4e53698877d62cb0ebe6b44c32384e7b08ea5e7a940505a8e213fb9eab5014",
+      "controller_sha256": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+    },
+    {
+      "event": "state_roundtrip",
+      "utc": "2026-10-02T00:14:54.877570+00:00",
+      "monotonic_ns": 1050006422561,
+      "role": "instrument",
+      "pair": 1,
+      "frames": 1024,
+      "component_sha256": "2964f94630cc4eaad6a03815b060da2f45278a91cee65f85deae6f5def642361",
+      "controller_sha256": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+    },
+    {
+      "event": "state_roundtrip",
+      "utc": "2026-10-02T00:15:39.962085+00:00",
+      "monotonic_ns": 1095090937314,
+      "role": "instrument",
+      "pair": 2,
+      "frames": 1024,
+      "component_sha256": "2964f94630cc4eaad6a03815b060da2f45278a91cee65f85deae6f5def642361",
+      "controller_sha256": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+    },
+    {
+      "event": "state_roundtrip",
+      "utc": "2026-10-02T00:16:24.104536+00:00",
+      "monotonic_ns": 1139233387195,
+      "role": "instrument",
+      "pair": 3,
+      "frames": 1024,
+      "component_sha256": "2964f94630cc4eaad6a03815b060da2f45278a91cee65f85deae6f5def642361",
+      "controller_sha256": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+    },
+    {
+      "event": "state_roundtrip",
+      "utc": "2026-10-02T00:17:07.969091+00:00",
+      "monotonic_ns": 1183097942403,
+      "role": "instrument",
+      "pair": 4,
+      "frames": 1008,
+      "component_sha256": "2964f94630cc4eaad6a03815b060da2f45278a91cee65f85deae6f5def642361",
+      "controller_sha256": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+    }
+  ],
+  "suite": {
+    "event": "suite_passed",
+    "utc": "2026-10-02T00:17:07.969186+00:00",
+    "monotonic_ns": 1183098036698,
+    "roles": [
+      "effect",
+      "instrument"
+    ],
+    "pairs": 4,
+    "claim": "installed_development_regression",
+    "real_daw_project_claim": false,
+    "maintainer_repairs": 0
+  },
+  "private_full_trace_bytes": 92110,
+  "private_full_trace_sha256": "aac6496f90458af49e571cf52a9a349bad7a514bbda2a393ace9ddcb40e51149"
+}

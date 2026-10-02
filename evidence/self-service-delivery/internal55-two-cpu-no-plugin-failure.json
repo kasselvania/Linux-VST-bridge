@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "candidate": "0.12.0internal55",
+  "source_commit": "6d61a3b59be8c68cf8ee8a48587029712bef2efe",
+  "source_tree": "d42e54887f062d86e4335e34e3a1a4287006d764",
+  "result": "failed_audio_fixture_without_plugins",
+  "resource_change": {
+    "time_ns": 1790917933606626710,
+    "operator_authorized": "Two CPUs for this evening, preserving CPU headroom for Audiobookshelf",
+    "host_cores": 4,
+    "before_cpus": 1,
+    "after_cpus": 2,
+    "cpu_shares": 128,
+    "guest_vcpus": 2,
+    "outer_memory_bytes": 4294967296,
+    "outer_swap_bytes": 0,
+    "outer_pids": 256,
+    "guest_memory_mib": 3072,
+    "guest_disk_unchanged": true,
+    "qemu_image_unchanged": "sha256:709f1247cd4b90d40fe7bddeccac94e83cbbb1ab78106bb97da02729ca4529ce"
+  },
+  "resource_readback": {
+    "time_ns": 1790917981335187326,
+    "nproc": "2",
+    "system_user_slice": "CPUQuotaPerSecUSec=2s\nMemoryMax=2684354560\nMemorySwapMax=0\nTasksMax=512\n",
+    "service": "active",
+    "trace_enable": false
+  },
+  "baseline": {
+    "unix_ns": 1790918121835448554,
+    "monotonic_ns": 186752663536,
+    "dsp": 0,
+    "keepers": 0,
+    "cleanup_unconfirmed": false,
+    "resources": {
+      "cpu.stat": "usage_usec 39702134\nuser_usec 25810361\nsystem_usec 13891772\nnice_usec 0\ncore_sched.force_idle_usec 0\nnr_periods 1278\nnr_throttled 103\nthrottled_usec 9045463\nnr_bursts 0\nburst_usec 0\n",
+      "memory.current": "1667964928\n",
+      "pids.current": "288\n"
+    }
+  },
+  "end": {
+    "unix_ns": 1790918162648110331,
+    "monotonic_ns": 227565322935,
+    "dsp": 0,
+    "keepers": 0,
+    "cleanup_unconfirmed": false,
+    "resources": {
+      "cpu.stat": "usage_usec 42800016\nuser_usec 27511554\nsystem_usec 15288462\nnice_usec 0\ncore_sched.force_idle_usec 0\nnr_periods 1686\nnr_throttled 103\nthrottled_usec 9045463\nnr_bursts 0\nburst_usec 0\n",
+      "memory.current": "1663762432\n",
+      "pids.current": "291\n"
+    }
+  },
+  "both_pcm_devices_running_at_baseline": true,
+  "both_pcm_devices_closed_after_stop": true,
+  "outer_observation": {
+    "seconds": 40.191372156,
+    "cpu_delta": {
+      "usage_usec": 7616721,
+      "user_usec": 5213529,
+      "system_usec": 2403193,
+      "nice_usec": 0,
+      "core_sched.force_idle_usec": 0,
+      "nr_periods": 402,
+      "nr_throttled": 0,
+      "throttled_usec": 0,
+      "nr_bursts": 0,
+      "burst_usec": 0
+    },
+    "average_cores": 0.18951134513238888,
+    "scope": "Nearest samples around independent no-plugin readbacks, including UI inspection and engine stop; not per-xrun attribution."
+  },
+  "cleanup": {
+    "unix_ns": 1790918288045855422,
+    "ardour_exited": true,
+    "config_restored": true,
+    "snapshot_unchanged": true,
+    "original_unchanged": true,
+    "final_visible_xruns": 41,
+    "audio_system": "ALSA",
+    "sample_rate": 48000,
+    "block_frames": 1024,
+    "periods": 2,
+    "input_output_device": "QEMU virtual HDA Intel",
+    "all_plugins_disabled": true,
+    "bridge_dsp_owners": 0
+  },
+  "prior_one_cpu_no_plugin_outer_observation": {
+    "start_unix_ns": 1790916474354469135,
+    "end_unix_ns": 1790916580449401752,
+    "seconds": 106.094932617,
+    "cpu_delta": {
+      "usage_usec": 46119816,
+      "user_usec": 38768929,
+      "system_usec": 7350888,
+      "nice_usec": 0,
+      "core_sched.force_idle_usec": 0,
+      "nr_periods": 1061,
+      "nr_throttled": 34,
+      "throttled_usec": 130061,
+      "nr_bursts": 0,
+      "burst_usec": 0
+    },
+    "average_cpu_cores": 0.43470328754052145,
+    "description": "Outer VM bracket nearest the two no-plugin census snapshots. It includes UI inspection and stopping; no per-xrun correlation or unique cause is established."
+  },
+  "nonclaims": [
+    "No unique cause established for ALSA xruns, internal54 SDK gap, internal55 bridge gaps, or previous Deck gaps.",
+    "No bridge audio pass, physical audio proof or complete beta qualification.",
+    "The no-plugin observations had different durations and cannot establish a numerical improvement."
+  ]
+}

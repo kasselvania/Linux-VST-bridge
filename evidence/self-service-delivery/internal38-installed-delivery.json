@@ -1,0 +1,332 @@
+{
+  "schema": 1,
+  "claim": "Internal38 installed populated Deck manager adoption, recall and retained-installation rollback restart; limited result, not beta qualification",
+  "source_head": "3248515450753581319124afb1bfa00d67ac58e4",
+  "source_tree": "82c4e268a0be9747710acc81f0bead7728697bce",
+  "package_version": "0.12.0internal38",
+  "signing_class": "internal_test",
+  "package": {
+    "source_head": "3248515450753581319124afb1bfa00d67ac58e4",
+    "source_tree": "82c4e268a0be9747710acc81f0bead7728697bce",
+    "version": "0.12.0internal38",
+    "installer_sha256": "25fb2f4c1f1f981a0b57e538d704fb2214e226a2ca2847c2d0b087d8ee6da6b2",
+    "release_manifest_sha256": "82d5dbcfd06613f6c639a01f5907d75336021bffa1609fc6eed5cd198113ff37",
+    "payload_sha256": "76f94402ee8697421aad438bdaa9b0ecac504d917a09f7a246e03b5d8a2de243",
+    "manager_sha256": "5115af6b2f117f37da1fa9a371a4b2579c9fbac688bc166d71ab1dcc5f59eee4",
+    "frontend_sha256": "78728d8bedfd7b94be9d0378e3a18d17c772a85323acfc987be69b34a9790c19",
+    "kit_sha256": "209565e9d4720d7689a4003fcf0eca99ce9aed2d6118499e4f9ed9cf6b68c5e8",
+    "key_class": "internal_test",
+    "files": 29,
+    "proxies": 7,
+    "built": true,
+    "inspected": true,
+    "staged": true,
+    "selected": true
+  },
+  "before": {
+    "generation": "6e4c53bf8533741d0e9423dacca9dd542b7329707c2748769cc495386a100385",
+    "software_sha256": "920b1282f13ee847eb91b13aa5f120d6f59469a64e8a2b6bb0a1cc5cb62c1b49",
+    "manager_sha256": "414a953b8e7b1186ae1bf3ce969f09be8c5a011b12dcbcfb83f1c1637449ad71",
+    "registry_sha256": "c2baa0894b20c00feec6c2f946c87287aea96b0f6280b49d171127a08a9b67db",
+    "project_sha256": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+    "version": null,
+    "service": "active"
+  },
+  "after_manager_update": {
+    "result": "functional_close_reopen_after_manager_update",
+    "generation": {
+      "generation": "0c8537a3c67c7f0086aa373cdaceda152a933375ab4dca6516b601ddcd9a757d",
+      "software_sha256": "81c033b8fdb8e10af2a68fe8241e9f62767e71b6c7300fa084e5af65322db249",
+      "manager_sha256": "5115af6b2f117f37da1fa9a371a4b2579c9fbac688bc166d71ab1dcc5f59eee4",
+      "registry_sha256": "c2baa0894b20c00feec6c2f946c87287aea96b0f6280b49d171127a08a9b67db",
+      "project_sha256": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+      "version": "0.12.0internal38",
+      "service": "active"
+    },
+    "state_roundtrip": true,
+    "opaque_state_hashes_match_baseline": true,
+    "pure_preset": "Intro EP*",
+    "fragments_grain_mix": 0.572,
+    "midi": true,
+    "automation": true,
+    "signal": {
+      "bytes": 3840088,
+      "sha256": "03b27d7e324eca1d2ee26399f224d47f074641aa41fc1f2229fe3315baa8e609",
+      "format": [
+        3,
+        2,
+        48000,
+        384000,
+        8,
+        32
+      ],
+      "data_bytes": 3840000,
+      "samples": 480000,
+      "duration": 10,
+      "peak": 0.5147344470024109,
+      "rms": 0.0533441395092748,
+      "nonzero_samples": 958976,
+      "nonfinite": 0
+    },
+    "capture_exit": 1,
+    "proxy_replaced": false,
+    "phase_audio_qualified": false,
+    "maintainer_repairs": 0
+  },
+  "rollback": {
+    "restart": {
+      "generation": "6e4c53bf8533741d0e9423dacca9dd542b7329707c2748769cc495386a100385",
+      "software_sha256": "920b1282f13ee847eb91b13aa5f120d6f59469a64e8a2b6bb0a1cc5cb62c1b49",
+      "manager_sha256": "414a953b8e7b1186ae1bf3ce969f09be8c5a011b12dcbcfb83f1c1637449ad71",
+      "registry_sha256": "c2baa0894b20c00feec6c2f946c87287aea96b0f6280b49d171127a08a9b67db",
+      "project_sha256": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+      "version": null,
+      "service": "active"
+    },
+    "state": [
+      {
+        "observer": "native-eebce122ebcf41d4fd48da643fbc96b5.jsonl",
+        "state": [
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+            "gain": 0
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+            "gain": 0
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_set",
+            "payload_bytes": 138924,
+            "sha256": "b4b7898b84d39c9d6cb838f58867fb022bf3f45788f67e01349a4fec94f72ca4",
+            "gain": 0
+          }
+        ],
+        "errors": [],
+        "setup": [
+          {
+            "event": "ap9_setup",
+            "host_maximum": 512,
+            "transport_maximum": 256,
+            "sample_rate": 48000,
+            "bridge_frames": 512,
+            "vendor_frames": 192,
+            "total_frames": 704,
+            "vendor_precision_bits": 1
+          },
+          {
+            "event": "ap9_setup",
+            "host_maximum": 512,
+            "transport_maximum": 256,
+            "sample_rate": 48000,
+            "bridge_frames": 512,
+            "vendor_frames": 192,
+            "total_frames": 704,
+            "vendor_precision_bits": 1
+          },
+          {
+            "event": "ap9_setup",
+            "host_maximum": 512,
+            "transport_maximum": 256,
+            "sample_rate": 48000,
+            "bridge_frames": 512,
+            "vendor_frames": 192,
+            "total_frames": 704,
+            "vendor_precision_bits": 1
+          }
+        ]
+      },
+      {
+        "observer": "native-4b8590b19ab21012de8576452e1a7f28.jsonl",
+        "state": [
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_get",
+            "payload_bytes": 196838,
+            "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+            "gain": 0
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_get",
+            "payload_bytes": 196838,
+            "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+            "gain": 0
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_set",
+            "payload_bytes": 198002,
+            "sha256": "1546100b51a9ed8647b655edbb4a68f5efcbb40d0c66e794564d3039a0c74749",
+            "gain": 0
+          }
+        ],
+        "errors": [],
+        "setup": [
+          {
+            "event": "ap9_setup",
+            "host_maximum": 512,
+            "transport_maximum": 256,
+            "sample_rate": 48000,
+            "bridge_frames": 512,
+            "vendor_frames": 48,
+            "total_frames": 560,
+            "vendor_precision_bits": 1
+          },
+          {
+            "event": "ap9_setup",
+            "host_maximum": 512,
+            "transport_maximum": 256,
+            "sample_rate": 48000,
+            "bridge_frames": 512,
+            "vendor_frames": 48,
+            "total_frames": 560,
+            "vendor_precision_bits": 1
+          },
+          {
+            "event": "ap9_setup",
+            "host_maximum": 512,
+            "transport_maximum": 256,
+            "sample_rate": 48000,
+            "bridge_frames": 512,
+            "vendor_frames": 48,
+            "total_frames": 560,
+            "vendor_precision_bits": 1
+          }
+        ]
+      }
+    ],
+    "signal": {
+      "bytes": 3840088,
+      "sha256": "668981321f65ae8bfe089d171b43c9d6f5875d797f60ad372231900b1c356332",
+      "format": [
+        3,
+        2,
+        48000,
+        384000,
+        8,
+        32
+      ],
+      "data_bytes": 3840000,
+      "samples": 480000,
+      "duration": 10,
+      "peak": 0.4632706344127655,
+      "rms": 0.05694741175696819,
+      "nonzero_samples": 958976,
+      "nonfinite": 0
+    },
+    "closed": {
+      "generation": "6e4c53bf8533741d0e9423dacca9dd542b7329707c2748769cc495386a100385",
+      "software_sha256": "920b1282f13ee847eb91b13aa5f120d6f59469a64e8a2b6bb0a1cc5cb62c1b49",
+      "manager_sha256": "414a953b8e7b1186ae1bf3ce969f09be8c5a011b12dcbcfb83f1c1637449ad71",
+      "registry_sha256": "c2baa0894b20c00feec6c2f946c87287aea96b0f6280b49d171127a08a9b67db",
+      "project_sha256": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+      "version": null,
+      "service": "active"
+    },
+    "visible_controls": [
+      "Stop bridge service for setup",
+      "Restore predecessor",
+      "Start bridge service"
+    ],
+    "project_recall": "restored exact saved opaque plug-in state, notes and automation, with captured stereo signal",
+    "maintainer_repairs": 0,
+    "library": "failed: selected predecessor frontend timed out at 45 seconds, and normal refresh remained slow",
+    "proxy_replacement": false,
+    "reboot": false,
+    "phase_audio_qualification": false
+  },
+  "reselected": {
+    "generation": "0c8537a3c67c7f0086aa373cdaceda152a933375ab4dca6516b601ddcd9a757d",
+    "software_sha256": "81c033b8fdb8e10af2a68fe8241e9f62767e71b6c7300fa084e5af65322db249",
+    "manager_sha256": "5115af6b2f117f37da1fa9a371a4b2579c9fbac688bc166d71ab1dcc5f59eee4",
+    "registry_sha256": "c2baa0894b20c00feec6c2f946c87287aea96b0f6280b49d171127a08a9b67db",
+    "project_sha256": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+    "version": "0.12.0internal38",
+    "service": "active"
+  },
+  "admission_measurements": [
+    {
+      "class_id": "41727475415649536772616E50726F63",
+      "observed_at": 1790826497,
+      "outcome": "accepted",
+      "phases": [
+        [
+          "request_received",
+          0
+        ],
+        [
+          "binding_verified",
+          42
+        ],
+        [
+          "keeper_ready",
+          45
+        ],
+        [
+          "transport_prepared",
+          61
+        ],
+        [
+          "supervisor_ready",
+          296
+        ],
+        [
+          "binding_delivered",
+          296
+        ]
+      ],
+      "total_ms": 296
+    },
+    {
+      "class_id": "417274754156495350724C4650726F63",
+      "observed_at": 1790826489,
+      "outcome": "accepted",
+      "phases": [
+        [
+          "request_received",
+          0
+        ],
+        [
+          "binding_verified",
+          124
+        ],
+        [
+          "keeper_starting",
+          209
+        ],
+        [
+          "keeper_ready",
+          4314
+        ],
+        [
+          "transport_prepared",
+          4328
+        ],
+        [
+          "supervisor_ready",
+          4521
+        ],
+        [
+          "binding_delivered",
+          4521
+        ]
+      ],
+      "total_ms": 4521
+    }
+  ],
+  "limits": [
+    "Existing native publications remained selected: this measures manager delivery compatibility, not the new host/proxy pair.",
+    "Captures were complete 10-second stereo float WAVs at 48 kHz with no nonfinite values. pw-record exited 1. Initial silent frames are not attributed; no continuity or listening claim follows.",
+    "Timing of the entire project load was exploratory and did not establish the declared cold-load bound.",
+    "Rollback Library timeout remains a failed usability outcome.",
+    "No reboot, Push 3 physical regression or new-proxy audio-phase acceptance in this receipt."
+  ]
+}

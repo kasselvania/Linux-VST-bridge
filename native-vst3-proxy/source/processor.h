@@ -5,6 +5,7 @@
 #include <thread>
 #ifdef AP8_PREVIEW
 #include "ap8_descriptor.h"
+#include "ap8_backend.h"
 #include "ap18_bus_support.h"
 #include "output_results.h"
 #include <vector>
@@ -98,6 +99,8 @@ private:
     int32_t frames=0;
     uint64_t input_flags=0;
     double rate=0, cycle_start=0, cycle_end=0;
+    uint32_t event_count=0, invalid_event_index=UINT32_MAX;
+    ap8_event_t invalid_event{};
   } admission_failure_;
   std::vector<uint8_t> state_readback_;
   Steinberg::tresult readback();

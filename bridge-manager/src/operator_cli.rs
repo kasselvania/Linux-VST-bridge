@@ -7,6 +7,27 @@ mod current;
 const ASC: &str = "arturia-software-center";
 const SERVICE: &str = "linux-vst-bridge.service";
 const VENDOR: &str = "linux-vst-bridge-vendor-arturia-software-center.service";
+#[derive(Debug)]
+struct ServiceRestorationFailure {
+    reason: String,
+    completed_action: Value,
+}
+impl std::fmt::Display for ServiceRestorationFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Service restoration after completed preparation: {}", self.reason)
+    }
+}
+impl std::error::Error for ServiceRestorationFailure {}
+fn preparation_failure(action: &ui::Action, error: &(dyn std::error::Error + 'static)) -> Option<Value> {
+    if let Some(failure) = error.downcast_ref::<ServiceRestorationFailure>() {
+        Some(json!({"schema":1,"layer":"manager_control_plane",
+            "attempted_stage":"service_restoration","result":"refused",
+            "completed_action":failure.completed_action,
+            "installation_preserved":true,"prior_publication_provenance_preserved":true,
+            "automatic_retry":false,
+            "recovery":"Resume the exact retained operation through the ordinary recovery control. Completed preparation remains retained."}))
+    } else { preparation_cli::failure(action) }
+}
 #[cfg(test)]
 thread_local! {
     static SCAN_SPAWN_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
@@ -57,6 +78,7 @@ fn token(m: &Manager) -> Result<String> {
 fn token_with_registry(m: &Manager, registry: &Registry) -> Result<String> {
     Ok(hex(&sha2::Sha256::digest(serde_json::to_vec(
         &json!({"software":optional(&m.root.join("software.json"))?,"registry":registry,
+            "managed_runtime":optional(&linux_vst_bridge::runtime_delivery::record_path(m))?,
             "preparation":optional(&m.root.join("preparation/revision.json"))?,
             "workspace":optional(&m.root.join("daw-workspaces/fl-studio/workspace.json"))?,
             "terminal_summaries":capacity::terminal_summaries(m)?,
@@ -301,8 +323,9 @@ fn pulse_generation(m: &Manager) -> Result<String> {
         "daw-workspaces/fl-studio/workspace.json", "operator/latest.json",
         "installers", "onboarding", "inventory", "transactions", "performance",
         "runtime/leases", "runtime/owner.sock"];
+    let runtime_record = format!("runners/{}/runtime.json", linux_vst_bridge::runtime_delivery::ID);
     let mut stamps = Vec::with_capacity(paths.len());
-    for relative in paths {
+    for relative in paths.into_iter().chain(std::iter::once(runtime_record.as_str())) {
         match fs::symlink_metadata(m.root.join(relative)) {
             Ok(meta) => stamps.push(json!([relative,meta.dev(),meta.ino(),meta.len(),
                 meta.mtime(),meta.mtime_nsec(),meta.ctime(),meta.ctime_nsec()])),
@@ -640,12 +663,12 @@ fn environment_projection_from(
 }
 // A fresh product install has no native catalogue until a managed native
 // publication exists. An empty registry can bootstrap the first inventory;
-// afterward only the exact sealed FRG1 publication/restoration remains valid
-// without an ordinary catalogue.
+// Exact managed preparation owns new publications without a static catalogue;
+// the separate sealed FRG1 fixture retains its historical authority.
 fn operator_catalogue(m: &Manager, sw: &Software, registry: &Registry)
     -> Result<Option<linux_vst_bridge::catalogue::Catalogue>> {
     if sw.native_catalogue.is_none() {
-        require(linux_vst_bridge::frg1::catalogue_free_registry(m, registry)?,
+        require(linux_vst_bridge::catalogue::catalogue_free_registry(m, registry)?,
             "native_catalogue_absent_run_product_setup")?;
         Ok(None)
     } else {
@@ -699,6 +722,14 @@ fn overview(m: &Manager) -> Result<ui::InteractiveOverview> {
 }
 fn product_detail(m: &Manager, environment: &str, module: &str,
     class: &str) -> Result<ui::CurrentProductDetail> {
+    // The entire product projection is readback, including scoped environment
+    // and preparation context after capture. Launch/worker verification remains
+    // outside this scope and hashes every runtime byte.
+    linux_vst_bridge::with_readback_digests(||
+        product_detail_readonly(m, environment, module, class))
+}
+fn product_detail_readonly(m: &Manager, environment: &str, module: &str,
+    class: &str) -> Result<ui::CurrentProductDetail> {
     require(valid_product_environment(environment) && valid_hex(module, 64)
         && (class.is_empty() || valid_hex(class, 32)), "operator_product_identity")?;
     let captured = current::capture(m)?;
@@ -710,7 +741,8 @@ fn product_detail(m: &Manager, environment: &str, module: &str,
     captured.recheck(m)?;
     Ok(ui::CurrentProductDetail {schema:1,operator_schema:ui::OPERATOR_SCHEMA,
         state_token:captured.snapshot.state_token,
-        current_generation:captured.current_generation,product,environments,
+        current_generation:captured.current_generation,system:captured.snapshot.system,
+        product,environments,
         vendor_applications})
 }
 fn valid_product_environment(id: &str) -> bool {
@@ -753,10 +785,29 @@ fn project_current_product(m: &Manager, captured: &current::CurrentOverviewConte
                 || !product.details["qualification"].is_null() {
                 Some("An exact ordinary publication is required")
             } else { None }));
+        buffering_actions(m, &entry.registration, &mut product.actions, captured.busy);
     }
     preparation_cli::project(m, sw,
         std::slice::from_mut(&mut product), captured.busy)?;
     Ok(product)
+}
+fn buffering_actions(m: &Manager, registration: &Registration,
+    actions: &mut Vec<ui::AvailableAction>, busy: Option<&str>) {
+    let current = m.performance(&registration.metadata.class_id).ok().map(|p|p.added_frames);
+    if current != Some(512) {
+        actions.push(action("Restore 512-frame bridge buffering",
+            ui::Action::BufferingSet {class_id:registration.metadata.class_id.clone(), added_frames:512}, busy));
+    }
+    if current != Some(1024) {
+        let capacity = preparation::build::maximum_bridge_frames(m, registration);
+        let reason = match capacity {
+            Ok(Some(1024)) => busy,
+            Ok(_) => return,
+            Err(_) => Some("Installed proxy buffering capability could not be verified. Check compatibility first."),
+        };
+        actions.push(action("Use 1024-frame bridge buffering for testing",
+            ui::Action::BufferingSet {class_id:registration.metadata.class_id.clone(), added_frames:1024}, reason));
+    }
 }
 fn scoped_product_context(m: &Manager, sw: &Software, db: &Registry,
     environment: &str, busy: Option<&str>)
@@ -854,6 +905,18 @@ fn snapshot_for_operation_depth(
     capacity_read: &dyn Fn() -> Option<CapacityReadback>,
     deep: bool,
 ) -> Result<ui::Snapshot> {
+    linux_vst_bridge::runtime_delivery::prepare_readback(m)?;
+    linux_vst_bridge::with_readback_digests(||
+        snapshot_readonly_depth(m,id,timeout,waits,capacity_read,deep))
+}
+fn snapshot_readonly_depth(
+    m: &Manager,
+    id: Option<&str>,
+    timeout: Duration,
+    waits: &mut Vec<ui::LockFacts>,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>,
+    deep: bool,
+) -> Result<ui::Snapshot> {
     // Bounded wait order: operator serialization -> registry authority.
     let _projection = acquire_readback(m, ui::OperatorLock::Canonical, id, timeout, waits)?;
     // History migration can change the projection token. Complete it before
@@ -911,6 +974,7 @@ fn snapshot_for_operation_depth(
         let hist = if deep { history(m, &p.class_id, entry)? } else { vec![] };
         let recommended = profiles.iter().find(|r| r.class.class_id == p.class_id);
         let mut actions = Vec::new();
+        buffering_actions(m, &entry.registration, &mut actions, busy);
         for h in &hist {
             if h.rollback_allowed && !h.active {
                 actions.push(action(
@@ -1000,7 +1064,7 @@ fn snapshot_for_operation_depth(
                     {
                         continue;
                     }
-                    products.push(ui::Product {class_id:class.id,name:class.name,vendor:class.vendor,role:class.role,version:class.version,disposition:if current {"installed_unqualified"} else {"needs_attention"}.into(),active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256.clone(),limitations:vec![stale.unwrap_or("Installed — not yet supported; not published to Bitwig").into()],history:vec![],actions:vec![],compatibility:None,details:json!({"scan":scan.id,"observed_at":scan.completed_at,"scanner_host_sha256":scan.host.sha256,"scanner_source_sha256":scan.host_source_sha256,"current":current,"inspection_error":module.inspection_error,"inspection_hint":inspection_hint,"activation_permitted":false})});
+                    products.push(ui::Product {class_id:class.id,name:class.name,vendor:class.vendor,role:class.role,version:class.version,disposition:if current {"installed_unqualified"} else {"needs_attention"}.into(),active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256.clone(),limitations:vec![stale.unwrap_or("Installed — not yet supported; not published").into()],history:vec![],actions:vec![],compatibility:None,details:json!({"scan":scan.id,"observed_at":scan.completed_at,"scanner_host_sha256":scan.host.sha256,"scanner_source_sha256":scan.host_source_sha256,"current":current,"inspection_error":module.inspection_error,"inspection_hint":inspection_hint,"activation_permitted":false})});
                 }
             }
         }
@@ -1080,6 +1144,10 @@ fn snapshot_for_operation_depth(
         capture: capture_state(m)?,
         recent_incidents: incidents,
         actions: vec![
+            action("Install compatibility runtime (728 MB download)", ui::Action::RuntimeInstall {},
+                if linux_vst_bridge::runtime_delivery::installed(m)?.is_some() {
+                    Some("The selected compatibility runtime is already installed")
+                } else {busy}),
             action("Create sanitized support export", ui::Action::SupportExport {}, None),
             action("Disarm crash capture", ui::Action::CaptureDisarm {}, None),
             action(
@@ -1179,8 +1247,16 @@ fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
     )
 }
 fn validate_current_request(m: &Manager, request: &ui::Request) -> Result<()> {
+    // Offer admission observes current identities; it does not execute them.
+    // The separately queued mutation owner performs full execution verification.
+    linux_vst_bridge::with_readback_digests(|| validate_current_request_readonly(m, request))
+}
+fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Result<()> {
     require(request.schema == ui::OPERATOR_SCHEMA,
         "operator_schema_mismatch_update_manager_frontend")?;
+    if installer_control(&request.action).is_some() {
+        return validate_installer_control_with(m, request, onboarding::live);
+    }
     if current_offer_action(&request.action) {
         let offered = overview(m)?;
         validate(request, &offered.current)?;
@@ -1212,6 +1288,7 @@ fn validate_current_request(m: &Manager, request: &ui::Request) -> Result<()> {
         match &request.action {
             ui::Action::OrdinaryRollback { class_id, .. }
             | ui::Action::OrdinaryRestoreRecommended { class_id }
+            | ui::Action::BufferingSet { class_id, .. }
             | ui::Action::CaptureArm { class_id } => {
                 let entry = db.classes.get(class_id).ok_or("operator_product_not_current")?;
                 offered.products = vec![project_current_product(m, &captured, &sw, &db,
@@ -1244,6 +1321,7 @@ fn validate_current_request(m: &Manager, request: &ui::Request) -> Result<()> {
 fn scoped_product_action(action: &ui::Action) -> bool {
     matches!(action, ui::Action::OrdinaryRollback { .. }
         | ui::Action::OrdinaryRestoreRecommended { .. }
+        | ui::Action::BufferingSet { .. }
         | ui::Action::CaptureArm { .. }
         | ui::Action::EnvironmentRescan { .. }
         | ui::Action::VendorApplicationOpen { .. }
@@ -1254,7 +1332,7 @@ fn scoped_product_action(action: &ui::Action) -> bool {
         | ui::Action::RendererStop { .. })
 }
 fn current_offer_action(action: &ui::Action) -> bool {
-    matches!(action, ui::Action::SupportExport {}
+    matches!(action, ui::Action::RuntimeInstall {} | ui::Action::SupportExport {}
         | ui::Action::TransactionReconcile {}
         | ui::Action::InstallerEnvironmentCreate { .. }
         | ui::Action::InstallerRename { .. }
@@ -1266,6 +1344,25 @@ fn current_offer_action(action: &ui::Action) -> bool {
         | ui::Action::InstallerScan { .. }
         | ui::Action::QuarantinedModuleRetry { .. })
 }
+fn installer_control(action: &ui::Action) -> Option<(&str, &str)> {
+    match action {
+        ui::Action::InstallerFocus { onboarding, operation }
+        | ui::Action::InstallerStop { onboarding, operation } => Some((onboarding, operation)),
+        _ => None,
+    }
+}
+fn validate_installer_control_with(m: &Manager, request: &ui::Request,
+    is_live: impl FnOnce(&str) -> Result<bool>) -> Result<()> {
+    require(request.schema == ui::OPERATOR_SCHEMA,
+        "operator_schema_mismatch_update_manager_frontend")?;
+    let (id, operation) = installer_control(&request.action)
+        .ok_or("installer_control_action")?;
+    let _ownership = m.lock("onboarding.lock")?;
+    require(request.state_token == token(m)?, "operator_stale_request_refresh")?;
+    let record = onboarding::control_record(m, id)?;
+    require(record.installation_operation.as_deref() == Some(operation)
+        && valid_hex(operation, 32) && is_live(operation)?, "installer_control_owner")
+}
 fn validate_current_worker(m: &Manager, request: &ui::Request, id: &str,
     timeout: Duration, waits: &mut Vec<ui::LockFacts>,
     capacity_read: &dyn Fn() -> Option<CapacityReadback>) -> Result<()> {
@@ -1273,6 +1370,11 @@ fn validate_current_worker(m: &Manager, request: &ui::Request, id: &str,
         "operator_schema_mismatch_update_manager_frontend")?;
     let _serialization = acquire_readback(m, ui::OperatorLock::Canonical,
         Some(id), timeout, waits)?;
+    // Recovery controls recheck this exact owned cohort. A suspended DSP
+    // service cannot grant new-work capacity, and is not needed to stop it.
+    if installer_control(&request.action).is_some() {
+        return validate_installer_control_with(m, request, onboarding::live);
+    }
     let deadline = Instant::now() + timeout;
     let mut cap = capacity_read();
     let mut registry = acquire_readback(m, ui::OperatorLock::Registry,
@@ -1305,7 +1407,7 @@ pub(super) fn resumable_check_source(m: &Manager, id: &str, action: &ui::Action)
     // The installed private UI2 generation used wire 11. Its retained request
     // can identify an old check; the *new* continuation still enters through
     // this manager's current schema and fresh offered-action validation.
-    require(matches!(original.schema, 10..=12) && original.action == *action,
+    require(matches!(original.schema, 10..=ui::OPERATOR_SCHEMA) && original.action == *action,
         "guided_check_source_request_changed")?;
     let result = optional(&dir.join("result.json"))?;
     require(result["schema"] == 1 && result["operation"] == id,
@@ -1444,7 +1546,7 @@ fn cleanup_preparation_work(m: &Manager, id: &str) -> Result<()> {
     let source = (|| {
         let request: ui::Request = read_json(&job_dir(m, id)?.join("request.json"))?;
         if let ui::Action::CompatibilityResumeCheck { operation } = request.action {
-            require(matches!(request.schema, 10..=12) && operation != id,
+            require(matches!(request.schema, 10..=ui::OPERATOR_SCHEMA) && operation != id,
                 "guided_check_cleanup_request_binding")?;
             let intent = preparation::guided_check_stage(m, &operation, "intent")?
                 .ok_or("guided_check_cleanup_intent_missing")?;
@@ -1752,7 +1854,6 @@ fn execute_with_receipt_policy(
             a,
             ui::Action::PluginReinspect { .. }
                 | ui::Action::PluginInspect { .. }
-                | ui::Action::PluginPrepare { .. }
                 | ui::Action::CompatibilityCheck { .. }
                 | ui::Action::CompatibilityResumeCheck { .. }
         ) {
@@ -1770,9 +1871,17 @@ fn execute_with_receipt_policy(
             });
             let cleanup = resume_owned(m, owner);
             let value = result?;
-            cleanup?;
+            if let Err(error) = cleanup {
+                return Err(ServiceRestorationFailure {
+                    reason:error.to_string(), completed_action:value,
+                }.into());
+            }
             return Ok(value);
         }
+        // Prebuilt construction and publication retain their own transaction
+        // and inactive checks. They do not execute Windows environment work,
+        // so they must not retire healthy keeper ownership as a side effect.
+        drop(projection.take());
         return preparation_cli::execute(m, a, owner, || {
             acquire_readback(
                 m,
@@ -1784,6 +1893,12 @@ fn execute_with_receipt_policy(
         });
     }
     match a {
+        ui::Action::RuntimeInstall {} => {
+            drop(projection.take());
+            let runner = linux_vst_bridge::runtime_delivery::install(m)?;
+            Ok(json!({"runtime":runner.id,"runner_key":catalogue::runner_key(&runner)?,
+                "installed":true,"plugin_support":"not_qualified_by_runtime_installation"}))
+        }
         ui::Action::SupportExport {} => {
             drop(projection.take());
             let current = overview(m)?;
@@ -1923,6 +2038,12 @@ fn execute_with_receipt_policy(
         ui::Action::OrdinaryRestoreRecommended { class_id } => {
             managed_cli::restore_recommended(m, class_id)?;
             Ok(json!({"restored":true}))
+        }
+        ui::Action::BufferingSet { class_id, added_frames } => {
+            require(matches!(added_frames, 512 | 1024), "operator_buffering_value")?;
+            m.select_delay(class_id, *added_frames)?;
+            Ok(json!({"added_bridge_frames":added_frames,"applies_to":"next_activation",
+                "compatibility_qualified":false}))
         }
         ui::Action::IncidentExport { incident } => {
             require(valid_hex(incident, 32), "operator_incident_identity")?;
@@ -2143,6 +2264,7 @@ struct ResumeRecord {
     software: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     vendor_operation: Option<String>,
+
 }
 fn resume_lock(m: &Manager) -> Result<Lock> {
     let deadline = Instant::now() + Duration::from_secs(75);
@@ -2167,7 +2289,7 @@ fn resume_record(m: &Manager) -> Result<Option<ResumeRecord>> {
     }
     let saved: ResumeRecord = serde_json::from_value(value)?;
     require(
-        saved.schema == 1
+        matches!(saved.schema, 1 | 2)
             && valid_hex(&saved.owner_operation, 32)
             && valid_hex(&saved.software, 64)
             && saved
@@ -2177,6 +2299,23 @@ fn resume_record(m: &Manager) -> Result<Option<ResumeRecord>> {
         "operator_resume_identity",
     )?;
     Ok(Some(saved))
+}
+// The reservation restores the control service, not any DSP environment.
+// Native admission alone prepares its exact runtime/keeper and acknowledges
+// processing readiness. Caller holds the fresh maintenance reservation.
+pub(super) fn authorize_service_resume(
+    m: &Manager, operation: &str, selected: &Software,
+) -> Result<()> {
+    let saved = resume_record(m)?.ok_or("operator_resume_absent")?;
+    require(saved.schema == 2 && saved.resume && saved.owner_operation == operation,
+        "operator_resume_request_identity")?;
+    let current: Software = read_json(&m.root.join("software.json"))?;
+    require(saved.software == selected.manager.sha256
+        && current.manager == selected.manager,
+        "operator_resume_software_changed")?;
+    recovery_request(m, &saved)?;
+    require(onboarding::all_retired(m)?, "operator_installer_cleanup_unconfirmed")?;
+    require(vendor_retired(m)?, "operator_vendor_cleanup_unconfirmed")
 }
 // Caller holds operator-resume.lock. An outstanding recovery is never replaced.
 fn create_resume(m: &Manager, saved: &ResumeRecord) -> Result<()> {
@@ -2205,7 +2344,7 @@ fn suspend_with(
     create_resume(
         m,
         &ResumeRecord {
-            schema: 1,
+            schema: 2,
             owner_operation: owner.into(),
             resume: was_active,
             software: software(m)?.manager.sha256,
@@ -2253,7 +2392,7 @@ fn recovery_request(m: &Manager, saved: &ResumeRecord) -> Result<ui::Action> {
     // The installed private UI2 manager retained schema-11 requests. This is
     // historical readback only; live requests still require operator schema 12.
     require(
-        matches!(request.schema, 5..=12),
+        matches!(request.schema, 5..=ui::OPERATOR_SCHEMA),
         "operator_resume_request_schema",
     )?;
     Ok(request.action)
@@ -2431,12 +2570,20 @@ fn restore_service(m: &Manager, saved: &ResumeRecord) -> Result<()> {
         };
         peer.set_read_timeout(Some(Duration::from_secs(70)))?;
         peer.set_write_timeout(Some(Duration::from_secs(2)))?;
-        peer.write_all(b"LVE1\n")?;
-        let mut receipt = [0; 11];
-        peer.read_exact(&mut receipt)?;
+        let scoped = saved.schema == 2;
+        if scoped {
+            peer.write_all(b"LVE2\n")?;
+            peer.write_all(saved.owner_operation.as_bytes())?;
+        } else {
+            peer.write_all(b"LVE1\n")?;
+        }
+        let expected: &[u8] = if scoped { b"LVE2 control ready\n" } else { b"LVE1 ready\n" };
+        let mut receipt = [0; 19];
+        peer.read_exact(&mut receipt[..expected.len()]).map_err(|error|
+            format!("operator_service_resume_readback: {error}"))?;
         require(
-            &receipt == b"LVE1 ready\n",
-            "operator_keeper_resume_unconfirmed",
+            &receipt[..expected.len()] == expected,
+            "operator_service_resume_unconfirmed",
         )?;
     }
     Ok(())
@@ -2586,7 +2733,7 @@ fn rescan_environment_locked(
             PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
         #[cfg(test)]
         SCAN_SPAWN_COUNT.with(|count| count.set(count.get() + 1));
-        let child = spawn(&sw, &path, None)?;
+        let child = spawn(m, &sw, &path, None)?;
         vendor_product_cli::finish_scan(child, &job, &path, pending)?;
         module.verify()?;
         require(
@@ -2634,7 +2781,11 @@ fn rescan_environment_locked(
             "prior_report_sha256":retry.report_sha256}))}))
 }
 fn worker(m: &Manager, id: &str) -> Result<()> {
-    worker_with_capacity(m, id, OPERATOR_WAIT, &|| live_capacity(m).ok())
+    // One operation reads each exact runtime artifact afresh, then reuses only
+    // its own byte observations while the complete file identity is unchanged.
+    // No persisted readback cache grants permission to run an installer.
+    linux_vst_bridge::with_launch_verification(||
+        worker_with_capacity(m, id, OPERATOR_WAIT, &|| live_capacity(m).ok()))
 }
 fn worker_with_capacity(
     m: &Manager,
@@ -2767,7 +2918,7 @@ fn worker_with_capacity(
             } else {
                 format!("Operator action: {e}").chars().take(512).collect()
             };
-            json!({"schema":1,"operation":id,"state":"refused","reason":reason,"failure":failure,"preparation_failure":preparation_cli::failure(&request.action),"lock_waits":waits})
+            json!({"schema":1,"operation":id,"state":"refused","reason":reason,"failure":failure,"preparation_failure":preparation_failure(&request.action,e.as_ref()),"lock_waits":waits})
         }
     };
     write_operation(m, id, &value, false)
@@ -2857,6 +3008,25 @@ pub(super) fn product_receipt(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn completed_inspection_is_not_relabelled_by_service_restoration_failure() {
+        let action = ui::Action::PluginReinspect {
+            selection: "01".repeat(32), audio_layout: None,
+        };
+        let completed = json!({"selection":"exact","inspection":"complete",
+            "publication_changed":false});
+        let error = ServiceRestorationFailure {
+            reason:"owned service restoration unavailable".into(),
+            completed_action:completed.clone(),
+        };
+        let failure = preparation_failure(&action, &error).unwrap();
+        assert_eq!(failure["attempted_stage"], "service_restoration");
+        assert_eq!(failure["completed_action"], completed);
+        assert_eq!(failure["automatic_retry"], false);
+        let inspection_error:Box<dyn std::error::Error> = "inspection refused".into();
+        assert_eq!(preparation_failure(&action, inspection_error.as_ref()).unwrap()
+            ["attempted_stage"], "preliminary_inspection");
+    }
     #[cfg(feature = "cpi2-test-contract")]
     use linux_vst_bridge::{catalogue::EnvironmentBinding, observation::Census, profiles::{Accessibility, Claim, Editor, Family, Limitation, Role}};
     #[test]
@@ -3365,8 +3535,8 @@ mod tests {
         assert!(validate(&r, &busy).is_err());
     }
     #[test]
-    fn schema_twelve_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 12);
+    fn current_schema_keeps_exact_old_operation_request_history_readable() {
+        assert_eq!(ui::OPERATOR_SCHEMA, 15);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();
@@ -3393,13 +3563,28 @@ mod tests {
         let f = test_fixture::Fixture::new();
         let source = f.r.host.path.with_file_name("host-source-manifest.json");
         fs::write(&source, b"fixture source").unwrap();
+        // Exercise a valid retained installation, including its exact helper
+        // layout and immutable paired frontend. Missing modern package records
+        // must not be treated as legacy just to produce a successful export.
+        let helper = |name: &str| {
+            let path = f.r.host.path.with_file_name(name);
+            fs::write(&path, name.as_bytes()).unwrap();
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+            Artifact { sha256: digest(&path).unwrap(), path }
+        };
+        let supervisor = helper("session.py");
+        let ownership = helper("ownership.py");
+        let frontend = helper("frontend");
+        for path in [&f.r.host.path, &source] {
+            fs::set_permissions(path, fs::Permissions::from_mode(0o400)).unwrap();
+        }
         let sw = Software {
             installer_launch: None,
             preparation_kit: None,
-            operator_frontend: None,
+            operator_frontend: Some(frontend),
             manager: f.r.host.clone(),
-            supervisor: f.r.host.clone(),
-            ownership: f.r.host.clone(),
+            supervisor,
+            ownership,
             host: f.r.host.clone(),
             source_manifest: Artifact { path: source.clone(), sha256: digest(&source).unwrap() },
             source_sha256: digest(&source).unwrap(),
@@ -3420,7 +3605,7 @@ mod tests {
         assert!(validate_current_request(&f.m, &request).is_err());
         let operation = test_submit_offered(&f.m, &ui::Action::SupportExport {}).unwrap();
         let result = test_run_offered_worker(&f.m, &operation).unwrap();
-        assert_eq!(result["state"], "completed");
+        assert_eq!(result["state"], "completed", "{result}");
         let report = result["result"]["file"].as_str()
             .expect("the exact offered export writes a local file");
         let saved: Value = read_json(&f.m.root.join("support-exports").join(report)).unwrap();
@@ -3873,6 +4058,85 @@ mod tests {
         let _lock = resume_lock(m).unwrap();
         create_resume(m, &saved).unwrap();
         saved
+    }
+    fn retained_keeper(m: &Manager, registration: &Registration, host: &Artifact) -> (PathBuf, PathBuf) {
+        let sid = random_id().unwrap();
+        let report = m.root.join("runtime/results").join(format!("environment-{sid}.json"));
+        let spec = registration.environment.root.join("compatdata/pfx/drive_c/bridge/sessions")
+            .join(&sid).join("owner.json");
+        private_dir(spec.parent().unwrap()).unwrap();
+        private_dir(report.parent().unwrap()).unwrap();
+        let mut binding = HostBinding::from(registration.clone());
+        binding.host = host.clone();
+        atomic_json(&spec, &json!({"session":sid,"report":report,"keeper":true,
+            "inspect":true,"vendor_access":false,"registration":binding})).unwrap();
+        atomic_json(&report, &json!({"ready":true,"cleanup_confirmed":false})).unwrap();
+        let lease = m.root.join("runtime/leases").join(format!("{sid}.json"));
+        private_dir(lease.parent().unwrap()).unwrap();
+        atomic_json(&lease, &report).unwrap();
+        (lease, report)
+    }
+    #[test]
+    fn control_resume_requires_exact_operation_and_software_without_starting_environments() {
+        let (f, _) = onboarding_worker_fixture();
+        let sw = software(&f.m).unwrap();
+        let owner = queued_test_action(&f.m, ui::Action::EnvironmentRescan {
+            environment: f.r.environment.id.clone(),
+        });
+        let saved = ResumeRecord { schema: 2, owner_operation: owner.clone(), resume: true,
+            software: sw.manager.sha256.clone(), vendor_operation: None };
+        create_resume(&f.m, &saved).unwrap();
+        let before = test_fixture::snapshot(&f.m.root);
+        let _authority = f.m.lock("registry.lock").unwrap();
+        authorize_service_resume(&f.m, &owner, &sw).unwrap();
+        assert!(authorize_service_resume(&f.m, &"ef".repeat(16), &sw).is_err());
+        let mut changed = sw.clone(); changed.manager.sha256 = "de".repeat(32);
+        atomic_json(&f.m.root.join("software.json"), &changed).unwrap();
+        assert_eq!(authorize_service_resume(&f.m, &owner, &sw).unwrap_err().to_string(),
+            "operator_resume_software_changed");
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        assert_eq!(test_fixture::snapshot(&f.m.root), before);
+        assert!(!f.m.root.join("runtime/leases").exists());
+    }
+    #[test]
+    fn legacy_recovery_record_does_not_authorize_control_only_acknowledgement() {
+        let (f, _) = onboarding_worker_fixture();
+        let sw = software(&f.m).unwrap();
+        let owner = queued_test_action(&f.m, ui::Action::EnvironmentRescan {
+            environment: f.r.environment.id.clone(),
+        });
+        let mut saved = ResumeRecord { schema: 1, owner_operation: owner.clone(), resume: true,
+            software: sw.manager.sha256.clone(), vendor_operation: None };
+        create_resume(&f.m, &saved).unwrap();
+        assert_eq!(resume_record(&f.m).unwrap().unwrap().schema, 1);
+        assert!(authorize_service_resume(&f.m, &owner, &sw).is_err());
+        saved.schema = 2;
+        atomic_json(&f.m.root.join("operator/resume.json"), &saved).unwrap();
+        assert!(authorize_service_resume(&f.m, &owner, &sw).is_ok());
+        saved.resume = false;
+        atomic_json(&f.m.root.join("operator/resume.json"), &saved).unwrap();
+        assert!(authorize_service_resume(&f.m, &owner, &sw).is_err());
+    }
+    #[test]
+    fn prepare_refusal_does_not_stop_existing_keeper_or_create_recovery() {
+        let (f, c, sw, _) = preparation_cli::tests::guided_fixture();
+        f.m.register(f.r.clone()).unwrap();
+        linux_vst_bridge::preparation::retain_inspection(&f.m, &c.inspection).unwrap();
+        let (lease, report) = retained_keeper(&f.m, &f.r, &sw.host);
+        let report_before = fs::read(&report).unwrap();
+        let registry_before = fs::read(f.m.root.join("registry.json")).unwrap();
+        let action = ui::Action::PluginPrepare { selection: c.selection.id().unwrap(),
+            inspection: c.inspection.id().unwrap(), recipe: c.recipe_sha256.clone(), predecessor: None };
+        let owner = queued_test_action(&f.m, action.clone());
+        // The real constructor refuses this incomplete fixture kit. That must
+        // not turn pure proxy construction into Wine-service cancellation.
+        let error = execute_with_receipt_policy(&f.m, &action, Some(&owner),
+            &|| capacity_fixture(&f.m), Duration::from_secs(2), &mut vec![]).unwrap_err();
+        assert_eq!(error.to_string(), "build_recipe_generator_identity_missing");
+        assert!(lease.exists());
+        assert_eq!(fs::read(report).unwrap(), report_before);
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry_before);
+        assert!(!f.m.root.join("operator/resume.json").exists());
     }
     #[test]
     fn interrupted_compatibility_continuation_restores_service_without_replaying_work() {
@@ -4540,6 +4804,35 @@ mod tests {
         (f, receipt.operation.unwrap())
     }
     #[test]
+    fn installer_controls_use_current_owned_operation_without_runtime_admission() {
+        let (f, creation) = onboarding_worker_fixture();
+        let create: ui::Request = read_json(&job_dir(&f.m, &creation).unwrap()
+            .join("request.json")).unwrap();
+        let result = execute_with_receipt_policy(&f.m, &create.action, Some(&creation),
+            &|| capacity_fixture(&f.m), OPERATOR_WAIT, &mut vec![]).unwrap();
+        let id = result["onboarding"].as_str().unwrap();
+        let operation = "ab".repeat(16);
+        let record = onboarding::reserve(&f.m, id, &operation).unwrap();
+        let mut request = ui::Request { schema: ui::OPERATOR_SCHEMA,
+            state_token: token(&f.m).unwrap(), action: ui::Action::InstallerStop {
+                onboarding: id.into(), operation: operation.clone() } };
+        // Recovery owns no binary launch. A damaged runner cannot prevent
+        // stopping the still-owned installer or confer new-work authority.
+        fs::write(&record.environment.runner.entry_point, b"damaged runtime").unwrap();
+        assert!(onboarding::load(&f.m, id).is_err());
+        validate_installer_control_with(&f.m, &request, |op| {
+            assert_eq!(op, operation); Ok(true)
+        }).unwrap();
+        assert!(validate_installer_control_with(&f.m, &request, |_| Ok(false)).is_err());
+        assert!(validate_installer_control_with(&f.m, &request, |_| Err("unit unavailable".into())).is_err());
+        request.action = ui::Action::InstallerFocus {
+            onboarding: id.into(), operation: "ef".repeat(16) };
+        assert!(validate_installer_control_with(&f.m, &request, |_| Ok(true)).is_err());
+        request.action = ui::Action::InstallerStop { onboarding: id.into(), operation };
+        request.state_token = "stale".into();
+        assert!(validate_installer_control_with(&f.m, &request, |_| Ok(true)).is_err());
+    }
+    #[test]
     #[ignore = "opt-in snapshot latency measurement"]
     fn snapshot_readback_latency_sample() {
         let (f, _) = onboarding_worker_fixture();
@@ -4653,6 +4946,7 @@ mod tests {
         service.join().unwrap();
         assert_eq!(detail.schema, 1);
         assert_eq!(detail.operator_schema, ui::OPERATOR_SCHEMA);
+        assert!(detail.system.capacity_available());
         assert_eq!(detail.product.environment, selection.environment.id);
         assert!(detail.product.compatibility.is_some());
         let offered = detail.product.actions.iter().find(|offer|
@@ -4690,6 +4984,14 @@ mod tests {
         request.schema = 11;
         assert_eq!(validate_current_request(&fixture.m,&request).unwrap_err().to_string(),
             "operator_schema_mismatch_update_manager_frontend");
+        // A missing service is a fresh, different capture even when product
+        // and generation identities have not changed.
+        let unavailable = product_detail(&fixture.m, &selection.environment.id,
+            &selection.module.sha256, &selection.class.id).unwrap();
+        assert!(!unavailable.system.capacity_available());
+        let refused = unavailable.product.actions.iter().find(|offer|
+            matches!(offer.action, ui::Action::PluginReinspect { .. })).unwrap();
+        assert!(refused.disabled_reason.as_deref().unwrap().contains("unavailable"));
     }
     #[test]
     fn scoped_ordinary_product_keeps_exact_rollback_offer() {

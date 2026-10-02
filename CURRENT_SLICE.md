@@ -1,5 +1,58 @@
 # Current work selection
 
+## Selected: integrated self-service beta delivery
+
+The operator selected the integrated delivery assignment and its refinements on
+2026-09-30. Base: `ca95d1541a41a1aa7497a58752e26fc1f893b237`, tree
+`28c295cc0d8b45c8e0504c7ec0c88e56d65781b9`.
+Primary claim: one declared installed candidate completes the ordinary musician
+journey for the exact qualified catalogue on Ubuntu and CachyOS, including
+installer recovery, predictable first use, project recall, populated update and
+rollback, with zero maintainer repairs in passing journeys.
+The acceptance contract, workloads, release requirements and platform boundaries
+are in [Integrated beta delivery](docs/INTEGRATED_BETA_DELIVERY.md).
+Implement the necessary connections in this effort; do not seek a new scope
+decision for each routine repair or treat component results as a completed beta.
+Preserve application-owned runtime acquisition, prebuilt proxies, immutable
+publications, paired components, vendor state and exact predecessors.
+SteamOS delivery belongs to this effort. The working Deck remains selected until
+a staged candidate and verified populated migration justify its controlled
+update. No unrelated Deck/Pi installation or user project may be replaced.
+
+## Retained predecessor: runtime and prebuilt proxy delivery
+
+The operator selected implementation of tasks 1 and 2 and testing of task 3 in
+[Self-service beta delivery](docs/SELF_SERVICE_BETA_TODO.md) on 2026-09-29.
+Base commit: `13ed1d85e830d581ec297760e04e9f9433bfd671`.
+One primary claim: the delivered package supplies its own exact compatibility
+runtime and supported prebuilt proxies, and the normal managed installation
+journey can use them without customer-installed Proton or development SDKs.
+Use the disposable Ubuntu 26.04.1 x86-64 fixture first. Existing Deck/Pi
+installations and user-owned environments remain under their existing custody.
+Scope includes package construction/intake, runtime ownership, native
+preparation/publication, normal frontend setup and focused acceptance tests.
+Preserve exact identities, vendor-owned authorization, predecessor artifacts,
+RT behavior and failures. Record notices for the exact redistributed contents.
+Tasks 4 and 5 now belong to the integrated assignment above. No universal
+platform or plug-in support claim follows from these predecessor results.
+Record actual sound/editor/recall/reboot/recovery outcomes and any open gap.
+The installed 1024/512 host-block refusal also selects the generic explicit
+[larger-buffer configuration](docs/SELF_SERVICE_AUDIO_BUFFERING.md) repair.
+It preserves the default and historical support envelopes; exercise the exact
+successor through normal delivery and product controls.
+The measured UI Automation null-provider removal fault also selects the exact
+[preparation accessibility policy and isolated runtime correction](docs/RUNTIME_UIA_GUARD.md).
+Apply the existing declared process policy to the measured module/runtime only;
+retain its screen-reader limitation and candidate claim level. The isolated
+Wine guard remains a construction/reference proof until separately delivered
+and commercially retested. No existing bound runner is edited or replaced.
+
+Internal30 has exercised the retained larger-buffer publication and exact
+accessibility policy in the delivered Ubuntu package: normal insertion,
+editor close/reopen, processed audio and normal instance cleanup. Cold preview,
+state/project persistence, responsiveness and ordinary installer recovery remain
+open. Tasks 1 and 2 are bounded Ubuntu delivery results; task 3 is not complete.
+
 ## Beta delivery: clean-machine portable first run
 
 The current portability owner begins from post-PKG1 canonical main

@@ -1,0 +1,447 @@
+{
+  "schema": 1,
+  "claim_level": "installed development failures and source corrections; no beta qualification",
+  "source_base_commit": "8dfd204b77a6acd864d8d4767734266f73ea1531",
+  "source_base_tree": "fa12e1efcd57948885b812f21a2132432e625955",
+  "date": "2026-10-01",
+  "deck": {
+    "fixture": "Steam Deck, SteamOS 3.8.16, existing licensed Bitwig Studio 6.1",
+    "package_version": "0.12.0internal41",
+    "journey": "ordinary existing Pure LoFi preliminary inspection",
+    "observed": {
+      "operation": {
+        "failure": null,
+        "lock_waits": [
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 47,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "operator-canonical.lock",
+            "operation": "754c675ddc7c5cdce245349eff0d15c4",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "action_serialization",
+            "timeout_ms": 10000
+          },
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 31,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "registry.lock",
+            "operation": "754c675ddc7c5cdce245349eff0d15c4",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "operator_validation_readback",
+            "timeout_ms": 9945
+          },
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 45,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "operator-canonical.lock",
+            "operation": "754c675ddc7c5cdce245349eff0d15c4",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "action_serialization",
+            "timeout_ms": 10000
+          },
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 45,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "registry.lock",
+            "operation": "754c675ddc7c5cdce245349eff0d15c4",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "operator_validation_readback",
+            "timeout_ms": 10000
+          },
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 17,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "registry.lock",
+            "operation": "754c675ddc7c5cdce245349eff0d15c4",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "operator_validation_readback",
+            "timeout_ms": 10000
+          },
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 22,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "registry.lock",
+            "operation": "754c675ddc7c5cdce245349eff0d15c4",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "operator_validation_readback",
+            "timeout_ms": 10000
+          }
+        ],
+        "operation": "754c675ddc7c5cdce245349eff0d15c4",
+        "preparation_failure": {
+          "attempted_stage": "preliminary_inspection",
+          "automatic_retry": false,
+          "installation_preserved": true,
+          "layer": "manager_control_plane",
+          "prior_publication_provenance_preserved": true,
+          "recovery": "Refresh canonical state; reconcile a pending publication before another explicit action. A refusal is not a plug-in crash.",
+          "result": "refused",
+          "schema": 1
+        },
+        "reason": "Operator action: failed to fill whole buffer",
+        "schema": 1,
+        "state": "refused"
+      },
+      "inspection": {
+        "selection": "417274754156495350724C4650726F63",
+        "report_sha256": "9e2e4a8947c8d849a68019f6a9a94930e3af0c8e069bee555e1e9280f1f08fe0",
+        "recorded_sha256": "9e2e4a8947c8d849a68019f6a9a94930e3af0c8e069bee555e1e9280f1f08fe0",
+        "host_sha256": "a90de3ca2f7360e8c9477184acb8224ebf394d4e46cf00fd905892002a79cd13",
+        "source_manifest_sha256": "f21af06cbaa2f942119aa50d9ca757e303d6f4507c2d7abbd81cada21bfd1626",
+        "controller": {
+          "kind": "combined"
+        }
+      },
+      "report_summary": {
+        "session": "585b8f7249470e04367a7972a809bbf4",
+        "error": null,
+        "gated": true,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "sdk_host_returncode": null,
+        "returncode": null,
+        "inspection_complete": null
+      },
+      "resume_record_retained": false
+    },
+    "interpretation": "Fresh paired inspection completed and retired cleanly. The subsequent LVE1 service restoration connection ended before its ready reply. The operation incorrectly described this as preliminary inspection failure. Registry holder at the restoration refusal was not observed.",
+    "journal_summary": [
+      "Service stopped for exclusive preparation",
+      "Service started for restoration",
+      "admission_service_busy reported by the manager connection"
+    ],
+    "preserved": {
+      "project_sha256": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+      "predecessor_publications": true,
+      "vendor_environment": true
+    },
+    "commercial_recall_configuration": "Operator selected the existing licensed Deck; no transfer of vendor authorization into test VMs"
+  },
+  "ubuntu": {
+    "fixture": "Ubuntu 26.04.1 x86-64 disposable VM, Ardour 9.0.0~ds, 48 kHz, 1024-frame host blocks",
+    "package_version": "0.12.0internal40",
+    "workload": "Retained stateful reference instrument and effect project, saved parameter automation and short transport loop",
+    "development_component_boundary": "Reference instrument remains internal36; effect was replaced through ordinary Library Apply with internal40. This mixed development reproduction is not qualification.",
+    "effect_replacement": {
+      "candidate": "9a0b7cf47ebb881610aa44cdebced87f5ab1c9f90bb00553dfafc53d5ac85ef2",
+      "operation": "7c26153d6c5d3e08edb017ced2171bc3",
+      "revision": "c7c62baf48f2bcd48867f66c7acb45af",
+      "revision_sha256": "932331e7921e2bb4ffe2a5991426fdfb3dd0cf26fbffbafd6422d5ebfb0b4fc0",
+      "native_sha256": "3ff869e4ff952f09c370d20204a6bf982e22e1aea02bad2ad49b13c8ee9a06fd"
+    },
+    "update_reopen": {
+      "first_attempt": "failed: DAW cached Updated plug-in entry was omitted and reported Missing Plugins",
+      "identity": "Saved processor class ID 1A954DE265CF529E87C53ED21FCB2598 and updated native descriptor class ID matched; stable publication route remained intact",
+      "normal_followup": "Ardour Plugin Manager Discover New/Updated, quit without saving inactive stubs, reopen original project",
+      "classification": "Development followup; initial update/reopen remains failed"
+    },
+    "separate_daw_crash": {
+      "signal": "SIGFPE",
+      "observed_stack": "__divti3 -> Ardour frame -> ArdourCanvas::GtkCanvas::deliver_event/on_motion_notify_event",
+      "when": "One diagnostic startup with initialization dialog",
+      "cause": "unproven",
+      "bridge_crash_claim": false,
+      "crash_upload": false,
+      "next_attempt": "Normal reopen completed"
+    },
+    "reports": [
+      {
+        "observer": "native-1cc18d7afc64cb58de5cb5efc0758cb6.jsonl",
+        "report_sha256": "eb516d93606ed5d196f200690ca3ccb0b9d898fffbddb0be2d8f345fcf46d1f6",
+        "records": [
+          {
+            "event": "ap3_proxy_lifecycle",
+            "phase": 6,
+            "requested_maximum": 1024,
+            "requested_rate": 48000,
+            "requested_mode": 0,
+            "frames": 19533824,
+            "blocks": 20441,
+            "callback_rejections": 0,
+            "skipped_expression_callbacks": 0,
+            "rejected_silent_frames": 0,
+            "discontinuities": 0,
+            "successful_silent_callbacks": 1,
+            "successful_silent_frames": 1024,
+            "priming_frames": 1024,
+            "underrun_frames": 38912,
+            "underrun_gaps": 38,
+            "underrun_callbacks": 53,
+            "expired_output_frames": 38912,
+            "delivered_frames": 19493888,
+            "zero_gain_blocks": 0,
+            "gain_min": 1,
+            "gain_max": 1,
+            "clean": true
+          }
+        ],
+        "phases": [
+          {
+            "event": "ap7_audio_phase",
+            "schema": 1,
+            "phase": "closing",
+            "epoch": 4,
+            "monotonic_ns": 19134842047907,
+            "startup": {
+              "admitted_frames": 0,
+              "missing_frames": 0,
+              "gaps": 0,
+              "expired_frames": 0,
+              "delivered_frames": 0,
+              "priming_frames": 0
+            },
+            "processing": {
+              "admitted_frames": 19533824,
+              "missing_frames": 38912,
+              "gaps": 38,
+              "expired_frames": 38912,
+              "delivered_frames": 19493888,
+              "priming_frames": 1024
+            },
+            "omitted_phase_markers": 0
+          },
+          {
+            "event": "ap7_audio_phase",
+            "schema": 1,
+            "phase": "retired",
+            "epoch": 4,
+            "monotonic_ns": 19135014170939,
+            "startup": {
+              "admitted_frames": 0,
+              "missing_frames": 0,
+              "gaps": 0,
+              "expired_frames": 0,
+              "delivered_frames": 0,
+              "priming_frames": 0
+            },
+            "processing": {
+              "admitted_frames": 19533824,
+              "missing_frames": 38912,
+              "gaps": 38,
+              "expired_frames": 38912,
+              "delivered_frames": 19493888,
+              "priming_frames": 1024
+            },
+            "omitted_phase_markers": 0
+          }
+        ],
+        "state": [
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_get",
+            "payload_bytes": 96,
+            "sha256": "7666ebeb20aa3a110b06e97a4504edaf5f00468e001240e9a6d5e880e0b29df0",
+            "gain": 0
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_set",
+            "payload_bytes": 96,
+            "sha256": "062857dd2ed44b2e598f34746e68a6227fd0fed1293094b5614511676194b4da",
+            "gain": 0
+          }
+        ],
+        "windows": {
+          "session": "1cc18d7afc64cb58de5cb5efc0758cb6",
+          "error": null,
+          "gated": true,
+          "cleanup_confirmed": true,
+          "transport_retired": true
+        }
+      },
+      {
+        "observer": "native-eeb59ed737a6f08307471b52a8072a92.jsonl",
+        "report_sha256": "705ea5b4fd83095faf71a3d3582049b41f0bd8919367d749602b2e855aa8e7c6",
+        "records": [
+          {
+            "event": "ap10_admission_failure",
+            "code": 258,
+            "frames": 1024,
+            "input_flags": 0,
+            "context_state": 175874,
+            "rate": 48000,
+            "cycle_start": 0,
+            "cycle_end": 0,
+            "nonfinite_fields": 0,
+            "event_count": 4,
+            "invalid_event_index": 1,
+            "invalid_event": {
+              "kind": 2,
+              "id": 0,
+              "offset": 1024,
+              "channel": 0,
+              "pitch": 0,
+              "value": 0.7860824465751648,
+              "tuning": 0,
+              "reserved": 0,
+              "nonfinite_fields": 0
+            }
+          },
+          {
+            "event": "ap3_proxy_lifecycle",
+            "phase": 7,
+            "requested_maximum": 1024,
+            "requested_rate": 48000,
+            "requested_mode": 0,
+            "frames": 4082688,
+            "blocks": 3987,
+            "callback_rejections": 16454,
+            "skipped_expression_callbacks": 0,
+            "rejected_silent_frames": 15451136,
+            "discontinuities": 1,
+            "successful_silent_callbacks": 1,
+            "successful_silent_frames": 1024,
+            "priming_frames": 1024,
+            "underrun_frames": 16128,
+            "underrun_gaps": 12,
+            "underrun_callbacks": 19,
+            "expired_output_frames": 16128,
+            "delivered_frames": 4065536,
+            "zero_gain_blocks": 0,
+            "gain_min": 1,
+            "gain_max": 1,
+            "clean": false
+          }
+        ],
+        "phases": [
+          {
+            "event": "ap7_audio_phase",
+            "schema": 1,
+            "phase": "failed",
+            "epoch": 4,
+            "monotonic_ns": 19135018546640,
+            "startup": {
+              "admitted_frames": 0,
+              "missing_frames": 0,
+              "gaps": 0,
+              "expired_frames": 0,
+              "delivered_frames": 0,
+              "priming_frames": 0
+            },
+            "processing": {
+              "admitted_frames": 4082688,
+              "missing_frames": 16128,
+              "gaps": 12,
+              "expired_frames": 16128,
+              "delivered_frames": 4065536,
+              "priming_frames": 1024
+            },
+            "omitted_phase_markers": 0
+          },
+          {
+            "event": "ap7_audio_phase",
+            "schema": 1,
+            "phase": "retired",
+            "epoch": 4,
+            "monotonic_ns": 19137222551866,
+            "startup": {
+              "admitted_frames": 0,
+              "missing_frames": 0,
+              "gaps": 0,
+              "expired_frames": 0,
+              "delivered_frames": 0,
+              "priming_frames": 0
+            },
+            "processing": {
+              "admitted_frames": 4082688,
+              "missing_frames": 16128,
+              "gaps": 12,
+              "expired_frames": 16128,
+              "delivered_frames": 4065536,
+              "priming_frames": 1024
+            },
+            "omitted_phase_markers": 0
+          }
+        ],
+        "state": [
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_get",
+            "payload_bytes": 96,
+            "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+            "gain": 0
+          }
+        ],
+        "windows": {
+          "session": "eeb59ed737a6f08307471b52a8072a92",
+          "error": null,
+          "gated": true,
+          "cleanup_confirmed": true,
+          "transport_retired": true
+        }
+      }
+    ],
+    "project_after_normal_quit": {
+      "sha256": "2a0d5d63278946fc51a714603943d619b9d99bfabaccd1ec06164f42ffd62390",
+      "unchanged": true,
+      "ardour_processes": 0,
+      "manager_service": "active"
+    },
+    "audio_result": "Failed. Processing-phase missing frames precede the terminal input refusal in the effect; the instrument also retains processing-phase gaps. No signal capture or physical listening result in this run."
+  },
+  "source_corrections": {
+    "maintenance": "Bounded registry acquisition with fresh cleanup, owner and capacity validation after actual acquisition. Native DSP remains fail-fast. Cold keeper coordination releases registry and revalidates exact bindings for restoration, inspection and vendor access.",
+    "error_classification": "A completed preparation result is retained when subsequent service restoration fails; stage is service_restoration, not preliminary_inspection. No automatic replay.",
+    "automation": "A parameter queue's host-boundary curve anchor is translated mathematically across fixed transport chunks. Original interior points and order are retained. Exact future endpoint carries once to the next continuous host callback unless current explicit start, GUI edit, transport discontinuity or Stop supersedes it. Windows wire and notes retain strictly in-block offsets.",
+    "rt": "Curve plan and scratch storage belong to the native instance and are initialized before activation. No callback allocation, I/O, logging or unbounded wait added.",
+    "capability_limit": "An implicit first segment crossing a transport boundary without an actual left anchor is refused before any block is admitted (0x106). No descriptor default or fabricated state is used."
+  },
+  "source_validation": {
+    "rust_backend": {
+      "passed": 82,
+      "ignored": 1,
+      "mode": "serial library suite; shared global four-instance registry",
+      "ignored_reason": "LC1 requires Windows fixture and pinned-runner launcher"
+    },
+    "production_callback": {
+      "allocation_counts": [
+        0,
+        0,
+        0
+      ],
+      "checked": "Linear values across chunks, endpoint carry, GUI edit/seek/Stop invalidation, unknown-anchor refusal before admission"
+    },
+    "native_codec": "Parameter anchor accepted at host edge, rejected at wire edge; notes at host extent remain refused",
+    "manager": "3 bounded maintenance tests, 2 startup coordinator tests, 1 restoration-stage classifier and 19 keeper group tests passed. Final manager and native backend all-target strict Clippy passed.",
+    "sdk_cpp": {
+      "pinned_sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "passed": 3,
+      "tests": [
+        "ap10-result-lifetime",
+        "ap10-results-tests",
+        "ap18-auxiliary-input"
+      ],
+      "callback_audit": "Preloaded AP3 audit observed zero side effects in actual SDK endpoint and invalid-extent calls"
+    },
+    "development_test_setup_failures": [
+      "Private SDK test source staging initially omitted shared state stream and host headers; supplied original repository headers and rebuilt",
+      "ctest from build root found no tests; corrected to native-vst3-proxy registered test directory and actually ran three tests"
+    ],
+    "deployment": "Not installed; coherent successor required"
+  },
+  "remaining": [
+    "Unexplained active audio gaps",
+    "Ordinary installed recovery/progress and successful inspection on corrected successor",
+    "Fixed-candidate project recall and reboot on existing licensed Deck",
+    "Same-source Ubuntu/CachyOS musical acceptance and populated rollback",
+    "Customer distribution signing, notices and release obligations"
+  ]
+}

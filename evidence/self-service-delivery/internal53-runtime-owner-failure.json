@@ -1,0 +1,137 @@
+{
+  "candidate": "0.12.0internal53",
+  "source_head": "201b914b45a9c17a63b275e5b5dba28139675489",
+  "source_tree": "608ee099ee5776572122069522b38ee70d60e73d",
+  "result": "failed_before_windows_launch",
+  "fresh_capacity": {
+    "ok": true,
+    "dsp": 0,
+    "maintenance": 0,
+    "keepers": 1,
+    "cleanup_unconfirmed": false,
+    "owners": [
+      {
+        "class_id": "4C564242455441314546465800000001",
+        "kind": "keeper",
+        "session": "30bff76d1188558f25ad73f1fb6141a5"
+      }
+    ]
+  },
+  "failed_keeper": {
+    "ready": false,
+    "cleanup_confirmed": false,
+    "error": "[Errno 2] No such file or directory: '<test-home>/.cache/linux-vst-bridge/command-sessions'; command endpoint retirement: FileNotFoundError: [Errno 2] No such file or directory: '<test-home>/.cache/linux-vst-bridge/command-sessions/30bff76d1188558f25ad73f1fb6141a5'",
+    "raw_exit": null,
+    "diagnostic_bytes": {
+      "stdout": 0,
+      "stderr": 0
+    },
+    "diagnostic_sha256": {
+      "stdout": null,
+      "stderr": null
+    },
+    "private_diagnostics": {},
+    "private_diagnostic_error": null
+  },
+  "failed_keeper_lease_present": true,
+  "resources": {
+    "exit_code": 1,
+    "duration_ms": 5803.491,
+    "before": {
+      "cpu.max": "100000 100000",
+      "memory.max": "2684354560",
+      "memory.swap.max": "0",
+      "pids.max": "512",
+      "pids.current": "201",
+      "pids.events": "max 0",
+      "memory.current": "1682259968",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+    },
+    "after": {
+      "cpu.max": "100000 100000",
+      "memory.max": "2684354560",
+      "memory.swap.max": "0",
+      "pids.max": "512",
+      "pids.current": "216",
+      "pids.events": "max 0",
+      "memory.current": "1667096576",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+    },
+    "peak_user_tasks": 226,
+    "peak_user_memory_bytes": 1792671744,
+    "stderr_bytes": 366,
+    "stderr_sha256": "0612436456fac7cbfadb3b055c9b45633f8003c5cee1312ff40296986b38fc8a"
+  },
+  "runs": [
+    {
+      "event": "run",
+      "role": "effect",
+      "pair": 1,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 5440.374,
+      "exit_code": 1,
+      "host_events": [
+        {
+          "event": "ap4_native_error",
+          "operation": "get",
+          "stage": "failed_instance",
+          "fault": 0,
+          "first_position": 18446744073709552000,
+          "processed": 0,
+          "callback_rejections": 0,
+          "detail": "Other: admission_binding_invalid"
+        },
+        {
+          "event": "failed",
+          "stage": "initialized_state",
+          "reason": "state before processing"
+        }
+      ],
+      "audio_phases": [],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 0,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false
+    }
+  ],
+  "original_project_sha256": "2a0d5d63278946fc51a714603943d619b9d99bfabaccd1ec06164f42ffd62390",
+  "runtime_python_probe": {
+    "exit_code": 0,
+    "duration_ms": 2803.071,
+    "runtime_python": {
+      "version": [
+        3,
+        13,
+        5
+      ],
+      "magic_hex": "f30d0d0a"
+    },
+    "selected_supervisor_magic_hex": "2b0e0d0a",
+    "stderr_bytes": 435,
+    "stderr_sha256": "1719798efed9346f3138eadc9a0e97ca814ef77f217cd69b803c1a05f0b98d28",
+    "claim": "isolated pinned runtime interpreter interface probe with accessible working directory; no product authority edited"
+  },
+  "runtime_bytecode_probe": {
+    "exit_code": 1,
+    "duration_ms": 2111.247,
+    "last_stderr_line": "RuntimeError: Bad magic number in .pyc file",
+    "stdout_bytes": 0,
+    "stderr_sha256": "0d9f04727efb6d3e2b7ab0caa5a7ee4536d30d56a64984d933921945366a1012",
+    "claim": "actual selected compiled child-entry refusal in isolated runtime; no Windows program or product lease created"
+  },
+  "schema": 1,
+  "maintainer_repairs_during_run": 0,
+  "frontend_intake": "normal installer, Stop, Select installed version, Start completed; exact selected six components independently verified",
+  "claim": "failed qualification candidate; no audio, meaningful state or DAW recall result",
+  "attribution": "The keeper assigned its endpoint before creating the exclusive directory, then assumed its application cache parent existed. Creation failed before Popen. Finalization attempted to retire the never-created directory and persisted false cleanup. The package also passed host-compiled supervisor bytecode to the different runtime Python; an isolated actual runtime probe confirms Bad magic number. Neither is an audio failure or inferred from service_busy."
+}

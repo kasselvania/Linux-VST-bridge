@@ -1,0 +1,5680 @@
+{
+  "schema": 1,
+  "source_head": "65c131c88f6fc76ba4a7299b01a0889c83b1e2cd",
+  "candidate": "0.12.0internal54",
+  "claim": "installed development timing investigation; earlier failed candidate remains failed",
+  "product_repair_performed": false,
+  "fixed_workload": "16 fresh SDK consumers, 48kHz, 1024 added frames, 3 record/recall pairs at 1024 host frames and 1 pair at 1008 for each role; 480 paced blocks per consumer",
+  "maximum_repetitions": 3,
+  "baseline_reconstruction": {
+    "event": "timing_baseline_owner_roster",
+    "purpose": "development reconstruction of prior two-environment scope, not frontend qualification",
+    "before": {
+      "dsp": 0,
+      "maintenance": 0,
+      "keepers": 0,
+      "cleanup_unconfirmed": false
+    },
+    "after": {
+      "dsp": 0,
+      "maintenance": 0,
+      "keepers": 2,
+      "cleanup_unconfirmed": false
+    },
+    "ack": "LVE1 ready\n",
+    "error": null,
+    "duration_ms": 26838.736,
+    "product_candidate_changed": false
+  },
+  "instrumentation": {
+    "sdk_commit": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "host_sha256": "b985fffaee72f7ddfcd1a6b81d2d049512eada5f64bea41e876a9dc794c95f61",
+    "source_sha256": "9f900a6aa3fb7bcf423731974ccea44b2d7bb9026e413202897d2ec41a8907e4",
+    "audit_sha256": "43a2b739e319156242064686517e1b2be7a1c48669f5b9c3befea18b0d5c92ab",
+    "driver_sha256": "c8bce847d0a889dd68aae5a4cee5d153613bea6ad0fa841f98190b92d10af143",
+    "observation_bound": 480,
+    "callbacks_changed": false,
+    "pacing_changed": false,
+    "buffer_queue_or_deadline_changed": false
+  },
+  "repetitions": [
+    {
+      "index": 1,
+      "result": "passed development regression",
+      "resources": {
+        "exit_code": 0,
+        "duration_ms": 253088.534,
+        "before": {
+          "cpu.max": "100000 100000",
+          "memory.max": "2684354560",
+          "memory.swap.max": "0",
+          "pids.max": "512",
+          "pids.current": "344",
+          "pids.events": "max 0",
+          "memory.current": "1920188416",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+        },
+        "after": {
+          "cpu.max": "100000 100000",
+          "memory.max": "2684354560",
+          "memory.swap.max": "0",
+          "pids.max": "512",
+          "pids.current": "356",
+          "pids.events": "max 0",
+          "memory.current": "1637277696",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+        },
+        "peak_user_tasks": 381,
+        "peak_user_memory_bytes": 1989292032,
+        "stderr_bytes": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "private_raw_stdout_sha256": "3b3dd40fd2b92d6cce072e90df446ab58efb308150c2aea46d3f92ceae85520b",
+      "compared_stereo_samples": 15667200,
+      "processing_missing_frames": 0,
+      "runs": [
+        {
+          "role": "effect",
+          "pair": 1,
+          "mode": "record",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 18448
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 1,
+            "begin_since_audio_start_ns": 2028503284,
+            "end_since_audio_start_ns": 2030239876,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 980992,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 201364,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "de3007b32be9faec209e24a9243091ae",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 160383272760,
+            "audio_begin_unix_ns_approximate": 1790906838163825694,
+            "maximum_wake_lateness_ns": 934697,
+            "minimum_adjacent_callback_interval_ns": 20468135,
+            "worst_wake_rows": [
+              {
+                "block": 448,
+                "scheduled_ns": 9557333333,
+                "started_ns": 9558268030,
+                "callback_ns": 12840,
+                "mismatches": 0
+              },
+              {
+                "block": 298,
+                "scheduled_ns": 6357333333,
+                "started_ns": 6358105900,
+                "callback_ns": 13627,
+                "mismatches": 0
+              },
+              {
+                "block": 223,
+                "scheduled_ns": 4757333333,
+                "started_ns": 4758098347,
+                "callback_ns": 15423,
+                "mismatches": 0
+              },
+              {
+                "block": 373,
+                "scheduled_ns": 7957333333,
+                "started_ns": 7958096545,
+                "callback_ns": 12753,
+                "mismatches": 0
+              },
+              {
+                "block": 73,
+                "scheduled_ns": 1557333333,
+                "started_ns": 1558038965,
+                "callback_ns": 12661,
+                "mismatches": 0
+              },
+              {
+                "block": 185,
+                "scheduled_ns": 3946666666,
+                "started_ns": 3947027038,
+                "callback_ns": 13245,
+                "mismatches": 0
+              },
+              {
+                "block": 314,
+                "scheduled_ns": 6698666666,
+                "started_ns": 6698847147,
+                "callback_ns": 13816,
+                "mismatches": 0
+              },
+              {
+                "block": 180,
+                "scheduled_ns": 3840000000,
+                "started_ns": 3840153591,
+                "callback_ns": 15298,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "46ec27ecfc1723515237d7b4a256c132da03a79315ce6f9a0e7e7dd01061080b"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 1,
+          "mode": "recall",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4229
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 2,
+            "begin_since_audio_start_ns": 2027777665,
+            "end_since_audio_start_ns": 2030587984,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 980992,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 889267,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "324bd4e598b194df2f9bb21eb3389aa5",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 175181986650,
+            "audio_begin_unix_ns_approximate": 1790906852962504276,
+            "maximum_wake_lateness_ns": 4966350,
+            "minimum_adjacent_callback_interval_ns": 16390302,
+            "worst_wake_rows": [
+              {
+                "block": 176,
+                "scheduled_ns": 3754666666,
+                "started_ns": 3759633016,
+                "callback_ns": 14736,
+                "mismatches": 0
+              },
+              {
+                "block": 373,
+                "scheduled_ns": 7957333333,
+                "started_ns": 7959659391,
+                "callback_ns": 13951,
+                "mismatches": 0
+              },
+              {
+                "block": 284,
+                "scheduled_ns": 6058666666,
+                "started_ns": 6059607293,
+                "callback_ns": 12015,
+                "mismatches": 0
+              },
+              {
+                "block": 59,
+                "scheduled_ns": 1258666666,
+                "started_ns": 1259605421,
+                "callback_ns": 107996,
+                "mismatches": 0
+              },
+              {
+                "block": 364,
+                "scheduled_ns": 7765333333,
+                "started_ns": 7765879670,
+                "callback_ns": 15322,
+                "mismatches": 0
+              },
+              {
+                "block": 403,
+                "scheduled_ns": 8597333333,
+                "started_ns": 8597829976,
+                "callback_ns": 72165,
+                "mismatches": 0
+              },
+              {
+                "block": 402,
+                "scheduled_ns": 8576000000,
+                "started_ns": 8576358735,
+                "callback_ns": 13827,
+                "mismatches": 0
+              },
+              {
+                "block": 437,
+                "scheduled_ns": 9322666666,
+                "started_ns": 9322871512,
+                "callback_ns": 15997,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "99d1ab397f5ab5121c382cda42cf497101f641f6e8dc371691a7302280cce3d9"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 2,
+          "mode": "record",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4337
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 6,
+            "begin_since_audio_start_ns": 2029178941,
+            "end_since_audio_start_ns": 2035262119,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 980992,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 40005,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "fec81978062e7eb2bd7365c094bbe4d8",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 143
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 190130545692,
+            "audio_begin_unix_ns_approximate": 1790906867911063319,
+            "maximum_wake_lateness_ns": 1798792,
+            "minimum_adjacent_callback_interval_ns": 19569042,
+            "worst_wake_rows": [
+              {
+                "block": 202,
+                "scheduled_ns": 4309333333,
+                "started_ns": 4311132125,
+                "callback_ns": 14336,
+                "mismatches": 0
+              },
+              {
+                "block": 188,
+                "scheduled_ns": 4010666666,
+                "started_ns": 4011362207,
+                "callback_ns": 32463,
+                "mismatches": 0
+              },
+              {
+                "block": 263,
+                "scheduled_ns": 5610666666,
+                "started_ns": 5611132939,
+                "callback_ns": 15059,
+                "mismatches": 0
+              },
+              {
+                "block": 113,
+                "scheduled_ns": 2410666666,
+                "started_ns": 2411125579,
+                "callback_ns": 13468,
+                "mismatches": 0
+              },
+              {
+                "block": 218,
+                "scheduled_ns": 4650666666,
+                "started_ns": 4651023351,
+                "callback_ns": 13397,
+                "mismatches": 0
+              },
+              {
+                "block": 69,
+                "scheduled_ns": 1472000000,
+                "started_ns": 1472170318,
+                "callback_ns": 13658,
+                "mismatches": 0
+              },
+              {
+                "block": 169,
+                "scheduled_ns": 3605333333,
+                "started_ns": 3605471899,
+                "callback_ns": 13258,
+                "mismatches": 0
+              },
+              {
+                "block": 390,
+                "scheduled_ns": 8320000000,
+                "started_ns": 8320100181,
+                "callback_ns": 25853,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "56aa9ec6682779eb310f36e71bb0c56a92cca64270f0d76ea81103b5dae36ecf"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 2,
+          "mode": "recall",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4203
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 2,
+            "begin_since_audio_start_ns": 2030233330,
+            "end_since_audio_start_ns": 2032430787,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 980992,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 117309,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "a0665d5f7019cbfc9c93051440cb420f",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 204924887044,
+            "audio_begin_unix_ns_approximate": 1790906882705404586,
+            "maximum_wake_lateness_ns": 3280578,
+            "minimum_adjacent_callback_interval_ns": 18117760,
+            "worst_wake_rows": [
+              {
+                "block": 425,
+                "scheduled_ns": 9066666666,
+                "started_ns": 9069947244,
+                "callback_ns": 14746,
+                "mismatches": 0
+              },
+              {
+                "block": 283,
+                "scheduled_ns": 6037333333,
+                "started_ns": 6038533042,
+                "callback_ns": 14657,
+                "mismatches": 0
+              },
+              {
+                "block": 257,
+                "scheduled_ns": 5482666666,
+                "started_ns": 5482978190,
+                "callback_ns": 14472,
+                "mismatches": 0
+              },
+              {
+                "block": 119,
+                "scheduled_ns": 2538666666,
+                "started_ns": 2538804708,
+                "callback_ns": 15497,
+                "mismatches": 0
+              },
+              {
+                "block": 214,
+                "scheduled_ns": 4565333333,
+                "started_ns": 4565436653,
+                "callback_ns": 13373,
+                "mismatches": 0
+              },
+              {
+                "block": 148,
+                "scheduled_ns": 3157333333,
+                "started_ns": 3157419784,
+                "callback_ns": 14128,
+                "mismatches": 0
+              },
+              {
+                "block": 266,
+                "scheduled_ns": 5674666666,
+                "started_ns": 5674750157,
+                "callback_ns": 12664,
+                "mismatches": 0
+              },
+              {
+                "block": 110,
+                "scheduled_ns": 2346666666,
+                "started_ns": 2346749424,
+                "callback_ns": 27000,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "c8ba6aeae99a4c47d339923709a0684e4335ed18b34d61ae5e6598e70d6ddfff"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 3,
+          "mode": "record",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4661
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 3,
+            "begin_since_audio_start_ns": 2028373052,
+            "end_since_audio_start_ns": 2032069896,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 980992,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 1136921,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "d8703c34d9dba7639bbc0ebda8bd77da",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 143
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 220174327897,
+            "audio_begin_unix_ns_approximate": 1790906897954845782,
+            "maximum_wake_lateness_ns": 1262013,
+            "minimum_adjacent_callback_interval_ns": 20136136,
+            "worst_wake_rows": [
+              {
+                "block": 425,
+                "scheduled_ns": 9066666666,
+                "started_ns": 9067928679,
+                "callback_ns": 15811,
+                "mismatches": 0
+              },
+              {
+                "block": 275,
+                "scheduled_ns": 5866666666,
+                "started_ns": 5867624174,
+                "callback_ns": 12546,
+                "mismatches": 0
+              },
+              {
+                "block": 125,
+                "scheduled_ns": 2666666666,
+                "started_ns": 2667611257,
+                "callback_ns": 10648,
+                "mismatches": 0
+              },
+              {
+                "block": 384,
+                "scheduled_ns": 8192000000,
+                "started_ns": 8192857337,
+                "callback_ns": 15373,
+                "mismatches": 0
+              },
+              {
+                "block": 200,
+                "scheduled_ns": 4266666666,
+                "started_ns": 4267513527,
+                "callback_ns": 14499,
+                "mismatches": 0
+              },
+              {
+                "block": 363,
+                "scheduled_ns": 7744000000,
+                "started_ns": 7744161827,
+                "callback_ns": 13455,
+                "mismatches": 0
+              },
+              {
+                "block": 388,
+                "scheduled_ns": 8277333333,
+                "started_ns": 8277485572,
+                "callback_ns": 13949,
+                "mismatches": 0
+              },
+              {
+                "block": 79,
+                "scheduled_ns": 1685333333,
+                "started_ns": 1685457226,
+                "callback_ns": 15572,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "cf3113ad7efcea852ecca0f6607d3682c70d19224dbeb0186b88027edd4ba60a"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 3,
+          "mode": "recall",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4259
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 2,
+            "begin_since_audio_start_ns": 2031139710,
+            "end_since_audio_start_ns": 2033141033,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 980992,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 243829,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "e5d70169372b5fe2731842402bbd319c",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 235032594573,
+            "audio_begin_unix_ns_approximate": 1790906912813112199,
+            "maximum_wake_lateness_ns": 2818903,
+            "minimum_adjacent_callback_interval_ns": 18578536,
+            "worst_wake_rows": [
+              {
+                "block": 230,
+                "scheduled_ns": 4906666666,
+                "started_ns": 4909485569,
+                "callback_ns": 17521,
+                "mismatches": 0
+              },
+              {
+                "block": 468,
+                "scheduled_ns": 9984000000,
+                "started_ns": 9986322351,
+                "callback_ns": 15578,
+                "mismatches": 0
+              },
+              {
+                "block": 66,
+                "scheduled_ns": 1408000000,
+                "started_ns": 1409807189,
+                "callback_ns": 15262,
+                "mismatches": 0
+              },
+              {
+                "block": 296,
+                "scheduled_ns": 6314666666,
+                "started_ns": 6315912192,
+                "callback_ns": 17750,
+                "mismatches": 0
+              },
+              {
+                "block": 427,
+                "scheduled_ns": 9109333333,
+                "started_ns": 9110252135,
+                "callback_ns": 15340,
+                "mismatches": 0
+              },
+              {
+                "block": 332,
+                "scheduled_ns": 7082666666,
+                "started_ns": 7083189450,
+                "callback_ns": 15011,
+                "mismatches": 0
+              },
+              {
+                "block": 261,
+                "scheduled_ns": 5568000000,
+                "started_ns": 5568389095,
+                "callback_ns": 26454,
+                "mismatches": 0
+              },
+              {
+                "block": 298,
+                "scheduled_ns": 6357333333,
+                "started_ns": 6357496557,
+                "callback_ns": 16032,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "e801324430f0daff6b958f2b053e2ef8487a5dc5c0124e5f07d79dad2a562e00"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 4,
+          "mode": "record",
+          "frames": 1008,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4272
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 3,
+            "begin_since_audio_start_ns": 2001240768,
+            "end_since_audio_start_ns": 2004246738,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1008,
+            "blocks": 480,
+            "compared_samples": 967680,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 965632,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 368531,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "06b3035bb5162781efdffdedfc00e93d",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 249869651251,
+            "audio_begin_unix_ns_approximate": 1790906927650168817,
+            "maximum_wake_lateness_ns": 5701468,
+            "minimum_adjacent_callback_interval_ns": 15360383,
+            "worst_wake_rows": [
+              {
+                "block": 319,
+                "scheduled_ns": 6699000000,
+                "started_ns": 6704701468,
+                "callback_ns": 16589,
+                "mismatches": 0
+              },
+              {
+                "block": 428,
+                "scheduled_ns": 8988000000,
+                "started_ns": 8988562681,
+                "callback_ns": 14850,
+                "mismatches": 0
+              },
+              {
+                "block": 232,
+                "scheduled_ns": 4872000000,
+                "started_ns": 4872405375,
+                "callback_ns": 13333,
+                "mismatches": 0
+              },
+              {
+                "block": 32,
+                "scheduled_ns": 672000000,
+                "started_ns": 672358087,
+                "callback_ns": 13355,
+                "mismatches": 0
+              },
+              {
+                "block": 332,
+                "scheduled_ns": 6972000000,
+                "started_ns": 6972275543,
+                "callback_ns": 12047,
+                "mismatches": 0
+              },
+              {
+                "block": 132,
+                "scheduled_ns": 2772000000,
+                "started_ns": 2772272185,
+                "callback_ns": 12328,
+                "mismatches": 0
+              },
+              {
+                "block": 372,
+                "scheduled_ns": 7812000000,
+                "started_ns": 7812139380,
+                "callback_ns": 12380,
+                "mismatches": 0
+              },
+              {
+                "block": 390,
+                "scheduled_ns": 8190000000,
+                "started_ns": 8190080541,
+                "callback_ns": 14684,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "2e9b3976fcdefe0338d6e617230616d062d2675de3554af5b270afe62346b8b5"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 4,
+          "mode": "recall",
+          "frames": 1008,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4277
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 4,
+            "begin_since_audio_start_ns": 2000440724,
+            "end_since_audio_start_ns": 2004765920,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1008,
+            "blocks": 480,
+            "compared_samples": 967680,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 965632,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 206868,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "8edf33e7b4f2b51bb234f0fefa49af9d",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 264585051188,
+            "audio_begin_unix_ns_approximate": 1790906942365568768,
+            "maximum_wake_lateness_ns": 2212259,
+            "minimum_adjacent_callback_interval_ns": 18833232,
+            "worst_wake_rows": [
+              {
+                "block": 155,
+                "scheduled_ns": 3255000000,
+                "started_ns": 3257212259,
+                "callback_ns": 15768,
+                "mismatches": 0
+              },
+              {
+                "block": 236,
+                "scheduled_ns": 4956000000,
+                "started_ns": 4957000654,
+                "callback_ns": 32864,
+                "mismatches": 0
+              },
+              {
+                "block": 336,
+                "scheduled_ns": 7056000000,
+                "started_ns": 7056942158,
+                "callback_ns": 23731,
+                "mismatches": 0
+              },
+              {
+                "block": 343,
+                "scheduled_ns": 7203000000,
+                "started_ns": 7203832490,
+                "callback_ns": 14183,
+                "mismatches": 0
+              },
+              {
+                "block": 100,
+                "scheduled_ns": 2100000000,
+                "started_ns": 2100496500,
+                "callback_ns": 15767,
+                "mismatches": 0
+              },
+              {
+                "block": 478,
+                "scheduled_ns": 10038000000,
+                "started_ns": 10038238841,
+                "callback_ns": 15848,
+                "mismatches": 0
+              },
+              {
+                "block": 239,
+                "scheduled_ns": 5019000000,
+                "started_ns": 5019230837,
+                "callback_ns": 15133,
+                "mismatches": 0
+              },
+              {
+                "block": 137,
+                "scheduled_ns": 2877000000,
+                "started_ns": 2877156669,
+                "callback_ns": 14812,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "d8ca1fee054964b61553bcfd542f00b90636813197e80aac32a27692fae1bf5f"
+          }
+        },
+        {
+          "role": "instrument",
+          "pair": 1,
+          "mode": "record",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4334
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 3,
+            "begin_since_audio_start_ns": 2032339397,
+            "end_since_audio_start_ns": 2035653691,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "instrument",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 710726,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 102831,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "c8ffdd8218bf7bb008a1f1bcc2ea0a12",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 279352518423,
+            "audio_begin_unix_ns_approximate": 1790906957133036004,
+            "maximum_wake_lateness_ns": 1798434,
+            "minimum_adjacent_callback_interval_ns": 19597083,
+            "worst_wake_rows": [
+              {
+                "block": 254,
+                "scheduled_ns": 5418666666,
+                "started_ns": 5420465100,
+                "callback_ns": 26941,
+                "mismatches": 0
+              },
+              {
+                "block": 323,
+                "scheduled_ns": 6890666666,
+                "started_ns": 6891847777,
+                "callback_ns": 16231,
+                "mismatches": 0
+              },
+              {
+                "block": 16,
+                "scheduled_ns": 341333333,
+                "started_ns": 341818933,
+                "callback_ns": 16315,
+                "mismatches": 0
+              },
+              {
+                "block": 187,
+                "scheduled_ns": 3989333333,
+                "started_ns": 3989772919,
+                "callback_ns": 17211,
+                "mismatches": 0
+              },
+              {
+                "block": 463,
+                "scheduled_ns": 9877333333,
+                "started_ns": 9877640240,
+                "callback_ns": 34446,
+                "mismatches": 0
+              },
+              {
+                "block": 337,
+                "scheduled_ns": 7189333333,
+                "started_ns": 7189636917,
+                "callback_ns": 14318,
+                "mismatches": 0
+              },
+              {
+                "block": 412,
+                "scheduled_ns": 8789333333,
+                "started_ns": 8789557336,
+                "callback_ns": 19876,
+                "mismatches": 0
+              },
+              {
+                "block": 253,
+                "scheduled_ns": 5397333333,
+                "started_ns": 5397548367,
+                "callback_ns": 15255,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "13e20d0cac2f8275934ef5fd1da82fa35d4e43d8834d4904a1f9c67f3f1277c0"
+          }
+        },
+        {
+          "role": "instrument",
+          "pair": 1,
+          "mode": "recall",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4287
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 2,
+            "begin_since_audio_start_ns": 2031504646,
+            "end_since_audio_start_ns": 2034237618,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "instrument",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 710726,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 212719,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "8304e7a0771366f18ef754ffb514b450",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 294179134004,
+            "audio_begin_unix_ns_approximate": 1790906971959651640,
+            "maximum_wake_lateness_ns": 1823723,
+            "minimum_adjacent_callback_interval_ns": 19556143,
+            "worst_wake_rows": [
+              {
+                "block": 181,
+                "scheduled_ns": 3861333333,
+                "started_ns": 3863157056,
+                "callback_ns": 12324,
+                "mismatches": 0
+              },
+              {
+                "block": 31,
+                "scheduled_ns": 661333333,
+                "started_ns": 662997783,
+                "callback_ns": 12954,
+                "mismatches": 0
+              },
+              {
+                "block": 331,
+                "scheduled_ns": 7061333333,
+                "started_ns": 7062983218,
+                "callback_ns": 14566,
+                "mismatches": 0
+              },
+              {
+                "block": 189,
+                "scheduled_ns": 4032000000,
+                "started_ns": 4032431527,
+                "callback_ns": 14843,
+                "mismatches": 0
+              },
+              {
+                "block": 167,
+                "scheduled_ns": 3562666666,
+                "started_ns": 3563048690,
+                "callback_ns": 14260,
+                "mismatches": 0
+              },
+              {
+                "block": 467,
+                "scheduled_ns": 9962666666,
+                "started_ns": 9963035627,
+                "callback_ns": 13548,
+                "mismatches": 0
+              },
+              {
+                "block": 92,
+                "scheduled_ns": 1962666666,
+                "started_ns": 1962985855,
+                "callback_ns": 14703,
+                "mismatches": 0
+              },
+              {
+                "block": 392,
+                "scheduled_ns": 8362666666,
+                "started_ns": 8362978108,
+                "callback_ns": 13528,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "ffd3c949750a9cd1c3836622ad5e23b5d8d054bfbf49e30b8a36c669cb4689e3"
+          }
+        },
+        {
+          "role": "instrument",
+          "pair": 2,
+          "mode": "record",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4438
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 2,
+            "begin_since_audio_start_ns": 2035571599,
+            "end_since_audio_start_ns": 2037694166,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "instrument",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 710726,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 53508,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "2cf6a59a4021c460d820505285f96631",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 309174367902,
+            "audio_begin_unix_ns_approximate": 1790906986954885534,
+            "maximum_wake_lateness_ns": 2561682,
+            "minimum_adjacent_callback_interval_ns": 18836102,
+            "worst_wake_rows": [
+              {
+                "block": 139,
+                "scheduled_ns": 2965333333,
+                "started_ns": 2967895015,
+                "callback_ns": 14459,
+                "mismatches": 0
+              },
+              {
+                "block": 145,
+                "scheduled_ns": 3093333333,
+                "started_ns": 3094537070,
+                "callback_ns": 15738,
+                "mismatches": 0
+              },
+              {
+                "block": 275,
+                "scheduled_ns": 5866666666,
+                "started_ns": 5867850693,
+                "callback_ns": 13251,
+                "mismatches": 0
+              },
+              {
+                "block": 200,
+                "scheduled_ns": 4266666666,
+                "started_ns": 4267846247,
+                "callback_ns": 13178,
+                "mismatches": 0
+              },
+              {
+                "block": 302,
+                "scheduled_ns": 6442666666,
+                "started_ns": 6443666258,
+                "callback_ns": 17483,
+                "mismatches": 0
+              },
+              {
+                "block": 385,
+                "scheduled_ns": 8213333333,
+                "started_ns": 8214047919,
+                "callback_ns": 16280,
+                "mismatches": 0
+              },
+              {
+                "block": 303,
+                "scheduled_ns": 6464000000,
+                "started_ns": 6464664574,
+                "callback_ns": 14755,
+                "mismatches": 0
+              },
+              {
+                "block": 16,
+                "scheduled_ns": 341333333,
+                "started_ns": 341989786,
+                "callback_ns": 15626,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "c4071908f1af1bc2b9bdd74997922eecb6e0e6ccc6882bd1587161336974b8a5"
+          }
+        },
+        {
+          "role": "instrument",
+          "pair": 2,
+          "mode": "recall",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4490
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 17,
+            "begin_since_audio_start_ns": 2029775870,
+            "end_since_audio_start_ns": 2047650599,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "instrument",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 710726,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 152362,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "fec0d339d82a4a42dea49922001b7bfb",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 324273560306,
+            "audio_begin_unix_ns_approximate": 1790907002054077915,
+            "maximum_wake_lateness_ns": 16796962,
+            "minimum_adjacent_callback_interval_ns": 4608063,
+            "worst_wake_rows": [
+              {
+                "block": 92,
+                "scheduled_ns": 1962666666,
+                "started_ns": 1979463628,
+                "callback_ns": 15175,
+                "mismatches": 0
+              },
+              {
+                "block": 200,
+                "scheduled_ns": 4266666666,
+                "started_ns": 4278173779,
+                "callback_ns": 14734,
+                "mismatches": 0
+              },
+              {
+                "block": 45,
+                "scheduled_ns": 960000000,
+                "started_ns": 968770569,
+                "callback_ns": 24698,
+                "mismatches": 0
+              },
+              {
+                "block": 181,
+                "scheduled_ns": 3861333333,
+                "started_ns": 3868744022,
+                "callback_ns": 14672,
+                "mismatches": 0
+              },
+              {
+                "block": 106,
+                "scheduled_ns": 2261333333,
+                "started_ns": 2268734425,
+                "callback_ns": 14563,
+                "mismatches": 0
+              },
+              {
+                "block": 139,
+                "scheduled_ns": 2965333333,
+                "started_ns": 2972598259,
+                "callback_ns": 14597,
+                "mismatches": 0
+              },
+              {
+                "block": 177,
+                "scheduled_ns": 3776000000,
+                "started_ns": 3782170649,
+                "callback_ns": 12307,
+                "mismatches": 0
+              },
+              {
+                "block": 78,
+                "scheduled_ns": 1664000000,
+                "started_ns": 1669968711,
+                "callback_ns": 15543,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "1e207575dbecff5e01f119520d6142c34fc6b951daebbe96ee1cbabb136dc9f7"
+          }
+        },
+        {
+          "role": "instrument",
+          "pair": 3,
+          "mode": "record",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4392
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 2,
+            "begin_since_audio_start_ns": 2027370908,
+            "end_since_audio_start_ns": 2029779441,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "instrument",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 710726,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 501541,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "eb82c27c45227f5536e06f74a2728a8c",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 339542524876,
+            "audio_begin_unix_ns_approximate": 1790907017323042497,
+            "maximum_wake_lateness_ns": 1320152,
+            "minimum_adjacent_callback_interval_ns": 20077549,
+            "worst_wake_rows": [
+              {
+                "block": 251,
+                "scheduled_ns": 5354666666,
+                "started_ns": 5355986818,
+                "callback_ns": 17479,
+                "mismatches": 0
+              },
+              {
+                "block": 164,
+                "scheduled_ns": 3498666666,
+                "started_ns": 3499690550,
+                "callback_ns": 13353,
+                "mismatches": 0
+              },
+              {
+                "block": 411,
+                "scheduled_ns": 8768000000,
+                "started_ns": 8768517861,
+                "callback_ns": 15711,
+                "mismatches": 0
+              },
+              {
+                "block": 419,
+                "scheduled_ns": 8938666666,
+                "started_ns": 8939132941,
+                "callback_ns": 16967,
+                "mismatches": 0
+              },
+              {
+                "block": 303,
+                "scheduled_ns": 6464000000,
+                "started_ns": 6464154649,
+                "callback_ns": 15150,
+                "mismatches": 0
+              },
+              {
+                "block": 74,
+                "scheduled_ns": 1578666666,
+                "started_ns": 1578810977,
+                "callback_ns": 10498,
+                "mismatches": 0
+              },
+              {
+                "block": 278,
+                "scheduled_ns": 5930666666,
+                "started_ns": 5930801915,
+                "callback_ns": 15350,
+                "mismatches": 0
+              },
+              {
+                "block": 390,
+                "scheduled_ns": 8320000000,
+                "started_ns": 8320092327,
+                "callback_ns": 16792,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "c361f258507fd2e8af15d97a954f5f82623a6b46430b36ab82721225e08d5302"
+          }
+        },
+        {
+          "role": "instrument",
+          "pair": 3,
+          "mode": "recall",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4270
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 7,
+            "begin_since_audio_start_ns": 2028745025,
+            "end_since_audio_start_ns": 2035974977,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "instrument",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 710726,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 121597,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "1a79a03d0113cdd65dc6abf62f894712",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 354418770056,
+            "audio_begin_unix_ns_approximate": 1790907032199287704,
+            "maximum_wake_lateness_ns": 2198855,
+            "minimum_adjacent_callback_interval_ns": 19194605,
+            "worst_wake_rows": [
+              {
+                "block": 151,
+                "scheduled_ns": 3221333333,
+                "started_ns": 3223532188,
+                "callback_ns": 15571,
+                "mismatches": 0
+              },
+              {
+                "block": 362,
+                "scheduled_ns": 7722666666,
+                "started_ns": 7723591919,
+                "callback_ns": 14583,
+                "mismatches": 0
+              },
+              {
+                "block": 287,
+                "scheduled_ns": 6122666666,
+                "started_ns": 6123549222,
+                "callback_ns": 14146,
+                "mismatches": 0
+              },
+              {
+                "block": 212,
+                "scheduled_ns": 4522666666,
+                "started_ns": 4523487004,
+                "callback_ns": 14177,
+                "mismatches": 0
+              },
+              {
+                "block": 317,
+                "scheduled_ns": 6762666666,
+                "started_ns": 6763298595,
+                "callback_ns": 33262,
+                "mismatches": 0
+              },
+              {
+                "block": 318,
+                "scheduled_ns": 6784000000,
+                "started_ns": 6784256462,
+                "callback_ns": 15391,
+                "mismatches": 0
+              },
+              {
+                "block": 465,
+                "scheduled_ns": 9920000000,
+                "started_ns": 9920215078,
+                "callback_ns": 24830,
+                "mismatches": 0
+              },
+              {
+                "block": 370,
+                "scheduled_ns": 7893333333,
+                "started_ns": 7893442966,
+                "callback_ns": 17293,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "6d10d2e301d222cd13c56e69e5c4370b02343e227fb0354b187fa51ed38aabe1"
+          }
+        },
+        {
+          "role": "instrument",
+          "pair": 4,
+          "mode": "record",
+          "frames": 1008,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4247
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 3,
+            "begin_since_audio_start_ns": 1998018127,
+            "end_since_audio_start_ns": 2001095728,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "instrument",
+            "frames_per_callback": 1008,
+            "blocks": 480,
+            "compared_samples": 967680,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 699622,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 187153,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "d55faf62d65c62cbb07d7f345e45f36b",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 369219676670,
+            "audio_begin_unix_ns_approximate": 1790907047000194250,
+            "maximum_wake_lateness_ns": 1674748,
+            "minimum_adjacent_callback_interval_ns": 19390690,
+            "worst_wake_rows": [
+              {
+                "block": 101,
+                "scheduled_ns": 2121000000,
+                "started_ns": 2122674748,
+                "callback_ns": 14415,
+                "mismatches": 0
+              },
+              {
+                "block": 382,
+                "scheduled_ns": 8022000000,
+                "started_ns": 8023018819,
+                "callback_ns": 13627,
+                "mismatches": 0
+              },
+              {
+                "block": 82,
+                "scheduled_ns": 1722000000,
+                "started_ns": 1722515320,
+                "callback_ns": 15957,
+                "mismatches": 0
+              },
+              {
+                "block": 136,
+                "scheduled_ns": 2856000000,
+                "started_ns": 2856403589,
+                "callback_ns": 15770,
+                "mismatches": 0
+              },
+              {
+                "block": 163,
+                "scheduled_ns": 3423000000,
+                "started_ns": 3423216361,
+                "callback_ns": 14586,
+                "mismatches": 0
+              },
+              {
+                "block": 165,
+                "scheduled_ns": 3465000000,
+                "started_ns": 3465161594,
+                "callback_ns": 10076,
+                "mismatches": 0
+              },
+              {
+                "block": 255,
+                "scheduled_ns": 5355000000,
+                "started_ns": 5355149680,
+                "callback_ns": 14367,
+                "mismatches": 0
+              },
+              {
+                "block": 0,
+                "scheduled_ns": 0,
+                "started_ns": 107067,
+                "callback_ns": 46952,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "2a11ecacc750fef78763dee9026de057ba73d1517756687345db4df6c867a2fd"
+          }
+        },
+        {
+          "role": "instrument",
+          "pair": 4,
+          "mode": "recall",
+          "frames": 1008,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4278
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 1,
+            "begin_since_audio_start_ns": 1998037542,
+            "end_since_audio_start_ns": 2000004678,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "instrument",
+            "frames_per_callback": 1008,
+            "blocks": 480,
+            "compared_samples": 967680,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 699622,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 43818,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "87b4864387b3598e0f76c60216793465",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 143
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 383892375521,
+            "audio_begin_unix_ns_approximate": 1790907061672893090,
+            "maximum_wake_lateness_ns": 1998775,
+            "minimum_adjacent_callback_interval_ns": 19063149,
+            "worst_wake_rows": [
+              {
+                "block": 388,
+                "scheduled_ns": 8148000000,
+                "started_ns": 8149998775,
+                "callback_ns": 15358,
+                "mismatches": 0
+              },
+              {
+                "block": 203,
+                "scheduled_ns": 4263000000,
+                "started_ns": 4264270411,
+                "callback_ns": 17418,
+                "mismatches": 0
+              },
+              {
+                "block": 369,
+                "scheduled_ns": 7749000000,
+                "started_ns": 7749928828,
+                "callback_ns": 15045,
+                "mismatches": 0
+              },
+              {
+                "block": 269,
+                "scheduled_ns": 5649000000,
+                "started_ns": 5649810712,
+                "callback_ns": 15195,
+                "mismatches": 0
+              },
+              {
+                "block": 469,
+                "scheduled_ns": 9849000000,
+                "started_ns": 9849798286,
+                "callback_ns": 14378,
+                "mismatches": 0
+              },
+              {
+                "block": 309,
+                "scheduled_ns": 6489000000,
+                "started_ns": 6489525565,
+                "callback_ns": 16203,
+                "mismatches": 0
+              },
+              {
+                "block": 479,
+                "scheduled_ns": 10059000000,
+                "started_ns": 10059166207,
+                "callback_ns": 15578,
+                "mismatches": 0
+              },
+              {
+                "block": 27,
+                "scheduled_ns": 567000000,
+                "started_ns": 567151224,
+                "callback_ns": 14780,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "9f776b7f773879751cfae167a60204a5960f756b59ddf08c6a9746552b0cf6ee"
+          }
+        }
+      ],
+      "outer_cpu_observation": {
+        "sample_period_ms": 10,
+        "maximum_seconds": 600,
+        "samples": 31587,
+        "private_raw_sha256": "5c995b1789de04ccce2a5c59c63e36024b998289b0cc28c8d6085207d9c71d7b",
+        "span_ms": 324936.412638,
+        "cpu_usage_ms": 291508.346,
+        "throttled_periods": 1760,
+        "throttled_ms": 4393.454,
+        "clock_correlation_to_individual_callback": "not claimed; guest/outer clock offset was not bracketed"
+      }
+    },
+    {
+      "index": 2,
+      "result": "passed development regression",
+      "resources": {
+        "exit_code": 0,
+        "duration_ms": 241507.191,
+        "before": {
+          "cpu.max": "100000 100000",
+          "memory.max": "2684354560",
+          "memory.swap.max": "0",
+          "pids.max": "512",
+          "pids.current": "340",
+          "pids.events": "max 0",
+          "memory.current": "1654063104",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+        },
+        "after": {
+          "cpu.max": "100000 100000",
+          "memory.max": "2684354560",
+          "memory.swap.max": "0",
+          "pids.max": "512",
+          "pids.current": "356",
+          "pids.events": "max 0",
+          "memory.current": "1706037248",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+        },
+        "peak_user_tasks": 373,
+        "peak_user_memory_bytes": 1818857472,
+        "stderr_bytes": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "private_raw_stdout_sha256": "f7083217cbe7d12be78638fbba60bfb55e8c7b0e29f0f53649f17ab98ad8b23e",
+      "compared_stereo_samples": 15667200,
+      "processing_missing_frames": 0,
+      "runs": [
+        {
+          "role": "effect",
+          "pair": 1,
+          "mode": "record",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 7545
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 2,
+            "begin_since_audio_start_ns": 2030289786,
+            "end_since_audio_start_ns": 2032614131,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 980992,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 150558,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "e0ee37d84acceeb008f07204efd5ef44",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 143
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 437153866231,
+            "audio_begin_unix_ns_approximate": 1790907114934383854,
+            "maximum_wake_lateness_ns": 1716386,
+            "minimum_adjacent_callback_interval_ns": 19677953,
+            "worst_wake_rows": [
+              {
+                "block": 215,
+                "scheduled_ns": 4586666666,
+                "started_ns": 4588383052,
+                "callback_ns": 13826,
+                "mismatches": 0
+              },
+              {
+                "block": 365,
+                "scheduled_ns": 7786666666,
+                "started_ns": 7788314499,
+                "callback_ns": 13025,
+                "mismatches": 0
+              },
+              {
+                "block": 166,
+                "scheduled_ns": 3541333333,
+                "started_ns": 3542597730,
+                "callback_ns": 16007,
+                "mismatches": 0
+              },
+              {
+                "block": 63,
+                "scheduled_ns": 1344000000,
+                "started_ns": 1344561137,
+                "callback_ns": 16464,
+                "mismatches": 0
+              },
+              {
+                "block": 98,
+                "scheduled_ns": 2090666666,
+                "started_ns": 2091195575,
+                "callback_ns": 15630,
+                "mismatches": 0
+              },
+              {
+                "block": 51,
+                "scheduled_ns": 1088000000,
+                "started_ns": 1088455154,
+                "callback_ns": 13890,
+                "mismatches": 0
+              },
+              {
+                "block": 29,
+                "scheduled_ns": 618666666,
+                "started_ns": 619090843,
+                "callback_ns": 16309,
+                "mismatches": 0
+              },
+              {
+                "block": 351,
+                "scheduled_ns": 7488000000,
+                "started_ns": 7488355246,
+                "callback_ns": 14218,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "f717178e57393e8f5d64a40be1d9761f18b1c5931c4c2e35810197914df7b240"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 1,
+          "mode": "recall",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4332
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 6,
+            "begin_since_audio_start_ns": 2031161727,
+            "end_since_audio_start_ns": 2037761732,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 980992,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 55725,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "c4ec95f9446d0382345a980623be548e",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 452105392121,
+            "audio_begin_unix_ns_approximate": 1790907129885910023,
+            "maximum_wake_lateness_ns": 2815266,
+            "minimum_adjacent_callback_interval_ns": 18566548,
+            "worst_wake_rows": [
+              {
+                "block": 345,
+                "scheduled_ns": 7360000000,
+                "started_ns": 7362815266,
+                "callback_ns": 14921,
+                "mismatches": 0
+              },
+              {
+                "block": 321,
+                "scheduled_ns": 6848000000,
+                "started_ns": 6849026465,
+                "callback_ns": 15634,
+                "mismatches": 0
+              },
+              {
+                "block": 372,
+                "scheduled_ns": 7936000000,
+                "started_ns": 7936859672,
+                "callback_ns": 13935,
+                "mismatches": 0
+              },
+              {
+                "block": 297,
+                "scheduled_ns": 6336000000,
+                "started_ns": 6336859296,
+                "callback_ns": 12369,
+                "mismatches": 0
+              },
+              {
+                "block": 263,
+                "scheduled_ns": 5610666666,
+                "started_ns": 5611496469,
+                "callback_ns": 14425,
+                "mismatches": 0
+              },
+              {
+                "block": 72,
+                "scheduled_ns": 1536000000,
+                "started_ns": 1536748319,
+                "callback_ns": 15431,
+                "mismatches": 0
+              },
+              {
+                "block": 322,
+                "scheduled_ns": 6869333333,
+                "started_ns": 6869750029,
+                "callback_ns": 14554,
+                "mismatches": 0
+              },
+              {
+                "block": 146,
+                "scheduled_ns": 3114666666,
+                "started_ns": 3114953268,
+                "callback_ns": 15750,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "7c24030efcec4c99f2f9271fd2259e255358874b5e6948209466be07740dd35e"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 2,
+          "mode": "record",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4290
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 2,
+            "begin_since_audio_start_ns": 2031588573,
+            "end_since_audio_start_ns": 2034379563,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 980992,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 50125,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "7789a24ccced7a60adb4cae1ca3db511",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 143
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 466987573791,
+            "audio_begin_unix_ns_approximate": 1790907144768091428,
+            "maximum_wake_lateness_ns": 1703455,
+            "minimum_adjacent_callback_interval_ns": 19694603,
+            "worst_wake_rows": [
+              {
+                "block": 293,
+                "scheduled_ns": 6250666666,
+                "started_ns": 6252370121,
+                "callback_ns": 14330,
+                "mismatches": 0
+              },
+              {
+                "block": 415,
+                "scheduled_ns": 8853333333,
+                "started_ns": 8854617298,
+                "callback_ns": 12270,
+                "mismatches": 0
+              },
+              {
+                "block": 342,
+                "scheduled_ns": 7296000000,
+                "started_ns": 7297133436,
+                "callback_ns": 14529,
+                "mismatches": 0
+              },
+              {
+                "block": 178,
+                "scheduled_ns": 3797333333,
+                "started_ns": 3798261559,
+                "callback_ns": 11996,
+                "mismatches": 0
+              },
+              {
+                "block": 421,
+                "scheduled_ns": 8981333333,
+                "started_ns": 8982237342,
+                "callback_ns": 12616,
+                "mismatches": 0
+              },
+              {
+                "block": 22,
+                "scheduled_ns": 469333333,
+                "started_ns": 469791299,
+                "callback_ns": 24396,
+                "mismatches": 0
+              },
+              {
+                "block": 324,
+                "scheduled_ns": 6912000000,
+                "started_ns": 6912123182,
+                "callback_ns": 16034,
+                "mismatches": 0
+              },
+              {
+                "block": 396,
+                "scheduled_ns": 8448000000,
+                "started_ns": 8448118898,
+                "callback_ns": 12558,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "a2be2844e93b6a74b2edc92f2b284083c95b5465f12fa05f8daff0f25c886717"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 2,
+          "mode": "recall",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4271
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 2,
+            "begin_since_audio_start_ns": 2028964484,
+            "end_since_audio_start_ns": 2031606623,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 980992,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 60307,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "4c17b2ccf9daf57c9eab8b70113770b9",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 481875130333,
+            "audio_begin_unix_ns_approximate": 1790907159655647963,
+            "maximum_wake_lateness_ns": 8547481,
+            "minimum_adjacent_callback_interval_ns": 12847903,
+            "worst_wake_rows": [
+              {
+                "block": 339,
+                "scheduled_ns": 7232000000,
+                "started_ns": 7240547481,
+                "callback_ns": 24858,
+                "mismatches": 0
+              },
+              {
+                "block": 139,
+                "scheduled_ns": 2965333333,
+                "started_ns": 2966932035,
+                "callback_ns": 14484,
+                "mismatches": 0
+              },
+              {
+                "block": 132,
+                "scheduled_ns": 2816000000,
+                "started_ns": 2817560975,
+                "callback_ns": 15432,
+                "mismatches": 0
+              },
+              {
+                "block": 50,
+                "scheduled_ns": 1066666666,
+                "started_ns": 1067484796,
+                "callback_ns": 11643,
+                "mismatches": 0
+              },
+              {
+                "block": 341,
+                "scheduled_ns": 7274666666,
+                "started_ns": 7275333774,
+                "callback_ns": 14915,
+                "mismatches": 0
+              },
+              {
+                "block": 405,
+                "scheduled_ns": 8640000000,
+                "started_ns": 8640524204,
+                "callback_ns": 14257,
+                "mismatches": 0
+              },
+              {
+                "block": 425,
+                "scheduled_ns": 9066666666,
+                "started_ns": 9067042181,
+                "callback_ns": 14529,
+                "mismatches": 0
+              },
+              {
+                "block": 125,
+                "scheduled_ns": 2666666666,
+                "started_ns": 2667007088,
+                "callback_ns": 9844,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "33b76f098b429022fd9ad16d47ca991604ffa1d8238ef05cddebc67224b40248"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 3,
+          "mode": "record",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4342
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 5,
+            "begin_since_audio_start_ns": 2032591579,
+            "end_since_audio_start_ns": 2037874380,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 980992,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 1071171,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "e7a209d5e72969a7f862696d6851548e",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 496749425830,
+            "audio_begin_unix_ns_approximate": 1790907174529943411,
+            "maximum_wake_lateness_ns": 10255586,
+            "minimum_adjacent_callback_interval_ns": 11150077,
+            "worst_wake_rows": [
+              {
+                "block": 309,
+                "scheduled_ns": 6592000000,
+                "started_ns": 6602255586,
+                "callback_ns": 14182,
+                "mismatches": 0
+              },
+              {
+                "block": 112,
+                "scheduled_ns": 2389333333,
+                "started_ns": 2391387890,
+                "callback_ns": 43556,
+                "mismatches": 0
+              },
+              {
+                "block": 322,
+                "scheduled_ns": 6869333333,
+                "started_ns": 6870833845,
+                "callback_ns": 25096,
+                "mismatches": 0
+              },
+              {
+                "block": 211,
+                "scheduled_ns": 4501333333,
+                "started_ns": 4502006877,
+                "callback_ns": 17417,
+                "mismatches": 0
+              },
+              {
+                "block": 234,
+                "scheduled_ns": 4992000000,
+                "started_ns": 4992667739,
+                "callback_ns": 13976,
+                "mismatches": 0
+              },
+              {
+                "block": 315,
+                "scheduled_ns": 6720000000,
+                "started_ns": 6720557497,
+                "callback_ns": 1071171,
+                "mismatches": 0
+              },
+              {
+                "block": 459,
+                "scheduled_ns": 9792000000,
+                "started_ns": 9792531332,
+                "callback_ns": 10406,
+                "mismatches": 0
+              },
+              {
+                "block": 312,
+                "scheduled_ns": 6656000000,
+                "started_ns": 6656392675,
+                "callback_ns": 25966,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "6b4aa2d7789ef0d498ccf8866f42026c56bd12f533b462e3adb643f08e5c7007"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 3,
+          "mode": "recall",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4232
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 6,
+            "begin_since_audio_start_ns": 2030716652,
+            "end_since_audio_start_ns": 2037477029,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 980992,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 188390,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "1dd8eafae0be7ec95ec914e2eaf9d153",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 143
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 511519854861,
+            "audio_begin_unix_ns_approximate": 1790907189300372437,
+            "maximum_wake_lateness_ns": 1832224,
+            "minimum_adjacent_callback_interval_ns": 19563820,
+            "worst_wake_rows": [
+              {
+                "block": 376,
+                "scheduled_ns": 8021333333,
+                "started_ns": 8023165557,
+                "callback_ns": 16458,
+                "mismatches": 0
+              },
+              {
+                "block": 233,
+                "scheduled_ns": 4970666666,
+                "started_ns": 4972403817,
+                "callback_ns": 16228,
+                "mismatches": 0
+              },
+              {
+                "block": 93,
+                "scheduled_ns": 1984000000,
+                "started_ns": 1985241684,
+                "callback_ns": 16098,
+                "mismatches": 0
+              },
+              {
+                "block": 76,
+                "scheduled_ns": 1621333333,
+                "started_ns": 1622241967,
+                "callback_ns": 12149,
+                "mismatches": 0
+              },
+              {
+                "block": 247,
+                "scheduled_ns": 5269333333,
+                "started_ns": 5270171305,
+                "callback_ns": 12167,
+                "mismatches": 0
+              },
+              {
+                "block": 451,
+                "scheduled_ns": 9621333333,
+                "started_ns": 9622170084,
+                "callback_ns": 13398,
+                "mismatches": 0
+              },
+              {
+                "block": 226,
+                "scheduled_ns": 4821333333,
+                "started_ns": 4822102705,
+                "callback_ns": 13109,
+                "mismatches": 0
+              },
+              {
+                "block": 430,
+                "scheduled_ns": 9173333333,
+                "started_ns": 9174051318,
+                "callback_ns": 15798,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "555180b20c471e4cb07f5e3fe1c775f458582d1e50ce4c881831e49429d07557"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 4,
+          "mode": "record",
+          "frames": 1008,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4293
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 2,
+            "begin_since_audio_start_ns": 2002227222,
+            "end_since_audio_start_ns": 2004724643,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1008,
+            "blocks": 480,
+            "compared_samples": 967680,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 965632,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 63036,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "1de0f721add5bcb6b58ac74966ce0cee",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 526415855275,
+            "audio_begin_unix_ns_approximate": 1790907204196372859,
+            "maximum_wake_lateness_ns": 2078396,
+            "minimum_adjacent_callback_interval_ns": 18961350,
+            "worst_wake_rows": [
+              {
+                "block": 444,
+                "scheduled_ns": 9324000000,
+                "started_ns": 9326078396,
+                "callback_ns": 15237,
+                "mismatches": 0
+              },
+              {
+                "block": 25,
+                "scheduled_ns": 525000000,
+                "started_ns": 526279867,
+                "callback_ns": 30401,
+                "mismatches": 0
+              },
+              {
+                "block": 206,
+                "scheduled_ns": 4326000000,
+                "started_ns": 4326190778,
+                "callback_ns": 13109,
+                "mismatches": 0
+              },
+              {
+                "block": 406,
+                "scheduled_ns": 8526000000,
+                "started_ns": 8526175519,
+                "callback_ns": 13373,
+                "mismatches": 0
+              },
+              {
+                "block": 49,
+                "scheduled_ns": 1029000000,
+                "started_ns": 1029111968,
+                "callback_ns": 63036,
+                "mismatches": 0
+              },
+              {
+                "block": 208,
+                "scheduled_ns": 4368000000,
+                "started_ns": 4368093140,
+                "callback_ns": 17678,
+                "mismatches": 0
+              },
+              {
+                "block": 352,
+                "scheduled_ns": 7392000000,
+                "started_ns": 7392091452,
+                "callback_ns": 14528,
+                "mismatches": 0
+              },
+              {
+                "block": 351,
+                "scheduled_ns": 7371000000,
+                "started_ns": 7371086680,
+                "callback_ns": 13789,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "0a389dc926061f74d7a040f07574d778bfe6b1dadebf7a550309d712a9425ebc"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 4,
+          "mode": "recall",
+          "frames": 1008,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4241
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 2,
+            "begin_since_audio_start_ns": 1999243399,
+            "end_since_audio_start_ns": 2002027177,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1008,
+            "blocks": 480,
+            "compared_samples": 967680,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 965632,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 71416,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "d0264a942fa10ce5e6eab55a6127c94f",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 143
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 541045102847,
+            "audio_begin_unix_ns_approximate": 1790907218825620425,
+            "maximum_wake_lateness_ns": 1759417,
+            "minimum_adjacent_callback_interval_ns": 19269081,
+            "worst_wake_rows": [
+              {
+                "block": 435,
+                "scheduled_ns": 9135000000,
+                "started_ns": 9136759417,
+                "callback_ns": 16794,
+                "mismatches": 0
+              },
+              {
+                "block": 295,
+                "scheduled_ns": 6195000000,
+                "started_ns": 6196611193,
+                "callback_ns": 22010,
+                "mismatches": 0
+              },
+              {
+                "block": 395,
+                "scheduled_ns": 8295000000,
+                "started_ns": 8296573988,
+                "callback_ns": 11444,
+                "mismatches": 0
+              },
+              {
+                "block": 376,
+                "scheduled_ns": 7896000000,
+                "started_ns": 7896577910,
+                "callback_ns": 14661,
+                "mismatches": 0
+              },
+              {
+                "block": 276,
+                "scheduled_ns": 5796000000,
+                "started_ns": 5796501121,
+                "callback_ns": 50668,
+                "mismatches": 0
+              },
+              {
+                "block": 476,
+                "scheduled_ns": 9996000000,
+                "started_ns": 9996448147,
+                "callback_ns": 14369,
+                "mismatches": 0
+              },
+              {
+                "block": 133,
+                "scheduled_ns": 2793000000,
+                "started_ns": 2793113061,
+                "callback_ns": 13699,
+                "mismatches": 0
+              },
+              {
+                "block": 66,
+                "scheduled_ns": 1386000000,
+                "started_ns": 1386094300,
+                "callback_ns": 16523,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "a6d6c400367137cb21841289fc7dd3fd17ca8cb33f475e381713ba13f7c26b27"
+          }
+        },
+        {
+          "role": "instrument",
+          "pair": 1,
+          "mode": "record",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4263
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 3,
+            "begin_since_audio_start_ns": 2031051970,
+            "end_since_audio_start_ns": 2034073537,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "instrument",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 710726,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 1077199,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "b5296e049528655d844fb952b7fc8f27",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 555750826003,
+            "audio_begin_unix_ns_approximate": 1790907233531343595,
+            "maximum_wake_lateness_ns": 1397686,
+            "minimum_adjacent_callback_interval_ns": 19972666,
+            "worst_wake_rows": [
+              {
+                "block": 37,
+                "scheduled_ns": 789333333,
+                "started_ns": 790731019,
+                "callback_ns": 14070,
+                "mismatches": 0
+              },
+              {
+                "block": 217,
+                "scheduled_ns": 4629333333,
+                "started_ns": 4630722870,
+                "callback_ns": 24694,
+                "mismatches": 0
+              },
+              {
+                "block": 187,
+                "scheduled_ns": 3989333333,
+                "started_ns": 3990692542,
+                "callback_ns": 15675,
+                "mismatches": 0
+              },
+              {
+                "block": 284,
+                "scheduled_ns": 6058666666,
+                "started_ns": 6058885947,
+                "callback_ns": 1077199,
+                "mismatches": 0
+              },
+              {
+                "block": 473,
+                "scheduled_ns": 10090666666,
+                "started_ns": 10090854313,
+                "callback_ns": 12333,
+                "mismatches": 0
+              },
+              {
+                "block": 466,
+                "scheduled_ns": 9941333333,
+                "started_ns": 9941504131,
+                "callback_ns": 15310,
+                "mismatches": 0
+              },
+              {
+                "block": 261,
+                "scheduled_ns": 5568000000,
+                "started_ns": 5568144067,
+                "callback_ns": 16208,
+                "mismatches": 0
+              },
+              {
+                "block": 84,
+                "scheduled_ns": 1792000000,
+                "started_ns": 1792112381,
+                "callback_ns": 16304,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "9667d6b66324152c4b6719bc70c0548b4c978f73cd0d1bebe1490e8280810ee1"
+          }
+        },
+        {
+          "role": "instrument",
+          "pair": 1,
+          "mode": "recall",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4301
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 2,
+            "begin_since_audio_start_ns": 2030260278,
+            "end_since_audio_start_ns": 2033227484,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "instrument",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 710726,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 1993947,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "93b2693e7345c017e81fe39529a1b084",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 570594311708,
+            "audio_begin_unix_ns_approximate": 1790907248374829240,
+            "maximum_wake_lateness_ns": 1931017,
+            "minimum_adjacent_callback_interval_ns": 19440078,
+            "worst_wake_rows": [
+              {
+                "block": 424,
+                "scheduled_ns": 9045333333,
+                "started_ns": 9047264350,
+                "callback_ns": 15732,
+                "mismatches": 0
+              },
+              {
+                "block": 327,
+                "scheduled_ns": 6976000000,
+                "started_ns": 6977462416,
+                "callback_ns": 18610,
+                "mismatches": 0
+              },
+              {
+                "block": 91,
+                "scheduled_ns": 1941333333,
+                "started_ns": 1942614371,
+                "callback_ns": 17112,
+                "mismatches": 0
+              },
+              {
+                "block": 95,
+                "scheduled_ns": 2026666666,
+                "started_ns": 2027458357,
+                "callback_ns": 16488,
+                "mismatches": 0
+              },
+              {
+                "block": 185,
+                "scheduled_ns": 3946666666,
+                "started_ns": 3947368814,
+                "callback_ns": 15235,
+                "mismatches": 0
+              },
+              {
+                "block": 410,
+                "scheduled_ns": 8746666666,
+                "started_ns": 8747309254,
+                "callback_ns": 15115,
+                "mismatches": 0
+              },
+              {
+                "block": 260,
+                "scheduled_ns": 5546666666,
+                "started_ns": 5547232762,
+                "callback_ns": 15489,
+                "mismatches": 0
+              },
+              {
+                "block": 42,
+                "scheduled_ns": 896000000,
+                "started_ns": 896118920,
+                "callback_ns": 14856,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "ce0419b283571674577fc6b436ed470d291a3eb86a6f1f4feadad11b2fbebf33"
+          }
+        },
+        {
+          "role": "instrument",
+          "pair": 2,
+          "mode": "record",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4344
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 2,
+            "begin_since_audio_start_ns": 2028770069,
+            "end_since_audio_start_ns": 2030771673,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "instrument",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 710726,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 94550,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "fdf23fca4fddc019b33ccff1064081ac",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 585501354816,
+            "audio_begin_unix_ns_approximate": 1790907263281872441,
+            "maximum_wake_lateness_ns": 2127289,
+            "minimum_adjacent_callback_interval_ns": 19272382,
+            "worst_wake_rows": [
+              {
+                "block": 409,
+                "scheduled_ns": 8725333333,
+                "started_ns": 8727460622,
+                "callback_ns": 15942,
+                "mismatches": 0
+              },
+              {
+                "block": 194,
+                "scheduled_ns": 4138666666,
+                "started_ns": 4140304155,
+                "callback_ns": 15063,
+                "mismatches": 0
+              },
+              {
+                "block": 375,
+                "scheduled_ns": 8000000000,
+                "started_ns": 8001467197,
+                "callback_ns": 15471,
+                "mismatches": 0
+              },
+              {
+                "block": 136,
+                "scheduled_ns": 2901333333,
+                "started_ns": 2902221233,
+                "callback_ns": 16054,
+                "mismatches": 0
+              },
+              {
+                "block": 173,
+                "scheduled_ns": 3690666666,
+                "started_ns": 3691522652,
+                "callback_ns": 94550,
+                "mismatches": 0
+              },
+              {
+                "block": 372,
+                "scheduled_ns": 7936000000,
+                "started_ns": 7936557156,
+                "callback_ns": 14961,
+                "mismatches": 0
+              },
+              {
+                "block": 33,
+                "scheduled_ns": 704000000,
+                "started_ns": 704444312,
+                "callback_ns": 16615,
+                "mismatches": 0
+              },
+              {
+                "block": 104,
+                "scheduled_ns": 2218666666,
+                "started_ns": 2219009318,
+                "callback_ns": 15929,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "c1d853b7877bb04c5c36c1bf2a288d50a11f04ee52ad58175cfaa154e5515384"
+          }
+        },
+        {
+          "role": "instrument",
+          "pair": 2,
+          "mode": "recall",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4313
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 7,
+            "begin_since_audio_start_ns": 2032998934,
+            "end_since_audio_start_ns": 2040627786,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "instrument",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 710726,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 140613,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "73c8ecc02fa1fc0572d6234bfefeef30",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 600421477327,
+            "audio_begin_unix_ns_approximate": 1790907278201994931,
+            "maximum_wake_lateness_ns": 1620674,
+            "minimum_adjacent_callback_interval_ns": 19783819,
+            "worst_wake_rows": [
+              {
+                "block": 287,
+                "scheduled_ns": 6122666666,
+                "started_ns": 6124287340,
+                "callback_ns": 16035,
+                "mismatches": 0
+              },
+              {
+                "block": 404,
+                "scheduled_ns": 8618666666,
+                "started_ns": 8620202845,
+                "callback_ns": 13658,
+                "mismatches": 0
+              },
+              {
+                "block": 329,
+                "scheduled_ns": 7018666666,
+                "started_ns": 7020140695,
+                "callback_ns": 14756,
+                "mismatches": 0
+              },
+              {
+                "block": 104,
+                "scheduled_ns": 2218666666,
+                "started_ns": 2220131707,
+                "callback_ns": 18913,
+                "mismatches": 0
+              },
+              {
+                "block": 29,
+                "scheduled_ns": 618666666,
+                "started_ns": 620116459,
+                "callback_ns": 13609,
+                "mismatches": 0
+              },
+              {
+                "block": 254,
+                "scheduled_ns": 5418666666,
+                "started_ns": 5420060130,
+                "callback_ns": 15203,
+                "mismatches": 0
+              },
+              {
+                "block": 14,
+                "scheduled_ns": 298666666,
+                "started_ns": 299516645,
+                "callback_ns": 36277,
+                "mismatches": 0
+              },
+              {
+                "block": 11,
+                "scheduled_ns": 234666666,
+                "started_ns": 235433256,
+                "callback_ns": 17018,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "a240e8a0626e45b5cce33cfa7621308a1a733cfdec9c06e0ec1dc8651bd1f2b5"
+          }
+        },
+        {
+          "role": "instrument",
+          "pair": 3,
+          "mode": "record",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4277
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 2,
+            "begin_since_audio_start_ns": 2030897280,
+            "end_since_audio_start_ns": 2033686375,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "instrument",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 710726,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 267108,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "0228b181d90b27402fb93a7e7909f3fd",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 615240830833,
+            "audio_begin_unix_ns_approximate": 1790907293021348405,
+            "maximum_wake_lateness_ns": 2126794,
+            "minimum_adjacent_callback_interval_ns": 19230654,
+            "worst_wake_rows": [
+              {
+                "block": 14,
+                "scheduled_ns": 298666666,
+                "started_ns": 300793460,
+                "callback_ns": 17129,
+                "mismatches": 0
+              },
+              {
+                "block": 230,
+                "scheduled_ns": 4906666666,
+                "started_ns": 4908099386,
+                "callback_ns": 18512,
+                "mismatches": 0
+              },
+              {
+                "block": 150,
+                "scheduled_ns": 3200000000,
+                "started_ns": 3200828455,
+                "callback_ns": 14352,
+                "mismatches": 0
+              },
+              {
+                "block": 225,
+                "scheduled_ns": 4800000000,
+                "started_ns": 4800781517,
+                "callback_ns": 13685,
+                "mismatches": 0
+              },
+              {
+                "block": 369,
+                "scheduled_ns": 7872000000,
+                "started_ns": 7872712146,
+                "callback_ns": 17296,
+                "mismatches": 0
+              },
+              {
+                "block": 450,
+                "scheduled_ns": 9600000000,
+                "started_ns": 9600670813,
+                "callback_ns": 15217,
+                "mismatches": 0
+              },
+              {
+                "block": 75,
+                "scheduled_ns": 1600000000,
+                "started_ns": 1600665787,
+                "callback_ns": 14595,
+                "mismatches": 0
+              },
+              {
+                "block": 335,
+                "scheduled_ns": 7146666666,
+                "started_ns": 7147017366,
+                "callback_ns": 17074,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "afff6d0978782504e88b6075db9f10af7d357180298e1357d1aa72572212a17f"
+          }
+        },
+        {
+          "role": "instrument",
+          "pair": 3,
+          "mode": "recall",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4334
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 1,
+            "begin_since_audio_start_ns": 2030093904,
+            "end_since_audio_start_ns": 2031797332,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "instrument",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 710726,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 40797,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "78e91b7c41569aa1eec27456f3498a78",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 143
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 630211413631,
+            "audio_begin_unix_ns_approximate": 1790907307991931215,
+            "maximum_wake_lateness_ns": 2277755,
+            "minimum_adjacent_callback_interval_ns": 19124664,
+            "worst_wake_rows": [
+              {
+                "block": 67,
+                "scheduled_ns": 1429333333,
+                "started_ns": 1431611088,
+                "callback_ns": 14412,
+                "mismatches": 0
+              },
+              {
+                "block": 367,
+                "scheduled_ns": 7829333333,
+                "started_ns": 7830248875,
+                "callback_ns": 14736,
+                "mismatches": 0
+              },
+              {
+                "block": 292,
+                "scheduled_ns": 6229333333,
+                "started_ns": 6230211873,
+                "callback_ns": 13000,
+                "mismatches": 0
+              },
+              {
+                "block": 442,
+                "scheduled_ns": 9429333333,
+                "started_ns": 9430160066,
+                "callback_ns": 14973,
+                "mismatches": 0
+              },
+              {
+                "block": 217,
+                "scheduled_ns": 4629333333,
+                "started_ns": 4630081496,
+                "callback_ns": 13976,
+                "mismatches": 0
+              },
+              {
+                "block": 304,
+                "scheduled_ns": 6485333333,
+                "started_ns": 6485712857,
+                "callback_ns": 15651,
+                "mismatches": 0
+              },
+              {
+                "block": 129,
+                "scheduled_ns": 2752000000,
+                "started_ns": 2752178442,
+                "callback_ns": 15694,
+                "mismatches": 0
+              },
+              {
+                "block": 312,
+                "scheduled_ns": 6656000000,
+                "started_ns": 6656107395,
+                "callback_ns": 16314,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "c64e48a14dbac1cadd1501b7fd6770e2045651dd19e7f358937b47921861aec8"
+          }
+        },
+        {
+          "role": "instrument",
+          "pair": 4,
+          "mode": "record",
+          "frames": 1008,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4668
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 2,
+            "begin_since_audio_start_ns": 1996357470,
+            "end_since_audio_start_ns": 1998632644,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "instrument",
+            "frames_per_callback": 1008,
+            "blocks": 480,
+            "compared_samples": 967680,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 699622,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 122051,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "f2c351d8c201db1c4b8f81ccf04dcf57",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 645504032401,
+            "audio_begin_unix_ns_approximate": 1790907323284550018,
+            "maximum_wake_lateness_ns": 3010657,
+            "minimum_adjacent_callback_interval_ns": 18050253,
+            "worst_wake_rows": [
+              {
+                "block": 59,
+                "scheduled_ns": 1239000000,
+                "started_ns": 1242010657,
+                "callback_ns": 16054,
+                "mismatches": 0
+              },
+              {
+                "block": 116,
+                "scheduled_ns": 2436000000,
+                "started_ns": 2438391134,
+                "callback_ns": 122051,
+                "mismatches": 0
+              },
+              {
+                "block": 340,
+                "scheduled_ns": 7140000000,
+                "started_ns": 7141621165,
+                "callback_ns": 17544,
+                "mismatches": 0
+              },
+              {
+                "block": 16,
+                "scheduled_ns": 336000000,
+                "started_ns": 337552699,
+                "callback_ns": 15910,
+                "mismatches": 0
+              },
+              {
+                "block": 397,
+                "scheduled_ns": 8337000000,
+                "started_ns": 8337586914,
+                "callback_ns": 15038,
+                "mismatches": 0
+              },
+              {
+                "block": 297,
+                "scheduled_ns": 6237000000,
+                "started_ns": 6237586514,
+                "callback_ns": 14792,
+                "mismatches": 0
+              },
+              {
+                "block": 197,
+                "scheduled_ns": 4137000000,
+                "started_ns": 4137507830,
+                "callback_ns": 15144,
+                "mismatches": 0
+              },
+              {
+                "block": 97,
+                "scheduled_ns": 2037000000,
+                "started_ns": 2037505311,
+                "callback_ns": 15588,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "d5e446768eebc962a1eb39dc0dd4e495205de2939e2a84ceb5e05936e7978787"
+          }
+        },
+        {
+          "role": "instrument",
+          "pair": 4,
+          "mode": "recall",
+          "frames": 1008,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4386
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 1,
+            "begin_since_audio_start_ns": 1999073327,
+            "end_since_audio_start_ns": 2000421118,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "instrument",
+            "frames_per_callback": 1008,
+            "blocks": 480,
+            "compared_samples": 967680,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 699622,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 116346,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "c68d3054dd482bc923e5f5e41b7c9e2c",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 143
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 660305282330,
+            "audio_begin_unix_ns_approximate": 1790907338085800216,
+            "maximum_wake_lateness_ns": 2234918,
+            "minimum_adjacent_callback_interval_ns": 18796067,
+            "worst_wake_rows": [
+              {
+                "block": 454,
+                "scheduled_ns": 9534000000,
+                "started_ns": 9536234918,
+                "callback_ns": 14945,
+                "mismatches": 0
+              },
+              {
+                "block": 217,
+                "scheduled_ns": 4557000000,
+                "started_ns": 4558797225,
+                "callback_ns": 18314,
+                "mismatches": 0
+              },
+              {
+                "block": 235,
+                "scheduled_ns": 4935000000,
+                "started_ns": 4936337427,
+                "callback_ns": 14911,
+                "mismatches": 0
+              },
+              {
+                "block": 327,
+                "scheduled_ns": 6867000000,
+                "started_ns": 6867476290,
+                "callback_ns": 16581,
+                "mismatches": 0
+              },
+              {
+                "block": 416,
+                "scheduled_ns": 8736000000,
+                "started_ns": 8736349923,
+                "callback_ns": 15479,
+                "mismatches": 0
+              },
+              {
+                "block": 316,
+                "scheduled_ns": 6636000000,
+                "started_ns": 6636254518,
+                "callback_ns": 15520,
+                "mismatches": 0
+              },
+              {
+                "block": 116,
+                "scheduled_ns": 2436000000,
+                "started_ns": 2436242956,
+                "callback_ns": 15968,
+                "mismatches": 0
+              },
+              {
+                "block": 216,
+                "scheduled_ns": 4536000000,
+                "started_ns": 4536237940,
+                "callback_ns": 15530,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "803b67d5aa0c83cea3c0b7814858b4ab701dcd116608ceb54cfacd481d96e792"
+          }
+        }
+      ],
+      "outer_cpu_observation": {
+        "sample_period_ms": 10,
+        "maximum_seconds": 600,
+        "samples": 32606,
+        "private_raw_sha256": "1786cb20b786c3faeea2beffdfd5c071a21d4a385dfd843508efc5518299403e",
+        "span_ms": 335529.85531,
+        "cpu_usage_ms": 276303.333,
+        "throttled_periods": 1552,
+        "throttled_ms": 2085.21,
+        "clock_correlation_to_individual_callback": "not claimed; guest/outer clock offset was not bracketed"
+      }
+    },
+    {
+      "index": 3,
+      "result": "failed development regression",
+      "resources": {
+        "exit_code": 1,
+        "duration_ms": 151322.614,
+        "before": {
+          "cpu.max": "100000 100000",
+          "memory.max": "2684354560",
+          "memory.swap.max": "0",
+          "pids.max": "512",
+          "pids.current": "340",
+          "pids.events": "max 0",
+          "memory.current": "1712504832",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+        },
+        "after": {
+          "cpu.max": "100000 100000",
+          "memory.max": "2684354560",
+          "memory.swap.max": "0",
+          "pids.max": "512",
+          "pids.current": "356",
+          "pids.events": "max 0",
+          "memory.current": "1710764032",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+        },
+        "peak_user_tasks": 373,
+        "peak_user_memory_bytes": 1820168192,
+        "stderr_bytes": 366,
+        "stderr_sha256": "0612436456fac7cbfadb3b055c9b45633f8003c5cee1312ff40296986b38fc8a"
+      },
+      "private_raw_stdout_sha256": "a3fcf4508dc028e5790155584d58213da439d9f5837efbd732e01b676c6a35a4",
+      "compared_stereo_samples": 9799680,
+      "processing_missing_frames": 1024,
+      "runs": [
+        {
+          "role": "effect",
+          "pair": 1,
+          "mode": "record",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 6580
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 3,
+            "begin_since_audio_start_ns": 2034198633,
+            "end_since_audio_start_ns": 2037509884,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 980992,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 37942,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "76c6530cd5c6625f20d8ceacfd329ec3",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 143
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 772541553017,
+            "audio_begin_unix_ns_approximate": 1790907450322070600,
+            "maximum_wake_lateness_ns": 596792,
+            "minimum_adjacent_callback_interval_ns": 20778985,
+            "worst_wake_rows": [
+              {
+                "block": 325,
+                "scheduled_ns": 6933333333,
+                "started_ns": 6933930125,
+                "callback_ns": 15157,
+                "mismatches": 0
+              },
+              {
+                "block": 156,
+                "scheduled_ns": 3328000000,
+                "started_ns": 3328215523,
+                "callback_ns": 17552,
+                "mismatches": 0
+              },
+              {
+                "block": 356,
+                "scheduled_ns": 7594666666,
+                "started_ns": 7594803393,
+                "callback_ns": 15926,
+                "mismatches": 0
+              },
+              {
+                "block": 103,
+                "scheduled_ns": 2197333333,
+                "started_ns": 2197467085,
+                "callback_ns": 13298,
+                "mismatches": 0
+              },
+              {
+                "block": 2,
+                "scheduled_ns": 42666666,
+                "started_ns": 42753292,
+                "callback_ns": 12464,
+                "mismatches": 0
+              },
+              {
+                "block": 145,
+                "scheduled_ns": 3093333333,
+                "started_ns": 3093416419,
+                "callback_ns": 15347,
+                "mismatches": 0
+              },
+              {
+                "block": 397,
+                "scheduled_ns": 8469333333,
+                "started_ns": 8469410824,
+                "callback_ns": 13811,
+                "mismatches": 0
+              },
+              {
+                "block": 339,
+                "scheduled_ns": 7232000000,
+                "started_ns": 7232077417,
+                "callback_ns": 13468,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "a422754744333f564699b6038c033848762b115775aa816a037c7f33535e4a98"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 1,
+          "mode": "recall",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4283
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 6,
+            "begin_since_audio_start_ns": 2035934749,
+            "end_since_audio_start_ns": 2042015980,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 980992,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 845943,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "4157d89765abeb7bea17a79c3706d54a",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 787437245372,
+            "audio_begin_unix_ns_approximate": 1790907465217763363,
+            "maximum_wake_lateness_ns": 4124726,
+            "minimum_adjacent_callback_interval_ns": 17267710,
+            "worst_wake_rows": [
+              {
+                "block": 375,
+                "scheduled_ns": 8000000000,
+                "started_ns": 8004124726,
+                "callback_ns": 13652,
+                "mismatches": 0
+              },
+              {
+                "block": 122,
+                "scheduled_ns": 2602666666,
+                "started_ns": 2604227995,
+                "callback_ns": 13116,
+                "mismatches": 0
+              },
+              {
+                "block": 47,
+                "scheduled_ns": 1002666666,
+                "started_ns": 1004177392,
+                "callback_ns": 13606,
+                "mismatches": 0
+              },
+              {
+                "block": 347,
+                "scheduled_ns": 7402666666,
+                "started_ns": 7404139319,
+                "callback_ns": 14418,
+                "mismatches": 0
+              },
+              {
+                "block": 422,
+                "scheduled_ns": 9002666666,
+                "started_ns": 9004062956,
+                "callback_ns": 12798,
+                "mismatches": 0
+              },
+              {
+                "block": 128,
+                "scheduled_ns": 2730666666,
+                "started_ns": 2732024097,
+                "callback_ns": 16850,
+                "mismatches": 0
+              },
+              {
+                "block": 20,
+                "scheduled_ns": 426666666,
+                "started_ns": 427366159,
+                "callback_ns": 16067,
+                "mismatches": 0
+              },
+              {
+                "block": 27,
+                "scheduled_ns": 576000000,
+                "started_ns": 576664838,
+                "callback_ns": 14458,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "87c9f5566e2d39ad307058a6411682e8d4a500cf262961a7fa2239e68a21c07f"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 2,
+          "mode": "record",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4303
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 2,
+            "begin_since_audio_start_ns": 2027245344,
+            "end_since_audio_start_ns": 2029738950,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 980992,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 557113,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "18e51b1fc5836887b0d70bdf25a01dfc",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 143
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 802334193804,
+            "audio_begin_unix_ns_approximate": 1790907480114711389,
+            "maximum_wake_lateness_ns": 3168110,
+            "minimum_adjacent_callback_interval_ns": 18234521,
+            "worst_wake_rows": [
+              {
+                "block": 408,
+                "scheduled_ns": 8704000000,
+                "started_ns": 8707168110,
+                "callback_ns": 14219,
+                "mismatches": 0
+              },
+              {
+                "block": 94,
+                "scheduled_ns": 2005333333,
+                "started_ns": 2007183917,
+                "callback_ns": 12773,
+                "mismatches": 0
+              },
+              {
+                "block": 179,
+                "scheduled_ns": 3818666666,
+                "started_ns": 3819599043,
+                "callback_ns": 13315,
+                "mismatches": 0
+              },
+              {
+                "block": 155,
+                "scheduled_ns": 3306666666,
+                "started_ns": 3307271651,
+                "callback_ns": 12774,
+                "mismatches": 0
+              },
+              {
+                "block": 230,
+                "scheduled_ns": 4906666666,
+                "started_ns": 4907265472,
+                "callback_ns": 13030,
+                "mismatches": 0
+              },
+              {
+                "block": 305,
+                "scheduled_ns": 6506666666,
+                "started_ns": 6507240688,
+                "callback_ns": 13226,
+                "mismatches": 0
+              },
+              {
+                "block": 265,
+                "scheduled_ns": 5653333333,
+                "started_ns": 5653834559,
+                "callback_ns": 14423,
+                "mismatches": 0
+              },
+              {
+                "block": 105,
+                "scheduled_ns": 2240000000,
+                "started_ns": 2240186079,
+                "callback_ns": 14135,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "6e26a80028d29de834e10255646a9b7372be6841f814395175965a00e01baafa"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 2,
+          "mode": "recall",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4243
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 6,
+            "begin_since_audio_start_ns": 2030328627,
+            "end_since_audio_start_ns": 2036783422,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 980992,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 75100,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "75e1a592c9918a5385de086bfc4342b7",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 817198176752,
+            "audio_begin_unix_ns_approximate": 1790907494978819289,
+            "maximum_wake_lateness_ns": 2056805,
+            "minimum_adjacent_callback_interval_ns": 19343388,
+            "worst_wake_rows": [
+              {
+                "block": 88,
+                "scheduled_ns": 1877333333,
+                "started_ns": 1879390138,
+                "callback_ns": 17664,
+                "mismatches": 0
+              },
+              {
+                "block": 241,
+                "scheduled_ns": 5141333333,
+                "started_ns": 5143271273,
+                "callback_ns": 11169,
+                "mismatches": 0
+              },
+              {
+                "block": 316,
+                "scheduled_ns": 6741333333,
+                "started_ns": 6743268860,
+                "callback_ns": 13846,
+                "mismatches": 0
+              },
+              {
+                "block": 16,
+                "scheduled_ns": 341333333,
+                "started_ns": 343142672,
+                "callback_ns": 14257,
+                "mismatches": 0
+              },
+              {
+                "block": 374,
+                "scheduled_ns": 7978666666,
+                "started_ns": 7979836946,
+                "callback_ns": 15891,
+                "mismatches": 0
+              },
+              {
+                "block": 302,
+                "scheduled_ns": 6442666666,
+                "started_ns": 6443439196,
+                "callback_ns": 13682,
+                "mismatches": 0
+              },
+              {
+                "block": 452,
+                "scheduled_ns": 9642666666,
+                "started_ns": 9643282455,
+                "callback_ns": 12299,
+                "mismatches": 0
+              },
+              {
+                "block": 77,
+                "scheduled_ns": 1642666666,
+                "started_ns": 1643250812,
+                "callback_ns": 14152,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "0124b4b43e408b261be3ba441d341a63ac33e7cf6ac8d016bb9280949c5de9f3"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 3,
+          "mode": "record",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4277
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 2,
+            "begin_since_audio_start_ns": 2027995827,
+            "end_since_audio_start_ns": 2030182806,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 980992,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 534967,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "11b9cc32437f6fead6e46f4080e1a5bd",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 143
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 832028076662,
+            "audio_begin_unix_ns_approximate": 1790907509808594264,
+            "maximum_wake_lateness_ns": 1957091,
+            "minimum_adjacent_callback_interval_ns": 19428898,
+            "worst_wake_rows": [
+              {
+                "block": 474,
+                "scheduled_ns": 10112000000,
+                "started_ns": 10113957091,
+                "callback_ns": 15288,
+                "mismatches": 0
+              },
+              {
+                "block": 326,
+                "scheduled_ns": 6954666666,
+                "started_ns": 6956499789,
+                "callback_ns": 14137,
+                "mismatches": 0
+              },
+              {
+                "block": 249,
+                "scheduled_ns": 5312000000,
+                "started_ns": 5313365463,
+                "callback_ns": 14212,
+                "mismatches": 0
+              },
+              {
+                "block": 36,
+                "scheduled_ns": 768000000,
+                "started_ns": 769261553,
+                "callback_ns": 16015,
+                "mismatches": 0
+              },
+              {
+                "block": 24,
+                "scheduled_ns": 512000000,
+                "started_ns": 513260488,
+                "callback_ns": 13515,
+                "mismatches": 0
+              },
+              {
+                "block": 99,
+                "scheduled_ns": 2112000000,
+                "started_ns": 2113253115,
+                "callback_ns": 15417,
+                "mismatches": 0
+              },
+              {
+                "block": 399,
+                "scheduled_ns": 8512000000,
+                "started_ns": 8513245950,
+                "callback_ns": 12856,
+                "mismatches": 0
+              },
+              {
+                "block": 136,
+                "scheduled_ns": 2901333333,
+                "started_ns": 2902337131,
+                "callback_ns": 24414,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "95970513c6f7b05305c25875b9930a2d7d7a99c0f4ce6e371c580358451cc860"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 3,
+          "mode": "recall",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4304
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 1,
+            "begin_since_audio_start_ns": 2029627761,
+            "end_since_audio_start_ns": 2031399424,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 980992,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 43133,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "01b0729356dd018004b71969db646e80",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 846964143664,
+            "audio_begin_unix_ns_approximate": 1790907524744661239,
+            "maximum_wake_lateness_ns": 2509551,
+            "minimum_adjacent_callback_interval_ns": 18900110,
+            "worst_wake_rows": [
+              {
+                "block": 177,
+                "scheduled_ns": 3776000000,
+                "started_ns": 3778509551,
+                "callback_ns": 14254,
+                "mismatches": 0
+              },
+              {
+                "block": 457,
+                "scheduled_ns": 9749333333,
+                "started_ns": 9751427956,
+                "callback_ns": 15535,
+                "mismatches": 0
+              },
+              {
+                "block": 313,
+                "scheduled_ns": 6677333333,
+                "started_ns": 6678259438,
+                "callback_ns": 14993,
+                "mismatches": 0
+              },
+              {
+                "block": 350,
+                "scheduled_ns": 7466666666,
+                "started_ns": 7467167972,
+                "callback_ns": 15551,
+                "mismatches": 0
+              },
+              {
+                "block": 248,
+                "scheduled_ns": 5290666666,
+                "started_ns": 5291152239,
+                "callback_ns": 16647,
+                "mismatches": 0
+              },
+              {
+                "block": 453,
+                "scheduled_ns": 9664000000,
+                "started_ns": 9664472269,
+                "callback_ns": 15437,
+                "mismatches": 0
+              },
+              {
+                "block": 451,
+                "scheduled_ns": 9621333333,
+                "started_ns": 9621548100,
+                "callback_ns": 14001,
+                "mismatches": 0
+              },
+              {
+                "block": 214,
+                "scheduled_ns": 4565333333,
+                "started_ns": 4565530368,
+                "callback_ns": 15570,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "db794afb44d91d904a6729384a2df258e12bf5f01ceeb6f6e89a81cee6827e50"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 4,
+          "mode": "record",
+          "frames": 1008,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4253
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 4,
+            "begin_since_audio_start_ns": 1999600905,
+            "end_since_audio_start_ns": 2004015411,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1008,
+            "blocks": 480,
+            "compared_samples": 967680,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 965632,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 41156,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "7d68e72c308a8fb86c4bc04e661d2302",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 143
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 861752111811,
+            "audio_begin_unix_ns_approximate": 1790907539532629973,
+            "maximum_wake_lateness_ns": 1425467,
+            "minimum_adjacent_callback_interval_ns": 19634266,
+            "worst_wake_rows": [
+              {
+                "block": 328,
+                "scheduled_ns": 6888000000,
+                "started_ns": 6889425467,
+                "callback_ns": 12227,
+                "mismatches": 0
+              },
+              {
+                "block": 128,
+                "scheduled_ns": 2688000000,
+                "started_ns": 2689288824,
+                "callback_ns": 13225,
+                "mismatches": 0
+              },
+              {
+                "block": 28,
+                "scheduled_ns": 588000000,
+                "started_ns": 589185104,
+                "callback_ns": 14945,
+                "mismatches": 0
+              },
+              {
+                "block": 96,
+                "scheduled_ns": 2016000000,
+                "started_ns": 2016567039,
+                "callback_ns": 15904,
+                "mismatches": 0
+              },
+              {
+                "block": 9,
+                "scheduled_ns": 189000000,
+                "started_ns": 189315851,
+                "callback_ns": 13158,
+                "mismatches": 0
+              },
+              {
+                "block": 203,
+                "scheduled_ns": 4263000000,
+                "started_ns": 4263299934,
+                "callback_ns": 15353,
+                "mismatches": 0
+              },
+              {
+                "block": 205,
+                "scheduled_ns": 4305000000,
+                "started_ns": 4305227247,
+                "callback_ns": 15336,
+                "mismatches": 0
+              },
+              {
+                "block": 98,
+                "scheduled_ns": 2058000000,
+                "started_ns": 2058218851,
+                "callback_ns": 15084,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "0ef6a68c85cc3bac0c61c0eebe5f358c41e99163cac94c1bd7699b989f7b6808"
+          }
+        },
+        {
+          "role": "effect",
+          "pair": 4,
+          "mode": "recall",
+          "frames": 1008,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4300
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 2,
+            "begin_since_audio_start_ns": 1999280817,
+            "end_since_audio_start_ns": 2002143169,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "effect",
+            "frames_per_callback": 1008,
+            "blocks": 480,
+            "compared_samples": 967680,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 965632,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 36870,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "e63beabcebc2fc1dbd3f730a9083f7a7",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 143
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 876529791552,
+            "audio_begin_unix_ns_approximate": 1790907554310309160,
+            "maximum_wake_lateness_ns": 1666647,
+            "minimum_adjacent_callback_interval_ns": 19383768,
+            "worst_wake_rows": [
+              {
+                "block": 210,
+                "scheduled_ns": 4410000000,
+                "started_ns": 4411666647,
+                "callback_ns": 12261,
+                "mismatches": 0
+              },
+              {
+                "block": 410,
+                "scheduled_ns": 8610000000,
+                "started_ns": 8611616958,
+                "callback_ns": 13447,
+                "mismatches": 0
+              },
+              {
+                "block": 10,
+                "scheduled_ns": 210000000,
+                "started_ns": 211530154,
+                "callback_ns": 13965,
+                "mismatches": 0
+              },
+              {
+                "block": 191,
+                "scheduled_ns": 4011000000,
+                "started_ns": 4011581534,
+                "callback_ns": 15113,
+                "mismatches": 0
+              },
+              {
+                "block": 391,
+                "scheduled_ns": 8211000000,
+                "started_ns": 8211539326,
+                "callback_ns": 13512,
+                "mismatches": 0
+              },
+              {
+                "block": 220,
+                "scheduled_ns": 4620000000,
+                "started_ns": 4620444721,
+                "callback_ns": 14447,
+                "mismatches": 0
+              },
+              {
+                "block": 474,
+                "scheduled_ns": 9954000000,
+                "started_ns": 9954139234,
+                "callback_ns": 12635,
+                "mismatches": 0
+              },
+              {
+                "block": 357,
+                "scheduled_ns": 7497000000,
+                "started_ns": 7497105911,
+                "callback_ns": 14855,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "7e0ee4dba1301fe1cfed48e18d1756278c642a3cb97cb3cc63b48b7a7c00ec76"
+          }
+        },
+        {
+          "role": "instrument",
+          "pair": 1,
+          "mode": "record",
+          "frames": 1024,
+          "exit_code": 0,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4295
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 1,
+            "begin_since_audio_start_ns": 2028457288,
+            "end_since_audio_start_ns": 2030366341,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "instrument",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 0,
+            "nonfinite": 0,
+            "nonzero": 710726,
+            "max_error": 0,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 115250,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "a3a7db2b097ba3b14da55baa9198fc93",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 891277553810,
+            "audio_begin_unix_ns_approximate": 1790907569058071432,
+            "maximum_wake_lateness_ns": 2427248,
+            "minimum_adjacent_callback_interval_ns": 19226031,
+            "worst_wake_rows": [
+              {
+                "block": 373,
+                "scheduled_ns": 7957333333,
+                "started_ns": 7959760581,
+                "callback_ns": 15744,
+                "mismatches": 0
+              },
+              {
+                "block": 92,
+                "scheduled_ns": 1962666666,
+                "started_ns": 1963889342,
+                "callback_ns": 14597,
+                "mismatches": 0
+              },
+              {
+                "block": 17,
+                "scheduled_ns": 362666666,
+                "started_ns": 363845199,
+                "callback_ns": 14614,
+                "mismatches": 0
+              },
+              {
+                "block": 242,
+                "scheduled_ns": 5162666666,
+                "started_ns": 5163795584,
+                "callback_ns": 15112,
+                "mismatches": 0
+              },
+              {
+                "block": 446,
+                "scheduled_ns": 9514666666,
+                "started_ns": 9515304468,
+                "callback_ns": 15007,
+                "mismatches": 0
+              },
+              {
+                "block": 441,
+                "scheduled_ns": 9408000000,
+                "started_ns": 9408575785,
+                "callback_ns": 15260,
+                "mismatches": 0
+              },
+              {
+                "block": 454,
+                "scheduled_ns": 9685333333,
+                "started_ns": 9685854135,
+                "callback_ns": 15231,
+                "mismatches": 0
+              },
+              {
+                "block": 344,
+                "scheduled_ns": 7338666666,
+                "started_ns": 7339162158,
+                "callback_ns": 16136,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "df6ea3b5deee8fad6cde578f0de0b3eea60f73ca3ad25b1f3a1f76d98c7cdb0d"
+          }
+        },
+        {
+          "role": "instrument",
+          "pair": 1,
+          "mode": "recall",
+          "frames": 1024,
+          "exit_code": 1,
+          "initial_state": {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 4340
+          },
+          "live_state": {
+            "event": "processing_state",
+            "component_bytes": 200,
+            "controller_bytes": 8,
+            "gain": 0.625,
+            "colour": 0.125,
+            "duration_ms": 3,
+            "begin_since_audio_start_ns": 2035756014,
+            "end_since_audio_start_ns": 2039045503,
+            "begin_after_block": 96,
+            "end_after_block": 96
+          },
+          "audio": {
+            "event": "audio",
+            "role": "instrument",
+            "frames_per_callback": 1024,
+            "blocks": 480,
+            "compared_samples": 983040,
+            "mismatches": 2044,
+            "nonfinite": 0,
+            "nonzero": 708678,
+            "max_error": 0.0314896,
+            "rejected_callbacks": 0,
+            "callback_max_ns": 984687,
+            "callback_overruns": 0,
+            "callback_audited": true
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 1024,
+            "gaps": 1,
+            "expired_frames": 1024,
+            "delivered_frames": 489472,
+            "priming_frames": 0
+          },
+          "capacity_after": {
+            "dsp": 0,
+            "maintenance": 0,
+            "keepers": 2,
+            "cleanup_unconfirmed": false
+          },
+          "retirement": [
+            {
+              "session": "1e98b2216e884792f94305fab766ee7b",
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "gated": true,
+              "raw_exit": 0
+            }
+          ],
+          "timing": {
+            "row_count": 480,
+            "audio_begin_monotonic_ns": 906266976848,
+            "audio_begin_unix_ns_approximate": 1790907584047494496,
+            "maximum_wake_lateness_ns": 2288904,
+            "minimum_adjacent_callback_interval_ns": 19108479,
+            "worst_wake_rows": [
+              {
+                "block": 280,
+                "scheduled_ns": 5973333333,
+                "started_ns": 5975622237,
+                "callback_ns": 15727,
+                "mismatches": 0
+              },
+              {
+                "block": 55,
+                "scheduled_ns": 1173333333,
+                "started_ns": 1174484221,
+                "callback_ns": 13538,
+                "mismatches": 0
+              },
+              {
+                "block": 205,
+                "scheduled_ns": 4373333333,
+                "started_ns": 4374418213,
+                "callback_ns": 13285,
+                "mismatches": 0
+              },
+              {
+                "block": 275,
+                "scheduled_ns": 5866666666,
+                "started_ns": 5866942824,
+                "callback_ns": 12593,
+                "mismatches": 2044
+              },
+              {
+                "block": 284,
+                "scheduled_ns": 6058666666,
+                "started_ns": 6058835588,
+                "callback_ns": 16259,
+                "mismatches": 0
+              },
+              {
+                "block": 452,
+                "scheduled_ns": 9642666666,
+                "started_ns": 9642760095,
+                "callback_ns": 17669,
+                "mismatches": 0
+              },
+              {
+                "block": 407,
+                "scheduled_ns": 8682666666,
+                "started_ns": 8682751255,
+                "callback_ns": 28569,
+                "mismatches": 0
+              },
+              {
+                "block": 48,
+                "scheduled_ns": 1024000000,
+                "started_ns": 1024078491,
+                "callback_ns": 15604,
+                "mismatches": 0
+              }
+            ],
+            "mismatch_rows": [
+              {
+                "block": 275,
+                "scheduled_ns": 5866666666,
+                "started_ns": 5866942824,
+                "callback_ns": 12593,
+                "mismatches": 2044
+              }
+            ],
+            "omitted_mismatch_rows": 0,
+            "all_rows_sha256": "b5a00fc7ef70efdd1f42134e8296c64e022f437770f2585f069ce86ea4d4bbf0"
+          }
+        }
+      ],
+      "outer_cpu_observation": {
+        "sample_period_ms": 10,
+        "maximum_seconds": 600,
+        "samples": 19220,
+        "private_raw_sha256": "60b1114459f62368bb8154a9d67d69f541f637018cca393dcca56b893c3eb783",
+        "span_ms": 197495.630704,
+        "cpu_usage_ms": 166418.666,
+        "throttled_periods": 909,
+        "throttled_ms": 1228.874,
+        "clock_correlation_to_individual_callback": "not claimed; guest/outer clock offset was not bracketed"
+      }
+    }
+  ],
+  "native_observability_gap": "Session::open excludes protocol minor 14 from witness creation; the original exact native report records ap7_observation enabled:false. Consumer timing does not replace missing native/Windows gap timing.",
+  "official_interface_basis": {
+    "processing": "https://steinbergmedia.github.io/vst3_doc/vstinterfaces/classSteinberg_1_1Vst_1_1IAudioProcessor.html",
+    "state": "https://steinbergmedia.github.io/vst3_doc/vstinterfaces/classSteinberg_1_1Vst_1_1IComponent.html"
+  },
+  "musician_frontend_DAW_or_hardware_claim": false,
+  "original_processing_gap_resolved": false,
+  "attribution": {
+    "first_mismatch": {
+      "role": "instrument",
+      "pair": 1,
+      "mode": "recall",
+      "block": 275,
+      "expected_source_block": 274,
+      "host_wake_lateness_ns": 276158,
+      "callback_ns": 12593,
+      "mismatched_stereo_samples": 2044
+    },
+    "consumer_maximum_wake_lateness_ns": 2288904,
+    "state_capture_several_seconds_earlier": true,
+    "missing_frames": 1024,
+    "consumer_wake_or_this_state_capture_is_direct_cause": false,
+    "request_to_output_timing_missing": true,
+    "native_minor14_observation_enabled": false,
+    "cpu_throttling_is_not_established_as_cause": true
+  }
+}

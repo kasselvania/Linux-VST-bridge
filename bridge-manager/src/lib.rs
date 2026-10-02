@@ -1,5 +1,6 @@
 //! Canonical, inactive-only registration and atomic publication. No SDK or DSP here.
 pub mod preparation;
+pub mod runtime_delivery;
 pub mod acceptance;
 pub mod capacity;
 pub mod transport_storage;
@@ -28,7 +29,7 @@ pub mod ui_observation;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::{BTreeMap, HashMap},
     fs::{self, File, OpenOptions},
     io::{Read, Write},
@@ -76,7 +77,8 @@ pub fn file(p: &Path) -> Result<File> {
     )?;
     Ok(f)
 }
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 struct DigestFileIdentity {
     device: u64,
     inode: u64,
@@ -95,33 +97,118 @@ impl From<&fs::Metadata> for DigestFileIdentity {
     }
 }
 thread_local! {
-    static READBACK_DIGESTS: RefCell<Option<HashMap<PathBuf, (DigestFileIdentity, String)>>> =
+    static SCOPED_DIGESTS: RefCell<Option<HashMap<PathBuf, (DigestFileIdentity, String)>>> =
         const { RefCell::new(None) };
+    static FULL_BYTE_VERIFICATION: Cell<bool> = const { Cell::new(false) };
 }
 /// Reuse exact digests only during one read-only projection. Every reuse
 /// reopens the path without following links and matches inode, size, owner,
-/// mode, modification and change times. No cache survives this call. Mutations
-/// and launches never enter this scope and retain their ordinary verification.
+/// mode, modification and change times. Nested projections share the same
+/// observations; no cache survives the outermost projection.
 pub fn with_readback_digests<T>(readback: impl FnOnce() -> T) -> T {
+    if SCOPED_DIGESTS.with(|cache| cache.borrow().is_some()) {
+        return readback();
+    }
+    with_scoped_digests(readback)
+}
+/// An isolated launch hashes every runtime byte afresh. Repeated authority
+/// checks in that same admission reuse only bytes already read in this scope,
+/// after reopening and matching the complete file identity. Persisted runtime
+/// observations cannot authorize execution, even in a nested readback scope.
+pub fn with_launch_verification<T>(admission: impl FnOnce() -> T) -> T {
+    struct Restore(bool);
+    impl Drop for Restore {
+        fn drop(&mut self) { FULL_BYTE_VERIFICATION.with(|mode| mode.set(self.0)); }
+    }
+    let _restore = Restore(FULL_BYTE_VERIFICATION.with(|mode| mode.replace(true)));
+    with_scoped_digests(admission)
+}
+
+/// Process-owned byte observations shared by one running manager's launch
+/// preparation. Unlike the persisted readback cache, these entries can only
+/// originate from bytes this process read. Every reuse still reopens and checks
+/// the complete file identity; a changed file is hashed again and validated by
+/// its ordinary owner. Never put this cache or its mutex on an audio path.
+#[derive(Default)]
+pub struct LaunchVerification {
+    records: std::sync::Mutex<HashMap<PathBuf, (DigestFileIdentity, String)>>,
+}
+pub struct LaunchSnapshot(HashMap<PathBuf, (DigestFileIdentity, String)>);
+impl LaunchVerification {
+    /// Serialize shared byte preparation only. Process creation, keeper waiting
+    /// and processing admission occur after this lock has been released.
+    pub fn prepare<T>(&self, deadline: std::time::Instant,
+        prepare: impl FnOnce() -> Result<T>) -> Result<(T, LaunchSnapshot)> {
+        let mut records = loop {
+            match self.records.try_lock() {
+                Ok(records) => break records,
+                Err(std::sync::TryLockError::Poisoned(_)) => return Err("launch_verification_poisoned".into()),
+                Err(std::sync::TryLockError::WouldBlock) => {
+                    let now = std::time::Instant::now();
+                    require(now < deadline, "launch_verification_deadline")?;
+                    std::thread::sleep(std::time::Duration::from_millis(10).min(deadline-now));
+                }
+            }
+        };
+        require(std::time::Instant::now() < deadline, "launch_verification_deadline")?;
+        let snapshot = LaunchSnapshot(records.clone());
+        let (result, observed) = snapshot.run(|| {
+            let result = prepare();
+            let observed = SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().clone());
+            (result, observed)
+        });
+        let value = result?;
+        require(std::time::Instant::now() < deadline, "launch_verification_deadline")?;
+        require(observed.len() <= 200_000, "launch_verification_extent")?;
+        *records = observed.clone();
+        Ok((value, LaunchSnapshot(observed)))
+    }
+}
+impl LaunchSnapshot {
+    /// Recheck exact observations throughout this admission, without retaining
+    /// the shared preparation lock or allowing a disk readback cache to launch.
+    pub fn run<T>(&self, admission: impl FnOnce() -> T) -> T {
+        struct Restore {
+            records: Option<HashMap<PathBuf, (DigestFileIdentity, String)>>,
+            full: bool,
+        }
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                SCOPED_DIGESTS.with(|cache| *cache.borrow_mut() = self.records.take());
+                FULL_BYTE_VERIFICATION.with(|mode| mode.set(self.full));
+            }
+        }
+        let _restore = Restore {
+            records: SCOPED_DIGESTS.with(|cache| cache.replace(Some(self.0.clone()))),
+            full: FULL_BYTE_VERIFICATION.with(|mode| mode.replace(true)),
+        };
+        admission()
+    }
+}
+fn with_scoped_digests<T>(readback: impl FnOnce() -> T) -> T {
     struct Restore(Option<HashMap<PathBuf, (DigestFileIdentity, String)>>);
     impl Drop for Restore {
         fn drop(&mut self) {
-            READBACK_DIGESTS.with(|cache| *cache.borrow_mut() = self.0.take());
+            SCOPED_DIGESTS.with(|cache| *cache.borrow_mut() = self.0.take());
         }
     }
-    let previous = READBACK_DIGESTS.with(|cache| cache.replace(Some(HashMap::new())));
+    let previous = SCOPED_DIGESTS.with(|cache| cache.replace(Some(HashMap::new())));
     let _restore = Restore(previous);
     readback()
+}
+fn readback_digests_active() -> bool {
+    SCOPED_DIGESTS.with(|cache| cache.borrow().is_some())
+        && !FULL_BYTE_VERIFICATION.with(Cell::get)
 }
 pub fn digest(p: &Path) -> Result<String> {
     let mut f = file(p)?;
     let before = DigestFileIdentity::from(&f.metadata()?);
-    if let Some(value) = READBACK_DIGESTS.with(|cache| cache.borrow().as_ref()
+    if let Some(value) = SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref()
         .and_then(|records| records.get(p))
         .filter(|(identity, _)| *identity == before)
         .map(|(_, value)| value.clone())) {
         require(DigestFileIdentity::from(&fs::symlink_metadata(p)?) == before,
-            "artifact_changed_during_readback")?;
+            "artifact_changed_during_verification")?;
         return Ok(value);
     }
     let mut h = Sha256::new();
@@ -134,11 +221,11 @@ pub fn digest(p: &Path) -> Result<String> {
         h.update(&b[..n]);
     }
     let value = hex(&h.finalize());
-    if READBACK_DIGESTS.with(|cache| cache.borrow().is_some()) {
+    if SCOPED_DIGESTS.with(|cache| cache.borrow().is_some()) {
         require(DigestFileIdentity::from(&f.metadata()?) == before
             && DigestFileIdentity::from(&fs::symlink_metadata(p)?) == before,
-            "artifact_changed_during_readback")?;
-        READBACK_DIGESTS.with(|cache| {
+            "artifact_changed_during_verification")?;
+        SCOPED_DIGESTS.with(|cache| {
             if let Some(records) = cache.borrow_mut().as_mut() {
                 records.insert(p.to_path_buf(), (before, value.clone()));
             }
@@ -149,7 +236,7 @@ pub fn digest(p: &Path) -> Result<String> {
 pub fn read_json<T: for<'de> Deserialize<'de>>(p: &Path) -> Result<T> {
     let f = file(p)?;
     require(f.metadata()?.len() <= 8 * 1024 * 1024, "JSON size limit")?;
-    Ok(serde_json::from_reader(f.take(8 * 1024 * 1024 + 1))?)
+    Ok(serde_json::from_reader(std::io::BufReader::new(f).take(8 * 1024 * 1024 + 1))?)
 }
 pub fn atomic_json<T: Serialize>(p: &Path, data: &T) -> Result<()> {
     let temp = p.with_extension(format!("tmp-{}", random_id()?));
@@ -226,6 +313,7 @@ impl Runner {
         for f in &self.files {
             f.verify()?;
         }
+        runtime_delivery::verify_tree(self)?;
         Ok(())
     }
 }
@@ -307,8 +395,8 @@ impl Default for Performance {
 impl Performance {
     pub fn verify(&self) -> Result<()> {
         require(
-            self.schema == 1 && matches!(self.added_frames, 256 | 512),
-            "unsupported performance schema or delay (use 256 or 512 frames)",
+            self.schema == 1 && matches!(self.added_frames, 256 | 512 | 1024),
+            "unsupported performance schema or delay (use 256, 512 or 1024 frames)",
         )
     }
 }
@@ -408,6 +496,13 @@ pub struct Manager {
     pub root: PathBuf,
     pub publications: PathBuf,
 }
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LeaseOwner {
+    schema: u32,
+    temporary_owner: PathBuf,
+    owner: serde_json::Value,
+}
 pub struct Lock {
     file: File,
     root: PathBuf,
@@ -429,6 +524,70 @@ impl Drop for Lock {
     }
 }
 impl Manager {
+    fn lease_owner_location(&self, sid: &str, report: &Path, owner: &serde_json::Value)
+        -> Result<PathBuf> {
+        require(valid_hex(sid, 32)
+            && report.parent() == Some(self.root.join("runtime/results").as_path())
+            && owner["session"].as_str() == Some(sid)
+            && owner["report"].as_str() == report.to_str()
+            && owner["lease"].as_str() == self.root.join("runtime/leases")
+                .join(format!("{sid}.json")).to_str(), "lease_identity")?;
+        let environment = &owner["registration"]["environment"];
+        let root = PathBuf::from(environment["root"].as_str().ok_or("lease_identity")?);
+        require(root.parent() == Some(self.root.join("environments").as_path())
+            && root.file_name().and_then(|v| v.to_str()) == environment["id"].as_str(),
+            "lease_identity")?;
+        Ok(root.join("compatdata/pfx/drive_c/bridge/sessions").join(sid).join("owner.json"))
+    }
+    /// Caller holds registry.lock. Retain exact ownership before publishing its
+    /// lease; a supervisor may remove its Windows session view before Rust reaps it.
+    pub fn retain_lease_owner(&self, path: &Path) -> Result<()> {
+        let owner: serde_json::Value = read_json(path)?;
+        let sid = owner["session"].as_str().ok_or("lease_identity")?;
+        let report = PathBuf::from(owner["report"].as_str().ok_or("lease_identity")?);
+        require(self.lease_owner_location(sid, &report, &owner)? == path, "lease_identity")?;
+        let directory = self.root.join("runtime/lease-owners");
+        private_dir(&directory)?;
+        let destination = directory.join(format!("{sid}.json"));
+        if destination.try_exists()? {
+            let existing: LeaseOwner = read_json(&destination)?;
+            return require(existing.schema == 1 && existing.temporary_owner == path
+                && existing.owner == owner, "lease_owner_changed");
+        }
+        atomic_json(&destination, &LeaseOwner { schema:1, temporary_owner:path.into(), owner })
+    }
+    /// Caller holds registry.lock. The manager record remains authoritative
+    /// until lease release. Legacy leases retain their original exact lookup.
+    pub fn lease_owner(&self, sid: &str, report: &Path)
+        -> Result<(serde_json::Value, PathBuf)> {
+        require(valid_hex(sid, 32)
+            && report.parent() == Some(self.root.join("runtime/results").as_path()),
+            "lease_identity")?;
+        let retained = self.root.join("runtime/lease-owners").join(format!("{sid}.json"));
+        if retained.try_exists()? {
+            let record: LeaseOwner = read_json(&retained)?;
+            require(record.schema == 1
+                && self.lease_owner_location(sid, report, &record.owner)? == record.temporary_owner,
+                "lease_identity")?;
+            return Ok((record.owner, record.temporary_owner));
+        }
+        let envs = fs::read_dir(self.root.join("environments"))?
+            .take(129).map(|e| e.map(|e| e.path()))
+            .collect::<std::io::Result<Vec<_>>>()?;
+        require(envs.len() <= 128, "active_lease_unresolved")?;
+        let mut found = None;
+        for env in envs {
+            let path = env.join("compatdata/pfx/drive_c/bridge/sessions").join(sid).join("owner.json");
+            if path.try_exists()? {
+                require(found.is_none(), "duplicate_lease_identity")?;
+                found = Some((read_json::<serde_json::Value>(&path)?, path));
+            }
+        }
+        let (owner, path) = found.ok_or("active_lease_unresolved")?;
+        require(owner["session"].as_str() == Some(sid)
+            && owner["report"].as_str() == report.to_str(), "lease_identity")?;
+        Ok((owner, path))
+    }
     /// Must be called while holding registry.lock, the same lock as admission.
     pub fn require_inactive(&self, class: Option<&str>) -> Result<()> {
         let leases = self.root.join("runtime/leases");
@@ -447,19 +606,7 @@ impl Manager {
                 .and_then(|s| s.to_str())
                 .ok_or("lease_identity")?;
             require(valid_hex(sid, 32), "active_lease_unresolved")?;
-            let mut owner = None;
-            for env in fs::read_dir(self.root.join("environments"))? {
-                let spec = env?
-                    .path()
-                    .join("compatdata/pfx/drive_c/bridge/sessions")
-                    .join(sid)
-                    .join("owner.json");
-                if spec.try_exists()? {
-                    require(owner.is_none(), "duplicate_lease_identity")?;
-                    owner = Some(read_json::<serde_json::Value>(&spec)?);
-                }
-            }
-            let owner = owner.ok_or("active_lease_unresolved")?;
+            let (owner, _) = self.lease_owner(sid, &report)?;
             require(
                 owner["session"].as_str() == Some(sid)
                     && owner["report"].as_str() == report.to_str(),
@@ -507,14 +654,20 @@ impl Manager {
         };
         value.verify()?;
         require(valid_hex(key, 32), "class ID syntax")?;
+        let key = key.to_uppercase();
+        let verified = if frames == 1024 {
+            let registration = self.registry()?.classes.get(&key)
+                .ok_or("class not registered")?.registration.clone();
+            require(preparation::build::maximum_bridge_frames(self, &registration)? == Some(1024),
+                "The selected proxy does not support 1024-frame buffering. Check compatibility with the current package first.")?;
+            Some(registration)
+        } else { None };
         // Admission holds this same lock until its lease is published. No
         // instance can race a preference change into its startup binding.
         let _lock = self.lock("registry.lock")?;
-        let key = key.to_uppercase();
-        require(
-            self.registry()?.classes.contains_key(&key),
-            "class not registered",
-        )?;
+        let registry = self.registry()?;
+        let entry = registry.classes.get(&key).ok_or("class not registered")?;
+        require(verified.is_none_or(|r| r == entry.registration), "buffering_target_changed")?;
         let leases = self.root.join("runtime/leases");
         if leases.try_exists()? {
             for entry in fs::read_dir(leases)? {
@@ -779,6 +932,49 @@ mod tests {
     use super::*;
     use crate::test_fixture::Fixture;
     #[test]
+    fn shared_launch_observations_recheck_mutation_and_restore_scopes() {
+        let f = Fixture::new();
+        let path = f.outer.join("launch-artifact");
+        fs::write(&path, b"first").unwrap();
+        let shared = LaunchVerification::default();
+        let deadline = || std::time::Instant::now()+std::time::Duration::from_secs(2);
+        let (first, snapshot) = shared.prepare(deadline(), || digest(&path)).unwrap();
+        assert_eq!(shared.records.lock().unwrap().len(), 1);
+        assert_eq!(snapshot.run(|| digest(&path)).unwrap(), first);
+        assert!(SCOPED_DIGESTS.with(|cache| cache.borrow().is_none()));
+        // Replacing same-sized bytes must invalidate a process-owned observation.
+        fs::write(&path, b"other").unwrap();
+        let changed = snapshot.run(|| digest(&path)).unwrap();
+        assert_ne!(changed, first);
+        assert_ne!(shared.prepare(deadline(), || digest(&path)).unwrap().0, first);
+        let before = shared.records.lock().unwrap().clone();
+        assert!(shared.prepare::<()>(deadline(), || {
+            digest(&f.r.host.path)?;
+            Err("deliberate preparation refusal".into())
+        }).is_err());
+        assert_eq!(*shared.records.lock().unwrap(), before, "failed preparation may not publish new observations");
+        fs::remove_file(&path).unwrap();
+        std::os::unix::fs::symlink(&f.r.host.path, &path).unwrap();
+        assert!(snapshot.run(|| digest(&path)).is_err());
+        with_readback_digests(|| {
+            snapshot.run(|| assert!(!readback_digests_active()));
+            assert!(readback_digests_active());
+        });
+    }
+    #[test]
+    fn shared_launch_preparation_wait_has_a_deadline() {
+        let shared = std::sync::Arc::new(LaunchVerification::default());
+        let held = shared.records.lock().unwrap();
+        let waiting = shared.clone();
+        let thread = std::thread::spawn(move || waiting.prepare(
+            std::time::Instant::now()+std::time::Duration::from_millis(20), || Ok(()))
+            .err().unwrap().to_string());
+        assert_eq!(thread.join().unwrap(), "launch_verification_deadline");
+        drop(held);
+        assert!(shared.prepare(std::time::Instant::now()-std::time::Duration::from_millis(1),
+            || Ok(())).is_err());
+    }
+    #[test]
     fn readback_digest_reuse_is_scoped_and_rechecks_file_identity() {
         let f = Fixture::new();
         let path = f.outer.join("readback-artifact");
@@ -786,17 +982,49 @@ mod tests {
         let first = with_readback_digests(|| {
             let first = digest(&path).unwrap();
             assert_eq!(digest(&path).unwrap(), first);
-            assert_eq!(READBACK_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 1);
+            assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 1);
             std::thread::sleep(std::time::Duration::from_millis(2));
             fs::write(&path, b"other").unwrap();
             assert_ne!(digest(&path).unwrap(), first);
             first
         });
-        assert!(READBACK_DIGESTS.with(|cache| cache.borrow().is_none()));
+        assert!(SCOPED_DIGESTS.with(|cache| cache.borrow().is_none()));
         assert_ne!(digest(&path).unwrap(), first);
         fs::remove_file(&path).unwrap();
         std::os::unix::fs::symlink(f.r.host.path.clone(), &path).unwrap();
         assert!(with_readback_digests(|| digest(&path)).is_err());
+    }
+    #[test]
+    fn nested_readbacks_retain_observations_without_lending_them_to_launch() {
+        let f = Fixture::new();
+        let first = f.outer.join("first-observation");
+        let second = f.outer.join("second-observation");
+        fs::write(&first, b"first").unwrap();
+        fs::write(&second, b"other").unwrap();
+        with_readback_digests(|| {
+            let original = digest(&first).unwrap();
+            with_readback_digests(|| {
+                assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 1);
+                assert_eq!(digest(&first).unwrap(), original);
+                digest(&second).unwrap();
+                fs::write(&first, b"later").unwrap();
+                assert_ne!(digest(&first).unwrap(), original);
+            });
+            assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 2);
+            // An admission starts a fresh byte scope, even inside readback.
+            with_launch_verification(|| {
+                assert!(!readback_digests_active());
+                assert!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().is_empty()));
+                digest(&second).unwrap();
+                with_readback_digests(|| {
+                    assert!(!readback_digests_active());
+                    assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 1);
+                });
+            });
+            assert!(readback_digests_active());
+            assert_eq!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap().len()), 2);
+        });
+        assert!(SCOPED_DIGESTS.with(|cache| cache.borrow().is_none()));
     }
     #[test]
     fn installed_delay_is_inactive_versioned_and_separate_from_identity() {
@@ -809,6 +1037,9 @@ mod tests {
         assert_eq!(f.m.performance(&key).unwrap().added_frames, 256);
         assert_eq!(before, f.m.resolve(&f.identity()).unwrap());
         assert!(f.m.select_delay(&key, 128).is_err());
+        // A new manager cannot enlarge a legacy proxy through the internal CLI.
+        assert!(f.m.select_delay(&key, 1024).is_err());
+        assert_eq!(f.m.performance(&key).unwrap().added_frames, 256);
         private_dir(&f.m.root.join("runtime/leases")).unwrap();
         let lease = f.m.root.join("runtime/leases/active.json");
         atomic_json(
@@ -943,3 +1174,4 @@ pub mod managed_candidate;
 
 pub mod native_access_dependency;
 pub mod dependency_session;
+pub mod portable_package;

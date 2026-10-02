@@ -38,7 +38,7 @@ class DebianPackage(unittest.TestCase):
         self.add(inputs, "usr/lib/linux-vst-bridge/profiles/test.json", "profile", b"{}")
         self.add(inputs, "usr/share/doc/linux-vst-bridge-beta/licenses/Bridge.txt", "license", b"license")
         spec = {"schema": 1, "version": "0.1.0beta1", "source_head": "a" * 40,
-                "source_tree": "b" * 40, "operator_schema": 12,
+                "source_tree": "b" * 40, "operator_schema": assemble.declared_operator_schema(),
                 "external_runtime": {"id": "exact-proton-slr", "manifest_sha256": "c" * 64},
                 "files": self.files}
         self.staged = self.root / "staged"
@@ -69,7 +69,7 @@ class DebianPackage(unittest.TestCase):
                 Path(row["source"]).write_bytes(data)
                 row["sha256"] = hashlib.sha256(data).hexdigest()
         spec = {"schema": 1, "version": "0.1.0beta1", "source_head": "a" * 40,
-                "source_tree": "b" * 40, "operator_schema": 12,
+                "source_tree": "b" * 40, "operator_schema": assemble.declared_operator_schema(),
                 "external_runtime": {"id": "exact-proton-slr", "manifest_sha256": "c" * 64},
                 "files": self.files}
         stage = self.root / "alternate-staged"
@@ -146,7 +146,7 @@ class DebianPackage(unittest.TestCase):
         self.assertIn("python3 (>= 3.13), python3 (<< 3.14)", detail)
         data = subprocess.check_output(["dpkg-deb", "-c", str(self.package)], text=True)
         self.assertIn("usr/share/linux-vst-bridge/pkg0-manifest.json", data)
-        self.assertIn("usr/share/applications/linux-audio-compatibility-manager.desktop", data)
+        self.assertIn("usr/share/applications/linux-vst-bridge-setup.desktop", data)
 
     def test_python_314_bytecode_declares_exact_runtime_range(self):
         stage = self.stage_with_python_magics(bytes.fromhex("2b0e0d0a"),

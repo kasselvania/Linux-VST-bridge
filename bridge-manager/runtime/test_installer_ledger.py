@@ -58,6 +58,31 @@ class LedgerTests(unittest.TestCase):
         self.assertTrue(all(r['role']=='unknown' for r in ledger.records.values()))
 
 class WitnessTests(unittest.TestCase):
+    def test_registered_plugin_only_install_retains_exact_pe_witnesses(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root_dir=pathlib.Path(tmp).resolve()
+            prefix=root_dir/'compatdata/pfx';prefix.mkdir(parents=True)
+            (prefix/'drive_c').mkdir();(prefix/'system.reg').write_text('');(prefix/'user.reg').write_text('')
+            witnesses=session.InstallerWitnesses(root_dir);before=witnesses.snapshot()
+            root=prefix/'drive_c/Program Files/Common Files/VST3';root.mkdir(parents=True)
+            image=bytearray(128);image[:2]=b'MZ';image[60:64]=(64).to_bytes(4,'little')
+            image[64:68]=b'PE\0\0';image[68:70]=(0x8664).to_bytes(2,'little')
+            image[86:88]=(0x2000).to_bytes(2,'little')
+            standalone=root/'Effect.vst3';standalone.write_bytes(image)
+            bundled=root/'Instrument.vst3/Contents/x86_64-win/Instrument.vst3'
+            bundled.parent.mkdir(parents=True);bundled.write_bytes(image)
+            (root/'Unrecognised.vst3').write_bytes(b'Not a PE module')
+            (prefix/'user.reg').write_text('[Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\Reference]\n"DisplayName"="Reference"\n"InstallLocation"="C:\\\\Program Files\\\\Common Files\\\\VST3"\n')
+            after=witnesses.snapshot();value=witnesses.compare(before,after)
+            self.assertEqual(value['classification'],'installed')
+            self.assertEqual(value['application_registrations'][0]['images'],[
+                'Program Files/Common Files/VST3/Effect.vst3',
+                'Program Files/Common Files/VST3/Instrument.vst3/Contents/x86_64-win/Instrument.vst3'])
+            self.assertEqual(value['postinstall_launch'],'unproved')
+            self.assertTrue(all(after['files'][p]['sha256'] for p in value['application_registrations'][0]['images']))
+            outside={**after,'uninstall':{'other':{'InstallLocation':'C:\\Elsewhere'}}}
+            self.assertEqual(witnesses.compare(before,outside)['classification'],'partial_installation')
+
     def test_removal_only_durable_surfaces_are_partial_and_keep_exact_delta(self):
         for category,record in [('files',{'sha256':'ab','format':'pe_executable'}),
                                 ('uninstall',{'InstallLocation':'C:\\Fixture'}),

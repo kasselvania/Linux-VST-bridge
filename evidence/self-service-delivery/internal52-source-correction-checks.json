@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "basis_head": "e9107f4685182cc6de4390beddb4b2044c342622",
+  "changed_source_files": {
+    "bridge-manager/src/main.rs": "3453185a75062414615f0bf4bba4a75a62214156c3ab7f5e9c7389d0c4b0d37c",
+    "bridge-manager/runtime/session.py": "11b6faf7a577b84f50694c9c6b93261e09413484e50beb1fef9c7fe261e948bf",
+    "bridge-manager/runtime/test_session.py": "0502fb39b225941a75f9467c690340dc580255e375e5cf0032a92d2e6b866acf"
+  },
+  "claim": "source_correction_checks_only_not_installed_acceptance",
+  "changes": [
+    "Authenticate the DAW-selected host-visible private Xauthority as the same file; preserve exact namespace-alias rules.",
+    "Contain OS thread-creation failure for runtime preparation and request workers; retain bounded unclassified refusal and exact worker-count cleanup."
+  ],
+  "checks": {
+    "graphical_filesystem_cases": {
+      "passed": 14,
+      "failed": 0
+    },
+    "manager_binary": {
+      "passed": 282,
+      "failed": 0,
+      "existing_optional_ignored": 2,
+      "test_threads": 1
+    },
+    "clippy_all_targets": {
+      "warnings_denied": true,
+      "exit_code": 0
+    }
+  },
+  "builder": {
+    "cpu_max": "100000 100000",
+    "memory_max_bytes": 2684354560,
+    "memory_swap_max_bytes": 0,
+    "pids_max": 256,
+    "task_limit_hits": 0,
+    "memory_max_events": 0,
+    "oom_events": 0
+  },
+  "installed_predecessor_results": {
+    "internal51_restoration": "passed on declared Openbox fixture after preserved GNOME resource failure",
+    "internal51_sdk": "failed before processing; retained unchanged",
+    "successor_installed_validation": "pending"
+  },
+  "test_logs": "Privately retained under restart-validation/internal52-*.log on the bounded builder",
+  "forbidden_data_exported": false
+}

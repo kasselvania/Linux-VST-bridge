@@ -38,6 +38,7 @@ fn wait(shared: &Shared, condition: impl Fn() -> bool) {
 #[test]
 #[ignore = "requires the built Windows LC1 fixture and pinned-runner launcher"]
 fn same_session_reconfiguration_two_ended() {
+        let _registry_owner = crate::registry_test();
     let root =
         PathBuf::from(std::env::var_os("LVB_LC1_DIRECTORY").expect("private empty test directory"));
     assert!(root.is_dir() && fs::read_dir(&root).unwrap().next().is_none());
@@ -132,7 +133,8 @@ fn same_session_reconfiguration_two_ended() {
             });
             let result = shared.results.pop().expect("exact completed result");
             assert_eq!((result.epoch, result.audio.position), (epoch, block * 256));
-            assert_eq!(result.audio.data, [[0.125; CAP], [-0.25; CAP]]);
+            assert_eq!(result.audio.data[0][..256], [0.125; 256]);
+            assert_eq!(result.audio.data[1][..256], [-0.25; 256]);
         }
         assert_eq!(unsafe { ap3_transition(handle, STOP) }, 0);
         wait(&shared, || {

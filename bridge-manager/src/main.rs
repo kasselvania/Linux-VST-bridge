@@ -10,6 +10,7 @@ mod vendor_product_cli;
 mod operator_cli;
 mod readiness;
 mod installer_import;
+mod installer_source;
 mod onboarding;
 mod daw_workspace;
 mod preparation_cli;
@@ -55,11 +56,153 @@ enum KeeperAvailability { Starting, Retiring, Ready, Failed }
 
 const KEEPER_OWNER_STARTUP_SECONDS: u64 = 60;
 const KEEPER_MANAGER_RETIRE_SECONDS: u64 = 62;
-const KEEPER_ADMISSION_SECONDS: u64 = 65;
+
+fn prepare_recovery_bindings(
+    m: &Manager,
+    software: &Software,
+    registrations: Vec<Registration>,
+    verification: &LaunchVerification,
+    deadline: Instant,
+) -> Result<(Vec<(Registration, Software)>, LaunchSnapshot)> {
+    verification.prepare(deadline, || {
+        registrations.into_iter().map(|registration| {
+            registration.verify(&m.root)?;
+            let execution = package_authority::paired_components(m, software, &registration)?;
+            Ok((registration, execution))
+        }).collect()
+    })
+}
+
+fn require_recovery_registration(m: &Manager, registration: &Registration) -> Result<()> {
+    m.require_inactive(None)?;
+    require(m.registry()?.classes.get(&registration.metadata.class_id)
+        .is_some_and(|entry| entry.registration == *registration),
+        "service_recovery_registration_changed")
+}
+
+fn verify_recovery_binding(m: &Manager, selected: &Software,
+    registration: &Registration, execution: &Software) -> Result<()> {
+    require_recovery_registration(m, registration)?;
+    registration.verify(&m.root)?;
+    require(package_authority::paired_components(m, selected, registration)? == *execution,
+        "service_recovery_components_changed")
+}
+
+fn stage_recovery_keeper(m: &Manager, execution: &Software, registration: &Registration,
+    keepers: &Keepers, ready_owners: &mut std::collections::BTreeMap<String, String>)
+    -> Result<KeeperAvailability> {
+    require_recovery_registration(m, registration)?;
+    let binding: HostBinding = registration.clone().into();
+    let readiness = stage_keeper(m, execution, &binding, keepers, None)?;
+    if readiness == KeeperAvailability::Ready {
+        let session = keeper_session(keepers, &registration.environment.id)?
+            .ok_or("ready_keeper_ownership_missing")?;
+        let expected = ready_owners.entry(registration.environment.id.clone())
+            .or_insert_with(|| session.clone());
+        require(*expected == session, "service_recovery_owner_changed")?;
+    }
+    Ok(readiness)
+}
+
+fn restore_recovery_bindings<R>(
+    bindings: &[(Registration, Software)], deadline: Instant,
+    mut reserve: impl FnMut() -> Result<R>,
+    mut stage: impl FnMut(&Registration, &Software) -> Result<KeeperAvailability>,
+    mut verify: impl FnMut(&Registration, &Software) -> Result<()>,
+    mut pause: impl FnMut(Duration),
+) -> Result<()> {
+    // Start each exact environment before waiting for any one Wine startup.
+    // Starting is retained ownership, never a readiness acknowledgment.
+    for (registration, execution) in bindings {
+        require(Instant::now() < deadline, "service_recovery_deadline")?;
+        let _admission = reserve()?;
+        if stage(registration, execution)? == KeeperAvailability::Failed {
+            return Err(capacity::Refusal::BindingInvalid.into());
+        }
+    }
+    for (registration, execution) in bindings {
+        let _admission = wait_for_keeper(deadline, &mut reserve,
+            || stage(registration, execution), &mut pause)?;
+    }
+    // Upstream startup creates hard links into its mutable runtime copy. Full
+    // byte verification belongs after every owned keeper is ready, outside
+    // registry ownership; neither a timestamp nor a busy readback is readiness.
+    for (registration, execution) in bindings {
+        require(Instant::now() < deadline, "service_recovery_deadline")?;
+        verify(registration, execution)?;
+    }
+    // Take fresh authority after verification. The stage callback rechecks the
+    // exact registration and owner; any changed/starting owner refuses the ack.
+    let _admission = reserve()?;
+    for (registration, execution) in bindings {
+        require(stage(registration, execution)? == KeeperAvailability::Ready,
+            "service_recovery_owner_changed")?;
+    }
+    require(Instant::now() < deadline, "service_recovery_deadline")
+}
+
+// Startup work runs on a control worker. Waiting for the shared environment
+// owner releases the registry reservation, so scans and status requests cannot
+// be serialized behind cold Wine initialization. Every retry rechecks capacity
+// and exact publication authority before a DSP lease can become visible.
+fn wait_for_keeper<R>(deadline: Instant, mut reserve: impl FnMut() -> Result<R>,
+    mut stage: impl FnMut() -> Result<KeeperAvailability>,
+    mut pause: impl FnMut(Duration)) -> Result<R> {
+    loop {
+        if Instant::now() >= deadline { return Err(capacity::Refusal::ServiceBusy.into()); }
+        match reserve() {
+            Ok(reservation) => match stage()? {
+                KeeperAvailability::Ready => return Ok(reservation),
+                KeeperAvailability::Failed => return Err(capacity::Refusal::BindingInvalid.into()),
+                KeeperAvailability::Starting | KeeperAvailability::Retiring => drop(reservation),
+            },
+            Err(error) if error.downcast_ref::<capacity::Refusal>()
+                == Some(&capacity::Refusal::ServiceBusy) => {},
+            Err(error) => return Err(error),
+        }
+        pause(Duration::from_millis(20).min(deadline.saturating_duration_since(Instant::now())));
+    }
+}
+
+struct NativeStartup<'a> {
+    manager: &'a Manager,
+    request: [u8; 16],
+    class: String,
+    started: Instant,
+    phases: Vec<(&'static str, u64)>,
+    finished: bool,
+}
+impl<'a> NativeStartup<'a> {
+    fn new(manager: &'a Manager, request: [u8; 16], class: String) -> Self {
+        Self { manager, request, class, started: Instant::now(),
+            phases: vec![("request_received", 0)], finished: false }
+    }
+    fn phase(&mut self, name: &'static str) {
+        if self.phases.len()<16 {
+            self.phases.push((name, self.started.elapsed().as_millis() as u64));
+        }
+    }
+    fn finish(&mut self, outcome: &'static str) {
+        self.finished = true;
+        let directory = self.manager.root.join("runtime/native-startup");
+        let retained = (|| -> Result<()> {
+            private_dir(&directory)?;
+            atomic_json(&directory.join(format!("{}.json", self.class.to_ascii_lowercase())),
+                &serde_json::json!({"schema":1,"class_id":self.class,
+                    "request":hex(&self.request),"observed_at":observation::now()?,
+                    "outcome":outcome,"phases":self.phases,
+                    "total_ms":self.started.elapsed().as_millis() as u64}))
+        })();
+        if retained.is_err() { eprintln!("native startup measurement unavailable"); }
+    }
+}
+impl Drop for NativeStartup<'_> {
+    fn drop(&mut self) { if !self.finished { self.finish("refused"); } }
+}
 
 fn retain_admission_incident(m:&Manager,source:&str,request:Option<[u8;16]>,
     class_id:Option<&str>,environment:Option<&str>,keeper_session:Option<&str>)->Result<()> {
-    require(matches!(source,"registry_busy"|"worker_ceiling"|"keeper_starting"|
+    require(matches!(source,"registry_busy"|"worker_ceiling"|"worker_unavailable"|"keeper_starting"|
         "keeper_retiring"|"keeper_failed"),"admission incident class")?;
     if let Some(class_id)=class_id {require(valid_hex(class_id,32),"admission incident identity")?;}
     if let Some(keeper_session)=keeper_session {require(valid_hex(keeper_session,32),"admission incident identity")?;}
@@ -110,6 +253,21 @@ fn retain_keeper_incident(m:&Manager,keepers:&Keepers,status:KeeperAvailability,
 }
 
 type Keepers = Mutex<Vec<KeeperOwner>>;
+fn refuse_unclassified_worker(manager: &Manager, peer: Option<&mut UnixStream>, source: &str) {
+    // No worker exists to authenticate/classify this request. Retain a service
+    // incident and grant no session; the same bounded refusal covers the
+    // configured worker ceiling and an actual OS thread-creation failure.
+    if let Err(error) = retain_admission_incident(manager, source, None, None, None, None) {
+        eprintln!("admission incident unavailable: {error}");
+    }
+    if let Some(peer) = peer {
+        if peer.set_write_timeout(Some(Duration::from_millis(100))).is_ok() {
+            let _ = startup_reply(peer,
+                &ap1_native_client::admission::refused([0; 16], capacity::Refusal::ServiceBusy));
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct SessionSpec {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -194,11 +352,11 @@ impl Drop for PendingAdmission {
         }
     }
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 struct ClassSelection {
     class_id: String,
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 struct HostBinding {
     metadata: ClassSelection,
     environment: Environment,
@@ -221,7 +379,7 @@ impl From<Registration> for HostBinding {
         }
     }
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct InspectionRequest {
     environment_id: String,
@@ -256,6 +414,51 @@ fn exact_inspection_greetings_share_admission_and_dispatch() {
     for invalid in [b"LVQ7\n".as_slice(), b"LVQ6", b"lvq6\n", b"LVQ6\nextra"] {
         assert_eq!(inspection_purpose(invalid), None);
     }
+}
+
+#[test]
+fn cold_keeper_wait_releases_reservation_and_rechecks_each_attempt() {
+    use std::cell::Cell;
+    struct Reservation<'a>(&'a Cell<bool>);
+    impl Drop for Reservation<'_> { fn drop(&mut self) { self.0.set(false); } }
+    let held=Cell::new(false);
+    let stages=Cell::new(0);
+    let pauses=Cell::new(0);
+    let reservation=wait_for_keeper(Instant::now()+Duration::from_secs(1),|| {
+        assert!(!held.replace(true));
+        Ok(Reservation(&held))
+    },|| {
+        assert!(held.get());
+        stages.set(stages.get()+1);
+        Ok(if stages.get()<3 {KeeperAvailability::Starting} else {KeeperAvailability::Ready})
+    }, |_| {
+        assert!(!held.get());
+        pauses.set(pauses.get()+1);
+    }).unwrap();
+    assert!(held.get());
+    assert_eq!((stages.get(),pauses.get()),(3,2));
+    drop(reservation);
+    assert!(!held.get());
+}
+
+#[test]
+fn keeper_wait_retries_only_busy_and_never_hides_failure_or_deadline() {
+    let mut reservations=0;
+    let mut pauses=0;
+    wait_for_keeper(Instant::now()+Duration::from_secs(1),|| {
+        reservations+=1;
+        if reservations==1 {Err(capacity::Refusal::ServiceBusy.into())} else {Ok(())}
+    },|| Ok(KeeperAvailability::Ready),|_| pauses+=1).unwrap();
+    assert_eq!((reservations,pauses),(2,1));
+    let error=wait_for_keeper(Instant::now()+Duration::from_secs(1),
+        || Ok(()),|| Ok(KeeperAvailability::Failed),|_| panic!("failed keeper retry")).unwrap_err();
+    assert_eq!(error.downcast_ref::<capacity::Refusal>(),Some(&capacity::Refusal::BindingInvalid));
+    let error=wait_for_keeper::<()>(Instant::now(),|| panic!("expired reservation"),
+        || panic!("expired preparation"),|_| panic!("expired pause")).unwrap_err();
+    assert_eq!(error.downcast_ref::<capacity::Refusal>(),Some(&capacity::Refusal::ServiceBusy));
+    assert!(wait_for_keeper::<()>(Instant::now()+Duration::from_secs(1),
+        || Err("capacity unavailable".into()),|| panic!("no admission"),
+        |_| panic!("non-busy retry")).is_err());
 }
 fn software(m: &Manager) -> Result<Software> {
     let s: Software = read_json(&m.root.join("software.json"))?;
@@ -589,7 +792,9 @@ fn spec(
     if onboarding_home {
         if keeper {
             let current:Software=read_json(&m.root.join("software.json"))?;
-            require(r.host==current.host && r.host_source_sha256==current.source_sha256,"keeper_software_binding_changed")?;
+            let paired=if r.host==current.host && r.host_source_sha256==current.source_sha256 {current}
+                else {package_authority::paired_host_components(m,&current,&r.host,&r.host_source_sha256)?};
+            require(r.host==paired.host && r.host_source_sha256==paired.source_sha256,"keeper_software_binding_changed")?;
             require(onboarding::history_records(m)?.iter().any(|h|h.environment==r.environment),"keeper_environment_binding_changed")?;
         } else if inspect && onboarding::history_records(m)?.iter().any(|h|h.environment==r.environment) {
             // The maintenance inspector is independently installed and may be
@@ -630,7 +835,7 @@ fn spec(
     atomic_json(&path, &s)?;
     Ok((s, path))
 }
-fn spawn(s: &Software, path: &Path, peer: Option<UnixStream>) -> Result<Child> {
+fn spawn(m: &Manager, s: &Software, path: &Path, peer: Option<UnixStream>) -> Result<Child> {
     s.supervisor.verify()?;
     s.ownership.verify()?;
     let bound_peer = peer.is_some();
@@ -640,6 +845,8 @@ fn spawn(s: &Software, path: &Path, peer: Option<UnixStream>) -> Result<Child> {
         Stdio::null()
     };
     let job: SessionSpec = read_json(path)?;
+    record_lease_generation(&job)?;
+    m.retain_lease_owner(path)?;
     atomic_json(&job.lease, &job.report)?;
     let child = Command::new("/usr/bin/python3")
         .arg(&s.supervisor.path)
@@ -653,13 +860,86 @@ fn spawn(s: &Software, path: &Path, peer: Option<UnixStream>) -> Result<Child> {
     }
     Ok(child?)
 }
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LeaseGeneration {
+    schema: u32,
+    session: String,
+    report: PathBuf,
+    kernel_boot: String,
+    basis: LeaseGenerationBasis,
+}
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum LeaseGenerationBasis { BeforeLaunch, StoppedServiceObservation }
+fn valid_kernel_boot(value: &str) -> bool {
+    value.len() == 36 && value.bytes().enumerate().all(|(index, byte)| {
+        if matches!(index, 8 | 13 | 18 | 23) { byte == b'-' }
+        else { byte.is_ascii_digit() || matches!(byte, b'a'..=b'f') }
+    })
+}
+fn kernel_boot() -> Result<Option<String>> {
+    #[cfg(target_os = "linux")]
+    {
+        let boot = fs::read_to_string("/proc/sys/kernel/random/boot_id")?.trim().to_owned();
+        require(valid_kernel_boot(&boot), "kernel_generation_identity")?;
+        Ok(Some(boot))
+    }
+    #[cfg(not(target_os = "linux"))]
+    { Ok(None) }
+}
+fn record_lease_generation(job: &SessionSpec) -> Result<()> {
+    let boot = kernel_boot()?.ok_or("session_requires_linux_kernel_identity")?;
+    let runtime = job.lease.parent().and_then(Path::parent).ok_or("lease_generation_path")?;
+    require(job.lease == runtime.join("leases").join(format!("{}.json", job.session))
+        && job.report.parent() == Some(runtime.join("results").as_path())
+        && valid_hex(&job.session, 32), "lease_generation_binding")?;
+    let directory = runtime.join("lease-generations");
+    private_dir(&directory)?;
+    let path = directory.join(format!("{}.json", job.session));
+    require(!path.try_exists()?, "lease_generation_already_owned")?;
+    // Persist the kernel lifetime before a lease or process can exist. A later
+    // manager may prove interruption without recycling a PID or inventing a
+    // successful plug-in result. Historical leases receive no inferred boot.
+    atomic_json(&path, &LeaseGeneration {schema:1, session:job.session.clone(),
+        report:job.report.clone(), kernel_boot:boot, basis:LeaseGenerationBasis::BeforeLaunch})
+}
+// Caller has stopped the exact selected service and holds registry.lock. This
+// is a current observation, never an inference about a historical launch. Only
+// a subsequent kernel restart can retire these unresolved keeper leases.
+fn observe_stopped_leases(m: &Manager, boot: Option<&str>) -> Result<bool> {
+    let Some(boot) = boot else { return Ok(false); };
+    require(valid_kernel_boot(boot), "kernel_generation_identity")?;
+    let owners = capacity::owners(m)?;
+    require(owners.iter().all(|owner| owner.kind == capacity::Kind::Keeper),
+        "package_owner_active")?;
+    let directory = m.root.join("runtime/lease-generations");
+    private_dir(&directory)?;
+    for owner in &owners {
+        let lease = m.root.join("runtime/leases").join(format!("{}.json", owner.session));
+        let report: PathBuf = read_json(&lease)?;
+        let path = directory.join(format!("{}.json", owner.session));
+        if !path.try_exists()? {
+            atomic_json(&path, &LeaseGeneration { schema:1, session:owner.session.clone(),
+                report, kernel_boot:boot.into(), basis:LeaseGenerationBasis::StoppedServiceObservation })?;
+        }
+    }
+    Ok(!owners.is_empty())
+}
 fn reconcile_leases(m: &Manager) -> Result<bool> {
+    reconcile_leases_in_kernel(m, kernel_boot()?.as_deref())
+}
+fn reconcile_leases_in_kernel(m: &Manager, boot: Option<&str>) -> Result<bool> {
+    require(boot.is_none_or(valid_kernel_boot), "kernel_generation_identity")?;
     let directory = m.root.join("runtime/leases");
     private_dir(&directory)?;
     let mut unconfirmed = false;
     for entry in fs::read_dir(directory)? {
         let path = entry?.path();
         let report: PathBuf = read_json(&path)?;
+        let session = path.file_stem().and_then(|name| name.to_str()).ok_or("lease_session_identity")?;
+        require(valid_hex(session, 32) && path.file_name().and_then(|name| name.to_str())
+            == Some(format!("{session}.json").as_str()), "lease_session_identity")?;
         require(
             report.parent() == Some(m.root.join("runtime/results").as_path()),
             "lease report outside owned results",
@@ -685,7 +965,27 @@ fn reconcile_leases(m: &Manager) -> Result<bool> {
         };
         match proof {
             Ok(r) if r["cleanup_confirmed"] == true => fs::remove_file(path)?,
-            _ => unconfirmed = true,
+            _ => {
+                let generation_path = m.root.join("runtime/lease-generations")
+                    .join(format!("{session}.json"));
+                if generation_path.try_exists()? {
+                    let generation: LeaseGeneration = read_json(&generation_path)?;
+                    require(generation.schema == 1 && generation.session == session
+                        && generation.report == report && valid_kernel_boot(&generation.kernel_boot),
+                        "lease_generation_binding")?;
+                    if boot.is_some_and(|current| current != generation.kernel_boot) {
+                        let interrupted = generation_path.with_extension("interrupted.json");
+                        atomic_json(&interrupted, &serde_json::json!({"schema":1,
+                            "session":session,"retirement_basis":"kernel_generation_ended",
+                            "observation_basis":generation.basis,
+                            "cleanup_confirmed":true,"transport_retired":true,
+                            "successful_session":false}))?;
+                        fs::remove_file(path)?;
+                        continue;
+                    }
+                }
+                unconfirmed = true;
+            },
         }
     }
     Ok(unconfirmed)
@@ -753,7 +1053,7 @@ fn stage_keeper(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keepers,
     graphical_session:Option<&transport_storage::GraphicalSession>)
     -> Result<KeeperAvailability> {
     stage_keeper_with_history(m,s,r,keepers,graphical_session,
-        experimental_runner::verify_selected_bg1_history,|software,path|spawn(software,path,None))
+        experimental_runner::verify_selected_bg1_history,|software,path|spawn(m,software,path,None))
 }
 
 fn stage_keeper_with_history(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keepers,
@@ -811,18 +1111,6 @@ fn stage_keeper_with_history(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keep
     Ok(KeeperAvailability::Starting)
 }
 
-fn ensure_keeper(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keepers)->Result<()> {
-    let deadline=Instant::now()+Duration::from_secs(KEEPER_ADMISSION_SECONDS);
-    loop {
-        match stage_keeper(m,s,r,keepers,None)? {
-            KeeperAvailability::Ready=>return Ok(()),
-            KeeperAvailability::Failed=>return Err("environment keeper failed".into()),
-            KeeperAvailability::Starting|KeeperAvailability::Retiring=>{}
-        }
-        if Instant::now()>=deadline {return Err("environment startup deadline".into())}
-        std::thread::sleep(Duration::from_millis(20));
-    }
-}
 // Worker admission and DSP ownership are separate. Full musical capacity still
 // leaves bounded classifier capacity for truthful refusals and status.
 struct WorkerCount(Arc<AtomicUsize>);
@@ -931,6 +1219,8 @@ fn finish_supervised_delivery(context:SupervisorDelivery<'_>,delivery:Result<()>
         // that additional projection could not be written.
         let terminal=capacity::retain_terminal_summary(context.manager,context.session,
             context.class_id,context.report);
+        let (_registry, _) = context.manager.lock_bounded(operator_model::OperatorLock::Registry,
+            operator_model::LockPurpose::ServiceRecovery, None, Duration::from_secs(2))?;
         admission.complete(context.session,status.success(),&disposition,context.transport)?;
         terminal
     })();
@@ -975,6 +1265,22 @@ fn serve(m: Manager) -> Result<()> {
     }
     let listener = UnixListener::bind(address)?;
     let manager = Arc::new(m);
+    let launch_verification = Arc::new(LaunchVerification::default());
+    // Warm the owned runtime outside the interactive request and registry
+    // locks. The listener still serves setup/recovery while bytes are read.
+    // A concurrent native request shares this bounded preparation; it does
+    // not start an independent multi-gigabyte verification race.
+    let warm_manager = manager.clone();
+    let warm_verification = launch_verification.clone();
+    let _runtime_preparation = std::thread::Builder::new().spawn(move || {
+        let result = warm_verification.prepare(
+            Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS),
+            || runtime_delivery::installed(&warm_manager).map(|_| ()));
+        if result.is_err() { eprintln!("owned runtime preparation unavailable; launch will verify its exact binding"); }
+    });
+    if let Err(error) = &_runtime_preparation {
+        eprintln!("owned runtime preparation worker unavailable: {error}");
+    }
     // A service restart cannot turn missing cleanup into a fresh admission.
     // Clean reports retire their leases; uncertain ones remain inspectable.
     let blocked = Arc::new(AtomicBool::new(reconcile_leases(&manager)?));
@@ -988,49 +1294,85 @@ fn serve(m: Manager) -> Result<()> {
         if threads.len() >= limits.service_workers {
             // Classification itself is unavailable. This bounded zero-token
             // refusal cannot convey a session or acknowledge a stale request.
-            if let Err(error)=retain_admission_incident(&manager,"worker_ceiling",None,
-                None,None,None) {
-                eprintln!("admission incident unavailable: {error}");
-            }
-            if peer
-                .set_write_timeout(Some(Duration::from_millis(100)))
-                .is_ok()
-            {
-                let _ = startup_reply(
-                    &mut peer,
-                    &ap1_native_client::admission::refused([0; 16], capacity::Refusal::ServiceBusy),
-                );
-            }
+            refuse_unclassified_worker(&manager, Some(&mut peer), "worker_ceiling");
             continue;
         }
+        // Keep a control-plane descriptor for refusal if the OS cannot create
+        // the worker. Failure to duplicate it still grants no execution and
+        // must not stop the service's already-owned sessions.
+        let mut refusal_peer = peer.try_clone().ok();
         let m = manager.clone();
         let s = s.clone();
         let blocked = blocked.clone();
         let keepers = keepers.clone();
+        let launch_verification = launch_verification.clone();
         let limits = limits.clone();
         let workers = workers.clone();
         workers.fetch_add(1, Ordering::AcqRel);
         let worker_count = WorkerCount(workers.clone());
-        threads.push(std::thread::spawn(move || {
+        let launched = std::thread::Builder::new().spawn(move || {
             let _worker_count=worker_count;
             let outcome = (|| -> Result<()> {
                 peer.set_read_timeout(Some(Duration::from_secs(5)))?;
                 let mut greeting = [0; 53];
                 peer.read_exact(&mut greeting[..5])?;
+                if &greeting[..5]==b"LVE2\n" {
+                    // Maintenance admitted no active DSP. Restore control
+                    // service availability only; native admission owns exact
+                    // environment initialization and processing readiness.
+                    peer.read_exact(&mut greeting[5..37])?;
+                    let operation=std::str::from_utf8(&greeting[5..37])?;
+                    require(valid_hex(operation,32),"operator_resume_request_identity")?;
+                    let _admission=capacity::reserve_maintenance_until(&m,&limits,
+                        || blocked.load(Ordering::Acquire),
+                        Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS))?;
+                    m.require_inactive(None)?;
+                    operator_cli::authorize_service_resume(&m,operation,&s)?;
+                    peer.set_write_timeout(Some(Duration::from_secs(1)))?;
+                    peer.write_all(b"LVE2 control ready\n")?;
+                    return Ok(());
+                }
                 if &greeting[..5]==b"LVE1\n" {
                     // MF1 resumes keeper ownership after exclusive vendor work.
                     // Selection comes only from current registered environments.
-                    let _admission=capacity::reserve(&m,&limits,None,blocked.load(Ordering::Acquire))?;
-                    m.require_inactive(None)?;
-                    let mut environments=std::collections::BTreeSet::new();
-                    for entry in m.registry()?.classes.into_values() {
-                        let r=entry.registration;
-                        if environments.insert(r.environment.id.clone()) {
-                            r.verify(&m.root)?;
-                            ensure_keeper(&m,&s,&r.into(),&keepers)?;
-                        }
-                    }
-                    peer.write_all(b"LVE1 ready\n")?;return Ok(());
+                    let deadline=Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS);
+                    let registrations={
+                        let _admission=capacity::reserve_maintenance_until(&m,&limits,
+                            || blocked.load(Ordering::Acquire),deadline)?;
+                        m.require_inactive(None)?;
+                        let mut environments=std::collections::BTreeSet::new();
+                        m.registry()?.classes.into_values().map(|entry|entry.registration)
+                            .filter(|r|environments.insert(r.environment.id.clone()))
+                            .collect::<Vec<_>>()
+                    };
+                    // Restoration launches the same exact environments as native
+                    // admission. Share this process's byte preparation with its
+                    // startup warm-up; never hash the entire runtime independently
+                    // for every registration or keeper-stage retry. Preparation
+                    // owns no registry reservation, and its snapshot reopens and
+                    // rechecks file identity throughout the subsequent launch.
+                    let (bindings,verified)=prepare_recovery_bindings(&m,&s,
+                        registrations,&launch_verification,deadline)?;
+                    return verified.run(|| {
+                        let mut ready_owners=std::collections::BTreeMap::new();
+                        restore_recovery_bindings(&bindings, deadline,
+                                || capacity::reserve_maintenance_until(&m,&limits,
+                                    || blocked.load(Ordering::Acquire),deadline),
+                                |registration, execution| {
+                                    stage_recovery_keeper(&m,execution,registration,&keepers,&mut ready_owners)
+                                }, |registration, execution| {
+                                    // Commit fresh observations after upstream
+                                    // preparation, without holding registry
+                                    // ownership or reusing a persisted cache.
+                                    launch_verification.prepare(deadline, ||
+                                        verify_recovery_binding(&m,&s,registration,execution))?;
+                                    Ok(())
+                                },
+                                std::thread::sleep)?;
+                        peer.set_write_timeout(Some(Duration::from_secs(1)))?;
+                        peer.write_all(b"LVE1 ready\n")?;
+                        Ok(())
+                    });
                 }
                 if &greeting[..5]==b"LVC1\n" {
                     let value=match capacity::status(&m,limits.clone(),workers.load(Ordering::Acquire),blocked.load(Ordering::Acquire)) {
@@ -1052,18 +1394,32 @@ fn serve(m: Manager) -> Result<()> {
                     let mut size=[0;4];peer.read_exact(&mut size)?;
                     let size=u32::from_le_bytes(size) as usize;require(size<=65536,"inspection_request_bound")?;
                     let mut bytes=vec![0;size];peer.read_exact(&mut bytes)?;
-                    let _admission=capacity::reserve(&m,&limits,None,blocked.load(Ordering::Acquire))?;
-                    m.require_inactive(None)?;
-                    let request=serde_json::from_slice(&bytes)?;
-                    let r = match purpose {
-                        Some(purpose) => qualification_binding(&m, request, purpose)?,
-                        None => inspection_binding(&m, request)?,
+                    let request:InspectionRequest=serde_json::from_slice(&bytes)?;
+                    let select=|| match purpose {
+                        Some(purpose) => qualification_binding(&m, request.clone(), purpose),
+                        None => inspection_binding(&m, request.clone()),
                     };
-                    ensure_keeper(&m,&s,&r,&keepers)?;
+                    let (r,execution)={
+                        let _admission=capacity::reserve_maintenance(&m,&limits,
+                            || blocked.load(Ordering::Acquire))?;
+                        m.require_inactive(None)?;
+                        let r=select()?;
+                        let execution=package_authority::paired_host_components(&m,&s,&r.host,&r.host_source_sha256)?;
+                        (r,execution)
+                    };
+                    let _admission=wait_for_keeper(
+                        Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS),
+                        || capacity::reserve_maintenance(&m,&limits,
+                            || blocked.load(Ordering::Acquire)),
+                        || {
+                            m.require_inactive(None)?;
+                            require(select()?==r,"inspection_binding_changed")?;
+                            stage_keeper(&m,&execution,&r,&keepers,None)
+                        },std::thread::sleep)?;
                     let (mut job,path)=spec(&m,r,true,false,false)?;
                     let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
                     job.shared_inspection=true;atomic_json(&path,&job)?;
-                    let mut child=spawn(&s,&path,None)?;
+                    let mut child=spawn(&m,&execution,&path,None)?;
                     if let Err(readiness)=supervisor_ready(&mut child,&job.session,
                         Duration::from_secs(4)) {
                         retire_unready_supervisor(&mut child,&path)?;
@@ -1073,6 +1429,8 @@ fn serve(m: Manager) -> Result<()> {
                     drop(_admission);
                     let status=child.wait()?;
                     let mut disposition=String::new();if let Some(stdout)=child.stdout.take(){stdout.take(128).read_to_string(&mut disposition)?;}
+                    let (_registry, _) = m.lock_bounded(operator_model::OperatorLock::Registry,
+                        operator_model::LockPurpose::ServiceRecovery, None, Duration::from_secs(2))?;
                     pending.complete(&job.session,status.success(),&disposition,None)?;
                     let reply=serde_json::to_vec(&job.report)?;
                     require(reply.len()<=4096,"inspection_reply_bound")?;
@@ -1083,14 +1441,28 @@ fn serve(m: Manager) -> Result<()> {
                     let mut size=[0;4];peer.read_exact(&mut size)?;
                     let size=u32::from_le_bytes(size) as usize;require(size<=65536,"vendor access request bound")?;
                     let mut bytes=vec![0;size];peer.read_exact(&mut bytes)?;
-                    let _admission=capacity::reserve(&m,&limits,None,blocked.load(Ordering::Acquire))?;
-                    m.require_inactive(None)?;
-                    let r=inspection_binding(&m,serde_json::from_slice(&bytes)?)?;
-                    ensure_keeper(&m,&s,&r,&keepers)?;
+                    let request:InspectionRequest=serde_json::from_slice(&bytes)?;
+                    let (r,execution)={
+                        let _admission=capacity::reserve_maintenance(&m,&limits,
+                            || blocked.load(Ordering::Acquire))?;
+                        m.require_inactive(None)?;
+                        let r=inspection_binding(&m,request.clone())?;
+                        let execution=package_authority::paired_host_components(&m,&s,&r.host,&r.host_source_sha256)?;
+                        (r,execution)
+                    };
+                    let _admission=wait_for_keeper(
+                        Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS),
+                        || capacity::reserve_maintenance(&m,&limits,
+                            || blocked.load(Ordering::Acquire)),
+                        || {
+                            m.require_inactive(None)?;
+                            require(inspection_binding(&m,request.clone())?==r,"vendor_access_binding_changed")?;
+                            stage_keeper(&m,&execution,&r,&keepers,None)
+                        },std::thread::sleep)?;
                     let (mut job,path)=spec(&m,r,false,false,false)?;
                     job.vendor_access=true;atomic_json(&path,&job)?;
                     let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
-                    let mut child=spawn(&s,&path,None)?;
+                    let mut child=spawn(&m,&execution,&path,None)?;
                     if let Err(readiness)=supervisor_ready(&mut child,&job.session,
                         Duration::from_secs(4)) {
                         retire_unready_supervisor(&mut child,&path)?;
@@ -1101,6 +1473,8 @@ fn serve(m: Manager) -> Result<()> {
                     let _=peer.write_all(format!("Vendor access {}: editor only; no DAW audio or project recall. Close its window to finish.\n",job.session).as_bytes());
                     let status=child.wait()?;
                     let mut disposition=String::new();if let Some(stdout)=child.stdout.take(){stdout.take(128).read_to_string(&mut disposition)?;}
+                    let (_registry, _) = m.lock_bounded(operator_model::OperatorLock::Registry,
+                        operator_model::LockPurpose::ServiceRecovery, None, Duration::from_secs(2))?;
                     pending.complete(&job.session,status.success(),&disposition,None)?;
                     peer.write_all(b"Vendor access retired.\n")?;return Ok(());
                 }
@@ -1111,23 +1485,23 @@ fn serve(m: Manager) -> Result<()> {
                 let mut request=[0u8;16];
                 if version3 {peer.read_exact(&mut request)?;require(request!=[0;16],"admission request identity")?;}
                 peer.set_write_timeout(Some(Duration::from_secs(5)))?;
+                let class=hex(&greeting[5..21]).to_uppercase();
+                let mut startup=NativeStartup::new(&m,request,class.clone());
+                // Leave room for the four-second supervisor handshake within
+                // the existing 65-second native admission budget.
+                let keeper_deadline=startup.started+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS);
                 let prepared=(|| -> Result<_> {
-                    let class=hex(&greeting[5..21]).to_uppercase();
-                    let _reservation=match capacity::reserve(&m,&limits,Some(&class),blocked.load(Ordering::Acquire)) {
-                        Ok(reservation)=>reservation,
-                        Err(error)=>{
-                            if error.downcast_ref::<capacity::Refusal>()==Some(&capacity::Refusal::ServiceBusy) {
-                                if let Err(incident)=retain_admission_incident(&m,"registry_busy",
-                                    Some(request),Some(&class),None,None) {
-                                    eprintln!("admission incident unavailable: {incident}");
-                                }
-                            }
-                            return Err(error);
-                        }
-                    };
-                    let registration = m.resolve(&greeting[5..])?;
-                    experimental_runner::verify_selected_bg1_history(&m, &registration.environment)?;
-                    m.verify_served_host(&registration, &s.host, &s.source_sha256, &profiles::installed_profiles()?)?;
+                    let ((registration, execution), verified)=launch_verification.prepare(keeper_deadline, || {
+                        let registration = m.resolve(&greeting[5..])?;
+                        experimental_runner::verify_selected_bg1_history(&m, &registration.environment)?;
+                        m.verify_served_host(&registration, &s.host, &s.source_sha256, &profiles::installed_profiles()?)?;
+                        let execution=package_authority::paired_components(&m,&s,&registration)?;
+                        Ok((registration, execution))
+                    })?;
+                    // Shared byte preparation is complete. All keeper and DSP
+                    // work proceeds independently, rechecking those observations
+                    // in this exact admission before exposing the binding.
+                    verified.run(|| -> Result<_> {
                     let full_registration = registration.clone();
                     let r: HostBinding = registration.into();
                     let performance = m.performance(&r.metadata.class_id)?;
@@ -1138,17 +1512,70 @@ fn serve(m: Manager) -> Result<()> {
                     // not assumed to be the host's shared memory mount.
                     transport_storage::visible_to_peer(&peer, &transport_storage::root())?;
                     let graphical_session=transport_storage::graphical_session(&peer)?;
-                    let keeper=stage_keeper(&m,&s,&r,&keepers,Some(&graphical_session))?;
-                    if keeper!=KeeperAvailability::Ready {
-                        if let Err(incident)=retain_keeper_incident(&m,&keepers,keeper,request,
-                            &r.metadata.class_id,&r.environment.id) {
-                            eprintln!("admission incident unavailable: {incident}");
-                        }
-                        return Err(match keeper {
-                            KeeperAvailability::Failed=>capacity::Refusal::BindingInvalid,
-                            _=>capacity::Refusal::ServiceBusy,
-                        }.into());
-                    }
+                    startup.phase("binding_verified");
+                    let mut observed=None;
+                    let reservation=wait_for_keeper(keeper_deadline,
+                        || capacity::reserve(&m,&limits,Some(&class),blocked.load(Ordering::Acquire)),
+                        || {
+                            let registry=m.registry()?;
+                            require(registry.classes.get(&class).is_some_and(|entry|
+                                entry.publication==Publication::Published
+                                    && entry.registration==full_registration),
+                                "publication_changed_during_startup")?;
+                            require(m.performance(&class)?==performance,"performance_changed_during_startup")?;
+                            let mut keeper=if observed==Some(KeeperAvailability::Starting) {
+                                let mut active=keepers.lock().map_err(|_|"environment ownership lock poisoned")?;
+                                observe_keeper(&r.environment.id,&mut active)?.unwrap_or(KeeperAvailability::Retiring)
+                            } else {
+                                stage_keeper(&m,&execution,&r,&keepers,Some(&graphical_session))?
+                            };
+                            if keeper==KeeperAvailability::Ready {
+                                keeper=stage_keeper(&m,&execution,&r,&keepers,Some(&graphical_session))?;
+                            }
+                            if observed!=Some(keeper) {
+                                if keeper!=KeeperAvailability::Ready {
+                                    let _=retain_keeper_incident(&m,&keepers,keeper,request,&class,&r.environment.id);
+                                    startup.phase(match keeper {
+                                        KeeperAvailability::Starting=>"keeper_starting",
+                                        KeeperAvailability::Retiring=>"keeper_retiring",
+                                        _=>"keeper_failed",
+                                    });
+                                }
+                                observed=Some(keeper);
+                            }
+                            Ok(keeper)
+                        },std::thread::sleep)?;
+                    startup.phase("keeper_ready");
+                    let ready_keeper_session=keeper_session(&keepers,&r.environment.id)?
+                        .ok_or("ready_keeper_ownership_missing")?;
+                    drop(reservation);
+                    // Runtime-copy preparation may invalidate file observations.
+                    // Reverify exact bytes only after readiness, without the
+                    // registry reservation, and publish the fresh process-owned
+                    // observations so the next load need not redo this work.
+                    let (_, ready_verified)=launch_verification.prepare(keeper_deadline, || {
+                        require(m.resolve(&greeting[5..])?==full_registration,
+                            "publication_changed_during_startup")?;
+                        require(package_authority::paired_components(&m,&s,&full_registration)?==execution,
+                            "publication_components_changed_during_startup")
+                    })?;
+                    startup.phase("ready_binding_verified");
+                    ready_verified.run(|| {
+                    let _reservation=wait_for_keeper(keeper_deadline,
+                        || capacity::reserve(&m,&limits,Some(&class),blocked.load(Ordering::Acquire)),
+                        || {
+                            let registry=m.registry()?;
+                            require(registry.classes.get(&class).is_some_and(|entry|
+                                entry.publication==Publication::Published
+                                    && entry.registration==full_registration),
+                                "publication_changed_during_startup")?;
+                            require(m.performance(&class)?==performance,
+                                "performance_changed_during_startup")?;
+                            require(keeper_session(&keepers,&r.environment.id)?.as_ref()
+                                ==Some(&ready_keeper_session),
+                                "keeper_changed_during_verification")?;
+                            stage_keeper(&m,&execution,&r,&keepers,Some(&graphical_session))
+                        },std::thread::sleep)?;
                     let (mut job, path) = spec(&m, r.clone(), false, false, false)?;
                     let storage = transport_storage::PendingTransport::new(&job.session)?;
                     job.directory = storage.directory.clone();
@@ -1159,10 +1586,29 @@ fn serve(m: Manager) -> Result<()> {
                         .unwrap_or_else(|e| { eprintln!("CA1 capture unavailable: {e}"); None });
                     atomic_json(&path, &job)?;
                     let admission = PendingAdmission::new(job.lease.clone(),blocked.clone());
+                    m.retain_lease_owner(&path)?;
                     atomic_json(&job.lease, &job.report)?;
-                    Ok((r,performance,job,path,admission,storage,graphical_session))
+                    // Recheck after all fallible preparation in this same
+                    // fresh-byte verification scope. Reopening every file
+                    // still checks its full identity; leaving the scope here
+                    // would hash the complete runtime again before delivery.
+                    let keeper=stage_keeper(&m,&execution,&r,&keepers,Some(&graphical_session))?;
+                    if keeper!=KeeperAvailability::Ready {
+                        if let Err(incident)=retain_keeper_incident(&m,&keepers,keeper,request,
+                            &r.metadata.class_id,&r.environment.id) {
+                            eprintln!("admission incident unavailable: {incident}");
+                        }
+                        return Err(match keeper {
+                            KeeperAvailability::Failed=>capacity::Refusal::BindingInvalid,
+                            _=>capacity::Refusal::ServiceBusy,
+                        }.into());
+                    }
+                    startup.phase("transport_prepared");
+                    Ok((execution,r,performance,job,path,admission,storage))
+                    })
+                    })
                 })();
-                let (r,performance,job,path,mut admission,mut storage,graphical_session)=match prepared {
+                let (execution,r,performance,job,path,mut admission,mut storage)=match prepared {
                     Ok(value)=>value,
                     Err(e)=>{
                         if version3 {
@@ -1173,26 +1619,6 @@ fn serve(m: Manager) -> Result<()> {
                         return Err(e);
                     }
                 };
-                // Recheck the exact keeper generation after all fallible
-                // preparation and immediately before exposing transport or a
-                // binding. Clean retirement is retried; uncertain retirement
-                // remains a hard refusal.
-                let keeper=stage_keeper(&m,&s,&r,&keepers,Some(&graphical_session))?;
-                if keeper!=KeeperAvailability::Ready {
-                    if let Err(incident)=retain_keeper_incident(&m,&keepers,keeper,request,
-                        &r.metadata.class_id,&r.environment.id) {
-                        eprintln!("admission incident unavailable: {incident}");
-                    }
-                    let reason=match keeper {
-                        KeeperAvailability::Failed=>capacity::Refusal::BindingInvalid,
-                        _=>capacity::Refusal::ServiceBusy,
-                    };
-                    if version3 {
-                        startup_reply(&mut peer,&ap1_native_client::admission::refused(
-                            request,reason))?;
-                    }
-                    return Err(reason.into());
-                }
                 // Deliver the private binding inside the native greeting deadline.
                 // Cold Wine startup then uses the existing bounded transport accept.
                 let reply = if version3 {
@@ -1213,7 +1639,7 @@ fn serve(m: Manager) -> Result<()> {
                 // is not ownership: the exact supervisor must first validate
                 // its immutable inputs and graphical peer and install its
                 // outer finalizer.
-                let mut child=spawn(&s,&path,Some(peer.try_clone()?))?;
+                let mut child=spawn(&m,&execution,&path,Some(peer.try_clone()?))?;
                 if let Err(readiness) = supervisor_ready(
                     &mut child,
                     &job.session,
@@ -1232,9 +1658,12 @@ fn serve(m: Manager) -> Result<()> {
                     cleanup?;
                     return Err(readiness);
                 }
+                startup.phase("supervisor_ready");
                 admission.expose();
                 storage.expose();
                 let delivery=startup_reply(&mut peer,&reply);
+                startup.phase("binding_delivered");
+                startup.finish(if delivery.is_ok() {"accepted"} else {"delivery_failed"});
                 drop(peer);
                 finish_supervised_delivery(SupervisorDelivery{manager:&m,
                     class_id:&r.metadata.class_id,report:&job.report,
@@ -1245,7 +1674,16 @@ fn serve(m: Manager) -> Result<()> {
             if let Err(e) = outcome {
                 eprintln!("Bridge instance: {e}");
             }
-        }));
+        });
+        match launched {
+            Ok(thread) => threads.push(thread),
+            Err(error) => {
+                eprintln!("bridge request worker unavailable: {error}");
+                // The unlaunched closure drops its WorkerCount and peer; no
+                // owner or admission can be exposed from this failed spawn.
+                refuse_unclassified_worker(&manager, refusal_peer.as_mut(), "worker_unavailable");
+            }
+        }
     }
     Ok(())
 }
@@ -1417,8 +1855,18 @@ fn inspect(m: &Manager, path: &Path) -> Result<()> {
     let r = inspection_binding(m, read_json(path)?)?;
     let sw = software(m)?;
     let (job, path) = spec(m, r, true, false, false)?;
-    let status = spawn(&sw, &path, None)?.wait()?;
+    let status = spawn(m,&sw, &path, None)?.wait()?;
     println!("{}", job.report.display());
+    finish_inspection(m, &job, status)
+}
+fn finish_inspection(m: &Manager, job: &SessionSpec, status: ExitStatus) -> Result<()> {
+    // A refused prelaunch still has an owned reservation. Retire it through
+    // the existing positive receipt rule before reporting the inspection error.
+    {
+        let _registry = m.lock("registry.lock")?;
+        let _unresolved = reconcile_leases(m)?;
+        require(!job.lease.try_exists()?, "inspection cleanup unconfirmed")?;
+    }
     require(status.success(), "inspection cleanup failed")?;
     let result: serde_json::Value = read_json(&job.report)?;
     require(
@@ -1480,6 +1928,13 @@ fn main() -> Result<()> {
   Some("package-activate") if args.len()==1=>package_authority::activate(&m),
   Some("package-bootstrap-status") if args.len()==1=>package_authority::bootstrap_status(&m),
   Some("package-stop-for-repair") if args.len()==1=>package_authority::stop_for_repair(&m),
+  Some("package-user-inspect") if args.len()==2=>{
+    let mut bundle=portable_package::Bundle::open(Path::new(&args[1]),portable_package::Trust::compiled()?)?;
+    bundle.verify_payload()?;
+    println!("{}",serde_json::to_string(&serde_json::json!({"schema":1,"format":"native_user_installer",
+      "key_class":bundle.key_class(),"release":bundle.release(),"staged":false,"selected":false}))?);
+    Ok(())
+  },
   #[cfg(feature = "pb0-r3-audit")]
   Some("pb0-r3-audit") if args.len()==1=>pb0_r3_audit::run(&m),
   Some("accept-editor") if args.len()==1=>managed_cli::run_acceptance(&m),
@@ -1554,6 +2009,159 @@ fn status(m: &Manager) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    fn recovery_software(f: &test_fixture::Fixture) -> Software {
+        let source_path = f.r.host.path.with_file_name("host-source-manifest.json");
+        let source = Artifact { sha256: digest(&source_path).unwrap(), path: source_path };
+        for artifact in [&f.r.host, &source] {
+            fs::set_permissions(&artifact.path, fs::Permissions::from_mode(0o500)).unwrap();
+        }
+        Software {
+            installer_launch: None, preparation_kit: None,
+            operator_frontend: Some(f.r.host.clone()),
+            manager: f.r.host.clone(), supervisor: f.r.host.clone(),
+            ownership: f.r.host.clone(), host: f.r.host.clone(),
+            source_sha256: source.sha256.clone(), source_manifest: source,
+            native_catalogue: None,
+        }
+    }
+    #[test]
+    fn service_recovery_shares_launch_preparation_but_rejects_changed_bytes() {
+        let (f, _, _, _) = test_fixture::prepared();
+        let software = recovery_software(&f);
+        let shared = LaunchVerification::default();
+        let registration = f.m.registry().unwrap().classes[&f.r.key()].registration.clone();
+        let deadline = || Instant::now() + Duration::from_secs(2);
+        // The service's startup preparation and restoration use one process's
+        // observations, while retaining the exact historical execution pair.
+        shared.prepare(deadline(), || f.r.environment.runner.verify()).unwrap();
+        let (bindings, snapshot) = prepare_recovery_bindings(&f.m, &software,
+            vec![registration.clone()], &shared, deadline()).unwrap();
+        assert_eq!(bindings.len(), 1);
+        assert_eq!(bindings[0].1.host, f.r.host);
+        snapshot.run(|| verify_recovery_binding(&f.m, &software, &registration,
+            &bindings[0].1)).unwrap();
+        let before = test_fixture::snapshot(&f.m.root);
+        fs::write(&f.r.module.path, b"changed bytes").unwrap();
+        assert!(snapshot.run(|| verify_recovery_binding(&f.m, &software, &registration,
+            &bindings[0].1)).is_err());
+        assert!(prepare_recovery_bindings(&f.m, &software,
+            vec![registration], &shared, deadline()).is_err());
+        fs::write(&f.r.module.path, b"vendor module").unwrap();
+        assert_eq!(test_fixture::snapshot(&f.m.root), before,
+            "preparation cannot publish, launch, or write environment state");
+    }
+    #[test]
+    fn service_recovery_rechecks_registration_after_shared_preparation() {
+        let (f, _, _, _) = test_fixture::prepared();
+        let software = recovery_software(&f);
+        let shared = LaunchVerification::default();
+        let registration = f.m.registry().unwrap().classes[&f.r.key()].registration.clone();
+        let (_, snapshot) = prepare_recovery_bindings(&f.m, &software,
+            vec![registration.clone()], &shared, Instant::now() + Duration::from_secs(2)).unwrap();
+        snapshot.run(|| require_recovery_registration(&f.m, &registration)).unwrap();
+        let mut registry = f.m.registry().unwrap();
+        registry.classes.remove(&f.r.key());
+        atomic_json(&f.m.root.join("registry.json"), &registry).unwrap();
+        assert_eq!(snapshot.run(|| require_recovery_registration(&f.m, &registration))
+            .unwrap_err().to_string(), "service_recovery_registration_changed");
+        assert!(!f.m.root.join("runtime/leases").exists());
+    }
+    #[test]
+    fn service_recovery_starts_both_environments_before_waiting_and_confirms_each() {
+        use std::cell::RefCell;
+        let (f,_,_,_)=test_fixture::prepared();
+        let software=recovery_software(&f);
+        let first=f.r.clone();
+        let mut second=first.clone();
+        second.environment.id="55".repeat(16);
+        let bindings=vec![(first,software.clone()),(second,software)];
+        let started=RefCell::new(std::collections::BTreeSet::new());
+        let rounds=std::cell::Cell::new(0);
+        let confirmed=RefCell::new(Vec::new());
+        restore_recovery_bindings(&bindings,Instant::now()+Duration::from_secs(1),
+            || Ok(()), |registration,_| {
+                started.borrow_mut().insert(registration.environment.id.clone());
+                Ok(if rounds.get()>=2 {KeeperAvailability::Ready} else {KeeperAvailability::Starting})
+            }, |registration,_| {
+                if rounds.get()>=2 {confirmed.borrow_mut().push(registration.environment.id.clone());}
+                Ok(())
+            }, |_| {
+                assert_eq!(started.borrow().len(),2,
+                    "one environment cannot consume the next environment's startup budget");
+                rounds.set(rounds.get()+1);
+            }).unwrap();
+        assert_eq!(rounds.get(),2);
+        assert_eq!(confirmed.borrow().len(),2,"every environment must actually report ready");
+    }
+    #[test]
+    fn recovery_acknowledgment_cannot_inherit_a_replacement_keeper_generation() {
+        let (f,_,_,_)=test_fixture::prepared();
+        let registration=f.m.registry().unwrap().classes[&f.r.key()].registration.clone();
+        let software=recovery_software(&f);
+        let (first,report,lease)=fixture_keeper(&f,"exec sleep 1");
+        let keepers=Mutex::new(vec![first]);
+        let mut ready_owners=std::collections::BTreeMap::new();
+        let _registry=f.m.lock("registry.lock").unwrap();
+        atomic_json(&report,&serde_json::json!({"environment":registration.environment.id,"ready":true})).unwrap();
+        assert_eq!(stage_recovery_keeper(&f.m,&software,&registration,&keepers,&mut ready_owners).unwrap(),
+            KeeperAvailability::Ready);
+        {
+            let mut active=keepers.lock().unwrap();
+            active[0].retiring=true;
+            assert!(active[0].child.wait().unwrap().success());
+            atomic_json(&report,&serde_json::json!({"ready":false,"cleanup_confirmed":true})).unwrap();
+            assert_eq!(observe_keeper(&registration.environment.id,&mut active).unwrap(),None);
+            assert!(!lease.exists());
+            let (next,next_report,_)=fixture_keeper(&f,"exec sleep 1");
+            atomic_json(&next_report,&serde_json::json!({"environment":registration.environment.id,"ready":true})).unwrap();
+            active.push(next);
+        }
+        assert_eq!(stage_recovery_keeper(&f.m,&software,&registration,&keepers,&mut ready_owners)
+            .unwrap_err().to_string(),"service_recovery_owner_changed");
+        let mut active=keepers.lock().unwrap();
+        assert!(active[0].lease.exists(),"refusal cannot release a replacement owner");
+        active[0].retiring=true;
+        assert!(active[0].child.wait().unwrap().success());
+        atomic_json(&active[0].report,&serde_json::json!({"ready":false,"cleanup_confirmed":true})).unwrap();
+        assert_eq!(observe_keeper(&registration.environment.id,&mut active).unwrap(),None);
+    }
+    #[test]
+    fn recovery_verification_releases_registry_and_refuses_changed_readiness() {
+        let (f,_,_,_)=test_fixture::prepared();
+        let bindings=vec![(f.r.clone(),recovery_software(&f))];
+        let verified=std::cell::Cell::new(false);
+        let deadline=Instant::now()+Duration::from_secs(1);
+        let result=restore_recovery_bindings(&bindings,deadline,
+            || f.m.lock("registry.lock"), |_,_| {
+                Ok(if verified.get() {KeeperAvailability::Starting} else {KeeperAvailability::Ready})
+            }, |_,_| {
+                // An independent readback must acquire the actual registry
+                // while full verification is running, then final authority
+                // must refuse the readiness change before acknowledging LVE1.
+                let _readback=f.m.lock("registry.lock")?;
+                verified.set(true);
+                Ok(())
+            }, |_| panic!("ready owner cannot require a startup pause"));
+        assert_eq!(result.unwrap_err().to_string(),"service_recovery_owner_changed");
+        assert!(verified.get());
+    }
+    #[test]
+    fn service_recovery_never_confirms_a_failed_or_changed_binding() {
+        let (f,_,_,_)=test_fixture::prepared();
+        let bindings=vec![(f.r.clone(),recovery_software(&f))];
+        let error=restore_recovery_bindings(&bindings,Instant::now()+Duration::from_secs(1),
+            || Ok(()), |_,_| Ok(KeeperAvailability::Failed),
+            |_,_| panic!("failed environment confirmed"), |_| panic!("failed environment retried")).unwrap_err();
+        assert_eq!(error.downcast_ref::<capacity::Refusal>(),Some(&capacity::Refusal::BindingInvalid));
+        let error=restore_recovery_bindings(&bindings,Instant::now()+Duration::from_secs(1),
+            || Ok(()), |_,_| Ok(KeeperAvailability::Ready),
+            |_,_| Err("service_recovery_components_changed".into()),
+            |_| panic!("changed binding retried")).unwrap_err();
+        assert_eq!(error.to_string(),"service_recovery_components_changed");
+        assert!(restore_recovery_bindings::<()>(&bindings,Instant::now(),
+            || panic!("expired reservation"), |_,_| panic!("expired staging"),
+            |_,_| panic!("expired confirmation"), |_| panic!("expired wait")).is_err());
+    }
     fn fixture_keeper(f:&test_fixture::Fixture,command:&str)->(KeeperOwner,PathBuf,PathBuf) {
         let report=f.outer.join(format!("keeper-{}.json",random_id().unwrap()));
         let lease=f.outer.join(format!("keeper-{}.lease",random_id().unwrap()));
@@ -1629,9 +2237,11 @@ mod tests {
         let keepers=Keepers::new(Vec::new());
         let sessions=binding.environment.root.join("compatdata/pfx/drive_c/bridge/sessions");
         assert!(stage_keeper(&f.m,&software,&binding,&keepers,None).is_err());
-        // Inspection and vendor access both call ensure_keeper. Their common
-        // owner must refuse before an instance or keeper can be materialized.
-        assert!(ensure_keeper(&f.m,&software,&binding,&keepers).is_err());
+        // Inspection and vendor access use the same fresh startup coordinator.
+        // Its owner must refuse before an instance or keeper is materialized.
+        assert!(wait_for_keeper(Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS),
+            || Ok(()), || stage_keeper(&f.m,&software,&binding,&keepers,None),
+            std::thread::sleep).is_err());
         assert!(!sessions.exists());
         assert!(!f.m.root.join("runtime/leases").exists());
         assert!(keepers.lock().unwrap().is_empty());
@@ -1728,7 +2338,6 @@ mod tests {
         assert_eq!(job.keeper_startup_seconds,Some(KEEPER_OWNER_STARTUP_SECONDS));
         assert_eq!(job.runner_key.as_deref(), Some(catalogue::runner_key(&f.r.environment.runner).unwrap().as_str()));
         assert_eq!(KEEPER_MANAGER_RETIRE_SECONDS,KEEPER_OWNER_STARTUP_SECONDS+2);
-        assert_eq!(KEEPER_ADMISSION_SECONDS,KEEPER_MANAGER_RETIRE_SECONDS+3);
     }
     #[test]
     fn missing_candidate_onboarding_cannot_fall_back_to_operator_home() {
@@ -1975,6 +2584,159 @@ mod tests {
         assert!(failure.is_err() && blocked.load(Ordering::Acquire) && lease.exists());
     }
     #[test]
+    #[cfg(target_os="linux")]
+    fn real_inspection_lock_refusal_releases_reservation_but_retains_failure() {
+        let f = test_fixture::Fixture::new();
+        let (job, path) = spec(&f.m, f.r.clone().into(), true, false, false).unwrap();
+        let marker = f.r.environment.root.join("retained-vendor-state");
+        fs::write(&marker, b"untouched").unwrap();
+        let keeper = fs::OpenOptions::new().read(true).write(true).create(true)
+            .truncate(false).open(f.r.environment.root.join("operation.lock")).unwrap();
+        assert_eq!(unsafe { libc::flock(keeper.as_raw_fd(), libc::LOCK_SH | libc::LOCK_NB) }, 0);
+        let bin = f.outer.join("fixture-bin");
+        private_dir(&bin).unwrap();
+        let systemctl = bin.join("systemctl");
+        fs::write(&systemctl, b"#!/bin/sh\nprintf 'DISPLAY=:fixture\\n'\n").unwrap();
+        fs::set_permissions(&systemctl, fs::Permissions::from_mode(0o500)).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        let script = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("runtime/session.py");
+        let status = Command::new("python3").arg(script).arg(&path)
+            .env("PATH", format!("{}:{}", bin.display(), std::env::var("PATH").unwrap()))
+            .stdout(Stdio::null()).stderr(Stdio::null()).status().unwrap();
+        assert!(status.success()); // Exact retirement does not make inspection successful.
+        assert!(finish_inspection(&f.m, &job, status).unwrap_err().to_string()
+            .contains("inspection failed"));
+        let result: serde_json::Value = read_json(&job.report).unwrap();
+        assert!(result["error"].as_str().unwrap().contains("BlockingIOError"));
+        assert!(!job.directory.exists() && !job.lease.exists());
+        assert!(job.report.with_extension("ownership.json").exists());
+        assert!(capacity::owners(&f.m).unwrap().is_empty());
+        assert_eq!(fs::read(marker).unwrap(), b"untouched");
+    }
+    #[test]
+    fn successful_inspection_exit_cannot_release_an_unconfirmed_reservation() {
+        let f = test_fixture::Fixture::new();
+        let (job, _) = spec(&f.m, f.r.clone().into(), true, false, false).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        atomic_json(&job.report, &serde_json::json!({
+            "ownership_schema":1,"error":null,"cleanup_confirmed":true,"transport_retired":true
+        })).unwrap();
+        atomic_json(&job.report.with_extension("ownership.json"), &serde_json::json!({
+            "session":"wrong","cleanup_confirmed":true,"transport_retired":true
+        })).unwrap();
+        let status = Command::new("/bin/sh").args(["-c", "exit 0"]).status().unwrap();
+        assert!(finish_inspection(&f.m, &job, status).unwrap_err().to_string()
+            .contains("inspection cleanup unconfirmed"));
+        assert!(job.directory.exists() && job.lease.exists());
+    }
+    #[test]
+    fn kernel_restart_retires_bound_leases_and_preserves_failed_result() {
+        let f = test_fixture::Fixture::new();
+        let (job, _) = spec(&f.m, f.r.clone().into(), true, false, false).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        let result = serde_json::json!({"ready":true,"cleanup_confirmed":false,
+            "error":"interrupted before retirement","plugin_state":"not captured"});
+        atomic_json(&job.report, &result).unwrap();
+        let original = fs::read(&job.report).unwrap();
+        let generations = f.m.root.join("runtime/lease-generations");
+        private_dir(&generations).unwrap();
+        let path = generations.join(format!("{}.json", job.session));
+        atomic_json(&path, &LeaseGeneration {schema:1,session:job.session.clone(),
+            report:job.report.clone(),kernel_boot:"11111111-1111-1111-1111-111111111111".into(),
+            basis:LeaseGenerationBasis::BeforeLaunch}).unwrap();
+        assert!(reconcile_leases_in_kernel(&f.m,
+            Some("11111111-1111-1111-1111-111111111111")).unwrap());
+        assert!(job.lease.exists());
+        assert!(reconcile_leases_in_kernel(&f.m, None).unwrap());
+        assert!(job.lease.exists());
+        assert!(!reconcile_leases_in_kernel(&f.m,
+            Some("22222222-2222-2222-2222-222222222222")).unwrap());
+        assert!(!job.lease.exists());
+        assert_eq!(fs::read(&job.report).unwrap(), original);
+        let receipt: serde_json::Value = read_json(&path.with_extension("interrupted.json")).unwrap();
+        assert_eq!(receipt["session"], job.session);
+        assert_eq!(receipt["retirement_basis"], "kernel_generation_ended");
+        assert_eq!(receipt["successful_session"], false);
+    }
+    #[test]
+    fn kernel_restart_cannot_infer_legacy_ownership_or_accept_wrong_binding() {
+        let f = test_fixture::Fixture::new();
+        let (job, _) = spec(&f.m, f.r.clone().into(), true, false, false).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        let current = Some("22222222-2222-2222-2222-222222222222");
+        assert!(reconcile_leases_in_kernel(&f.m, current).unwrap());
+        assert!(job.lease.exists());
+        let directory = f.m.root.join("runtime/lease-generations");
+        private_dir(&directory).unwrap();
+        let path = directory.join(format!("{}.json", job.session));
+        for (session, report, boot) in [
+            ("wrong".to_owned(), job.report.clone(), "11111111-1111-1111-1111-111111111111"),
+            (job.session.clone(), job.report.with_extension("other.json"), "11111111-1111-1111-1111-111111111111"),
+            (job.session.clone(), job.report.clone(), "invalid"),
+        ] {
+            atomic_json(&path, &LeaseGeneration {schema:1,session,report,kernel_boot:boot.into(),
+                basis:LeaseGenerationBasis::BeforeLaunch}).unwrap();
+            assert!(reconcile_leases_in_kernel(&f.m, current).is_err());
+            assert!(job.lease.exists());
+            assert!(!path.with_extension("interrupted.json").exists());
+        }
+    }
+    #[test]
+    #[cfg(target_os="linux")]
+    fn launch_generation_precedes_spawn_and_cannot_be_replaced() {
+        let f = test_fixture::Fixture::new();
+        let (job, _) = spec(&f.m, f.r.clone().into(), true, false, false).unwrap();
+        assert!(!job.lease.exists());
+        record_lease_generation(&job).unwrap();
+        let path = f.m.root.join("runtime/lease-generations").join(format!("{}.json", job.session));
+        let original = fs::read(&path).unwrap();
+        let generation: LeaseGeneration = read_json(&path).unwrap();
+        assert_eq!(generation.kernel_boot, kernel_boot().unwrap().unwrap());
+        assert!(record_lease_generation(&job).is_err());
+        assert_eq!(fs::read(&path).unwrap(), original);
+        assert!(!job.lease.exists());
+    }
+    #[test]
+    fn stopped_legacy_keeper_needs_a_subsequent_restart_without_inferred_launch() {
+        let f = test_fixture::Fixture::new();
+        let (job, _) = spec(&f.m, f.r.clone().into(), true, false, true).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        atomic_json(&job.report, &serde_json::json!({"ready":true,"cleanup_confirmed":false})).unwrap();
+        let result = fs::read(&job.report).unwrap();
+        let boot = "11111111-1111-1111-1111-111111111111";
+        assert!(!observe_stopped_leases(&f.m, None).unwrap());
+        assert!(observe_stopped_leases(&f.m, Some("invalid")).is_err());
+        assert!(observe_stopped_leases(&f.m, Some(boot)).unwrap());
+        let path = f.m.root.join("runtime/lease-generations").join(format!("{}.json", job.session));
+        let observed = fs::read(&path).unwrap();
+        let record: serde_json::Value = read_json(&path).unwrap();
+        assert_eq!(record["basis"], "stopped_service_observation");
+        assert!(reconcile_leases_in_kernel(&f.m, Some(boot)).unwrap());
+        assert!(job.lease.exists());
+        // Repeated recovery must not move the recorded observation to a newer
+        // kernel or change the failed result into a successful session.
+        assert!(observe_stopped_leases(&f.m,
+            Some("22222222-2222-2222-2222-222222222222")).unwrap());
+        assert_eq!(fs::read(&path).unwrap(), observed);
+        assert!(!reconcile_leases_in_kernel(&f.m,
+            Some("22222222-2222-2222-2222-222222222222")).unwrap());
+        assert!(!job.lease.exists());
+        assert_eq!(fs::read(&job.report).unwrap(), result);
+        let retired: serde_json::Value = read_json(&path.with_extension("interrupted.json")).unwrap();
+        assert_eq!(retired["observation_basis"], "stopped_service_observation");
+        assert_eq!(retired["successful_session"], false);
+    }
+    #[test]
+    fn stopped_observation_cannot_adopt_an_active_instance() {
+        let f = test_fixture::Fixture::new();
+        let (job, _) = spec(&f.m, f.r.clone().into(), false, false, false).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        assert!(observe_stopped_leases(&f.m,
+            Some("11111111-1111-1111-1111-111111111111")).is_err());
+        assert!(!f.m.root.join("runtime/lease-generations").exists());
+        assert!(job.lease.exists());
+    }
+    #[test]
     fn restart_requires_positive_prior_cleanup() {
         unsafe {
             libc::umask(0o077);
@@ -1987,7 +2749,8 @@ mod tests {
         private_dir(&m.root.join("runtime/results")).unwrap();
         private_dir(&m.root.join("runtime/leases")).unwrap();
         let report = m.root.join("runtime/results/one.json");
-        let lease = m.root.join("runtime/leases/one.json");
+        let session = "01".repeat(16);
+        let lease = m.root.join("runtime/leases").join(format!("{session}.json"));
         atomic_json(&lease, &report).unwrap();
         assert!(reconcile_leases(&m).unwrap());
         assert!(lease.exists());
@@ -2007,7 +2770,7 @@ mod tests {
         let receipt = report.with_extension("ownership.json");
         atomic_json(&receipt,&serde_json::json!({"session":"wrong","cleanup_confirmed":true,"transport_retired":true})).unwrap();
         assert!(reconcile_leases(&m).unwrap());
-        atomic_json(&receipt,&serde_json::json!({"session":"one","cleanup_confirmed":true,"transport_retired":true,"reporting_error":"disk refusal"})).unwrap();
+        atomic_json(&receipt,&serde_json::json!({"session":session,"cleanup_confirmed":true,"transport_retired":true,"reporting_error":"disk refusal"})).unwrap();
         fs::remove_file(&report).unwrap();
         assert!(!reconcile_leases(&m).unwrap());
         assert!(!lease.exists());

@@ -1,0 +1,118 @@
+{
+  "schema": 1,
+  "claim": "internal36 installed delivery development; not musical acceptance",
+  "source_head": "09dd2a2b68cd4a0351d5760c5ba19b78e2ad988c",
+  "source_tree": "698cda82ea7a0bed999ccb360d62525b708a6d12",
+  "package_version": "0.12.0internal36",
+  "signing_class": "internal_test",
+  "ubuntu": {
+    "installer_sha256": "05af1a277568783de41314d9406d3e2a2f32576cbd4b83fb822f4b4913d8a919",
+    "release_manifest_sha256": "1a56dd6b4164c75e83a145ebfc0707c7fc59102cdc149c4a07e8bda43363ffbd",
+    "staging": {
+      "staged": [
+        {
+          "id": "1a56dd6b4164c75e83a145ebfc0707c7fc59102cdc149c4a07e8bda43363ffbd",
+          "version": "0.12.0internal36",
+          "files": 29,
+          "signature_present": true,
+          "base_identity_present": true
+        }
+      ],
+      "generation": "c0f7b23452004616570df0b8a2f5f7f6a55ecea41ba8358d1334fefc3cd44afa",
+      "software_sha256": "53cf1dd3a5b9d71e418e79ed1d89a2d73eed455febc1ac048b2a7cb43127f211",
+      "registry_sha256": "40d75258bde45c4b311c391a69c3d7fbcbc351337d3adb4a567eb8619f0bd5e8",
+      "project_sha256": "764d5561f58d978ffccc4a83f556a62be53c4f3b63f09654101a799d0590d296"
+    },
+    "selection": {
+      "selected_generation": "e172803bdf9633fd6901f4ed86271b3a6f1456e88203ba2c56b514bbc25b7f5c",
+      "manager_sha256": "4db9f47afd9c2a8b518fe9d68acdacf63670a27c8d88f79f5721387d8d81c17b",
+      "registry_sha256": "40d75258bde45c4b311c391a69c3d7fbcbc351337d3adb4a567eb8619f0bd5e8",
+      "software_sha256": "9b43691b65afbf42636a345fdde63c64a556b575059cb27271fc4367b69f39d4",
+      "generation_record_present": true,
+      "bridge_state": "active"
+    },
+    "visible_path": [
+      "Files Downloads: launch native installer",
+      "Install application files",
+      "Open Setup",
+      "Stop bridge service to change version",
+      "Select installed version",
+      "Start bridge service"
+    ],
+    "ordinary_update": "passed; prior registrations retained in same account",
+    "musical_use": "not_tested",
+    "project_recall": "not_tested; saved Ardour session is empty"
+  },
+  "steamos": {
+    "installer_sha256": "1a213e1da68a8d7da3bc7c1bae2d652ba271e56b53bf01a87e9d90bfd94a208b",
+    "release_manifest_sha256": "d704691fa31b6e20685213db3fb427da2f93c12b32835a9a356cb6cdd2ea371c",
+    "visible_path": [
+      "Dolphin Properties: allow executing this downloaded file",
+      "Launch",
+      "Install application files",
+      "Open Setup"
+    ],
+    "before": {
+      "generation": "6e4c53bf8533741d0e9423dacca9dd542b7329707c2748769cc495386a100385",
+      "published": 8,
+      "host_pairs": [
+        {
+          "host_sha256": "186ba6d18f231a438041f3b8322259b73622a5f982835d7a48202efb2585e2f8",
+          "host_source_sha256": "aab9ed5088e7f2a6a52665fb67150ce3fbe1a52893f7eedb68a63c55c06da498"
+        },
+        {
+          "host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+          "host_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5"
+        },
+        {
+          "host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+          "host_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5"
+        },
+        {
+          "host_sha256": "348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be",
+          "host_source_sha256": "0ce0ecae2264bab24290712d0e3d2ed9e8c092ce6cb7a521fd0fac71ca010ac3"
+        },
+        {
+          "host_sha256": "5fa0907b045df5ccb993a135fccffe932b365182bec7fa16c1a48a126b1869c2",
+          "host_source_sha256": "268208f352ca21d7b6f4017802db3bfbb7d7081a59358eb72fd84b261b5a123b"
+        },
+        {
+          "host_sha256": "5fa0907b045df5ccb993a135fccffe932b365182bec7fa16c1a48a126b1869c2",
+          "host_source_sha256": "268208f352ca21d7b6f4017802db3bfbb7d7081a59358eb72fd84b261b5a123b"
+        },
+        {
+          "host_sha256": "5fa0907b045df5ccb993a135fccffe932b365182bec7fa16c1a48a126b1869c2",
+          "host_source_sha256": "268208f352ca21d7b6f4017802db3bfbb7d7081a59358eb72fd84b261b5a123b"
+        },
+        {
+          "host_sha256": "5fa0907b045df5ccb993a135fccffe932b365182bec7fa16c1a48a126b1869c2",
+          "host_source_sha256": "268208f352ca21d7b6f4017802db3bfbb7d7081a59358eb72fd84b261b5a123b"
+        }
+      ],
+      "software_sha256": "920b1282f13ee847eb91b13aa5f120d6f59469a64e8a2b6bb0a1cc5cb62c1b49",
+      "registry_sha256": "c2baa0894b20c00feec6c2f946c87287aea96b0f6280b49d171127a08a9b67db"
+    },
+    "after_staging": {
+      "generation": "6e4c53bf8533741d0e9423dacca9dd542b7329707c2748769cc495386a100385",
+      "software_sha256": "920b1282f13ee847eb91b13aa5f120d6f59469a64e8a2b6bb0a1cc5cb62c1b49",
+      "registry_sha256": "c2baa0894b20c00feec6c2f946c87287aea96b0f6280b49d171127a08a9b67db",
+      "package_exists": true,
+      "manifest_exists": true,
+      "base_bound": true
+    },
+    "setup_preflight": "failed: publication_component_generation_unavailable",
+    "selected": false,
+    "protected_system_changed": false,
+    "cause": "The selected immutable preparation kit already owns the registered 5fa090 host/source pair. Paired execution resolution consulted the static catalogue and default host but omitted that verified preparation runtime.",
+    "musical_update_and_rollback": "not_tested; working predecessor still selected"
+  },
+  "cachyos": {
+    "state": "existing populated disposable VM booted; GUI lock screen observed",
+    "journey": "not_tested"
+  },
+  "qualification": {
+    "maintainer_repairs_for_passing_journeys": 0,
+    "scope": "application staging and populated Ubuntu software selection only",
+    "beta_ready": false
+  }
+}

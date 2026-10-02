@@ -1,0 +1,1927 @@
+{
+  "schema": 1,
+  "candidate": "0.12.0internal56",
+  "collected_unix_ns": 1790923751192126333,
+  "monitor": {
+    "schema": 1,
+    "start_unix_ns": 1790923020552291762,
+    "end_unix_ns": 1790923630872228119,
+    "duration_seconds": 610.319938182,
+    "session_ids": [
+      "81adbd336582952a47be3d3de4d58af3",
+      "8c7f5440bca9d8a5d4067fb60ac93645"
+    ],
+    "early_retirement": null,
+    "resources_before": {
+      "elapsed_seconds": 0.0,
+      "unix_ns": 1790923020552491167,
+      "cpu.stat": "usage_usec 1328610930\nuser_usec 989107802\nsystem_usec 339503127\nnice_usec 1618901\ncore_sched.force_idle_usec 0\nnr_periods 23745\nnr_throttled 616\nthrottled_usec 50635225\nnr_bursts 0\nburst_usec 0",
+      "memory.current": "1907228672",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+      "pids.current": "385",
+      "pids.events": "max 0"
+    },
+    "resources_after": {
+      "elapsed_seconds": 609.319,
+      "unix_ns": 1790923629871745690,
+      "cpu.stat": "usage_usec 1679931861\nuser_usec 1189276425\nsystem_usec 490655436\nnice_usec 1618901\ncore_sched.force_idle_usec 0\nnr_periods 29838\nnr_throttled 689\nthrottled_usec 55588178\nnr_bursts 0\nburst_usec 0",
+      "memory.current": "1908289536",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+      "pids.current": "398",
+      "pids.events": "max 0"
+    },
+    "peak_tasks": 409,
+    "peak_memory_bytes": 1960574976,
+    "samples": 610,
+    "pipewire_exit": 0,
+    "loop_observed_visually_before_monitor": true,
+    "continuous_audio_pass_requires_final_phase_records": true
+  },
+  "trace_enabled": false,
+  "sessions": [
+    {
+      "session": "81adbd336582952a47be3d3de4d58af3",
+      "windows_sha256": "b23bb153f28072cf5ddaaca8d9408ea6d1f9982bd13b17a804983eafd64849b5",
+      "native_sha256": "f901d996f2220eb08e37c2257181d4b9104458fadf76e8c49b62e9b71f500740",
+      "lease_remains": false,
+      "windows_retirement": {
+        "raw_exit": 143,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "gated": true
+      },
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "protocol_minor": 14,
+          "host_maximum": 1024,
+          "transport_maximum": 1024,
+          "sample_rate": 48000,
+          "bridge_frames": 1024,
+          "vendor_frames": 0,
+          "total_frames": 1024,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "protocol_minor": 14,
+          "host_maximum": 1024,
+          "transport_maximum": 1024,
+          "sample_rate": 48000,
+          "bridge_frames": 1024,
+          "vendor_frames": 0,
+          "total_frames": 1024,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 96,
+          "sha256": "482914a178cde95254ccf4fb047f226c9d105b19594d08c09f88137bed2d7752",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "protocol_minor": 14,
+          "host_maximum": 1024,
+          "transport_maximum": 1024,
+          "sample_rate": 48000,
+          "bridge_frames": 1024,
+          "vendor_frames": 0,
+          "total_frames": 1024,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "protocol_minor": 14,
+          "host_maximum": 1024,
+          "transport_maximum": 1024,
+          "sample_rate": 48000,
+          "bridge_frames": 1024,
+          "vendor_frames": 0,
+          "total_frames": 1024,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "protocol_minor": 14,
+          "host_maximum": 1024,
+          "transport_maximum": 1024,
+          "sample_rate": 48000,
+          "bridge_frames": 1024,
+          "vendor_frames": 0,
+          "total_frames": 1024,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "15db0d6cde18bcc482a60868a177f02f584ca5698d5452f0f580b4300fd74041",
+          "gain": 0
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 48018,
+          "request_high": 28,
+          "result_high": 28,
+          "position": 38919168,
+          "epoch": 4
+        },
+        {
+          "event": "ap7_observation",
+          "enabled": false,
+          "verified_returned_samples": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 3260075864984,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 3260076829585,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 3260077057488,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 2,
+          "monotonic_ns": 3260080167956,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 2,
+          "monotonic_ns": 3260120812923,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 2,
+          "monotonic_ns": 3260120989531,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 3,
+          "monotonic_ns": 3260123302712,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 3,
+          "monotonic_ns": 3260127673108,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 3,
+          "monotonic_ns": 3260127813331,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 4,
+          "monotonic_ns": 3260136050755,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 4,
+          "monotonic_ns": 4073241458006,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 38919168,
+            "missing_frames": 677464,
+            "gaps": 263,
+            "expired_frames": 677464,
+            "delivered_frames": 38240680,
+            "priming_frames": 1024
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 4,
+          "monotonic_ns": 4073241609248,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 38919168,
+            "missing_frames": 677464,
+            "gaps": 263,
+            "expired_frames": 677464,
+            "delivered_frames": 38240680,
+            "priming_frames": 1024
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 4,
+          "monotonic_ns": 4073241851153,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 38919168,
+            "missing_frames": 677464,
+            "gaps": 263,
+            "expired_frames": 677464,
+            "delivered_frames": 38240680,
+            "priming_frames": 1024
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 4,
+          "monotonic_ns": 4073354030097,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 38919168,
+            "missing_frames": 677464,
+            "gaps": 263,
+            "expired_frames": 677464,
+            "delivered_frames": 38240680,
+            "priming_frames": 1024
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 38919168,
+          "blocks": 48018,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 677464,
+          "underrun_gaps": 263,
+          "underrun_callbacks": 772,
+          "expired_output_frames": 677464,
+          "delivered_frames": 38240680,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows_state_counts": {
+        "scanner_started": 1,
+        "readiness_announced": 1,
+        "supervisor_gate_accepted": 1,
+        "ap11_ui_apartment": 1,
+        "module_open_started": 1,
+        "null": 28,
+        "module_opened": 1,
+        "module_entry_succeeded": 1,
+        "factory_export_found": 1,
+        "factory_get_started": 1,
+        "factory_obtained": 1,
+        "factory_info_obtained": 1,
+        "factory_interface_versions_recorded": 1,
+        "class_count_obtained": 1,
+        "class_enumeration_in_progress": 1,
+        "class_enumeration_complete": 1,
+        "ap8_factory": 1,
+        "ap8_call": 23,
+        "ap8_result": 27,
+        "ap11_class": 1,
+        "ap12_class": 1,
+        "ap8_controller_query": 1,
+        "ap8_controller_association": 1,
+        "ap8_bus": 2,
+        "ap8_parameter_count": 1,
+        "ap8_parameters": 1,
+        "ap12_capabilities": 1,
+        "ap12_state_stream": 1,
+        "ap12_persistence": 1,
+        "ap8_inspected": 1,
+        "ap1_mapping_ready": 1,
+        "ap4_state_started": 3,
+        "ap12_readback": 3,
+        "ap10_controller_sync": 3,
+        "ap4_state_result": 3,
+        "ap10_wait_resolution": 1,
+        "ap10_delivery_setup": 5,
+        "ap9_processing_setup": 5,
+        "ap0_call_started": 16,
+        "ap0_call_completed": 16,
+        "ap2_lifecycle_ack": 16,
+        "ap0_processing_thread_started": 4,
+        "ap0_thread_joined": 4,
+        "ap3_processing_summary": 4,
+        "ap11_editor_summary": 1,
+        "ap8_inspection_closed": 1,
+        "module_exit_succeeded": 1,
+        "module_unloaded": 1,
+        "ap1_endpoint_closed": 1,
+        "scanner_completed": 1
+      },
+      "windows_timing": [
+        {
+          "event": "lifecycle",
+          "sequence": 90,
+          "state": "ap10_controller_sync",
+          "applied": 0,
+          "state_request_sequence": 1
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 92,
+          "state": "ap10_wait_resolution",
+          "samples_per_method": 32,
+          "sleep50_mean_ns": 1060731,
+          "ntdelay50_mean_ns": 102000
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 93,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 95,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 114,
+          "state": "ap10_controller_sync",
+          "applied": 0,
+          "state_request_sequence": 2
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 116,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 133,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 150,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 161,
+          "state": "ap10_controller_sync",
+          "applied": 62376,
+          "state_request_sequence": 38144
+        }
+      ],
+      "role": "effect",
+      "final_phase": {
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 4,
+        "monotonic_ns": 4073354030097,
+        "startup": {
+          "admitted_frames": 0,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 0
+        },
+        "processing": {
+          "admitted_frames": 38919168,
+          "missing_frames": 677464,
+          "gaps": 263,
+          "expired_frames": 677464,
+          "delivered_frames": 38240680,
+          "priming_frames": 1024
+        },
+        "omitted_phase_markers": 0
+      },
+      "lifecycle": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 1024,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 38919168,
+        "blocks": 48018,
+        "callback_rejections": 0,
+        "skipped_expression_callbacks": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 1024,
+        "priming_frames": 1024,
+        "underrun_frames": 677464,
+        "underrun_gaps": 263,
+        "underrun_callbacks": 772,
+        "expired_output_frames": 677464,
+        "delivered_frames": 38240680,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "native_sha256_publication": "3bc5dd5a0162719787b5f1014b122850b4375624f10be1bc2ae15ab8ca5b8cb8",
+      "module_sha256": "b3498eb5c8d6d440259b04a9c9b7699ab72f4f64eb31f45167f0341d3d1e719f"
+    },
+    {
+      "session": "8c7f5440bca9d8a5d4067fb60ac93645",
+      "windows_sha256": "9c372a0b0805faf035e512a2581fad4cad0c17ef28ce835a3545d78cc6fdb33d",
+      "native_sha256": "4a4fd8ccc316e8f1dbd3d914a32f2d71698af16679718b788a9793814e8bc6e8",
+      "lease_remains": false,
+      "windows_retirement": {
+        "raw_exit": 143,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "gated": true
+      },
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "7666ebeb20aa3a110b06e97a4504edaf5f00468e001240e9a6d5e880e0b29df0",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "protocol_minor": 14,
+          "host_maximum": 1024,
+          "transport_maximum": 1024,
+          "sample_rate": 48000,
+          "bridge_frames": 1024,
+          "vendor_frames": 0,
+          "total_frames": 1024,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "protocol_minor": 14,
+          "host_maximum": 1024,
+          "transport_maximum": 1024,
+          "sample_rate": 48000,
+          "bridge_frames": 1024,
+          "vendor_frames": 0,
+          "total_frames": 1024,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 96,
+          "sha256": "062857dd2ed44b2e598f34746e68a6227fd0fed1293094b5614511676194b4da",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "protocol_minor": 14,
+          "host_maximum": 1024,
+          "transport_maximum": 1024,
+          "sample_rate": 48000,
+          "bridge_frames": 1024,
+          "vendor_frames": 0,
+          "total_frames": 1024,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "protocol_minor": 14,
+          "host_maximum": 1024,
+          "transport_maximum": 1024,
+          "sample_rate": 48000,
+          "bridge_frames": 1024,
+          "vendor_frames": 0,
+          "total_frames": 1024,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "protocol_minor": 14,
+          "host_maximum": 1024,
+          "transport_maximum": 1024,
+          "sample_rate": 48000,
+          "bridge_frames": 1024,
+          "vendor_frames": 0,
+          "total_frames": 1024,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_error",
+          "operation": "get",
+          "stage": "failed_instance",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 1834,
+          "callback_rejections": 36307,
+          "detail": ""
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap10_admission_failure",
+          "code": 258,
+          "frames": 1024,
+          "reason": "input_admission_refused",
+          "input_flags": 3,
+          "context_state": 179974,
+          "rate": 48000,
+          "cycle_start": 0.0026041666666666665,
+          "cycle_end": 0.14739583333333334,
+          "nonfinite_fields": 0,
+          "event_count": 8,
+          "invalid_event_index": 0,
+          "invalid_event": {
+            "kind": 1,
+            "id": 4294967295,
+            "offset": 4294965635,
+            "channel": 0,
+            "pitch": 63,
+            "value": 0.5039370059967041,
+            "tuning": 0,
+            "reserved": 0,
+            "nonfinite_fields": 0
+          }
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 1834,
+          "request_high": 28,
+          "result_high": 28,
+          "position": 1875968,
+          "epoch": 4
+        },
+        {
+          "event": "ap5_worker_fault",
+          "generation": 1,
+          "fault": 3,
+          "first_position": 1875968,
+          "processed": 1834,
+          "request_high": 28,
+          "result_high": 28,
+          "detail": "InvalidData: queued session fault or cancelled"
+        },
+        {
+          "event": "ap7_fault_progress",
+          "context_ready": true,
+          "epoch": 4,
+          "worker_op": 0,
+          "worker_epoch": 4,
+          "worker_position": 1874944,
+          "request_published": 1841,
+          "request_consumed": 1841,
+          "result_published": 1834,
+          "result_consumed": 1833,
+          "service_us_max_at_report": 297662,
+          "observation_skips": 0
+        },
+        {
+          "event": "ap7_observation",
+          "enabled": false,
+          "verified_returned_samples": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 3256667369444,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 3256668142260,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 3256668325267,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 2,
+          "monotonic_ns": 3256670816589,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 2,
+          "monotonic_ns": 3260117752130,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 2,
+          "monotonic_ns": 3260118303228,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 3,
+          "monotonic_ns": 3260122117265,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 3,
+          "monotonic_ns": 3260124709699,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 3,
+          "monotonic_ns": 3260125144745,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 4,
+          "monotonic_ns": 3260134931472,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "failed",
+          "epoch": 4,
+          "monotonic_ns": 4071075124190,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 1875968,
+            "missing_frames": 183296,
+            "gaps": 56,
+            "expired_frames": 183296,
+            "delivered_frames": 1691648,
+            "priming_frames": 1024
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 4,
+          "monotonic_ns": 4073236398211,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 1875968,
+            "missing_frames": 183296,
+            "gaps": 56,
+            "expired_frames": 183296,
+            "delivered_frames": 1691648,
+            "priming_frames": 1024
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 7,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 1875968,
+          "blocks": 1834,
+          "callback_rejections": 46184,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 37043200,
+          "discontinuities": 1,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 183296,
+          "underrun_gaps": 56,
+          "underrun_callbacks": 179,
+          "expired_output_frames": 183296,
+          "delivered_frames": 1691648,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        }
+      ],
+      "windows_state_counts": {
+        "scanner_started": 1,
+        "readiness_announced": 1,
+        "supervisor_gate_accepted": 1,
+        "ap11_ui_apartment": 1,
+        "module_open_started": 1,
+        "null": 18,
+        "module_opened": 1,
+        "module_entry_succeeded": 1,
+        "factory_export_found": 1,
+        "factory_get_started": 1,
+        "factory_obtained": 1,
+        "factory_info_obtained": 1,
+        "factory_interface_versions_recorded": 1,
+        "class_count_obtained": 1,
+        "class_enumeration_in_progress": 1,
+        "class_enumeration_complete": 1,
+        "ap8_factory": 1,
+        "ap8_call": 18,
+        "ap8_result": 21,
+        "ap11_class": 1,
+        "ap12_class": 1,
+        "ap8_controller_query": 1,
+        "ap8_controller_association": 1,
+        "ap8_bus": 2,
+        "ap8_parameter_count": 1,
+        "ap8_parameters": 1,
+        "ap12_capabilities": 1,
+        "ap12_state_stream": 1,
+        "ap12_persistence": 1,
+        "ap8_inspected": 1,
+        "ap1_mapping_ready": 1,
+        "ap4_state_started": 2,
+        "ap12_readback": 2,
+        "ap10_controller_sync": 2,
+        "ap4_state_result": 2,
+        "ap10_wait_resolution": 1,
+        "ap10_delivery_setup": 5,
+        "ap9_processing_setup": 5,
+        "ap0_call_started": 14,
+        "ap0_call_completed": 14,
+        "ap2_lifecycle_ack": 14,
+        "ap0_processing_thread_started": 4,
+        "ap0_thread_joined": 3,
+        "ap3_processing_summary": 3
+      },
+      "windows_timing": [
+        {
+          "event": "lifecycle",
+          "sequence": 89,
+          "state": "ap10_controller_sync",
+          "applied": 0,
+          "state_request_sequence": 1
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 91,
+          "state": "ap10_wait_resolution",
+          "samples_per_method": 32,
+          "sleep50_mean_ns": 1077728,
+          "ntdelay50_mean_ns": 104790
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 92,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 94,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 113,
+          "state": "ap10_controller_sync",
+          "applied": 0,
+          "state_request_sequence": 2
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 115,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 132,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 149,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        }
+      ],
+      "role": "instrument",
+      "final_phase": {
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 4,
+        "monotonic_ns": 4073236398211,
+        "startup": {
+          "admitted_frames": 0,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 0
+        },
+        "processing": {
+          "admitted_frames": 1875968,
+          "missing_frames": 183296,
+          "gaps": 56,
+          "expired_frames": 183296,
+          "delivered_frames": 1691648,
+          "priming_frames": 1024
+        },
+        "omitted_phase_markers": 0
+      },
+      "lifecycle": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 7,
+        "requested_maximum": 1024,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 1875968,
+        "blocks": 1834,
+        "callback_rejections": 46184,
+        "skipped_expression_callbacks": 0,
+        "rejected_silent_frames": 37043200,
+        "discontinuities": 1,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 1024,
+        "priming_frames": 1024,
+        "underrun_frames": 183296,
+        "underrun_gaps": 56,
+        "underrun_callbacks": 179,
+        "expired_output_frames": 183296,
+        "delivered_frames": 1691648,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": false
+      },
+      "native_sha256_publication": "47d33c91cd469b81b7dcf76d7e70062f1dfa13b880877929828e556cd5014129",
+      "module_sha256": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462"
+    }
+  ],
+  "pipewire": {
+    "snapshots": 612,
+    "sha256": "ef1ed31a7f55f37d8eb7acff819e59c2f5bd08edffbc3d6deaf0a3ef11142ed7",
+    "nodes": {
+      "Dummy-Driver": {
+        "samples": 612,
+        "first": {
+          "iteration": 1,
+          "state": "C",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 0
+        },
+        "last": {
+          "iteration": 612,
+          "state": "I",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 0
+        },
+        "maximum_errors": 0,
+        "error_transitions": [
+          {
+            "iteration": 1,
+            "state": "C",
+            "quantum": 0,
+            "rate": 0,
+            "errors": 0
+          }
+        ]
+      },
+      "Freewheel-Driver": {
+        "samples": 612,
+        "first": {
+          "iteration": 1,
+          "state": "C",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 0
+        },
+        "last": {
+          "iteration": 612,
+          "state": "S",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 0
+        },
+        "maximum_errors": 0,
+        "error_transitions": [
+          {
+            "iteration": 1,
+            "state": "C",
+            "quantum": 0,
+            "rate": 0,
+            "errors": 0
+          }
+        ]
+      },
+      "Midi-Bridge": {
+        "samples": 612,
+        "first": {
+          "iteration": 1,
+          "state": "C",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 0
+        },
+        "last": {
+          "iteration": 612,
+          "state": "R",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 0
+        },
+        "maximum_errors": 0,
+        "error_transitions": [
+          {
+            "iteration": 1,
+            "state": "C",
+            "quantum": 0,
+            "rate": 0,
+            "errors": 0
+          }
+        ]
+      },
+      "bluez_midi.server": {
+        "samples": 612,
+        "first": {
+          "iteration": 1,
+          "state": "C",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 0
+        },
+        "last": {
+          "iteration": 612,
+          "state": "R",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 2
+        },
+        "maximum_errors": 2,
+        "error_transitions": [
+          {
+            "iteration": 1,
+            "state": "C",
+            "quantum": 0,
+            "rate": 0,
+            "errors": 0
+          },
+          {
+            "iteration": 2,
+            "state": "R",
+            "quantum": 0,
+            "rate": 0,
+            "errors": 2
+          }
+        ]
+      },
+      "alsa_output.pci-0000_00_03.0.analog-stereo": {
+        "samples": 612,
+        "first": {
+          "iteration": 1,
+          "state": "C",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 0
+        },
+        "last": {
+          "iteration": 612,
+          "state": "R",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 1
+        },
+        "maximum_errors": 1,
+        "error_transitions": [
+          {
+            "iteration": 1,
+            "state": "C",
+            "quantum": 0,
+            "rate": 0,
+            "errors": 0
+          },
+          {
+            "iteration": 449,
+            "state": "R",
+            "quantum": 0,
+            "rate": 0,
+            "errors": 1
+          }
+        ]
+      },
+      "alsa_input.pci-0000_00_03.0.analog-stereo": {
+        "samples": 612,
+        "first": {
+          "iteration": 1,
+          "state": "C",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 0
+        },
+        "last": {
+          "iteration": 612,
+          "state": "R",
+          "quantum": 1024,
+          "rate": 48000,
+          "errors": 3
+        },
+        "maximum_errors": 3,
+        "error_transitions": [
+          {
+            "iteration": 1,
+            "state": "C",
+            "quantum": 0,
+            "rate": 0,
+            "errors": 0
+          },
+          {
+            "iteration": 2,
+            "state": "R",
+            "quantum": 1024,
+            "rate": 48000,
+            "errors": 1
+          },
+          {
+            "iteration": 278,
+            "state": "R",
+            "quantum": 1024,
+            "rate": 48000,
+            "errors": 2
+          },
+          {
+            "iteration": 449,
+            "state": "R",
+            "quantum": 1024,
+            "rate": 48000,
+            "errors": 3
+          }
+        ]
+      },
+      "ardour": {
+        "samples": 612,
+        "first": {
+          "iteration": 1,
+          "state": "C",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 0
+        },
+        "last": {
+          "iteration": 612,
+          "state": "R",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 1
+        },
+        "maximum_errors": 1,
+        "error_transitions": [
+          {
+            "iteration": 1,
+            "state": "C",
+            "quantum": 0,
+            "rate": 0,
+            "errors": 0
+          },
+          {
+            "iteration": 2,
+            "state": "R",
+            "quantum": 0,
+            "rate": 0,
+            "errors": 1
+          }
+        ]
+      },
+      "lvb-closeout56-observer": {
+        "samples": 11,
+        "first": {
+          "iteration": 396,
+          "state": "R",
+          "quantum": 1024,
+          "rate": 48000,
+          "errors": 0
+        },
+        "last": {
+          "iteration": 406,
+          "state": "R",
+          "quantum": 1024,
+          "rate": 48000,
+          "errors": 0
+        },
+        "maximum_errors": 0,
+        "error_transitions": [
+          {
+            "iteration": 396,
+            "state": "R",
+            "quantum": 1024,
+            "rate": 48000,
+            "errors": 0
+          }
+        ]
+      }
+    }
+  },
+  "saved_snapshot": {
+    "name": "internal56-jack.ardour",
+    "sha256": "c8af90090add4fa9c46a9b37801f54e8da28255b06aa839506740cd8e2f41f4c",
+    "plugins": [
+      {
+        "name": "LVB Reference Instrument",
+        "blob_bytes": 84,
+        "blob_sha256": "1937f95ac347a14eee871c0a6571e6aba46ee67939e967df4e8acb459e91b6ad",
+        "managed_envelope_count": 0
+      },
+      {
+        "name": "LVB Reference Effect",
+        "blob_bytes": 304,
+        "blob_sha256": "10d1c8849f63966cd5085c34beb8baf65f93f093dd9dad74acee656c2a06ef11",
+        "managed_envelope_count": 1
+      }
+    ]
+  },
+  "original_snapshots_preserved": {
+    "internal46.ardour": true,
+    "LVB Reference Recal.ardour": true,
+    "internal55.ardour": true,
+    "internal55-reop.ardour": true,
+    "LVB Reference Recall.ardour": true
+  },
+  "dropped_event_lines": 9255,
+  "output_capture": {
+    "start_unix_ns": 1790923414294391220,
+    "end_unix_ns": 1790923424369197141,
+    "exit_code": 1,
+    "capture_nodes": [
+      102
+    ],
+    "input_links": [
+      {
+        "output-node-id": 55,
+        "output-port-id": 46,
+        "input-node-id": 102,
+        "input-port-id": 103,
+        "state": "active"
+      },
+      {
+        "output-node-id": 55,
+        "output-port-id": 45,
+        "input-node-id": 102,
+        "input-port-id": 104,
+        "state": "active"
+      }
+    ],
+    "output_nodes": {
+      "55": "alsa_output.pci-0000_00_03.0.analog-stereo"
+    },
+    "claim": "bounded virtual sink monitor capture only; no physical sound or continuity qualification",
+    "file_bytes": 1920044,
+    "channels": 2,
+    "rate": 48000,
+    "frames": 480000,
+    "width": 2,
+    "peak": 0.0,
+    "rms": 0.0,
+    "nonzero_samples": 0,
+    "sha256": "87d8420ddaf7d56d3f5068c6a74362451fc2859197445490d15e7b3d456fa22e",
+    "limitation": "pw-record exited 1 after ten seconds; retained exit, decoded PCM file and active sink monitor links independently; not a continuity pass"
+  },
+  "outcome": "failed_audio_and_state_save",
+  "customer_release": false,
+  "source_commit": "9f963bcf5fc676d099982dee25e688e7f83fe489",
+  "source_tree": "9bba0162c4006e29dd8923baa0e22991ede76a0f",
+  "component_manifest": "internal56-component-manifest.json",
+  "audio_publications_retained_from": "internal55",
+  "fixture": {
+    "os": "Ubuntu 26.04.1 x86-64",
+    "desktop": "Openbox X11",
+    "daw": "Ardour 1:9.0.0+ds-1ubuntu2",
+    "backend": "JACK through PipeWire 1.6.2-1ubuntu1.1",
+    "wireplumber": "0.5.13-1ubuntu1",
+    "rate": 48000,
+    "configured_frames": 1024,
+    "observed_driver_quantum": 1024,
+    "daw_processing_blocks": "variable extents no greater than 1024; not uniformly 1024",
+    "vm_vcpus": 2,
+    "outer_cpu_limit": 2,
+    "guest_user_cpu_limit": 1,
+    "outer_cpu_shares": 128,
+    "outer_memory_bytes": 4294967296,
+    "guest_ram_bytes": 3221225472,
+    "guest_user_memory_limit_bytes": 2684354560,
+    "additional_swap_bytes": 0,
+    "outer_tasks_limit": 256,
+    "guest_user_tasks_limit": 512,
+    "keepers": 1,
+    "physical_audio_claim": false,
+    "displayed_io_latency_ms": 107.0,
+    "displayed_pdc_ms": 42.67
+  },
+  "no_plugin_baseline": {
+    "unix_ns": 1790922412946061811,
+    "monitor": {
+      "start_ns": 1790921770254424505,
+      "end_ns": 1790922370269387993,
+      "exit": 0,
+      "stderr": ""
+    },
+    "duration_seconds": 600.014963488,
+    "snapshot_count": 602,
+    "pwtop_sha256": "14feee4abba9f42268f6e2478025df550295c20c1ab60c2aca6fd46d6271e354",
+    "nodes": {
+      "Dummy-Driver": {
+        "samples": 602,
+        "first": {
+          "iteration": 1,
+          "state": "C",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 0
+        },
+        "last": {
+          "iteration": 602,
+          "state": "I",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 0
+        },
+        "maximum_errors": 0,
+        "error_transitions": [
+          {
+            "iteration": 1,
+            "state": "C",
+            "quantum": 0,
+            "rate": 0,
+            "errors": 0
+          }
+        ]
+      },
+      "Freewheel-Driver": {
+        "samples": 602,
+        "first": {
+          "iteration": 1,
+          "state": "C",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 0
+        },
+        "last": {
+          "iteration": 602,
+          "state": "S",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 0
+        },
+        "maximum_errors": 0,
+        "error_transitions": [
+          {
+            "iteration": 1,
+            "state": "C",
+            "quantum": 0,
+            "rate": 0,
+            "errors": 0
+          }
+        ]
+      },
+      "alsa_output.pci-0000_00_03.0.analog-stereo": {
+        "samples": 602,
+        "first": {
+          "iteration": 1,
+          "state": "C",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 0
+        },
+        "last": {
+          "iteration": 602,
+          "state": "R",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 0
+        },
+        "maximum_errors": 0,
+        "error_transitions": [
+          {
+            "iteration": 1,
+            "state": "C",
+            "quantum": 0,
+            "rate": 0,
+            "errors": 0
+          }
+        ]
+      },
+      "alsa_input.pci-0000_00_03.0.analog-stereo": {
+        "samples": 602,
+        "first": {
+          "iteration": 1,
+          "state": "C",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 0
+        },
+        "last": {
+          "iteration": 602,
+          "state": "R",
+          "quantum": 1024,
+          "rate": 48000,
+          "errors": 1
+        },
+        "maximum_errors": 1,
+        "error_transitions": [
+          {
+            "iteration": 1,
+            "state": "C",
+            "quantum": 0,
+            "rate": 0,
+            "errors": 0
+          },
+          {
+            "iteration": 64,
+            "state": "R",
+            "quantum": 1024,
+            "rate": 48000,
+            "errors": 1
+          }
+        ]
+      },
+      "ardour": {
+        "samples": 602,
+        "first": {
+          "iteration": 1,
+          "state": "C",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 0
+        },
+        "last": {
+          "iteration": 602,
+          "state": "R",
+          "quantum": 0,
+          "rate": 0,
+          "errors": 1
+        },
+        "maximum_errors": 1,
+        "error_transitions": [
+          {
+            "iteration": 1,
+            "state": "C",
+            "quantum": 0,
+            "rate": 0,
+            "errors": 0
+          },
+          {
+            "iteration": 2,
+            "state": "R",
+            "quantum": 0,
+            "rate": 0,
+            "errors": 1
+          }
+        ]
+      }
+    },
+    "all_plugins_disabled": true,
+    "project_snapshots_unchanged": true,
+    "trace_enabled": false,
+    "claim": "No bridge audio claim. The baseline itself retains one Ardour node error and one virtual input driver error."
+  },
+  "instrument_admission_interpretation": {
+    "code": 258,
+    "note_off_signed_offset": -1661,
+    "frames": 1024,
+    "event_count": 8,
+    "observation": "Native SDK input witness records a note-off outside its host block. The current contract rejects it. It is a distinct cause of permanent instrument refusal, not an explanation of preceding gaps or the effect gaps. No offset was clamped or rewritten."
+  },
+  "outer_resource_bracket": {
+    "start_unix_ns": 1790922837079546693,
+    "end_unix_ns": 1790923657360567681,
+    "seconds": 820.281020988,
+    "cpu_delta": {
+      "usage_usec": 1554829368,
+      "user_usec": 587873309,
+      "system_usec": 966956059,
+      "nice_usec": 0,
+      "core_sched.force_idle_usec": 0,
+      "nr_periods": 8202,
+      "nr_throttled": 4346,
+      "throttled_usec": 15939176,
+      "nr_bursts": 0,
+      "burst_usec": 0
+    },
+    "average_cores": 1.8954837771661008,
+    "note": "Separate outer bracket includes setup before the 610-second loop monitor; no per-gap CPU attribution."
+  },
+  "interpretation": [
+    "The 610.32-second visual loop observation completed without owner exit, but an alive Windows process did not establish native processing health.",
+    "Effect: 38919168 admitted processing frames, 677464 missing frames in 263 gaps. Instrument: 1875968 admitted processing frames, 183296 missing in 56 gaps before permanent input refusal; 37043200 later rejected silent frames across 46184 rejected callbacks.",
+    "Both owner retirements were confirmed with no remaining leases. Instrument native lifecycle reports clean=false because its processing had failed; positive process cleanup does not make its lifecycle pass.",
+    "A 480000-frame stereo sink-monitor capture is entirely zero. Recorder exited 1; file contents, exact length and active source links were independently verified. No sound or continuity pass follows.",
+    "A direct four-channel DAW-output probe failed to obtain four capture ports and terminated only its own recorder. No result from that attempted probe is claimed.",
+    "The new snapshot contains no managed state envelope for the failed instrument. Its effect envelope is present. The new snapshot is a failure artifact, not successful save or recall evidence. Every pre-existing snapshot stayed unchanged.",
+    "No-plugin baseline and combined run retain their PipeWire node errors. Node counters observed on the first running snapshot may predate monitoring; they are not attributed to a new error during the observed interval.",
+    "Ardour emitted 9255 dropped-event warnings; their source is not yet attributed. The earlier no-plugin baseline also emitted dropped-event warnings.",
+    "The graph stayed at 48000/1024 when the bounded sink-monitor capture joined it. The whole native processing lifetime includes setup, loop, snapshot and closure; counters are not scoped solely to the observation window.",
+    "This run changes the audio backend and CPU fixture compared with internal55 PulseAudio. It does not uniquely explain internal54 or the Deck gaps and is not a corrected beta candidate."
+  ],
+  "capture_reference": {
+    "source": "https://docs.pipewire.org/group__pw__keys.html",
+    "used_property": "stream.capture.sink",
+    "purpose": "Request the selected sink monitor instead of a source; actual active links retained."
+  },
+  "guest_cpu_limit_readback": {
+    "before_daw": "100000 100000",
+    "after_daw_before_sdk": "100000 100000",
+    "interpretation": "Temporary two-core guest setting did not survive the intervening build/reboot cycle. This run had two virtual CPUs and a two-core outer cap, but only one core of guest user-slice quota; it is not a fully two-core workload comparison."
+  },
+  "cleanup": {
+    "unix_ns": 1790924269267044013,
+    "daw_and_test_consumers_exited": true,
+    "trace_flag_absent": true,
+    "capacity": {
+      "dsp": 0,
+      "maintenance": 0,
+      "keepers": 1,
+      "cleanup_unconfirmed": false
+    },
+    "original_snapshots_preserved": {
+      "internal46.ardour": true,
+      "LVB Reference Recal.ardour": true,
+      "internal55.ardour": true,
+      "internal55-reop.ardour": true,
+      "LVB Reference Recall.ardour": true
+    },
+    "registry_sha256": "91e17018720634fd35c7ff1ec27e88fef67e4faef6514a6ebb2cc035f7adb040",
+    "audio_config_restored_sha256": "bc9e9c63c0dfbdef39ad3d7388cd89e0e3406c7b05231bb2cb28aed76a93bf55",
+    "failed_jack_config_retained_sha256": "31bfd98f351b79b07d51d9431a17140c5d47bac399813846b7631acefbc5e4e8",
+    "failed_snapshot_retained": true,
+    "official_jack_package_retained_as_fixture_instrumentation": true
+  }
+}

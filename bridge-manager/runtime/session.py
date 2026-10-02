@@ -44,18 +44,22 @@ def peer_absolute(proc,value,label):
         raise RuntimeError(label+' path invalid')
     return proc/'root'/path.relative_to('/')
 
-def private_file_bytes(path,label):
+def private_file_bytes(path,label,max_bytes=1024*1024):
     before=path.lstat()
     if (not stat.S_ISREG(before.st_mode) or before.st_uid!=os.getuid()
-        or before.st_mode & 0o077 or before.st_size>1024*1024):
+        or before.st_mode & 0o077 or before.st_size>max_bytes):
         raise RuntimeError(label+' is not private')
     descriptor=os.open(path,os.O_RDONLY|os.O_NOFOLLOW)
     try:
         opened=os.fstat(descriptor)
         if (opened.st_dev,opened.st_ino)!=(before.st_dev,before.st_ino):
             raise RuntimeError(label+' changed')
-        with os.fdopen(descriptor,'rb',closefd=False) as source:data=source.read(1024*1024+1)
+        with os.fdopen(descriptor,'rb',closefd=False) as source:data=source.read(max_bytes+1)
         if len(data)!=before.st_size:raise RuntimeError(label+' changed')
+        after=os.fstat(descriptor);named=path.lstat()
+        identity=lambda m:(m.st_dev,m.st_ino,m.st_uid,m.st_mode,m.st_size,m.st_mtime_ns,m.st_ctime_ns)
+        if identity(before)!=identity(after) or identity(after)!=identity(named):
+            raise RuntimeError(label+' changed')
     finally:os.close(descriptor)
     return data
 
@@ -71,7 +75,18 @@ def private_runtime_root(runtime_root):
         raise RuntimeError('host graphical runtime is not private')
 
 def host_xauthority(proc,value,runtime_root):
-    source=private_file_bytes(peer_absolute(proc,value,'Xauthority'),'Xauthority')
+    peer_path=peer_absolute(proc,value,'Xauthority')
+    source=private_file_bytes(peer_path,'Xauthority')
+    # A native host's selected file can already be visible at that exact path.
+    # A sandbox's path may name another file on the host: require the same
+    # actual private file before using it, otherwise resolve its exact alias.
+    direct=pathlib.Path(value)
+    try:
+        data=private_file_bytes(direct,'host Xauthority')
+        peer_identity=peer_path.lstat();host_identity=direct.lstat()
+        if ((peer_identity.st_dev,peer_identity.st_ino)==(host_identity.st_dev,host_identity.st_ino)
+            and data==source):return str(direct)
+    except (FileNotFoundError,PermissionError,RuntimeError):pass
     private_runtime_root(runtime_root)
     try:candidates=list(runtime_root.iterdir())
     except FileNotFoundError:raise RuntimeError('host Xauthority directory unavailable')
@@ -93,6 +108,28 @@ def host_socket(proc,value,candidate,label):
     except FileNotFoundError:return None
     if host!=source:return None
     return str(candidate)
+
+DBUS_ADDRESS_BYTES=b'-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_/.*\\'
+def dbus_path_address(value):
+    # One filesystem socket remains the supported authority. The standard
+    # optional server GUID identifies that same address, not another endpoint.
+    if not value.startswith('unix:') or ';' in value:raise RuntimeError('DBus address unsupported')
+    fields={}
+    for field in value[5:].split(','):
+        key,separator,encoded=field.partition('=')
+        if (not separator or key not in ('path','guid') or key in fields
+            or not re.fullmatch(r'(?:[-0-9A-Za-z_/.*\\]|%[0-9a-fA-F]{2})+',encoded)):
+            raise RuntimeError('DBus address unsupported')
+        fields[key]=os.fsdecode(re.sub(rb'%([0-9a-fA-F]{2})',
+            lambda match:bytes.fromhex(match[1].decode('ascii')),encoded.encode('ascii')))
+    if 'path' not in fields or '\0' in fields['path']:raise RuntimeError('DBus address unsupported')
+    guid=fields.get('guid')
+    if guid is not None and not re.fullmatch('[0-9a-fA-F]{32}',guid):raise RuntimeError('DBus address unsupported')
+    return fields['path'],guid
+
+def dbus_address(endpoint,guid):
+    encoded=''.join(chr(byte) if byte in DBUS_ADDRESS_BYTES else f'%{byte:02x}' for byte in os.fsencode(endpoint))
+    return 'unix:path='+encoded+('' if guid is None else ',guid='+guid)
 
 GRAPHICAL_DENIAL_NAMES={'dbus':'.lvb-denied-dbus','wayland':'.lvb-denied-wayland'}
 def denied_graphical_endpoint(name):
@@ -144,11 +181,9 @@ def graphical_environment(graphical,proc_root=pathlib.Path('/proc'),runtime_root
             if source=='xauthority':
                 result[target]=host_xauthority(proc,value,runtime_root)
             elif source=='dbus_session_bus_address':
-                prefix='unix:path='
-                if not value.startswith(prefix) or ',' in value:
-                    raise RuntimeError('DBus address unsupported')
-                endpoint=host_socket(proc,value[len(prefix):],runtime_root/'bus','DBus endpoint')
-                result[target]=prefix+(endpoint if endpoint is not None else denied_graphical_endpoint('dbus'))
+                path,guid=dbus_path_address(value)
+                endpoint=host_socket(proc,path,runtime_root/'bus','DBus endpoint')
+                result[target]=dbus_address(endpoint if endpoint is not None else denied_graphical_endpoint('dbus'),guid)
             elif source=='wayland_display':
                 wayland=pathlib.PurePosixPath(value)
                 if wayland.is_absolute():endpoint=value
@@ -170,7 +205,8 @@ def environment(reg,graphical=None):
     env={'HOME':user.pw_dir,'USER':user.pw_name,'LOGNAME':user.pw_name,'PATH':'/usr/bin:/bin','LANG':'C.UTF-8',
          'XDG_RUNTIME_DIR':f'/run/user/{os.getuid()}','STEAM_COMPAT_DATA_PATH':str(root/'compatdata'),
          'STEAM_COMPAT_CLIENT_INSTALL_PATH':str(root/'client'),'STEAM_COMPAT_APP_ID':'0','SteamAppId':'0','SteamGameId':'0',
-         'STEAM_ZENITY':'','PRESSURE_VESSEL_VARIABLE_DIR':str(root/'runtime-var')}
+         'STEAM_ZENITY':'','PRESSURE_VESSEL_VARIABLE_DIR':str(root/'runtime-var'),
+         'PYTHONDONTWRITEBYTECODE':'1'}
     for key,folder in [('XDG_CACHE_HOME','host-cache'),('XDG_CONFIG_HOME','host-config'),('XDG_DATA_HOME','host-data'),('TMPDIR','host-tmp')]:env[key]=str(root/folder)
     if graphical is not None:
         env.update(graphical_environment(graphical))
@@ -325,8 +361,12 @@ def delivery_trace(spec,env):
     # Match the registered native observer's opt-in flag. The supervisor's
     # deliberately small environment must not drop the Windows half of a trace.
     # This is read once before launch, never by either audio delivery thread.
+    env.pop('LVB_AP10_TRACE',None)
     if spec['inspect'] or spec.get('vendor_access'):return
-    flag=pathlib.Path(env['HOME'])/'.local/share/linux-vst-bridge/managed/runtime/trace-enable'
+    # Windows HOME may be an isolated onboarding home. The diagnostic switch
+    # belongs to the user-owned manager, outside the vendor environment, just
+    # like the registered native proxy's switch. Never read it from a prefix.
+    flag=pathlib.Path(pwd.getpwuid(os.getuid()).pw_dir)/'.local/share/linux-vst-bridge/managed/runtime/trace-enable'
     try:
         with flag.open('rb') as f:enabled=f.read(3)==b'1\n'
     except OSError:enabled=False
@@ -998,11 +1038,38 @@ def prelaunch_owned_failure(spec,peer,error):
     atomic(report.with_suffix('.ownership.json'),receipt)
     return outcome
 
+# Only this fixed bootstrap crosses into the runtime's Python interpreter.
+# Packaged supervisor bytecode belongs to the host interpreter. The bootstrap
+# imports no product module and transfers kernel custody before the target exec.
+NATIVE_COMMAND_CHILD = r'''
+import json,os,pathlib,re,socket,sys
+args=sys.argv[1:]
+if (len(args)<4 or args[2]!='--' or not re.fullmatch('[0-9a-f]{64}',args[1])
+        or not pathlib.Path(args[3]).is_absolute()):
+    raise RuntimeError('native command child arguments')
+channel=socket.socket(fileno=int(args[0]));channel.settimeout(5)
+pid=os.getpid()
+if os.getpgrp()!=pid:os.setsid()
+with open('/proc/self/stat',encoding='utf-8') as source:raw=source.read()
+actual,separator,_=raw.partition(' (');fields=raw.rsplit(')',1)[1].split()
+if not separator or int(actual)!=pid:raise RuntimeError('native command child absent')
+channel.sendall((json.dumps({'nonce':args[1],'pid':pid,'start':int(fields[19])})+'\n').encode())
+acknowledgement=bytearray()
+while b'\n' not in acknowledgement and len(acknowledgement)<128:
+    part=channel.recv(128-len(acknowledgement))
+    if not part:break
+    acknowledgement.extend(part)
+if acknowledgement!=(args[1]+'\n').encode():raise RuntimeError('native command child not admitted')
+channel.close()
+os.execv(args[3],args[3:])
+'''
+
 # Native instances share their keeper's initialized Proton namespace. Selection
 # is an immutable runner component; the manager still owns the one environment
 # keeper and the existing per-instance lease. No audio callback enters this code.
 class NativeProtonSession:
     COMPONENT = 'native-command-session.json'
+    MANAGED_RUNNER = 'managed-ge-proton11-7-slr4-20260805-r3'
     FORWARD = ('WINEDEBUG','PROTON_LOG','DXVK_LOG_LEVEL','VKD3D_DEBUG',
                'WINEDLLOVERRIDES','PROTON_USE_WINED3D','PROTON_DISABLE_NVAPI','PROTON_DLL_COPY',
                'LVB_EVENT_OUTPUT_POLICY','LVB_AUDIO_LAYOUT_POLICY','LVB_EDITOR_LIFETIME',
@@ -1012,18 +1079,52 @@ class NativeProtonSession:
         self.canonical_runner_key=spec.get('runner_key')
         if not isinstance(self.canonical_runner_key,str) or not re.fullmatch('[0-9a-f]{64}',self.canonical_runner_key):
             raise RuntimeError('native command canonical runner key absent')
-        self.component=component;self.endpoint=None;self.control=None
+        self.component=component;self.endpoint=None;self.endpoint_directory_identity=None;self.control=None
         self.remote_identity=None;self.started=False;self.client=None;self.service=None
         base=pathlib.Path(self.runner['entry_point']).parent/'pressure-vessel/bin'
         self.client=base/'steam-runtime-launch-client';self.service=base.parent/'libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service'
         self.verify_tools()
+    @classmethod
+    def managed_component(cls,runner):
+        # The acquired runner already pins the complete runtime tree. Select
+        # only its two exact command tools; no ambient component, newer runtime
+        # or caller command can grant this route. Keep the installed tree and
+        # environment identity unchanged across the software update.
+        if runner.get('id')!=cls.MANAGED_RUNNER:return None
+        proton=pathlib.Path(runner['proton']);base=proton.parent.parent
+        if (not proton.is_absolute() or proton!=base/'GE-Proton11-7-x86_64/proton'
+            or pathlib.Path(runner['entry_point'])!=base/'SteamLinuxRuntime_4/_v2-entry-point'):
+            raise RuntimeError('managed command runner binding')
+        manifest=base/'runtime-tree.json'
+        declared=[a for a in runner['files'] if a['path']==str(manifest)]
+        if len(declared)!=1:raise RuntimeError('managed command manifest binding')
+        data=private_file_bytes(manifest,'managed command manifest',16*1024*1024)
+        if hashlib.sha256(data).hexdigest()!=declared[0]['sha256']:
+            raise RuntimeError('managed command manifest changed')
+        rows=json.loads(data)
+        if not isinstance(rows,list) or not 1<=len(rows)<=40000:
+            raise RuntimeError('managed command manifest extent')
+        component={'schema':1,'kind':'native_proton_command_session'}
+        for key,relative in [
+            ('client_sha256','SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client'),
+            ('service_sha256','SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service')]:
+            matches=[r for r in rows if isinstance(r,dict) and r.get('path')==relative]
+            if (len(matches)!=1 or matches[0].get('directory') is not False
+                or matches[0].get('target') is not None
+                or not isinstance(matches[0].get('sha256'),str)
+                or not re.fullmatch('[0-9a-f]{64}',matches[0]['sha256'])):
+                raise RuntimeError('managed command tool declaration')
+            component[key]=matches[0]['sha256']
+        return component
     @classmethod
     def selected(cls,spec):
         if not spec.get('shared_runtime'):return None
         runner=spec['registration']['environment']['runner']
         path=pathlib.Path(runner['proton']).parent/cls.COMPONENT
         rows=[a for a in runner['files'] if a['path']==str(path)]
-        if not rows:return None
+        if not rows:
+            component=cls.managed_component(runner)
+            return None if component is None else cls(spec,component)
         if len(rows)!=1:raise RuntimeError('native command component ambiguous')
         component_bytes=private_file_bytes(path,'native command component')
         if hashlib.sha256(component_bytes).hexdigest()!=rows[0]['sha256']:
@@ -1053,11 +1154,23 @@ class NativeProtonSession:
     def keeper_launch(self,cmd,env):
         # This is private bridge IPC. The plug-in retains the caller's exact
         # graphical bus denial; no desktop session bus is used for launch.
-        self.endpoint=self.endpoint_for(self.spec['session'])
-        self.endpoint.parent.parent.mkdir(mode=0o700,exist_ok=True)
-        private_runtime_root(self.endpoint.parent.parent)
-        if len(os.fsencode(self.endpoint))>100:raise RuntimeError('native command socket path extent')
-        self.endpoint.parent.mkdir(mode=0o700)
+        endpoint=self.endpoint_for(self.spec['session'])
+        if len(os.fsencode(endpoint))>100:raise RuntimeError('native command socket path extent')
+        # The shared cache may be public; the application and command roots
+        # must be private. Create each level with its own explicit mode rather
+        # than assuming another feature has already created these parents.
+        cache=endpoint.parents[3];cache.mkdir(mode=0o700,exist_ok=True)
+        metadata=cache.lstat()
+        if not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid!=os.getuid():
+            raise RuntimeError('native command cache ownership differs')
+        for directory in (endpoint.parents[2],endpoint.parents[1]):
+            directory.mkdir(mode=0o700,exist_ok=True);private_runtime_root(directory)
+        endpoint.parent.mkdir(mode=0o700)
+        # No exclusive directory was owned before mkdir succeeded. A refusal
+        # must never make the finalizer retire a nonexistent or foreign path.
+        self.endpoint=endpoint
+        metadata=endpoint.parent.lstat()
+        self.endpoint_directory_identity=(metadata.st_dev,metadata.st_ino)
         return cmd[:3]+[str(self.service),'--socket='+str(self.endpoint),
             '--stop-on-exit','--stop-on-parent-exit','--']+cmd[3:],env
     def service_ready(self):
@@ -1082,6 +1195,9 @@ class NativeProtonSession:
         if self.endpoint is not None:
             # Only our exclusive directory, after positive process retirement.
             private_runtime_root(self.endpoint.parent)
+            metadata=self.endpoint.parent.lstat()
+            if (metadata.st_dev,metadata.st_ino)!=self.endpoint_directory_identity:
+                raise RuntimeError('native command directory changed before retirement')
             if self.endpoint.exists():
                 if socket_identity(self.endpoint,'native command endpoint')!=getattr(self,'socket_identity',None):
                     raise RuntimeError('native command endpoint changed before retirement')
@@ -1132,7 +1248,7 @@ class NativeProtonSession:
         self.nonce=os.urandom(32).hex()
         command=[str(self.client),'--socket='+str(self.endpoint),'--directory='+str(pathlib.Path(self.reg['environment']['root'])/'home'),
             *['--pass-env='+key for key in self.FORWARD],'--forward-fd='+str(child.fileno()),'--',
-            '/usr/bin/python3',str(pathlib.Path(__file__).resolve()),'--native-command-child',str(child.fileno()),self.nonce,'--',*cmd[3:]]
+            '/usr/bin/python3','-I','-c',NATIVE_COMMAND_CHILD,str(child.fileno()),self.nonce,'--',*cmd[3:]]
         try:
             root=subprocess.Popen(command,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
                 start_new_session=True,bufsize=0,pass_fds=(child.fileno(),))
@@ -1167,42 +1283,29 @@ class NativeProtonSession:
         if self.control is not None:self.control.close();self.control=None
 
 
-def native_command_child(args):
-    # An inherited socket, not vendor stdout, transfers kernel process custody
-    # before exec. The Windows program never receives this descriptor.
-    if (len(args)<4 or args[2]!='--' or not re.fullmatch('[0-9a-f]{64}',args[1])
-            or not pathlib.Path(args[3]).is_absolute()):raise RuntimeError('native command child arguments')
-    channel=socket.socket(fileno=int(args[0]));channel.settimeout(5)
-    pid=os.getpid()
-    if os.getpgrp()!=pid:os.setsid()
-    identity=ProcessTracker(pid).identity(pid)
-    if identity is None:raise RuntimeError('native command child absent')
-    channel.sendall((json.dumps({'nonce':args[1],'pid':pid,'start':identity[0]})+'\n').encode())
-    acknowledgement=bytearray()
-    while b'\n' not in acknowledgement and len(acknowledgement)<128:
-        part=channel.recv(128-len(acknowledgement))
-        if not part:break
-        acknowledgement.extend(part)
-    if acknowledgement!=(args[1]+'\n').encode():raise RuntimeError('native command child not admitted')
-    channel.close()
-    os.execv(args[3],args[3:])
-
-
 def run(spec,peer=None):
     session_preflight(spec)
     stop_requested=[False]
+    operation=None
     def before_owner_stop(*_):
         stop_requested[0]=True
     signal.signal(signal.SIGTERM,before_owner_stop);signal.signal(signal.SIGINT,before_owner_stop)
     try:
         print('LVO0 '+spec['session']+' ready',flush=True)
         if stop_requested[0]:raise InterruptedError('supervisor interrupted after readiness')
+        # Lock refusal is still a prelaunch owner failure. No Windows child
+        # exists yet, so the same finalizer must retain the refusal and retire
+        # this exact reservation instead of leaving a missing receipt behind.
+        operation=(pathlib.Path(spec['registration']['environment']['root'])/'operation.lock').open('a+b')
+        fcntl.flock(operation,operation_lock_mode(spec)|fcntl.LOCK_NB)
         return run_owned(spec,peer,stop_requested)
     except Exception as error:
         # Ordinary setup errors after LVO0 are all owned by the same finalizer.
         # Do not let a missing LVO1 poison an
         # exposed lease merely because the Windows root was never created.
         return prelaunch_owned_failure(spec,peer,error)
+    finally:
+        if operation is not None:operation.close()
 
 def run_owned(spec,peer,stop_requested):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
@@ -1750,7 +1853,7 @@ class InstallerWitnesses:
                 if count>8192 or time.monotonic()>deadline:out['incomplete'].append('file_count_or_time_bound');break
                 for name in sorted(files):
                     p=pathlib.Path(directory)/name;suffix=p.suffix.lower()
-                    if suffix not in ('.exe','.dll','.msi','.log'):continue
+                    if suffix not in ('.exe','.dll','.vst3','.msi','.log'):continue
                     try:
                         m=p.lstat()
                         if not stat.S_ISREG(m.st_mode):continue
@@ -1807,7 +1910,11 @@ class InstallerWitnesses:
             location=after['uninstall'][key].get('InstallLocation','').replace('\\','/').rstrip('/')
             if not location.lower().startswith('c:/'):continue
             relative=location[3:].lower()+'/'
-            images=[p for p in delta['files']['added']+delta['files']['changed'] if p.lower().startswith(relative) and p.lower().endswith('.exe') and after['files'][p].get('sha256') and after['files'][p].get('format')=='pe_executable']
+            # A registered Windows audio product may contain only plug-in DLLs,
+            # including single-file or bundled VST3 modules. Its exact changed
+            # PE image is an installation witness, never factory/audio/license
+            # or installation-completeness authority.
+            images=[p for p in delta['files']['added']+delta['files']['changed'] if p.lower().startswith(relative) and p.lower().endswith(('.exe','.dll','.vst3')) and after['files'][p].get('sha256') and after['files'][p].get('format')=='pe_executable']
             if images:registrations.append({'registration':key,'images':images})
         changed=any(delta[k][change] for k in ('files','uninstall','services') for change in ('added','changed','removed'))
         return {'delta':delta,'application_registrations':registrations,
@@ -4420,16 +4527,14 @@ def vendor_application(spec):
 
 if __name__=='__main__':
     os.umask(0o077)
-    if sys.argv[1]=='--native-command-child':native_command_child(sys.argv[2:]);sys.exit(1)
     if sys.argv[1]=='--install':sys.exit(0 if install(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
     if sys.argv[1]=='--vendor-application':sys.exit(0 if vendor_application(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
     spec=json.loads(pathlib.Path(sys.argv[1]).read_text());peer=None if spec['inspect'] or spec.get('vendor_access') else socket.socket(fileno=0)
-    operation=(pathlib.Path(spec['registration']['environment']['root'])/'operation.lock').open('a+b')
-    # Standalone setup inspection is exclusive: it may start Wine services and
-    # must never become their transient owner underneath a live audio instance.
-    mode=operation_lock_mode(spec)
-    fcntl.flock(operation,mode|fcntl.LOCK_NB)
+    operation=None
     try:
+        if spec.get('keeper'):
+            operation=(pathlib.Path(spec['registration']['environment']['root'])/'operation.lock').open('a+b')
+            fcntl.flock(operation,operation_lock_mode(spec)|fcntl.LOCK_NB)
         outcome=keep(spec) if spec.get('keeper') else run(spec,peer)
         complete=outcome['cleanup_confirmed'] and (spec.get('keeper') or outcome.get('transport_retired',False))
         # This is an owner result, not the vendor launcher's exit status.
@@ -4437,5 +4542,5 @@ if __name__=='__main__':
         if outcome.get('reporting_error'):print('Bridge reporting failure: '+outcome['reporting_error'],file=sys.stderr)
         sys.exit(0 if complete else 2)
     finally:
-        operation.close()
+        if operation is not None:operation.close()
         if peer is not None:peer.close()

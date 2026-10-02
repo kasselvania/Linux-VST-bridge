@@ -72,10 +72,16 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-MIDI-001](#fc-midi-001--recognized-expression-rejected-an-entire-native-input-callback) | Recognized expression rejected an entire native input callback | Native VST3 proxy input admission | causal in source; physical attribution open | source-fixed | Pinned SDK fixture; Push / Deck operator report only | unqualified for Push expression | Build and publish exact proxy successor; physical Push/Bitwig release check |
 | [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | bounded | instrumentation-only | Arturia Deck and FRAGMENTS Ubuntu observations | supported-with-workaround | Pi FN1 attribution and PW1 prewarm source candidate are separate unqualified fixture results |
 | [FC-AUDIO-002](#fc-audio-002--host-block-exceeds-the-selected-bridge-presentation-envelope) | Host block exceeds selected bridge presentation envelope | Proxy setup, selected delay, DAW audio settings | causal | accepted | FRAGMENTS / Ubuntu at Bitwig 512/48 kHz | supported-with-workaround | Actionable requested-versus-supported block message |
+| [FC-AUTO-001](#fc-auto-001--automation-refusal-collides-with-terminal-silence) | Automation refusal collides with terminal silence | Native curve admission / SDK result interpretation | causal collision; sparse-curve capability still incomplete | deployed collision correction; whole-block successor source-only | Ubuntu reference effect explicitly refuses 0x107; state still fails | blocked for the failed saved-automation journey | Deliver paired protocol-14 whole DAW blocks and repeat recall; audio gaps remain separate |
 | [FC-CAP-001](#fc-cap-001--capacity-enumeration-versus-lease-retirement-race) | Capacity scan versus lease retirement | Manager capacity ownership | causal | none | AP17 exact fixture | supported-with-workaround | Repair issue #93 |
 | [FC-MGMT-001](#fc-mgmt-001--managed-inventory-refresh-authority) | Managed inventory freshness and refresh | Manager catalogue/registry/onboarding | causal | accepted | Blackhole, Kontakt / Deck; FRAGMENTS / Ubuntu | supported | Preserve one canonical refresh route |
 | [FC-MGMT-002](#fc-mgmt-002--exact-verified-hostsource-omitted-across-software-generations) | Exact verified host/source omitted across generations | Software catalogue, profile/candidate and publication | causal | accepted | Pure LoFi, FRAGMENTS, Serum / Deck | supported | Preserve required exact pairs in every new generation |
 | [FC-PLAT-001](#fc-plat-001--nativewindows-transport-requires-shared-private-loopback) | Native/Windows transport needs shared loopback | Platform namespace adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Regression gate for new adapters |
+| [FC-MGMT-004](#fc-mgmt-004--managed-publication-is-mistaken-for-a-static-catalogue-fixture) | Managed publication is mistaken for a static catalogue fixture | Catalogue/publication ownership | causal | installed | Ubuntu internal22 normal status and product controls passed | resolved at publication readback | DAW use remains untested |
+| [FC-MGMT-005](#fc-mgmt-005--partial-installation-retry-omitted-from-setup) | Partial installation retry omitted from Setup | Existing installer offers to Setup projection | causal | installed | Ubuntu internal56: two partial-stop and isolated-retry repetitions | resolved for the recorded partial retry | Remaining recovery cases and platform qualification |
+| [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
+| [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
+| [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
 ---
@@ -684,6 +690,19 @@ Prelaunch keeper admission could fail after graphical-session replacement or whe
 
 Host-private Xauthority/Wayland/D-Bus paths, missing denial mount sources, and overlong denial paths broke exact identity and mounting. The accepted boundary uses authenticated aliases where identity matches and existing private non-listening denial sockets otherwise.
 
+Internal51 exposed a separate native-desktop gap in the same boundary:
+Openbox/X11 supplied the private home-directory authentication file, but the
+supervisor searched only the user runtime directory for an exact copy. Its
+keeper refused before readiness, with `host Xauthority exact alias unavailable`;
+no DSP was admitted. [The installed failure](../evidence/self-service-delivery/internal51-sdk-lifecycle-failure.json)
+is retained. The source successor accepts the authenticated peer's exact
+host-visible private file only when file identity and complete bytes match,
+retaining the checked alias route for a private namespace. Internal52 passed
+contended restoration and both actual SDK reference roles on the populated
+Openbox/X11 fixture, with positive state, processing and retirement. That
+installed development result does not qualify GNOME, commercial products or
+DAW project recall; previous bounded physical results stay as recorded.
+
 ### Fix chain
 
 - **Source correction:** manager/supervisor keeper and graphical-authority path in the accepted canonical product, documented by [PLUGIN_RELIABILITY_FOLLOWUP](PLUGIN_RELIABILITY_FOLLOWUP.md).
@@ -761,6 +780,85 @@ Process exit alone was mistaken for clean retirement; abrupt or timed-out termin
 ### Product coverage
 
 Steam Deck managed products and Ubuntu FRAGMENTS bring-up.
+
+### Live installer recovery follow-up
+
+The integrated delivery run also found an unstarted standalone inspection whose
+exclusive environment lock refused while a retained keeper held its shared
+lock. Acquisition occurred before the prelaunch finalizer, leaving a lease with
+no result or retirement receipt. The ordinary UI had no recovery offer for this
+abandoned raw CLI inspection and package transition remained blocked. The
+source successor brings lock acquisition inside the exact prelaunch finalizer;
+the inspection caller then applies canonical positive-receipt reconciliation
+under the registry lock before reporting the retained failure. A successful
+process exit with a wrong receipt still refuses. Fourteen Linux ownership/census
+tests, 71 supervisor tests under a reaping harness, nine Rust inspection tests
+including a real Python lock refusal, and strict all-target Clippy passed.
+The selected internal38 required a controlled maintainer retirement using its
+existing finalizer and exact positive receipt; that run remains failed. This
+correction is not in internal39 and requires successor delivery. See the
+[inspection failure and source checks](../evidence/self-service-delivery/inspection-lock-refusal-2026-10-01.json).
+
+An internal39 Ubuntu project reopen also failed before host launch because the
+desktop's authenticated session-bus address included the standard optional
+server GUID. The supervisor rejected every comma, including this supported
+D-Bus syntax. The source successor parses one filesystem socket address and its
+optional GUID, preserves that server identity, and retains exact peer-generation
+and device/inode checks. Unknown transports, ambiguous fields and malformed
+escaping still refuse; an unmappable peer socket never falls back to the host
+bus. Twelve Linux tests include a real `/proc` peer and socket connection.
+This correction is not installed in internal39; the reopen remains failed.
+See the [startup and input receipt](../evidence/self-service-delivery/native-input-and-graphical-startup-2026-10-01.json).
+
+The new clean Ubuntu account on internal27 reached the official FRAGMENTS
+trial's Finish screen, but its exact installer cohort remained live with 15
+processes. Overview failed in 7.614 seconds with
+`operator_current_artifact_changed_refresh`, hiding the normal Focus/Stop
+controls. The supervisor rewrites even identical progress JSON every half
+second, changing both the report inode and its directory timestamps.
+
+Current readback now permits progress-report replacement for an exact live
+installer. The operation's record and containing directory identity remain
+bound, and both external probes require the same operation to remain live.
+These progress bytes do not authorize installation, scanning or retirement;
+the live row offers exact Focus/Stop. Retired results retain the full stamp
+watch. Seven focused current-readback tests and all-target Clippy passed.
+Internal28 was built, installed and selected through normal product controls.
+Live installer recovery verification is pending.
+
+The integrated successor separates exact Installer Focus/Stop admission from
+runtime verification and global DSP capacity. It retains current operation,
+environment and live-unit checks. The frontend no longer invalidates a fresh
+Overview for every unchanged unavailable-service pulse or disables controls for
+a silent refresh. Source tests cover damaged runtime, stale/dead/foreign targets
+and stable inactive pulses. No installed GUI Stop/Retry pass follows from these
+source results; the delivered frontend retest remains required.
+
+Internal31 was installed and selected on the populated Ubuntu account through
+normal package controls, retaining FRAGMENTS registration. Its headless hold
+reached the live Setup card during unavailable capacity readback. Focus refused
+because that fixture has no window; Stop was not successfully exercised before
+natural retirement. Selected actions were below the viewport. The next source
+correction prioritizes that card and explicitly disables expired offers in the
+fast Setup view; a rendered click test permits fresh Stop without capacity and
+refuses stale Stop. All 81 frontend tests pass. A first-party windowed installer
+with a deliberate hold/partial-install hold is now source instrumentation;
+installed Stop/Retry/discovery remains required.
+
+Internal32 delivers the windowed fixture and both stateful reference modules.
+The populated Stop → Select → Start package route retained the exact FRAGMENTS
+registration. Normal Add Windows installer then refused the root-owned packaged
+Recovery installer with “Choose an owned regular installer file.” No installer
+ran and no Stop pass follows. The shared source-file eligibility correction
+permits explicitly selected root-owned files without group/other write access;
+read-only descriptor checks, private custody, hashing and source-change refusal
+remain mandatory. The fixed delivered GUI journey is still required.
+
+The old installed UI required an exact supervisor stop outside the GUI. It
+completed in 2.804 seconds: cancellation, outer exit -15, zero owned live
+processes, confirmed cleanup and durable files classified installed. This is
+an engineering recovery, not a self-service recovery pass. The vendor hang's
+cause remains unproved and its earlier result is retained.
 
 ### Claim limit
 
@@ -896,10 +994,60 @@ unresolved.
 
 ### Product coverage
 
+The integrated source successor adds startup/processing counters keyed to an
+exact successful START epoch. Its callback uses fixed atomic counters only;
+the worker retains bounded phase records and writes after processing/retirement.
+All 19 queued-backend tests pass, including 1,100 production callback blocks
+with zero allocation/reallocation/free calls, wrong-epoch refusal and whole-total
+reconciliation. This is instrumentation, not an audio-gap repair. Internal32
+does not contain it; no installed or physical dropout-free claim follows.
+
 Arturia Deck sessions and FRAGMENTS Ubuntu sessions contain retained gap counters. Functional use is accepted; dropout-free operation is not claimed.
+The internal36 Ardour reference instrument/effect run now retains explicit
+processing-phase misses: 599,294 frames for the instrument and 303,104 for the
+effect. Its ten-second output capture is all zero. The effect separately
+refused input events with code 258; the exact rejected event was absent from
+that generation's report. A source diagnostic retains the first bounded invalid
+event without callback allocation, I/O or changing admission. Three native
+SDK tests pass, including the real preloaded callback audit. This is attribution
+instrumentation, not a repair or a passed musical session; the causal audio
+work remains open. See the [retained phase and failure receipt](../evidence/self-service-delivery/native-input-and-graphical-startup-2026-10-01.json).
 The separate Pi standalone Serum source candidate is unqualified for musical
 use. FN1 retains the first-note gap; PW1 removes it only in the named
 default-state fixture under an opt-in startup sequence.
+
+Deck internal43 still failed: Pure LoFi retained 39,680 missing processing
+frames and FRAGMENTS 6,912. Temporary exact-worker scheduling promotion did not
+establish a fix; FRAGMENTS retained 512 more missing frames afterwards. Later
+policy readback was absent and Pure LoFi's early trace capacity was exhausted.
+The next native diagnostic preserves the first 16 and most recent 16 gaps and
+each correlated mailbox reply's Windows timing, with displaced coverage counted.
+All 83 serial native-library tests and Clippy pass, with one Windows-fixture
+test ignored. It changes observation only and is not installed in internal44.
+See the [internal43 diagnostic](../evidence/self-service-delivery/internal43-audio-priority-diagnostic.json)
+and [integrated delivery status](INTEGRATED_BETA_DELIVERY.md).
+
+Internal52's coherent reference publications, using the whole-block host47,
+passed sixteen installed SDK record/recall consumers. The independent oracle
+compared 15,667,200 stereo samples; all processing-phase missing-frame counters
+were zero and actual owners retired positively. Startup and processing priming
+remain retained, and this is shorter development instrumentation on a VM, not
+the declared ten-minute DAW workload or a commercial/hardware qualification.
+The [SDK receipt](../evidence/self-service-delivery/internal52-installed-sdk-lifecycle.json)
+does not close the prior Deck commercial gaps or qualify kit52's unpublished
+successor proxy bytes.
+
+Internal56's physical Deck update/save/reopen completed ordinary controls,
+but audio remains failed. First traced recall lost 2,048 Pure LoFi frames before
+its first note. A second reopen was clean for the ten-minute musical subset,
+then ended with 2,560 Pure LoFi and 2,048 FRAGMENTS missing frames after editor
+activity. A tracing-disabled comparison still lost 1,536 Pure LoFi frames.
+Tracing is therefore not the sole cause. Retained request 66595 spent 1.175 ms
+in FRAGMENTS SDK processing but 19.574 ms in native admission-to-publication;
+CPU accounting queries polluted the broader diagnostic brackets. The source
+successor removes those queries and reports the existing exact SDK duration
+with each gap. This is a measurement correction, not a residual-audio fix.
+See the [physical results and limitations](RESTART_VALIDATION_2026_10_01.md#internal56-physical-deck-update-recall-and-audio-failure).
 
 ### Claim limit
 
@@ -979,6 +1127,27 @@ FRAGMENTS 1.3.1.6566 / Ubuntu: the 1024-frame refusal was observed; the exact 51
 ### Claim limit
 
 This does not qualify 1024-frame host blocks, 256 bridge frames, other sample rates, or arbitrary DAW configurations. It is separate from residual in-session deadline misses in FC-AUDIO-001.
+
+### Delivered-runtime demo follow-up
+
+The continued disposable check selected explicit 48 kHz and visibly entered
+512, but Bitwig 6.1.1 native PipeWire reverted to 1024. ALSA reported the device
+busy; JACK had no server. The original PipeWire backend was restored. This
+rules out those ordinary settings as a completed repair on this fixture.
+Source now adds a generic explicit 1024-frame testing preference, available
+only for the exact matching prebuilt successor that declares the larger
+envelope. Defaults and historical support claims remain unchanged. See
+[delivered host-block configuration](SELF_SERVICE_AUDIO_BUFFERING.md). Built
+artifact and installed DAW result are still pending for this successor.
+
+Internal23 on the fresh Ubuntu application account requested 1024 samples at
+48 kHz against a selected 512-frame bridge. Bitwig's numeric 512 edit was visible
+but reverted to 1024, confirmed in native lifecycle readback. No effective 512
+configuration, processing callback or editor open is claimed. This is a
+self-service configuration gap in the delivered journey. The same attempt also
+observed an independent vendor initial-state refusal, documented under
+FC-MGMT-003's installed follow-up. No new audio-delay or RT implementation is
+introduced by runtime delivery.
 
 ### Related failure classes
 
@@ -1174,6 +1343,83 @@ A new software generation retained only its default Windows host/source pair, om
 
 Pure LoFi and Efx FRAGMENTS / Steam Deck: the prior mismatch and later product use are observed. Serum 2 / Steam Deck: first package refusal and corrected candidate-C publication are retained. Ubuntu FRAGMENTS uses separate platform authority and is not inferred from these Deck results.
 
+### Integrated retained-proxy capability follow-up
+
+Internal33 selected a changed native kit on the populated Ubuntu account while
+retaining the original FRAGMENTS registration. Home then refused
+`candidate_runtime_contract`. The 1024-frame publication check consulted only
+the successor kit; its changed native digest could not prove the older proxy's
+capacity. Host-pair retention alone does not retain every publication capability.
+This is a new measured boundary; it does not assign that cause to older host
+reports. Internal33 is a failed development candidate.
+
+The source correction follows the exact published candidate's retained recipe
+when the selected kit does not describe that proxy. The publication, original
+runtime/host/source binding, immutable kit digest and module/class/native index
+must all match. It neither searches arbitrary kit directories nor enlarges a
+proxy based on a new manager. The regression changes the selected kit, retains
+the old publication and 1024-frame selection, and rejects foreign targets,
+missing retained runtime and changed recipe bytes. All 37 preparation tests and
+264 manager binary tests pass (two existing tests ignored); all-target Clippy
+passes. The actual ordinary Stop → Restore previous version → Start route
+restored internal32, its running frontend and identical software/registry hashes
+without state edits or manual process termination. Home again showed Bridge
+ready / compatibility unqualified. See the
+[internal33 development receipt](../evidence/self-service-delivery/ubuntu-internal33-development.json).
+The fixed internal34 successor selected on the same populated Ubuntu account;
+Home reported Bridge ready with the existing FRAGMENTS registration unchanged.
+It imported the root-owned first-party Recovery installer through Setup. Visible
+Stop cancelled the exact held operation while general capacity was unavailable,
+confirmed zero remaining owned processes, then the same card offered a fresh
+isolated retry. That attempt discovered both reference products and published
+the reference effect through ordinary controls. Focus, DAW recall and the full
+recovery matrix remain open. The installer still reported partial installation:
+its detector ignored `.vst3` files and required a registered `.exe`. The source
+successor captures exact changed PE plug-in images without claiming completeness,
+authorization or first use. A separate unknown descendant exit 1 remains retained
+and unattributed. See [internal34](../evidence/self-service-delivery/ubuntu-internal34-development.json).
+
+Internal36's signed native installer staged on Ubuntu and SteamOS through the
+ordinary file browser and installer. On the populated Ubuntu account, visible
+Stop → Select → Start selected the successor and retained all three published
+registrations. SteamOS staging preserved the selected software and registry
+digests exactly and changed no protected-system files. Its Setup preflight
+refused `publication_component_generation_unavailable`: the selected preparation
+kit already owned the 5fa090 host/source pair used by four publications, but
+pair resolution consulted only the default host and static catalogue. The Deck's
+working generation remains selected. This is a measured migration gap, not lost
+module bytes or a license problem.
+
+The source correction follows only the exact immutable kit selected by a
+software generation and its verified staged preparation runtime. It preserves
+that generation's supervisor/ownership pair through subsequent package
+predecessors, without searching arbitrary historical kit directories. The
+regression covers a changed default host, supervisor, ownership and preparation
+kit, and refuses missing runtime, changed host bytes and mismatched source.
+All 39 package-authority tests pass on macOS. The delivered correction and
+commercial project recall still require installed verification. See the
+[internal36 receipt](../evidence/self-service-delivery/internal36-installed-delivery.json).
+
+Internal37's delivered correction selected the populated Deck successor without
+changing its eight publications. A licensed Bitwig project with Pure LoFi and
+FRAGMENTS reopened with meaningful state and automation and produced a captured
+signal. Its native proxies remained the predecessor binaries. The subsequent
+normal rollback restored exact software and preserved registry/project digests,
+but final activation readback required a package version record absent from the
+verified legacy installation. Setup could not offer Start, leaving the service
+inactive. The update/rollback journey failed. The source successor reuses the
+exact verified legacy classification for selected status and explicit restart,
+refuses missing modern records, and compares the full selected component set
+before and after activation. Forty package-authority tests passed; installed
+restart and repeat musical acceptance remain open. See the
+[internal37 receipt](../evidence/self-service-delivery/internal37-installed-delivery.json).
+
+The following signed user-space package route stages verified PKG0 inputs without
+changing the selected installation or protected operating system. Source tests
+cover invalid signatures, mismatched bytes, links, low disk and Python mismatch;
+the real SteamOS staging/update/rollback journey is still required. See
+[user-space delivery](USER_SPACE_PACKAGE.md).
+
 ### Claim limit
 
 Retain only immutable host/source pairs already required by exact verified profile or candidate authority. This is not permission to admit arbitrary historical hosts, rescan to mask the mismatch, or substitute a different plug-in build.
@@ -1328,6 +1574,492 @@ None; accepted platform law.
 
 ---
 
+## FC-MGMT-003 — Whole-runtime hashing blocks bounded setup admission
+
+### Shared boundary
+
+Runtime identity/integrity verification versus manager status projection and
+action serialization. This is independent of the selected vendor installer.
+
+### Understanding
+
+causal
+
+The disposable Ubuntu delivery fixture recorded a 19.067-second installed
+Overview and a 10.000114-second canonical-lock timeout for Continue setup.
+The request was refused before environment creation or installer launch.
+Readback traversed and hashed the entire newly delivered runtime under
+projection serialization. This does not reattribute older manager failures.
+
+### Implementation
+
+source-fixed
+
+`c99d64da` keeps a completed byte-observation cache outside the immutable
+runtime. Projections check exact per-file device/inode/size/owner/mode and
+modification/change times, directory roster and symlink targets. Missing or
+invalid caches require byte verification before projection locks. Execution
+ignores the persistent observation cache and verifies runtime bytes.
+`823cff4f` also buffers the existing size-limited JSON reader. Internal15
+installed the cache correction but still recorded 13.014-second warm status
+and a cold frontend timeout; that partial result is retained.
+
+### User posture
+
+resolved at setup admission on internal16; package update status then timed out
+on internal17 with a retained failed environment. Internal18 installed the
+retirement correction and completed ordinary update, selection and activation;
+Bootstrap status took 1.322 seconds. Commercial execution remains open.
+
+### Fix chain and product coverage
+
+- Source: `c99d64da`; focused changed-file, added-file and forged-cache launch
+  refusal checks passed. Full serial manager checks passed (253, one ignored).
+- Build/candidate: internal16 at `823cff4f`; package-time native rebuild checks
+  passed.
+- Installed generation: internal16 selected and activated normally; internal15
+  retained. Two installed Overviews took 0.557 and 0.564 seconds. Normal Continue
+  setup completed in 43.272 seconds with environment_ready. Earlier failed and
+  slow attempts remain retained. The long creation job temporarily made status
+  unavailable; this is not a broad responsive-UI qualification.
+- Follow-up: internal17 system package installed, but Bootstrap status timed out
+  before user selection. `all_retired` had loaded execution-verified records.
+  Its correction reads exact custody and correlated retirement reports without
+  requiring intact executable bytes. Launch admission keeps full verification.
+  Focused damaged-runtime, unknown-cleanup and foreign-operation tests passed.
+  Internal18 installed this fix; Bootstrap status took 1.322 seconds and the
+  normal package switch and activation completed, retaining internal16.
+- Physical result: installer import and the setup refusal were observed through
+  the normal app on Ubuntu 26.04.1. No plug-in execution or audio result.
+
+### Scoped product readback follow-up
+
+Internal20 discovered FRAGMENTS, but its product controls exceeded the frontend
+deadline. Direct product readback completed in 28.110 seconds. The capture used
+validated runtime observations; subsequent preparation and scoped environment
+projections left that readback scope and rehashed runtime bytes. Source now
+extends the same observation scope over the complete read-only product response
+and current-offer validation. The queued mutation/execution owner remains
+outside that scope and performs full verification. Internal21 installed through
+normal successor selection and activation, retaining internal20. Product readback
+took 2.173 seconds, and the normal GUI loaded exact FRAGMENTS controls and
+accepted Check compatibility. The earlier 28.110-second failure remains retained.
+
+### Claim limit and remaining gate
+
+The setup admission retest passed. Prove actual runtime execution and retain
+commercial outcomes separately. This cache is a performance observation,
+not a sandbox, authorization flow or compatibility qualification.
+
+### Evidence and tracking
+
+[Ubuntu delivery result](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json),
+[PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200).
+Last reviewed: 2026-09-29.
+
+### Native admission follow-up on the delivered runtime
+
+Internal22 guest-demo Bitwig recognized the published FRAGMENTS proxy but its
+first instance failed after 69.783 seconds with setupProcessing kResultFalse.
+No Windows session or memory transport was created. The manager later reported
+Broken pipe. Native admission's retained-authority path repeats full runtime
+byte hashing before it can stage an environment keeper, exceeding the existing
+65-second native admission envelope. This is a launch validation gap, separate
+from status-cache behavior and from Windows plug-in processing.
+
+The correction scopes freshly computed hashes to one native admission. Every
+new admission hashes all runtime bytes; repeated checks reopen and revalidate
+exact file identities before reuse. No persisted observation cache authorizes
+execution, including nested readback calls. The scope ends before DSP supervisor
+launch; deadlines, keeper policy, security posture and DSP are unchanged.
+Regression tests reject changed bytes during the same scope and forged runtime
+observation stamps. Internal23 was independently built and normally selected
+and activated, preserving internal22. The native load reached exact Windows
+module session `c1ed490a85ec31578c97e29d89749b17` and one witnessed shared-memory
+mapping/connection. This closes the earlier before-host boundary on this one
+fixture; it does not establish successful DAW activation. Load still failed
+after 70.481 seconds, with no processing or editor opens. Initial vendor state
+capture returned SDK result 1 and zero bytes/writes, with no stream failure;
+subsequent state requests were explicitly refused. Its cause is not established
+and must not be relabeled as licensing or bypassed with fabricated state. The
+actual request was 1024/48000 against 512 selected frames (FC-AUDIO-002). Normal
+product controls have no action to open this installed trial editor before DAW
+activation. The official vendor trial choice was not reached. A command-line
+access mechanism is not a delivered self-service action. Windows-host and
+transport retirement was positively confirmed; zero callback frames were
+processed. Retest the trial-access, exact state and supported block boundaries
+separately; the earlier Ubuntu-lab workaround does not qualify this runtime.
+
+### Integrated startup follow-up
+
+Internal30's retained cold refusal identifies `keeper_starting`. That proves
+the observed refusal phase, not a universal cause of prior slow launches. The
+integrated successor performs fresh immutable-byte verification before taking
+registry admission, joins the existing environment keeper, releases admission
+while waiting, and rechecks publication/performance before exposing a lease.
+The wait retains the existing bounded startup budget; failures and actual
+capacity limits remain explicit. Control-worker phase records separate binding
+verification, keeper preparation, transport and supervisor readiness. Source
+tests establish reservation release, repeated admission, refusal and deadline
+behavior. Internal31's ordinary cold live preview was accepted without Reload
+in 44.610 seconds: verification 24.586 seconds and keeper readiness at 44.202.
+This exceeds the 30-second responsiveness target; complete vendor initialization
+and steady audio were not measured. The next source correction shares verified
+byte preparation within one manager process, reopens/checks exact identities,
+refuses stale/changed bytes and disk-cache authority, and releases its bounded
+preparation lock before keeper/DSP work. Focused tests pass. It is absent from
+internal32; repeated installed cold/warm measurements remain pending.
+
+Internal52's installed SDK suite passed both reference roles. First state access
+took 24.806 seconds; the remaining fifteen warm launches took 11.367–12.674
+seconds. Retained phases place 8.070–8.599 seconds
+in initial binding verification and about three milliseconds in ready-keeper
+admission. A separate read-only probe observed 6,799 runtime file identities
+change and 1.46 GB of manager reads across two successful launches. The acquired
+runtime omits the component enabling `NativeProtonSession`; the supervisor
+therefore creates a fresh outer runtime for every instance. This invalidates
+process-owned observations of the mutable runtime-copy hardlinks.
+
+The source successor derives only the exact acquired runtime's command
+client/service pair from its already pinned tree. It reuses the existing keeper
+and custody owner without changing runner files, prefixes, bounds or byte
+verification. The differential selection test refuses the old absence and all
+32 command-owner tests pass against the correction. Installed startup and
+retirement validation is still required. The [warm-delay receipt](../evidence/self-service-delivery/internal52-warm-verification-delay.json)
+preserves observations, inference and nonclaims separately.
+
+Internal53 passed normal package selection but failed its first installed state
+capture before Windows processing. Its command keeper assumed a cache parent
+existed and claimed the endpoint before exclusive creation; finalization then
+disputed a nonexistent directory. A separate actual runtime probe also proves
+that the host-compiled supervisor bytecode cannot load in runtime Python 3.13.5.
+The connected source correction creates/verifies private roots, claims and
+retires only its exact directory, and sends a fixed isolated text bootstrap
+through the unchanged inherited-fd/kernel-identity handshake. Exact failed keeper
+reports now refuse capacity instead of projecting available work. Frozen53
+fails both fresh-cache finalizer reproductions; 37 corrected owner tests and an
+actual pinned command-service/client interface test pass. Installed successor
+audio/state/retirement and complete frontend qualification remain pending. See
+[failed53](../evidence/self-service-delivery/internal53-runtime-owner-failure.json).
+
+Internal54 installed that correction. Its first effect record/recall pair
+exercised the actual acquired-runtime command bootstrap and passed meaningful
+state, automation, processing and exact retirement, with no processing missing
+frames. First state access was 18.759 seconds; warm state access was 4.324 seconds.
+This uses retained native51/host47 publication bytes and is not DAW qualification.
+
+The subsequent full SDK workload failed consumer eleven: one active 1024-frame
+instrument block was missing and expired, with 2,044 mismatched stereo samples.
+Ten earlier consumers passed; state capture and exact retirement also passed
+in the failing consumer. Callback time was below the declared period and task/
+memory ceilings were not exhausted. Neither establishes the cause of the late
+block. The independent host lacks wake-lateness and first-gap timing; bounded
+observations are required before another audio correction. This failed run
+does not close FC-AUDIO-001. See [the retained SDK failure](../evidence/self-service-delivery/internal54-sdk-full-failure.json).
+
+Ordinary inspection and prebuilt preparation then each completed their own work
+but refused service restoration. The first recovery created keeper specifications
+about 55 seconds after service start, near its 60-second overall deadline; ready
+reports appeared roughly 18 seconds later. The pre-staging interval is measured,
+but its internal attribution remains a gap. No deadline is increased. Recovery
+also expanded one prior keeper to all registered environments, and pure prebuilt
+construction unnecessarily stopped them. The selected correction removes that
+unneeded suspension and restores the exact previous owned bindings, retaining
+fresh verification and readiness for each. Legacy records and failed results
+remain distinct. See [the failed installed run](../evidence/self-service-delivery/internal54-frontend-restoration-failure.json)
+and [the ownership explanation](RESTART_VALIDATION_2026_10_01.md#internal54-installed-result-and-restoration-reproduction).
+
+The subsequent unchanged-candidate timing repetition failed again with only
+0.276 ms of consumer wake lateness. Native protocol-14 observation was disabled,
+and the Windows trace switch was lost when HOME was isolated. The source
+successor corrects both observation paths; the processing gap remains unresolved.
+Recovery now restores only the exact operation's control-service availability,
+leaving environment initialization and processing readiness to native admission.
+This supersedes prior-keeper reconstruction; prebuilt preparation also avoids
+suspension. A separate post-SIGKILL cleanup race is corrected within the existing
+deadline. All 347 runtime tests pass with an init reaper. These are source results,
+not installed recovery or audio qualification. See the
+[closeout continuation](RESTART_VALIDATION_2026_10_01.md#closeout-continuation-timing-and-source-corrections).
+
+Internal55 subsequently passed installed control-service restoration and
+preparation without restarting its keeper. Its new proxies passed an effect
+probe and four full SDK suites, including three at the earlier two-environment
+scope. Both trace paths now produce observations. These traced diagnostic runs
+had zero processing gaps; they do not establish a repair of the original
+intermittent gap or real DAW/commercial reliability. The exact
+[installed results](RESTART_VALIDATION_2026_10_01.md#internal55-installed-recovery-and-diagnostic-regressions)
+retain that distinction.
+
+The subsequent combined Ardour run failed: 276,353 effect frames and 279,862
+instrument frames were missing during processing. The exact fixture used
+PulseAudio; its first retained consumer intervals were only 249–264 microseconds.
+Later queue/reply stalls remain separately unattributed. All whole-lifetime
+counters and successful owner retirement are retained in the
+[internal55 DAW failure](../evidence/self-service-delivery/internal55-ardour-pulseaudio-failure.json).
+This does not establish an audio repair or a general scheduler cause. The ALSA
+comparison was stopped after 468 DAW xruns; even the subsequent no-plug-in
+baseline accumulated 20 xruns with zero bridge DSP owners. The audio fixture
+itself fails. Actual reference-state reopen and fresh recapture did match both
+saved payloads, separately from the still-failed audio result. See
+[the bounded comparison](../evidence/self-service-delivery/internal55-daw-recall-and-fixture-failure.json).
+The approved two-CPU no-plug-in comparison also failed (41 xruns, zero bridge
+DSP owners). Its independently bracketed interval averaged 0.190 outer core
+with no outer throttling, so expanding CPU alone did not resolve the fixture.
+The earlier no-plug-in one-CPU bracket averaged 0.435 core; do not substitute
+the separate near-one-core plug-in transition for that baseline. The tests have
+different durations and do not establish an xrun-rate improvement. See the
+[two-CPU record](../evidence/self-service-delivery/internal55-two-cpu-no-plugin-failure.json).
+
+Internal56's subsequent JACK/PipeWire comparison also failed with diagnostics
+disabled: 677,464 effect frames missing in 263 gaps, and 183,296 instrument
+frames missing in 56 gaps before a distinct input refusal. The native witness
+records a note-off at signed offset -1,661 in a 1,024-frame block. That explains
+the instrument's permanent refusal, not the preceding or sibling gaps. Its
+state save failed and the new snapshot has no managed instrument envelope;
+original snapshots are unchanged. The connected virtual sink capture was
+silent. Both Windows owners retired, while native instrument lifecycle remained
+failed. The no-plug-in JACK baseline and combined graph errors remain visible,
+without a unique scheduler attribution. See the
+[internal56 audio and save failure](../evidence/self-service-delivery/internal56-jack-audio-and-save-failure.json).
+
+## FC-PLAT-002 — Delivered runtime lifetime lock cannot be opened
+
+### Shared boundary and understanding
+
+Causal runtime extraction/pressure-vessel startup failure, before vendor launch.
+Internal16's normal Run installer exited during prefix initialization with status
+1. The retained diagnostic identifies permission denied at the exact zero-byte
+SLR platform `files/.ref`. The extractor had set it to mode 0400. Upstream opens
+this lifetime lock read/write; this is not an Arturia activation or editor failure.
+
+### Implementation and user posture
+
+Source correction: the exact empty lock receives mode 0600; all other regular
+files remain 0400/0500. Its empty digest and size still require verification.
+The corrected runtime identity is `managed-ge-proton11-7-slr4-20260805-r2`.
+Existing runtimes/environments are retained, never rewritten in place.
+Revision -r3 below addresses a subsequently observed platform-mode conflict.
+
+A fully retired receipt that positively records prefix initialization failure
+before target launch may offer a new isolated attempt. A target launch, dropped
+stages, unresolved cleanup or installed result still refuses that recovery.
+The original durable-outcome report is preserved; no vendor state is inferred.
+
+### Fix chain, coverage and remaining gate
+
+- Source: focused lifetime-lock extraction and isolated-retry refusal tests.
+- Build/installed: internal18 at `06a33e49` acquired the distinct corrected
+  runtime through ordinary Setup in 303.67 seconds: 16,911 verified entries and
+  the exact lock mode 0600. Earlier runtime/environment records remain retained.
+  Its retry message lacked a button for the indeterminate durable outcome;
+  internal19 at `8e6dfea9` installed the narrow pre-target recovery correction.
+- Observed recovery: normal New isolated attempt completed in 118.289 seconds,
+  retaining and linking the failed attempt. Ordinary Run installer completed
+  prefix initialization with exit 0, observed the exact target SHA and displayed
+  the official Arturia Efx FRAGMENTS 1.0.0 license agreement. No security
+  protection was disabled and no runtime permission repair was performed.
+- This startup result did not qualify plug-in compatibility. The operator later
+  confirmed the agreement and installation completed; the next shared failure
+  and its remaining gates are retained below.
+
+### Post-install platform-mode failure
+
+The operator confirmed the agreement; the official installer completed with
+exit 0, installed durable outcome, zero owned live processes and confirmed
+cleanup. The following Overview refused `managed_runtime_file_changed`.
+Read-only diagnosis checked all 13,070 regular runtime files: no changed bytes,
+but 6,274 platform files changed 0400 to 0644 and 434 changed 0500 to 0755.
+Upstream `pv_runtime_create_copy` hard-links the platform payload into a mutable
+sysroot and calls mtree application with chmod normalization. This is another
+conflict in the extraction permission policy, not an Arturia licensing failure.
+
+Source revision -r3 gives platform payloads their canonical 0644/0755 modes
+inside private 0700 directories. Exact byte, mode, owner and roster verification
+remains; other runtime components remain 0400/0500 and the lifetime lock 0600.
+The regression exercises hard-link chmod and rejects changed bytes through
+that shared inode. All six runtime tests passed. Earlier runtime/environment
+artifacts remain unchanged. Internal20 on a fresh application account acquired
+-r3 normally, installed the official vendor product with exit 0 and confirmed
+cleanup, passed post-install Overview in 4.129 seconds and discovered the exact
+FRAGMENTS class. No trial usability, native publication, sound or persistence
+result is claimed.
+
+[Ubuntu delivery result](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json),
+[PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200),
+[upstream runtime lock](https://gitlab.steamos.cloud/steamrt/steam-runtime-tools/-/blob/main/pressure-vessel/runtime.c),
+[upstream file-lock implementation](https://gitlab.steamos.cloud/steamrt/steam-runtime-tools/-/blob/main/steam-runtime-tools/file-lock.c).
+Last reviewed: 2026-09-29.
+
+### Final native-admission recheck
+
+Internal25's cold attempt again expired before DSP while the keeper started.
+A warm ordinary reload loaded in 38.029 seconds and rendered the vendor DEMO
+editor with the installed 1024-frame configuration. The final keeper/history
+recheck was outside the fresh-byte preparation scope and reread the complete
+runtime. The follow-up moves that exact final recheck inside the scope, after
+all fallible preparation and before exposure. File identities are rechecked;
+new admissions still read every runtime byte. Internal26 loaded from an idle
+service without a manual reload, rendered the demo editor and produced captured
+processed audio. The complete DAW load still took 72.440 seconds. This does not
+qualify startup responsiveness or the inspect-to-DAW keeper transition. The subsequent editor-removal failure is FC-UI-008, not this class.
+
+## FC-MGMT-004 — Managed publication is mistaken for a static catalogue fixture
+
+Internal21 completed normal prebuilt preparation and managed test publication
+for the exact official FRAGMENTS trial module. Registry, ELF bytes and the DAW
+link remained present, but subsequent Overview failed in 0.292 seconds with OS
+NotFound. A package without a static native catalogue still delegated every
+nonempty registry to the legacy sealed FRG1 fixture. That is a shared catalogue
+ownership gap, not an Arturia installation or authorization failure.
+
+The catalogue boundary now recognizes exact preparation-owned publications:
+candidate-derived registration and retained authority, committed publication
+transaction and exact published/removed physical disposition. No static
+catalogue is invented. Unknown legacy entries, changed registration, missing
+completion and pending or foreign links refuse. The historical FRG1 contract
+remains separate. Setup, operator readback and onboarding use that shared owner.
+The source regression covers publication, removal and negative identity and
+completion outcomes. Internal22 passed normal successor selection and service
+activation, retaining internal21; Overview passed in 2.198 seconds and product
+readback in 5.413 seconds. Normal controls show Available experimentally and
+untested DAW capabilities. Exact native bytes and publication remained intact. Bitwig's separate agreement is now accepted and guest demo mode opened. The
+first DAW load failed during admission before a Windows host session existed;
+sound, editor and persistence remain open.
+
+[Ubuntu delivery result](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json),
+[PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200).
+Last reviewed: 2026-09-29.
+
+## FC-UI-008 — Vendor editor removal crashes the Windows host
+
+### Shared boundary and understanding
+
+Windows host `IPlugView::removed()`; bounded. This identifies the failed SDK
+call, not whether the underlying defect belongs to the host, vendor or runner.
+
+### Fix chain and coverage
+
+Observed failure: Ubuntu 26.04.1, Bitwig 6.1.1 guest demo, internal25,
+official Efx FRAGMENTS 1.0.0.2925 trial module
+`edb358f124bd35290dc2597e68c2d7f1f4061d5cf650a008f097c463fc6aef89`,
+class `41727475415649536772616E50726F63`, application-owned runtime r3 and
+native proxy `bbee707e64e9cfb96b58762aadde125c096779f9c165bfb9c4b6bc9623e9ba41`.
+The normal warm reload rendered the vendor DEMO editor. Closing its title-bar
+window reached view stage 212, raised Windows access violation `c0000005`
+and ended the supervised Windows host with exit 5. The native side reported a
+terminal instance failure after 8620 transport blocks. Input was silent; this
+does not establish audio through. Host and transport cleanup were confirmed.
+
+Internal26 loaded from an idle service and captured actual processed output.
+Its normal editor close reproduced the same removal-stage access violation;
+105348 transport blocks completed before terminal failure. Host and transport
+cleanup were confirmed. No dropout-free or successful editor retirement claim.
+
+The ordinary host called removed() before clearing IPlugFrame; retained-view
+retirement already used the opposite order. The shared helper now always
+clears the frame before removal, matching [Steinberg editorhost](https://github.com/steinbergmedia/vst3_public_sdk/blob/master/samples/vst-hosting/editorhost/source/editorhost.cpp).
+A refused frame detach retains the exact parent/view and prevents removal or
+release. The production SDK fixture asserts this order, refusal and positive
+retry, alongside ordinary and retained editor cycles. This source correction
+does not yet establish the cause or resolution of the commercial crash.
+
+The corrected Windows host passed CI and was included in internal27 with
+independently compared native proxies. The populated account refused normal
+package selection because its required host/source pair changed; internal26
+remained selected. The account with no registry/catalogue selected internal27
+through normal controls for the focused commercial retest. This does not
+establish a safe migration of existing published products.
+
+Internal28 completed normal preparation/publication and captured processed
+stereo output, then reproduced the same editor-close failure twice with the
+corrected host. Same-process mappings and the bounded editor fault header
+locate the fault in Wine `uiautomationcore.dll`, `create_uia_node_from_elprov`
++0x18 (RVA 0x7988), with a null first argument and zero access address. The
+vendor caller remains unproved. This is a runtime invalid-provider defect;
+frame detach did not fix the observed commercial failure.
+
+The existing AP11/AP12 process-scoped accessibility policy was missing from
+new managed preparation. Source now declares it for the exact measured
+FRAGMENTS module/class and runtime, includes its Windows screen-reader
+limitation, and preserves the review-candidate claim and predecessor.
+The isolated LGPL Wine guard also passes the direct null-provider reference:
+delivered DLL exit 5 at the same RVA, corrected DLL exit 0. The saved builder's
+independent output passed in another fresh reference prefix. Neither reference
+establishes commercial editor behavior or delivery of a patched runtime.
+See [construction and policy boundaries](RUNTIME_UIA_GUARD.md).
+
+Internal29 prepared and explicitly replaced the exact policy candidate, but a
+separate retained-buffering guard refused admission before a Windows DSP host
+existed. Internal30 delivered that admission correction. The ordinary inserted
+instance completed three normal editor close/reopen cycles and final close,
+then retired through Bitwig. A fresh demo instance also completed close/reopen,
+captured altered stereo audio afterwards, closed again and retired. Both
+terminal observations recorded stage 217, editor failure/exception zero and
+confirmed host/transport cleanup, without a terminal instance fault. No patched
+DLL was adopted. These positive policy results preserve the prior failed
+default-accessibility fixtures and the exact screen-reader limitation.
+
+### User posture and next gate
+
+Review candidate with bounded installed close/reopen and retirement results.
+State/project recall, audio quality, startup responsiveness and ordinary
+installer recovery remain unqualified. Do not apply this exact Ubuntu policy
+result to the separately accepted Deck fixture or another module/runtime.
+
+### Evidence
+
+[Installed result](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json),
+`fresh_account_retest.daw_demo_retest_internal25`, `daw_demo_retest_internal26`,
+and `clean_account_host_retest_internal27.daw_demo_internal28` / `daw_demo_internal30`;
+draft [PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200).
+Last reviewed: 2026-09-30.
+
+## FC-AUTO-001 — Automation refusal collides with terminal silence
+
+The internal44 Ubuntu reference effect reported successful contained silence
+without terminal custody, then refused state capture. Both references retained
+processing-phase missing frames. The Windows owner confirmed normal cleanup;
+this observation does not establish a vendor DSP crash or a recall pass.
+
+The planner's unknown-anchor/capacity refusal reused `0x106`, already IF2's
+terminal-silence result. The SDK therefore took its success/silence branch and
+latched the state refusal. Source now uses `0x107`, with a static distinction and
+an isolated production SDK regression. The refusing installed input was swallowed
+by the collision and is unretained; its exact curve cause remains inferred.
+
+An exact parameter-ID table is configured outside processing, with no initial
+numeric values. Previously accepted last-sample values can anchor subsequent
+sparse curves across a seek. GUI/state changes and Stop/recovery invalidate them;
+recovery retains the exact census. Unknown baselines still refuse rather than
+substitute metadata defaults. Actual processing entry-point regressions retain
+zero allocations, reallocations and frees.
+
+The result-code correction is **deployed** in internal46, but the musical
+capability is not accepted. The effect returned `0x107` on a 1008-frame callback
+with two input events, then refused state. No false IF2 terminal-silence success
+was retained. The exact parameter points and invalidation origin are absent;
+the report does not prove a particular GUI event caused the missing anchor.
+The [internal46 receipt](../evidence/self-service-delivery/internal46-populated-reference-failure.json)
+preserves its failed snapshot, processing gaps and confirmed owner retirement.
+
+The current source successor transports one whole DAW block through protocol 14
+and mapping 3 instead of reconstructing implicit curves across 256-frame
+chunks. The incoming queue is unchanged and its implicit previous value remains
+vendor-owned. GUI/state/seek invalidation cannot require an invented bridge
+anchor on this path. Legacy protocol fixtures retain their separate planner.
+Whole 1008/1024-frame callbacks, zero-frame flush, mapped multi-output guards,
+native SDK activation and production Windows decoder/SDK queues have source
+regressions; the callback allocation counters remain zero. A matching Windows
+host and proxy kit must be delivered and retested. The correction is source-only
+and does not close the installed state, recall or audio gaps.
+
+Native Rust,
+SDK and X11 regressions passed, as recorded in the
+[installed failure and source receipt](../evidence/self-service-delivery/internal44-populated-reference-automation-failure.json).
+The coherent successor must repeat saved automation, state and reopening.
+The distinct [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses)
+processing gaps remain unresolved.
+
 ## Maintenance rules
 
 When a PR changes one of these classes:
@@ -1339,3 +2071,25 @@ When a PR changes one of these classes:
 5. state the new fix-chain stage and claim limit in the PR body.
 
 A new class should represent a reusable mechanism, shared architectural boundary, current user limitation, or accepted fix that future work must preserve. Do not add one entry for every failed command or harness mistake.
+
+
+## FC-MGMT-005 — Partial installation retry omitted from Setup
+
+Internal55's packaged partial reference installer wrote only the instrument.
+Ordinary Setup Stop retired every owned process, preserved that file, restored
+the service and cleared pending recovery. The same card offered discovery but
+hid the backend's already-authorized isolated retry. This is a causal projection
+gap: `setup_projection_current` retained only Stop as a secondary action when
+partial files made discovery primary. The source correction retains the exact
+backend retry offer beside discovery, including its disabled reason; ownership,
+retirement and new-attempt admission remain with their existing owner.
+
+The installed failure and successful partial-stop subset are retained in
+[the internal55 record](../evidence/self-service-delivery/internal55-partial-stop-hidden-retry.json).
+The regression fails against the old projection. Internal56 then exposed the
+exact retry through installed Setup. Two fresh attempts passed partial Stop,
+positive retirement and service restoration, preserving the prior partial
+attempts. Setup offered discovery and another isolated retry after each. The
+[installed record](../evidence/self-service-delivery/internal56-installed-partial-recovery.json)
+binds the source, package selection and operation identities. The complete
+recovery matrix and other platforms remain open.

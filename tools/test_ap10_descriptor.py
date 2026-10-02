@@ -1,11 +1,29 @@
 """Bounded SDK-derived descriptors preserve identity and reject false layouts."""
 import unittest
-from ap8_descriptor import generate
+from ap8_descriptor import generate,prebuilt_descriptor
 class Descriptor(unittest.TestCase):
  def records(self,effect=True):
   bus=lambda d,i,t=0,m=0,c=2:dict(state='ap8_bus',media=m,direction=d,index=i,channels=c,type=t,flags=1,arrangement=3 if m==0 else 0,name='Test')
   return ([bus(0,0),bus(0,1,1)] if effect else [])+[bus(1,0),bus(0,0,m=1,c=0 if effect else 16),*([bus(1,0,m=1,c=16)] if not effect else []),dict(state='ap8_inspected',latency_samples=176,float32_result=0),dict(state='ap8_parameters',parameters=[[0,'Mix','%',0,1,.5,.5]]),dict(state='ap8_parameter_count',count=1)]
  def gen(self,r):return generate(r+[dict(state='ap12_class',class_id='00'*16,name='Vendor Test',vendor='Test vendor',version='1.0',subcategories='Fx' if any(x.get('media')==0 and x.get('direction')==0 for x in r) else 'Instrument|Synth',metadata_tier='factory_2')],'00'*16,'ab'*32)
+ def test_prebuilt_metadata_excludes_private_parameter_readback(self):
+  r=self.records()+[dict(state='ap12_class',class_id='00'*16,name='Test',vendor='Test',version='1',subcategories='Fx',metadata_tier='factory_2')]
+  first=prebuilt_descriptor(r,'00'*16,'ab'*32)
+  p=next(x for x in r if x['state']=='ap8_parameters')['parameters'][0]
+  p[6]=.9
+  self.assertEqual(prebuilt_descriptor(r,'00'*16,'ab'*32),first)
+  self.assertEqual(p[6],.9)
+  p[5]=.1
+  self.assertNotEqual(prebuilt_descriptor(r,'00'*16,'ab'*32),first)
+ def test_invalid_sdk_default_requires_the_exact_valid_observation(self):
+  r=self.records()+[dict(state='ap12_class',class_id='00'*16,name='Test',vendor='Test',version='1',subcategories='Fx',metadata_tier='factory_2')]
+  p=next(x for x in r if x['state']=='ap8_parameters')['parameters'][0]
+  p[5]=-1;p[6]=0
+  first=prebuilt_descriptor(r,'00'*16,'ab'*32)
+  p[6]=.1
+  self.assertNotEqual(prebuilt_descriptor(r,'00'*16,'ab'*32),first)
+  p[6]=None
+  with self.assertRaises(ValueError):prebuilt_descriptor(r,'00'*16,'ab'*32)
  def test_exact_profile_zero_channel_policy(self):
   r=self.records(False)+[dict(state='ap12_class',class_id='00'*16,name='Test',vendor='Test',version='1',subcategories='Instrument|Synth',metadata_tier='factory_2')]
   output=next(x for x in r if x.get('media')==1 and x['direction']==1);output['channels']=0

@@ -2,6 +2,7 @@
 name = "linux-audio-compatibility-manager"
 version = "0.1.0"
 edition = "2021"
+default-run = "linux-audio-compatibility-manager"
 [dependencies]
 eframe = { version = "=0.36.2", default-features = false, features = ["default_fonts", "glow", "x11"] }
 serde = { version = "=1.0.228", features = ["derive"] }
@@ -9,6 +10,7 @@ serde_json = "=1.0.150"
 
 rfd = { version = "=0.17.2", default-features = false, features = ["xdg-portal"] }
 libc = "=0.2.189"
+linux-vst-bridge = { path = "../bridge-manager" }
 
 [dev-dependencies]
 png = "=0.18.1"

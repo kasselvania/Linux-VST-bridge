@@ -1,0 +1,13 @@
+{
+  "claim_level": "Windows_source_build_and_contract_tests",
+  "installed_audio_and_recall": "not_yet_tested",
+  "mapping_version": 3,
+  "native_source": "cb6361129e8056006a6e4b51e1ed809643b7f5ba",
+  "protocol_minor": 14,
+  "schema": 1,
+  "whole_block_contract": "passed",
+  "windows_host_sha256": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b",
+  "windows_source": "eaeb7e1e30cc0b3c4c5ddf258db9f9d06220dd96",
+  "workflow": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/36901360565",
+  "workflow_conclusion": "success"
+}

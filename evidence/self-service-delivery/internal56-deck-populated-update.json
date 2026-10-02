@@ -1,0 +1,696 @@
+{
+  "schema": 1,
+  "date": "2026-10-02",
+  "claim": "Controlled populated Deck update and paired experimental publications; not beta qualification.",
+  "source": {
+    "head": "9f963bcf5fc676d099982dee25e688e7f83fe489",
+    "tree": "9bba0162c4006e29dd8923baa0e22991ede76a0f",
+    "version": "0.12.0internal56"
+  },
+  "fixture": {
+    "hardware": "Steam Deck OLED (Galileo)",
+    "os": {
+      "NAME": "SteamOS",
+      "VERSION_ID": "3.8.16",
+      "BUILD_ID": "20260716.1"
+    },
+    "kernel": "6.16.12-valve24.5-1-neptune-616-gb2f7cfe85e45",
+    "logical_cpus": 8,
+    "daw": "Bitwig Studio 6.1 Flatpak"
+  },
+  "custody": "Operator confirmed Deck available with no music projects open.",
+  "wrong_target_attempt": {
+    "artifact": "0.12.0internal56 Ubuntu target portable installer",
+    "sha256": "24ee20c8c45c1505dbca788a42acaec7534b758a6a3f81643c2a2a29c4940dd4",
+    "actions": [
+      "Uploaded exact artifact and independently verified digest",
+      "Opened from Dolphin; accepted launch prompt"
+    ],
+    "observed": "Installer never opened. Dynamic loader requires GLIBC_2.43 from libm.so.6; target glibc is 2.41. No surviving installer process.",
+    "classification": "wrong target artifact selected by test operator; package launch failure",
+    "staged": false,
+    "selected": false,
+    "product_audio_claim": false
+  },
+  "build": {
+    "version": "0.12.0internal56",
+    "head": "9f963bcf5fc676d099982dee25e688e7f83fe489",
+    "tree": "9bba0162c4006e29dd8923baa0e22991ede76a0f",
+    "components": {
+      "manager": {
+        "sha256": "881ceeab47575d39b8aa63538f954b280a585c3bdc1802d081024053f5d43676",
+        "maximum_glibc": "2.39"
+      },
+      "frontend": {
+        "sha256": "2261aae0051a8ba7e0657189a1391f29aca710a0f9f9f038fdeedd411e0fca3f",
+        "maximum_glibc": "2.39"
+      },
+      "installer": {
+        "sha256": "4c77c6b37abc03bf8ee9786849827c95067db948e31edf24980cb57dff437126",
+        "maximum_glibc": "2.39"
+      },
+      "supervisor": {
+        "sha256": "7546336c6a7ef92ff18bca0c7c1d7c573e4a287991dd8690df6b7a52a913516f",
+        "python_magic": "f30d0d0a"
+      },
+      "ownership": {
+        "sha256": "13b4a4444f0ba4184c98b940c1866cdd2a54944379dde4c6169097e9f46b2e37",
+        "python_magic": "f30d0d0a"
+      },
+      "host": {
+        "sha256": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b"
+      },
+      "host_source": {
+        "sha256": "0b72439af516e26b0afe4b747b7e75ba9a8371a9b3daaa3e38f8c0a2d0663573"
+      },
+      "preparation_kit": {
+        "sha256": "40670e447e78c9531dc7ca64090bd4daace78d5354d504749f2b08f3beb024c1"
+      }
+    },
+    "prebuilt_index": {
+      "proxies": [
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "descriptor": "prebuilt/417274754156495350724C4650726F63-b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636.h",
+          "descriptor_sha256": "d96c80e968be35cc208b8fd310f1d3ed28104f8a34cb06ef21a99da5485df9a1",
+          "file": "prebuilt/417274754156495350724C4650726F63-b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636.so",
+          "maximum_bridge_frames": 1024,
+          "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+          "native_sha256": "b9284e0b27c6abf3aa0b195de2608fee6364a749356d707964d487bc45164015"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "descriptor": "prebuilt/41727475415649536772616E50726F63-d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26.h",
+          "descriptor_sha256": "bef165d0770158b4d74ff769001ad13ab52382bea54d83e7dc1d7224f19daaca",
+          "file": "prebuilt/41727475415649536772616E50726F63-d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26.so",
+          "maximum_bridge_frames": 1024,
+          "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+          "native_sha256": "1d1c83de3d29c30f2319af2d6cf0d2878f911467c5493f08d0e2f1c266f3ec0b"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "descriptor": "prebuilt/41727475415649536772616E50726F63-edb358f124bd35290dc2597e68c2d7f1f4061d5cf650a008f097c463fc6aef89.h",
+          "descriptor_sha256": "06d9dc90d0a77d7776c025cb1e53947aae85ebc40d61a9a2d5e2b61b5b400ce9",
+          "file": "prebuilt/41727475415649536772616E50726F63-edb358f124bd35290dc2597e68c2d7f1f4061d5cf650a008f097c463fc6aef89.so",
+          "maximum_bridge_frames": 1024,
+          "module_sha256": "edb358f124bd35290dc2597e68c2d7f1f4061d5cf650a008f097c463fc6aef89",
+          "native_sha256": "5f590337c3b11cc99a362a5b9ce6896dfd0906c1115b1bc08c02ce0afe9e6a5e"
+        },
+        {
+          "class_id": "4C56424245544131494E535400000001",
+          "descriptor": "prebuilt/4C56424245544131494E535400000001-2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462.h",
+          "descriptor_sha256": "4d486c8314f6c2f383ab78a32155426f91b28dcacd07dc8390f733dec89ae84a",
+          "file": "prebuilt/4C56424245544131494E535400000001-2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462.so",
+          "maximum_bridge_frames": 1024,
+          "module_sha256": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+          "native_sha256": "2fd5f4b0335808c786b0df3cee3195df4b4605a10bbead0572264156e0c73ab5"
+        },
+        {
+          "class_id": "4C564242455441314546465800000001",
+          "descriptor": "prebuilt/4C564242455441314546465800000001-b3498eb5c8d6d440259b04a9c9b7699ab72f4f64eb31f45167f0341d3d1e719f.h",
+          "descriptor_sha256": "7d147ee7fd17a6bea63e4cbe94a570b46a02a6601806d236e22c116d6c13dc24",
+          "file": "prebuilt/4C564242455441314546465800000001-b3498eb5c8d6d440259b04a9c9b7699ab72f4f64eb31f45167f0341d3d1e719f.so",
+          "maximum_bridge_frames": 1024,
+          "module_sha256": "b3498eb5c8d6d440259b04a9c9b7699ab72f4f64eb31f45167f0341d3d1e719f",
+          "native_sha256": "92e63f359e2e7faf795a673c940c17fc367732a2f697d8214cfb6c66106c31de"
+        },
+        {
+          "class_id": "41727475415649534B61743150726F63",
+          "descriptor": "prebuilt/41727475415649534B61743150726F63-bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07.h",
+          "descriptor_sha256": "363358e28fe2bca3f38bee271573aec81d655925879ab99c57bf1ec098575fd5",
+          "file": "prebuilt/41727475415649534B61743150726F63-bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07.so",
+          "maximum_bridge_frames": 1024,
+          "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+          "native_sha256": "e4cb0f8e4a6d0b2fe0ccb3927d2c86b9af523e5c1d56ff5a225a2f4184ed2e60"
+        },
+        {
+          "class_id": "56534558667350736572756D20320000",
+          "descriptor": "prebuilt/56534558667350736572756D20320000-501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283.h",
+          "descriptor_sha256": "e531aff735c1989b65affbf60d73c0557848cca1e274972300a5e1fd3166fbfc",
+          "file": "prebuilt/56534558667350736572756D20320000-501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283.so",
+          "maximum_bridge_frames": 1024,
+          "module_sha256": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+          "native_sha256": "210c25d8b7aa6ea4f706d000f57e96f136981e790da4a7a5e8aae3a94b23498c"
+        }
+      ],
+      "schema": 2
+    }
+  },
+  "builder": {
+    "builder": "Debian 13 baseline; glibc 2.41; Python 3.13",
+    "python_bytecode_magic": "f30d0d0a",
+    "source_changed": false,
+    "state": "built, inspected and stopped",
+    "limits": {
+      "cpu": 1,
+      "cpu_shares": 128,
+      "memory_bytes": 2684354560,
+      "additional_swap_bytes": 0,
+      "pids": 256,
+      "init_reaper": true
+    },
+    "other_task_vms_and_builders": "stopped"
+  },
+  "release_manifest_sha256": "ff2d871f0f1544b4c419181560629495b6243e75ace2b9dbf4fc0411c7ca8f9c",
+  "key_class": "internal_test",
+  "selected_generation": {
+    "before": "3459f5c5be2552bf6a197244ed665689bc3b86a9195ba0f16d50d383702977fa",
+    "after": "7fe09cd8fede1979449e41effcf1eb1eee9d6633c8c8a948f2c2859bae128f15"
+  },
+  "normal_ui_actions": [
+    "Dolphin opens target installer; signature verified",
+    "Install application files",
+    "Open Setup",
+    "Stop bridge service to change version",
+    "Select installed version",
+    "Start bridge service",
+    "Plug-ins: FRAGMENTS compatibility controls; refresh installed products",
+    "Check compatibility and replace test configuration for FRAGMENTS",
+    "Check compatibility and replace test configuration for Pure LoFi"
+  ],
+  "bootstrap_states": [
+    {
+      "schema": 3,
+      "state": "update_active",
+      "package_version": "0.12.0internal56"
+    },
+    {
+      "schema": 3,
+      "state": "update_adoptable",
+      "package_version": "0.12.0internal56"
+    },
+    {
+      "schema": 3,
+      "state": "rollback_active",
+      "package_version": "0.12.0internal56"
+    }
+  ],
+  "software_sha256": {
+    "before": "19f51315238ca4979e5453d332635f9198c711299bc2dbfbbfda7fce9ac11a8b",
+    "after": "6311981a5bc916b9f3eb2422de3a3f408ef9eda674907bb8ddac3ad6dfa7c839"
+  },
+  "registry_preserved_on_package_adoption": true,
+  "selected_component_readback": {
+    "preparation_kit": {
+      "sha256": "40670e447e78c9531dc7ca64090bd4daace78d5354d504749f2b08f3beb024c1",
+      "exists": true,
+      "matches": true
+    },
+    "operator_frontend": {
+      "sha256": "2261aae0051a8ba7e0657189a1391f29aca710a0f9f9f038fdeedd411e0fca3f",
+      "exists": true,
+      "matches": true
+    },
+    "manager": {
+      "sha256": "881ceeab47575d39b8aa63538f954b280a585c3bdc1802d081024053f5d43676",
+      "exists": true,
+      "matches": true
+    },
+    "supervisor": {
+      "sha256": "7546336c6a7ef92ff18bca0c7c1d7c573e4a287991dd8690df6b7a52a913516f",
+      "exists": true,
+      "matches": true
+    },
+    "ownership": {
+      "sha256": "13b4a4444f0ba4184c98b940c1866cdd2a54944379dde4c6169097e9f46b2e37",
+      "exists": true,
+      "matches": true
+    },
+    "host": {
+      "sha256": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b",
+      "exists": true,
+      "matches": true
+    },
+    "source_manifest": {
+      "sha256": "0b72439af516e26b0afe4b747b7e75ba9a8371a9b3daaa3e38f8c0a2d0663573",
+      "exists": true,
+      "matches": true
+    },
+    "native_catalogue": {
+      "sha256": "081694e92a998d95fe04f3657ff605d9a01015a8dec69bd47b21484861d7f005",
+      "exists": true,
+      "matches": true
+    }
+  },
+  "publication_transitions": [
+    {
+      "before": {
+        "class_id": "417274754156495350724C4650726F63",
+        "name": "Pure LoFi",
+        "publication": "Published",
+        "managed_revision": {
+          "id": "70ac3bc5273487792e049dc87bbb4e6d",
+          "sha256": "fee4dcdfe53e5f8c6d885049e7a30513343237df03c2a0a65baa920ffa1dc490"
+        },
+        "artifacts": {
+          "module": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+          "host": "a90de3ca2f7360e8c9477184acb8224ebf394d4e46cf00fd905892002a79cd13",
+          "native": "da866f6c8450e983866b06ad84c4091312b9a6ebedff52025fcd1c2c05acfd09"
+        },
+        "environment_id": "1de8d28b-d98b-4a41-8462-c07cca8e1609"
+      },
+      "after": {
+        "class_id": "417274754156495350724C4650726F63",
+        "name": "Pure LoFi",
+        "publication": "Published",
+        "managed_revision": {
+          "id": "ceaaa5d3f172c62e1f1cb6ec21b29fcb",
+          "sha256": "53e83139e8e0061d9d068c6eb2a3d803d5f256ef9655ac8399f3d3e6393ec7c0"
+        },
+        "artifacts": {
+          "module": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+          "host": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b",
+          "native": "b9284e0b27c6abf3aa0b195de2608fee6364a749356d707964d487bc45164015"
+        },
+        "environment_id": "1de8d28b-d98b-4a41-8462-c07cca8e1609"
+      }
+    },
+    {
+      "before": {
+        "class_id": "41727475415649536772616E50726F63",
+        "name": "Efx FRAGMENTS",
+        "publication": "Published",
+        "managed_revision": {
+          "id": "547c9b1663724f33c98a34e0ff618753",
+          "sha256": "c84e5c16e607f3a8ddc8c6b667fb7cebe71805ff57a1738b5c034126cd614d22"
+        },
+        "artifacts": {
+          "module": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+          "host": "a90de3ca2f7360e8c9477184acb8224ebf394d4e46cf00fd905892002a79cd13",
+          "native": "5e3abcd8e3f83d74b20581ab8f282ec766d20bd0978f9a12eb915dc5e142d99a"
+        },
+        "environment_id": "1de8d28b-d98b-4a41-8462-c07cca8e1609"
+      },
+      "after": {
+        "class_id": "41727475415649536772616E50726F63",
+        "name": "Efx FRAGMENTS",
+        "publication": "Published",
+        "managed_revision": {
+          "id": "490d2299fd836679388c2fe198e5c1d5",
+          "sha256": "f664d4a0fa141286e0b32451c9e95c808f75129409006ec66f343d8ce2a46101"
+        },
+        "artifacts": {
+          "module": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+          "host": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b",
+          "native": "1d1c83de3d29c30f2319af2d6cf0d2878f911467c5493f08d0e2f1c266f3ec0b"
+        },
+        "environment_id": "1de8d28b-d98b-4a41-8462-c07cca8e1609"
+      }
+    }
+  ],
+  "other_publications_identical": true,
+  "operations": {
+    "inventory-refresh": {
+      "lock_waits": [
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 99,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "operator-canonical.lock",
+          "operation": "93dd29d7672edfbe36d777c8ef793c2e",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "action_serialization",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 43,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "93dd29d7672edfbe36d777c8ef793c2e",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 9947
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 51,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "operator-canonical.lock",
+          "operation": "93dd29d7672edfbe36d777c8ef793c2e",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "action_serialization",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 50,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "93dd29d7672edfbe36d777c8ef793c2e",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 16,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "93dd29d7672edfbe36d777c8ef793c2e",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 10000
+        }
+      ],
+      "operation": "93dd29d7672edfbe36d777c8ef793c2e",
+      "result": {
+        "activation_permitted": false,
+        "modules": 3,
+        "retry": null,
+        "scan": "6df1a974edde2ce4d5fe65143390c619"
+      },
+      "schema": 1,
+      "state": "completed"
+    },
+    "fragments-check": {
+      "lock_waits": [
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 68,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "operator-canonical.lock",
+          "operation": "af15204f63912a6bc4c298b8b4a98930",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "action_serialization",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 43,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "af15204f63912a6bc4c298b8b4a98930",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 9946
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 83,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "operator-canonical.lock",
+          "operation": "af15204f63912a6bc4c298b8b4a98930",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "action_serialization",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 50,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "af15204f63912a6bc4c298b8b4a98930",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 16,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "af15204f63912a6bc4c298b8b4a98930",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 29,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "af15204f63912a6bc4c298b8b4a98930",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 10000
+        }
+      ],
+      "operation": "af15204f63912a6bc4c298b8b4a98930",
+      "result": {
+        "artifact_reused": false,
+        "candidate": "6660ab830fbdf9d294296b4e5f1620e321c464f9bc3e873a0a0e167e7d782758",
+        "inspection": "8dbf42f6c26f7cb0485576e8d5aad72a18b08fefdf1e769dff9312f737894db9",
+        "operation": "af15204f63912a6bc4c298b8b4a98930",
+        "publication_changed": false,
+        "schema": 1,
+        "selection": "6074645dd7dacb44c9fa9d213d8ad7e14a13fc038e1661feb264a498a42e529d",
+        "stage": "candidate_ready"
+      },
+      "schema": 1,
+      "state": "completed"
+    },
+    "fragments-publication": {
+      "lock_waits": [
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 34,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "operator-canonical.lock",
+          "operation": "afa7379eda34c64709d8a466226c154a",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "action_serialization",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 46,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "afa7379eda34c64709d8a466226c154a",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 9932
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 34,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "operator-canonical.lock",
+          "operation": "afa7379eda34c64709d8a466226c154a",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "action_serialization",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 46,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "afa7379eda34c64709d8a466226c154a",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 10000
+        }
+      ],
+      "operation": "afa7379eda34c64709d8a466226c154a",
+      "result": {
+        "candidate": "6660ab830fbdf9d294296b4e5f1620e321c464f9bc3e873a0a0e167e7d782758",
+        "experimental": true,
+        "ordinary": false,
+        "publication": {
+          "id": "490d2299fd836679388c2fe198e5c1d5",
+          "sha256": "f664d4a0fa141286e0b32451c9e95c808f75129409006ec66f343d8ce2a46101"
+        }
+      },
+      "schema": 1,
+      "state": "completed"
+    },
+    "pure-lofi-check": {
+      "lock_waits": [
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 51,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "operator-canonical.lock",
+          "operation": "7dbaa6dc4fa6e1e15f5f1a5924dfc139",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "action_serialization",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 39,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "7dbaa6dc4fa6e1e15f5f1a5924dfc139",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 9944
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 82,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "operator-canonical.lock",
+          "operation": "7dbaa6dc4fa6e1e15f5f1a5924dfc139",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "action_serialization",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 34,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "7dbaa6dc4fa6e1e15f5f1a5924dfc139",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 17,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "7dbaa6dc4fa6e1e15f5f1a5924dfc139",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 25,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "7dbaa6dc4fa6e1e15f5f1a5924dfc139",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 10000
+        }
+      ],
+      "operation": "7dbaa6dc4fa6e1e15f5f1a5924dfc139",
+      "result": {
+        "artifact_reused": false,
+        "candidate": "93ed68f77cd691f44be2aa9383dc916e52d58da79ea93ad156df42cd6adeabea",
+        "inspection": "a36a377191f4f6c777cf55714c3749c8b689db37a307384a5c422971aea88dc1",
+        "operation": "7dbaa6dc4fa6e1e15f5f1a5924dfc139",
+        "publication_changed": false,
+        "schema": 1,
+        "selection": "78e59567ce8d6fa993c15d02b14976b74864d7c7f8e6fe2ec59c1ac68dec04af",
+        "stage": "candidate_ready"
+      },
+      "schema": 1,
+      "state": "completed"
+    },
+    "pure-lofi-publication": {
+      "lock_waits": [
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 51,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "operator-canonical.lock",
+          "operation": "fa7a16d363291b7bb04e7deb8e02c17a",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "action_serialization",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 44,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "fa7a16d363291b7bb04e7deb8e02c17a",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 9945
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 46,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "operator-canonical.lock",
+          "operation": "fa7a16d363291b7bb04e7deb8e02c17a",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "action_serialization",
+          "timeout_ms": 10000
+        },
+        {
+          "attempts": 1,
+          "elapsed_wait_us": 43,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "registry.lock",
+          "operation": "fa7a16d363291b7bb04e7deb8e02c17a",
+          "outcome": "acquired",
+          "policy": "bounded",
+          "purpose": "operator_validation_readback",
+          "timeout_ms": 10000
+        }
+      ],
+      "operation": "fa7a16d363291b7bb04e7deb8e02c17a",
+      "result": {
+        "candidate": "93ed68f77cd691f44be2aa9383dc916e52d58da79ea93ad156df42cd6adeabea",
+        "experimental": true,
+        "ordinary": false,
+        "publication": {
+          "id": "ceaaa5d3f172c62e1f1cb6ec21b29fcb",
+          "sha256": "53e83139e8e0061d9d068c6eb2a3d803d5f256ef9655ac8399f3d3e6393ec7c0"
+        }
+      },
+      "schema": 1,
+      "state": "completed"
+    }
+  },
+  "capacity_after_publication": {
+    "dsp": 0,
+    "maintenance": 0,
+    "keepers": 0,
+    "cleanup_unconfirmed": false
+  },
+  "ux_observation": "Setup directed refresh below, but selected Plug-ins compatibility controls actually supplied the normal refresh action. No CLI mutation workaround was used.",
+  "nonclaims": [
+    "Customer release signing/distribution",
+    "Zero-gap musical use",
+    "Full recovery acceptance",
+    "Reboot recall or populated rollback on internal56"
+  ]
+}

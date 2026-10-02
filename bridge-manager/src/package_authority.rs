@@ -25,7 +25,14 @@ fn names(schema: u32) -> Result<&'static [&'static str]> {
 #[derive(Clone)]
 struct Inputs { root: PathBuf }
 impl Inputs {
-    fn system() -> Self { Self { root: PathBuf::from(PACKAGE_ROOT) } }
+    fn installed() -> Result<(Self, u32)> {
+        let executable = std::env::current_exe()?;
+        let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
+        match linux_vst_bridge::portable_package::input_root(&executable, &home)? {
+            Some(root) => Ok((Self {root}, unsafe{libc::getuid()})),
+            None => Ok((Self {root:PathBuf::from(PACKAGE_ROOT)}, 0)),
+        }
+    }
     #[cfg(test)]
     fn under(root: &Path) -> Self { Self { root: root.to_path_buf() } }
     fn manifest(&self) -> PathBuf {
@@ -176,29 +183,118 @@ fn old_software(m: &Manager) -> Result<Option<Software>> {
 }
 fn require_retained_host_pair(m: &Manager, old: &Software,
     manifest: &PackageManifest) -> Result<()> {
-    if old.native_catalogue.is_some() || !m.registry()?.classes.is_empty() {
-        require(old.host.sha256 == manifest.files[4].sha256
-            && old.source_manifest.sha256 == manifest.files[5].sha256,
-            "package_existing_product_host_pair_changed")?;
+    if old.host.sha256 != manifest.files[4].sha256
+        || old.source_manifest.sha256 != manifest.files[5].sha256 {
+        // New preparation uses the successor's pair. Existing publications
+        // retain the exact supervisor/ownership/host set that served them.
+        for entry in m.registry()?.classes.values() {
+            if entry.publication == Publication::Published {
+                paired_components(m, old, &entry.registration)?;
+            }
+        }
     }
     Ok(())
 }
-fn generation_record(manifest: PackageManifest, manifest_sha256: String,
-    predecessor: Option<Software>) -> Generation {
-    let catalogue = predecessor.as_ref().and_then(|s| s.native_catalogue.as_ref());
+fn retained_catalogue(m: &Manager, predecessor: Option<&Software>,
+    manifest: &PackageManifest) -> Result<Option<Vec<u8>>> {
+    let Some(old) = predecessor else { return Ok(None) };
+    let Some(artifact) = &old.native_catalogue else { return Ok(None) };
+    artifact.verify()?;
+    let bytes = fs::read(&artifact.path)?;
+    if old.host.sha256 == manifest.files[4].sha256
+        && old.source_manifest.sha256 == manifest.files[5].sha256 {
+        return Ok(Some(bytes));
+    }
+    let mut catalogue = old.catalogue(m)?;
+    let retained = catalogue::HostArtifact {
+        host: old.host.clone(), source_manifest: old.source_manifest.clone() };
+    if !catalogue.hosts.iter().any(|host| host.host.sha256 == retained.host.sha256
+        && host.source_manifest.sha256 == retained.source_manifest.sha256) {
+        catalogue.hosts.push(retained);
+    }
+    catalogue.schema = catalogue.schema.max(2);
+    catalogue.hosts.retain(|host| host.host.sha256 != manifest.files[4].sha256
+        || host.source_manifest.sha256 != manifest.files[5].sha256);
+    catalogue.validate(&m.root)?;
+    Ok(Some(serde_json::to_vec(&catalogue)?))
+}
+fn generation_record(m: &Manager, manifest: PackageManifest, manifest_sha256: String,
+    predecessor: Option<Software>) -> Result<Generation> {
+    let catalogue = retained_catalogue(m, predecessor.as_ref(), &manifest)?;
     let packaged_preparation_kit_sha256 = (manifest.schema == 2)
         .then(|| manifest.files[NAMES.len()].sha256.clone());
-    Generation {
+    Ok(Generation {
         schema: if packaged_preparation_kit_sha256.is_some() { 2 } else { 1 },
         manifest_sha256, manifest,
         retained_installer_launch: predecessor.as_ref().and_then(|s| s.installer_launch.clone()),
         retained_preparation_kit: if packaged_preparation_kit_sha256.is_some() { None } else {
             predecessor.as_ref().and_then(|s| s.preparation_kit.clone())
         },
-        catalogue_sha256: catalogue.map(|a| a.sha256.clone()),
+        catalogue_sha256: catalogue.map(|bytes| hex(&sha2::Sha256::digest(bytes))),
         packaged_preparation_kit_sha256,
         predecessor,
+    })
+}
+
+/// Resolve a publication's complete retained execution set. A changed
+/// package never silently pairs its new supervisor with an older host.
+pub(super) fn paired_components(m: &Manager, selected: &Software,
+    registration: &Registration) -> Result<Software> {
+    paired_host_components(m, selected, &registration.host, &registration.host_source_sha256)
+}
+pub(super) fn paired_host_components(m: &Manager, selected: &Software,
+    host: &Artifact, source_sha256: &str) -> Result<Software> {
+    let mut candidate = selected.clone();
+    let mut seen = std::collections::BTreeSet::new();
+    let mut supplemental = None;
+    for depth in 0..32 {
+        verify_software_identity(m, &candidate)?;
+        if candidate.host.sha256 == host.sha256 && candidate.source_sha256 == source_sha256 {
+            return Ok(candidate);
+        }
+        // A copied catalogue preserves discovery authority, not permission to
+        // combine a successor supervisor with an older host. Prefer the actual
+        // predecessor set. A supplemental host belongs to the oldest retained
+        // set that introduced it, including pre-package fixture installations.
+        if let Some(retained) = candidate.native_catalogue.as_ref()
+            .map(|_| candidate.catalogue(m)).transpose()?.and_then(|catalogue|
+                catalogue.hosts.into_iter().find(|entry|
+                    entry.host.sha256 == host.sha256
+                        && entry.source_manifest.sha256 == source_sha256)) {
+            let mut set = candidate.clone();
+            set.host = retained.host;
+            set.source_manifest = retained.source_manifest;
+            set.source_sha256 = set.source_manifest.sha256.clone();
+            supplemental = Some(set);
+        }
+        // Managed preparation hosts are selected by the immutable kit, not
+        // necessarily listed in the static fixture catalogue. Follow only this
+        // generation's exact kit and its verified staged runtime. Arbitrary
+        // historical preparation directories provide no execution authority.
+        if let Some(kit) = &candidate.preparation_kit {
+            require(valid_hex(&kit.sha256, 64), "preparation_kit_identity")?;
+            let record = m.root.join("software/preparation-kits")
+                .join(&kit.sha256).join("runtime.json");
+            if record.try_exists()? {
+                let runtime = linux_vst_bridge::preparation::build::existing_runtime(m, &kit.sha256)?;
+                if runtime.host.sha256 == host.sha256
+                    && runtime.source_manifest.sha256 == source_sha256 {
+                    let mut set = candidate.clone();
+                    set.host = runtime.host;
+                    set.source_manifest = runtime.source_manifest;
+                    set.source_sha256 = set.source_manifest.sha256.clone();
+                    supplemental = Some(set);
+                }
+            }
+        }
+        require(seen.insert(candidate.manager.path.clone()), "package_predecessor_cycle")?;
+        let dir = candidate.manager.path.parent().ok_or("package_generation_path")?;
+        if !dir.join("package-generation.json").try_exists()? { break; }
+        let Some(predecessor) = verify_generation(m, &candidate)?.predecessor else { break; };
+        require(depth < 31, "package_predecessor_bound")?;
+        candidate = predecessor;
     }
+    supplemental.ok_or_else(|| "publication_component_generation_unavailable".into())
 }
 
 /// A read-only predecessor decision. The caller separately verifies the
@@ -221,7 +317,7 @@ fn predecessor_plan(m: &Manager, home: &Path, manifest: PackageManifest,
             return Ok((selected, routes));
         }
     }
-    let record = generation_record(manifest, manifest_sha256, Some(old.clone()));
+    let record = generation_record(m, manifest, manifest_sha256, Some(old.clone()))?;
     let planned_id = id(&record)?;
     require(old.manager.path.parent().and_then(|p| p.file_name())
         .and_then(|p| p.to_str()) != Some(planned_id.as_str()),
@@ -328,9 +424,30 @@ fn verify_generation(m: &Manager, current: &Software) -> Result<Generation> {
     Ok(record)
 }
 pub(super) fn selected_package_version(m: &Manager, current: &Software) -> Result<Option<String>> {
-    let Some(dir) = current.manager.path.parent() else { return Ok(None); };
-    if !dir.join("package-generation.json").try_exists()? { return Ok(None); }
-    Ok(Some(verify_generation(m, current)?.manifest.version))
+    Ok(selected_generation(m, current)?.map(|record| record.manifest.version))
+}
+fn selected_generation(m: &Manager, current: &Software) -> Result<Option<Generation>> {
+    let dir = current.manager.path.parent().ok_or("package_generation_path")?;
+    match fs::symlink_metadata(dir.join("package-generation.json")) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            // Only the retained pre-package helper layout has no package record.
+            // A missing or damaged modern record must never become legacy.
+            require(current.supervisor.path == dir.join("session.py")
+                && current.ownership.path == dir.join("ownership.py"),
+                "package_generation_record_missing")?;
+            existing_generation_dir(dir)?;
+            verify_software_identity(m, current)?;
+            Ok(None)
+        }
+        Err(error) => Err(error.into()),
+        Ok(metadata) => {
+            require(metadata.is_file() && !metadata.file_type().is_symlink()
+                && metadata.uid() == unsafe { libc::getuid() }
+                && metadata.mode() & 0o222 == 0,
+                "package_generation_record_changed")?;
+            Ok(Some(verify_generation(m, current)?))
+        }
+    }
 }
 fn existing_generation_dir(dir: &Path) -> Result<()> {
     existing_generation_dir_with(dir, || {})
@@ -348,9 +465,8 @@ fn existing_generation_dir_with(dir: &Path, after_open: impl FnOnce()) -> Result
 }
 fn stage(m: &Manager, inputs: &Inputs, manifest: PackageManifest,
     manifest_sha256: String, predecessor: Option<Software>) -> Result<Software> {
-    let catalogue = predecessor.as_ref().and_then(|s| s.native_catalogue.clone());
-    if let Some(a) = &catalogue { a.verify()?; }
-    let record = generation_record(manifest, manifest_sha256, predecessor);
+    let catalogue = retained_catalogue(m, predecessor.as_ref(), &manifest)?;
+    let record = generation_record(m, manifest, manifest_sha256, predecessor)?;
     let generation = id(&record)?;
     let base = m.root.join("software");
     let dest = base.join(&generation);
@@ -374,10 +490,11 @@ fn stage(m: &Manager, inputs: &Inputs, manifest: PackageManifest,
                     if matches!(file.name.as_str(), "linux-vst-bridge" | "linux-audio-compatibility-manager") {0o500} else {0o400}))?;
                 fs::File::open(target)?.sync_all()?;
             }
-            if let Some(a) = &catalogue {
+            if let Some(bytes) = &catalogue {
                 let target = scratch.join("native-catalogue.json");
-                fs::copy(&a.path, &target)?;
-                require(digest(&target)? == a.sha256, "package_catalogue_copy_changed")?;
+                fs::write(&target, bytes)?;
+                require(Some(digest(&target)?) == record.catalogue_sha256,
+                    "package_catalogue_copy_changed")?;
                 fs::set_permissions(&target, fs::Permissions::from_mode(0o400))?;
                 fs::File::open(target)?.sync_all()?;
             }
@@ -434,10 +551,7 @@ fn preflight(m: &Manager) -> Result<()> {
     require(onboarding::all_retired(m)?, "package_installer_owner_active")?;
     require(operator_cli::vendor_retired(m)?, "package_vendor_owner_active")?;
     daw_workspace::package_idle(m)?;
-    let transports = transport_storage::root();
-    if transports.try_exists()? {
-        require(fs::read_dir(&transports)?.next().is_none(), "package_stale_transport")?;
-    }
+    transport_storage::require_no_sessions()?;
     Ok(())
 }
 fn with_locks<T>(m: &Manager, work: impl FnOnce() -> Result<T>) -> Result<T> {
@@ -510,13 +624,16 @@ trait ServiceControl {
     fn healthy(&self, m: &Manager) -> Result<()>;
     fn idle(&self, m: &Manager) -> Result<Vec<capacity::Owner>>;
 }
-fn clean_idle_keepers(reply: &serde_json::Value) -> Result<Vec<capacity::Owner>> {
+fn stoppable_keepers(reply: &serde_json::Value) -> Result<Vec<capacity::Owner>> {
     require(reply["ok"] == true, "package_service_not_clean_idle")?;
     let c = &reply["capacity"];
     let owners: Vec<capacity::Owner> = serde_json::from_value(c["owners"].clone())?;
     let mut sessions = std::collections::BTreeSet::new();
     require(c["schema"] == 1 && c["dsp"] == 0 && c["maintenance"] == 0
-        && c["cleanup_unconfirmed"] == false
+        // Unconfirmed retirement blocks adoption, not stopping the exact
+        // selected service. DSP, maintenance, transactions and other owners
+        // still prohibit this idle-service stop.
+        && c["cleanup_unconfirmed"].is_boolean()
         && c["keepers"].as_u64() == Some(owners.len() as u64)
         && owners.iter().all(|owner| owner.kind == capacity::Kind::Keeper
             && owner.terminal.is_none()
@@ -589,7 +706,7 @@ impl ServiceControl for SystemctlService {
         require(capacity_reply(m)?["ok"] == true, "package_service_health_unavailable")
     }
     fn idle(&self, m: &Manager) -> Result<Vec<capacity::Owner>> {
-        clean_idle_keepers(&capacity_reply(m)?)
+        stoppable_keepers(&capacity_reply(m)?)
     }
 }
 fn parse_unit_readback(text: &str) -> Result<UnitReadback> {
@@ -653,11 +770,12 @@ struct ActivationStatus {
     package_version: String,
 }
 fn selected_activation(m: &Manager, home: &Path,
-    service: &impl ServiceControl) -> Result<(Software, Generation, UnitReadback)> {
+    service: &impl ServiceControl) -> Result<(Software, String, UnitReadback)> {
     require(!m.root.join("package-transition.json").try_exists()?,
         "package_transition_needs_recovery")?;
     let selected = old_software(m)?.ok_or("package_not_installed")?;
-    let generation = verify_generation(m, &selected)?;
+    let version = selected_generation(m, &selected)?.map(|record| record.manifest.version)
+        .unwrap_or_else(|| "retained-installation".into());
     let routes = setup_install::current_route_statuses(m, home, &selected)?;
     require(routes.len() == 6 && routes.iter().all(|route| route.status == "exact"),
         "package_routes_need_repair")?;
@@ -668,18 +786,18 @@ fn selected_activation(m: &Manager, home: &Path,
         && effective_exec_is(&state.exec, &selected.manager.path)
         && matches!(state.active.as_str(), "inactive" | "failed" | "active"),
         "package_service_effective_route_mismatch")?;
-    Ok((selected, generation, state))
+    Ok((selected, version, state))
 }
 fn activation_status_from(m: &Manager, home: &Path,
     service: &impl ServiceControl) -> Result<ActivationStatus> {
-    let (selected, generation, state) = selected_activation(m, home, service)?;
+    let (selected, version, state) = selected_activation(m, home, service)?;
     if state.active == "active" { service.healthy(m)?; }
     let (again, second, after) = selected_activation(m, home, service)?;
-    require(selected.manager == again.manager && generation.manifest_sha256 == second.manifest_sha256
+    require(selected == again && version == second
         && state.active == after.active, "package_activation_status_changed")?;
     Ok(ActivationStatus { schema: 1,
         state: if state.active == "active" { "active" } else { "inactive" },
-        package_version: generation.manifest.version })
+        package_version: version })
 }
 /// First-run is a read-only classification. In particular an absent package
 /// record is admitted as legacy only for the older selected helper layout;
@@ -694,34 +812,32 @@ fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
         require(state.load == "not-found" && state.active == "inactive"
             && state.fragment.is_empty() && state.exec.is_empty(),
             "package_unselected_service_ambiguous")?;
-        return Ok(ActivationStatus { schema: 2, state: "fresh_adoptable",
+        return Ok(ActivationStatus { schema: 3, state: "fresh_adoptable",
             package_version: manifest.version });
     };
-    let directory = selected.manager.path.parent().ok_or("package_generation_path")?;
-    let record = directory.join("package-generation.json");
-    let legacy = match fs::symlink_metadata(&record) {
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            require(selected.supervisor.path == directory.join("session.py")
-                && selected.ownership.path == directory.join("ownership.py"),
-                "package_generation_record_missing")?;
-            true
-        }
-        Err(error) => return Err(error.into()),
-        Ok(metadata) => {
-            require(metadata.is_file() && !metadata.file_type().is_symlink()
-                && metadata.uid() == unsafe { libc::getuid() }
-                && metadata.mode() & 0o222 == 0,
-                "package_generation_record_changed")?;
-            false
-        }
-    };
-    let version = if legacy {
-        let (manifest, sha) = read_manifest(inputs, owner)?;
+    let generation = selected_generation(m, &selected)?;
+    let legacy = generation.is_none();
+    let (manifest, sha) = read_manifest(inputs, owner)?;
+    let (version, update_available, rollback_available) = if legacy {
         require_retained_host_pair(m, &selected, &manifest)?;
         let _ = predecessor_plan(m, home, manifest.clone(), sha)?;
-        manifest.version
+        (manifest.version, false, false)
     } else {
-        verify_generation(m, &selected)?.manifest.version
+        let generation = generation.ok_or("package_generation_record_missing")?;
+        let rollback_available = if let Some(predecessor) = &generation.predecessor {
+            verify_software_identity(m, predecessor)?;
+            true
+        } else { false };
+        // A healthy selected generation does not imply that the installed
+        // package still contains those bytes. Verify its whole fixed roster
+        // before offering an exact update or opening the selected frontend.
+        if sha == generation.manifest_sha256 {
+            require(manifest == generation.manifest, "package_manifest_changed")?;
+            (generation.manifest.version, false, rollback_available)
+        } else {
+            let _ = predecessor_plan(m, home, manifest.clone(), sha)?;
+            (manifest.version, true, rollback_available)
+        }
     };
     let routes = setup_install::current_route_statuses(m, home, &selected)?;
     require(routes.len() == 6, "package_route_plan_shape")?;
@@ -734,8 +850,14 @@ fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     let posture = match state.active.as_str() {
         "active" => {
             require(effective_exact, "package_active_service_identity_changed")?;
-            if legacy || !routes_exact { stop_gate(m, service)?; }
-            if legacy { "legacy_active" } else if routes_exact { "active" } else { "repair_active" }
+            if legacy || update_available || rollback_available || !routes_exact {
+                stop_gate(m, service)?;
+            }
+            if legacy { "legacy_active" }
+            else if update_available { "update_active" }
+            else if !routes_exact { "repair_active" }
+            else if rollback_available { "rollback_active" }
+            else { "active" }
         }
         "inactive" | "failed" if (state.load == "loaded"
             && !state.fragment.is_empty() && !state.exec.is_empty())
@@ -743,6 +865,7 @@ fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
                 && state.fragment.is_empty() && state.exec.is_empty()) => {
             let keeper_retirement_pending = {
                 let _registry = m.lock("registry.lock")?;
+                let _unconfirmed = reconcile_leases(m)?;
                 m.require_inactive(None)?;
                 let owners = capacity::owners(m)?;
                 require(owners.iter().all(|owner| owner.kind == capacity::Kind::Keeper),
@@ -750,14 +873,20 @@ fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
                 !owners.is_empty()
             };
             if legacy && keeper_retirement_pending { "legacy_retirement_pending" }
+            else if update_available && keeper_retirement_pending { "update_retirement_pending" }
+            else if routes_exact && rollback_available && keeper_retirement_pending {
+                "rollback_retirement_pending"
+            }
             else if keeper_retirement_pending { "repair_retirement_pending" }
             else if legacy { "legacy_adoptable" }
+            else if update_available { "update_adoptable" }
+            else if routes_exact && effective_exact && rollback_available { "rollback_inactive" }
             else if routes_exact && effective_exact { "inactive" }
             else { "repair_inactive" }
         }
         _ => return Err("package_user_service_ambiguous".into()),
     };
-    Ok(ActivationStatus { schema: 2, state: posture, package_version: version })
+    Ok(ActivationStatus { schema: 3, state: posture, package_version: version })
 }
 fn stop_gate(m: &Manager, service: &impl ServiceControl) -> Result<Vec<capacity::Owner>> {
     let before = service.idle(m)?;
@@ -793,10 +922,7 @@ fn stop_gate(m: &Manager, service: &impl ServiceControl) -> Result<Vec<capacity:
     require(onboarding::all_retired(m)?, "package_installer_owner_active")?;
     require(operator_cli::vendor_retired(m)?, "package_vendor_owner_active")?;
     daw_workspace::package_idle(m)?;
-    let transports = transport_storage::root();
-    if transports.try_exists()? {
-        require(fs::read_dir(&transports)?.next().is_none(), "package_stale_transport")?;
-    }
+    transport_storage::require_no_sessions()?;
     let after = service.idle(m)?;
     require(after == before, "package_owners_changed")?;
     Ok(after)
@@ -818,10 +944,20 @@ fn stop_selected_service(m: &Manager, home: &Path, selected: &Software,
         && effective_exec_is(&unit.exec, &selected.manager.path),
         "package_active_service_identity_changed")?;
     service.stop()?;
-    // A stopped unit is not enough: each keeper must publish exact clean
-    // retirement before its lease can be removed or adoption offered.
-    require(!reconcile_leases(m)?, "package_cleanup_unconfirmed")?;
+    // A stopped unit is not enough: each keeper needs exact retirement proof
+    // before its lease can be removed or adoption offered.
+    reconcile_stopped_service(m, service)?;
     require(capacity::owners(m)?.is_empty(), "package_owner_active")
+}
+fn reconcile_stopped_service(m: &Manager, service: &impl ServiceControl) -> Result<()> {
+    require_service_stopped(service)?;
+    if reconcile_leases(m)? {
+        if observe_stopped_leases(m, kernel_boot()?.as_deref())? {
+            return Err("package_restart_required".into());
+        }
+        return Err("package_cleanup_unconfirmed".into());
+    }
+    Ok(())
 }
 fn stop_for_repair_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl) -> Result<()> {
@@ -830,35 +966,50 @@ fn stop_for_repair_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     // stop alone holds registry.lock to exclude a new DSP admission.
     let _package = m.lock("package.lock")?;
     let _setup = m.lock("setup.lock")?;
+    let (_, package_sha) = read_manifest(inputs, owner)?;
     let status = bootstrap_status_from(m, home, inputs, owner, service)?;
-    require(matches!(status.state, "legacy_active" | "repair_active"
-        | "legacy_adoptable" | "repair_inactive" | "legacy_retirement_pending"
-        | "repair_retirement_pending"), "package_stop_not_offered")?;
-    if matches!(status.state, "legacy_adoptable" | "repair_inactive") { return Ok(()); }
-    if matches!(status.state, "legacy_retirement_pending" | "repair_retirement_pending") {
+    require(matches!(status.state, "legacy_active" | "repair_active" | "update_active"
+        | "rollback_active"
+        | "legacy_adoptable" | "repair_inactive" | "update_adoptable"
+        | "rollback_inactive" | "rollback_retirement_pending"
+        | "legacy_retirement_pending" | "repair_retirement_pending"
+        | "update_retirement_pending"), "package_stop_not_offered")?;
+    if matches!(status.state, "legacy_adoptable" | "repair_inactive" | "update_adoptable"
+        | "rollback_inactive") { return Ok(()); }
+    if matches!(status.state, "legacy_retirement_pending" | "repair_retirement_pending"
+        | "update_retirement_pending" | "rollback_retirement_pending") {
         let _registry = m.lock("registry.lock")?;
         m.require_inactive(None)?;
-        require(!reconcile_leases(m)?, "package_cleanup_unconfirmed")?;
+        reconcile_stopped_service(m, service)?;
         require(capacity::owners(m)?.is_empty(), "package_owner_active")?;
         drop(_registry);
         let after = bootstrap_status_from(m, home, inputs, owner, service)?;
+        require(read_manifest(inputs, owner)?.1 == package_sha,
+            "package_input_changed_during_stop")?;
         return require(after.package_version == status.package_version
             && matches!((status.state, after.state),
                 ("legacy_retirement_pending", "legacy_adoptable")
                 | ("repair_retirement_pending", "repair_inactive")
-                | ("repair_retirement_pending", "inactive")),
+                | ("repair_retirement_pending", "inactive")
+                | ("update_retirement_pending", "update_adoptable")
+                | ("rollback_retirement_pending", "rollback_inactive")),
             "package_service_did_not_stop_cleanly");
     }
     let before = bootstrap_status_from(m, home, inputs, owner, service)?;
-    require(before.state == status.state && before.package_version == status.package_version,
+    require(read_manifest(inputs, owner)?.1 == package_sha
+        && before.state == status.state && before.package_version == status.package_version,
         "package_stop_state_changed")?;
     let observed_keepers = service.idle(m)?;
     let selected = old_software(m)?.ok_or("package_not_installed")?;
     stop_selected_service(m, home, &selected, service, &observed_keepers)?;
     let after = bootstrap_status_from(m, home, inputs, owner, service)?;
+    require(read_manifest(inputs, owner)?.1 == package_sha,
+        "package_input_changed_during_stop")?;
     require(after.package_version == status.package_version
         && matches!((status.state, after.state),
-        ("legacy_active", "legacy_adoptable") | ("repair_active", "repair_inactive")),
+        ("legacy_active", "legacy_adoptable") | ("repair_active", "repair_inactive")
+        | ("update_active", "update_adoptable")
+        | ("rollback_active", "rollback_inactive")),
         "package_service_did_not_stop_cleanly")
 }
 fn activate_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Result<()> {
@@ -867,19 +1018,17 @@ fn activate_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Res
     // startup, so neither service.lock nor registry.lock spans systemctl.
     let _package = m.lock("package.lock")?;
     let _setup = m.lock("setup.lock")?;
-    let (selected, generation, state) = selected_activation(m, home, service)?;
+    let (selected, version, state) = selected_activation(m, home, service)?;
     let starting = state.active != "active";
     if starting {
         preflight(m)?;
-        let (checked, checked_generation, checked_state) = selected_activation(m, home, service)?;
-        require(checked.manager == selected.manager
-            && checked_generation.manifest_sha256 == generation.manifest_sha256
+        let (checked, checked_version, checked_state) = selected_activation(m, home, service)?;
+        require(checked == selected && checked_version == version
             && checked_state.active != "active", "package_activation_state_changed")?;
         service.enable_start()?;
     }
-    let (after, after_generation, readback) = selected_activation(m, home, service)?;
-    require(after.manager == selected.manager
-        && after_generation.manifest_sha256 == generation.manifest_sha256
+    let (after, after_version, readback) = selected_activation(m, home, service)?;
+    require(after == selected && after_version == version
         && readback.active == "active", "package_service_did_not_start")?;
     if starting {
         for _ in 0..20 {
@@ -892,7 +1041,8 @@ fn activate_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Res
 }
 pub(super) fn adopt(m: &Manager) -> Result<()> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
-    adopt_from(m, &home, &Inputs::system(), 0, &SystemctlService)
+    let (inputs, owner) = Inputs::installed()?;
+    adopt_from(m, &home, &inputs, owner, &SystemctlService)
 }
 pub(super) fn rollback(m: &Manager) -> Result<()> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
@@ -909,13 +1059,15 @@ pub(super) fn activation_status(m: &Manager) -> Result<()> {
 }
 pub(super) fn bootstrap_status(m: &Manager) -> Result<()> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
+    let (inputs, owner) = Inputs::installed()?;
     println!("{}", serde_json::to_string(&bootstrap_status_from(m, &home,
-        &Inputs::system(), 0, &SystemctlService)?)?);
+        &inputs, owner, &SystemctlService)?)?);
     Ok(())
 }
 pub(super) fn stop_for_repair(m: &Manager) -> Result<()> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
-    stop_for_repair_from(m, &home, &Inputs::system(), 0, &SystemctlService)
+    let (inputs, owner) = Inputs::installed()?;
+    stop_for_repair_from(m, &home, &inputs, owner, &SystemctlService)
 }
 pub(super) fn activate(m: &Manager) -> Result<()> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
@@ -1140,7 +1292,7 @@ mod tests {
     }
 
     #[test]
-    fn capacity_classifier_accepts_only_clean_exact_keepers() {
+    fn capacity_classifier_accepts_only_exact_stoppable_keepers() {
         let keeper = serde_json::json!({"session":"ab".repeat(16),
             "class_id":"01".repeat(16),"kind":"keeper"});
         let second = serde_json::json!({"session":"cd".repeat(16),
@@ -1148,7 +1300,10 @@ mod tests {
         let reply = serde_json::json!({"ok":true,"capacity":{"schema":1,
             "dsp":0,"maintenance":0,"keepers":2,"cleanup_unconfirmed":false,
             "owners":[keeper.clone(),second.clone()]}});
-        assert_eq!(clean_idle_keepers(&reply).unwrap().len(), 2);
+        assert_eq!(stoppable_keepers(&reply).unwrap().len(), 2);
+        let mut interrupted = reply.clone();
+        interrupted["capacity"]["cleanup_unconfirmed"] = true.into();
+        assert_eq!(stoppable_keepers(&interrupted).unwrap().len(), 2);
         for changed in [
             serde_json::json!({"capacity":{"schema":1,"dsp":0,"maintenance":0,
                 "keepers":2,"cleanup_unconfirmed":false,"owners":[keeper.clone(),second.clone()]}}),
@@ -1157,13 +1312,13 @@ mod tests {
             serde_json::json!({"ok":true,"capacity":{"schema":1,"dsp":0,"maintenance":0,
                 "keepers":1,"cleanup_unconfirmed":false,"owners":[keeper.clone(),second.clone()]}}),
             serde_json::json!({"ok":true,"capacity":{"schema":1,"dsp":0,"maintenance":0,
-                "keepers":2,"cleanup_unconfirmed":true,"owners":[keeper.clone(),second.clone()]}}),
+                "keepers":2,"cleanup_unconfirmed":"unknown","owners":[keeper.clone(),second.clone()]}}),
             serde_json::json!({"ok":true,"capacity":{"schema":1,"dsp":0,"maintenance":0,
                 "keepers":2,"cleanup_unconfirmed":false,"owners":[keeper.clone(),keeper.clone()]}}),
             serde_json::json!({"ok":true,"capacity":{"schema":1,"dsp":0,"maintenance":0,
                 "keepers":1,"cleanup_unconfirmed":false,
                 "owners":[{"session":"cd".repeat(16),"class_id":"01".repeat(16),"kind":"dsp"}]}}),
-        ] { assert!(clean_idle_keepers(&changed).is_err()); }
+        ] { assert!(stoppable_keepers(&changed).is_err()); }
     }
 
     #[test]
@@ -1249,7 +1404,7 @@ mod tests {
         let current = f.current();
         assert!(current.manager.path.parent().unwrap().join("package-generation.json").exists());
         assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
-            &f.service).unwrap().state, "inactive");
+            &f.service).unwrap().state, "rollback_inactive");
         let record = verify_generation(&f.base.m, &current).unwrap();
         assert_eq!(record.predecessor.unwrap().manager.sha256,
             serde_json::from_slice::<Software>(&before).unwrap().manager.sha256);
@@ -1286,6 +1441,170 @@ mod tests {
         activate_from(&f.base.m, &f.home, &f.service).unwrap();
         assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
             &f.service).unwrap().state, "active");
+    }
+
+    #[test]
+    fn installed_successor_is_offered_and_adopted_only_after_exact_clean_stop() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        let predecessor = f.current();
+        let predecessor_bytes = fs::read(f.base.m.root.join("software.json")).unwrap();
+        let registry = fs::read(f.base.m.root.join("registry.json")).ok();
+        let old_unit = fs::read(f.home.join(".config/systemd/user/linux-vst-bridge.service")).unwrap();
+        f.replace("linux-vst-bridge", b"successor manager", true);
+        f.replace("linux-audio-compatibility-manager", b"successor frontend", true);
+        let mut manifest = f.manifest();
+        manifest.version = "0.2.0beta1".into();
+        atomic_json(&f.inputs.manifest(), &manifest).unwrap();
+        fs::set_permissions(f.inputs.manifest(), fs::Permissions::from_mode(0o444)).unwrap();
+
+        let status = bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap();
+        assert_eq!((status.schema, status.state, status.package_version.as_str()),
+            (3, "update_active", "0.2.0beta1"));
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), predecessor_bytes);
+        assert_eq!(fs::read(f.home.join(".config/systemd/user/linux-vst-bridge.service")).unwrap(), old_unit);
+        assert!(f.adopt().is_err());
+        f.service.fail_idle.set(true);
+        assert!(stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        assert_eq!(f.service.stops.get(), 0);
+        f.service.fail_idle.set(false);
+        stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap();
+        assert_eq!(f.service.stops.get(), 1);
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "update_adoptable");
+        f.adopt().unwrap();
+        let successor = f.current();
+        assert_ne!(successor.manager.path.parent(), predecessor.manager.path.parent());
+        assert_eq!(verify_generation(&f.base.m, &successor).unwrap()
+            .predecessor.unwrap().manager, predecessor.manager);
+        assert_eq!(fs::read(f.base.m.root.join("registry.json")).ok(), registry);
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "rollback_inactive");
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "rollback_active");
+        f.service.fail_idle.set(true);
+        assert!(stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        assert_eq!(f.service.stops.get(), 1);
+        f.service.fail_idle.set(false);
+        predecessor.manager.verify().unwrap();
+        successor.manager.verify().unwrap();
+        // A package update and its exact software rollback remain separate
+        // from the still-installed /usr package bytes.
+        stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap();
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "rollback_inactive");
+        rollback_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), predecessor_bytes);
+        assert_eq!(activation_status_from(&f.base.m, &f.home, &f.service).unwrap().state,
+            "inactive");
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!(activation_status_from(&f.base.m, &f.home, &f.service).unwrap().state,
+            "active");
+        assert_eq!(fs::read(f.base.m.root.join("registry.json")).ok(), registry);
+    }
+
+    #[test]
+    fn rollback_offer_refuses_changed_exact_predecessor() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        let predecessor = f.current();
+        f.replace("linux-vst-bridge", b"successor manager", true);
+        f.adopt().unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        let selected = fs::read(f.base.m.root.join("software.json")).unwrap();
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "rollback_active");
+        fs::set_permissions(&predecessor.manager.path,
+            fs::Permissions::from_mode(0o644)).unwrap();
+        fs::write(&predecessor.manager.path, b"changed predecessor").unwrap();
+        assert!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected);
+        assert_eq!(f.service.stops.get(), 0);
+    }
+
+    #[test]
+    fn changed_installed_package_artifact_refuses_status_without_stopping_service() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        f.replace("linux-audio-compatibility-manager", b"changed without manifest", false);
+        assert!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        assert_eq!(f.service.stops.get(), 0);
+    }
+
+    #[test]
+    fn installed_successor_waits_for_exact_keeper_retirement() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        let predecessor = fs::read(f.base.m.root.join("software.json")).unwrap();
+        f.replace("linux-vst-bridge", b"successor manager", true);
+        let keeper = owned_lease(&f, &"ab".repeat(16), true);
+        f.service.retire_keepers.set(false);
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "update_active");
+        assert!(stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).is_err());
+        assert_eq!(f.service.stops.get(), 1);
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "update_retirement_pending");
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), predecessor);
+        assert!(f.adopt().is_err());
+        let report: PathBuf = read_json(&keeper).unwrap();
+        atomic_json(&report, &serde_json::json!({"ready":false,
+            "cleanup_confirmed":true})).unwrap();
+        stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap();
+        assert_eq!(f.service.stops.get(), 1);
+        assert!(!keeper.exists());
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "update_adoptable");
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), predecessor);
+    }
+
+    #[test]
+    #[cfg(target_os="linux")]
+    fn interrupted_keeper_restart_observation_preserves_populated_predecessor() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        let selected = fs::read(f.base.m.root.join("software.json")).unwrap();
+        f.replace("linux-vst-bridge", b"successor manager", true);
+        let session = "ab".repeat(16);
+        let lease = owned_lease(&f, &session, true);
+        let report: PathBuf = read_json(&lease).unwrap();
+        let original = fs::read(&report).unwrap();
+        let generation = f.base.m.root.join("runtime/lease-generations")
+            .join(format!("{session}.json"));
+        // A running service cannot acquire restart observation authority.
+        assert!(reconcile_stopped_service(&f.base.m, &f.service).is_err());
+        assert!(!generation.exists());
+        f.service.retire_keepers.set(false);
+        assert_eq!(stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap_err().to_string(), "package_restart_required");
+        let record: serde_json::Value = read_json(&generation).unwrap();
+        assert_eq!(record["basis"], "stopped_service_observation");
+        assert!(lease.exists());
+        assert!(f.adopt().is_err());
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected);
+        let other_boot = if record["kernel_boot"] == "11111111-1111-1111-1111-111111111111" {
+            "22222222-2222-2222-2222-222222222222"
+        } else { "11111111-1111-1111-1111-111111111111" };
+        assert!(!reconcile_leases_in_kernel(&f.base.m, Some(other_boot)).unwrap());
+        assert!(!lease.exists());
+        assert_eq!(fs::read(&report).unwrap(), original);
+        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap().state, "update_adoptable");
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected);
     }
 
     #[test]
@@ -1453,6 +1772,21 @@ mod tests {
     }
 
     #[test]
+    fn missing_modern_generation_record_cannot_authorize_legacy_restart() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        let before = fs::read(f.base.m.root.join("software.json")).unwrap();
+        let current = f.current();
+        fs::remove_file(current.manager.path.parent().unwrap()
+            .join("package-generation.json")).unwrap();
+        assert!(selected_package_version(&f.base.m, &current).is_err());
+        assert!(activation_status_from(&f.base.m, &f.home, &f.service).is_err());
+        assert!(activate_from(&f.base.m, &f.home, &f.service).is_err());
+        assert_eq!(f.service.starts.get(), 0);
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), before);
+    }
+
+    #[test]
     fn activation_refuses_pending_or_uncertain_owner_before_start() {
         let f = Fixture::new();
         f.adopt().unwrap();
@@ -1540,7 +1874,7 @@ mod tests {
     }
 
     #[test]
-    fn predecessor_plan_classifies_missing_owned_routes_and_refuses_foreign_or_changed_host() {
+    fn predecessor_plan_classifies_owned_routes_and_plans_changed_host() {
         let f = Fixture::new();
         f.adopt().unwrap();
         let (manifest, sha) = read_manifest(&f.inputs, f.owner).unwrap();
@@ -1564,7 +1898,9 @@ mod tests {
         fs::write(&unit, original).unwrap();
         let mut changed_host = manifest;
         changed_host.files[4].sha256 = "ab".repeat(32);
-        assert!(predecessor_plan(&f.base.m, &f.home, changed_host, sha).is_err());
+        let changed_sha = hex(&sha2::Sha256::digest(serde_json::to_vec(&changed_host).unwrap()));
+        let (planned, _) = predecessor_plan(&f.base.m, &f.home, changed_host, changed_sha).unwrap();
+        assert_eq!(planned.predecessor.unwrap().host, f.current().host);
     }
 
     #[test]
@@ -1747,8 +2083,27 @@ mod tests {
         rollback_from(&f.base.m, &f.home, &f.service).unwrap();
         assert_eq!(serde_json::from_slice::<serde_json::Value>(&fs::read(f.base.m.root.join("software.json")).unwrap()).unwrap(),
             serde_json::from_slice::<serde_json::Value>(&old_bytes).unwrap());
-        old.preparation_kit.unwrap().verify().unwrap();
+        old.preparation_kit.as_ref().unwrap().verify().unwrap();
         assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry_bytes);
+        let record = old.manager.path.parent().unwrap().join("package-generation.json");
+        assert!(!record.exists());
+        let restored_bytes = fs::read(f.base.m.root.join("software.json")).unwrap();
+        let status = activation_status_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!(status.state, "inactive");
+        assert_eq!(status.package_version, "retained-installation");
+        assert_eq!(selected_package_version(&f.base.m, &old).unwrap(), None);
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!(activation_status_from(&f.base.m, &f.home, &f.service).unwrap().state,
+            "active");
+        assert_eq!(f.service.starts.get(), 1);
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), restored_bytes);
+        assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry_bytes);
+        assert!(!record.exists());
+        f.service.loaded.borrow_mut().active = "inactive".into();
+        fs::write(&record, b"{}").unwrap();
+        fs::set_permissions(&record, fs::Permissions::from_mode(0o400)).unwrap();
+        assert!(activate_from(&f.base.m, &f.home, &f.service).is_err());
+        assert_eq!(f.service.starts.get(), 1);
     }
 
     #[test]
@@ -1821,15 +2176,108 @@ mod tests {
         assert_eq!(fs::read(next.native_catalogue.as_ref().unwrap().path.clone()).unwrap(), catalogue_bytes);
         assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry_bytes);
         for (path, bytes) in &retained { assert_eq!(&fs::read(path).unwrap(), bytes); }
-        let selected = fs::read(f.base.m.root.join("software.json")).unwrap();
-        f.replace("host.exe", b"different host cannot inherit existing catalogue", true);
-        assert!(f.adopt().is_err());
-        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected);
+        f.replace("host.exe", b"successor host", true);
+        f.replace("host-source-manifest.json", b"successor host source", true);
+        f.replace("session.pyc", b"successor supervisor", true);
+        f.replace("ownership.pyc", b"successor ownership", true);
+        f.adopt().unwrap();
+        let changed = f.current();
+        assert_ne!(changed.host.sha256, next.host.sha256);
+        let execution = paired_components(&f.base.m, &changed, &f.base.r).unwrap();
+        assert_eq!(execution.host, next.host);
+        assert_eq!(execution.supervisor, next.supervisor);
+        assert_eq!(execution.ownership, next.ownership);
+        assert_ne!(execution.supervisor, changed.supervisor);
+        assert_eq!(changed.catalogue(&f.base.m).unwrap().hosts[0].host, next.host);
+        assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry_bytes);
+        for (path, bytes) in &retained { assert_eq!(&fs::read(path).unwrap(), bytes); }
+        // Projects created after an update belong to the customer as well.
+        let later = f.base.m.root.join("projects/later.bwproject");
+        fs::write(&later, b"later music").unwrap();
+        rollback_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!(f.current().supervisor, next.supervisor);
+        assert_eq!(fs::read(later).unwrap(), b"later music");
         rollback_from(&f.base.m, &f.home, &f.service).unwrap();
         assert_eq!(f.current().manager.sha256, first.manager.sha256);
         assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry_bytes);
         for (path, bytes) in &retained { assert_eq!(&fs::read(path).unwrap(), bytes); }
         old.native_catalogue.unwrap().verify().unwrap();
+    }
+
+    #[test]
+    fn retained_execution_refuses_missing_pair_and_tampered_predecessor() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        let old = f.current();
+        let mut registration = f.base.r.clone();
+        registration.host = old.host.clone();
+        registration.host_source_sha256 = old.source_sha256.clone();
+        f.replace("host.exe", b"successor host", true);
+        f.replace("host-source-manifest.json", b"successor source", true);
+        f.replace("session.pyc", b"successor supervisor", true);
+        f.adopt().unwrap();
+        let next = f.current();
+        assert_eq!(paired_components(&f.base.m, &next, &registration).unwrap().supervisor, old.supervisor);
+        let mut unavailable = registration.clone();
+        unavailable.host.sha256 = "fe".repeat(32);
+        assert!(paired_components(&f.base.m, &next, &unavailable).is_err());
+        fs::set_permissions(&old.supervisor.path, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&old.supervisor.path, b"tampered supervisor").unwrap();
+        assert!(paired_components(&f.base.m, &next, &registration).is_err());
+        assert_eq!(f.current().host, next.host);
+    }
+
+    #[test]
+    fn retained_preparation_pair_keeps_its_original_components_across_package_update() {
+        let f = Fixture::new();
+        f.add_kit(b"original selected preparation kit");
+        f.adopt().unwrap();
+        let old = f.current();
+        let kit = old.preparation_kit.clone().unwrap();
+        let dir = f.base.m.root.join("software/preparation-kits").join(&kit.sha256);
+        private_dir(&dir).unwrap();
+        for (name, bytes) in [("host.exe", b"prepared host".as_slice()),
+            ("host-source-manifest.json", b"prepared host source".as_slice())] {
+            fs::write(dir.join(name), bytes).unwrap();
+            fs::set_permissions(dir.join(name), fs::Permissions::from_mode(0o444)).unwrap();
+        }
+        let runtime = linux_vst_bridge::preparation::build::Runtime { kit,
+            host: artifact(&dir, "host.exe").unwrap(),
+            source_manifest: artifact(&dir, "host-source-manifest.json").unwrap(),
+            builder: None, generator: None };
+        atomic_json(&dir.join("runtime.json"), &runtime).unwrap();
+        fs::set_permissions(dir.join("runtime.json"), fs::Permissions::from_mode(0o444)).unwrap();
+        let mut registration = f.base.r.clone();
+        registration.host = runtime.host.clone();
+        registration.host_source_sha256 = runtime.source_manifest.sha256.clone();
+        let execution = paired_components(&f.base.m, &old, &registration).unwrap();
+        assert_eq!(execution.supervisor, old.supervisor);
+        assert_eq!(execution.host, runtime.host);
+        assert!(old.native_catalogue.is_none());
+
+        f.replace("host.exe", b"successor host", true);
+        f.replace("host-source-manifest.json", b"successor source", true);
+        f.replace("session.pyc", b"successor supervisor", true);
+        f.replace("ownership.pyc", b"successor ownership", true);
+        f.replace("preparation-kit.zip", b"successor preparation kit", true);
+        f.adopt().unwrap();
+        let next = f.current();
+        let retained = paired_components(&f.base.m, &next, &registration).unwrap();
+        assert_eq!(retained.supervisor, old.supervisor);
+        assert_eq!(retained.ownership, old.ownership);
+        assert_eq!(retained.host, runtime.host);
+        assert_ne!(retained.supervisor, next.supervisor);
+        let mut foreign = registration.clone();
+        foreign.host_source_sha256 = "fe".repeat(32);
+        assert!(paired_components(&f.base.m, &next, &foreign).is_err());
+        let record = dir.join("runtime.json");
+        fs::rename(&record, dir.join("runtime.saved")).unwrap();
+        assert!(paired_components(&f.base.m, &next, &registration).is_err());
+        fs::rename(dir.join("runtime.saved"), &record).unwrap();
+        fs::set_permissions(&runtime.host.path, fs::Permissions::from_mode(0o644)).unwrap();
+        fs::write(&runtime.host.path, b"changed prepared host").unwrap();
+        assert!(paired_components(&f.base.m, &next, &registration).is_err());
+        assert_eq!(f.current().host, next.host);
     }
 
     #[test]

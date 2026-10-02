@@ -1,5 +1,10 @@
 # Beta portability: package and explicit first run
 
+The next selected delivery is [application-owned runtime setup and prebuilt
+proxies](SELF_SERVICE_DELIVERY.md). The external-runtime and customer SDK
+prerequisites below describe the retained earlier package generation, not that
+new route. Its commercial Ubuntu journey remains a separate open test.
+
 ## Source basis and one claim
 
 This owner begins at post-PKG1 canonical main

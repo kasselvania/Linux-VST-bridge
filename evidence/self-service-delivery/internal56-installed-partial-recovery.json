@@ -1,0 +1,346 @@
+{
+  "schema": 1,
+  "candidate": "0.12.0internal56",
+  "source_commit": "9f963bcf5fc676d099982dee25e688e7f83fe489",
+  "source_tree": "9bba0162c4006e29dd8923baa0e22991ede76a0f",
+  "fixture": "Ubuntu 26.04.1 / Openbox / approved two-CPU VM",
+  "selection": {
+    "unix_ns": 1790920207240471687,
+    "candidate": "0.12.0internal56",
+    "manager_sha256": "dbe3eba65846d1646ed7e934a9f440367f5ba01537e0144ff86f8964c1f79946",
+    "frontend_sha256": "ff412a1b3865e4415e2e684edebb739e42d83721b028b75e58e2e814602f4984",
+    "host_sha256": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b",
+    "registry_unchanged": true,
+    "snapshots_unchanged": true,
+    "previous_components_retained": true,
+    "service": "active",
+    "resume_pending": false
+  },
+  "installer_sha256": "c4a65a49a5d3ce532e33dc4132ec7db674e0b2558bbcf3c21c3490d8d8bbfaba",
+  "visible_retry": "Setup showed Find installed plug-ins and Retry installation on the exact stopped partial attempt. Retry created a new compatibility environment linked to the retained predecessor.",
+  "repetitions": [
+    {
+      "onboarding": "8d3754e3dc8d07133bb85b321aeaed53",
+      "previous_attempt": "2fee848b68c68eabe61887dbb386f784",
+      "creation_operation": "14cf0ae59b64bff92927f2ad9f0299a1",
+      "installation_operation": "189ab4ca15573a14e4961653eb554388",
+      "held": {
+        "unix_ns": 1790920456773392021,
+        "modules": [
+          {
+            "name": "LVBReferenceInstrument.vst3",
+            "sha256": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+            "bytes": 265216
+          }
+        ],
+        "service": "inactive",
+        "resume_pending": true,
+        "state": "running",
+        "owned_live": 15,
+        "cleanup_confirmed": false,
+        "transaction": {
+          "operation": "189ab4ca15573a14e4961653eb554388",
+          "outcome": "in_progress",
+          "outer_launcher_exit": null,
+          "durable_installation": "unavailable",
+          "installation_completeness": "unproved",
+          "first_failure": null,
+          "safe_next_action": "exact_owned_focus_or_stop"
+        }
+      },
+      "stopped": {
+        "unix_ns": 1790920503815523303,
+        "modules": [
+          {
+            "name": "LVBReferenceInstrument.vst3",
+            "sha256": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+            "bytes": 265216
+          }
+        ],
+        "service": "active",
+        "resume_pending": false,
+        "state": "cancelled",
+        "owned_live": 0,
+        "cleanup_confirmed": true,
+        "transaction": {
+          "operation": "189ab4ca15573a14e4961653eb554388",
+          "outcome": "cancelled",
+          "outer_launcher_exit": -15,
+          "durable_installation": "partial_installation",
+          "installation_completeness": "unproved",
+          "first_failure": null,
+          "safe_next_action": "review_retained_outcome_before_retry"
+        }
+      },
+      "visible_result": "Setup displayed Bridge ready, Cleanup confirmed, discovery and Retry installation after visible Stop."
+    },
+    {
+      "onboarding": "f4fa3fd24d1591b6a06402466ef38b19",
+      "previous_attempt": "8d3754e3dc8d07133bb85b321aeaed53",
+      "creation_operation": "af87ff50c31bfeec5214e7c2d936ad82",
+      "installation_operation": "e1531002194234e33b209fe9e703b558",
+      "held": {
+        "unix_ns": 1790920704013735880,
+        "modules": [
+          {
+            "name": "LVBReferenceInstrument.vst3",
+            "sha256": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+            "bytes": 265216
+          }
+        ],
+        "service": "inactive",
+        "resume_pending": true,
+        "state": "running",
+        "owned_live": 15,
+        "cleanup_confirmed": false,
+        "transaction": {
+          "operation": "e1531002194234e33b209fe9e703b558",
+          "outcome": "in_progress",
+          "outer_launcher_exit": null,
+          "durable_installation": "unavailable",
+          "installation_completeness": "unproved",
+          "first_failure": null,
+          "safe_next_action": "exact_owned_focus_or_stop"
+        }
+      },
+      "stopped": {
+        "unix_ns": 1790920751148538035,
+        "modules": [
+          {
+            "name": "LVBReferenceInstrument.vst3",
+            "sha256": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+            "bytes": 265216
+          }
+        ],
+        "service": "active",
+        "resume_pending": false,
+        "state": "cancelled",
+        "owned_live": 0,
+        "cleanup_confirmed": true,
+        "transaction": {
+          "operation": "e1531002194234e33b209fe9e703b558",
+          "outcome": "cancelled",
+          "outer_launcher_exit": -15,
+          "durable_installation": "partial_installation",
+          "installation_completeness": "unproved",
+          "first_failure": null,
+          "safe_next_action": "review_retained_outcome_before_retry"
+        }
+      },
+      "visible_result": "Setup displayed Bridge ready, Cleanup confirmed, discovery and Retry installation after visible Stop."
+    }
+  ],
+  "nonclaims": [
+    "No audio repair or complete self-service beta qualification.",
+    "This record covers the specifically recorded recovery cases; other cases and platform repetitions remain open.",
+    "Internal test signing only."
+  ],
+  "preservation_after_two_stops": {
+    "unix_ns": 1790920816373829271,
+    "candidate": "0.12.0internal56",
+    "manager_sha256": "dbe3eba65846d1646ed7e934a9f440367f5ba01537e0144ff86f8964c1f79946",
+    "frontend_sha256": "ff412a1b3865e4415e2e684edebb739e42d83721b028b75e58e2e814602f4984",
+    "host_sha256": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b",
+    "registry_unchanged": true,
+    "snapshots_unchanged": true,
+    "previous_components_retained": true,
+    "service": "active",
+    "resume_pending": false
+  },
+  "frontend_interruption": {
+    "method": "Normal frontend window close while the partial installer was held; normal installed Library desktop launcher reopened. Setup retained Focus and Stop; Focus raised the same held dialog. OK then completed both first-party modules.",
+    "initial_wrong_entry": "Setup and Updates opened the package-restoration entry point. It was closed without changing software or service; the normal Library launcher was then used.",
+    "repetition_count": 1,
+    "closed_frontend_observation": {
+      "unix_ns": 1790920940037390199,
+      "frontends": []
+    },
+    "reopened_frontend_observation": {
+      "unix_ns": 1790921197874516354,
+      "frontends": [
+        {
+          "pid": 14076,
+          "exe": "linux-audio-compatibility-manager"
+        }
+      ]
+    },
+    "observations": [
+      {
+        "phase": "held_before_close",
+        "unix_ns": 1790920917007915934,
+        "onboarding": "90912c5a1f1538b45d3a83d263722d7d",
+        "installation_operation": "8c4cdf07477ed453af5971cb5cff6f28",
+        "target": {
+          "pid": 11763,
+          "start_ticks": 126526,
+          "image": "target",
+          "sha256": "c4a65a49a5d3ce532e33dc4132ec7db674e0b2558bbcf3c21c3490d8d8bbfaba"
+        },
+        "modules": [
+          {
+            "name": "LVBReferenceInstrument.vst3",
+            "sha256": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+            "bytes": 265216
+          }
+        ],
+        "service": "inactive",
+        "resume_pending": true,
+        "state": "running",
+        "owned_live": 15,
+        "cleanup_confirmed": false,
+        "transaction": {
+          "outcome": "in_progress",
+          "outer_launcher_exit": null,
+          "durable_installation": "unavailable",
+          "installation_completeness": "unproved",
+          "first_failure": null
+        }
+      },
+      {
+        "phase": "frontend_closed",
+        "unix_ns": 1790920968369406524,
+        "onboarding": "90912c5a1f1538b45d3a83d263722d7d",
+        "installation_operation": "8c4cdf07477ed453af5971cb5cff6f28",
+        "target": {
+          "pid": 11763,
+          "start_ticks": 126526,
+          "image": "target",
+          "sha256": "c4a65a49a5d3ce532e33dc4132ec7db674e0b2558bbcf3c21c3490d8d8bbfaba"
+        },
+        "modules": [
+          {
+            "name": "LVBReferenceInstrument.vst3",
+            "sha256": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+            "bytes": 265216
+          }
+        ],
+        "service": "inactive",
+        "resume_pending": true,
+        "state": "running",
+        "owned_live": 15,
+        "cleanup_confirmed": false,
+        "transaction": {
+          "outcome": "in_progress",
+          "outer_launcher_exit": null,
+          "durable_installation": "unavailable",
+          "installation_completeness": "unproved",
+          "first_failure": null
+        }
+      },
+      {
+        "phase": "frontend_reopened",
+        "unix_ns": 1790921259137536889,
+        "onboarding": "90912c5a1f1538b45d3a83d263722d7d",
+        "installation_operation": "8c4cdf07477ed453af5971cb5cff6f28",
+        "target": {
+          "pid": 11763,
+          "start_ticks": 126526,
+          "image": "target",
+          "sha256": "c4a65a49a5d3ce532e33dc4132ec7db674e0b2558bbcf3c21c3490d8d8bbfaba"
+        },
+        "modules": [
+          {
+            "name": "LVBReferenceInstrument.vst3",
+            "sha256": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+            "bytes": 265216
+          }
+        ],
+        "service": "inactive",
+        "resume_pending": true,
+        "state": "running",
+        "owned_live": 15,
+        "cleanup_confirmed": false,
+        "transaction": {
+          "outcome": "in_progress",
+          "outer_launcher_exit": null,
+          "durable_installation": "unavailable",
+          "installation_completeness": "unproved",
+          "first_failure": null
+        }
+      },
+      {
+        "phase": "installer_completed",
+        "unix_ns": 1790921324854340997,
+        "onboarding": "90912c5a1f1538b45d3a83d263722d7d",
+        "installation_operation": "8c4cdf07477ed453af5971cb5cff6f28",
+        "target": {
+          "pid": 11763,
+          "start_ticks": 126526,
+          "image": "target",
+          "sha256": "c4a65a49a5d3ce532e33dc4132ec7db674e0b2558bbcf3c21c3490d8d8bbfaba"
+        },
+        "modules": [
+          {
+            "name": "LVBReferenceEffect.vst3",
+            "sha256": "b3498eb5c8d6d440259b04a9c9b7699ab72f4f64eb31f45167f0341d3d1e719f",
+            "bytes": 254976
+          },
+          {
+            "name": "LVBReferenceInstrument.vst3",
+            "sha256": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+            "bytes": 265216
+          }
+        ],
+        "service": "active",
+        "resume_pending": false,
+        "state": "completed",
+        "owned_live": 0,
+        "cleanup_confirmed": true,
+        "transaction": {
+          "outcome": "installed",
+          "outer_launcher_exit": 0,
+          "durable_installation": "installed",
+          "installation_completeness": "unproved",
+          "first_failure": null
+        }
+      }
+    ],
+    "discovery": {
+      "readback": {
+        "unix_ns": 1790921445993790498,
+        "onboarding": "90912c5a1f1538b45d3a83d263722d7d",
+        "operations": [
+          {
+            "operation": "6b279990a626c82fd26b62ee8806825d",
+            "action": {
+              "kind": "installer_scan",
+              "onboarding": "90912c5a1f1538b45d3a83d263722d7d"
+            },
+            "result": {
+              "operation": "6b279990a626c82fd26b62ee8806825d",
+              "state": "completed"
+            }
+          },
+          {
+            "operation": "6021151c55f27ee186cf2b17e51cc873",
+            "action": {
+              "kind": "installer_focus",
+              "onboarding": "90912c5a1f1538b45d3a83d263722d7d",
+              "operation": "8c4cdf07477ed453af5971cb5cff6f28"
+            },
+            "result": {
+              "operation": "6021151c55f27ee186cf2b17e51cc873",
+              "state": "completed"
+            }
+          },
+          {
+            "operation": "8c4cdf07477ed453af5971cb5cff6f28",
+            "action": {
+              "kind": "installer_start",
+              "onboarding": "90912c5a1f1538b45d3a83d263722d7d"
+            },
+            "result": {
+              "operation": "8c4cdf07477ed453af5971cb5cff6f28",
+              "state": "completed"
+            }
+          }
+        ],
+        "snapshots_unchanged": true,
+        "registry_equal_baseline": true,
+        "service": "active",
+        "resume_pending": false
+      },
+      "visible_result": "Same card reported 2 plug-ins found, discovery did not publish them; Bridge ready and Cleanup confirmed."
+    }
+  }
+}

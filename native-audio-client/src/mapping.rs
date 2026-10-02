@@ -17,16 +17,27 @@ pub struct Mapping {
     _file: File,
     unmapped: bool,
     pub bytes: usize,
+    pub capacity: usize,
+    pub stride: usize,
+    pub output: usize,
+    pub version: u32,
     pub output_channels: usize,
-    pub extra: Vec<[f32; CAP]>,
+    pub extra: Vec<[f32; BLOCK_CAP]>,
 }
 impl Mapping {
     pub fn new(path: &Path) -> io::Result<Self> {
         Self::with_channels(path, 2)
     }
     pub fn with_channels(path: &Path, channels: usize) -> io::Result<Self> {
+        Self::with_layout(path, channels, false)
+    }
+    pub fn with_layout(path: &Path, channels: usize, whole_block: bool) -> io::Result<Self> {
         need(matches!(channels, 2 | MULTI_CHANNELS), "mapping channel capacity")?;
-        let bytes = OUTPUT + channels * STRIDE;
+        need(!whole_block || channels == MULTI_CHANNELS, "whole block mapping channel layout")?;
+        let (capacity, stride, output, version) = if whole_block {
+            (BLOCK_CAP, BLOCK_STRIDE, BLOCK_OUTPUT, 3)
+        } else { (CAP, STRIDE, OUTPUT, if channels == 2 { 1 } else { 2 }) };
+        let bytes = output + channels * stride;
         let file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -40,7 +51,8 @@ impl Mapping {
         Ok(Self {
             pointer: NonNull::new(p as *mut u8).ok_or_else(|| invalid("null mapping"))?,
             _file: file,
-            unmapped: false, bytes, output_channels: 2, extra: vec![[0.; CAP]; channels - 2],
+            unmapped: false, bytes, capacity, stride, output, version,
+            output_channels: 2, extra: vec![[0.; BLOCK_CAP]; channels - 2],
         })
     }
     pub fn close(mut self) -> io::Result<()> {
@@ -75,21 +87,23 @@ impl Mapping {
         };
         Ok(())
     }
-    pub fn write_plane(
+    pub fn write_plane<const N: usize>(
         &mut self,
         base: usize,
         ch: usize,
-        words: &[u32; CAP + 2],
+        words: &[u32; N],
     ) -> io::Result<()> {
-        let mut bytes = [0; STRIDE];
-        for (word, chunk) in words.iter().zip(bytes.chunks_exact_mut(4)) {
+        need(N >= self.capacity + 2 && N <= BLOCK_CAP + 2, "plane storage extent")?;
+        let mut bytes = [0; BLOCK_STRIDE];
+        for (word, chunk) in words.iter().zip(bytes[..self.stride].chunks_exact_mut(4)) {
             chunk.copy_from_slice(&word.to_le_bytes());
         }
-        self.write(base + ch * STRIDE, &bytes)
+        self.write(base + ch * self.stride, &bytes[..self.stride])
     }
-    pub fn plane(&self, base: usize, ch: usize) -> io::Result<[u32; CAP + 2]> {
-        let mut bytes = [0; STRIDE];
-        self.read_into(base + ch * STRIDE, &mut bytes)?;
+    pub fn plane<const N: usize>(&self, base: usize, ch: usize) -> io::Result<[u32; N]> {
+        need(N >= self.capacity + 2 && N <= BLOCK_CAP + 2, "plane storage extent")?;
+        let mut bytes = [0; BLOCK_STRIDE];
+        self.read_into(base + ch * self.stride, &mut bytes[..self.stride])?;
         Ok(std::array::from_fn(|i| {
             u32::from_le_bytes(bytes[4 * i..4 * i + 4].try_into().unwrap())
         }))

@@ -9,6 +9,14 @@ diagnostics and rollback for declared configurations, plus beta support. It
 would not buy vendor installers, plug-in licenses, credentials or a guarantee
 for an undeclared machine.
 
+The current [self-service delivery work](SELF_SERVICE_BETA_TODO.md) has installed
+an application-owned runtime and exact prebuilt proxies on disposable Ubuntu
+without preinstalled Wine, Proton, Steam or development SDKs. Internal30 has
+bounded official FRAGMENTS demo audio and editor close/reopen results from that
+package. It has not completed project persistence, responsive cold startup or
+ordinary installer recovery. The self-service private beta remains unreleasable;
+these observations do not alter the proposed Deck support envelope below.
+
 ## Initial exact support proposal
 
 | Lane | Machine and DAW | First products | Required posture |

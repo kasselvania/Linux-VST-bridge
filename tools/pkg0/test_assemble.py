@@ -91,7 +91,7 @@ class PackageAssembly(unittest.TestCase):
         self.add_file("usr/lib/linux-vst-bridge/profiles/self-test.json", "profile", b"{}", 103)
         self.add_file("usr/share/doc/linux-vst-bridge-beta/licenses/Bridge.txt", "license", b"license", 104)
         self.spec = {"schema": 1, "version": "0.1.0beta1", "source_head": "a" * 40,
-                     "source_tree": "b" * 40, "operator_schema": 12,
+                     "source_tree": "b" * 40, "operator_schema": assemble.declared_operator_schema(),
                      "external_runtime": {"id": "exact-proton-slr", "manifest_sha256": "c" * 64},
                      "files": self.files}
 
@@ -154,6 +154,36 @@ class PackageAssembly(unittest.TestCase):
                          next(item for item in self.files if item["kind"] == "preparation_kit")["sha256"])
         package = package_archive(out, self.root / "with-kit.pkg.tar.zst")
         self.assertEqual(verify_package.verify(package, release, True)["files"], len(self.files) + 2)
+
+    def test_operator_pair_uses_exact_source_and_retained_predecessor(self):
+        current = assemble.declared_operator_schema()
+        self.assertEqual(self.spec["operator_schema"], current)
+        predecessor = self.root / "predecessor-source"
+        model = predecessor / "bridge-manager/src/operator_model.rs"
+        model.parent.mkdir(parents=True)
+        model.write_text("pub const OPERATOR_SCHEMA: u32 = 14;\n")
+        old_spec = {**self.spec, "operator_schema": 14}
+        with self.assertRaisesRegex(ValueError, "paired operator schema"):
+            assemble.validate(old_spec)
+        old_staged = self.root / "old-staged"
+        release = assemble.build(old_spec, old_staged, 1234567890, predecessor)
+        package = package_archive(old_staged, self.root / "predecessor.pkg.tar.zst")
+        with self.assertRaisesRegex(ValueError, "package adoption identity"):
+            verify_package.verify(package, release, True)
+        self.assertEqual(verify_package.verify(package, release, True, predecessor)["files"],
+                         len(self.files) + 2)
+        with self.assertRaisesRegex(ValueError, "paired operator schema"):
+            assemble.validate(self.spec, predecessor)
+        with self.assertRaisesRegex(ValueError, "paired operator schema"):
+            assemble.validate({**self.spec, "operator_schema": float(current)})
+
+    def test_operator_schema_declaration_must_be_unique_and_bounded(self):
+        for source in ("", "pub const OPERATOR_SCHEMA: u32 = 0;\n",
+                       "pub const OPERATOR_SCHEMA: u32 = 4294967296;\n",
+                       "pub const OPERATOR_SCHEMA: u32 = 15;\n" * 2):
+            with self.subTest(source=source):
+                with self.assertRaisesRegex(ValueError, "declared operator schema"):
+                    assemble.parse_operator_schema(source)
 
     def test_package_adoption_manifest_binds_every_selected_artifact(self):
         self.add_kit()
@@ -296,8 +326,11 @@ class PackageAssembly(unittest.TestCase):
             desktop = tar.extractfile(assemble.SYSTEM_DESKTOP).read()
             self.assertEqual(desktop, assemble.SYSTEM_DESKTOP_BYTES)
             self.assertIn(b"Exec=/usr/bin/linux-audio-compatibility-manager\n", desktop)
+            self.assertNotEqual(assemble.SYSTEM_DESKTOP,
+                                "usr/share/applications/linux-audio-compatibility-manager.desktop")
+            self.assertIn(b"Name=Linux VST Bridge Setup and Updates\n", desktop)
             self.assertNotIn(b"package-adopt", desktop)
-            self.assertEqual(adoption["operator_schema"], 12)
+            self.assertEqual(adoption["operator_schema"], assemble.declared_operator_schema())
             self.assertEqual(adoption["package"], "linux-vst-bridge-beta")
             self.assertEqual(adoption["version"], self.spec["version"])
             self.assertEqual(adoption["pkgrel"], 1)

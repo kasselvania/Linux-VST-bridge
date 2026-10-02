@@ -93,6 +93,7 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
     return kResultOk;
   }
   tresult PLUGIN_API removed() override {
+    check(!plugFrame, "host frame detached before vendor removal");
     if (stats.retained_test) { check(!stats.processing, "no removal during processing"); stats.retirement.push_back(2); }
     check(std::this_thread::get_id() == owner && (stats.lost_parent || IsWindow(HWND(systemWindow))),
           "remove before destroying parent");
@@ -542,6 +543,17 @@ void lifecycle_faults() {
     check(access.open(*c) && access.close_requested(),"close during attachment binds the opening epoch");
     check(access.close(),"deferred opening close retires positively");c->stats.close_during_attach=false;
     check(access.open(*c),"standalone owner can open shared mechanical view");
+    const auto frameWindow=access.window(); const auto removedBefore=c->stats.removed;
+    const auto destroyedBefore=c->stats.destroyed;
+    c->stats.refuse_frame=true;
+    check(!access.close() && access.window()==frameWindow && IsWindow(frameWindow) &&
+          c->stats.removed==removedBefore && c->stats.destroyed==destroyedBefore,
+          "refused frame detach cannot remove or release the vendor view");
+    c->stats.refuse_frame=false;
+    check(access.close() && c->stats.removed==removedBefore+1 &&
+          c->stats.destroyed==destroyedBefore+1 && !IsWindow(frameWindow),
+          "frame detach retry retires the exact view once");
+    check(access.open(*c),"standalone owner can reopen after frame detach retry");
     const auto retainedWindow=access.window(); const auto created=c->stats.created; const auto closesBefore=access.closes;
     access.destruction(controlledDestroy);destroyRefusals=1;
     check(!access.close() && access.window()==retainedWindow && IsWindow(retainedWindow) &&

@@ -1,6 +1,7 @@
 //! MF3: canonical selection, immutable preparation and explicit local review.
 //! No frontend path, process, profile or compiler authority enters this owner.
 pub mod build;
+mod accessibility;
 mod history;
 mod model;
 use crate::{
@@ -194,6 +195,18 @@ fn immutable_bytes_staged(
     let _ = fs::remove_file(&tmp);
     result
 }
+// Environment identifiers are opaque. Retained installations use UUIDs while
+// managed installer environments use compact identifiers. The record and exact
+// direct-child location supply authority, as in Registration::verify; spelling
+// must not exclude an existing installation from preparing an update.
+fn environment_location(m: &Manager, environment: &Environment) -> bool {
+    let parent = m.root.join("environments");
+    environment.revision > 0
+        && !environment.id.is_empty()
+        && environment.root.parent() == Some(parent.as_path())
+        && environment.root.file_name().and_then(|name| name.to_str())
+            == Some(environment.id.as_str())
+}
 /// Factory and environment identities, never a friendly-name dispatch table.
 pub fn selections(m: &Manager, host: &Artifact, source: &str) -> Result<Vec<Selection>> {
     let mut out = vec![];
@@ -211,7 +224,7 @@ pub fn selections(m: &Manager, host: &Artifact, source: &str) -> Result<Vec<Sele
             .join("environments")
             .join(&scan.environment.id)
             .join("environment.json");
-        if !valid_hex(&scan.environment.id, 32)
+        if !environment_location(m, &scan.environment)
             || scan.environment.root != envpath.parent().unwrap()
             || bounded::<Environment>(&envpath)? != scan.environment
         {
@@ -271,8 +284,7 @@ fn verify_selection_data(m: &Manager, s: &Selection, host: &Artifact, source: &s
         "preparation_scanner_changed",
     )?;
     require(
-        valid_hex(&s.environment.id, 32)
-            && s.environment.root == m.root.join("environments").join(&s.environment.id),
+        environment_location(m, &s.environment),
         "preparation_environment_location",
     )?;
     require(
@@ -707,7 +719,17 @@ pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
             && c.profile.class.class_id == c.selection.class.id,
         "candidate_binding",
     )?;
+    if c.profile.capabilities.accessibility != Accessibility::WindowsDefault {
+        let (selected, evidence) = accessibility::selected(&c.selection)?;
+        require(c.origin == Origin::ManagedPreparation
+            && c.profile.capabilities.accessibility == selected
+            && selected == Accessibility::DisabledForVendorProcess
+            && c.profile.limitations.contains(&Limitation::WindowsAccessibilityUnavailable)
+            && evidence.as_ref().is_some_and(|reference| c.profile.evidence.contains(reference)),
+            "candidate_policy_requires_explicit_support")?;
+    }
     let expected_compatibility = Compatibility {
+        disable_windows_accessibility: c.profile.capabilities.accessibility == Accessibility::DisabledForVendorProcess,
         audio_layout: c.inspection.audio_layout.clone(),
         ..Compatibility::default()
     };
@@ -781,13 +803,24 @@ pub fn prepared(
     )?;
     let raw: Value = bounded(&i.report.path)?;
     require(raw["error"].is_null(), "inspection_failed")?;
-    let limitations=vec![Limitation::DirectEditorUnderQualification,
+    let (accessibility, accessibility_evidence) = accessibility::selected(&s)?;
+    let mut limitations=vec![Limitation::DirectEditorUnderQualification,
         Limitation::Unqualified256,Limitation::DetachedFocusRefusal];
+    if accessibility == Accessibility::DisabledForVendorProcess {
+        limitations.push(Limitation::WindowsAccessibilityUnavailable);
+    }
+    let mut evidence = vec!["docs/MF3.md".into()];
+    if let Some(reference) = accessibility_evidence { evidence.push(reference); }
+    let identity = if accessibility == Accessibility::WindowsDefault {
+        key(&(&s, &i, &native, &host, &manifest, &recipe))?
+    } else {
+        key(&(&s, &i, &native, &host, &manifest, &recipe, &accessibility))?
+    };
     let profile = Profile {
         schema: 1,
         id: format!(
             "managed.{}",
-            key(&(&s, &i, &native, &host, &manifest, &recipe))?
+            identity
         ),
         revision: 1,
         claim: Claim::ReviewCandidate,
@@ -806,7 +839,7 @@ pub fn prepared(
             descriptor_sha256: native.descriptor_sha256.clone(),
         },
         capabilities: Capabilities {
-            accessibility: Accessibility::WindowsDefault,
+            accessibility,
             editor: Editor::DetachedDirectVendorLifecycle,
             state: State::ConcurrentReadOnlyCaptureV12,
             precision: Precision::Float32Only,
@@ -817,7 +850,7 @@ pub fn prepared(
             audio_layout: i.audio_layout.clone(),
         },
         limitations,
-        evidence: vec!["docs/MF3.md".into()],
+        evidence,
     };
     profile.validate()?;
     Ok(Candidate {
@@ -1212,6 +1245,9 @@ pub fn session_binding(
     Ok(true)
 }
 pub(crate) fn check_publication(m: &Manager, p: &Profile, r: &Registration) -> Result<()> {
+    publication_candidate(m, p, r).map(|_| ())
+}
+fn publication_candidate(m: &Manager, p: &Profile, r: &Registration) -> Result<Candidate> {
     let c = for_profile(m, p)?.ok_or("candidate_preparation_required")?;
     verify_retained_candidate(m, &c)?;
     let mut expected = crate::observation::derive_for(
@@ -1225,12 +1261,19 @@ pub(crate) fn check_publication(m: &Manager, p: &Profile, r: &Registration) -> R
         },
     )?;
     expected.native.path = r.native.path.clone();
-    require(expected == *r, "candidate_registration_changed")
+    require(expected == *r, "candidate_registration_changed")?;
+    Ok(c)
 }
-pub(crate) fn retained(m: &Manager, r: &Revision) -> Result<()> {
+fn verify_retained_revision(m: &Manager, r: &Revision) -> Result<()> {
     check_publication(m, &r.profile, &r.registration)?;
+    // Publication retains the explicitly selected buffering configuration.
+    // A larger snapshot needs the same exact proxy capability as selection;
+    // a new manager cannot enlarge a historical native binary's envelope.
+    let buffering = r.performance.added_frames == 512
+        || (r.performance.added_frames == 1024
+            && build::maximum_bridge_frames(m, &r.registration)? == Some(1024));
     require(
-        r.performance.added_frames == 512 && r.external_ids == external_ids(&r.class_id)?,
+        buffering && r.external_ids == external_ids(&r.class_id)?,
         "candidate_runtime_contract",
     )?;
     require(
@@ -1239,6 +1282,31 @@ pub(crate) fn retained(m: &Manager, r: &Revision) -> Result<()> {
             || (r.profile.claim == Claim::VerifiedExactFixture && r.qualification.is_none()),
         "candidate_authority_kind",
     )?;
+    Ok(())
+}
+/// Managed preparation owns its exact generated publication independently of
+/// the static catalogue shipped for previously qualified fixtures. A completed
+/// transaction and the physical selected/removed disposition remain required.
+pub(crate) fn catalogue_free_registry(m: &Manager, registry: &Registry) -> Result<bool> {
+    for (class, entry) in &registry.classes {
+        let Some(reference) = &entry.managed_revision else { return Ok(false); };
+        let revision = m.load_revision(class, reference)?;
+        if !owns_profile(m, &revision.profile)? { return Ok(false); }
+        verify_retained_revision(m, &revision)?;
+        require(revision.registration == entry.registration
+            && !m.publication_pending(class)?, "candidate_catalogue_free_identity")?;
+        m.verify_completed_publication(&revision, reference)?;
+        let physical = physical(&m.link(class))?;
+        require(match entry.publication {
+            Publication::Published => physical == Some(revision.target),
+            Publication::Removed => physical.is_none(),
+            Publication::Pending => false,
+        }, "candidate_catalogue_free_publication")?;
+    }
+    Ok(true)
+}
+pub(crate) fn retained(m: &Manager, r: &Revision) -> Result<()> {
+    verify_retained_revision(m, r)?;
     let db = m.registry()?;
     let e = db
         .classes

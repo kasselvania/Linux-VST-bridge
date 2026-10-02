@@ -24,6 +24,54 @@ pub fn recipe(m: &Manager) -> Result<Artifact> {
     kit.verify()?;
     Ok(kit)
 }
+/// A verified kit must bind this exact native binary as well as module/class.
+/// An older proxy cannot acquire a larger envelope from a newer manager alone.
+pub fn maximum_bridge_frames(m: &Manager, r: &Registration) -> Result<Option<u32>> {
+    let software: crate::catalogue::Software = read_json(&m.root.join("software.json"))?;
+    r.native.verify()?;
+    if software.preparation_kit.is_some() {
+        let maximum = maximum_from_kit(&recipe(m)?, r)?;
+        if maximum.is_some() { return Ok(maximum); }
+    }
+    // A changed kit describes its own proxies, not the capacity of a retained
+    // publication. Follow that publication's exact candidate recipe, never an
+    // ambient kit search or the successor's module/class match alone.
+    let registry = m.registry()?;
+    let Some(entry) = registry.classes.get(&r.metadata.class_id)
+        .filter(|entry| entry.registration == *r) else { return Ok(None); };
+    let Some(reference) = &entry.managed_revision else { return Ok(None); };
+    let revision = m.load_revision(&r.metadata.class_id, reference)?;
+    let candidate = super::publication_candidate(m, &revision.profile, r)?;
+    if !valid_hex(&candidate.recipe_sha256, 64) { return Ok(None); }
+    let retained = existing_runtime(m, &candidate.recipe_sha256)?;
+    require(candidate.host == retained.host && candidate.source_manifest == retained.source_manifest,
+        "candidate_runtime_changed")?;
+    maximum_from_kit(&retained.kit, r)
+}
+fn maximum_from_kit(kit: &Artifact, r: &Registration) -> Result<Option<u32>> {
+    kit.verify()?;
+    let request = serde_json::json!({"kit":kit.path,"class_id":r.metadata.class_id,
+        "module_sha256":r.module.sha256,"native_sha256":r.native.sha256});
+    let mut child = Command::new("python3")
+        .args(["-I", "-c", include_str!("../../../tools/mf3/prebuilt_info.py")])
+        .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn()?;
+    child.stdin.take().ok_or("prebuilt_info_stdin")?.write_all(&serde_json::to_vec(&request)?)?;
+    let deadline = Instant::now() + Duration::from_secs(3);
+    let status = loop {
+        if let Some(status) = child.try_wait()? { break status; }
+        if Instant::now() >= deadline {
+            child.kill()?; child.wait()?;
+            return Err("prebuilt_info_deadline".into());
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    let mut bytes = Vec::new();
+    child.stdout.take().ok_or("prebuilt_info_stdout")?.take(33).read_to_end(&mut bytes)?;
+    require(status.success() && bytes.len() <= 32, "prebuilt_info_invalid")?;
+    let maximum: Option<u32> = serde_json::from_slice(&bytes)?;
+    require(maximum.is_none_or(|n| matches!(n, 512 | 1024)), "prebuilt_info_envelope")?;
+    Ok(maximum)
+}
 pub fn construct(
     m: &Manager,
     s: Selection,
@@ -184,9 +232,9 @@ pub fn stage_runtime(m: &Manager) -> Result<Runtime> {
 kit,out=sys.argv[1:];out=pathlib.Path(out)
 with zipfile.ZipFile(kit) as z:
  assert z.getinfo('recipe.json').file_size<=65536
- recipe=json.loads(z.read('recipe.json'));assert recipe['schema'] in (1,2)
+ recipe=json.loads(z.read('recipe.json'));assert recipe['schema'] in (1,2,3)
  names=[('runtime/host.exe','host.exe'),('runtime/host-source-manifest.json','host-source-manifest.json')]
- if recipe['schema']==2:names += [('tools/mf3/native_builder.py','native_builder.py'),('tools/ap8_descriptor.py','ap8_descriptor.py')]
+ if recipe['schema'] in (2,3):names += [('tools/mf3/native_builder.py','native_builder.py'),('tools/ap8_descriptor.py','ap8_descriptor.py')]
  for key,name in names:
   i=z.getinfo(key);assert not i.is_dir() and i.file_size<=64*1024*1024
   b=z.read(i);assert hashlib.sha256(b).hexdigest()==recipe['files'][key]

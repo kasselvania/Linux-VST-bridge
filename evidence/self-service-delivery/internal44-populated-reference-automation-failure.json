@@ -1,0 +1,483 @@
+{
+  "schema": 1,
+  "recorded_utc": "2026-10-01",
+  "result": "failed_development_journey",
+  "beta_qualified": false,
+  "fixture": {
+    "platform": "Ubuntu 26.04.1 x86_64 disposable VM",
+    "daw": "Ardour 9 save-enabled",
+    "sample_rate": 48000,
+    "host_block": 1024,
+    "purpose": "mixing functional fixture; no physical audio-interface qualification",
+    "vendor_authorization": "first-party reference instrument and effect; no vendor account state copied"
+  },
+  "installed_source": {
+    "head": "be7460a24dfe66aea37a1e408d9b0078e50dd729",
+    "tree": "956a25a4d0ac0eb191dbd721bfe228e53f6ca338",
+    "package": "0.12.0internal44",
+    "effect_publication": "dc2d647a7a43d059a5948d961e2a06f2",
+    "effect_publication_sha256": "686f6e82cbf559b5802234534a392dab5f1956b38138ed12c5485c065bd12467",
+    "effect_native_sha256": "3bcc5abc7da246a1ae751b9c760ed5081e0bb61d06688e2ff24d9c362aff9154",
+    "effect_candidate": "80491a59a3b49b2c3689f008dcc7dd53f5e7992245d5cc16a6e2588e3fdcda47",
+    "instrument_retained_publication": "cabb77d8d434129ef5364446bd9302a6",
+    "instrument_new_publication": false
+  },
+  "frontend_operations": [
+    {
+      "action": "Check compatibility",
+      "operation": "f2d24c5f113148b651e806b9610da86c",
+      "state": "completed",
+      "elapsed_request_to_result_s": 100.197875968
+    },
+    {
+      "action": "Prepare",
+      "operation": "638c37d0549b060ea41e1acdafdf3087",
+      "state": "completed",
+      "elapsed_request_to_result_s": 86.337106211
+    },
+    {
+      "action": "Replace selected proxy",
+      "operation": "4ae7d09e01e061244694c8228345a886",
+      "state": "completed",
+      "elapsed_request_to_result_s": 46.742038415
+    }
+  ],
+  "musician_journey": {
+    "original_project_open": "effect initially missing from Ardour cached scan",
+    "normal_host_action": "Window > Plugin Manager > Discover New/Updated; close without saving, reopen original",
+    "rescan_result": "both exact native publications loaded with stable class UIDs",
+    "restored_visible_automation": "Level and Colour set to Play; original level approximately 0.786 and colour 0.5, level ramp to 1",
+    "play_action": "Transport > Play > Play Loop Range",
+    "audio": "failed",
+    "save_action": "normal Ardour snapshot",
+    "save_result": "effect getState refused after false contained-terminal latch; file existence is not recall",
+    "quit_action": "normal DAW quit",
+    "maintainer_repairs": 0,
+    "driver_interruption": "Snapshot field typing with uncertain focus triggered DAW accelerators and yielded a shortened name; the run remains failed",
+    "reboot_reopen": "not_tested",
+    "update_rollback_recall": "not_tested"
+  },
+  "projects": [
+    {
+      "name": "LVB Reference Recall.ardour",
+      "exists": true,
+      "sha256": "2a0d5d63278946fc51a714603943d619b9d99bfabaccd1ec06164f42ffd62390",
+      "bytes": 35696,
+      "usable_recall": "baseline unchanged"
+    },
+    {
+      "name": "LVB Reference Recal.ardour",
+      "exists": true,
+      "sha256": "c37a7f1a25b7daa90371efe5e96580dbff73c1adb556b10967e9b737a5e044e3",
+      "bytes": 35859,
+      "usable_recall": "not established; effect refused state"
+    }
+  ],
+  "native_results": [
+    {
+      "session": "0d841bd2e083730cf01558d248a556d5",
+      "class_id": "4C564242455441314546465800000001",
+      "records": [
+        {
+          "event": "ap5_worker_fault",
+          "generation": 1,
+          "fault": 3,
+          "first_position": 7663616,
+          "processed": 29936,
+          "request_high": 12,
+          "result_high": 12,
+          "detail": "InvalidData: queued session fault or cancelled"
+        },
+        {
+          "event": "ap7_fault_progress",
+          "context_ready": true,
+          "epoch": 4,
+          "worker_op": 0,
+          "worker_epoch": 4,
+          "worker_position": 7663360,
+          "request_published": 29943,
+          "request_consumed": 29943,
+          "result_published": 29936,
+          "result_consumed": 29932,
+          "service_us_max_at_report": 20610,
+          "observation_skips": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 9,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 7663616,
+          "blocks": 7484,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 4352,
+          "underrun_gaps": 3,
+          "underrun_callbacks": 5,
+          "expired_output_frames": 4352,
+          "delivered_frames": 7658240,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        }
+      ],
+      "terminal_records": [
+        {
+          "event": "if2_contained_terminal",
+          "callbacks": 15587,
+          "silent_frames": 12329984,
+          "automatic_reload": false
+        },
+        {
+          "event": "ap5_worker_fault",
+          "generation": 1,
+          "fault": 3,
+          "first_position": 7663616,
+          "processed": 29936,
+          "request_high": 12,
+          "result_high": 12,
+          "detail": "InvalidData: queued session fault or cancelled"
+        },
+        {
+          "event": "ap7_fault_progress",
+          "context_ready": true,
+          "epoch": 4,
+          "worker_op": 0,
+          "worker_epoch": 4,
+          "worker_position": 7663360,
+          "request_published": 29943,
+          "request_consumed": 29943,
+          "result_published": 29936,
+          "result_consumed": 29932,
+          "service_us_max_at_report": 20610,
+          "observation_skips": 0
+        },
+        {
+          "event": "if2_terminal_cleanup",
+          "confirmed": false,
+          "normal_sdk_retirement": false
+        }
+      ],
+      "phase_records": [
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 4,
+          "monotonic_ns": 6378548385094,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "failed",
+          "epoch": 4,
+          "monotonic_ns": 6795542142206,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 7663616,
+            "missing_frames": 4352,
+            "gaps": 3,
+            "expired_frames": 4352,
+            "delivered_frames": 7658240,
+            "priming_frames": 1024
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 4,
+          "monotonic_ns": 6797746848441,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 7663616,
+            "missing_frames": 4352,
+            "gaps": 3,
+            "expired_frames": 4352,
+            "delivered_frames": 7658240,
+            "priming_frames": 1024
+          },
+          "omitted_phase_markers": 0
+        }
+      ]
+    },
+    {
+      "session": "56c3f64d3191c4ea20c800e4c3bcc02e",
+      "class_id": "4C56424245544131494E535400000001",
+      "records": [
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 19993600,
+          "blocks": 23071,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 7168,
+          "underrun_gaps": 6,
+          "underrun_callbacks": 9,
+          "expired_output_frames": 7168,
+          "delivered_frames": 19985408,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "terminal_records": [],
+      "phase_records": [
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 4,
+          "monotonic_ns": 6378535490235,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 4,
+          "monotonic_ns": 6795405460048,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 19993600,
+            "missing_frames": 7168,
+            "gaps": 6,
+            "expired_frames": 7168,
+            "delivered_frames": 19985408,
+            "priming_frames": 1024
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 4,
+          "monotonic_ns": 6795408076464,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 19993600,
+            "missing_frames": 7168,
+            "gaps": 6,
+            "expired_frames": 7168,
+            "delivered_frames": 19985408,
+            "priming_frames": 1024
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 4,
+          "monotonic_ns": 6795408272725,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 19993600,
+            "missing_frames": 7168,
+            "gaps": 6,
+            "expired_frames": 7168,
+            "delivered_frames": 19985408,
+            "priming_frames": 1024
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 4,
+          "monotonic_ns": 6795538274146,
+          "startup": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "processing": {
+            "admitted_frames": 19993600,
+            "missing_frames": 7168,
+            "gaps": 6,
+            "expired_frames": 7168,
+            "delivered_frames": 19985408,
+            "priming_frames": 1024
+          },
+          "omitted_phase_markers": 0
+        }
+      ]
+    }
+  ],
+  "state_refusals": [
+    {
+      "session": "0d841bd2e083730cf01558d248a556d5",
+      "errors": [
+        {
+          "event": "ap4_native_error",
+          "operation": "get",
+          "stage": "failed_instance",
+          "fault": 0,
+          "first_position": "none",
+          "processed": 24220,
+          "callback_rejections": 0,
+          "detail": ""
+        }
+      ]
+    },
+    {
+      "session": "56c3f64d3191c4ea20c800e4c3bcc02e",
+      "errors": []
+    }
+  ],
+  "windows_retirement": [
+    {
+      "session": "0d841bd2e083730cf01558d248a556d5",
+      "raw_exit": -15,
+      "exit_before_cleanup": null,
+      "error": null,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "fault_reporting_error": null,
+      "terminal_instance": null
+    },
+    {
+      "session": "56c3f64d3191c4ea20c800e4c3bcc02e",
+      "raw_exit": -15,
+      "exit_before_cleanup": null,
+      "error": null,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "fault_reporting_error": null,
+      "terminal_instance": null
+    }
+  ],
+  "interpretation": {
+    "observed": "processing-phase missing frames on both references; effect false contained-terminal reporting, zero latched worker fault at state refusal, normal owner cleanup",
+    "source_causal": "curve planner refusal reused 0x106 already reserved by IF2; production SDK classifies it as successful terminal silence and refuses saving",
+    "installed_trigger": "a missing curve baseline is inferred from the confirmed collision and matched regression; internal44 swallowed the code, so its exact refusing input was not retained",
+    "successor": "reserve 0x107 for automation refusal; preserve accepted last-sample values across seek and discard them on GUI/state/Stop/transport recovery changes; exact metadata roster allocated once outside activation",
+    "nonclaims": [
+      "not a vendor DSP crash",
+      "not a persistence pass",
+      "not an audio-gap repair",
+      "not a fresh multi-platform acceptance",
+      "internal45 includes the collision and is unqualified"
+    ]
+  },
+  "source_validation": {
+    "base_head": "84ef0811b2be9c3af6ef0b62901e395edb1dd4d8",
+    "macos_rust_serial": {
+      "passed": 86,
+      "failed": 0,
+      "ignored": 1
+    },
+    "linux_registered_rust_serial": {
+      "passed": 87,
+      "failed": 0,
+      "ignored": 1
+    },
+    "clippy": "passed on macOS and Linux",
+    "sdk": {
+      "passed": 9,
+      "failed": 0,
+      "scope": "actual native SDK Processor with bounded backend doubles; result/lifetime, outputs, IF2, isolated curve refusal, state, real X11 panel and activation",
+      "rt_audit": "existing result/lifetime and auxiliary-input tests use callback LD_PRELOAD audit"
+    },
+    "callback_allocations": "zero allocations/reallocations/frees in measured sparse-curve and actual entry-point regressions",
+    "development_failures": [
+      "first Linux compile missed unsafe on a test-only transition call; corrected",
+      "test-display package missing in builder; installed xvfb in builder only",
+      "new SDK regression shared double state with an older test; isolated into its own test process",
+      "first package assembly refused shared AP10 header changes; moved extension into native-only ap22_backend.h, restored the exact pinned header, and repeated all nine SDK/X11 tests successfully"
+    ],
+    "windows_host_changed": false,
+    "runtime_changed": false
+  }
+}

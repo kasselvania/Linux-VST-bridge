@@ -31,6 +31,13 @@ using namespace Steinberg::Vst;
 static_assert(std::size(AP8::buses)<=AP18Buses::max_buses);
 #endif
 namespace {
+uint32_t transportMaximum(int32_t maximum) {
+#ifdef AP8_PREVIEW
+  return static_cast<uint32_t>(maximum);
+#else
+  return static_cast<uint32_t>(std::min(maximum,256));
+#endif
+}
 struct Guard {
   std::atomic_flag &flag;
   bool held;
@@ -509,7 +516,7 @@ tresult Processor::recover(uint64_t revision) {
     gain_ = restored; // existing reference validator; recovery transports opaque bytes
     phase_ = Deactivated;
     if (want_active_) {
-      if (ap4_activate(handle_, static_cast<uint32_t>(std::min(maximum_,256)), static_cast<uint32_t>(process_mode_))) {
+      if (ap4_activate(handle_, transportMaximum(maximum_), static_cast<uint32_t>(process_mode_))) {
         phase_ = Failed; snapshotStatus("Recovered state but activation failed"); return kResultFalse;
       }
       phase_ = Active;
@@ -673,7 +680,7 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
       return kResultFalse;
     if (preview_
             ? (!stateSession() ||
-               ap4_activate(handle_, static_cast<uint32_t>(std::min(maximum_,256)),
+               ap4_activate(handle_, transportMaximum(maximum_),
                             static_cast<uint32_t>(process_mode_)))
             : (queued_ ? ap3_open(static_cast<uint32_t>(maximum_), &handle_)
                        : ap2_open(static_cast<uint32_t>(maximum_), &handle_))) {
@@ -896,9 +903,33 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
 #ifdef AP8_PREVIEW
     if(r==IF2::contained)return containedSilence(d);
     returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});
-    if (!admission_failure_.code)
+    if (!admission_failure_.code) {
       admission_failure_ = {uint32_t(r), c.state, d.numSamples, input_flags,
                             c.rate, c.cycle_start, c.cycle_end};
+      admission_failure_.event_count = event_count;
+      // Retain one bounded input witness under the callback guard. Formatting
+      // and file output stay at termination. This does not admit, clamp or
+      // rewrite the input rejected by the transport owner.
+      if (r == 0x102) {
+        for (uint32_t i = 0; i < event_count; ++i) {
+          const auto& e = events[i];
+          const bool note = e.kind == 0 || e.kind == 1;
+          const bool extent = e.kind == 2 ? e.offset <= uint32_t(d.numSamples)
+                                         : e.offset < uint32_t(std::max(d.numSamples, 1));
+          const bool valid = extent &&
+              std::isfinite(e.value) && e.value >= 0. && e.value <= 1. &&
+              e.reserved == 0 &&
+              (note ? d.numSamples > 0 && e.channel >= 0 && e.channel < 16 &&
+                          e.pitch >= 0 && e.pitch < 128 && std::isfinite(e.tuning)
+                    : e.kind == 2 && e.channel == 0 && e.pitch == 0 && e.tuning == 0.f);
+          if (!valid) {
+            admission_failure_.invalid_event_index = i;
+            admission_failure_.invalid_event = e;
+            break;
+          }
+        }
+      }
+    }
 #endif
     if (!queued_)
       report();
@@ -983,17 +1014,31 @@ tresult PLUGIN_API Processor::terminate() {
    if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));}
   if (admission_failure_.code) {
     const auto& f = admission_failure_;
-    char text[384];
+    char text[768];
     const auto n = std::snprintf(text, sizeof(text),
         "{\"event\":\"ap10_admission_failure\",\"code\":%u,\"frames\":%d,"
+        "\"reason\":\"%s\","
         "\"input_flags\":%llu,\"context_state\":%u,\"rate\":%.17g,"
-        "\"cycle_start\":%.17g,\"cycle_end\":%.17g,\"nonfinite_fields\":%u}\n",
-        f.code, f.frames, (unsigned long long)f.input_flags, f.context_state,
+        "\"cycle_start\":%.17g,\"cycle_end\":%.17g,\"nonfinite_fields\":%u,"
+        "\"event_count\":%u,\"invalid_event_index\":%u,"
+        "\"invalid_event\":{\"kind\":%u,\"id\":%u,\"offset\":%u,"
+        "\"channel\":%d,\"pitch\":%d,\"value\":%.17g,\"tuning\":%.9g,"
+        "\"reserved\":%u,\"nonfinite_fields\":%u}}\n",
+        f.code, f.frames, f.code == AP22::parameter_curve_unavailable ? "parameter_curve_anchor_or_capacity_unavailable" : "input_admission_refused",
+        (unsigned long long)f.input_flags, f.context_state,
         std::isfinite(f.rate) ? f.rate : 0.,
         std::isfinite(f.cycle_start) ? f.cycle_start : 0.,
         std::isfinite(f.cycle_end) ? f.cycle_end : 0.,
         unsigned(!std::isfinite(f.rate)) | (unsigned(!std::isfinite(f.cycle_start)) << 1) |
-            (unsigned(!std::isfinite(f.cycle_end)) << 2));
+            (unsigned(!std::isfinite(f.cycle_end)) << 2),
+        f.event_count, f.invalid_event_index, f.invalid_event.kind,
+        f.invalid_event.id, f.invalid_event.offset, int(f.invalid_event.channel),
+        int(f.invalid_event.pitch),
+        std::isfinite(f.invalid_event.value) ? f.invalid_event.value : 0.,
+        std::isfinite(f.invalid_event.tuning) ? double(f.invalid_event.tuning) : 0.,
+        f.invalid_event.reserved,
+        unsigned(!std::isfinite(f.invalid_event.value)) |
+            (unsigned(!std::isfinite(f.invalid_event.tuning)) << 1));
     if (n > 0 && static_cast<size_t>(n) < sizeof(text))
       diagnostic_report(report_path_, text, static_cast<size_t>(n));
   }

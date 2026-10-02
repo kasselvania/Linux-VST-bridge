@@ -1,0 +1,286 @@
+{
+  "schema": 1,
+  "claim": "internal37 installed populated Deck manager update and commercial recall; failed rollback restart; not beta qualification",
+  "source_head": "488d63f3107f4ecb9a986b55dd995ac7bb2e7b54",
+  "source_tree": "78b8b73572867b131d6f5ee03bf30c9f13740351",
+  "package_version": "0.12.0internal37",
+  "signing_class": "internal_test",
+  "steamos": {
+    "installer_sha256": "4957539b0f04464f3ab22140195547a560640906930943aed2956020094a08c4",
+    "release_manifest_sha256": "bd625c59ae509ec811018a5bc8a12703adad0993d010de16bfaf3baec3e8b0fb",
+    "payload_sha256": "ddcdbec8eea34a9dc062f9aba9fdb0ddea7f3e71ff5f8bbc536c39c052c3dc60",
+    "manager_sha256": "66ab2287dd7787968fae795a16b3847b73e66edc7146bc6b796f1e5740ab9d72",
+    "frontend_sha256": "2b6ae705c4d29e99e0c5fc36e5a6f519ff21602c22c2c2274a6d5c9fd74647d9",
+    "kit_sha256": "0b9527b8ee7105b4a3249274d031e150b1955e7aeae4bb9553f50c3a01a9842a",
+    "staging": "passed through Dolphin and signed native installer; selected state retained until explicit Setup adoption",
+    "visible_update_path": [
+      "Open Setup",
+      "Stop bridge service for setup",
+      "Apply installed package",
+      "Start bridge service"
+    ],
+    "before": {
+      "path_class": "separate-maintainer-test-project",
+      "sha256": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+      "size": 86855,
+      "notes": 4,
+      "automation_lane": "Pure LoFi Master Volume",
+      "software_sha256": "920b1282f13ee847eb91b13aa5f120d6f59469a64e8a2b6bb0a1cc5cb62c1b49",
+      "registry_sha256": "c2baa0894b20c00feec6c2f946c87287aea96b0f6280b49d171127a08a9b67db",
+      "selected_generation": "6e4c53bf8533741d0e9423dacca9dd542b7329707c2748769cc495386a100385",
+      "reopen_pending_editor_check": false,
+      "close_reopen_restored": {
+        "pure_preset": "Intro EP*",
+        "pure_lofi_amount": 0.436,
+        "fragments_preset": "1 Bar Glimmers*",
+        "fragments_grain_mix": 0.572,
+        "automation": true,
+        "notes": true
+      },
+      "maintainer_repairs": 0,
+      "reboot_tested": false
+    },
+    "after_selection": {
+      "software": {
+        "sha256": "ca85d81daf5ee91bb0bf67ce67eafbe8ad703bf3042500da02ad72ad608c340e",
+        "size": 2035
+      },
+      "registry": {
+        "sha256": "c2baa0894b20c00feec6c2f946c87287aea96b0f6280b49d171127a08a9b67db",
+        "size": 55264
+      },
+      "project": {
+        "sha256": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+        "size": 86855
+      },
+      "software_fields": [
+        "preparation_kit",
+        "operator_frontend",
+        "manager",
+        "supervisor",
+        "ownership",
+        "host",
+        "source_manifest",
+        "source_sha256",
+        "native_catalogue"
+      ],
+      "manager_sha256": "66ab2287dd7787968fae795a16b3847b73e66edc7146bc6b796f1e5740ab9d72",
+      "host_sha256": "a90de3ca2f7360e8c9477184acb8224ebf394d4e46cf00fd905892002a79cd13"
+    },
+    "commercial_recall": {
+      "result": "functional_close_reopen_after_manager_update",
+      "project_sha256": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+      "generation": {
+        "generation": "28906c43de3b5d205eec9be98d344d03d47419b02fdcb3afc7d21c2bfd4c25b8",
+        "version": "0.12.0internal37",
+        "source_head": "488d63f3107f4ecb9a986b55dd995ac7bb2e7b54",
+        "predecessor_generation": "6e4c53bf8533741d0e9423dacca9dd542b7329707c2748769cc495386a100385",
+        "registry_keys": [
+          "schema",
+          "revision",
+          "classes"
+        ],
+        "service": "active"
+      },
+      "unchanged_registry": true,
+      "unchanged_project": true,
+      "pure_preset": "Intro EP*",
+      "pure_lofi_amount": 0.436,
+      "fragments_preset": "1 Bar Glimmers*",
+      "fragments_grain_mix": 0.572,
+      "midi": true,
+      "automation_lane": true,
+      "stereo_signal": {
+        "bytes": 3840088,
+        "sha256": "8de677d66b87b29609e6d26a2ccacba16ec660b01c77341fe7f1641c85ca19b1",
+        "format": [
+          3,
+          2,
+          48000,
+          384000,
+          8,
+          32
+        ],
+        "data_bytes": 3840000,
+        "samples": 480000,
+        "duration": 10,
+        "peak": 0.42838072776794434,
+        "rms": 0.05869262606763852,
+        "nonzero_samples": 960000,
+        "nonfinite": 0
+      },
+      "proxy_replaced": false,
+      "phase_audio_qualified": false,
+      "maintainer_repairs": 0,
+      "loading_observation": {
+        "launch_before": "2026-10-01 02:30:17 UTC",
+        "loaded_observed_at": "2026-10-01 02:31:24 UTC",
+        "qualification_timing": false
+      },
+      "capture_note": "First ten-second recording was taken while playback was still off; zero signal retained. Confirmed playback recording is separate. Both pw-record commands exited 1 with complete valid float WAV data."
+    },
+    "native_state": [
+      {
+        "name": "native-7c3907ad02c1abb83d35ff643b125809.jsonl",
+        "state": [
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_set",
+            "payload_bytes": 138924,
+            "sha256": "b4b7898b84d39c9d6cb838f58867fb022bf3f45788f67e01349a4fec94f72ca4"
+          }
+        ],
+        "setup": [
+          {
+            "event": "ap9_setup",
+            "host_maximum": 512,
+            "transport_maximum": 256,
+            "sample_rate": 48000,
+            "bridge_frames": 512,
+            "vendor_frames": 192,
+            "total_frames": 704,
+            "vendor_precision_bits": 1
+          },
+          {
+            "event": "ap9_setup",
+            "host_maximum": 512,
+            "transport_maximum": 256,
+            "sample_rate": 48000,
+            "bridge_frames": 512,
+            "vendor_frames": 192,
+            "total_frames": 704,
+            "vendor_precision_bits": 1
+          },
+          {
+            "event": "ap9_setup",
+            "host_maximum": 512,
+            "transport_maximum": 256,
+            "sample_rate": 48000,
+            "bridge_frames": 512,
+            "vendor_frames": 192,
+            "total_frames": 704,
+            "vendor_precision_bits": 1
+          }
+        ]
+      },
+      {
+        "name": "native-8a9663fb37d34bc2cc3e861a072829a0.jsonl",
+        "state": [
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_get",
+            "payload_bytes": 196838,
+            "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11"
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_get",
+            "payload_bytes": 196838,
+            "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11"
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_set",
+            "payload_bytes": 198002,
+            "sha256": "1546100b51a9ed8647b655edbb4a68f5efcbb40d0c66e794564d3039a0c74749"
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_get",
+            "payload_bytes": 198266,
+            "sha256": "f753a2c88f2a2f8bca0586e88527384daf1593691ccc3fb39b41e85ef9aebad1"
+          }
+        ],
+        "setup": [
+          {
+            "event": "ap9_setup",
+            "host_maximum": 512,
+            "transport_maximum": 256,
+            "sample_rate": 48000,
+            "bridge_frames": 512,
+            "vendor_frames": 48,
+            "total_frames": 560,
+            "vendor_precision_bits": 1
+          },
+          {
+            "event": "ap9_setup",
+            "host_maximum": 512,
+            "transport_maximum": 256,
+            "sample_rate": 48000,
+            "bridge_frames": 512,
+            "vendor_frames": 48,
+            "total_frames": 560,
+            "vendor_precision_bits": 1
+          },
+          {
+            "event": "ap9_setup",
+            "host_maximum": 512,
+            "transport_maximum": 256,
+            "sample_rate": 48000,
+            "bridge_frames": 512,
+            "vendor_frames": 48,
+            "total_frames": 560,
+            "vendor_precision_bits": 1
+          }
+        ]
+      }
+    ],
+    "rollback": {
+      "visible_path": [
+        "Setup and Updates desktop launcher",
+        "Stop bridge service to restore previous version",
+        "Restore previous version"
+      ],
+      "file_restoration": "passed",
+      "readback": {
+        "readback": "rollback",
+        "generation": "6e4c53bf8533741d0e9423dacca9dd542b7329707c2748769cc495386a100385",
+        "software_sha256": "920b1282f13ee847eb91b13aa5f120d6f59469a64e8a2b6bb0a1cc5cb62c1b49",
+        "registry_sha256": "c2baa0894b20c00feec6c2f946c87287aea96b0f6280b49d171127a08a9b67db",
+        "project_sha256": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+        "version_record_present": false,
+        "service": "inactive"
+      },
+      "restart": "failed before normal Start offer",
+      "cause": "Selected activation readback required a package-generation record for the exact verified retained pre-package installation. Its absence raised NotFound after files and routes had been restored.",
+      "frontend_claim": "Incorrect unchanged-state sentence retained in failed candidate; source successor removes that false assertion",
+      "maintainer_repair": "none applied to restored installation; service left inactive pending delivered correction"
+    },
+    "protected_system_changed": false,
+    "published_products": 8,
+    "proxies_replaced": false,
+    "hardware_audio_qualified": false,
+    "reboot_recall": "not_tested"
+  },
+  "ubuntu": {
+    "installer_sha256": "0186ee444ff90532c8b8a0448021afbcf61b796bb01a18d018fc42b280f9c76f",
+    "release_manifest_sha256": "bede3633fb6440c062d01e2700d33b4dcbe8e42013d6c82988dfc9d220ae300d",
+    "built": true,
+    "staged": false,
+    "selected": false,
+    "journey": "not_tested; candidate transferred to Downloads only",
+    "infrastructure_interruption": "Blank remote display persisted after graceful owned VM reboot. Musical qualification never started; earlier unfinished frontend performance interaction invalidated."
+  },
+  "cachyos": {
+    "journey": "not_tested; retained disposable populated baseline stopped to avoid host resource pressure"
+  },
+  "qualification": {
+    "beta_ready": false,
+    "commercial_close_reopen_after_manager_update": "functional pass with retained existing native proxies",
+    "populated_update_and_rollback": "failed: normal restart unavailable after restoration",
+    "phase_audio_qualified": false,
+    "repeat_acceptance": "not_started"
+  }
+}

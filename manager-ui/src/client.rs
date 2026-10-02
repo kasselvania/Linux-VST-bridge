@@ -203,6 +203,9 @@ pub fn send(query: Query, sender: Sender<Reply>, ctx: eframe::egui::Context) {
     });
 }
 
+#[path = "../../bridge-manager/src/installer_source.rs"]
+mod installer_source;
+
 fn open_selected(path: &std::path::Path) -> Result<std::fs::File, String> {
     use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
     let f = std::fs::OpenOptions::new()
@@ -211,8 +214,10 @@ fn open_selected(path: &std::path::Path) -> Result<std::fs::File, String> {
         .open(path)
         .map_err(|_| "Choose a regular local installer file; links are not accepted")?;
     let md = f.metadata().map_err(|_| "Cannot read selected file")?;
-    if !md.is_file() || md.uid() != unsafe { libc::getuid() } {
-        return Err("Choose an owned regular installer file".into());
+    if !md.is_file()
+        || !installer_source::accepted_owner(md.uid(), md.mode(), unsafe { libc::getuid() })
+    {
+        return Err("Choose a regular installer owned by you or protected by the system".into());
     }
     Ok(f)
 }
@@ -228,6 +233,7 @@ mod tests {
         let mut value = serde_json::to_value(CurrentProductDetail {
             schema: 1, operator_schema: crate::model::OPERATOR_SCHEMA,
             state_token: snapshot.state_token, current_generation: "exact-generation".into(),
+            system: snapshot.system,
             product, environments: vec![], vendor_applications: vec![],
         }).unwrap();
         assert!(matches!(decode_reply(Query::Product(key.clone()),
@@ -240,7 +246,7 @@ mod tests {
             &serde_json::to_vec(&value).unwrap()).is_err());
     }
     #[test]
-    fn schema_twelve_frontend_accepts_paired_and_refuses_old_manager() {
+    fn current_frontend_accepts_paired_and_refuses_old_manager() {
         let query = || {
             Query::Action(Request {
                 schema: crate::model::OPERATOR_SCHEMA,
@@ -294,6 +300,8 @@ mod tests {
             serde_json::json!(9),
             serde_json::json!(10),
             serde_json::json!(11),
+            serde_json::json!(12),
+            serde_json::json!(14),
             serde_json::json!("9"),
             serde_json::Value::Null,
         ] {
@@ -303,7 +311,7 @@ mod tests {
                     decode_reply(request, &serde_json::to_vec(&receipt).unwrap())
                         .err()
                         .unwrap()
-                        .contains("operator model 12 required")
+                        .contains(&format!("operator model {} required", crate::model::OPERATOR_SCHEMA))
                 );
             }
         }

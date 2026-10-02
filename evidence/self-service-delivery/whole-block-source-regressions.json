@@ -1,0 +1,125 @@
+{
+  "base_commit": "5c24abe410ba954bfaceb6823e004c3aa4a21bc9",
+  "base_tree": "31da59611c062b02622dffed4655f80c9038fdaa",
+  "claim_level": "source_regressions_only",
+  "pending": [
+    "Windows host compile and tests",
+    "matching installed host and proxy candidate",
+    "musical audio acceptance",
+    "save_close_reopen_reboot",
+    "populated_update_and_rollback",
+    "Ubuntu_and_CachyOS_fixed_candidate_journeys",
+    "Deck_commercial_and_hardware_regression"
+  ],
+  "schema": 1,
+  "source_files_sha256": {
+    ".github/workflows/ap8-windows.yml": "4c934ff0083769efb849c95d0ab5accf399ac6d697732c96e0699fa81fea1484",
+    "bridge-manager/src/onboarding.rs": "5b21df7443d04046086749dc84642733759378a61e183f3a2e01f4e5a7edfa8b",
+    "bridge-manager/src/operator_cli.rs": "63d739f2f6c19fee171946ff6d98ec16b4b646c718e56beb7152f84cd5596cba",
+    "bridge-manager/src/operator_cli/current.rs": "b937f9f8b5a12c8bd1c9b3432d3c32cbdc223b3d532b5a530440494f3ddf2c12",
+    "manager-ui/src/library.rs": "261eb853f4913cae2237880228cf9969edc0ab7232ca41d8997188db0ac1ed0f",
+    "native-audio-client/src/endpoint.rs": "edfedbf5430131091e27af1226b1d5fcd0ed7a04bf04327e849c59ffa980b570",
+    "native-audio-client/src/events.rs": "5bfd22cc7034749e6046e546390ca3c65a463ffca22603ad4a01fb5f4e3b1af4",
+    "native-audio-client/src/lib.rs": "e3bd26024e9c368fd3e2e09ee315488b0579246eafbfe38890ffb4dcd1cffc3e",
+    "native-audio-client/src/main.rs": "728061eacca070d29b3af75aba0131165660da7c55b4455427d655d74c4ae754",
+    "native-audio-client/src/mapping.rs": "c51c01432167f04e5d94bfa3b69f36efa018519d909330cf10cab967b9d631ae",
+    "native-vst3-proxy/CMakeLists.txt": "550b035810c30569c9fd4673f1a3e22e80ec84fc81d706db14fd7864ab922ec6",
+    "native-vst3-proxy/backend/src/capture_tests.rs": "d450c659fe5328ed1f7ccfd04f26817b109c9ddb09cfc8ca1b5b4e731d67da06",
+    "native-vst3-proxy/backend/src/commercial_tests.rs": "600764da7773f45500d0d504239d68811365afaa09e09f329f934a2799103ea7",
+    "native-vst3-proxy/backend/src/lc1_tests.rs": "5ef0251b584310b35b2e2ea58e6f52e8cc3fc5b9f49f87e25d6f5ca9fb5b6435",
+    "native-vst3-proxy/backend/src/lib.rs": "9ed4e9b3a62fa314cf54af18fbd661f6dae5700b4b2ae794b6bb37ea9f71b916",
+    "native-vst3-proxy/backend/src/observer.rs": "59dc31c945bc59849b6ae491359dcbf4b14037ffcc23b6826655869777348668",
+    "native-vst3-proxy/backend/src/output_pool.rs": "ca1f5b7904afebb56a753fbd0600e7448ce21f9b68153a6c1376dbcb5b536e4a",
+    "native-vst3-proxy/backend/src/parameter_curves.rs": "a4c0c1228275c7950f0de46ab3bc9b0c0381cfa947006ccb1c57b313c1ffa360",
+    "native-vst3-proxy/backend/src/performance.rs": "4dbb65a8af00e195899fdbbcb5a217388ff6dc6d4ba1c81a8a34d7768386ce01",
+    "native-vst3-proxy/backend/src/queued.rs": "745f65e549cfb62f2a5645731d66d5f65c67737de7d560b6e63a46a2ddb09c9b",
+    "native-vst3-proxy/backend/src/state.rs": "d43100ee7ada85ad7e6df00f7de94fab190763a0eecadc72f88dd5bd90ac7704",
+    "native-vst3-proxy/include/ap22_backend.h": "bafb52053e057120ec2b4b1a0d616e52f67f419e51c268d1865a3108d3e3bb4f",
+    "native-vst3-proxy/source/processor.cpp": "094a512373d5916dd967f6ac9f1ae696b391845e52620e23754f4f942226088d",
+    "tools/ap11-tests/native.cpp": "127b99a7fcd4c68ca58bab632515a3964014b456fdfb144e1b61c62a23636c5b",
+    "tools/ap18-tests/whole_block.cpp": "e8cc90852ece83b36bfca82486e26bd76cfcf71cbdbbce3d6c625e3fc23c9673",
+    "windows-factory-probe/CMakeLists.txt": "24544732c148d531b82848a37d0381337568a56944498361ab573359b21de795",
+    "windows-factory-probe/source/ap1_protocol.h": "84b99a68524fe720f1e4387c01cd3b7246ca9298b58ad111c3d18b1bd031b20e",
+    "windows-factory-probe/source/ap8_events.h": "4f617fb4e812a6b51ea3bd9aaa210a9fec347c95deeb3f32cec1aa2efa3a025f",
+    "windows-factory-probe/source/mapped_processing.cpp": "b6078d900d8ac68ed68d2eb6c31274a2441505311c8ee79d1ebe5deab69e8334",
+    "windows-factory-probe/source/offline_processing.cpp": "9ad101f04e77be4591b71698f5126e9660801709631b315c34e53999dc022eb2"
+  },
+  "tests": {
+    "callback": {
+      "allocations": 0,
+      "entry": "if2_process",
+      "frames": [
+        1008,
+        1024,
+        1008,
+        0
+      ],
+      "frees": 0,
+      "gui_edits": true,
+      "reallocations": 0,
+      "seek": true,
+      "state_revision_changes": true
+    },
+    "clippy": {
+      "native_backend_all_targets": true,
+      "native_client_all_targets": true,
+      "registered_backend_all_targets": true,
+      "warnings_denied": true
+    },
+    "frontend": {
+      "passed": 84,
+      "platform": "macOS"
+    },
+    "mapped_roundtrip": {
+      "corrupt_final_plane_refused": true,
+      "frames": [
+        17,
+        1008,
+        1024,
+        0
+      ],
+      "output_channels": 64,
+      "protocols": [
+        13,
+        14
+      ]
+    },
+    "native_backend": {
+      "ignored": 1,
+      "passed": 87,
+      "platform": "macOS"
+    },
+    "native_client": {
+      "passed": 11,
+      "platform": "macOS"
+    },
+    "native_sdk": {
+      "passed": 10,
+      "platform": "Linux_x86_64",
+      "sdk_commit": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96"
+    },
+    "registered_backend": {
+      "ignored": 1,
+      "passed": 88,
+      "platform": "Linux_x86_64"
+    },
+    "windows_decoder_sdk_queue": {
+      "executed_platform": "Linux_x86_64",
+      "implicit_previous_value": "vendor_owned",
+      "original_parameter_endpoint_preserved": true,
+      "whole_frames": 1008,
+      "wrong_protocol_layout_and_note_endpoint_refused": true
+    }
+  },
+  "transport": {
+    "legacy_curve_planner_used_by_current_product": false,
+    "legacy_transport_maximum": 256,
+    "mapping_version": 3,
+    "maximum_frames": 1024,
+    "maximum_output_channels": 64,
+    "maximum_queued_frames": 524288,
+    "protocol_major": 1,
+    "protocol_minor": 14,
+    "queue_descriptors": 512
+  }
+}

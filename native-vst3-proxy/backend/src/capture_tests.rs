@@ -17,6 +17,7 @@ fn until(mut f: impl FnMut() -> bool) {
 }
 #[test]
 fn pending_save_does_not_hold_parent_callback_batches_or_replace_a_refused_snapshot() {
+        let _registry_owner = crate::registry_test();
     let dir = std::env::temp_dir().join(format!(
         "ap13-capture-{:032x}",
         u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())

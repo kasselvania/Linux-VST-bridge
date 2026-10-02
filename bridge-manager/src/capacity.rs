@@ -523,11 +523,6 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
     if paths.is_empty() {
         return Ok(Vec::new());
     }
-    let envs = fs::read_dir(m.root.join("environments"))?
-        .take(129)
-        .map(|e| e.map(|e| e.path()))
-        .collect::<std::io::Result<Vec<_>>>()?;
-    require(envs.len() <= 128, "active_lease_unresolved")?;
     let mut result = Vec::new();
     for lease in paths {
         let sid = lease
@@ -543,18 +538,7 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
             report.parent() == Some(m.root.join("runtime/results").as_path()),
             "lease_identity",
         )?;
-        let mut found = None;
-        for env in &envs {
-            let p = env
-                .join("compatdata/pfx/drive_c/bridge/sessions")
-                .join(sid)
-                .join("owner.json");
-            if p.try_exists()? {
-                require(found.is_none(), "duplicate_lease_identity")?;
-                found = Some((read_json::<serde_json::Value>(&p)?, p));
-            }
-        }
-        let (o, owner_path) = found.ok_or("active_lease_unresolved")?;
+        let (o, owner_path) = m.lease_owner(sid, &report)?;
         require(
             o["session"].as_str() == Some(sid) && o["report"].as_str() == report.to_str(),
             "lease_identity",
@@ -589,6 +573,16 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
                         == Some(format!("environment-{sid}.json").as_str()),
                 "lease_identity",
             )?;
+            // A retained keeper lease is not a healthy capacity owner after
+            // its exact finalizer explicitly disputes cleanup. This durable
+            // fact also survives a service restart; an in-memory DSP guard
+            // alone cannot authorize the readback or another reservation.
+            if report.try_exists()? {
+                let result: serde_json::Value = read_json(&report)?;
+                if result["ready"] == false && result["cleanup_confirmed"] == false {
+                    return Err(Refusal::CleanupUnconfirmed.into());
+                }
+            }
             Kind::Keeper
         } else {
             require(
@@ -676,6 +670,43 @@ pub fn reserve(m: &Manager, limits: &Limits, class: Option<&str>, blocked: bool)
             e
         }
     })?;
+    validate_reservation(m, limits, class)?;
+    Ok(lock)
+}
+
+/// Service recovery and inspection are control-plane work. Brief fresh
+/// readback contention must not close their connection as an apparent plug-in
+/// failure. This wait grants no authority: owners and cleanup are checked only
+/// after the exact registry guard has been acquired. Native DSP admission keeps
+/// the fail-fast crossing above.
+pub fn reserve_maintenance(
+    m: &Manager, limits: &Limits, blocked: impl Fn() -> bool,
+) -> Result<Lock> {
+    reserve_maintenance_with_wait(m, limits, blocked, std::time::Duration::from_secs(2))
+}
+/// Recovery has one overall deadline. Its initial and subsequent reservations
+/// may wait for fresh readback, but cannot extend that deadline or reuse owners.
+pub fn reserve_maintenance_until(
+    m: &Manager, limits: &Limits, blocked: impl Fn() -> bool,
+    deadline: std::time::Instant,
+) -> Result<Lock> {
+    let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+    if remaining.is_zero() { return Err(Refusal::ServiceBusy.into()); }
+    reserve_maintenance_with_wait(m, limits, blocked, remaining.min(std::time::Duration::from_secs(60)))
+}
+fn reserve_maintenance_with_wait(
+    m: &Manager, limits: &Limits, blocked: impl Fn() -> bool, wait: std::time::Duration,
+) -> Result<Lock> {
+    if blocked() { return Err(Refusal::CleanupUnconfirmed.into()); }
+    let (lock, _) = m.lock_bounded(
+        operator_model::OperatorLock::Registry,
+        operator_model::LockPurpose::ServiceRecovery, None, wait,
+    )?;
+    if blocked() { return Err(Refusal::CleanupUnconfirmed.into()); }
+    validate_reservation(m, limits, None)?;
+    Ok(lock)
+}
+fn validate_reservation(m: &Manager, limits: &Limits, class: Option<&str>) -> Result<()> {
     let records = owners(m).map_err(|_| Refusal::CleanupUnconfirmed)?;
     let managed = if let Some(class)=class.filter(|class|!limits.classes.iter().any(|c|c.class_id==*class)) {
         let db=m.registry()?;
@@ -685,7 +716,7 @@ pub fn reserve(m: &Manager, limits: &Limits, class: Option<&str>, blocked: bool)
         } else {false}
     }else{false};
     check_selected(&records, limits, class,managed)?;
-    Ok(lock)
+    Ok(())
 }
 
 #[cfg(test)]
@@ -740,6 +771,92 @@ mod tests {
         private_dir(path.parent().unwrap()).unwrap();
         atomic_json(&path, &report).unwrap();
         path
+    }
+    #[test]
+    fn maintenance_wait_observes_new_owner_before_granting_authority() {
+        let f = Fixture::new();
+        let held = f.m.lock("registry.lock").unwrap();
+        std::thread::scope(|scope| {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let m = &f.m;
+            let reader = scope.spawn(move || {
+                tx.send(()).unwrap();
+                reason(reserve_maintenance(m, &limits(), || false))
+            });
+            rx.recv().unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(40));
+            lease(&f, &limits().classes[0].class_id, Kind::Dsp);
+            drop(held);
+            assert_eq!(reader.join().unwrap(), Refusal::MaintenanceActive.code());
+        });
+    }
+    #[test]
+    fn maintenance_wait_rechecks_cleanup_and_has_a_bound() {
+        let f = Fixture::new();
+        let held = f.m.lock("registry.lock").unwrap();
+        let blocked = std::sync::atomic::AtomicBool::new(false);
+        std::thread::scope(|scope| {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let m = &f.m;
+            let blocked = &blocked;
+            let reader = scope.spawn(move || {
+                tx.send(()).unwrap();
+                reason(reserve_maintenance(m, &limits(), ||
+                    blocked.load(std::sync::atomic::Ordering::Acquire)))
+            });
+            rx.recv().unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(40));
+            blocked.store(true, std::sync::atomic::Ordering::Release);
+            drop(held);
+            assert_eq!(reader.join().unwrap(), Refusal::CleanupUnconfirmed.code());
+        });
+        let _held = f.m.lock("registry.lock").unwrap();
+        let error = reserve_maintenance_with_wait(&f.m, &limits(), || false,
+            std::time::Duration::from_millis(20)).err().unwrap();
+        let failure = error.downcast_ref::<operator_lock::AcquisitionFailure>().unwrap();
+        assert_eq!(failure.facts.outcome, operator_model::LockOutcome::Timeout);
+        assert_eq!(failure.facts.purpose, operator_model::LockPurpose::ServiceRecovery);
+        assert!(matches!(reserve(&f.m, &limits(), None, false).err().unwrap()
+            .downcast_ref::<Refusal>(), Some(Refusal::ServiceBusy)));
+    }
+    #[test]
+    fn maintenance_wait_returns_a_real_guard_and_refuses_broken_ownership() {
+        let f = Fixture::new();
+        let held = reserve_maintenance(&f.m, &limits(), || false).unwrap();
+        held.require_registry(&f.m).unwrap();
+        assert!(reserve(&f.m, &limits(), None, false).is_err());
+        drop(held);
+        private_dir(&f.m.root.join("runtime/leases")).unwrap();
+        fs::write(f.m.root.join("runtime/leases/broken.json"), b"invalid").unwrap();
+        assert_eq!(reason(reserve_maintenance(&f.m, &limits(), || false)),
+            Refusal::CleanupUnconfirmed.code());
+    }
+    #[test]
+    fn recovery_reservation_uses_remaining_budget_and_rechecks_cleanup() {
+        let f=Fixture::new();
+        let blocked=std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let held=f.m.lock("registry.lock").unwrap();
+        let changed=blocked.clone();
+        let owner=std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(30));
+            changed.store(true,std::sync::atomic::Ordering::Release);
+            drop(held);
+        });
+        let error=reserve_maintenance_until(&f.m,&limits(),
+            || blocked.load(std::sync::atomic::Ordering::Acquire),
+            std::time::Instant::now()+std::time::Duration::from_secs(1)).err().unwrap();
+        owner.join().unwrap();
+        assert_eq!(error.downcast_ref::<Refusal>(),Some(&Refusal::CleanupUnconfirmed));
+        assert_eq!(reason(reserve_maintenance_until(&f.m,&limits(),|| false,
+            std::time::Instant::now())),Refusal::ServiceBusy.code());
+        let held=f.m.lock("registry.lock").unwrap();
+        let started=std::time::Instant::now();
+        let error=reserve_maintenance_until(&f.m,&limits(),|| false,
+            started+std::time::Duration::from_millis(20)).err().unwrap();
+        assert!(started.elapsed()<std::time::Duration::from_secs(1));
+        assert_eq!(error.downcast_ref::<operator_lock::AcquisitionFailure>().unwrap()
+            .facts.outcome,operator_model::LockOutcome::Timeout);
+        drop(held);
     }
     #[test]
     fn status_waits_for_contention_and_reads_new_owners() {
@@ -968,6 +1085,75 @@ mod tests {
         assert!(terminal_summaries(&f.m).unwrap().is_empty());
     }
     #[test]
+    fn manager_ownership_survives_supervisor_directory_retirement() {
+        let f = Fixture::new();
+        let class = limits().classes[0].class_id.clone();
+        let lease = lease(&f, &class, Kind::Dsp);
+        let sid = lease.file_stem().unwrap().to_str().unwrap();
+        let report: PathBuf = read_json(&lease).unwrap();
+        let temporary = f.r.environment.root
+            .join("compatdata/pfx/drive_c/bridge/sessions").join(sid).join("owner.json");
+        let mut owner: serde_json::Value = read_json(&temporary).unwrap();
+        owner["lease"] = serde_json::to_value(&lease).unwrap();
+        owner["registration"]["environment"] = serde_json::to_value(&f.r.environment).unwrap();
+        atomic_json(&temporary, &owner).unwrap();
+        {
+            let _registry = f.m.lock("registry.lock").unwrap();
+            f.m.retain_lease_owner(&temporary).unwrap();
+            f.m.retain_lease_owner(&temporary).unwrap();
+        }
+        // Reproduce the actual installed ordering: the supervisor has removed
+        // its Windows session view and reported cleanup, but Rust owns the lease.
+        fs::remove_dir_all(temporary.parent().unwrap()).unwrap();
+        atomic_json(&report, &serde_json::json!({"session":sid,
+            "cleanup_confirmed":true,"transport_retired":true})).unwrap();
+        let restarted = Manager { root:f.m.root.clone(), publications:f.m.publications.clone() };
+        let _registry = restarted.lock("registry.lock").unwrap();
+        let observed = owners(&restarted).unwrap();
+        assert_eq!(observed.len(), 1);
+        assert_eq!(observed[0].kind, Kind::Dsp);
+        assert_eq!(observed[0].class_id, class);
+        assert_eq!(restarted.require_inactive(None).unwrap_err().to_string(), "active_device_lease");
+        // Only the manager's exact release makes this capacity free.
+        fs::remove_file(&lease).unwrap();
+        assert!(owners(&restarted).unwrap().is_empty());
+        restarted.require_inactive(None).unwrap();
+    }
+    #[test]
+    fn missing_legacy_owner_and_changed_retained_binding_never_count_as_free() {
+        let f = Fixture::new();
+        let class = limits().classes[0].class_id.clone();
+        let lease = lease(&f, &class, Kind::Dsp);
+        let sid = lease.file_stem().unwrap().to_str().unwrap();
+        let report: PathBuf = read_json(&lease).unwrap();
+        let temporary = f.r.environment.root
+            .join("compatdata/pfx/drive_c/bridge/sessions").join(sid).join("owner.json");
+        let mut owner: serde_json::Value = read_json(&temporary).unwrap();
+        owner["lease"] = serde_json::to_value(&lease).unwrap();
+        owner["registration"]["environment"] = serde_json::to_value(&f.r.environment).unwrap();
+        atomic_json(&temporary, &owner).unwrap();
+        let _registry = f.m.lock("registry.lock").unwrap();
+        f.m.retain_lease_owner(&temporary).unwrap();
+        let retained = f.m.root.join("runtime/lease-owners").join(format!("{sid}.json"));
+        let original: serde_json::Value = read_json(&retained).unwrap();
+        for changed in [serde_json::json!({"schema":2}),
+            serde_json::json!({"owner":{"report":f.m.root.join("runtime/results/other.json")}}),
+            serde_json::json!({"temporary_owner":f.m.root.join("outside/owner.json")})] {
+            let mut bad = original.clone();
+            for (key, value) in changed.as_object().unwrap() {
+                if key == "owner" { bad["owner"]["report"] = value["report"].clone(); }
+                else { bad[key] = value.clone(); }
+            }
+            atomic_json(&retained, &bad).unwrap();
+            assert!(owners(&f.m).is_err());
+            assert!(f.m.require_inactive(None).is_err());
+        }
+        fs::remove_file(&retained).unwrap();
+        fs::remove_dir_all(temporary.parent().unwrap()).unwrap();
+        atomic_json(&report, &serde_json::json!({"cleanup_confirmed":true,"transport_retired":true})).unwrap();
+        assert_eq!(owners(&f.m).unwrap_err().to_string(), "active_lease_unresolved");
+    }
+    #[test]
     fn durable_ownership_survives_service_reconstruction_and_exact_release() {
         let f = Fixture::new();
         let p = limits();
@@ -1023,6 +1209,24 @@ mod tests {
             reason(reserve(&f.m, &p, Some(a), false)),
             Refusal::CleanupUnconfirmed.code()
         );
+    }
+    #[test]
+    fn exact_failed_keeper_report_blocks_readback_and_admission_after_reconstruction() {
+        let f = Fixture::new();
+        let p = limits();
+        let a = &p.classes[0].class_id;
+        let retained = lease(&f, a, Kind::Keeper);
+        let report: PathBuf = read_json(&retained).unwrap();
+        atomic_json(&report, &serde_json::json!({"ready":false,"cleanup_confirmed":false})).unwrap();
+        let restarted = Manager { root:f.m.root.clone(), publications:f.m.publications.clone() };
+        let failure=status(&restarted,p.clone(),1,false).unwrap_err();
+        assert_eq!(failure.downcast_ref::<Refusal>(),Some(&Refusal::CleanupUnconfirmed));
+        assert_eq!(reason(reserve(&restarted,&p,Some(a),false)),Refusal::CleanupUnconfirmed.code());
+        assert!(retained.exists());
+        // A positive final report alone still does not remove the owner lease.
+        atomic_json(&report, &serde_json::json!({"ready":false,"cleanup_confirmed":true})).unwrap();
+        assert_eq!(owners(&restarted).unwrap().len(),1);
+        assert!(retained.exists());
     }
     #[test]
     fn concurrent_reservations_cannot_check_then_over_admit() {

@@ -1,0 +1,31 @@
+{
+  "changed_source": "bridge-manager/src/onboarding.rs",
+  "sha256": "2eea81a9ba776f14749136343b9bbf047f94848b6e346e8dda9d315366a99e40",
+  "red_test": "onboarding::tests::terminal_durable_outcome_controls_projection_and_guarded_new_attempt",
+  "red_result": "1 executed; failed because partial_installation has zero Setup retries instead of one",
+  "nonclaim": "Earlier mistaken --lib filter executed zero tests and is not validation.",
+  "schema": 1,
+  "validation": "source_only_not_installed",
+  "tests": {
+    "command": "cargo test --manifest-path bridge-manager/Cargo.toml --locked --bin linux-vst-bridge",
+    "passed": 285,
+    "failed": 0,
+    "ignored": 2,
+    "runtime_seconds": 148.78
+  },
+  "clippy": {
+    "command": "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings",
+    "exit": 0,
+    "seconds": 19.28
+  },
+  "resource_envelope": {
+    "simultaneous_vm": false,
+    "builder_cpus": 1,
+    "builder_ram_bytes": 2684354560,
+    "swap_bytes": 0,
+    "pids": 256,
+    "init_reaper": true
+  },
+  "test_log_sha256": "76e34d48641b07b505d57ade4ac5d8eeeb159adde1d136c6c4cdb8c8152a8225",
+  "clippy_log_sha256": "5ec47bda234a0d693d436056dddb8714f70e2a1b7df1fea1481d86195e40ee1e"
+}

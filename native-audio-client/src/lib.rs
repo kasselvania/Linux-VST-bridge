@@ -14,6 +14,12 @@ pub const OUTPUT: usize = 2128;
 pub const MAP_BYTES: usize = 4192;
 pub const MULTI_CHANNELS: usize = 64;
 pub const MULTI_MAP_BYTES: usize = OUTPUT + MULTI_CHANNELS * STRIDE;
+// Minor 14 / mapping 3 preserves a complete admitted DAW block. Legacy
+// fixtures retain their original 256-frame layout and wire limits.
+pub const BLOCK_CAP: usize = 1024;
+pub const BLOCK_STRIDE: usize = (BLOCK_CAP + 2) * 4;
+pub const BLOCK_OUTPUT: usize = INPUT + 2 * BLOCK_STRIDE;
+pub const BLOCK_MAP_BYTES: usize = BLOCK_OUTPUT + MULTI_CHANNELS * BLOCK_STRIDE;
 pub const GUARD: u32 = 0x4b123456;
 pub const POISON: u32 = 0x7fc12345;
 pub const WITNESS: u64 = 0x8d396b274e105ac3;
@@ -72,13 +78,13 @@ impl Frame {
                 7
             })
                 .contains(&self.kind)
-                && (1..=13).contains(&minor)
+                && (1..=14).contains(&minor)
                 && self.payload.len()
                     <= if minor >= 4 && matches!(self.kind, 17..=19) {
                         1 << 20
                     } else if minor >= 9 && self.kind == DONE {
                         10312
-                    } else if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13) && self.kind == PROCESS {
+                    } else if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14) && self.kind == PROCESS {
                         if minor >= 10 {
                             8352
                         } else if minor >= 8 {
@@ -133,7 +139,7 @@ pub fn payload_length_version(b: &[u8], minor: u64) -> io::Result<usize> {
             && get(&b[0..4]) == 0x3141504c
             && get(&b[4..6]) == 1
             && get(&b[6..8]) == minor
-            && (1..=13).contains(&minor)
+            && (1..=14).contains(&minor)
             && get(&b[10..12]) == 0,
         "protocol version/header",
     )?;
@@ -158,7 +164,7 @@ pub fn payload_length_version(b: &[u8], minor: u64) -> io::Result<usize> {
             1 << 20
         } else if minor >= 9 && get(&b[8..10]) == DONE as u64 {
             10312
-        } else if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13) && get(&b[8..10]) == PROCESS as u64 {
+        } else if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14) && get(&b[8..10]) == PROCESS as u64 {
             if minor >= 10 {
                 8352
             } else if minor >= 8 {
@@ -288,6 +294,9 @@ impl ClientState {
         })
     }
     pub fn done(&mut self, f: &Frame) -> io::Result<u64> {
+        self.done_at(f, OUTPUT)
+    }
+    pub fn done_at(&mut self, f: &Frame, output: usize) -> io::Result<u64> {
         let ok = match self.slot {
             Slot::Outstanding { sequence, frames } => {
                 f.kind == DONE
@@ -295,7 +304,7 @@ impl ClientState {
                     && f.sequence == sequence
                     && f.payload.len() == 16
                     && get(&f.payload[..4]) == frames as u64
-                    && get(&f.payload[4..8]) == OUTPUT as u64
+                    && get(&f.payload[4..8]) == output as u64
             }
             _ => false,
         };

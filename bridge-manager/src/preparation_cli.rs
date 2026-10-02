@@ -76,9 +76,9 @@ fn project_with_excluded_operation(
         p.actions.push(offer(
             match (&v.recommended_inspection, &current_layout) {
                 (Some(_), Some(profiles::AudioLayoutPolicy::StereoMainPair)) => {
-                    "Refresh stereo inspection"
+                    "Check stereo compatibility again"
                 }
-                (Some(_), None) => "Refresh preliminary inspection",
+                (Some(_), None) => "Check compatibility again",
                 (None, _) => "Check compatibility",
             }
             .into(),
@@ -116,7 +116,7 @@ fn project_with_excluded_operation(
             );
             if let Ok(kit) = kit {
                 p.actions.push(offer(
-                    "Prepare a test candidate for this inspection and recipe".into(),
+                    "Prepare a test bridge update".into(),
                     ui::Action::PluginPrepare {
                         selection: v.selection.clone(),
                         inspection: inspection.clone(),
@@ -472,7 +472,7 @@ fn guided_projection(
                 ui::Action::CompatibilityPublishTest { candidate: row.id.clone(), expected_current }, busy));
             }
             (Phase::ReadyForTest, if ordinary_current {
-                "An ordinarily supported configuration is currently selected. This test configuration cannot replace it through the guided flow."
+                "Your current working bridge remains selected. Apply the test bridge update to try this configuration; the current revision is retained for rollback."
             } else if publication == "another_configuration" {
                 "A different configuration is selected. Replacing it for a test requires your explicit choice."
             } else { "Compatibility check completed. An immutable test configuration is ready." }.into())
@@ -809,10 +809,7 @@ fn publication_action(
             },
         ),
         "another_configuration" => (
-            format!(
-                "Replace current revision {} with this candidate",
-                current?.id
-            ),
+            String::from("Apply test bridge update"),
             ui::Action::ExperimentalReplace {
                 candidate: id.into(),
                 expected_current: publication_identity(current?),
@@ -1019,7 +1016,7 @@ fn inspect_unretained(
         admission,
     )?;
     let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
-    let child = spawn(sw, &path, None)?;
+    let child = spawn(m, sw, &path, None)?;
     vendor_product_cli::finish_scan(child, &job, &path, pending)?;
     require(
         observation::ModuleStamp::read(&s.module.path)? == stamp,
@@ -1824,7 +1821,7 @@ pub(crate) mod tests {
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         sw
     }
-    fn guided_fixture() -> (test_fixture::Fixture, prep::Candidate, Software, ui::Action) {
+    pub(crate) fn guided_fixture() -> (test_fixture::Fixture, prep::Candidate, Software, ui::Action) {
         let (f, mut c) = projection_fixture_with_role(true);
         let mut sw = projection_kit(&f, &c);
         let recipe = sw.preparation_kit.as_ref().unwrap().sha256.clone();

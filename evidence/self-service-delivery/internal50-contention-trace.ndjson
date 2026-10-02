@@ -1,0 +1,44 @@
+{"event": "fixture", "elapsed_ms": 77.243, "utc": "2026-10-01T21:15:22.557918+00:00", "manager_sha256": "ebb8c123783af01ecb30c9bcc8f79f41d2000bc470567ef019fab182c3931aa1", "host_sha256": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b", "environment": "e5dc20a0b6003f4d3755e05cf53f48e3", "capacity_traffic": true, "claim": "installed_development_regression_not_frontend_qualification"}
+{"event": "idle_service_restart_begin", "elapsed_ms": 134.68, "utc": "2026-10-01T21:15:22.615351+00:00", "claim": "development_test_arrangement"}
+{"event": "lock_owners", "elapsed_ms": 136.443, "utc": "2026-10-01T21:15:22.617113+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "idle_service_restart_returned", "elapsed_ms": 169.205, "utc": "2026-10-01T21:15:22.649877+00:00"}
+{"event": "capacity_unavailable", "elapsed_ms": 169.672, "utc": "2026-10-01T21:15:22.650339+00:00", "duration_ms": 0.181}
+{"event": "registry_contention_acquired", "elapsed_ms": 648.97, "utc": "2026-10-01T21:15:23.129643+00:00", "duration_ms": 3000, "claim": "controlled_negative_arrangement_not_original_failure_attribution"}
+{"event": "restoration_request_begin", "elapsed_ms": 650.152, "utc": "2026-10-01T21:15:23.130821+00:00"}
+{"event": "lock_owners", "elapsed_ms": 655.272, "utc": "2026-10-01T21:15:23.135940+00:00", "owners": [{"lock": "registry.lock", "pid": 5111}], "sampling_interval_ms": 100}
+{"event": "capacity_unavailable", "elapsed_ms": 3176.937, "utc": "2026-10-01T21:15:25.657606+00:00", "duration_ms": 2006.574}
+{"event": "registry_contention_released", "elapsed_ms": 3649.516, "utc": "2026-10-01T21:15:26.130189+00:00"}
+{"event": "lock_owners", "elapsed_ms": 3652.491, "utc": "2026-10-01T21:15:26.133162+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 4215.495, "utc": "2026-10-01T21:15:26.696163+00:00", "duration_ms": 38.403, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "capacity", "elapsed_ms": 5251.255, "utc": "2026-10-01T21:15:27.731922+00:00", "duration_ms": 35.61, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "capacity", "elapsed_ms": 6284.109, "utc": "2026-10-01T21:15:28.764776+00:00", "duration_ms": 32.596, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 7302.861, "utc": "2026-10-01T21:15:29.783533+00:00", "owners": [{"lock": "registry.lock", "pid": 5143}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 7322.364, "utc": "2026-10-01T21:15:29.803032+00:00", "duration_ms": 38.084, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 7404.187, "utc": "2026-10-01T21:15:29.884859+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 8352.062, "utc": "2026-10-01T21:15:30.832730+00:00", "duration_ms": 29.362, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "capacity", "elapsed_ms": 9391.208, "utc": "2026-10-01T21:15:31.871876+00:00", "duration_ms": 39.033, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "capacity", "elapsed_ms": 10429.348, "utc": "2026-10-01T21:15:32.910016+00:00", "duration_ms": 37.99, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 11455.191, "utc": "2026-10-01T21:15:33.935863+00:00", "owners": [{"lock": "registry.lock", "pid": 5143}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 11460.1, "utc": "2026-10-01T21:15:33.940767+00:00", "duration_ms": 30.586, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 11556.139, "utc": "2026-10-01T21:15:34.036812+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "lock_owners", "elapsed_ms": 12466.172, "utc": "2026-10-01T21:15:34.946844+00:00", "owners": [{"lock": "registry.lock", "pid": 5143}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 12495.37, "utc": "2026-10-01T21:15:34.976038+00:00", "duration_ms": 34.202, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 12567.271, "utc": "2026-10-01T21:15:35.047943+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 13525.49, "utc": "2026-10-01T21:15:36.006157+00:00", "duration_ms": 29.969, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "capacity", "elapsed_ms": 14560.93, "utc": "2026-10-01T21:15:37.041597+00:00", "duration_ms": 35.278, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "capacity", "elapsed_ms": 15593.511, "utc": "2026-10-01T21:15:38.074179+00:00", "duration_ms": 32.204, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 16617.849, "utc": "2026-10-01T21:15:39.098521+00:00", "owners": [{"lock": "registry.lock", "pid": 5143}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 16627.909, "utc": "2026-10-01T21:15:39.108576+00:00", "duration_ms": 34.244, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 16719.245, "utc": "2026-10-01T21:15:39.199917+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "lock_owners", "elapsed_ms": 17632.352, "utc": "2026-10-01T21:15:40.113032+00:00", "owners": [{"lock": "registry.lock", "pid": 5143}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 17667.645, "utc": "2026-10-01T21:15:40.148313+00:00", "duration_ms": 39.555, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 17733.219, "utc": "2026-10-01T21:15:40.213892+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 18705.991, "utc": "2026-10-01T21:15:41.186658+00:00", "duration_ms": 38.184, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "capacity", "elapsed_ms": 19744.417, "utc": "2026-10-01T21:15:42.225085+00:00", "duration_ms": 38.262, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 20776.837, "utc": "2026-10-01T21:15:43.257510+00:00", "owners": [{"lock": "registry.lock", "pid": 5143}], "sampling_interval_ms": 100}
+{"event": "capacity", "elapsed_ms": 20780.61, "utc": "2026-10-01T21:15:43.261277+00:00", "duration_ms": 36.032, "dsp": 0, "keepers": 0, "maintenance": 0, "cleanup_unconfirmed": false}
+{"event": "lock_owners", "elapsed_ms": 20878.206, "utc": "2026-10-01T21:15:43.358879+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "generation_created", "elapsed_ms": 21788.842, "utc": "2026-10-01T21:15:44.269514+00:00", "session": "af18e616c75ef01b55daef873b9cbb92", "file_mtime_ns": 1790889344219295023}
+{"event": "lock_owners", "elapsed_ms": 21791.188, "utc": "2026-10-01T21:15:44.271859+00:00", "owners": [{"lock": "registry.lock", "pid": 5143}], "sampling_interval_ms": 100}
+{"event": "restoration_acknowledgment_failed", "elapsed_ms": 22894.314, "utc": "2026-10-01T21:15:45.374989+00:00"}
+{"event": "capacity", "elapsed_ms": 22935.23, "utc": "2026-10-01T21:15:45.415897+00:00", "duration_ms": 1154.463, "dsp": 0, "keepers": 1, "maintenance": 0, "cleanup_unconfirmed": false}

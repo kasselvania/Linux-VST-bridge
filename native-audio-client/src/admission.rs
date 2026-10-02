@@ -69,7 +69,7 @@ pub fn refused(request: [u8; 16], reason: Refusal) -> Vec<u8> {
 pub fn accepted(request: [u8; 16], binding: &Binding) -> io::Result<Vec<u8>> {
     need(request != [0; 16], "admission request identity")?;
     need(binding.session != [0; 16], "admission session identity")?;
-    need(matches!(binding.added_frames, 256 | 512), "admission delay")?;
+    need(matches!(binding.added_frames, 256 | 512 | 1024), "admission delay")?;
     need(
         binding.directory.starts_with('/')
             && !binding.directory.bytes().any(|b| b == 0 || b == b'\n')
@@ -123,6 +123,11 @@ mod tests {
     #[test]
     fn exact_binding_and_refusals_never_overlap() {
         let request = [1; 16];
+        for added_frames in [256, 512, 1024] {
+            let binding = Binding {session:[2;16],added_frames,directory:"/owned/session".into()};
+            let bytes = accepted(request, &binding).unwrap();
+            assert_eq!(decode(&bytes, request).unwrap(), Ok(binding));
+        }
         let binding = Binding {
             session: [2; 16],
             added_frames: 512,

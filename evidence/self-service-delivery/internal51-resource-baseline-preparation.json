@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "candidate": "0.12.0internal51",
+  "source_head": "e9107f4685182cc6de4390beddb4b2044c342622",
+  "source_tree": "0db6eaa643200f10f809903a9cb748f88f15f37e",
+  "claim": "test_environment_preparation_not_installed_product_acceptance",
+  "product_source_changed": false,
+  "internal49_failed_result_preserved": true,
+  "installed_candidate51_selected": false,
+  "installed_regression_started": false,
+  "outer_vm": {
+    "cpu_max": "100000 100000",
+    "memory_max_bytes": 4294967296,
+    "memory_swap_max_bytes": 0,
+    "pids_max": 256,
+    "guest_cpu_count": 1,
+    "guest_configured_ram_bytes": 3221225472,
+    "root_os_process_limit_claim": false
+  },
+  "guest_user_slice": {
+    "cpu_max": "100000 100000",
+    "memory_max_bytes": 2684354560,
+    "memory_swap_max_bytes": 0,
+    "pids_max": 256,
+    "limits_persistent": true,
+    "swap_disabled_and_fstab_entry_commented": true
+  },
+  "observations": [
+    {
+      "event": "preparation_found_guest_swap",
+      "guest_swap_kib": 3997692,
+      "guest_swap_used_kib": 0,
+      "outer_swap_already_zero": true
+    },
+    {
+      "event": "existing_fixture_user_exceeded_new_guest_task_cap",
+      "tasks_current": 345,
+      "pids_max": 256,
+      "outcome": "forks_refused_before_product_testing"
+    },
+    {
+      "event": "desktop_and_idle_service_stopped",
+      "tasks_current": 165
+    },
+    {
+      "event": "user_manager_stopped",
+      "tasks_current": 32
+    },
+    {
+      "event": "official_repository_lightweight_session_prepared",
+      "package": "openbox",
+      "version": "3.6.1-12ubuntu3",
+      "session_verification": "not_established",
+      "early_tasks_current": 42
+    },
+    {
+      "event": "subsequent_session_still_hit_guest_task_cap",
+      "sampled_tasks_current": 229,
+      "fixture_user_tasks": 210,
+      "management_user_tasks": 19,
+      "pids_events_max": 273,
+      "memory_oom_events": 0,
+      "outcome": "management_subprocess_fork_refused"
+    }
+  ],
+  "budget_expansion": {
+    "requested_guest_user_tasks": 512,
+    "approval": "pending",
+    "cpu_ram_swap_and_concurrency_expansion": false
+  },
+  "cleanup": {
+    "guest_normal_poweroff": true,
+    "vm_exited": true,
+    "vm_oom_killed": false,
+    "ubuntu_builder_stopped": true,
+    "steamos_builder_stopped": true,
+    "cachyos_off": true,
+    "viewer_stopped": true,
+    "local_viewer_forward_closed": true,
+    "paused_vm_retaining_ram": false
+  },
+  "nonclaims": [
+    "internal51 installed validation",
+    "frontend qualification",
+    "musical acceptance",
+    "a passing instrument/effect round trip",
+    "a complete private beta"
+  ]
+}

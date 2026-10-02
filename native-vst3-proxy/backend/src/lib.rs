@@ -11,6 +11,7 @@ mod observer;
 mod input_observation;
 mod output_pool;
 mod performance;
+mod parameter_curves;
 mod preview;
 mod process_results;
 mod queue;
@@ -35,6 +36,13 @@ use std::{
         Mutex,
     },
 };
+// Production callback tests share one finite registry. Serialize its owners,
+// while registry contention tests continue using their independent registries.
+#[cfg(test)]
+pub(crate) fn registry_test() -> std::sync::MutexGuard<'static, ()> {
+    static OWNERS: Mutex<()> = Mutex::new(());
+    OWNERS.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
 #[cfg(test)]
 mod allocation_test {
     use std::{alloc::{GlobalAlloc, Layout, System}, cell::Cell};
@@ -193,7 +201,7 @@ impl Session {
         } else {
             None
         };
-        let prepared = Prepared::with_channels(path, id, if minor >= 13 { MULTI_CHANNELS } else { 2 })?;
+        let prepared = Prepared::with_layout(path, id, if minor >= 13 { MULTI_CHANNELS } else { 2 }, minor == 14)?;
         let (mapping, socket) =
             prepared.accept_while(minor, || preview::check_owner(&mut owner))?;
         let mut s = Self {
@@ -218,7 +226,9 @@ impl Session {
             minor,
             epoch: 0,
             position: 0,
-            witness: if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13) {
+            witness: if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13)
+                || (minor == 14 && observer::delivery_enabled())
+            {
                 observer::Observer::commercial().ok()
             } else if matches!(minor, 4 | 6)
                 && (owner.is_some() || std::env::var("LVB_AP4_COMPARE").as_deref() == Ok("1"))
@@ -301,6 +311,8 @@ impl Session {
             "setup requires inactive session",
         )?;
         performance::validate_wire(&bytes)?;
+        need(get(&bytes[..4]) <= if self.minor == 14 { BLOCK_CAP as u64 } else { CAP as u64 },
+             "setup exceeds negotiated mapping")?;
         self.sample_rate = f64::from_le_bytes(bytes[8..16].try_into().unwrap()) as u32;
         if self.minor >= 13 {
             let channels = performance::output_channels(&bytes)?;
@@ -321,7 +333,7 @@ impl Session {
         need(
             self.minor >= 4
                 && matches!(self.phase, 17 | 15)
-                && (1..=CAP).contains(&maximum)
+                && (1..=if self.minor == 14 { BLOCK_CAP } else { CAP }).contains(&maximum)
                 && if self.minor >= 6 {
                     matches!(mode, 0 | 2)
                 } else {
@@ -374,7 +386,7 @@ impl Session {
         timeline: (u64, u64),
         events: &[events::Event],
         context: context::Context,
-    ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
+    ) -> io::Result<([[u32; BLOCK_CAP + 2]; 2], u64)> {
         need(
             self.minor >= 3 && timeline == (self.epoch, self.position),
             "queued audio epoch/position",
@@ -387,7 +399,7 @@ impl Session {
         gain: f64,
         silence: u64,
         input: [&[f32]; 2],
-    ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
+    ) -> io::Result<([[u32; BLOCK_CAP + 2]; 2], u64)> {
         self.process_events(n, gain, silence, input, &[], context::Context::default())
     }
     fn process_events(
@@ -398,13 +410,13 @@ impl Session {
         input: [&[f32]; 2],
         events: &[events::Event],
         context: context::Context,
-    ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
+    ) -> io::Result<([[u32; BLOCK_CAP + 2]; 2], u64)> {
         need(
-            matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13) || events.is_empty(),
+            matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14) || events.is_empty(),
             "events require negotiated protocol",
         )?;
         need(
-            !matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13) || gain.is_nan(),
+            !matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14) || gain.is_nan(),
             "commercial legacy gain refused",
         )?;
         need(
@@ -440,13 +452,15 @@ impl Session {
             started: Some(std::time::Instant::now()),
             ..Default::default()
         };
-        let mut snapshot = [[0u32; CAP + 2]; 2];
-        let mut poison = [POISON; CAP + 2];
+        let capacity = self.mapping.as_ref().ok_or_else(|| invalid("mapping absent"))?.capacity;
+        need(n <= capacity, "process exceeds negotiated mapping")?;
+        let mut snapshot = [[0u32; BLOCK_CAP + 2]; 2];
+        let mut poison = [POISON; BLOCK_CAP + 2];
         poison[0] = GUARD;
-        poison[CAP + 1] = GUARD;
+        poison[capacity + 1] = GUARD;
         for ch in 0..2 {
             snapshot[ch][0] = GUARD;
-            snapshot[ch][CAP + 1] = GUARD;
+            snapshot[ch][capacity + 1] = GUARD;
             for i in 0..n {
                 need(input[ch][i].is_finite(), "nonfinite input")?;
                 snapshot[ch][i + 1] = input[ch][i].to_bits();
@@ -463,7 +477,7 @@ impl Session {
             for (ch, plane) in snapshot.iter().enumerate() {
                 map.write_plane(INPUT, ch, plane)?;
             }
-            for ch in 0..map.output_channels { map.write_plane(OUTPUT, ch, &poison)?; }
+            for ch in 0..map.output_channels { map.write_plane(map.output, ch, &poison)?; }
             barrier();
             let request = &mut self.processing.request;
             if self.minor >= 4 {
@@ -473,8 +487,8 @@ impl Session {
                 for (offset, value) in [
                     (0, n as u64),
                     (4, INPUT as u64),
-                    (8, OUTPUT as u64),
-                    (12, STRIDE as u64),
+                    (8, map.output as u64),
+                    (12, map.stride as u64),
                     (24, silence),
                     (28, u64::from(!gain.is_nan())),
                 ] {
@@ -500,8 +514,8 @@ impl Session {
                     .payload
                     .extend_from_slice(&self.position.to_le_bytes());
             }
-            if matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13) {
-                events::encode_into(events, n, &mut request.payload)?;
+            if matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14) {
+                events::encode_for_block(events, n, &mut request.payload, self.minor == 14)?;
             }
             if self.minor >= 8 {
                 context.encode_into(&mut request.payload);
@@ -576,16 +590,16 @@ impl Session {
                 }
                 reply.payload.truncate(16);
             }
-            let flags = self.state.done(reply)?;
+            let flags = self.state.done_at(reply, map.output)?;
             barrier();
-            let output = [map.plane(OUTPUT, 0)?, map.plane(OUTPUT, 1)?];
+            let output: [[u32; BLOCK_CAP + 2]; 2] = [map.plane(map.output, 0)?, map.plane(map.output, 1)?];
             need(map.output_channels == 64 || flags >> map.output_channels == 0, "output flags")?;
             for ch in 0..2 {
                 need(map.plane(INPUT, ch)? == snapshot[ch], "input changed")?;
                 need(
                     output[ch][0] == GUARD
-                        && output[ch][CAP + 1] == GUARD
-                        && output[ch][n + 1..CAP + 1].iter().all(|&x| x == POISON),
+                        && output[ch][capacity + 1] == GUARD
+                        && output[ch][n + 1..capacity + 1].iter().all(|&x| x == POISON),
                     "output bounds",
                 )?;
                 for &bits in &output[ch][1..n + 1] {
@@ -597,9 +611,9 @@ impl Session {
                 }
             }
             for ch in 2..map.output_channels {
-                let plane = map.plane(OUTPUT, ch)?;
-                need(plane[0] == GUARD && plane[CAP+1] == GUARD
-                    && plane[n+1..CAP+1].iter().all(|&x| x == POISON), "extra output bounds")?;
+                let plane: [u32; BLOCK_CAP + 2] = map.plane(map.output, ch)?;
+                need(plane[0] == GUARD && plane[capacity+1] == GUARD
+                    && plane[n+1..capacity+1].iter().all(|&x| x == POISON), "extra output bounds")?;
                 for i in 0..n {
                     let sample = f32::from_bits(plane[i+1]);
                     need(sample.is_finite() && (flags & (1u64 << ch) == 0 || sample == 0.), "extra output claim")?;

@@ -4,7 +4,7 @@
 use crate::{binding, queue::Queue, retain, state, Session};
 use ap1_native_client::{
     events::{Event, MAX_EVENTS},
-    invalid, CAP, ERROR,
+    invalid, BLOCK_CAP as CAP, CAP as LEGACY_CAP, ERROR,
 };
 use std::{
     cell::UnsafeCell,
@@ -17,7 +17,9 @@ use std::{
     time::{Duration, Instant},
 };
 pub const DELAY: u64 = 1024;
-pub const DESCRIPTORS: usize = 2048;
+// The mapping-3 block is four times the old transport extent. Keep the
+// admitted sample capacity bounded at the prior 524,288-frame ceiling.
+pub const DESCRIPTORS: usize = 512;
 const START: u32 = 10;
 const STOP: u32 = 12;
 const DEACTIVATE: u32 = 14;
@@ -131,6 +133,7 @@ struct Shared {
     control: std::sync::Mutex<Option<Control>>,
     pending_control: AtomicBool,
     state_capable: AtomicBool,
+    curve_state_revision: AtomicU64,
     observer: Option<Arc<crate::observer::Shared>>,
     worker_op: AtomicU64,
     worker_epoch: AtomicU64,
@@ -139,6 +142,11 @@ struct Shared {
     // Callback writes counters only; the transport publishes them through the
     // existing independent status lane. No callback mapping or diagnostic I/O.
     delivery_totals: [AtomicU64; 6],
+    // The callback classifies the entire host block once, against a successful
+    // Windows setProcessing acknowledgement for that exact epoch. Counters
+    // remain separate from terminal/queue snapshots and never perform I/O.
+    processing_ready_epoch: AtomicU64,
+    delivery_phases: [[AtomicU64; 6]; 2],
     first_context_ready: AtomicBool,
     first_epoch: AtomicU64,
     first_worker_op: AtomicU64,
@@ -175,12 +183,15 @@ impl Shared {
             control: std::sync::Mutex::new(None),
             pending_control: AtomicBool::new(false),
             state_capable: AtomicBool::new(false),
+            curve_state_revision: AtomicU64::new(0),
             observer: None,
             worker_op: AtomicU64::new(0),
             worker_epoch: AtomicU64::new(0),
             worker_position: AtomicU64::new(0),
             service_us_max: AtomicU64::new(0),
             delivery_totals: std::array::from_fn(|_| AtomicU64::new(0)),
+            processing_ready_epoch: AtomicU64::new(0),
+            delivery_phases: std::array::from_fn(|_| std::array::from_fn(|_| AtomicU64::new(0))),
             first_context_ready: AtomicBool::new(false),
             first_epoch: AtomicU64::new(0),
             first_worker_op: AtomicU64::new(0),
@@ -252,6 +263,12 @@ pub struct Delivery {
     pub priming_frames: u64,
 }
 struct Callback {
+    curve_plan: crate::parameter_curves::Plan,
+    curve_carry: crate::parameter_curves::Carry,
+    curve_values: crate::parameter_curves::Values,
+    curve_continuation: Option<crate::context::Context>,
+    curve_gui_revision: u64,
+    curve_state_revision: u64,
     host_call: u64,
     delay: u64,
     epoch: u64,
@@ -274,6 +291,12 @@ impl Callback {
         }
         audio.clear();
         Self {
+            curve_plan: crate::parameter_curves::Plan::empty(),
+            curve_carry: crate::parameter_curves::Carry::empty(),
+            curve_values: crate::parameter_curves::Values::empty(),
+            curve_continuation: None,
+            curve_gui_revision: 0,
+            curve_state_revision: 0,
             host_call: 0,
             delay: DELAY,
             epoch: 0,
@@ -290,12 +313,25 @@ impl Callback {
         }
     }
     fn clear_audio(&mut self, s: &Shared) {
+        self.curve_carry = crate::parameter_curves::Carry::empty();
+        self.curve_values.invalidate();
+        self.curve_continuation = None;
         if self.have {s.release_output(&self.current); self.have=false;}
         while let Some(a)=self.audio.pop_front() {s.release_output(&a);}
         for _ in 0..DESCRIPTORS {
             let Some(c)=s.results.pop() else {break;};
             s.release_output(&c.audio);
         }
+    }
+    // Recovery replaces the transport, not the exact SDK parameter census.
+    // Move its preconfigured storage and discard values from the failed peer.
+    fn replacement(&mut self) -> Self {
+        let mut next = Self::new();
+        next.delay = self.delay;
+        next.curve_values = std::mem::replace(
+            &mut self.curve_values, crate::parameter_curves::Values::empty());
+        next.curve_values.invalidate();
+        next
     }
     fn transition(&mut self, s: &Shared, op: u32) -> u32 {
         if s.fault.load(Ordering::Acquire) != 0 {
@@ -355,6 +391,7 @@ impl Callback {
             .any(|e| e.kind == 2)
         {
             request.gui_revision = s.gui.as_ref().map_or(0, |gui| gui.revision());
+            self.curve_gui_revision = s.gui.as_ref().map_or(0, |_| request.gui_revision + 1);
         }
         if !s.requests.push(request) {
             s.fail(OVERFLOW, self.position);
@@ -521,6 +558,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
     let mut previous_control = [0u64; 4];
     let mut deferred = None;
     let mut terminal_context = None;
+    let mut phases = PhaseRecords::default();
     if let Some(status) = &mut session.fault_status {
         status.generation = s.generation;
     }
@@ -571,6 +609,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                             }
                             20 => session.configure(c.bytes.clone()),
                             14 => session.transition(14).map(|_| {
+                                s.processing_ready_epoch.store(0, Ordering::Release);
+                                phases.record(&s, "deactivated", session.epoch);
                                 s.ack.store(15, Ordering::Release);
                                 vec![]
                             }),
@@ -696,6 +736,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                 }
                 START | STOP => {
                     session.transition_epoch(item.kind as u16, item.epoch)?;
+                    s.processing_ready_epoch.store(if item.kind == START { item.epoch } else { 0 }, Ordering::Release);
+                    phases.record(&s, if item.kind == START { "processing_ready" } else { "processing_stopped" }, item.epoch);
                     s.ack.store(
                         ((item.epoch) << 8) | u64::from(item.kind + 1),
                         Ordering::Release,
@@ -703,6 +745,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                 }
                 DEACTIVATE => {
                     session.transition(14)?;
+                    s.processing_ready_epoch.store(0, Ordering::Release);
+                    phases.record(&s, "deactivated", session.epoch);
                     s.ack.store(15, Ordering::Release);
                 }
                 CLOSE => return Ok(()),
@@ -710,6 +754,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
             }
         }
     })();
+    s.processing_ready_epoch.store(0, Ordering::Release);
+    phases.record(&s, if run.is_ok() { "closing" } else { "failed" }, session.epoch);
     if let Err(ref error) = run {
         // Ordinary Close returns Ok. Cancellation during teardown is not a
         // new terminal incident unless the worker already holds a fault.
@@ -755,6 +801,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
         }
     }
     let owner = session.owner.take();
+    let retired_epoch = session.epoch;
     if let Err(error) = session.close() {
         s.fail(WORKER, u64::MAX);
         if let Ok(mut d) = s.detail.lock() {
@@ -771,7 +818,56 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
     if let Some(owner) = owner {
         s.retired.store(owner.finish().is_ok(), Ordering::Release);
     }
+    // Write phase measurements only after processing and ownership retirement.
+    // Even a slow diagnostic disk cannot delay steady-state audio delivery.
+    if let Some(path) = &report {
+        phases.write(path);
+        crate::preview::append_report(path, phase_text(&PhaseRecord::read(&s,
+            if s.retired.load(Ordering::Acquire) { "retired" } else { "retirement_unconfirmed" },
+            retired_epoch), phases.omitted).as_bytes());
+    }
     s.ack.store(6, Ordering::Release);
+}
+#[derive(Clone, Copy)]
+struct PhaseRecord {
+    phase: &'static str,
+    epoch: u64,
+    monotonic_ns: u64,
+    delivery: [[u64; 6]; 2],
+}
+impl PhaseRecord {
+    const EMPTY: Self = Self { phase: "", epoch: 0, monotonic_ns: 0, delivery: [[0; 6]; 2] };
+    fn read(s: &Shared, phase: &'static str, epoch: u64) -> Self {
+        Self { phase, epoch, monotonic_ns: crate::observer::monotonic_ns(),
+            delivery: std::array::from_fn(|p| std::array::from_fn(|i|
+                s.delivery_phases[p][i].load(Ordering::Acquire))) }
+    }
+}
+struct PhaseRecords { records: [PhaseRecord; 128], length: usize, omitted: u64 }
+impl Default for PhaseRecords {
+    fn default() -> Self { Self { records: [PhaseRecord::EMPTY; 128], length: 0, omitted: 0 } }
+}
+impl PhaseRecords {
+    fn record(&mut self, s: &Shared, phase: &'static str, epoch: u64) {
+        if self.length == self.records.len() { self.omitted += 1; return; }
+        self.records[self.length] = PhaseRecord::read(s, phase, epoch);
+        self.length += 1;
+    }
+    fn write(&self, path: &std::path::Path) {
+        for record in &self.records[..self.length] {
+            crate::preview::append_report(path, phase_text(record, self.omitted).as_bytes());
+        }
+    }
+}
+fn phase_text(record: &PhaseRecord, omitted: u64) -> String {
+    let counters = |d: [u64; 6]| format!(
+        "{{\"admitted_frames\":{},\"missing_frames\":{},\"gaps\":{},\"expired_frames\":{},\"delivered_frames\":{},\"priming_frames\":{}}}",
+        d[0], d[1], d[2], d[3], d[4], d[5]);
+    format!("{{\"event\":\"ap7_audio_phase\",\"schema\":1,\"phase\":\"{}\",\"epoch\":{},\"monotonic_ns\":{},\"startup\":{},\"processing\":{},\"omitted_phase_markers\":{}}}\n",
+        record.phase, record.epoch, record.monotonic_ns, counters(record.delivery[0]), counters(record.delivery[1]), omitted)
+}
+fn processing_phase(epoch: u64, acknowledged_epoch: u64) -> usize {
+    usize::from(epoch != 0 && acknowledged_epoch == epoch)
 }
 fn progress_text(s: &Shared) -> String {
     let ready = s.first_context_ready.load(Ordering::Acquire);
@@ -1031,7 +1127,7 @@ pub unsafe extern "C" fn ap6_recover(
             } else {
                 crate::preview::report_path(binding.session)
             });
-            let mut session = Session::open(binding, l.max.min(CAP), l.minor)?;
+            let mut session = Session::open(binding, l.max.min(if l.minor == 14 { CAP } else { LEGACY_CAP }), l.minor)?;
             session.identity = l.shared.identity;
             if let Err(error) = session.component_state(Some(payload)).and_then(|_| {
                 if let Some(setup) = &l.setup {
@@ -1069,9 +1165,7 @@ pub unsafe extern "C" fn ap6_recover(
             l.shared = shared;
             l.worker = Some(t);
             l.report = report;
-            let delay = l.callback.get_mut().delay;
-            l.callback = UnsafeCell::new(Callback::new());
-            l.callback.get_mut().delay = delay;
+            l.callback = UnsafeCell::new(l.callback.get_mut().replacement());
             l.recovery_blocked = false;
             std::ptr::copy_nonoverlapping(snapshot.bytes.as_ptr(), out, snapshot.bytes.len());
             *size = snapshot.bytes.len() as u32;
@@ -1128,6 +1222,11 @@ unsafe fn control(id: u64, op: u32, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
         if c.is_some() {
             return Err(invalid("state operation already pending"));
         }
+        if op == 18 {
+            let revision = s.curve_state_revision.load(Ordering::Relaxed)
+                .checked_add(1).ok_or_else(|| invalid("parameter state revision exhausted"))?;
+            s.curve_state_revision.store(revision, Ordering::Release);
+        }
         *c = Some(Control {
             barrier,
             op,
@@ -1175,6 +1274,19 @@ pub unsafe extern "C" fn ap9_setup(
         out,
         std::ptr::null_mut(),
     )
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap22_curve_parameters(id: u64, ids: *const u32, count: u32) -> u32 {
+    crate::ffi(|| {
+        if count > 8192 || (count > 0 && ids.is_null()) { return 1; }
+        let Some(l) = INSTANCES.lease(id) else { return 1; };
+        let Some(_guard) = Guard::acquire(&l) else { return 3; };
+        let callback = &mut *l.callback.get();
+        if callback.running || callback.epoch != 0 || l.shared.fault.load(Ordering::Acquire) != 0 { return 2; }
+        let ids = if count == 0 { &[] } else { std::slice::from_raw_parts(ids, count as usize) };
+        if callback.curve_values.configure(ids).is_err() { return 1; }
+        0
+    }) as u32
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap10_setup(
@@ -1225,7 +1337,8 @@ unsafe fn setup(
             } else {
                 crate::performance::selected_delay(maximum)?
             };
-            let mut bytes = crate::performance::wire(maximum, mode, rate)?;
+            let minor = INSTANCES.lease(id).ok_or_else(|| invalid("setup instance absent"))?.minor;
+            let mut bytes = crate::performance::wire_version(maximum, mode, rate, minor == 14)?;
             if !io.is_empty() {
                 bytes[20..24]
                     .copy_from_slice(&(if notifications { 3u32 } else { 1u32 }).to_le_bytes());
@@ -1247,7 +1360,7 @@ unsafe fn setup(
                 callback.delay=u64::from(delay);l.max=maximum as usize;
                 l.setup=Some(bytes);
                 if let Some(path)=&l.report {
-                    crate::preview::append_report(path,format!("{{\"event\":\"ap9_setup\",\"host_maximum\":{maximum},\"transport_maximum\":{},\"sample_rate\":{rate},\"bridge_frames\":{delay},\"vendor_frames\":{vendor},\"total_frames\":{total},\"vendor_precision_bits\":{}}}\n",maximum.min(256),ap1_native_client::get(&reply[8..12])).as_bytes());
+                    crate::preview::append_report(path,format!("{{\"event\":\"ap9_setup\",\"protocol_minor\":{minor},\"host_maximum\":{maximum},\"transport_maximum\":{},\"sample_rate\":{rate},\"bridge_frames\":{delay},\"vendor_frames\":{vendor},\"total_frames\":{total},\"vendor_precision_bits\":{}}}\n",if minor == 14 {maximum} else {maximum.min(256)},ap1_native_client::get(&reply[8..12])).as_bytes());
                 }
                 Ok(())
             }).map_err(|_|invalid("setup instance ownership"))??;
@@ -1492,6 +1605,38 @@ unsafe fn process_events(
     if contain_terminal && l.shared.terminal_latched.load(Ordering::Acquire) {
         return CONTAINED_TERMINAL;
     }
+    let whole_block = l.minor == 14;
+    // The current product transports the DAW's queue unchanged. Its vendor
+    // processor owns implicit parameter values, including after state/GUI
+    // changes and transport seeks. Curve reconstruction is legacy-only.
+    if !whole_block {
+    let callback = &mut *l.callback.get();
+    let gui_revision = l.shared.gui.as_ref().map_or(0, |gui| gui.revision_cursor());
+    let gui_unchanged = gui_revision == callback.curve_gui_revision;
+    let state_revision = l.shared.curve_state_revision.load(Ordering::Acquire);
+    let state_unchanged = state_revision == callback.curve_state_revision;
+    let continuation = callback.curve_continuation.is_some_and(|expected| {
+        expected.present == context.present && (context.present == 0 ||
+            expected.rate == context.rate && expected.state & 0x21006 == context.state & 0x21006 &&
+            expected.project == context.project &&
+            (context.state & 0x20000 == 0 || expected.continuous == context.continuous) &&
+            (context.state & 0x1004 != 0x1004 ||
+                expected.cycle_start == context.cycle_start && expected.cycle_end == context.cycle_end))
+    }) && gui_unchanged && state_unchanged;
+    if !continuation { callback.curve_carry.count = 0; }
+    // A transport seek discards the future endpoint but does not change the
+    // parameter value established by the previous accepted processing block.
+    // An external edit does change it; require a new explicit/observed anchor.
+    if !gui_unchanged || !state_unchanged {
+        callback.curve_values.invalidate(); callback.curve_gui_revision = gui_revision;
+        callback.curve_state_revision = state_revision;
+    }
+    if callback.curve_plan.prepare(events, n, &callback.curve_carry, &callback.curve_values).is_err() {
+        // Unknown implicit curve baseline or synthesized queue capacity. Never
+        // guess a descriptor default or partly admit an otherwise invalid plan.
+        return if detailed { PARAMETER_CURVE_UNAVAILABLE } else { 1 };
+    }
+    }
     {
         let callback = &mut *l.callback.get();
         callback.returned.window(callback.position, n);
@@ -1500,23 +1645,25 @@ unsafe fn process_events(
     }
     let entered_ns = if entered_ns == 0 { crate::observer::monotonic_ns() } else { entered_ns };
     let mut total = Delivery::default();
+    let phase = processing_phase((*l.callback.get()).epoch,
+        l.shared.processing_ready_epoch.load(Ordering::Acquire));
     let mut combined = channel_mask(2+extra.len());
     let mut offset = 0;
     loop {
-        let count = (n - offset).min(CAP);
+        let count = (n - offset).min(if whole_block { CAP } else { LEGACY_CAP });
         let mut item = Item::control(AUDIO, 0);
         item.n = count as u32;
         item.parent = [(*l.callback.get()).host_call, n as u64, offset as u64, entered_ns];
         item.context = context.chunk(offset).unwrap();
         item.flags = flags;
         item.gain = if offset == 0 { gain } else { f64::NAN };
-        for e in events {
-            if n == 0 || e.offset as usize >= offset && (e.offset as usize) < offset + count {
-                let mut local = *e;
-                local.offset -= offset as u32;
-                item.events[item.event_count as usize] = local;
-                item.event_count += 1;
-            }
+        if whole_block {
+            item.events[..events.len()].copy_from_slice(events);
+            item.event_count = events.len() as u32;
+        } else {
+            let block = &(*l.callback.get()).curve_plan.blocks[offset / LEGACY_CAP];
+            item.events[..block.count].copy_from_slice(&block.events[..block.count]);
+            item.event_count = block.count as u32;
         }
         for (ch, p) in [left, right].into_iter().enumerate() {
             item.data[ch][..count]
@@ -1547,7 +1694,21 @@ unsafe fn process_events(
         }
     }
     *out_flags = combined;
+    if !whole_block {
+    let callback = &mut *l.callback.get();
+    callback.curve_carry.count = callback.curve_plan.next.count;
+    callback.curve_carry.events[..callback.curve_carry.count]
+        .copy_from_slice(&callback.curve_plan.next.events[..callback.curve_carry.count]);
+    callback.curve_continuation = (n > 0).then(|| context.chunk(n).unwrap());
+    callback.curve_values.commit(&callback.curve_plan.last);
+    }
     for (counter, delta) in l.shared.delivery_totals.iter().zip([
+        n as u64, total.missing_frames, total.gaps, total.expired_frames,
+        total.delivered_frames, total.priming_frames,
+    ]) {
+        counter.store(counter.load(Ordering::Relaxed) + delta, Ordering::Release);
+    }
+    for (counter, delta) in l.shared.delivery_phases[phase].iter().zip([
         n as u64, total.missing_frames, total.gaps, total.expired_frames,
         total.delivered_frames, total.priming_frames,
     ]) {
@@ -1747,7 +1908,7 @@ pub unsafe extern "C" fn ap9_open(identity: *const u8, handle: *mut u64) -> u32 
     open(
         256,
         handle,
-        if identity.is_some() { 13 } else { 6 },
+        if identity.is_some() { 14 } else { 6 },
         identity,
     )
 }
@@ -1827,6 +1988,8 @@ pub unsafe extern "C" fn ap10_process(
 }
 // Native C ABI extension; no Windows wire or packet layout change.
 const CONTAINED_TERMINAL: u32 = 0x106;
+// A refused input cannot authorize terminal silence or dead-instance custody.
+const PARAMETER_CURVE_UNAVAILABLE: u32 = 0x107;
 #[no_mangle]
 pub unsafe extern "C" fn ap13_process(
     id: u64,
@@ -1916,7 +2079,7 @@ pub unsafe extern "C" fn ap19_process_outputs(
     out_flags:*mut u64,delivery:*mut Delivery,entered_ns:u64,
 )->u32 {
     if count as usize>MAX_EVENTS || (count>0&&events.is_null()) || context.is_null()
-        || outputs.is_null() || channels<2 || channels>64 || channels%2!=0 {return 1;}
+        || outputs.is_null() || !(2..=64).contains(&channels) || !channels.is_multiple_of(2) {return 1;}
     let outputs=std::slice::from_raw_parts(outputs,channels as usize);
     let events=if count==0 {&[]} else {std::slice::from_raw_parts(events,count as usize)};
     process_events(id,n,f64::NAN,flags,left,right,outputs[0],outputs[1],out_flags,delivery,
@@ -2055,6 +2218,59 @@ pub unsafe extern "C" fn ap10_fail_results(id: u64) -> u32 {
 mod tests {
     use super::*;
     #[test]
+    fn whole_daw_block_preserves_sparse_queues_after_gui_state_and_seek_without_allocating() {
+        let _registry_owner = crate::registry_test();
+        let path = std::env::temp_dir().join(format!("whole-block-{}", u128::from_le_bytes(
+            ap1_native_client::mapping::random().unwrap())));
+        let gui = Arc::new(crate::gui::Gui::create(&path, [14; 16]).unwrap());
+        let mut shared = Shared::new();
+        shared.gui = Some(gui.clone());
+        shared.identity = Some(state::Identity { class: [14; 16], module: [15; 32] });
+        shared.state_capable.store(true, Ordering::Release);
+        let shared = Arc::new(shared);
+        let id = INSTANCES.insert(|| Ok::<_, ()>(Live { shared: shared.clone(),
+            callback: UnsafeCell::new(Callback::new()), busy: AtomicBool::new(false),
+            worker: None, report: None, max: 1024, recovery_blocked: false,
+            installed_delay: Some(1024), minor: 14, setup: None })).unwrap().unwrap();
+        assert_eq!(unsafe { ap3_transition(id, START) }, 0);
+        shared.requests.pop().unwrap();
+        let input = [0.25; 1024]; let mut output = [[0.; 1024]; 2];
+        let mut flags = 0; let mut delivery = Delivery::default();
+        // No bridge parameter values are established. The vendor owns the
+        // implicit -1 value; even an exact end anchor passes through unchanged.
+        for (call, n, project) in [(1, 1008, 500), (2, 1024, 1508), (3, 1008, 42), (4, 0, 42)] {
+            assert_eq!(gui.send(&mut crate::gui::Message { kind: 3, id: 7, value: 0.8,
+                ..Default::default() }), 0);
+            shared.curve_state_revision.store(call, Ordering::Release);
+            let events = [Event { offset: n, kind: 2, id: 7, value: 0.6, ..Default::default() },
+                Event { offset: n.saturating_sub(1), kind: 2, id: 99, value: 0.25, ..Default::default() }];
+            let context = crate::context::Context { present: 1, rate: 48000., state: 0x21006,
+                project, continuous: call as i64 * 1024, cycle_start: 0.125, cycle_end: 0.5,
+                ..Default::default() };
+            let before = shared.requests.published();
+            let (rc, allocations) = crate::allocation_test::measure(|| unsafe { if2_process(id, n,
+                events.as_ptr(), 2, &context, 0, input.as_ptr(), input.as_ptr(),
+                output[0].as_mut_ptr(), output[1].as_mut_ptr(), &mut flags, &mut delivery, call * 1000) });
+            assert_eq!(rc, 0); assert_eq!(allocations, [0; 3]);
+            assert_eq!(shared.requests.published(), before + 1);
+            let request = shared.requests.pop().unwrap();
+            assert_eq!(request.n, n); assert_eq!(request.parent, [call, n as u64, 0, call * 1000]);
+            assert_eq!(request.event_count, 2); assert_eq!(request.events[..2], events);
+            assert_eq!(request.context.encode(), context.encode());
+            assert_eq!(request.data[0][..n as usize], input[..n as usize]);
+            assert!(shared.requests.pop().is_none());
+        }
+        let before = shared.requests.published();
+        let bad = Event { kind: 0, offset: 1008, value: 0.5, pitch: 60, ..Default::default() };
+        let (rc, allocations) = crate::allocation_test::measure(|| unsafe { if2_process(id, 1008,
+            &bad, 1, &crate::context::Context::default(), 0, input.as_ptr(), input.as_ptr(),
+            output[0].as_mut_ptr(), output[1].as_mut_ptr(), &mut flags, &mut delivery, 9000) });
+        assert_eq!(rc, 0x102); assert_eq!(allocations, [0; 3]);
+        assert_eq!(shared.requests.published(), before); assert_eq!(if2_terminal_status(id), 0);
+        assert_eq!(unsafe { ap3_transition(id, STOP) }, 0);
+        INSTANCES.remove(id, |_| ()).unwrap(); std::fs::remove_file(path).unwrap();
+    }
+    #[test]
     fn all_output_planes_share_timeline_and_release_on_stop() {
         let shared=Shared::new();
         shared.extra.set(crate::output_pool::Pool::new(62,DESCRIPTORS)).ok().unwrap();
@@ -2068,9 +2284,9 @@ mod tests {
         for block in 0..8 {
             let mut request=Item::control(AUDIO,0);request.n=CAP as u32;
             callback.process_outputs(&shared,request,&mut main,&pointers,0).unwrap();
-            if block>=4 {
-                assert_eq!(main[0],[block as f32-4.;CAP]);
-                for ch in 0..62 {assert_eq!(extra[ch],[100.+ch as f32+block as f32-4.;CAP]);}
+            if block>=1 {
+                assert_eq!(main[0],[block as f32-1.;CAP]);
+                for (ch, plane) in extra.iter().enumerate() {assert_eq!(*plane,[100.+ch as f32+block as f32-1.;CAP]);}
             } else {assert!(extra.iter().flatten().all(|x|*x==0.));}
             let request=shared.requests.pop().unwrap();
             let mut completion=Completion::from(request);
@@ -2089,47 +2305,50 @@ mod tests {
 
     #[test]
     fn setup_abi_delivers_complete_multi_output_contract() {
-        let shared = Arc::new(Shared::new());
-        shared.state_capable.store(true, Ordering::Release);
-        let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
-            shared: shared.clone(), callback: UnsafeCell::new(Callback::new()),
-            busy: AtomicBool::new(false), worker: None, report: None,
-            max: 512, recovery_blocked: false, installed_delay: Some(512),
-            minor: 12, setup: None,
-        })).unwrap().unwrap();
-        let mut contract = 34u32.to_le_bytes().to_vec();
-        for (media, direction, index, channels) in (0u32..32)
-            .map(|i| (0u32, 1u32, i, 2u32))
-            .chain([(1, 0, 0, 16), (1, 1, 0, 16)]) {
-            for value in [media, direction, index, channels, 0, u32::from(index == 0)] {
-                contract.extend(value.to_le_bytes());
-            }
-            contract.extend((if media == 0 { 3u64 } else { 0 }).to_le_bytes());
-        }
-        let expected = contract.clone();
-        let peer = thread::spawn(move || {
-            let until = Instant::now() + Duration::from_secs(3);
-            loop {
-                if let Some(c) = shared.control.lock().unwrap().as_mut() {
-                    assert_eq!(c.op, 20);
-                    assert_eq!(&c.bytes[24..], expected);
-                    let mut reply = vec![0; 16];
-                    reply[8] = 1;
-                    c.result = Some(Ok(reply));
-                    break;
+        let _registry_owner = crate::registry_test();
+        for maximum in [512, 1024] {
+            let shared = Arc::new(Shared::new());
+            shared.state_capable.store(true, Ordering::Release);
+            let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
+                shared: shared.clone(), callback: UnsafeCell::new(Callback::new()),
+                busy: AtomicBool::new(false), worker: None, report: None,
+                max: maximum as usize, recovery_blocked: false, installed_delay: Some(maximum),
+                minor: 12, setup: None,
+            })).unwrap().unwrap();
+            let mut contract = 34u32.to_le_bytes().to_vec();
+            for (media, direction, index, channels) in (0u32..32)
+                .map(|i| (0u32, 1u32, i, 2u32))
+                .chain([(1, 0, 0, 16), (1, 1, 0, 16)]) {
+                for value in [media, direction, index, channels, 0, u32::from(index == 0)] {
+                    contract.extend(value.to_le_bytes());
                 }
-                assert!(Instant::now() < until, "setup ABI did not deliver bus contract");
-                thread::yield_now();
+                contract.extend((if media == 0 { 3u64 } else { 0 }).to_le_bytes());
             }
-        });
-        let mut traits = [0u32; 3];
-        assert_eq!(unsafe { ap10_setup(id, 512, 0, 48000., contract.as_ptr(),
-            contract.len() as u32, 1, traits.as_mut_ptr()) }, 0);
-        assert_eq!(traits, [512, 0, 0]);
-        peer.join().unwrap();
-        assert_eq!(unsafe { ap10_setup(id, 512, 0, 48000., contract.as_ptr(),
-            crate::performance::MAX_BUS_CONTRACT_BYTES + 1, 1, traits.as_mut_ptr()) }, 1);
-        INSTANCES.remove(id, |_| ()).unwrap();
+            let expected = contract.clone();
+            let peer = thread::spawn(move || {
+                let until = Instant::now() + Duration::from_secs(3);
+                loop {
+                    if let Some(c) = shared.control.lock().unwrap().as_mut() {
+                        assert_eq!(c.op, 20);
+                        assert_eq!(&c.bytes[24..], expected);
+                        let mut reply = vec![0; 16];
+                        reply[8] = 1;
+                        c.result = Some(Ok(reply));
+                        break;
+                    }
+                    assert!(Instant::now() < until, "setup ABI did not deliver bus contract");
+                    thread::yield_now();
+                }
+            });
+            let mut traits = [0u32; 3];
+            assert_eq!(unsafe { ap10_setup(id, maximum, 0, 48000., contract.as_ptr(),
+                contract.len() as u32, 1, traits.as_mut_ptr()) }, 0);
+            assert_eq!(traits, [maximum, 0, 0]);
+            peer.join().unwrap();
+            assert_eq!(unsafe { ap10_setup(id, maximum, 0, 48000., contract.as_ptr(),
+                crate::performance::MAX_BUS_CONTRACT_BYTES + 1, 1, traits.as_mut_ptr()) }, 1);
+            INSTANCES.remove(id, |_| ()).unwrap();
+        }
     }
     #[test]
     fn gui_abi_rejects_short_prefix_before_forming_full_message() {
@@ -2147,9 +2366,10 @@ mod tests {
     }
     #[test]
     fn parent_callbacks_preserve_exact_one_and_two_proxy_delay() {
+        let _registry_owner = crate::registry_test();
         // The consumer runs only after the complete parent host callback. A
         // 512-frame parent must not acquire an artificial wait between chunks.
-        for (maximum, delay) in [(512, 512), (256, 512), (256, 256), (128, 256)] {
+        for (maximum, delay) in [(1024, 1024), (512, 1024), (512, 512), (256, 512), (256, 256), (128, 256)] {
             let mut ids = Vec::new();
             let mut peers = Vec::new();
             for _ in 0..2 {
@@ -2205,6 +2425,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn parent_host_blocks_do_not_repeatedly_fault_in_queue_storage() {
+        let _registry_owner = crate::registry_test();
         // Exercise every queue slot through the real chunking callback. Query
         // thread-local counters in this host consumer, never in process().
         #[repr(C)] struct Usage { times: [i64; 4], counters: [i64; 14] }
@@ -2227,12 +2448,17 @@ mod tests {
         shared.requests.pop().unwrap();
         let mut total=0; let mut maximum=0; let mut first=0;
         for block in 0..1100 {
+            // An acknowledgement for another epoch cannot classify this block
+            // as processing. First two blocks precede the exact readiness.
+            if block == 1 { shared.processing_ready_epoch.store(2, Ordering::Release); }
+            if block == 2 { shared.processing_ready_epoch.store(1, Ordering::Release); }
             let mut flags=0; let mut d=Delivery::default();
             let before=faults();
-            let rc=unsafe { ap10_process(id,512,std::ptr::null(),0,
+            let (rc, allocations)=crate::allocation_test::measure(|| unsafe { ap10_process(id,512,std::ptr::null(),0,
                 &crate::context::Context::default(),3,input.as_ptr(),input.as_ptr(),
-                output[0].as_mut_ptr(),output[1].as_mut_ptr(),&mut flags,&mut d) };
+                output[0].as_mut_ptr(),output[1].as_mut_ptr(),&mut flags,&mut d) });
             let delta=faults()-before;
+            assert_eq!(allocations, [0; 3], "phase attribution allocated/reallocated/freed in the callback");
             assert_eq!(rc,0); total+=delta; maximum=maximum.max(delta);if block==0 {first=delta;}
             // Same parent 512-frame host block: both chunks have already been
             // admitted before its off-thread consumer can return completions.
@@ -2242,6 +2468,19 @@ mod tests {
             }
         }
         eprintln!("AP13 parent512 callback minor faults: first={first} total={total} max={maximum}");
+        assert_eq!(processing_phase(0, 0), 0, "unstarted epochs cannot report processing readiness");
+        assert_eq!(shared.delivery_phases[0][0].load(Ordering::Acquire), 1024);
+        assert_eq!(shared.delivery_phases[1][0].load(Ordering::Acquire), 1098*512);
+        for i in 0..6 {
+            assert_eq!(shared.delivery_totals[i].load(Ordering::Acquire),
+                shared.delivery_phases[0][i].load(Ordering::Acquire)+shared.delivery_phases[1][i].load(Ordering::Acquire));
+        }
+        let mut phases = PhaseRecords::default();
+        phases.record(&shared, "processing_stopped", 1);
+        assert_eq!(phases.records[0].delivery[0][0], 1024);
+        for _ in 0..129 { phases.record(&shared, "processing_stopped", 1); }
+        assert_eq!(phases.length, 128);
+        assert_eq!(phases.omitted, 2);
         INSTANCES.remove(id, |_| ()).unwrap();
         // A host's fresh callback thread can fault in its code/stack on the
         // first invocation (12 pages in the unoptimized CI host). It is not
@@ -2251,6 +2490,7 @@ mod tests {
     }
     #[test]
     fn acknowledged_setup_is_retained_for_recovery() {
+        let _registry_owner = crate::registry_test();
         let shared = Arc::new(Shared::new());
         shared.state_capable.store(true, Ordering::Release);
         let id = INSTANCES
@@ -2312,7 +2552,117 @@ mod tests {
             .unwrap();
     }
     #[test]
+    fn recovery_keeps_exact_parameter_census_but_discards_failed_peer_values() {
+        use crate::parameter_curves::Carry;
+        let point = |id, offset, value| Event { id, offset, value, kind: 2, ..Event::default() };
+        let mut callback = Callback::new();
+        callback.delay = 512;
+        callback.curve_values.configure(&[7, 99]).unwrap();
+        callback.curve_plan.prepare(&[point(7, 0, 0.3)], 512,
+            &Carry::empty(), &callback.curve_values).unwrap();
+        callback.curve_values.commit(&callback.curve_plan.last);
+        callback.curve_plan.prepare(&[point(7, 512, 0.6)], 512,
+            &Carry::empty(), &callback.curve_values).unwrap();
+        let mut next = callback.replacement();
+        assert_eq!(next.delay, 512);
+        assert!(next.curve_values.configure(&[7, 99]).is_err());
+        assert!(next.curve_plan.prepare(&[point(7, 512, 0.6)], 512,
+            &Carry::empty(), &next.curve_values).is_err());
+        assert!(next.curve_plan.prepare(&[point(123, 0, 0.6)], 512,
+            &Carry::empty(), &next.curve_values).is_err());
+        next.curve_plan.prepare(&[point(99, 0, 0.4)], 512,
+            &Carry::empty(), &next.curve_values).unwrap();
+    }
+    #[test]
+    fn production_curve_endpoint_carry_respects_edits_seeks_stop_and_capacity() {
+        let _registry_owner = crate::registry_test();
+        use crate::parameter_curves::Carry;
+        use crate::gui::{Gui, Message};
+        let path = std::env::temp_dir().join(format!("lvb-curves-{}", u128::from_le_bytes(
+            ap1_native_client::mapping::random().unwrap())));
+        let gui = Arc::new(Gui::create(&path, [7; 16]).unwrap());
+        let mut shared = Shared::new();
+        shared.gui = Some(gui.clone());
+        shared.state_capable.store(true, Ordering::Relaxed);
+        shared.identity = Some(state::Identity { class: [1; 16], module: [2; 32] });
+        let shared = Arc::new(shared);
+        let callback = Callback::new();
+        let id = INSTANCES.insert(|| Ok::<_, ()>(Live { shared: shared.clone(),
+            callback: UnsafeCell::new(callback), busy: AtomicBool::new(false), worker: None,
+            report: None, max: 1024, recovery_blocked: false, installed_delay: None,
+            minor: 7, setup: None })).unwrap().unwrap();
+        assert_eq!(unsafe { ap22_curve_parameters(id,[7].as_ptr(),1) },0);
+        assert_eq!(unsafe { ap22_curve_parameters(id,[7].as_ptr(),1) },1);
+        assert_eq!(unsafe { ap3_transition(id,START) },0);
+        assert_eq!(unsafe { ap22_curve_parameters(id,[7].as_ptr(),1) },2);
+        assert_eq!(shared.requests.pop().unwrap().kind, START);
+        let input = [0.; 1024];
+        let mut left = [0.; 1024];
+        let mut right = [0.; 1024];
+        let mut flags = 0;
+        let mut delivery = Delivery::default();
+        let point = |offset, value| Event { offset, kind: 2, id: 7, value, ..Event::default() };
+        let run = |n, project, events: &[Event], left: &mut [f32; 1024], right: &mut [f32; 1024], flags: &mut u64,
+            delivery: &mut Delivery| unsafe { ap10_process(id, n, events.as_ptr(), events.len() as u32,
+            &crate::context::Context { present: 1, state: 2, rate: 48000., project, ..Default::default() },
+            0, input.as_ptr(), input.as_ptr(), left.as_mut_ptr(), right.as_mut_ptr(), flags, delivery) };
+        let (result, allocations) = crate::allocation_test::measure(|| run(1024, 500,
+            &[point(0, 0.125), point(1024, 0.75)], &mut left, &mut right, &mut flags, &mut delivery));
+        assert_eq!(result, 0); assert_eq!(allocations, [0; 3]);
+        for start in [0, 256, 512, 768] {
+            let item = shared.requests.pop().unwrap();
+            assert_eq!(item.event_count, 2);
+            for event in &item.events[..2] {
+                assert!(event.valid(256));
+                assert!((event.value - (0.125 + 0.625 * (start + event.offset) as f64 / 1024.)).abs() < 1e-14);
+            }
+        }
+        assert_eq!(run(512, 1524, &[], &mut left, &mut right, &mut flags, &mut delivery), 0);
+        let first = shared.requests.pop().unwrap();
+        assert_eq!(first.event_count, 1); assert_eq!(first.events[0], point(0, 0.75));
+        assert_eq!(shared.requests.pop().unwrap().event_count, 0);
+        assert_eq!(run(512, 2036, &[point(0, 0.3), point(512, 0.7)], &mut left, &mut right, &mut flags, &mut delivery), 0);
+        for _ in 0..2 { shared.requests.pop().unwrap(); }
+        assert_eq!(gui.send(&mut Message { kind: 3, id: 7, value: 0.8, ..Default::default() }), 0);
+        assert_eq!(run(512, 2548, &[], &mut left, &mut right, &mut flags, &mut delivery), 0);
+        for _ in 0..2 { assert_eq!(shared.requests.pop().unwrap().event_count, 0); }
+        assert_eq!(run(512, 3060, &[point(0, 0.2), point(512, 0.6)], &mut left, &mut right, &mut flags, &mut delivery), 0);
+        for _ in 0..2 { shared.requests.pop().unwrap(); }
+        assert_eq!(run(512, 42, &[], &mut left, &mut right, &mut flags, &mut delivery), 0);
+        for _ in 0..2 { assert_eq!(shared.requests.pop().unwrap().event_count, 0); }
+        let previous = 0.2 + 0.4 * 511. / 512.;
+        let (result, allocations) = crate::allocation_test::measure(|| run(512, 554,
+            &[point(512, 0.6)], &mut left, &mut right, &mut flags, &mut delivery));
+        assert_eq!(result, 0); assert_eq!(allocations, [0; 3]);
+        for start in [0, 256] {
+            let item = shared.requests.pop().unwrap();
+            for event in &item.events[..item.event_count as usize] {
+                assert!(event.valid(256));
+                let value = previous + (0.6 - previous) * (start + event.offset as usize + 1) as f64 / 513.;
+                assert!((event.value - value).abs() < 1e-14);
+            }
+        }
+        assert_eq!(gui.send(&mut Message { kind: 3, id: 7, value: 0.8, ..Default::default() }), 0);
+        let before = shared.requests.published();
+        let refused = unsafe { if2_process(id, 512, [point(512, 0.6)].as_ptr(), 1,
+            &crate::context::Context { present: 1, state: 2, rate: 48000., project: 1066, ..Default::default() },
+            0, input.as_ptr(), input.as_ptr(), left.as_mut_ptr(), right.as_mut_ptr(), &mut flags, &mut delivery, 1) };
+        assert_eq!(refused, PARAMETER_CURVE_UNAVAILABLE);
+        assert_ne!(refused, CONTAINED_TERMINAL);
+        assert_eq!(if2_terminal_status(id), 0);
+        assert_eq!(shared.requests.published(), before);
+        let lease = INSTANCES.lease(id).unwrap();
+        let callback = unsafe { &mut *lease.callback.get() };
+        callback.curve_carry = Carry::empty(); callback.curve_carry.count = 1;
+        callback.curve_carry.events[0] = point(0, 0.9);
+        assert_eq!(callback.transition(&shared, STOP), 0);
+        assert_eq!(callback.curve_carry.count, 0); assert!(callback.curve_continuation.is_none());
+        drop(lease); INSTANCES.remove(id, |_| ()).unwrap();
+        std::fs::remove_file(path).unwrap();
+    }
+    #[test]
     fn large_host_blocks_preserve_notes_and_parameter_offsets() {
+        let _registry_owner = crate::registry_test();
         let mut shared = Shared::new();
         shared.state_capable.store(true, Ordering::Relaxed);
         shared.identity = Some(state::Identity {
@@ -2354,6 +2704,13 @@ mod tests {
                 ..Default::default()
             },
             Event {
+                offset: 0,
+                kind: 2,
+                id: 900,
+                value: 0.25,
+                ..Default::default()
+            },
+            Event {
                 offset: 511,
                 kind: 2,
                 id: 900,
@@ -2375,7 +2732,7 @@ mod tests {
                     id,
                     1024,
                     events.as_ptr(),
-                    3,
+                    events.len() as u32,
                     input.as_ptr(),
                     input.as_ptr(),
                     left.as_mut_ptr(),
@@ -2400,7 +2757,8 @@ mod tests {
                 observed.push(e);
             }
         }
-        assert_eq!(observed, events);
+        assert_eq!(observed, [events[0], events[1], Event { offset: 255, ..events[1] },
+            Event { offset: 256, ..events[1] }, events[2], events[3]]);
         let count = shared.requests.published();
         let bad = Event {
             offset: 1024,
@@ -2481,7 +2839,7 @@ mod tests {
                     id,
                     512,
                     events.as_ptr(),
-                    2,
+                    3,
                     &valid_context,
                     0,
                     left.as_ptr(),
@@ -2497,10 +2855,13 @@ mod tests {
         for offset in [0, 256] {
             let item = shared.requests.pop().unwrap();
             assert_eq!(item.context.project, 100 + offset);
-            assert_eq!(item.data[0], [0.25; CAP]);
-            assert_eq!(item.data[1], [-0.5; CAP]);
-            assert_eq!(item.event_count, 1);
-            assert_eq!(item.events[0].offset, if offset == 0 { 7 } else { 255 });
+            assert_eq!(item.data[0][..LEGACY_CAP], [0.25; LEGACY_CAP]);
+            assert!(item.data[0][LEGACY_CAP..].iter().all(|v| *v == 0.));
+            assert_eq!(item.data[1][..LEGACY_CAP], [-0.5; LEGACY_CAP]);
+            assert!(item.data[1][LEGACY_CAP..].iter().all(|v| *v == 0.));
+            assert_eq!(item.event_count, if offset == 0 { 3 } else { 2 });
+            assert_eq!(item.events[0].offset, if offset == 0 { 7 } else { 0 });
+            assert_eq!(item.events[item.event_count as usize - 1].offset, 255);
         }
         INSTANCES.remove(id, |_| ()).unwrap();
     }
@@ -2509,14 +2870,19 @@ mod tests {
         use ap1_native_client::{
             endpoint::{receive_version, send_version},
             mapping::Mapping,
-            ClientState, Frame, Slot, INPUT, OUTPUT, STRIDE,
+            ClientState, Frame, Slot, INPUT,
         };
         use std::os::unix::fs::FileExt;
+        for (minor, frames) in [(4, 256usize), (14, 1024usize)] {
         let path = std::env::temp_dir().join(format!(
             "ap7-observer-{}.audio",
             u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())
         ));
-        let mapping = Mapping::new(&path).unwrap();
+        let mapping = if minor == 14 {
+            Mapping::with_layout(&path, 64, true).unwrap()
+        } else { Mapping::new(&path).unwrap() };
+        let output_offset = mapping.output;
+        let stride = mapping.stride;
         let file = std::fs::OpenOptions::new()
             .read(true)
             .write(true)
@@ -2530,28 +2896,30 @@ mod tests {
         let peer = thread::spawn(move || {
             let mut processed = 0;
             loop {
-                let f = receive_version(&mut remote, 5, 4).unwrap();
+                let f = receive_version(&mut remote, 5, minor).unwrap();
                 let payload = if f.kind == 3 {
-                    assert_eq!(ap1_native_client::get(&f.payload[40..48]), processed * 256);
-                    let mut bytes = [0u8; CAP * 4];
+                    assert_eq!(ap1_native_client::get(&f.payload[40..48]), processed * frames as u64);
+                    let mut bytes = vec![0u8; frames * 4];
                     for ch in 0..2 {
-                        file.read_exact_at(&mut bytes, (INPUT + ch * STRIDE + 4) as u64)
+                        file.read_exact_at(&mut bytes, (INPUT + ch * stride + 4) as u64)
                             .unwrap();
                         for value in bytes.chunks_exact_mut(4) {
                             let sample = f32::from_le_bytes(value.try_into().unwrap()) * 0.5;
                             value.copy_from_slice(&sample.to_le_bytes());
                         }
-                        file.write_all_at(&bytes, (OUTPUT + ch * STRIDE + 4) as u64)
+                        file.write_all_at(&bytes, (output_offset + ch * stride + 4) as u64)
                             .unwrap();
                     }
                     processed += 1;
-                    [
-                        256u32.to_le_bytes().as_slice(),
-                        (OUTPUT as u32).to_le_bytes().as_slice(),
+                    let mut payload = [
+                        (frames as u32).to_le_bytes().as_slice(),
+                        (output_offset as u32).to_le_bytes().as_slice(),
                         0u64.to_le_bytes().as_slice(),
                         &f.payload[32..48],
                     ]
-                    .concat()
+                    .concat();
+                    if minor == 14 { payload.resize(72, 0); }
+                    payload
                 } else if matches!(f.kind, 10 | 12) {
                     f.payload.clone()
                 } else {
@@ -2566,7 +2934,7 @@ mod tests {
                         payload,
                     },
                     5,
-                    4,
+                    minor,
                 )
                 .unwrap();
                 if f.kind == 5 {
@@ -2599,7 +2967,7 @@ mod tests {
             },
             phase: 9,
             max: CAP,
-            minor: 4,
+            minor,
             identity: None,
             epoch: 0,
             position: 0,
@@ -2620,16 +2988,17 @@ mod tests {
         let mut callback = Callback::new();
         assert_eq!(callback.transition(&shared, START), 0);
         let mut item = Item::control(AUDIO, 0);
-        item.n = 256;
-        item.gain = 0.5;
+        item.n = frames as u32;
+        item.gain = if minor == 14 { f64::NAN } else { 0.5 };
         item.data = [[0.25; CAP]; 2];
         let mut output = [[0.; CAP]; 2];
         for n in 0..128 {
             callback.process(&shared, item, &mut output).unwrap();
             assert_eq!(callback.delivery.missing_frames, 0);
-            assert_eq!(output, [[if n < 4 { 0. } else { 0.125 }; CAP]; 2]);
+            for plane in &output { assert!(plane[..frames].iter().all(|&v|
+                v == if n < (DELAY as usize / frames) { 0. } else { 0.125 })); }
             let end = Instant::now() + Duration::from_secs(2);
-            while shared.processed.load(Ordering::Acquire) <= n {
+            while shared.results.published() <= n as u64 {
                 assert!(Instant::now() < end, "observer stalled actual transport");
                 assert_eq!(shared.fault.load(Ordering::Acquire), 0);
                 thread::sleep(Duration::from_millis(1));
@@ -2642,13 +3011,15 @@ mod tests {
         transport.join().unwrap();
         assert_eq!(peer.join().unwrap(), 128);
         assert_eq!(shared.fault.load(Ordering::Acquire), 0);
-        assert_eq!(observation.offered.load(Ordering::Relaxed), 128 * 512);
+        assert_eq!(observation.offered.load(Ordering::Relaxed), 128 * 2 * frames as u64);
         assert_eq!(reader.observation.comparison.samples, 0); // none checked
         drop(reader);
         std::fs::remove_file(path).unwrap();
+        }
     }
     #[test]
     fn terminal_peer_exit_reaches_bounded_query_after_mapping_unlink() {
+        let _registry_owner = crate::registry_test();
         use ap1_native_client::{ClientState,Slot};
         let dir=std::env::temp_dir().join(format!("if1-worker-{}",u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())));
         std::fs::create_dir(&dir).unwrap();
@@ -2684,6 +3055,7 @@ mod tests {
     }
     #[test]
     fn contained_terminal_keeps_validation_and_never_admits_more_work() {
+        let _registry_owner = crate::registry_test();
         use std::os::unix::fs::FileExt;
         // Simulate each external committed producer, then exercise the actual
         // public native ABI. Only the non-RT query reads the complete mapping.
@@ -2745,6 +3117,7 @@ mod tests {
     }
     #[test]
     fn correlated_save_refusal_keeps_worker_audio_snapshot_and_sibling() {
+        let _registry_owner = crate::registry_test();
         use ap1_native_client::{
             endpoint::{receive_version, send_version},
             mapping::Mapping,
@@ -3016,6 +3389,7 @@ mod tests {
     }
     #[test]
     fn stalled_gui_and_stale_generation_do_not_hold_audio_delivery() {
+        let _registry_owner = crate::registry_test();
         let path = std::env::temp_dir().join(format!(
             "ap11-queued-{}-{}",
             std::process::id(),
@@ -3068,7 +3442,7 @@ mod tests {
         for i in 0..64 {
             cb.process(&shared, request, &mut out).unwrap();
             assert_eq!(cb.delivery.missing_frames, 0);
-            assert_eq!(out, [[if i < 2 { 0. } else { 0.125 }; CAP]; 2]);
+            for plane in &out { assert_eq!(plane[..256], [if i < 2 { 0. } else { 0.125 }; 256]); }
             while let Some(mut admitted) = shared.requests.pop() {
                 if admitted.kind == AUDIO {
                     assert!(admitted.gui_revision > 0);
@@ -3179,7 +3553,7 @@ mod tests {
         pump(&s);
         cb.process(&s, request, &mut out).unwrap();
         assert_eq!(cb.delivery.expired_frames, 768);
-        assert_eq!(out, [[0.125; CAP]; 2]);
+        for plane in &out { assert_eq!(plane[..256], [0.125; 256]); }
         assert_eq!(cb.delivery.missing_frames, 0);
         assert_eq!(cb.epoch, 1);
     }
@@ -3265,7 +3639,7 @@ mod tests {
             pump(&s);
         }
         cb.process(&s, r, &mut out).unwrap();
-        assert_eq!(out, [[0.125; CAP]; 2]);
+        for plane in &out { assert_eq!(plane[..256], [0.125; 256]); }
         assert_eq!(cb.epoch, 2);
     }
     #[test]
