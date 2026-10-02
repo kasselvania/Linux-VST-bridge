@@ -83,6 +83,14 @@ and [component manifest](../evidence/self-service-delivery/internal56-component-
 Other recovery cases, complete platform workflows and audio qualification remain
 open; this is still an internal-test package.
 
+A third fresh attempt retained the same installer PID/start identity and operation
+through a normal frontend close/reopen. Reopened Library Setup restored Focus and
+Stop while the service was unavailable. Focus raised the original held dialog;
+continuing completed both exact modules with exit zero, zero owned processes and
+service restoration. Same-card discovery then found both plug-ins without
+publishing them. Registry and the three DAW snapshots remained unchanged. This
+is one frontend-interruption/completion repetition, not the full recovery matrix.
+
 ## Internal55 installed recovery and diagnostic regressions
 
 Internal55 freezes source `6d61a3b59be8c68cf8ee8a48587029712bef2efe`, tree
