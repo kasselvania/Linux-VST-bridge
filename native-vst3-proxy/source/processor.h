@@ -122,6 +122,7 @@ private:
   unsigned blocks_ = 0;
   std::atomic<uint64_t> callback_rejections_{0};
   std::atomic<uint64_t> skipped_expression_callbacks_{0};
+  std::atomic<uint64_t> late_note_offs_{0};
   uint64_t frames_ = 0, zero_gain_blocks_ = 0;
   uint64_t silent_callbacks_ = 0, silent_frames_ = 0;
   uint64_t priming_frames_ = 0, underrun_frames_ = 0, underrun_gaps_ = 0;

@@ -1,6 +1,39 @@
 # Current work selection
 
-## Selected: integrated self-service beta delivery
+## Selected: physical audio recovery, first bounded note-release repair
+
+The operator stopped beta expansion and selected the audio-recovery directive on
+2026-10-02. Recovery starts from `37b5d41e5ffc7876b4bab4ecc6e57737297233bd`, tree
+`d4ce205d5a3722888d35ac5e0116b3018bca2a16`. PR #200 remains a frozen draft and
+comparison source, not a beta candidate to promote.
+
+Preserve the uncommitted internal57 receipt and private diagnostics outside the
+checkout before intervention. Recover paired installed predecessors through
+normal controls; keep licensed state, original projects and exact binaries.
+Earlier usable receipts do not establish gap-free audio. Compare captured output
+only after qualifying the recorder against an independent native signal.
+
+The first repair claim is deliberately narrow: a host note-off whose timestamp
+is already before the current nonempty block releases the identified note at
+sample zero without killing subsequent processing. The retained internal56 SDK
+input witness is offset -1661. Preserve valid offsets and note identity, other
+event fields, strict wire validation, epochs and ownership. Negative note-ons,
+future note-offs, zero-frame notes and invalid identities gain no new support.
+
+Scope is the production native SDK input boundary, its focused regression and
+an independent installed SDK consumer for physical comparison. The Windows
+host, runtime, queue, buffer size, scheduler and manager behavior are unchanged.
+Require a failing old-source regression, passing repaired callback with the
+callback audit, and captured output from the exact installed pair. Keep physical
+DAW continuity, reconfiguration and low-latency qualification separate and open.
+Retain whole failed runs and restore the reference through normal rollback if a
+successor fails. No source-only test may be reported as physical acceptance.
+
+Basis: the operator's recovery directive; AGENTS.md “Keep the engineering
+safeguards” and “Verification and review”; docs/ARCHITECTURE.md §7.5 “Events and
+automation”; the existing event transport and installed publication boundaries.
+
+## Frozen predecessor: integrated self-service beta delivery
 
 The operator selected the integrated delivery assignment and its refinements on
 2026-09-30. Base: `ca95d1541a41a1aa7497a58752e26fc1f893b237`, tree

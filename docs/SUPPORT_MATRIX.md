@@ -11,6 +11,19 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Audio recovery on 2026-10-02 froze PR #200 and preserved its internal57 evidence
+and private diagnostics outside the checkout. The retained earlier Pure LoFi /
+FRAGMENTS pair restores sound, editor interaction and project recall on the
+Deck, but new whole-session observations still contain missing audio. It is a
+useful reference, not a gap-free fallback. FC-AUDIO-001 remains open.
+
+The separate late-note-off correction is source-tested: the recorded -1661
+offset fails the original SDK callback regression and passes when the exact
+note release is placed at sample zero of a nonempty block. Eight native tests
+pass, including the callback audit. Installed physical acceptance is pending;
+this does not repair deadline gaps or qualify smaller buffers. See
+[FC-MIDI-002](FAILURE_CLASSES.md#fc-midi-002--late-note-off-permanently-fails-processing).
+
 Internal56 also **failed physical Deck audio** after ordinary populated update
 and save/reopen. A traced ten-minute musical interval was clean, but its whole
 session retained 2,560 Pure LoFi and 2,048 FRAGMENTS missing frames after editor
