@@ -1729,6 +1729,33 @@ actual pinned command-service/client interface test pass. Installed successor
 audio/state/retirement and complete frontend qualification remain pending. See
 [failed53](../evidence/self-service-delivery/internal53-runtime-owner-failure.json).
 
+Internal54 installed that correction. Its first effect record/recall pair
+exercised the actual acquired-runtime command bootstrap and passed meaningful
+state, automation, processing and exact retirement, with no processing missing
+frames. First state access was 18.759 seconds; warm state access was 4.324 seconds.
+This uses retained native51/host47 publication bytes and is not DAW qualification.
+
+The subsequent full SDK workload failed consumer eleven: one active 1024-frame
+instrument block was missing and expired, with 2,044 mismatched stereo samples.
+Ten earlier consumers passed; state capture and exact retirement also passed
+in the failing consumer. Callback time was below the declared period and task/
+memory ceilings were not exhausted. Neither establishes the cause of the late
+block. The independent host lacks wake-lateness and first-gap timing; bounded
+observations are required before another audio correction. This failed run
+does not close FC-AUDIO-001. See [the retained SDK failure](../evidence/self-service-delivery/internal54-sdk-full-failure.json).
+
+Ordinary inspection and prebuilt preparation then each completed their own work
+but refused service restoration. The first recovery created keeper specifications
+about 55 seconds after service start, near its 60-second overall deadline; ready
+reports appeared roughly 18 seconds later. The pre-staging interval is measured,
+but its internal attribution remains a gap. No deadline is increased. Recovery
+also expanded one prior keeper to all registered environments, and pure prebuilt
+construction unnecessarily stopped them. The selected correction removes that
+unneeded suspension and restores the exact previous owned bindings, retaining
+fresh verification and readiness for each. Legacy records and failed results
+remain distinct. See [the failed installed run](../evidence/self-service-delivery/internal54-frontend-restoration-failure.json)
+and [the ownership explanation](RESTART_VALIDATION_2026_10_01.md#internal54-installed-result-and-restoration-reproduction).
+
 ## FC-PLAT-002 — Delivered runtime lifetime lock cannot be opened
 
 ### Shared boundary and understanding

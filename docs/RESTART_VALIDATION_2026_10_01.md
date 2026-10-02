@@ -1,5 +1,86 @@
 # Restart validation
 
+## Internal54 installed result and restoration reproduction
+
+Internal54 is frozen at `65c131c88f6fc76ba4a7299b01a0889c83b1e2cd`,
+tree `c1c98f012b4c04fa477e5d524e2a4154e24e23b1`. Its eight source CI checks
+passed, including all ten executed native tests. Signed user-space intake,
+normal Stop/Select/Start, and independent selected-component readback passed
+on the populated Ubuntu account. The protected original Ardour project and
+both reference publications remain unchanged.
+
+The installed SDK effect record/recall probe passed recognizable component and
+controller state, sparse automation, processing and exact retirement with zero
+processing missing frames and zero maintainer repairs. It exercised the new
+command bootstrap in both actual Windows sessions, but retained native51/host47
+publication bytes. Peak guest use was 302 tasks and 1,846,321,152 memory bytes,
+within CPU1/RAM2.5GiB/swap0/tasks512; no new task or memory-limit events occurred.
+This is an installed development regression, not new-kit or DAW qualification.
+See [the probe](../evidence/self-service-delivery/internal54-sdk-effect-probe.json)
+and [the component manifest](../evidence/self-service-delivery/internal54-component-manifest.json).
+
+The complete predeclared SDK regression subsequently failed on consumer eleven
+(instrument, pair two, record, 1024 frames). Ten consumers had passed, including
+all four effect pairs and one instrument pair. The failed consumer captured
+meaningful live state and retired its exact Windows/native owners, but retained
+one active-processing gap: 1,024 missing and expired frames, 2,044 mismatched
+stereo samples, zero rejected callbacks and a 47,975-nanosecond maximum callback.
+The diagnostic's `retirement` stage labels the later comparison assertion;
+the phase records locate the gap in processing. It is not a retirement failure.
+First state access was 22.021 seconds; subsequent accesses were 4.163–4.481
+seconds. This improves the observed launch interval without passing the suite.
+
+Peak use was 379 tasks and 2,038,464,512 memory bytes, with no new task or memory
+events. Those facts do not establish a scheduler or transport cause. Wake lateness
+and the first missing-block deadline were not recorded by this consumer. Retain
+the failure, add bounded timing observations to the independent test host, and
+measure the unchanged installed candidate before selecting any audio repair.
+No buffer, queue or processing deadline is increased. See
+[the complete-suite failure](../evidence/self-service-delivery/internal54-sdk-full-failure.json).
+
+The ordinary frontend then completed effect inspection but refused restoration
+(`7e1000cce01c4f865b4b2530517dea95`). Prepare similarly retained an exact new
+candidate without changing publication, then refused restoration
+(`10e7de83c35fdc79fd15fc93657e00e1`). Both results remain failed. Normal worker
+finalization subsequently recovered the same service; it did not relabel or
+repeat those completed actions. No process kill, lease/cache edit, runtime edit,
+binary replacement or manual service restart advanced these operations.
+
+The first trace correlates service start at Unix `1790904756.096984`, keeper
+specification writes at `1790904810.9010408` and `1790904811.0150416`, refusal
+at `1790904816.671307`, and observed ready reports at `1790904828.9728825` and
+`1790904829.4900804`. Thus staging appeared about 55 seconds after service
+start, close to the existing 60-second recovery deadline; the keepers needed
+about another 18 seconds. These are journal/file observations, not instrumented
+phase boundaries. The split before staging among initial warm-up, binding/history
+verification and scheduling is still an attribution gap. `admission_service_busy`
+alone does not establish that split.
+
+The implemented recovery scope also expanded one previously owned reference
+keeper into both registered environments, including unrelated retained FRAGMENTS.
+`PluginPrepare` stops the service even for prebuilt-proxy construction, which
+does not run or alter a Windows environment. This couples immutable artifact
+preparation to an unnecessary global cold start. The connected correction is
+to leave that preparation under its existing inactive/transaction authority
+without stopping environment ownership, and restore the exact keeper bindings
+captured before an operation that actually needs suspension. Keep legacy recovery
+records readable, preserve fresh byte verification and positive readiness, and
+do not change the 60/70-second bounds. A service acknowledgment with an empty
+prior roster must grant no plug-in processing claim; native admission still
+requires its exact ready keeper.
+
+Home/product/Home readback returned the same state token and generation, but
+took 10.956, 14.804 and 13.526 seconds under the cap. The delayed frontend view
+is an observation, not a proven rendering cause. Openbox's system menu generator
+also ignored the user desktop launcher and selected the older system package;
+the switch window was closed without changing selection, then the exact selected
+user application was launched. This fallback desktop is a development fixture,
+not a customer launcher or GNOME qualification.
+
+See [the failed run](../evidence/self-service-delivery/internal54-frontend-restoration-failure.json).
+Internal54 remains a failed frontend and musical regression candidate. No complete musician, update/
+rollback, CachyOS or Deck pass follows from its intake or SDK subset.
+
 The tested product baseline was frozen at `0a31b79d5d119d311d0f5652afe8a5d4eb320207`
 (tree `82c56ca2fc67dc4e04d3fca58b8602b8d1e0a8e6`). Internal49's
 committed failure remains a failed qualification result. Internal50 is the

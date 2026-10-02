@@ -1,0 +1,368 @@
+{
+  "schema": 1,
+  "candidate": "0.12.0internal54",
+  "source_head": "65c131c88f6fc76ba4a7299b01a0889c83b1e2cd",
+  "result": "failed_frontend_development_run",
+  "operations": [
+    {
+      "id": "7e1000cce01c4f865b4b2530517dea95",
+      "request": {
+        "schema": 15,
+        "state_token": "233636e665227f2adb0014d04cc882511b0f7112929a90825b6566cb092fce68",
+        "action": {
+          "kind": "plugin_reinspect",
+          "selection": "9607f05a2b3cab4cf9acbcc2bb99e5f2057a8b5292a60b4b3a27ae4fff4d61be"
+        }
+      },
+      "request_mtime_unix": 1790904677.5329645,
+      "result": {
+        "failure": null,
+        "lock_waits": [
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 47,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "operator-canonical.lock",
+            "operation": "7e1000cce01c4f865b4b2530517dea95",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "action_serialization",
+            "timeout_ms": 10000
+          },
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 23,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "registry.lock",
+            "operation": "7e1000cce01c4f865b4b2530517dea95",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "operator_validation_readback",
+            "timeout_ms": 9932
+          },
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 33,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "operator-canonical.lock",
+            "operation": "7e1000cce01c4f865b4b2530517dea95",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "action_serialization",
+            "timeout_ms": 10000
+          },
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 30,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "registry.lock",
+            "operation": "7e1000cce01c4f865b4b2530517dea95",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "operator_validation_readback",
+            "timeout_ms": 10000
+          },
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 25,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "registry.lock",
+            "operation": "7e1000cce01c4f865b4b2530517dea95",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "operator_validation_readback",
+            "timeout_ms": 10000
+          },
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 22,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "registry.lock",
+            "operation": "7e1000cce01c4f865b4b2530517dea95",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "operator_validation_readback",
+            "timeout_ms": 10000
+          }
+        ],
+        "operation": "7e1000cce01c4f865b4b2530517dea95",
+        "preparation_failure": {
+          "attempted_stage": "service_restoration",
+          "automatic_retry": false,
+          "completed_action": {
+            "controller": {
+              "class_id": "4C564242455441314546465800000002",
+              "kind": "separate"
+            },
+            "guarantee": false,
+            "inspection": "complete",
+            "publication_changed": false,
+            "selection": "9607f05a2b3cab4cf9acbcc2bb99e5f2057a8b5292a60b4b3a27ae4fff4d61be"
+          },
+          "installation_preserved": true,
+          "layer": "manager_control_plane",
+          "prior_publication_provenance_preserved": true,
+          "recovery": "Resume the exact retained operation through the ordinary recovery control. Completed preparation remains retained.",
+          "result": "refused",
+          "schema": 1
+        },
+        "reason": "Operator action: Service restoration after completed preparation: operator_keeper_resume_readback: failed to fill whole buffer",
+        "schema": 1,
+        "state": "refused"
+      },
+      "result_mtime_unix": 1790904816.6680763,
+      "result_sha256": "e5a004c6510744c66c8c5150849a512ff802e16f3d44f0fed8ce345e1ae88904"
+    },
+    {
+      "id": "10e7de83c35fdc79fd15fc93657e00e1",
+      "request": {
+        "schema": 15,
+        "state_token": "ce064f4fe24f9a0b2364b50beff7ea5f9fda730011ebce85159510cf20a71fa9",
+        "action": {
+          "kind": "plugin_prepare",
+          "selection": "9607f05a2b3cab4cf9acbcc2bb99e5f2057a8b5292a60b4b3a27ae4fff4d61be",
+          "inspection": "796b0aa8bfde58398c37fc0957b708b8984a8bc0c51af037e50e88f60d37c51f",
+          "recipe": "b1b5a1dd886a8f932d3e827c054f1939c725f4ef374ad72f880bae49970d54ff",
+          "predecessor": "1f20d8ae266507fa3b5b99919df5576d077583ffef920ce2ceb211e8c5cc4ef7"
+        }
+      },
+      "request_mtime_unix": 1790905129.3999326,
+      "result": {
+        "failure": null,
+        "lock_waits": [
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 41,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "operator-canonical.lock",
+            "operation": "10e7de83c35fdc79fd15fc93657e00e1",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "action_serialization",
+            "timeout_ms": 10000
+          },
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 26,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "registry.lock",
+            "operation": "10e7de83c35fdc79fd15fc93657e00e1",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "operator_validation_readback",
+            "timeout_ms": 9959
+          },
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 30,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "operator-canonical.lock",
+            "operation": "10e7de83c35fdc79fd15fc93657e00e1",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "action_serialization",
+            "timeout_ms": 10000
+          },
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 21,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "registry.lock",
+            "operation": "10e7de83c35fdc79fd15fc93657e00e1",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "operator_validation_readback",
+            "timeout_ms": 10000
+          },
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 11,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "registry.lock",
+            "operation": "10e7de83c35fdc79fd15fc93657e00e1",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "operator_validation_readback",
+            "timeout_ms": 10000
+          }
+        ],
+        "operation": "10e7de83c35fdc79fd15fc93657e00e1",
+        "preparation_failure": {
+          "attempted_stage": "service_restoration",
+          "automatic_retry": false,
+          "completed_action": {
+            "artifact_reused": false,
+            "candidate": "9847af2424c6850bfa13d17fc58ed4da4130c9f88a166ce7c12084fc1232a25d",
+            "candidate_reused": false,
+            "prepared": true,
+            "publication_changed": false,
+            "selection": "9607f05a2b3cab4cf9acbcc2bb99e5f2057a8b5292a60b4b3a27ae4fff4d61be"
+          },
+          "installation_preserved": true,
+          "layer": "manager_control_plane",
+          "prior_publication_provenance_preserved": true,
+          "recovery": "Resume the exact retained operation through the ordinary recovery control. Completed preparation remains retained.",
+          "result": "refused",
+          "schema": 1
+        },
+        "reason": "Operator action: Service restoration after completed preparation: operator_keeper_resume_readback: failed to fill whole buffer",
+        "schema": 1,
+        "state": "refused"
+      },
+      "result_mtime_unix": 1790905253.1787355,
+      "result_sha256": "943c9d68374552a1f85176e08b21401b15642d783da3539003c082e289f7250c"
+    }
+  ],
+  "publications_unchanged": {
+    "4C564242455441314546465800000001": {
+      "native_sha256": "d8c254accf04c0e8092b18876ed6573bdc7e9be41e870043746bcfefcf22faf4",
+      "host_sha256": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b"
+    },
+    "4C56424245544131494E535400000001": {
+      "native_sha256": "9109472240fca35ca269b169a208ae83fb34e59dda64494572e52b80c30fd2cd",
+      "host_sha256": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b"
+    }
+  },
+  "software_manager_sha256": "852bb363c629d314f7ef6f13b44d5d4ab3c669f28497af30e4bb7c33d777b9f2",
+  "protected_original_project_sha256": "2a0d5d63278946fc51a714603943d619b9d99bfabaccd1ec06164f42ffd62390",
+  "resources_after": {
+    "cpu.max": "100000 100000",
+    "memory.max": "2684354560",
+    "memory.swap.max": "0",
+    "pids.max": "512",
+    "pids.current": "368",
+    "pids.events": "max 0",
+    "memory.current": "1986899968",
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+  },
+  "resume_record_present_after_owned_finalization": false,
+  "readback_probe": [
+    {
+      "name": "overview",
+      "elapsed_ms": 10956.25,
+      "exit_code": 0,
+      "stdout_bytes": 57820,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "keys": [
+        "schema",
+        "operator_schema",
+        "scope",
+        "current_generation",
+        "current",
+        "readiness"
+      ],
+      "state_token": "ce064f4fe24f9a0b2364b50beff7ea5f9fda730011ebce85159510cf20a71fa9",
+      "current_generation": "1ad9ecc2658e314be79260f60f4cf98728134ec6b0b3513782078da756c6f537",
+      "system": {
+        "service": "active",
+        "keepers": 2,
+        "dsp": 0,
+        "maintenance": 0,
+        "ceiling": 6,
+        "pending_transactions": 0,
+        "stale_transports": 0,
+        "cleanup_unconfirmed": false
+      }
+    },
+    {
+      "name": "product",
+      "elapsed_ms": 14804.414,
+      "exit_code": 0,
+      "stdout_bytes": 40091,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "keys": [
+        "schema",
+        "operator_schema",
+        "state_token",
+        "current_generation",
+        "system",
+        "product",
+        "environments",
+        "vendor_applications"
+      ],
+      "state_token": "ce064f4fe24f9a0b2364b50beff7ea5f9fda730011ebce85159510cf20a71fa9",
+      "current_generation": "1ad9ecc2658e314be79260f60f4cf98728134ec6b0b3513782078da756c6f537",
+      "system": {
+        "service": "active",
+        "keepers": 2,
+        "dsp": 0,
+        "maintenance": 0,
+        "ceiling": 6,
+        "pending_transactions": 0,
+        "stale_transports": 0,
+        "cleanup_unconfirmed": false
+      },
+      "actions": [
+        {
+          "label": "Check compatibility again",
+          "kind": "plugin_reinspect",
+          "disabled": null
+        },
+        {
+          "label": "Check stereo compatibility",
+          "kind": "plugin_reinspect",
+          "disabled": null
+        },
+        {
+          "label": "Prepare a test bridge update",
+          "kind": "plugin_prepare",
+          "disabled": null
+        }
+      ]
+    },
+    {
+      "name": "overview_after",
+      "elapsed_ms": 13525.716,
+      "exit_code": 0,
+      "stdout_bytes": 57820,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "keys": [
+        "schema",
+        "operator_schema",
+        "scope",
+        "current_generation",
+        "current",
+        "readiness"
+      ],
+      "state_token": "ce064f4fe24f9a0b2364b50beff7ea5f9fda730011ebce85159510cf20a71fa9",
+      "current_generation": "1ad9ecc2658e314be79260f60f4cf98728134ec6b0b3513782078da756c6f537",
+      "system": {
+        "service": "active",
+        "keepers": 2,
+        "dsp": 0,
+        "maintenance": 0,
+        "ceiling": 6,
+        "pending_transactions": 0,
+        "stale_transports": 0,
+        "cleanup_unconfirmed": false
+      }
+    }
+  ],
+  "maintainer_repairs": 0,
+  "qualification": false,
+  "inspection_restoration_observations": {
+    "service_start_journal_unix": 1790904756.096984,
+    "service_refusal_journal_unix": 1790904816.671307,
+    "first_keeper_spec_mtime_unix": 1790904810.9010408,
+    "second_keeper_spec_mtime_unix": 1790904811.0150416,
+    "observed_ready_report_mtimes_unix": [
+      1790904829.4900804,
+      1790904828.9728825
+    ],
+    "observation_note": "Ready report times were observed before later normal preparation retired those same keepers and rewrote their reports. These are persisted-file/journal times, not instrumented phase boundaries.",
+    "service_recovery_deadline_seconds": 60,
+    "operator_ack_read_timeout_seconds": 70,
+    "gap": "The interval before keeper staging is measured; its split among warm-up, binding verification, history verification and scheduling has not been measured."
+  }
+}
