@@ -1349,7 +1349,9 @@ class AudioScheduling:
             if child is not None and child.poll() is None:
                 # This direct child is unreaped, so its new process group has
                 # not been recycled. Retire its bounded bus client too.
-                os.killpg(child.pid,signal.SIGKILL);child.communicate(timeout=2)
+                try:os.killpg(child.pid,signal.SIGKILL)
+                except ProcessLookupError:pass
+                child.communicate(timeout=2)
     def value(self):
         return {'schema':1,'requested_policy':'SCHED_RR','requested_priority':5,
             'requests':self.requests,'discarded':max(0,self.requests-len(self.rows)),

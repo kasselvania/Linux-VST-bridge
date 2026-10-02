@@ -3,9 +3,10 @@ import hashlib
 import json
 import os
 import pathlib
+import subprocess
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 import session
 
 
@@ -45,6 +46,16 @@ class AudioSchedulingTests(unittest.TestCase):
         self.assertEqual(control.value()['requests'],70)
         self.assertEqual(len(control.value()['records']),64)
         self.assertEqual(control.value()['discarded'],6)
+
+    def test_helper_exit_racing_timeout_does_not_fail_the_audio_owner(self):
+        child=Mock();child.poll.return_value=None;child.pid=123
+        child.communicate.side_effect=[subprocess.TimeoutExpired('fixture',2),(b'',None)]
+        with patch.dict(os.environ,{'LVB_AUDIO_SCHEDULER':json.dumps({'path':'/fixture','sha256':'00'*32})}),patch.object(session,'verify'):
+            control=session.AudioScheduling({'session':'42'*16,'directory':'/unused'})
+        with patch.object(session.subprocess,'Popen',return_value=child),patch.object(session.os,'killpg',side_effect=ProcessLookupError):
+            control.started();control.poll({(1,2)})
+        self.assertEqual(child.communicate.call_count,2)
+        self.assertEqual(control.value()['records'],[{'outcome':'unavailable','reason':'scheduling_request_failed'}])
 
 
 if __name__=='__main__':unittest.main()
