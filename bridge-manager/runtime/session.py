@@ -1307,6 +1307,54 @@ def run(spec,peer=None):
     finally:
         if operation is not None:operation.close()
 
+class AudioScheduling:
+    """One bounded Rust policy request per owned Windows render-thread start.
+
+    This is a best-effort capability request, not an audio-readiness gate. It
+    does not delay setProcessing/process or claim a policy before readback.
+    The existing tracker remains the only process ownership authority.
+    """
+    def __init__(self,spec):
+        self.spec=spec;self.pending=0;self.requests=0;self.rows=collections.deque(maxlen=64)
+        self.artifact=None;self.unavailable=None
+        try:
+            self.artifact=json.loads(os.environ['LVB_AUDIO_SCHEDULER'])
+            verify(self.artifact)
+        except Exception:self.unavailable='scheduler_artifact_unavailable'
+    def started(self):self.pending+=1
+    def poll(self,owned):
+        if not self.pending:return
+        self.pending-=1;self.requests+=1
+        if self.unavailable:
+            self.rows.append({'outcome':'unavailable','reason':self.unavailable});return
+        request={'schema':1,'session':self.spec['session'],
+            'status':str(pathlib.Path(self.spec['directory'])/'ap12.status'),
+            'owned':sorted(owned)}
+        child=None
+        try:
+            data=json.dumps(request).encode()
+            if len(data)>32768:raise ValueError('request extent')
+            child=subprocess.Popen([self.artifact['path'],'owned-audio-scheduling'],
+                stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,
+                start_new_session=True)
+            stdout,_=child.communicate(data,timeout=2)
+            if child.returncode!=0 or len(stdout)>4096:raise ValueError('reply extent')
+            result=json.loads(stdout)
+            if result.get('outcome') not in ('effective','already_effective','unavailable'):
+                raise ValueError('reply outcome')
+            self.rows.append(result)
+        except Exception:
+            self.rows.append({'outcome':'unavailable','reason':'scheduling_request_failed'})
+        finally:
+            if child is not None and child.poll() is None:
+                # This direct child is unreaped, so its new process group has
+                # not been recycled. Retire its bounded bus client too.
+                os.killpg(child.pid,signal.SIGKILL);child.communicate(timeout=2)
+    def value(self):
+        return {'schema':1,'requested_policy':'SCHED_RR','requested_priority':5,
+            'requests':self.requests,'discarded':max(0,self.requests-len(self.rows)),
+            'records':list(self.rows),'scope':'post-start effective readback, not a continuity guarantee'}
+
 def run_owned(spec,peer,stop_requested):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
@@ -1366,6 +1414,7 @@ def run_owned(spec,peer,stop_requested):
     root=(command_session.spawn(cmd,env) if command_session is not None else
         subprocess.Popen(cmd,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0))
     records=[];owned=set();pending=bytearray();vendor=bytearray();stderr=bytearray();dropped={'vendor':0,'stderr':0};protocol_bytes=0;gated=False;call=None;started=time.monotonic();failure=None;clean=False;code=None
+    audio_scheduling=AudioScheduling(spec) if not spec['inspect'] and not spec.get('vendor_access') else None
     sel=selectors.DefaultSelector()
     def retain(key,target,data):
         n=min(len(data),max(0,65536-len(target)));target.extend(data[:n]);dropped[key]+=len(data)-n
@@ -1379,6 +1428,7 @@ def run_owned(spec,peer,stop_requested):
             protocol_bytes+=len(line)+1
             if protocol_bytes>1048576:raise RuntimeError('host protocol output capacity exceeded')
             record=json.loads(line);records.append(record);state=record.get('state')
+            if audio_scheduling and state=='ap0_processing_thread_started':audio_scheduling.started()
             if state=='ap8_call' or record.get('event')=='call_started':call=(record.get('operation'),time.monotonic())
             elif state in ('ap8_result','ap8_failure','ap8_inspection_closed') or record.get('event')=='call_completed':call=None
         if len(pending)>65536:raise RuntimeError('host output line capacity exceeded')
@@ -1399,6 +1449,9 @@ def run_owned(spec,peer,stop_requested):
             owned.update(tracker.update())
             capture_call('observe',owned,root)
             pump(.05)
+            if audio_scheduling and audio_scheduling.pending:
+                owned.update(tracker.update())
+                audio_scheduling.poll(owned)
             if visibility:
                 was=visibility.suspect
                 visibility.poll()
@@ -1484,6 +1537,7 @@ def run_owned(spec,peer,stop_requested):
         sel.close()
         for stream in (root.stdout,root.stderr):stream.close()
         outcome={'vendor_retirement':retirement_ready,'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
+        if audio_scheduling:outcome['audio_scheduling']=audio_scheduling.value()
         if command_session is not None:outcome['native_command_child']=command_session.remote_identity
         # Diagnostic persistence cannot skip physical cleanup or peer retirement.
         try:atomic(report,outcome)

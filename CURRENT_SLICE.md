@@ -1,5 +1,54 @@
 # Current work selection
 
+## Active audio recovery stage 2: one attributed presentation gap
+
+On 2026-10-02 the operator authorized stage 2 of the recorded recovery roadmap.
+Base: `7be2a0b2ed81ff48e65f98701c8f58c77c7f472f`, tree
+`8c0e0dc04af5816038a5665744428730ca48998d`. The first bounded claim is that
+one reproduced physical audio gap is attributed to its responsible delivery
+boundary and a causal repair passes a failing regression and a matched physical
+captured-output comparison. Stage 2 as a whole remains open until the frozen
+artifact passes the declared interaction and soak gates.
+
+Basis: the operator's recovery directive; AGENTS.md real-time and evidence laws;
+ARCHITECTURE.md §18; decision D-022; AUDIO_RECOVERY_ROADMAP.md stage 2; and
+INTEGRATED_BETA_DELIVERY.md acceptance method. Begin with the retained physical
+Steam Deck, recovery1 Pure LoFi 1.0.0.6121, 48 kHz, actual/maximum block 512 and
+bridge delay 512. Verify the exact installed identities against the retained
+late-note-off receipt before running. Keep the selected runtime, licensed
+environment, scheduling policy and delay fixed while reproducing and attributing
+the failure. Once attributed, vary only the measured cause in the repair comparison.
+
+The first captured attribution is a 6.000040 ms preemption of the actual Windows
+render thread, inside the SDK call and across the missing block's presentation
+deadline. A scheduling-only experiment on that thread completed 19,480 Pure LoFi
+blocks without missing frames; it is a test intervention, not an installed fix.
+The bounded repair requests SCHED_RR priority 5 through existing RealtimeKit from
+the owning supervisor, using a Rust control-plane operation. It binds the target
+to existing PID/start custody, the exact mapped session status inode and the
+named render thread. It preserves other policies and records actual readback or
+unavailability. This is post-start capability acquisition, not a new processing
+readiness gate or a promise that the policy was effective from the first sample.
+Source tests pass; installed acceptance of this repair remains unperformed.
+
+Scope: the actual callback, queue, worker, transport, Windows render and
+presentation path; bounded preallocated telemetry; independent SDK consumer;
+focused regression and evidence. Dependencies change only if required by the
+measured cause. Preserve ownership, epochs, strict wire validation, original
+projects and rollback artifacts. Do not weaken the queued D >= M contract or
+fold runtime selection, manager redesign, new platforms or lower-latency claims
+into this repair.
+
+Capture every run in full, including failures, actual output, callback timings,
+trace coverage, component hashes, settings and confirmed retirement. Locate the
+missing result at its presentation deadline. Compare observer effects explicitly;
+diagnostics remain off for acceptance. Test the failure and the repaired behavior,
+including cleanup and stale-result rejection where affected. Use project copies
+and the existing publication/selection mechanism for any installed successor.
+One VM or builder at a time must leave Audiobookshelf resource headroom. Retain
+private captures outside Git; publish only sanitized evidence. Commit and push
+the bounded result without promoting or merging the frozen PR #200.
+
 ## Completed audio recovery stage 1
 
 On 2026-10-02 the operator selected the [six-stage recovery roadmap](docs/AUDIO_RECOVERY_ROADMAP.md)

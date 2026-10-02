@@ -16,6 +16,7 @@ mod daw_workspace;
 mod preparation_cli;
 mod setup_install;
 mod package_authority;
+mod audio_scheduling;
 #[cfg(feature = "pb0-r3-audit")]
 mod pb0_r3_audit;
 use serde::{Deserialize, Serialize};
@@ -854,6 +855,9 @@ fn spawn(m: &Manager, s: &Software, path: &Path, peer: Option<UnixStream>) -> Re
         .stdin(stdin)
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
+        // The supervisor invokes this verified product executable on its
+        // control plane. No scheduling subprocess belongs in a DAW callback.
+        .env("LVB_AUDIO_SCHEDULER", serde_json::to_string(&s.manager)?)
         .spawn();
     if child.is_err() && !bound_peer {
         fs::remove_file(&job.lease)?;
@@ -1918,6 +1922,9 @@ fn main() -> Result<()> {
         unsafe { require(libc::prctl(libc::PR_SET_DUMPABLE,0,0,0,0)==0,"callback_privacy")?; }
     }
     let args: Vec<_> = std::env::args().skip(1).collect();
+    if args.as_slice() == ["owned-audio-scheduling"] {
+        return audio_scheduling::run();
+    }
     let m = Manager::installed()?;
     match args.first().map(String::as_str){
   Some("setup") if args.len()==2=>setup(&m,Some(Path::new(&args[1]))),

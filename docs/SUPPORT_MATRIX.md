@@ -17,6 +17,14 @@ FRAGMENTS pair restores sound, editor interaction and project recall on the
 Deck, but new whole-session observations still contain missing audio. It is a
 useful reference, not a gap-free fallback. FC-AUDIO-001 remains open.
 
+A subsequent recovery1 Deck failure now has a kernel scheduling witness:
+the Pure LoFi render thread was preempted for 6.000040 ms across a missing
+block's deadline while inside the SDK call. A scheduling-only helper comparison
+completed 19,480 instrument blocks without gaps and retired cleanly. The automatic
+supervisor/Rust request is a source candidate; it has not passed installed,
+tracing-disabled physical acceptance. This does not change the support posture.
+See [FC-AUDIO-001](FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses).
+
 The separate late-note-off correction passed its source regression and an
 installed physical Pure LoFi comparison on the Deck. Internal57 rejected 600
 callbacks after offset -1661; recovery1 delivered all 720 callbacks, captured

@@ -71,7 +71,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-LIFE-002](#fc-life-002--failed-launch-cleanup-and-truthful-recovery-state) | Failed launch cleanup and truthful recovery | Manager ownership/leases/results | causal | deployed | Steam Deck and Ubuntu fixtures | supported-with-workaround | Manager recovery UX |
 | [FC-MIDI-001](#fc-midi-001--recognized-expression-rejected-an-entire-native-input-callback) | Recognized expression rejected an entire native input callback | Native VST3 proxy input admission | causal in source; physical attribution open | source-fixed | Pinned SDK fixture; Push / Deck operator report only | unqualified for Push expression | Build and publish exact proxy successor; physical Push/Bitwig release check |
 | [FC-MIDI-002](#fc-midi-002--late-note-off-permanently-fails-processing) | Late note-off permanently fails processing | Native SDK signed timestamp conversion | causal in source and matched comparison | deployed | Pinned SDK regression; recovery1 Pure LoFi physical Deck comparison | qualified for this late-release recovery only | Residual timing and broader host/event qualification remain open |
-| [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | bounded | instrumentation-only | Arturia Deck and FRAGMENTS Ubuntu observations | blocked for dependable musical use | Physical continuity repair; no clean whole-session fallback established |
+| [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | one Deck render preemption attributed; other failures remain | scheduling source candidate | Arturia Deck and FRAGMENTS Ubuntu observations; controlled Deck scheduling comparison | blocked for dependable musical use | Qualify the installed repair; no clean whole-session fallback established |
 | [FC-AUDIO-002](#fc-audio-002--host-block-exceeds-the-selected-bridge-presentation-envelope) | Host block exceeds selected bridge presentation envelope | Proxy setup, selected delay, DAW audio settings | causal | accepted | FRAGMENTS / Ubuntu at Bitwig 512/48 kHz | supported-with-workaround | Actionable requested-versus-supported block message |
 | [FC-AUTO-001](#fc-auto-001--automation-refusal-collides-with-terminal-silence) | Automation refusal collides with terminal silence | Native curve admission / SDK result interpretation | causal collision; sparse-curve capability still incomplete | deployed collision correction; whole-block successor source-only | Ubuntu reference effect explicitly refuses 0x107; state still fails | blocked for the failed saved-automation journey | Deliver paired protocol-14 whole DAW blocks and repeat recall; audio gaps remain separate |
 | [FC-CAP-001](#fc-cap-001--capacity-enumeration-versus-lease-retirement-race) | Capacity scan versus lease retirement | Manager capacity ownership | causal | none | AP17 exact fixture | supported-with-workaround | Repair issue #93 |
@@ -937,11 +937,32 @@ callback admission, native worker, Windows processing, scheduler and reply path
 
 ### Understanding
 
-bounded
+One physical Deck render-thread preemption attributed; other failures remain.
 
 ### Implementation
 
-instrumentation-only
+scheduling source candidate; installed physical acceptance pending
+
+On 2026-10-02, recovery1 in Bitwig 6.1 reproduced five missing 512-frame
+Pure LoFi blocks. The retained [request and scheduler witness](../evidence/audio-recovery/2026-10-02-render-preemption-witness.json)
+places a continuous 6.000040 ms kernel preemption inside request 9072's SDK call
+and across its presentation deadline. The SDK wall interval is not DSP CPU time.
+A controlled RealtimeKit request changed only that render thread from SCHED_OTHER
+0 to SCHED_RR 5 with RESET_ON_FORK and a 200 ms RTTIME ceiling. The matched copied
+chain completed 19,480 Pure LoFi blocks and 19,104 FRAGMENTS blocks with zero
+missing frames or rejections, effective end readback and confirmed retirement.
+This short, traced helper intervention is not an installed product repair or
+dependable-musical-use qualification. FRAGMENTS stayed under SCHED_OTHER 0.
+Both whole-session recordings are retained privately; effect tails mean the
+chain recording's lack of exact silence cannot exonerate an upstream gap.
+
+The source candidate makes the bounded request from the owning supervisor via
+Rust, outside the callback, once per render-thread start. Existing PID/start
+custody and the mapped session status inode select the target. Readback or
+unavailability is retained; another policy is preserved. This is post-start
+capability acquisition, not a new readiness gate. A production comparison with
+diagnostics disabled remains required. It does not change buffers, runtime,
+affinity, the Windows host or DSP.
 
 The 2026-10-02 [audio recovery comparison](../evidence/audio-recovery/2026-10-02-late-note-off.json)
 preserves missing audio in both the earlier usable Deck pair and an internal57
