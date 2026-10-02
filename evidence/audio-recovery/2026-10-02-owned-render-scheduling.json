@@ -1,0 +1,611 @@
+{
+  "schema": 1,
+  "date": "2026-10-02",
+  "claim": "One Deck gap is attributed to render-thread preemption; owned scheduling is implemented and installed, but the candidate fails whole-session continuity.",
+  "stage_2_complete": false,
+  "beta_ready": false,
+  "source": {
+    "base_commit": "7be2a0b2ed81ff48e65f98701c8f58c77c7f472f",
+    "candidate_commit": "d5e710a243d5c990e33eb832103098ff4a14e6b3",
+    "candidate_tree": "f00ca2178f65e33730fe7385de089a6fafc8d318",
+    "frozen_beta_commit": "37b5d41e5ffc7876b4bab4ecc6e57737297233bd"
+  },
+  "fixture": {
+    "machine": "physical Steam Deck OLED Galileo",
+    "logical_cpus": 8,
+    "os": "SteamOS 3.8.16",
+    "os_build": "20260716.1",
+    "kernel": "6.16.12-valve24.5-1-neptune-616-gb2f7cfe85e45",
+    "desktop": "KDE Wayland",
+    "daw": "Bitwig Studio 6.1 Flatpak",
+    "audio_backend": "PipeWire",
+    "sample_rate": 48000,
+    "negotiated_maximum": 512,
+    "actual_frames": 512,
+    "precision": "float32",
+    "plugins": [
+      {
+        "class_id": "417274754156495350724C4650726F63",
+        "name": "Pure LoFi",
+        "vendor": "Arturia",
+        "version": "1.0.0.6121",
+        "subcategories": "Instrument|Synth",
+        "metadata_tier": "factory_3_unicode",
+        "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+        "native_sha256": "cfde3eaf63b0033e63670fb0af80394fe3075ae2f3dc7fa38f8d030e5db85feb",
+        "windows_host_sha256": "b7c9f08194b34ff814609629415c337610ef263e6b20fe0d785b4d4afab05f4e",
+        "host_source_sha256": "8215e6238e21a8b787bd63cdd56ec839493d76669b585a3d94ff9e2af3f1406a",
+        "publication": {
+          "id": "584ebd63e5b45bb577e13373328c0683",
+          "sha256": "fe9beaa0b268b4fa9e5d08b5f2c2eea9c19015fe132eebdc48a9751ab2b74c78"
+        },
+        "runner_id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+        "runner_version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+        "bridge_frames": 512,
+        "vendor_frames": 48
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "name": "Efx FRAGMENTS",
+        "vendor": "Arturia",
+        "version": "1.0.0.2925",
+        "subcategories": "Fx|Tools",
+        "metadata_tier": "factory_3_unicode",
+        "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+        "native_sha256": "af208f0842ae29c84e2b169324453bb72e36912fde3743cf96092f10a837251c",
+        "windows_host_sha256": "b7c9f08194b34ff814609629415c337610ef263e6b20fe0d785b4d4afab05f4e",
+        "host_source_sha256": "8215e6238e21a8b787bd63cdd56ec839493d76669b585a3d94ff9e2af3f1406a",
+        "publication": {
+          "id": "bc7df14beb95a6c81e2075aadb108bf8",
+          "sha256": "9fba5631f3dda899f1754edc6d8921fe714f5907151bec91b8db38c687fc32ee"
+        },
+        "runner_id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+        "runner_version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+        "bridge_frames": 512,
+        "vendor_frames": 192
+      }
+    ],
+    "workload": "Copied four-note two-bar loop at 110 BPM, Pure LoFi Intro EP and FRAGMENTS 1 Bar Glimmers with retained modified settings and Master Volume automation.",
+    "sdk_reference_difference": "The two reference runs use the independent SDK consumer and default instrument state; they are not the Bitwig saved-state workload."
+  },
+  "installed_candidate": {
+    "version": "0.12.0recovery3",
+    "signing_class": "internal-test",
+    "installer_sha256": "d6b10a350e171a33d9b55bcb5f4564a2a9d75128190514955aa791e75f528ba7",
+    "installer_bytes": 58260412,
+    "software_generation": "c838f55682d0039cb9ae41d2deaceee3ae2426bd73626867079a5407feb19c93",
+    "components": {
+      "manager": "b6a236cd8e1b8239dad302e7a72ed2ccb858ebbde9e9f21d01f61ed4fc37d079",
+      "supervisor": "7ea2dfc97dc999092ffaaf54b54f93064532b11ff325fb2b409b79c72234d145",
+      "operator_frontend": "04a0de36c738ad39d80fa4e6fd039c2372cbecf2edd15bd77edcd0b95e8c1999",
+      "host": "b7c9f08194b34ff814609629415c337610ef263e6b20fe0d785b4d4afab05f4e",
+      "source_manifest": "8215e6238e21a8b787bd63cdd56ec839493d76669b585a3d94ff9e2af3f1406a"
+    },
+    "selection_method": "Normal verified installer and Setup GUI; no native republishing.",
+    "pairing": "Both registrations match the selected software host/source pair, so both receive its supervisor. The entire registry is unchanged.",
+    "native_windows_host_runtime_and_buffers_unchanged": true,
+    "intermediate_recovery2": "Built from 89ad4a1c but never installed; not a physical result."
+  },
+  "reference": {
+    "version": "0.12.0recovery1",
+    "source_commit": "bad5c69cf5a1edbbec6a48bb29a5b734ba9b9569",
+    "components": {
+      "manager": "75e5d3e28afaa68f1324c42c1de2aa71ac5b1128b8a68601baed99d29fd5eaa8",
+      "supervisor": "7546336c6a7ef92ff18bca0c7c1d7c573e4a287991dd8690df6b7a52a913516f",
+      "operator_frontend": "fc47f61985812ba406f33c6b3ab8137621cac6fb9a9dc6eff3725795a6c01928",
+      "host": "b7c9f08194b34ff814609629415c337610ef263e6b20fe0d785b4d4afab05f4e",
+      "source_manifest": "8215e6238e21a8b787bd63cdd56ec839493d76669b585a3d94ff9e2af3f1406a"
+    },
+    "gap_free_known_working_artifact_found": false
+  },
+  "attribution": {
+    "witness": "2026-10-02-render-preemption-witness.json",
+    "request": 9072,
+    "sdk_wall_ns": 10788700,
+    "continuous_preemption_ns": 6000040,
+    "queue_wait_us": 2111,
+    "reply_wait_us": 11137,
+    "publication_late_us": 2680,
+    "deadline_crossed_while_render_preempted": true,
+    "interpretation": "Kernel switches cover the call without lost events; per-request clock bounds place the preemption entirely within SDK processing. SDK wall time is not DSP CPU time. This does not attribute all historical gaps."
+  },
+  "change": {
+    "policy": "SCHED_RR priority 5 with RESET_ON_FORK through existing RealtimeKit",
+    "scope": "Owned Windows render thread selected by PID/start custody, exact mapped session status inode and lvb-audio thread identity.",
+    "rttime_ceiling_us": 200000,
+    "post_start_best_effort": true,
+    "startup_scheduling_guarantee": false,
+    "callback_or_queue_algorithm_changed": false,
+    "new_privileges_or_system_service_settings": false,
+    "denial": "Record unavailable, preserve other policies and continue existing processing behavior.",
+    "regression": "A helper timeout racing child exit previously propagated ProcessLookupError into the owner; the focused test fails before d5e710a2 and passes after it. This unit test is not a deterministic audio-dropout reproducer."
+  },
+  "runs": [
+    {
+      "label": "reference-off",
+      "candidate": "recovery1",
+      "diagnostics_enabled": false,
+      "native_lifetimes": [
+        {
+          "plugin": "Pure LoFi",
+          "frames": 9216000,
+          "blocks": 18000,
+          "callback_rejections": 0,
+          "priming_frames": 512,
+          "underrun_frames": 512,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 1,
+          "expired_output_frames": 512,
+          "clean": true,
+          "processed_frame_duration_seconds": 192.0
+        }
+      ],
+      "dsp_after": 0,
+      "maintenance_after": 0,
+      "cleanup_confirmed": true,
+      "private_result_sha256": "d16d5e5620f829bce7c074c0bb9a6892ea6395ebac021e8e7793f4a38262f05b",
+      "private_transfer_manifest_sha256": "6940f0535c66f6d0e26bf48a5e971671ce736e27ccf1c93f9f5d8fa6be37a16e"
+    },
+    {
+      "label": "reference-trace",
+      "candidate": "recovery1",
+      "diagnostics_enabled": true,
+      "native_lifetimes": [
+        {
+          "plugin": "Pure LoFi",
+          "frames": 9216000,
+          "blocks": 18000,
+          "callback_rejections": 0,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "clean": true,
+          "processed_frame_duration_seconds": 192.0
+        }
+      ],
+      "dsp_after": 0,
+      "maintenance_after": 0,
+      "cleanup_confirmed": true,
+      "private_result_sha256": "47722317e9052277a3a6aca6273cbf22069d6c3a411dcf249ced12f51e7aefa6",
+      "private_transfer_manifest_sha256": "f5364e75fc3952a923e32e77820a194be46391740e5bafe836cddbe4571c8169"
+    },
+    {
+      "label": "bitwig-trace",
+      "candidate": "recovery1",
+      "diagnostics_enabled": true,
+      "native_lifetimes": [
+        {
+          "plugin": "FRAGMENTS",
+          "frames": 16212992,
+          "blocks": 31666,
+          "callback_rejections": 0,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "clean": true,
+          "processed_frame_duration_seconds": 337.77066666666667
+        },
+        {
+          "plugin": "Pure LoFi",
+          "frames": 16405504,
+          "blocks": 32042,
+          "callback_rejections": 0,
+          "priming_frames": 512,
+          "underrun_frames": 2048,
+          "underrun_gaps": 3,
+          "underrun_callbacks": 4,
+          "expired_output_frames": 1536,
+          "clean": true,
+          "processed_frame_duration_seconds": 341.78133333333335
+        }
+      ],
+      "dsp_after": 0,
+      "maintenance_after": 0,
+      "cleanup_confirmed": true,
+      "private_result_sha256": "9476f1136035080e1179f250ba3b268706536951511f709922f817cab808fd1b",
+      "private_transfer_manifest_sha256": "881a69fa2d910795613493bb3acb213cf850353475aa7c1335f8e014ba858113",
+      "capture_sha256": "e6c4440696d3df4c94068d819ceddb3872d8cbc631f883c057847a4445517ca2",
+      "capture": {
+        "frames": 17383424,
+        "seconds": 362.1546666666667,
+        "peak": 0.5775182843208313,
+        "nonfinite_frames": 0,
+        "zero_span_count_at_least_32_frames": 2
+      }
+    },
+    {
+      "label": "bitwig-scheduler",
+      "candidate": "recovery1",
+      "diagnostics_enabled": true,
+      "native_lifetimes": [
+        {
+          "plugin": "FRAGMENTS",
+          "frames": 10444800,
+          "blocks": 20400,
+          "callback_rejections": 0,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "clean": true,
+          "processed_frame_duration_seconds": 217.6
+        },
+        {
+          "plugin": "Pure LoFi",
+          "frames": 10636288,
+          "blocks": 20774,
+          "callback_rejections": 0,
+          "priming_frames": 512,
+          "underrun_frames": 512,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 1,
+          "expired_output_frames": 512,
+          "clean": true,
+          "processed_frame_duration_seconds": 221.58933333333334
+        }
+      ],
+      "dsp_after": 0,
+      "maintenance_after": 0,
+      "cleanup_confirmed": true,
+      "private_result_sha256": "db72ae88fc81fd31e4289e23a0eff7ebbc7302c3ff2079fa18038d35c9427b22",
+      "private_transfer_manifest_sha256": "1e6ea666895d8d54f6f2ec60417955430c371d03952fea2015cb5ef1a06d6351",
+      "capture_sha256": "c4e82ce394f0a8a9823cb47cde5b0682c047e49441e2d7aa6c739de46e6094bb"
+    },
+    {
+      "label": "bitwig-triggered",
+      "candidate": "recovery1",
+      "diagnostics_enabled": true,
+      "native_lifetimes": [
+        {
+          "plugin": "FRAGMENTS",
+          "frames": 6655488,
+          "blocks": 12999,
+          "callback_rejections": 0,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "clean": true,
+          "processed_frame_duration_seconds": 138.656
+        },
+        {
+          "plugin": "Pure LoFi",
+          "frames": 6849536,
+          "blocks": 13378,
+          "callback_rejections": 0,
+          "priming_frames": 512,
+          "underrun_frames": 2560,
+          "underrun_gaps": 2,
+          "underrun_callbacks": 5,
+          "expired_output_frames": 2560,
+          "clean": true,
+          "processed_frame_duration_seconds": 142.69866666666667
+        }
+      ],
+      "dsp_after": 0,
+      "maintenance_after": 0,
+      "cleanup_confirmed": true,
+      "private_result_sha256": "060e595e8a8e51716d5fbf8c46750ae7613476cd2d7c7fbb1765c71e7a664f97",
+      "private_transfer_manifest_sha256": "85fab14a0b3289b7f2c2cd5c67e23a57c5bd5a81b2acf165a7a57ca2370c4897",
+      "capture_sha256": "2863d413433dbf64244240c8c8d7ed4d988ec1ae6f8c9d6b982da2133aa53306",
+      "capture": {
+        "frames": 16818176,
+        "seconds": 350.3786666666667,
+        "peak": 0.5151163935661316,
+        "nonfinite_frames": 0,
+        "zero_span_count_at_least_32_frames": 1
+      }
+    },
+    {
+      "label": "bitwig-realtime",
+      "candidate": "recovery1",
+      "diagnostics_enabled": true,
+      "native_lifetimes": [
+        {
+          "plugin": "Pure LoFi",
+          "frames": 9973760,
+          "blocks": 19480,
+          "callback_rejections": 0,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "clean": true,
+          "processed_frame_duration_seconds": 207.78666666666666
+        },
+        {
+          "plugin": "FRAGMENTS",
+          "frames": 9781248,
+          "blocks": 19104,
+          "callback_rejections": 0,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "clean": true,
+          "processed_frame_duration_seconds": 203.776
+        }
+      ],
+      "dsp_after": 0,
+      "maintenance_after": 0,
+      "cleanup_confirmed": true,
+      "private_result_sha256": "9dcdc0e6d9887ba99b2942cfe7e7d6dcec75a6156f23cc5c0bdaa47b053856f2",
+      "private_transfer_manifest_sha256": "b261068c00e88cd963d6e7b50016738ce92f788019fa4ad00e5484658eefb702",
+      "capture_sha256": "25ed6bc34922514a006dcdc83611e5e94ac5788731d4ab8d7f940619e5a34747",
+      "capture": {
+        "frames": 20668416,
+        "seconds": 430.592,
+        "peak": 0.6016307473182678,
+        "nonfinite_frames": 0,
+        "zero_span_count_at_least_32_frames": 2
+      }
+    },
+    {
+      "label": "bitwig-product",
+      "candidate": "recovery3",
+      "diagnostics_enabled": false,
+      "native_lifetimes": [
+        {
+          "plugin": "FRAGMENTS",
+          "frames": 20319744,
+          "blocks": 39687,
+          "callback_rejections": 0,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "clean": true,
+          "processed_frame_duration_seconds": 423.328
+        },
+        {
+          "plugin": "Pure LoFi",
+          "frames": 20518912,
+          "blocks": 40076,
+          "callback_rejections": 0,
+          "priming_frames": 512,
+          "underrun_frames": 512,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 1,
+          "expired_output_frames": 0,
+          "clean": true,
+          "processed_frame_duration_seconds": 427.4773333333333
+        }
+      ],
+      "dsp_after": 0,
+      "maintenance_after": 0,
+      "cleanup_confirmed": true,
+      "private_result_sha256": "0ab2542870972998b8560cde8e3d4c1432c90dc689935580b196b4fe60308386",
+      "private_transfer_manifest_sha256": "da9d8ed031e8d810d3f01b9cb4e0167e3fefea7b1ac825cd1c796c8564252a8e",
+      "capture_sha256": "a418ae0f8516b592f00b2aa0525ad5bd51f1d5d53c451c00d8bd6ec0204fb019",
+      "capture": {
+        "frames": 23797760,
+        "seconds": 495.7866666666667,
+        "peak": 0.5594635605812073,
+        "nonfinite_frames": 0,
+        "zero_span_count_at_least_32_frames": 3
+      },
+      "automatic_scheduling": [
+        {
+          "plugin": "FRAGMENTS",
+          "requests": 1,
+          "discarded": 0,
+          "records": [
+            {
+              "before": {
+                "policy": 0,
+                "priority": 0
+              },
+              "effective": {
+                "policy": 1073741826,
+                "priority": 5
+              },
+              "outcome": "effective",
+              "requested_priority": 5,
+              "rttime_hard_us": 200000,
+              "rttime_soft_us": 200000
+            }
+          ],
+          "cleanup_confirmed": true,
+          "transport_retired": true
+        },
+        {
+          "plugin": "Pure LoFi",
+          "requests": 1,
+          "discarded": 0,
+          "records": [
+            {
+              "before": {
+                "policy": 0,
+                "priority": 0
+              },
+              "effective": {
+                "policy": 1073741826,
+                "priority": 5
+              },
+              "outcome": "effective",
+              "requested_priority": 5,
+              "rttime_hard_us": 200000,
+              "rttime_soft_us": 200000
+            }
+          ],
+          "cleanup_confirmed": true,
+          "transport_retired": true
+        }
+      ]
+    },
+    {
+      "label": "bitwig-product-lifecycle",
+      "candidate": "recovery3",
+      "diagnostics_enabled": true,
+      "native_lifetimes": [
+        {
+          "plugin": "Pure LoFi",
+          "frames": 14247936,
+          "blocks": 27828,
+          "callback_rejections": 0,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "clean": true,
+          "processed_frame_duration_seconds": 296.832
+        },
+        {
+          "plugin": "FRAGMENTS",
+          "frames": 14046720,
+          "blocks": 27435,
+          "callback_rejections": 0,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "clean": true,
+          "processed_frame_duration_seconds": 292.64
+        }
+      ],
+      "dsp_after": 0,
+      "maintenance_after": 0,
+      "cleanup_confirmed": true,
+      "private_result_sha256": "b39581707d977ed5a04ff4dcdb74e8bda8bd88ca6b32b1b009bbe5bf2d43490f",
+      "private_transfer_manifest_sha256": "b52b4050b7a4eade2a0737c7ce21b1b8342099dd11f3491951fde33ee653b48a",
+      "capture_sha256": "abdb6b11e269393931c0ed356b71f6040b6e812d80d0d77a3150b5f57a2d0a63",
+      "capture": {
+        "frames": 18980864,
+        "seconds": 395.43466666666666,
+        "peak": 0.5843167304992676,
+        "nonfinite_frames": 0,
+        "zero_span_count_at_least_32_frames": 51
+      },
+      "automatic_scheduling": [
+        {
+          "plugin": "Pure LoFi",
+          "requests": 1,
+          "discarded": 0,
+          "records": [
+            {
+              "before": {
+                "policy": 0,
+                "priority": 0
+              },
+              "effective": {
+                "policy": 1073741826,
+                "priority": 5
+              },
+              "outcome": "effective",
+              "requested_priority": 5,
+              "rttime_hard_us": 200000,
+              "rttime_soft_us": 200000
+            }
+          ],
+          "cleanup_confirmed": true,
+          "transport_retired": true
+        },
+        {
+          "plugin": "FRAGMENTS",
+          "requests": 1,
+          "discarded": 0,
+          "records": [
+            {
+              "before": {
+                "policy": 0,
+                "priority": 0
+              },
+              "effective": {
+                "policy": 1073741826,
+                "priority": 5
+              },
+              "outcome": "effective",
+              "requested_priority": 5,
+              "rttime_hard_us": 200000,
+              "rttime_soft_us": 200000
+            }
+          ],
+          "cleanup_confirmed": true,
+          "transport_retired": true
+        }
+      ]
+    }
+  ],
+  "physical_interpretation": {
+    "manual_intervention": "Only Pure LoFi was promoted manually; FRAGMENTS stayed SCHED_OTHER. Both traced lifetimes were clean. This was not installed acceptance.",
+    "failed_untraced_product": "Both render threads automatically reached RR 5. Pure LoFi nevertheless lost one 512-frame block; FRAGMENTS lost none. The whole run fails.",
+    "gap_window_monotonic_ns": [
+      11692910627314,
+      11720523966924
+    ],
+    "gap_window_meaning": "After the last zero-gap live read and before processing_stopped; stop, save and close occurred in this interval. No one action is established as the cause.",
+    "declared_playback_minimum_seconds": 360,
+    "observed_playback_before_last_live_read_seconds": 367.392489389,
+    "capture_anomaly": {
+      "start_frame": 4651008,
+      "frames": 512,
+      "seconds_from_capture_start": 96.896,
+      "interpretation": "Exact stereo silence during playback while later bridge-counter reads were still zero. Origin and intended-silence status remain unestablished; not attributed to the scheduling defect."
+    },
+    "lifecycle_repeat": "Same saved project reopened with new render threads, automatic RR 5 readback, two play/stop cycles, stopped saves and a save during playback. Both complete traced lifetimes had zero missing frames and retired. This does not erase the untraced failure.",
+    "capture_limitations": "Full speaker-monitor recordings retained. Effect tails can mask upstream loss; lack of exact silence does not prove continuity. The lifecycle recording includes intentional stopped transport and decaying tails, so zero spans are not all dropouts.",
+    "scheduler_coverage_failure": "The earlier bitwig-scheduler gap occurred after its perf and WAV coverage ended; it is retained without scheduler attribution.",
+    "timing_tails": "Traced request summaries are retained privately. Full callback-duration tails were not collected with diagnostics off.",
+    "unperformed": [
+      "30-minute declared interaction gate",
+      "longer soak",
+      "unique-state recall",
+      "reboot recall",
+      "lower blocks",
+      "reconfiguration",
+      "other platforms",
+      "yabridge comparison"
+    ]
+  },
+  "validation": {
+    "linux_rust_scheduling_tests": 4,
+    "linux_runtime_tests_before_race_fix": 119,
+    "linux_final_runtime_focused_tests": 4,
+    "timing_attribution_tests": 4,
+    "manager": "287 passed, 2 failed before execution because builder /usr/bin/python3 was absent, 2 ignored. After correcting only the builder Python path, both failed tests passed. No single all-green full rerun is claimed.",
+    "private_logs": {
+      "scheduling-rust-tests.log": "02a7f2cd3603f6cf0d264c95de23043896c524dc1dd980e3ff88c4a50522e9f3",
+      "scheduling-runtime-tests.log": "9b17711fcfc3a0e8e82e2c8dc7c1e3be77a5abba6158f9a63a7f9f761bd2ca60",
+      "scheduling-manager-tests.log": "7144dc6617a34a19670bea213e5c8fbfb75abd0f3ab747e8cdb47a8bee769d90",
+      "scheduling-manager-supervisor-retest.log": "43be00f63ec613f1df9f66885187d16cd486220c4966f0497e2d681d16209384",
+      "scheduling-manager-supervisor-pythonpath.log": "2a5bb614b83b32b8a8e73ee822bd9fc8bb84edb4365670669e0f6745d2aad4d5",
+      "scheduling-helper-race-red.log": "32659463a45a459603c5c787aa2c45751ab41ffa5803b712e85b3ec0d2c04063",
+      "scheduling-helper-race-green.log": "5d980410b9412be7b3990beced3c216b3be266d5e2b85ee70403649ebe14c46f",
+      "scheduling-final-runtime-focused.log": "0b30c76334e5ad4ed69e66d137db90320ecb8d759f06da3df5388208ba0c0714"
+    }
+  },
+  "next_bounded_work": "Capture the remaining untraced gap with native worker, Windows render and DAW callback coverage through stop/save/close; distinguish late admission, control occupancy, worker scheduling and reply publication before changing another mechanism. Separately qualify the unexplained monitor silence against a native reference.",
+  "custody": {
+    "private_directory_basename": "deadline-recovery-20261002",
+    "raw_audio_vendor_state_and_process_details_committed": false,
+    "original_project_sha256": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+    "reference_project_sha256": "bbedf47ce92f4c3962e8b2a10b5fa5513ed4a49d15159b80e8aa8af1e666030f",
+    "original_and_reference_unchanged": true,
+    "resource_posture": "One builder limited to one CPU, shares 128, 2.5 GiB RAM, no additional swap, 256 PIDs. Builder now stopped; Audiobookshelf running."
+  },
+  "rollback": {
+    "exact_software_restored": true,
+    "entire_registry_unchanged": true,
+    "manager_sha256": "75e5d3e28afaa68f1324c42c1de2aa71ac5b1128b8a68601baed99d29fd5eaa8",
+    "supervisor_sha256": "7546336c6a7ef92ff18bca0c7c1d7c573e4a287991dd8690df6b7a52a913516f",
+    "generation": "154de2fe3b2051056036940653d4cbd200ad5a2b7267cbd0ebe0d2aee14b9b41",
+    "dsp": 0,
+    "maintenance": 0,
+    "cleanup_confirmed": true,
+    "tracing_disabled": true,
+    "bitwig_closed": true,
+    "recorders_stopped": true,
+    "rollback_method": "normal Setup and Updates GUI"
+  }
+}

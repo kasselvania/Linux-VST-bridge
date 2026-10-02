@@ -29,7 +29,32 @@ to existing PID/start custody, the exact mapped session status inode and the
 named render thread. It preserves other policies and records actual readback or
 unavailability. This is post-start capability acquisition, not a new processing
 readiness gate or a promise that the policy was effective from the first sample.
-Source tests pass; installed acceptance of this repair remains unperformed.
+The exact source `d5e710a243d5c990e33eb832103098ff4a14e6b3`, tree
+`f00ca2178f65e33730fe7385de089a6fafc8d318`, was built and installed as
+`0.12.0recovery3`. Both existing native publications and the Windows host/runtime
+remained unchanged. The selected application's matching host/source pair routed
+both sessions through the new supervisor. Actual render-thread readback confirmed
+RR 5 with RESET_ON_FORK automatically in two separate project lifetimes.
+
+**The installed candidate fails whole-session continuity.** In the untraced
+interaction run Pure LoFi lost 512 frames in one gap over 40,076 blocks;
+FRAGMENTS lost none over 39,687 blocks. The gap arose after the final clean live
+read and before processing stopped, during the stop/save/close interval; the
+responsible operation is not established. The whole recording also contains an
+unexplained 512-frame silent span during playback while later bridge counters
+were still clean. Do not attribute that separate observation to this bridge gap.
+A traced reopen with two play/stop cycles and saves completed 27,828 / 27,435
+blocks without gaps and retired cleanly. It does not erase the failed run.
+
+The [sanitized result](evidence/audio-recovery/2026-10-02-owned-render-scheduling.json)
+retains every comparison, source checks, exact artifacts and limitations. Normal
+Setup and Updates controls restored the exact recovery1 application afterward;
+the entire registry, original project and reference copy are unchanged. The
+candidate and full private captures remain preserved. The builder is stopped.
+Attribution and an installed scheduling capability are demonstrated; the primary
+continuity-repair claim and stage 2 remain open. Next capture must cover the native
+worker, Windows render and DAW callback through the remaining late-session gap,
+and separately distinguish the monitor silence from native-reference behavior.
 
 Scope: the actual callback, queue, worker, transport, Windows render and
 presentation path; bounded preallocated telemetry; independent SDK consumer;

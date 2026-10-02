@@ -21,8 +21,15 @@ A subsequent recovery1 Deck failure now has a kernel scheduling witness:
 the Pure LoFi render thread was preempted for 6.000040 ms across a missing
 block's deadline while inside the SDK call. A scheduling-only helper comparison
 completed 19,480 instrument blocks without gaps and retired cleanly. The automatic
-supervisor/Rust request is a source candidate; it has not passed installed,
-tracing-disabled physical acceptance. This does not change the support posture.
+supervisor/Rust request was then installed as recovery3 and actual RR 5 readback
+was verified for both render threads. Its tracing-disabled whole lifetime still
+lost 512 Pure LoFi frames over 40,076 blocks; FRAGMENTS lost none over 39,687.
+A later traced reopen/lifecycle repetition had no bridge gaps but does not erase
+that failure. A separate unexplained 512-frame silent span exists in the monitor
+recording while bridge counters were clean. Exact recovery1 application selection
+was restored through normal controls; all publications remain unchanged. The
+[retained result](../evidence/audio-recovery/2026-10-02-owned-render-scheduling.json)
+does not change the blocked dependable-audio support posture.
 See [FC-AUDIO-001](FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses).
 
 The separate late-note-off correction passed its source regression and an
