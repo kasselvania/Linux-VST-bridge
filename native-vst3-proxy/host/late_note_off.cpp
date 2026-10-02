@@ -38,6 +38,12 @@ int main(int argc,char** argv){try{
  need(bool(controller),"controller");ok(controller->initialize(host),"controller initialize");
  FUnknownPtr<IConnectionPoint> cp(component),cc(controller);need(cp&&cc,"connections");
  ok(cp->connect(cc),"component connect");ok(cc->connect(cp),"controller connect");
+ struct Retirement {
+  IComponent* component;IEditController* controller;IAudioProcessor* processor;
+  IConnectionPoint* cp;IConnectionPoint* cc;bool pending=true;
+  ~Retirement(){if(pending){processor->setProcessing(false);component->setActive(false);
+   cc->disconnect(cp);cp->disconnect(cc);component->terminate();controller->terminate();}}
+ } retirement{component,controller,processor,cp,cc};
  need(component->getBusCount(kAudio,kInput)==0&&component->getBusCount(kAudio,kOutput)==1&&
       component->getBusCount(kEvent,kInput)==1,"instrument buses");
  LVBState::Stream initial;ok(component->getState(&initial),"initial state");
@@ -49,7 +55,9 @@ int main(int argc,char** argv){try{
  ok(component->activateBus(kEvent,kInput,0,true),"notes active");
  ok(component->activateBus(kAudio,kOutput,0,true),"output active");
  ok(component->setActive(true),"activate");
- need(processor->getLatencySamples()==512,"unchanged 512-frame bridge delay");
+ // The runner verifies selected bridge delay independently. The SDK reports
+ // bridge plus vendor latency; a commercial instrument need not report 512.
+ const auto reportedLatency=processor->getLatencySamples();
  std::vector<std::array<float,2>> samples(size_t(count*frames));
  struct Row{tresult result{};uint64_t started{},duration{};};std::array<Row,count> rows{};
  std::exception_ptr failure;
@@ -79,9 +87,11 @@ int main(int argc,char** argv){try{
  if(failure)std::rethrow_exception(failure);
  LVBState::Stream after;const auto state=component->getState(&after);
  const auto inactive=component->setActive(false);
- ok(cc->disconnect(cp),"controller disconnect");ok(cp->disconnect(cc),"component disconnect");
- cc=nullptr;cp=nullptr;const auto retired=component->terminate();processor=nullptr;component=nullptr;
- ok(controller->terminate(),"controller terminate");controller=nullptr;
+ const auto disconnectController=cc->disconnect(cp),disconnectComponent=cp->disconnect(cc);
+ const auto retired=component->terminate(),controllerRetired=controller->terminate();
+ retirement.pending=false;cc=nullptr;cp=nullptr;processor=nullptr;component=nullptr;controller=nullptr;
+ ok(disconnectController,"controller disconnect");ok(disconnectComponent,"component disconnect");
+ ok(controllerRetired,"controller terminate");
  std::ofstream raw(prefix+".f32le",std::ios::binary);
  raw.write(reinterpret_cast<const char*>(samples.data()),std::streamsize(samples.size()*sizeof(samples[0])));
  raw.flush();need(bool(raw),"captured output write");
@@ -89,7 +99,7 @@ int main(int argc,char** argv){try{
  for(const auto&r:rows)rejected+=r.result!=kResultOk;
  for(const auto&s:samples)for(float v:s)nonfinite+=!std::isfinite(v);
  std::cout<<"{\"event\":\"late_note_off\",\"offset\":"<<offset<<",\"frames\":"<<frames
-  <<",\"blocks\":"<<count<<",\"native_processor_id\":\""<<classes[0].ID().toString()
+  <<",\"blocks\":"<<count<<",\"reported_latency_samples\":"<<reportedLatency<<",\"native_processor_id\":\""<<classes[0].ID().toString()
   <<"\",\"native_controller_id\":\""<<classes[1].ID().toString()<<"\",\"rejected_callbacks\":"<<rejected
   <<",\"nonfinite_samples\":"<<nonfinite<<",\"state_result\":"<<state<<",\"state_bytes\":"<<after.bytes.size()
   <<",\"deactivate_result\":"<<inactive<<",\"terminate_result\":"<<retired<<",\"timing\":[";
