@@ -1,0 +1,818 @@
+{
+  "schema": 1,
+  "date": "2026-10-02",
+  "claim": "Recover a negative host note-off at the start of a nonempty block without permanent processing refusal. Physical SDK output comparison passed for the exact Pure LoFi fixture.",
+  "status": {
+    "late_note_off": "source_regression_and_physical_installed_comparison_passed",
+    "dependable_musical_use": "unqualified_with_retained_deadline_failures",
+    "beta": "not_ready",
+    "pr_200": "frozen_draft"
+  },
+  "source": {
+    "base_commit": "37b5d41e5ffc7876b4bab4ecc6e57737297233bd",
+    "base_tree": "d4ce205d5a3722888d35ac5e0116b3018bca2a16",
+    "repair_commit": "2e159ca7dd69e00e08e75c5d70bdccdae60cfc68",
+    "tested_commit": "bad5c69cf5a1edbbec6a48bb29a5b734ba9b9569",
+    "tested_tree": "0edcc1b36cd4309785d7e37f91e567b884dd5bfd",
+    "branch": "codex/audio-recovery",
+    "production_changed_files": [
+      "native-vst3-proxy/source/processor.cpp",
+      "native-vst3-proxy/source/processor.h"
+    ]
+  },
+  "preservation": {
+    "outside_checkout": true,
+    "private_parent": "Linux-VST-Bridge-Recovery",
+    "initial_directory": "preserved-20261002T155928Z",
+    "initial_file_count": 191,
+    "initial_bytes": 258171037,
+    "all_initial_sha256_and_mtime_ns_reverified": true,
+    "initial_manifest_sha256": "be9d15314048575cf5d199713fad6c11748995ba64203be2be5cd07d67fa3f8c",
+    "git_bundle_sha256": "f42ee285d0e57dffc8721776a68f4042450ce8aebdd1f65f218185dd940088a5",
+    "uncommitted_internal57_sha256": "2130a8b5f5d0eeae269c456ced0c5cf0072645fed59b54697a5631b5d2062678",
+    "working_directory": "recovery-20261002",
+    "installed_artifact_archive_files": 39,
+    "installed_artifact_archive_bytes": 81674240,
+    "installed_artifact_archive_sha256": "1b95305a34d5c712bdaa513e5a9701d299bf1424b5eddb390bfcaef4118da16a",
+    "vendor_installers_modules_prefixes_and_licenses_exported": false,
+    "private_audio_and_reports_retained": true,
+    "reset_clean_or_stash_used": false
+  },
+  "fixture": {
+    "hardware": "Steam Deck OLED / Galileo, 8 logical CPUs",
+    "os": "SteamOS 3.8.16, build 20260716.1",
+    "kernel": "6.16.12-valve24.5-1-neptune-616-gb2f7cfe85e45",
+    "desktop": "KDE Wayland",
+    "bitwig": "6.1 Flatpak",
+    "runtime": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+    "plugins": {
+      "Pure LoFi": "1.0.0.6121",
+      "FRAGMENTS": "1.0.0.2925"
+    },
+    "sample_rate_hz": 48000,
+    "maximum_host_frames": 512,
+    "actual_host_frames": 512,
+    "precision": "float32",
+    "bridge_added_frames": 512,
+    "vendor_latency_frames": {
+      "Pure LoFi": 48,
+      "FRAGMENTS": 192
+    },
+    "reported_total_latency_frames": {
+      "Pure LoFi": 560,
+      "FRAGMENTS": 704
+    },
+    "observed_native_and_windows_render_thread_policy": "SCHED_OTHER, priority 0",
+    "scheduling_policy_changed": false,
+    "audio_trace_enabled": false,
+    "unrun_original_1024_setting": "preserved; explicitly selected 512 for comparison, not treated as a successful 1024 result"
+  },
+  "reference": {
+    "qualification": "Earlier usable exact native/Windows pairs, not a gap-free reference or known good beta. Replayed through the internal57 manager; an older manager was preserved but not selected. This is not replay of every component of a historically qualified complete installation.",
+    "native_source_commit": "54d7b2b78ca301b126e4eb94553fe426989835ff",
+    "manager_sha256": "881ceeab47575d39b8aa63538f954b280a585c3bdc1802d081024053f5d43676",
+    "historical_evidence": [
+      "AP17",
+      "internal37",
+      "internal38",
+      "internal39"
+    ],
+    "pure": {
+      "publication": "51f241c4da508aa1fbbc9d6d172eb123",
+      "publication_sha256": "d5832a36f59c63ef153e90334b31cc0aacaccb361de5569426ce0f450dce7853",
+      "native_sha256": "ce7531e4c76e53e85abe1153354fac890a6ba641b3b6333f5891a25f49843d59"
+    },
+    "fragments": {
+      "publication": "e340c6f8ad5ca494d2fb477214c9937e",
+      "publication_sha256": "1bc9d3769afd8dbf7e6f84b7aa495b2c7ee04e48d9451929e63d413f6abde847",
+      "native_sha256": "11615d88cb253e22ca6f6beecbe946bdb5efd46882d091b65f9c461cd6757428"
+    },
+    "windows_host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "host_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "host_source_commit": null,
+    "selection": "ordinary paired publication rollback through fresh enabled product offers",
+    "whole_session_results": [
+      {
+        "session": "e494481f8963f6dde279d115993196e6",
+        "plugin": "Pure LoFi",
+        "native_report_sha256": "7be10f6fd9d247fb4f5382d1f5d2845fe54dd7bfdf64ca94ae7dd88f94e08cb5",
+        "supervisor_report_sha256": "32bd536f9f0ab64bac07660502d7f45e77e5b99443756aee69ded311a37b2256",
+        "lifecycle": {
+          "frames": 14543360,
+          "blocks": 28405,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "priming_frames": 512,
+          "underrun_frames": 8448,
+          "underrun_gaps": 25,
+          "underrun_callbacks": 28,
+          "expired_output_frames": 8448,
+          "delivered_frames": 14534400,
+          "clean": true
+        },
+        "late_note_offs": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "raw_exit": -15
+      },
+      {
+        "session": "dd2953a95ea6d3bab6ec0b338c419733",
+        "plugin": "FRAGMENTS",
+        "native_report_sha256": "50593806595b26d2963b60badf58615c3edae892d3e32d4f07c1233db5b6c940",
+        "supervisor_report_sha256": "acc2ab105d7547ce6bf2374656533968dc2734b5c06e3ff3b2dd3d8dd3c7ba5b",
+        "lifecycle": {
+          "frames": 14338048,
+          "blocks": 28004,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "priming_frames": 512,
+          "underrun_frames": 2304,
+          "underrun_gaps": 4,
+          "underrun_callbacks": 6,
+          "expired_output_frames": 2304,
+          "delivered_frames": 14335232,
+          "clean": true
+        },
+        "late_note_offs": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "raw_exit": -15
+      },
+      {
+        "session": "58e9d14fb8702f2fa87814fdd2db3f75",
+        "plugin": "Pure LoFi",
+        "native_report_sha256": "d9599ed98c845bbe69bcccec4bcb9391882d93580ef361f9abe42696914c16d8",
+        "supervisor_report_sha256": "d4f123427ae49bc00fd031c72ae0f4477ad3a4fab6e4841e3e708caa03c26de7",
+        "lifecycle": {
+          "frames": 8501248,
+          "blocks": 16604,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "priming_frames": 512,
+          "underrun_frames": 3328,
+          "underrun_gaps": 13,
+          "underrun_callbacks": 13,
+          "expired_output_frames": 3072,
+          "delivered_frames": 8497408,
+          "clean": true
+        },
+        "late_note_offs": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "raw_exit": -15
+      },
+      {
+        "session": "c5bb3425ddb705db404b43c673466604",
+        "plugin": "FRAGMENTS",
+        "native_report_sha256": "def053af648b109456eee7c7da4df715b8e29082320aab495f3a7177769d92c4",
+        "supervisor_report_sha256": "664081508cc5a5fdf4fecccc81ac7979dc60fa1c83b808c1d6fc1efb9bcbd882",
+        "lifecycle": {
+          "frames": 8293376,
+          "blocks": 16198,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "priming_frames": 512,
+          "underrun_frames": 1024,
+          "underrun_gaps": 2,
+          "underrun_callbacks": 2,
+          "expired_output_frames": 1024,
+          "delivered_frames": 8291840,
+          "clean": true
+        },
+        "late_note_offs": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "raw_exit": -15
+      }
+    ],
+    "output_capture_sha256": "19bf1c59b257a18e8b6f0c8aa6dbd028200157c9974afea918e82c04a1f61499",
+    "captured_exact_zero_span_frames": 512,
+    "silence_intent_independently_excluded": false
+  },
+  "internal57": {
+    "package_sha256": "dc91bcacb7691e21bb98ed32b8079919ac18cb7d871b7be4e3fcad79ce057e97",
+    "manager_generation": "fee513221113eb8005ec887b4d49a3aabd3bd6f9b135790f9be781d9dd914d2b",
+    "manager_sha256": "881ceeab47575d39b8aa63538f954b280a585c3bdc1802d081024053f5d43676",
+    "pure": {
+      "class_id": "417274754156495350724C4650726F63",
+      "publication": {
+        "id": "f6179758e77c5a8d64187d0fd6c64d74",
+        "sha256": "63f8a067bef9e7f998cfc92383bc327c1b583748c264f191d62e20bf77c3c382"
+      },
+      "native_sha256": "a891d4d7856d75dc8b72b66bf3db818cee62f1a6a3333914ab11e94d6cff1748",
+      "windows_host_sha256": "b7c9f08194b34ff814609629415c337610ef263e6b20fe0d785b4d4afab05f4e",
+      "host_source_sha256": "8215e6238e21a8b787bd63cdd56ec839493d76669b585a3d94ff9e2af3f1406a",
+      "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636"
+    },
+    "fragments": {
+      "class_id": "41727475415649536772616E50726F63",
+      "publication": {
+        "id": "bc7df14beb95a6c81e2075aadb108bf8",
+        "sha256": "9fba5631f3dda899f1754edc6d8921fe714f5907151bec91b8db38c687fc32ee"
+      },
+      "native_sha256": "af208f0842ae29c84e2b169324453bb72e36912fde3743cf96092f10a837251c",
+      "windows_host_sha256": "b7c9f08194b34ff814609629415c337610ef263e6b20fe0d785b4d4afab05f4e",
+      "host_source_sha256": "8215e6238e21a8b787bd63cdd56ec839493d76669b585a3d94ff9e2af3f1406a",
+      "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+    }
+  },
+  "recovery1": {
+    "package_version": "0.12.0recovery1",
+    "package_sha256": "3efa81c760fbf8dc271f7241a763c933b0cbe89e9320d3b388d0aa808656ca28",
+    "release_manifest_sha256": "91cfee6fb4866bf89061fe332188c13739834ad5d6ad9e1b2026c68ffb924b31",
+    "software_generation": "154de2fe3b2051056036940653d4cbd200ad5a2b7267cbd0ebe0d2aee14b9b41",
+    "manager_sha256": "75e5d3e28afaa68f1324c42c1de2aa71ac5b1128b8a68601baed99d29fd5eaa8",
+    "frontend_sha256": "fc47f61985812ba406f33c6b3ab8137621cac6fb9a9dc6eff3725795a6c01928",
+    "kit_sha256": "a12294f19e5c0b7ce4fa569a22f72b909381e9e6b66512c3e8d3e1e944bc0b27",
+    "pure": {
+      "class_id": "417274754156495350724C4650726F63",
+      "publication": {
+        "id": "584ebd63e5b45bb577e13373328c0683",
+        "sha256": "fe9beaa0b268b4fa9e5d08b5f2c2eea9c19015fe132eebdc48a9751ab2b74c78"
+      },
+      "native_sha256": "cfde3eaf63b0033e63670fb0af80394fe3075ae2f3dc7fa38f8d030e5db85feb",
+      "windows_host_sha256": "b7c9f08194b34ff814609629415c337610ef263e6b20fe0d785b4d4afab05f4e",
+      "host_source_sha256": "8215e6238e21a8b787bd63cdd56ec839493d76669b585a3d94ff9e2af3f1406a",
+      "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636"
+    },
+    "fragments": {
+      "class_id": "41727475415649536772616E50726F63",
+      "publication": {
+        "id": "bc7df14beb95a6c81e2075aadb108bf8",
+        "sha256": "9fba5631f3dda899f1754edc6d8921fe714f5907151bec91b8db38c687fc32ee"
+      },
+      "native_sha256": "af208f0842ae29c84e2b169324453bb72e36912fde3743cf96092f10a837251c",
+      "windows_host_sha256": "b7c9f08194b34ff814609629415c337610ef263e6b20fe0d785b4d4afab05f4e",
+      "host_source_sha256": "8215e6238e21a8b787bd63cdd56ec839493d76669b585a3d94ff9e2af3f1406a",
+      "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+    },
+    "fragments_republished": false,
+    "all_other_registered_classes_unchanged": true,
+    "delivery": "GUI internal-test signed installer, normal service stop/select/start; fresh product inspection, preparation and experimental Pure LoFi replacement",
+    "windows_host_bytes_unchanged": true,
+    "selected_runtime_identity_unchanged": true,
+    "manager_frontend_rust_source_unchanged": true,
+    "rebuilt_binary_identity_caveat": "Manager, frontend and Rust static library were rebuilt and are not byte-identical. Their source is unchanged. Windows host and pinned runtime are unchanged."
+  },
+  "defect": {
+    "witness": "evidence/self-service-delivery/internal56-jack-audio-and-save-failure.json",
+    "sdk_offset": -1661,
+    "old_unsigned_offset": 4294965635,
+    "wire_refusal": 258,
+    "old_effect": "Processor enters Failed; later audio and state capture rejected.",
+    "repair": "For a negative-timestamp note-off in a nonempty block only, preserve note fields and send offset zero. Count normalization in bounded atomic telemetry, reported at termination.",
+    "preserved": "Strict wire validation, other invalid-event policy, queue epochs, ownership, runtime and scheduler.",
+    "not_established": "Why Ardour supplied the negative timestamp; why earlier requests missed presentation deadlines."
+  },
+  "source_validation": {
+    "red": "ap18-auxiliary-input fails on original SDK boundary at assertion result==kResultOk && effects==0",
+    "green": "Same SDK callback with -1661 and -1 passes, subsequent valid processing passes, zero callback audit effects, late_note_offs=2",
+    "native_tests_passed": 8,
+    "native_tests_unrun": [
+      "Two X11 panel tests: builder lacks xvfb-run"
+    ],
+    "rust_event_tests_passed": 1,
+    "rust_event_tests_filtered": 10,
+    "sdk_commit": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "whole_runtime_suite": "Not rerun; prior two cleanup failures remain open.",
+    "logs": {
+      "red-focused-step2.log": "fa0e52a5f056c7e900d572f04035e47a61e83d015c1f7c284344a1815adde54b",
+      "candidate-validation-2.log": "0d03ec986889f52b3fe91cfc548bdb617ba111323ea8fe1bafc948ddcf310f48",
+      "candidate-validation-3.log": "38c9b2ce651d49711e0b6183ce6d423959636587e6fc61c03a913e500ba1d14e"
+    }
+  },
+  "physical_sdk_comparison": {
+    "host_sha256": "edf99be29fe0507a629dd9ef4b500c1c8d06486ca7dcd286f85fc577b843369b",
+    "source": "native-vst3-proxy/host/late_note_off.cpp",
+    "format": "720 paced callbacks, 512 stereo float32 frames per callback at 48000 Hz; entire 7.68 seconds retained per run",
+    "matching_conditions": "Both final internal57 and recovery1 comparisons used KDE Wayland and the same updated Sunshine; same module, pinned runtime, host, settings and default state.",
+    "only_input_difference": "First note release offset: 0 versus -1661. Fresh instance per run.",
+    "measurement_windows_blocks_half_open": {
+      "first_note": [
+        32,
+        100
+      ],
+      "after_first_release": [
+        256,
+        300
+      ],
+      "second_note": [
+        384,
+        456
+      ],
+      "after_second_release": [
+        640,
+        700
+      ]
+    },
+    "acceptance": "Repaired late input releases the first voice, delivers the later note, preserves successful subsequent callbacks and state capture, and retires the exact owned process. Passed.",
+    "runs": [
+      {
+        "artifact": "internal57-note-wayland",
+        "input_offset": 0,
+        "sample_frames": 368640,
+        "capture_sha256": "7a2b5680a522ae3de10249a2607c8a5699dbe1e105b2deede95d0fcdfa00ec9a",
+        "capture_file": "internal57-note-wayland-control.f32le",
+        "nonfinite_samples": 0,
+        "first_note_rms": 0.03788982421301946,
+        "second_note_rms": 0.044471517553883545,
+        "second_note_nonzero_samples": 73728,
+        "post_first_release_rms": 0.0018029282733117921,
+        "post_second_release_rms": 0.0010334572371791537,
+        "rejected_callbacks": 0,
+        "callback_ns": {
+          "p50": 20510,
+          "p99": 30680,
+          "max": 57991
+        },
+        "state_result": 0,
+        "state_envelope_bytes": 196942,
+        "terminate_result": 0,
+        "native_report": {
+          "frames": 368640,
+          "blocks": 720,
+          "callback_rejections": 0,
+          "late_note_offs": null,
+          "rejected_silent_frames": 0,
+          "underrun_frames": 1024,
+          "underrun_gaps": 1,
+          "clean": true
+        },
+        "process_exit": 0,
+        "retirement": [
+          {
+            "session": "6b88ef583d920403eb115f92fb743b9a",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "raw_exit": -15
+          }
+        ],
+        "capacity_after": {
+          "dsp": 0,
+          "maintenance": 0,
+          "cleanup_unconfirmed": false
+        }
+      },
+      {
+        "artifact": "internal57-note-wayland",
+        "input_offset": -1661,
+        "sample_frames": 368640,
+        "capture_sha256": "6aeea671baed6af7a98c031eba5eca4d3e4f19145fafc225e37418bc2b42899d",
+        "capture_file": "internal57-note-wayland-late.f32le",
+        "nonfinite_samples": 0,
+        "first_note_rms": 0.03773286488995621,
+        "second_note_rms": 0.0,
+        "second_note_nonzero_samples": 0,
+        "post_first_release_rms": 0.0,
+        "post_second_release_rms": 0.0,
+        "rejected_callbacks": 600,
+        "callback_ns": {
+          "p50": 3181,
+          "p99": 26350,
+          "max": 51961
+        },
+        "state_result": 1,
+        "state_envelope_bytes": 0,
+        "terminate_result": 1,
+        "native_report": {
+          "frames": 61440,
+          "blocks": 120,
+          "callback_rejections": 600,
+          "late_note_offs": null,
+          "rejected_silent_frames": 307200,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "clean": false
+        },
+        "process_exit": 1,
+        "retirement": [
+          {
+            "session": "d95c564cb2918f46afec579b4e26cf65",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "raw_exit": -15
+          }
+        ],
+        "capacity_after": {
+          "dsp": 0,
+          "maintenance": 0,
+          "cleanup_unconfirmed": false
+        }
+      },
+      {
+        "artifact": "recovery1-note",
+        "input_offset": 0,
+        "sample_frames": 368640,
+        "capture_sha256": "036db04fc88f31f3d0a45d7cf15d086b5b31fa8a26c44f7bda03086db1bb24ea",
+        "capture_file": "recovery1-note-control.f32le",
+        "nonfinite_samples": 0,
+        "first_note_rms": 0.037894660738487414,
+        "second_note_rms": 0.0446751871400501,
+        "second_note_nonzero_samples": 73728,
+        "post_first_release_rms": 0.0015942057294738405,
+        "post_second_release_rms": 0.0008724750224008086,
+        "rejected_callbacks": 0,
+        "callback_ns": {
+          "p50": 22261,
+          "p99": 38761,
+          "max": 85212
+        },
+        "state_result": 0,
+        "state_envelope_bytes": 196942,
+        "terminate_result": 0,
+        "native_report": {
+          "frames": 368640,
+          "blocks": 720,
+          "callback_rejections": 0,
+          "late_note_offs": 0,
+          "rejected_silent_frames": 0,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "clean": true
+        },
+        "process_exit": 0,
+        "retirement": [
+          {
+            "session": "c4c400fdc4eaffb7357a0634c4e243fe",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "raw_exit": -15
+          }
+        ],
+        "capacity_after": {
+          "dsp": 0,
+          "maintenance": 0,
+          "cleanup_unconfirmed": false
+        }
+      },
+      {
+        "artifact": "recovery1-note",
+        "input_offset": -1661,
+        "sample_frames": 368640,
+        "capture_sha256": "98c23d4dec617a6bfe67c9fc1e0053880cb09719783a0e2532cb1a4958966dae",
+        "capture_file": "recovery1-note-late.f32le",
+        "nonfinite_samples": 0,
+        "first_note_rms": 0.03772896451615207,
+        "second_note_rms": 0.045368242324451344,
+        "second_note_nonzero_samples": 73728,
+        "post_first_release_rms": 0.0017251288851429013,
+        "post_second_release_rms": 0.0006687359994020551,
+        "rejected_callbacks": 0,
+        "callback_ns": {
+          "p50": 20500,
+          "p99": 29740,
+          "max": 63181
+        },
+        "state_result": 0,
+        "state_envelope_bytes": 196942,
+        "terminate_result": 0,
+        "native_report": {
+          "frames": 368640,
+          "blocks": 720,
+          "callback_rejections": 0,
+          "late_note_offs": 1,
+          "rejected_silent_frames": 0,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "clean": true
+        },
+        "process_exit": 0,
+        "retirement": [
+          {
+            "session": "873be7440f1443069924a002e25ae07b",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "raw_exit": -15
+          }
+        ],
+        "capacity_after": {
+          "dsp": 0,
+          "maintenance": 0,
+          "cleanup_unconfirmed": false
+        }
+      }
+    ],
+    "deadline_reliability_claim": false
+  },
+  "recorder_qualification": {
+    "route": "parec from the physical Speaker sink monitor, verified monitor_FL and monitor_FR links",
+    "recording_format": "48000 Hz stereo float32",
+    "recorder_latency_ms": 200,
+    "changes_daw_buffer": false,
+    "native_reference_checked_frames": 2870398,
+    "native_reference_max_error": 0,
+    "native_reference_gain": [
+      1,
+      1
+    ],
+    "native_reference_capture_sha256": "d751e88d7db9513a792d51a8ff6543acdeb59d8b16c4e86ab3397749361975eb",
+    "pw_record_comparisons": "Retained as invalid or confounded: wrong initial route and recorder errors even on native-only audio."
+  },
+  "bitwig_smoke": {
+    "scope": "Short copied-project check, not the 30-minute interaction gate or soak",
+    "published_pair": "Recovery1 Pure LoFi with unchanged internal57 FRAGMENTS",
+    "actions": [
+      "Open working copy",
+      "Play retained four-note loop and Master Volume automation",
+      "Open/close both editors during captured playback",
+      "Save only copy",
+      "Close/reopen copy",
+      "Resume: moving output meters and native processing observed",
+      "Quit and verify cleanup"
+    ],
+    "initial_sessions": [
+      {
+        "session": "bc0cb5d299f832887874f294b3b2f278",
+        "plugin": "Pure LoFi",
+        "native_report_sha256": "bea6c8cc0a46c219b9c2f473ac1d9df66f5c458998ed96e150f682ef5f832541",
+        "supervisor_report_sha256": "aec5828c4887df7ded5dbeee5aaeed234c2714e12979c29da5966dd0218fb203",
+        "lifecycle": {
+          "frames": 3529216,
+          "blocks": 6893,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 3528704,
+          "clean": true
+        },
+        "late_note_offs": 0,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "raw_exit": -15
+      },
+      {
+        "session": "e855da8a0d2f2a77879f1f6a07a1c1ef",
+        "plugin": "FRAGMENTS",
+        "native_report_sha256": "c228b3dfd10073c865e37801ab22842ca97b1d35a22bf3f99af1697b80ca5520",
+        "supervisor_report_sha256": "be7a69d9516ff472697ffbf5a1116ae5be5b5b18444b4ccbebc9aeb43e955151",
+        "lifecycle": {
+          "frames": 3331584,
+          "blocks": 6507,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 3331072,
+          "clean": true
+        },
+        "late_note_offs": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "raw_exit": -15
+      }
+    ],
+    "reopen_sessions": [
+      {
+        "session": "6da940c08467897ee3a69db28fce35d0",
+        "plugin": "Pure LoFi",
+        "native_report_sha256": "68a76f8324b9109b12067b1ca09112da9875ae4fb633b1e4860d8b829442fe65",
+        "supervisor_report_sha256": "2845ff49952bffd50af1c895453d5c5c6bd88675a0693b24d588673fb37b6688",
+        "lifecycle": {
+          "frames": 2950144,
+          "blocks": 5762,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 2949632,
+          "clean": true
+        },
+        "late_note_offs": 0,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "raw_exit": -15
+      },
+      {
+        "session": "e8768fb30a7e8104aba6ce3b1fab5b33",
+        "plugin": "FRAGMENTS",
+        "native_report_sha256": "607a6999959bc8f5edb29aac470f804a6e47b796fcf59f979e6a0176f6991083",
+        "supervisor_report_sha256": "a3092721c2948dc50e850dc3787f2e003f91d7be2b7ee2ce532a8dc4119684a9",
+        "lifecycle": {
+          "frames": 2778112,
+          "blocks": 5426,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 2777600,
+          "clean": true
+        },
+        "late_note_offs": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "raw_exit": -15
+      }
+    ],
+    "monitor_capture": {
+      "rate": 48000,
+      "channels": 2,
+      "frames": 5799936,
+      "seconds": 120.832,
+      "nonfinite": 0,
+      "rms": 0.037852336866107256,
+      "peak": 0.6137861013412476,
+      "active_start": 638959,
+      "active_end": 3570176,
+      "exact_zero_spans": [
+        {
+          "start_frame": 0,
+          "frames": 638779
+        }
+      ],
+      "five_second_rms": [
+        {
+          "start_seconds": 0.0,
+          "seconds": 5.0,
+          "rms": 0.0
+        },
+        {
+          "start_seconds": 5.0,
+          "seconds": 5.0,
+          "rms": 0.0
+        },
+        {
+          "start_seconds": 10.0,
+          "seconds": 5.0,
+          "rms": 0.0420194786789725
+        },
+        {
+          "start_seconds": 15.0,
+          "seconds": 5.0,
+          "rms": 0.05983329858907072
+        },
+        {
+          "start_seconds": 20.0,
+          "seconds": 5.0,
+          "rms": 0.05346168089128309
+        },
+        {
+          "start_seconds": 25.0,
+          "seconds": 5.0,
+          "rms": 0.046809576134185835
+        },
+        {
+          "start_seconds": 30.0,
+          "seconds": 5.0,
+          "rms": 0.057336373435852656
+        },
+        {
+          "start_seconds": 35.0,
+          "seconds": 5.0,
+          "rms": 0.06016889175912038
+        },
+        {
+          "start_seconds": 40.0,
+          "seconds": 5.0,
+          "rms": 0.053019602576783544
+        },
+        {
+          "start_seconds": 45.0,
+          "seconds": 5.0,
+          "rms": 0.06549209893361628
+        },
+        {
+          "start_seconds": 50.0,
+          "seconds": 5.0,
+          "rms": 0.05702896851970041
+        },
+        {
+          "start_seconds": 55.0,
+          "seconds": 5.0,
+          "rms": 0.04080672331196623
+        },
+        {
+          "start_seconds": 60.0,
+          "seconds": 5.0,
+          "rms": 0.04258477565214275
+        },
+        {
+          "start_seconds": 65.0,
+          "seconds": 5.0,
+          "rms": 0.0590850133982229
+        },
+        {
+          "start_seconds": 70.0,
+          "seconds": 5.0,
+          "rms": 0.0007830980774699998
+        },
+        {
+          "start_seconds": 75.0,
+          "seconds": 5.0,
+          "rms": 0.0
+        },
+        {
+          "start_seconds": 80.0,
+          "seconds": 5.0,
+          "rms": 0.0
+        },
+        {
+          "start_seconds": 85.0,
+          "seconds": 5.0,
+          "rms": 0.0
+        },
+        {
+          "start_seconds": 90.0,
+          "seconds": 5.0,
+          "rms": 0.0
+        },
+        {
+          "start_seconds": 95.0,
+          "seconds": 5.0,
+          "rms": 0.0
+        },
+        {
+          "start_seconds": 100.0,
+          "seconds": 5.0,
+          "rms": 0.0
+        },
+        {
+          "start_seconds": 105.0,
+          "seconds": 5.0,
+          "rms": 0.0
+        },
+        {
+          "start_seconds": 110.0,
+          "seconds": 5.0,
+          "rms": 0.0
+        },
+        {
+          "start_seconds": 115.0,
+          "seconds": 5.0,
+          "rms": 0.0
+        },
+        {
+          "start_seconds": 120.0,
+          "seconds": 0.832,
+          "rms": 0.0
+        }
+      ],
+      "capture_sha256": "34b310824cabb5119f5cf48f3ecaa301885ea95eb2aa8d1d695981753f12621e",
+      "interpretation": "Captures initial editor/automation playback and intentional stop. The file contains no later resumed audio; it does not qualify captured output after reopening. Reopen evidence is limited to visible restored project, moving output meters and native lifecycle counts."
+    },
+    "post_reopen_captured_audio_qualified": false,
+    "meaningful_unique_state_edit_recall_qualified": false,
+    "state_note": "Project was saved and reopened with retained notes/automation and visible settings; no deliberate unique state mutation or complete saved-state equivalence test was performed.",
+    "original_project_sha256_unchanged": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+    "saved_copy_sha256": "bbedf47ce92f4c3962e8b2a10b5fa5513ed4a49d15159b80e8aa8af1e666030f",
+    "saved_copy_bytes": 86123,
+    "pipewire_start_and_end_error_counts": {
+      "recorder": 0,
+      "speaker": 0,
+      "bitwig": 0
+    }
+  },
+  "retained_failed_attempts": [
+    {
+      "kind": "SDK host instrumentation",
+      "failure": "First version assumed total latency 512; observed 560, aborted before explicit cleanup. Owner cleanup confirmed but transport retirement unconfirmed. Preserved; normal reboot reconciled generation.",
+      "correction": "RAII retirement and truthful total-latency reporting in tested source."
+    },
+    {
+      "kind": "Post-reboot fixture",
+      "failure": "SDK admission in Gaming Mode refused admission_binding_invalid, no processing."
+    },
+    {
+      "kind": "Desktop streaming",
+      "failure": "Agent selected X11 instead of configured KDE Wayland; capture portal lacked the required protocol. After returning to Wayland, portal retained Gaming Mode context.",
+      "recovery": "Use configured default desktop, refresh existing portal services, preserve permissions and credentials. Sunshine updated through Flathub to 2026.914.233613 under operator instruction. Desktop stream visually restored.",
+      "sunshine_commit": "bccd2385373ac312c912a39b22006e4bec537877722647726820ec7f026f6c6b"
+    },
+    {
+      "kind": "Superseded physical comparison",
+      "failure": "X11 before/after environment was unsuitable for the final matched comparison. Its internal57 result and output remain private; both final comparisons were rerun in KDE Wayland."
+    }
+  ],
+  "cleanup": {
+    "dsp": 0,
+    "maintenance": 0,
+    "cleanup_unconfirmed": false,
+    "bitwig": "quit normally",
+    "desktop_stream": "working, default KDE Wayland",
+    "builder": "stopped",
+    "vms": "no qemu process observed",
+    "audiobookshelf": "running, restart count 0; playback not tested",
+    "rollback": "Exact previous package and paired publications preserved; normal product actions retain rollback, no manual registry or proxy rewrites."
+  },
+  "remaining": [
+    "FC-AUDIO-001 intermittent production presentation gaps; earlier usable reference also fails whole-session continuity",
+    "Full saved-state equivalence and captured DAW output after reopen/reboot on recovery1",
+    "Format/block reconfiguration and busy-guard lifecycle behavior",
+    "Negative note-ons, future note-offs and other malformed-event recovery are not repaired by this change",
+    "128/256/64-frame low-latency qualification, same-callback design, burst/offline behavior",
+    "Full runtime cleanup test attribution, complete installer recovery, cross-platform musician workflow, signing/distribution obligations"
+  ],
+  "next_bounded_repair": "Freeze this repaired Pure LoFi artifact and reproduce one missing presentation span on the physical Deck. Locate its request at the deadline using bounded preallocated request/worker/transport/publication timing; change one measured cause, compare diagnostics-off captured output. No buffer, runtime or priority changes at the same time."
+}

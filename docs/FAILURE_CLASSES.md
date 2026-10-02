@@ -70,7 +70,8 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-LIFE-001](#fc-life-001--graphical-session-and-keeper-authority) | Graphical-session/keeper authority | Manager/supervisor lifecycle | causal | accepted | Blackhole, Kontakt / Steam Deck; FRAGMENTS / Ubuntu | supported | Gaming Mode transition coverage |
 | [FC-LIFE-002](#fc-life-002--failed-launch-cleanup-and-truthful-recovery-state) | Failed launch cleanup and truthful recovery | Manager ownership/leases/results | causal | deployed | Steam Deck and Ubuntu fixtures | supported-with-workaround | Manager recovery UX |
 | [FC-MIDI-001](#fc-midi-001--recognized-expression-rejected-an-entire-native-input-callback) | Recognized expression rejected an entire native input callback | Native VST3 proxy input admission | causal in source; physical attribution open | source-fixed | Pinned SDK fixture; Push / Deck operator report only | unqualified for Push expression | Build and publish exact proxy successor; physical Push/Bitwig release check |
-| [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | bounded | instrumentation-only | Arturia Deck and FRAGMENTS Ubuntu observations | supported-with-workaround | Pi FN1 attribution and PW1 prewarm source candidate are separate unqualified fixture results |
+| [FC-MIDI-002](#fc-midi-002--late-note-off-permanently-fails-processing) | Late note-off permanently fails processing | Native SDK signed timestamp conversion | causal in source | source-fixed | Pinned SDK regression; installed comparison pending | unqualified | Physical captured-output comparison on paired artifacts |
+| [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | bounded | instrumentation-only | Arturia Deck and FRAGMENTS Ubuntu observations | blocked for dependable musical use | Physical continuity repair; no clean whole-session fallback established |
 | [FC-AUDIO-002](#fc-audio-002--host-block-exceeds-the-selected-bridge-presentation-envelope) | Host block exceeds selected bridge presentation envelope | Proxy setup, selected delay, DAW audio settings | causal | accepted | FRAGMENTS / Ubuntu at Bitwig 512/48 kHz | supported-with-workaround | Actionable requested-versus-supported block message |
 | [FC-AUTO-001](#fc-auto-001--automation-refusal-collides-with-terminal-silence) | Automation refusal collides with terminal silence | Native curve admission / SDK result interpretation | causal collision; sparse-curve capability still incomplete | deployed collision correction; whole-block successor source-only | Ubuntu reference effect explicitly refuses 0x107; state still fails | blocked for the failed saved-automation journey | Deliver paired protocol-14 whole DAW blocks and repeat recall; audio gaps remain separate |
 | [FC-CAP-001](#fc-cap-001--capacity-enumeration-versus-lease-retirement-race) | Capacity scan versus lease retirement | Manager capacity ownership | causal | none | AP17 exact fixture | supported-with-workaround | Repair issue #93 |
@@ -941,6 +942,11 @@ bounded
 ### Implementation
 
 instrumentation-only
+
+The 2026-10-02 [audio recovery comparison](../evidence/audio-recovery/2026-10-02-late-note-off.json)
+preserves missing audio in both the earlier usable Deck pair and an internal57
+control. FC-MIDI-002 now has a physical note-release repair, but its short clean
+SDK and Bitwig runs do not close this independent deadline failure class.
 
 This status is for the residual deadline-miss classes. AP16 separately accepted a disk-backed
 hot-mapping repair. [AS1 PR #172](https://github.com/kasselvania/Linux-VST-bridge/pull/172)
@@ -2093,3 +2099,48 @@ attempts. Setup offered discovery and another isolated retry after each. The
 [installed record](../evidence/self-service-delivery/internal56-installed-partial-recovery.json)
 binds the source, package selection and operation identities. The complete
 recovery matrix and other platforms remain open.
+
+## FC-MIDI-002 — Late note-off permanently fails processing
+
+**Understanding:** causal at the native SDK timestamp conversion.
+**Implementation:** source-fixed, installed and physically compared on the Deck.
+**User posture:** the declared late-note-off recovery passed for exact Pure LoFi
+1.0.0.6121; dependable musical use and deadline continuity remain unqualified.
+
+The retained internal56 Ardour witness supplies a note-off at SDK offset -1661.
+`Processor::process` cast that signed input directly to an unsigned wire offset.
+Strict event validation correctly refused it with 0x102; the proxy then entered
+`Failed`, rejecting later audio and state capture. The witness precedes bridge
+translation; it does not explain the earlier missing audio blocks.
+
+The correction defines one host-boundary recovery: a negative-timestamp note-off
+in a nonempty block releases its identified voice at sample zero. Identity,
+channel, pitch, velocity, tuning and subsequent valid events are preserved.
+The lifecycle report counts `late_note_offs` away from the callback. Negative
+note-ons, future offsets and invalid event fields gain no new support. The wire
+validator, ownership, epochs, delay, worker, Windows host and runtime are unchanged.
+
+The pinned SDK regression fails on 37b5d41 and passes with the correction for
+-1661 and -1, followed by valid processing on the same instance. Callback audit
+reports zero prohibited effects. All eight non-graphical native tests passed;
+the two X11 panel tests were not run in this builder, which lacks xvfb-run.
+`ap18-late-note-off-host` supplies the installed control/injected-input comparison
+and records whole output for independent analysis.
+
+The physical comparison used the same consumer, module, Windows host, pinned
+runtime, 48 kHz / 512-frame configuration and KDE Wayland session. Internal57
+rejected 600 of 720 callbacks after the -1661 note-off, silenced the later note
+and failed state capture. Recovery1 normalized one late release, accepted all
+720 callbacks, produced captured later-note audio, captured state and retired
+cleanly. All four control/late before/after owners had confirmed supervisor
+cleanup and transport retirement. The old late run's native termination still
+failed; supervisor cleanup is a separate fact.
+
+Both repaired short SDK runs had zero presentation gaps. A short copied Bitwig
+chain also had zero gaps in its initial and reopened native lifetimes and
+exercised both editors and existing automation. Speaker output was captured for
+the initial playback only. These are not a longer soak, meaningful unique-state
+recall, reboot, lower-buffer or reconfiguration result. The earlier reference
+and internal57 control retain real gaps; FC-AUDIO-001 stays open. Exact artifacts,
+whole-session counts, private-output hashes and limitations are retained in the
+[physical comparison](../evidence/audio-recovery/2026-10-02-late-note-off.json).

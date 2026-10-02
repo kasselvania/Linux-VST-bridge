@@ -11,6 +11,25 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Audio recovery on 2026-10-02 froze PR #200 and preserved its internal57 evidence
+and private diagnostics outside the checkout. The retained earlier Pure LoFi /
+FRAGMENTS pair restores sound, editor interaction and project recall on the
+Deck, but new whole-session observations still contain missing audio. It is a
+useful reference, not a gap-free fallback. FC-AUDIO-001 remains open.
+
+The separate late-note-off correction passed its source regression and an
+installed physical Pure LoFi comparison on the Deck. Internal57 rejected 600
+callbacks after offset -1661; recovery1 delivered all 720 callbacks, captured
+the later note, saved state and retired cleanly. Eight native tests passed,
+including the callback audit; two X11 panel tests were unrun. A short copied
+Bitwig chain exercised both editors, automation and save/close/reopen, with
+zero gaps in four complete native lifetimes. Its output recording qualifies
+the first playback only; captured output after reopen and meaningful unique-state
+recall remain unqualified. These short runs do not repair or qualify deadline
+continuity, smaller buffers or a complete beta. See the
+[physical evidence](../evidence/audio-recovery/2026-10-02-late-note-off.json) and
+[FC-MIDI-002](FAILURE_CLASSES.md#fc-midi-002--late-note-off-permanently-fails-processing).
+
 Internal56 also **failed physical Deck audio** after ordinary populated update
 and save/reopen. A traced ten-minute musical interval was clean, but its whole
 session retained 2,560 Pure LoFi and 2,048 FRAGMENTS missing frames after editor

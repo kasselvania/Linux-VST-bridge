@@ -779,6 +779,14 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
       continue;
     }
     ap8_event_t v{};v.offset=static_cast<uint32_t>(e.sampleOffset);
+    // A late host release still identifies the voice that must stop. Deliver
+    // it at the first available sample instead of unsigned-wrapping the
+    // timestamp and permanently failing the processor. Other malformed
+    // events retain strict transport validation, including zero-frame notes.
+    if(e.type==Event::kNoteOffEvent&&e.sampleOffset<0&&d.numSamples>0){
+      v.offset=0;
+      late_note_offs_.fetch_add(1,std::memory_order_relaxed);
+    }
     if(e.type==Event::kNoteOnEvent){v.kind=0;v.id=static_cast<uint32_t>(e.noteOn.noteId);v.channel=e.noteOn.channel;v.pitch=e.noteOn.pitch;v.value=e.noteOn.velocity;v.tuning=e.noteOn.tuning;}
     else if(e.type==Event::kNoteOffEvent){v.kind=1;v.id=static_cast<uint32_t>(e.noteOff.noteId);v.channel=e.noteOff.channel;v.pitch=e.noteOff.pitch;v.value=e.noteOff.velocity;v.tuning=e.noteOff.tuning;}else return reject();
     if(!append(v))return reject();}}
@@ -1095,6 +1103,7 @@ tresult PLUGIN_API Processor::terminate() {
         "\"requested_rate\":%.0f,\"requested_mode\":%d,\"frames\":%llu,"
         "\"blocks\":%u,\"callback_rejections\":%llu,"
         "\"skipped_expression_callbacks\":%llu,"
+        "\"late_note_offs\":%llu,"
         "\"rejected_silent_frames\":%llu,\"discontinuities\":%llu,"
         "\"successful_silent_callbacks\":%llu,\"successful_silent_frames\":%llu,"
         "\"priming_frames\":%llu,\"underrun_frames\":%llu,\"underrun_gaps\":%llu,"
@@ -1109,6 +1118,7 @@ tresult PLUGIN_API Processor::terminate() {
             std::memory_order_relaxed),
         (unsigned long long)skipped_expression_callbacks_.load(
             std::memory_order_relaxed),
+        (unsigned long long)late_note_offs_.load(std::memory_order_relaxed),
         (unsigned long long)rejected_frames_.load(std::memory_order_relaxed),
         (unsigned long long)discontinuities_.load(std::memory_order_relaxed),
         (unsigned long long)silent_callbacks_, (unsigned long long)silent_frames_,
