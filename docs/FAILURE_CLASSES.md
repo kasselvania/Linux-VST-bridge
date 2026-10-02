@@ -1768,6 +1768,15 @@ deadline. All 347 runtime tests pass with an init reaper. These are source resul
 not installed recovery or audio qualification. See the
 [closeout continuation](RESTART_VALIDATION_2026_10_01.md#closeout-continuation-timing-and-source-corrections).
 
+Internal55 subsequently passed installed control-service restoration and
+preparation without restarting its keeper. Its new proxies passed an effect
+probe and four full SDK suites, including three at the earlier two-environment
+scope. Both trace paths now produce observations. These traced diagnostic runs
+had zero processing gaps; they do not establish a repair of the original
+intermittent gap or real DAW/commercial reliability. The exact
+[installed results](RESTART_VALIDATION_2026_10_01.md#internal55-installed-recovery-and-diagnostic-regressions)
+retain that distinction.
+
 ## FC-PLAT-002 — Delivered runtime lifetime lock cannot be opened
 
 ### Shared boundary and understanding

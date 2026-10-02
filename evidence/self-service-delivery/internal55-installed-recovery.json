@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "candidate": "0.12.0internal55",
+  "components": {
+    "manager": "728baaae148846c5d000666d617563c8a9547280d391539a7971c602a77b4f33",
+    "host": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b",
+    "operator_frontend": "ff412a1b3865e4415e2e684edebb739e42d83721b028b75e58e2e814602f4984",
+    "supervisor": "04f57b9c14d2bfef994d8129d95f07271914db840804f5f2aa9437d9b53006a3",
+    "ownership": "b848f60aa77c20b5a8a9b7f18c8e503399d04e6a7f39fa47ae2628d320bb7448",
+    "preparation_kit": "d457117dca19c50c663c415bbcd1898b52fb4b9941646fa1a20580576e3b2ac7"
+  },
+  "prior_manager_sha256": "852bb363c629d314f7ef6f13b44d5d4ab3c669f28497af30e4bb7c33d777b9f2",
+  "prior_manager_retained": true,
+  "original_project_sha256": "2a0d5d63278946fc51a714603943d619b9d99bfabaccd1ec06164f42ffd62390",
+  "selected_readback": {
+    "manager_sha256": "728baaae148846c5d000666d617563c8a9547280d391539a7971c602a77b4f33",
+    "host_sha256": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b",
+    "project_sha256": "2a0d5d63278946fc51a714603943d619b9d99bfabaccd1ec06164f42ffd62390",
+    "publications_unchanged": true,
+    "service": "active",
+    "resume_pending": false
+  },
+  "service": "active",
+  "resume_pending": false,
+  "operations": [
+    {
+      "operation": "77d2b430929bfe81b941b3b4e7e688a2",
+      "action": "environment_rescan",
+      "route": "frontend",
+      "state": "completed",
+      "reason": null,
+      "result_sha256": "5832096896b57935ace74e8d9e2f92448aac856ef70a69934fcb92ae2aa49189"
+    },
+    {
+      "operation": "41ad5d47f29a88c7a8537510ccb677fd",
+      "action": "effect_compatibility_check",
+      "route": "frontend",
+      "state": "completed",
+      "reason": null,
+      "result_sha256": "65e7650d24ce742c91f48ff09c5dd0b7e7a1ba9ba7dcff1a83ed2e94d340c956"
+    },
+    {
+      "operation": "617c8248238f6e02a684a233d3962a6e",
+      "action": "effect_replace",
+      "route": "frontend",
+      "state": "completed",
+      "reason": null,
+      "result_sha256": "9c3b48d45f16b7eacd5aa454e068d961b98269e0c8898c8358b92a15e4ffd29b"
+    },
+    {
+      "operation": "795ba66678d96eb2f63ae0aac32e7312",
+      "action": "instrument_inspection",
+      "route": "fresh_product_operator_request",
+      "state": "completed",
+      "reason": null,
+      "result_sha256": "a66c9a1444281f4907f302a9b2d0c464c69af4349948698446880f2395b9c179"
+    },
+    {
+      "operation": "234f9bad4d440b6990ff6290f50a1959",
+      "action": "instrument_preparation",
+      "route": "fresh_product_operator_request",
+      "state": "completed",
+      "reason": null,
+      "result_sha256": "8407e86cf81f7e81363bb058d8ab530bafa5fff7414238ec778350891aed7e8d",
+      "test_ownership": {
+        "before": {
+          "pid": "6815",
+          "keepers": [
+            "64fc4cb92b7189c23d24079bfe086525"
+          ]
+        },
+        "after": {
+          "pid": "6815",
+          "keepers": [
+            "64fc4cb92b7189c23d24079bfe086525"
+          ]
+        },
+        "preserved": true,
+        "resume_seen": false
+      }
+    },
+    {
+      "operation": "aee1c220e041d7f8b093630ae4e7fb15",
+      "action": "instrument_replace",
+      "route": "fresh_product_operator_request",
+      "state": "completed",
+      "reason": null,
+      "result_sha256": "aaafb9daa21849560193e346bceb3915829860c5742664016ef41588ab629603"
+    }
+  ],
+  "publications": [
+    {
+      "role": "effect",
+      "class_id": "4C564242455441314546465800000001",
+      "publication": "Published",
+      "components": {
+        "module": "b3498eb5c8d6d440259b04a9c9b7699ab72f4f64eb31f45167f0341d3d1e719f",
+        "host": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b",
+        "native": "3bc5dd5a0162719787b5f1014b122850b4375624f10be1bc2ae15ab8ca5b8cb8"
+      },
+      "prior_components": {
+        "module": "b3498eb5c8d6d440259b04a9c9b7699ab72f4f64eb31f45167f0341d3d1e719f",
+        "host": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b",
+        "native": "d8c254accf04c0e8092b18876ed6573bdc7e9be41e870043746bcfefcf22faf4"
+      },
+      "prior_native_retained": true
+    },
+    {
+      "role": "instrument",
+      "class_id": "4C56424245544131494E535400000001",
+      "publication": "Published",
+      "components": {
+        "module": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+        "host": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b",
+        "native": "47d33c91cd469b81b7dcf76d7e70062f1dfa13b880877929828e556cd5014129"
+      },
+      "prior_components": {
+        "module": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+        "host": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b",
+        "native": "9109472240fca35ca269b169a208ae83fb34e59dda64494572e52b80c30fd2cd"
+      },
+      "prior_native_retained": true
+    }
+  ],
+  "interventions": {
+    "maintainer_product_repairs": 0,
+    "instrument_actions_used_production_cli": true,
+    "two_environment_baseline_used_development_protocol": true
+  },
+  "ui_status_episode": {
+    "observed": "Bridge status unavailable after first library selection; later readback recovered",
+    "cause": "unattributed",
+    "manual_repair": false,
+    "responsiveness_pass": false
+  },
+  "source_head": "6d61a3b59be8c68cf8ee8a48587029712bef2efe",
+  "scope": "Installed application selection, reference inspection/preparation/publication and control-service restoration; incomplete full installer recovery and musician workflow.",
+  "observation_correction": "The rescan monitoring helper initially named all new lease generations keeper_generation_created. The two rescan reports are scanner sessions, not environment keepers; no keeper restoration is claimed from those events.",
+  "rescan_scanner_sessions": [
+    "a42081089b5a5917a3ca6f3dac65cfba",
+    "f0ab54ea54d8aafd79a5fce3a5f5983b"
+  ]
+}

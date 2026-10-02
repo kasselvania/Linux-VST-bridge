@@ -1,5 +1,45 @@
 # Restart validation
 
+## Internal55 installed recovery and diagnostic regressions
+
+Internal55 freezes source `6d61a3b59be8c68cf8ee8a48587029712bef2efe`, tree
+`d42e54887f062d86e4335e34e3a1a4287006d764`. Its exact-source CI passed,
+including all ten executed native tests. A newly built preparation kit and
+Windows source manifest were assembled with the corrected manager/supervisor;
+the Windows executable bytes remained identical. The Ubuntu installer passed
+signature/payload inspection and ordinary visible Install, Stop, Select and
+Start. The original Ardour project and registry were unchanged by application
+selection. This is an internal-test signature, not customer release authority.
+See the [component manifest](../evidence/self-service-delivery/internal55-component-manifest.json).
+
+Visible reference-environment refresh, effect compatibility checking and effect
+replacement completed with service restored and no pending recovery. Separate
+instrument inspection, preparation and replacement used fresh production
+operator requests. Preparation preserved the exact service PID and keeper lease
+without creating recovery. Both new proxies were published; old native binaries
+and the previous manager remain retained. No maintainer product repair advanced
+these operations. A transient initial Library status failure recovered without
+repair but remains unattributed; slow readback is not a responsiveness pass.
+The rescan monitor's initial generic keeper label was incorrect: its two new
+leases were scanner sessions. See [installed recovery](../evidence/self-service-delivery/internal55-installed-recovery.json).
+
+The independent SDK effect probe and one full 16-consumer suite passed with one
+environment keeper. A declared development-only LVE1 arrangement then restored
+the prior two-environment scope. Three complete 16-consumer repetitions passed
+in that scope. In total, 66 consumers compared 64,634,880 stereo samples with
+zero mismatches or missing processing frames; meaningful live state, recall,
+automation and positive native/Windows retirement passed. Both diagnostic trace
+paths were enabled and produced records. Buffers, queue policy, deadlines and
+consumer pacing were unchanged. Guest memory/task-limit event counts and CPU throttling
+did not increase; outer-VM throttling is a separate observation, not an attributed
+cause. See [SDK regressions](../evidence/self-service-delivery/internal55-sdk-regressions.json).
+
+These are installed development results. Enabling diagnostics can affect
+scheduling; the absence of a recurrence does not identify or repair internal54's
+gap. Internal54 remains failed. Internal55 still requires real DAW persistence,
+complete recovery repetitions, populated rollback, platform/commercial coverage,
+and release authority. Tasks 3–5 remain open.
+
 ## Closeout continuation: timing and source corrections
 
 The unchanged internal54 timing investigation completed two full 16-consumer
