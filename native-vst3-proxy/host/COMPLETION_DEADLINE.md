@@ -26,7 +26,8 @@ The Linux callback waits on one preallocated native futex sequence. Publishing
 the existing result queue advances that sequence and wakes its sole consumer.
 Snapshot-before-inspection plus the futex comparison closes the lost-wake race.
 Spurious wakes and interrupts retain the same absolute deadline. There is no
-mutex, heap allocation, transport operation or callback logging. Non-Linux
+mutex, heap allocation, transport operation or callback logging. Linux resolves both imported functions
+during inactive allocation, before a callback can enter the wait. Non-Linux
 source tests use a bounded polling fallback; they do not qualify another OS.
 
 Zero-frame and priming calls never wait. Pending control, terminal failure,

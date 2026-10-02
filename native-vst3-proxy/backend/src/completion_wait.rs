@@ -7,7 +7,17 @@ use std::time::Instant;
 
 pub(crate) struct Signal(AtomicU32);
 impl Signal {
-    pub(crate) fn new() -> Self { Self(AtomicU32::new(0)) }
+    pub(crate) fn new() -> Self {
+        let signal = Self(AtomicU32::new(0));
+        #[cfg(target_os = "linux")]
+        {
+            // Resolve both imported libc functions during inactive allocation,
+            // even when the DAW loads the proxy with lazy symbol binding.
+            signal.notify();
+            unsafe { libc::__errno_location(); }
+        }
+        signal
+    }
     pub(crate) fn snapshot(&self) -> u32 { self.0.load(Ordering::Acquire) }
     pub(crate) fn notify(&self) {
         self.0.fetch_add(1, Ordering::Release);
