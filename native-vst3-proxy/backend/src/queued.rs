@@ -624,12 +624,13 @@ impl Drop for Guard<'_> {
         self.0.store(false, Ordering::Release);
     }
 }
-fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBuf>) {
+fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBuf>, preparation: Option<crate::scheduling::Preparation>) {
     #[cfg(target_os = "linux")]
     {
         unsafe extern "C" { fn gettid() -> i32; }
         s.worker_thread.store(unsafe { gettid() } as u64, Ordering::Release);
     }
+    let scheduling = crate::scheduling::prepare(preparation);
     let mut input_observation = crate::input_observation::InputObservation::new(crate::observer::delivery_enabled());
     let mut previous_control = [0u64; 4];
     let mut deferred = None;
@@ -864,7 +865,10 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
             crate::preview::append_report(path, progress_text(&s).as_bytes());
         }
     }
-    if let Some(path) = &report { crate::preview::append_report(path, input_observation.report().as_bytes()); }
+    if let Some(path) = &report {
+        scheduling.report(path);
+        crate::preview::append_report(path, input_observation.report().as_bytes());
+    }
     if let Some(observer) = &mut session.witness {
         observer.finish();
         if let Some(path) = &report {
@@ -1041,6 +1045,7 @@ unsafe fn open_with(
                 }
             }));
             let installed_delay = binding.installed_delay;
+            let preparation = crate::scheduling::Preparation::from_binding(&binding);
             let mut session = Session::open(binding, max as usize, minor)?;
             session.identity = identity;
             let mut shared = Shared::new();
@@ -1057,7 +1062,7 @@ unsafe fn open_with(
             let worker_report = report.clone();
             let t = thread::Builder::new()
                 .name("ap3-transport".into())
-                .spawn(move || worker(session, peer, worker_report))?;
+                .spawn(move || worker(session, peer, worker_report, preparation))?;
             Ok::<_, io::Error>(Live {
                 shared,
                 callback: UnsafeCell::new(Callback::new()),
@@ -1203,6 +1208,7 @@ pub unsafe extern "C" fn ap6_recover(
             } else {
                 crate::preview::report_path(binding.session)
             });
+            let preparation = crate::scheduling::Preparation::from_binding(&binding);
             let mut session = Session::open(binding, l.max.min(if l.minor == 14 { CAP } else { LEGACY_CAP }), l.minor)?;
             session.identity = l.shared.identity;
             if let Err(error) = session.component_state(Some(payload)).and_then(|_| {
@@ -1237,7 +1243,7 @@ pub unsafe extern "C" fn ap6_recover(
             let worker_report = report.clone();
             let t = thread::Builder::new()
                 .name("ap6-transport".into())
-                .spawn(move || worker(session, peer, worker_report))?;
+                .spawn(move || worker(session, peer, worker_report, preparation))?;
             l.shared = shared;
             l.worker = Some(t);
             l.report = report;
@@ -3069,7 +3075,7 @@ mod tests {
         // Both diagnostic endpoints are unavailable throughout real mapped/TCP
         // processing. This catches waits added anywhere in the worker loop.
         let reader = observation.report.lock().unwrap();
-        let transport = thread::spawn(move || worker(session, service, None));
+        let transport = thread::spawn(move || worker(session, service, None, None));
         let mut callback = Callback::new();
         assert_eq!(callback.transition(&shared, START), 0);
         let mut item = Item::control(AUDIO, 0);
@@ -3123,7 +3129,7 @@ mod tests {
         let shared=Arc::new(shared);shared.wanted.store(2,Ordering::Release);
         let mut item=Item::control(AUDIO,2);item.n=256;item.position=768;item.data=[[0.;CAP];2];
         assert!(shared.requests.push(item));
-        let peer=shared.clone();let thread=thread::spawn(move||worker(session,peer,None));
+        let peer=shared.clone();let thread=thread::spawn(move||worker(session,peer,None,None));
         thread.join().unwrap();
         assert_eq!(shared.fault.load(Ordering::Acquire),WORKER);
         assert!(shared.terminal_latched.load(Ordering::Acquire));
@@ -3328,7 +3334,7 @@ mod tests {
             shared.state_capable.store(true, Ordering::Release);
             shared.wanted.store(1, Ordering::Release);
             let service = shared.clone();
-            let worker = thread::spawn(move || super::worker(session, service, None));
+            let worker = thread::spawn(move || super::worker(session, service, None, None));
             let id = INSTANCES
                 .insert(|| {
                     Ok::<_, ()>(Live {

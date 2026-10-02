@@ -198,7 +198,7 @@ fn pending_save_does_not_hold_parent_callback_batches_or_replace_a_refused_snaps
     callback.epoch = 1;
     callback.delay = 512;
     let service = shared.clone();
-    let worker = thread::spawn(move || worker(session, service, None));
+    let worker = thread::spawn(move || worker(session, service, None, None));
     let id = INSTANCES
         .insert(|| {
             Ok::<_, ()>(Live {

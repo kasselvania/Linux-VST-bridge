@@ -4,6 +4,7 @@ import json
 import os
 import pathlib
 import subprocess
+import struct
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
@@ -11,6 +12,32 @@ import session
 
 
 class AudioSchedulingTests(unittest.TestCase):
+    def test_native_preparation_negotiates_once_and_uses_authenticated_peer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);helper=root/'manager';journal=root/'requests'
+            helper.write_text('#!/usr/bin/env python3\nimport sys,json,pathlib\n'
+                f'with pathlib.Path({str(journal)!r}).open("a") as f:f.write(sys.stdin.read()+"\\n")\n'
+                'print(json.dumps({"outcome":"effective"}))\n')
+            helper.chmod(0o700)
+            artifact={'path':str(helper),'sha256':hashlib.sha256(helper.read_bytes()).hexdigest()}
+            spec={'session':'42'*16,'directory':str(root),
+                'graphical_session':{'peer_pid':123,'peer_start_ticks':456}}
+            with patch.dict(os.environ,{'LVB_AUDIO_SCHEDULER':json.dumps(artifact)}):
+                control=session.AudioScheduling(spec)
+            header=b'LVNS'+struct.pack('<I',1)+bytes.fromhex(spec['session'])
+            self.assertEqual((root/'native-scheduling.supported').read_bytes(),header)
+            control.poll({(999,1)});self.assertFalse(journal.exists())
+            # The Rust helper validates content. Python cannot choose a host
+            # process from these untrusted namespace IDs.
+            (root/'native-scheduling.request').write_bytes(header+struct.pack('<IIQ',20,21,22))
+            control.poll({(999,1)});control.poll({(888,2)})
+            requests=[json.loads(line) for line in journal.read_text().splitlines()]
+            self.assertEqual(requests,[{'schema':2,'session':'42'*16,'status':str(root/'ap12.status'),
+                'owned':[],'native_peer':[123,456]}])
+            self.assertEqual((root/'native-scheduling.reply').read_bytes(),header+struct.pack('<I',1))
+            self.assertEqual(control.value()['requests'],1)
+            self.assertEqual(control.value()['records'][0]['role'],'native_worker')
+
     def test_every_render_restart_gets_exact_owned_request_but_idle_polls_do_not(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=pathlib.Path(tmp);helper=root/'manager';journal=root/'requests'

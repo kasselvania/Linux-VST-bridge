@@ -21,7 +21,10 @@ Schema 1 records:
   before bridge presentation delay is added.
 - `parent_callback`: host call number, actual host frames, chunk offset and
   host-entry monotonic timestamp, using the existing callback identity.
-- `worker_thread`: Linux kernel TID captured once on worker entry; zero if absent.
+- `worker_thread`: Linux TID in the native process's PID namespace, captured once
+  on worker entry; zero if absent. Correlating a host-side scheduler capture
+  requires retaining `/proc/<host-pid>/task/<host-tid>/status` `NSpid` mappings
+  while those exact process/thread generations are alive.
 - `worker`: operation, epoch and source position.
 - `requests`, `results`: independently read published/consumed queue counters.
 - `control_pending` and `ready_epoch`: independently observed control and

@@ -16,6 +16,9 @@ pub struct Request {
     session: String,
     status: PathBuf,
     owned: Vec<(i32, u64)>,
+    // Supplied only by the supervisor from the authenticated owner socket's
+    // retained peer identity. Never supplied by the native request file.
+    native_peer: Option<(i32, u64)>,
 }
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 struct Target { pid: i32, process_start: u64, tid: i32, thread_start: u64 }
@@ -52,9 +55,10 @@ fn map_inodes(bytes: &[u8], inode: u64, device: u64) -> Result<bool> {
     Ok(false)
 }
 fn select(request: &Request, proc_root: &Path, uid: u32) -> Result<Target> {
-    require(request.schema == 1 && request.session.len() == 32
+    require(request.schema == (if request.native_peer.is_some() { 2 } else { 1 })
+        && request.session.len() == 32
         && request.session.bytes().all(|b| b.is_ascii_hexdigit())
-        && !request.owned.is_empty() && request.owned.len() <= MAX_OWNERS,
+        && (request.native_peer.is_some() || !request.owned.is_empty()) && request.owned.len() <= MAX_OWNERS,
         "scheduling_request")?;
     let mut status_file = linux_vst_bridge::file(&request.status)?;
     let status = status_file.metadata()?;
@@ -68,6 +72,40 @@ fn select(request: &Request, proc_root: &Path, uid: u32) -> Result<Target> {
         && header[8..16] == [0, 4, 0, 0, 0, 0, 0, 0]
         && header[16..32].iter().map(|b| format!("{b:02x}")).collect::<String>()
             == request.session.to_ascii_lowercase(), "scheduling_status_binding")?;
+    if let Some((pid, process_start)) = request.native_peer {
+        require(request.owned.is_empty() && pid > 0, "scheduling_native_peer")?;
+        let path = request.status.parent().ok_or("scheduling_native_directory")?.join("native-scheduling.request");
+        let mut file = linux_vst_bridge::file(&path)?;
+        let meta = file.metadata()?;
+        require(meta.uid() == uid && meta.mode() & 0o077 == 0 && meta.len() == 40,
+            "scheduling_native_request_custody")?;
+        let mut bytes = [0; 40]; file.read_exact(&mut bytes)?;
+        require(&bytes[..4] == b"LVNS" && bytes[4..8] == 1u32.to_le_bytes()
+            && bytes[8..24] == header[16..32], "scheduling_native_request_binding")?;
+        let namespace_pid = u32::from_le_bytes(bytes[24..28].try_into()?);
+        let namespace_tid = u32::from_le_bytes(bytes[28..32].try_into()?);
+        let thread_start = u64::from_le_bytes(bytes[32..40].try_into()?);
+        require(namespace_pid > 0 && namespace_tid > 0 && thread_start > 0, "scheduling_native_identity")?;
+        let process = proc_root.join(pid.to_string());
+        require(process.metadata()?.uid() == uid && start(&process, pid)? == process_start
+            && namespace_id(&process)? == namespace_pid, "scheduling_native_peer_changed")?;
+        require(map_inodes(&bounded(&process.join("maps"), 2 * 1024 * 1024)?, status.ino(), status.dev())?,
+            "scheduling_native_session_mapping")?;
+        let mut found = None;
+        for (count, entry) in fs::read_dir(process.join("task"))?.enumerate() {
+            require(count < 1024, "scheduling_task_extent")?;
+            let task = entry?;
+            if namespace_id(&task.path())? != namespace_tid { continue; }
+            let tid: i32 = task.file_name().to_str().ok_or("scheduling_tid")?.parse()?;
+            let comm = bounded(&task.path().join("comm"), 32)?;
+            require(found.is_none() && task.metadata()?.uid() == uid
+                && matches!(comm.as_slice(), b"ap3-transport\n" | b"ap6-transport\n")
+                && start(&task.path(), tid)? == thread_start, "scheduling_native_worker_changed")?;
+            found = Some(Target { pid, process_start, tid, thread_start });
+        }
+        require(start(&process, pid)? == process_start, "scheduling_native_peer_changed")?;
+        return found.ok_or_else(|| "scheduling_native_worker_absent".into());
+    }
     let mut targets = Vec::new();
     for &(pid, process_start) in &request.owned {
         if pid <= 0 { return Err("scheduling_owner_pid".into()); }
@@ -100,6 +138,14 @@ fn select(request: &Request, proc_root: &Path, uid: u32) -> Result<Target> {
     require(targets.len() == 1, "scheduling_unique_owned_render_thread")?;
     Ok(targets.remove(0))
 }
+fn namespace_id(proc: &Path) -> Result<u32> {
+    let bytes = bounded(&proc.join("status"), 16384)?;
+    let text = std::str::from_utf8(&bytes)?;
+    let mut rows = text.lines().filter_map(|line| line.strip_prefix("NSpid:"));
+    let row = rows.next().ok_or("scheduling_namespace_identity")?;
+    require(rows.next().is_none(), "scheduling_namespace_identity")?;
+    Ok(row.split_whitespace().last().ok_or("scheduling_namespace_identity")?.parse()?)
+}
 fn current(target: &Target) -> Result<Policy> {
     let process = PathBuf::from(format!("/proc/{}", target.pid));
     require(start(&process, target.pid)? == target.process_start
@@ -117,7 +163,7 @@ fn requested(policy: &Policy) -> bool {
 fn ordinary(policy: &Policy) -> bool {
     policy.policy & !libc::SCHED_RESET_ON_FORK == libc::SCHED_OTHER && policy.priority == 0
 }
-fn apply(target: &Target) -> Result<serde_json::Value> {
+fn apply(target: &Target, native: bool) -> Result<serde_json::Value> {
     let before = current(target)?;
     if requested(&before) { return Ok(serde_json::json!({"outcome":"already_effective","target":target,"effective":before})); }
     require(ordinary(&before), "scheduling_existing_policy_preserved")?;
@@ -125,11 +171,16 @@ fn apply(target: &Target) -> Result<serde_json::Value> {
     let mut limits = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
     require(unsafe { libc::prlimit(target.pid, libc::RLIMIT_RTTIME, std::ptr::null(), &mut limits) } == 0,
         "scheduling_limits_read")?;
-    let bounded_limits = libc::rlimit { rlim_cur: limits.rlim_cur.min(RTTIME_US),
-        rlim_max: limits.rlim_max.min(RTTIME_US) };
+    // A native worker belongs to the DAW process. Never change a DAW-wide limit.
+    let bounded_limits = if native {
+        require(limits.rlim_max > 0 && limits.rlim_max <= RTTIME_US, "scheduling_native_budget_unavailable")?;
+        limits
+    } else { libc::rlimit { rlim_cur: limits.rlim_cur.min(RTTIME_US), rlim_max: limits.rlim_max.min(RTTIME_US) } };
     current(target)?;
-    require(unsafe { libc::prlimit(target.pid, libc::RLIMIT_RTTIME, &bounded_limits, std::ptr::null_mut()) } == 0,
-        "scheduling_limits_set")?;
+    if !native {
+        require(unsafe { libc::prlimit(target.pid, libc::RLIMIT_RTTIME, &bounded_limits, std::ptr::null_mut()) } == 0,
+            "scheduling_limits_set")?;
+    }
     // RealtimeKit sets RESET_ON_FORK itself and checks membership of the
     // supplied thread in the supplied process. Do not preemptively change a
     // numeric TID's policy or silently downgrade an existing RT policy.
@@ -168,7 +219,7 @@ mod tests {
             bytes[4..8].copy_from_slice(&2u32.to_le_bytes()); bytes[8..12].copy_from_slice(&1024u32.to_le_bytes());
             bytes[16..32].fill(0x42); fs::write(&status, bytes).unwrap();
             fs::set_permissions(&status, fs::Permissions::from_mode(0o600)).unwrap();
-            Self { root, request: Request {schema:1,session:"42".repeat(16),status,owned:vec![(100,900)]} }
+            Self { root, request: Request {schema:1,session:"42".repeat(16),status,owned:vec![(100,900)],native_peer:None} }
         }
         fn process(&self, pid: i32, tid: i32, mapped: bool) {
             let p = self.root.join(pid.to_string()); let task = p.join(format!("task/{tid}"));
@@ -217,6 +268,34 @@ mod tests {
         assert!(!requested(&Policy{policy:libc::SCHED_OTHER,priority:0}));
         assert!(requested(&Policy{policy:libc::SCHED_RR|libc::SCHED_RESET_ON_FORK,priority:5}));
     }
+    #[test]
+    fn native_worker_requires_socket_peer_namespace_generation_and_session_mapping() {
+        let mut f=Fixture::new();f.process(100,101,true);f.process(100,102,true);
+        f.request.schema=2;f.request.owned.clear();f.request.native_peer=Some((100,900));
+        let process=f.root.join("100");
+        fs::write(process.join("status"), "NSpid:\t100\t40\n").unwrap();
+        for (tid,nsid) in [(101,41),(102,42)] {
+            let task=process.join(format!("task/{tid}"));
+            fs::write(task.join("status"),format!("NSpid:\t{tid}\t{nsid}\n")).unwrap();
+            fs::write(task.join("comm"),b"ap3-transport\n").unwrap();
+        }
+        let file=f.root.join("native-scheduling.request");
+        let mut bytes=[b"LVNS".as_slice(),&1u32.to_le_bytes(),&[0x42;16],
+            &40u32.to_le_bytes(),&42u32.to_le_bytes(),&901u64.to_le_bytes()].concat();
+        fs::write(&file,&bytes).unwrap();fs::set_permissions(&file,fs::Permissions::from_mode(0o600)).unwrap();
+        assert_eq!(f.select().unwrap(),Target{pid:100,process_start:900,tid:102,thread_start:901});
+        // Two identical thread names in one DAW: only the namespace ID granted
+        // through this session's startup record selects the target.
+        bytes[28..32].copy_from_slice(&41u32.to_le_bytes());fs::write(&file,&bytes).unwrap();
+        assert_eq!(f.select().unwrap().tid,101);
+        bytes[32..40].copy_from_slice(&902u64.to_le_bytes());fs::write(&file,&bytes).unwrap();
+        assert!(f.select().is_err());
+        bytes[32..40].copy_from_slice(&901u64.to_le_bytes());bytes[8]^=1;fs::write(&file,&bytes).unwrap();
+        assert!(f.select().is_err());
+        bytes[8]^=1;fs::write(&file,&bytes).unwrap();
+        f.request.native_peer=Some((100,902));assert!(f.select().is_err());
+        f.request.native_peer=Some((100,900));fs::write(process.join("maps"),b"").unwrap();assert!(f.select().is_err());
+    }
 }
 pub fn run() -> Result<()> {
     let mut bytes = Vec::new(); std::io::stdin().take(32_769).read_to_end(&mut bytes)?;
@@ -224,7 +303,7 @@ pub fn run() -> Result<()> {
     let result = (|| -> Result<_> {
         let request: Request = serde_json::from_slice(&bytes)?;
         let target = select(&request, Path::new("/proc"), unsafe { libc::getuid() })?;
-        apply(&target)
+        apply(&target, request.native_peer.is_some())
     })();
     // Fixed failure classes only: raw errors can contain private paths.
     let value = result.unwrap_or_else(|error| {

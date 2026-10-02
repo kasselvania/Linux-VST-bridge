@@ -17,6 +17,7 @@ mod process_results;
 mod queue;
 mod queued;
 mod recovery;
+mod scheduling;
 mod state;
 #[cfg(feature = "rpi0")]
 pub mod rpi0;

@@ -1317,12 +1317,20 @@ class AudioScheduling:
     def __init__(self,spec):
         self.spec=spec;self.pending=0;self.requests=0;self.rows=collections.deque(maxlen=64)
         self.artifact=None;self.unavailable=None
+        self.native_done=False;self.native_header=None
         try:
             self.artifact=json.loads(os.environ['LVB_AUDIO_SCHEDULER'])
             verify(self.artifact)
         except Exception:self.unavailable='scheduler_artifact_unavailable'
+        if spec.get('graphical_session') and not self.unavailable:
+            try:
+                self.native_header=b'LVNS'+struct.pack('<I',1)+bytes.fromhex(spec['session'])
+                if len(self.native_header)!=24:raise ValueError('session identity')
+                atomic_bytes(pathlib.Path(spec['directory'])/'native-scheduling.supported',self.native_header)
+            except Exception:self.native_header=None
     def started(self):self.pending+=1
     def poll(self,owned):
+        self.poll_native()
         if not self.pending:return
         self.pending-=1;self.requests+=1
         if self.unavailable:
@@ -1330,6 +1338,8 @@ class AudioScheduling:
         request={'schema':1,'session':self.spec['session'],
             'status':str(pathlib.Path(self.spec['directory'])/'ap12.status'),
             'owned':sorted(owned)}
+        self.rows.append(self.invoke(request))
+    def invoke(self,request):
         child=None
         try:
             data=json.dumps(request).encode()
@@ -1342,9 +1352,9 @@ class AudioScheduling:
             result=json.loads(stdout)
             if result.get('outcome') not in ('effective','already_effective','unavailable'):
                 raise ValueError('reply outcome')
-            self.rows.append(result)
+            return result
         except Exception:
-            self.rows.append({'outcome':'unavailable','reason':'scheduling_request_failed'})
+            return {'outcome':'unavailable','reason':'scheduling_request_failed'}
         finally:
             if child is not None and child.poll() is None:
                 # This direct child is unreaped, so its new process group has
@@ -1352,6 +1362,20 @@ class AudioScheduling:
                 try:os.killpg(child.pid,signal.SIGKILL)
                 except ProcessLookupError:pass
                 child.communicate(timeout=2)
+    def poll_native(self):
+        if self.native_done or self.native_header is None:return
+        directory=pathlib.Path(self.spec['directory'])
+        if not (directory/'native-scheduling.request').exists():return
+        self.native_done=True;self.requests+=1
+        peer=self.spec['graphical_session']
+        request={'schema':2,'session':self.spec['session'],'status':str(directory/'ap12.status'),
+            'owned':[],'native_peer':[peer['peer_pid'],peer['peer_start_ticks']]}
+        # Rust checks the bounded file, session mapping, namespace ID and exact
+        # thread start against this socket-authenticated process identity.
+        result=self.invoke(request);result['role']='native_worker';self.rows.append(result)
+        code={'effective':1,'already_effective':2}.get(result['outcome'],3)
+        try:atomic_bytes(directory/'native-scheduling.reply',self.native_header+struct.pack('<I',code))
+        except OSError:pass # native preparation has a bounded unavailable result
     def value(self):
         return {'schema':1,'requested_policy':'SCHED_RR','requested_priority':5,
             'requests':self.requests,'discarded':max(0,self.requests-len(self.rows)),
@@ -1451,8 +1475,8 @@ def run_owned(spec,peer,stop_requested):
             owned.update(tracker.update())
             capture_call('observe',owned,root)
             pump(.05)
-            if audio_scheduling and audio_scheduling.pending:
-                owned.update(tracker.update())
+            if audio_scheduling:
+                if audio_scheduling.pending:owned.update(tracker.update())
                 audio_scheduling.poll(owned)
             if visibility:
                 was=visibility.suspect
