@@ -44,17 +44,17 @@ def peer_absolute(proc,value,label):
         raise RuntimeError(label+' path invalid')
     return proc/'root'/path.relative_to('/')
 
-def private_file_bytes(path,label):
+def private_file_bytes(path,label,max_bytes=1024*1024):
     before=path.lstat()
     if (not stat.S_ISREG(before.st_mode) or before.st_uid!=os.getuid()
-        or before.st_mode & 0o077 or before.st_size>1024*1024):
+        or before.st_mode & 0o077 or before.st_size>max_bytes):
         raise RuntimeError(label+' is not private')
     descriptor=os.open(path,os.O_RDONLY|os.O_NOFOLLOW)
     try:
         opened=os.fstat(descriptor)
         if (opened.st_dev,opened.st_ino)!=(before.st_dev,before.st_ino):
             raise RuntimeError(label+' changed')
-        with os.fdopen(descriptor,'rb',closefd=False) as source:data=source.read(1024*1024+1)
+        with os.fdopen(descriptor,'rb',closefd=False) as source:data=source.read(max_bytes+1)
         if len(data)!=before.st_size:raise RuntimeError(label+' changed')
         after=os.fstat(descriptor);named=path.lstat()
         identity=lambda m:(m.st_dev,m.st_ino,m.st_uid,m.st_mode,m.st_size,m.st_mtime_ns,m.st_ctime_ns)
@@ -1039,6 +1039,7 @@ def prelaunch_owned_failure(spec,peer,error):
 # keeper and the existing per-instance lease. No audio callback enters this code.
 class NativeProtonSession:
     COMPONENT = 'native-command-session.json'
+    MANAGED_RUNNER = 'managed-ge-proton11-7-slr4-20260805-r3'
     FORWARD = ('WINEDEBUG','PROTON_LOG','DXVK_LOG_LEVEL','VKD3D_DEBUG',
                'WINEDLLOVERRIDES','PROTON_USE_WINED3D','PROTON_DISABLE_NVAPI','PROTON_DLL_COPY',
                'LVB_EVENT_OUTPUT_POLICY','LVB_AUDIO_LAYOUT_POLICY','LVB_EDITOR_LIFETIME',
@@ -1054,12 +1055,46 @@ class NativeProtonSession:
         self.client=base/'steam-runtime-launch-client';self.service=base.parent/'libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service'
         self.verify_tools()
     @classmethod
+    def managed_component(cls,runner):
+        # The acquired runner already pins the complete runtime tree. Select
+        # only its two exact command tools; no ambient component, newer runtime
+        # or caller command can grant this route. Keep the installed tree and
+        # environment identity unchanged across the software update.
+        if runner.get('id')!=cls.MANAGED_RUNNER:return None
+        proton=pathlib.Path(runner['proton']);base=proton.parent.parent
+        if (not proton.is_absolute() or proton!=base/'GE-Proton11-7-x86_64/proton'
+            or pathlib.Path(runner['entry_point'])!=base/'SteamLinuxRuntime_4/_v2-entry-point'):
+            raise RuntimeError('managed command runner binding')
+        manifest=base/'runtime-tree.json'
+        declared=[a for a in runner['files'] if a['path']==str(manifest)]
+        if len(declared)!=1:raise RuntimeError('managed command manifest binding')
+        data=private_file_bytes(manifest,'managed command manifest',16*1024*1024)
+        if hashlib.sha256(data).hexdigest()!=declared[0]['sha256']:
+            raise RuntimeError('managed command manifest changed')
+        rows=json.loads(data)
+        if not isinstance(rows,list) or not 1<=len(rows)<=40000:
+            raise RuntimeError('managed command manifest extent')
+        component={'schema':1,'kind':'native_proton_command_session'}
+        for key,relative in [
+            ('client_sha256','SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client'),
+            ('service_sha256','SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service')]:
+            matches=[r for r in rows if isinstance(r,dict) and r.get('path')==relative]
+            if (len(matches)!=1 or matches[0].get('directory') is not False
+                or matches[0].get('target') is not None
+                or not isinstance(matches[0].get('sha256'),str)
+                or not re.fullmatch('[0-9a-f]{64}',matches[0]['sha256'])):
+                raise RuntimeError('managed command tool declaration')
+            component[key]=matches[0]['sha256']
+        return component
+    @classmethod
     def selected(cls,spec):
         if not spec.get('shared_runtime'):return None
         runner=spec['registration']['environment']['runner']
         path=pathlib.Path(runner['proton']).parent/cls.COMPONENT
         rows=[a for a in runner['files'] if a['path']==str(path)]
-        if not rows:return None
+        if not rows:
+            component=cls.managed_component(runner)
+            return None if component is None else cls(spec,component)
         if len(rows)!=1:raise RuntimeError('native command component ambiguous')
         component_bytes=private_file_bytes(path,'native command component')
         if hashlib.sha256(component_bytes).hexdigest()!=rows[0]['sha256']:

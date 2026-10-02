@@ -20,6 +20,58 @@ class SelectionTests(unittest.TestCase):
  def declare(self):
   p=self.root/s.NativeProtonSession.COMPONENT;p.write_text(json.dumps(self.component));p.chmod(0o600)
   self.runner['files']=[{'path':str(p),'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}]
+ def declare_managed(self,rows=None):
+  self.runner.update(id='managed-ge-proton11-7-slr4-20260805-r3',
+   proton=str(self.root/'GE-Proton11-7-x86_64/proton'),
+   entry_point=str(self.root/'SteamLinuxRuntime_4/_v2-entry-point'))
+  generated=[]
+  for key,relative in [
+   ('client_sha256','SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client'),
+   ('service_sha256','SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service')]:
+   p=self.root/relative;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(relative.encode())
+   generated.append({'path':relative,'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),
+    'target':None,'size':p.stat().st_size,'mode':0o600,'directory':False})
+  manifest=self.root/'runtime-tree.json'
+  if manifest.exists():manifest.chmod(0o600)
+  manifest.write_text(json.dumps(generated if rows is None else rows));manifest.chmod(0o400)
+  self.runner['files']=[{'path':str(manifest),'sha256':hashlib.sha256(manifest.read_bytes()).hexdigest()}]
+  return generated
+ def test_acquired_runtime_uses_the_exact_existing_owner_without_marker(self):
+  self.declare_managed();before=(self.root/'runtime-tree.json').read_bytes()
+  n=s.NativeProtonSession.selected(self.spec)
+  self.assertIsNotNone(n);self.assertEqual(n.component['kind'],'native_proton_command_session')
+  self.assertFalse((self.root/'GE-Proton11-7-x86_64'/s.NativeProtonSession.COMPONENT).exists())
+  self.assertEqual(before,(self.root/'runtime-tree.json').read_bytes())
+  (self.envroot/'compatdata/pfx/drive_c/bridge/sessions').mkdir(parents=True)
+  with self.assertRaisesRegex(RuntimeError,'one live exact keeper'):n.find_keeper()
+ def test_acquired_manifest_missing_duplicate_changed_and_public_refuse(self):
+  self.declare_managed();declaration=self.runner['files'][0];self.runner['files']=[]
+  with self.assertRaisesRegex(RuntimeError,'manifest binding'):s.NativeProtonSession.selected(self.spec)
+  self.runner['files']=[declaration,dict(declaration)]
+  with self.assertRaisesRegex(RuntimeError,'manifest binding'):s.NativeProtonSession.selected(self.spec)
+  self.runner['files']=[declaration];p=pathlib.Path(declaration['path']);p.chmod(0o600);p.write_bytes(b'changed')
+  with self.assertRaisesRegex(RuntimeError,'manifest changed'):s.NativeProtonSession.selected(self.spec)
+  self.declare_managed();p.chmod(0o644)
+  with self.assertRaisesRegex(RuntimeError,'not private'):s.NativeProtonSession.selected(self.spec)
+ def test_acquired_tool_roster_refuses_missing_duplicate_links_and_malformed(self):
+  rows=self.declare_managed()
+  for invalid in [rows[:1],[*rows,rows[0]],{},[],[{**rows[0],'directory':True},rows[1]],
+    [{**rows[0],'target':'somewhere'},rows[1]],[{**rows[0],'sha256':'invalid'},rows[1]]]:
+   with self.subTest(rows=invalid):
+    self.declare_managed(invalid)
+    with self.assertRaisesRegex(RuntimeError,'manifest extent|tool declaration'):s.NativeProtonSession.selected(self.spec)
+ def test_acquired_runtime_refuses_changed_tools_and_wrong_entrypoint(self):
+  self.declare_managed();tool=self.root/'SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client';tool.write_bytes(b'changed')
+  with self.assertRaisesRegex(RuntimeError,'changed'):s.NativeProtonSession.selected(self.spec)
+  self.declare_managed();self.runner['entry_point']=str(self.root/'ambient/_v2-entry-point')
+  with self.assertRaisesRegex(RuntimeError,'runner binding'):s.NativeProtonSession.selected(self.spec)
+  self.declare_managed();tool=self.root/'SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service';tool.write_bytes(b'changed')
+  with self.assertRaisesRegex(RuntimeError,'changed'):s.NativeProtonSession.selected(self.spec)
+ def test_another_runner_id_does_not_inherit_acquired_execution_policy(self):
+  self.declare_managed();self.runner['id']='ambient-latest'
+  self.assertIsNone(s.NativeProtonSession.selected(self.spec))
+  self.runner['id']='managed-ge-proton11-7-slr4-20260805-r3';self.spec['shared_runtime']=False
+  self.assertIsNone(s.NativeProtonSession.selected(self.spec))
  def test_ambient_component_never_selects_execution(self):
   self.declare();self.runner['files']=[];self.assertIsNone(s.NativeProtonSession.selected(self.spec))
  def test_declared_component_and_each_tool_must_match(self):

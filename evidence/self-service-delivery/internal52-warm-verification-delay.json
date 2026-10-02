@@ -1,0 +1,203 @@
+{
+  "schema": 1,
+  "candidate": "0.12.0internal52",
+  "source_head": "2446836aa8d75033d85bf9c4636c780aaf818130",
+  "claim": "installed development regression with unresolved warm responsiveness",
+  "warm_state_access_ms": [
+    24806,
+    12674,
+    11388,
+    11686,
+    11485,
+    11616,
+    11735,
+    12101,
+    11764,
+    11367,
+    12167,
+    11700,
+    11518,
+    11423,
+    11511,
+    11490
+  ],
+  "prospective_warm_limit_ms": 5000,
+  "measured_probe": {
+    "summary": {
+      "exit_code": 0,
+      "duration_ms": 48792.33,
+      "measurement": "read_only_20Hz_process_IO_and_file_identity_sampling",
+      "source_head": "2446836aa8d75033d85bf9c4636c780aaf818130",
+      "io_before": {
+        "rchar": 15609446502,
+        "wchar": 93408969,
+        "syscr": 1312541,
+        "syscw": 13457398,
+        "read_bytes": 9874378752,
+        "write_bytes": 59232256,
+        "cancelled_write_bytes": 0
+      },
+      "io_after": {
+        "rchar": 17067111043,
+        "wchar": 99884008,
+        "syscr": 1396527,
+        "syscw": 15029358,
+        "read_bytes": 10475204608,
+        "write_bytes": 65712128,
+        "cancelled_write_bytes": 0
+      },
+      "resource_before": {
+        "cpu.max": "100000 100000",
+        "memory.max": "2684354560",
+        "memory.swap.max": "0",
+        "pids.max": "512",
+        "pids.current": "343",
+        "memory.current": "1887924224",
+        "pids.events": "max 4",
+        "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+      },
+      "resource_after": {
+        "cpu.max": "100000 100000",
+        "memory.max": "2684354560",
+        "memory.swap.max": "0",
+        "pids.max": "512",
+        "pids.current": "354",
+        "memory.current": "1845600256",
+        "pids.events": "max 4",
+        "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+      },
+      "peak_tasks": 374,
+      "peak_memory_bytes": 2023616512,
+      "sample_count": 945,
+      "changed_runtime_regular_file_count": 6799,
+      "changed_runtime_regular_file_bytes": 653805161,
+      "changed_runtime_under_platform": 6708,
+      "native_startup": {
+        "class_id": "4C564242455441314546465800000001",
+        "observed_at": 1790900890,
+        "outcome": "accepted",
+        "phases": [
+          [
+            "request_received",
+            0
+          ],
+          [
+            "binding_verified",
+            7907
+          ],
+          [
+            "keeper_ready",
+            7910
+          ],
+          [
+            "ready_binding_verified",
+            8469
+          ],
+          [
+            "transport_prepared",
+            8554
+          ],
+          [
+            "supervisor_ready",
+            8668
+          ],
+          [
+            "binding_delivered",
+            8668
+          ]
+        ],
+        "request": "49687cc9d6584327e2f973c9154d25a1",
+        "schema": 1,
+        "total_ms": 8668
+      }
+    },
+    "runs": [
+      {
+        "mode": "record",
+        "duration_ms": 26060.524,
+        "exit_code": 0,
+        "host_events": [
+          {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 15500
+          },
+          {
+            "event": "activated",
+            "latency_samples": 1024,
+            "elapsed_ms": 15543
+          },
+          {
+            "event": "passed",
+            "claim": "installed_sdk_development_regression",
+            "real_daw_project_claim": false
+          }
+        ],
+        "capacity_after": {
+          "dsp": 0,
+          "maintenance": 0,
+          "keepers": 2,
+          "cleanup_unconfirmed": false
+        }
+      },
+      {
+        "mode": "recall",
+        "duration_ms": 21811.195,
+        "exit_code": 0,
+        "host_events": [
+          {
+            "event": "initialized_state",
+            "bytes": 200,
+            "elapsed_ms": 11259
+          },
+          {
+            "event": "activated",
+            "latency_samples": 1024,
+            "elapsed_ms": 11305
+          },
+          {
+            "event": "passed",
+            "claim": "installed_sdk_development_regression",
+            "real_daw_project_claim": false
+          }
+        ],
+        "capacity_after": {
+          "dsp": 0,
+          "maintenance": 0,
+          "keepers": 2,
+          "cleanup_unconfirmed": false
+        }
+      }
+    ]
+  },
+  "acquired_runtime": {
+    "id": "managed-ge-proton11-7-slr4-20260805-r3",
+    "tree_entries": 16911,
+    "regular_files": 13070,
+    "payload_bytes": 2264689839,
+    "runner_file_count": 5,
+    "native_command_component_declared": false,
+    "client_sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb",
+    "service_sha256": "8e725fdf7d38c81abd846b7c7274245e3247b92fa741286a250ace8b386b9722",
+    "exact_packaged_help_checked": true,
+    "help_supports": [
+      "private Unix socket",
+      "environment variable forwarding",
+      "inherited fd forwarding",
+      "stop on wrapped exit",
+      "stop on parent exit"
+    ]
+  },
+  "attribution": {
+    "observed": "Both Windows retirement receipts lacked native_command_child; runtime file identities changed across the pair and manager IO rose by 1457664541 read characters.",
+    "owner_crossing": "NativeProtonSession.selected returns None when no declared component exists. runtime_delivery::install pins the complete acquired tree but supplies no command component, so run_owned launches the outer entry point for every instance.",
+    "inference": "Repeated runtime-copy construction invalidates process-owned byte observations and requires rehashing changed identities on the next admission.",
+    "nonclaims": [
+      "Exact per-file byte-change cause not traced; metadata change alone is not changed content.",
+      "IO contains all manager reads, not exclusively runtime hashing.",
+      "20Hz read-only sampling can affect timings; use unsampled fixed-candidate loads for responsiveness acceptance.",
+      "No historical internal49 cause is inferred from this warm-start measurement."
+    ]
+  },
+  "proposed_repair": "Derive the closed command tool pair from the acquired runner's exact pinned tree; reuse the existing live keeper custody route. Do not edit the installed runner or licensing prefix."
+}

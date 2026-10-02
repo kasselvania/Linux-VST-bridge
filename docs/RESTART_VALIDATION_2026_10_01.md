@@ -302,6 +302,71 @@ automation offsets, processing readiness and positive retirement as distinct
 facts. A reference SDK host is development instrumentation, not real DAW
 project-recall acceptance.
 
+## Internal52 installed results and remaining delay
+
+Internal52 is the fixed product source `2446836aa8d75033d85bf9c4636c780aaf818130`,
+tree `e5d47b9d628574c776d696d751e7a162c9a9e393`. Normal installer intake,
+Setup selection and service start passed on the populated Openbox/X11 account.
+The original Ardour project stayed unchanged. This development desktop fits
+the approved 512-task guest limit; it does not qualify GNOME or make Openbox a
+customer requirement. A missing Xorg input driver was installed from Ubuntu's
+official repository before the run, under a separate one-core/512-MiB/zero-swap/
+64-task maintenance scope. No product or resource cap changed for that repair.
+
+Three installed development regressions passed:
+
+- Deliberate owned-service task denial returned three bounded refusals without
+  losing the manager or granting a lease. Restoring the exact original service
+  limit, without restarting it, restored fresh capacity readback. The four
+  task-denial events are intentional; the 512-task user budget was not exhausted.
+- Both actual keepers acknowledged readiness under the same three-second
+  registry contention. Request to LVE1 acknowledgment was 43.963 seconds;
+  peak task use was 371 with no new task or OOM events.
+- Both SDK reference roles completed all four record/recall pairs: 16 fresh
+  consumers, 15,667,200 stereo samples compared, meaningful component/controller
+  state and sparse automation, zero processing missing frames, positive native
+  and supervisor retirement, and zero maintainer repairs. Startup priming of
+  16,320 frames and processing priming of 64 frames remain explicit. The suite
+  took 369.747 seconds; peak task use was 372 and peak user RAM 2,008,346,624 bytes.
+  Outer VM memory reclamation increased by 445 events without OOM.
+
+These tests use the retained coherent native51/Windows-host47 publications with
+manager52. Kit52 is selected but its new proxy bytes are not yet published.
+They establish neither real DAW project recall nor frontend publication,
+commercial, hardware, CachyOS or Deck qualification. Exact identities and
+limits are retained in `internal52-component-manifest.json`,
+`internal52-thread-denial.json`, `internal52-openbox-contention.json` and
+`internal52-installed-sdk-lifecycle.json`. All eight checks on the frozen head
+passed, including all ten native tests in
+[run 36942534945](https://github.com/kasselvania/Linux-VST-bridge/actions/runs/36942534945).
+
+Warm state access remains limited: the sixteen launches took 11.367–24.806
+seconds, exceeding the prospective five-second warm target. Retained manager
+phases place 8.070–8.599 seconds before binding verification, with an already
+ready keeper taking about three milliseconds. A separate two-launch, read-only
+sampling probe passed functional processing and retirement, observed 6,799
+runtime regular-file identities change (653,805,161 bytes), and measured
+1,457,664,541 manager read characters. This is not a claim that those bytes
+changed content or that all reads were runtime hashing.
+
+The acquired runner has a complete pinned tree but lacks the standalone
+`native-command-session.json` component required by the existing shared
+command owner. Both actual instance receipts omit `native_command_child`;
+`NativeProtonSession.selected` returns None and `run_owned` therefore starts
+another outer runtime command. Repeated runtime-copy construction invalidates
+the byte observations needed by the next launch. This selects a delivery repair,
+not looser integrity checks or a larger deadline.
+
+The source successor derives the closed client/service pair from that exact
+acquired runner's pinned tree, then reuses the existing live keeper, private
+endpoint, inherited-fd handshake and process retirement owner. It changes no
+installed runner file, prefix or licensing identity. Unknown runners keep their
+prior route; missing or changed manifests/tools refuse. The exact packaged
+command tools' help interfaces confirm the socket, variable and descriptor
+forwarding contract. The new selection regression fails against frozen52 and
+passes against the correction; all 32 command-session tests pass, including
+actual Linux process-group custody. Installed validation remains required.
+
 Final acceptance uses one fixed delivered candidate through installation,
 publication, automation, meaningful saving, close/reopen, reboot/reopen,
 populated update and rollback. Any maintainer repair fails that run. Execute

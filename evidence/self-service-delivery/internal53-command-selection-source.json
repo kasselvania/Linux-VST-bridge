@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "base_commit": "2446836aa8d75033d85bf9c4636c780aaf818130",
+  "claim": "source selection and existing kernel custody regressions",
+  "source_sha256": {
+    "session_py": "dab4d6c11f10a160aebc1d21b76f3b41f7d9d426caf8b39ba07f34e2a57a1828",
+    "test_native_command_session_py": "c8379088b9c2c0f69725623a634db735d8ee5dd9db18d173b28a1661bcf46f0a",
+    "ownership_py_unchanged": "1b438ea0f136a1cc2ab8207b412715a8c14a5294a8fdf44ae0a1de551ff97de2"
+  },
+  "frozen_base_regression": {
+    "test": "test_acquired_runtime_uses_the_exact_existing_owner_without_marker",
+    "expected_failure": "NativeProtonSession.selected unexpectedly None",
+    "passed_as_expected_negative": true
+  },
+  "corrected_source": {
+    "tests_passed": 32,
+    "tests_failed": 0,
+    "duration_seconds": 1.467,
+    "includes_real_Linux_child_process_custody": true
+  },
+  "resources": {
+    "cpu_cores": 1,
+    "guest_user_memory_bytes": 2684354560,
+    "swap_bytes": 0,
+    "guest_user_tasks_max": 512,
+    "new_pid_denials": 0,
+    "new_memory_or_oom_events": 0
+  },
+  "installed_correction_tested": false,
+  "product_source_changed": [
+    "bridge-manager/runtime/session.py"
+  ],
+  "native_audio_or_Windows_host_changed": false,
+  "limits_changed": false
+}

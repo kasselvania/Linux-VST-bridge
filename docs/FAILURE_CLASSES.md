@@ -696,9 +696,11 @@ keeper refused before readiness, with `host Xauthority exact alias unavailable`;
 no DSP was admitted. [The installed failure](../evidence/self-service-delivery/internal51-sdk-lifecycle-failure.json)
 is retained. The source successor accepts the authenticated peer's exact
 host-visible private file only when file identity and complete bytes match,
-retaining the checked alias route for a private namespace. Installed validation
-of this successor remains pending; previous bounded physical results stay as
-recorded.
+retaining the checked alias route for a private namespace. Internal52 passed
+contended restoration and both actual SDK reference roles on the populated
+Openbox/X11 fixture, with positive state, processing and retirement. That
+installed development result does not qualify GNOME, commercial products or
+DAW project recall; previous bounded physical results stay as recorded.
 
 ### Fix chain
 
@@ -1023,6 +1025,16 @@ All 83 serial native-library tests and Clippy pass, with one Windows-fixture
 test ignored. It changes observation only and is not installed in internal44.
 See the [internal43 diagnostic](../evidence/self-service-delivery/internal43-audio-priority-diagnostic.json)
 and [integrated delivery status](INTEGRATED_BETA_DELIVERY.md).
+
+Internal52's coherent reference publications, using the whole-block host47,
+passed sixteen installed SDK record/recall consumers. The independent oracle
+compared 15,667,200 stereo samples; all processing-phase missing-frame counters
+were zero and actual owners retired positively. Startup and processing priming
+remain retained, and this is shorter development instrumentation on a VM, not
+the declared ten-minute DAW workload or a commercial/hardware qualification.
+The [SDK receipt](../evidence/self-service-delivery/internal52-installed-sdk-lifecycle.json)
+does not close the prior Deck commercial gaps or qualify kit52's unpublished
+successor proxy bytes.
 
 ### Claim limit
 
@@ -1684,6 +1696,23 @@ byte preparation within one manager process, reopens/checks exact identities,
 refuses stale/changed bytes and disk-cache authority, and releases its bounded
 preparation lock before keeper/DSP work. Focused tests pass. It is absent from
 internal32; repeated installed cold/warm measurements remain pending.
+
+Internal52's installed SDK suite passed both reference roles but warm state
+access remained 11.367–24.806 seconds. Retained phases place 8.070–8.599 seconds
+in initial binding verification and about three milliseconds in ready-keeper
+admission. A separate read-only probe observed 6,799 runtime file identities
+change and 1.46 GB of manager reads across two successful launches. The acquired
+runtime omits the component enabling `NativeProtonSession`; the supervisor
+therefore creates a fresh outer runtime for every instance. This invalidates
+process-owned observations of the mutable runtime-copy hardlinks.
+
+The source successor derives only the exact acquired runtime's command
+client/service pair from its already pinned tree. It reuses the existing keeper
+and custody owner without changing runner files, prefixes, bounds or byte
+verification. The differential selection test refuses the old absence and all
+32 command-owner tests pass against the correction. Installed startup and
+retirement validation is still required. The [warm-delay receipt](../evidence/self-service-delivery/internal52-warm-verification-delay.json)
+preserves observations, inference and nonclaims separately.
 
 ## FC-PLAT-002 — Delivered runtime lifetime lock cannot be opened
 
