@@ -4,6 +4,12 @@
 **Primary target:** Native Linux DAW loading an exact native proxy for a supervised Windows VST3 module.  
 **First real fixture:** Serum 2 VST3 in Bitwig Studio Flatpak on the maintainer's Steam Deck.
 
+The operator selected the audio recovery roadmap on 2026-10-02. Section 18
+records its current production decisions and takes precedence over provisional
+choices below where specified. The original proof questions remain historical
+design context; their current implementation and qualification are recorded in
+[the recovery review](AUDIO_RECOVERY_REVIEW.md) and SUPPORT_MATRIX.md.
+
 ## 1. Architectural ruling
 
 The system has four independently versioned planes:
@@ -958,3 +964,134 @@ The first implementation sequence should produce evidence for these exact questi
 7. What detached-editor window and DPI behavior occurs under the exact session type?
 
 Until answered, later architecture remains bounded intention rather than implementation fact.
+
+## 18. Audio recovery and portable execution
+
+These decisions implement the operator's recovery direction at the design level.
+They do not claim a new installed implementation. The [roadmap](AUDIO_RECOVERY_ROADMAP.md)
+sets the sequence, the [source review](AUDIO_RECOVERY_REVIEW.md) identifies current
+code and gaps, and [Integrated beta delivery](INTEGRATED_BETA_DELIVERY.md#acceptance-method)
+owns the release acceptance contract.
+
+### 18.1 Product ownership
+
+| Owner | Responsibility |
+| --- | --- |
+| DAW | Audio device/session, transport, negotiated format, automation, project persistence and delay compensation. |
+| Native proxy and Rust backend | Faithful SDK adaptation, bounded audio/event transfer, actual-block processing, result presentation, stream epochs and truthful latency. |
+| Windows SDK host | Exact module/class, vendor lifecycle and state calls, Windows editor thread and actual render thread, respecting vendor/SDK concurrency. |
+| Manager and supervisor | Capability observation, reviewed policy selection, pinned runtime/environment/publication identities, preparation, process custody, recovery and rollback outside audio callbacks. |
+| Proton-derived runner and Linux runtime | Windows compatibility, selected graphics/synchronization components and a controlled userspace, with effective host integration verified. They do not own DAW semantics or bridge presentation deadlines. |
+
+Keep Rust as the product language and C++ at the SDK edges. Preserve the existing
+versioned ABI, protocol, exact component pairing, ownership and epoch protections.
+Do not add a second lifecycle framework or a separate host architecture to work
+around an unmeasured failure in those boundaries.
+
+### 18.2 Capabilities and stable identity
+
+The manager observes host capabilities, matches them to declarative plug-in and
+runtime requirements, and prepares one explicit execution configuration. A distro
+name identifies a test target; it does not substitute for capability probes.
+
+Bounded observations cover architecture and available CPU resources, effective
+scheduling permissions and quotas, kernel/runtime synchronization support,
+graphics renderer/driver and desktop route, native or sandboxed DAW integration,
+audio/IPC access and storage needed by the selected operation. Record observation
+source and freshness. Read effective scheduling on the native worker and Windows
+render thread after launch. A launcher preference alone is not evidence.
+
+Keep capability eligibility separate from exact-fixture qualification. Missing
+required capability has an actionable failure; an unfamiliar but eligible system
+remains unqualified until exercised. Preserve identity, cleanup and integrity
+refusals. Never mark a system supported solely because its probes pass.
+
+The capability snapshot is not vendor machine identity. Preserve the licensed
+environment identity across observation refresh, software update and ordinary
+DAW reconfiguration. Never recreate a prefix to refresh a hardware assessment.
+Live DAW format facts come from the processing instance; they remain unknown
+while absent rather than being inferred from PipeWire defaults or device settings.
+
+### 18.3 Prepared processing configuration
+
+One prepared instance configuration binds the exact publication/runtime/profile
+to sample rate `Fs`, maximum block `M`, precision `P`, process mode, bus/event
+capacity, delivery mode, bridge delay `D` and vendor latency `L`. The callback
+receives actual length `N`, where `0 <= N <= M`; `N` is not a new configuration.
+Allocate for `M` while inactive. Preserve event offsets, parameter curves,
+transport context and returned results when adapting any block.
+
+The native float32 interface and existing advertised format limits remain truthful
+until successors are implemented and qualified. A rejected format must not be
+silently substituted. Ordinary changes follow legal host stop/deactivate/setup/
+activate/start transitions, retire old work and reuse the existing stream epoch
+mechanism. They do not require installing or republishing the plug-in.
+
+Keep `setProcessing` lightweight, including when called on the processing thread.
+Move preparation, process launch and state I/O outside that transition and the
+audio callback. State/control scheduling must respect vendor thread safety while
+allowing valid audio to meet its deadlines. Do not introduce concurrent state
+restoration and DSP as a shortcut around control contention. Distinguish a
+recoverable host-input error from a dead or corrupt transport.
+
+Report `D + L` as plug-in latency and expose the two components separately in
+the manager. Use the existing processor/controller notification route for latency
+changes so the DAW can recompute compensation. These requirements follow the
+[VST3 processing interface](https://steinbergmedia.github.io/vst3_doc/vstinterfaces/classSteinberg_1_1Vst_1_1IAudioProcessor.html)
+and [setup fields](https://steinbergmedia.github.io/vst3_doc/vstinterfaces/structSteinberg_1_1Vst_1_1ProcessSetup.html);
+the pinned SDK and real host transitions remain the implementation test boundary.
+
+### 18.4 Delivery and deadline policy
+
+First restore continuity in the installed queued path. Keep its `D >= M` guard,
+position checks, output ownership and stale-result rejection. A sample delay does
+not guarantee an equal amount of wall-clock execution time between callbacks.
+Test callback bursts and offline processing without artificial pacing.
+
+The selected low-latency design to evaluate is same-callback request/reply over
+the existing transport ownership: prepared audio/event memory, an event-driven
+handoff to the actual Windows render thread, and a bounded completion policy.
+Its target is no added bridge presentation delay (`D = 0`): return the current
+block's result in that callback, retaining any vendor latency `L`. Transport and
+processing still consume time; this is not a zero-overhead claim. Merely accepting
+64-frame host calls while retaining a 512-frame bridge delay does not meet it.
+Select and measure the wake mechanism before promoting it. This is a stage 4
+qualification target, not an implemented or accepted fast path. Keep queued mode
+as an explicit buffered compatibility option only if it proves independent value.
+
+Separate three bounds: startup/control timeouts, transport failure containment,
+and audio completion deadlines. The current worker's five-second reply timeout
+must never become a synchronous DAW-callback wait. A new callback completion
+budget must be declared for its format and processing mode before testing, with
+defined silence/failure and asynchronous recovery if it expires. No callback
+allocation, filesystem/network operation, ordinary logging, manager wait or
+unbounded lock acquisition becomes permissible through this design.
+
+Bounded, preallocated observations must attribute a missing span to its actual
+stage: admission, queue/control wait, worker service, Windows wait/DSP, reply
+validation, publication or presentation. Export away from processing. Acceptance
+uses diagnostics disabled and actual captured output, with observer effects
+measured separately. Existing phase counters remain evidence, not a replacement
+for delivered signal.
+
+### 18.5 Runtime selection and production convergence
+
+Retain pinned runtime acquisition, side-by-side revisions and exact rollback.
+Preserve normal Proton initialization and the coherent selected runtime, rather
+than swapping isolated DLLs or adopting an ambient newer runner. Runtime choices
+remain closed, reviewed profile data with exact identities and effective readback.
+
+Graphics acceleration and fallbacks are selected and verified per rendering path.
+Scheduling/affinity changes require measured benefit and actual-thread readback;
+they are not blanket product requirements. Do not change unrelated services or
+licensed machine identity to obtain an optimization. Proton's documented
+[runtime options](https://github.com/ValveSoftware/Proton#runtime-config-options)
+are configuration inputs, not audio qualification.
+
+Consolidate duplicate production settings into the prepared configuration, after
+checking callers. Isolate comparison-only controls and preserve useful tests;
+delete superseded implementations once their replacement is verified. Historical
+AP names alone do not prove code is unused or wrong. Keep app-owned runtime and
+prebuilt proxy delivery; no customer Steam, Wine, SDK or compiler prerequisite.
+Release qualification binds the complete component roster, including retained
+predecessors needed by installed projects, to declared platform packages.
