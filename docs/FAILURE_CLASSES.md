@@ -984,6 +984,17 @@ thread and callback together across the residual gap before another repair.
 The monitor silence also needs a separate native-reference comparison. The
 30-minute interaction and longer soak gates are unperformed.
 
+The next [bounded comparison](../evidence/audio-recovery/2026-10-02-residual-gap-observation.json)
+on unchanged recovery3 completed 27,947 / 27,556 traced and 45,502 / 45,120
+untraced Pure LoFi / FRAGMENTS blocks with zero missing frames and clean
+retirement. Both had external scheduler capture and whole output recording.
+This does not clear the failed prior lifetime or establish an observer effect.
+The new source observation retains the first 16 missing presentation spans
+without sample tracing, with close-only export and explicit omission counts.
+Independent progress reads are not a causal or atomic snapshot. Its old-source
+regression fails; 22 queued tests pass on macOS. Linux and installed validation
+of that observation repair are pending; audio continuity remains blocked.
+
 The 2026-10-02 [audio recovery comparison](../evidence/audio-recovery/2026-10-02-late-note-off.json)
 preserves missing audio in both the earlier usable Deck pair and an internal57
 control. FC-MIDI-002 now has a physical note-release repair, but its short clean

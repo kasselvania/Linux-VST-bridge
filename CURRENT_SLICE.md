@@ -56,6 +56,25 @@ continuity-repair claim and stage 2 remain open. Next capture must cover the nat
 worker, Windows render and DAW callback through the remaining late-session gap,
 and separately distinguish the monitor silence from native-reference behavior.
 
+The next bounded comparison reproduced no gap on unchanged recovery3: the
+traced lifetime completed 27,947 Pure LoFi / 27,556 FRAGMENTS blocks; the
+diagnostics-disabled lifetime completed 45,502 / 45,120. Both used external
+scheduler capture, whole speaker-monitor recording, copied-project saves and
+two play/stop cycles; both retired cleanly. Neither clears the earlier failure
+or proves that observation caused it. The native worker's exact per-session
+identity was ambiguous in the first external collector and is not used for
+causal attribution.
+
+The [observation repair](native-vst3-proxy/host/PRESENTATION_GAPS.md) retains
+16 bounded missing-span records without the optional observer. It exports the
+presentation clock bracket, existing parent callback, worker identity/progress,
+queue counters and control/readiness observations at close. It preserves the
+audio result and all delivery protections. The new regression fails on the old
+source; 22 queued tests pass on macOS, including callback allocation checks.
+Linux build and installed physical validation of this observation change are
+pending. [Retained comparison](evidence/audio-recovery/2026-10-02-residual-gap-observation.json).
+This is diagnostic coverage, not the remaining causal audio repair.
+
 Scope: the actual callback, queue, worker, transport, Windows render and
 presentation path; bounded preallocated telemetry; independent SDK consumer;
 focused regression and evidence. Dependencies change only if required by the

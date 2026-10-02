@@ -138,6 +138,7 @@ struct Shared {
     worker_op: AtomicU64,
     worker_epoch: AtomicU64,
     worker_position: AtomicU64,
+    worker_thread: AtomicU64,
     service_us_max: AtomicU64,
     // Callback writes counters only; the transport publishes them through the
     // existing independent status lane. No callback mapping or diagnostic I/O.
@@ -188,6 +189,7 @@ impl Shared {
             worker_op: AtomicU64::new(0),
             worker_epoch: AtomicU64::new(0),
             worker_position: AtomicU64::new(0),
+            worker_thread: AtomicU64::new(0),
             service_us_max: AtomicU64::new(0),
             delivery_totals: std::array::from_fn(|_| AtomicU64::new(0)),
             processing_ready_epoch: AtomicU64::new(0),
@@ -262,6 +264,71 @@ pub struct Delivery {
     pub delivered_frames: u64,
     pub priming_frames: u64,
 }
+// Keep a small failure witness even with the optional sample/SDK observer off.
+// Only the guarded callback writes these records; close reads them after all
+// instance leases have retired. Progress fields are independent observations,
+// not an atomic snapshot or proof of why the peer missed this deadline.
+#[derive(Clone, Copy, Default)]
+struct PresentationGap {
+    clock: [u64; 2],
+    generation: u64,
+    epoch: u64,
+    position: u64,
+    frames: u64,
+    parent: [u64; 4],
+    worker_thread: u64,
+    worker: [u64; 3],
+    requests: [u64; 2],
+    results: [u64; 2],
+    control_pending: bool,
+    ready_epoch: u64,
+}
+#[derive(Default)]
+struct PresentationGaps {
+    records: [PresentationGap; 16],
+    length: usize,
+    omitted: u64,
+}
+impl PresentationGaps {
+    fn record(&mut self, s: &Shared, epoch: u64, position: u64, frames: u64, parent: [u64; 4]) {
+        if self.length == self.records.len() {
+            self.omitted = self.omitted.saturating_add(1);
+            return;
+        }
+        let mut r = PresentationGap {
+            clock: [crate::observer::monotonic_ns(), 0],
+            generation: s.generation, epoch, position, frames, parent,
+            worker_thread: s.worker_thread.load(Ordering::Acquire),
+            worker: [s.worker_op.load(Ordering::Acquire), s.worker_epoch.load(Ordering::Acquire),
+                s.worker_position.load(Ordering::Acquire)],
+            requests: [s.requests.published(), s.requests.consumed()],
+            results: [s.results.published(), s.results.consumed()],
+            control_pending: s.pending_control.load(Ordering::Acquire),
+            ready_epoch: s.processing_ready_epoch.load(Ordering::Acquire),
+        };
+        r.clock[1] = crate::observer::monotonic_ns();
+        self.records[self.length] = r;
+        self.length += 1;
+    }
+    fn report(&self, path: &std::path::Path) {
+        for r in &self.records[..self.length] {
+            let text = format!(concat!("{{\"event\":\"audio_presentation_gap\",\"schema\":1,",
+                "\"clock_monotonic_ns\":[{},{}],\"generation\":{},\"epoch\":{},",
+                "\"position\":{},\"frames\":{},\"parent_callback\":[{},{},{},{}],",
+                "\"worker_thread\":{},\"worker\":[{},{},{}],\"requests\":[{},{}],",
+                "\"results\":[{},{}],\"control_pending\":{},\"ready_epoch\":{},",
+                "\"progress_is_atomic_snapshot\":false}}\n"),
+                r.clock[0], r.clock[1], r.generation, r.epoch, r.position, r.frames,
+                r.parent[0], r.parent[1], r.parent[2], r.parent[3], r.worker_thread,
+                r.worker[0], r.worker[1], r.worker[2], r.requests[0], r.requests[1],
+                r.results[0], r.results[1], r.control_pending, r.ready_epoch);
+            crate::preview::append_report(path, text.as_bytes());
+        }
+        crate::preview::append_report(path, format!(
+            "{{\"event\":\"audio_presentation_gap_summary\",\"retained_spans\":{},\"omitted_spans\":{}}}\n",
+            self.length, self.omitted).as_bytes());
+    }
+}
 struct Callback {
     curve_plan: crate::parameter_curves::Plan,
     curve_carry: crate::parameter_curves::Carry,
@@ -282,6 +349,7 @@ struct Callback {
     next_result: u64,
     in_gap: bool,
     delivery: Delivery,
+    gaps: PresentationGaps,
 }
 impl Callback {
     fn new() -> Self {
@@ -310,6 +378,7 @@ impl Callback {
             next_result: 0,
             in_gap: false,
             delivery: Delivery::default(),
+            gaps: PresentationGaps::default(),
         }
     }
     fn clear_audio(&mut self, s: &Shared) {
@@ -328,6 +397,7 @@ impl Callback {
     fn replacement(&mut self) -> Self {
         let mut next = Self::new();
         next.delay = self.delay;
+        next.gaps = std::mem::take(&mut self.gaps);
         next.curve_values = std::mem::replace(
             &mut self.curve_values, crate::parameter_curves::Values::empty());
         next.curve_values.invalidate();
@@ -462,6 +532,7 @@ impl Callback {
                         // The buffer is filled successfully, with a counted
                         // missing presentation span. Continue the same epoch.
                         let count = n - i;
+                        self.gaps.record(s, self.epoch, expected, count as u64, request.parent);
                         for plane in out.iter_mut() {
                             plane[i..n].fill(0.);
                         }
@@ -554,6 +625,11 @@ impl Drop for Guard<'_> {
     }
 }
 fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBuf>) {
+    #[cfg(target_os = "linux")]
+    {
+        unsafe extern "C" { fn gettid() -> i32; }
+        s.worker_thread.store(unsafe { gettid() } as u64, Ordering::Release);
+    }
     let mut input_observation = crate::input_observation::InputObservation::new(crate::observer::delivery_enabled());
     let mut previous_control = [0u64; 4];
     let mut deferred = None;
@@ -1785,6 +1861,9 @@ unsafe fn close_instance(id: u64, contain_terminal: bool) -> u32 {
                 && l.shared.retired.load(Ordering::Acquire)
                 && !l.shared.pending_control.load(Ordering::Acquire);
             let ok = contained || (clean && joined && l.shared.fault.load(Ordering::Acquire) == 0);
+            if let Some(path) = &l.report {
+                l.callback.get_mut().gaps.report(path);
+            }
             if !ok {
                 if let Ok(d) = l.shared.detail.lock() {
                     if !d.is_empty() {
@@ -2563,8 +2642,14 @@ mod tests {
         callback.curve_values.commit(&callback.curve_plan.last);
         callback.curve_plan.prepare(&[point(7, 512, 0.6)], 512,
             &Carry::empty(), &callback.curve_values).unwrap();
+        let mut old = Shared::new(); old.generation = 7;
+        callback.gaps.record(&old,3,512,128,[9,512,0,1234]);
         let mut next = callback.replacement();
         assert_eq!(next.delay, 512);
+        assert_eq!(next.gaps.length,1);
+        assert_eq!(next.gaps.records[0].generation,7);
+        assert_eq!(next.gaps.records[0].epoch,3);
+        assert_eq!(callback.gaps.length,0);
         assert!(next.curve_values.configure(&[7, 99]).is_err());
         assert!(next.curve_plan.prepare(&[point(7, 512, 0.6)], 512,
             &Carry::empty(), &next.curve_values).is_err());
@@ -3508,6 +3593,61 @@ mod tests {
         }
         assert_eq!(s.fault.load(Ordering::Relaxed), 0);
         assert_eq!(cb.transition(&s, STOP), 0);
+    }
+    #[test]
+    fn untraced_missing_span_retains_bounded_context_until_close() {
+        let _registry_owner = crate::registry_test();
+        let path = std::env::temp_dir().join(format!("audio-gap-{}",
+            u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())));
+        let shared = Arc::new(Shared::new());
+        shared.state_capable.store(true, Ordering::Release);
+        assert!(shared.observer.is_none());
+        let mut callback = Callback::new(); callback.delay = 512;
+        let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
+            shared: shared.clone(), callback: UnsafeCell::new(callback),
+            busy: AtomicBool::new(false), worker: None, report: Some(path.clone()),
+            max: 512, recovery_blocked: false, installed_delay: Some(512),
+            minor: 14, setup: None,
+        })).unwrap().unwrap();
+        let input = [0.; 512]; let mut output = [[9.; 512]; 2];
+        let mut missing = 0;
+        for epoch in 1..=2 {
+            assert_eq!(unsafe { ap3_transition(id, START) }, 0);
+            shared.requests.pop().unwrap();
+            shared.processing_ready_epoch.store(epoch, Ordering::Release);
+            shared.worker_op.store(AUDIO as u64, Ordering::Release);
+            shared.worker_epoch.store(epoch, Ordering::Release);
+            shared.worker_position.store(0, Ordering::Release);
+            for block in 0..10 {
+                let mut flags = 0; let mut delivery = Delivery::default();
+                let (rc, allocations) = crate::allocation_test::measure(|| unsafe {
+                    if2_process(id,512,std::ptr::null(),0,&crate::context::Context::default(),
+                        3,input.as_ptr(),input.as_ptr(),output[0].as_mut_ptr(),output[1].as_mut_ptr(),
+                        &mut flags,&mut delivery,1234)
+                });
+                assert_eq!(rc,0); assert_eq!(allocations,[0;3]);
+                assert_eq!(delivery.missing_frames,if block == 0 {0} else {512});
+                assert!(output.iter().flatten().all(|v| *v == 0.));
+                missing += delivery.missing_frames;
+                // The peer consumes requests but deliberately supplies no output.
+                shared.requests.pop().unwrap();
+            }
+            assert_eq!(unsafe { ap3_transition(id, STOP) },0);
+            shared.requests.pop().unwrap();
+        }
+        assert_eq!(missing,18*512);
+        assert_eq!(shared.fault.load(Ordering::Acquire),0);
+        assert!(!path.exists(),"no callback file output");
+        shared.ack.store(15,Ordering::Release);
+        assert_eq!(unsafe { if2_close(id) },0);
+        let report = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(report.lines().filter(|l| l.contains("\"event\":\"audio_presentation_gap\"")).count(),16);
+        assert!(report.contains("\"omitted_spans\":2"));
+        assert!(report.contains("\"epoch\":2"));
+        assert!(report.contains("\"position\":0,\"frames\":512"));
+        assert!(report.contains("\"parent_callback\":[2,512,0,1234]"));
+        assert!(report.contains("\"worker\":[3,1,0]"));
+        std::fs::remove_file(path).unwrap();
     }
     #[test]
     fn late_output_expires_only_past_samples_and_preserves_ordered_inputs() {

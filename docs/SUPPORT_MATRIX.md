@@ -32,6 +32,14 @@ was restored through normal controls; all publications remain unchanged. The
 does not change the blocked dependable-audio support posture.
 See [FC-AUDIO-001](FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses).
 
+Two additional recovery3 lifetimes, with external scheduler capture, completed
+27,947 / 27,556 traced and 45,502 / 45,120 untraced Pure LoFi / FRAGMENTS blocks
+without missing frames and retired cleanly. They leave the earlier failure
+intact. A bounded untraced missing-span record is now a tested source observation
+repair (22 queued tests on macOS); Linux and installed validation are pending.
+The [comparison](../evidence/audio-recovery/2026-10-02-residual-gap-observation.json)
+does not change dependable-audio support or establish beta readiness.
+
 The separate late-note-off correction passed its source regression and an
 installed physical Pure LoFi comparison on the Deck. Internal57 rejected 600
 callbacks after offset -1661; recovery1 delivered all 720 callbacks, captured

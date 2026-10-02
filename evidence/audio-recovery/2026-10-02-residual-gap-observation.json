@@ -1,0 +1,181 @@
+{
+  "schema": 1,
+  "claim": "Bounded untraced presentation-gap observation; audio reliability remains failed and unrepaired by this change.",
+  "source_base": "4901438a5daaab5f73fe0dbaa9b5b7bed0f8e518",
+  "fixture": "Physical Steam Deck OLED, SteamOS 3.8.16, Bitwig Flatpak 6.1, PipeWire, 48 kHz float32, maximum/actual/delay 512; exact Pure LoFi 1.0.0.6121 and FRAGMENTS 1.0.0.2925 pair from owned-render-scheduling receipt.",
+  "identity_basis": "2026-10-02-owned-render-scheduling.json",
+  "runs": [
+    {
+      "label": "trace1",
+      "candidate": "0.12.0recovery3",
+      "source_commit": "d5e710a243d5c990e33eb832103098ff4a14e6b3",
+      "bridge_trace": true,
+      "external_scheduler_capture": true,
+      "lifecycle": [
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 14108672,
+          "blocks": 27556,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 14108160,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 14308864,
+          "blocks": 27947,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "late_note_offs": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 14308352,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "retirement_confirmed": true,
+      "audio": {
+        "sha256": "818e0595fb0ae6bcc3f05b73aeb1a8ca4ed3ffc994b8c4315e3274596d7ac334",
+        "frames": 19472384,
+        "seconds": 405.67466666666667,
+        "peak": 0.5937941670417786,
+        "nonfinite_frames": 0,
+        "interpretation": "Whole recording includes intentional stopped transport and decaying effect tails. Exact zero spans are not automatically dropouts; lack of exact silence does not exonerate upstream loss."
+      },
+      "external_trace": {
+        "captured_thread_count": 45,
+        "seconds": 280.582716246,
+        "gap_trigger": false,
+        "coverage": "Rolling user perf switch rings, native plug-in host threads and both Windows processes; not the Bitwig audio-engine process. A ring does not retain the complete lifetime.",
+        "identity_limitation": "trace1 collector annotated both native workers with the first mapped session; that annotation is invalid. Both workers were captured; no per-session native attribution uses it. untraced2 retains the full mapped-session set."
+      },
+      "original_project_unchanged": true
+    },
+    {
+      "label": "untraced2",
+      "candidate": "0.12.0recovery3",
+      "source_commit": "d5e710a243d5c990e33eb832103098ff4a14e6b3",
+      "bridge_trace": false,
+      "external_scheduler_capture": true,
+      "lifecycle": [
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 23297024,
+          "blocks": 45502,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "late_note_offs": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 23296512,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 23101440,
+          "blocks": 45120,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 23100928,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "retirement_confirmed": true,
+      "audio": {
+        "sha256": "1bb75c9db7d9242adeff02ec6011964ee951340564e9397b36c19ba0b13a3a31",
+        "frames": 26484736,
+        "seconds": 551.7653333333334,
+        "peak": 0.6301404237747192,
+        "nonfinite_frames": 0,
+        "interpretation": "Whole recording includes intentional stopped transport and decaying effect tails. Exact zero spans are not automatically dropouts; lack of exact silence does not exonerate upstream loss."
+      },
+      "external_trace": {
+        "captured_thread_count": 43,
+        "seconds": 474.455051223,
+        "gap_trigger": false,
+        "coverage": "Rolling user perf switch rings, native plug-in host threads and both Windows processes; not the Bitwig audio-engine process. A ring does not retain the complete lifetime.",
+        "identity_limitation": "trace1 collector annotated both native workers with the first mapped session; that annotation is invalid. Both workers were captured; no per-session native attribution uses it. untraced2 retains the full mapped-session set."
+      },
+      "original_project_unchanged": true
+    }
+  ],
+  "interactions": {
+    "trace1": "Copied project reopen, two play/stop cycles, saves during playback and while stopped, save/close.",
+    "untraced2": "Same copy reopened, two play/stop cycles, both editors opened/closed, saves during playback and while stopped; FRAGMENTS grain mix changed from 0.5720 to 0.5970 and saved, restored to 0.5720 and saved; save/close."
+  },
+  "source_validation": {
+    "red": "New production-ABI diagnostic test on the old code: 1 failed because no untraced missing-span evidence was exported.",
+    "green": "22 queued backend tests passed on macOS with registered feature, including counted silence/no terminal fault, both epochs, capacity/omission, close-only export and zero callback allocation/reallocation/free.",
+    "linux": "pending",
+    "installed": "pending"
+  },
+  "retained_evidence": "Private residual-gap-20261002 directory outside the checkout; both remote run archives independently SHA256 verified locally. No licensed binaries, state or captured music committed.",
+  "nonclaims": [
+    "No second causal audio repair",
+    "No general observer-effect attribution from two clean comparisons",
+    "Earlier failed recovery3 lifetime remains failed",
+    "No 30-minute interaction/longer soak, lower-block, format-change or beta qualification",
+    "Separate prior monitor silence remains unattributed"
+  ]
+}
