@@ -23,3 +23,10 @@ product lease retirement and cleanup before the next run.
 
 This is an installed physical SDK-host test. It does not establish ordinary
 DAW behavior, deadline reliability, save/reopen or low-latency qualification.
+
+The [2026-10-02 Deck comparison](../../evidence/audio-recovery/2026-10-02-late-note-off.json)
+binds the consumer, installed pairs, settings and whole-output hashes. The old
+late-input run rejected 600 callbacks and silenced the later note; recovery1
+accepted all 720, produced that note and captured state. Both owners retired
+under supervision. The unchanged internal57 control also had a presentation
+gap, which remains a separate failure rather than evidence about event policy.

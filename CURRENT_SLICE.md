@@ -1,6 +1,6 @@
 # Current work selection
 
-## Selected: physical audio recovery, first bounded note-release repair
+## Completed first repair: late note release; audio continuity still open
 
 The operator stopped beta expansion and selected the audio-recovery directive on
 2026-10-02. Recovery starts from `37b5d41e5ffc7876b4bab4ecc6e57737297233bd`, tree
@@ -32,6 +32,35 @@ successor fails. No source-only test may be reported as physical acceptance.
 Basis: the operator's recovery directive; AGENTS.md “Keep the engineering
 safeguards” and “Verification and review”; docs/ARCHITECTURE.md §7.5 “Events and
 automation”; the existing event transport and installed publication boundaries.
+
+The exact source `bad5c69cf5a1edbbec6a48bb29a5b734ba9b9569`, tree
+`0edcc1b36cd4309785d7e37f91e567b884dd5bfd`, was built as internal-test package
+`0.12.0recovery1`, selected through the installed GUI, and published for Pure
+LoFi through normal product controls. FRAGMENTS retains its internal57 pair;
+all other registrations are unchanged. The Windows host and selected runtime
+are unchanged. Manager/frontend/Rust sources are unchanged, but rebuilt binary
+hashes differ and are recorded explicitly.
+
+The old-source regression failed; eight non-graphical native tests and one
+filtered Rust event test passed. Two X11 panel tests were not run. On the
+physical Deck, the same independent SDK consumer and -1661 input changed from
+600 rejected callbacks, silent later notes and failed state capture to 720
+successful callbacks, captured later-note audio, successful state capture and
+confirmed retirement. Both repaired 7.68-second runs recorded zero missing
+frames. This proves the bounded note-release repair, not dependable timing.
+
+A copied Bitwig project exercised automation, both editors, save/close/reopen
+and retirement. All four complete native lifetimes reported zero gaps and
+rejections. Its speaker-monitor recording captures the first playback, not
+resumed audio after reopen; meaningful unique-state recall remains unqualified.
+The original project hash is unchanged. Earlier usable reference lifetimes
+still contain gaps. See the [sanitized physical evidence](evidence/audio-recovery/2026-10-02-late-note-off.json).
+
+The next bounded repair is one measured request-to-presentation gap on the
+frozen physical artifact. Preserve queue epochs and ownership, locate the
+result at its deadline, repair one cause and compare captured output with
+diagnostics disabled. No lower-block, reconfiguration, installer, platform,
+distribution or complete beta gate is closed by this first repair.
 
 ## Frozen predecessor: integrated self-service beta delivery
 

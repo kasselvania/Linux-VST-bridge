@@ -943,6 +943,11 @@ bounded
 
 instrumentation-only
 
+The 2026-10-02 [audio recovery comparison](../evidence/audio-recovery/2026-10-02-late-note-off.json)
+preserves missing audio in both the earlier usable Deck pair and an internal57
+control. FC-MIDI-002 now has a physical note-release repair, but its short clean
+SDK and Bitwig runs do not close this independent deadline failure class.
+
 This status is for the residual deadline-miss classes. AP16 separately accepted a disk-backed
 hot-mapping repair. [AS1 PR #172](https://github.com/kasselvania/Linux-VST-bridge/pull/172)
 removed recurring bridge-owned allocation from its covered shared audio
@@ -2098,8 +2103,9 @@ recovery matrix and other platforms remain open.
 ## FC-MIDI-002 — Late note-off permanently fails processing
 
 **Understanding:** causal at the native SDK timestamp conversion.
-**Implementation:** source-fixed; physical installed comparison pending.
-**User posture:** unqualified. Deadline continuity remains separately blocked.
+**Implementation:** source-fixed, installed and physically compared on the Deck.
+**User posture:** the declared late-note-off recovery passed for exact Pure LoFi
+1.0.0.6121; dependable musical use and deadline continuity remain unqualified.
 
 The retained internal56 Ardour witness supplies a note-off at SDK offset -1661.
 `Processor::process` cast that signed input directly to an unsigned wire offset.
@@ -2119,5 +2125,22 @@ The pinned SDK regression fails on 37b5d41 and passes with the correction for
 reports zero prohibited effects. All eight non-graphical native tests passed;
 the two X11 panel tests were not run in this builder, which lacks xvfb-run.
 `ap18-late-note-off-host` supplies the installed control/injected-input comparison
-and records whole output for independent analysis. Source results alone do not
-qualify installed audio or close FC-AUDIO-001.
+and records whole output for independent analysis.
+
+The physical comparison used the same consumer, module, Windows host, pinned
+runtime, 48 kHz / 512-frame configuration and KDE Wayland session. Internal57
+rejected 600 of 720 callbacks after the -1661 note-off, silenced the later note
+and failed state capture. Recovery1 normalized one late release, accepted all
+720 callbacks, produced captured later-note audio, captured state and retired
+cleanly. All four control/late before/after owners had confirmed supervisor
+cleanup and transport retirement. The old late run's native termination still
+failed; supervisor cleanup is a separate fact.
+
+Both repaired short SDK runs had zero presentation gaps. A short copied Bitwig
+chain also had zero gaps in its initial and reopened native lifetimes and
+exercised both editors and existing automation. Speaker output was captured for
+the initial playback only. These are not a longer soak, meaningful unique-state
+recall, reboot, lower-buffer or reconfiguration result. The earlier reference
+and internal57 control retain real gaps; FC-AUDIO-001 stays open. Exact artifacts,
+whole-session counts, private-output hashes and limitations are retained in the
+[physical comparison](../evidence/audio-recovery/2026-10-02-late-note-off.json).
