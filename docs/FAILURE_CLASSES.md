@@ -1783,8 +1783,12 @@ PulseAudio; its first retained consumer intervals were only 249–264 microsecon
 Later queue/reply stalls remain separately unattributed. All whole-lifetime
 counters and successful owner retirement are retained in the
 [internal55 DAW failure](../evidence/self-service-delivery/internal55-ardour-pulseaudio-failure.json).
-This does not establish an audio repair or a general scheduler cause. An ALSA
-comparison is a declared fixture transition with unchanged product binaries.
+This does not establish an audio repair or a general scheduler cause. The ALSA
+comparison was stopped after 468 DAW xruns; even the subsequent no-plug-in
+baseline accumulated 20 xruns with zero bridge DSP owners. The audio fixture
+itself fails. Actual reference-state reopen and fresh recapture did match both
+saved payloads, separately from the still-failed audio result. See
+[the bounded comparison](../evidence/self-service-delivery/internal55-daw-recall-and-fixture-failure.json).
 
 ## FC-PLAT-002 — Delivered runtime lifetime lock cannot be opened
 

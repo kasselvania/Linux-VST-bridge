@@ -21,11 +21,27 @@ outer-VM throttling was observed without a matching per-gap correlation.
 PulseAudio's writable-space-driven callbacks are a fixture limitation for this
 asynchronous processing test. Ardour's maintainer describes that backend as a
 [convenience playback path](https://discourse.ardour.org/t/pulseaudio-via-jack-bridge-no-input/106710/2).
-The next bounded comparison selects the VM's existing virtual HDA through
-ordinary Ardour ALSA setup, with unchanged product binaries, trace selection,
-48 kHz / 1024 frames and resource limits. It is a declared fixture transition,
-not an audio repair or a reclassification of this failure. Internal54's SDK gap,
-the earlier Deck gaps and full beta qualification remain open.
+The bounded comparison selected the VM's existing virtual HDA through ordinary
+Ardour ALSA setup, with unchanged product binaries, trace selection, 48 kHz /
+1024 frames and resource limits. It was stopped after 468 visible DAW xruns.
+A subsequent baseline opened the same project with every plug-in disabled and
+zero bridge DSP owners; ALSA still accumulated 20 visible xruns. This establishes
+a separate audio-fixture failure, not a unique explanation of the bridge gaps.
+CPU use approached the outer VM's one-CPU allowance. A proposed two-CPU
+comparison awaits operator approval; no resource cap has changed.
+
+The reopen did establish actual first-party state persistence: new Windows
+owners accepted each saved payload, and a fresh DAW snapshot captured the same
+component/controller payload digests and decoded settings for both roles.
+Automation was visible after reopen. The actual new snapshot is named
+`internal55-reop`; remote GUI input truncated the intended name before Save.
+Both original snapshots remain unchanged. The transition still retained 2,048
+missing processing frames per role and is not an audio pass. Both owners
+positively retired. Ardour exited, the owned trace flag was removed, and the
+previous audio configuration was restored byte-for-byte. See
+[recall and fixture results](../evidence/self-service-delivery/internal55-daw-recall-and-fixture-failure.json).
+Internal54's SDK gap, the earlier Deck gaps, reboot and commercial recall,
+populated rollback and full beta qualification remain open.
 
 ## Internal55 installed recovery and diagnostic regressions
 
