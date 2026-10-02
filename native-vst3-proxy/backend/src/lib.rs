@@ -226,7 +226,9 @@ impl Session {
             minor,
             epoch: 0,
             position: 0,
-            witness: if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13) {
+            witness: if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13)
+                || (minor == 14 && observer::delivery_enabled())
+            {
                 observer::Observer::commercial().ok()
             } else if matches!(minor, 4 | 6)
                 && (owner.is_some() || std::env::var("LVB_AP4_COMPARE").as_deref() == Ok("1"))

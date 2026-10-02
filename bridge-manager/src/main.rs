@@ -1316,6 +1316,22 @@ fn serve(m: Manager) -> Result<()> {
                 peer.set_read_timeout(Some(Duration::from_secs(5)))?;
                 let mut greeting = [0; 53];
                 peer.read_exact(&mut greeting[..5])?;
+                if &greeting[..5]==b"LVE2\n" {
+                    // Maintenance admitted no active DSP. Restore control
+                    // service availability only; native admission owns exact
+                    // environment initialization and processing readiness.
+                    peer.read_exact(&mut greeting[5..37])?;
+                    let operation=std::str::from_utf8(&greeting[5..37])?;
+                    require(valid_hex(operation,32),"operator_resume_request_identity")?;
+                    let _admission=capacity::reserve_maintenance_until(&m,&limits,
+                        || blocked.load(Ordering::Acquire),
+                        Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS))?;
+                    m.require_inactive(None)?;
+                    operator_cli::authorize_service_resume(&m,operation,&s)?;
+                    peer.set_write_timeout(Some(Duration::from_secs(1)))?;
+                    peer.write_all(b"LVE2 control ready\n")?;
+                    return Ok(());
+                }
                 if &greeting[..5]==b"LVE1\n" {
                     // MF1 resumes keeper ownership after exclusive vendor work.
                     // Selection comes only from current registered environments.

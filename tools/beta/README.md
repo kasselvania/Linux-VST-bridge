@@ -29,6 +29,13 @@ sample output, sparse automation through offset 1007, note onset/release,
 meaningful state capture before and during processing, byte-identical
 component/controller recall, callback audit, phase attribution and positive
 owned DSP retirement. It does not manufacture empty state or copy vendor data.
+The independent consumer retains a fixed 480-row timing array outside the
+plug-in callback: scheduled block time, actual start, callback duration and
+comparison mismatches. It emits those rows after joining audio and records the
+concurrent state-capture interval. This distinguishes short callbacks from late
+host wakes without changing pacing, queues, delay or deadline. Timing probes
+against a frozen candidate remain development measurements; they cannot turn
+an earlier failed qualification into a pass.
 Retirement includes the manager's exact lease release within the original
 20-second bound. Readback is sampled while that lease remains; a counted DSP
 owner is valid, and an unresolved owner refuses the run. Both supervisor cleanup

@@ -1821,7 +1821,7 @@ pub(crate) mod tests {
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         sw
     }
-    fn guided_fixture() -> (test_fixture::Fixture, prep::Candidate, Software, ui::Action) {
+    pub(crate) fn guided_fixture() -> (test_fixture::Fixture, prep::Candidate, Software, ui::Action) {
         let (f, mut c) = projection_fixture_with_role(true);
         let mut sw = projection_kit(&f, &c);
         let recipe = sw.preparation_kit.as_ref().unwrap().sha256.clone();

@@ -2870,14 +2870,19 @@ mod tests {
         use ap1_native_client::{
             endpoint::{receive_version, send_version},
             mapping::Mapping,
-            ClientState, Frame, Slot, INPUT, OUTPUT, STRIDE,
+            ClientState, Frame, Slot, INPUT,
         };
         use std::os::unix::fs::FileExt;
+        for (minor, frames) in [(4, 256usize), (14, 1024usize)] {
         let path = std::env::temp_dir().join(format!(
             "ap7-observer-{}.audio",
             u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())
         ));
-        let mapping = Mapping::new(&path).unwrap();
+        let mapping = if minor == 14 {
+            Mapping::with_layout(&path, 64, true).unwrap()
+        } else { Mapping::new(&path).unwrap() };
+        let output_offset = mapping.output;
+        let stride = mapping.stride;
         let file = std::fs::OpenOptions::new()
             .read(true)
             .write(true)
@@ -2891,28 +2896,30 @@ mod tests {
         let peer = thread::spawn(move || {
             let mut processed = 0;
             loop {
-                let f = receive_version(&mut remote, 5, 4).unwrap();
+                let f = receive_version(&mut remote, 5, minor).unwrap();
                 let payload = if f.kind == 3 {
-                    assert_eq!(ap1_native_client::get(&f.payload[40..48]), processed * 256);
-                    let mut bytes = [0u8; LEGACY_CAP * 4];
+                    assert_eq!(ap1_native_client::get(&f.payload[40..48]), processed * frames as u64);
+                    let mut bytes = vec![0u8; frames * 4];
                     for ch in 0..2 {
-                        file.read_exact_at(&mut bytes, (INPUT + ch * STRIDE + 4) as u64)
+                        file.read_exact_at(&mut bytes, (INPUT + ch * stride + 4) as u64)
                             .unwrap();
                         for value in bytes.chunks_exact_mut(4) {
                             let sample = f32::from_le_bytes(value.try_into().unwrap()) * 0.5;
                             value.copy_from_slice(&sample.to_le_bytes());
                         }
-                        file.write_all_at(&bytes, (OUTPUT + ch * STRIDE + 4) as u64)
+                        file.write_all_at(&bytes, (output_offset + ch * stride + 4) as u64)
                             .unwrap();
                     }
                     processed += 1;
-                    [
-                        256u32.to_le_bytes().as_slice(),
-                        (OUTPUT as u32).to_le_bytes().as_slice(),
+                    let mut payload = [
+                        (frames as u32).to_le_bytes().as_slice(),
+                        (output_offset as u32).to_le_bytes().as_slice(),
                         0u64.to_le_bytes().as_slice(),
                         &f.payload[32..48],
                     ]
-                    .concat()
+                    .concat();
+                    if minor == 14 { payload.resize(72, 0); }
+                    payload
                 } else if matches!(f.kind, 10 | 12) {
                     f.payload.clone()
                 } else {
@@ -2927,7 +2934,7 @@ mod tests {
                         payload,
                     },
                     5,
-                    4,
+                    minor,
                 )
                 .unwrap();
                 if f.kind == 5 {
@@ -2960,7 +2967,7 @@ mod tests {
             },
             phase: 9,
             max: CAP,
-            minor: 4,
+            minor,
             identity: None,
             epoch: 0,
             position: 0,
@@ -2981,16 +2988,17 @@ mod tests {
         let mut callback = Callback::new();
         assert_eq!(callback.transition(&shared, START), 0);
         let mut item = Item::control(AUDIO, 0);
-        item.n = 256;
-        item.gain = 0.5;
+        item.n = frames as u32;
+        item.gain = if minor == 14 { f64::NAN } else { 0.5 };
         item.data = [[0.25; CAP]; 2];
         let mut output = [[0.; CAP]; 2];
         for n in 0..128 {
             callback.process(&shared, item, &mut output).unwrap();
             assert_eq!(callback.delivery.missing_frames, 0);
-            for plane in &output { assert_eq!(plane[..256], [if n < 4 { 0. } else { 0.125 }; 256]); }
+            for plane in &output { assert!(plane[..frames].iter().all(|&v|
+                v == if n < (DELAY as usize / frames) { 0. } else { 0.125 })); }
             let end = Instant::now() + Duration::from_secs(2);
-            while shared.processed.load(Ordering::Acquire) <= n {
+            while shared.results.published() <= n as u64 {
                 assert!(Instant::now() < end, "observer stalled actual transport");
                 assert_eq!(shared.fault.load(Ordering::Acquire), 0);
                 thread::sleep(Duration::from_millis(1));
@@ -3003,10 +3011,11 @@ mod tests {
         transport.join().unwrap();
         assert_eq!(peer.join().unwrap(), 128);
         assert_eq!(shared.fault.load(Ordering::Acquire), 0);
-        assert_eq!(observation.offered.load(Ordering::Relaxed), 128 * 512);
+        assert_eq!(observation.offered.load(Ordering::Relaxed), 128 * 2 * frames as u64);
         assert_eq!(reader.observation.comparison.samples, 0); // none checked
         drop(reader);
         std::fs::remove_file(path).unwrap();
+        }
     }
     #[test]
     fn terminal_peer_exit_reaches_bounded_query_after_mapping_unlink() {

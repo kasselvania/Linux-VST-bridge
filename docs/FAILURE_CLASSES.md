@@ -1756,6 +1756,18 @@ fresh verification and readiness for each. Legacy records and failed results
 remain distinct. See [the failed installed run](../evidence/self-service-delivery/internal54-frontend-restoration-failure.json)
 and [the ownership explanation](RESTART_VALIDATION_2026_10_01.md#internal54-installed-result-and-restoration-reproduction).
 
+The subsequent unchanged-candidate timing repetition failed again with only
+0.276 ms of consumer wake lateness. Native protocol-14 observation was disabled,
+and the Windows trace switch was lost when HOME was isolated. The source
+successor corrects both observation paths; the processing gap remains unresolved.
+Recovery now restores only the exact operation's control-service availability,
+leaving environment initialization and processing readiness to native admission.
+This supersedes prior-keeper reconstruction; prebuilt preparation also avoids
+suspension. A separate post-SIGKILL cleanup race is corrected within the existing
+deadline. All 347 runtime tests pass with an init reaper. These are source results,
+not installed recovery or audio qualification. See the
+[closeout continuation](RESTART_VALIDATION_2026_10_01.md#closeout-continuation-timing-and-source-corrections).
+
 ## FC-PLAT-002 — Delivered runtime lifetime lock cannot be opened
 
 ### Shared boundary and understanding

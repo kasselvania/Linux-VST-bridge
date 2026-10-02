@@ -63,7 +63,8 @@ struct DeliveryTrace {
         recent[cursor]=current;cursor=(cursor+1)%recent.size();available=std::min(available+1,recent.size());
     }
     void dump(EventWriter& events){
-        if(!enabled||dumped)return;dumped=true;
+        if(!enabled||dumped)return;
+        dumped=true;
         events.lifecycle("ap10_windows_clock",",\"frequency\":"+std::to_string(frequency)+",\"minimum_observed_tick\":"+std::to_string(min_tick)+",\"triggers\":"+std::to_string(triggers)+",\"retained\":"+std::to_string(count));
         for(size_t i=0;i<count;++i){const auto&r=retained[i];std::string times="[";
             for(size_t j=0;j<r.at.size();++j){if(j)times+=",";times+=std::to_string(r.at[j]);}times+="]";

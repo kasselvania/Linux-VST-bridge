@@ -304,12 +304,21 @@ unchanged. None of this qualifies its previously failed musical baseline.
 | Ubuntu 26.04.1 / GNOME Wayland / internal51 | failed at declared resource budget | The service panicked on denied thread creation at 512 tasks; cleanup was confirmed. | Installed thread-denial recovery and a declared graphical workload that fits the fixed budget. |
 | Ubuntu 26.04.1 / Openbox X11 / internal52 | passed installed development regressions; limited warm responsiveness | Normal package selection, deliberate thread-denial recovery and contended two-environment restoration passed. Both stateful references passed 16 real SDK consumers with automation, meaningful state and positive retirement; processing missing frames were zero. Manager52 used retained native51/host47 publications. First state access took 24.806 seconds; fifteen warm launches took 11.367–12.674 seconds. | New kit publication and real DAW save/reopen/reboot/update/rollback; installed shared-command delivery correction; full frontend and commercial qualification. |
 | Ubuntu 26.04.1 / Openbox X11 / internal53 | failed before Windows processing | Normal installer intake and populated selection passed. Command keeper creation failed on a missing application cache parent, then falsely claimed endpoint cleanup responsibility. An independent actual runtime probe also rejected host-compiled child bytecode. Failure and original project are preserved; no audio/state pass. | Installed validation of the connected owner correction and full musician workflow. |
-| Ubuntu 26.04.1 / Openbox X11 / internal54 | failed full SDK regression and frontend restoration | Signed intake and selected-component readback passed. Ten retained native51/host47 consumers passed, including four effect pairs and one instrument pair; consumer eleven lost one active 1024-frame instrument block. Meaningful live state and retirement passed. Subsequent state access was 4.163–4.481 seconds. Ordinary inspection and prebuilt preparation completed their own work but failed restoration. Original project/publications are preserved. | Attribute the audio gap before an audio repair; exact prior-owner restoration and preparation without unrelated restarts; new kit publication and real DAW recall/reboot/update/rollback. No complete candidate pass. |
+| Ubuntu 26.04.1 / Openbox X11 / internal54 | failed full SDK regression and frontend restoration | Signed intake and selected-component readback passed. Ten retained native51/host47 consumers passed, including four effect pairs and one instrument pair; consumer eleven lost one active 1024-frame instrument block. Meaningful live state and retirement passed. Subsequent state access was 4.163–4.481 seconds. Ordinary inspection and prebuilt preparation completed their own work but failed restoration. Original project/publications are preserved. | Attribute the audio gap before an audio repair; control-service restoration and preparation without unrelated restarts; new kit publication and real DAW recall/reboot/update/rollback. No complete candidate pass. |
 | CachyOS / licensed Deck / internal51 successor | not tested in this restart | Earlier platform and hardware results above remain bounded to their recorded generations. | Same fixed successor's full workflows; protected-system-compatible Deck migration and exact predecessor preservation. |
 
 The [restart record](RESTART_VALIDATION_2026_10_01.md) retains exact failures and
 the pending corrections. Neither startup acknowledgment nor an SDK consumer
 establishes a complete musician journey or physical audio performance.
+
+The unchanged internal54 timing rerun also failed after two complete development
+passes, with 0.276 ms consumer wake lateness at its missing block. The successor's
+source changes restore control-service availability without initializing unrelated
+environments, keep prebuilt preparation from stopping keepers, wait for post-KILL
+retirement within the existing deadline, and enable missing protocol-14/Windows
+timing observations. They do not change the failed installed matrix or qualify
+audio. Prior-keeper reconstruction is superseded by control-service restoration;
+native admission still owns exact environment and processing readiness.
 
 ## Shared capacity posture
 

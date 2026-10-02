@@ -1854,7 +1854,6 @@ fn execute_with_receipt_policy(
             a,
             ui::Action::PluginReinspect { .. }
                 | ui::Action::PluginInspect { .. }
-                | ui::Action::PluginPrepare { .. }
                 | ui::Action::CompatibilityCheck { .. }
                 | ui::Action::CompatibilityResumeCheck { .. }
         ) {
@@ -1879,6 +1878,10 @@ fn execute_with_receipt_policy(
             }
             return Ok(value);
         }
+        // Prebuilt construction and publication retain their own transaction
+        // and inactive checks. They do not execute Windows environment work,
+        // so they must not retire healthy keeper ownership as a side effect.
+        drop(projection.take());
         return preparation_cli::execute(m, a, owner, || {
             acquire_readback(
                 m,
@@ -2261,6 +2264,7 @@ struct ResumeRecord {
     software: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     vendor_operation: Option<String>,
+
 }
 fn resume_lock(m: &Manager) -> Result<Lock> {
     let deadline = Instant::now() + Duration::from_secs(75);
@@ -2285,7 +2289,7 @@ fn resume_record(m: &Manager) -> Result<Option<ResumeRecord>> {
     }
     let saved: ResumeRecord = serde_json::from_value(value)?;
     require(
-        saved.schema == 1
+        matches!(saved.schema, 1 | 2)
             && valid_hex(&saved.owner_operation, 32)
             && valid_hex(&saved.software, 64)
             && saved
@@ -2295,6 +2299,23 @@ fn resume_record(m: &Manager) -> Result<Option<ResumeRecord>> {
         "operator_resume_identity",
     )?;
     Ok(Some(saved))
+}
+// The reservation restores the control service, not any DSP environment.
+// Native admission alone prepares its exact runtime/keeper and acknowledges
+// processing readiness. Caller holds the fresh maintenance reservation.
+pub(super) fn authorize_service_resume(
+    m: &Manager, operation: &str, selected: &Software,
+) -> Result<()> {
+    let saved = resume_record(m)?.ok_or("operator_resume_absent")?;
+    require(saved.schema == 2 && saved.resume && saved.owner_operation == operation,
+        "operator_resume_request_identity")?;
+    let current: Software = read_json(&m.root.join("software.json"))?;
+    require(saved.software == selected.manager.sha256
+        && current.manager == selected.manager,
+        "operator_resume_software_changed")?;
+    recovery_request(m, &saved)?;
+    require(onboarding::all_retired(m)?, "operator_installer_cleanup_unconfirmed")?;
+    require(vendor_retired(m)?, "operator_vendor_cleanup_unconfirmed")
 }
 // Caller holds operator-resume.lock. An outstanding recovery is never replaced.
 fn create_resume(m: &Manager, saved: &ResumeRecord) -> Result<()> {
@@ -2323,7 +2344,7 @@ fn suspend_with(
     create_resume(
         m,
         &ResumeRecord {
-            schema: 1,
+            schema: 2,
             owner_operation: owner.into(),
             resume: was_active,
             software: software(m)?.manager.sha256,
@@ -2549,13 +2570,20 @@ fn restore_service(m: &Manager, saved: &ResumeRecord) -> Result<()> {
         };
         peer.set_read_timeout(Some(Duration::from_secs(70)))?;
         peer.set_write_timeout(Some(Duration::from_secs(2)))?;
-        peer.write_all(b"LVE1\n")?;
-        let mut receipt = [0; 11];
-        peer.read_exact(&mut receipt).map_err(|error|
-            format!("operator_keeper_resume_readback: {error}"))?;
+        let scoped = saved.schema == 2;
+        if scoped {
+            peer.write_all(b"LVE2\n")?;
+            peer.write_all(saved.owner_operation.as_bytes())?;
+        } else {
+            peer.write_all(b"LVE1\n")?;
+        }
+        let expected: &[u8] = if scoped { b"LVE2 control ready\n" } else { b"LVE1 ready\n" };
+        let mut receipt = [0; 19];
+        peer.read_exact(&mut receipt[..expected.len()]).map_err(|error|
+            format!("operator_service_resume_readback: {error}"))?;
         require(
-            &receipt == b"LVE1 ready\n",
-            "operator_keeper_resume_unconfirmed",
+            &receipt[..expected.len()] == expected,
+            "operator_service_resume_unconfirmed",
         )?;
     }
     Ok(())
@@ -4030,6 +4058,85 @@ mod tests {
         let _lock = resume_lock(m).unwrap();
         create_resume(m, &saved).unwrap();
         saved
+    }
+    fn retained_keeper(m: &Manager, registration: &Registration, host: &Artifact) -> (PathBuf, PathBuf) {
+        let sid = random_id().unwrap();
+        let report = m.root.join("runtime/results").join(format!("environment-{sid}.json"));
+        let spec = registration.environment.root.join("compatdata/pfx/drive_c/bridge/sessions")
+            .join(&sid).join("owner.json");
+        private_dir(spec.parent().unwrap()).unwrap();
+        private_dir(report.parent().unwrap()).unwrap();
+        let mut binding = HostBinding::from(registration.clone());
+        binding.host = host.clone();
+        atomic_json(&spec, &json!({"session":sid,"report":report,"keeper":true,
+            "inspect":true,"vendor_access":false,"registration":binding})).unwrap();
+        atomic_json(&report, &json!({"ready":true,"cleanup_confirmed":false})).unwrap();
+        let lease = m.root.join("runtime/leases").join(format!("{sid}.json"));
+        private_dir(lease.parent().unwrap()).unwrap();
+        atomic_json(&lease, &report).unwrap();
+        (lease, report)
+    }
+    #[test]
+    fn control_resume_requires_exact_operation_and_software_without_starting_environments() {
+        let (f, _) = onboarding_worker_fixture();
+        let sw = software(&f.m).unwrap();
+        let owner = queued_test_action(&f.m, ui::Action::EnvironmentRescan {
+            environment: f.r.environment.id.clone(),
+        });
+        let saved = ResumeRecord { schema: 2, owner_operation: owner.clone(), resume: true,
+            software: sw.manager.sha256.clone(), vendor_operation: None };
+        create_resume(&f.m, &saved).unwrap();
+        let before = test_fixture::snapshot(&f.m.root);
+        let _authority = f.m.lock("registry.lock").unwrap();
+        authorize_service_resume(&f.m, &owner, &sw).unwrap();
+        assert!(authorize_service_resume(&f.m, &"ef".repeat(16), &sw).is_err());
+        let mut changed = sw.clone(); changed.manager.sha256 = "de".repeat(32);
+        atomic_json(&f.m.root.join("software.json"), &changed).unwrap();
+        assert_eq!(authorize_service_resume(&f.m, &owner, &sw).unwrap_err().to_string(),
+            "operator_resume_software_changed");
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        assert_eq!(test_fixture::snapshot(&f.m.root), before);
+        assert!(!f.m.root.join("runtime/leases").exists());
+    }
+    #[test]
+    fn legacy_recovery_record_does_not_authorize_control_only_acknowledgement() {
+        let (f, _) = onboarding_worker_fixture();
+        let sw = software(&f.m).unwrap();
+        let owner = queued_test_action(&f.m, ui::Action::EnvironmentRescan {
+            environment: f.r.environment.id.clone(),
+        });
+        let mut saved = ResumeRecord { schema: 1, owner_operation: owner.clone(), resume: true,
+            software: sw.manager.sha256.clone(), vendor_operation: None };
+        create_resume(&f.m, &saved).unwrap();
+        assert_eq!(resume_record(&f.m).unwrap().unwrap().schema, 1);
+        assert!(authorize_service_resume(&f.m, &owner, &sw).is_err());
+        saved.schema = 2;
+        atomic_json(&f.m.root.join("operator/resume.json"), &saved).unwrap();
+        assert!(authorize_service_resume(&f.m, &owner, &sw).is_ok());
+        saved.resume = false;
+        atomic_json(&f.m.root.join("operator/resume.json"), &saved).unwrap();
+        assert!(authorize_service_resume(&f.m, &owner, &sw).is_err());
+    }
+    #[test]
+    fn prepare_refusal_does_not_stop_existing_keeper_or_create_recovery() {
+        let (f, c, sw, _) = preparation_cli::tests::guided_fixture();
+        f.m.register(f.r.clone()).unwrap();
+        linux_vst_bridge::preparation::retain_inspection(&f.m, &c.inspection).unwrap();
+        let (lease, report) = retained_keeper(&f.m, &f.r, &sw.host);
+        let report_before = fs::read(&report).unwrap();
+        let registry_before = fs::read(f.m.root.join("registry.json")).unwrap();
+        let action = ui::Action::PluginPrepare { selection: c.selection.id().unwrap(),
+            inspection: c.inspection.id().unwrap(), recipe: c.recipe_sha256.clone(), predecessor: None };
+        let owner = queued_test_action(&f.m, action.clone());
+        // The real constructor refuses this incomplete fixture kit. That must
+        // not turn pure proxy construction into Wine-service cancellation.
+        let error = execute_with_receipt_policy(&f.m, &action, Some(&owner),
+            &|| capacity_fixture(&f.m), Duration::from_secs(2), &mut vec![]).unwrap_err();
+        assert_eq!(error.to_string(), "build_recipe_generator_identity_missing");
+        assert!(lease.exists());
+        assert_eq!(fs::read(report).unwrap(), report_before);
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry_before);
+        assert!(!f.m.root.join("operator/resume.json").exists());
     }
     #[test]
     fn interrupted_compatibility_continuation_restores_service_without_replaying_work() {

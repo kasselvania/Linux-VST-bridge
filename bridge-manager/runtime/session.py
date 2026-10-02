@@ -361,8 +361,12 @@ def delivery_trace(spec,env):
     # Match the registered native observer's opt-in flag. The supervisor's
     # deliberately small environment must not drop the Windows half of a trace.
     # This is read once before launch, never by either audio delivery thread.
+    env.pop('LVB_AP10_TRACE',None)
     if spec['inspect'] or spec.get('vendor_access'):return
-    flag=pathlib.Path(env['HOME'])/'.local/share/linux-vst-bridge/managed/runtime/trace-enable'
+    # Windows HOME may be an isolated onboarding home. The diagnostic switch
+    # belongs to the user-owned manager, outside the vendor environment, just
+    # like the registered native proxy's switch. Never read it from a prefix.
+    flag=pathlib.Path(pwd.getpwuid(os.getuid()).pw_dir)/'.local/share/linux-vst-bridge/managed/runtime/trace-enable'
     try:
         with flag.open('rb') as f:enabled=f.read(3)==b'1\n'
     except OSError:enabled=False

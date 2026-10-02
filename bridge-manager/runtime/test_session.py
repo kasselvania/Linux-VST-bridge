@@ -14,7 +14,8 @@ import tempfile
 import threading
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+from types import SimpleNamespace
 
 import ownership
 import session
@@ -515,6 +516,38 @@ class BusCensusCommandTests(unittest.TestCase):
         self.assertEqual(argv[argv.index('--mode')+1],'ap8-module-inspection')
 
 
+class CleanupRetirementTests(unittest.TestCase):
+    def test_killed_remote_owner_can_retire_before_original_deadline(self):
+        root = SimpleNamespace(pid=98, lvb_remote_group=(123, 456),
+                               poll=lambda: 0, wait=Mock())
+        remote = {'pid': 123, 'start_ticks': 456, 'pgrp': 123, 'session': 123}
+        # TERM's grace is over. KILL is asynchronous: the first census still
+        # sees the owner, and the next sees its independently reaped exit.
+        with patch.object(ownership, 'CLEANUP_SECONDS', 3), \
+             patch.object(ownership, 'process_identities', side_effect=[[remote], [remote], []]), \
+             patch.object(ownership, 'signal_local_group'), \
+             patch.object(ownership, 'signal_remote_group'), \
+             patch.object(ownership.time, 'monotonic', return_value=10), \
+             patch.object(ownership.time, 'sleep') as sleep:
+            result = ownership.cleanup_process(root, [(123, 456)])
+        self.assertEqual(result, {'owned_descendants_zero': True, 'process_group_empty': True})
+        sleep.assert_called_once_with(ownership.POLL_SECONDS)
+
+    def test_unreaped_owner_still_refuses_at_original_deadline(self):
+        root = SimpleNamespace(pid=98, lvb_remote_group=(123, 456),
+                               poll=lambda: 0, wait=Mock())
+        remote = {'pid': 123, 'start_ticks': 456, 'pgrp': 123, 'session': 123}
+        with patch.object(ownership, 'CLEANUP_SECONDS', 3), \
+             patch.object(ownership, 'process_identities', return_value=[remote]), \
+             patch.object(ownership, 'signal_local_group'), \
+             patch.object(ownership, 'signal_remote_group'), \
+             patch.object(ownership.time, 'monotonic', side_effect=[10, 10, 10, 13]), \
+             patch.object(ownership.time, 'sleep') as sleep:
+            with self.assertRaisesRegex(RuntimeError, 'owned descendants survived cleanup'):
+                ownership.cleanup_process(root, [(123, 456)])
+        sleep.assert_not_called()
+
+
 @unittest.skipUnless(sys.platform == "linux", "PID/start tracking uses Linux procfs")
 class OwnershipTests(unittest.TestCase):
     def test_subtree_tracking_covers_thread_children_and_reparented_descendants(self):
@@ -801,8 +834,31 @@ class CensusTests(unittest.TestCase):
                 flag.write_bytes(contents)
                 for spec in [{'inspect':False},{'inspect':True},{'inspect':False,'vendor_access':True}]:
                     env={'HOME':tmp}
-                    session.delivery_trace(spec,env)
+                    with patch.object(session.pwd,'getpwuid',return_value=SimpleNamespace(pw_dir=tmp)):
+                        session.delivery_trace(spec,env)
                     self.assertEqual(env.get('LVB_AP10_TRACE')=='1',expected and not spec['inspect'] and not spec.get('vendor_access',False))
+
+    def test_audio_trace_survives_managed_home_and_ignores_private_home_flag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            user=pathlib.Path(tmp)/'user';private=pathlib.Path(tmp)/'environment'
+            user.mkdir(mode=0o700);private.mkdir(mode=0o700)
+            (private/'home').mkdir(mode=0o700)
+            relative=pathlib.Path('.local/share/linux-vst-bridge/managed/runtime/trace-enable')
+            flag=user/relative;flag.parent.mkdir(parents=True);flag.write_bytes(b'1\n')
+            spec={'inspect':False,'onboarding_home':True,
+                  'registration':{'environment':{'root':str(private)}}}
+            env={'HOME':str(user)}
+            with patch.object(session.pwd,'getpwuid',return_value=SimpleNamespace(pw_dir=str(user))):
+                session.managed_home(spec,env)
+                self.assertEqual(env['HOME'],str(private/'home'))
+                session.delivery_trace(spec,env)
+                self.assertEqual(env.get('LVB_AP10_TRACE'),'1')
+                self.assertIn('LVB_AP10_TRACE',session.NativeProtonSession.FORWARD)
+                flag.unlink()
+                impostor=private/'home'/relative;impostor.parent.mkdir(parents=True);impostor.write_bytes(b'1\n')
+                env={'HOME':str(private/'home')}
+                session.delivery_trace(spec,env)
+                self.assertNotIn('LVB_AP10_TRACE',env)
 
     def test_stat_only_parsing_and_descendant_identity(self):
         with tempfile.TemporaryDirectory() as tmp:

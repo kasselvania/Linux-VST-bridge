@@ -174,15 +174,24 @@ def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]],
         root.wait(timeout=max(0.1, deadline - time.monotonic()))
     except subprocess.TimeoutExpired:
         fail("Runtime root did not terminate inside cleanup bound")
-    remaining = []
-    for record in process_identities():
-        if ((record["pid"], record["start_ticks"]) in owned or
-                (record["pgrp"] == root.pid and record["session"] == root.pid) or
-                (remote is not None and record["pgrp"] == remote[0])):
-            remaining.append(record["pid"])
-    if remaining:
-        fail(f"owned descendants survived cleanup: {remaining}")
-    return {"owned_descendants_zero": True, "process_group_empty": True}
+    # KILL delivery and reaping are asynchronous, including when a command
+    # service owns the remote child. Use the remainder of the same deadline;
+    # a sent signal or an exited-but-unreaped owner is not positive cleanup.
+    while True:
+        if during_cleanup is not None:
+            during_cleanup()
+        remaining = []
+        for record in process_identities():
+            if ((record["pid"], record["start_ticks"]) in owned or
+                    (record["pgrp"] == root.pid and record["session"] == root.pid) or
+                    (remote is not None and record["pgrp"] == remote[0])):
+                remaining.append(record["pid"])
+        if not remaining:
+            return {"owned_descendants_zero": True, "process_group_empty": True}
+        wait = deadline - time.monotonic()
+        if wait <= 0:
+            fail(f"owned descendants survived cleanup: {remaining}")
+        time.sleep(min(POLL_SECONDS, wait))
 
 
 

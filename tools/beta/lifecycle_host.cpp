@@ -118,6 +118,12 @@ int main(int argc,char** argv) {
         std::atomic<int> blocks{0};std::atomic<bool> audioDone{false};std::exception_ptr audioFailure;
         uint64_t mismatches=0,nonfinite=0,nonzero=0,rejected=0,overruns=0,maxNs=0;double maxError=0.;
         constexpr int count=480;
+        // Bounded independent-host observations. No logging or allocation is
+        // added inside process(); all rows are emitted after the audio join.
+        struct Timing {uint64_t scheduledNs{},startedNs{},durationNs{},mismatches{};};
+        std::array<Timing,count> timing{};
+        Clock::time_point audioBegin;
+        uint64_t audioBeginUnixNs=0;
         std::thread audio([&]{try {
             std::array<std::array<float,1024>,2> input{},output{};
             float* in[]{input[0].data(),input[1].data()};float* out[]{output[0].data(),output[1].data()};
@@ -132,6 +138,9 @@ int main(int argc,char** argv) {
             input[0].fill(.25f);input[1].fill(-.125f);
             ok(callback([&]{return processor->setProcessing(true);}),"processing start");
             auto begin=Clock::now();
+            audioBegin=begin;
+            audioBeginUnixNs=uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count());
             for(int b=0;b<count;++b) {
                 parameters.clearQueue();notes.clear();
                 int32 index=0,point=0;
@@ -159,16 +168,22 @@ int main(int argc,char** argv) {
                     e=instrument?std::array<float,2>{float(gain*signal/16.),float(gain*signal/16.)}
                                 :std::array<float,2>{float(gain*.25*(.5+colour)),float(gain*-.125*(.5+colour))};
                 }
-                std::this_thread::sleep_until(begin+std::chrono::nanoseconds(uint64_t(b)*uint64_t(frames)*1000000000ULL/48000));
+                const auto scheduledNs=uint64_t(b)*uint64_t(frames)*1000000000ULL/48000;
+                std::this_thread::sleep_until(begin+std::chrono::nanoseconds(scheduledNs));
                 auto before=Clock::now();auto result=callback([&]{return processor->process(data);});
                 auto elapsed=uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now()-before).count());
+                auto& row=timing[size_t(b)];row.scheduledNs=scheduledNs;
+                row.startedNs=uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(before-begin).count());
+                row.durationNs=elapsed;
                 maxNs=std::max(maxNs,elapsed);overruns+=elapsed>uint64_t(frames)*1000000000ULL/48000;
                 if(result!=kResultOk) {++rejected;throw std::runtime_error("processing refused");}
+                const auto priorMismatches=mismatches;
                 for(int i=0;i<frames;++i) for(int ch=0;ch<2;++ch) {
                     auto actual=out[ch][i];auto difference=std::abs(double(actual)-expected[size_t(b*frames+i)][ch]);
                     nonfinite+=!std::isfinite(actual);nonzero+=actual!=0.;maxError=std::max(maxError,difference);
                     mismatches+=difference>1e-7;
                 }
+                row.mismatches=mismatches-priorMismatches;
                 blocks.store(b+1,std::memory_order_release);
             }
             ok(callback([&]{return processor->setProcessing(false);}),"processing stop");
@@ -177,15 +192,28 @@ int main(int argc,char** argv) {
         while(blocks.load(std::memory_order_acquire)<96&&!audioDone.load(std::memory_order_acquire)) std::this_thread::sleep_for(std::chrono::milliseconds(10));
         try {
             stage="processing_state";need(!audioDone.load(std::memory_order_acquire),"audio remains active for capture");
-            auto captureAt=Clock::now();ok(component->getState(&captured),"state during processing");
+            auto captureAt=Clock::now();const auto captureBeginBlock=blocks.load(std::memory_order_acquire);
+            ok(component->getState(&captured),"state during processing");
             synchronize(*controller,captured,.625,.125);ok(controller->getState(&control),"controller state capture");
             if(!record) {
                 need(captured.bytes==load(prefix+".component"),"byte-identical component state roundtrip");
                 need(control.bytes==load(prefix+".controller"),"byte-identical controller state roundtrip");
             }
-            std::cout<<"{\"event\":\"processing_state\",\"component_bytes\":"<<captured.bytes.size()<<",\"controller_bytes\":"<<control.bytes.size()<<",\"gain\":0.625,\"colour\":0.125,\"duration_ms\":"<<std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now()-captureAt).count()<<"}"<<std::endl;
+            const auto captureEnd=Clock::now();
+            std::cout<<"{\"event\":\"processing_state\",\"component_bytes\":"<<captured.bytes.size()<<",\"controller_bytes\":"<<control.bytes.size()<<",\"gain\":0.625,\"colour\":0.125,\"duration_ms\":"<<std::chrono::duration_cast<std::chrono::milliseconds>(captureEnd-captureAt).count()
+                     <<",\"begin_since_audio_start_ns\":"<<std::chrono::duration_cast<std::chrono::nanoseconds>(captureAt-audioBegin).count()
+                     <<",\"end_since_audio_start_ns\":"<<std::chrono::duration_cast<std::chrono::nanoseconds>(captureEnd-audioBegin).count()
+                     <<",\"begin_after_block\":"<<captureBeginBlock<<",\"end_after_block\":"<<blocks.load(std::memory_order_acquire)<<"}"<<std::endl;
         }catch(...) {captureFailure=std::current_exception();}
         audio.join();
+        std::cout<<"{\"event\":\"consumer_timing\",\"schema\":1,\"audio_begin_monotonic_ns\":"<<std::chrono::duration_cast<std::chrono::nanoseconds>(audioBegin.time_since_epoch()).count()
+                 <<",\"audio_begin_unix_ns_approximate\":"<<audioBeginUnixNs<<",\"blocks\":[";
+        for(int b=0;b<blocks.load();++b) {
+            const auto& row=timing[size_t(b)];if(b) std::cout<<',';
+            std::cout<<"{\"block\":"<<b<<",\"scheduled_ns\":"<<row.scheduledNs<<",\"started_ns\":"<<row.startedNs
+                     <<",\"callback_ns\":"<<row.durationNs<<",\"mismatches\":"<<row.mismatches<<'}';
+        }
+        std::cout<<"]}"<<std::endl;
         std::cout<<"{\"event\":\"audio\",\"role\":\""<<(instrument?"instrument":"effect")<<"\",\"frames_per_callback\":"<<frames<<",\"blocks\":"<<blocks<<",\"compared_samples\":"<<uint64_t(blocks)*uint64_t(frames)*2<<",\"mismatches\":"<<mismatches<<",\"nonfinite\":"<<nonfinite<<",\"nonzero\":"<<nonzero<<",\"max_error\":"<<maxError<<",\"rejected_callbacks\":"<<rejected<<",\"callback_max_ns\":"<<maxNs<<",\"callback_overruns\":"<<overruns<<",\"callback_audited\":"<<(auditBegin?"true":"false")<<"}"<<std::endl;
         stage="retirement";
         if(audioFailure) processor->setProcessing(false);

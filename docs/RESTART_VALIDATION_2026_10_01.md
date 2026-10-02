@@ -1,5 +1,51 @@
 # Restart validation
 
+## Closeout continuation: timing and source corrections
+
+The unchanged internal54 timing investigation completed two full 16-consumer
+development repetitions, then failed the third. The first missing instrument
+block had a consumer wake delay of 276,158 ns and a callback duration of 12,593 ns.
+It lost 1,024 processing frames. State capture had finished several seconds
+earlier. Neither that callback wake nor that state capture explains this gap;
+native request-to-output timing was absent. CPU throttling was observed but was
+not correlated to this individual gap. See the
+[retained investigation](../evidence/self-service-delivery/internal54-timing-investigation.json).
+Internal54 remains failed.
+
+The source successor enables the existing bounded observer for protocol 14 when
+tracing is explicitly selected, and reads the Windows trace switch from the
+manager user's home even when the vendor process has an isolated HOME. These
+changes supply missing observations; they do not repair audio delivery or change
+buffers, queues, pacing or deadlines.
+
+The recovery correction restores control-service availability after maintenance.
+Suspension already requires no active DSP. Native admission retains responsibility
+for initializing and verifying its exact environment before processing. New
+schema-2 recovery records bind the control acknowledgment to the operation and
+selected manager; schema-1 records retain their historical LVE1 behavior.
+Prebuilt preparation keeps healthy environment owners running. This supersedes
+the earlier proposal to reconstruct a roster of prior keepers: a manager action
+does not need to initialize any plug-in to restore the control service.
+
+Cleanup had a separate race: after SIGKILL it sampled descendants immediately,
+even though the original cleanup deadline still had time remaining. The successor
+waits for positive retirement within that same deadline, continuing to refuse
+surviving or unreaped owners. A deterministic regression fails on the old code
+and passes with the correction. Both original cleanup tests and all 347 runtime
+tests pass in a container with an init reaper. The earlier non-reaping builder's
+orphaned zombie and failed runs remain retained privately. Fixture source files
+must belong to the test user; correcting transferred file ownership does not
+relax the product's ownership checks. The manager binary suite passed 287 tests
+(two opt-in tests ignored), and the library's 200 other tests plus the owned-copy
+retest passed. The registered native suite passed 88 tests (one Windows-fixture
+test ignored); both all-target Clippy checks passed with warnings denied. The
+Windows history test exposed an existing GCC indentation warning; separating
+its early return from the following assignment preserves behavior and passes
+the bounded history test. This source change requires a newly paired Windows
+host for the successor package. The independent SDK consumer also compiled with
+warnings denied. See [source validation](../evidence/self-service-delivery/closeout-source-validation.json).
+Installed validation remains outstanding.
+
 ## Internal54 installed result and restoration reproduction
 
 Internal54 is frozen at `65c131c88f6fc76ba4a7299b01a0889c83b1e2cd`,
