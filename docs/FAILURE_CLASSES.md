@@ -2046,3 +2046,20 @@ When a PR changes one of these classes:
 5. state the new fix-chain stage and claim limit in the PR body.
 
 A new class should represent a reusable mechanism, shared architectural boundary, current user limitation, or accepted fix that future work must preserve. Do not add one entry for every failed command or harness mistake.
+
+
+## FC-MGMT-005 — Partial installation retry omitted from Setup
+
+Internal55's packaged partial reference installer wrote only the instrument.
+Ordinary Setup Stop retired every owned process, preserved that file, restored
+the service and cleared pending recovery. The same card offered discovery but
+hid the backend's already-authorized isolated retry. This is a causal projection
+gap: `setup_projection_current` retained only Stop as a secondary action when
+partial files made discovery primary. The source correction retains the exact
+backend retry offer beside discovery, including its disabled reason; ownership,
+retirement and new-attempt admission remain with their existing owner.
+
+The installed failure and successful partial-stop subset are retained in
+[the internal55 record](../evidence/self-service-delivery/internal55-partial-stop-hidden-retry.json).
+The regression fails against the old projection. Source validation and installed
+successor qualification are separate; the complete recovery matrix remains open.

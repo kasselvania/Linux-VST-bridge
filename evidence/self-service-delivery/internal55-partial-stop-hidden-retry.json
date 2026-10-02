@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "candidate": "0.12.0internal55",
+  "source_commit": "6d61a3b59be8c68cf8ee8a48587029712bef2efe",
+  "fixture": "Ubuntu 26.04.1 / Openbox / approved two-CPU VM",
+  "installer_sha256": "c4a65a49a5d3ce532e33dc4132ec7db674e0b2558bbcf3c21c3490d8d8bbfaba",
+  "onboarding": "2fee848b68c68eabe61887dbb386f784",
+  "operation": "272b41e7687470ab721a2b20ace1b15a",
+  "launch_action": "Ordinary Setup Run installer; first-party installation prompt accepted; held after instrument file write.",
+  "held": {
+    "unix_ns": 1790918602301731242,
+    "modules": [
+      {
+        "name": "LVBReferenceInstrument.vst3",
+        "sha256": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+        "bytes": 265216
+      }
+    ],
+    "service": "inactive",
+    "resume_pending": true,
+    "owned_live": 15
+  },
+  "stop": {
+    "method": "Exact Stop installer in the same visible Setup card while general service status was unavailable.",
+    "unix_ns": 1790918687199747385,
+    "state": "cancelled",
+    "owned_live": 0,
+    "cleanup_confirmed": true,
+    "service": "active",
+    "resume_pending": false,
+    "modules": [
+      {
+        "name": "LVBReferenceInstrument.vst3",
+        "sha256": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+        "bytes": 265216
+      }
+    ],
+    "transaction": {
+      "operation": "272b41e7687470ab721a2b20ace1b15a",
+      "outcome": "cancelled",
+      "outer_launcher_exit": -15,
+      "durable_installation": "partial_installation",
+      "installation_completeness": "unproved",
+      "first_failure": null,
+      "safe_next_action": "review_retained_outcome_before_retry"
+    }
+  },
+  "visible_result": "Bridge ready and Cleanup confirmed; partial-install card offered Find installed plug-ins but no Retry installation.",
+  "source_attribution": "The backend new_attempt_actions permits an exact isolated retry after confirmed retirement and partial_installation. setup_projection_current kept only InstallerStop secondary offers, dropping InstallerNewAttempt when discovery was primary.",
+  "nonclaims": [
+    "One partial stop result; complete recovery repetitions and frontend interruption remain unfinished.",
+    "No new proxy publication, audio or release qualification."
+  ]
+}

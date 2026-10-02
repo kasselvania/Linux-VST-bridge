@@ -55,6 +55,20 @@ previous audio configuration was restored byte-for-byte. See
 Internal54's SDK gap, the earlier Deck gaps, reboot and commercial recall,
 populated rollback and full beta qualification remain open.
 
+## Partial installer recovery and missing retry control
+
+Internal55 completed one visible partial-install Stop with zero owned processes,
+confirmed cleanup, the original instrument-only files retained and the service
+restored. The same Setup card hid its backend-authorized isolated retry because
+discovery was primary. The regression reproduces that projection gap. The source
+correction exposes the exact existing retry offer beside discovery; it does not
+change installation, cleanup or environment ownership. See
+[the partial-stop record](../evidence/self-service-delivery/internal55-partial-stop-hidden-retry.json).
+The old projection fails the exercised regression; the corrected manager binary
+suite passes 285 tests (two optional fixtures ignored), and all-target Clippy
+passes with warnings denied. See the [source validation](../evidence/self-service-delivery/partial-retry-source-validation.json).
+Installed successor testing and the remaining recovery cases are still required.
+
 ## Internal55 installed recovery and diagnostic regressions
 
 Internal55 freezes source `6d61a3b59be8c68cf8ee8a48587029712bef2efe`, tree

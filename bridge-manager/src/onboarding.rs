@@ -966,7 +966,13 @@ pub(super) fn setup_projection_current(m: &Manager, rows: &[ui::Onboarding],
         let (phase, status, next) = setup_posture(current, ambiguous, discovered.len());
         let primary = setup_primary(&current.actions, next);
         let secondary = current.actions.iter().filter(|a| !ambiguous && primary.as_ref().is_none_or(|p| p.action != a.action))
-            .filter(|a| matches!(a.action, ui::Action::InstallerStop { .. })).cloned().collect();
+            .filter(|a| matches!(a.action, ui::Action::InstallerStop { .. } | ui::Action::InstallerNewAttempt { .. }))
+            .cloned().map(|mut offer| {
+                if matches!(offer.action, ui::Action::InstallerNewAttempt { .. }) {
+                    offer.label = "Retry installation".into();
+                }
+                offer
+            }).collect();
         let selected = retained.iter().find(|record|
             current.environment.as_ref() == Some(&record.id)
                 && record.installer == installer.id);
@@ -1413,6 +1419,30 @@ mod tests {
                 assert_eq!(blocked[0].disabled_reason.as_deref(), Some("active DSP"));
             } else {
                 assert!(prepare_attempt(&f.m, id, &key).is_err());
+            }
+            // The ordinary Setup card must preserve the backend's exact retry
+            // offer even when partial files make discovery its primary action.
+            let a = f.r.host.clone();
+            let sw = Software { manager:a.clone(),supervisor:a.clone(),ownership:a.clone(),host:a.clone(),
+                source_manifest:a.clone(),source_sha256:a.sha256.clone(),operator_frontend:None,
+                native_catalogue:None,preparation_kit:None,installer_launch:None };
+            let registry = f.m.registry().unwrap();
+            let retained_records = [prior.clone()];
+            let installers = [i.clone()];
+            let default = (runner_key(&runner).unwrap(), runner.clone());
+            let rows = projection_current(&f.m, None, CurrentProjectionInputs {
+                sw:&sw, default_runner:Some(&default), registry:&registry,
+                records:&retained_records, installers:&installers,
+            }, |_| Ok(false)).unwrap();
+            let cards = setup_projection_current(&f.m, &rows, &[], &Default::default(),
+                &retained_records, &installers, Some(&default)).unwrap();
+            let retries: Vec<_> = cards[0].primary.iter().chain(&cards[0].secondary)
+                .filter(|offer| matches!(offer.action, ui::Action::InstallerNewAttempt { .. }))
+                .collect();
+            assert_eq!(retries.len(), usize::from(allowed), "Setup retry: {durable}/{outcome}");
+            if allowed {
+                assert_eq!(retries[0].label, "Retry installation");
+                assert_eq!(retries[0].action, offered[0].action);
             }
             let prepared = PreparedCreation { installer:i.clone(), runner,
                 files:vec![(record.clone(), FileIdentity::read(&record).unwrap()),

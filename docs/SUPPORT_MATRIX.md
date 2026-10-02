@@ -26,6 +26,12 @@ audio fixture has not been established. Reboot and commercial recall
 remain unqualified.
 See the [failure and attribution](RESTART_VALIDATION_2026_10_01.md#internal55-real-daw-failure-and-audio-backend-attribution).
 
+Internal55 also passed one partial-install Stop: the instrument-only state was
+preserved, every installer process retired and the service returned. Setup then
+hid the backend's valid isolated retry beside discovery. That projection gap is
+reproduced by a regression; its successor still requires installed qualification.
+See [FC-MGMT-005](FAILURE_CLASSES.md#fc-mgmt-005--partial-installation-retry-omitted-from-setup).
+
 The integrated internal43 Deck audio diagnostic still failed its declared
 processing workload. The next source diagnostic keeps bounded early and recent
 gaps with the exact Windows mailbox timing; it is observation work, not a
