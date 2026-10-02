@@ -2,6 +2,11 @@
 
 Decisions are separated into **accepted**, **provisional**, and **open**. Implementation convenience does not silently change their state.
 
+The 2026-10-02 recovery direction is recorded in D-022 and architecture section
+18. Earlier development-process entries are historical where superseded by
+AGENTS.md and GOVERNANCE.md; they do not impose additional approval or closure
+cycles on the operator's selected roadmap.
+
 ## Accepted product and architecture rulings
 
 ### D-001 — Product boundary
@@ -57,6 +62,26 @@ Decisions are separated into **accepted**, **provisional**, and **open**. Implem
 ### D-010 — No automatic successor
 
 **Decision:** Completion or merge of one slice does not automatically authorize the next. A separate status closure returns the repository to no-active-slice posture, and the technical lead performs explicit successor analysis.
+
+### D-022 — Portable audio recovery contract
+
+**Decision:** Follow the operator-selected [audio recovery roadmap](AUDIO_RECOVERY_ROADMAP.md)
+and [architecture section 18](ARCHITECTURE.md#18-audio-recovery-and-portable-execution).
+Preserve the managed native/Windows ownership boundary and exact identities;
+derive explicit execution policy from host capabilities and plug-in requirements;
+prepare one coherent DAW processing configuration; distinguish audio deadlines
+from transport containment. Restore continuity before qualifying the same-callback
+low-latency design over existing transport. Existing implementations may be
+replaced when they cannot satisfy these requirements.
+
+**Acceptance:** [Integrated beta delivery](INTEGRATED_BETA_DELIVERY.md#acceptance-method)
+is the current release contract. Older short/high-buffer observations remain
+historical evidence and cannot close the recovery targets. Exact wake mechanism,
+delivery-mode promotion and per-platform policies require the experiments listed
+in the [stage 1 review](AUDIO_RECOVERY_REVIEW.md).
+
+**Status:** Selected design direction, 2026-10-02; not an implementation or
+physical support claim. PR #200 remains frozen and draft.
 
 ## Accepted proof-boundary rulings
 

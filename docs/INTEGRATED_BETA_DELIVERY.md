@@ -1,8 +1,14 @@
 # Integrated self-service beta delivery
 
-Selected by the operator on 2026-09-30 from source
+Originally selected by the operator on 2026-09-30 from source
 `ca95d1541a41a1aa7497a58752e26fc1f893b237`, tree
 `28c295cc0d8b45c8e0504c7ec0c88e56d65781b9`.
+
+Updated on 2026-10-02 for the operator-selected [audio recovery roadmap](AUDIO_RECOVERY_ROADMAP.md).
+The acceptance method below is the current beta contract. It supersedes the
+earlier ten-minute, 512/1024-frame release criteria, not the historical results
+retained later in this document. PR #200 remains a frozen draft. Implementation
+ordering is controlled by CURRENT_SLICE.md and the roadmap.
 
 ## Outcome and basis
 
@@ -11,8 +17,9 @@ publication, musical use, save/reopen, reboot/reopen, recovery, populated update
 and predecessor restoration through ordinary product controls. Passing journeys
 require zero maintainer repairs.
 
-Basis: AGENTS.md Mission/Core product invariants/Slice discipline and the current
-working rules; ARCHITECTURE.md 5.1 Manager core, 5.3 Environment manager,
+Basis: the operator's 2026-10-02 recovery directive and roadmap; AGENTS.md and
+GOVERNANCE.md; ARCHITECTURE.md 18 Audio recovery and portable execution,
+5.1 Manager core, 5.3 Environment manager,
 5.4 Installer supervisor, 5.10 Host publisher, 6.4 Thread affinity,
 6.5 Component/controller/state, 7 Transport architecture, 15 Test architecture;
 SELF_SERVICE_BETA_TODO.md tasks 1–5; SELF_SERVICE_DELIVERY.md Runtime setup,
@@ -59,47 +66,117 @@ explanation without a source-build fallback.
 
 ## Acceptance method
 
-Develop with first-party stateful instrument/effect and held/partial/crashing
-installer fixtures through the delivered paths. Commercial acceptance uses a
-small authorized set whose DAW and vendor configuration permits saving.
-Save-disabled demos cannot establish recall; normal vendor login/EULA/device
-selection is allowed. A paid activation on every development build is not needed.
+These are prospective requirements. No source review, previous short run or
+passing component suite closes them. Every released claim identifies its exact
+platform, DAW, plug-in/module/class, license channel, runtime/profile, native and
+Windows components, format, workload and observation duration.
 
-The assembled qualification run uses one fixed candidate. Before it begins,
-retain baseline IDs, complete component identities, exact audio settings, start
-and end phases, and the tested subset. Predeclare three cold loads (including
-reboot), five warm loads, three editor close/reopen cycles per product, and two
-repetitions of each supported recovery case. Run ten minutes of steady
-processing for each audio workload after explicit processing readiness, with
-startup and retirement counters retained separately. Do not discard a startup
-failure by moving the measurement window or dismiss unexplained active gaps.
+### Candidate and fixtures
 
-Initial functional mixing workload: 48 kHz, 1024-frame DAW blocks, one instrument
-and one effect individually and then together. Hardware live-use workload:
-48 kHz, 512-frame blocks, with total measured/reported latency retained. Larger
-buffers must be presented with their latency tradeoff. Cold launch must finish
-within 30 seconds and warm launch within 5 seconds for a responsive beta claim;
-slower bounded results remain limited. Active processing must have no unexplained
-missing frames for the declared supported workload. These are prospective
-criteria, not a reclassification of internal30 observations.
+The final qualification uses one frozen release source and complete component
+manifest with declared platform builds. Keep the exact predecessor, original
+projects and licensed environment available. Normal product controls must select,
+publish, update and restore the intended pair; no manual registry/proxy repairs.
+An engineering comparison may use controlled instrumentation, but is not itself
+the complete customer journey.
 
-Installer cases: normal completion, held exact operation stopped in visible
-Setup while general readiness is unavailable, closed parent with owned helpers,
-partial installation, interrupted frontend, and retry after confirmed retirement.
-Continue from the same Setup card to discovery or a useful retry; backend fresh
-operation ownership remains mandatory.
+Develop with the existing first-party stateful instrument/effect and deliberate
+installer failures. Qualify the recording path with an empty/native reference
+and deterministic bridged reference before assigning captured losses to a vendor
+plug-in. Exercise Pure LoFi alone, FRAGMENTS alone and their real chain on the
+Deck, then the declared commercial catalogue. Use working project copies and
+lawful save-capable configurations. Save-disabled demos cannot establish recall;
+normal vendor login, EULA and device selection remain user actions.
 
-Recall: recognizable parameter/preset changes and automation, save, DAW close,
-reopen, machine reboot and reopen; verify restored behavior and exact identities.
-Populated update: test the same retained project before/after a changed component
-generation and after visible predecessor restoration, without changing account.
-Keep project data independent from software rollback.
+### Audio and reconfiguration
 
-Negative cases include stale recovery targets, mismatched components/module
-bytes, unresolved cleanup, interrupted intake/update, insufficient customer disk
-space, and unavailable services. Preserve the working predecessor and show an
-actionable result. Hypervisor/viewer failures invalidate affected measurements;
-customer disk exhaustion is a product recovery case.
+Restore continuity at the declared 48 kHz / 512-frame Deck setting first. The
+recovery targets then include actual host blocks of 256, 128 and 64 frames. A
+1024-frame comparison or increasing bridge delay cannot replace those targets.
+The live-use target is same-callback output with no added bridge presentation
+delay; a small host block with a large queued delay does not qualify. Vendor
+latency and actual processing/transport time remain separately measured.
+Keep sample rate, setup maximum, actual block, precision, added bridge delay and
+vendor latency separate in both evidence and UI. Any reduction in the agreed
+platform, catalogue or latency goal is an explicit product scope decision.
+
+Test every advertised rate/format bound and actual lengths below the negotiated
+maximum, including non-power-of-two blocks, supported zero-frame event/parameter
+handling, and repeated block/rate changes through inactive setup. Check notes,
+automation, returned events, transport stop/start, pause, seek, loop and offline
+rendering. Burst and offline consumers must not sleep between blocks to make the
+bridge work. No reinstallation or publication change may be needed for ordinary
+DAW format changes.
+
+Before testing a delivery successor, declare its completion bound, timeout result
+and latency for each processing mode. For paced real-time reference processing,
+retain callback duration tails and maxima against `N / Fs`; this measurement does
+not replace actual presentation-deadline and captured-output checks in the DAW.
+Report bridge and vendor delay separately and notify the DAW when latency changes.
+Compare yabridge only with matched supported host installations and the same
+hardware, plug-in, preset and workload; disclose unmatched sandbox/runtime factors.
+
+### Interaction and sustained operation
+
+For each platform's declared release instrument/effect chain, the minimum
+sustained gate is a 30-minute interaction run followed by a two-hour soak on the
+same frozen artifact at its declared lowest live-use block. The two-hour duration
+is the selected engineering baseline for this roadmap, not a universal reliability
+claim. Declare and retain the settings and durations for individual plug-ins and
+the additional block/rate matrix too; do not transfer a pass to an unexercised
+combination.
+
+Interaction includes editor open/close/resize, automation, transport changes,
+state save and repeated supported buffer changes. Retain complete output and
+native/Windows lifetimes, startup/priming and retirement counts, missing spans,
+callback rejections, timing tails, effective thread policies and cleanup results.
+Acceptance runs have diagnostics disabled; measure observer effects separately.
+There must be zero unexplained missing frames, valid-input callback rejections,
+stuck notes or corrupted state. Expected musical silence and declared priming
+must be distinguishable from bridge failure. A clean subsection of a failed
+lifetime is not a pass. A broken no-plug-in recorder invalidates the affected
+comparison rather than proving a bridge regression.
+
+### Customer workflow and failure recovery
+
+Retain three cold loads including reboot, five warm loads, three editor
+close/reopen cycles per product and two repetitions of each supported recovery
+case. Cold launch must finish within 30 seconds and warm launch within 5 seconds
+for a responsive beta claim; slower results remain limited. Test the common
+Ubuntu/CachyOS catalogue and the controlled licensed Deck workflow. VM results
+do not qualify physical latency or graphics on an untested machine.
+
+Save recognizable changed parameters/presets and automation, close the DAW,
+reopen, reboot and reopen again. Verify restored behavior with captured output
+and exact identities; existence of a saved file or nonempty state blob is not
+meaningful recall. Test the retained project before/after populated update and
+after visible predecessor restoration. Software rollback must preserve project
+data and vendor authorization.
+
+Exercise installer completion, held-operation Stop while general readiness is
+unavailable, closed parents with owned helpers, partial installation, interrupted
+frontend and retry after confirmed retirement. Continue through the same Setup
+card to discovery or an actionable retry. Also test stale recovery targets,
+mismatched bytes, unavailable services, interrupted runtime intake/update,
+insufficient disk space, failed host launch, peer crash and teardown. Refuse wrong
+recovery, retain the predecessor, and confirm retirement before reuse. Fix and
+rerun the two known runtime cleanup failures and required manager/native checks;
+do not waive them because the audio comparison passes.
+
+### Release completion
+
+Review the actual production changes and required checks; rebuild and verify the
+declared release artifacts, signatures/trust configuration, exact third-party
+notices and source-offer/distribution obligations. Do not ship vendor binaries or
+authorization material. Complete fresh and populated installation/update/rollback
+through the ordinary product, including the SteamOS protected-system route.
+Publish only the support matrix established by this candidate. Missing hardware,
+release trust material or distribution authority remains an open release blocker.
+
+Changes during qualification create a new candidate identity. Reuse unaffected
+component results with their provenance, rerun affected checks and complete the
+final musician workflow on the candidate actually proposed for release. Preserve
+historical failures below without relabeling them under this contract.
 
 ## Audio phase measurement
 

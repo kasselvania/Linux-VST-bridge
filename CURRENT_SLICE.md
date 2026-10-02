@@ -1,5 +1,39 @@
 # Current work selection
 
+## Completed audio recovery stage 1
+
+On 2026-10-02 the operator selected the [six-stage recovery roadmap](docs/AUDIO_RECOVERY_ROADMAP.md)
+and asked to begin stage 1: settle the production architecture and one beta
+contract. Base: `a308fbf93e623ba2b8b5bc5e029f06f440ae390c`, tree
+`adc4e748f8b92642a7b644574864e73cb4efe406`. The inherited repair PR remains
+independently reviewable; this assignment changes repository documentation only.
+
+Primary claim: the actual installed processing path is mapped to its owners and
+build features, consequential components are classified for retention or change,
+and the recovery directive controls one consistent release contract. Scope is
+the native proxy, Rust transport, Windows SDK host, runtime/profile/host assessment
+and delivery boundaries needed for that decision. Basis: the operator's recovery
+directive and roadmap; AGENTS.md, GOVERNANCE.md; ARCHITECTURE.md sections 4 through
+10 and 15; applicable product decisions D-001 through D-009.
+
+Completion requires a source-grounded review, explicit decisions and unresolved
+questions, traceable local references, and acceptance criteria that distinguish
+source tests, installed behavior and physical qualification. No Deck, runtime,
+licensed environment, publication, project, VM or builder is changed in stage 1.
+No audio defect, platform or release gate is closed by a document. Retain the
+physical evidence and frozen beta branch unchanged; documentation is reversible
+through Git.
+
+Stage 1 is complete at the source-review and design level. The
+[review](docs/AUDIO_RECOVERY_REVIEW.md) maps the installed call path and component
+dispositions. Architecture section 18 and decision D-022 record the selected
+direction; Integrated beta delivery now owns the reconciled current acceptance
+criteria. Source paths, local links, whitespace and preservation of historical
+result sections were checked. No executable tests were rerun for these document
+changes. The next code deliverable is stage 2: attribution and repair of one
+physical presentation gap under the retained settings. It has not begun in this
+documentation assignment.
+
 ## Completed first repair: late note release; audio continuity still open
 
 The operator stopped beta expansion and selected the audio-recovery directive on
