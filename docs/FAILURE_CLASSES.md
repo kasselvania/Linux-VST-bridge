@@ -1798,6 +1798,18 @@ the separate near-one-core plug-in transition for that baseline. The tests have
 different durations and do not establish an xrun-rate improvement. See the
 [two-CPU record](../evidence/self-service-delivery/internal55-two-cpu-no-plugin-failure.json).
 
+Internal56's subsequent JACK/PipeWire comparison also failed with diagnostics
+disabled: 677,464 effect frames missing in 263 gaps, and 183,296 instrument
+frames missing in 56 gaps before a distinct input refusal. The native witness
+records a note-off at signed offset -1,661 in a 1,024-frame block. That explains
+the instrument's permanent refusal, not the preceding or sibling gaps. Its
+state save failed and the new snapshot has no managed instrument envelope;
+original snapshots are unchanged. The connected virtual sink capture was
+silent. Both Windows owners retired, while native instrument lifecycle remained
+failed. The no-plug-in JACK baseline and combined graph errors remain visible,
+without a unique scheduler attribution. See the
+[internal56 audio and save failure](../evidence/self-service-delivery/internal56-jack-audio-and-save-failure.json).
+
 ## FC-PLAT-002 — Delivered runtime lifetime lock cannot be opened
 
 ### Shared boundary and understanding

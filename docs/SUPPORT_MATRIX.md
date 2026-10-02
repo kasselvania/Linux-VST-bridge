@@ -11,6 +11,18 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Internal56 also **failed combined Ardour/JACK processing and state save** with
+diagnostics disabled on the Ubuntu VM (two virtual CPUs, two-core outer cap,
+but a one-core guest user-slice quota after the intervening reboot). The effect retained
+677,464 missing frames in 263 gaps. The instrument retained 183,296 missing
+frames in 56 gaps before refusing an out-of-block note-off; subsequent callbacks
+and its state save failed. A connected ten-second virtual output capture was
+silent. The new snapshot has no managed instrument envelope; original snapshots
+are unchanged. Both Windows owners retired, but the native instrument lifecycle
+failed. The no-plug-in PipeWire baseline also had errors. Neither a clean audio
+fixture nor a beta audio repair is established. See the
+[internal56 result](RESTART_VALIDATION_2026_10_01.md#internal56-jack-audio-and-state-save-failure).
+
 Internal55 passed its installed SDK regressions but **failed combined Ardour
 processing** on the existing Ubuntu PulseAudio fixture: 276,353 missing effect
 frames and 279,862 missing instrument frames. Reference state subsequently

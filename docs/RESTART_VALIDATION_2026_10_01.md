@@ -1,5 +1,55 @@
 # Restart validation
 
+## Internal56 JACK audio and state-save failure
+
+The Ubuntu VM comparison installed only the official matching
+`pipewire-jack` package and selected JACK in Ardour's normal Audio/MIDI setup.
+The installed PipeWire client, actual graph and virtual input driver reported
+48 kHz / 1024 frames. The no-plug-in baseline still retained one Ardour node
+error and one virtual input driver error; it was not clean audio evidence.
+The VM retained two virtual CPUs and a two-core outer cap. However, the guest
+user-slice readback before this run was `100000 100000`: the temporary two-core
+guest setting had not survived the intervening build/reboot cycle. This run
+therefore had a one-core user workload quota, not a fully two-core comparison.
+
+The unchanged installed audio publications then failed a combined reference
+instrument/effect loop with diagnostics disabled. Its 610.32-second observation
+ended without a Windows owner exiting, but that was insufficient to establish
+processing health. Final whole-lifetime counters retain 677,464 missing effect
+frames in 263 gaps. The instrument lost 183,296 frames in 56 gaps, then rejected
+a note-off at signed offset -1,661 in a 1,024-frame host block. This exact input
+refusal is distinct from the unexplained delivery gaps; no invalid note was
+clamped or rewritten. The failed instrument subsequently rejected 46,184
+callbacks and 37,043,200 frames. Both Windows owners positively retired; native
+instrument lifecycle remained failed.
+
+An independently decoded ten-second capture from the connected virtual sink
+monitor contained only zero samples. The recorder's nonzero exit is retained.
+The normal new `internal56-jack` snapshot contains the effect envelope but no
+managed instrument envelope after its state-save refusal. It is a failure
+artifact, not recall evidence. All five pre-existing snapshots stayed unchanged.
+The DAW emitted dropped-event warnings, also observed without plug-ins; their
+origin is unattributed. The combined PipeWire node errors and CPU-limit events
+are retained without assigning a shared cause. See the
+[exact failure record](../evidence/self-service-delivery/internal56-jack-audio-and-save-failure.json).
+Internal56 remains failed for audio and complete musician use.
+
+One subsequent independent SDK suite, using the same installed audio components
+and diagnostics disabled, passed all 16 fresh record/recall consumers and
+15,667,200 compared samples with zero mismatches, rejected callbacks or missing
+processing frames. State round trips and positive retirement passed. This had
+one environment keeper and the same one-core guest quota; guest throttling
+increased. It is development regression coverage and does not repair the older
+SDK gap, the DAW failures or the full beta. See the
+[untraced SDK result](../evidence/self-service-delivery/internal56-sdk-untraced-regression.json).
+Afterward, all test consumers exited, DSP and maintenance capacity returned to
+zero, every original snapshot and registry remained unchanged, and the prior
+Ardour audio config was restored byte-for-byte. The failed snapshot is retained.
+The guest then shut down normally and the original one-core VM container was
+restored. Both the temporary VM configuration and builder are stopped.
+Audiobookshelf remained running with zero restarts; actual audiobook playback
+was not tested. See the [evening cleanup](../evidence/self-service-delivery/internal56-evening-resource-restoration.json).
+
 ## Internal55 real DAW failure and audio-backend attribution
 
 The same installed candidate subsequently failed the combined Ardour 9 run.

@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "utc": "2026-10-02T07:00:21Z",
+  "normal_guest_shutdown": true,
+  "original_one_cpu_container_restored": true,
+  "temporary_two_cpu_container_retained_stopped": true,
+  "same_disk_never_started_twice": true,
+  "audiobookshelf_running": true,
+  "audiobookshelf_restart_count": 0,
+  "audiobookshelf_playback_tested": false,
+  "lvb_vm_and_builder_stopped": true,
+  "restored_vm_envelope": {
+    "virtual_cpus": 1,
+    "outer_cpu_limit": 1,
+    "cpu_shares": 128,
+    "outer_memory_bytes": 4294967296,
+    "additional_swap_bytes": 0,
+    "outer_tasks_limit": 256
+  },
+  "guest_cleanup": {
+    "unix_ns": 1790924269267044013,
+    "daw_and_test_consumers_exited": true,
+    "trace_flag_absent": true,
+    "capacity": {
+      "dsp": 0,
+      "maintenance": 0,
+      "keepers": 1,
+      "cleanup_unconfirmed": false
+    },
+    "original_snapshots_preserved": {
+      "internal46.ardour": true,
+      "LVB Reference Recal.ardour": true,
+      "internal55.ardour": true,
+      "internal55-reop.ardour": true,
+      "LVB Reference Recall.ardour": true
+    },
+    "registry_sha256": "91e17018720634fd35c7ff1ec27e88fef67e4faef6514a6ebb2cc035f7adb040",
+    "audio_config_restored_sha256": "bc9e9c63c0dfbdef39ad3d7388cd89e0e3406c7b05231bb2cb28aed76a93bf55",
+    "failed_jack_config_retained_sha256": "31bfd98f351b79b07d51d9431a17140c5d47bac399813846b7631acefbc5e4e8",
+    "failed_snapshot_retained": true,
+    "official_jack_package_retained_as_fixture_instrumentation": true
+  },
+  "resource_reporting_correction": "The earlier post-expansion guest readback was two cores. Internal56 JACK and the untraced SDK run instead independently read back a one-core user-slice quota after the intervening build/reboot cycle. Both had two virtual CPUs and a two-core outer cap. Their records now state the effective guest limit."
+}

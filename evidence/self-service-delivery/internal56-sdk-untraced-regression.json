@@ -1,0 +1,5085 @@
+{
+  "exit": 0,
+  "timed_out": false,
+  "duration_seconds": 215.86736031700002,
+  "start_unix_ns": 1790924012242004842,
+  "end_unix_ns": 1790924228109368643,
+  "trace_enabled": false,
+  "before": {
+    "cpu.max": "100000 100000",
+    "cpu.stat": "usage_usec 1784450452\nuser_usec 1245643726\nsystem_usec 538806725\nnice_usec 1618901\ncore_sched.force_idle_usec 0\nnr_periods 33662\nnr_throttled 778\nthrottled_usec 63365043\nnr_bursts 0\nburst_usec 0",
+    "memory.current": "1611321344",
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+    "memory.swap.max": "0",
+    "pids.current": "358",
+    "pids.events": "max 0"
+  },
+  "after": {
+    "cpu.max": "100000 100000",
+    "cpu.stat": "usage_usec 1879257572\nuser_usec 1302727761\nsystem_usec 576529811\nnice_usec 1618901\ncore_sched.force_idle_usec 0\nnr_periods 35820\nnr_throttled 1170\nthrottled_usec 68103665\nnr_bursts 0\nburst_usec 0",
+    "memory.current": "1819938816",
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+    "memory.swap.max": "0",
+    "pids.current": "350",
+    "pids.events": "max 0"
+  },
+  "events": [
+    {
+      "event": "candidate",
+      "utc": "2026-10-02T06:53:32.459345+00:00",
+      "monotonic_ns": 4389376675518,
+      "manager_sha256": "dbe3eba65846d1646ed7e934a9f440367f5ba01537e0144ff86f8964c1f79946",
+      "windows_host_sha256": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b",
+      "sdk_consumer_sha256": "b985fffaee72f7ddfcd1a6b81d2d049512eada5f64bea41e876a9dc794c95f61",
+      "audit_sha256": "9d497104f783a179b4039a0a0d375713aacc38f38c0312f0380e9b2c2af3a8ad",
+      "claim": "installed_development_regression",
+      "real_daw_project_claim": false
+    },
+    {
+      "event": "publication",
+      "utc": "2026-10-02T06:53:32.483945+00:00",
+      "monotonic_ns": 4389401275879,
+      "role": "effect",
+      "class_id": "4C564242455441314546465800000001",
+      "module_sha256": "b3498eb5c8d6d440259b04a9c9b7699ab72f4f64eb31f45167f0341d3d1e719f",
+      "native_sha256": "3bc5dd5a0162719787b5f1014b122850b4375624f10be1bc2ae15ab8ca5b8cb8",
+      "added_frames": 1024
+    },
+    {
+      "event": "run",
+      "utc": "2026-10-02T06:53:47.339127+00:00",
+      "monotonic_ns": 4404256426113,
+      "role": "effect",
+      "pair": 1,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 14766.086,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 4188
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 4230
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2,
+          "begin_since_audio_start_ns": 2036302532,
+          "end_since_audio_start_ns": 2038961671,
+          "begin_after_block": 96,
+          "end_after_block": 96
+        },
+        {
+          "event": "consumer_timing",
+          "schema": 1,
+          "audio_begin_monotonic_ns": 4393724927970,
+          "audio_begin_unix_ns_approximate": 1790924016807640054,
+          "blocks_retention": {
+            "count": 480,
+            "canonical_sha256": "845e9f9dbb0c6fa2f1faf3a25d799350dd2edc3fce6cc8b7ffd9ad9c9a2d1f95",
+            "full_table_retained_privately": true
+          }
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 2940369,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "5c00a15463b5daafb94d9df4d53ee4ce",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 4393726168781,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "5c00a15463b5daafb94d9df4d53ee4ce",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 4403947578508,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "5c00a15463b5daafb94d9df4d53ee4ce",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 4403947861473,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "5c00a15463b5daafb94d9df4d53ee4ce",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 4403948025429,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "5c00a15463b5daafb94d9df4d53ee4ce",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 4404064823458,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "5c00a15463b5daafb94d9df4d53ee4ce",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "retirement_observations": [
+        {
+          "leases_remaining": [
+            "5c00a15463b5daafb94d9df4d53ee4ce"
+          ],
+          "capacity": {
+            "dsp": 1,
+            "maintenance": 0,
+            "keepers": 1,
+            "cleanup_unconfirmed": false
+          }
+        }
+      ],
+      "omitted_stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "event": "run",
+      "utc": "2026-10-02T06:54:00.763077+00:00",
+      "monotonic_ns": 4417680387038,
+      "role": "effect",
+      "pair": 1,
+      "mode": "recall",
+      "frames": 1024,
+      "duration_ms": 13399.684,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 2821
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 2869
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2,
+          "begin_since_audio_start_ns": 2027249109,
+          "end_since_audio_start_ns": 2029413189,
+          "begin_after_block": 96,
+          "end_after_block": 96
+        },
+        {
+          "event": "consumer_timing",
+          "schema": 1,
+          "audio_begin_monotonic_ns": 4407165101746,
+          "audio_begin_unix_ns_approximate": 1790924030247813967,
+          "blocks_retention": {
+            "count": 480,
+            "canonical_sha256": "6da3ae1c649ae69767efb9b32b842257fe0157a3f45f2cf28cc7d040645fbc57",
+            "full_table_retained_privately": true
+          }
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 114497,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "ac0628182e3ce3b6e0e05aefc353caa1",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 4407170853445,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "ac0628182e3ce3b6e0e05aefc353caa1",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 4417385714033,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "ac0628182e3ce3b6e0e05aefc353caa1",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 4417385848585,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "ac0628182e3ce3b6e0e05aefc353caa1",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 4417386504939,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "ac0628182e3ce3b6e0e05aefc353caa1",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 4417499097936,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "ac0628182e3ce3b6e0e05aefc353caa1",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "retirement_observations": [
+        {
+          "leases_remaining": [
+            "ac0628182e3ce3b6e0e05aefc353caa1"
+          ],
+          "capacity": {
+            "dsp": 1,
+            "maintenance": 0,
+            "keepers": 1,
+            "cleanup_unconfirmed": false
+          }
+        }
+      ],
+      "omitted_stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "event": "state_roundtrip",
+      "utc": "2026-10-02T06:54:00.766170+00:00",
+      "monotonic_ns": 4417683475474,
+      "role": "effect",
+      "pair": 1,
+      "frames": 1024,
+      "component_sha256": "ab4e53698877d62cb0ebe6b44c32384e7b08ea5e7a940505a8e213fb9eab5014",
+      "controller_sha256": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+    },
+    {
+      "event": "run",
+      "utc": "2026-10-02T06:54:14.316680+00:00",
+      "monotonic_ns": 4431233980157,
+      "role": "effect",
+      "pair": 2,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 13475.14,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 2940
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 2982
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 1,
+          "begin_since_audio_start_ns": 2031213972,
+          "end_since_audio_start_ns": 2032560369,
+          "begin_after_block": 96,
+          "end_after_block": 96
+        },
+        {
+          "event": "consumer_timing",
+          "schema": 1,
+          "audio_begin_monotonic_ns": 4420747025107,
+          "audio_begin_unix_ns_approximate": 1790924043829737203,
+          "blocks_retention": {
+            "count": 480,
+            "canonical_sha256": "b8a61152ab733d3535a6a2914b7a7633b26f0649298dd2dfb0ae14a19cebf28e",
+            "full_table_retained_privately": true
+          }
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 39338,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "9798eccdd703547c1bdc6d545df7281e",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 4420748623788,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "9798eccdd703547c1bdc6d545df7281e",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 4430966763092,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "9798eccdd703547c1bdc6d545df7281e",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 4430966892752,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "9798eccdd703547c1bdc6d545df7281e",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 4430967661870,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "9798eccdd703547c1bdc6d545df7281e",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 4431083117610,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "9798eccdd703547c1bdc6d545df7281e",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 143
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "retirement_observations": [
+        {
+          "leases_remaining": [
+            "9798eccdd703547c1bdc6d545df7281e"
+          ],
+          "capacity": {
+            "dsp": 1,
+            "maintenance": 0,
+            "keepers": 1,
+            "cleanup_unconfirmed": false
+          }
+        }
+      ],
+      "omitted_stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "event": "run",
+      "utc": "2026-10-02T06:54:27.664855+00:00",
+      "monotonic_ns": 4444582155694,
+      "role": "effect",
+      "pair": 2,
+      "mode": "recall",
+      "frames": 1024,
+      "duration_ms": 13324.538,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 2768
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 2817
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 5,
+          "begin_since_audio_start_ns": 2029389155,
+          "end_since_audio_start_ns": 2034902632,
+          "begin_after_block": 96,
+          "end_after_block": 96
+        },
+        {
+          "event": "consumer_timing",
+          "schema": 1,
+          "audio_begin_monotonic_ns": 4434078012327,
+          "audio_begin_unix_ns_approximate": 1790924057160724458,
+          "blocks_retention": {
+            "count": 480,
+            "canonical_sha256": "453a851618dbf877afbda98a6d53699d612f5a282585f19277e83e1c247a8f6d",
+            "full_table_retained_privately": true
+          }
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 38769,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "a3b7e0438d3e78f685015e8e12181d68",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 4434078883321,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "a3b7e0438d3e78f685015e8e12181d68",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 4444298346145,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "a3b7e0438d3e78f685015e8e12181d68",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 4444298499713,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "a3b7e0438d3e78f685015e8e12181d68",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 4444298620969,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "a3b7e0438d3e78f685015e8e12181d68",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 4444406806592,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "a3b7e0438d3e78f685015e8e12181d68",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "retirement_observations": [
+        {
+          "leases_remaining": [
+            "a3b7e0438d3e78f685015e8e12181d68"
+          ],
+          "capacity": {
+            "dsp": 1,
+            "maintenance": 0,
+            "keepers": 1,
+            "cleanup_unconfirmed": false
+          }
+        }
+      ],
+      "omitted_stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "event": "state_roundtrip",
+      "utc": "2026-10-02T06:54:27.666283+00:00",
+      "monotonic_ns": 4444583582543,
+      "role": "effect",
+      "pair": 2,
+      "frames": 1024,
+      "component_sha256": "ab4e53698877d62cb0ebe6b44c32384e7b08ea5e7a940505a8e213fb9eab5014",
+      "controller_sha256": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+    },
+    {
+      "event": "run",
+      "utc": "2026-10-02T06:54:40.972958+00:00",
+      "monotonic_ns": 4457890256998,
+      "role": "effect",
+      "pair": 3,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 13281.078,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 2803
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 2845
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 1,
+          "begin_since_audio_start_ns": 2032091524,
+          "end_since_audio_start_ns": 2033707818,
+          "begin_after_block": 96,
+          "end_after_block": 96
+        },
+        {
+          "event": "consumer_timing",
+          "schema": 1,
+          "audio_begin_monotonic_ns": 4447458221417,
+          "audio_begin_unix_ns_approximate": 1790924070540933541,
+          "blocks_retention": {
+            "count": 480,
+            "canonical_sha256": "98bda2f6c0e0d5791638a547fc39318a564aaba0b83a4c14cb3200adb9279f6f",
+            "full_table_retained_privately": true
+          }
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 68535,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "281f461c3f24bffb2594d672cd6598ce",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 4447459808843,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "281f461c3f24bffb2594d672cd6598ce",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 4457679823380,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "281f461c3f24bffb2594d672cd6598ce",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 4457680035873,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "281f461c3f24bffb2594d672cd6598ce",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 4457680190992,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "281f461c3f24bffb2594d672cd6598ce",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 4457739834416,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "281f461c3f24bffb2594d672cd6598ce",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "retirement_observations": [
+        {
+          "leases_remaining": [
+            "281f461c3f24bffb2594d672cd6598ce"
+          ],
+          "capacity": {
+            "dsp": 1,
+            "maintenance": 0,
+            "keepers": 1,
+            "cleanup_unconfirmed": false
+          }
+        }
+      ],
+      "omitted_stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "event": "run",
+      "utc": "2026-10-02T06:54:54.376745+00:00",
+      "monotonic_ns": 4471294045238,
+      "role": "effect",
+      "pair": 3,
+      "mode": "recall",
+      "frames": 1024,
+      "duration_ms": 13377.522,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 2796
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 2844
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 1,
+          "begin_since_audio_start_ns": 2032903364,
+          "end_since_audio_start_ns": 2034848121,
+          "begin_after_block": 96,
+          "end_after_block": 96
+        },
+        {
+          "event": "consumer_timing",
+          "schema": 1,
+          "audio_begin_monotonic_ns": 4460764504514,
+          "audio_begin_unix_ns_approximate": 1790924083847216609,
+          "blocks_retention": {
+            "count": 480,
+            "canonical_sha256": "c42d4afc23a59dc9f685b67ee3d13a01ebe05659007eab6bf0743c0e045fa666",
+            "full_table_retained_privately": true
+          }
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 56220,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "a8a1a253e12539eb40d1138ec5a9f21b",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 4460765714351,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "a8a1a253e12539eb40d1138ec5a9f21b",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 4470984661178,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "a8a1a253e12539eb40d1138ec5a9f21b",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 4470984798734,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "a8a1a253e12539eb40d1138ec5a9f21b",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 4470985129023,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "a8a1a253e12539eb40d1138ec5a9f21b",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 4471100775536,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "a8a1a253e12539eb40d1138ec5a9f21b",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "retirement_observations": [
+        {
+          "leases_remaining": [
+            "a8a1a253e12539eb40d1138ec5a9f21b"
+          ],
+          "capacity": {
+            "dsp": 1,
+            "maintenance": 0,
+            "keepers": 1,
+            "cleanup_unconfirmed": false
+          }
+        }
+      ],
+      "omitted_stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "event": "state_roundtrip",
+      "utc": "2026-10-02T06:54:54.377900+00:00",
+      "monotonic_ns": 4471295195341,
+      "role": "effect",
+      "pair": 3,
+      "frames": 1024,
+      "component_sha256": "ab4e53698877d62cb0ebe6b44c32384e7b08ea5e7a940505a8e213fb9eab5014",
+      "controller_sha256": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+    },
+    {
+      "event": "run",
+      "utc": "2026-10-02T06:55:07.711381+00:00",
+      "monotonic_ns": 4484628681579,
+      "role": "effect",
+      "pair": 4,
+      "mode": "record",
+      "frames": 1008,
+      "duration_ms": 13308.481,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 2925
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 2968
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2,
+          "begin_since_audio_start_ns": 2004014342,
+          "end_since_audio_start_ns": 2006559882,
+          "begin_after_block": 96,
+          "end_after_block": 96
+        },
+        {
+          "event": "consumer_timing",
+          "schema": 1,
+          "audio_begin_monotonic_ns": 4474292322609,
+          "audio_begin_unix_ns_approximate": 1790924097375035000,
+          "blocks_retention": {
+            "count": 480,
+            "canonical_sha256": "86f63c11d0a275650be4c5f5450f5fd595c644a70ad94e47e9f3ffc159fc3ab3",
+            "full_table_retained_privately": true
+          }
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1008,
+          "blocks": 480,
+          "compared_samples": 967680,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 965632,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 123493,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 483840,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 483840,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1008,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 482816,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "f4b0e8d8907127e9221259586064fa7c",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 4474293672874,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "f4b0e8d8907127e9221259586064fa7c",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 4484352948341,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        },
+        {
+          "session": "f4b0e8d8907127e9221259586064fa7c",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 4484353099924,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        },
+        {
+          "session": "f4b0e8d8907127e9221259586064fa7c",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 4484353762988,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        },
+        {
+          "session": "f4b0e8d8907127e9221259586064fa7c",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 4484471940468,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "f4b0e8d8907127e9221259586064fa7c",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "retirement_observations": [
+        {
+          "leases_remaining": [
+            "f4b0e8d8907127e9221259586064fa7c"
+          ],
+          "capacity": {
+            "dsp": 1,
+            "maintenance": 0,
+            "keepers": 1,
+            "cleanup_unconfirmed": false
+          }
+        }
+      ],
+      "omitted_stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "event": "run",
+      "utc": "2026-10-02T06:55:20.991482+00:00",
+      "monotonic_ns": 4497908780440,
+      "role": "effect",
+      "pair": 4,
+      "mode": "recall",
+      "frames": 1008,
+      "duration_ms": 13253.366,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 2847
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 2890
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2,
+          "begin_since_audio_start_ns": 2000024449,
+          "end_since_audio_start_ns": 2002879948,
+          "begin_after_block": 96,
+          "end_after_block": 96
+        },
+        {
+          "event": "consumer_timing",
+          "schema": 1,
+          "audio_begin_monotonic_ns": 4487550046642,
+          "audio_begin_unix_ns_approximate": 1790924110632758712,
+          "blocks_retention": {
+            "count": 480,
+            "canonical_sha256": "dbc51b9fb4101f32642316c5916eda587d4d92af98689983097d2eeaef404960",
+            "full_table_retained_privately": true
+          }
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1008,
+          "blocks": 480,
+          "compared_samples": 967680,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 965632,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 63338,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 483840,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 483840,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1008,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 482816,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "f662c4551ae2c002667efeb57a61e7bf",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 4487551499854,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "f662c4551ae2c002667efeb57a61e7bf",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 4497610530178,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        },
+        {
+          "session": "f662c4551ae2c002667efeb57a61e7bf",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 4497610697199,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        },
+        {
+          "session": "f662c4551ae2c002667efeb57a61e7bf",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 4497610816790,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        },
+        {
+          "session": "f662c4551ae2c002667efeb57a61e7bf",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 4497723405441,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "f662c4551ae2c002667efeb57a61e7bf",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 143
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "retirement_observations": [
+        {
+          "leases_remaining": [
+            "f662c4551ae2c002667efeb57a61e7bf"
+          ],
+          "capacity": {
+            "dsp": 1,
+            "maintenance": 0,
+            "keepers": 1,
+            "cleanup_unconfirmed": false
+          }
+        }
+      ],
+      "omitted_stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "event": "state_roundtrip",
+      "utc": "2026-10-02T06:55:20.992579+00:00",
+      "monotonic_ns": 4497909878193,
+      "role": "effect",
+      "pair": 4,
+      "frames": 1008,
+      "component_sha256": "ab4e53698877d62cb0ebe6b44c32384e7b08ea5e7a940505a8e213fb9eab5014",
+      "controller_sha256": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+    },
+    {
+      "event": "publication",
+      "utc": "2026-10-02T06:55:21.005140+00:00",
+      "monotonic_ns": 4497922445430,
+      "role": "instrument",
+      "class_id": "4C56424245544131494E535400000001",
+      "module_sha256": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+      "native_sha256": "47d33c91cd469b81b7dcf76d7e70062f1dfa13b880877929828e556cd5014129",
+      "added_frames": 1024
+    },
+    {
+      "event": "run",
+      "utc": "2026-10-02T06:55:34.472702+00:00",
+      "monotonic_ns": 4511390025495,
+      "role": "instrument",
+      "pair": 1,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 13444.357,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "7666ebeb20aa3a110b06e97a4504edaf5f00468e001240e9a6d5e880e0b29df0",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 2917
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 2959
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cc9e269c4159c9d9da0db80cad22947120495858959188a37755947642e473f2",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 7,
+          "begin_since_audio_start_ns": 2028301124,
+          "end_since_audio_start_ns": 2036170856,
+          "begin_after_block": 96,
+          "end_after_block": 96
+        },
+        {
+          "event": "consumer_timing",
+          "schema": 1,
+          "audio_begin_monotonic_ns": 4500909276072,
+          "audio_begin_unix_ns_approximate": 1790924123991988159,
+          "blocks_retention": {
+            "count": 480,
+            "canonical_sha256": "12baf4175576606793bfa633ed094d449270277ce6bf3f15ba607d858c08ef18",
+            "full_table_retained_privately": true
+          }
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 710726,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 116282,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "2f4f7607ce0e316df62f8bd4955bd693",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 4500910987630,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "2f4f7607ce0e316df62f8bd4955bd693",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 4511129809119,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "2f4f7607ce0e316df62f8bd4955bd693",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 4511129943043,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "2f4f7607ce0e316df62f8bd4955bd693",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 4511130562588,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "2f4f7607ce0e316df62f8bd4955bd693",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 4511191214540,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "2f4f7607ce0e316df62f8bd4955bd693",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "retirement_observations": [
+        {
+          "leases_remaining": [
+            "2f4f7607ce0e316df62f8bd4955bd693"
+          ],
+          "capacity": {
+            "dsp": 1,
+            "maintenance": 0,
+            "keepers": 1,
+            "cleanup_unconfirmed": false
+          }
+        }
+      ],
+      "omitted_stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "event": "run",
+      "utc": "2026-10-02T06:55:47.898412+00:00",
+      "monotonic_ns": 4524815712814,
+      "role": "instrument",
+      "pair": 1,
+      "mode": "recall",
+      "frames": 1024,
+      "duration_ms": 13397.455,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "7666ebeb20aa3a110b06e97a4504edaf5f00468e001240e9a6d5e880e0b29df0",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 2868
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 96,
+          "sha256": "cc9e269c4159c9d9da0db80cad22947120495858959188a37755947642e473f2",
+          "gain": 0
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 2917
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cc9e269c4159c9d9da0db80cad22947120495858959188a37755947642e473f2",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 1,
+          "begin_since_audio_start_ns": 2030490599,
+          "end_since_audio_start_ns": 2031695800,
+          "begin_after_block": 96,
+          "end_after_block": 96
+        },
+        {
+          "event": "consumer_timing",
+          "schema": 1,
+          "audio_begin_monotonic_ns": 4514338765484,
+          "audio_begin_unix_ns_approximate": 1790924137421477556,
+          "blocks_retention": {
+            "count": 480,
+            "canonical_sha256": "d789075bcda248ab6177d7b295822c097b62c6340abb51ac3c618f90a78210ce",
+            "full_table_retained_privately": true
+          }
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 710726,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 74181,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "788c52246e894f7cf14b2731f707f9dd",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 4514340191739,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "788c52246e894f7cf14b2731f707f9dd",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 4524559341503,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "788c52246e894f7cf14b2731f707f9dd",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 4524559486183,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "788c52246e894f7cf14b2731f707f9dd",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 4524559649815,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "788c52246e894f7cf14b2731f707f9dd",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 4524624939953,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "788c52246e894f7cf14b2731f707f9dd",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "retirement_observations": [
+        {
+          "leases_remaining": [
+            "788c52246e894f7cf14b2731f707f9dd"
+          ],
+          "capacity": {
+            "dsp": 1,
+            "maintenance": 0,
+            "keepers": 1,
+            "cleanup_unconfirmed": false
+          }
+        }
+      ],
+      "omitted_stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "event": "state_roundtrip",
+      "utc": "2026-10-02T06:55:47.899870+00:00",
+      "monotonic_ns": 4524817167511,
+      "role": "instrument",
+      "pair": 1,
+      "frames": 1024,
+      "component_sha256": "2964f94630cc4eaad6a03815b060da2f45278a91cee65f85deae6f5def642361",
+      "controller_sha256": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+    },
+    {
+      "event": "run",
+      "utc": "2026-10-02T06:56:01.305961+00:00",
+      "monotonic_ns": 4538223261355,
+      "role": "instrument",
+      "pair": 2,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 13379.454,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "7666ebeb20aa3a110b06e97a4504edaf5f00468e001240e9a6d5e880e0b29df0",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 2888
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 2930
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cc9e269c4159c9d9da0db80cad22947120495858959188a37755947642e473f2",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2,
+          "begin_since_audio_start_ns": 2035381109,
+          "end_since_audio_start_ns": 2037398741,
+          "begin_after_block": 96,
+          "end_after_block": 96
+        },
+        {
+          "event": "consumer_timing",
+          "schema": 1,
+          "audio_begin_monotonic_ns": 4527777773769,
+          "audio_begin_unix_ns_approximate": 1790924150860485842,
+          "blocks_retention": {
+            "count": 480,
+            "canonical_sha256": "84db8e70fca1db1d915baaf4397284da950c1121642f14b34ddbf0281bf36be7",
+            "full_table_retained_privately": true
+          }
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 710726,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 61611,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "a6b8f6827b39234acbedaf52a860b400",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 4527779113403,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "a6b8f6827b39234acbedaf52a860b400",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 4537997348167,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "a6b8f6827b39234acbedaf52a860b400",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 4537997480185,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "a6b8f6827b39234acbedaf52a860b400",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 4537998347252,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "a6b8f6827b39234acbedaf52a860b400",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 4538065767894,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "a6b8f6827b39234acbedaf52a860b400",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "retirement_observations": [
+        {
+          "leases_remaining": [
+            "a6b8f6827b39234acbedaf52a860b400"
+          ],
+          "capacity": {
+            "dsp": 1,
+            "maintenance": 0,
+            "keepers": 1,
+            "cleanup_unconfirmed": false
+          }
+        }
+      ],
+      "omitted_stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "event": "run",
+      "utc": "2026-10-02T06:56:14.710295+00:00",
+      "monotonic_ns": 4551627594847,
+      "role": "instrument",
+      "pair": 2,
+      "mode": "recall",
+      "frames": 1024,
+      "duration_ms": 13379.474,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "7666ebeb20aa3a110b06e97a4504edaf5f00468e001240e9a6d5e880e0b29df0",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 2786
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 96,
+          "sha256": "cc9e269c4159c9d9da0db80cad22947120495858959188a37755947642e473f2",
+          "gain": 0
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 2831
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cc9e269c4159c9d9da0db80cad22947120495858959188a37755947642e473f2",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 1,
+          "begin_since_audio_start_ns": 2028158876,
+          "end_since_audio_start_ns": 2030110003,
+          "begin_after_block": 96,
+          "end_after_block": 96
+        },
+        {
+          "event": "consumer_timing",
+          "schema": 1,
+          "audio_begin_monotonic_ns": 4541084049985,
+          "audio_begin_unix_ns_approximate": 1790924164166762147,
+          "blocks_retention": {
+            "count": 480,
+            "canonical_sha256": "ec09e3a230c335fec693bba8b0a7a227cf0af7182678090f5ea4dc27905f9750",
+            "full_table_retained_privately": true
+          }
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 710726,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 279601,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "e7a722c56212d30a8c0d53516086e3c2",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 4541086063303,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "e7a722c56212d30a8c0d53516086e3c2",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 4551304336573,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "e7a722c56212d30a8c0d53516086e3c2",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 4551304472490,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "e7a722c56212d30a8c0d53516086e3c2",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 4551304623251,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "e7a722c56212d30a8c0d53516086e3c2",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 4551421977202,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "e7a722c56212d30a8c0d53516086e3c2",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "retirement_observations": [
+        {
+          "leases_remaining": [
+            "e7a722c56212d30a8c0d53516086e3c2"
+          ],
+          "capacity": {
+            "dsp": 1,
+            "maintenance": 0,
+            "keepers": 1,
+            "cleanup_unconfirmed": false
+          }
+        }
+      ],
+      "omitted_stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "event": "state_roundtrip",
+      "utc": "2026-10-02T06:56:14.711475+00:00",
+      "monotonic_ns": 4551628770494,
+      "role": "instrument",
+      "pair": 2,
+      "frames": 1024,
+      "component_sha256": "2964f94630cc4eaad6a03815b060da2f45278a91cee65f85deae6f5def642361",
+      "controller_sha256": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+    },
+    {
+      "event": "run",
+      "utc": "2026-10-02T06:56:28.175708+00:00",
+      "monotonic_ns": 4565093028317,
+      "role": "instrument",
+      "pair": 3,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 13430.333,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "7666ebeb20aa3a110b06e97a4504edaf5f00468e001240e9a6d5e880e0b29df0",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 2887
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 2929
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cc9e269c4159c9d9da0db80cad22947120495858959188a37755947642e473f2",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 1,
+          "begin_since_audio_start_ns": 2033864912,
+          "end_since_audio_start_ns": 2035763385,
+          "begin_after_block": 96,
+          "end_after_block": 96
+        },
+        {
+          "event": "consumer_timing",
+          "schema": 1,
+          "audio_begin_monotonic_ns": 4554596146544,
+          "audio_begin_unix_ns_approximate": 1790924177678858643,
+          "blocks_retention": {
+            "count": 480,
+            "canonical_sha256": "341d6aa1d0ceabf00651eef3545d71b4fd620e4729fb5ca40a0cd8fe55e40c86",
+            "full_table_retained_privately": true
+          }
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 710726,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 39533,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "23eb464ab244fbef78cde33ca5d0c709",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 4554597569336,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "23eb464ab244fbef78cde33ca5d0c709",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 4564816367534,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "23eb464ab244fbef78cde33ca5d0c709",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 4564816501905,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "23eb464ab244fbef78cde33ca5d0c709",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 4564816622289,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "23eb464ab244fbef78cde33ca5d0c709",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 4564939664988,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "23eb464ab244fbef78cde33ca5d0c709",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "retirement_observations": [
+        {
+          "leases_remaining": [
+            "23eb464ab244fbef78cde33ca5d0c709"
+          ],
+          "capacity": {
+            "dsp": 1,
+            "maintenance": 0,
+            "keepers": 1,
+            "cleanup_unconfirmed": false
+          }
+        }
+      ],
+      "omitted_stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "event": "run",
+      "utc": "2026-10-02T06:56:41.595666+00:00",
+      "monotonic_ns": 4578512965138,
+      "role": "instrument",
+      "pair": 3,
+      "mode": "recall",
+      "frames": 1024,
+      "duration_ms": 13396.457,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "7666ebeb20aa3a110b06e97a4504edaf5f00468e001240e9a6d5e880e0b29df0",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 2831
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 96,
+          "sha256": "cc9e269c4159c9d9da0db80cad22947120495858959188a37755947642e473f2",
+          "gain": 0
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 2873
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cc9e269c4159c9d9da0db80cad22947120495858959188a37755947642e473f2",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2,
+          "begin_since_audio_start_ns": 2036541653,
+          "end_since_audio_start_ns": 2038565701,
+          "begin_after_block": 96,
+          "end_after_block": 96
+        },
+        {
+          "event": "consumer_timing",
+          "schema": 1,
+          "audio_begin_monotonic_ns": 4567993974546,
+          "audio_begin_unix_ns_approximate": 1790924191076686587,
+          "blocks_retention": {
+            "count": 480,
+            "canonical_sha256": "f6559fc7add67b0605029685c67c91cf852213c7c4cb8c1065861a839abdc1a5",
+            "full_table_retained_privately": true
+          }
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 710726,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 131593,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "618c5db32aa822ae9cc38c5691a6c050",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 4567995332874,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "618c5db32aa822ae9cc38c5691a6c050",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 4578214187074,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "618c5db32aa822ae9cc38c5691a6c050",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 4578214331021,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "618c5db32aa822ae9cc38c5691a6c050",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 4578214981399,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "618c5db32aa822ae9cc38c5691a6c050",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 4578325202936,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "618c5db32aa822ae9cc38c5691a6c050",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "retirement_observations": [
+        {
+          "leases_remaining": [
+            "618c5db32aa822ae9cc38c5691a6c050"
+          ],
+          "capacity": {
+            "dsp": 1,
+            "maintenance": 0,
+            "keepers": 1,
+            "cleanup_unconfirmed": false
+          }
+        }
+      ],
+      "omitted_stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "event": "state_roundtrip",
+      "utc": "2026-10-02T06:56:41.596861+00:00",
+      "monotonic_ns": 4578514156645,
+      "role": "instrument",
+      "pair": 3,
+      "frames": 1024,
+      "component_sha256": "2964f94630cc4eaad6a03815b060da2f45278a91cee65f85deae6f5def642361",
+      "controller_sha256": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+    },
+    {
+      "event": "run",
+      "utc": "2026-10-02T06:56:54.827993+00:00",
+      "monotonic_ns": 4591745292487,
+      "role": "instrument",
+      "pair": 4,
+      "mode": "record",
+      "frames": 1008,
+      "duration_ms": 13208.016,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "7666ebeb20aa3a110b06e97a4504edaf5f00468e001240e9a6d5e880e0b29df0",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 2830
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 2871
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cc9e269c4159c9d9da0db80cad22947120495858959188a37755947642e473f2",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2,
+          "begin_since_audio_start_ns": 1997640350,
+          "end_since_audio_start_ns": 1999772570,
+          "begin_after_block": 96,
+          "end_after_block": 96
+        },
+        {
+          "event": "consumer_timing",
+          "schema": 1,
+          "audio_begin_monotonic_ns": 4581412305376,
+          "audio_begin_unix_ns_approximate": 1790924204495017460,
+          "blocks_retention": {
+            "count": 480,
+            "canonical_sha256": "e1d21ec0093704b42b4aa7b2702fe4c7207f75d6608458f95938225eef423a49",
+            "full_table_retained_privately": true
+          }
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1008,
+          "blocks": 480,
+          "compared_samples": 967680,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 699622,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 40923,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 483840,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 483840,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1008,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 482816,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "aa34c7ee0c1405b54697b619841b40f1",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 4581413583756,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "aa34c7ee0c1405b54697b619841b40f1",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 4591474287866,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        },
+        {
+          "session": "aa34c7ee0c1405b54697b619841b40f1",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 4591474422344,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        },
+        {
+          "session": "aa34c7ee0c1405b54697b619841b40f1",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 4591475081311,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        },
+        {
+          "session": "aa34c7ee0c1405b54697b619841b40f1",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 4591588487704,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "aa34c7ee0c1405b54697b619841b40f1",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "retirement_observations": [
+        {
+          "leases_remaining": [
+            "aa34c7ee0c1405b54697b619841b40f1"
+          ],
+          "capacity": {
+            "dsp": 1,
+            "maintenance": 0,
+            "keepers": 1,
+            "cleanup_unconfirmed": false
+          }
+        }
+      ],
+      "omitted_stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "event": "run",
+      "utc": "2026-10-02T06:57:08.084262+00:00",
+      "monotonic_ns": 4605001562436,
+      "role": "instrument",
+      "pair": 4,
+      "mode": "recall",
+      "frames": 1008,
+      "duration_ms": 13230.04,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "7666ebeb20aa3a110b06e97a4504edaf5f00468e001240e9a6d5e880e0b29df0",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 2824
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 96,
+          "sha256": "cc9e269c4159c9d9da0db80cad22947120495858959188a37755947642e473f2",
+          "gain": 0
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 2866
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cc9e269c4159c9d9da0db80cad22947120495858959188a37755947642e473f2",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2,
+          "begin_since_audio_start_ns": 2003375257,
+          "end_since_audio_start_ns": 2005545591,
+          "begin_after_block": 96,
+          "end_after_block": 96
+        },
+        {
+          "event": "consumer_timing",
+          "schema": 1,
+          "audio_begin_monotonic_ns": 4594643786401,
+          "audio_begin_unix_ns_approximate": 1790924217726498466,
+          "blocks_retention": {
+            "count": 480,
+            "canonical_sha256": "53d529f23e85d3714beea108f361d79091874a480c3fe03e117773e0f205dfd9",
+            "full_table_retained_privately": true
+          }
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1008,
+          "blocks": 480,
+          "compared_samples": 967680,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 699622,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 38160,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 483840,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 483840,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1008,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 482816,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "8c9d9a10c881f1e07cf62f14b248b46d",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 4594646128912,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "8c9d9a10c881f1e07cf62f14b248b46d",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 4604704365259,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        },
+        {
+          "session": "8c9d9a10c881f1e07cf62f14b248b46d",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 4604704532444,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        },
+        {
+          "session": "8c9d9a10c881f1e07cf62f14b248b46d",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 4604704660106,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        },
+        {
+          "session": "8c9d9a10c881f1e07cf62f14b248b46d",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 4604818594161,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "8c9d9a10c881f1e07cf62f14b248b46d",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 143
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "retirement_observations": [
+        {
+          "leases_remaining": [
+            "8c9d9a10c881f1e07cf62f14b248b46d"
+          ],
+          "capacity": {
+            "dsp": 1,
+            "maintenance": 0,
+            "keepers": 1,
+            "cleanup_unconfirmed": false
+          }
+        }
+      ],
+      "omitted_stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "event": "state_roundtrip",
+      "utc": "2026-10-02T06:57:08.085458+00:00",
+      "monotonic_ns": 4605002753968,
+      "role": "instrument",
+      "pair": 4,
+      "frames": 1008,
+      "component_sha256": "2964f94630cc4eaad6a03815b060da2f45278a91cee65f85deae6f5def642361",
+      "controller_sha256": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+    },
+    {
+      "event": "suite_passed",
+      "utc": "2026-10-02T06:57:08.085535+00:00",
+      "monotonic_ns": 4605002827543,
+      "roles": [
+        "effect",
+        "instrument"
+      ],
+      "pairs": 4,
+      "claim": "installed_development_regression",
+      "real_daw_project_claim": false,
+      "maintainer_repairs": 0
+    }
+  ],
+  "schema": 1,
+  "candidate": "0.12.0internal56",
+  "source_commit": "9f963bcf5fc676d099982dee25e688e7f83fe489",
+  "source_tree": "9bba0162c4006e29dd8923baa0e22991ede76a0f",
+  "audio_publications_retained_from": "internal55",
+  "claim": "installed development regression only; not DAW, commercial, hardware or complete beta acceptance",
+  "fixture": {
+    "vm_vcpus": 2,
+    "outer_cpu_limit": 2,
+    "guest_user_cpu_limit": 1,
+    "keepers": 1,
+    "trace_enabled": false,
+    "ordinary_frontend_workflow": false
+  },
+  "summary": {
+    "consumers": 16,
+    "compared_samples": 15667200,
+    "nonzero_samples": 13480816,
+    "mismatches": 0,
+    "maximum_error": 0,
+    "rejected_callbacks": 0,
+    "missing_processing_frames": 0,
+    "all_retirements_confirmed": true
+  },
+  "limitations": [
+    "The known earlier intermittent SDK gap and the subsequent DAW failures remain failed. This pass establishes no repair.",
+    "Guest user-slice CPU throttling increased during this passing run. It is not correlated to individual callbacks.",
+    "Only one environment keeper was present; this does not repeat the earlier two-environment workload."
+  ]
+}
