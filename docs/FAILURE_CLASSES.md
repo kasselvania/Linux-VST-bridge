@@ -1789,6 +1789,13 @@ baseline accumulated 20 xruns with zero bridge DSP owners. The audio fixture
 itself fails. Actual reference-state reopen and fresh recapture did match both
 saved payloads, separately from the still-failed audio result. See
 [the bounded comparison](../evidence/self-service-delivery/internal55-daw-recall-and-fixture-failure.json).
+The approved two-CPU no-plug-in comparison also failed (41 xruns, zero bridge
+DSP owners). Its independently bracketed interval averaged 0.190 outer core
+with no outer throttling, so expanding CPU alone did not resolve the fixture.
+The earlier no-plug-in one-CPU bracket averaged 0.435 core; do not substitute
+the separate near-one-core plug-in transition for that baseline. The tests have
+different durations and do not establish an xrun-rate improvement. See the
+[two-CPU record](../evidence/self-service-delivery/internal55-two-cpu-no-plugin-failure.json).
 
 ## FC-PLAT-002 — Delivered runtime lifetime lock cannot be opened
 

@@ -8,7 +8,7 @@ The effect lost 276,353 processing frames in 67 gaps; the instrument lost
 counters remain included, across setup, the 610-second observed loop, saving
 and closure. The original project is unchanged. The new `internal55` snapshot
 contains independently decoded, identity-checked component/controller settings
-and saved automation, but has not yet passed reopen. See the
+and saved automation; the subsequent reopen result is recorded below. See the
 [failed run](../evidence/self-service-delivery/internal55-ardour-pulseaudio-failure.json).
 
 The installed Ardour configuration selected PulseAudio playback at 48 kHz /
@@ -27,8 +27,20 @@ Ardour ALSA setup, with unchanged product binaries, trace selection, 48 kHz /
 A subsequent baseline opened the same project with every plug-in disabled and
 zero bridge DSP owners; ALSA still accumulated 20 visible xruns. This establishes
 a separate audio-fixture failure, not a unique explanation of the bridge gaps.
-CPU use approached the outer VM's one-CPU allowance. A proposed two-CPU
-comparison awaits operator approval; no resource cap has changed.
+The earlier transition with plug-ins approached the outer VM's one-CPU allowance;
+the separate no-plug-in bracket averaged only 0.435 core. Those are different
+workloads and neither establishes per-gap attribution.
+
+The operator then approved two CPUs for the evening while preserving capacity
+for Audiobookshelf. The same disk rebooted with two virtual CPUs, a two-core
+outer/user-slice cap and unchanged RAM, swap and task limits. The installed
+service restarted normally. A fresh no-plug-in ALSA run still reached 41 xruns
+with zero bridge DSP owners. The independently bracketed interval averaged
+0.190 outer core with no outer CPU throttling. Extra CPU alone did not establish
+a usable audio fixture. The engine was stopped, Ardour exited without saving,
+and the prior config and unchanged project hashes were verified. This is not a
+bridge audio result; the observations have different durations. See the
+[two-CPU failure](../evidence/self-service-delivery/internal55-two-cpu-no-plugin-failure.json).
 
 The reopen did establish actual first-party state persistence: new Windows
 owners accepted each saved payload, and a fresh DAW snapshot captured the same
@@ -411,7 +423,7 @@ Source tests and installed regressions remain distinct.
 
 ## Resource envelope
 
-Only one test VM or local builder may run at a time. Each has a one-core quota,
+Only one test VM or local builder may run at a time. The original envelope gave each a one-core quota,
 low CPU shares, a 256-task limit and zero additional swap. VM containers have
 a 4-GiB RAM limit; builder containers have a 2.5-GiB RAM limit. Both Docker
 configuration and effective cgroup limits were read back before resuming work.
@@ -425,6 +437,15 @@ must never run together. Effective swap is zero. The viewers are separately
 capped at 0.1 core, 128 MiB RAM, zero additional swap and 32 tasks. Ubuntu was
 shut down normally before building the SDK consumer; its viewer and local
 forward were stopped. No resource cap was expanded.
+
+The operator subsequently approved a temporary two-CPU Ubuntu comparison for
+the evening, leaving two of the host's four cores worth of capacity outside the
+VM ceiling. Its low CPU shares (128), 4-GiB outer/3-GiB guest RAM, zero additional
+swap, outer 256-task and guest 512-task limits remain unchanged. The guest user
+slice retains 2.5 GiB RAM. The old one-CPU container is retained stopped; the
+same disk must never be opened by both. Audiobookshelf remained running with
+zero container restarts after the comparison. This is a CPU-capacity check, not
+an audiobook playback test. Other VM and builder caps were not raised.
 
 ## Qualification remains one installed outcome
 

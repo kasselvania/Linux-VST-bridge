@@ -19,7 +19,10 @@ payloads. The first retained gaps show
 back-to-back callback demand, while later stalls remain unattributed. The next
 ALSA comparison also failed, with 468 xruns; a no-plug-in baseline then produced
 20 xruns with zero bridge DSP owners. That is a separate fixture failure with
-unchanged product binaries and resource caps. Reboot and commercial recall
+unchanged product binaries and resource caps. An operator-approved two-CPU
+comparison also failed without plug-ins (41 xruns, zero bridge DSP owners); the
+bracketed interval averaged 0.190 outer core with no outer throttling. A useful
+audio fixture has not been established. Reboot and commercial recall
 remain unqualified.
 See the [failure and attribution](RESTART_VALIDATION_2026_10_01.md#internal55-real-daw-failure-and-audio-backend-attribution).
 
