@@ -11,6 +11,14 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Internal55 passed its installed SDK regressions but **failed combined Ardour
+processing** on the existing Ubuntu PulseAudio fixture: 276,353 missing effect
+frames and 279,862 missing instrument frames. The saved reference state is
+independently verified; reopen remains untested. The first retained gaps show
+back-to-back callback demand, while later stalls remain unattributed. The next
+ALSA comparison changes the declared fixture, not the installed product.
+See the [failure and attribution](RESTART_VALIDATION_2026_10_01.md#internal55-real-daw-failure-and-audio-backend-attribution).
+
 The integrated internal43 Deck audio diagnostic still failed its declared
 processing workload. The next source diagnostic keeps bounded early and recent
 gaps with the exact Windows mailbox timing; it is observation work, not a

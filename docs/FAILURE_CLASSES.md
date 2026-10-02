@@ -1777,6 +1777,15 @@ intermittent gap or real DAW/commercial reliability. The exact
 [installed results](RESTART_VALIDATION_2026_10_01.md#internal55-installed-recovery-and-diagnostic-regressions)
 retain that distinction.
 
+The subsequent combined Ardour run failed: 276,353 effect frames and 279,862
+instrument frames were missing during processing. The exact fixture used
+PulseAudio; its first retained consumer intervals were only 249–264 microseconds.
+Later queue/reply stalls remain separately unattributed. All whole-lifetime
+counters and successful owner retirement are retained in the
+[internal55 DAW failure](../evidence/self-service-delivery/internal55-ardour-pulseaudio-failure.json).
+This does not establish an audio repair or a general scheduler cause. An ALSA
+comparison is a declared fixture transition with unchanged product binaries.
+
 ## FC-PLAT-002 — Delivered runtime lifetime lock cannot be opened
 
 ### Shared boundary and understanding

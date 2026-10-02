@@ -1,5 +1,32 @@
 # Restart validation
 
+## Internal55 real DAW failure and audio-backend attribution
+
+The same installed candidate subsequently failed the combined Ardour 9 run.
+The effect lost 276,353 processing frames in 67 gaps; the instrument lost
+279,862 in 77. Both completed normal native/Windows retirement. All lifetime
+counters remain included, across setup, the 610-second observed loop, saving
+and closure. The original project is unchanged. The new `internal55` snapshot
+contains independently decoded, identity-checked component/controller settings
+and saved automation, but has not yet passed reopen. See the
+[failed run](../evidence/self-service-delivery/internal55-ardour-pulseaudio-failure.json).
+
+The installed Ardour configuration selected PulseAudio playback at 48 kHz /
+1024 frames. Both first retained gaps demanded output only 249–264 microseconds
+after admission; publication followed the demand. Other retained requests had
+long queue and reply delays. These are distinct timing observations, not proof
+of a single cause. The guest's limit counters did not increase during the loop;
+outer-VM throttling was observed without a matching per-gap correlation.
+
+PulseAudio's writable-space-driven callbacks are a fixture limitation for this
+asynchronous processing test. Ardour's maintainer describes that backend as a
+[convenience playback path](https://discourse.ardour.org/t/pulseaudio-via-jack-bridge-no-input/106710/2).
+The next bounded comparison selects the VM's existing virtual HDA through
+ordinary Ardour ALSA setup, with unchanged product binaries, trace selection,
+48 kHz / 1024 frames and resource limits. It is a declared fixture transition,
+not an audio repair or a reclassification of this failure. Internal54's SDK gap,
+the earlier Deck gaps and full beta qualification remain open.
+
 ## Internal55 installed recovery and diagnostic regressions
 
 Internal55 freezes source `6d61a3b59be8c68cf8ee8a48587029712bef2efe`, tree
