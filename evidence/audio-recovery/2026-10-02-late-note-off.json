@@ -41,7 +41,7 @@
   "fixture": {
     "hardware": "Steam Deck OLED / Galileo, 8 logical CPUs",
     "os": "SteamOS 3.8.16, build 20260716.1",
-    "kernel": "6.16.12-valve24.5-1-neptune-616",
+    "kernel": "6.16.12-valve24.5-1-neptune-616-gb2f7cfe85e45",
     "desktop": "KDE Wayland",
     "bitwig": "6.1 Flatpak",
     "runtime": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
