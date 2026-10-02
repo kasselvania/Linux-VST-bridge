@@ -135,6 +135,23 @@ attributing editor-interval output silence. Do not infer callback bursts from a
 worker-ready timestamp or first-sample Windows policy from a later readback.
 Stage 2 and its continuity-repair claim remain open.
 
+The next short traced recovery5 lifetime reproduced a different, directly
+attributed gap at the final Pure LoFi callback before close. Request admission
+to presentation was only 1.340 ms; Windows SDK processing took 1.943 ms and
+native publication followed presentation by 0.894 ms. Control work had finished
+about nine seconds earlier. The first startup in this run was clean. The whole
+speaker capture has no internal exact-zero span during its musical signal;
+this identifies a delivery defect, not an audible dropout in that recording.
+
+The [bounded completion repair](native-vst3-proxy/host/COMPLETION_DEADLINE.md)
+lets the prepared protocol-14 callback wait for already-due output within one
+actual-block-duration budget. It retains the queued delay, ownership and epochs;
+this is not the stage-4 zero-added-delay path. A burst regression loses 7,680
+frames on recovery5 and passes after the repair with zero callback allocations.
+Timeout, expiry, control exclusion and notification-race tests accompany it.
+Linux build and matched installed comparison are pending; do not claim the
+remaining startup or editor-interval failure is fixed from this source test.
+
 Scope: the actual callback, queue, worker, transport, Windows render and
 presentation path; bounded preallocated telemetry; independent SDK consumer;
 focused regression and evidence. Dependencies change only if required by the

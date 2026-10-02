@@ -2,6 +2,7 @@
 #[cfg(test)]
 mod commercial_tests;
 mod context;
+mod completion_wait;
 mod fault_status;
 mod terminal;
 mod gui;
