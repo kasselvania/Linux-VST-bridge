@@ -123,6 +123,18 @@ are not retroactively described as clean processing.
 
 ## Delivery and reporting
 
+Internal56's physical Deck update/save/reopen completed ordinary controls,
+but audio remains failed. First traced recall lost 2,048 Pure LoFi frames before
+its first note. A second reopen was clean for the ten-minute musical subset,
+then ended with 2,560 Pure LoFi and 2,048 FRAGMENTS missing frames after editor
+activity. A tracing-disabled comparison still lost 1,536 Pure LoFi frames.
+Tracing is therefore not the sole cause. Retained request 66595 spent 1.175 ms
+in FRAGMENTS SDK processing but 19.574 ms in native admission-to-publication;
+CPU accounting queries polluted the broader diagnostic brackets. The source
+successor removes those queries and reports the existing exact SDK duration
+with each gap. This is a measurement correction, not a residual-audio fix.
+See the [physical results and limitations](RESTART_VALIDATION_2026_10_01.md#internal56-physical-deck-update-recall-and-audio-failure).
+
 Internal42 selected coherent Pure LoFi and FRAGMENTS successors on the populated
 licensed Deck through ordinary check/prepare/apply controls. The original saved
 project reopened after a normal reboot, both editors completed three close/reopen

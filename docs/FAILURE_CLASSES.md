@@ -1037,6 +1037,18 @@ The [SDK receipt](../evidence/self-service-delivery/internal52-installed-sdk-lif
 does not close the prior Deck commercial gaps or qualify kit52's unpublished
 successor proxy bytes.
 
+Internal56's physical Deck update/save/reopen completed ordinary controls,
+but audio remains failed. First traced recall lost 2,048 Pure LoFi frames before
+its first note. A second reopen was clean for the ten-minute musical subset,
+then ended with 2,560 Pure LoFi and 2,048 FRAGMENTS missing frames after editor
+activity. A tracing-disabled comparison still lost 1,536 Pure LoFi frames.
+Tracing is therefore not the sole cause. Retained request 66595 spent 1.175 ms
+in FRAGMENTS SDK processing but 19.574 ms in native admission-to-publication;
+CPU accounting queries polluted the broader diagnostic brackets. The source
+successor removes those queries and reports the existing exact SDK duration
+with each gap. This is a measurement correction, not a residual-audio fix.
+See the [physical results and limitations](RESTART_VALIDATION_2026_10_01.md#internal56-physical-deck-update-recall-and-audio-failure).
+
 ### Claim limit
 
 Counters are not automatically audible-dropout evidence. Elapsed Windows

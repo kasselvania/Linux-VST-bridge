@@ -11,6 +11,14 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Internal56 also **failed physical Deck audio** after ordinary populated update
+and save/reopen. A traced ten-minute musical interval was clean, but its whole
+session retained 2,560 Pure LoFi and 2,048 FRAGMENTS missing frames after editor
+activity. A tracing-disabled reopen still lost 1,536 Pure LoFi frames. Original
+projects were unchanged and both owners retired. The newer source removes CPU
+accounting queries from diagnostics; it is not an installed audio repair.
+See the [Deck update and failures](RESTART_VALIDATION_2026_10_01.md#internal56-physical-deck-update-recall-and-audio-failure).
+
 Internal56 also **failed combined Ardour/JACK processing and state save** with
 diagnostics disabled on the Ubuntu VM (two virtual CPUs, two-core outer cap,
 but a one-core guest user-slice quota after the intervening reboot). The effect retained

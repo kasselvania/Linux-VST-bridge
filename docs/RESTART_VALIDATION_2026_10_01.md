@@ -1,5 +1,58 @@
 # Restart validation
 
+## Internal56 physical Deck update, recall and audio failure
+
+The SteamOS-target build of source `9f963bcf5fc676d099982dee25e688e7f83fe489`
+was installed through the normal installer and Setup Stop/Select/Start controls.
+All selected components matched; the populated registry and original projects
+were preserved. Normal selected-product controls refreshed the environment and
+published coherent Pure LoFi 1.0.0.6121 and FRAGMENTS 1.0.0.2925 successors.
+The preliminary Ubuntu-target executable refused on Deck at its GLIBC loader
+boundary before installation; the correctly targeted build completed intake.
+See the [populated update record](../evidence/self-service-delivery/internal56-deck-populated-update.json).
+
+An empty Bitwig 6.1/PipeWire graph on the physical Deck completed 600 seconds
+at 48 kHz/512 frames with zero observed sink or Bitwig errors. The original
+recall project opened, a separate internal56 copy saved, and that copy reopened
+with the exact saved opaque state payloads restored. Original project hashes
+remain unchanged. This is update/save/reopen evidence, not rollback or reboot
+qualification.
+
+Audio still fails. The first traced load lost 2,048 Pure LoFi frames before the
+first note; FRAGMENTS lost zero. A second traced reopen had zero missing frames
+through a 600-second notes-and-automation interval, with nonzero physical sink
+monitor capture. Subsequent Pure LoFi editor activity coincided with missing
+frames: the complete session ended at 2,560 Pure LoFi and 2,048 FRAGMENTS frames.
+The favorable steady interval does not qualify the whole session. With tracing
+disabled, a third reopen retained 1,536 Pure LoFi missing frames in three gaps
+and zero FRAGMENTS misses; one gap preceded playback and another was present
+at the editor-open readback. Both owners retired with confirmed cleanup. These
+results rule out tracing as the sole cause, not as a contributor.
+
+Correlated retained timing exposes diagnostic overhead: FRAGMENTS request 66595
+used 1,175,000 ns in the SDK processing bracket versus 19,574,142 ns from native
+admission to publication; the Windows diagnostic process bracket was about
+17.16 ms. The broader bracket included CPU accounting before the SDK call.
+Pure LoFi request 67005 used 4,602,400 ns in the SDK bracket versus 16,292,900 ns
+in total, with about 10.38 ms after the diagnostic process-end timestamp.
+These are wall durations, not CPU attribution. A source correction removes
+GetThreadTimes/GetProcessTimes/QueryThreadCycleTime from delivery diagnostics,
+retains fixed QPC timing and unavailable CPU sentinels in the existing mailbox
+layout, and reports the already-recorded SDK duration on each retained gap.
+All 87 native library tests pass locally (one Windows-fixture test ignored),
+as do warnings-denied all-target Clippy and the actual Windows-history header
+regression, including compilation with CPU-accounting calls forbidden. A successor build and installed comparison remain required;
+there is no claimed trace-disabled audio fix.
+
+Retained records: [first traced recall](../evidence/self-service-delivery/internal56-deck-first-recall-trace.json),
+[steady subset and editor failure](../evidence/self-service-delivery/internal56-deck-steady-and-editor-failure.json),
+and [untraced comparison](../evidence/self-service-delivery/internal56-deck-untraced-editor-failure.json).
+Internal56 remains failed. The full fixed-candidate platform/catalogue journey,
+recovery matrix, reboot, populated rollback and release-signing/distribution
+requirements remain open. Builders and VMs were stopped; Audiobookshelf was
+left running. The Deck has no remaining DSP or maintenance owner and tracing
+is off.
+
 ## Internal56 JACK audio and state-save failure
 
 The Ubuntu VM comparison installed only the official matching

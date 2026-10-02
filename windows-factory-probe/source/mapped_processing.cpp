@@ -415,13 +415,13 @@ bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*im
  }catch(const std::exception&e){x.error(e);throw;}}
 ResultStatus* MappedSession::result_status(){return impl_->result_status.get();}
 void MappedSession::before_process(){auto&x=*impl_;x.diagnostic.stamp(3);if(x.diagnostic.enabled){
- x.diagnostic.current.caller_tid=GetCurrentThreadId();x.diagnostic.current.before=DeliveryTrace::cpu();
- const auto&c=x.diagnostic.current.before;
- x.completion_trace[8]=c.thread_user==UINT64_MAX||c.thread_kernel==UINT64_MAX?UINT64_MAX:c.thread_user+c.thread_kernel;
+ x.diagnostic.current.caller_tid=GetCurrentThreadId();
+ // Preserve the fixed reply layout with its existing unavailable sentinel.
+ // CPU accounting is not a bounded real-time operation under Wine.
+ x.completion_trace[8]=UINT64_MAX;
  auto ui=x.fault?x.fault->owner_activity():std::array<uint64_t,2>{};x.completion_trace[10]=ui[0];x.completion_trace[11]=ui[1];}if(x.fault)x.fault->stage(1,3);}
 void MappedSession::after_process(){auto&x=*impl_;x.diagnostic.stamp(4);if(x.diagnostic.enabled){
- x.diagnostic.current.after=DeliveryTrace::cpu();const auto&c=x.diagnostic.current.after;
- x.completion_trace[9]=c.thread_user==UINT64_MAX||c.thread_kernel==UINT64_MAX?UINT64_MAX:c.thread_user+c.thread_kernel;
+ x.completion_trace[9]=UINT64_MAX;
  auto ui=x.fault?x.fault->owner_activity():std::array<uint64_t,2>{};x.completion_trace[12]=ui[0];x.completion_trace[13]=ui[1];}if(x.fault)x.fault->stage(1,4);}
 void MappedSession::done_outputs(const Steinberg::Vst::AudioBusBuffers* buses,int count,uint64_t ns,const ap10_results_t* results){
  auto&x=*impl_;

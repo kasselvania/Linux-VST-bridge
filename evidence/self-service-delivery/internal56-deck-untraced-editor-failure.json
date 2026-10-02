@@ -1,0 +1,832 @@
+{
+  "schema": 1,
+  "date": "2026-10-02",
+  "source_head": "9f963bcf5fc676d099982dee25e688e7f83fe489",
+  "package_manifest_sha256": "ff2d871f0f1544b4c419181560629495b6243e75ace2b9dbf4fc0411c7ca8f9c",
+  "verdict": "Failed: with tracing disabled, Pure LoFi retained 1536 missing processing frames in three gaps; FRAGMENTS retained zero.",
+  "trace_enabled": false,
+  "workload": "Normal Applications launch of Bitwig; reopen owned internal56 saved project; begin musical loop; Pure LoFi editor open and close during playback; Stop, Save, normal quit. 48 kHz, 512 host and bridge frames.",
+  "observations": {
+    "ready_before_playback": {
+      "monotonic_ns": 100163699187959,
+      "rows": [
+        {
+          "session": "04127a547ff9123645251d6909930c17",
+          "generation": 1,
+          "epoch": 1,
+          "sequence": 1939,
+          "position": 990720,
+          "stage": 3,
+          "detail": 0,
+          "monotonic_ns": 100163696326106,
+          "delivery": {
+            "admitted": 991232,
+            "missing": 0,
+            "gaps": 0,
+            "expired": 0,
+            "delivered": 990720,
+            "priming": 512
+          }
+        },
+        {
+          "session": "eefa5280d0e823d05b85f7bd01c2c29a",
+          "generation": 1,
+          "epoch": 1,
+          "sequence": 2326,
+          "position": 1188864,
+          "stage": 3,
+          "detail": 0,
+          "monotonic_ns": 100163696762294,
+          "delivery": {
+            "admitted": 1189376,
+            "missing": 512,
+            "gaps": 1,
+            "expired": 512,
+            "delivered": 1188352,
+            "priming": 512
+          }
+        }
+      ],
+      "read_semantics": "libatomic sequentially consistent lane reads, at most three stable-counter attempts"
+    },
+    "playback_before_editor": {
+      "monotonic_ns": 100506540389559,
+      "rows": [
+        {
+          "session": "eefa5280d0e823d05b85f7bd01c2c29a",
+          "generation": 1,
+          "epoch": 1,
+          "sequence": 34467,
+          "position": 17645056,
+          "stage": 2,
+          "detail": 0,
+          "monotonic_ns": 100506539490870,
+          "delivery": {
+            "admitted": 17645568,
+            "missing": 512,
+            "gaps": 1,
+            "expired": 512,
+            "delivered": 17644544,
+            "priming": 512
+          }
+        },
+        {
+          "session": "04127a547ff9123645251d6909930c17",
+          "generation": 1,
+          "epoch": 1,
+          "sequence": 34080,
+          "position": 17446912,
+          "stage": 2,
+          "detail": 0,
+          "monotonic_ns": 100506539624253,
+          "delivery": {
+            "admitted": 17447424,
+            "missing": 0,
+            "gaps": 0,
+            "expired": 0,
+            "delivered": 17446912,
+            "priming": 512
+          }
+        }
+      ],
+      "read_semantics": "libatomic sequentially consistent lane reads, at most three stable-counter attempts"
+    },
+    "editor_open": {
+      "monotonic_ns": 100547496500703,
+      "rows": [
+        {
+          "session": "eefa5280d0e823d05b85f7bd01c2c29a",
+          "generation": 1,
+          "epoch": 1,
+          "sequence": 38306,
+          "position": 19610624,
+          "stage": 3,
+          "detail": 0,
+          "monotonic_ns": 100547491790245,
+          "delivery": {
+            "admitted": 19611136,
+            "missing": 1024,
+            "gaps": 2,
+            "expired": 1024,
+            "delivered": 19609600,
+            "priming": 512
+          }
+        },
+        {
+          "session": "04127a547ff9123645251d6909930c17",
+          "generation": 1,
+          "epoch": 1,
+          "sequence": 37919,
+          "position": 19412480,
+          "stage": 3,
+          "detail": 0,
+          "monotonic_ns": 100547490939388,
+          "delivery": {
+            "admitted": 19412992,
+            "missing": 0,
+            "gaps": 0,
+            "expired": 0,
+            "delivered": 19412480,
+            "priming": 512
+          }
+        }
+      ],
+      "read_semantics": "libatomic sequentially consistent lane reads, at most three stable-counter attempts"
+    }
+  },
+  "sessions": [
+    {
+      "product": "Pure LoFi",
+      "session": "eefa5280d0e823d05b85f7bd01c2c29a",
+      "native_log_sha256": "cdf318e920fcaf6b5546e3578babb5dbc1339a024d14f83b8127c35ebec9a834",
+      "native_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "protocol_minor": 14,
+          "host_maximum": 512,
+          "transport_maximum": 512,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 198002,
+          "sha256": "1546100b51a9ed8647b655edbb4a68f5efcbb40d0c66e794564d3039a0c74749",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "protocol_minor": 14,
+          "host_maximum": 512,
+          "transport_maximum": 512,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "protocol_minor": 14,
+          "host_maximum": 512,
+          "transport_maximum": 512,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 100515510494171,
+          "focus_result": 1,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 60817714,
+          "target_x11": 146800643,
+          "view_epoch": 1,
+          "native_view": 1,
+          "lifecycle": 3,
+          "processing_generation": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 100515570472795,
+          "focus_result": 2,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 60817714,
+          "target_x11": 146800643,
+          "view_epoch": 1,
+          "native_view": 1,
+          "lifecycle": 4,
+          "processing_generation": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 100554086805198,
+          "focus_result": 5,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 60817714,
+          "target_x11": 0,
+          "view_epoch": 1,
+          "native_view": 1,
+          "lifecycle": 7,
+          "processing_generation": 1,
+          "focus_flags": 6,
+          "open": 0,
+          "result": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 198268,
+          "sha256": "f2675e8152d92e2b090b485e7750d563f40bff9bbf5e51258035b125b96b6157",
+          "gain": 0
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 41140,
+          "request_high": 1,
+          "result_high": 2,
+          "position": 21063680,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "enabled": false,
+          "verified_returned_samples": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 100138934755090,
+          "startup": {
+            "admitted_frames": 512,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 512
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 100577760892771,
+          "startup": {
+            "admitted_frames": 512,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 512
+          },
+          "processing": {
+            "admitted_frames": 21063168,
+            "missing_frames": 1536,
+            "gaps": 3,
+            "expired_frames": 1536,
+            "delivered_frames": 21061632,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 100577783755585,
+          "startup": {
+            "admitted_frames": 512,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 512
+          },
+          "processing": {
+            "admitted_frames": 21063168,
+            "missing_frames": 1536,
+            "gaps": 3,
+            "expired_frames": 1536,
+            "delivered_frames": 21061632,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 100577784332037,
+          "startup": {
+            "admitted_frames": 512,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 512
+          },
+          "processing": {
+            "admitted_frames": 21063168,
+            "missing_frames": 1536,
+            "gaps": 3,
+            "expired_frames": 1536,
+            "delivered_frames": 21061632,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 100578262133402,
+          "startup": {
+            "admitted_frames": 512,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 512
+          },
+          "processing": {
+            "admitted_frames": 21063168,
+            "missing_frames": 1536,
+            "gaps": 3,
+            "expired_frames": 1536,
+            "delivered_frames": 21061632,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 21063680,
+          "blocks": 41140,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 1536,
+          "underrun_gaps": 3,
+          "underrun_callbacks": 3,
+          "expired_output_frames": 1536,
+          "delivered_frames": 21061632,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows_retirement": {
+        "session": "eefa5280d0e823d05b85f7bd01c2c29a",
+        "raw_exit": -15,
+        "cleanup_confirmed": true,
+        "transport_retired": true
+      },
+      "windows_events": [
+        {
+          "event": "lifecycle",
+          "sequence": 176,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 512,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 186,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 512,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 188,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 512,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 204,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 41140,
+          "intervals": 1,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 208,
+          "state": "ap11_editor_summary",
+          "opens": 1,
+          "closes": 1,
+          "focuses": 1,
+          "removal_messages": 12,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 4201,
+          "stale_updates": 144,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        }
+      ]
+    },
+    {
+      "product": "FRAGMENTS",
+      "session": "04127a547ff9123645251d6909930c17",
+      "native_log_sha256": "511a5b1a9ad3a5e10d60ba4a83d6e736237053c890989e21463f4756000ac3ff",
+      "native_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "protocol_minor": 14,
+          "host_maximum": 512,
+          "transport_maximum": 512,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 138924,
+          "sha256": "b4b7898b84d39c9d6cb838f58867fb022bf3f45788f67e01349a4fec94f72ca4",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "protocol_minor": 14,
+          "host_maximum": 512,
+          "transport_maximum": 512,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "protocol_minor": 14,
+          "host_maximum": 512,
+          "transport_maximum": 512,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 40753,
+          "request_high": 1,
+          "result_high": 1,
+          "position": 20865536,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "enabled": false,
+          "verified_returned_samples": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 100143056364744,
+          "startup": {
+            "admitted_frames": 512,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 512
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 100577761352941,
+          "startup": {
+            "admitted_frames": 512,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 512
+          },
+          "processing": {
+            "admitted_frames": 20865024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 20865024,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 100578265408160,
+          "startup": {
+            "admitted_frames": 512,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 512
+          },
+          "processing": {
+            "admitted_frames": 20865024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 20865024,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 100578265862030,
+          "startup": {
+            "admitted_frames": 512,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 512
+          },
+          "processing": {
+            "admitted_frames": 20865024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 20865024,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 100578463964122,
+          "startup": {
+            "admitted_frames": 512,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 512
+          },
+          "processing": {
+            "admitted_frames": 20865024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 20865024,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 20865536,
+          "blocks": 40753,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 20865024,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows_retirement": {
+        "session": "04127a547ff9123645251d6909930c17",
+        "raw_exit": -15,
+        "cleanup_confirmed": true,
+        "transport_retired": true
+      },
+      "windows_events": [
+        {
+          "event": "lifecycle",
+          "sequence": 157,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 512,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 192,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 167,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 512,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 192,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 169,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 512,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 192,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 181,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 40753,
+          "intervals": 1,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 185,
+          "state": "ap11_editor_summary",
+          "opens": 0,
+          "closes": 0,
+          "focuses": 0,
+          "removal_messages": 0,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 60,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        }
+      ]
+    }
+  ],
+  "post_cleanup": {
+    "dsp": 0,
+    "maintenance": 0,
+    "keepers": 1,
+    "cleanup_unconfirmed": false,
+    "trace_flag_present": false,
+    "original_projects_unchanged": true,
+    "project_digests": {
+      "Bitwig Studio/Projects/LVB Beta Delivery Recall.pbowjectr/LVB Beta Delivery Recall.pbowjectr.bwproject": "3f09bf2b3bee65522efc1213bfa2814a7a2140c716e1786ce779c413ba106abc",
+      "Bitwig Studio/Projects/LVB Beta Delivery Recall/LVB Beta Delivery Recall internal56.bwproject": "c55548d1320d04932a983dad0531f8bd4064a2efec7a251ac768b47edfc086bb",
+      "Bitwig Studio/Projects/LVB Beta Delivery Recall/LVB Beta Delivery Recall.bwproject": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+      "Bitwig Studio/Projects/LVB Beta Delivery Recall/LVB Beta Delivery Recall internal42.bwproject": "a60decc616612d4568517254d24defc2d32677b6a9dd14f0f6cb201f9ff977a8",
+      "Bitwig Studio/Projects/LVB Beta Delivery Recall/auto-backups/LVB Beta Delivery Recall internal42/LVB Beta Delivery Recall internal42 [2026-10-01 035511].bwproject": "3f67cc4feb3f10bef8ac4db047e59b283e63b15320a3e638b9d6e422865f993c",
+      "Bitwig Studio/Projects/LVB Beta Delivery Recall/auto-backups/LVB Beta Delivery Recall internal42/LVB Beta Delivery Recall internal42 [2026-10-01 032535].bwproject": "4b1a82fd985ac0c0b9314b27ec414ee9f09ff9512ec471b0ebe52771a359fb66",
+      "Bitwig Studio/Projects/LVB Beta Delivery Recall/auto-backups/LVB Beta Delivery Recall internal42/LVB Beta Delivery Recall internal42 [2026-10-01 031505].bwproject": "02ca66090668a77b52ed6123eafe071e96a04e7709c7a58694a0a662bd4a10e6",
+      "Bitwig Studio/Projects/LVB Beta Delivery Recall/auto-backups/LVB Beta Delivery Recall/LVB Beta Delivery Recall [2026-09-30 191042].bwproject": "e65482a562ee9c9e25e4ef1903a96d538bcdb6a362f20b054dcc11baef48a978",
+      "Bitwig Studio/Projects/LVB Beta Delivery Recall/auto-backups/LVB Beta Delivery Recall/LVB Beta Delivery Recall [2026-09-30 191258].bwproject": "6c64db4f22a41d78e1045b994d7d8c122086504a89bd44c2ffbdb3264b52aa4a",
+      "Bitwig Studio/Projects/LVB Beta Delivery Recall/auto-backups/LVB Beta Delivery Recall internal56/LVB Beta Delivery Recall internal56 [2026-10-02 060912].bwproject": "7632bf368cf335da316c3b730c85ff0ed3eeb767d6cb277e2e4393bf26f4b147",
+      "Bitwig Studio/Projects/LVB Beta Delivery Recall/auto-backups/LVB Beta Delivery Recall internal56/LVB Beta Delivery Recall internal56 [2026-10-02 061104].bwproject": "1c497e078a02c720f4a1101872f0bf8604ec78dbfe5889a1faf7435be7a3aca5",
+      "Bitwig Studio/Projects/LVB Beta Delivery Recall/auto-backups/LVB Beta Delivery Recall internal56/LVB Beta Delivery Recall internal56 [2026-10-02 062619].bwproject": "d3c9621fd665304b06e4e2f0c9b6eab62d879ff80fa673481cd8396932d46701"
+    }
+  },
+  "limits": [
+    "The first 512-frame Pure LoFi gap preceded playback. Another 512 frames were missing at the editor-open readback; retirement retained a third 512-frame gap.",
+    "Trace-disabled results have counters but no per-request timing. Editor activity is correlated with the interval, not established as the unique cause.",
+    "No human listening claim, reboot/rollback result, complete recovery matrix or beta qualification follows.",
+    "The prior traced whole-session failures remain failed."
+  ]
+}

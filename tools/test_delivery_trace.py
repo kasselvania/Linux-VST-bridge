@@ -20,9 +20,9 @@ bool QueryPerformanceCounter(LARGE_INTEGER* t){static long long clock=0;t->QuadP
 bool QueryPerformanceFrequency(LARGE_INTEGER* t){t->QuadPart=1000;return true;}
 HANDLE GetCurrentThread(){return nullptr;}
 HANDLE GetCurrentProcess(){return nullptr;}
-bool GetThreadTimes(HANDLE,FILETIME*,FILETIME*,FILETIME*,FILETIME*){return false;}
-bool GetProcessTimes(HANDLE,FILETIME*,FILETIME*,FILETIME*,FILETIME*){return false;}
-bool QueryThreadCycleTime(HANDLE,ULONG64*){return false;}
+bool GetThreadTimes(HANDLE,FILETIME*,FILETIME*,FILETIME*,FILETIME*)=delete;
+bool GetProcessTimes(HANDLE,FILETIME*,FILETIME*,FILETIME*,FILETIME*)=delete;
+bool QueryThreadCycleTime(HANDLE,ULONG64*)=delete;
 '''
 TEST = r'''
 #include <cassert>
@@ -40,7 +40,6 @@ int main(){
   if(i==80||i==180){
    d.current.note_on_count=1;d.current.event_count=1;
    d.current.note_pitch=i==80?60:64;d.current.note_channel=0;
-   d.current.before.thread_user=10;d.current.after.thread_user=50;
   }
   d.complete();
   assert(d.count<=d.retained.size());
@@ -84,7 +83,8 @@ def main():
         assert all(row['state']=='ap10_windows_request' for row in rows[1:-2])
         assert [row['state'] for row in rows[-2:]]==['fn1_note_process']*2
         assert [row['pitch'] for row in rows[-2:]]==[60,64]
-        assert [row['caller_user_100ns'] for row in rows[-2:]]==[40,40]
+        assert all(row['cpu_timing_available'] is False for row in rows[-2:])
+        assert all('caller_user_100ns' not in row for row in rows[-2:])
     print('Fixed Windows history bounds and startup filtering passed')
 
 if __name__=='__main__':main()

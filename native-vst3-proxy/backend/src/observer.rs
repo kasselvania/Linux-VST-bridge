@@ -500,11 +500,12 @@ pub fn report_text(s: &Shared) -> String {
             // The mailbox already returns timing for this exact request. Keep
             // it with the gap rather than depend on independently capped
             // Windows history. Windows QPC and Linux clocks remain distinct.
-            let _ = writeln!(text, "{{\"event\":\"ap7_gap_request\",\"epoch\":{},\"gap_position\":{},\"gap_frames\":{},\"request_position\":{},\"request_frames\":{},\"sequence\":{},\"output_published\":{},\"queue_us\":{},\"prepare_us\":{},\"send_us\":{},\"reply_us\":{},\"validation_us\":{},\"publication_us\":{},\"publication_after_gap_us\":{},\"admission_to_gap_us\":{},\"windows_reply\":{:?}}}",
+            let process_ns = t.process_ns.map_or_else(|| "null".to_owned(), |ns| ns.to_string());
+            let _ = writeln!(text, "{{\"event\":\"ap7_gap_request\",\"epoch\":{},\"gap_position\":{},\"gap_frames\":{},\"request_position\":{},\"request_frames\":{},\"sequence\":{},\"output_published\":{},\"queue_us\":{},\"prepare_us\":{},\"send_us\":{},\"reply_us\":{},\"validation_us\":{},\"publication_us\":{},\"publication_after_gap_us\":{},\"admission_to_gap_us\":{},\"windows_process_ns\":{},\"windows_reply\":{:?}}}",
                 g.epoch, g.position, g.frames, t.position, t.frames, t.sequence, t.published.is_some(),
                 micros(t.queued,t.started), micros(t.started,t.prepared), micros(t.prepared,t.sent),
                 micros(t.sent,t.replied), micros(t.replied,t.validated), micros(t.validated,t.published),
-                micros(Some(g.at),t.published), micros(t.queued,Some(g.at)), t.windows);
+                micros(Some(g.at),t.published), micros(t.queued,Some(g.at)), process_ns, t.windows);
         } else {
             let _ = writeln!(text, "{{\"event\":\"ap7_gap_request\",\"epoch\":{},\"gap_position\":{},\"gap_frames\":{},\"request_trace_missing\":true}}", g.epoch, g.position, g.frames);
         }
@@ -610,6 +611,7 @@ mod tests {
                     validated: Some(now),
                     published: Some(now),
                     windows: [u64::MAX; 15],
+                    process_ns: (sequence != 0).then_some(u64::MAX),
                     ..Default::default()
                 }),
             ));
@@ -618,6 +620,8 @@ mod tests {
         assert!(text.len() > 2048);
         assert!(text.lines().all(|line| line.len() < 2048));
         assert!(text.contains("\"windows_reply\":[18446744073709551615"));
+        assert_eq!(text.matches("\"windows_process_ns\":null").count(), 1);
+        assert_eq!(text.matches("\"windows_process_ns\":18446744073709551615").count(), 7);
         let dir = std::env::temp_dir().join(format!("ap8-jsonl-{}", std::process::id()));
         std::fs::create_dir(&dir).unwrap();
         let path = dir.join("report.jsonl");
