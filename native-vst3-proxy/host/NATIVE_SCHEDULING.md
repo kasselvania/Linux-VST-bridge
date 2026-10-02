@@ -47,4 +47,8 @@ The earlier direct Flatpak Realtime portal probe failed on this Deck's namespace
 mapping. It is retained privately as a failed experiment and is not a production
 fallback. No privileges, sandbox permissions, kernel settings, runtime version,
 buffer size or thread affinity are changed by this repair. Scheduling is not a
-continuity guarantee; the installed full-lifetime comparison remains necessary.
+continuity guarantee. Installed recovery5 confirmed the preparation on both
+native workers, but its [whole-lifetime comparisons](../../evidence/audio-recovery/2026-10-02-native-worker-scheduling.json)
+still failed continuity. One repeat lost a startup block per plug-in after
+native preparation and before the additional observers began. Windows scheduling
+at the first callback is not established by later effective readback.

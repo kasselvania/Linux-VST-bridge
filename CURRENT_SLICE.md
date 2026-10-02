@@ -71,9 +71,69 @@ presentation clock bracket, existing parent callback, worker identity/progress,
 queue counters and control/readiness observations at close. It preserves the
 audio result and all delivery protections. The new regression fails on the old
 source; 22 queued tests pass on macOS, including callback allocation checks.
-Linux build and installed physical validation of this observation change are
-pending. [Retained comparison](evidence/audio-recovery/2026-10-02-residual-gap-observation.json).
+Linux backend validation passed 89 tests with one existing Windows-fixture test
+ignored. The exact source `361442f42366e4be3f333d7622809e99273d8d87`, tree
+`c32a848dc4a5d631e74a5d5a52ec587271600786`, was built and installed as recovery4,
+including both matching native publications. With sample tracing off, a controlled
+40 ms suspension of the owned Windows test process produced four retained spans
+and exactly the corresponding 2,048 silent frames in captured SDK output. Audio
+resumed and ownership retired cleanly. This validates installed observation;
+the deliberately injected stall does not attribute the earlier natural failure.
+A separate 120-second native Bitwig 1 kHz reference had no missing spans or signal
+recurrence violations after capture startup. The earlier monitor silence remains
+unattributed. [Retained comparison](evidence/audio-recovery/2026-10-02-residual-gap-observation.json).
 This is diagnostic coverage, not the remaining causal audio repair.
+
+The untraced recovery4 chain then reproduced 1,024 missing FRAGMENTS frames.
+Both missing requests had not been consumed by the native worker. External
+capture shows a 23.273160 ms native-worker preemption across both deadlines;
+the collector omitted namespace mappings, so the exact numeric per-session TID
+association is a stated gap. A subsequent exactly mapped intervention on both
+native workers accumulated no further bridge gaps for about 630 seconds, but
+Pure LoFi had already lost 512 startup frames and the monitor contains additional
+unexplained silent spans. Neither whole lifetime passes.
+
+The next bounded source repair prepares native-worker scheduling through the
+existing authenticated supervisor, before servicing setup or audio. It preserves
+DAW-wide limits and policies, verifies the exact namespace TID and thread start,
+and independently reads back the effective result. The preparation contract is
+[documented here](native-vst3-proxy/host/NATIVE_SCHEDULING.md). Source
+`8ade872366ddd0cce59577c4af014cd580e76df4`, tree
+`fb49cd38047cd98c4d15f6b47e1210810bf44466`, passed 93 Linux backend tests
+(one existing fixture ignored), five Rust target-selection tests, five supervisor
+tests and 16 ownership/retirement tests. The new supervisor regression fails on
+the old source; it tests preparation, not a deterministic reproduction of the
+physical audio loss. All ten package-build steps passed.
+
+Installed recovery5 verified automatic RR 5 on both native workers before setup
+and audio, and on both Windows render threads at later readback. Its first whole
+lifetime completed 52,935 Pure LoFi / 52,544 FRAGMENTS blocks without bridge
+misses, but the monitor recording contains an unexplained 512-frame silent span
+during editor interaction. The second lifetime lost one startup block per
+plug-in (23,638 / 23,249 total blocks). Both gaps precede the added direct recorder
+and scheduler collector. Native scheduling was already effective; Windows policy
+at the first callback is not established. Independent progress reads place each
+missing position in the worker's processing operation, without a pending control
+request; they do not identify SDK time versus reply wait or host callback timing.
+The later direct recorder accumulated 43 stream errors and the scheduler helper
+exceeded its requested file bound and timed out during cleanup. Those observer
+failures are retained separately and cannot explain the earlier startup gaps.
+
+The [physical result](evidence/audio-recovery/2026-10-02-native-worker-scheduling.json)
+therefore remains failed. Normal historical candidate publication and application
+selection restored all recovery1 component bytes and both reference native
+binaries. New publication revisions and software location were created; the
+registry and location are not byte-identical to the earlier selection. Other six
+publications, runtime, environment, original project and reference copy are
+unchanged. All DSP owners and experiment recorders retired; the builder is
+stopped. The retained reference is functional, not qualified gap-free.
+
+Next bounded target: locate the first missing startup result across native
+admission, Windows render readiness/processing, reply and presentation before
+changing another mechanism. Separately qualify the additional recorder before
+attributing editor-interval output silence. Do not infer callback bursts from a
+worker-ready timestamp or first-sample Windows policy from a later readback.
+Stage 2 and its continuity-repair claim remain open.
 
 Scope: the actual callback, queue, worker, transport, Windows render and
 presentation path; bounded preallocated telemetry; independent SDK consumer;
