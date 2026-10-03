@@ -108,7 +108,8 @@ Nibbi. Older manager binaries do not understand descriptor-bearing registration
 records; package downgrade must restore compatible publication/data or refuse
 explicitly. That cross-version package operation is not validated here. The
 assessed configuration and reversible trial workflow remains open.
-See [the current slice](../CURRENT_SLICE.md#general-preparation-and-compatibility-experimentation).
+See the [general preparation contract](ARCHITECTURE.md#186-general-preparation-and-compatibility-experimentation)
+and the [current work selection](../CURRENT_SLICE.md).
 
 Historical schema-3 kits contain exact module-specific proxies and still use
 only their own exact metadata/build inputs when read for retained publications.
