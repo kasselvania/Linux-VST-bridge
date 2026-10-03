@@ -364,9 +364,14 @@ class Run:
         revision_path = self.root / "publications" / fixture["class_id"] / "revisions" / reference["id"] / "revision.json"
         self.artifact({"path": str(revision_path), "sha256": reference["sha256"]})
         revision = read(revision_path)
+        external_ids = revision["external_ids"]
+        need(isinstance(external_ids, list) and len(external_ids) == 2
+             and all(isinstance(value, str) and re.fullmatch(r"[0-9A-Fa-f]{32}", value)
+                     and value.upper() == expected
+                     for value, expected in zip(external_ids, (fixture["processor_id"], fixture["controller_id"]))),
+             "baseline_retained_external_ids_changed")
         need(revision["id"] == reference["id"] and revision["class_id"] == fixture["class_id"]
-             and revision["registration"] == reg
-             and revision["external_ids"] == [fixture["processor_id"], fixture["controller_id"]], "baseline_retained_entry_changed")
+             and revision["registration"] == reg, "baseline_retained_entry_changed")
         need(Path(fixture["bundle"]).is_symlink()
              and Path(fixture["bundle"]).resolve(strict=True) == Path(revision["target"]).resolve(strict=True), "baseline_publication_target_changed")
         for name in ("module", "host", "native", "descriptor"):
