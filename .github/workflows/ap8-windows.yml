@@ -1,6 +1,15 @@
 name: AP8 Windows host
 on:
   workflow_dispatch:
+    inputs:
+      frozen_package_sha256:
+        description: 'Optional frozen package digest for independent unfamiliar fixture generation'
+        type: string
+        default: ''
+      frozen_engine_sha256:
+        description: 'Reusable engine digest paired with that frozen package'
+        type: string
+        default: ''
   pull_request:
     paths:
       - 'tools/mf2/**'
@@ -22,6 +31,7 @@ on:
       - 'bridge-manager/examples/graphics_assessment_report.rs'
       - 'tools/beta/reference_installer.rs'
       - 'tools/beta/build_reference.py'
+      - 'tools/beta/build_unfamiliar.py'
       - 'native-vst3-proxy/include/ap10*'
       - 'native-vst3-proxy/source/output_results.h'
       - 'tools/ap10-tests/**'
@@ -40,7 +50,32 @@ on:
 permissions:
   contents: read
 jobs:
+  unfamiliar-fixtures:
+    if: github.event_name == 'workflow_dispatch' && inputs.frozen_package_sha256 != ''
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Acquire pinned official SDK
+        run: python tools/wf0-factory-census/build.py acquire --sdk-root "${{ runner.temp }}/unfamiliar-sdk"
+      - name: Build fixtures after package freeze
+        shell: pwsh
+        env:
+          FROZEN_PACKAGE_SHA256: ${{ inputs.frozen_package_sha256 }}
+          FROZEN_ENGINE_SHA256: ${{ inputs.frozen_engine_sha256 }}
+        run: |
+          python tools/beta/build_unfamiliar.py --sdk "${{ runner.temp }}/unfamiliar-sdk" --output "${{ runner.temp }}/unfamiliar-fixtures" --frozen-package-sha256 $env:FROZEN_PACKAGE_SHA256 --frozen-engine-sha256 $env:FROZEN_ENGINE_SHA256
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: unfamiliar-windows-fixtures
+          path: ${{ runner.temp }}/unfamiliar-fixtures/
+          if-no-files-found: error
+          retention-days: 7
   host:
+    if: github.event_name != 'workflow_dispatch' || inputs.frozen_package_sha256 == ''
     runs-on: windows-2022
     timeout-minutes: 30
     steps:
