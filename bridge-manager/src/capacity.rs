@@ -1348,6 +1348,33 @@ mod tests {
     }
 
     #[test]
+    fn unfamiliar_slots_require_a_current_managed_publication_and_durable_reservations() {
+        let (f, candidate) = crate::preparation::tests::fixture();
+        crate::preparation::record_candidate(&f.m, &candidate).unwrap();
+        let revision = crate::preparation::enable(&f.m, &candidate, false).unwrap();
+        let class = &candidate.selection.class.id;
+        let mut policy = limits();
+        policy.global_dsp = 6;
+        policy.classes[0] = ClassLimit {class_id:"03".repeat(16), dsp:3};
+        policy.classes[1].dsp = 4;
+        assert!(!policy.classes.iter().any(|row| row.class_id == *class));
+        let observed = status(&f.m, policy.clone(), 0, false).unwrap();
+        assert_eq!(observed.engineering_classes.iter().find(|row| row.class_id == *class).unwrap().dsp, 4);
+        for _ in 0..4 {
+            let guard = reserve(&f.m, &policy, Some(class), false).unwrap();
+            lease(&f, class, Kind::Dsp);
+            drop(guard);
+        }
+        assert_eq!(reason(reserve(&f.m, &policy, Some(class), false)), Refusal::ClassCapacity.code());
+        // Valid leases cannot grant admission for a substituted publication.
+        let selected = f.m.load_revision(class, &revision).unwrap();
+        fs::remove_file(f.m.link(class)).unwrap();
+        std::os::unix::fs::symlink(selected.target.with_extension("changed"), f.m.link(class)).unwrap();
+        assert!(status(&f.m, policy.clone(), 0, false).is_err());
+        assert!(reserve(&f.m, &policy, Some(class), false).is_err());
+    }
+
+    #[test]
     fn unfamiliar_managed_classes_use_native_slots_and_share_the_global_budget() {
         let mut policy = limits();
         policy.global_dsp = 6;

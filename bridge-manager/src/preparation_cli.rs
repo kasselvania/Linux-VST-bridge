@@ -2,6 +2,7 @@
 use super::*;
 use linux_vst_bridge::{operator_model as ui, preparation as prep};
 use serde_json::{json, Value};
+#[cfg(test)]
 pub fn project(
     m: &Manager,
     sw: &Software,
@@ -13,6 +14,7 @@ pub fn project(
 
 /// Worker validation must not let its own waiting receipt hide the action it
 /// is validating. Ordinary snapshots still show that in-flight operation.
+#[cfg(test)]
 pub(super) fn project_for_operation(
     m: &Manager,
     sw: &Software,
@@ -23,9 +25,17 @@ pub(super) fn project_for_operation(
     project_with_excluded_operation(m, sw, products, busy, Some(operation), None)
 }
 
+type ClassInactivity<'a> = dyn Fn(&str) -> Option<&'static str> + 'a;
+
+#[derive(Clone, Copy)]
+struct Inactivity<'a> {
+    global: Option<&'a str>,
+    class: Option<&'a str>,
+}
+
 pub(super) fn project_scoped(
     m: &Manager, sw: &Software, products: &mut [ui::Product], busy: Option<&str>,
-    operation: Option<&str>, scope: &dyn Fn(&str) -> Option<&'static str>,
+    operation: Option<&str>, scope: &ClassInactivity<'_>,
 ) -> Result<()> {
     project_with_excluded_operation(m, sw, products, busy, operation, Some(scope))
 }
@@ -36,7 +46,7 @@ fn project_with_excluded_operation(
     products: &mut [ui::Product],
     busy: Option<&str>,
     exclude_operation: Option<&str>,
-    scope: Option<&dyn Fn(&str) -> Option<&'static str>>,
+    scope: Option<&ClassInactivity<'_>>,
 ) -> Result<()> {
     let candidates = prep::candidates(m, &sw.host, &sw.source_sha256)?;
     let selections = product_selections(
@@ -235,7 +245,7 @@ fn project_with_excluded_operation(
             v.operation = Some(op.clone());
             p.details["preparation"]["operation"] = op;
         }
-        let mut workflow = guided_projection(m, &s, &v, busy, class_busy, stale, canonical,
+        let mut workflow = guided_projection(m, &s, &v, Inactivity {global:busy, class:class_busy}, stale, canonical,
             p.disposition == "ready")?;
         // A failed test can be removed while its accepted ancestor becomes
         // current, before the result's completion marker is retained. Search
@@ -368,13 +378,13 @@ fn guided_projection(
     m: &Manager,
     selection: &prep::Selection,
     view: &prep::View,
-    busy: Option<&str>,
-    class_busy: Option<&str>,
+    inactivity: Inactivity<'_>,
     stale: Option<&str>,
     canonical: bool,
     ordinary_ready: bool,
 ) -> Result<ui::CompatibilityWorkflow> {
     use ui::CompatibilityPhase as Phase;
+    let Inactivity {global:busy, class:class_busy} = inactivity;
     let published = view.candidates.iter().find(|row| row.disposition == "current_published");
     let newest = view.candidates.iter().rev().find(|row| row.current_inputs
         && row.review.as_ref().is_none_or(|review| review.choice != prep::ReviewChoice::NeedsWork));
@@ -2976,7 +2986,7 @@ pub(crate) mod tests {
             recorded_at: 1, ordinal: 1, ordinary_profile: None,
         });
         view.candidates.insert(0, prior);
-        let workflow = guided_projection(&f.m, &c.selection, &view, None, None, None, false, false).unwrap();
+        let workflow = guided_projection(&f.m, &c.selection, &view, Inactivity {global:None, class:None}, None, false, false).unwrap();
         assert_eq!(workflow.phase, ui::CompatibilityPhase::AvailableForTest);
         assert_eq!(workflow.current_candidate.as_deref(), Some(c.id().unwrap().as_str()));
         assert!(matches!(workflow.primary.unwrap().action, ui::Action::CompatibilityResult { .. }));
@@ -2994,7 +3004,7 @@ pub(crate) mod tests {
         stereo.audio_layout = Some(profiles::AudioLayoutPolicy::StereoMainPair);
         stereo.recommended = false;
         view.inspections.push(stereo);
-        let workflow = guided_projection(&f.m, &c.selection, &view, None, None, None, false, false).unwrap();
+        let workflow = guided_projection(&f.m, &c.selection, &view, Inactivity {global:None, class:None}, None, false, false).unwrap();
         assert_eq!(workflow.phase, ui::CompatibilityPhase::NotChecked);
         assert!(workflow.primary.is_none());
         assert_eq!(workflow.alternatives.len(), 2);
